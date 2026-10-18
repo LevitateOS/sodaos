@@ -60,6 +60,113 @@ pub(crate) fn scan_order(mut ids: Vec<String>) -> Vec<String> {
     ids
 }
 
+/// Check the root-only runtime scope dirs and return the control dir.
+/// A missing path means the runtime is already gone: the caller is done.
+fn scope_control_dir(child: &NativeChild) -> Result<Option<std::path::PathBuf>, String> {
+    let base = Path::new(RUNTIME_ROOT);
+    let project = base.join(&child.target.project);
+    let run = project.join(&child.target.run);
+    for path in [base, &project, &run] {
+        match fs::symlink_metadata(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Ok(info)
+                if info.is_dir()
+                    && info.uid() == 0
+                    && info.gid() == 0
+                    && info.mode() & 0o7777 == 0o700 => {}
+            _ => return Err(ERR_UNCONFIRMED.to_string()),
+        }
+    }
+    let control = run.join("control");
+    match fs::symlink_metadata(&control) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Ok(info)
+            if info.is_dir()
+                && info.mode() & 0o7777 == 0o700
+                && info.uid() != 0
+                && info.gid() != 0 =>
+        {
+            Ok(Some(control))
+        }
+        _ => Err(ERR_UNCONFIRMED.to_string()),
+    }
+}
+
+/// Remove the control socket when present; absence is already clean.
+fn remove_control_socket(control: &Path) -> Result<(), String> {
+    let socket = control.join("tailscaled.sock");
+    match fs::symlink_metadata(&socket) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Ok(info) if info.file_type().is_socket() => {
+            fs::remove_file(socket).map_err(|_| ERR_UNCONFIRMED.to_string())
+        }
+        _ => Err(ERR_UNCONFIRMED.to_string()),
+    }
+}
+
+/// Decode an inspected container into its record, run target, image and
+/// generation. Every missing label conflicts, like the inline lookup.
+fn decode_inspected_child(
+    data: &[u8],
+) -> Result<(CompanionRecord, RunTarget, String, String), String> {
+    let record = decode_companion_record(data).map_err(|_| ERR_UNCONFIRMED.to_string())?;
+    let label = |key: &str| {
+        record
+            .labels
+            .get(key)
+            .cloned()
+            .ok_or_else(|| ERR_CONFLICT.to_string())
+    };
+    let target = RunTarget {
+        project: label("project")?,
+        run: label("run")?,
+        container: label("parent")?,
+    };
+    let generation = label("generation")?;
+    let image = format!(
+        "sha256:{}",
+        record
+            .image
+            .strip_prefix("sha256:")
+            .unwrap_or(&record.image)
+    );
+    Ok((record, target, image, generation))
+}
+
+/// Check the inspected execs and the running-state proof.
+fn check_inspected_running(record: &CompanionRecord) -> Result<(), String> {
+    companion_execs_valid(&record.execs)?;
+    if record.running
+        && (record.pid <= 1
+            || !matches!(
+                crate::tailnet_domain::parse_rfc3339_nano(&record.started),
+                Some(false)
+            ))
+    {
+        return Err(ERR_CONFLICT.to_string());
+    }
+    Ok(())
+}
+
+/// Cross-check the on-disk companion receipt when present. A reboot may
+/// have removed it; the root native metadata above still stands.
+fn check_companion_receipt(record: &CompanionRecord, target: &RunTarget) -> Result<(), String> {
+    let path = Path::new(RUNTIME_ROOT)
+        .join(&target.project)
+        .join(&target.run)
+        .join("companion.json");
+    match fs::symlink_metadata(&path) {
+        Ok(_) => {
+            let owned = read_companion_record(RUNTIME_ROOT, target, 0, 0)?;
+            validate_companion_record(record, &owned.parent, &owned)?;
+            match_companion_namespaces(record, &owned.parent)?;
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {} // Reboot retains the root native metadata above.
+        Err(_) => return Err(ERR_UNCONFIRMED.to_string()),
+    }
+    Ok(())
+}
+
 impl<E: Executor, T: TailnetControl> Companion<E, T> {
     fn inspect_native_child(
         &self,
@@ -76,59 +183,25 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
             ],
             deadline,
         )?;
-        let record = decode_companion_record(&data).map_err(|_| ERR_UNCONFIRMED.to_string())?;
-        let label = |key: &str| {
+        let (record, target, image, generation) = decode_inspected_child(&data)?;
+        let args = companion_container_args(&target, &image, installation, &generation)?;
+        let installation_label = |key: &str| {
             record
                 .labels
                 .get(key)
                 .cloned()
                 .ok_or_else(|| ERR_CONFLICT.to_string())
         };
-        let target = RunTarget {
-            project: label("project")?,
-            run: label("run")?,
-            container: label("parent")?,
-        };
-        let generation = label("generation")?;
-        let image = format!(
-            "sha256:{}",
-            record
-                .image
-                .strip_prefix("sha256:")
-                .unwrap_or(&record.image)
-        );
-        let args = companion_container_args(&target, &image, installation, &generation)?;
         if !valid_container_id(cid)
             || record.id != cid
-            || label("installation")? != installation
+            || installation_label("installation")? != installation
             || record.labels.len() != 5
             || !companion_command_matches(&record.command, &args)
         {
             return Err(ERR_CONFLICT.to_string());
         }
-        companion_execs_valid(&record.execs)?;
-        if record.running
-            && (record.pid <= 1
-                || !matches!(
-                    crate::tailnet_domain::parse_rfc3339_nano(&record.started),
-                    Some(false)
-                ))
-        {
-            return Err(ERR_CONFLICT.to_string());
-        }
-        let path = Path::new(RUNTIME_ROOT)
-            .join(&target.project)
-            .join(&target.run)
-            .join("companion.json");
-        match fs::symlink_metadata(&path) {
-            Ok(_) => {
-                let owned = read_companion_record(RUNTIME_ROOT, &target, 0, 0)?;
-                validate_companion_record(&record, &owned.parent, &owned)?;
-                match_companion_namespaces(&record, &owned.parent)?;
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {} // Reboot retains the root native metadata above.
-            Err(_) => return Err(ERR_UNCONFIRMED.to_string()),
-        }
+        check_inspected_running(&record)?;
+        check_companion_receipt(&record, &target)?;
         Ok(NativeChild {
             record,
             target,
@@ -301,17 +374,19 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         Ok(retired)
     }
 
-    pub fn stop_native_child(&self, child: &NativeChild, deadline: Instant) -> Result<(), String> {
-        let before = self.inspect_native_child(&child.record.id, &child.installation, deadline)?;
+    /// Reject a child whose inspected identity drifted from the stop request.
+    fn check_stop_identity(before: &NativeChild, child: &NativeChild) -> Result<(), String> {
         if before.image != child.image
             || before.target != child.target
             || before.generation != child.generation
         {
             return Err(ERR_CONFLICT.to_string());
         }
-        if before.record.running {
-            self.stop_companion(&before.record.id, deadline)?;
-        }
+        Ok(())
+    }
+
+    /// Prove the child stayed stopped after the stop call.
+    fn confirm_child_stopped(&self, child: &NativeChild, deadline: Instant) -> Result<(), String> {
         if self
             .inspect_native_child(&child.record.id, &child.installation, deadline)?
             .record
@@ -319,40 +394,22 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         {
             return Err(ERR_UNCONFIRMED.to_string());
         }
+        Ok(())
+    }
+
+    pub fn stop_native_child(&self, child: &NativeChild, deadline: Instant) -> Result<(), String> {
+        let before = self.inspect_native_child(&child.record.id, &child.installation, deadline)?;
+        Self::check_stop_identity(&before, child)?;
+        if before.record.running {
+            self.stop_companion(&before.record.id, deadline)?;
+        }
+        self.confirm_child_stopped(child, deadline)?;
         // The root-only ancestors and immutable mount recipe establish the
         // socket's scope even when a reboot removed its ephemeral receipt.
-        let base = Path::new(RUNTIME_ROOT);
-        let project = base.join(&child.target.project);
-        let run = project.join(&child.target.run);
-        for path in [base, &project, &run] {
-            match fs::symlink_metadata(path) {
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-                Ok(info)
-                    if info.is_dir()
-                        && info.uid() == 0
-                        && info.gid() == 0
-                        && info.mode() & 0o7777 == 0o700 => {}
-                _ => return Err(ERR_UNCONFIRMED.to_string()),
-            }
-        }
-        let control = run.join("control");
-        match fs::symlink_metadata(&control) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Ok(info)
-                if info.is_dir()
-                    && info.mode() & 0o7777 == 0o700
-                    && info.uid() != 0
-                    && info.gid() != 0 => {}
-            _ => return Err(ERR_UNCONFIRMED.to_string()),
-        }
-        let socket = control.join("tailscaled.sock");
-        match fs::symlink_metadata(&socket) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Ok(info) if info.file_type().is_socket() => {
-                fs::remove_file(socket).map_err(|_| ERR_UNCONFIRMED.to_string())
-            }
-            _ => Err(ERR_UNCONFIRMED.to_string()),
-        }
+        let Some(control) = scope_control_dir(child)? else {
+            return Ok(());
+        };
+        remove_control_socket(&control)
     }
 
     pub fn known_projects(&self) -> Result<BTreeSet<String>, String> {

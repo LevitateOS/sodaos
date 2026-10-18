@@ -97,6 +97,75 @@ pub(crate) struct ProjectContainerInspection {
     pub(crate) mappings: ProjectIdMappings,
 }
 
+fn take_inspection_string<'de, A>(
+    out: &mut ProjectContainerInspection,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("id") {
+        Some(&mut out.id)
+    } else if key.eq_ignore_ascii_case("project") {
+        Some(&mut out.project)
+    } else if key.eq_ignore_ascii_case("owner") {
+        Some(&mut out.owner)
+    } else if key.eq_ignore_ascii_case("userns") {
+        Some(&mut out.userns)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn take_inspection_flag<'de, A>(
+    out: &mut ProjectContainerInspection,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("running") {
+        Some(&mut out.running)
+    } else if key.eq_ignore_ascii_case("privileged") {
+        Some(&mut out.privileged)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn take_inspection_mappings<'de, A>(
+    out: &mut ProjectContainerInspection,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("mappings") {
+        if let Some(v) = map.next_value::<Option<ProjectIdMappings>>()? {
+            out.mappings = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 impl<'de> Deserialize<'de> for ProjectContainerInspection {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -114,48 +183,27 @@ impl<'de> Deserialize<'de> for ProjectContainerInspection {
             {
                 let mut out = ProjectContainerInspection::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("running") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.running = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("owner") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.owner = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("privileged") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.privileged = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("userns") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.userns = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("mappings") {
-                        if let Some(v) = map.next_value::<Option<ProjectIdMappings>>()? {
-                            out.mappings = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "id",
-                                "running",
-                                "project",
-                                "owner",
-                                "privileged",
-                                "userns",
-                                "mappings",
-                            ],
-                        ));
+                    if take_inspection_string(&mut out, &key, &mut map)? {
+                        continue;
                     }
+                    if take_inspection_flag(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    if take_inspection_mappings(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "id",
+                            "running",
+                            "project",
+                            "owner",
+                            "privileged",
+                            "userns",
+                            "mappings",
+                        ],
+                    ));
                 }
                 Ok(out)
             }

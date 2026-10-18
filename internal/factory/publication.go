@@ -154,6 +154,45 @@ type Publication struct {
 // finished work carries its outcome, reason and finish time. A published
 // publication links exactly the PR its own creation receipt proved.
 func (p Publication) Validate() error {
+	if err := checkPublicationIdentity(p); err != nil {
+		return err
+	}
+	if err := checkPublicationOperations(p); err != nil {
+		return err
+	}
+	initial, err := checkPublicationCorrections(p)
+	if err != nil {
+		return err
+	}
+	if err := p.validateReviewOperations(nil); err != nil {
+		return err
+	}
+	if err := p.validateReviewCycleJournal(); err != nil {
+		return err
+	}
+	if err := p.validateCorrectionJournal(); err != nil {
+		return err
+	}
+	if err := p.validateDeliveryAcceptances(); err != nil {
+		return err
+	}
+	if err := checkPublicationPRLinks(p, initial); err != nil {
+		return err
+	}
+	return checkPublicationStage(p)
+}
+
+func checkPublicationIdentity(p Publication) error {
+	if err := checkPublicationScope(p); err != nil {
+		return err
+	}
+	if err := checkPublicationCandidate(p); err != nil {
+		return err
+	}
+	return checkPublicationObservation(p)
+}
+
+func checkPublicationScope(p Publication) error {
 	if !ValidID(p.ID) || !ValidID(p.AssignmentID) {
 		return errors.New("invalid publication identity")
 	}
@@ -172,6 +211,10 @@ func (p Publication) Validate() error {
 	if !ValidID(p.Run) {
 		return errors.New("invalid publication run")
 	}
+	return nil
+}
+
+func checkPublicationCandidate(p Publication) error {
 	if !ValidCommit(p.Candidate) || !ValidCommit(p.BaseSHA) || p.Candidate == p.BaseSHA {
 		return errors.New("publication candidate is not a fresh exact commit")
 	}
@@ -195,12 +238,20 @@ func (p Publication) Validate() error {
 			return errors.New("candidate tuple differs from its publication")
 		}
 	}
+	return nil
+}
+
+func checkPublicationObservation(p Publication) error {
 	if p.NativeRev < 0 || (p.NativeRev == 0) != (p.ObservedUnix == 0) {
 		return errors.New("invalid publication observation binding")
 	}
 	if p.ObservedUnix < 0 || p.CreatedUnix <= 0 {
 		return errors.New("invalid publication time")
 	}
+	return nil
+}
+
+func checkPublicationOperations(p Publication) error {
 	if err := p.Publish.Validate(); err != nil {
 		return err
 	}
@@ -210,67 +261,73 @@ func (p Publication) Validate() error {
 	if p.Publish.Kind != OpRefPublish || p.PRCreate.Kind != OpPRCreate {
 		return errors.New("publication operations have the wrong kinds")
 	}
+	return nil
+}
+
+func checkPublicationCorrections(p Publication) (string, error) {
 	initial := p.Candidate
-	if len(p.Corrections) > 0 {
-		if (p.Stage != PublicationPublished && p.Stage != PublicationFenced) || p.PRNumber <= 0 || p.PRCreate.Work == nil || p.Publish.Work == nil {
-			return errors.New("corrections require a published linked PR")
-		}
-		initial = p.Publish.Work.Candidate
-		head := initial
-		committedRun := ""
-		runs := make(map[string]bool, len(p.Corrections))
-		for i := range p.Corrections {
-			correction := p.Corrections[i]
-			if !ValidID(correction.RunID) || runs[correction.RunID] {
-				return errors.New("correction lacks a distinct recorded run")
-			}
-			runs[correction.RunID] = true
-			if err := correction.Validate(); err != nil {
-				return err
-			}
-			if correction.Kind != OpRefPublish {
-				return errors.New("correction is not a branch publication")
-			}
-			if correction.OperationID != PublicationOperationID(p.ID, OpRefPublish, i+2) {
-				return errors.New("correction identity is not the next branch attempt")
-			}
-			work := correction.Work
-			if work == nil {
-				return errors.New("correction lacks its recorded intent")
-			}
-			if work.CorrectionNumber != p.PRNumber || work.CorrectionAuthor != p.PRCreate.Work.ActorID {
-				return errors.New("correction does not bind the linked PR")
-			}
-			if work.Repository != p.Repository || work.TargetBranch != p.TargetBranch {
-				return errors.New("correction intent differs from its publication")
-			}
-			if work.ExpectedOld != head || !ValidCommit(work.Candidate) || work.Candidate == head {
-				return errors.New("correction does not chain its predecessor tip")
-			}
-			if correction.Effect == OpEffectCommitted {
-				head = work.Candidate
-				committedRun = correction.RunID
-			}
-		}
-		if head != p.Candidate {
-			return errors.New("publication head differs from its committed corrections")
-		}
-		if committedRun != "" && p.Run != committedRun {
-			return errors.New("publication run differs from its committed correction")
+	if len(p.Corrections) == 0 {
+		return initial, nil
+	}
+	if (p.Stage != PublicationPublished && p.Stage != PublicationFenced) || p.PRNumber <= 0 || p.PRCreate.Work == nil || p.Publish.Work == nil {
+		return "", errors.New("corrections require a published linked PR")
+	}
+	initial = p.Publish.Work.Candidate
+	head := initial
+	committedRun := ""
+	runs := make(map[string]bool, len(p.Corrections))
+	for i := range p.Corrections {
+		var err error
+		head, committedRun, err = checkPublicationCorrection(p, i, head, committedRun, runs)
+		if err != nil {
+			return "", err
 		}
 	}
-	if err := p.validateReviewOperations(nil); err != nil {
-		return err
+	if head != p.Candidate {
+		return "", errors.New("publication head differs from its committed corrections")
 	}
-	if err := p.validateReviewCycleJournal(); err != nil {
-		return err
+	if committedRun != "" && p.Run != committedRun {
+		return "", errors.New("publication run differs from its committed correction")
 	}
-	if err := p.validateCorrectionJournal(); err != nil {
-		return err
+	return initial, nil
+}
+
+func checkPublicationCorrection(p Publication, i int, head, committedRun string, runs map[string]bool) (string, string, error) {
+	correction := p.Corrections[i]
+	if !ValidID(correction.RunID) || runs[correction.RunID] {
+		return head, committedRun, errors.New("correction lacks a distinct recorded run")
 	}
-	if err := p.validateDeliveryAcceptances(); err != nil {
-		return err
+	runs[correction.RunID] = true
+	if err := correction.Validate(); err != nil {
+		return head, committedRun, err
 	}
+	if correction.Kind != OpRefPublish {
+		return head, committedRun, errors.New("correction is not a branch publication")
+	}
+	if correction.OperationID != PublicationOperationID(p.ID, OpRefPublish, i+2) {
+		return head, committedRun, errors.New("correction identity is not the next branch attempt")
+	}
+	work := correction.Work
+	if work == nil {
+		return head, committedRun, errors.New("correction lacks its recorded intent")
+	}
+	if work.CorrectionNumber != p.PRNumber || work.CorrectionAuthor != p.PRCreate.Work.ActorID {
+		return head, committedRun, errors.New("correction does not bind the linked PR")
+	}
+	if work.Repository != p.Repository || work.TargetBranch != p.TargetBranch {
+		return head, committedRun, errors.New("correction intent differs from its publication")
+	}
+	if work.ExpectedOld != head || !ValidCommit(work.Candidate) || work.Candidate == head {
+		return head, committedRun, errors.New("correction does not chain its predecessor tip")
+	}
+	if correction.Effect == OpEffectCommitted {
+		head = work.Candidate
+		committedRun = correction.RunID
+	}
+	return head, committedRun, nil
+}
+
+func checkPublicationPRLinks(p Publication, initial string) error {
 	for _, op := range []PublicationOperation{p.Publish, p.PRCreate} {
 		if op.Work != nil && (op.Work.Candidate != initial || op.Work.Repository != p.Repository || op.Work.TargetBranch != p.TargetBranch) {
 			return errors.New("publication operation intent differs from its publication")
@@ -282,55 +339,69 @@ func (p Publication) Validate() error {
 	if p.PRNumber != 0 && (p.PRCreate.Effect != OpEffectCommitted || p.PRCreate.PRNumber != p.PRNumber || p.PRCreate.PRID != p.PRID) {
 		return errors.New("publication PR is not the recorded creation effect")
 	}
+	return nil
+}
+
+func checkPublicationStage(p Publication) error {
 	switch p.Stage {
 	case PublicationOpen:
 		if p.Outcome != "" || p.Reason != "" || p.FinishedUnix != 0 {
 			return errors.New("open publication carries no outcome")
 		}
 	case PublicationPublished:
-		if p.Outcome != Succeeded || p.Reason != PublishReasonLinked || p.FinishedUnix <= 0 {
-			return errors.New("published publication lacks its outcome")
-		}
-		if p.PRNumber <= 0 || p.PRID <= 0 {
-			return errors.New("published publication lacks its PR links")
-		}
-		if p.PRCreate.Effect != OpEffectCommitted || p.PRCreate.PRNumber != p.PRNumber || p.PRCreate.PRID != p.PRID {
-			return errors.New("published PR is not the recorded creation effect")
-		}
-		if p.Publish.Effect != OpEffectCommitted {
-			return errors.New("published publication lacks its committed branch")
-		}
-		if p.Publish.Completion != OpCompletionComplete || p.PRCreate.Completion != OpCompletionComplete {
-			return errors.New("published publication lacks native completion")
-		}
+		return checkPublishedPublicationOutcome(p)
 	case PublicationFailed, PublicationWithdrawn, PublicationFenced:
-		if !validPublishReason(p.Reason) || p.FinishedUnix <= 0 {
-			return errors.New("finished publication lacks its outcome")
-		}
-		if p.Reason == PublishReasonLinked {
-			return errors.New("unfinished publication cannot claim completed linkage")
-		}
-		switch p.Stage {
-		case PublicationFailed:
-			if p.Outcome != Failed {
-				return errors.New("failed publication lacks its outcome")
-			}
-		case PublicationWithdrawn:
-			if p.Outcome != Cancelled {
-				return errors.New("withdrawn publication lacks its outcome")
-			}
-			for _, op := range []PublicationOperation{p.Publish, p.PRCreate} {
-				if op.Attempts != 0 && op.Effect != OpEffectCommitted && op.Effect != OpEffectNotCommitted {
-					return errors.New("withdrawn publication still has an unresolved native effect")
-				}
-			}
-		case PublicationFenced:
-			if p.Outcome != NeedsHuman {
-				return errors.New("fenced publication lacks its outcome")
-			}
-		}
+		return checkFinishedPublicationOutcome(p)
 	default:
 		return errors.New("invalid publication stage")
+	}
+	return nil
+}
+
+func checkPublishedPublicationOutcome(p Publication) error {
+	if p.Outcome != Succeeded || p.Reason != PublishReasonLinked || p.FinishedUnix <= 0 {
+		return errors.New("published publication lacks its outcome")
+	}
+	if p.PRNumber <= 0 || p.PRID <= 0 {
+		return errors.New("published publication lacks its PR links")
+	}
+	if p.PRCreate.Effect != OpEffectCommitted || p.PRCreate.PRNumber != p.PRNumber || p.PRCreate.PRID != p.PRID {
+		return errors.New("published PR is not the recorded creation effect")
+	}
+	if p.Publish.Effect != OpEffectCommitted {
+		return errors.New("published publication lacks its committed branch")
+	}
+	if p.Publish.Completion != OpCompletionComplete || p.PRCreate.Completion != OpCompletionComplete {
+		return errors.New("published publication lacks native completion")
+	}
+	return nil
+}
+
+func checkFinishedPublicationOutcome(p Publication) error {
+	if !validPublishReason(p.Reason) || p.FinishedUnix <= 0 {
+		return errors.New("finished publication lacks its outcome")
+	}
+	if p.Reason == PublishReasonLinked {
+		return errors.New("unfinished publication cannot claim completed linkage")
+	}
+	switch p.Stage {
+	case PublicationFailed:
+		if p.Outcome != Failed {
+			return errors.New("failed publication lacks its outcome")
+		}
+	case PublicationWithdrawn:
+		if p.Outcome != Cancelled {
+			return errors.New("withdrawn publication lacks its outcome")
+		}
+		for _, op := range []PublicationOperation{p.Publish, p.PRCreate} {
+			if op.Attempts != 0 && op.Effect != OpEffectCommitted && op.Effect != OpEffectNotCommitted {
+				return errors.New("withdrawn publication still has an unresolved native effect")
+			}
+		}
+	case PublicationFenced:
+		if p.Outcome != NeedsHuman {
+			return errors.New("fenced publication lacks its outcome")
+		}
 	}
 	return nil
 }

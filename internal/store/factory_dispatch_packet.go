@@ -73,7 +73,7 @@ func sameControlOutcome(left, right factory.IssueControl) bool {
 		maps.Equal(left.EndpointHeads, right.EndpointHeads) && maps.Equal(left.Satisfied, right.Satisfied)
 }
 
-func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView, freshAttempt bool) error {
+func checkDispatchPacketInputs(d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -92,26 +92,10 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if expected.NativeRev != a.NativeRev {
 		return ErrDispatchControlStale
 	}
-	// D13 completion fence (FW31): the gate row above is locked, so this
-	// read observes every committed completion. A pending event refuses
-	// fresh attempts, explicit retries and advanced children alike; an
-	// earlier priority check alone is insufficient. Reassessment roots
-	// are exempt: the guard below binds the exact pending event and open
-	// cycle they answer, and fencing them would deadlock the cycle they
-	// are admitted to work.
-	if a.Phase != project.ExecutionReassess {
-		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
-			return err
-		}
-	}
-	if a.Issue == 0 {
-		// Issue-zero roots carry no issue control row: the guard binds
-		// the verified completion and staged cycle as the outcome
-		// evidence instead. Any other issue-zero subject stays refused
-		// at allowance admission below.
-	} else if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
-		return err
-	}
+	return nil
+}
+
+func checkDispatchPacketBindings(d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if d.ID != a.ID || d.Repository != a.Repository {
 		return errors.New("dispatch packet registration does not match its assignment")
 	}
@@ -124,29 +108,20 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if r.AssignmentID != a.ID || r.Repository != a.Repository || r.Connection != a.Connection || r.State != factory.ReservationHeld {
 		return errors.New("dispatch packet reservation does not match its assignment")
 	}
+	return checkDispatchPacketRunView(run, view, a)
+}
+
+func checkDispatchPacketRunView(run factory.Run, view factory.RunView, a factory.Assignment) error {
 	if run.ID != a.Run || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit || run.Outcome != "" || run.Reconciled {
 		return errors.New("dispatch packet run does not match its assignment")
 	}
 	if view.RunID != run.ID || view.Repository != a.Repository || view.Issue != a.Issue || view.Attempt != a.ID {
 		return errors.New("dispatch packet view does not match its assignment")
 	}
-	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {
-		return err
-	}
-	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
-	if err != nil {
-		return err
-	}
-	if err = checkAssignmentAuthorityTx(ctx, tx, a.Authority, a, grants); err != nil {
-		return err
-	}
-	if err = checkCoderPreparationCustodyTx(ctx, tx, a); err != nil {
-		return err
-	}
-	run.Admission = &factory.RunAdmission{Authority: a.Authority, Policy: grants.policy, Profile: *grants.environment.Profile}
-	if err = run.Validate(); err != nil {
-		return err
-	}
+	return nil
+}
+
+func writeDispatchPacketRowsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	adata, err := json.Marshal(a)
 	if err != nil {
 		return err
@@ -174,44 +149,91 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	now := time.Now()
+	return nil
+}
+
+func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, grants admissionGrants, run factory.Run, now time.Time, freshAttempt bool) error {
 	if freshAttempt {
-		if err = startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now); err != nil {
+		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now)
+	}
+	// Only the correction phase spends a correction cycle. Pre-phase
+	// coder children predate phase admission and keep the legacy
+	// charge; advanced implementations retain the root unconsumed.
+	if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder &&
+		(a.Phase == project.ExecutionCorrect || a.Phase == "") {
+		if err := consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
 			return err
 		}
-	} else {
-		// Only the correction phase spends a correction cycle. Pre-phase
-		// coder children predate phase admission and keep the legacy
-		// charge; advanced implementations retain the root unconsumed.
-		if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder &&
-			(a.Phase == project.ExecutionCorrect || a.Phase == "") {
-			if err = consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
-				return err
-			}
+	}
+	if a.Issue == 0 {
+		// Issue-zero roots take no issue allowance. Time-only
+		// funding follows the recorded subject: reassessment roots
+		// fund against their verified completion, intent roots
+		// against their persisted revision. The packet rows above
+		// are already recorded, so each constructor binds the exact
+		// recorded root, and replays conflict on the recorded row
+		// rather than refilling it.
+		switch a.Subject.Kind {
+		case factory.SubjectCompletion:
+			return insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now)
+		case factory.SubjectIntent:
+			return insertIntentAttemptAllowanceTx(ctx, tx, a, grants.policy.IntentMinutes, run.Deadline, now)
+		default:
+			return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
 		}
-		if a.Issue == 0 {
-			// Issue-zero roots take no issue allowance. Time-only
-			// funding follows the recorded subject: reassessment roots
-			// fund against their verified completion, intent roots
-			// against their persisted revision. The packet rows above
-			// are already recorded, so each constructor binds the exact
-			// recorded root, and replays conflict on the recorded row
-			// rather than refilling it.
-			switch a.Subject.Kind {
-			case factory.SubjectCompletion:
-				if err = insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now); err != nil {
-					return err
-				}
-			case factory.SubjectIntent:
-				if err = insertIntentAttemptAllowanceTx(ctx, tx, a, grants.policy.IntentMinutes, run.Deadline, now); err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
-			}
-		} else if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now); err != nil {
+	}
+	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now)
+}
+
+func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView, freshAttempt bool) error {
+	if err := checkDispatchPacketInputs(d, expected, a, r, run, view); err != nil {
+		return err
+	}
+	// D13 completion fence (FW31): the gate row above is locked, so this
+	// read observes every committed completion. A pending event refuses
+	// fresh attempts, explicit retries and advanced children alike; an
+	// earlier priority check alone is insufficient. Reassessment roots
+	// are exempt: the guard below binds the exact pending event and open
+	// cycle they answer, and fencing them would deadlock the cycle they
+	// are admitted to work.
+	if a.Phase != project.ExecutionReassess {
+		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
 			return err
 		}
+	}
+	if a.Issue == 0 {
+		// Issue-zero roots carry no issue control row: the guard binds
+		// the verified completion and staged cycle as the outcome
+		// evidence instead. Any other issue-zero subject stays refused
+		// at allowance admission below.
+	} else if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
+		return err
+	}
+	if err := checkDispatchPacketBindings(d, a, r, run, view); err != nil {
+		return err
+	}
+	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {
+		return err
+	}
+	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
+	if err != nil {
+		return err
+	}
+	if err = checkAssignmentAuthorityTx(ctx, tx, a.Authority, a, grants); err != nil {
+		return err
+	}
+	if err = checkCoderPreparationCustodyTx(ctx, tx, a); err != nil {
+		return err
+	}
+	run.Admission = &factory.RunAdmission{Authority: a.Authority, Policy: grants.policy, Profile: *grants.environment.Profile}
+	if err = run.Validate(); err != nil {
+		return err
+	}
+	if err = writeDispatchPacketRowsTx(ctx, tx, a, r, run, view); err != nil {
+		return err
+	}
+	if err = fundDispatchPacketAttemptTx(ctx, tx, a, grants, run, time.Now(), freshAttempt); err != nil {
+		return err
 	}
 	return checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants)
 }
@@ -220,32 +242,90 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 // is a reviewer/correction child of the currently published candidate.
 // Owner replans retain their prior allowance root while starting a new
 // publication; children retain both parent publication and allowance roots.
-func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
-	owner := a.PublicationAssignment == a.ID
+func validateOwnerAttemptRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
 	if freshAttempt {
-		if !owner || a.AttemptRoot != a.ID || a.Role != project.RoleCoder {
+		if a.AttemptRoot != a.ID || a.Role != project.RoleCoder {
 			return errors.New("fresh allowance requires a self-owned coder assignment")
 		}
 	}
+	if a.Role != project.RoleCoder {
+		return errors.New("publication owner assignment must be a coder")
+	}
+	// Only investigation opens a phased attempt root: intent roots
+	// arrive through FW08 and reassessment roots through FW30.
+	if a.Phase != "" && a.Phase != project.ExecutionInvestigate {
+		return errors.New("only investigation opens a phased attempt root")
+	}
+	if a.AttemptRoot != a.ID {
+		return childAllowanceRootExistsTx(ctx, tx, a)
+	}
+	return nil
+}
+
+func checkLegacyPacketOwner(parent, a factory.Assignment) error {
+	if parent.ID != a.PublicationAssignment || parent.PublicationAssignment != parent.ID || parent.Role != project.RoleCoder ||
+		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
+		parent.Repository != a.Repository || parent.Issue != a.Issue || parent.ProjectID != a.ProjectID ||
+		parent.Acceptance != a.Acceptance || parent.AttemptRoot != a.AttemptRoot {
+		return fmt.Errorf("%w: child assignment does not match its publication owner", ErrAttemptRootMismatch)
+	}
+	return nil
+}
+
+func checkLegacyPacketPublication(publication factory.Publication, parent, a factory.Assignment) error {
+	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository || publication.Issue != a.Issue ||
+		publication.Acceptance != a.Acceptance || publication.Stage != factory.PublicationPublished ||
+		publication.WithdrawRequested || publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
+		return fmt.Errorf("%w: child assignment does not match the current published candidate", ErrAttemptRootMismatch)
+	}
+	return nil
+}
+
+func loadChildPacketLineageTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.Assignment, factory.Publication, error) {
+	parent, err := loadValidatedAssignmentTx(ctx, tx, a.PublicationAssignment)
+	if err != nil {
+		return factory.Assignment{}, factory.Publication{}, err
+	}
+	if err := checkLegacyPacketOwner(parent, a); err != nil {
+		return factory.Assignment{}, factory.Publication{}, err
+	}
+	publication, err := lockedChildPublicationTx(ctx, tx, parent.ID)
+	if err != nil {
+		return factory.Assignment{}, factory.Publication{}, err
+	}
+	if err := checkLegacyPacketPublication(publication, parent, a); err != nil {
+		return factory.Assignment{}, factory.Publication{}, err
+	}
+	return parent, publication, nil
+}
+
+func validateLegacyChildPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Role != project.RoleCoder && a.Role != project.RoleReviewer {
+		return errors.New("child assignment has an invalid role or fresh allowance")
+	}
+	parent, _, err := loadChildPacketLineageTx(ctx, tx, a)
+	if err != nil {
+		return err
+	}
+	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
+		return err
+	}
+	if a.Role == project.RoleCoder && a.Preparation != parent.Preparation {
+		return errors.New("correction must retain the publication coder preparation")
+	}
+	if a.Role == project.RoleReviewer && a.Preparation == parent.Preparation {
+		return errors.New("reviewer child requires a distinct preparation")
+	}
+	return childAllowanceRootExistsTx(ctx, tx, a)
+}
+
+func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
+	owner := a.PublicationAssignment == a.ID
 	if owner {
-		if a.Role != project.RoleCoder {
-			return errors.New("publication owner assignment must be a coder")
-		}
-		// Only investigation opens a phased attempt root: intent roots
-		// arrive through FW08 and reassessment roots through FW30.
-		if a.Phase != "" && a.Phase != project.ExecutionInvestigate {
-			return errors.New("only investigation opens a phased attempt root")
-		}
-		if a.AttemptRoot != a.ID {
-			var exists bool
-			if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&exists); err != nil {
-				return err
-			}
-			if !exists {
-				return ErrAttemptRootMismatch
-			}
-		}
-		return nil
+		return validateOwnerAttemptRootTx(ctx, tx, a, freshAttempt)
+	}
+	if freshAttempt {
+		return errors.New("fresh allowance requires a self-owned coder assignment")
 	}
 	// Phased children enter through their phase's owning guard. An advanced
 	// implementation binds its finished investigation parent without a
@@ -268,63 +348,7 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	default:
 		return errors.New("child assignment carries an unadmitted execution phase")
 	}
-	if freshAttempt || (a.Role != project.RoleCoder && a.Role != project.RoleReviewer) {
-		return errors.New("child assignment has an invalid role or fresh allowance")
-	}
-	var parentData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.PublicationAssignment).Scan(&parentData); err != nil {
-		return err
-	}
-	var parent factory.Assignment
-	if err := json.Unmarshal(parentData, &parent); err != nil {
-		return err
-	}
-	if err := parent.Validate(); err != nil {
-		return err
-	}
-	if parent.ID != a.PublicationAssignment || parent.PublicationAssignment != parent.ID || parent.Role != project.RoleCoder ||
-		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
-		parent.Repository != a.Repository || parent.Issue != a.Issue || parent.ProjectID != a.ProjectID ||
-		parent.Acceptance != a.Acceptance || parent.AttemptRoot != a.AttemptRoot {
-		return fmt.Errorf("%w: child assignment does not match its publication owner", ErrAttemptRootMismatch)
-	}
-	var publicationData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1 FOR UPDATE`, parent.ID).Scan(&publicationData); err != nil {
-		return err
-	}
-	var publication factory.Publication
-	if err := json.Unmarshal(publicationData, &publication); err != nil {
-		return err
-	}
-	if err := publication.Validate(); err != nil {
-		return err
-	}
-	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository || publication.Issue != a.Issue ||
-		publication.Acceptance != a.Acceptance || publication.Stage != factory.PublicationPublished ||
-		publication.WithdrawRequested || publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
-		return fmt.Errorf("%w: child assignment does not match the current published candidate", ErrAttemptRootMismatch)
-	}
-	var accepted string
-	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, a.Repository, a.Issue).Scan(&accepted); err != nil {
-		return err
-	}
-	if accepted != a.Acceptance {
-		return ErrAdmissionChanged
-	}
-	if a.Role == project.RoleCoder && a.Preparation != parent.Preparation {
-		return errors.New("correction must retain the publication coder preparation")
-	}
-	if a.Role == project.RoleReviewer && a.Preparation == parent.Preparation {
-		return errors.New("reviewer child requires a distinct preparation")
-	}
-	var rootExists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&rootExists); err != nil {
-		return err
-	}
-	if !rootExists {
-		return ErrAttemptRootMismatch
-	}
-	return nil
+	return validateLegacyChildPacketTx(ctx, tx, a)
 }
 
 // validateDecomposeRootTx admits one intent decompose fresh root against
@@ -397,17 +421,27 @@ func validateImplementChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignm
 	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
 		return errors.New("implementation child does not match its execution phase")
 	}
-	var parentData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ParentAssignment).Scan(&parentData); err != nil {
+	parent, err := loadValidatedAssignmentTx(ctx, tx, a.ParentAssignment)
+	if err != nil {
 		return err
 	}
-	var parent factory.Assignment
-	if err := json.Unmarshal(parentData, &parent); err != nil {
+	if err := checkInvestigationParentComplete(parent, a); err != nil {
 		return err
 	}
-	if err := parent.Validate(); err != nil {
+	if err := checkImplementationLineage(parent, a); err != nil {
 		return err
 	}
+	childID, err := factory.AdvancementID(parent.ID, factory.ResultDigest(*parent.Result), project.ExecutionImplement)
+	if err != nil || childID != a.ID {
+		return fmt.Errorf("%w: implementation child is not its parent's advancement", ErrAttemptRootMismatch)
+	}
+	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
+		return err
+	}
+	return childAllowanceRootExistsTx(ctx, tx, a)
+}
+
+func checkInvestigationParentComplete(parent, a factory.Assignment) error {
 	if parent.ID != a.ParentAssignment || parent.Phase != project.ExecutionInvestigate ||
 		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
 		parent.Reason != factory.AssignReasonReported || parent.Result == nil || parent.Result.PhaseResult == nil {
@@ -419,6 +453,10 @@ func validateImplementChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignm
 		phased.Output.Plan.Validate() != nil || phased.Output.Plan.Executable() != nil {
 		return fmt.Errorf("%w: implementation parent lacks an executable plan", ErrAttemptRootMismatch)
 	}
+	return nil
+}
+
+func checkImplementationLineage(parent, a factory.Assignment) error {
 	if parent.Repository != a.Repository || parent.Issue != a.Issue || parent.Acceptance != a.Acceptance ||
 		parent.ProjectID != a.ProjectID || parent.AttemptRoot != a.AttemptRoot ||
 		parent.PublicationAssignment != a.PublicationAssignment || parent.Preparation != a.Preparation ||
@@ -427,25 +465,66 @@ func validateImplementChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignm
 		parent.Subject.SubjectKey(parent.Repository) != a.Subject.SubjectKey(a.Repository) {
 		return fmt.Errorf("%w: implementation child does not match its investigation parent", ErrAttemptRootMismatch)
 	}
-	childID, err := factory.AdvancementID(parent.ID, factory.ResultDigest(*parent.Result), project.ExecutionImplement)
-	if err != nil || childID != a.ID {
-		return fmt.Errorf("%w: implementation child is not its parent's advancement", ErrAttemptRootMismatch)
+	return nil
+}
+
+func loadValidatedAssignmentTx(ctx context.Context, tx *sql.Tx, id string) (factory.Assignment, error) {
+	var data []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, id).Scan(&data); err != nil {
+		return factory.Assignment{}, err
 	}
-	var head string
-	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, a.Repository, a.Issue).Scan(&head); err != nil {
-		return err
+	var stored factory.Assignment
+	if err := json.Unmarshal(data, &stored); err != nil {
+		return factory.Assignment{}, err
 	}
-	if head != a.Acceptance {
-		return ErrAdmissionChanged
+	if err := stored.Validate(); err != nil {
+		return factory.Assignment{}, err
 	}
-	var rootExists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&rootExists); err != nil {
-		return err
-	}
-	if !rootExists {
-		return ErrAttemptRootMismatch
+	return stored, nil
+}
+
+func checkReviewChildOwner(parent, a factory.Assignment) error {
+	if parent.ID != a.ParentAssignment || parent.PublicationAssignment != parent.ID ||
+		parent.Role != project.RoleCoder || parent.Stage != factory.AssignmentFinished ||
+		parent.Outcome != factory.Succeeded ||
+		parent.Repository != a.Repository || parent.Issue != a.Issue ||
+		parent.ProjectID != a.ProjectID || parent.Acceptance != a.Acceptance ||
+		parent.AttemptRoot != a.AttemptRoot || a.PublicationAssignment != parent.ID {
+		return fmt.Errorf("%w: review child does not match its publication owner", ErrAttemptRootMismatch)
 	}
 	return nil
+}
+
+func checkReviewChildPublication(publication factory.Publication, parent factory.Assignment, a factory.Assignment) error {
+	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository ||
+		publication.Issue != a.Issue || publication.Acceptance != a.Acceptance ||
+		publication.Stage != factory.PublicationPublished || publication.WithdrawRequested ||
+		publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
+		return fmt.Errorf("%w: review child does not match the current published candidate", ErrAttemptRootMismatch)
+	}
+	return nil
+}
+
+func reviewCycleBound(publication factory.Publication, a factory.Assignment) bool {
+	for _, cycle := range publication.ReviewCycles {
+		if cycle.ReviewerAssignment == a.ID && cycle.PublicationID == publication.ID &&
+			cycle.AttemptRoot == a.AttemptRoot && cycle.Head == a.SourceCommit &&
+			cycle.BaseOID == publication.PRCreate.BaseOID {
+			return true
+		}
+	}
+	return false
+}
+
+func correctionCycleBound(publication factory.Publication, a factory.Assignment) bool {
+	for _, cycle := range publication.ReviewCycles {
+		if cycle.CorrectionAssignment == a.ID && cycle.PublicationID == publication.ID &&
+			cycle.AttemptRoot == a.AttemptRoot && cycle.Head == a.SourceCommit &&
+			cycle.BaseOID == publication.PRCreate.BaseOID {
+			return true
+		}
+	}
+	return false
 }
 
 // validateReviewChildTx admits one phased reviewer child against its
@@ -465,48 +544,24 @@ func validateReviewChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment
 		a.Subject.Issue.Issue != a.Issue || a.Subject.Issue.Acceptance != a.Acceptance {
 		return errors.New("review child does not match its issue subject")
 	}
-	var parentData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ParentAssignment).Scan(&parentData); err != nil {
+	parent, err := loadValidatedAssignmentTx(ctx, tx, a.ParentAssignment)
+	if err != nil {
 		return err
 	}
-	var parent factory.Assignment
-	if err := json.Unmarshal(parentData, &parent); err != nil {
+	if err := checkReviewChildOwner(parent, a); err != nil {
 		return err
-	}
-	if err := parent.Validate(); err != nil {
-		return err
-	}
-	if parent.ID != a.ParentAssignment || parent.PublicationAssignment != parent.ID ||
-		parent.Role != project.RoleCoder || parent.Stage != factory.AssignmentFinished ||
-		parent.Outcome != factory.Succeeded ||
-		parent.Repository != a.Repository || parent.Issue != a.Issue ||
-		parent.ProjectID != a.ProjectID || parent.Acceptance != a.Acceptance ||
-		parent.AttemptRoot != a.AttemptRoot || a.PublicationAssignment != parent.ID {
-		return fmt.Errorf("%w: review child does not match its publication owner", ErrAttemptRootMismatch)
 	}
 	publication, err := lockedChildPublicationTx(ctx, tx, parent.ID)
 	if err != nil {
 		return err
 	}
-	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository ||
-		publication.Issue != a.Issue || publication.Acceptance != a.Acceptance ||
-		publication.Stage != factory.PublicationPublished || publication.WithdrawRequested ||
-		publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
-		return fmt.Errorf("%w: review child does not match the current published candidate", ErrAttemptRootMismatch)
+	if err := checkReviewChildPublication(publication, parent, a); err != nil {
+		return err
 	}
 	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
 	}
-	bound := false
-	for _, cycle := range publication.ReviewCycles {
-		if cycle.ReviewerAssignment == a.ID && cycle.PublicationID == publication.ID &&
-			cycle.AttemptRoot == a.AttemptRoot && cycle.Head == a.SourceCommit &&
-			cycle.BaseOID == publication.PRCreate.BaseOID {
-			bound = true
-			break
-		}
-	}
-	if !bound {
+	if !reviewCycleBound(publication, a) {
 		return fmt.Errorf("%w: review child answers an unrecorded cycle", ErrAttemptRootMismatch)
 	}
 	if a.Preparation == parent.Preparation {
@@ -537,22 +592,9 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	if a.Issue != 0 || a.Acceptance != "" {
 		return errors.New("completion assignment carries issue authority")
 	}
-	var eventData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_completions WHERE repository=$1 AND event=$2`, a.Repository, a.Subject.Completion.CompletionID).Scan(&eventData); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: reassessment answers an unrecorded completion", ErrAttemptRootMismatch)
-		}
+	event, err := loadReassessmentEventTx(ctx, tx, a)
+	if err != nil {
 		return err
-	}
-	var event factory.CompletionEvent
-	if err := json.Unmarshal(eventData, &event); err != nil {
-		return err
-	}
-	if err := event.Validate(); err != nil {
-		return err
-	}
-	if event.ID != a.Subject.Completion.CompletionID || event.Repository != a.Repository {
-		return fmt.Errorf("%w: reassessment answers another repository completion", ErrAttemptRootMismatch)
 	}
 	// The exact cycle row is locked for the packet duration, following
 	// the reassessment CAS lock ordering (state,data FOR UPDATE by
@@ -563,28 +605,61 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	// cycle, a mismatched digest or source, or any other
 	// decision/state refuses with no packet or charge rows. Released
 	// and superseded cycles no longer take work.
+	record, err := loadReassessmentCycleTx(ctx, tx, a, event)
+	if err != nil {
+		return err
+	}
+	return checkReassessmentCycleSealed(record, a)
+}
+
+func loadReassessmentEventTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.CompletionEvent, error) {
+	var eventData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_completions WHERE repository=$1 AND event=$2`, a.Repository, a.Subject.Completion.CompletionID).Scan(&eventData); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return factory.CompletionEvent{}, fmt.Errorf("%w: reassessment answers an unrecorded completion", ErrAttemptRootMismatch)
+		}
+		return factory.CompletionEvent{}, err
+	}
+	var event factory.CompletionEvent
+	if err := json.Unmarshal(eventData, &event); err != nil {
+		return factory.CompletionEvent{}, err
+	}
+	if err := event.Validate(); err != nil {
+		return factory.CompletionEvent{}, err
+	}
+	if event.ID != a.Subject.Completion.CompletionID || event.Repository != a.Repository {
+		return factory.CompletionEvent{}, fmt.Errorf("%w: reassessment answers another repository completion", ErrAttemptRootMismatch)
+	}
+	return event, nil
+}
+
+func loadReassessmentCycleTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, event factory.CompletionEvent) (ReassessmentRecord, error) {
 	var cycleState string
 	var cycleData []byte
 	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE repository=$1 AND event=$2 AND cycle=$3 FOR UPDATE`, a.Repository, event.ID, a.Subject.Completion.CycleID).Scan(&cycleState, &cycleData); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: reassessment answers an unstaged cycle", ErrAttemptRootMismatch)
+			return ReassessmentRecord{}, fmt.Errorf("%w: reassessment answers an unstaged cycle", ErrAttemptRootMismatch)
 		}
-		return err
+		return ReassessmentRecord{}, err
 	}
 	var record ReassessmentRecord
 	if err := json.Unmarshal(cycleData, &record); err != nil {
-		return err
+		return ReassessmentRecord{}, err
 	}
 	if err := record.Validate(); err != nil {
-		return err
+		return ReassessmentRecord{}, err
 	}
 	if cycleState != factory.ReassessmentReassessing || record.Cycle.State != factory.ReassessmentReassessing ||
 		record.Cycle.Decision != factory.ReassessmentOptionReassess {
-		return fmt.Errorf("%w: reassessment answers a cycle without its reassess decision", ErrAttemptRootMismatch)
+		return ReassessmentRecord{}, fmt.Errorf("%w: reassessment answers a cycle without its reassess decision", ErrAttemptRootMismatch)
 	}
 	if record.Cycle.EventID != event.ID || record.Cycle.CycleID != a.Subject.Completion.CycleID || record.Cycle.Repository != a.Repository {
-		return fmt.Errorf("%w: reassessment answers another cycle", ErrAttemptRootMismatch)
+		return ReassessmentRecord{}, fmt.Errorf("%w: reassessment answers another cycle", ErrAttemptRootMismatch)
 	}
+	return record, nil
+}
+
+func checkReassessmentCycleSealed(record ReassessmentRecord, a factory.Assignment) error {
 	if !record.Local.Sealed() || record.InventoryDigest == "" {
 		return fmt.Errorf("%w: reassessment answers an unsealed cycle", ErrAttemptRootMismatch)
 	}
@@ -605,39 +680,28 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 // owner's coder preparation (distinct from the reviewer session), root,
 // publication slot and candidate; the correction cycle it consumes is
 // charged by the packet's allowance leg.
-func validateCorrectChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
-	if a.Role != project.RoleCoder || a.ParentAssignment == "" {
-		return errors.New("correction child needs its coder role and current reviewer")
-	}
-	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
-		return errors.New("correction child does not match its execution phase")
-	}
-	if a.Subject.Kind != factory.SubjectIssue || a.Subject.Issue == nil ||
-		a.Subject.Issue.Issue != a.Issue || a.Subject.Issue.Acceptance != a.Acceptance {
-		return errors.New("correction child does not match its issue subject")
-	}
-	var parentData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ParentAssignment).Scan(&parentData); err != nil {
-		return err
-	}
-	var parent factory.Assignment
-	if err := json.Unmarshal(parentData, &parent); err != nil {
-		return err
-	}
-	if err := parent.Validate(); err != nil {
-		return err
-	}
+func checkCorrectionReviewerIdentity(parent, a factory.Assignment) error {
 	if parent.ID != a.ParentAssignment || parent.Role != project.RoleReviewer ||
 		parent.Phase != project.ExecutionReview || parent.Stage != factory.AssignmentFinished ||
 		parent.Outcome != factory.Succeeded || parent.Result == nil || !parent.Result.Reported ||
-		parent.Result.Status != "completed" ||
-		parent.Repository != a.Repository || parent.Issue != a.Issue ||
+		parent.Result.Status != "completed" {
+		return fmt.Errorf("%w: correction parent is not its current reviewer", ErrAttemptRootMismatch)
+	}
+	return nil
+}
+
+func checkCorrectionReviewerScope(parent, a factory.Assignment) error {
+	if parent.Repository != a.Repository || parent.Issue != a.Issue ||
 		parent.ProjectID != a.ProjectID || parent.Acceptance != a.Acceptance ||
 		parent.AttemptRoot != a.AttemptRoot ||
 		parent.PublicationAssignment != a.PublicationAssignment ||
 		parent.SourceCommit != a.SourceCommit {
 		return fmt.Errorf("%w: correction parent is not its current reviewer", ErrAttemptRootMismatch)
 	}
+	return nil
+}
+
+func checkCorrectionVerdict(parent, a factory.Assignment) error {
 	verdict := parent.Result.PhaseResult
 	if verdict == nil || verdict.Phase != project.ExecutionReview || verdict.Output == nil ||
 		(verdict.Output.Review == nil) == (verdict.Output.Clear == nil) {
@@ -646,17 +710,20 @@ func validateCorrectChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	if verdict.Output.Clear != nil && verdict.Output.Clear.Head != a.SourceCommit {
 		return fmt.Errorf("%w: correction parent finished on another candidate", ErrAttemptRootMismatch)
 	}
-	var ownerData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.PublicationAssignment).Scan(&ownerData); err != nil {
+	return nil
+}
+
+func checkCorrectionReviewer(parent, a factory.Assignment) error {
+	if err := checkCorrectionReviewerIdentity(parent, a); err != nil {
 		return err
 	}
-	var owner factory.Assignment
-	if err := json.Unmarshal(ownerData, &owner); err != nil {
+	if err := checkCorrectionReviewerScope(parent, a); err != nil {
 		return err
 	}
-	if err := owner.Validate(); err != nil {
-		return err
-	}
+	return checkCorrectionVerdict(parent, a)
+}
+
+func checkCorrectionOwner(owner, a factory.Assignment) error {
 	if owner.ID != a.PublicationAssignment || owner.PublicationAssignment != owner.ID ||
 		owner.Role != project.RoleCoder || owner.Stage != factory.AssignmentFinished ||
 		owner.Outcome != factory.Succeeded ||
@@ -665,29 +732,43 @@ func validateCorrectChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 		owner.AttemptRoot != a.AttemptRoot {
 		return fmt.Errorf("%w: correction child does not match its publication owner", ErrAttemptRootMismatch)
 	}
-	publication, err := lockedChildPublicationTx(ctx, tx, owner.ID)
-	if err != nil {
-		return err
-	}
+	return nil
+}
+
+func checkCorrectionPublication(publication factory.Publication, owner, a factory.Assignment) error {
 	if publication.AssignmentID != owner.ID || publication.Repository != a.Repository ||
 		publication.Issue != a.Issue || publication.Acceptance != a.Acceptance ||
 		publication.Stage != factory.PublicationPublished || publication.WithdrawRequested ||
 		publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
 		return fmt.Errorf("%w: correction child does not match the current published candidate", ErrAttemptRootMismatch)
 	}
-	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
-		return err
+	return nil
+}
+
+func admitCorrectionLineageTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (parent, owner factory.Assignment, publication factory.Publication, err error) {
+	if parent, err = loadValidatedAssignmentTx(ctx, tx, a.ParentAssignment); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
 	}
-	bound := false
-	for _, cycle := range publication.ReviewCycles {
-		if cycle.CorrectionAssignment == a.ID && cycle.PublicationID == publication.ID &&
-			cycle.AttemptRoot == a.AttemptRoot && cycle.Head == a.SourceCommit &&
-			cycle.BaseOID == publication.PRCreate.BaseOID {
-			bound = true
-			break
-		}
+	if err = checkCorrectionReviewer(parent, a); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
 	}
-	if !bound {
+	if owner, err = loadValidatedAssignmentTx(ctx, tx, a.PublicationAssignment); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
+	}
+	if err = checkCorrectionOwner(owner, a); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
+	}
+	if publication, err = lockedChildPublicationTx(ctx, tx, owner.ID); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
+	}
+	if err = checkCorrectionPublication(publication, owner, a); err != nil {
+		return factory.Assignment{}, factory.Assignment{}, factory.Publication{}, err
+	}
+	return parent, owner, publication, nil
+}
+
+func checkCorrectionCurrency(publication factory.Publication, parent, owner, a factory.Assignment) error {
+	if !correctionCycleBound(publication, a) {
 		return fmt.Errorf("%w: correction child answers an unrecorded cycle", ErrAttemptRootMismatch)
 	}
 	// Currency: the newest committed verdict on this exact head and base
@@ -702,6 +783,30 @@ func validateCorrectChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	}
 	if a.Preparation == parent.Preparation {
 		return errors.New("corrector session requires a preparation distinct from its reviewer")
+	}
+	return nil
+}
+
+func validateCorrectChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Role != project.RoleCoder || a.ParentAssignment == "" {
+		return errors.New("correction child needs its coder role and current reviewer")
+	}
+	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
+		return errors.New("correction child does not match its execution phase")
+	}
+	if a.Subject.Kind != factory.SubjectIssue || a.Subject.Issue == nil ||
+		a.Subject.Issue.Issue != a.Issue || a.Subject.Issue.Acceptance != a.Acceptance {
+		return errors.New("correction child does not match its issue subject")
+	}
+	parent, owner, publication, err := admitCorrectionLineageTx(ctx, tx, a)
+	if err != nil {
+		return err
+	}
+	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
+		return err
+	}
+	if err := checkCorrectionCurrency(publication, parent, owner, a); err != nil {
+		return err
 	}
 	return childAllowanceRootExistsTx(ctx, tx, a)
 }
@@ -764,24 +869,36 @@ func newestCommittedReviewRun(publication factory.Publication, head, base string
 	return "", false
 }
 
-func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, repository, issue int64, acceptance string) error {
+func checkExpectedControlQueued(expected factory.IssueControl, repository, issue int64, acceptance string) error {
 	if err := expected.Validate(); err != nil || expected.Readiness != factory.ReadinessQueued || expected.Repository != repository || expected.Issue != issue || expected.Acceptance != acceptance {
 		return ErrDispatchControlStale
 	}
+	return nil
+}
+
+func loadLockedControlTx(ctx context.Context, tx *sql.Tx, repository, issue int64) (factory.IssueControl, error) {
 	var controlData []byte
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2 FOR UPDATE`, repository, issue).Scan(&controlData); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrDispatchControlStale
+			return factory.IssueControl{}, ErrDispatchControlStale
 		}
-		return err
+		return factory.IssueControl{}, err
 	}
 	var current factory.IssueControl
 	if err := json.Unmarshal(controlData, &current); err != nil {
-		return err
+		return factory.IssueControl{}, err
 	}
+	return current, nil
+}
+
+func checkCurrentControlQueued(current, expected factory.IssueControl, repository, issue int64, acceptance string) error {
 	if err := current.Validate(); err != nil || current.Readiness != factory.ReadinessQueued || current.Repository != repository || current.Issue != issue || current.Acceptance != acceptance || current.NativeRev != expected.NativeRev || current.Revision != expected.Revision || current.Fingerprint != expected.Fingerprint || current.Authority != expected.Authority || !sameControlOutcome(current, expected) {
 		return ErrDispatchControlStale
 	}
+	return nil
+}
+
+func checkControlHeadCurrentTx(ctx context.Context, tx *sql.Tx, repository, issue int64, acceptance string) error {
 	var head string
 	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, repository, issue).Scan(&head); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -802,6 +919,20 @@ func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.Issu
 	return nil
 }
 
+func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, repository, issue int64, acceptance string) error {
+	if err := checkExpectedControlQueued(expected, repository, issue, acceptance); err != nil {
+		return err
+	}
+	current, err := loadLockedControlTx(ctx, tx, repository, issue)
+	if err != nil {
+		return err
+	}
+	if err := checkCurrentControlQueued(current, expected, repository, issue, acceptance); err != nil {
+		return err
+	}
+	return checkControlHeadCurrentTx(ctx, tx, repository, issue, acceptance)
+}
+
 type admissionGrants struct {
 	capacity    factory.Capacity
 	policy      factory.RepositoryPolicy
@@ -811,33 +942,22 @@ type admissionGrants struct {
 	environment project.EnvironmentGrant
 }
 
-func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (admissionGrants, error) {
-	var grants admissionGrants
-	var cdata, pdata, gdata []byte
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&cdata); err != nil {
-		return admissionGrants{}, admissionChanged(err)
+func loadGrantDocumentTx(ctx context.Context, t *sql.Tx, dest any, query string, args ...any) error {
+	var data []byte
+	if err := t.QueryRowContext(ctx, query, args...).Scan(&data); err != nil {
+		return admissionChanged(err)
 	}
-	if err := json.Unmarshal(cdata, &grants.capacity); err != nil {
-		return admissionGrants{}, err
-	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_policies WHERE repository=$1 FOR UPDATE`, repository).Scan(&pdata); err != nil {
-		return admissionGrants{}, admissionChanged(err)
-	}
-	if err := json.Unmarshal(pdata, &grants.policy); err != nil {
-		return admissionGrants{}, err
-	}
-	if err := t.QueryRowContext(ctx, `SELECT data FROM factory_operator_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&gdata); err != nil {
-		return admissionGrants{}, admissionChanged(err)
-	}
-	if err := json.Unmarshal(gdata, &grants.operator); err != nil {
-		return admissionGrants{}, err
-	}
+	return json.Unmarshal(data, dest)
+}
+
+func selectAdmissionSponsorshipTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (factory.Sponsorship, error) {
 	rows, err := t.QueryContext(ctx, `SELECT connection,data FROM factory_sponsorships WHERE repository=$1 ORDER BY connection LIMIT 33 FOR UPDATE`, repository)
 	if err != nil {
-		return admissionGrants{}, err
+		return factory.Sponsorship{}, err
 	}
+	var selected factory.Sponsorship
 	rowCount := 0
-	selected := false
+	found := false
 	for rows.Next() {
 		rowCount++
 		var candidate factory.Sponsorship
@@ -845,48 +965,56 @@ func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, con
 		var data []byte
 		if err = rows.Scan(&candidateConnection, &data); err != nil {
 			_ = rows.Close()
-			return admissionGrants{}, err
+			return factory.Sponsorship{}, err
 		}
 		if err = json.Unmarshal(data, &candidate); err != nil {
 			_ = rows.Close()
-			return admissionGrants{}, err
+			return factory.Sponsorship{}, err
 		}
 		if candidate.Connection != candidateConnection {
 			_ = rows.Close()
-			return admissionGrants{}, ErrAdmissionChanged
+			return factory.Sponsorship{}, ErrAdmissionChanged
 		}
-		if candidate.Active {
-			if !selected {
-				grants.sponsorship = candidate
-				selected = true
-			}
+		if candidate.Active && !found {
+			selected, found = candidate, true
 		}
 	}
 	if err = rows.Err(); err != nil {
 		_ = rows.Close()
-		return admissionGrants{}, err
+		return factory.Sponsorship{}, err
 	}
 	if err = rows.Close(); err != nil {
+		return factory.Sponsorship{}, err
+	}
+	if rowCount >= 33 || !found || selected.Connection != connection {
+		return factory.Sponsorship{}, ErrAdmissionChanged
+	}
+	return selected, nil
+}
+
+func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (admissionGrants, error) {
+	var grants admissionGrants
+	if err := loadGrantDocumentTx(ctx, t, &grants.capacity, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`); err != nil {
 		return admissionGrants{}, err
 	}
-	if rowCount >= 33 || !selected || grants.sponsorship.Connection != connection {
-		return admissionGrants{}, ErrAdmissionChanged
+	if err := loadGrantDocumentTx(ctx, t, &grants.policy, `SELECT data FROM factory_policies WHERE repository=$1 FOR UPDATE`, repository); err != nil {
+		return admissionGrants{}, err
 	}
-	var budgetData []byte
-	if err = t.QueryRowContext(ctx, `SELECT data FROM factory_connection_usage_budgets WHERE connection=$1 FOR UPDATE`, connection).Scan(&budgetData); err != nil {
-		return admissionGrants{}, admissionChanged(err)
+	if err := loadGrantDocumentTx(ctx, t, &grants.operator, `SELECT data FROM factory_operator_grants WHERE repository=$1 FOR UPDATE`, repository); err != nil {
+		return admissionGrants{}, err
 	}
-	if err = json.Unmarshal(budgetData, &grants.usageBudget); err != nil {
+	sponsorship, err := selectAdmissionSponsorshipTx(ctx, t, repository, connection)
+	if err != nil {
+		return admissionGrants{}, err
+	}
+	grants.sponsorship = sponsorship
+	if err := loadGrantDocumentTx(ctx, t, &grants.usageBudget, `SELECT data FROM factory_connection_usage_budgets WHERE connection=$1 FOR UPDATE`, connection); err != nil {
 		return admissionGrants{}, err
 	}
 	if grants.usageBudget.Connection != connection || grants.usageBudget.Validate() != nil {
 		return admissionGrants{}, ErrAdmissionChanged
 	}
-	var environmentData []byte
-	if err = t.QueryRowContext(ctx, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&environmentData); err != nil {
-		return admissionGrants{}, admissionChanged(err)
-	}
-	if err = json.Unmarshal(environmentData, &grants.environment); err != nil {
+	if err := loadGrantDocumentTx(ctx, t, &grants.environment, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, repository); err != nil {
 		return admissionGrants{}, err
 	}
 	if grants.environment.Validate() != nil {

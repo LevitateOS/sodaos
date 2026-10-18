@@ -350,11 +350,7 @@ func (c *Coordinator) processReadinessSource(ctx context.Context, work store.Rea
 		}
 		node, err := c.Store.NextReadinessWorkNode(ctx, work.ID)
 		if errors.Is(err, store.ErrNotFound) {
-			current, readErr := c.Store.ReadinessWork(ctx, work.ID)
-			if readErr != nil {
-				return false, false, readErr
-			}
-			complete, finishErr := c.Store.CompleteReadinessWork(ctx, current, time.Now())
+			complete, finishErr := c.finishReadinessWorkPass(ctx, work)
 			if finishErr != nil || !complete {
 				return false, false, finishErr
 			}
@@ -364,32 +360,8 @@ func (c *Coordinator) processReadinessSource(ctx context.Context, work store.Rea
 			return false, false, err
 		}
 		if node.State == "queued" {
-			outcome, reused, reuseErr := c.reuseReadinessAssessment(ctx, work.Generation, node.Ref)
-			if reuseErr != nil {
-				return false, false, reuseErr
-			}
-			if !reused {
-				reserved, reserveErr := c.reserveIssueAssessment(ctx, node.Ref)
-				if reserveErr != nil {
-					return false, false, reserveErr
-				}
-				if !reserved {
-					return false, false, ErrReadinessPassPending
-				}
-				outcome, err = c.assessOne(ctx, node.Ref.Repository, node.Ref.Issue)
-				if err != nil {
-					return false, false, err
-				}
-				if outcome.revision > 0 && outcome.authorityHash != "" {
-					budget.assessed[readinessAssessmentKey{generation: work.Generation, ref: node.Ref}] = readinessCachedAssessment{
-						revision: outcome.revision, authorityHash: outcome.authorityHash, outcome: outcome,
-					}
-				}
-			}
-			if node.Ref == work.Root {
-				rootChanged = outcome.changed
-			}
-			if err = c.Store.CheckpointReadinessAssessment(ctx, work, node, outcome.skip); err != nil {
+			rootChanged, err = c.assessQueuedReadinessNode(ctx, work, node, budget, rootChanged)
+			if err != nil {
 				return false, false, err
 			}
 			continue
@@ -397,14 +369,60 @@ func (c *Coordinator) processReadinessSource(ctx context.Context, work store.Rea
 		if node.State != "scanning" {
 			return false, false, ErrReadinessPassPending
 		}
-		if budget.pages.Add(1) > readinessMaxPages {
-			budget.pages.Add(-1)
-			return false, false, ErrReadinessPassPending
-		}
-		if _, err = c.Store.CheckpointReadinessPage(ctx, work, node); err != nil {
+		if err = c.scanReadinessWorkPage(ctx, work, node, budget); err != nil {
 			return false, false, err
 		}
 	}
+}
+
+func (c *Coordinator) finishReadinessWorkPass(ctx context.Context, work store.ReadinessWork) (bool, error) {
+	current, readErr := c.Store.ReadinessWork(ctx, work.ID)
+	if readErr != nil {
+		return false, readErr
+	}
+	return c.Store.CompleteReadinessWork(ctx, current, time.Now())
+}
+
+func (c *Coordinator) assessQueuedReadinessNode(ctx context.Context, work store.ReadinessWork, node store.ReadinessWorkNode, budget *readinessPass, rootChanged bool) (bool, error) {
+	outcome, reused, reuseErr := c.reuseReadinessAssessment(ctx, work.Generation, node.Ref)
+	if reuseErr != nil {
+		return rootChanged, reuseErr
+	}
+	if !reused {
+		reserved, reserveErr := c.reserveIssueAssessment(ctx, node.Ref)
+		if reserveErr != nil {
+			return rootChanged, reserveErr
+		}
+		if !reserved {
+			return rootChanged, ErrReadinessPassPending
+		}
+		assessed, err := c.assessOne(ctx, node.Ref.Repository, node.Ref.Issue)
+		if err != nil {
+			return rootChanged, err
+		}
+		outcome = assessed
+		if outcome.revision > 0 && outcome.authorityHash != "" {
+			budget.assessed[readinessAssessmentKey{generation: work.Generation, ref: node.Ref}] = readinessCachedAssessment{
+				revision: outcome.revision, authorityHash: outcome.authorityHash, outcome: outcome,
+			}
+		}
+	}
+	if node.Ref == work.Root {
+		rootChanged = outcome.changed
+	}
+	if err := c.Store.CheckpointReadinessAssessment(ctx, work, node, outcome.skip); err != nil {
+		return rootChanged, err
+	}
+	return rootChanged, nil
+}
+
+func (c *Coordinator) scanReadinessWorkPage(ctx context.Context, work store.ReadinessWork, node store.ReadinessWorkNode, budget *readinessPass) error {
+	if budget.pages.Add(1) > readinessMaxPages {
+		budget.pages.Add(-1)
+		return ErrReadinessPassPending
+	}
+	_, err := c.Store.CheckpointReadinessPage(ctx, work, node)
+	return err
 }
 
 func (c *Coordinator) reuseReadinessAssessment(ctx context.Context, generation int64, ref factory.DependenceRef) (assessOutcome, bool, error) {

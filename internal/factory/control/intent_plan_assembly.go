@@ -91,28 +91,9 @@ func (c *Coordinator) AssembleIntentPlanningInput(ctx context.Context, head fact
 	if c.Store == nil {
 		return empty, project.Preparation{}, nil, errors.New("intent planning store unavailable")
 	}
-	proj, err := c.Store.ProjectByRepository(ctx, head.Repository)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return empty, project.Preparation{}, &DispatchWait{Repository: head.Repository, Reason: WaitAuthority, Detail: "project changed during draft planning"}, nil
-		}
-		return empty, project.Preparation{}, nil, err
-	}
-	plan := &attemptPlan{projectID: proj.ID}
-	if first, second := selectPreparationFor(ctx, c.dispatchDeps(), plan, project.RoleCoder, ""); second != nil {
-		return empty, project.Preparation{}, nil, errors.New(second.Detail)
-	} else if first != nil {
-		wait := timeOnlyWait(head.Repository, first)
-		return empty, project.Preparation{}, &wait, nil
-	}
-	prep := plan.prep.Preparation
-	paths := make([]string, 0, len(prep.Requirements.SourceInputs))
-	for path := range prep.Requirements.SourceInputs {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	if len(paths) == 0 {
-		return empty, project.Preparation{}, &DispatchWait{Repository: head.Repository, Reason: WaitPreparation, Detail: "preparation selects no approved source files"}, nil
+	proj, prep, paths, planWait, err := c.resolvePlanningPreparation(ctx, head)
+	if err != nil || planWait != nil {
+		return empty, project.Preparation{}, planWait, err
 	}
 	if c.Host == nil {
 		return empty, project.Preparation{}, nil, errors.New("intent planning host unavailable")
@@ -123,9 +104,48 @@ func (c *Coordinator) AssembleIntentPlanningInput(ctx context.Context, head fact
 	}
 	bounded, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
+	merged, planWait, err := c.readPlanningContext(bounded, proj, prep, paths, deadline, head.Repository)
+	if err != nil || planWait != nil {
+		return empty, project.Preparation{}, planWait, err
+	}
+	in, planWait, err := assemblePlanningInput(head, operation, prep, paths, merged)
+	if err != nil || planWait != nil {
+		return empty, project.Preparation{}, planWait, err
+	}
+	return in, prep, nil, nil
+}
+
+func (c *Coordinator) resolvePlanningPreparation(ctx context.Context, head factory.IntentRevision) (store.Project, project.Preparation, []string, *DispatchWait, error) {
+	proj, err := c.Store.ProjectByRepository(ctx, head.Repository)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return store.Project{}, project.Preparation{}, nil, &DispatchWait{Repository: head.Repository, Reason: WaitAuthority, Detail: "project changed during draft planning"}, nil
+		}
+		return store.Project{}, project.Preparation{}, nil, nil, err
+	}
+	plan := &attemptPlan{projectID: proj.ID}
+	if first, second := selectPreparationFor(ctx, c.dispatchDeps(), plan, project.RoleCoder, ""); second != nil {
+		return store.Project{}, project.Preparation{}, nil, nil, errors.New(second.Detail)
+	} else if first != nil {
+		wait := timeOnlyWait(head.Repository, first)
+		return store.Project{}, project.Preparation{}, nil, &wait, nil
+	}
+	prep := plan.prep.Preparation
+	paths := make([]string, 0, len(prep.Requirements.SourceInputs))
+	for path := range prep.Requirements.SourceInputs {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	if len(paths) == 0 {
+		return store.Project{}, project.Preparation{}, nil, &DispatchWait{Repository: head.Repository, Reason: WaitPreparation, Detail: "preparation selects no approved source files"}, nil
+	}
+	return proj, prep, paths, nil, nil
+}
+
+func (c *Coordinator) readPlanningContext(ctx context.Context, proj store.Project, prep project.Preparation, paths []string, deadline time.Time, repository int64) (map[string][]byte, *DispatchWait, error) {
 	chunks, err := chunkApprovedSelections(paths)
 	if err != nil {
-		return empty, project.Preparation{}, &DispatchWait{Repository: head.Repository, Reason: WaitPreparation, Detail: err.Error()}, nil
+		return nil, &DispatchWait{Repository: repository, Reason: WaitPreparation, Detail: err.Error()}, nil
 	}
 	merged := make(map[string][]byte, len(paths))
 	base := project.FactoryPreparationContextRequest{
@@ -136,54 +156,66 @@ func (c *Coordinator) AssembleIntentPlanningInput(ctx context.Context, head fact
 	for _, chunk := range chunks {
 		base.Paths = chunk
 		if err := base.Validate(); err != nil {
-			return empty, project.Preparation{}, nil, err
+			return nil, nil, err
 		}
-		result, err := c.Host.ReadPreparationContext(bounded, base, project.RoleCoder)
+		result, err := c.Host.ReadPreparationContext(ctx, base, project.RoleCoder)
 		if err != nil {
-			return empty, project.Preparation{}, &DispatchWait{Repository: head.Repository, Reason: WaitPreparation, Detail: "preparation context unreadable"}, nil
+			return nil, &DispatchWait{Repository: repository, Reason: WaitPreparation, Detail: "preparation context unreadable"}, nil
 		}
 		if err := result.ValidateFor(base, project.RoleCoder); err != nil {
-			return empty, project.Preparation{}, nil, err
+			return nil, nil, err
 		}
-		for _, file := range result.Files {
-			want, approved := prep.Requirements.SourceInputs[file.Path]
-			if !approved {
-				continue
-			}
-			if prev, seen := merged[file.Path]; seen {
-				if !bytes.Equal(prev, file.Content) {
-					return empty, project.Preparation{}, nil, errors.New("preparation context contradicts its repeated source file")
-				}
-				continue
-			}
-			sum := sha256.Sum256(file.Content)
-			if hex.EncodeToString(sum[:]) != want {
-				return empty, project.Preparation{}, nil, errors.New("preparation context does not match its approval")
-			}
-			if len(file.Content) > factory.MaxPlanTextBytes {
-				return empty, project.Preparation{}, nil, errors.New("approved source file exceeds its evidence bound")
-			}
-			merged[file.Path] = file.Content
+		if err := mergePlanningContextFiles(prep, result.Files, merged); err != nil {
+			return nil, nil, err
 		}
 	}
+	return merged, nil, nil
+}
+
+func mergePlanningContextFiles(prep project.Preparation, files []project.FactoryContextFile, merged map[string][]byte) error {
+	for _, file := range files {
+		want, approved := prep.Requirements.SourceInputs[file.Path]
+		if !approved {
+			continue
+		}
+		if prev, seen := merged[file.Path]; seen {
+			if !bytes.Equal(prev, file.Content) {
+				return errors.New("preparation context contradicts its repeated source file")
+			}
+			continue
+		}
+		sum := sha256.Sum256(file.Content)
+		if hex.EncodeToString(sum[:]) != want {
+			return errors.New("preparation context does not match its approval")
+		}
+		if len(file.Content) > factory.MaxPlanTextBytes {
+			return errors.New("approved source file exceeds its evidence bound")
+		}
+		merged[file.Path] = file.Content
+	}
+	return nil
+}
+
+func assemblePlanningInput(head factory.IntentRevision, operation string, prep project.Preparation, paths []string, merged map[string][]byte) (factory.SemanticPlannerInput, *DispatchWait, error) {
+	var empty factory.SemanticPlannerInput
 	inspected := make([]factory.InspectedSource, 0, len(paths))
 	for _, path := range paths {
 		content, ok := merged[path]
 		if !ok {
-			return empty, project.Preparation{}, nil, errors.New("preparation context lacks its approved source file")
+			return empty, nil, errors.New("preparation context lacks its approved source file")
 		}
 		inspected = append(inspected, factory.InspectedSource{Path: path, Commit: prep.SourceCommit, Evidence: string(content)})
 	}
 	content, err := factory.ComposeProposalContent(head)
 	if err != nil {
-		return empty, project.Preparation{}, nil, err
+		return empty, nil, err
 	}
 	in := factory.SemanticPlannerInput{
 		Operation: operation, Head: head, Content: content,
 		Alternatives: factory.DescribeAlternatives(head.Objective), Inspected: inspected,
 	}
 	if err := in.Validate(); err != nil {
-		return empty, project.Preparation{}, nil, err
+		return empty, nil, err
 	}
-	return in, prep, nil, nil
+	return in, nil, nil
 }

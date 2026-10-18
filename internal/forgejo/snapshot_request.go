@@ -111,21 +111,20 @@ func fullBranchRef(ref string) bool {
 	return len(strings.TrimPrefix(ref, "refs/heads/")) > 0
 }
 
-// ValidateRequest bounds the requested families and locators.
-func ValidateRequest(req SnapshotRequest) error {
-	if !decimalID(req.RepositoryID) {
-		return ErrInvalidSnapshot
-	}
+func checkSnapshotFamilies(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
 	if len(req.Families) == 0 || len(req.Families) > 8 {
 		return ErrInvalidSnapshot
 	}
-	seen := make(map[SnapshotFamily]bool, len(req.Families))
 	for _, family := range req.Families {
 		if !validFamily(family) || seen[family] {
 			return ErrInvalidSnapshot
 		}
 		seen[family] = true
 	}
+	return nil
+}
+
+func checkSnapshotIssueIDs(req SnapshotRequest) error {
 	if req.IssueIndex != "" && !decimalID(req.IssueIndex) {
 		return ErrInvalidSnapshot
 	}
@@ -140,6 +139,10 @@ func ValidateRequest(req SnapshotRequest) error {
 			return ErrInvalidSnapshot
 		}
 	}
+	return nil
+}
+
+func checkSnapshotRevisions(req SnapshotRequest) error {
 	if req.SHA != "" && !fullOID(req.SHA) {
 		return ErrInvalidSnapshot
 	}
@@ -151,6 +154,10 @@ func ValidateRequest(req SnapshotRequest) error {
 			return ErrInvalidSnapshot
 		}
 	}
+	return nil
+}
+
+func checkSnapshotPaging(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
 	if req.Limit < 0 || req.Limit > SnapshotPageLimit || len(req.Cursor) > SnapshotCursorLimit {
 		return ErrInvalidSnapshot
 	}
@@ -159,6 +166,31 @@ func ValidateRequest(req SnapshotRequest) error {
 	}
 	if seen[FamilyRefs] && len(req.Refs) == 0 {
 		return ErrInvalidSnapshot
+	}
+	return nil
+}
+
+func checkSnapshotLocators(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
+	if !decimalID(req.RepositoryID) {
+		return ErrInvalidSnapshot
+	}
+	if err := checkSnapshotFamilies(req, seen); err != nil {
+		return err
+	}
+	if err := checkSnapshotIssueIDs(req); err != nil {
+		return err
+	}
+	if err := checkSnapshotRevisions(req); err != nil {
+		return err
+	}
+	return checkSnapshotPaging(req, seen)
+}
+
+// ValidateRequest bounds the requested families and locators.
+func ValidateRequest(req SnapshotRequest) error {
+	seen := make(map[SnapshotFamily]bool, len(req.Families))
+	if err := checkSnapshotLocators(req, seen); err != nil {
+		return err
 	}
 	// repository_issues enumerates open non-PR issues of exactly
 	// RepositoryID. It is requested alone with only Limit/Cursor
@@ -172,12 +204,20 @@ func ValidateRequest(req SnapshotRequest) error {
 			return ErrInvalidSnapshot
 		}
 	}
+	return checkSnapshotFamilyShape(req, seen)
+}
+
+func checkSnapshotAncestry(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
 	if seen[FamilyAncestry] != (req.Ancestry != nil) {
 		return ErrInvalidSnapshot
 	}
 	if req.Ancestry != nil && (!seen[FamilyRefs] || !fullOID(req.Ancestry.AncestorOID) || !fullOID(req.Ancestry.DescendantOID)) {
 		return ErrInvalidSnapshot
 	}
+	return nil
+}
+
+func checkSnapshotSelectors(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
 	if seen[FamilyChecks] && req.SHA == "" {
 		return ErrInvalidSnapshot
 	}
@@ -222,6 +262,13 @@ func ValidateRequest(req SnapshotRequest) error {
 		return ErrInvalidSnapshot
 	}
 	return nil
+}
+
+func checkSnapshotFamilyShape(req SnapshotRequest, seen map[SnapshotFamily]bool) error {
+	if err := checkSnapshotAncestry(req, seen); err != nil {
+		return err
+	}
+	return checkSnapshotSelectors(req, seen)
 }
 
 // ContentDigest binds exact native text bytes with the same SHA-256 hex the

@@ -120,7 +120,7 @@ func validateConfigURLs(c *Config) error {
 	return nil
 }
 
-func validateConfigPaths(c Config) error {
+func validateGraphConfig(c Config) error {
 	if (c.ForgejoGraphCredentialFile != "") != (c.ForgejoGraphActorID > 0) {
 		return errors.New("graph actor and credential must be configured together")
 	}
@@ -130,6 +130,10 @@ func validateConfigPaths(c Config) error {
 	if c.ForgejoGraphCredentialFile != "" && !c.BackgroundServiceConfigured() {
 		return errors.New("forgejo_graph_credential_file requires background service inputs")
 	}
+	return nil
+}
+
+func validateCredentialFiles(c Config) error {
 	if c.FactoryJudgmentCallBudget < 0 || c.FactoryJudgmentCallBudget > 100000 {
 		return errors.New("factory_judgment_call_budget must be a finite nonnegative allowance")
 	}
@@ -147,12 +151,20 @@ func validateConfigPaths(c Config) error {
 	if c.OperatorID <= 0 {
 		return errors.New("operator_id is required; run operator setup first")
 	}
+	return nil
+}
+
+func validateFactoryPaths(c Config) error {
 	if c.FactoryIntakeSecretFile != "" && !filepath.IsAbs(c.FactoryIntakeSecretFile) {
 		return errors.New("factory_intake_secret_file must be an absolute path")
 	}
 	if c.FactoryPublicationRoot != "" && !filepath.IsAbs(c.FactoryPublicationRoot) {
 		return errors.New("factory_publication_root must be an absolute path")
 	}
+	return nil
+}
+
+func validateReviewCredentials(c Config) error {
 	if c.ForgejoReviewCredentialFile != "" {
 		if !filepath.IsAbs(c.ForgejoReviewCredentialFile) {
 			return errors.New("forgejo_review_credential_file must be an absolute path")
@@ -177,6 +189,10 @@ func validateConfigPaths(c Config) error {
 			return errors.New("forgejo_lifecycle_credential_file requires background service inputs")
 		}
 	}
+	return nil
+}
+
+func validateBackgroundService(c Config) error {
 	if c.BackgroundServiceConfigured() {
 		if !filepath.IsAbs(c.ForgejoBackgroundSocket) {
 			return errors.New("forgejo_background_socket must be an absolute path")
@@ -189,6 +205,22 @@ func validateConfigPaths(c Config) error {
 		}
 	}
 	return nil
+}
+
+func validateConfigPaths(c Config) error {
+	if err := validateGraphConfig(c); err != nil {
+		return err
+	}
+	if err := validateCredentialFiles(c); err != nil {
+		return err
+	}
+	if err := validateFactoryPaths(c); err != nil {
+		return err
+	}
+	if err := validateReviewCredentials(c); err != nil {
+		return err
+	}
+	return validateBackgroundService(c)
 }
 
 func Load(path string) (Config, error) {

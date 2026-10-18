@@ -1,6 +1,7 @@
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Instant;
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::{domain, factory, json, project, terminal};
@@ -43,6 +44,47 @@ impl DaemonBackend {
             return Err(internal("invalid project identity".to_string()));
         }
         Ok(id)
+    }
+
+    fn tailnet_options(&self, body: &[u8], deadline: Instant) -> Result<Vec<u8>, BackendError> {
+        decode_tailnet_empty(body)?;
+        let data = self.tailnet.options(deadline).map_err(map_tailnet_err)?;
+        let mut options: serde_json::Value =
+            crate::json::decode_strict_as(&data).map_err(|_| BackendError::Internal)?;
+        if crate::tailnet_admission::GrantStore::default()
+            .admit(&self.companion.image, deadline)
+            .is_err()
+        {
+            options["available"] = false.into();
+            options["default"] = false.into();
+        }
+        serde_json::to_vec(&options).map_err(|_| BackendError::Internal)
+    }
+
+    fn tailnet_host(&self, body: &[u8], deadline: Instant) -> Result<Vec<u8>, BackendError> {
+        let request = crate::tcontrol_wire::decode_host_request(body).map_err(map_tailnet_err)?;
+        request.validate().map_err(map_tailnet_err)?;
+        let _admission = if !matches!(request.action.as_str(), "authentication" | "logout") {
+            Some(self.admit_tailnet_start(deadline)?)
+        } else {
+            None
+        };
+        self.tailnet
+            .host_action(body, deadline)
+            .map_err(map_tailnet_err)
+    }
+
+    fn tailnet_enrollment(&self, body: &[u8], deadline: Instant) -> Result<Vec<u8>, BackendError> {
+        let request =
+            crate::tcontrol_wire::decode_enrollment_request(body).map_err(map_tailnet_err)?;
+        let _admission = if matches!(request.action.as_str(), "save" | "rotate" | "check") {
+            Some(self.admit_tailnet_start(deadline)?)
+        } else {
+            None
+        };
+        self.tailnet
+            .enrollment(body, deadline)
+            .map_err(map_tailnet_err)
     }
 }
 
@@ -407,46 +449,9 @@ impl ExecBackend for DaemonBackend {
                 decode_tailnet_empty(body)?;
                 self.tailnet.settings(deadline).map_err(map_tailnet_err)
             }
-            "options" => {
-                decode_tailnet_empty(body)?;
-                let data = self.tailnet.options(deadline).map_err(map_tailnet_err)?;
-                let mut options: serde_json::Value =
-                    crate::json::decode_strict_as(&data).map_err(|_| BackendError::Internal)?;
-                if crate::tailnet_admission::GrantStore::default()
-                    .admit(&self.companion.image, deadline)
-                    .is_err()
-                {
-                    options["available"] = false.into();
-                    options["default"] = false.into();
-                }
-                serde_json::to_vec(&options).map_err(|_| BackendError::Internal)
-            }
-            "host" => {
-                let request =
-                    crate::tcontrol_wire::decode_host_request(body).map_err(map_tailnet_err)?;
-                request.validate().map_err(map_tailnet_err)?;
-                let _admission = if !matches!(request.action.as_str(), "authentication" | "logout")
-                {
-                    Some(self.admit_tailnet_start(deadline)?)
-                } else {
-                    None
-                };
-                self.tailnet
-                    .host_action(body, deadline)
-                    .map_err(map_tailnet_err)
-            }
-            "enrollment" => {
-                let request = crate::tcontrol_wire::decode_enrollment_request(body)
-                    .map_err(map_tailnet_err)?;
-                let _admission = if matches!(request.action.as_str(), "save" | "rotate" | "check") {
-                    Some(self.admit_tailnet_start(deadline)?)
-                } else {
-                    None
-                };
-                self.tailnet
-                    .enrollment(body, deadline)
-                    .map_err(map_tailnet_err)
-            }
+            "options" => self.tailnet_options(body, deadline),
+            "host" => self.tailnet_host(body, deadline),
+            "enrollment" => self.tailnet_enrollment(body, deadline),
             "project" | "policy" => self.tailnet_project_or_policy(action, body, deadline),
             "prepare" => self.tailnet_lifecycle_prepare(body, &self.release_payload),
             "lifecycle" => self.tailnet_lifecycle_report(body),

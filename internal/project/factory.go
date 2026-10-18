@@ -177,7 +177,7 @@ type FactoryRun struct {
 	ManifestDigest string    `json:"manifest_digest,omitempty"`
 }
 
-func (r FactoryRun) Validate() error {
+func (r FactoryRun) validateRunIdentity() error {
 	if !ValidFactoryRunID(r.ID) || !ValidID(r.Project) || !ValidFactoryRole(r.Role) {
 		return errors.New("invalid factory run identity")
 	}
@@ -205,6 +205,10 @@ func (r FactoryRun) Validate() error {
 	if r.Connection == "" || len(r.Connection) > 128 || r.Actor <= 0 {
 		return errors.New("invalid run sponsorship")
 	}
+	return nil
+}
+
+func (r FactoryRun) validateRunPhase() error {
 	if r.Deadline.IsZero() {
 		return errors.New("run deadline is required")
 	}
@@ -231,6 +235,13 @@ func (r FactoryRun) Validate() error {
 		return errors.New("non-implement run carries a manifest digest")
 	}
 	return nil
+}
+
+func (r FactoryRun) Validate() error {
+	if err := r.validateRunIdentity(); err != nil {
+		return err
+	}
+	return r.validateRunPhase()
 }
 
 // FactoryPromptDigest returns the canonical digest over prompt bytes. The

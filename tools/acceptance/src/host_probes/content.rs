@@ -19,12 +19,8 @@ fn image_config_id_matches(observed: &str, expected: &str) -> bool {
         && observed_hex == expected_hex
 }
 
-/// Verify installed runtime content from the current thin-host contract.
-/// Release-only proof/source files remain candidate-admission evidence.
-pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
-    if !matches!(phase, "activated" | "pre-activation") {
-        return Err(ProbeFailure::failed("select host phase"));
-    }
+/// Read and validate the installed release payload.
+fn read_release_payload() -> Result<PayloadV4, ProbeFailure> {
     let payload: PayloadV4 = serde_json::from_slice(&read_file(
         "/usr/share/soda/release.json",
         "read release.json",
@@ -33,18 +29,35 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
     payload
         .validate()
         .map_err(|_| ProbeFailure::failed("validate Payload v4"))?;
-    let content: BTreeMap<String, String> = serde_json::from_slice(&read_file(
+    Ok(payload)
+}
+
+/// Read the installed content inventory.
+fn read_content_inventory() -> Result<BTreeMap<String, String>, ProbeFailure> {
+    serde_json::from_slice(&read_file(
         "/usr/share/soda/host-image/content.json",
         "read content inventory",
     )?)
-    .map_err(|_| ProbeFailure::failed("parse content inventory"))?;
-    if !soda_build_tools::reader::candidate::valid_content(&content)
+    .map_err(|_| ProbeFailure::failed("parse content inventory"))
+}
+
+/// Check inventory shape and architecture against the payload.
+fn check_inventory_arch(
+    payload: &PayloadV4,
+    content: &BTreeMap<String, String>,
+) -> Result<(), ProbeFailure> {
+    if !soda_build_tools::reader::candidate::valid_content(content)
         || payload.architecture != std::env::consts::ARCH
     {
         return Err(ProbeFailure::exit(
             "installed inventory or architecture differs from release",
         ));
     }
+    Ok(())
+}
+
+/// Check the installed RPM inventory hash against the payload.
+fn check_package_inventory(payload: &PayloadV4) -> Result<(), ProbeFailure> {
     if sha256_file(
         Path::new("/usr/share/soda/host-image/packages.txt"),
         "read package inventory",
@@ -54,6 +67,11 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             "installed RPM inventory differs from release metadata",
         ));
     }
+    Ok(())
+}
+
+/// Check the installed catalog bytes against the payload projection.
+fn check_installed_catalog(payload: &PayloadV4) -> Result<(), ProbeFailure> {
     if read_file(
         "/usr/share/soda/extensions/catalog.json",
         "read installed catalog",
@@ -65,6 +83,11 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             "installed catalog differs from Payload v4",
         ));
     }
+    Ok(())
+}
+
+/// Check every acquired image config digest against the payload.
+fn check_acquired_images(payload: &PayloadV4) -> Result<(), ProbeFailure> {
     for role in Role::ALL {
         let config = &role.binding(&payload.images).config;
         let observed = podman(
@@ -78,42 +101,70 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             )));
         }
     }
-    for (name, expected) in &content {
+    Ok(())
+}
+
+/// Check one inventory entry from host bytes or its acquired image.
+fn check_runtime_entry(
+    payload: &PayloadV4,
+    name: &str,
+    expected: &str,
+    component: &str,
+    path: &str,
+) -> Result<(), ProbeFailure> {
+    let actual = if component == "host" {
+        sha256_file(Path::new(path), "read installed host content")?
+    } else if let Some(role) = Role::from_name(component) {
+        let output = podman(
+            &[
+                "run",
+                "--rm",
+                "--pull=never",
+                "--network=none",
+                "--read-only",
+                "--cap-drop=all",
+                "--security-opt=no-new-privileges",
+                "--entrypoint=/usr/bin/sha256sum",
+                &role.binding(&payload.images).config,
+                path,
+            ],
+            "read acquired image content",
+        )?;
+        output
+            .trim()
+            .strip_suffix(&format!("  {path}"))
+            .unwrap_or("")
+            .to_string()
+    } else {
+        return Ok(());
+    };
+    if actual != expected {
+        return Err(ProbeFailure::exit(format!(
+            "installed runtime content differs: {name}"
+        )));
+    }
+    Ok(())
+}
+
+/// Check the runtime content inventory entry by entry.
+fn check_runtime_content(
+    payload: &PayloadV4,
+    content: &BTreeMap<String, String>,
+) -> Result<(), ProbeFailure> {
+    for (name, expected) in content {
         let (component, path) = name
             .split_once(':')
             .ok_or_else(|| ProbeFailure::failed("parse content inventory"))?;
-        let actual = if component == "host" {
-            sha256_file(Path::new(path), "read installed host content")?
-        } else if let Some(role) = Role::from_name(component) {
-            let output = podman(
-                &[
-                    "run",
-                    "--rm",
-                    "--pull=never",
-                    "--network=none",
-                    "--read-only",
-                    "--cap-drop=all",
-                    "--security-opt=no-new-privileges",
-                    "--entrypoint=/usr/bin/sha256sum",
-                    &role.binding(&payload.images).config,
-                    path,
-                ],
-                "read acquired image content",
-            )?;
-            output
-                .trim()
-                .strip_suffix(&format!("  {path}"))
-                .unwrap_or("")
-                .to_string()
-        } else {
-            continue;
-        };
-        if &actual != expected {
-            return Err(ProbeFailure::exit(format!(
-                "installed runtime content differs: {name}"
-            )));
-        }
+        check_runtime_entry(payload, name, expected, component, path)?;
     }
+    Ok(())
+}
+
+/// Check catalog packages against the inventory, verifying required ones.
+fn check_extension_packages(
+    payload: &PayloadV4,
+    content: &BTreeMap<String, String>,
+) -> Result<(), ProbeFailure> {
     for package in &payload.extension_catalog.packages {
         let name = package
             .url
@@ -128,55 +179,53 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             check_required_package(Path::new("/var/lib/soda/forgejo/gitea/extensions"), package)?;
         }
     }
+    Ok(())
+}
+
+/// Verify installed runtime content from the current thin-host contract.
+/// Release-only proof/source files remain candidate-admission evidence.
+pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
+    if !matches!(phase, "activated" | "pre-activation") {
+        return Err(ProbeFailure::failed("select host phase"));
+    }
+    let payload = read_release_payload()?;
+    let content = read_content_inventory()?;
+    check_inventory_arch(&payload, &content)?;
+    check_package_inventory(&payload)?;
+    check_installed_catalog(&payload)?;
+    check_acquired_images(&payload)?;
+    check_runtime_content(&payload, &content)?;
+    check_extension_packages(&payload, &content)?;
     Ok("Installed Payload v4, six acquired image configs, runtime inventory and required Soda package bytes match. Optional lifecycle and release-only source evidence remain separate.\n".into())
 }
 
-fn check_required_package(root: &Path, package: &FountainPackage) -> Result<(), ProbeFailure> {
-    let installed = root.join(&package.id);
-    let receipt_path = installed.join(".fountain-package.json");
-    #[derive(serde::Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Receipt {
-        schema: u32,
-        package_id: String,
-        package_version: String,
-        archive_sha256: String,
-    }
-    let receipt: Receipt = serde_json::from_slice(
-        &std::fs::read(&receipt_path)
-            .map_err(|_| ProbeFailure::failed("read native package receipt"))?,
-    )
-    .map_err(|_| ProbeFailure::failed("parse native package receipt"))?;
-    if receipt.schema != 1
-        || receipt.package_id != package.id
-        || receipt.package_version != package.version
-        || receipt.archive_sha256 != package.sha256
-    {
-        return Err(ProbeFailure::exit(
-            "required package receipt differs from catalog",
-        ));
-    }
-    let cache = root
-        .join(".cache/packages")
-        .join(format!("{}.tar.gz", package.sha256));
-    let file = std::fs::File::open(&cache)
+/// Open the verified package cache after size and hash checks.
+fn verify_package_cache(
+    cache: &Path,
+    package: &FountainPackage,
+) -> Result<std::fs::File, ProbeFailure> {
+    let file = std::fs::File::open(cache)
         .map_err(|_| ProbeFailure::failed("read verified package cache"))?;
     if file
         .metadata()
         .map_err(|_| ProbeFailure::failed("read package size"))?
         .len()
         != package.size
-        || sha256_file(&cache, "hash cached package")? != package.sha256
+        || sha256_file(cache, "hash cached package")? != package.sha256
     {
         return Err(ProbeFailure::exit(
             "required package cache differs from catalog",
         ));
     }
+    Ok(file)
+}
+
+/// Collect archive member hashes into the expected installed set.
+fn collect_archive_members(
+    file: std::fs::File,
+    expected: &mut BTreeMap<String, String>,
+) -> Result<(), ProbeFailure> {
     let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
-    let mut expected = BTreeMap::from([(
-        ".fountain-package.json".to_string(),
-        sha256_file(&receipt_path, "hash package receipt")?,
-    )]);
     let mut total = 0u64;
     for entry in archive
         .entries()
@@ -224,6 +273,43 @@ fn check_required_package(root: &Path, package: &FountainPackage) -> Result<(), 
             return Err(ProbeFailure::exit("duplicate cached package member"));
         }
     }
+    Ok(())
+}
+
+fn check_required_package(root: &Path, package: &FountainPackage) -> Result<(), ProbeFailure> {
+    let installed = root.join(&package.id);
+    let receipt_path = installed.join(".fountain-package.json");
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Receipt {
+        schema: u32,
+        package_id: String,
+        package_version: String,
+        archive_sha256: String,
+    }
+    let receipt: Receipt = serde_json::from_slice(
+        &std::fs::read(&receipt_path)
+            .map_err(|_| ProbeFailure::failed("read native package receipt"))?,
+    )
+    .map_err(|_| ProbeFailure::failed("parse native package receipt"))?;
+    if receipt.schema != 1
+        || receipt.package_id != package.id
+        || receipt.package_version != package.version
+        || receipt.archive_sha256 != package.sha256
+    {
+        return Err(ProbeFailure::exit(
+            "required package receipt differs from catalog",
+        ));
+    }
+    let cache = root
+        .join(".cache/packages")
+        .join(format!("{}.tar.gz", package.sha256));
+    let file = verify_package_cache(&cache, package)?;
+    let mut expected = BTreeMap::from([(
+        ".fountain-package.json".to_string(),
+        sha256_file(&receipt_path, "hash package receipt")?,
+    )]);
+    collect_archive_members(file, &mut expected)?;
     check_extension_package(&installed, expected)
 }
 

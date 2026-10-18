@@ -44,40 +44,54 @@ func (c LifecycleConfig) Validate() error {
 	}
 	switch c.Event {
 	case LifecycleEventIssueCreated:
-		if len(c.ReviewerIDs) > 0 || c.Note != "" {
-			return ErrLifecycleAction
-		}
-		if c.Enabled && c.LabelID == 0 && c.AssigneeID == 0 {
-			return ErrLifecycleAction
-		}
+		return checkIssueCreatedConfig(c)
 	case LifecycleEventPRCreated:
-		if len(c.ReviewerIDs) > MaxLifecycleReviewers {
-			return ErrLifecycleAction
-		}
-		seen := map[int64]bool{}
-		for _, id := range c.ReviewerIDs {
-			if seen[id] {
-				return ErrLifecycleAction
-			}
-			seen[id] = true
-		}
-		if c.LabelID != 0 || c.AssigneeID != 0 || c.Note != "" {
-			return ErrLifecycleAction
-		}
-		if c.Enabled && len(c.ReviewerIDs) == 0 {
-			return ErrLifecycleAction
-		}
+		return checkPRCreatedConfig(c)
 	case LifecycleEventVerifiedMerge:
-		if c.Note != "" && (strings.TrimSpace(c.Note) == "" || utf8.RuneCountInString(c.Note) > MaxCompletionNoteChars || strings.ContainsRune(c.Note, 0) || !utf8.ValidString(c.Note)) {
-			return ErrLifecycleAction
-		}
-		if c.LabelID != 0 || c.AssigneeID != 0 || len(c.ReviewerIDs) > 0 {
-			return ErrLifecycleAction
-		}
-		if c.Enabled && strings.TrimSpace(c.Note) == "" {
-			return ErrLifecycleAction
-		}
+		return checkVerifiedMergeConfig(c)
 	default:
+		return ErrLifecycleAction
+	}
+}
+
+func checkIssueCreatedConfig(c LifecycleConfig) error {
+	if len(c.ReviewerIDs) > 0 || c.Note != "" {
+		return ErrLifecycleAction
+	}
+	if c.Enabled && c.LabelID == 0 && c.AssigneeID == 0 {
+		return ErrLifecycleAction
+	}
+	return nil
+}
+
+func checkPRCreatedConfig(c LifecycleConfig) error {
+	if len(c.ReviewerIDs) > MaxLifecycleReviewers {
+		return ErrLifecycleAction
+	}
+	seen := map[int64]bool{}
+	for _, id := range c.ReviewerIDs {
+		if seen[id] {
+			return ErrLifecycleAction
+		}
+		seen[id] = true
+	}
+	if c.LabelID != 0 || c.AssigneeID != 0 || c.Note != "" {
+		return ErrLifecycleAction
+	}
+	if c.Enabled && len(c.ReviewerIDs) == 0 {
+		return ErrLifecycleAction
+	}
+	return nil
+}
+
+func checkVerifiedMergeConfig(c LifecycleConfig) error {
+	if c.Note != "" && (strings.TrimSpace(c.Note) == "" || utf8.RuneCountInString(c.Note) > MaxCompletionNoteChars || strings.ContainsRune(c.Note, 0) || !utf8.ValidString(c.Note)) {
+		return ErrLifecycleAction
+	}
+	if c.LabelID != 0 || c.AssigneeID != 0 || len(c.ReviewerIDs) > 0 {
+		return ErrLifecycleAction
+	}
+	if c.Enabled && strings.TrimSpace(c.Note) == "" {
 		return ErrLifecycleAction
 	}
 	return nil

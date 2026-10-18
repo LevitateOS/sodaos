@@ -259,7 +259,7 @@ pub struct FactoryRun {
 }
 
 impl FactoryRun {
-    pub fn validate(&self) -> Result<(), String> {
+    fn validate_run_identity(&self) -> Result<(), String> {
         if !valid_factory_run_id(&self.id)
             || !domain::valid_id(&self.project)
             || !preparation::valid_factory_role(&self.role)
@@ -269,6 +269,10 @@ impl FactoryRun {
         if !preparation::valid_preparation_id(&self.preparation) {
             return Err("invalid run preparation reference".to_string());
         }
+        Ok(())
+    }
+
+    fn validate_run_harness_model(&self) -> Result<(), String> {
         if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
         }
@@ -282,6 +286,10 @@ impl FactoryRun {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn validate_run_assignment_deadline(&self) -> Result<(), String> {
         if !preparation::valid_digest(&self.assignment)
             || !preparation::valid_commit(&self.source_commit)
         {
@@ -296,6 +304,10 @@ impl FactoryRun {
         {
             return Err("run deadline is required".to_string());
         }
+        Ok(())
+    }
+
+    fn validate_run_phase(&self) -> Result<(), String> {
         if !valid_execution_phase(&self.execution_phase) {
             return Err("invalid run execution phase".to_string());
         }
@@ -308,6 +320,10 @@ impl FactoryRun {
         if self.execution_phase == EXECUTION_VERIFY && self.role != preparation::ROLE_REVIEWER {
             return Err("verify run requires the reviewer role".to_string());
         }
+        Ok(())
+    }
+
+    fn validate_run_manifest(&self) -> Result<(), String> {
         if execution_manifest_required(&self.execution_phase) {
             if !preparation::valid_digest(&self.manifest_digest) {
                 if self.execution_phase == EXECUTION_CORRECT {
@@ -318,6 +334,15 @@ impl FactoryRun {
         } else if !self.manifest_digest.is_empty() {
             return Err("non-implement run carries a manifest digest".to_string());
         }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        self.validate_run_identity()?;
+        self.validate_run_harness_model()?;
+        self.validate_run_assignment_deadline()?;
+        self.validate_run_phase()?;
+        self.validate_run_manifest()?;
         Ok(())
     }
 

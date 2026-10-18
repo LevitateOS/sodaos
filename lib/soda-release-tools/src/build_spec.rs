@@ -88,18 +88,18 @@ impl Request {
     }
 }
 
-/// Public rootfs URL admission uses WHATWG host parsing for loopback policy.
-pub fn media_base_url(value: &str) -> Result<(), String> {
-    let failed = "explicit public HTTP(S) rootfs base URL required".to_owned();
-    let loopback =
-        "rootfs base URL must be reachable from the installing machine, not loopback".to_owned();
+fn check_url_prefix(value: &str, failed: &str) -> Result<(), String> {
     if value.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(value)
     {
-        return Err(failed);
+        return Err(failed.to_owned());
     }
     if !(value.starts_with("https://") || value.starts_with("http://")) {
-        return Err(failed);
+        return Err(failed.to_owned());
     }
+    Ok(())
+}
+
+fn check_url_authority(value: &str, failed: &str) -> Result<(), String> {
     let rest = value.split_once("://").map(|(_, rest)| rest).unwrap_or("");
     let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
     if authority.is_empty()
@@ -110,25 +110,38 @@ pub fn media_base_url(value: &str) -> Result<(), String> {
                 .split_once(']')
                 .is_some_and(|(inside, _)| inside.contains('%'))
     {
-        return Err(failed);
+        return Err(failed.to_owned());
     }
-    let parsed = Url::parse(value).map_err(|_| failed.clone())?;
+    Ok(())
+}
+
+fn check_url_host(value: &str, failed: &str, loopback: &str) -> Result<(), String> {
+    let parsed = Url::parse(value).map_err(|_| failed.to_owned())?;
     if !matches!(parsed.scheme(), "http" | "https")
         || parsed.host_str().is_none_or(str::is_empty)
         || parsed.query().is_some_and(|query| !query.is_empty())
     {
-        return Err(failed);
+        return Err(failed.to_owned());
     }
-    let host = parsed.host().ok_or_else(|| failed.clone())?;
+    let host = parsed.host().ok_or_else(|| failed.to_owned())?;
     let is_loopback = match host {
         Host::Domain(domain) => domain.eq_ignore_ascii_case("localhost"),
         Host::Ipv4(ip) => ip.is_loopback(),
         Host::Ipv6(ip) => ip.is_loopback(),
     };
     if is_loopback {
-        return Err(loopback);
+        return Err(loopback.to_owned());
     }
     Ok(())
+}
+
+/// Public rootfs URL admission uses WHATWG host parsing for loopback policy.
+pub fn media_base_url(value: &str) -> Result<(), String> {
+    let failed = "explicit public HTTP(S) rootfs base URL required";
+    let loopback = "rootfs base URL must be reachable from the installing machine, not loopback";
+    check_url_prefix(value, failed)?;
+    check_url_authority(value, failed)?;
+    check_url_host(value, failed, loopback)
 }
 
 fn valid_percent_escapes(value: &str) -> bool {

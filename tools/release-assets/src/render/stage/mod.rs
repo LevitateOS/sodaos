@@ -62,10 +62,7 @@ pub fn check_contexts(
     Ok((stage, forgejo))
 }
 
-/// Stage the tree into already-validated contexts.
-pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<(), StageError> {
-    let build = source.join(".artifacts/native").join(arch);
-
+fn stage_branding_assets(source: &Path, stage: &Path, build: &Path) -> Result<(), StageError> {
     // Programs/units/configuration are already emitted directly by Go.
     // Public, pinned tools only; runtime credentials never enter a build context.
     for name in ["muse", "muse-native", "soda-identity-compose"] {
@@ -131,6 +128,10 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
         .map_err(|e| StageError::failure(e.to_string()))?;
     chmod(&brand, 0o755).map_err(StageError::failure)?;
     normalize_tree(&brand)?;
+    Ok(())
+}
+
+fn stage_forgejo_context(source: &Path, forgejo: &Path) -> Result<(), StageError> {
     // Adapt directly to the final Forgejo build context for vendor images.
     mkdir_fresh(forgejo)?;
     chmod(forgejo, 0o755).map_err(StageError::failure)?;
@@ -173,11 +174,16 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
     // copytree/copy2 preserve checkout modes (a private worktree may be 0700/0600).
     // Normalize only this run-owned public adaptation, never canonical source assets.
     normalize_tree(&custom)?;
-    // Exact reviewed presentation payload: templates, local assets, fonts/notices and
-    // generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
-    let payload = payload_entries(source)?;
+    Ok(())
+}
+
+fn stage_payload_fonts(
+    source: &Path,
+    stage: &Path,
+    payload: &[(String, String)],
+) -> Result<(), StageError> {
     // Branding uses the same reviewed font files/notices, not a Cockpit extension.
-    for (dest, origin) in &payload {
+    for (dest, origin) in payload {
         if let Some(relative) = dest.strip_prefix("public/assets/soda/fonts/") {
             copy(
                 stage,
@@ -187,51 +193,80 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
             )?;
         }
     }
-    let locked = locked_terminal_assets(source)?;
-    for (name, origin) in &payload {
-        let dest = Path::new(name);
-        if dest.is_absolute()
-            || dest
-                .components()
-                .any(|c| c == std::path::Component::ParentDir)
-        {
-            return Err(StageError::refusal("invalid Forgejo payload destination"));
-        }
-        let src = payload_source(source, &build, origin);
-        let meta = std::fs::symlink_metadata(&src);
-        if meta.is_err() || meta.is_ok_and(|m| m.file_type().is_symlink()) || !src.is_file() {
-            return Err(StageError::refusal(
-                "missing or unsafe Forgejo payload input",
-            ));
-        }
-        if origin.starts_with("@build/terminal-assets/") {
-            let data = std::fs::read(&src).map_err(|e| StageError::failure(e.to_string()))?;
-            let file = src
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_default();
-            match locked.get(file) {
-                Some(pinned) if sha256_hex(&data) == *pinned => {}
-                Some(_) => {
-                    return Err(StageError::refusal(
-                        "terminal asset differs from locked upstream bytes",
-                    ));
-                }
-                None => {
-                    return Err(StageError::failure(format!(
-                        "terminal asset {file} has no locked bytes"
-                    )));
-                }
+    Ok(())
+}
+
+fn copy_payload_entry(
+    source: &Path,
+    build: &Path,
+    forgejo: &Path,
+    locked: &std::collections::HashMap<String, String>,
+    name: &str,
+    origin: &str,
+) -> Result<(), StageError> {
+    let dest = Path::new(name);
+    if dest.is_absolute()
+        || dest
+            .components()
+            .any(|c| c == std::path::Component::ParentDir)
+    {
+        return Err(StageError::refusal("invalid Forgejo payload destination"));
+    }
+    let src = payload_source(source, build, origin);
+    let meta = std::fs::symlink_metadata(&src);
+    if meta.is_err() || meta.is_ok_and(|m| m.file_type().is_symlink()) || !src.is_file() {
+        return Err(StageError::refusal(
+            "missing or unsafe Forgejo payload input",
+        ));
+    }
+    if origin.starts_with("@build/terminal-assets/") {
+        let data = std::fs::read(&src).map_err(|e| StageError::failure(e.to_string()))?;
+        let file = src
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        match locked.get(file) {
+            Some(pinned) if sha256_hex(&data) == *pinned => {}
+            Some(_) => {
+                return Err(StageError::refusal(
+                    "terminal asset differs from locked upstream bytes",
+                ));
             }
-        }
-        let target = copy(forgejo, &src, name, Some(0o644))?;
-        for parent in target.ancestors().skip(1) {
-            chmod(parent, 0o755).map_err(StageError::failure)?;
-            if parent == forgejo {
-                break;
+            None => {
+                return Err(StageError::failure(format!(
+                    "terminal asset {file} has no locked bytes"
+                )));
             }
         }
     }
+    let target = copy(forgejo, &src, name, Some(0o644))?;
+    for parent in target.ancestors().skip(1) {
+        chmod(parent, 0o755).map_err(StageError::failure)?;
+        if parent == forgejo {
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn stage_forgejo_payload(
+    source: &Path,
+    stage: &Path,
+    build: &Path,
+    forgejo: &Path,
+) -> Result<(), StageError> {
+    // Exact reviewed presentation payload: templates, local assets, fonts/notices and
+    // generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
+    let payload = payload_entries(source)?;
+    stage_payload_fonts(source, stage, &payload)?;
+    let locked = locked_terminal_assets(source)?;
+    for (name, origin) in &payload {
+        copy_payload_entry(source, build, forgejo, &locked, name, origin)?;
+    }
+    Ok(())
+}
+
+fn stage_terminal_text(source: &Path, stage: &Path) -> Result<(), StageError> {
     // MOTD is plain text; fastfetch alone interprets the logo's color placeholders.
     copy(
         stage,
@@ -270,4 +305,13 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
         Some(0o644),
     )?;
     Ok(())
+}
+
+/// Stage the tree into already-validated contexts.
+pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<(), StageError> {
+    let build = source.join(".artifacts/native").join(arch);
+    stage_branding_assets(source, stage, &build)?;
+    stage_forgejo_context(source, forgejo)?;
+    stage_forgejo_payload(source, stage, &build, forgejo)?;
+    stage_terminal_text(source, stage)
 }

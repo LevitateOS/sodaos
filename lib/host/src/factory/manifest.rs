@@ -74,6 +74,91 @@ impl<'de> Deserialize<'de> for PlanBytes {
     }
 }
 
+fn visit_manifest_bytes<'de, A>(
+    map: &mut A,
+    out: &mut ExecutionManifest,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !key.eq_ignore_ascii_case("plan") {
+        return Ok(false);
+    }
+    if let Some(v) = map.next_value::<Option<PlanBytes>>()? {
+        out.plan = v.0;
+    }
+    Ok(true)
+}
+
+fn visit_manifest_text<'de, A>(
+    map: &mut A,
+    out: &mut ExecutionManifest,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("plan_digest") {
+        Some(&mut out.plan_digest)
+    } else if key.eq_ignore_ascii_case("invocation") {
+        Some(&mut out.invocation)
+    } else if key.eq_ignore_ascii_case("phase") {
+        Some(&mut out.phase)
+    } else if key.eq_ignore_ascii_case("run") {
+        Some(&mut out.run)
+    } else if key.eq_ignore_ascii_case("deadline") {
+        Some(&mut out.deadline)
+    } else if key.eq_ignore_ascii_case("effort") {
+        Some(&mut out.effort)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_manifest_flag<'de, A>(
+    map: &mut A,
+    out: &mut ExecutionManifest,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !key.eq_ignore_ascii_case("contributor") {
+        return Ok(false);
+    }
+    if let Some(v) = map.next_value::<Option<bool>>()? {
+        out.contributor = v;
+    }
+    Ok(true)
+}
+
+fn visit_manifest_children<'de, A>(
+    map: &mut A,
+    out: &mut ExecutionManifest,
+    seen: &mut bool,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !key.eq_ignore_ascii_case("max_children") {
+        return Ok(false);
+    }
+    if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+        out.max_children = v.into();
+        *seen = true;
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for ExecutionManifest {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -92,59 +177,16 @@ impl<'de> Deserialize<'de> for ExecutionManifest {
                 let mut out = ExecutionManifest::default();
                 let mut max_children_seen = false;
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("plan") {
-                        if let Some(v) = map.next_value::<Option<PlanBytes>>()? {
-                            out.plan = v.0;
-                        }
+                    if visit_manifest_bytes(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("plan_digest") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.plan_digest = v;
-                        }
+                    if visit_manifest_text(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("invocation") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.invocation = v;
-                        }
+                    if visit_manifest_flag(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("phase") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.phase = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("run") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.run = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("deadline") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.deadline = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("effort") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.effort = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("contributor") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.contributor = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("max_children") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.max_children = v.into();
-                            max_children_seen = true;
-                        }
+                    if visit_manifest_children(&mut map, &mut out, &mut max_children_seen, &key)? {
                         continue;
                     }
                     return Err(de::Error::unknown_field(

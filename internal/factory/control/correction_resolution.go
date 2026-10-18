@@ -141,57 +141,80 @@ func ReconcileAcceptedResolutionsWithUnion(acceptance factory.DeliveryAcceptance
 	if err := cycle.Validate(); err != nil {
 		return empty, err
 	}
-	if acceptance.PublicationID != cycle.PublicationID || acceptance.AttemptRoot != cycle.AttemptRoot || acceptance.Round != cycle.Round {
-		return empty, errors.New("delivery acceptance answers another review round")
-	}
-	if admission.CycleID == "" || admission.CycleID != cycle.ID {
-		return empty, errors.New("accepted resolutions answer another review cycle")
-	}
-	if admission.SetDigest != cycle.FindingDigest {
-		return empty, errors.New("accepted resolutions answer a changed finding set")
-	}
-	if acceptance.Tuple.Head != cycle.Head || acceptance.Tuple.Base != cycle.BaseOID {
-		return empty, errors.New("delivery acceptance answers a superseded tuple")
+	if err := checkAcceptanceRound(acceptance, cycle, admission); err != nil {
+		return empty, err
 	}
 	switch acceptance.Kind {
 	case factory.AcceptanceCleanReview:
-		if len(acceptance.ResolutionIntents) != 0 {
-			return empty, errors.New("clean review resolves no native thread")
-		}
-		for _, item := range planned {
-			if !item.NoNativeThread {
-				return empty, errors.New("clean acceptance leaves no thread to resolve")
-			}
+		if err := checkCleanAcceptanceResolutions(acceptance, planned); err != nil {
+			return empty, err
 		}
 	case factory.AcceptanceJevAcceptance:
-		intents := make(map[string]bool, len(acceptance.ResolutionIntents))
-		for _, intent := range acceptance.ResolutionIntents {
-			intents[intent] = true
-		}
-		for _, item := range planned {
-			if item.NoNativeThread {
-				continue
-			}
-			if !intents[item.OperationID] {
-				return empty, errors.New("accepted resolution lacks its funded intent")
-			}
-		}
-		for intent := range intents {
-			known := false
-			for _, item := range planned {
-				if !item.NoNativeThread && item.OperationID == intent {
-					known = true
-					break
-				}
-			}
-			if !known {
-				return empty, errors.New("funded intent answers an unplanned resolution")
-			}
+		if err := checkFundedAcceptanceResolutions(acceptance, planned); err != nil {
+			return empty, err
 		}
 	default:
 		return empty, errors.New("invalid delivery acceptance kind")
 	}
 	return reconcilePlannedResolutions(admission, planned, confirmed)
+}
+
+func checkAcceptanceRound(acceptance factory.DeliveryAcceptance, cycle factory.ReviewCycle, admission CorrectionAdmission) error {
+	if acceptance.PublicationID != cycle.PublicationID || acceptance.AttemptRoot != cycle.AttemptRoot || acceptance.Round != cycle.Round {
+		return errors.New("delivery acceptance answers another review round")
+	}
+	if admission.CycleID == "" || admission.CycleID != cycle.ID {
+		return errors.New("accepted resolutions answer another review cycle")
+	}
+	if admission.SetDigest != cycle.FindingDigest {
+		return errors.New("accepted resolutions answer a changed finding set")
+	}
+	if acceptance.Tuple.Head != cycle.Head || acceptance.Tuple.Base != cycle.BaseOID {
+		return errors.New("delivery acceptance answers a superseded tuple")
+	}
+	return nil
+}
+
+func checkCleanAcceptanceResolutions(acceptance factory.DeliveryAcceptance, planned []AcceptedResolution) error {
+	if len(acceptance.ResolutionIntents) != 0 {
+		return errors.New("clean review resolves no native thread")
+	}
+	for _, item := range planned {
+		if !item.NoNativeThread {
+			return errors.New("clean acceptance leaves no thread to resolve")
+		}
+	}
+	return nil
+}
+
+func checkFundedAcceptanceResolutions(acceptance factory.DeliveryAcceptance, planned []AcceptedResolution) error {
+	intents := make(map[string]bool, len(acceptance.ResolutionIntents))
+	for _, intent := range acceptance.ResolutionIntents {
+		intents[intent] = true
+	}
+	for _, item := range planned {
+		if item.NoNativeThread {
+			continue
+		}
+		if !intents[item.OperationID] {
+			return errors.New("accepted resolution lacks its funded intent")
+		}
+	}
+	for intent := range intents {
+		if !plannedResolutionKnown(planned, intent) {
+			return errors.New("funded intent answers an unplanned resolution")
+		}
+	}
+	return nil
+}
+
+func plannedResolutionKnown(planned []AcceptedResolution, intent string) bool {
+	for _, item := range planned {
+		if !item.NoNativeThread && item.OperationID == intent {
+			return true
+		}
+	}
+	return false
 }
 
 // ReconcileAcceptedResolutions reconciles one accepted correction's intended

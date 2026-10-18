@@ -34,28 +34,19 @@ func (s *Store) SavePlanningAllowance(ctx context.Context, a factory.PlanningAll
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_allowance_heads(intent,owner_id,revision) VALUES($1,$2,'') ON CONFLICT(intent) DO NOTHING`, a.Intent, a.Owner)
+	head, owner, err := lockPlanningAllowanceHeadTx(ctx, tx, a)
 	if err != nil {
-		return err
-	}
-	var head string
-	var owner int64
-	if err = tx.QueryRowContext(ctx, `SELECT revision,owner_id FROM factory_intent_allowance_heads WHERE intent=$1 FOR UPDATE`, a.Intent).Scan(&head, &owner); err != nil {
 		return err
 	}
 	if owner != a.Owner {
 		return ErrCommandConflict
 	}
 	if head == a.ID {
-		var old []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, a.ID).Scan(&old); err != nil {
+		duplicate, err := confirmPlanningAllowanceDuplicateTx(ctx, tx, a, raw)
+		if err != nil {
 			return err
 		}
-		same, e := sameJSONDocument(ctx, tx, old, raw)
-		if e != nil {
-			return e
-		}
-		if !same {
+		if !duplicate {
 			return ErrCommandConflict
 		}
 		return tx.Commit()
@@ -63,24 +54,8 @@ func (s *Store) SavePlanningAllowance(ctx context.Context, a factory.PlanningAll
 	if head != a.Predecessor {
 		return ErrStaleRevision
 	}
-	if head != "" {
-		var headRaw []byte
-		var old factory.PlanningAllowance
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, head).Scan(&headRaw); err != nil {
-			return err
-		}
-		if err = json.Unmarshal(headRaw, &old); err != nil {
-			return err
-		}
-		if old.Intent != a.Intent || old.Owner != a.Owner || old.Unit != a.Unit {
-			return errors.New("allowance identity is immutable")
-		}
-		if a.Consumed < old.Consumed || a.Reserved+a.Consumed < old.Reserved+old.Consumed {
-			return errors.New("allowance consumption cannot decrease")
-		}
-		if a.Amount > old.Amount && a.Effect == "" {
-			return errors.New("allowance increase must state its effect")
-		}
+	if err := checkPlanningAllowanceTransitionTx(ctx, tx, a, head); err != nil {
+		return err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_allowances(id,intent,data) VALUES($1,$2,$3)`, a.ID, a.Intent, string(raw)); err != nil {
 		return err
@@ -89,6 +64,51 @@ func (s *Store) SavePlanningAllowance(ctx context.Context, a factory.PlanningAll
 		return err
 	}
 	return tx.Commit()
+}
+
+func lockPlanningAllowanceHeadTx(ctx context.Context, tx *sql.Tx, a factory.PlanningAllowance) (string, int64, error) {
+	_, err := tx.ExecContext(ctx, `INSERT INTO factory_intent_allowance_heads(intent,owner_id,revision) VALUES($1,$2,'') ON CONFLICT(intent) DO NOTHING`, a.Intent, a.Owner)
+	if err != nil {
+		return "", 0, err
+	}
+	var head string
+	var owner int64
+	if err = tx.QueryRowContext(ctx, `SELECT revision,owner_id FROM factory_intent_allowance_heads WHERE intent=$1 FOR UPDATE`, a.Intent).Scan(&head, &owner); err != nil {
+		return "", 0, err
+	}
+	return head, owner, nil
+}
+
+func confirmPlanningAllowanceDuplicateTx(ctx context.Context, tx *sql.Tx, a factory.PlanningAllowance, raw []byte) (bool, error) {
+	var old []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, a.ID).Scan(&old); err != nil {
+		return false, err
+	}
+	return sameJSONDocument(ctx, tx, old, raw)
+}
+
+func checkPlanningAllowanceTransitionTx(ctx context.Context, tx *sql.Tx, a factory.PlanningAllowance, head string) error {
+	if head == "" {
+		return nil
+	}
+	var headRaw []byte
+	var old factory.PlanningAllowance
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, head).Scan(&headRaw); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(headRaw, &old); err != nil {
+		return err
+	}
+	if old.Intent != a.Intent || old.Owner != a.Owner || old.Unit != a.Unit {
+		return errors.New("allowance identity is immutable")
+	}
+	if a.Consumed < old.Consumed || a.Reserved+a.Consumed < old.Reserved+old.Consumed {
+		return errors.New("allowance consumption cannot decrease")
+	}
+	if a.Amount > old.Amount && a.Effect == "" {
+		return errors.New("allowance increase must state its effect")
+	}
+	return nil
 }
 
 func (s *Store) PlanningAllowance(ctx context.Context, intent string, owner int64) (factory.PlanningAllowance, error) {

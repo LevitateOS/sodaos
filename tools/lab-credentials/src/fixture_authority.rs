@@ -96,23 +96,8 @@ fn stage_file(path: &str, bytes: &[u8]) -> Result<(), Exit> {
         .map_err(|_| Exit::Fail(format!("cannot write staged file {path}")))
 }
 
-pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
-    if env_or("SODA_ROTATE_ACK", "") != "fixture-authority" {
-        return fail("refusing: set SODA_ROTATE_ACK=fixture-authority to execute");
-    }
-    if command_v("skopeo").is_none() {
-        return fail("skopeo required");
-    }
-    let owner = tempfile::Builder::new()
-        .prefix("tmp")
-        .permissions(fs::Permissions::from_mode(0o700))
-        .tempdir()
-        .map_err(|_| Exit::Fail("cannot stage secrets".to_owned()))?;
-    let tmpd = owner.path().to_string_lossy().into_owned();
-    cleanup.push(owner.path().to_path_buf());
-    let staged_passphrase = format!("{tmpd}/passphrase");
-    stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
-    run("chmod", &["0600", &staged_passphrase])?;
+/// Generate one passphrase-protected sigstore key per release role.
+fn generate_role_keys(tmpd: &str, staged_passphrase: &str) -> Result<(), Exit> {
     for role in ["artifact", "candidate", "preview", "stable"] {
         let output_prefix = format!("{tmpd}/{role}");
         run_stdout_null(
@@ -122,12 +107,15 @@ pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(),
                 "--output-prefix",
                 &output_prefix,
                 "--passphrase-file",
-                &staged_passphrase,
+                staged_passphrase,
             ],
         )?;
     }
-    let now = unix_now()?;
-    let prefix = env_or("SODA_REPOSITORY_PREFIX", PREFIX_DEFAULT);
+    Ok(())
+}
+
+/// Stage the trust bundle and daemon config from the fresh public keys.
+fn stage_authority_bundle(tmpd: &str, prefix: &str, now: u64) -> Result<(), Exit> {
     let pubs = [
         read_staged(&format!("{tmpd}/artifact.pub"))?,
         read_staged(&format!("{tmpd}/candidate.pub"))?,
@@ -136,9 +124,15 @@ pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(),
     ];
     stage_file(
         &format!("{tmpd}/trust.json"),
-        trust_json(&prefix, now, [&pubs[0], &pubs[1], &pubs[2], &pubs[3]]).as_bytes(),
+        trust_json(prefix, now, [&pubs[0], &pubs[1], &pubs[2], &pubs[3]]).as_bytes(),
     )?;
     stage_file(&format!("{tmpd}/config.json"), config_json().as_bytes())?;
+    Ok(())
+}
+
+/// Install the staged bundle under the authority directory and hand it
+/// to the worker user.
+fn install_authority_files(tmpd: &str) -> Result<(), Exit> {
     let trust_path = format!("{AUTHORITY}/trust.json");
     let artifact_path = format!("{AUTHORITY}/artifact.private");
     let passphrase_path = format!("{AUTHORITY}/passphrase");
@@ -168,6 +162,31 @@ pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(),
             &config_path,
         ],
     )?;
+    Ok(())
+}
+
+pub(crate) fn rotate_fixture_authority(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
+    if env_or("SODA_ROTATE_ACK", "") != "fixture-authority" {
+        return fail("refusing: set SODA_ROTATE_ACK=fixture-authority to execute");
+    }
+    if command_v("skopeo").is_none() {
+        return fail("skopeo required");
+    }
+    let owner = tempfile::Builder::new()
+        .prefix("tmp")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .map_err(|_| Exit::Fail("cannot stage secrets".to_owned()))?;
+    let tmpd = owner.path().to_string_lossy().into_owned();
+    cleanup.push(owner.path().to_path_buf());
+    let staged_passphrase = format!("{tmpd}/passphrase");
+    stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
+    run("chmod", &["0600", &staged_passphrase])?;
+    generate_role_keys(&tmpd, &staged_passphrase)?;
+    let now = unix_now()?;
+    let prefix = env_or("SODA_REPOSITORY_PREFIX", PREFIX_DEFAULT);
+    stage_authority_bundle(&tmpd, &prefix, now)?;
+    install_authority_files(&tmpd)?;
     // Remove staging before the final line, not only at process exit: the
     // script's trap on EXIT also runs when the shell itself dies on SIGPIPE,
     // so a closed stdout at this print must not leave secrets in /tmp.

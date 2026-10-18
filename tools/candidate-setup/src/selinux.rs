@@ -27,17 +27,8 @@ pub(super) fn selinux_has_type(path: &str, marker: &str) -> bool {
     }
 }
 
-/// Install the worker SELinux module and label caches + runtime.
-pub(super) fn install_worker_selinux(
-    bindir: &str,
-    storage: &Storage,
-    go_mod: &str,
-    go_build_cache: &str,
-    cargo_home: &str,
-    cargo_target: &str,
-    owned: &str,
-) -> Result<(), Exit> {
-    println!("-- worker SELinux policy (process groups plus Go cache mapping)");
+/// Require the policycoreutils module tooling.
+fn require_policy_tooling() -> Result<(), Exit> {
     for tool in ["checkmodule", "semodule_package", "semodule"] {
         if command_v(tool).is_none() {
             return fail(format!(
@@ -45,6 +36,11 @@ pub(super) fn install_worker_selinux(
             ));
         }
     }
+    Ok(())
+}
+
+/// Build and install the worker SELinux module.
+fn install_worker_module(bindir: &str) -> Result<(), Exit> {
     let worker_mod = format!("{bindir}/soda-build-worker.mod");
     let worker_pp = format!("{bindir}/soda-build-worker.pp");
     run(
@@ -55,6 +51,16 @@ pub(super) fn install_worker_selinux(
     refuse_active_build()?;
     let _ = run_stderr_null("sudo", &["semodule", "-r", "soda-build-setpgid"]);
     run("sudo", &["semodule", "-i", &worker_pp])?;
+    Ok(())
+}
+
+/// Create the cache directories and the containers.conf marker.
+fn prepare_cache_dirs(
+    storage: &Storage,
+    go_mod: &str,
+    go_build_cache: &str,
+    owned: &str,
+) -> Result<String, Exit> {
     let go_config = format!("{}/.config", storage.home);
     run(
         "sudo",
@@ -81,14 +87,20 @@ pub(super) fn install_worker_selinux(
     )?;
     run("sudo", &["chown", &owned, &containers_conf])?;
     run("sudo", &["chmod", "0644", &containers_conf])?;
+    Ok(go_config)
+}
+
+/// Label caches/runtime when semanage exists; relabel when restorecon exists.
+fn label_worker_paths(
+    storage: &Storage,
+    go_mod: &str,
+    go_build_cache: &str,
+    cargo_home: &str,
+    cargo_target: &str,
+    go_config: &str,
+) -> Result<(), Exit> {
     if command_v("semanage").is_some() {
-        for cache in [
-            go_build_cache,
-            go_mod,
-            cargo_home,
-            cargo_target,
-            go_config.as_str(),
-        ] {
+        for cache in [go_build_cache, go_mod, cargo_home, cargo_target, go_config] {
             let pattern = format!("{cache}(/.*)?");
             fcontext_add_or_modify("soda_build_cache_t", &pattern)?;
         }
@@ -110,7 +122,16 @@ pub(super) fn install_worker_selinux(
             ],
         )?;
     }
-    if !selinux_has_type(&go_build_cache, ":soda_build_cache_t:") {
+    Ok(())
+}
+
+/// Verify the final SELinux types on cache, target, and runtime.
+fn verify_worker_labels(
+    go_build_cache: &str,
+    cargo_target: &str,
+    storage: &Storage,
+) -> Result<(), Exit> {
+    if !selinux_has_type(go_build_cache, ":soda_build_cache_t:") {
         return fail(
             "worker Go cache is not soda_build_cache_t; the sandboxed worker could not map it",
         );
@@ -126,4 +147,29 @@ pub(super) fn install_worker_selinux(
         );
     }
     Ok(())
+}
+
+/// Install the worker SELinux module and label caches + runtime.
+pub(super) fn install_worker_selinux(
+    bindir: &str,
+    storage: &Storage,
+    go_mod: &str,
+    go_build_cache: &str,
+    cargo_home: &str,
+    cargo_target: &str,
+    owned: &str,
+) -> Result<(), Exit> {
+    println!("-- worker SELinux policy (process groups plus Go cache mapping)");
+    require_policy_tooling()?;
+    install_worker_module(bindir)?;
+    let go_config = prepare_cache_dirs(storage, go_mod, go_build_cache, owned)?;
+    label_worker_paths(
+        storage,
+        go_mod,
+        go_build_cache,
+        cargo_home,
+        cargo_target,
+        &go_config,
+    )?;
+    verify_worker_labels(go_build_cache, cargo_target, storage)
 }

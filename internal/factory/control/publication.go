@@ -220,6 +220,30 @@ func publicationWait(report *PublishReport, id, reason string) {
 	report.Waits = append(report.Waits, PublishWait{ID: id, Reason: reason})
 }
 
+func (c *Coordinator) resolvePublicationOwner(ctx context.Context, a factory.Assignment) (factory.Assignment, string, string, string, bool) {
+	owner, candidate, runID, preparation := a, a.Result.Candidate, a.Run, a.Preparation
+	if factory.ValidCommit(candidate) {
+		return owner, candidate, runID, preparation, true
+	}
+	if a.Phase != project.ExecutionInvestigate || a.Subject.Issue == nil {
+		return owner, candidate, runID, preparation, false
+	}
+	childID, _, ok := advanceChildID(a, a.Subject.Issue.Acceptance)
+	if !ok {
+		return owner, candidate, runID, preparation, false
+	}
+	child, err := c.Store.Assignment(ctx, childID)
+	if err != nil {
+		return owner, candidate, runID, preparation, false
+	}
+	if child.Phase != project.ExecutionImplement || child.Stage != factory.AssignmentFinished ||
+		child.Outcome != factory.Succeeded || child.Result == nil || !child.Result.Reported ||
+		child.Result.Status != "completed" || !factory.ValidCommit(child.Result.Candidate) {
+		return owner, candidate, runID, preparation, false
+	}
+	return child, child.Result.Candidate, child.Run, child.Preparation, true
+}
+
 func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, report *PublishReport) {
 	if a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" {
 		return
@@ -229,25 +253,9 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 	// resolve the advanced implement child that reported it and publish
 	// its candidate under the root's slot. Legacy roots carry their own
 	// candidate and publish directly.
-	owner, candidate, runID, preparation := a, a.Result.Candidate, a.Run, a.Preparation
-	if !factory.ValidCommit(candidate) {
-		if a.Phase != project.ExecutionInvestigate || a.Subject.Issue == nil {
-			return
-		}
-		childID, _, ok := advanceChildID(a, a.Subject.Issue.Acceptance)
-		if !ok {
-			return
-		}
-		child, err := c.Store.Assignment(ctx, childID)
-		if err != nil {
-			return
-		}
-		if child.Phase != project.ExecutionImplement || child.Stage != factory.AssignmentFinished ||
-			child.Outcome != factory.Succeeded || child.Result == nil || !child.Result.Reported ||
-			child.Result.Status != "completed" || !factory.ValidCommit(child.Result.Candidate) {
-			return
-		}
-		owner, candidate, runID, preparation = child, child.Result.Candidate, child.Run, child.Preparation
+	owner, candidate, runID, preparation, ok := c.resolvePublicationOwner(ctx, a)
+	if !ok {
+		return
 	}
 	if _, err := c.Store.PublicationByAssignment(ctx, a.ID); err == nil {
 		return

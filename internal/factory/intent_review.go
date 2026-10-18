@@ -69,6 +69,19 @@ func (r SavedReview) Validate() error {
 		return errors.New("invalid saved review bounds")
 	}
 	seen := map[string]bool{}
+	if err := checkSavedReviewVerdicts(r, seen); err != nil {
+		return err
+	}
+	if err := checkSavedReviewAdvice(r); err != nil {
+		return err
+	}
+	if r.SavedUnix <= 0 {
+		return errors.New("invalid saved review timestamp")
+	}
+	return nil
+}
+
+func checkSavedReviewVerdicts(r SavedReview, seen map[string]bool) error {
 	for _, challenge := range r.Challenges {
 		if err := challenge.Validate(); err != nil {
 			return err
@@ -84,6 +97,10 @@ func (r SavedReview) Validate() error {
 		}
 		seen[id] = true
 	}
+	return nil
+}
+
+func checkSavedReviewAdvice(r SavedReview) error {
 	if r.Recommendation != nil {
 		if err := r.Recommendation.Validate(); err != nil {
 			return err
@@ -99,9 +116,6 @@ func (r SavedReview) Validate() error {
 		if r.Consistency.Intent != r.Intent || r.Consistency.Revision != r.BasisRevision {
 			return errors.New("review consistency must bind the basis revision")
 		}
-	}
-	if r.SavedUnix <= 0 {
-		return errors.New("invalid saved review timestamp")
 	}
 	return nil
 }

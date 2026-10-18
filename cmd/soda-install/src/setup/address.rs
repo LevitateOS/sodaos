@@ -62,6 +62,65 @@ pub fn private_setup_origin(value: &str) -> Result<String, Error> {
     Ok(format!("https://{host}"))
 }
 
+fn interface_flags(
+    network: &serde_json::Map<String, serde_json::Value>,
+) -> Result<Vec<String>, Error> {
+    match network.get("flags") {
+        None | Some(serde_json::Value::Null) => Ok(Vec::new()),
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .map(|item| {
+                item.as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))
+            })
+            .collect(),
+        Some(_) => Err(Error::msg("cannot inspect private setup addresses")),
+    }
+}
+
+fn collect_interface(
+    choices: &mut Vec<SetupAddress>,
+    seen: &mut std::collections::HashSet<String>,
+    excluded: &mut Vec<String>,
+    item: &serde_json::Value,
+) -> Result<(), Error> {
+    let network = item
+        .as_object()
+        .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
+    let name = optional_string(network.get("ifname"))?;
+    let flags = interface_flags(network)?;
+    if skip_setup_interface(&name, &flags) {
+        return Ok(());
+    }
+    let addr_info: &[serde_json::Value] = match network.get("addr_info") {
+        None | Some(serde_json::Value::Null) => &[],
+        Some(serde_json::Value::Array(items)) => items,
+        Some(_) => return Err(Error::msg("cannot inspect private setup addresses")),
+    };
+    for entry in addr_info {
+        let address = entry
+            .as_object()
+            .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
+        let local = optional_string(address.get("local"))?;
+        let scope = optional_string(address.get("scope"))?;
+        append_setup_address(choices, seen, excluded, &name, &local, &scope);
+    }
+    Ok(())
+}
+
+fn missing_addresses(excluded: &[String]) -> Error {
+    // Name what the filter rejected so the operator can compare with the
+    // unfiltered live addresses shown during disk installation.
+    if excluded.is_empty() {
+        return Error::msg("no private setup address is available; configure networking first");
+    }
+    Error::msg(format!(
+        "no private setup address is available; configure networking first (observed but unusable: {})",
+        excluded.join("; ")
+    ))
+}
+
 pub(super) fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
     let text = String::from_utf8_lossy(data);
     let value: serde_json::Value = serde_json::from_str(&text)
@@ -74,58 +133,10 @@ pub(super) fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
     let mut excluded = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for item in interfaces {
-        let network = item
-            .as_object()
-            .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
-        let name = optional_string(network.get("ifname"))?;
-        let flags: Vec<String> = match network.get("flags") {
-            None | Some(serde_json::Value::Null) => Vec::new(),
-            Some(serde_json::Value::Array(items)) => items
-                .iter()
-                .map(|item| {
-                    item.as_str()
-                        .map(str::to_owned)
-                        .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))
-                })
-                .collect::<Result<_, _>>()?,
-            Some(_) => return Err(Error::msg("cannot inspect private setup addresses")),
-        };
-        if skip_setup_interface(&name, &flags) {
-            continue;
-        }
-        let addr_info: &[serde_json::Value] = match network.get("addr_info") {
-            None | Some(serde_json::Value::Null) => &[],
-            Some(serde_json::Value::Array(items)) => items,
-            Some(_) => return Err(Error::msg("cannot inspect private setup addresses")),
-        };
-        for entry in addr_info {
-            let address = entry
-                .as_object()
-                .ok_or_else(|| Error::msg("cannot inspect private setup addresses"))?;
-            let local = optional_string(address.get("local"))?;
-            let scope = optional_string(address.get("scope"))?;
-            append_setup_address(
-                &mut choices,
-                &mut seen,
-                &mut excluded,
-                &name,
-                &local,
-                &scope,
-            );
-        }
+        collect_interface(&mut choices, &mut seen, &mut excluded, item)?;
     }
     if choices.is_empty() {
-        // Name what the filter rejected so the operator can compare with the
-        // unfiltered live addresses shown during disk installation.
-        if excluded.is_empty() {
-            return Err(Error::msg(
-                "no private setup address is available; configure networking first",
-            ));
-        }
-        return Err(Error::msg(format!(
-            "no private setup address is available; configure networking first (observed but unusable: {})",
-            excluded.join("; ")
-        )));
+        return Err(missing_addresses(&excluded));
     }
     Ok(choices)
 }

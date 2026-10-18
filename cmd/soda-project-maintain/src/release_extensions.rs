@@ -1,7 +1,7 @@
 //! Frozen Fountain intent and cache-only native package preparation.
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use soda_build_tools::payload::{FountainCatalog, PayloadV4 as Payload};
+use soda_build_tools::payload::{FountainCatalog, FountainPackage, PayloadV4 as Payload};
 use soda_host::tailnet_admission::Entry;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -58,6 +58,45 @@ pub(crate) fn snapshot(deadline: Instant) -> Result<Snapshot, String> {
         .map_err(|_| "invalid Fountain snapshot".into())
 }
 
+fn check_row_binding(row: &Entry, package: &FountainPackage) -> Result<(), String> {
+    if row.package_id != package.id
+        || row.required != package.required
+        || row.pending_operation.is_some()
+        || !soda_host::tcontrol_wire::valid_lifecycle_generation(&row.generation)
+    {
+        return Err("extension snapshot is invalid or has pending work".into());
+    }
+    if let Some(id) = &row.installation_id {
+        if !soda_host::tcontrol_wire::valid_lifecycle_uuid(id) {
+            return Err("invalid extension installation".into());
+        }
+    }
+    Ok(())
+}
+
+fn check_row_intent(row: &Entry) -> Result<(), String> {
+    if row.required
+        && (!row.desired_enabled || row.generation != "0" || row.installation_id.is_none())
+        || !row.required
+            && ((row.generation == "0") != row.installation_id.is_none()
+                || row.desired_enabled && row.generation == "0")
+    {
+        return Err("invalid extension intent identity".into());
+    }
+    Ok(())
+}
+
+fn check_row_receipt(row: &Entry, package: &FountainPackage) -> Result<(), String> {
+    if row.required || row.desired_enabled {
+        if row.installed_version.as_deref() != Some(&package.version)
+            || row.package_sha256.as_deref() != Some(&package.sha256)
+        {
+            return Err("source package receipt differs from trusted catalog".into());
+        }
+    }
+    Ok(())
+}
+
 impl Frozen {
     pub fn capture(target: &Payload, deadline: Instant) -> Result<Self, String> {
         let source: Payload = soda_host::json::decode_strict_as(
@@ -94,33 +133,9 @@ impl Frozen {
             .iter()
             .zip(&self.source.extension_catalog.packages)
         {
-            if row.package_id != package.id
-                || row.required != package.required
-                || row.pending_operation.is_some()
-                || !soda_host::tcontrol_wire::valid_lifecycle_generation(&row.generation)
-            {
-                return Err("extension snapshot is invalid or has pending work".into());
-            }
-            if let Some(id) = &row.installation_id {
-                if !soda_host::tcontrol_wire::valid_lifecycle_uuid(id) {
-                    return Err("invalid extension installation".into());
-                }
-            }
-            if row.required
-                && (!row.desired_enabled || row.generation != "0" || row.installation_id.is_none())
-                || !row.required
-                    && ((row.generation == "0") != row.installation_id.is_none()
-                        || row.desired_enabled && row.generation == "0")
-            {
-                return Err("invalid extension intent identity".into());
-            }
-            if row.required || row.desired_enabled {
-                if row.installed_version.as_deref() != Some(&package.version)
-                    || row.package_sha256.as_deref() != Some(&package.sha256)
-                {
-                    return Err("source package receipt differs from trusted catalog".into());
-                }
-            }
+            check_row_binding(row, package)?;
+            check_row_intent(row)?;
+            check_row_receipt(row, package)?;
         }
         Ok(())
     }
@@ -277,11 +292,7 @@ fn verify_cache(body: &[u8], catalog: &FountainCatalog, selected: &[String]) -> 
     Ok(())
 }
 
-fn inputs(
-    payload: &Payload,
-    snapshot: Option<&Snapshot>,
-    deadline: Instant,
-) -> Result<std::path::PathBuf, String> {
+fn prepare_input_dir() -> Result<std::path::PathBuf, String> {
     let dir = Path::new(soda_host::project::admission::DIRECTORY).join("extension-inputs");
     match fs::create_dir(&dir) {
         Ok(()) => fs::set_permissions(&dir, fs::Permissions::from_mode(0o755))
@@ -293,11 +304,20 @@ fn inputs(
     if !info.is_dir() || info.uid() != 0 || info.mode() & 0o7777 != 0o755 {
         return Err("unsafe extension input directory".into());
     }
-    let catalog = payload
-        .projected_catalog_bytes()
-        .map_err(|_| "invalid extension catalog")?;
+    Ok(dir)
+}
+
+fn collect_documents(
+    payload: &Payload,
+    snapshot: Option<&Snapshot>,
+) -> Result<Vec<(&'static str, Vec<u8>)>, String> {
     let mut documents = vec![
-        ("catalog.json", catalog),
+        (
+            "catalog.json",
+            payload
+                .projected_catalog_bytes()
+                .map_err(|_| "invalid extension catalog")?,
+        ),
         (
             "payload.json",
             serde_json::to_vec(payload).map_err(|_| "invalid payload")?,
@@ -309,34 +329,53 @@ fn inputs(
             serde_json::to_vec(snapshot).map_err(|_| "invalid snapshot")?,
         ));
     }
-    for (name, bytes) in documents {
-        let temporary = dir.join(format!("{name}.next"));
-        match fs::symlink_metadata(&temporary) {
-            Ok(info)
-                if info.is_file()
-                    && info.uid() == 0
-                    && info.nlink() == 1
-                    && info.mode() & 0o022 == 0
-                    && info.len() <= 4 << 20 =>
-            {
-                fs::remove_file(&temporary).map_err(|_| "extension scratch retirement failed")?
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            _ => return Err("unsafe extension input scratch".into()),
+    Ok(documents)
+}
+
+fn retire_scratch(temporary: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(temporary) {
+        Ok(info)
+            if info.is_file()
+                && info.uid() == 0
+                && info.nlink() == 1
+                && info.mode() & 0o022 == 0
+                && info.len() <= 4 << 20 =>
+        {
+            fs::remove_file(temporary).map_err(|_| "extension scratch retirement failed")?
         }
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o644)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-            .open(&temporary)
-            .map_err(|_| "extension input scratch already exists or is unavailable")?;
-        file.set_permissions(fs::Permissions::from_mode(0o644))
-            .map_err(|_| "extension input permissions")?;
-        file.write_all(&bytes)
-            .and_then(|_| file.sync_all())
-            .map_err(|_| "extension input write failed")?;
-        fs::rename(temporary, dir.join(name)).map_err(|_| "extension input replacement failed")?;
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        _ => return Err("unsafe extension input scratch".into()),
+    }
+    Ok(())
+}
+
+fn write_document(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), String> {
+    let temporary = dir.join(format!("{name}.next"));
+    retire_scratch(&temporary)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o644)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&temporary)
+        .map_err(|_| "extension input scratch already exists or is unavailable")?;
+    file.set_permissions(fs::Permissions::from_mode(0o644))
+        .map_err(|_| "extension input permissions")?;
+    file.write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| "extension input write failed")?;
+    fs::rename(temporary, dir.join(name)).map_err(|_| "extension input replacement failed")?;
+    Ok(())
+}
+
+fn inputs(
+    payload: &Payload,
+    snapshot: Option<&Snapshot>,
+    deadline: Instant,
+) -> Result<std::path::PathBuf, String> {
+    let dir = prepare_input_dir()?;
+    for (name, bytes) in collect_documents(payload, snapshot)? {
+        write_document(&dir, name, &bytes)?;
     }
     fs::File::open(&dir)
         .and_then(|f| f.sync_all())

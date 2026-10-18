@@ -47,12 +47,23 @@ func (o MergeOperation) Validate() error {
 		return errors.New("invalid merge attempt count")
 	}
 	if o.Attempts == 0 {
-		if o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
-			o.Completion != "" || o.Reason != "" || o.Receipt != "" || o.UpdatedUnix != 0 {
-			return errors.New("unsubmitted operation carries no observations")
-		}
-		return o.validateLinks()
+		return o.checkUnsubmitted()
 	}
+	if err := o.checkSubmitted(); err != nil {
+		return err
+	}
+	return o.validateLinks()
+}
+
+func (o MergeOperation) checkUnsubmitted() error {
+	if o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
+		o.Completion != "" || o.Reason != "" || o.Receipt != "" || o.UpdatedUnix != 0 {
+		return errors.New("unsubmitted operation carries no observations")
+	}
+	return o.validateLinks()
+}
+
+func (o MergeOperation) checkSubmitted() error {
 	if !ValidPublicationOperationID(o.OperationID) {
 		return errors.New("invalid merge operation identity")
 	}
@@ -81,10 +92,17 @@ func (o MergeOperation) Validate() error {
 	if len(o.Reason) > 64 || len(o.Receipt) > MaxPublicationReceipt {
 		return errors.New("merge observation exceeds bounds")
 	}
-	return o.validateLinks()
+	return nil
 }
 
 func (o MergeOperation) validateLinks() error {
+	if err := o.checkMergePRPairing(); err != nil {
+		return err
+	}
+	return o.checkMergeSnapshot()
+}
+
+func (o MergeOperation) checkMergePRPairing() error {
 	if o.PRNumber < 0 || o.PRID < 0 || o.IssueID < 0 {
 		return errors.New("invalid merge native links")
 	}
@@ -97,6 +115,10 @@ func (o MergeOperation) validateLinks() error {
 	if o.Effect != OpEffectCommitted && o.PRNumber != 0 {
 		return errors.New("uncommitted merge carries no PR links")
 	}
+	return nil
+}
+
+func (o MergeOperation) checkMergeSnapshot() error {
 	if (o.HeadRef != "" && !ValidTargetBranch(o.HeadRef)) || (o.BaseRef != "" && !ValidTargetBranch(o.BaseRef)) {
 		return errors.New("invalid merge snapshot refs")
 	}
@@ -219,6 +241,13 @@ func (w MergeWork) ValidateTarget() error {
 func (i MergeIntent) Validate() error { return i.validate(true) }
 
 func (i MergeIntent) validate(observed bool) error {
+	if err := i.checkMergeIntentScope(); err != nil {
+		return err
+	}
+	return i.checkMergeIntentBinding(observed)
+}
+
+func (i MergeIntent) checkMergeIntentScope() error {
 	if !ValidTargetBranch(i.HeadRef) || !ValidTargetBranch(i.BaseRef) || i.HeadRef == i.BaseRef {
 		return errors.New("invalid merge refs")
 	}
@@ -234,6 +263,10 @@ func (i MergeIntent) validate(observed bool) error {
 	if i.PRAuthorID <= 0 || i.ReviewerID <= 0 || i.ReviewerID == i.PRAuthorID {
 		return errors.New("merge review evidence needs its independent reviewer")
 	}
+	return nil
+}
+
+func (i MergeIntent) checkMergeIntentBinding(observed bool) error {
 	if i.AuthRevision == "" || len(i.AuthRevision) > 512 {
 		return errors.New("invalid merge authorization revision")
 	}
@@ -818,6 +851,25 @@ func CheckMergeUnionBinding(in MergeUnionBindingInput) error {
 	if !in.Generation.UnionBound() {
 		return errors.New("merge generation lacks its acceptance binding")
 	}
+	if err := checkUnionAcceptanceCapture(in); err != nil {
+		return err
+	}
+	if err := checkUnionHeadCurrency(in); err != nil {
+		return err
+	}
+	if err := checkUnionDecisionKind(in); err != nil {
+		return err
+	}
+	if !in.ResolutionsConfirmed {
+		return errors.New("merge binding lacks confirmed accepted resolutions")
+	}
+	if in.CurrentAuthority != in.Generation.Authority {
+		return errors.New("merge authority changed under its authorization")
+	}
+	return nil
+}
+
+func checkUnionAcceptanceCapture(in MergeUnionBindingInput) error {
 	if in.Acceptance.PublicationID != in.Publication.ID {
 		return errors.New("delivery acceptance belongs to another publication")
 	}
@@ -835,12 +887,20 @@ func CheckMergeUnionBinding(in MergeUnionBindingInput) error {
 		in.Acceptance.Tuple.DiffBase != in.Generation.DiffBase {
 		return errors.New("merge generation answers another candidate")
 	}
+	return nil
+}
+
+func checkUnionHeadCurrency(in MergeUnionBindingInput) error {
 	// Current applicability: the acceptance must still answer the
 	// publication's exact current candidate over its recorded base. A
 	// superseded acceptance never rides a new mutation.
 	if in.Acceptance.Tuple.Head != in.Publication.Candidate || in.Acceptance.Tuple.Base != in.Publication.PRCreate.BaseOID {
 		return errors.New("delivery acceptance answers a superseded tuple")
 	}
+	return nil
+}
+
+func checkUnionDecisionKind(in MergeUnionBindingInput) error {
 	switch in.Acceptance.Kind {
 	case AcceptanceCleanReview:
 		if !deliveryDecisionZero(in.Decision) {
@@ -864,12 +924,6 @@ func CheckMergeUnionBinding(in MergeUnionBindingInput) error {
 		}
 	default:
 		return errors.New("invalid delivery acceptance kind")
-	}
-	if !in.ResolutionsConfirmed {
-		return errors.New("merge binding lacks confirmed accepted resolutions")
-	}
-	if in.CurrentAuthority != in.Generation.Authority {
-		return errors.New("merge authority changed under its authorization")
 	}
 	return nil
 }

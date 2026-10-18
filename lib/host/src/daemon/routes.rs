@@ -1,7 +1,7 @@
 use super::admission::{
     is_admitted_mutation_path, valid_identity_request, valid_terminal_request,
-    validate_native_request, validate_tailnet_request, AdmissionGate, RequestHead, TerminalGate,
-    TerminalSlot, IDENTITY_ACTIONS,
+    validate_native_request, validate_tailnet_request, AdmissionGate, AdmissionGuard, RequestHead,
+    TerminalGate, TerminalSlot, IDENTITY_ACTIONS,
 };
 use super::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::{tailnet_lifecycle, tcontrol_wire};
@@ -164,6 +164,105 @@ pub fn dispatch<B: ExecBackend + ?Sized>(
 
 // -- native operations (daemon.go dispatchOperation + ServeHTTP errors) --
 
+/// Take the shared writer gate for admitted mutations and `/create`.
+/// Read-only observations run without it (ServeHTTP + dispatchCreate).
+fn acquire_native_writer<'a>(
+    gate: &'a AdmissionGate,
+    path: &str,
+) -> Result<Option<AdmissionGuard<'a>>, HttpResponse> {
+    if is_admitted_mutation_path(path) || path == "/create" {
+        match gate.try_acquire() {
+            Some(guard) => Ok(Some(guard)),
+            None => Err(error_response(503, "service busy")),
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn invoke_native_core<B: ExecBackend + ?Sized>(
+    backend: &B,
+    path: &str,
+    body: &[u8],
+) -> Option<Result<Vec<u8>, BackendError>> {
+    match path {
+        "/application" => Some(backend.application(body)),
+        "/profile" => Some(backend.profile(body)),
+        "/create" => Some(backend.create(body)),
+        "/inspect" => Some(backend.inspect(body)),
+        "/os" => Some(backend.observe_os(body)),
+        "/connection" => Some(backend.connection(body)),
+        "/lifecycle" => Some(backend.lifecycle(body)),
+        _ => None,
+    }
+}
+
+fn invoke_native_project<B: ExecBackend + ?Sized>(
+    backend: &B,
+    path: &str,
+    body: &[u8],
+) -> Option<Result<Vec<u8>, BackendError>> {
+    match path {
+        "/access-keys" => Some(backend.access_keys(body)),
+        "/account" => Some(backend.account(body)),
+        "/project-access" => Some(backend.project_access(body)),
+        "/terminal-support" => Some(backend.terminal_support(body)),
+        _ => None,
+    }
+}
+
+fn invoke_native_prepare<B: ExecBackend + ?Sized>(
+    backend: &B,
+    path: &str,
+    body: &[u8],
+) -> Option<Result<Vec<u8>, BackendError>> {
+    match path {
+        "/prepare" => Some(backend.prepare(body)),
+        "/prepare-candidate" => Some(backend.prepare_candidate(body)),
+        "/prepare-context" => Some(backend.prepare_context(body)),
+        "/prepare-inspect" => Some(backend.inspect_preparation(body)),
+        "/prepare-stop" => Some(backend.stop_preparation(body)),
+        "/prepare-hold" => Some(backend.hold_preparation(body)),
+        _ => None,
+    }
+}
+
+fn invoke_native_factory<B: ExecBackend + ?Sized>(
+    backend: &B,
+    config: &DaemonConfig,
+    path: &str,
+    body: &[u8],
+) -> Option<Result<Vec<u8>, BackendError>> {
+    match path {
+        "/factory-launch" => Some(backend.factory_launch(body)),
+        "/factory-inspect" => Some(backend.factory_inspect(body)),
+        "/factory-stop" => Some(backend.factory_stop(body)),
+        "/factory-takeover" => Some(backend.factory_takeover(body)),
+        "/factory-output" => Some(backend.factory_output(body)),
+        "/factory-task-events" => Some(backend.factory_task_events(body)),
+        "/factory-harness" => Some(backend.factory_harness(body, &config.image)),
+        "/factory-export" => Some(backend.factory_export(body)),
+        "/factory-candidate-inspect" => Some(backend.factory_candidate_inspect(body)),
+        _ => None,
+    }
+}
+
+fn native_error_response(result: Result<Vec<u8>, BackendError>) -> HttpResponse {
+    match result {
+        Ok(json) => json_response(&json),
+        Err(BackendError::NotFound) => error_response(404, "404 page not found"),
+        Err(BackendError::Unavailable) => error_response(503, "factory runtime unavailable"),
+        Err(BackendError::OutputStale) => error_response(409, "factory output incarnation changed"),
+        Err(BackendError::ExportStale) => error_response(409, "factory run incarnation changed"),
+        Err(BackendError::ExportCandidate) => {
+            error_response(422, "export candidate is not recorded")
+        }
+        Err(BackendError::ExportBounds) => error_response(413, "candidate export exceeds bounds"),
+        Err(BackendError::Unimplemented) => error_response(501, "not implemented"),
+        Err(_) => error_response(500, "native operation failed; inspect operator journal"),
+    }
+}
+
 fn dispatch_native<B: ExecBackend + ?Sized>(
     backend: &B,
     config: &DaemonConfig,
@@ -179,58 +278,16 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
         // Over-limit bodies fail strict decode in Go -> generic 500.
         return error_response(500, "native operation failed; inspect operator journal");
     }
-    // Read-only observations overlap mutations; admitted mutations and
-    // /create take the shared writer gate (ServeHTTP + dispatchCreate).
-    let _guard = if is_admitted_mutation_path(&head.path) || head.path == "/create" {
-        match gate.try_acquire() {
-            Some(guard) => Some(guard),
-            None => return error_response(503, "service busy"),
-        }
-    } else {
-        None
+    let _guard = match acquire_native_writer(gate, &head.path) {
+        Ok(guard) => guard,
+        Err(response) => return response,
     };
-    let result = match head.path.as_str() {
-        "/application" => backend.application(body),
-        "/profile" => backend.profile(body),
-        "/create" => backend.create(body),
-        "/inspect" => backend.inspect(body),
-        "/os" => backend.observe_os(body),
-        "/connection" => backend.connection(body),
-        "/lifecycle" => backend.lifecycle(body),
-        "/access-keys" => backend.access_keys(body),
-        "/account" => backend.account(body),
-        "/project-access" => backend.project_access(body),
-        "/terminal-support" => backend.terminal_support(body),
-        "/prepare" => backend.prepare(body),
-        "/prepare-candidate" => backend.prepare_candidate(body),
-        "/prepare-context" => backend.prepare_context(body),
-        "/prepare-inspect" => backend.inspect_preparation(body),
-        "/prepare-stop" => backend.stop_preparation(body),
-        "/prepare-hold" => backend.hold_preparation(body),
-        "/factory-launch" => backend.factory_launch(body),
-        "/factory-inspect" => backend.factory_inspect(body),
-        "/factory-stop" => backend.factory_stop(body),
-        "/factory-takeover" => backend.factory_takeover(body),
-        "/factory-output" => backend.factory_output(body),
-        "/factory-task-events" => backend.factory_task_events(body),
-        "/factory-harness" => backend.factory_harness(body, &config.image),
-        "/factory-export" => backend.factory_export(body),
-        "/factory-candidate-inspect" => backend.factory_candidate_inspect(body),
-        _ => Err(BackendError::NotFound),
-    };
-    match result {
-        Ok(json) => json_response(&json),
-        Err(BackendError::NotFound) => error_response(404, "404 page not found"),
-        Err(BackendError::Unavailable) => error_response(503, "factory runtime unavailable"),
-        Err(BackendError::OutputStale) => error_response(409, "factory output incarnation changed"),
-        Err(BackendError::ExportStale) => error_response(409, "factory run incarnation changed"),
-        Err(BackendError::ExportCandidate) => {
-            error_response(422, "export candidate is not recorded")
-        }
-        Err(BackendError::ExportBounds) => error_response(413, "candidate export exceeds bounds"),
-        Err(BackendError::Unimplemented) => error_response(501, "not implemented"),
-        Err(_) => error_response(500, "native operation failed; inspect operator journal"),
-    }
+    let result = invoke_native_core(backend, &head.path, body)
+        .or(invoke_native_project(backend, &head.path, body))
+        .or(invoke_native_prepare(backend, &head.path, body))
+        .or(invoke_native_factory(backend, config, &head.path, body))
+        .unwrap_or(Err(BackendError::NotFound));
+    native_error_response(result)
 }
 
 // -- identity operations (identity.go identityHandler) --

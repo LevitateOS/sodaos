@@ -205,42 +205,44 @@ func draftSourceInputs(draft preparationSourceDraft) map[string]string {
 	return inputs
 }
 
-func (s *API) apiPreparationStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in preparationActionRequest) {
+type admittedPreparationStart struct {
+	requirement project.RequirementDecision
+	approval    project.ApprovalDecision
+	draft       preparationSourceDraft
+	actors      []string
+}
+
+func (s *API) admitPreparationStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in *preparationActionRequest) *admittedPreparationStart {
 	if !project.ValidPreparationID(in.CoderID) || !project.ValidPreparationID(in.ReviewerID) || in.CoderID == in.ReviewerID {
 		auth.JSONError(w, 400, "invalid_preparation", "Distinct coding and review preparation identities are required.")
-		return
+		return nil
 	}
 	if err := s.preparationAdministrator(r.Context(), p, v.User.ID); err != nil {
 		auth.JSONError(w, 403, "project_administrator_required", "Current native Project administrator authority is required.")
-		return
+		return nil
 	}
 	requirement, err := s.Store.RequirementDecision(r.Context(), in.Requirement)
 	if err != nil || requirement.Project != p.ID {
 		auth.JSONError(w, 409, "stale_requirement", "Refresh the accepted requirements before preparing.")
-		return
+		return nil
 	}
 	approval, err := s.Store.ApprovalDecision(r.Context(), in.Approval)
 	if err != nil || approval.Project != p.ID || approval.Requirement != requirement.ID || !approval.Verified {
 		auth.JSONError(w, 409, "stale_approval", "Refresh the separate administrator approval before preparing.")
-		return
+		return nil
 	}
 	in.SourceCommit = requirement.SourceCommit
 	actors := []string{strconv.FormatInt(requirement.Approver, 10)}
-	draft, err := s.readPreparationSource(r.Context(), r, p, in, actors)
+	draft, err := s.readPreparationSource(r.Context(), r, p, *in, actors)
 	if err != nil || requirement.SetupDigest != draft.requirements.SetupDigest || requirement.InputsDigest != draft.requirements.InputsDigest || !maps.Equal(requirement.SourceInputs, draftSourceInputs(draft)) {
 		auth.JSONError(w, 409, "changed_inputs", "The selected source inputs differ from the accepted requirements. Refresh and accept them explicitly.")
-		return
+		return nil
 	}
-	requirementDepth, err := s.Store.RequirementDepth(r.Context(), p.ID)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read accepted requirements.")
-		return
-	}
-	approvalDepth, err := s.Store.ApprovalDepth(r.Context(), p.ID)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read administrator approval.")
-		return
-	}
+	return &admittedPreparationStart{requirement: requirement, approval: approval, draft: draft, actors: actors}
+}
+
+func (s *API) startPreparationItems(ctx context.Context, w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in preparationActionRequest, admitted *admittedPreparationStart, requirementDepth, approvalDepth int64) {
+	requirement, approval, draft, actors := admitted.requirement, admitted.approval, admitted.draft, admitted.actors
 	authorize := func(ctx context.Context) error {
 		if !s.extensionSessionCurrent(ctx, r, v) {
 			return errors.New("native session changed")
@@ -270,7 +272,7 @@ func (s *API) apiPreparationStart(w http.ResponseWriter, r *http.Request, v stor
 			Requirements: requirement.Ref(requirementDepth), Approval: approval.Ref(approvalDepth),
 			SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Tools: draft.tools,
 		}, Setup: draft.setup}
-		observed, err := s.Coordinator.StartPreparation(r.Context(), prep, authorize)
+		observed, err := s.Coordinator.StartPreparation(ctx, prep, authorize)
 		if err != nil {
 			auth.JSONError(w, 409, "preparation_unconfirmed", "Preparation was not confirmed. Refresh its retained state and retry these same identities; failed or interrupted identities need a new preparation.")
 			return
@@ -280,4 +282,22 @@ func (s *API) apiPreparationStart(w http.ResponseWriter, r *http.Request, v stor
 	auth.JSONResponse(w, 200, struct {
 		Preparations []preparationItemView `json:"preparations"`
 	}{items})
+}
+
+func (s *API) apiPreparationStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in preparationActionRequest) {
+	admitted := s.admitPreparationStart(w, r, v, p, &in)
+	if admitted == nil {
+		return
+	}
+	requirementDepth, err := s.Store.RequirementDepth(r.Context(), p.ID)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read accepted requirements.")
+		return
+	}
+	approvalDepth, err := s.Store.ApprovalDepth(r.Context(), p.ID)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read administrator approval.")
+		return
+	}
+	s.startPreparationItems(r.Context(), w, r, v, p, in, admitted, requirementDepth, approvalDepth)
 }

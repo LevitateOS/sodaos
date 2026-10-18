@@ -35,6 +35,106 @@ pub struct Server<B> {
     inflight: Arc<AtomicUsize>,
 }
 
+/// Reap finished backend jobs, recording a failure on panic.
+async fn reap_backend_jobs(
+    backend_jobs: &Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    failures: &Arc<Mutex<Option<String>>>,
+) {
+    let finished = {
+        let mut jobs = backend_jobs.lock().unwrap();
+        let all = std::mem::take(&mut *jobs);
+        let (finished, pending): (Vec<_>, Vec<_>) =
+            all.into_iter().partition(|job| job.is_finished());
+        *jobs = pending;
+        finished
+    };
+    for job in finished {
+        if job.await.is_err() {
+            record_task_failure(failures, "backend worker panicked");
+        }
+    }
+}
+
+/// Reap finished terminal upgrade tasks, recording a failure on panic.
+async fn reap_upgrade_tasks(
+    upgrades: &Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    failures: &Arc<Mutex<Option<String>>>,
+) {
+    let finished = {
+        let mut tasks = upgrades.lock().unwrap();
+        let all = std::mem::take(&mut *tasks);
+        let (finished, pending): (Vec<_>, Vec<_>) =
+            all.into_iter().partition(|task| task.is_finished());
+        *tasks = pending;
+        finished
+    };
+    for task in finished {
+        if task.await.is_err() {
+            record_task_failure(failures, "terminal upgrade worker panicked");
+        }
+    }
+}
+
+/// Count one accept failure; too many in a row stops the server so the
+/// supervisor restarts a deaf daemon.
+fn note_accept_error(failures: &Arc<Mutex<Option<String>>>, fatal_errors: &mut u32) -> bool {
+    *fatal_errors += 1;
+    if *fatal_errors >= 20 {
+        record_task_failure(
+            failures,
+            "HTTP listener failed after repeated accept errors",
+        );
+        true
+    } else {
+        false
+    }
+}
+
+/// Stop new work and drain every connection, upgrade and backend job.
+async fn drain_server(
+    shutdown: &Arc<AtomicBool>,
+    connections: &mut tokio::task::JoinSet<()>,
+    upgrades: &Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    backend_jobs: &Arc<std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    failures: &Arc<Mutex<Option<String>>>,
+) {
+    shutdown.store(true, Ordering::SeqCst);
+    while let Some(joined) = connections.join_next().await {
+        if joined.is_err() {
+            record_task_failure(failures, "HTTP connection worker panicked");
+        }
+    }
+    let tasks = upgrades
+        .lock()
+        .map(|mut tasks| std::mem::take(&mut *tasks))
+        .unwrap_or_default();
+    for task in tasks {
+        if task.await.is_err() {
+            record_task_failure(failures, "terminal upgrade worker panicked");
+        }
+    }
+    let jobs = backend_jobs
+        .lock()
+        .map(|mut jobs| std::mem::take(&mut *jobs))
+        .unwrap_or_default();
+    for job in jobs {
+        if job.await.is_err() {
+            record_task_failure(failures, "backend worker panicked");
+        }
+    }
+}
+
+/// Surface the first recorded task failure, if any.
+fn check_task_failure(task_failure: &Arc<Mutex<Option<String>>>) -> Result<(), String> {
+    match task_failure.lock() {
+        Ok(failure) => match failure.clone() {
+            Some(error) => Err(error),
+            None => Ok(()),
+        },
+        Err(_) => Err("server failure state unavailable".to_string()),
+    }
+}
+
 impl<B: ExecBackend + 'static> Server<B> {
     pub fn new(backend: Arc<B>, config: DaemonConfig) -> Server<B> {
         Server {
@@ -97,30 +197,8 @@ impl<B: ExecBackend + 'static> Server<B> {
             let mut fatal_errors = 0u32;
             loop {
                 if shutdown.load(Ordering::SeqCst) { break; }
-                let finished = {
-                    let mut jobs = backend_jobs.lock().unwrap();
-                    let all = std::mem::take(&mut *jobs);
-                    let (finished, pending): (Vec<_>, Vec<_>) = all.into_iter().partition(|job| job.is_finished());
-                    *jobs = pending;
-                    finished
-                };
-                for job in finished {
-                    if job.await.is_err() {
-                        record_task_failure(&failures, "backend worker panicked");
-                    }
-                }
-                let finished_upgrades = {
-                    let mut tasks = upgrades.lock().unwrap();
-                    let all = std::mem::take(&mut *tasks);
-                    let (finished, pending): (Vec<_>, Vec<_>) = all.into_iter().partition(|task| task.is_finished());
-                    *tasks = pending;
-                    finished
-                };
-                for task in finished_upgrades {
-                    if task.await.is_err() {
-                        record_task_failure(&failures, "terminal upgrade worker panicked");
-                    }
-                }
+                reap_backend_jobs(&backend_jobs, &failures).await;
+                reap_upgrade_tasks(&upgrades, &failures).await;
                 tokio::select! {
                     accepted = listener.accept() => match accepted {
                         Ok((stream, _)) => {
@@ -139,12 +217,7 @@ impl<B: ExecBackend + 'static> Server<B> {
                         }
                         Err(e) if e.kind() == std::io::ErrorKind::Interrupted || e.kind() == std::io::ErrorKind::ConnectionAborted => {}
                         Err(_) => {
-                            fatal_errors += 1;
-                            if fatal_errors >= 20 {
-                                record_task_failure(
-                                    &failures,
-                                    "HTTP listener failed after repeated accept errors",
-                                );
+                            if note_accept_error(&failures, &mut fatal_errors) {
                                 break;
                             }
                         }
@@ -157,35 +230,18 @@ impl<B: ExecBackend + 'static> Server<B> {
                     _ = tokio::time::sleep(Duration::from_millis(50)) => {}
                 }
             }
-            shutdown.store(true, Ordering::SeqCst);
-            while let Some(joined) = connections.join_next().await {
-                if joined.is_err() {
-                    record_task_failure(&failures, "HTTP connection worker panicked");
-                }
-            }
-            let tasks = upgrades.lock().map(|mut tasks| std::mem::take(&mut *tasks)).unwrap_or_default();
-            for task in tasks {
-                if task.await.is_err() {
-                    record_task_failure(&failures, "terminal upgrade worker panicked");
-                }
-            }
-            let jobs = backend_jobs.lock().map(|mut jobs| std::mem::take(&mut *jobs)).unwrap_or_default();
-            for job in jobs {
-                if job.await.is_err() {
-                    record_task_failure(&failures, "backend worker panicked");
-                }
-            }
+            drain_server(
+                &shutdown,
+                &mut connections,
+                &upgrades,
+                &backend_jobs,
+                &failures,
+            )
+            .await;
             Ok::<(), String>(())
         });
         result?;
-        let failure_result = match task_failure.lock() {
-            Ok(failure) => match failure.clone() {
-                Some(error) => Err(error),
-                None => Ok(()),
-            },
-            Err(_) => Err("server failure state unavailable".to_string()),
-        };
-        failure_result
+        check_task_failure(&task_failure)
     }
 }
 

@@ -2,8 +2,8 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -213,15 +213,58 @@ func selectSourcePreparationTx(ctx context.Context, tx *sql.Tx, projectID string
 // provenance stay distinct. Any mismatch or unproven tip holds with a
 // named error, never an accepted-source fallback, and no JSON or
 // private values enter errors.
-func (s *Store) CaptureCompletionLocalAtSource(ctx context.Context, repository int64, expected factory.CompletionAuthority, tip string) (factory.CompletionLocal, error) {
+func admitCompletionCapture(repository int64, expected factory.CompletionAuthority, tip string) error {
 	if repository <= 0 {
-		return factory.CompletionLocal{}, errors.New("completion source capture lacks its repository")
+		return errors.New("completion source capture lacks its repository")
 	}
 	if err := expected.Validate(); err != nil {
-		return factory.CompletionLocal{}, err
+		return err
 	}
 	if !factory.ValidCommit(tip) {
-		return factory.CompletionLocal{}, errors.New("completion source capture lacks its tip")
+		return errors.New("completion source capture lacks its tip")
+	}
+	return nil
+}
+
+func matchCompletionAuthority(expected, actual factory.CompletionAuthority) error {
+	if err := actual.Validate(); err != nil {
+		return err
+	}
+	want, err := json.Marshal(expected)
+	if err != nil {
+		return err
+	}
+	got, err := json.Marshal(actual)
+	if err != nil {
+		return err
+	}
+	if string(got) != string(want) {
+		return ErrCompletionAuthorityChanged
+	}
+	return nil
+}
+
+func reconcileCompletionTip(ctx context.Context, tx *sql.Tx, repository int64, projectID string, head completionHeadContext, preparation project.StoredPreparation, actual factory.CompletionAuthority, tip string) error {
+	if tip == preparation.Preparation.SourceCommit {
+		return nil
+	}
+	required := head.requirement.SourceInputs
+	selected := preparation.Preparation.Requirements.SourceInputs
+	if len(required) == 0 || len(selected) == 0 || !maps.Equal(required, selected) {
+		return ErrCompletionSourceHold
+	}
+	if _, err := mergedPreparationSourceTx(ctx, tx, repository, projectID, actual.TargetBranch, tip); err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrCandidatePreparationConflict) {
+			return ErrCompletionSourceHold
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *Store) CaptureCompletionLocalAtSource(ctx context.Context, repository int64, expected factory.CompletionAuthority, tip string) (factory.CompletionLocal, error) {
+	if err := admitCompletionCapture(repository, expected, tip); err != nil {
+		return factory.CompletionLocal{}, err
 	}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
@@ -236,20 +279,8 @@ func (s *Store) CaptureCompletionLocalAtSource(ctx context.Context, repository i
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	actual := material.Authority
-	if err = actual.Validate(); err != nil {
+	if err = matchCompletionAuthority(expected, material.Authority); err != nil {
 		return factory.CompletionLocal{}, err
-	}
-	want, err := json.Marshal(expected)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	got, err := json.Marshal(actual)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	if string(got) != string(want) {
-		return factory.CompletionLocal{}, ErrCompletionAuthorityChanged
 	}
 	head, err := completionHeadContextTx(ctx, tx, projectID)
 	if err != nil {
@@ -259,18 +290,8 @@ func (s *Store) CaptureCompletionLocalAtSource(ctx context.Context, repository i
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	if tip != preparation.Preparation.SourceCommit {
-		required := head.requirement.SourceInputs
-		selected := preparation.Preparation.Requirements.SourceInputs
-		if len(required) == 0 || len(selected) == 0 || !maps.Equal(required, selected) {
-			return factory.CompletionLocal{}, ErrCompletionSourceHold
-		}
-		if _, err = mergedPreparationSourceTx(ctx, tx, repository, projectID, actual.TargetBranch, tip); err != nil {
-			if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrCandidatePreparationConflict) {
-				return factory.CompletionLocal{}, ErrCompletionSourceHold
-			}
-			return factory.CompletionLocal{}, err
-		}
+	if err = reconcileCompletionTip(ctx, tx, repository, projectID, head, preparation, material.Authority, tip); err != nil {
+		return factory.CompletionLocal{}, err
 	}
 	local, err := sealCompletionLocal(material, preparationDigest, tip)
 	if err != nil {

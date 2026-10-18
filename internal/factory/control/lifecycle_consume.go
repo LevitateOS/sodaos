@@ -402,43 +402,20 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 	if in.Event != factory.LifecycleEventVerifiedMerge && in.TargetID <= 0 {
 		return factory.ErrLifecycleAction
 	}
-	cfg, err := s.LifecycleConfig(ctx, in.Event)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		return err
-	}
-	if !cfg.Enabled || cfg.RepositoryID != in.RepositoryID {
-		return nil
-	}
-	if err := RequireCurrentCapability(ctx, s, in.Event); err != nil {
-		if errors.Is(err, store.ErrCapabilityUnproved) {
-			return nil
-		}
+	cfg, skip, err := loadLifecycleEventConfig(ctx, s, in)
+	if err != nil || skip {
 		return err
 	}
 	if ex == nil {
 		return journalUnavailableExecutor(ctx, s, cfg, in)
 	}
-	actorCtx, actorCancel := withLifecycleTimeout(ctx)
-	enrolled, err := ex.EnrolledActor(actorCtx)
-	actorCancel()
-	if err != nil || enrolled <= 0 {
+	enrolled, ok := enrollLifecycleActor(ctx, ex)
+	if !ok {
 		return journalUnavailableExecutor(ctx, s, cfg, in)
 	}
-	target := in.TargetID
-	if in.Event == factory.LifecycleEventVerifiedMerge {
-		if !in.Closed {
-			return factory.ErrLifecycleAction
-		}
-		targetCtx, targetCancel := withLifecycleTimeout(ctx)
-		resolved, err := ex.ResolveNoteTarget(targetCtx, in.RepositoryID, in.IssueIndex)
-		targetCancel()
-		if err != nil {
-			return err
-		}
-		target = resolved
+	target, err := resolveLifecycleTarget(ctx, ex, in)
+	if err != nil {
+		return err
 	}
 	a := factory.LifecycleAction{
 		ID: LifecycleActionID(in), Event: in.Event, Action: factory.EventAction(in.Event),
@@ -450,6 +427,56 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 	if err := a.Validate(); err != nil {
 		return err
 	}
+	return dispatchLifecycleAction(ctx, s, ex, a)
+}
+
+func loadLifecycleEventConfig(ctx context.Context, s *store.Store, in LifecycleEventInput) (factory.LifecycleConfig, bool, error) {
+	cfg, err := s.LifecycleConfig(ctx, in.Event)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return factory.LifecycleConfig{}, true, nil
+		}
+		return factory.LifecycleConfig{}, false, err
+	}
+	if !cfg.Enabled || cfg.RepositoryID != in.RepositoryID {
+		return factory.LifecycleConfig{}, true, nil
+	}
+	if err := RequireCurrentCapability(ctx, s, in.Event); err != nil {
+		if errors.Is(err, store.ErrCapabilityUnproved) {
+			return factory.LifecycleConfig{}, true, nil
+		}
+		return factory.LifecycleConfig{}, false, err
+	}
+	return cfg, false, nil
+}
+
+func enrollLifecycleActor(ctx context.Context, ex LifecycleExecutor) (int64, bool) {
+	actorCtx, actorCancel := withLifecycleTimeout(ctx)
+	enrolled, err := ex.EnrolledActor(actorCtx)
+	actorCancel()
+	if err != nil || enrolled <= 0 {
+		return 0, false
+	}
+	return enrolled, true
+}
+
+func resolveLifecycleTarget(ctx context.Context, ex LifecycleExecutor, in LifecycleEventInput) (int64, error) {
+	if in.Event != factory.LifecycleEventVerifiedMerge {
+		return in.TargetID, nil
+	}
+	if !in.Closed {
+		return 0, factory.ErrLifecycleAction
+	}
+	targetCtx, targetCancel := withLifecycleTimeout(ctx)
+	resolved, err := ex.ResolveNoteTarget(targetCtx, in.RepositoryID, in.IssueIndex)
+	targetCancel()
+	if err != nil {
+		return 0, err
+	}
+	return resolved, nil
+}
+
+func dispatchLifecycleAction(ctx context.Context, s *store.Store, ex LifecycleExecutor, a factory.LifecycleAction) error {
 	recorded, err := s.RecordAction(ctx, a)
 	if err != nil {
 		if errors.Is(err, store.ErrLifecycleActionConflict) {

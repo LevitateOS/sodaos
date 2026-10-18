@@ -58,6 +58,61 @@ func settledIDs(review factory.AssumptionReview) []string {
 
 const designRubric = "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."
 
+func mintExplorationProposal(current factory.IntentRevision) ([]string, factory.IntentRevision, error) {
+	ids := make([]string, 104)
+	for i := range ids {
+		var err error
+		ids[i], err = intentID()
+		if err != nil {
+			return nil, factory.IntentRevision{}, err
+		}
+	}
+	proposal := factory.ProposeIntent(current, ids)
+	proposal.Predecessor = current.ID
+	var err error
+	proposal.ID, err = intentID()
+	if err != nil {
+		return nil, factory.IntentRevision{}, err
+	}
+	proposal.CreatedUnix = time.Now().Unix()
+	return ids, proposal, nil
+}
+
+func (s *API) persistExploration(ctx context.Context, w http.ResponseWriter, current factory.IntentRevision, content factory.ProposalContent, proposal factory.IntentRevision, review factory.AssumptionReview, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) error {
+	if err := proposal.Validate(); err != nil {
+		auth.JSONError(w, 400, "invalid_proposal", err.Error())
+		return err
+	}
+	challenges := review.Challenges
+	if challenges == nil {
+		challenges = []factory.AssumptionChallenge{}
+	}
+	saved := factory.SavedReview{
+		Intent: current.Intent, BasisRevision: current.ID, ResultRevision: proposal.ID,
+		Content: content, Challenges: challenges, Settled: settledIDs(review),
+		Recommendation: recommendation, Consistency: consistency,
+		SavedUnix: time.Now().Unix(),
+	}
+	if err := s.Store.SaveIntentRevisionWithReview(ctx, proposal, saved); err != nil {
+		factoryCommandError(w, err)
+		return err
+	}
+	auth.JSONResponse(w, 201, attachExploration(proposal, content, review.Challenges, settledIDs(review), recommendation, consistency))
+	return nil
+}
+
+func reportJudgmentCallError(w http.ResponseWriter, err error, unavailable string) {
+	if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+		return
+	}
+	if errors.Is(err, control.ErrPriorityUnavailable) {
+		auth.JSONError(w, 503, "planning_unavailable", unavailable)
+		return
+	}
+	factoryCommandError(w, err)
+}
+
 func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
 		return
@@ -82,22 +137,11 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	ids := make([]string, 104)
-	for i := range ids {
-		ids[i], err = intentID()
-		if err != nil {
-			factoryCommandError(w, err)
-			return
-		}
-	}
-	proposal := factory.ProposeIntent(current, ids)
-	proposal.Predecessor = current.ID
-	proposal.ID, err = intentID()
+	ids, proposal, err := mintExplorationProposal(current)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	proposal.CreatedUnix = time.Now().Unix()
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
 	judge := s.IntentExploreChooser
@@ -132,15 +176,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		},
 	})
 	if callErr != nil {
-		if errors.Is(callErr, store.ErrPlanningAllowanceExhausted) {
-			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-			return
-		}
-		if errors.Is(callErr, control.ErrPriorityUnavailable) {
-			auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
-			return
-		}
-		factoryCommandError(w, callErr)
+		reportJudgmentCallError(w, callErr, "Design consultation failed; the consumed allowance is retained.")
 		return
 	}
 	proposal = applyIntentDesign(current, ids, proposal, answer)
@@ -150,15 +186,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	}
 	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {
-		if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
-			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-			return
-		}
-		if errors.Is(err, control.ErrPriorityUnavailable) {
-			auth.JSONError(w, 503, "planning_unavailable", "Assumption review failed; the consumed allowance is retained.")
-			return
-		}
-		factoryCommandError(w, err)
+		reportJudgmentCallError(w, err, "Assumption review failed; the consumed allowance is retained.")
 		return
 	}
 	proposal = factory.SettleAssumptions(proposal, review)
@@ -166,15 +194,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if content.Supported {
 		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
 		if err != nil {
-			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
-				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-				return
-			}
-			if errors.Is(err, control.ErrPriorityUnavailable) {
-				auth.JSONError(w, 503, "planning_unavailable", "Consolidation failed; the consumed allowance is retained.")
-				return
-			}
-			factoryCommandError(w, err)
+			reportJudgmentCallError(w, err, "Consolidation failed; the consumed allowance is retained.")
 			return
 		}
 		recommendation = &consolidated
@@ -183,38 +203,14 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if recommendation != nil {
 		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
 		if err != nil {
-			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
-				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-				return
-			}
-			if errors.Is(err, control.ErrPriorityUnavailable) {
-				auth.JSONError(w, 503, "planning_unavailable", "Consistency review failed; the consumed allowance is retained.")
-				return
-			}
-			factoryCommandError(w, err)
+			reportJudgmentCallError(w, err, "Consistency review failed; the consumed allowance is retained.")
 			return
 		}
 		consistency = &verified
 	}
-	if err = proposal.Validate(); err != nil {
-		auth.JSONError(w, 400, "invalid_proposal", err.Error())
+	if err := s.persistExploration(r.Context(), w, current, content, proposal, review, recommendation, consistency); err != nil {
 		return
 	}
-	challenges := review.Challenges
-	if challenges == nil {
-		challenges = []factory.AssumptionChallenge{}
-	}
-	saved := factory.SavedReview{
-		Intent: current.Intent, BasisRevision: current.ID, ResultRevision: proposal.ID,
-		Content: content, Challenges: challenges, Settled: settledIDs(review),
-		Recommendation: recommendation, Consistency: consistency,
-		SavedUnix: time.Now().Unix(),
-	}
-	if err = s.Store.SaveIntentRevisionWithReview(r.Context(), proposal, saved); err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 201, attachExploration(proposal, content, review.Challenges, settledIDs(review), recommendation, consistency))
 }
 
 // clarifyDescription and clarifyConsequence pin the one material product

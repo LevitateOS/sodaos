@@ -239,25 +239,14 @@ fn execute(
 /// happen only on the three exclusive paths below), the default
 /// disposition reaps nothing early, and no waitpid(-1) stealing exists
 /// anywhere. Test waiters must preserve these assumptions.
-fn execute_with_waiter(
-    stdin: &[u8],
+fn spawn_execution_child(
     cmd: &str,
     args: &[&str],
-    deadline: Instant,
     status_only: bool,
-    policy: CapturePolicy,
-    waiter: impl Fn(libc::pid_t) -> Result<bool, std::io::Error>,
-) -> Result<Vec<u8>, String> {
-    use std::os::unix::io::AsRawFd;
+) -> Result<std::process::Child, String> {
     use std::os::unix::process::CommandExt;
     use std::process::Stdio;
-    // Refuse before launch: an expired deadline must never start an
-    // effectful command. The error describes the refusal, never a kill
-    // (no child exists), like Go's expired-context Start refusal.
-    if Instant::now() >= deadline {
-        return Err(refusal_text(cmd, status_only));
-    }
-    let mut child = std::process::Command::new(cmd)
+    std::process::Command::new(cmd)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -273,10 +262,24 @@ fn execute_with_waiter(
             } else {
                 format!("{cmd} failed: {e}")
             }
-        })?;
-    let mut input = child.stdin.take();
-    let mut out_pipe = child.stdout.take();
-    let mut err_pipe = child.stderr.take();
+        })
+}
+
+fn take_and_arm_pipes(
+    child: &mut std::process::Child,
+    cmd: &str,
+) -> Result<
+    (
+        Option<std::process::ChildStdin>,
+        Option<std::process::ChildStdout>,
+        Option<std::process::ChildStderr>,
+    ),
+    String,
+> {
+    use std::os::unix::io::AsRawFd;
+    let input = child.stdin.take();
+    let out_pipe = child.stdout.take();
+    let err_pipe = child.stderr.take();
     // Deadline-bounded transfer needs non-blocking pipes. A pipe that
     // cannot be armed fails the run with the owned child cleaned up,
     // never orphaned and never detached.
@@ -289,10 +292,135 @@ fn execute_with_waiter(
     .flatten()
     {
         if let Err(e) = set_nonblocking(fd) {
-            let _ = cleanup_child(&mut child);
+            let _ = cleanup_child(child);
             return Err(format!("{cmd} failed: {e}"));
         }
     }
+    Ok((input, out_pipe, err_pipe))
+}
+
+fn pump_stdin_opt(
+    pipe: Option<std::process::ChildStdin>,
+    stdin: &[u8],
+    deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
+) -> Transfer<()> {
+    match pipe {
+        Some(writer) => pump_stdin(writer, stdin, deadline, capture),
+        None => Transfer::Done(()),
+    }
+}
+
+fn drain_stdout_opt(
+    pipe: Option<std::process::ChildStdout>,
+    deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
+    limit: Option<usize>,
+    exceeded: &std::sync::atomic::AtomicBool,
+) -> Transfer<Vec<u8>> {
+    match pipe {
+        Some(output) => drain_pipe(output, deadline, capture, limit, exceeded),
+        None => Transfer::Done(Vec::new()),
+    }
+}
+
+fn drain_stderr_opt(
+    pipe: Option<std::process::ChildStderr>,
+    deadline: Instant,
+    capture: Option<&std::sync::Mutex<Instant>>,
+    limit: Option<usize>,
+    exceeded: &std::sync::atomic::AtomicBool,
+) -> Transfer<Vec<u8>> {
+    match pipe {
+        Some(output) => drain_pipe(output, deadline, capture, limit, exceeded),
+        None => Transfer::Done(Vec::new()),
+    }
+}
+
+fn tighten_capture_grace(
+    grace: Option<Duration>,
+    bound: &std::sync::Mutex<Instant>,
+    deadline: Instant,
+) {
+    if let Some(grace) = grace {
+        if let Ok(mut cap) = bound.lock() {
+            *cap = deadline.min(Instant::now() + grace);
+        }
+    }
+}
+
+fn timeout_execution_error(cmd: &str, status_only: bool, cleaned: Cleanup) -> String {
+    if status_only {
+        match cleaned {
+            Cleanup::Clean(status) => exit_text(status),
+            Cleanup::Uncertain => completion_text(cmd, status_only),
+        }
+    } else {
+        format!("{cmd} failed: deadline exceeded")
+    }
+}
+
+fn cleanup_unless_lost(child: &mut std::process::Child, cause: &std::io::Error) {
+    if cause.raw_os_error() != Some(libc::ECHILD) {
+        let _ = cleanup_child(child);
+    }
+}
+
+fn exceeded_capture_error(
+    pid: libc::pid_t,
+    child: &mut std::process::Child,
+    cmd: &str,
+    status_only: bool,
+) -> String {
+    let retired = retire_group(pid);
+    match child.wait() {
+        Ok(_) => {}
+        Err(e) => return wait_text(cmd, status_only, &e),
+    }
+    if !retired {
+        capture_limit_error(cmd, status_only, false)
+    } else {
+        capture_limit_error(cmd, status_only, true)
+    }
+}
+
+fn finalize_execution(
+    status: std::process::ExitStatus,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    cmd: &str,
+    status_only: bool,
+) -> Result<Vec<u8>, String> {
+    if status.success() {
+        return Ok(stdout);
+    }
+    if status_only {
+        return Err(exit_text(status));
+    }
+    Err(format!(
+        "{cmd} failed: {}: {}",
+        exit_text(status),
+        String::from_utf8_lossy(&stderr)
+    ))
+}
+
+fn execute_with_waiter(
+    stdin: &[u8],
+    cmd: &str,
+    args: &[&str],
+    deadline: Instant,
+    status_only: bool,
+    policy: CapturePolicy,
+    waiter: impl Fn(libc::pid_t) -> Result<bool, std::io::Error>,
+) -> Result<Vec<u8>, String> {
+    // Refuse before launch: an expired deadline must never start an
+    // effectful command. The error describes the refusal, never a kill
+    // (no child exists), like Go's expired-context Start refusal.
+    if Instant::now() >= deadline {
+        return Err(refusal_text(cmd, status_only));
+    }
+    let mut child = spawn_execution_child(cmd, args, status_only)?;
+    let (mut input, mut out_pipe, mut err_pipe) = take_and_arm_pipes(&mut child, cmd)?;
     let pid = child.id() as libc::pid_t;
     // Post-exit capture bound, shared with the transfers. Unselected
     // callers keep the full caller deadline; selected callers tighten it
@@ -306,17 +434,24 @@ fn execute_with_waiter(
         // poll loop below waits for exit (H01-F2). Every transfer honors
         // the capture bound, so every join below is bounded and no pump
         // is ever detached.
-        let writer = scope.spawn(|| match input.take() {
-            Some(w) => pump_stdin(w, stdin, deadline, cap),
-            None => Transfer::Done(()),
+        let writer = scope.spawn(|| pump_stdin_opt(input.take(), stdin, deadline, cap));
+        let out_drain = scope.spawn(|| {
+            drain_stdout_opt(
+                out_pipe.take(),
+                deadline,
+                cap,
+                policy.stdout_limit,
+                &exceeded,
+            )
         });
-        let out_drain = scope.spawn(|| match out_pipe.take() {
-            Some(o) => drain_pipe(o, deadline, cap, policy.stdout_limit, &exceeded),
-            None => Transfer::Done(Vec::new()),
-        });
-        let err_drain = scope.spawn(|| match err_pipe.take() {
-            Some(e) => drain_pipe(e, deadline, cap, policy.stderr_limit, &exceeded),
-            None => Transfer::Done(Vec::new()),
+        let err_drain = scope.spawn(|| {
+            drain_stderr_opt(
+                err_pipe.take(),
+                deadline,
+                cap,
+                policy.stderr_limit,
+                &exceeded,
+            )
         });
         loop {
             if exceeded.load(std::sync::atomic::Ordering::Acquire) {
@@ -338,11 +473,7 @@ fn execute_with_waiter(
                 // against reuse until capture and group retirement
                 // settle below; the single reap follows the joins.
                 Ok(true) => {
-                    if let Some(grace) = policy.grace {
-                        if let Ok(mut bound) = capture_deadline.lock() {
-                            *bound = deadline.min(Instant::now() + grace);
-                        }
-                    }
+                    tighten_capture_grace(policy.grace, &capture_deadline, deadline);
                     break;
                 }
                 Ok(false) => {
@@ -351,42 +482,28 @@ fn execute_with_waiter(
                         // and group, then join the already-due
                         // transfers (prompt, never detached) and report
                         // the timeout; the join results are discarded.
+                        // A completed kill reports the wait status
+                        // like Go's deadline kill; an uncertain one
+                        // claims no kill at all.
                         let cleaned = cleanup_child(&mut child);
                         let _ = writer.join();
                         let _ = out_drain.join();
                         let _ = err_drain.join();
-                        if status_only {
-                            // A completed kill reports the wait status
-                            // like Go's deadline kill; an uncertain one
-                            // claims no kill at all.
-                            return match cleaned {
-                                Cleanup::Clean(status) => Err(exit_text(status)),
-                                Cleanup::Uncertain => Err(completion_text(cmd, status_only)),
-                            };
-                        }
-                        return Err(format!("{cmd} failed: deadline exceeded"));
+                        return Err(timeout_execution_error(cmd, status_only, cleaned));
                     }
                     std::thread::sleep(Duration::from_millis(5));
                 }
                 Err(e) => {
-                    if e.raw_os_error() == Some(libc::ECHILD) {
-                        // Ownership lost: the numeric PID/PGID is unpinned
-                        // and may already be reused — never signal it.
-                        // Join the bounded transfers (slow but signal-free;
-                        // a live child cannot be hurried), then report the
-                        // wait failure as uncertainty, never as cleanup.
-                        let _ = writer.join();
-                        let _ = out_drain.join();
-                        let _ = err_drain.join();
-                        return Err(wait_text(cmd, status_only, &e));
-                    }
-                    // Sole-owner unreaped custody intact (only this loop
-                    // waits; production probes never reap): run the bounded
-                    // cleanup first so nothing is abandoned, then report
-                    // the wait failure. The cleanup outcome stays
-                    // best-effort by design; a killed status here would
-                    // misdescribe the run.
-                    let _ = cleanup_child(&mut child);
+                    // Ownership lost (ECHILD): the numeric PID/PGID is unpinned
+                    // and may already be reused — never signal it. Join the
+                    // bounded transfers (slow but signal-free; a live child
+                    // cannot be hurried), then report the wait failure as
+                    // uncertainty, never as cleanup. Sole-owner unreaped
+                    // custody intact runs the bounded cleanup first so nothing
+                    // is abandoned; the cleanup outcome stays best-effort by
+                    // design, since a killed status here would misdescribe
+                    // the run.
+                    cleanup_unless_lost(&mut child, &e);
                     let _ = writer.join();
                     let _ = out_drain.join();
                     let _ = err_drain.join();
@@ -409,13 +526,7 @@ fn execute_with_waiter(
             .join()
             .map_err(|_| completion_text(cmd, status_only))?;
         if exceeded.load(std::sync::atomic::Ordering::Acquire) {
-            let retired = retire_group(pid);
-            let reaped = child.wait().map_err(|e| wait_text(cmd, status_only, &e))?;
-            let _ = reaped;
-            if !retired {
-                return Err(capture_limit_error(cmd, status_only, false));
-            }
-            return Err(capture_limit_error(cmd, status_only, true));
+            return Err(exceeded_capture_error(pid, &mut child, cmd, status_only));
         }
         // No successful truncated output: any transfer that missed the
         // deadline fails the run even when the exit status is zero, like
@@ -437,17 +548,7 @@ fn execute_with_waiter(
         Ok((status, stdout, stderr))
     })?;
     let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
-    if status.success() {
-        return Ok(stdout);
-    }
-    if status_only {
-        return Err(exit_text(status));
-    }
-    Err(format!(
-        "{cmd} failed: {}: {}",
-        exit_text(status),
-        String::from_utf8_lossy(&stderr)
-    ))
+    finalize_execution(status, stdout, stderr, cmd, status_only)
 }
 
 /// Expired-deadline refusal text: no child was started, so the wording

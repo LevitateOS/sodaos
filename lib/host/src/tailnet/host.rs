@@ -165,12 +165,7 @@ impl<E: Executor> HostRuntime<E> {
         Ok(ids)
     }
 
-    pub fn inspect(
-        &self,
-        installation: Option<&str>,
-        deadline: Instant,
-    ) -> Result<Option<HostProcess>, String> {
-        let named = self.ids("name=^soda-tailnet-host$", deadline)?;
+    fn admitted_record(&self, named: &[String]) -> Result<Option<HostRecord>, String> {
         if !self.state.check()? {
             return if named.is_empty() {
                 Ok(None)
@@ -178,14 +173,70 @@ impl<E: Executor> HostRuntime<E> {
                 Err(conflict())
             };
         }
-        let record: HostRecord = match self.state.read("host-runtime.json") {
-            Ok(record) => record,
+        match self.state.read("host-runtime.json") {
+            Ok(record) => Ok(Some(record)),
             Err(error) => match fs::symlink_metadata(self.state.root.join("host-runtime.json")) {
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound && named.is_empty() => {
-                    return Ok(None)
-                }
-                _ => return Err(error),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound && named.is_empty() => Ok(None),
+                _ => Err(error),
             },
+        }
+    }
+
+    fn inspected_actual(
+        &self,
+        record: &HostRecord,
+        expected: &[String],
+        deadline: Instant,
+    ) -> Result<Inspect, String> {
+        let data = podman(
+            &self.exec,
+            &[
+                "inspect".into(),
+                "--format".into(),
+                INSPECT.into(),
+                record.id.clone(),
+            ],
+            deadline,
+        )?;
+        let actual: Inspect = crate::json::decode_strict_as(&data).map_err(|_| unconfirmed())?;
+        if actual.id != record.id
+            || actual.image.trim_start_matches("sha256:")
+                != record.image.trim_start_matches("sha256:")
+            || actual.role != "host"
+            || actual.installation != record.installation_id
+            || !crate::tailnet_companion::companion_command_matches(&actual.command, expected)
+        {
+            return Err(conflict());
+        }
+        Ok(actual)
+    }
+
+    fn confirmed_namespaces(actual: &Inspect) -> Result<(), String> {
+        if actual.running {
+            if actual.pid <= 1 {
+                return Err(conflict());
+            }
+            for namespace in ["net", "user"] {
+                let host = fs::read_link(format!("/proc/self/ns/{namespace}"))
+                    .map_err(|_| unconfirmed())?;
+                let daemon = fs::read_link(format!("/proc/{}/ns/{namespace}", actual.pid))
+                    .map_err(|_| unconfirmed())?;
+                if host != daemon {
+                    return Err(conflict());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn inspect(
+        &self,
+        installation: Option<&str>,
+        deadline: Instant,
+    ) -> Result<Option<HostProcess>, String> {
+        let named = self.ids("name=^soda-tailnet-host$", deadline)?;
+        let Some(record) = self.admitted_record(&named)? else {
+            return Ok(None);
         };
         if !valid_container_id(&record.id)
             || installation.is_some_and(|id| id != record.installation_id)
@@ -203,40 +254,8 @@ impl<E: Executor> HostRuntime<E> {
         if named.as_slice() != [record.id.clone()] {
             return Err(conflict());
         }
-        let data = podman(
-            &self.exec,
-            &[
-                "inspect".into(),
-                "--format".into(),
-                INSPECT.into(),
-                record.id.clone(),
-            ],
-            deadline,
-        )?;
-        let actual: Inspect = crate::json::decode_strict_as(&data).map_err(|_| unconfirmed())?;
-        if actual.id != record.id
-            || actual.image.trim_start_matches("sha256:")
-                != record.image.trim_start_matches("sha256:")
-            || actual.role != "host"
-            || actual.installation != record.installation_id
-            || !crate::tailnet_companion::companion_command_matches(&actual.command, &expected)
-        {
-            return Err(conflict());
-        }
-        if actual.running {
-            if actual.pid <= 1 {
-                return Err(conflict());
-            }
-            for namespace in ["net", "user"] {
-                let host = fs::read_link(format!("/proc/self/ns/{namespace}"))
-                    .map_err(|_| unconfirmed())?;
-                let daemon = fs::read_link(format!("/proc/{}/ns/{namespace}", actual.pid))
-                    .map_err(|_| unconfirmed())?;
-                if host != daemon {
-                    return Err(conflict());
-                }
-            }
-        }
+        let actual = self.inspected_actual(&record, &expected, deadline)?;
+        Self::confirmed_namespaces(&actual)?;
         Ok(Some(HostProcess {
             record,
             running: actual.running,
@@ -260,19 +279,19 @@ impl<E: Executor> HostRuntime<E> {
         Ok(())
     }
 
-    pub fn ensure(
-        &self,
-        grant: &Grant,
-        _starts: &StartGuard,
-        deadline: Instant,
-    ) -> Result<String, String> {
-        if let Some(process) = self.inspect(Some(&grant.installation_id), deadline)? {
-            if process.running && process.record.image == grant.image {
-                self.ready(deadline)?;
-                return Ok(process.record.id);
-            }
-            self.stop(Some(&grant.installation_id), deadline)?;
+    fn reuse_running(&self, grant: &Grant, deadline: Instant) -> Result<Option<String>, String> {
+        let Some(process) = self.inspect(Some(&grant.installation_id), deadline)? else {
+            return Ok(None);
+        };
+        if process.running && process.record.image == grant.image {
+            self.ready(deadline)?;
+            return Ok(Some(process.record.id));
         }
+        self.stop(Some(&grant.installation_id), deadline)?;
+        Ok(None)
+    }
+
+    fn launch_record(&self, grant: &Grant, deadline: Instant) -> Result<HostRecord, String> {
         if fs::symlink_metadata("/sys/class/net/tailscale0").is_ok() {
             return Err(conflict());
         }
@@ -293,6 +312,15 @@ impl<E: Executor> HostRuntime<E> {
             return Err(unconfirmed());
         }
         self.state.write("host-runtime.json", &record)?;
+        Ok(record)
+    }
+
+    fn confirm_launched(
+        &self,
+        grant: &Grant,
+        record: HostRecord,
+        deadline: Instant,
+    ) -> Result<String, String> {
         let created = self
             .inspect(Some(&grant.installation_id), deadline)?
             .ok_or_else(unconfirmed)?;
@@ -305,6 +333,19 @@ impl<E: Executor> HostRuntime<E> {
             .filter(|p| p.running)
             .ok_or_else(unconfirmed)?;
         Ok(record.id)
+    }
+
+    pub fn ensure(
+        &self,
+        grant: &Grant,
+        _starts: &StartGuard,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        if let Some(id) = self.reuse_running(grant, deadline)? {
+            return Ok(id);
+        }
+        let record = self.launch_record(grant, deadline)?;
+        self.confirm_launched(grant, record, deadline)
     }
 
     fn ready(&self, deadline: Instant) -> Result<(), String> {
@@ -333,7 +374,7 @@ impl<E: Executor> HostRuntime<E> {
         }
     }
 
-    pub fn stop(&self, installation: Option<&str>, deadline: Instant) -> Result<(), String> {
+    fn stop_running(&self, installation: Option<&str>, deadline: Instant) -> Result<(), String> {
         if let Some(process) = self.inspect(installation, deadline)? {
             if process.running {
                 podman(
@@ -357,7 +398,10 @@ impl<E: Executor> HostRuntime<E> {
         if self.inspect(installation, deadline)?.is_some() {
             return Err(unconfirmed());
         }
+        Ok(())
+    }
 
+    fn cleanup_control(&self) -> Result<(), String> {
         // A missing record never authorizes unlinking through unsafe parents.
         for path in [
             self.control.parent().ok_or_else(unconfirmed)?.to_path_buf(),
@@ -382,6 +426,11 @@ impl<E: Executor> HostRuntime<E> {
             Err(_) => return Err(unconfirmed()),
         }
         Ok(()) // Preserve host credentials, policy, ownership receipt and image cache.
+    }
+
+    pub fn stop(&self, installation: Option<&str>, deadline: Instant) -> Result<(), String> {
+        self.stop_running(installation, deadline)?;
+        self.cleanup_control()
     }
 
     pub fn wait(&self, cid: &str, deadline: Instant) -> Result<(), String> {

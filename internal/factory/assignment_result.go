@@ -147,23 +147,37 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 	}
 	if role == project.RoleReviewer {
 		if r.Reported {
-			if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
-				return nil
-			}
-			if r.Review == nil && isPhasedVerifyVerdict(r) {
-				return nil
-			}
-			if r.Review == nil || r.Status != "completed" || r.Candidate != sourceCommit || r.ReviewPassed || len(r.Findings) != 0 || r.Summary != r.Review.Summary {
-				return errors.New("reported reviewer result does not match its candidate")
-			}
-		} else if r.Review != nil || r.Status == "completed" || r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 {
-			return errors.New("synthesized reviewer result carries report evidence")
+			return checkReportedReviewerResult(r, sourceCommit)
 		}
-		return nil
+		return checkSynthesizedReviewerResult(r)
 	}
 	if r.Review != nil {
 		return errors.New("non-reviewer result carries a review report")
 	}
+	return checkRepairResultHead(r, sourceCommit)
+}
+
+func checkReportedReviewerResult(r AssignmentResult, sourceCommit string) error {
+	if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
+		return nil
+	}
+	if r.Review == nil && isPhasedVerifyVerdict(r) {
+		return nil
+	}
+	if r.Review == nil || r.Status != "completed" || r.Candidate != sourceCommit || r.ReviewPassed || len(r.Findings) != 0 || r.Summary != r.Review.Summary {
+		return errors.New("reported reviewer result does not match its candidate")
+	}
+	return nil
+}
+
+func checkSynthesizedReviewerResult(r AssignmentResult) error {
+	if r.Review != nil || r.Status == "completed" || r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 {
+		return errors.New("synthesized reviewer result carries report evidence")
+	}
+	return nil
+}
+
+func checkRepairResultHead(r AssignmentResult, sourceCommit string) error {
 	if r.PhaseResult != nil && r.PhaseResult.Phase == project.ExecutionRepair &&
 		r.PhaseResult.Status == "completed" && r.PhaseResult.Output != nil &&
 		r.PhaseResult.Output.Repair != nil &&

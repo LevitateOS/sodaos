@@ -189,42 +189,225 @@ func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerd
 // verdict cannot prove coverage and the legacy consumer keeps the chain.
 // A cross-head prior round whose reviewer assignment cannot be
 // reconstructed holds the cycle incomplete instead of succeeding empty.
-func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publication, cycle factory.ReviewCycle) ([]factory.Finding, error) {
-	carried := []factory.Finding{}
-	seen := map[string]bool{}
-	content := map[string]factory.Finding{}
-	// add merges one attributable finding into the canonical set in
-	// chronological order. Same-key changed content holds conflict: only
-	// exact content equality re-affirms an already recorded key, so a
-	// rewritten finding can never silently replace original provenance.
-	add := func(finding factory.Finding) error {
-		if prior, ok := content[finding.Key]; ok {
-			if !reflect.DeepEqual(prior, finding) {
-				return errors.New("canonical carried history conflicts on its finding content")
-			}
-			if !seen[finding.Key] {
-				seen[finding.Key] = true
-				carried = append(carried, finding)
-			}
-			return nil
+type carriedCollector struct {
+	carried []factory.Finding
+	seen    map[string]bool
+	content map[string]factory.Finding
+}
+
+// add merges one attributable finding into the canonical set in
+// chronological order. Same-key changed content holds conflict: only
+// exact content equality re-affirms an already recorded key, so a
+// rewritten finding can never silently replace original provenance.
+func (k *carriedCollector) add(finding factory.Finding) error {
+	if prior, ok := k.content[finding.Key]; ok {
+		if !reflect.DeepEqual(prior, finding) {
+			return errors.New("canonical carried history conflicts on its finding content")
 		}
-		content[finding.Key] = finding
-		seen[finding.Key] = true
-		carried = append(carried, finding)
+		if !k.seen[finding.Key] {
+			k.seen[finding.Key] = true
+			k.carried = append(k.carried, finding)
+		}
 		return nil
 	}
-	retire := func(key string) {
-		if !seen[key] {
+	k.content[finding.Key] = finding
+	k.seen[finding.Key] = true
+	k.carried = append(k.carried, finding)
+	return nil
+}
+
+func (k *carriedCollector) retire(key string) {
+	if !k.seen[key] {
+		return
+	}
+	k.seen[key] = false
+	for i, finding := range k.carried {
+		if finding.Key == key {
+			k.carried = append(k.carried[:i], k.carried[i+1:]...)
 			return
 		}
-		seen[key] = false
-		for i, finding := range carried {
-			if finding.Key == key {
-				carried = append(carried[:i], carried[i+1:]...)
-				return
+	}
+}
+
+func (k *carriedCollector) snapshot() []factory.Finding {
+	return append([]factory.Finding(nil), k.carried...)
+}
+
+func (k *carriedCollector) addJournal(journals []factory.CorrectionJournal, cycleID string) error {
+	for _, journal := range journals {
+		if journal.CycleID != cycleID {
+			continue
+		}
+		for _, finding := range journal.Report.Findings {
+			if err := k.add(finding); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+func checkPriorCycleBindings(p factory.Publication, prior factory.ReviewCycle, reviewer factory.Assignment) error {
+	// Cycle bindings: the recorded round belongs to this publication
+	// and attempt, with a derived identity, and the reviewer
+	// assignment belongs to that exact cycle and historical head.
+	if prior.PublicationID != p.ID || prior.AttemptRoot == "" || prior.Round < 1 {
+		return errors.New("canonical carried history is incomplete: step01")
+	}
+	if factory.ReviewCycleID(prior.PublicationID, prior.AttemptRoot, prior.Round, prior.Phase) != prior.ID {
+		return errors.New("canonical carried history is incomplete: step02")
+	}
+	if reviewer.ID != prior.ReviewerAssignment || reviewer.Role != project.RoleReviewer ||
+		reviewer.Phase != project.ExecutionReview || reviewer.AttemptRoot != prior.AttemptRoot ||
+		reviewer.SourceCommit != prior.Head {
+		return errors.New("canonical carried history is incomplete: step03")
+	}
+	if reviewer.Subject.Kind != factory.SubjectIssue || reviewer.Subject.Issue == nil ||
+		reviewer.Subject.Issue.Issue != reviewer.Issue {
+		return errors.New("canonical carried history is incomplete: step04")
+	}
+	return nil
+}
+
+func checkPriorReviewerEvidence(p factory.Publication, prior factory.ReviewCycle, reviewer factory.Assignment) error {
+	// The canonical finished/succeeded/reported assignment validator
+	// owns stage/outcome/reason/finished-time, run-history binding and
+	// result dispatch binding: the collector never duplicates it.
+	// Retirement evidence additionally needs a succeeded outcome —
+	// failed or cancelled runs never verify findings.
+	if err := reviewer.Validate(); err != nil {
+		return errors.New("canonical carried history is incomplete: step05")
+	}
+	if reviewer.Outcome != factory.Succeeded {
+		return errors.New("canonical carried history is incomplete: step06")
+	}
+	out := reviewer.Result.PhaseResult
+	if out == nil || out.Output == nil ||
+		(out.Output.Review == nil && out.Output.Clear == nil) {
+		if reviewer.Result.Review != nil {
+			return errors.New("prior review needs its legacy consumer")
+		}
+		return errors.New("canonical carried history is incomplete: step07")
+	}
+	// Independence: the verifying reviewer run differs from every
+	// correction run recorded for this cycle, when both are known.
+	for _, journal := range p.CorrectionJournals {
+		if journal.CycleID != prior.ID || journal.RunID == "" || reviewer.Run == "" {
+			continue
+		}
+		if journal.RunID == reviewer.Run {
+			return errors.New("canonical carried history is incomplete: step08")
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) checkPriorRunJoins(ctx context.Context, p factory.Publication, reviewer factory.Assignment) error {
+	// Recorded run with canonical owner joins: the claimed run
+	// must exist as a recorded reconciled succeeded run, and the
+	// canonical publicationAssignmentsForRun join must resolve that
+	// run to this exact reviewer assignment and its publication
+	// owner (role/project/input bound to the assignment, owner
+	// bound to repo/issue/project/acceptance/root). A run recorded
+	// for another project/input, an unreconciled run, and a missing
+	// join or view receipt all hold incomplete; nothing synthetic
+	// is injected as proof.
+	recorded, err := c.Store.FactoryRun(ctx, reviewer.Run)
+	if err != nil || recorded.ID != reviewer.Run ||
+		recorded.Outcome != factory.Succeeded || !recorded.Reconciled {
+		return errors.New("canonical carried history is incomplete: step18")
+	}
+	bound, owner, err := c.publicationAssignmentsForRun(ctx, recorded)
+	if err != nil || bound.ID != reviewer.ID {
+		return errors.New("canonical carried history is incomplete: step19")
+	}
+	// Publication lineage: the joined owner must be this
+	// publication's own root assignment, so history from another
+	// publication's owner can never retire this publication's keys.
+	if owner.ID != p.AssignmentID {
+		return errors.New("canonical carried history is incomplete: step20")
+	}
+	return nil
+}
+
+func (c *Coordinator) checkPriorReviewBindings(ctx context.Context, p factory.Publication, prior factory.ReviewCycle, reviewer factory.Assignment) error {
+	if err := checkPriorCycleBindings(p, prior, reviewer); err != nil {
+		return err
+	}
+	if err := checkPriorReviewerEvidence(p, prior, reviewer); err != nil {
+		return err
+	}
+	return c.checkPriorRunJoins(ctx, p, reviewer)
+}
+
+func (c *Coordinator) processPriorReview(ctx context.Context, p factory.Publication, k *carriedCollector, recorded factory.ReviewCycle, reviewer factory.Assignment) error {
+	if err := c.checkPriorReviewBindings(ctx, p, recorded, reviewer); err != nil {
+		return err
+	}
+	out := reviewer.Result.PhaseResult.Output
+	carriedBefore := k.snapshot()
+	if out.Review != nil {
+		if err := c.processPriorTypedReview(recorded, k, out, carriedBefore); err != nil {
+			return err
+		}
+	}
+	if out.Clear != nil {
+		if err := c.processPriorClearReview(recorded, k, out, carriedBefore); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) processPriorTypedReview(recorded factory.ReviewCycle, k *carriedCollector, out *factory.PhaseOutput, carriedBefore []factory.Finding) error {
+	if out.Review.CycleID != recorded.ID {
+		return errors.New("canonical carried history is incomplete: step09")
+	}
+	if err := out.Review.Validate(carriedBefore); err != nil {
+		return errors.New("canonical carried history is incomplete: step10")
+	}
+	for _, finding := range out.Review.NewFindings {
+		if err := k.add(finding); err != nil {
+			return err
+		}
+	}
+	for _, assessment := range out.Review.Assessments {
+		if assessment.Status == factory.FindingVerified {
+			k.retire(assessment.Key)
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) processPriorClearReview(recorded factory.ReviewCycle, k *carriedCollector, out *factory.PhaseOutput, carriedBefore []factory.Finding) error {
+	if out.Clear.CycleID != recorded.ID || out.Clear.Head != recorded.Head ||
+		out.Clear.BaseOID != recorded.BaseOID {
+		return errors.New("canonical carried history is incomplete: step11")
+	}
+	content, err := factory.FindingContentDigest(carriedBefore)
+	if err != nil {
+		return errors.New("canonical carried history is incomplete: step12")
+	}
+	coverage, err := factory.ClearCoverageDigest(recorded.Head, recorded.BaseOID, content)
+	if err != nil {
+		return errors.New("canonical carried history is incomplete: step13")
+	}
+	if out.Clear.CoverageDigest != coverage {
+		return errors.New("canonical carried history is incomplete: step14")
+	}
+	if err := out.Clear.Validate(carriedBefore); err != nil {
+		return errors.New("canonical carried history is incomplete: step15")
+	}
+	for _, assessment := range out.Clear.Assessments {
+		if assessment.Status == factory.FindingVerified {
+			k.retire(assessment.Key)
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publication, cycle factory.ReviewCycle) ([]factory.Finding, error) {
+	k := &carriedCollector{carried: []factory.Finding{}, seen: map[string]bool{}, content: map[string]factory.Finding{}}
 	// applyAssessments retires keys only on bound attributable verification
 	// evidence from the recorded reviewer result of one exact cycle: a
 	// finished independent reviewer run whose assignment identity matches
@@ -232,80 +415,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 	// verified assessment for a key the canonical set never recorded is
 	// malformed evidence and holds incomplete. Still-open assessments
 	// affirm nothing: the key stays carried through its finding.
-	checkPriorBindings := func(prior factory.ReviewCycle, reviewer factory.Assignment) error {
-		// Cycle bindings: the recorded round belongs to this publication
-		// and attempt, with a derived identity, and the reviewer
-		// assignment belongs to that exact cycle and historical head.
-		if prior.PublicationID != p.ID || prior.AttemptRoot == "" || prior.Round < 1 {
-			return errors.New("canonical carried history is incomplete: step01")
-		}
-		if factory.ReviewCycleID(prior.PublicationID, prior.AttemptRoot, prior.Round, prior.Phase) != prior.ID {
-			return errors.New("canonical carried history is incomplete: step02")
-		}
-		if reviewer.ID != prior.ReviewerAssignment || reviewer.Role != project.RoleReviewer ||
-			reviewer.Phase != project.ExecutionReview || reviewer.AttemptRoot != prior.AttemptRoot ||
-			reviewer.SourceCommit != prior.Head {
-			return errors.New("canonical carried history is incomplete: step03")
-		}
-		if reviewer.Subject.Kind != factory.SubjectIssue || reviewer.Subject.Issue == nil ||
-			reviewer.Subject.Issue.Issue != reviewer.Issue {
-			return errors.New("canonical carried history is incomplete: step04")
-		}
-		// The canonical finished/succeeded/reported assignment validator
-		// owns stage/outcome/reason/finished-time, run-history binding and
-		// result dispatch binding: the collector never duplicates it.
-		// Retirement evidence additionally needs a succeeded outcome —
-		// failed or cancelled runs never verify findings.
-		if err := reviewer.Validate(); err != nil {
-			return errors.New("canonical carried history is incomplete: step05")
-		}
-		if reviewer.Outcome != factory.Succeeded {
-			return errors.New("canonical carried history is incomplete: step06")
-		}
-		out := reviewer.Result.PhaseResult
-		if out == nil || out.Output == nil ||
-			(out.Output.Review == nil && out.Output.Clear == nil) {
-			if reviewer.Result.Review != nil {
-				return errors.New("prior review needs its legacy consumer")
-			}
-			return errors.New("canonical carried history is incomplete: step07")
-		}
-		// Independence: the verifying reviewer run differs from every
-		// correction run recorded for this cycle, when both are known.
-		for _, journal := range p.CorrectionJournals {
-			if journal.CycleID != prior.ID || journal.RunID == "" || reviewer.Run == "" {
-				continue
-			}
-			if journal.RunID == reviewer.Run {
-				return errors.New("canonical carried history is incomplete: step08")
-			}
-		}
-		// Recorded run with canonical owner joins: the claimed run
-		// must exist as a recorded reconciled succeeded run, and the
-		// canonical publicationAssignmentsForRun join must resolve that
-		// run to this exact reviewer assignment and its publication
-		// owner (role/project/input bound to the assignment, owner
-		// bound to repo/issue/project/acceptance/root). A run recorded
-		// for another project/input, an unreconciled run, and a missing
-		// join or view receipt all hold incomplete; nothing synthetic
-		// is injected as proof.
-		recorded, err := c.Store.FactoryRun(ctx, reviewer.Run)
-		if err != nil || recorded.ID != reviewer.Run ||
-			recorded.Outcome != factory.Succeeded || !recorded.Reconciled {
-			return errors.New("canonical carried history is incomplete: step18")
-		}
-		bound, owner, err := c.publicationAssignmentsForRun(ctx, recorded)
-		if err != nil || bound.ID != reviewer.ID {
-			return errors.New("canonical carried history is incomplete: step19")
-		}
-		// Publication lineage: the joined owner must be this
-		// publication's own root assignment, so history from another
-		// publication's owner can never retire this publication's keys.
-		if owner.ID != p.AssignmentID {
-			return errors.New("canonical carried history is incomplete: step20")
-		}
-		return nil
-	}
+
 	// processPrior merges one recorded prior round through the canonical
 	// validators at the correct point: the typed report validates against
 	// the carried snapshot BEFORE this round, then its new findings merge
@@ -315,70 +425,6 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 	// validation on a parallel path. A result that resolved legacy
 	// refuses: its string defects carry no stable key, so a typed verdict
 	// cannot prove coverage and the legacy consumer keeps the chain.
-	processPrior := func(recorded factory.ReviewCycle, reviewer factory.Assignment) error {
-		if err := checkPriorBindings(recorded, reviewer); err != nil {
-			return err
-		}
-		out := reviewer.Result.PhaseResult.Output
-		carriedBefore := append([]factory.Finding(nil), carried...)
-		if out.Review != nil {
-			if out.Review.CycleID != recorded.ID {
-				return errors.New("canonical carried history is incomplete: step09")
-			}
-			if err := out.Review.Validate(carriedBefore); err != nil {
-				return errors.New("canonical carried history is incomplete: step10")
-			}
-			for _, finding := range out.Review.NewFindings {
-				if err := add(finding); err != nil {
-					return err
-				}
-			}
-			for _, assessment := range out.Review.Assessments {
-				if assessment.Status == factory.FindingVerified {
-					retire(assessment.Key)
-				}
-			}
-		}
-		if out.Clear != nil {
-			if out.Clear.CycleID != recorded.ID || out.Clear.Head != recorded.Head ||
-				out.Clear.BaseOID != recorded.BaseOID {
-				return errors.New("canonical carried history is incomplete: step11")
-			}
-			content, err := factory.FindingContentDigest(carriedBefore)
-			if err != nil {
-				return errors.New("canonical carried history is incomplete: step12")
-			}
-			coverage, err := factory.ClearCoverageDigest(recorded.Head, recorded.BaseOID, content)
-			if err != nil {
-				return errors.New("canonical carried history is incomplete: step13")
-			}
-			if out.Clear.CoverageDigest != coverage {
-				return errors.New("canonical carried history is incomplete: step14")
-			}
-			if err := out.Clear.Validate(carriedBefore); err != nil {
-				return errors.New("canonical carried history is incomplete: step15")
-			}
-			for _, assessment := range out.Clear.Assessments {
-				if assessment.Status == factory.FindingVerified {
-					retire(assessment.Key)
-				}
-			}
-		}
-		return nil
-	}
-	addJournal := func(cycleID string) error {
-		for _, journal := range p.CorrectionJournals {
-			if journal.CycleID != cycleID {
-				continue
-			}
-			for _, finding := range journal.Report.Findings {
-				if err := add(finding); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
 	// The canonical set rebuilds in bounded monotonic review-cycle order
 	// within this publication and attempt: each attributable review and
 	// each correction journal merges at its recorded cycle and round, so
@@ -399,7 +445,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Round < ordered[j].Round })
 	for _, recorded := range ordered {
 		if recorded.ID == cycle.ID {
-			if err := addJournal(recorded.ID); err != nil {
+			if err := k.addJournal(p.CorrectionJournals, recorded.ID); err != nil {
 				return nil, err
 			}
 			continue
@@ -414,7 +460,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		// marker, never a row. Their journals still merge below, so
 		// dispositions stay answered without a phantom reviewer.
 		if recorded.CorrectionAssignment != "" {
-			if err := addJournal(recorded.ID); err != nil {
+			if err := k.addJournal(p.CorrectionJournals, recorded.ID); err != nil {
 				return nil, err
 			}
 			continue
@@ -423,14 +469,14 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		if err != nil {
 			return nil, errors.New("canonical carried history is incomplete: step17")
 		}
-		if err := processPrior(recorded, reviewer); err != nil {
+		if err := c.processPriorReview(ctx, p, k, recorded, reviewer); err != nil {
 			return nil, err
 		}
-		if err := addJournal(recorded.ID); err != nil {
+		if err := k.addJournal(p.CorrectionJournals, recorded.ID); err != nil {
 			return nil, err
 		}
 	}
-	return carried, nil
+	return k.carried, nil
 }
 
 // bindPhasedReviewVerdict binds one resolved typed verdict to the exact
@@ -440,30 +486,37 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 // reviewer or tuple, and a missing carried assessment all refuse with zero
 // downstream effect: no native call happens before every check passes. It
 // returns the native event and body for the bound verdict.
-func (c *Coordinator) bindPhasedReviewVerdict(ctx context.Context, p factory.Publication, assignment factory.Assignment, head string, verdict ResolvedReviewVerdict) (string, string, error) {
+func resolveVerdictCycleID(p factory.Publication, assignment factory.Assignment, head string, verdict ResolvedReviewVerdict) (string, error) {
 	if verdict.Legacy != nil || (verdict.Review == nil && verdict.Clear == nil) {
-		return "", "", errors.New("phased binding needs its typed verdict")
+		return "", errors.New("phased binding needs its typed verdict")
 	}
 	if assignment.Role != project.RoleReviewer || assignment.SourceCommit != head || head != p.Candidate {
-		return "", "", errors.New("reviewer finished on another candidate")
+		return "", errors.New("reviewer finished on another candidate")
 	}
-	var cycleID string
 	if verdict.Review != nil {
-		cycleID = verdict.Review.CycleID
-	} else {
-		cycleID = verdict.Clear.CycleID
-		if verdict.Clear.Head != head || verdict.Clear.BaseOID != p.PRCreate.BaseOID {
-			return "", "", errors.New("clear review answers another candidate")
-		}
+		return verdict.Review.CycleID, nil
 	}
-	var cycle factory.ReviewCycle
-	found := false
+	if verdict.Clear.Head != head || verdict.Clear.BaseOID != p.PRCreate.BaseOID {
+		return "", errors.New("clear review answers another candidate")
+	}
+	return verdict.Clear.CycleID, nil
+}
+
+func findReviewCycle(p factory.Publication, cycleID string) (factory.ReviewCycle, bool) {
 	for _, recorded := range p.ReviewCycles {
 		if recorded.ID == cycleID {
-			cycle, found = recorded, true
-			break
+			return recorded, true
 		}
 	}
+	return factory.ReviewCycle{}, false
+}
+
+func (c *Coordinator) bindPhasedReviewVerdict(ctx context.Context, p factory.Publication, assignment factory.Assignment, head string, verdict ResolvedReviewVerdict) (string, string, error) {
+	cycleID, err := resolveVerdictCycleID(p, assignment, head, verdict)
+	if err != nil {
+		return "", "", err
+	}
+	cycle, found := findReviewCycle(p, cycleID)
 	if !found {
 		return "", "", errors.New("review verdict consumes an unrecorded cycle")
 	}
@@ -526,6 +579,56 @@ func renderTypedReviewBody(head, base string, verdict ResolvedReviewVerdict) str
 // head it started from, carried in its recorded input; a correction that
 // landed first makes the verdict stale, never submitted. While no
 // reviewer is wired, submission reports unavailable instead of guessing.
+func (c *Coordinator) replaySubmittedReview(ctx context.Context, p *factory.Publication, run factory.Run) (factory.ReviewOutcome, bool, error) {
+	var empty factory.ReviewOutcome
+	for i := range p.ReviewOperations {
+		op := p.ReviewOperations[i]
+		if op.RunID != run.ID {
+			continue
+		}
+		if err := op.ValidateForPublication(*p); err != nil {
+			return empty, false, err
+		}
+		// A retry always looks up the saved immutable tuple before reading the
+		// caller's output, current policy, head or native observation. Absence
+		// cannot prove an earlier request will not arrive, so it never submits
+		// again or rebuilds the operation identity.
+		outcome, err := c.Reviews.LookupOp(ctx, op.Work.OperationID)
+		if err != nil {
+			return empty, false, err
+		}
+		if outcome.NotObserved {
+			return empty, false, errors.New("recorded review outcome remains unresolved")
+		}
+		updated, err := op.WithOutcome(outcome)
+		if err != nil {
+			return empty, false, err
+		}
+		if !sameReviewOperationOutcome(op.Outcome, updated.Outcome) {
+			p.ReviewOperations[i] = updated
+			p.Revision++
+			if err := c.Store.UpdatePublication(ctx, *p); err != nil {
+				return empty, false, err
+			}
+		}
+		if outcome.Effect != factory.OpEffectCommitted || outcome.Completion != factory.OpCompletionComplete {
+			return empty, false, errors.New("recorded review submission is not complete")
+		}
+		adopted, err := c.Reviews.AdoptReview(op.Work, outcome)
+		if err != nil {
+			return empty, false, err
+		}
+		if adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
+			return empty, false, errors.New("review receipt differs from its recorded work")
+		}
+		if err := c.recordReviewCandidateTuple(ctx, *p, adopted); err != nil {
+			return empty, false, err
+		}
+		return adopted, true, nil
+	}
+	return empty, false, nil
+}
+
 func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (factory.ReviewOutcome, error) {
 	var empty factory.ReviewOutcome
 	if c.Reviews == nil {
@@ -549,49 +652,9 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if err != nil {
 		return empty, err
 	}
-	for i := range p.ReviewOperations {
-		op := p.ReviewOperations[i]
-		if op.RunID != run.ID {
-			continue
-		}
-		if err := op.ValidateForPublication(p); err != nil {
-			return empty, err
-		}
-		// A retry always looks up the saved immutable tuple before reading the
-		// caller's output, current policy, head or native observation. Absence
-		// cannot prove an earlier request will not arrive, so it never submits
-		// again or rebuilds the operation identity.
-		outcome, err := c.Reviews.LookupOp(ctx, op.Work.OperationID)
-		if err != nil {
-			return empty, err
-		}
-		if outcome.NotObserved {
-			return empty, errors.New("recorded review outcome remains unresolved")
-		}
-		updated, err := op.WithOutcome(outcome)
-		if err != nil {
-			return empty, err
-		}
-		if !sameReviewOperationOutcome(op.Outcome, updated.Outcome) {
-			p.ReviewOperations[i] = updated
-			p.Revision++
-			if err := c.Store.UpdatePublication(ctx, p); err != nil {
-				return empty, err
-			}
-		}
-		if outcome.Effect != factory.OpEffectCommitted || outcome.Completion != factory.OpCompletionComplete {
-			return empty, errors.New("recorded review submission is not complete")
-		}
-		adopted, err := c.Reviews.AdoptReview(op.Work, outcome)
-		if err != nil {
-			return empty, err
-		}
-		if adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
-			return empty, errors.New("review receipt differs from its recorded work")
-		}
-		if err := c.recordReviewCandidateTuple(ctx, p, adopted); err != nil {
-			return empty, err
-		}
+	if adopted, replayed, err := c.replaySubmittedReview(ctx, &p, run); err != nil {
+		return empty, err
+	} else if replayed {
 		return adopted, nil
 	}
 	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.Work == nil {
@@ -607,6 +670,15 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded {
 		return empty, errors.New("review lacks its recorded report")
 	}
+	w, err := c.buildReviewWork(ctx, p, owner, run, assignment, head)
+	if err != nil {
+		return empty, err
+	}
+	return c.submitFreshReview(ctx, &p, run.ID, w)
+}
+
+func (c *Coordinator) buildReviewWork(ctx context.Context, p factory.Publication, owner factory.Assignment, run factory.Run, assignment factory.Assignment, head string) (factory.ReviewWork, error) {
+	var empty factory.ReviewWork
 	resolved, err := resolveAssignmentVerdict(assignment)
 	if err != nil {
 		return empty, err
@@ -651,7 +723,12 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if err := w.Validate(); err != nil {
 		return empty, err
 	}
-	reviewOperation := factory.ReviewOperation{RunID: run.ID, Work: w}
+	return w, nil
+}
+
+func (c *Coordinator) submitFreshReview(ctx context.Context, p *factory.Publication, runID string, w factory.ReviewWork) (factory.ReviewOutcome, error) {
+	var empty factory.ReviewOutcome
+	reviewOperation := factory.ReviewOperation{RunID: runID, Work: w}
 	if err := p.CanAppendReviewOperation(reviewOperation); err != nil {
 		return empty, err
 	}
@@ -660,7 +737,7 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	// has no native effect.
 	p.ReviewOperations = append(p.ReviewOperations, reviewOperation)
 	p.Revision++
-	if err := c.Store.UpdatePublication(ctx, p); err != nil {
+	if err := c.Store.UpdatePublication(ctx, *p); err != nil {
 		return empty, err
 	}
 	open, _, _, err := c.Store.DispatchState(ctx, p.Repository)
@@ -680,7 +757,7 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	}
 	p.ReviewOperations[len(p.ReviewOperations)-1] = updated
 	p.Revision++
-	if err := c.Store.UpdatePublication(ctx, p); err != nil {
+	if err := c.Store.UpdatePublication(ctx, *p); err != nil {
 		return empty, err
 	}
 	adopted, err := c.Reviews.AdoptReview(w, outcome)
@@ -690,7 +767,7 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if outcome.Completion != factory.OpCompletionComplete || adopted.ReviewerID != w.ActorID || adopted.Event != w.Event || adopted.HeadOID != w.HeadOID {
 		return empty, errors.New("review submission incomplete")
 	}
-	if err := c.recordReviewCandidateTuple(ctx, p, adopted); err != nil {
+	if err := c.recordReviewCandidateTuple(ctx, *p, adopted); err != nil {
 		return empty, err
 	}
 	return adopted, nil
@@ -921,21 +998,8 @@ func reviewCyclePreparationID(cycleID string) string {
 // Reviewer rounds leave CorrectionAssignment empty; correction rounds record
 // a fresh (unused) reviewer ID alongside the used correction ID so the cycle
 // always validates while reviewer/corrector sessions stay distinct.
-func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publication, owner factory.Assignment, role, digest, inputDigest, triggerDecision, triggerReason string) (factory.ReviewCycle, string, string, error) {
+func replayReviewCycle(p *factory.Publication, owner factory.Assignment, role, digest, inputDigest string) (factory.ReviewCycle, string, string, bool, error) {
 	var empty factory.ReviewCycle
-	if !factory.ValidDigest(digest) || strings.TrimSpace(triggerDecision) == "" || strings.TrimSpace(triggerReason) == "" {
-		return empty, "", "", errors.New("review cycle needs its digest and triggering decision")
-	}
-	if inputDigest != "" && !factory.ValidDigest(inputDigest) {
-		return empty, "", "", errors.New("review cycle needs its valid input digest")
-	}
-	if role != project.RoleReviewer && role != project.RoleCoder {
-		return empty, "", "", errors.New("review cycle needs its reviewer or corrector role")
-	}
-	// Replay: the latest round already binds these exact inputs. Both
-	// the finding-set binding and the complete input fingerprint must
-	// match: same keys with changed review/check inputs open a new round
-	// instead of silently reusing the prior admitted correction.
 	if n := len(p.ReviewCycles); n > 0 {
 		last := p.ReviewCycles[n-1]
 		if last.Head == p.Candidate && last.BaseOID == p.PRCreate.BaseOID && last.FindingDigest == digest && last.InputDigest == inputDigest {
@@ -954,15 +1018,38 @@ func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publicat
 			} else {
 				childID = last.CorrectionAssignment
 				if childID == "" {
-					return empty, "", "", errors.New("recorded cycle lacks its correction assignment")
+					return empty, "", "", false, errors.New("recorded cycle lacks its correction assignment")
 				}
 				prepID = owner.Preparation
 			}
 			if childID == "" {
-				return empty, "", "", errors.New("recorded cycle lacks its child assignment")
+				return empty, "", "", false, errors.New("recorded cycle lacks its child assignment")
 			}
-			return last, childID, prepID, nil
+			return last, childID, prepID, true, nil
 		}
+	}
+	return empty, "", "", false, nil
+}
+
+func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publication, owner factory.Assignment, role, digest, inputDigest, triggerDecision, triggerReason string) (factory.ReviewCycle, string, string, error) {
+	var empty factory.ReviewCycle
+	if !factory.ValidDigest(digest) || strings.TrimSpace(triggerDecision) == "" || strings.TrimSpace(triggerReason) == "" {
+		return empty, "", "", errors.New("review cycle needs its digest and triggering decision")
+	}
+	if inputDigest != "" && !factory.ValidDigest(inputDigest) {
+		return empty, "", "", errors.New("review cycle needs its valid input digest")
+	}
+	if role != project.RoleReviewer && role != project.RoleCoder {
+		return empty, "", "", errors.New("review cycle needs its reviewer or corrector role")
+	}
+	// Replay: the latest round already binds these exact inputs. Both
+	// the finding-set binding and the complete input fingerprint must
+	// match: same keys with changed review/check inputs open a new round
+	// instead of silently reusing the prior admitted correction.
+	if last, childID, prepID, replayed, err := replayReviewCycle(p, owner, role, digest, inputDigest); err != nil {
+		return empty, "", "", err
+	} else if replayed {
+		return last, childID, prepID, nil
 	}
 	round := maxReviewCycleRound(*p) + 1
 	if round < 1 {
@@ -1030,25 +1117,26 @@ func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publicat
 	return cycle, childID, prepID, nil
 }
 
-func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run factory.Run) (factory.Assignment, factory.Assignment, error) {
-	view, err := c.Store.FactoryRunView(ctx, run.ID)
-	if err != nil {
-		return factory.Assignment{}, factory.Assignment{}, err
-	}
+func (c *Coordinator) admitRunAssignment(ctx context.Context, run factory.Run, view factory.RunView) (factory.Assignment, error) {
 	assignment, err := c.Store.Assignment(ctx, view.Attempt)
 	if err != nil {
-		return factory.Assignment{}, factory.Assignment{}, err
+		return factory.Assignment{}, err
 	}
 	if assignment.Validate() != nil || assignment.Run != run.ID || assignment.ProjectID != run.ProjectID ||
 		assignment.Role != run.Role || assignment.SourceCommit != run.InputSHA ||
 		assignment.Repository != view.Repository || assignment.Issue != view.Issue {
-		return factory.Assignment{}, factory.Assignment{}, errors.New("run differs from its recorded assignment")
+		return factory.Assignment{}, errors.New("run differs from its recorded assignment")
 	}
+	return assignment, nil
+}
+
+func (c *Coordinator) admitPublicationOwner(ctx context.Context, assignment factory.Assignment) (factory.Assignment, error) {
 	owner := assignment
 	if assignment.PublicationAssignment != assignment.ID {
+		var err error
 		owner, err = c.Store.Assignment(ctx, assignment.PublicationAssignment)
 		if err != nil {
-			return factory.Assignment{}, factory.Assignment{}, err
+			return factory.Assignment{}, err
 		}
 	}
 	if owner.Validate() != nil || owner.PublicationAssignment != owner.ID || owner.Role != project.RoleCoder ||
@@ -1056,7 +1144,23 @@ func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run fact
 		owner.ProjectID != assignment.ProjectID || owner.Acceptance != assignment.Acceptance ||
 		owner.AttemptRoot != assignment.AttemptRoot ||
 		(assignment.Role == project.RoleCoder && assignment.Preparation != owner.Preparation) {
-		return factory.Assignment{}, factory.Assignment{}, errors.New("assignment differs from its publication owner")
+		return factory.Assignment{}, errors.New("assignment differs from its publication owner")
+	}
+	return owner, nil
+}
+
+func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run factory.Run) (factory.Assignment, factory.Assignment, error) {
+	view, err := c.Store.FactoryRunView(ctx, run.ID)
+	if err != nil {
+		return factory.Assignment{}, factory.Assignment{}, err
+	}
+	assignment, err := c.admitRunAssignment(ctx, run, view)
+	if err != nil {
+		return factory.Assignment{}, factory.Assignment{}, err
+	}
+	owner, err := c.admitPublicationOwner(ctx, assignment)
+	if err != nil {
+		return factory.Assignment{}, factory.Assignment{}, err
 	}
 	return assignment, owner, nil
 }

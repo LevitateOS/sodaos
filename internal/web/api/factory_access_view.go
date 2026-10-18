@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -271,27 +272,32 @@ type factoryAccessView struct {
 // planning allowances. Values on the status route stay authoritative;
 // this read adds powers, usage and required actions. It never judges,
 // provisions or dispatches.
-func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.Session) {
+type admittedFactoryAccess struct {
+	repository int64
+	viewer     accessViewerView
+	access     repositoryAccess
+}
+
+func (s *API) admitFactoryAccessViewer(ctx context.Context, w http.ResponseWriter, r *http.Request, v store.Session) *admittedFactoryAccess {
 	repository, ok := s.factoryRepository(w, r, v)
 	if !ok {
-		return
+		return nil
 	}
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
+		return nil
 	}
-	ctx := r.Context()
 	viewer := accessViewerView{Operator: v.User.ID == s.Config.OperatorID, SessionCurrent: s.extensionSessionCurrent(ctx, r, v)}
 	access, err := s.visibleRepository(r, v, repository)
 	if err != nil {
 		auth.ProviderError(w, err)
-		return
+		return nil
 	}
 	viewer.CodeWrite = repositoryExecutionAllowed(access)
 	viewer.OwnerOrAdmin = access.repository.Permissions != nil && access.repository.Permissions.Admin
 	if administrator, err := s.environmentAdministrator(r, access); err != nil {
 		auth.ProviderError(w, err)
-		return
+		return nil
 	} else {
 		viewer.EnvironmentOwner = administrator
 		viewer.OwnerOrAdmin = viewer.OwnerOrAdmin || administrator
@@ -301,12 +307,53 @@ func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.S
 			viewer.Member = true
 		} else if !errors.Is(err, store.ErrNotFound) {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read membership.")
-			return
+			return nil
 		}
 	} else if !errors.Is(err, store.ErrNotFound) {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read project.")
+		return nil
+	}
+	return &admittedFactoryAccess{repository: repository, viewer: viewer, access: access}
+}
+
+func (s *API) collectFactoryAccessUsage(ctx context.Context, repository int64, sponsorships []factory.Sponsorship, editable *accessEditableInput, view *factoryAccessView) {
+	for _, sponsorship := range sponsorships {
+		if !editable.IdentityOK {
+			view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageIdentityDown})
+			continue
+		}
+		in := accessUsageInput{Connection: sponsorship.Connection, Owned: editable.Owned[sponsorship.Connection]}
+		if in.Owned {
+			if budget, err := s.Store.ConnectionUsageBudget(ctx, sponsorship.Connection); err == nil {
+				in.Budget, in.BudgetOK = budget.RollingMinutes, true
+			} else if !errors.Is(err, store.ErrNotFound) {
+				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
+				continue
+			}
+			if total, err := s.Store.UsageTotal(ctx, repository, sponsorship.Connection); err == nil {
+				in.Used, in.UsedOK = total, true
+			} else {
+				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
+				continue
+			}
+			if !in.BudgetOK {
+				// A missing budget is itself a required action
+				// (connection_usage_budget_missing), not a zero budget.
+				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
+				continue
+			}
+		}
+		view.Usage = append(view.Usage, accessUsageDTO(in))
+	}
+}
+
+func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.Session) {
+	ctx := r.Context()
+	admitted := s.admitFactoryAccessViewer(ctx, w, r, v)
+	if admitted == nil {
 		return
 	}
+	repository, viewer := admitted.repository, admitted.viewer
 	sponsorships, err := s.Store.Sponsorships(ctx, repository)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read sponsorships.")
@@ -346,34 +393,7 @@ func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.S
 	} else {
 		view.Preparation = preparation
 	}
-	for _, sponsorship := range sponsorships {
-		if !editable.IdentityOK {
-			view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageIdentityDown})
-			continue
-		}
-		in := accessUsageInput{Connection: sponsorship.Connection, Owned: editable.Owned[sponsorship.Connection]}
-		if in.Owned {
-			if budget, err := s.Store.ConnectionUsageBudget(ctx, sponsorship.Connection); err == nil {
-				in.Budget, in.BudgetOK = budget.RollingMinutes, true
-			} else if !errors.Is(err, store.ErrNotFound) {
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
-			}
-			if total, err := s.Store.UsageTotal(ctx, repository, sponsorship.Connection); err == nil {
-				in.Used, in.UsedOK = total, true
-			} else {
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
-			}
-			if !in.BudgetOK {
-				// A missing budget is itself a required action
-				// (connection_usage_budget_missing), not a zero budget.
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
-			}
-		}
-		view.Usage = append(view.Usage, accessUsageDTO(in))
-	}
+	s.collectFactoryAccessUsage(ctx, repository, sponsorships, &editable, &view)
 	allowances, truncated, err := s.Store.RepositoryIntentAllowances(ctx, repository, v.User.ID, store.MaxRepositoryAllowances)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read planning allowances.")

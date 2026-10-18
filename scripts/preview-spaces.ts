@@ -8,7 +8,7 @@ import {buildForgejoAssets} from './build-forgejo.ts';
 import {buildSodaExtensionAssets} from './build-soda-extension.ts';
 import {scenarioModel, scenarios, type Scenario, type Model} from './fixtures/spaces-scenarios.ts';
 import {object} from '../frontend/spaces/sodaspaces-api.ts';
-import type {ServerWebSocket} from 'bun';
+import type {Server, ServerWebSocket} from 'bun';
 const root = resolve(import.meta.dir, '..');
 type Fault = 'healthy' | 'slow' | 'offline' | 'expired' | 'join-failed' | 'create-failed';
 type Review = ReturnType<typeof scenarioModel> & {
@@ -91,123 +91,176 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
     if (input.startsWith('echo ')) return input.slice(5) + '\r\n';
     return 'Fixture shell: command not simulated. Type help.\r\n';
   }
+  interface FixtureRoutes {
+    clients: Map<string, Review>;
+    fresh: (origin: string, scenario: Scenario) => Review;
+    revision: () => string;
+    extension: () => string;
+    out: string;
+    client: () => Blob;
+  }
+  async function admitFixtureReview(
+    req: Request,
+    server: Server<SocketData>,
+    routes: FixtureRoutes
+  ): Promise<Response | {review: Review; origin: string}> {
+    const url = new URL(req.url),
+      origin = server.url.origin;
+    // No proxying, credentials, filesystem APIs or remote listeners.
+    if (url.origin !== origin || req.headers.get('host') !== server.url.host)
+      return json({error: 'Unexpected fixture host'}, 403);
+    const cookie = req.headers.get('cookie')?.match(/(?:^|;\s*)spaces_fixture=([a-f0-9-]{36})(?:;|$)/)?.[1];
+    let review = cookie ? routes.clients.get(cookie) : undefined;
+    if (!review) {
+      if (url.pathname !== '/' || req.method !== 'GET') return json({error: 'Open the fixture homepage first'}, 401);
+      if (routes.clients.size >= 32) return json({error: 'Restart the fixture to clear old development sessions'}, 503);
+      const id = crypto.randomUUID();
+      review = routes.fresh(origin, 'welcome');
+      routes.clients.set(id, review);
+      return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.html')), {
+        headers: {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store',
+          'Set-Cookie': `spaces_fixture=${id}; HttpOnly; SameSite=Strict; Path=/`,
+        },
+      });
+    }
+    return {review, origin};
+  }
+  async function serveFixtureControl(
+    url: URL,
+    req: Request,
+    review: Review,
+    origin: string,
+    routes: FixtureRoutes
+  ): Promise<Response | undefined> {
+    if (!url.pathname.startsWith('/_fixture/')) return undefined;
+    if (url.pathname === '/_fixture/native-base.css' || url.pathname === '/_fixture/native-extensions.css') {
+      const file = url.pathname.endsWith('/native-base.css') ? 'base.css' : 'features/extensions.css';
+      return new Response(Bun.file(resolve(root, '../forgejo-ext/web_src/css', file)), {
+        headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
+      });
+    }
+    if (url.pathname === '/_fixture/review.css')
+      return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.css')), {
+        headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
+      });
+    if (url.pathname === '/_fixture/state' && req.method === 'GET')
+      return json({
+        scenario: review.scenario,
+        fault: review.fault,
+        generation: review.generation,
+        revision: routes.revision(),
+        layout: review.layout,
+      });
+    if (req.method !== 'POST' || Number(req.headers.get('content-length')) > 4096)
+      return json({error: 'Invalid fixture control'}, 400);
+    const body = object(await req.json());
+    if (url.pathname === '/_fixture/reset' && scenarios.includes(body.scenario as Scenario)) {
+      for (const peer of review.peers) peer.close();
+      const next = routes.fresh(origin, body.scenario as Scenario);
+      routes.clients.set(req.headers.get('cookie')!.match(/spaces_fixture=([a-f0-9-]{36})/)![1]!, next);
+      return json({
+        scenario: next.scenario,
+        fault: next.fault,
+        generation: next.generation,
+        revision: routes.revision(),
+        layout: next.layout,
+      });
+    }
+    if (url.pathname === '/_fixture/fault' && faults.includes(body.fault as Fault)) {
+      review.fault = body.fault as Fault;
+      review.model.setStatus(review.fault === 'expired' ? 401 : review.fault === 'offline' ? 503 : 200);
+      review.model.setJoinFailure(review.fault === 'join-failed');
+      review.model.setCreateOutcome(review.fault === 'create-failed' ? 'rejected' : 'confirmed');
+      return json({ok: true});
+    }
+    return json({error: 'Unknown fixture control'}, 400);
+  }
+  async function serveSpacesApi(
+    url: URL,
+    req: Request,
+    server: Server<SocketData>,
+    review: Review,
+    origin: string
+  ): Promise<Response | undefined> {
+    if (!url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) return undefined;
+    if (req.headers.get('upgrade') === 'websocket') {
+      if (req.headers.get('origin') !== origin || review.fault === 'expired' || review.fault === 'offline')
+        return json({error: 'Fixture socket unavailable'}, 403);
+      if (!/^\/-\/native\/pages\/soda\/spaces\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
+        return json({error: 'Unknown fixture socket'}, 404);
+      return server.upgrade(req, {data: {review, url: url.href, line: ''}})
+        ? undefined
+        : json({error: 'Socket upgrade failed'}, 400);
+    }
+    if (req.headers.get('X-Extension-Session-Generation') !== review.model.generation)
+      return json({error: {code: 'generation_changed'}}, 409);
+    if (review.fault === 'slow') await Bun.sleep(1200);
+    const body = req.method === 'GET' ? null : object(await req.json());
+    return review.model.request(url.href, req.method, body);
+  }
+  async function serveFixtureStatic(url: URL, req: Request, review: Review, routes: FixtureRoutes): Promise<Response> {
+    if (url.pathname === '/assets/spaces-review-client.js')
+      return new Response(routes.client(), {
+        headers: {'Content-Type': 'text/javascript', 'Cache-Control': 'no-store'},
+      });
+    if (url.pathname.startsWith('/assets/')) {
+      const extension = routes.extension();
+      const asset = resolve(extension, 'assets', url.pathname.slice('/assets/'.length));
+      if (asset.startsWith(resolve(extension, 'assets') + '/') && (await Bun.file(asset).exists())) {
+        const contentType = asset.endsWith('.css')
+          ? 'text/css'
+          : /\.m?js$/.test(asset)
+            ? 'text/javascript'
+            : 'application/octet-stream';
+        return new Response(Bun.file(asset), {headers: {'Content-Type': contentType, 'Cache-Control': 'no-store'}});
+      }
+    }
+    const source = Object.entries(payload).find(([key]) => key === 'public' + url.pathname)?.[1];
+    if (source) {
+      const path = source.startsWith('@build/forgejo-js/')
+        ? resolve(routes.out, basename(source))
+        : resolve(root, source);
+      return new Response(Bun.file(path), {headers: {'Cache-Control': 'no-store'}});
+    }
+    if (url.pathname === '/' && req.method === 'GET') {
+      // Fresh navigation renews an expired development grant, mirroring a
+      // re-authenticated Forgejo session: without this the Reconnect action
+      // (a plain reload) could never recover the expired scenario.
+      if (review.fault === 'expired') {
+        review.fault = 'healthy';
+        review.model.setStatus(200);
+      }
+      return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.html')), {
+        headers: {'Content-Type': 'text/html', 'Cache-Control': 'no-store'},
+      });
+    }
+    return json({error: 'This route is outside the local Spaces fixture'}, 404);
+  }
+  const routes: FixtureRoutes = {
+    clients,
+    fresh,
+    revision: () => revision,
+    extension: () => extension,
+    out,
+    client: () => client,
+  };
   const server = Bun.serve<SocketData>({
     hostname: '127.0.0.1',
     port,
     async fetch(req, server) {
-      const url = new URL(req.url),
-        origin = server.url.origin;
-      // No proxying, credentials, filesystem APIs or remote listeners.
-      if (url.origin !== origin || req.headers.get('host') !== server.url.host)
-        return json({error: 'Unexpected fixture host'}, 403);
-      const cookie = req.headers.get('cookie')?.match(/(?:^|;\s*)spaces_fixture=([a-f0-9-]{36})(?:;|$)/)?.[1];
-      let review = cookie ? clients.get(cookie) : undefined;
-      if (!review) {
-        if (url.pathname !== '/' || req.method !== 'GET') return json({error: 'Open the fixture homepage first'}, 401);
-        if (clients.size >= 32) return json({error: 'Restart the fixture to clear old development sessions'}, 503);
-        const id = crypto.randomUUID();
-        review = fresh(origin, 'welcome');
-        clients.set(id, review);
-        return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.html')), {
-          headers: {
-            'Content-Type': 'text/html',
-            'Cache-Control': 'no-store',
-            'Set-Cookie': `spaces_fixture=${id}; HttpOnly; SameSite=Strict; Path=/`,
-          },
-        });
-      }
+      const admitted = await admitFixtureReview(req, server, routes);
+      if (admitted instanceof Response) return admitted;
+      const {review, origin} = admitted;
+      const url = new URL(req.url);
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('origin') !== origin)
         return json({error: 'Fixture controls require same-origin requests'}, 403);
-      if (url.pathname.startsWith('/_fixture/')) {
-        if (url.pathname === '/_fixture/native-base.css' || url.pathname === '/_fixture/native-extensions.css') {
-          const file = url.pathname.endsWith('/native-base.css') ? 'base.css' : 'features/extensions.css';
-          return new Response(Bun.file(resolve(root, '../forgejo-ext/web_src/css', file)), {
-            headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
-          });
-        }
-        if (url.pathname === '/_fixture/review.css')
-          return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.css')), {
-            headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
-          });
-        if (url.pathname === '/_fixture/state' && req.method === 'GET')
-          return json({
-            scenario: review.scenario,
-            fault: review.fault,
-            generation: review.generation,
-            revision,
-            layout: review.layout,
-          });
-        if (req.method !== 'POST' || Number(req.headers.get('content-length')) > 4096)
-          return json({error: 'Invalid fixture control'}, 400);
-        const body = object(await req.json());
-        if (url.pathname === '/_fixture/reset' && scenarios.includes(body.scenario as Scenario)) {
-          for (const peer of review.peers) peer.close();
-          review = fresh(origin, body.scenario as Scenario);
-          clients.set(cookie!, review);
-          return json({
-            scenario: review.scenario,
-            fault: review.fault,
-            generation: review.generation,
-            revision,
-            layout: review.layout,
-          });
-        }
-        if (url.pathname === '/_fixture/fault' && faults.includes(body.fault as Fault)) {
-          review.fault = body.fault as Fault;
-          review.model.setStatus(review.fault === 'expired' ? 401 : review.fault === 'offline' ? 503 : 200);
-          review.model.setJoinFailure(review.fault === 'join-failed');
-          review.model.setCreateOutcome(review.fault === 'create-failed' ? 'rejected' : 'confirmed');
-          return json({ok: true});
-        }
-        return json({error: 'Unknown fixture control'}, 400);
-      }
-      if (url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) {
-        if (req.headers.get('upgrade') === 'websocket') {
-          if (req.headers.get('origin') !== origin || review.fault === 'expired' || review.fault === 'offline')
-            return json({error: 'Fixture socket unavailable'}, 403);
-          if (!/^\/-\/native\/pages\/soda\/spaces\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
-            return json({error: 'Unknown fixture socket'}, 404);
-          return server.upgrade(req, {data: {review, url: url.href, line: ''}})
-            ? undefined
-            : json({error: 'Socket upgrade failed'}, 400);
-        }
-        if (req.headers.get('X-Extension-Session-Generation') !== review.model.generation)
-          return json({error: {code: 'generation_changed'}}, 409);
-        if (review.fault === 'slow') await Bun.sleep(1200);
-        const body = req.method === 'GET' ? null : object(await req.json());
-        return review.model.request(url.href, req.method, body);
-      }
-      if (url.pathname === '/assets/spaces-review-client.js')
-        return new Response(client, {headers: {'Content-Type': 'text/javascript', 'Cache-Control': 'no-store'}});
-      if (url.pathname.startsWith('/assets/')) {
-        const asset = resolve(extension, 'assets', url.pathname.slice('/assets/'.length));
-        if (asset.startsWith(resolve(extension, 'assets') + '/') && (await Bun.file(asset).exists())) {
-          const contentType = asset.endsWith('.css')
-            ? 'text/css'
-            : /\.m?js$/.test(asset)
-              ? 'text/javascript'
-              : 'application/octet-stream';
-          return new Response(Bun.file(asset), {headers: {'Content-Type': contentType, 'Cache-Control': 'no-store'}});
-        }
-      }
-      const source = Object.entries(payload).find(([key]) => key === 'public' + url.pathname)?.[1];
-      if (source) {
-        const path = source.startsWith('@build/forgejo-js/') ? resolve(out, basename(source)) : resolve(root, source);
-        return new Response(Bun.file(path), {headers: {'Cache-Control': 'no-store'}});
-      }
-      if (url.pathname === '/' && req.method === 'GET') {
-        // Fresh navigation renews an expired development grant, mirroring a
-        // re-authenticated Forgejo session: without this the Reconnect action
-        // (a plain reload) could never recover the expired scenario.
-        if (review.fault === 'expired') {
-          review.fault = 'healthy';
-          review.model.setStatus(200);
-        }
-        return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.html')), {
-          headers: {'Content-Type': 'text/html', 'Cache-Control': 'no-store'},
-        });
-      }
-      return json({error: 'This route is outside the local Spaces fixture'}, 404);
+      return (
+        (await serveFixtureControl(url, req, review, origin, routes)) ??
+        (await serveSpacesApi(url, req, server, review, origin)) ??
+        serveFixtureStatic(url, req, review, routes)
+      );
     },
     websocket: {
       maxPayloadLength: 32769,

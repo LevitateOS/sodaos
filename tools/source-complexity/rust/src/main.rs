@@ -50,50 +50,78 @@ fn test_only(attrs: &[Attribute]) -> bool {
     })
 }
 
-// syn stores expression attributes on each concrete AST variant.
-fn expr_test_only(expr: &syn::Expr) -> bool {
-    let attrs: &[Attribute] = match expr {
-        syn::Expr::Array(syn::ExprArray { attrs, .. })
-        | syn::Expr::Assign(syn::ExprAssign { attrs, .. })
+// syn stores expression attributes on each concrete AST variant, grouped by
+// family so every helper stays under the shared complexity policy.
+fn control_attrs(expr: &syn::Expr) -> Option<&[Attribute]> {
+    match expr {
+        syn::Expr::If(syn::ExprIf { attrs, .. })
+        | syn::Expr::Match(syn::ExprMatch { attrs, .. })
+        | syn::Expr::Loop(syn::ExprLoop { attrs, .. })
+        | syn::Expr::While(syn::ExprWhile { attrs, .. })
+        | syn::Expr::ForLoop(syn::ExprForLoop { attrs, .. })
+        | syn::Expr::Break(syn::ExprBreak { attrs, .. })
+        | syn::Expr::Continue(syn::ExprContinue { attrs, .. })
+        | syn::Expr::Return(syn::ExprReturn { attrs, .. })
+        | syn::Expr::Yield(syn::ExprYield { attrs, .. })
+        | syn::Expr::Try(syn::ExprTry { attrs, .. }) => Some(attrs),
+        _ => None,
+    }
+}
+
+fn scope_attrs(expr: &syn::Expr) -> Option<&[Attribute]> {
+    match expr {
+        syn::Expr::Block(syn::ExprBlock { attrs, .. })
+        | syn::Expr::Unsafe(syn::ExprUnsafe { attrs, .. })
+        | syn::Expr::Const(syn::ExprConst { attrs, .. })
+        | syn::Expr::TryBlock(syn::ExprTryBlock { attrs, .. })
         | syn::Expr::Async(syn::ExprAsync { attrs, .. })
         | syn::Expr::Await(syn::ExprAwait { attrs, .. })
-        | syn::Expr::Binary(syn::ExprBinary { attrs, .. })
-        | syn::Expr::Block(syn::ExprBlock { attrs, .. })
-        | syn::Expr::Break(syn::ExprBreak { attrs, .. })
-        | syn::Expr::Call(syn::ExprCall { attrs, .. })
-        | syn::Expr::Cast(syn::ExprCast { attrs, .. })
         | syn::Expr::Closure(syn::ExprClosure { attrs, .. })
-        | syn::Expr::Const(syn::ExprConst { attrs, .. })
-        | syn::Expr::Continue(syn::ExprContinue { attrs, .. })
-        | syn::Expr::Field(syn::ExprField { attrs, .. })
-        | syn::Expr::ForLoop(syn::ExprForLoop { attrs, .. })
         | syn::Expr::Group(syn::ExprGroup { attrs, .. })
-        | syn::Expr::If(syn::ExprIf { attrs, .. })
-        | syn::Expr::Index(syn::ExprIndex { attrs, .. })
-        | syn::Expr::Infer(syn::ExprInfer { attrs, .. })
-        | syn::Expr::Let(syn::ExprLet { attrs, .. })
-        | syn::Expr::Lit(syn::ExprLit { attrs, .. })
-        | syn::Expr::Loop(syn::ExprLoop { attrs, .. })
-        | syn::Expr::Macro(syn::ExprMacro { attrs, .. })
-        | syn::Expr::Match(syn::ExprMatch { attrs, .. })
-        | syn::Expr::MethodCall(syn::ExprMethodCall { attrs, .. })
         | syn::Expr::Paren(syn::ExprParen { attrs, .. })
+        | syn::Expr::Let(syn::ExprLet { attrs, .. }) => Some(attrs),
+        _ => None,
+    }
+}
+
+fn access_attrs(expr: &syn::Expr) -> Option<&[Attribute]> {
+    match expr {
+        syn::Expr::Call(syn::ExprCall { attrs, .. })
+        | syn::Expr::MethodCall(syn::ExprMethodCall { attrs, .. })
+        | syn::Expr::Macro(syn::ExprMacro { attrs, .. })
+        | syn::Expr::Field(syn::ExprField { attrs, .. })
+        | syn::Expr::Index(syn::ExprIndex { attrs, .. })
         | syn::Expr::Path(syn::ExprPath { attrs, .. })
-        | syn::Expr::Range(syn::ExprRange { attrs, .. })
-        | syn::Expr::RawAddr(syn::ExprRawAddr { attrs, .. })
-        | syn::Expr::Reference(syn::ExprReference { attrs, .. })
+        | syn::Expr::Array(syn::ExprArray { attrs, .. })
         | syn::Expr::Repeat(syn::ExprRepeat { attrs, .. })
-        | syn::Expr::Return(syn::ExprReturn { attrs, .. })
-        | syn::Expr::Struct(syn::ExprStruct { attrs, .. })
-        | syn::Expr::Try(syn::ExprTry { attrs, .. })
-        | syn::Expr::TryBlock(syn::ExprTryBlock { attrs, .. })
         | syn::Expr::Tuple(syn::ExprTuple { attrs, .. })
+        | syn::Expr::Struct(syn::ExprStruct { attrs, .. }) => Some(attrs),
+        _ => None,
+    }
+}
+
+fn operator_attrs(expr: &syn::Expr) -> Option<&[Attribute]> {
+    match expr {
+        syn::Expr::Assign(syn::ExprAssign { attrs, .. })
+        | syn::Expr::Binary(syn::ExprBinary { attrs, .. })
         | syn::Expr::Unary(syn::ExprUnary { attrs, .. })
-        | syn::Expr::Unsafe(syn::ExprUnsafe { attrs, .. })
-        | syn::Expr::While(syn::ExprWhile { attrs, .. })
-        | syn::Expr::Yield(syn::ExprYield { attrs, .. }) => attrs,
-        _ => &[],
-    };
+        | syn::Expr::Cast(syn::ExprCast { attrs, .. })
+        | syn::Expr::Reference(syn::ExprReference { attrs, .. })
+        | syn::Expr::RawAddr(syn::ExprRawAddr { attrs, .. })
+        | syn::Expr::Range(syn::ExprRange { attrs, .. })
+        | syn::Expr::Lit(syn::ExprLit { attrs, .. })
+        | syn::Expr::Infer(syn::ExprInfer { attrs, .. }) => Some(attrs),
+        _ => None,
+    }
+}
+
+// syn stores expression attributes on each concrete AST variant.
+fn expr_test_only(expr: &syn::Expr) -> bool {
+    let attrs: &[Attribute] = control_attrs(expr)
+        .or_else(|| scope_attrs(expr))
+        .or_else(|| access_attrs(expr))
+        .or_else(|| operator_attrs(expr))
+        .unwrap_or(&[]);
     test_only(attrs)
 }
 

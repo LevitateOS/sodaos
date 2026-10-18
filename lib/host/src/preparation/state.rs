@@ -218,48 +218,63 @@ impl PrepareContextRead {
     }
 }
 
-pub(crate) fn valid_context_path(path: &str) -> bool {
-    if path.is_empty()
-        || path.len() > MAX_CONTEXT_PATH_BYTES
-        || path.starts_with('/')
-        || path.contains('\\')
-        || path.contains('\0')
-        || path.bytes().any(|byte| byte < b' ' || byte == 0x7f)
-    {
+fn path_shape_ok(path: &str) -> bool {
+    !path.is_empty()
+        && path.len() <= MAX_CONTEXT_PATH_BYTES
+        && !path.starts_with('/')
+        && !path.contains('\\')
+        && !path.contains('\0')
+        && path.bytes().all(|byte| byte >= b' ' && byte != 0x7f)
+}
+
+fn denied_config_dir(lower: &str) -> bool {
+    matches!(
+        lower,
+        ".git"
+            | ".soda-home"
+            | ".ssh"
+            | ".aws"
+            | ".codex"
+            | ".muse"
+            | ".config"
+            | ".docker"
+            | ".kube"
+    )
+}
+
+fn denied_credential_name(lower: &str) -> bool {
+    lower == "credentials"
+        || lower == "credentials.json"
+        || lower == "secrets"
+        || lower == "private"
+        || lower == "auth.json"
+        || lower == "token.json"
+        || lower == "id_rsa"
+        || lower == "id_ed25519"
+}
+
+fn denied_dotfile_name(lower: &str) -> bool {
+    lower == ".netrc"
+        || lower == ".git-credentials"
+        || lower == ".npmrc"
+        || lower == ".pypirc"
+        || lower == ".env"
+        || lower.starts_with(".env.")
+        || [".pem", ".key", ".p12", ".pfx"]
+            .iter()
+            .any(|ext| lower.ends_with(ext))
+}
+
+fn valid_context_part(part: &str) -> bool {
+    if part.is_empty() || part == "." || part == ".." {
         return false;
     }
-    path.split('/').all(|part| {
-        if part.is_empty() || part == "." || part == ".." {
-            return false;
-        }
-        let lower = part.to_ascii_lowercase();
-        !(lower == ".git"
-            || lower == ".soda-home"
-            || lower == ".ssh"
-            || lower == ".aws"
-            || lower == ".codex"
-            || lower == ".muse"
-            || lower == ".config"
-            || lower == ".docker"
-            || lower == ".kube"
-            || lower == "credentials"
-            || lower == "credentials.json"
-            || lower == "secrets"
-            || lower == "private"
-            || lower == "auth.json"
-            || lower == "token.json"
-            || lower == ".netrc"
-            || lower == ".git-credentials"
-            || lower == ".npmrc"
-            || lower == ".pypirc"
-            || lower == ".env"
-            || lower.starts_with(".env.")
-            || lower == "id_rsa"
-            || lower == "id_ed25519"
-            || [".pem", ".key", ".p12", ".pfx"]
-                .iter()
-                .any(|ext| lower.ends_with(ext)))
-    })
+    let lower = part.to_ascii_lowercase();
+    !denied_config_dir(&lower) && !denied_credential_name(&lower) && !denied_dotfile_name(&lower)
+}
+
+pub(crate) fn valid_context_path(path: &str) -> bool {
+    path_shape_ok(path) && path.split('/').all(valid_context_part)
 }
 
 impl PrepareInspect {

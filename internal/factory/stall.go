@@ -340,44 +340,62 @@ func (a RepairAccount) spentTotals() (runs, judgments, minutes int) {
 // automatic cycle for an episode requires materially new factual
 // evidence; a graph reshuffle alone does not qualify. Two
 // unsuccessful cycles require owner attention.
-func (a RepairAccount) AdmitCharge(charge RepairCharge) (RepairAccount, bool, error) {
+func (a RepairAccount) admitChargeShape(charge RepairCharge) error {
 	if err := a.Grant.Validate(); err != nil {
-		return RepairAccount{}, false, err
+		return err
 	}
-	if err := charge.Validate(); err != nil {
-		return RepairAccount{}, false, err
-	}
-	if _, ok := a.chargeIDs()[charge.ID]; ok {
-		return a, false, nil
-	}
+	return charge.Validate()
+}
+
+func (a RepairAccount) admitChargeGrant(charge RepairCharge) error {
 	if !a.Grant.Active {
-		return RepairAccount{}, false, ErrRepairGrantInactive
+		return ErrRepairGrantInactive
 	}
 	if charge.GrantID != a.Grant.ID {
-		return RepairAccount{}, false, errors.New("repair charge does not match its grant")
+		return errors.New("repair charge does not match its grant")
 	}
+	return nil
+}
+
+func (a RepairAccount) admitChargeCycle(charge RepairCharge) error {
 	first, cycles := a.episodeEvidence(charge.EpisodeID)
 	if charge.Cycle > cycles+1 {
-		return RepairAccount{}, false, ErrRepairCyclesExhausted
+		return ErrRepairCyclesExhausted
 	}
 	if charge.Cycle == cycles+1 && cycles >= 1 {
 		if cycles+1 > DefaultRepairCyclesPerEpisode {
-			return RepairAccount{}, false, ErrRepairCyclesExhausted
+			return ErrRepairCyclesExhausted
 		}
 		if charge.EvidenceDigest == first {
-			return RepairAccount{}, false, ErrRepairNeedsEvidence
+			return ErrRepairNeedsEvidence
 		}
 	}
 	if charge.Cycle > DefaultRepairCyclesPerEpisode {
-		return RepairAccount{}, false, ErrRepairCyclesExhausted
+		return ErrRepairCyclesExhausted
 	}
 	// Each cycle holds at most one investigator run and one proposal
 	// judgment: a further charge for a spent cycle needs owner
 	// attention even when the repository totals still show room.
 	for _, prior := range a.Charges {
 		if prior.EpisodeID == charge.EpisodeID && prior.Cycle == charge.Cycle && prior.Kind == charge.Kind {
-			return RepairAccount{}, false, ErrRepairCyclesExhausted
+			return ErrRepairCyclesExhausted
 		}
+	}
+	return nil
+}
+
+func (a RepairAccount) AdmitCharge(charge RepairCharge) (RepairAccount, bool, error) {
+	if err := a.admitChargeShape(charge); err != nil {
+		return RepairAccount{}, false, err
+	}
+	if _, ok := a.chargeIDs()[charge.ID]; ok {
+		return a, false, nil
+	}
+	if err := a.admitChargeGrant(charge); err != nil {
+		return RepairAccount{}, false, err
+	}
+	if err := a.admitChargeCycle(charge); err != nil {
+		return RepairAccount{}, false, err
 	}
 	runs, judgments, minutes := a.spentTotals()
 	switch charge.Kind {
@@ -585,14 +603,7 @@ func ValidRepairOutcome(outcome string) bool {
 // entries must each validate with no duplicate outcome, but the D13
 // change-matching rule stays D13's own: repair coverage stands on its
 // own bindings.
-func validateRepairEvidence(
-	inspected []InspectedSource,
-	causes []CheckFailure,
-	retained []int64,
-	changes []ReassessmentIntentChange,
-	coverage []ReassessmentCoverage,
-	attention []ReassessmentAttentionEntry,
-) error {
+func validateRepairInspected(inspected []InspectedSource) error {
 	if len(inspected) > MaxInspectedRefs {
 		return errors.New("repair report inspects too many sources")
 	}
@@ -607,6 +618,10 @@ func validateRepairEvidence(
 			return errors.New("repair inspected evidence outside its bound")
 		}
 	}
+	return nil
+}
+
+func validateRepairCauses(causes []CheckFailure, retained []int64) error {
 	if len(causes) == 0 || len(causes) > MaxInspectedRefs {
 		return errors.New("repair report lacks its bounded causes")
 	}
@@ -623,6 +638,10 @@ func validateRepairEvidence(
 			return errors.New("invalid repair retained issue")
 		}
 	}
+	return nil
+}
+
+func validateRepairChanges(changes []ReassessmentIntentChange) error {
 	if len(changes) > MaxReassessmentIntentChanges {
 		return errors.New("repair intent changes exceed their bound")
 	}
@@ -636,6 +655,10 @@ func validateRepairEvidence(
 			return err
 		}
 	}
+	return nil
+}
+
+func validateRepairCoverage(coverage []ReassessmentCoverage, attention []ReassessmentAttentionEntry) error {
 	if len(coverage) > MaxReassessmentCoverage {
 		return errors.New("repair coverage exceeds its bound")
 	}
@@ -659,6 +682,26 @@ func validateRepairEvidence(
 		}
 	}
 	return nil
+}
+
+func validateRepairEvidence(
+	inspected []InspectedSource,
+	causes []CheckFailure,
+	retained []int64,
+	changes []ReassessmentIntentChange,
+	coverage []ReassessmentCoverage,
+	attention []ReassessmentAttentionEntry,
+) error {
+	if err := validateRepairInspected(inspected); err != nil {
+		return err
+	}
+	if err := validateRepairCauses(causes, retained); err != nil {
+		return err
+	}
+	if err := validateRepairChanges(changes); err != nil {
+		return err
+	}
+	return validateRepairCoverage(coverage, attention)
 }
 
 // StallRepairReport is the typed output of a completed repair phase

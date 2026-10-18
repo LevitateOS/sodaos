@@ -10,16 +10,7 @@ use super::{
     Entry, SnapshotFailure,
 };
 
-/// Collect the full snapshot document, like the retired probe's `main`.
-pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
-    check_snapshot_gate(unsafe { libc::geteuid() }, Path::new("/run/.containerenv"))?;
-    let mut data = obj();
-    set(&mut data, "files", obj());
-    set(&mut data, "people", obj());
-    set(&mut data, "git", obj());
-    set(&mut data, "workloads", JsonValue::Array(Vec::new()));
-    set(&mut data, "volumes", JsonValue::Array(Vec::new()));
-
+fn snapshot_paths() -> Result<Vec<String>, SnapshotFailure> {
     let mut paths = vec![
         "/etc/passwd".to_string(),
         "/etc/group".to_string(),
@@ -44,131 +35,158 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             paths.push(file.to_string_lossy().into_owned());
         }
     }
+    Ok(paths)
+}
 
-    for login in ["u08-alice-8417", "u08-bob-8417"] {
-        let home = Path::new("/home").join(login);
-        if !home.exists() {
+fn snapshot_checkout(
+    data: &mut JsonValue,
+    login: &str,
+    checkout: &Path,
+    paths: &mut Vec<String>,
+) -> Result<(), SnapshotFailure> {
+    if !checkout.exists() {
+        return Ok(());
+    }
+    // Only the known run-owned repository; export hashes, never content.
+    let files = walk_sorted(checkout)?;
+    if files.len() > 10000 {
+        return Err(SnapshotFailure::runtime("Checkout snapshot exceeded bound"));
+    }
+    for file in files {
+        if has_git_part(checkout, &file) {
             continue;
         }
-        let mut person = obj();
-        set(
-            &mut person,
-            "identity",
-            s(command(&arg_list(&["id", login]), &[])?),
-        );
-        set(&mut person, "home", Entry::snapshot(&home, true)?.json());
-        set(
-            &mut person,
-            "shared",
-            Entry::snapshot(&home.join("shared"), true)?.json(),
-        );
-        for (name, value) in snapshot_ssh_files(&home)? {
-            set(&mut person, &name, value);
-        }
-        set(sub_mut(&mut data, "people"), login, person);
-
-        let checkout = home.join("u08-personal-checkout");
-        if checkout.exists() {
-            // Only the known run-owned repository; export hashes, never content.
-            let files = walk_sorted(&checkout)?;
-            if files.len() > 10000 {
-                return Err(SnapshotFailure::runtime("Checkout snapshot exceeded bound"));
-            }
-            for file in files {
-                if has_git_part(&checkout, &file) {
-                    continue;
-                }
-                let file_type = std::fs::symlink_metadata(&file)
-                    .map_err(SnapshotFailure::io)?
-                    .file_type();
-                if file_type.is_file() || file_type.is_symlink() {
-                    paths.push(file.to_string_lossy().into_owned());
-                }
-            }
-            let checkout_arg = checkout.to_string_lossy().into_owned();
-            let mut git = obj();
-            set(
-                &mut git,
-                "head",
-                s(command(
-                    &arg_list(&[
-                        "runuser",
-                        "-u",
-                        login,
-                        "--",
-                        "git",
-                        "-C",
-                        &checkout_arg,
-                        "rev-parse",
-                        "HEAD",
-                    ]),
-                    &[],
-                )?),
-            );
-            set(
-                &mut git,
-                "status",
-                s(command(
-                    &arg_list(&[
-                        "runuser",
-                        "-u",
-                        login,
-                        "--",
-                        "git",
-                        "-C",
-                        &checkout_arg,
-                        "status",
-                        "--porcelain=v1",
-                    ]),
-                    &[],
-                )?),
-            );
-            set(
-                &mut git,
-                "refs",
-                s(command(
-                    &arg_list(&[
-                        "runuser",
-                        "-u",
-                        login,
-                        "--",
-                        "git",
-                        "-C",
-                        &checkout_arg,
-                        "show-ref",
-                    ]),
-                    &[],
-                )?),
-            );
-            set(sub_mut(&mut data, "git"), login, git);
-        }
-
-        for private in [
-            ".ssh/u08-personal-git/identity",
-            ".config/soda-u08-workload/database-password",
-        ] {
-            let target = home.join(private);
-            if target.exists() {
-                set(
-                    sub_mut(&mut data, "files"),
-                    &target.to_string_lossy(),
-                    Entry::snapshot(&target, false)?.json(),
-                );
-            }
-        }
-        for probe in glob_prefix(&home, "u08-access-")? {
-            let file_type = std::fs::symlink_metadata(&probe)
-                .map_err(SnapshotFailure::io)?
-                .file_type();
-            if !file_type.is_dir() || file_type.is_symlink() {
-                return Err(SnapshotFailure::assertion(""));
-            }
-            for file in list_files(&probe)? {
-                paths.push(file.to_string_lossy().into_owned());
-            }
+        let file_type = std::fs::symlink_metadata(&file)
+            .map_err(SnapshotFailure::io)?
+            .file_type();
+        if file_type.is_file() || file_type.is_symlink() {
+            paths.push(file.to_string_lossy().into_owned());
         }
     }
+    let checkout_arg = checkout.to_string_lossy().into_owned();
+    let mut git = obj();
+    set(
+        &mut git,
+        "head",
+        s(command(
+            &arg_list(&[
+                "runuser",
+                "-u",
+                login,
+                "--",
+                "git",
+                "-C",
+                &checkout_arg,
+                "rev-parse",
+                "HEAD",
+            ]),
+            &[],
+        )?),
+    );
+    set(
+        &mut git,
+        "status",
+        s(command(
+            &arg_list(&[
+                "runuser",
+                "-u",
+                login,
+                "--",
+                "git",
+                "-C",
+                &checkout_arg,
+                "status",
+                "--porcelain=v1",
+            ]),
+            &[],
+        )?),
+    );
+    set(
+        &mut git,
+        "refs",
+        s(command(
+            &arg_list(&[
+                "runuser",
+                "-u",
+                login,
+                "--",
+                "git",
+                "-C",
+                &checkout_arg,
+                "show-ref",
+            ]),
+            &[],
+        )?),
+    );
+    set(sub_mut(data, "git"), login, git);
+    Ok(())
+}
 
+fn snapshot_private_probes(
+    data: &mut JsonValue,
+    home: &Path,
+    paths: &mut Vec<String>,
+) -> Result<(), SnapshotFailure> {
+    for private in [
+        ".ssh/u08-personal-git/identity",
+        ".config/soda-u08-workload/database-password",
+    ] {
+        let target = home.join(private);
+        if target.exists() {
+            set(
+                sub_mut(data, "files"),
+                &target.to_string_lossy(),
+                Entry::snapshot(&target, false)?.json(),
+            );
+        }
+    }
+    for probe in glob_prefix(home, "u08-access-")? {
+        let file_type = std::fs::symlink_metadata(&probe)
+            .map_err(SnapshotFailure::io)?
+            .file_type();
+        if !file_type.is_dir() || file_type.is_symlink() {
+            return Err(SnapshotFailure::assertion(""));
+        }
+        for file in list_files(&probe)? {
+            paths.push(file.to_string_lossy().into_owned());
+        }
+    }
+    Ok(())
+}
+
+fn snapshot_person(
+    data: &mut JsonValue,
+    login: &str,
+    paths: &mut Vec<String>,
+) -> Result<(), SnapshotFailure> {
+    let home = Path::new("/home").join(login);
+    if !home.exists() {
+        return Ok(());
+    }
+    let mut person = obj();
+    set(
+        &mut person,
+        "identity",
+        s(command(&arg_list(&["id", login]), &[])?),
+    );
+    set(&mut person, "home", Entry::snapshot(&home, true)?.json());
+    set(
+        &mut person,
+        "shared",
+        Entry::snapshot(&home.join("shared"), true)?.json(),
+    );
+    for (name, value) in snapshot_ssh_files(&home)? {
+        set(&mut person, &name, value);
+    }
+    set(sub_mut(data, "people"), login, person);
+    snapshot_checkout(data, login, &home.join("u08-personal-checkout"), paths)?;
+    snapshot_private_probes(data, &home, paths)
+}
+
+fn snapshot_file_entries(
+    data: &mut JsonValue,
+    mut paths: Vec<String>,
+) -> Result<(), SnapshotFailure> {
     let shared = Path::new("/srv/project/shared");
     paths.push(shared.to_string_lossy().into_owned());
     for probe in glob_prefix(shared, "u08-shared-")? {
@@ -182,11 +200,29 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
     let unique: BTreeSet<String> = paths.into_iter().collect();
     for path in &unique {
         set(
-            sub_mut(&mut data, "files"),
+            sub_mut(data, "files"),
             path,
             Entry::snapshot(Path::new(path), true)?.json(),
         );
     }
+    Ok(())
+}
+
+/// Collect the full snapshot document, like the retired probe's `main`.
+pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
+    check_snapshot_gate(unsafe { libc::geteuid() }, Path::new("/run/.containerenv"))?;
+    let mut data = obj();
+    set(&mut data, "files", obj());
+    set(&mut data, "people", obj());
+    set(&mut data, "git", obj());
+    set(&mut data, "workloads", JsonValue::Array(Vec::new()));
+    set(&mut data, "volumes", JsonValue::Array(Vec::new()));
+
+    let mut paths = snapshot_paths()?;
+    for login in ["u08-alice-8417", "u08-bob-8417"] {
+        snapshot_person(&mut data, login, &mut paths)?;
+    }
+    snapshot_file_entries(&mut data, paths)?;
 
     // Fixed project-local API. A second project without initialized workload
     // storage still gets complete account/rootfs coverage, not fabricated lists.

@@ -83,15 +83,21 @@ func judgePlanPublication(plan factory.InvestigationPlan, receipts []store.PlanT
 	refuse := func(reason string) PlanPublicationVerdict {
 		return PlanPublicationVerdict{RefuseReason: reason}
 	}
-	wait := func(reason string) PlanPublicationVerdict {
-		return PlanPublicationVerdict{WaitReason: reason}
-	}
 	if err := plan.Validate(); err != nil {
 		return refuse(PlanRefuseEvidence)
 	}
 	if !factory.ValidCommit(candidate) {
 		return refuse(PlanRefuseCandidate)
 	}
+	byTask, knownChecks := indexPlanPublicationKeys(plan)
+	stored, verdict, decided := admitPlanTaskReceipts(plan, receipts, byTask)
+	if decided {
+		return verdict
+	}
+	return collectPlanPublicationEvidence(plan, candidate, stored, knownChecks)
+}
+
+func indexPlanPublicationKeys(plan factory.InvestigationPlan) (map[string]int, map[string]bool) {
 	byTask := make(map[string]int, len(plan.Tasks))
 	for i, task := range plan.Tasks {
 		byTask[task.ID] = i
@@ -100,18 +106,33 @@ func judgePlanPublication(plan factory.InvestigationPlan, receipts []store.PlanT
 	for _, check := range plan.Checks {
 		knownChecks[check.ID] = true
 	}
+	return byTask, knownChecks
+}
+
+func admitPlanTaskReceipts(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, byTask map[string]int) (map[string]store.PlanTaskReceipt, PlanPublicationVerdict, bool) {
+	refused := PlanPublicationVerdict{RefuseReason: PlanRefuseEvidence}
 	stored := make(map[string]store.PlanTaskReceipt, len(receipts))
 	for _, receipt := range receipts {
 		if receipt.AttemptRoot != plan.AttemptRoot || receipt.PlanID != plan.ID {
-			return refuse(PlanRefuseEvidence)
+			return nil, refused, true
 		}
 		if _, ok := byTask[receipt.TaskID]; !ok {
-			return refuse(PlanRefuseEvidence)
+			return nil, refused, true
 		}
 		if _, dup := stored[receipt.TaskID]; dup {
-			return refuse(PlanRefuseEvidence)
+			return nil, refused, true
 		}
 		stored[receipt.TaskID] = receipt
+	}
+	return stored, PlanPublicationVerdict{}, false
+}
+
+func collectPlanPublicationEvidence(plan factory.InvestigationPlan, candidate string, stored map[string]store.PlanTaskReceipt, knownChecks map[string]bool) PlanPublicationVerdict {
+	refuse := func(reason string) PlanPublicationVerdict {
+		return PlanPublicationVerdict{RefuseReason: reason}
+	}
+	wait := func(reason string) PlanPublicationVerdict {
+		return PlanPublicationVerdict{WaitReason: reason}
 	}
 	evidence := PlanPublicationEvidence{TaskCount: len(plan.Tasks)}
 	for _, task := range plan.Tasks {

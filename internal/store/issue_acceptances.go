@@ -16,6 +16,21 @@ import (
 // the current head, or be empty when no decision was ever recorded.
 // Repeating the identical decision replays without advancing twice; new
 // content under a recorded ID conflicts instead of overwriting history.
+func replayAcceptanceHeadTx(ctx context.Context, tx *sql.Tx, id string, data []byte) error {
+	var raw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=$1`, id).Scan(&raw); err != nil {
+		return err
+	}
+	same, err := sameJSONDocument(ctx, tx, raw, data)
+	if err != nil {
+		return err
+	}
+	if !same {
+		return ErrCommandConflict
+	}
+	return tx.Commit()
+}
+
 func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptance) error {
 	if err := d.Validate(); err != nil {
 		return err
@@ -43,18 +58,7 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 		current = head.String
 	}
 	if current == d.ID {
-		var raw []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=$1`, d.ID).Scan(&raw); err != nil {
-			return err
-		}
-		same, err := sameJSONDocument(ctx, tx, raw, data)
-		if err != nil {
-			return err
-		}
-		if !same {
-			return ErrCommandConflict
-		}
-		return tx.Commit()
+		return replayAcceptanceHeadTx(ctx, tx, d.ID, data)
 	}
 	if current != d.Predecessor {
 		return ErrStaleRevision

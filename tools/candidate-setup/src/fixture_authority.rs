@@ -41,20 +41,7 @@ fn stage_file(path: &str, bytes: &[u8]) -> Result<(), Exit> {
         .map_err(|_| Exit::Fail(format!("cannot write staged file {path}")))
 }
 
-/// Worker git exception, restricted worker config and the
-/// fixture-only media authority (never release keys).
-pub(super) fn admit_fixture_authority(
-    pwd: &str,
-    forgejo_source: &str,
-    fountain_release_url: &str,
-    output_parent: &str,
-    storage: &Storage,
-    worker_json_path: &str,
-    prefix: &str,
-    refresh: &str,
-    owned: &str,
-    cleanup: &mut Vec<PathBuf>,
-) -> Result<(), Exit> {
+fn admit_git_exception() -> Result<(), Exit> {
     println!("-- worker git ownership exception");
     let gitconfig = "/etc/gitconfig";
     let needs_gitconfig = if !is_file(gitconfig) {
@@ -77,7 +64,17 @@ pub(super) fn admit_fixture_authority(
         )?;
         run("sudo", &["chmod", "0644", gitconfig])?;
     }
+    Ok(())
+}
 
+fn admit_worker_config(
+    pwd: &str,
+    forgejo_source: &str,
+    fountain_release_url: &str,
+    output_parent: &str,
+    storage: &Storage,
+    worker_json_path: &str,
+) -> Result<(), Exit> {
     println!("-- restricted worker config");
     let admitted = fs::canonicalize(ADMITTED)
         .map_err(|err| Exit::Fail(format!("cannot resolve admitted controller: {err}")))?;
@@ -86,23 +83,102 @@ pub(super) fn admit_fixture_authority(
         .ok_or_else(|| Exit::Fail("admitted controller path is not UTF-8".to_owned()))?;
     let worker_config = worker_json(
         admitted,
-        &pwd,
-        &forgejo_source,
+        pwd,
+        forgejo_source,
         fountain_release_url,
-        &output_parent,
+        output_parent,
         &storage.root,
         &storage.home,
         &storage.run,
         TOOLS,
         AUTHORITY,
     );
-    run_piped_stdin(
-        "sudo",
-        &["tee", &worker_json_path],
-        worker_config.as_bytes(),
-    )?;
-    run("sudo", &["chmod", "0600", &worker_json_path])?;
+    run_piped_stdin("sudo", &["tee", worker_json_path], worker_config.as_bytes())?;
+    run("sudo", &["chmod", "0600", worker_json_path])?;
+    Ok(())
+}
 
+fn rotate_fixture_authority(
+    prefix: &str,
+    storage: &Storage,
+    cleanup: &mut Vec<PathBuf>,
+) -> Result<(), Exit> {
+    println!("-- fixture-only media authority (never release keys)");
+    refuse_active_build()?;
+    let owner = tempfile::Builder::new()
+        .prefix("setup-authority.")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir_in(&storage.scratch)
+        .map_err(|e| Exit::Fail(format!("cannot stage fixture authority: {e}")))?;
+    let tmpd = owner.path().to_string_lossy().into_owned();
+    cleanup.push(owner.path().to_path_buf());
+    let staged_passphrase = format!("{tmpd}/passphrase");
+    stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
+    let output_prefix = format!("{tmpd}/artifact");
+    run_stdout_null(
+        "skopeo",
+        &[
+            "generate-sigstore-key",
+            "--output-prefix",
+            &output_prefix,
+            "--passphrase-file",
+            &staged_passphrase,
+        ],
+    )?;
+    let now = unix_now()?;
+    let public_key = read_staged(&format!("{tmpd}/artifact.pub"))?;
+    stage_file(
+        &format!("{tmpd}/trust.json"),
+        trust_json(prefix, now, &public_key).as_bytes(),
+    )?;
+    stage_file(&format!("{tmpd}/config.json"), config_json().as_bytes())?;
+    for name in [
+        "trust.json",
+        "artifact.private",
+        "passphrase",
+        "config.json",
+    ] {
+        run(
+            "sudo",
+            &[
+                "install",
+                "-m",
+                "0600",
+                &format!("{tmpd}/{name}"),
+                &format!("{AUTHORITY}/{name}"),
+            ],
+        )?;
+    }
+    run("sudo", &["chmod", "0700", AUTHORITY])?;
+    owner
+        .close()
+        .map_err(|e| Exit::Fail(format!("cannot remove fixture authority staging: {e}")))?;
+    Ok(())
+}
+
+/// Worker git exception, restricted worker config and the
+/// fixture-only media authority (never release keys).
+pub(super) fn admit_fixture_authority(
+    pwd: &str,
+    forgejo_source: &str,
+    fountain_release_url: &str,
+    output_parent: &str,
+    storage: &Storage,
+    worker_json_path: &str,
+    prefix: &str,
+    refresh: &str,
+    owned: &str,
+    cleanup: &mut Vec<PathBuf>,
+) -> Result<(), Exit> {
+    admit_git_exception()?;
+    admit_worker_config(
+        pwd,
+        forgejo_source,
+        fountain_release_url,
+        output_parent,
+        storage,
+        worker_json_path,
+    )?;
     let trust_path = format!("{AUTHORITY}/trust.json");
     let artifact_path = format!("{AUTHORITY}/artifact.private");
     let passphrase_path = format!("{AUTHORITY}/passphrase");
@@ -110,62 +186,13 @@ pub(super) fn admit_fixture_authority(
     if is_file(&artifact_path) && refresh != "1" {
         println!("-- fixture authority already exists; keeping it (SODA_REFRESH_AUTHORITY=1 to regenerate)");
     } else {
-        println!("-- fixture-only media authority (never release keys)");
-        refuse_active_build()?;
-        let owner = tempfile::Builder::new()
-            .prefix("setup-authority.")
-            .permissions(fs::Permissions::from_mode(0o700))
-            .tempdir_in(&storage.scratch)
-            .map_err(|e| Exit::Fail(format!("cannot stage fixture authority: {e}")))?;
-        let tmpd = owner.path().to_string_lossy().into_owned();
-        cleanup.push(owner.path().to_path_buf());
-        let staged_passphrase = format!("{tmpd}/passphrase");
-        stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
-        let output_prefix = format!("{tmpd}/artifact");
-        run_stdout_null(
-            "skopeo",
-            &[
-                "generate-sigstore-key",
-                "--output-prefix",
-                &output_prefix,
-                "--passphrase-file",
-                &staged_passphrase,
-            ],
-        )?;
-        let now = unix_now()?;
-        let public_key = read_staged(&format!("{tmpd}/artifact.pub"))?;
-        stage_file(
-            &format!("{tmpd}/trust.json"),
-            trust_json(&prefix, now, &public_key).as_bytes(),
-        )?;
-        stage_file(&format!("{tmpd}/config.json"), config_json().as_bytes())?;
-        for name in [
-            "trust.json",
-            "artifact.private",
-            "passphrase",
-            "config.json",
-        ] {
-            run(
-                "sudo",
-                &[
-                    "install",
-                    "-m",
-                    "0600",
-                    &format!("{tmpd}/{name}"),
-                    &format!("{AUTHORITY}/{name}"),
-                ],
-            )?;
-        }
-        run("sudo", &["chmod", "0700", AUTHORITY])?;
-        owner
-            .close()
-            .map_err(|e| Exit::Fail(format!("cannot remove fixture authority staging: {e}")))?;
+        rotate_fixture_authority(prefix, storage, cleanup)?;
     }
     run(
         "sudo",
         &[
             "chown",
-            &owned,
+            owned,
             AUTHORITY,
             &trust_path,
             &artifact_path,

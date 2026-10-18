@@ -41,6 +41,19 @@ type IntakeHint struct {
 // Validate rejects malformed hints. Delivery IDs are native task UUIDs;
 // creator fields ride creation observations only.
 func (h IntakeHint) Validate() error {
+	if err := checkIntakeDelivery(h); err != nil {
+		return err
+	}
+	if h.Repository <= 0 || h.Issue <= 0 {
+		return errors.New("invalid intake issue scope")
+	}
+	if err := checkIntakeCreator(h); err != nil {
+		return err
+	}
+	return checkIntakeCreationFacts(h)
+}
+
+func checkIntakeDelivery(h IntakeHint) error {
 	if h.Delivery == "" || len(h.Delivery) > 128 {
 		return errors.New("invalid intake delivery identity")
 	}
@@ -49,15 +62,20 @@ func (h IntakeHint) Validate() error {
 			return errors.New("invalid intake delivery identity")
 		}
 	}
-	if h.Repository <= 0 || h.Issue <= 0 {
-		return errors.New("invalid intake issue scope")
-	}
+	return nil
+}
+
+func checkIntakeCreator(h IntakeHint) error {
 	if h.Created && h.Creator <= 0 {
 		return errors.New("creation observation needs its creator")
 	}
 	if !h.Created && (h.Creator != 0 || h.CreatorWrite) {
 		return errors.New("creator authority rides creation observations only")
 	}
+	return nil
+}
+
+func checkIntakeCreationFacts(h IntakeHint) error {
 	if h.NativeIssueID < 0 || h.CreatedUnix < 0 || !intakeCreationDigest(h.TitleDigest) || !intakeCreationDigest(h.ContentDigest) {
 		return errors.New("invalid native creation facts")
 	}

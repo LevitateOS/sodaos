@@ -36,6 +36,70 @@ struct CompanionWire {
     execs: Option<GoStringList>,
     labels: Option<BTreeMap<String, String>>,
 }
+fn visit_companion_text<'de, A>(
+    o: &mut CompanionWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.id = Some(v)
+            }
+        }
+        "image" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.image = Some(v)
+            }
+        }
+        "started" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.started = Some(v)
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+fn visit_companion_typed<'de, A>(
+    o: &mut CompanionWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "command" => {
+            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+                o.command = Some(v)
+            }
+        }
+        "running" => {
+            if let Some(v) = map.next_value::<Option<bool>>()? {
+                o.running = Some(v)
+            }
+        }
+        "pid" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                o.pid = Some(v)
+            }
+        }
+        "labels" => {
+            o.labels = Some(map.next_value()?);
+        }
+        "execs" => {
+            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+                o.execs = Some(v)
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
 impl<'de> Deserialize<'de> for CompanionWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -53,54 +117,17 @@ impl<'de> Deserialize<'de> for CompanionWire {
             {
                 let mut o = CompanionWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.id = Some(v)
-                            }
-                        }
-                        "image" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.image = Some(v)
-                            }
-                        }
-                        "command" => {
-                            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
-                                o.command = Some(v)
-                            }
-                        }
-                        "running" => {
-                            if let Some(v) = map.next_value::<Option<bool>>()? {
-                                o.running = Some(v)
-                            }
-                        }
-                        "pid" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.pid = Some(v)
-                            }
-                        }
-                        "started" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.started = Some(v)
-                            }
-                        }
-                        "labels" => {
-                            o.labels = Some(map.next_value()?);
-                        }
-                        "execs" => {
-                            if let Some(v) = map.next_value::<Option<GoStringList>>()? {
-                                o.execs = Some(v)
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "ID", "Image", "Command", "Running", "PID", "Started", "Execs",
-                                    "Labels",
-                                ],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if !visit_companion_text(&mut o, &key, &mut map)?
+                        && !visit_companion_typed(&mut o, &key, &mut map)?
+                    {
+                        return Err(de::Error::unknown_field(
+                            &k,
+                            &[
+                                "ID", "Image", "Command", "Running", "PID", "Started", "Execs",
+                                "Labels",
+                            ],
+                        ));
                     }
                 }
                 Ok(o)

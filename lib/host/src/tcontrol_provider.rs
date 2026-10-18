@@ -443,31 +443,35 @@ impl<'de> Deserialize<'de> for KeyResponseWire {
     }
 }
 
-/// Validate a key-creation response, returning the single-use auth key.
-/// Mirrors `validKeyCreateCapabilities` plus the SDK binding and
-/// `validCreatedAuthKey`. `before` is the instant just before the create
-/// call; `now` the validation instant (both injectable for tests).
-pub fn validate_key(
-    status: u16,
-    body: &[u8],
-    tags: &[String],
-    preauthorized: bool,
-    before: SystemTime,
-    now: SystemTime,
-) -> Result<String, String> {
+/// Decode the key-creation envelope: 200, bounded body, strict document.
+/// Strict validation at every level, then document-order binding, like
+/// `nativeObject` (strict success implies tolerant success).
+fn decode_key_response(status: u16, body: &[u8]) -> Result<KeyResponseWire, String> {
     if status != 200 || body.len() > crate::tcontrol_native::RESPONSE_LIMIT {
         return Err(wire::err_unconfirmed());
     }
-    // Strict validation at every level, then document-order binding, like
-    // `nativeObject` (strict success implies tolerant success).
-    let value: KeyResponseWire =
-        json::decode_strict_as(body).map_err(|_| wire::err_unconfirmed())?;
-    let id = value.id.ok_or_else(wire::err_unconfirmed)?;
-    let key = value.key.ok_or_else(wire::err_unconfirmed)?;
-    let created = value.created.ok_or_else(wire::err_unconfirmed)?;
-    let expires = value.expires.ok_or_else(wire::err_unconfirmed)?;
-    let create = value
-        .capabilities
+    json::decode_strict_as(body).map_err(|_| wire::err_unconfirmed())
+}
+
+/// Require the id/key/created/expires scalars.
+fn require_key_scalars(
+    id: Option<String>,
+    key: Option<String>,
+    created: Option<String>,
+    expires: Option<String>,
+) -> Result<(String, String, String, String), String> {
+    let id = id.ok_or_else(wire::err_unconfirmed)?;
+    let key = key.ok_or_else(wire::err_unconfirmed)?;
+    let created = created.ok_or_else(wire::err_unconfirmed)?;
+    let expires = expires.ok_or_else(wire::err_unconfirmed)?;
+    Ok((id, key, created, expires))
+}
+
+/// Bind the single devices/create capability and read its flags.
+fn extract_key_create(
+    capabilities: Option<KeyCreateCapabilitiesWire>,
+) -> Result<(bool, bool, bool, Vec<String>), String> {
+    let create = capabilities
         .and_then(|v| v.devices)
         .and_then(|v| v.create)
         .ok_or_else(wire::err_unconfirmed)?;
@@ -480,24 +484,58 @@ pub fn validate_key(
         .into_iter()
         .map(Option::unwrap_or_default)
         .collect::<Vec<_>>();
-    if id.is_empty() || id.len() > 128 || !wire::valid_auth_key(&key) {
+    Ok((reusable, ephemeral, got_preauth, got_tags))
+}
+
+/// Check the key shape, the invalid flag and the zero-time revoked stamp.
+/// `revoked` missing/null decodes to zero, like Go.
+fn check_key_state(
+    id: &str,
+    key: &str,
+    invalid: Option<Option<bool>>,
+    revoked: Option<Option<String>>,
+) -> Result<(), String> {
+    if id.is_empty() || id.len() > 128 || !wire::valid_auth_key(key) {
         return Err(wire::err_unconfirmed());
     }
-    if value.invalid.flatten().unwrap_or_default() {
+    if invalid.flatten().unwrap_or_default() {
         return Err(wire::err_unconfirmed());
     }
-    // `revoked` must be the zero time (missing/null decodes to zero, like Go).
     const ZERO_NANOS: i128 = -(719162i128 * 86_400 * 1_000_000_000);
-    if let Some(s) = value.revoked.flatten() {
+    if let Some(s) = revoked.flatten() {
         if parse_rfc3339_nanos(&s) != Some(ZERO_NANOS) {
             return Err(wire::err_unconfirmed());
         }
     }
+    Ok(())
+}
+
+/// The binding must be single-use, ephemeral, preauthorized as requested,
+/// and tagged exactly as requested.
+fn check_key_capabilities(
+    reusable: bool,
+    ephemeral: bool,
+    got_preauth: bool,
+    got_tags: &[String],
+    preauthorized: bool,
+    tags: &[String],
+) -> Result<(), String> {
     if reusable || !ephemeral || got_preauth != preauthorized || got_tags != tags {
         return Err(wire::err_unconfirmed());
     }
-    let created_at = parse_rfc3339_nanos(&created).ok_or_else(wire::err_unconfirmed)?;
-    let expires_at = parse_rfc3339_nanos(&expires).ok_or_else(wire::err_unconfirmed)?;
+    Ok(())
+}
+
+/// The creation instant must sit inside the call window and the expiry
+/// inside the project key lifetime.
+fn check_key_window(
+    created: &str,
+    expires: &str,
+    before: SystemTime,
+    now: SystemTime,
+) -> Result<(), String> {
+    let created_at = parse_rfc3339_nanos(created).ok_or_else(wire::err_unconfirmed)?;
+    let expires_at = parse_rfc3339_nanos(expires).ok_or_else(wire::err_unconfirmed)?;
     let before_nanos = system_nanos(before);
     let now_nanos = system_nanos(now);
     if created_at < before_nanos - 60_000_000_000
@@ -507,5 +545,42 @@ pub fn validate_key(
     {
         return Err(wire::err_unconfirmed());
     }
+    Ok(())
+}
+
+/// Validate a key-creation response, returning the single-use auth key.
+/// Mirrors `validKeyCreateCapabilities` plus the SDK binding and
+/// `validCreatedAuthKey`. `before` is the instant just before the create
+/// call; `now` the validation instant (both injectable for tests).
+pub fn validate_key(
+    status: u16,
+    body: &[u8],
+    tags: &[String],
+    preauthorized: bool,
+    before: SystemTime,
+    now: SystemTime,
+) -> Result<String, String> {
+    let value = decode_key_response(status, body)?;
+    let KeyResponseWire {
+        id,
+        key,
+        created,
+        expires,
+        capabilities,
+        invalid,
+        revoked,
+    } = value;
+    let (id, key, created, expires) = require_key_scalars(id, key, created, expires)?;
+    let (reusable, ephemeral, got_preauth, got_tags) = extract_key_create(capabilities)?;
+    check_key_state(&id, &key, invalid, revoked)?;
+    check_key_capabilities(
+        reusable,
+        ephemeral,
+        got_preauth,
+        &got_tags,
+        preauthorized,
+        tags,
+    )?;
+    check_key_window(&created, &expires, before, now)?;
     Ok(key)
 }

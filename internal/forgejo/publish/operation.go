@@ -338,7 +338,7 @@ func (c Config) CancelOperation(ctx context.Context, ops BackgroundOperations, o
 // mapRecord adopts one native operation record. Identity, kind and state
 // vocabularies are verified; anything else refuses instead of adopting a
 // lookalike. An unimplemented-kind outcome waits without a record.
-func mapRecord(operationID string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+func basePublishOutcome(operationID string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
 	var empty factory.OperationOutcome
 	if record.OperationID != operationID || record.InstallationID == "" {
 		return empty, errors.New("operation record identity differs")
@@ -360,29 +360,54 @@ func mapRecord(operationID string, record extensions.OperationRecord) (factory.O
 	if !factory.ValidOpCancellation(outcome.Cancellation) {
 		return empty, errors.New("operation cancellation is unknown")
 	}
-	// Cancellation may win before submit. Its tombstone has no actor,
-	// repository or kind; every submitted record must retain all three.
+	return outcome, nil
+}
+
+// admitPublishOutcomeScope keeps the pre-submit cancellation tombstone
+// (no actor, repository or kind) while every submitted record must
+// retain all three native scope fields.
+func admitPublishOutcomeScope(outcome *factory.OperationOutcome, record extensions.OperationRecord) error {
 	tombstone := record.Kind == "" && record.ActorID == "" && record.RepositoryID == "" &&
 		outcome.Effect == factory.OpEffectNotCommitted && outcome.Cancellation == factory.OpCancelCancelled
-	if !tombstone {
-		if record.Kind != factory.OpRefPublish && record.Kind != factory.OpPRCreate {
-			return empty, errors.New("operation kind differs from publication")
-		}
-		actor, actorErr := strconv.ParseInt(record.ActorID, 10, 64)
-		repository, repositoryErr := strconv.ParseInt(record.RepositoryID, 10, 64)
-		if actorErr != nil || repositoryErr != nil || actor <= 0 || repository <= 0 {
-			return empty, errors.New("operation record lacks its native scope")
-		}
-		outcome.ActorID, outcome.RepositoryID = actor, repository
+	if tombstone {
+		return nil
 	}
+	if record.Kind != factory.OpRefPublish && record.Kind != factory.OpPRCreate {
+		return errors.New("operation kind differs from publication")
+	}
+	actor, actorErr := strconv.ParseInt(record.ActorID, 10, 64)
+	repository, repositoryErr := strconv.ParseInt(record.RepositoryID, 10, 64)
+	if actorErr != nil || repositoryErr != nil || actor <= 0 || repository <= 0 {
+		return errors.New("operation record lacks its native scope")
+	}
+	outcome.ActorID, outcome.RepositoryID = actor, repository
+	return nil
+}
+
+func boundPublishOutcome(outcome *factory.OperationOutcome, record extensions.OperationRecord) error {
 	if outcome.Completion != "" && !factory.ValidOpCompletion(outcome.Completion) {
-		return empty, errors.New("operation completion is unknown")
+		return errors.New("operation completion is unknown")
 	}
 	if len(outcome.Reason) > 64 {
-		return empty, errors.New("operation reason exceeds bounds")
+		return errors.New("operation reason exceeds bounds")
 	}
 	if len(record.Receipt) > factory.MaxPublicationReceipt {
-		return empty, errors.New("operation receipt exceeds bounds")
+		return errors.New("operation receipt exceeds bounds")
+	}
+	return nil
+}
+
+func mapRecord(operationID string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+	var empty factory.OperationOutcome
+	outcome, err := basePublishOutcome(operationID, record)
+	if err != nil {
+		return empty, err
+	}
+	if err := admitPublishOutcomeScope(&outcome, record); err != nil {
+		return empty, err
+	}
+	if err := boundPublishOutcome(&outcome, record); err != nil {
+		return empty, err
 	}
 	outcome.Receipt = append([]byte(nil), record.Receipt...)
 	return outcome, nil

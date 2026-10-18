@@ -276,13 +276,7 @@ func isHex64(value string) bool {
 	return true
 }
 
-// checkPayload enforces the strict per-tool shape plus the D16
-// manifest-proposal contract on product plans.
-func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
-	spec, ok := mcpMutationPayloads[tool]
-	if !ok {
-		return fmt.Errorf("unsupported factory tool")
-	}
+func checkPayloadKeys(tool factory.MCPTool, payload map[string]any, spec mcpPayloadSpec) error {
 	for key := range payload {
 		known := false
 		for _, want := range spec.required {
@@ -294,6 +288,10 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 			return fmt.Errorf("unknown payload field %q", key)
 		}
 	}
+	return nil
+}
+
+func checkPayloadRequired(payload map[string]any, spec mcpPayloadSpec) error {
 	for _, want := range spec.required {
 		value, ok := payload[want]
 		if !ok {
@@ -303,6 +301,10 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 			return fmt.Errorf("payload field %q out of bound", want)
 		}
 	}
+	return nil
+}
+
+func checkPayloadEnums(payload map[string]any, spec mcpPayloadSpec) error {
 	for field, allowed := range spec.enums {
 		text, _ := payload[field].(string)
 		admitted := false
@@ -315,12 +317,20 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 			return fmt.Errorf("payload field %q carries an unsupported value", field)
 		}
 	}
+	return nil
+}
+
+func checkPayloadHex(payload map[string]any, spec mcpPayloadSpec) error {
 	for _, field := range spec.hex {
 		text, _ := payload[field].(string)
 		if !isHex64(text) && !factory.ValidID(text) {
 			return fmt.Errorf("payload field %q is not a digest", field)
 		}
 	}
+	return nil
+}
+
+func (s *factoryCatalogServer) checkPayloadOutcome(tool factory.MCPTool, payload map[string]any) error {
 	if tool == factory.MCPToolFinishImplement {
 		if _, unchanged := payload["unchanged"]; unchanged {
 			return nil
@@ -338,6 +348,28 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 		}
 	}
 	return nil
+}
+
+// checkPayload enforces the strict per-tool shape plus the D16
+// manifest-proposal contract on product plans.
+func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
+	spec, ok := mcpMutationPayloads[tool]
+	if !ok {
+		return fmt.Errorf("unsupported factory tool")
+	}
+	if err := checkPayloadKeys(tool, payload, spec); err != nil {
+		return err
+	}
+	if err := checkPayloadRequired(payload, spec); err != nil {
+		return err
+	}
+	if err := checkPayloadEnums(payload, spec); err != nil {
+		return err
+	}
+	if err := checkPayloadHex(payload, spec); err != nil {
+		return err
+	}
+	return s.checkPayloadOutcome(tool, payload)
 }
 
 // mcpOptionalPayloadKey admits documented optional keys beyond the

@@ -90,6 +90,75 @@ struct InspectionWire {
     userns: Option<String>,
     mappings: Option<MappingWire>,
 }
+fn visit_inspection_text<'de, A>(
+    map: &mut A,
+    o: &mut InspectionWire,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key == "id" {
+        Some(&mut o.id)
+    } else if key == "project" {
+        Some(&mut o.project)
+    } else if key == "owner" {
+        Some(&mut o.owner)
+    } else if key == "userns" {
+        Some(&mut o.userns)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_inspection_flag<'de, A>(
+    map: &mut A,
+    o: &mut InspectionWire,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key == "running" {
+        Some(&mut o.running)
+    } else if key == "privileged" {
+        Some(&mut o.privileged)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            *slot = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_inspection_mappings<'de, A>(
+    map: &mut A,
+    o: &mut InspectionWire,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key != "mappings" {
+        return Ok(false);
+    }
+    if let Some(v) = map.next_value::<Option<MappingWire>>()? {
+        o.mappings = Some(v);
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for InspectionWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -107,57 +176,28 @@ impl<'de> Deserialize<'de> for InspectionWire {
             {
                 let mut o = InspectionWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.id = Some(v)
-                            }
-                        }
-                        "running" => {
-                            if let Some(v) = map.next_value::<Option<bool>>()? {
-                                o.running = Some(v)
-                            }
-                        }
-                        "project" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.project = Some(v)
-                            }
-                        }
-                        "owner" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.owner = Some(v)
-                            }
-                        }
-                        "privileged" => {
-                            if let Some(v) = map.next_value::<Option<bool>>()? {
-                                o.privileged = Some(v)
-                            }
-                        }
-                        "userns" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.userns = Some(v)
-                            }
-                        }
-                        "mappings" => {
-                            if let Some(v) = map.next_value::<Option<MappingWire>>()? {
-                                o.mappings = Some(v)
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "id",
-                                    "running",
-                                    "project",
-                                    "owner",
-                                    "privileged",
-                                    "userns",
-                                    "mappings",
-                                ],
-                            ))
-                        }
+                    let lower = k.to_ascii_lowercase();
+                    if visit_inspection_text(&mut map, &mut o, &lower)? {
+                        continue;
                     }
+                    if visit_inspection_flag(&mut map, &mut o, &lower)? {
+                        continue;
+                    }
+                    if visit_inspection_mappings(&mut map, &mut o, &lower)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &k,
+                        &[
+                            "id",
+                            "running",
+                            "project",
+                            "owner",
+                            "privileged",
+                            "userns",
+                            "mappings",
+                        ],
+                    ));
                 }
                 Ok(o)
             }

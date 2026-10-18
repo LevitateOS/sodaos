@@ -46,34 +46,41 @@ fn valid_ecdsa_point(curve: EcdsaCurve, point: &[u8]) -> bool {
     }
 }
 
+fn check_rsa_params(e: &[u8], n: &[u8]) -> Result<(), String> {
+    let e_bits = bit_len(e);
+    if e_bits > 24 || e_bits < 2 || e.last().is_none_or(|byte| byte & 1 == 0) || bit_len(n) > 16_384
+    {
+        return Err("invalid public key".to_string());
+    }
+    Ok(())
+}
+
+fn check_dsa_params(p: &[u8], q: &[u8], g: &[u8], y: &[u8]) -> Result<(), String> {
+    if bit_len(p) != 1024
+        || bit_len(q) != 160
+        || g.is_empty()
+        || y.is_empty()
+        || !less_than(g, p)
+        || !less_than(y, p)
+    {
+        return Err("invalid public key".to_string());
+    }
+    Ok(())
+}
+
 fn check_key_data(data: &KeyData) -> Result<(), String> {
     match data {
         KeyData::Rsa(key) => {
             let e = key.e().as_positive_bytes().ok_or("invalid public key")?;
             let n = key.n().as_positive_bytes().ok_or("invalid public key")?;
-            let e_bits = bit_len(e);
-            if e_bits > 24
-                || e_bits < 2
-                || e.last().is_none_or(|byte| byte & 1 == 0)
-                || bit_len(n) > 16_384
-            {
-                return Err("invalid public key".to_string());
-            }
+            check_rsa_params(e, n)?;
         }
         KeyData::Dsa(key) => {
             let p = key.p().as_positive_bytes().ok_or("invalid public key")?;
             let q = key.q().as_positive_bytes().ok_or("invalid public key")?;
             let g = key.g().as_positive_bytes().ok_or("invalid public key")?;
             let y = key.y().as_positive_bytes().ok_or("invalid public key")?;
-            if bit_len(p) != 1024
-                || bit_len(q) != 160
-                || g.is_empty()
-                || y.is_empty()
-                || !less_than(g, p)
-                || !less_than(y, p)
-            {
-                return Err("invalid public key".to_string());
-            }
+            check_dsa_params(p, q, g, y)?;
         }
         KeyData::Ecdsa(key) => {
             if !valid_ecdsa_point(key.curve(), key.as_sec1_bytes()) {

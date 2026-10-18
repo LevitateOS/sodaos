@@ -3,6 +3,7 @@ use std::net::{IpAddr, TcpStream};
 use std::time::Duration;
 
 use super::{get_str, parse_json, podman, read_text, run_output, ProbeFailure};
+use crate::structured::Value as JsonValue;
 
 /// One observed listener.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -211,6 +212,76 @@ pub(super) fn tls_material_paths(
     }
 }
 
+fn check_tls_material(env: &HashMap<String, String>) -> Result<(), ProbeFailure> {
+    use std::os::unix::fs::MetadataExt;
+    for path in tls_material_paths(env.get("SODA_TLS").map(String::as_str))? {
+        let info = std::fs::symlink_metadata(path)
+            .map_err(|_| ProbeFailure::exit("TLS material permissions invalid"))?;
+        if !info.is_file() || info.uid() != 0 || info.mode() & 0o7777 != 0o600 {
+            return Err(ProbeFailure::exit("TLS material permissions invalid"));
+        }
+    }
+    Ok(())
+}
+
+fn check_proxy_bind(env: &HashMap<String, String>) -> Result<String, ProbeFailure> {
+    let bind_raw = env
+        .get("SODA_BIND")
+        .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
+    let bind: IpAddr = bind_raw
+        .parse()
+        .map_err(|_| ProbeFailure::exit("private explicit proxy bind required"))?;
+    if !is_private_bind(bind) || bind.is_unspecified() {
+        return Err(ProbeFailure::exit("private explicit proxy bind required"));
+    }
+    Ok(bind.to_string())
+}
+
+fn check_activated_origins(
+    listeners: &BTreeSet<Listener>,
+    cfg: &JsonValue,
+    env: &HashMap<String, String>,
+) -> Result<(), ProbeFailure> {
+    if cfg.get("public_url").is_some() || env.contains_key("SODA_ORIGIN") {
+        return Err(ProbeFailure::exit(
+            "legacy separate-origin configuration requires rehearsed maintenance",
+        ));
+    }
+    let forgejo_origin = env
+        .get("FORGEJO_ORIGIN")
+        .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
+    if forgejo_origin.trim_end_matches('/')
+        != get_str(cfg, "forgejo_url", "parse dashboard.json")?.trim_end_matches('/')
+    {
+        return Err(ProbeFailure::exit("proxy and API browser origin mismatch"));
+    }
+    let (host, port) = split_origin(forgejo_origin)?;
+    bound(listeners, &host, port)?;
+    let listen = get_str(cfg, "listen", "parse dashboard.json")?;
+    let Some((host, port)) = listen.rsplit_once(':') else {
+        return Err(ProbeFailure::failed("parse dashboard.json"));
+    };
+    let port: u16 = port
+        .trim()
+        .parse()
+        .map_err(|_| ProbeFailure::failed("parse dashboard.json"))?;
+    bound(listeners, host.trim_matches(|c| c == '[' || c == ']'), port)
+}
+
+fn check_activated(listeners: &BTreeSet<Listener>) -> Result<(), ProbeFailure> {
+    let cfg = parse_json(
+        &read_text("/etc/soda/dashboard.json", "read dashboard.json")?,
+        "parse dashboard.json",
+    )?;
+    // These are the variables actually consumed by the packaged Caddy config,
+    // not ports reconstructed from a client's unrelated browser tunnel.
+    let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;
+    check_tls_material(&env)?;
+    let address = check_proxy_bind(&env)?;
+    check_activated_origins(listeners, &cfg, &env)?;
+    published(listeners, &address, 2222, 22)
+}
+
 /// Listener, publication, credential-mode, and origin boundaries: the
 /// second `host.sh` Python block.
 pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
@@ -219,60 +290,7 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
     cockpit_bound(&listeners)?;
     published(&listeners, "127.0.0.1", 3000, 3000)?;
     if phase == "activated" {
-        let cfg = parse_json(
-            &read_text("/etc/soda/dashboard.json", "read dashboard.json")?,
-            "parse dashboard.json",
-        )?;
-        use std::os::unix::fs::MetadataExt;
-        // These are the variables actually consumed by the packaged Caddy config,
-        // not ports reconstructed from a client's unrelated browser tunnel.
-        let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;
-        for path in tls_material_paths(env.get("SODA_TLS").map(String::as_str))? {
-            let info = std::fs::symlink_metadata(path)
-                .map_err(|_| ProbeFailure::exit("TLS material permissions invalid"))?;
-            if !info.is_file() || info.uid() != 0 || info.mode() & 0o7777 != 0o600 {
-                return Err(ProbeFailure::exit("TLS material permissions invalid"));
-            }
-        }
-        let bind_raw = env
-            .get("SODA_BIND")
-            .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
-        let bind: IpAddr = bind_raw
-            .parse()
-            .map_err(|_| ProbeFailure::exit("private explicit proxy bind required"))?;
-        if !is_private_bind(bind) || bind.is_unspecified() {
-            return Err(ProbeFailure::exit("private explicit proxy bind required"));
-        }
-        let address = bind.to_string();
-        if cfg.get("public_url").is_some() || env.contains_key("SODA_ORIGIN") {
-            return Err(ProbeFailure::exit(
-                "legacy separate-origin configuration requires rehearsed maintenance",
-            ));
-        }
-        let forgejo_origin = env
-            .get("FORGEJO_ORIGIN")
-            .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
-        if forgejo_origin.trim_end_matches('/')
-            != get_str(&cfg, "forgejo_url", "parse dashboard.json")?.trim_end_matches('/')
-        {
-            return Err(ProbeFailure::exit("proxy and API browser origin mismatch"));
-        }
-        let (host, port) = split_origin(forgejo_origin)?;
-        bound(&listeners, &host, port)?;
-        let listen = get_str(&cfg, "listen", "parse dashboard.json")?;
-        let Some((host, port)) = listen.rsplit_once(':') else {
-            return Err(ProbeFailure::failed("parse dashboard.json"));
-        };
-        let port: u16 = port
-            .trim()
-            .parse()
-            .map_err(|_| ProbeFailure::failed("parse dashboard.json"))?;
-        bound(
-            &listeners,
-            host.trim_matches(|c| c == '[' || c == ']'),
-            port,
-        )?;
-        published(&listeners, &address, 2222, 22)?;
+        check_activated(&listeners)?;
     } else {
         published(&listeners, "127.0.0.1", 2222, 22)?;
     }

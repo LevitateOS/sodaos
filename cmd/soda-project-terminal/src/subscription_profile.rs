@@ -111,38 +111,40 @@ fn subscription_invocation(identifier: &str) -> Result<String, String> {
     Ok(text.trim().to_string())
 }
 
-/// `subscription_check_unit`: incarnation pin plus liveness classification.
-/// Returns `false` for a confirmed-absent unit when `running` is false.
-pub fn subscription_check_unit(
-    lease: &StateValue,
-    account: &Account,
-    running: bool,
-) -> Result<bool, String> {
-    let identifier = lease_execution_id(lease)?.to_string();
-    let state = svc::service_state(&identifier, Some(account))?;
-    let path = term::terminal_path(&identifier)?;
-    let directory = term::checked_chain(&path)?;
-    if !term::record_exists(&directory, "subscription-unit")? {
-        if state != "inactive" || !svc::cgroup_empty(&identifier)? {
-            return Err("unexpected unit".to_string());
-        }
-        if running {
-            return Err("session not started".to_string());
-        }
-        return Ok(false);
+fn check_absent_unit(identifier: &str, state: &str, running: bool) -> Result<bool, String> {
+    if state != "inactive" || !svc::cgroup_empty(identifier)? {
+        return Err("unexpected unit".to_string());
     }
-    let record = fs::read_record(&directory, "subscription-unit")?;
-    drop(directory);
+    if running {
+        return Err("session not started".to_string());
+    }
+    Ok(false)
+}
+
+fn check_unit_incarnation(
+    identifier: &str,
+    record: &StateValue,
+) -> Result<(String, String), String> {
     let expected = record
         .get("invocation_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "unit incarnation changed".to_string())?;
-    let observed = subscription_invocation(&identifier)?;
+    let observed = subscription_invocation(identifier)?;
     // Invocation IDs are lowercase hex-32, like terminal identifiers.
     if !proto::valid_identifier(expected) || (!observed.is_empty() && observed != expected) {
         return Err("unit incarnation changed".to_string());
     }
-    if (state == "inactive" || state == "failed") && svc::cgroup_empty(&identifier)? {
+    Ok((expected.to_owned(), observed))
+}
+
+fn check_unit_running(
+    identifier: &str,
+    state: &str,
+    running: bool,
+    expected: &str,
+    observed: &str,
+) -> Result<bool, String> {
+    if (state == "inactive" || state == "failed") && svc::cgroup_empty(identifier)? {
         if running {
             return Err("session ended".to_string());
         }
@@ -157,9 +159,27 @@ pub fn subscription_check_unit(
     Ok(true)
 }
 
-/// `subscription_lookup`: binding-checked observation, or the empty lease
-/// for an absent locator or a locator without a subscription.
-pub fn subscription_lookup(request: &StateValue) -> Result<StateValue, String> {
+/// `subscription_check_unit`: incarnation pin plus liveness classification.
+/// Returns `false` for a confirmed-absent unit when `running` is false.
+pub fn subscription_check_unit(
+    lease: &StateValue,
+    account: &Account,
+    running: bool,
+) -> Result<bool, String> {
+    let identifier = lease_execution_id(lease)?.to_string();
+    let state = svc::service_state(&identifier, Some(account))?;
+    let path = term::terminal_path(&identifier)?;
+    let directory = term::checked_chain(&path)?;
+    if !term::record_exists(&directory, "subscription-unit")? {
+        return check_absent_unit(&identifier, &state, running);
+    }
+    let record = fs::read_record(&directory, "subscription-unit")?;
+    drop(directory);
+    let (expected, observed) = check_unit_incarnation(&identifier, &record)?;
+    check_unit_running(&identifier, &state, running, &expected, &observed)
+}
+
+fn lookup_account(request: &StateValue) -> Result<(&StateValue, String, i64, Account), String> {
     let lease = request
         .get("delivery")
         .and_then(|d| d.get("lease"))
@@ -171,19 +191,10 @@ pub fn subscription_lookup(request: &StateValue) -> Result<StateValue, String> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| "subscription request".to_string())?;
     let account = account::account_for(login, actor_id)?;
-    let path = term::terminal_path(&identifier)?;
-    if path_missing(&path)? {
-        return Ok(empty_result());
-    }
-    let directory = term::checked_chain(&path)?;
-    term::binding_record(&directory, Some(&account), actor_id)?;
-    if !term::record_exists(&directory, "subscription")? {
-        return Ok(empty_result());
-    }
-    let profile = fs::read_record(&directory, "subscription")?;
-    let stored = profile
-        .get("lease")
-        .ok_or_else(|| "subscription lease".to_string())?;
+    Ok((lease, identifier, actor_id, account))
+}
+
+fn check_lookup_binding(stored: &StateValue, lease: &StateValue) -> Result<(), String> {
     let stored_id = stored
         .get("execution_id")
         .ok_or_else(|| "subscription lease".to_string())?;
@@ -203,6 +214,27 @@ pub fn subscription_lookup(request: &StateValue) -> Result<StateValue, String> {
     if !json_equal(stored_id, want_id) || stored_actor != want_actor {
         return Err("lookup binding".to_string());
     }
+    Ok(())
+}
+
+/// `subscription_lookup`: binding-checked observation, or the empty lease
+/// for an absent locator or a locator without a subscription.
+pub fn subscription_lookup(request: &StateValue) -> Result<StateValue, String> {
+    let (lease, identifier, actor_id, account) = lookup_account(request)?;
+    let path = term::terminal_path(&identifier)?;
+    if path_missing(&path)? {
+        return Ok(empty_result());
+    }
+    let directory = term::checked_chain(&path)?;
+    term::binding_record(&directory, Some(&account), actor_id)?;
+    if !term::record_exists(&directory, "subscription")? {
+        return Ok(empty_result());
+    }
+    let profile = fs::read_record(&directory, "subscription")?;
+    let stored = profile
+        .get("lease")
+        .ok_or_else(|| "subscription lease".to_string())?;
+    check_lookup_binding(stored, lease)?;
     Ok(result_object(stored, ""))
 }
 

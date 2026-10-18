@@ -66,6 +66,76 @@ impl<'de> Deserialize<'de> for Mappings {
     }
 }
 
+/// Bind one id/running/project/owner field; true when `key` matched.
+fn bind_inspection_head<'de, A>(
+    out: &mut TerminalInspection,
+    map: &mut A,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.id = v;
+        }
+    } else if key.eq_ignore_ascii_case("running") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.running = v;
+        }
+    } else if key.eq_ignore_ascii_case("project") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.project = v;
+        }
+    } else if key.eq_ignore_ascii_case("owner") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.owner = v;
+        }
+    } else {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Bind one privileged/userns/mappings field; unknown names fail.
+fn bind_inspection_tail<'de, A>(
+    out: &mut TerminalInspection,
+    map: &mut A,
+    key: &str,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("privileged") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.privileged = v;
+        }
+    } else if key.eq_ignore_ascii_case("userns") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.userns = v;
+        }
+    } else if key.eq_ignore_ascii_case("mappings") {
+        if let Some(v) = map.next_value::<Option<Mappings>>()? {
+            out.uid_map = v.uid_map;
+            out.gid_map = v.gid_map;
+        }
+    } else {
+        return Err(de::Error::unknown_field(
+            &key,
+            &[
+                "id",
+                "running",
+                "project",
+                "owner",
+                "privileged",
+                "userns",
+                "mappings",
+            ],
+        ));
+    }
+    Ok(())
+}
+
 impl<'de> Deserialize<'de> for TerminalInspection {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -83,61 +153,9 @@ impl<'de> Deserialize<'de> for TerminalInspection {
             {
                 let mut out = TerminalInspection::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                        continue;
+                    if !bind_inspection_head(&mut out, &mut map, &key)? {
+                        bind_inspection_tail(&mut out, &mut map, &key)?;
                     }
-                    if key.eq_ignore_ascii_case("running") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.running = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("owner") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.owner = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("privileged") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.privileged = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("userns") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.userns = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("mappings") {
-                        if let Some(v) = map.next_value::<Option<Mappings>>()? {
-                            out.uid_map = v.uid_map;
-                            out.gid_map = v.gid_map;
-                        }
-                        continue;
-                    }
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &[
-                            "id",
-                            "running",
-                            "project",
-                            "owner",
-                            "privileged",
-                            "userns",
-                            "mappings",
-                        ],
-                    ));
                 }
                 Ok(out)
             }

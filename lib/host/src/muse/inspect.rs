@@ -17,6 +17,53 @@ pub(in crate::muse) struct MuseInspection {
     pub(in crate::muse) userns: String,
 }
 
+/// Feed one free-text inspection field. Returns whether `key` belonged to
+/// this family.
+fn feed_inspection_text<'de, A>(
+    out: &mut MuseInspection,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("id") {
+        &mut out.id
+    } else if key.eq_ignore_ascii_case("project") {
+        &mut out.project
+    } else if key.eq_ignore_ascii_case("userns") {
+        &mut out.userns
+    } else {
+        return Ok(false);
+    };
+    if let Some(v) = map.next_value::<Option<String>>()? {
+        *slot = v;
+    }
+    Ok(true)
+}
+
+/// Feed one inspection flag. Returns whether `key` belonged to this family.
+fn feed_inspection_flag<'de, A>(
+    out: &mut MuseInspection,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("running") {
+        &mut out.running
+    } else if key.eq_ignore_ascii_case("privileged") {
+        &mut out.privileged
+    } else {
+        return Ok(false);
+    };
+    if let Some(v) = map.next_value::<Option<bool>>()? {
+        *slot = v;
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for MuseInspection {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -34,36 +81,22 @@ impl<'de> Deserialize<'de> for MuseInspection {
             {
                 let mut out = MuseInspection::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("pid") {
+                    if key.eq_ignore_ascii_case("pid") {
                         if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
                             out.pid = v.0;
                         }
-                    } else if key.eq_ignore_ascii_case("project") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("running") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.running = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("privileged") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.privileged = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("userns") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.userns = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &["id", "pid", "project", "running", "privileged", "userns"],
-                        ));
+                        continue;
                     }
+                    if feed_inspection_text(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    if feed_inspection_flag(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &["id", "pid", "project", "running", "privileged", "userns"],
+                    ));
                 }
                 Ok(out)
             }

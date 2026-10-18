@@ -190,7 +190,7 @@ func mergeCallError(err error) error {
 	return errors.New("native merge operation response unconfirmed")
 }
 
-func mergeOperationOutcome(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+func baseMergeOutcome(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
 	var empty factory.OperationOutcome
 	if record.OperationID != id || record.InstallationID == "" {
 		return empty, errors.New("merge operation identity differs")
@@ -202,17 +202,34 @@ func mergeOperationOutcome(id string, record extensions.OperationRecord) (factor
 	if o.Cancellation == "" {
 		o.Cancellation = factory.OpCancelNone
 	}
+	return o, nil
+}
+
+func admitMergeOutcomeScope(o *factory.OperationOutcome, record extensions.OperationRecord) error {
+	tombstone := record.Kind == "" && record.ActorID == "" && record.RepositoryID == "" && o.Effect == factory.OpEffectNotCommitted && o.Cancellation == factory.OpCancelCancelled
+	if tombstone {
+		return nil
+	}
+	actor, ae := strconv.ParseInt(record.ActorID, 10, 64)
+	repo, re := strconv.ParseInt(record.RepositoryID, 10, 64)
+	if record.Kind != factory.OpMerge || ae != nil || re != nil || actor <= 0 || repo <= 0 {
+		return errors.New("native merge operation scope differs")
+	}
+	o.ActorID, o.RepositoryID = actor, repo
+	return nil
+}
+
+func mergeOperationOutcome(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+	var empty factory.OperationOutcome
+	o, err := baseMergeOutcome(id, record)
+	if err != nil {
+		return empty, err
+	}
 	if !factory.ValidOpEffect(o.Effect) || !factory.ValidOpCancellation(o.Cancellation) || (o.Completion != "" && !factory.ValidOpCompletion(o.Completion)) || len(o.Reason) > 64 || len(record.Receipt) > factory.MaxPublicationReceipt {
 		return empty, errors.New("invalid native merge operation state")
 	}
-	tombstone := record.Kind == "" && record.ActorID == "" && record.RepositoryID == "" && o.Effect == factory.OpEffectNotCommitted && o.Cancellation == factory.OpCancelCancelled
-	if !tombstone {
-		actor, ae := strconv.ParseInt(record.ActorID, 10, 64)
-		repo, re := strconv.ParseInt(record.RepositoryID, 10, 64)
-		if record.Kind != factory.OpMerge || ae != nil || re != nil || actor <= 0 || repo <= 0 {
-			return empty, errors.New("native merge operation scope differs")
-		}
-		o.ActorID, o.RepositoryID = actor, repo
+	if err := admitMergeOutcomeScope(&o, record); err != nil {
+		return empty, err
 	}
 	o.Receipt = append([]byte(nil), record.Receipt...)
 	return o, nil

@@ -12,6 +12,78 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// `Stop`: persist the stop tombstone for one run identity and retire
     /// its native boundary and broker execution. It works before the run
     /// is ever observed and refuses all subsequent work under that ID.
+    /// Close the broker fence for a stop-before-start tombstone.
+    fn close_before_start(
+        &self,
+        receipt: &mut FactoryReceipt,
+        id: &str,
+        deadline: Instant,
+    ) -> Result<FactoryState, FactoryError> {
+        if self
+            .broker
+            .close_execution(IDENTITY_FACTORY, id, deadline)
+            .is_err()
+        {
+            receipt.reason = "broker-close-uncertain".to_string();
+            let _ = self.store_tombstone(receipt);
+        }
+        Ok(receipt_state(receipt, false))
+    }
+
+    /// Retry the broker fence for an uncertain stop tombstone; every other
+    /// terminal receipt stays final.
+    fn close_retried_stop(
+        &self,
+        receipt: &mut FactoryReceipt,
+        id: &str,
+        deadline: Instant,
+    ) -> Result<FactoryState, FactoryError> {
+        let retry_close = receipt.phase == FACTORY_STOPPED
+            && receipt.reason == "broker-close-uncertain"
+            && receipt.run.validate().is_err();
+        if retry_close
+            && self
+                .broker
+                .close_execution(IDENTITY_FACTORY, id, deadline)
+                .is_ok()
+        {
+            receipt.reason = "stop-before-start".to_string();
+            let _ = self.store_tombstone(receipt);
+        }
+        Ok(receipt_state(receipt, false))
+    }
+
+    /// Retire the native boundary; true when retirement is uncertain.
+    fn stop_native(&self, receipt: &FactoryReceipt, deadline: Instant) -> bool {
+        match (&receipt.binding, &receipt.lease) {
+            (Some(binding), Some(lease)) => self
+                .terminal
+                .stop(&lease.with_binding(binding), deadline)
+                .is_err(),
+            _ => {
+                receipt.run.validate().is_ok()
+                    && self.terminal.stop_unbound(&receipt.run, deadline).is_err()
+            }
+        }
+    }
+
+    /// Retry the idempotent broker fence; true once the close confirms.
+    fn close_broker_fence(&self, id: &str, deadline: Instant) -> bool {
+        for attempt in 0..3 {
+            if self
+                .broker
+                .close_execution(IDENTITY_FACTORY, id, deadline)
+                .is_ok()
+            {
+                return true;
+            }
+            if attempt < 2 {
+                std::thread::sleep(Duration::from_millis(200));
+            }
+        }
+        false
+    }
+
     pub fn stop(&self, req: &FactoryStop, deadline: Instant) -> Result<FactoryState, FactoryError> {
         req.validate().map_err(FactoryError::msg)?;
         let lock = self.lock_run(&req.project, &req.id, deadline)?;
@@ -35,74 +107,22 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             // a full identity.
             self.store_tombstone(&receipt)?;
             drop(lock);
-            if self
-                .broker
-                .close_execution(IDENTITY_FACTORY, &req.id, deadline)
-                .is_err()
-            {
-                receipt.reason = "broker-close-uncertain".to_string();
-                let _ = self.store_tombstone(&receipt);
-                return Ok(receipt_state(&receipt, false));
-            }
-            return Ok(receipt_state(&receipt, false));
+            return self.close_before_start(&mut receipt, &req.id, deadline);
         }
         if receipt_terminal(&receipt.phase) {
             // A tombstone whose broker fence never confirmed retries it;
             // every other terminal receipt is final.
-            let retry_close = receipt.phase == FACTORY_STOPPED
-                && receipt.reason == "broker-close-uncertain"
-                && receipt.run.validate().is_err();
             drop(lock);
-            if retry_close
-                && self
-                    .broker
-                    .close_execution(IDENTITY_FACTORY, &req.id, deadline)
-                    .is_ok()
-            {
-                receipt.reason = "stop-before-start".to_string();
-                let _ = self.store_tombstone(&receipt);
-            }
-            return Ok(receipt_state(&receipt, false));
+            return self.close_retried_stop(&mut receipt, &req.id, deadline);
         }
         receipt.phase = FACTORY_STOPPED.to_string();
         self.store_receipt(&receipt)?;
         drop(lock);
-        let mut native_uncertain = false;
-        match (&receipt.binding, &receipt.lease) {
-            (Some(binding), Some(lease)) => {
-                if self
-                    .terminal
-                    .stop(&lease.with_binding(binding), deadline)
-                    .is_err()
-                {
-                    native_uncertain = true;
-                }
-            }
-            _ => {
-                if receipt.run.validate().is_ok()
-                    && self.terminal.stop_unbound(&receipt.run, deadline).is_err()
-                {
-                    native_uncertain = true;
-                }
-            }
-        }
+        let native_uncertain = self.stop_native(&receipt, deadline);
         let credential_ok = self.reconcile_run_credential(&mut receipt, deadline);
         // The broker fence is idempotent: retry transient close failures
         // before declaring the stop uncertain.
-        let mut closed = false;
-        for attempt in 0..3 {
-            if self
-                .broker
-                .close_execution(IDENTITY_FACTORY, &req.id, deadline)
-                .is_ok()
-            {
-                closed = true;
-                break;
-            }
-            if attempt < 2 {
-                std::thread::sleep(Duration::from_millis(200));
-            }
-        }
+        let closed = self.close_broker_fence(&req.id, deadline);
         let mut uncertain = native_uncertain || !credential_ok || !closed;
         // Stop-before-start owns its outcome: a run that never started
         // and never took delivery holds no CLI effect and no credential,

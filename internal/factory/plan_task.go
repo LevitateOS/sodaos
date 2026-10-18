@@ -152,41 +152,15 @@ func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) e
 	if len(checks) > MaxPlanChecks {
 		return errors.New("plan check count outside its bound")
 	}
-	knownChecks := make(map[string]bool, len(checks))
-	for _, c := range checks {
-		if err := c.Validate(); err != nil {
-			return err
-		}
-		if knownChecks[c.ID] {
-			return errors.New("duplicate check key")
-		}
-		knownChecks[c.ID] = true
+	knownChecks, err := indexPlanChecks(checks)
+	if err != nil {
+		return err
 	}
-	knownLanes := make(map[string]int, len(lanes))
-	for i, lane := range lanes {
-		if !ValidPlanKey(lane.ID) {
-			return errors.New("invalid lane key")
-		}
-		if _, dup := knownLanes[lane.ID]; dup {
-			return errors.New("duplicate lane key")
-		}
-		knownLanes[lane.ID] = i
+	knownLanes, laneOf, seenLaneTasks, err := indexPlanLanes(lanes)
+	if err != nil {
+		return err
 	}
 	byKey := make(map[string]int, len(tasks))
-	laneOf := make(map[string]string, len(tasks))
-	seenLaneTasks := make(map[string]bool)
-	for _, lane := range lanes {
-		for _, id := range lane.TaskIDs {
-			if !ValidPlanKey(id) {
-				return errors.New("lane references an invalid task key")
-			}
-			if seenLaneTasks[id] {
-				return errors.New("task enters two lanes")
-			}
-			seenLaneTasks[id] = true
-			laneOf[id] = lane.ID
-		}
-	}
 	for i, task := range tasks {
 		if !ValidPlanKey(task.ID) {
 			return errors.New("invalid task key")
@@ -195,59 +169,35 @@ func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) e
 			return errors.New("duplicate task key")
 		}
 		byKey[task.ID] = i
-		if laneOf[task.ID] == "" || laneOf[task.ID] != task.Lane {
-			return errors.New("task lane does not match its lane membership")
-		}
-		if _, ok := knownLanes[task.Lane]; !ok {
-			return errors.New("task names an unknown lane")
-		}
-		if task.Objective == "" || len(task.Objective) > MaxPlanTextBytes {
-			return errors.New("task objective outside its bound")
-		}
-		if len(task.Outputs) == 0 {
-			return errors.New("task lacks expected outputs")
-		}
-		for _, text := range append(append([]string(nil), task.Outputs...), task.AcceptanceRefs...) {
-			if text == "" || len(text) > MaxPlanTextBytes {
-				return errors.New("task output or acceptance reference outside its bound")
-			}
-		}
-		if len(task.AcceptanceRefs) == 0 {
-			return errors.New("task lacks acceptance coverage")
-		}
-		if len(task.OwnedPaths) > MaxTaskOwnership {
-			return errors.New("task ownership exceeds its bound")
-		}
-		for _, entry := range task.OwnedPaths {
-			if !validOwnershipEntry(entry) {
-				return errors.New("task ownership is not an exact file or directory prefix")
-			}
-		}
-		for _, key := range task.InterfaceWrite {
-			if key == "" || len(key) > 256 {
-				return errors.New("task interface write outside its bound")
-			}
-		}
-		for _, id := range task.CheckIDs {
-			if !knownChecks[id] {
-				return errors.New("task references an unknown check")
-			}
+		if err := checkPlanTask(task, knownLanes, laneOf, knownChecks); err != nil {
+			return err
 		}
 		// Dependencies name earlier task keys: the array is topologically
 		// ordered and every declared task is required.
-		for _, dep := range task.DependsOn {
-			pos, ok := byKey[dep]
-			if !ok || dep == task.ID {
-				return errors.New("task depends on an unknown task")
-			}
-			if pos > i {
-				return errors.New("task dependency is not earlier in plan order")
-			}
+		if err := checkPlanTaskDeps(task, i, byKey); err != nil {
+			return err
 		}
 	}
 	if len(seenLaneTasks) != len(tasks) {
 		return errors.New("lane membership does not cover every task")
 	}
+	return checkPlanConcurrency(tasks, byKey)
+}
+
+func checkPlanTaskDeps(task PlanTask, i int, byKey map[string]int) error {
+	for _, dep := range task.DependsOn {
+		pos, ok := byKey[dep]
+		if !ok || dep == task.ID {
+			return errors.New("task depends on an unknown task")
+		}
+		if pos > i {
+			return errors.New("task dependency is not earlier in plan order")
+		}
+	}
+	return nil
+}
+
+func checkPlanConcurrency(tasks []PlanTask, byKey map[string]int) error {
 	// Serialize conflicting ownership across potentially concurrent tasks:
 	// cross-lane pairs without an ordering dependency in either direction
 	// must neither overlap paths nor share an interface write.
@@ -271,30 +221,126 @@ func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) e
 		visit(b)
 		return seen[a]
 	}
-	overlap := func(a, b string) bool {
-		return a == b || strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/") ||
-			strings.HasPrefix(a, strings.TrimSuffix(b, "/")+"/") ||
-			strings.HasPrefix(b, strings.TrimSuffix(a, "/")+"/")
-	}
 	for i := range tasks {
 		for j := i + 1; j < len(tasks); j++ {
 			if tasks[i].Lane == tasks[j].Lane || ordered(i, j) {
 				continue
 			}
-			for _, a := range tasks[i].OwnedPaths {
-				for _, b := range tasks[j].OwnedPaths {
-					if overlap(a, b) {
-						return errors.New("concurrent tasks share owned paths without a dependency")
-					}
-				}
+			if err := checkPlanTaskPair(tasks[i], tasks[j]); err != nil {
+				return err
 			}
-			for _, a := range tasks[i].InterfaceWrite {
-				for _, b := range tasks[j].InterfaceWrite {
-					if a == b {
-						return errors.New("concurrent tasks share an interface write without a dependency")
-					}
-				}
+		}
+	}
+	return nil
+}
+
+func planPathOverlap(a, b string) bool {
+	return a == b || strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/") ||
+		strings.HasPrefix(a, strings.TrimSuffix(b, "/")+"/") ||
+		strings.HasPrefix(b, strings.TrimSuffix(a, "/")+"/")
+}
+
+func checkPlanTaskPair(a, b PlanTask) error {
+	for _, owned := range a.OwnedPaths {
+		for _, other := range b.OwnedPaths {
+			if planPathOverlap(owned, other) {
+				return errors.New("concurrent tasks share owned paths without a dependency")
 			}
+		}
+	}
+	for _, written := range a.InterfaceWrite {
+		for _, other := range b.InterfaceWrite {
+			if written == other {
+				return errors.New("concurrent tasks share an interface write without a dependency")
+			}
+		}
+	}
+	return nil
+}
+
+func indexPlanChecks(checks []CheckSpec) (map[string]bool, error) {
+	knownChecks := make(map[string]bool, len(checks))
+	for _, c := range checks {
+		if err := c.Validate(); err != nil {
+			return nil, err
+		}
+		if knownChecks[c.ID] {
+			return nil, errors.New("duplicate check key")
+		}
+		knownChecks[c.ID] = true
+	}
+	return knownChecks, nil
+}
+
+func indexPlanLanes(lanes []PlanLane) (map[string]int, map[string]string, map[string]bool, error) {
+	knownLanes := make(map[string]int, len(lanes))
+	for i, lane := range lanes {
+		if !ValidPlanKey(lane.ID) {
+			return nil, nil, nil, errors.New("invalid lane key")
+		}
+		if _, dup := knownLanes[lane.ID]; dup {
+			return nil, nil, nil, errors.New("duplicate lane key")
+		}
+		knownLanes[lane.ID] = i
+	}
+	laneOf := make(map[string]string)
+	seenLaneTasks := make(map[string]bool)
+	for _, lane := range lanes {
+		for _, id := range lane.TaskIDs {
+			if !ValidPlanKey(id) {
+				return nil, nil, nil, errors.New("lane references an invalid task key")
+			}
+			if seenLaneTasks[id] {
+				return nil, nil, nil, errors.New("task enters two lanes")
+			}
+			seenLaneTasks[id] = true
+			laneOf[id] = lane.ID
+		}
+	}
+	return knownLanes, laneOf, seenLaneTasks, nil
+}
+
+func checkPlanTask(task PlanTask, knownLanes map[string]int, laneOf map[string]string, knownChecks map[string]bool) error {
+	if laneOf[task.ID] == "" || laneOf[task.ID] != task.Lane {
+		return errors.New("task lane does not match its lane membership")
+	}
+	if _, ok := knownLanes[task.Lane]; !ok {
+		return errors.New("task names an unknown lane")
+	}
+	if task.Objective == "" || len(task.Objective) > MaxPlanTextBytes {
+		return errors.New("task objective outside its bound")
+	}
+	if len(task.Outputs) == 0 {
+		return errors.New("task lacks expected outputs")
+	}
+	for _, text := range append(append([]string(nil), task.Outputs...), task.AcceptanceRefs...) {
+		if text == "" || len(text) > MaxPlanTextBytes {
+			return errors.New("task output or acceptance reference outside its bound")
+		}
+	}
+	if len(task.AcceptanceRefs) == 0 {
+		return errors.New("task lacks acceptance coverage")
+	}
+	return checkPlanTaskRefs(task, knownChecks)
+}
+
+func checkPlanTaskRefs(task PlanTask, knownChecks map[string]bool) error {
+	if len(task.OwnedPaths) > MaxTaskOwnership {
+		return errors.New("task ownership exceeds its bound")
+	}
+	for _, entry := range task.OwnedPaths {
+		if !validOwnershipEntry(entry) {
+			return errors.New("task ownership is not an exact file or directory prefix")
+		}
+	}
+	for _, key := range task.InterfaceWrite {
+		if key == "" || len(key) > 256 {
+			return errors.New("task interface write outside its bound")
+		}
+	}
+	for _, id := range task.CheckIDs {
+		if !knownChecks[id] {
+			return errors.New("task references an unknown check")
 		}
 	}
 	return nil

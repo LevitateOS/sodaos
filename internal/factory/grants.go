@@ -230,30 +230,14 @@ func (p RepositoryPolicy) Validate() error {
 	if len(p.Roles) != 2 || p.Roles[project.RoleCoder].Validate() != nil || p.Roles[project.RoleReviewer].Validate() != nil {
 		return errors.New("policy must select exactly the coding and review roles")
 	}
-	if len(p.Checks) == 0 || len(p.Checks) > MaxRequiredChecks {
-		return errors.New("policy requires a nonempty bounded check set")
-	}
-	seen := make(map[string]bool, len(p.Checks))
-	for _, check := range p.Checks {
-		if check == "" || len(check) > MaxCheckName || check != strings.TrimSpace(check) ||
-			strings.IndexFunc(check, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 || seen[check] {
-			return errors.New("invalid required check name")
-		}
-		seen[check] = true
+	if err := checkPolicyCheckNames(p); err != nil {
+		return err
 	}
 	if p.MergeMethod != MergeFastForward {
 		return errors.New("unsupported merge method")
 	}
-	bindings := map[string]ActorBindingRef{
-		OpRefPublish: p.Publish, OpPRCreate: p.Create, OpReviewSubmit: p.Review, OpMerge: p.Merge,
-	}
-	if p.Resolve != (ActorBindingRef{}) {
-		bindings[OpThreadResolve] = p.Resolve
-	}
-	for slot, ref := range bindings {
-		if err := ref.Validate(); err != nil || ref.Kind != slot {
-			return errors.New("policy actor binding does not match its operation kind")
-		}
+	if err := checkPolicyBindings(p); err != nil {
+		return err
 	}
 	if p.MaxConcurrent < 1 || p.MaxConcurrent > MaxPolicyConcurrent {
 		return errors.New("invalid repository concurrency limit")
@@ -269,6 +253,36 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if err := p.AttemptLimits.Validate(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func checkPolicyCheckNames(p RepositoryPolicy) error {
+	if len(p.Checks) == 0 || len(p.Checks) > MaxRequiredChecks {
+		return errors.New("policy requires a nonempty bounded check set")
+	}
+	seen := make(map[string]bool, len(p.Checks))
+	for _, check := range p.Checks {
+		if check == "" || len(check) > MaxCheckName || check != strings.TrimSpace(check) ||
+			strings.IndexFunc(check, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 || seen[check] {
+			return errors.New("invalid required check name")
+		}
+		seen[check] = true
+	}
+	return nil
+}
+
+func checkPolicyBindings(p RepositoryPolicy) error {
+	bindings := map[string]ActorBindingRef{
+		OpRefPublish: p.Publish, OpPRCreate: p.Create, OpReviewSubmit: p.Review, OpMerge: p.Merge,
+	}
+	if p.Resolve != (ActorBindingRef{}) {
+		bindings[OpThreadResolve] = p.Resolve
+	}
+	for slot, ref := range bindings {
+		if err := ref.Validate(); err != nil || ref.Kind != slot {
+			return errors.New("policy actor binding does not match its operation kind")
+		}
 	}
 	return nil
 }

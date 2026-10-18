@@ -118,104 +118,128 @@ pub(crate) fn absolute_lexical(path: &Path) -> Result<PathBuf, ProvError> {
     Ok(cwd.join(path))
 }
 
-/// Derive the public half without putting private contents in argv or
-/// logs. Encrypted/wrong-type inputs fail without an interactive prompt.
-pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
-    let absolute = absolute_lexical(host_key)?;
-    let mut child = std::process::Command::new("ssh-keygen")
-        .args(["-y", "-P", "", "-f"])
-        .arg(&absolute)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| ProvError::io(&e, "cannot run ssh-keygen"))?;
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let mut stdout_pipe = child.stdout.take();
-    let mut stderr_pipe = child.stderr.take();
-    if let Err(error) =
-        set_nonblocking(stdout_pipe.as_ref()).and_then(|()| set_nonblocking(stderr_pipe.as_ref()))
-    {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(ProvError::io(&error, "cannot run ssh-keygen"));
+/// Record the child exit the first time `try_wait` reports it; a failed
+/// poll kills the child exactly like the inline loop did.
+fn poll_host_keygen_exit(
+    child: &mut std::process::Child,
+    child_status: &mut Option<std::process::ExitStatus>,
+    exited_at: &mut Option<Instant>,
+    now: Instant,
+) -> Result<(), ProvError> {
+    if child_status.is_some() {
+        return Ok(());
     }
-    let mut stdout = Vec::new();
+    match child.try_wait() {
+        Ok(Some(done)) => {
+            *child_status = Some(done);
+            *exited_at = Some(now);
+            Ok(())
+        }
+        Ok(None) => Ok(()),
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(ProvError::io(&e, "cannot run ssh-keygen"))
+        }
+    }
+}
+
+/// Drain one nonblocking stdout read; over-limit output kills the child.
+/// Returns whether the pipe reached EOF.
+fn drain_host_keygen_stdout(
+    pipe: &mut Option<std::process::ChildStdout>,
+    buf: &mut [u8],
+    stdout: &mut Vec<u8>,
+    child: &mut std::process::Child,
+) -> Result<bool, ProvError> {
     const PUBLIC_LIMIT: usize = 1024 * 1024;
+    let Some(pipe) = pipe.as_mut() else {
+        return Ok(false);
+    };
+    match pipe.read(buf) {
+        Ok(0) => Ok(true),
+        Ok(n) => {
+            if stdout.len().saturating_add(n) > PUBLIC_LIMIT {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(ProvError::value(
+                    "unencrypted per-instance Ed25519 host key required",
+                ));
+            }
+            stdout.extend_from_slice(&buf[..n]);
+            Ok(false)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => Ok(false),
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(ProvError::io(&e, "cannot run ssh-keygen"))
+        }
+    }
+}
+
+/// Drain one nonblocking stderr read; stderr bytes are discarded.
+/// Returns whether the pipe reached EOF.
+fn drain_host_keygen_stderr(
+    pipe: &mut Option<std::process::ChildStderr>,
+    buf: &mut [u8],
+    child: &mut std::process::Child,
+) -> Result<bool, ProvError> {
+    let Some(pipe) = pipe.as_mut() else {
+        return Ok(false);
+    };
+    match pipe.read(buf) {
+        Ok(0) => Ok(true),
+        Ok(_) => Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => Ok(false),
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(ProvError::io(&e, "cannot run ssh-keygen"))
+        }
+    }
+}
+
+/// Pump the child pipes until the exit is reaped and both pipes close.
+/// A non-success exit fails with the same host-key error as before.
+fn pump_host_keygen(
+    child: &mut std::process::Child,
+    stdout_pipe: &mut Option<std::process::ChildStdout>,
+    stderr_pipe: &mut Option<std::process::ChildStderr>,
+    deadline: Instant,
+) -> Result<Vec<u8>, ProvError> {
+    let mut stdout = Vec::new();
     let mut buf = [0u8; 8192];
     let mut child_status = None;
     let mut exited_at = None;
     let mut stdout_eof = stdout_pipe.is_none();
     let mut stderr_eof = stderr_pipe.is_none();
-    let status = loop {
+    loop {
         let now = Instant::now();
         if now >= deadline {
             let _ = child.kill();
             let _ = child.wait();
             return Err(ProvError::new(ProvKind::Timeout, "ssh-keygen timed out"));
         }
-        if child_status.is_none() {
-            match child.try_wait() {
-                Ok(Some(done)) => {
-                    child_status = Some(done);
-                    exited_at = Some(now);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
-                }
-            }
-        }
-        let mut close_stdout = false;
-        if let Some(pipe) = stdout_pipe.as_mut() {
-            match pipe.read(&mut buf) {
-                Ok(0) => close_stdout = true,
-                Ok(n) => {
-                    if stdout.len().saturating_add(n) > PUBLIC_LIMIT {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Err(ProvError::value(
-                            "unencrypted per-instance Ed25519 host key required",
-                        ));
-                    }
-                    stdout.extend_from_slice(&buf[..n]);
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
-                }
-            }
-        }
-        if close_stdout {
+        poll_host_keygen_exit(child, &mut child_status, &mut exited_at, now)?;
+        if drain_host_keygen_stdout(stdout_pipe, &mut buf, &mut stdout, child)? {
             stdout_eof = true;
-            stdout_pipe = None;
+            *stdout_pipe = None;
         }
-        let mut close_stderr = false;
-        if let Some(pipe) = stderr_pipe.as_mut() {
-            match pipe.read(&mut buf) {
-                Ok(0) => close_stderr = true,
-                Ok(_) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(ProvError::io(&e, "cannot run ssh-keygen"));
-                }
-            }
-        }
-        if close_stderr {
+        if drain_host_keygen_stderr(stderr_pipe, &mut buf, child)? {
             stderr_eof = true;
-            stderr_pipe = None;
+            *stderr_pipe = None;
         }
         if let Some(done) = child_status {
             if stdout_eof && stderr_eof {
-                break done;
+                if !done.success() {
+                    return Err(ProvError::value(
+                        "unencrypted per-instance Ed25519 host key required",
+                    ));
+                }
+                return Ok(stdout);
             }
             if exited_at.is_some_and(|at| at.elapsed() >= Duration::from_secs(2)) {
                 stdout_pipe.take();
@@ -227,12 +251,48 @@ pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
             }
         }
         std::thread::sleep(Duration::from_millis(5));
-    };
-    if !status.success() {
-        return Err(ProvError::value(
-            "unencrypted per-instance Ed25519 host key required",
-        ));
     }
+}
+
+/// Spawn `ssh-keygen -y` over the absolute key path with null stdin and
+/// piped output, like the inline spawn it replaces.
+fn spawn_host_keygen(absolute: &Path) -> Result<std::process::Child, ProvError> {
+    std::process::Command::new("ssh-keygen")
+        .args(["-y", "-P", "", "-f"])
+        .arg(absolute)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| ProvError::io(&e, "cannot run ssh-keygen"))
+}
+
+/// Take the child pipes and force nonblocking mode. Either failure reaps
+/// the child before any pump I/O, exactly like the inline setup it replaces.
+fn prepare_host_keygen_pipes(
+    child: &mut std::process::Child,
+) -> Result<
+    (
+        Option<std::process::ChildStdout>,
+        Option<std::process::ChildStderr>,
+    ),
+    ProvError,
+> {
+    let stdout_pipe = child.stdout.take();
+    let stderr_pipe = child.stderr.take();
+    if let Err(error) =
+        set_nonblocking(stdout_pipe.as_ref()).and_then(|()| set_nonblocking(stderr_pipe.as_ref()))
+    {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(ProvError::io(&error, "cannot run ssh-keygen"));
+    }
+    Ok((stdout_pipe, stderr_pipe))
+}
+
+/// Decode pumped output as the Ed25519 public half. Encrypted/wrong-type
+/// inputs fail without an interactive prompt.
+fn decode_host_public(stdout: Vec<u8>) -> Result<String, ProvError> {
     let text = String::from_utf8(stdout)
         .map_err(|_| ProvError::new(ProvKind::UnicodeDecode, "cannot decode ssh-keygen output"))?;
     if !text.starts_with("ssh-ed25519 ") {
@@ -241,6 +301,17 @@ pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
         ));
     }
     Ok(text)
+}
+
+/// Derive the public half without putting private contents in argv or
+/// logs. Encrypted/wrong-type inputs fail without an interactive prompt.
+pub(crate) fn derive_host_public(host_key: &Path) -> Result<String, ProvError> {
+    let absolute = absolute_lexical(host_key)?;
+    let mut child = spawn_host_keygen(&absolute)?;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (mut stdout_pipe, mut stderr_pipe) = prepare_host_keygen_pipes(&mut child)?;
+    let stdout = pump_host_keygen(&mut child, &mut stdout_pipe, &mut stderr_pipe, deadline)?;
+    decode_host_public(stdout)
 }
 
 fn set_nonblocking<T: AsRawFd>(pipe: Option<&T>) -> Result<(), std::io::Error> {

@@ -90,21 +90,111 @@ pub fn run_checked(argv: &[String], timeout_secs: u64) -> std::io::Result<()> {
     }
 }
 
+const OUTPUT_LIMIT: usize = 8 << 20;
+const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Kill `child`, reap it, and hand `error` back for return.
+fn abort_child(child: &mut std::process::Child, error: std::io::Error) -> std::io::Error {
+    let _ = child.kill();
+    let _ = child.wait();
+    error
+}
+
+/// Enforce the run deadline, then record a fresh child exit.
+fn advance_status(
+    child: &mut std::process::Child,
+    status: &mut Option<std::process::ExitStatus>,
+    drain_deadline: &mut Option<Instant>,
+    now: Instant,
+    deadline: Instant,
+) -> std::io::Result<()> {
+    if status.is_none() && now >= deadline {
+        return Err(abort_child(
+            child,
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "command timed out"),
+        ));
+    }
+    if status.is_none() {
+        match child.try_wait() {
+            Ok(Some(done)) => {
+                *status = Some(done);
+                *drain_deadline = Some(now + DRAIN_GRACE);
+            }
+            Ok(None) => {}
+            Err(error) => return Err(abort_child(child, error)),
+        }
+    }
+    Ok(())
+}
+
+/// Read one nonblocking pipe pass; returns `(progressed, closed)`.
+fn drain_pipe<R: Read>(
+    pipe: &mut Option<R>,
+    buf: &mut [u8],
+    acc: &mut Vec<u8>,
+    over: &'static str,
+    child: &mut std::process::Child,
+) -> std::io::Result<(bool, bool)> {
+    let Some(pipe) = pipe else {
+        return Ok((false, false));
+    };
+    match pipe.read(buf) {
+        Ok(0) => Ok((true, true)),
+        Ok(n) => {
+            if acc.len().saturating_add(n) > OUTPUT_LIMIT {
+                return Err(abort_child(
+                    child,
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, over),
+                ));
+            }
+            acc.extend_from_slice(&buf[..n]);
+            Ok((true, false))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Ok((false, false)),
+        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => Ok((false, false)),
+        Err(error) => Err(abort_child(child, error)),
+    }
+}
+
+/// Build the finished output once both pipes closed, or fail an overrun drain.
+fn take_finished(
+    status: Option<std::process::ExitStatus>,
+    stdout: &mut Option<std::process::ChildStdout>,
+    stderr: &mut Option<std::process::ChildStderr>,
+    drain_deadline: Option<Instant>,
+    out: &mut Vec<u8>,
+    err: &mut Vec<u8>,
+) -> Option<std::io::Result<Output>> {
+    let done = status?;
+    if stdout.is_none() && stderr.is_none() {
+        return Some(Ok(Output {
+            status: done,
+            stdout: std::mem::take(out),
+            stderr: std::mem::take(err),
+        }));
+    }
+    if drain_deadline.is_some_and(|at| Instant::now() >= at) {
+        stdout.take();
+        stderr.take();
+        return Some(Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "command output pipes did not close",
+        )));
+    }
+    None
+}
+
 /// Run `argv` with stdin null and stdout/stderr piped; capture each stream up
 /// to 8 MiB. Timeout, read failure, overflow, or pipes retained past the
 /// post-exit grace are errors. The caller checks `Output.status`.
 pub fn run_output(argv: &[String], timeout_secs: u64) -> std::io::Result<Output> {
-    const OUTPUT_LIMIT: usize = 8 << 20;
-    const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
     let mut child = spawn_argv(argv, true)?;
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();
     if let Err(error) =
         set_pipe_nonblocking(stdout.as_ref()).and_then(|()| set_pipe_nonblocking(stderr.as_ref()))
     {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(error);
+        return Err(abort_child(&mut child, error));
     }
     let deadline = Instant::now() + std::time::Duration::from_secs(timeout_secs);
     let mut status = None;
@@ -115,107 +205,39 @@ pub fn run_output(argv: &[String], timeout_secs: u64) -> std::io::Result<Output>
     let mut err_buf = [0u8; 65536];
     while status.is_none() || stdout.is_some() || stderr.is_some() {
         let now = Instant::now();
-        if status.is_none() && now >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "command timed out",
-            ));
-        }
-        if status.is_none() {
-            match child.try_wait() {
-                Ok(Some(done)) => {
-                    status = Some(done);
-                    drain_deadline = Some(now + DRAIN_GRACE);
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(error);
-                }
-            }
-        }
+        advance_status(&mut child, &mut status, &mut drain_deadline, now, deadline)?;
         let mut progressed = false;
-        let mut close_stdout = false;
-        if let Some(pipe) = stdout.as_mut() {
-            match pipe.read(&mut out_buf) {
-                Ok(0) => {
-                    close_stdout = true;
-                    progressed = true;
-                }
-                Ok(n) => {
-                    if out.len().saturating_add(n) > OUTPUT_LIMIT {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "command stdout exceeded capture bound",
-                        ));
-                    }
-                    out.extend_from_slice(&out_buf[..n]);
-                    progressed = true;
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(error);
-                }
-            }
-        }
-        if close_stdout {
+        let (step, closed) = drain_pipe(
+            &mut stdout,
+            &mut out_buf,
+            &mut out,
+            "command stdout exceeded capture bound",
+            &mut child,
+        )?;
+        progressed |= step;
+        if closed {
             stdout.take();
         }
-        let mut close_stderr = false;
-        if let Some(pipe) = stderr.as_mut() {
-            match pipe.read(&mut err_buf) {
-                Ok(0) => {
-                    close_stderr = true;
-                    progressed = true;
-                }
-                Ok(n) => {
-                    if err.len().saturating_add(n) > OUTPUT_LIMIT {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "command stderr exceeded capture bound",
-                        ));
-                    }
-                    err.extend_from_slice(&err_buf[..n]);
-                    progressed = true;
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(error);
-                }
-            }
-        }
-        if close_stderr {
+        let (step, closed) = drain_pipe(
+            &mut stderr,
+            &mut err_buf,
+            &mut err,
+            "command stderr exceeded capture bound",
+            &mut child,
+        )?;
+        progressed |= step;
+        if closed {
             stderr.take();
         }
-        if let Some(done) = status {
-            if stdout.is_none() && stderr.is_none() {
-                return Ok(Output {
-                    status: done,
-                    stdout: out,
-                    stderr: err,
-                });
-            }
-            if drain_deadline.is_some_and(|at| Instant::now() >= at) {
-                stdout.take();
-                stderr.take();
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "command output pipes did not close",
-                ));
-            }
+        if let Some(result) = take_finished(
+            status,
+            &mut stdout,
+            &mut stderr,
+            drain_deadline,
+            &mut out,
+            &mut err,
+        ) {
+            return result;
         }
         if !progressed {
             std::thread::sleep(std::time::Duration::from_millis(5));

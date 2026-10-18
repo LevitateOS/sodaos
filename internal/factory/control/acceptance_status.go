@@ -46,6 +46,51 @@ func (c *Coordinator) AcceptanceStatus(ctx context.Context, repository int64, is
 	return status, err
 }
 
+func (c *Coordinator) admitAcceptanceCurrency(ctx context.Context, repository, index int64, head string, decision factory.Acceptance, status *AcceptanceValidity) (bool, error) {
+	if current, generated, err := c.Store.GeneratedIntentCurrent(ctx, head); err != nil {
+		return false, err
+	} else if generated && !current {
+		status.Reasons = []string{"accepted_intent_changed"}
+		return false, nil
+	} else if generated {
+		if c.Graph == nil || c.GraphActorID <= 0 {
+			status.Reasons = []string{"accepted_intent_authority_unavailable"}
+			return false, nil
+		}
+		if _, err := c.Graph.CheckIntentOwner(ctx, repository, decision.Approver, c.GraphActorID); err != nil {
+			status.Reasons = []string{"accepted_intent_authority_unavailable"}
+			return false, nil
+		}
+	}
+	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(ctx, repository, index, head); err != nil {
+		return false, err
+	} else if withdrawn {
+		status.Withdrawn = true
+		status.Reasons = []string{"withdrawn"}
+		return false, nil
+	}
+	return true, nil
+}
+
+func (c *Coordinator) checkCodePrereqCurrency(ctx context.Context, decision factory.Acceptance, status *AcceptanceValidity) error {
+	// Code prerequisite routes revalidate against the endpoint's current
+	// head; a changed approved revision invalidates the dependent
+	// relation even when the issue body is unchanged.
+	for _, prereq := range decision.Prerequisites {
+		if prereq.Outcome != factory.PrereqCode {
+			continue
+		}
+		head, err := c.Store.AcceptanceHead(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
+		if err != nil || head != prereq.PrereqAcceptance {
+			if err != nil && !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+			status.Reasons = append(status.Reasons, RefusalPrereqStale)
+		}
+	}
+	return nil
+}
+
 func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, issue string) (AcceptanceValidity, AcceptanceEvidence, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
@@ -65,26 +110,11 @@ func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, is
 		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	status := AcceptanceValidity{Acceptance: &decision}
-	if current, generated, err := c.Store.GeneratedIntentCurrent(bounded, head); err != nil {
+	proceed, err := c.admitAcceptanceCurrency(bounded, repository, index, head, decision, &status)
+	if err != nil {
 		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	} else if generated && !current {
-		status.Reasons = []string{"accepted_intent_changed"}
-		return status, AcceptanceEvidence{}, nil
-	} else if generated {
-		if c.Graph == nil || c.GraphActorID <= 0 {
-			status.Reasons = []string{"accepted_intent_authority_unavailable"}
-			return status, AcceptanceEvidence{}, nil
-		}
-		if _, err := c.Graph.CheckIntentOwner(bounded, repository, decision.Approver, c.GraphActorID); err != nil {
-			status.Reasons = []string{"accepted_intent_authority_unavailable"}
-			return status, AcceptanceEvidence{}, nil
-		}
 	}
-	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(bounded, repository, index, head); err != nil {
-		return AcceptanceValidity{}, AcceptanceEvidence{}, err
-	} else if withdrawn {
-		status.Withdrawn = true
-		status.Reasons = []string{"withdrawn"}
+	if !proceed {
 		return status, AcceptanceEvidence{}, nil
 	}
 	if c.AcceptanceReads == nil {
@@ -96,20 +126,8 @@ func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, is
 	}
 	status.Revision = evidence.Revision
 	status.Reasons = assessAcceptance(decision, evidence)
-	// Code prerequisite routes revalidate against the endpoint's current
-	// head; a changed approved revision invalidates the dependent
-	// relation even when the issue body is unchanged.
-	for _, prereq := range decision.Prerequisites {
-		if prereq.Outcome != factory.PrereqCode {
-			continue
-		}
-		head, err := c.Store.AcceptanceHead(bounded, prereq.EndpointRepo, prereq.EndpointIssue)
-		if err != nil || head != prereq.PrereqAcceptance {
-			if err != nil && !errors.Is(err, store.ErrNotFound) {
-				return AcceptanceValidity{}, AcceptanceEvidence{}, err
-			}
-			status.Reasons = append(status.Reasons, RefusalPrereqStale)
-		}
+	if err := c.checkCodePrereqCurrency(bounded, decision, &status); err != nil {
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	status.Valid = len(status.Reasons) == 0
 	if status.Valid {
@@ -121,21 +139,26 @@ func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, is
 // assessAcceptance compares one recorded decision against fresh evidence.
 // Unlike admission, the global revision is an ordering guard only: a
 // changed revision alone requires fresh reads, not human readoption.
-func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) []string {
-	var reasons []string
+func assessAcceptanceObjective(decision factory.Acceptance, evidence AcceptanceEvidence) ([]string, bool) {
 	issue := evidence.Issue
 	if issue.Index != decision.IssueIndex || evidence.Revision < 1 {
-		return []string{RefusalIncompleteEvidence}
+		return []string{RefusalIncompleteEvidence}, false
 	}
 	if !issue.Visible {
-		return []string{RefusalIssueHidden}
+		return []string{RefusalIssueHidden}, false
 	}
 	if !factory.ValidTitleOccurrence(issue.TitleOccurrence) {
-		return []string{RefusalIncompleteEvidence}
+		return []string{RefusalIncompleteEvidence}, false
 	}
+	var reasons []string
 	if issue.TitleDigest != decision.TitleDigest || issue.TitleOccurrence != decision.TitleOccurrence || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
 		reasons = append(reasons, RefusalObjectiveChanged)
 	}
+	return reasons, true
+}
+
+func assessAcceptanceSources(decision factory.Acceptance, evidence AcceptanceEvidence) []string {
+	var reasons []string
 	comments := make(map[string]AcceptanceComment, len(evidence.Comments))
 	for _, comment := range evidence.Comments {
 		comments[comment.ID] = comment
@@ -153,6 +176,11 @@ func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) 
 			}
 		}
 	}
+	return reasons
+}
+
+func assessAcceptanceEdges(decision factory.Acceptance, evidence AcceptanceEvidence) []string {
+	var reasons []string
 	edges := make(map[string]AcceptanceEdge, len(evidence.Dependencies))
 	for _, edge := range evidence.Dependencies {
 		if !edge.Visible {
@@ -173,6 +201,15 @@ func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) 
 		}
 	}
 	return reasons
+}
+
+func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) []string {
+	reasons, ok := assessAcceptanceObjective(decision, evidence)
+	if !ok {
+		return reasons
+	}
+	reasons = append(reasons, assessAcceptanceSources(decision, evidence)...)
+	return append(reasons, assessAcceptanceEdges(decision, evidence)...)
 }
 
 // WithdrawAcceptance records a current maintainer's explicit withdrawal of
@@ -282,52 +319,8 @@ func (c *Coordinator) finishWithdrawal(ctx context.Context, commandID string, re
 			return receipt, err
 		}
 		for _, assignment := range page {
-			if err = assignment.Validate(); err != nil {
+			if err = c.settleWithdrawalAssignment(ctx, assignment, repository, issue, &receipt); err != nil {
 				return receipt, err
-			}
-			for _, runID := range assignment.RunHistory {
-				run, err := c.Store.FactoryRun(ctx, runID)
-				if err != nil {
-					return receipt, err
-				}
-				view, err := c.Store.FactoryRunView(ctx, runID)
-				if err != nil {
-					return receipt, err
-				}
-				if view.Repository != repository || view.Issue != issue || view.Attempt != assignment.ID || run.ProjectID != assignment.ProjectID {
-					return receipt, errors.New("withdrawal run scope mismatch")
-				}
-				if !run.Reconciled && (c.Host == nil || c.Broker == nil) {
-					return receipt, errors.New("withdrawal stop dependencies unavailable")
-				}
-				stopped := c.settleRun(ctx, run)
-				if !stopped.Confirmed {
-					receipt.PendingRuns = []FencedRun{{ID: runID, Reason: stopped.Reason}}
-					return receipt, ErrCommandRunning
-				}
-				receipt.SettledRuns++
-				if current, loadErr := c.Store.FactoryRun(ctx, runID); loadErr != nil {
-					return receipt, loadErr
-				} else {
-					latest, lookupErr := c.Store.AssignmentByRun(ctx, runID)
-					if lookupErr == nil && latest.Stage == factory.AssignmentAssigned {
-						if c.Host == nil {
-							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "accounting output unavailable"}}
-							return receipt, ErrCommandRunning
-						}
-						state, inspectErr := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: current.ProjectID, ID: runID})
-						if inspectErr != nil {
-							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run inspection unconfirmed"}}
-							return receipt, ErrCommandRunning
-						}
-						if _, accounted := AccountSettledRun(ctx, c.Store, current, state.Output, time.Now()); !accounted {
-							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run accounting pending"}}
-							return receipt, ErrCommandRunning
-						}
-					} else if lookupErr != nil && !errors.Is(lookupErr, store.ErrNotFound) {
-						return receipt, lookupErr
-					}
-				}
 			}
 		}
 		if len(page) < 128 {
@@ -338,6 +331,72 @@ func (c *Coordinator) finishWithdrawal(ctx context.Context, commandID string, re
 		}
 		cursor = next
 	}
+	return c.finishWithdrawalReceipt(ctx, commandID, ownsPass, receipt)
+}
+
+func (c *Coordinator) settleWithdrawalAssignment(ctx context.Context, assignment factory.Assignment, repository, issue int64, receipt *WithdrawalReceipt) error {
+	if err := assignment.Validate(); err != nil {
+		return err
+	}
+	for _, runID := range assignment.RunHistory {
+		if err := c.settleWithdrawalRun(ctx, runID, repository, issue, assignment, receipt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) settleWithdrawalRun(ctx context.Context, runID string, repository, issue int64, assignment factory.Assignment, receipt *WithdrawalReceipt) error {
+	run, err := c.Store.FactoryRun(ctx, runID)
+	if err != nil {
+		return err
+	}
+	view, err := c.Store.FactoryRunView(ctx, runID)
+	if err != nil {
+		return err
+	}
+	if view.Repository != repository || view.Issue != issue || view.Attempt != assignment.ID || run.ProjectID != assignment.ProjectID {
+		return errors.New("withdrawal run scope mismatch")
+	}
+	if !run.Reconciled && (c.Host == nil || c.Broker == nil) {
+		return errors.New("withdrawal stop dependencies unavailable")
+	}
+	stopped := c.settleRun(ctx, run)
+	if !stopped.Confirmed {
+		receipt.PendingRuns = []FencedRun{{ID: runID, Reason: stopped.Reason}}
+		return ErrCommandRunning
+	}
+	receipt.SettledRuns++
+	return c.accountWithdrawalRun(ctx, runID, receipt)
+}
+
+func (c *Coordinator) accountWithdrawalRun(ctx context.Context, runID string, receipt *WithdrawalReceipt) error {
+	current, loadErr := c.Store.FactoryRun(ctx, runID)
+	if loadErr != nil {
+		return loadErr
+	}
+	latest, lookupErr := c.Store.AssignmentByRun(ctx, runID)
+	if lookupErr == nil && latest.Stage == factory.AssignmentAssigned {
+		if c.Host == nil {
+			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "accounting output unavailable"}}
+			return ErrCommandRunning
+		}
+		state, inspectErr := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: current.ProjectID, ID: runID})
+		if inspectErr != nil {
+			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run inspection unconfirmed"}}
+			return ErrCommandRunning
+		}
+		if _, accounted := AccountSettledRun(ctx, c.Store, current, state.Output, time.Now()); !accounted {
+			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run accounting pending"}}
+			return ErrCommandRunning
+		}
+	} else if lookupErr != nil && !errors.Is(lookupErr, store.ErrNotFound) {
+		return lookupErr
+	}
+	return nil
+}
+
+func (c *Coordinator) finishWithdrawalReceipt(ctx context.Context, commandID string, ownsPass bool, receipt WithdrawalReceipt) (WithdrawalReceipt, error) {
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return WithdrawalReceipt{}, err

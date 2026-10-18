@@ -30,39 +30,30 @@ type PurposeAdvice struct {
 // durable receipt. Failures retain consumption: a reserved fingerprint
 // without a completed answer stays charged and unavailable, with no
 // refund, upstream lookup or silent repeat of unchanged input.
-func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (factory.PriorityAnswer, bool, error) {
-	if c.Planning == nil || c.Planning.Chooser == nil || c.Store == nil || advice.Reserve == nil || advice.Outcome == "" {
-		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
-	}
+func buildPurposeRequest(advice PurposeAdvice) (factory.PriorityRequest, string, error) {
 	fingerprint, err := factory.JudgmentFingerprint(advice.Purpose, advice.State, advice.Question, advice.Options)
 	if err != nil {
-		return factory.PriorityAnswer{}, false, err
+		return factory.PriorityRequest{}, "", err
 	}
 	stateBytes, err := json.Marshal(advice.State)
 	if err != nil {
-		return factory.PriorityAnswer{}, false, err
+		return factory.PriorityRequest{}, "", err
 	}
 	request := factory.PriorityRequest{Snapshot: fingerprint, Rubric: advice.Question, State: stateBytes, Criteria: advice.Options}
 	for id := range advice.Options {
 		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
 	}
-	prior, err := c.Store.PriorityJudgment(ctx, fingerprint)
-	if err == nil {
-		if prior.Purpose != advice.Purpose || prior.Outcome != advice.Outcome || len(prior.Calls) != 1 || prior.Calls[0].Failure != "" || prior.Calls[0].Answer.Validate(request) != nil {
-			return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
-		}
-		return prior.Calls[0].Answer, true, nil
+	return request, fingerprint, nil
+}
+
+func replayPurposeJudgment(prior factory.PriorityReceipt, advice PurposeAdvice, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
+	if prior.Purpose != advice.Purpose || prior.Outcome != advice.Outcome || len(prior.Calls) != 1 || prior.Calls[0].Failure != "" || prior.Calls[0].Answer.Validate(request) != nil {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
-	if !errors.Is(err, store.ErrNotFound) {
-		return factory.PriorityAnswer{}, false, err
-	}
-	reserved, err := advice.Reserve(ctx, fingerprint)
-	if err != nil {
-		return factory.PriorityAnswer{}, false, err
-	}
-	if !reserved {
-		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
-	}
+	return prior.Calls[0].Answer, nil
+}
+
+func (c *Coordinator) consultPurposeChoice(ctx context.Context, advice PurposeAdvice, fingerprint string, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	answer, callErr := c.Planning.Chooser.Select(bounded, advice.State, advice.Question, advice.Options)
 	cancel()
@@ -80,10 +71,43 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 		receipt.Outcome = "unavailable"
 	}
 	if err := c.Store.RecordPriorityJudgment(ctx, receipt); err != nil {
-		return factory.PriorityAnswer{}, false, err
+		return factory.PriorityAnswer{}, err
 	}
 	if callErr != nil {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+	}
+	return answer, nil
+}
+
+func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (factory.PriorityAnswer, bool, error) {
+	if c.Planning == nil || c.Planning.Chooser == nil || c.Store == nil || advice.Reserve == nil || advice.Outcome == "" {
 		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
+	}
+	request, fingerprint, err := buildPurposeRequest(advice)
+	if err != nil {
+		return factory.PriorityAnswer{}, false, err
+	}
+	prior, err := c.Store.PriorityJudgment(ctx, fingerprint)
+	if err == nil {
+		answer, err := replayPurposeJudgment(prior, advice, request)
+		if err != nil {
+			return factory.PriorityAnswer{}, false, err
+		}
+		return answer, true, nil
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return factory.PriorityAnswer{}, false, err
+	}
+	reserved, err := advice.Reserve(ctx, fingerprint)
+	if err != nil {
+		return factory.PriorityAnswer{}, false, err
+	}
+	if !reserved {
+		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
+	}
+	answer, err := c.consultPurposeChoice(ctx, advice, fingerprint, request)
+	if err != nil {
+		return factory.PriorityAnswer{}, false, err
 	}
 	return answer, false, nil
 }

@@ -93,6 +93,13 @@ func (c ProposalContent) Validate() error {
 	if c.Facts[0] != c.Objective {
 		return errors.New("proposal content must lead with the full objective")
 	}
+	if err := checkProposalFacts(c); err != nil {
+		return err
+	}
+	return checkProposalAlternatives(c)
+}
+
+func checkProposalFacts(c ProposalContent) error {
 	for _, fact := range c.Facts {
 		if !intentText(fact, 16000) {
 			return errors.New("invalid proposal fact")
@@ -114,6 +121,10 @@ func (c ProposalContent) Validate() error {
 			return errors.New("exclusion meanings must match excluded ideas")
 		}
 	}
+	return nil
+}
+
+func checkProposalAlternatives(c ProposalContent) error {
 	for _, unknown := range c.Unknowns {
 		if !intentText(unknown, 4000) {
 			return errors.New("invalid proposal unknown")

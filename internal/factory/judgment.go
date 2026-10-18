@@ -249,7 +249,13 @@ type DeliveryAnswer struct {
 // Validate checks the answer shape, not the model's factual accuracy. The
 // distribution covers exactly both delivery options; the selected option
 // is maximal or tied. Ties route to review at effective-action time.
-func (a DeliveryAnswer) Validate() error {
+func validDeliveryModel(model string) bool {
+	return model != "" && len(model) <= 128 && strings.IndexFunc(model, func(r rune) bool {
+		return r < 0x20 || r == 0x7f
+	}) < 0
+}
+
+func (a DeliveryAnswer) validateShape() error {
 	if a.Failure != "" {
 		return errors.New("delivery answer carries its provider failure")
 	}
@@ -261,9 +267,7 @@ func (a DeliveryAnswer) Validate() error {
 	if !ValidDigest(a.Fingerprint) {
 		return errors.New("delivery answer lacks its evidence fingerprint")
 	}
-	if a.Model == "" || len(a.Model) > 128 || strings.IndexFunc(a.Model, func(r rune) bool {
-		return r < 0x20 || r == 0x7f
-	}) >= 0 {
+	if !validDeliveryModel(a.Model) {
 		return errors.New("invalid delivery answer model")
 	}
 	for _, value := range []float64{a.Probability, a.Confidence} {
@@ -271,6 +275,10 @@ func (a DeliveryAnswer) Validate() error {
 			return errors.New("invalid delivery answer score")
 		}
 	}
+	return nil
+}
+
+func (a DeliveryAnswer) validateDistribution() error {
 	if len(a.Probabilities) != 2 {
 		return errors.New("incomplete delivery distribution")
 	}
@@ -289,6 +297,13 @@ func (a DeliveryAnswer) Validate() error {
 		return errors.New("invalid delivery distribution")
 	}
 	return nil
+}
+
+func (a DeliveryAnswer) Validate() error {
+	if err := a.validateShape(); err != nil {
+		return err
+	}
+	return a.validateDistribution()
 }
 
 // EffectiveAction derives the effective action from the raw answer and
@@ -377,7 +392,7 @@ type DeliveryFingerprintInput struct {
 // the finding digest scope, proposed fixes, diff, checks and tree
 // evidence: a clean first review consults with its empty finding set,
 // never by skipping the call.
-func (in DeliveryFingerprintInput) Validate() error {
+func (in DeliveryFingerprintInput) validateScope() error {
 	if !ValidID(in.AttemptRoot) || !ValidID(in.PublicationID) || in.Round < 1 {
 		return errors.New("invalid delivery fingerprint scope")
 	}
@@ -389,6 +404,10 @@ func (in DeliveryFingerprintInput) Validate() error {
 			return errors.New("delivery fingerprint lacks its evidence digest")
 		}
 	}
+	return nil
+}
+
+func (in DeliveryFingerprintInput) validatePolicy() error {
 	if in.PolicyRevision < 0 {
 		return errors.New("invalid delivery fingerprint policy")
 	}
@@ -398,6 +417,10 @@ func (in DeliveryFingerprintInput) Validate() error {
 	if strings.TrimSpace(in.Rubric) == "" || len(in.Rubric) > 16384 {
 		return errors.New("invalid delivery fingerprint rubric")
 	}
+	return nil
+}
+
+func (in DeliveryFingerprintInput) validateCollections() error {
 	for _, id := range in.Reviews {
 		if !ValidID(id) {
 			return errors.New("invalid delivery fingerprint review")
@@ -414,6 +437,16 @@ func (in DeliveryFingerprintInput) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (in DeliveryFingerprintInput) Validate() error {
+	if err := in.validateScope(); err != nil {
+		return err
+	}
+	if err := in.validatePolicy(); err != nil {
+		return err
+	}
+	return in.validateCollections()
 }
 
 // DeliveryFingerprint binds the delivery purpose to its exact semantic

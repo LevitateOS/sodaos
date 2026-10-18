@@ -43,6 +43,40 @@ type preparationDecisionPreview struct {
 	Reason       string                         `json:"reason,omitempty"`
 }
 
+func matchPreparationRecord(record project.StoredPreparation, role string, d project.RequirementDecision) bool {
+	prep := record.Preparation
+	return prep.Role == role && record.State.Ready && !record.State.Stopped && prep.SourceCommit == d.SourceCommit &&
+		prep.SetupDigest == d.SetupDigest && prep.Requirements.SourceCommit == d.SourceCommit &&
+		prep.Requirements.Digest == d.InputsDigest && maps.Equal(prep.Requirements.SourceInputs, d.SourceInputs)
+}
+
+func matchPreparationState(state project.PrepareState, role string, prep project.Preparation) bool {
+	return state.Role == role && state.SourceCommit == prep.SourceCommit && state.SetupDigest == prep.SetupDigest &&
+		state.Ready && !state.Stopped && state.Phase == project.PrepareReady && state.Missing == "" &&
+		state.SetupExit != nil && *state.SetupExit == 0 && state.CheckExit != nil && *state.CheckExit == 0
+}
+
+func (s *API) observePreparationRole(ctx context.Context, p store.Project, d project.RequirementDecision, inputs []preparationInputView, records []project.StoredPreparation, role string) *preparationItemView {
+	for _, record := range records {
+		if !matchPreparationRecord(record, role, d) {
+			continue
+		}
+		prep := record.Preparation
+		state, readErr := s.Host.InspectPreparation(ctx, project.PrepareInspect{Project: p.ID, ID: prep.ID})
+		if readErr != nil || !matchPreparationState(state, role, prep) {
+			continue
+		}
+		if !s.confirmPreparationInputs(ctx, prep, inputs) {
+			continue
+		}
+		item := preparationItemDTO(project.StoredPreparation{Preparation: prep, State: state})
+		item.Tools = append([]project.ResolvedTool(nil), state.Tools...)
+		sort.Slice(item.Tools, func(i, j int) bool { return item.Tools[i].Name < item.Tools[j].Name })
+		return &item
+	}
+	return nil
+}
+
 func (s *API) preparationDecisionPreview(ctx context.Context, p store.Project, requirement, approval string) preparationDecisionPreview {
 	missing := func(reason string) preparationDecisionPreview { return preparationDecisionPreview{Reason: reason} }
 	if requirement == "" {
@@ -68,28 +102,7 @@ func (s *API) preparationDecisionPreview(ctx context.Context, p store.Project, r
 	sort.Slice(inputs, func(i, j int) bool { return inputs[i].Path < inputs[j].Path })
 	roles := []preparationItemView{}
 	for _, role := range []string{project.RoleCoder, project.RoleReviewer} {
-		var observed *preparationItemView
-		for _, record := range records {
-			prep := record.Preparation
-			if prep.Role != role || !record.State.Ready || record.State.Stopped || prep.SourceCommit != d.SourceCommit || prep.SetupDigest != d.SetupDigest ||
-				prep.Requirements.SourceCommit != d.SourceCommit || prep.Requirements.Digest != d.InputsDigest || !maps.Equal(prep.Requirements.SourceInputs, d.SourceInputs) {
-				continue
-			}
-			state, readErr := s.Host.InspectPreparation(ctx, project.PrepareInspect{Project: p.ID, ID: prep.ID})
-			if readErr != nil || state.Role != role || state.SourceCommit != prep.SourceCommit || state.SetupDigest != prep.SetupDigest ||
-				!state.Ready || state.Stopped || state.Phase != project.PrepareReady || state.Missing != "" ||
-				state.SetupExit == nil || *state.SetupExit != 0 || state.CheckExit == nil || *state.CheckExit != 0 {
-				continue
-			}
-			if !s.confirmPreparationInputs(ctx, prep, inputs) {
-				continue
-			}
-			item := preparationItemDTO(project.StoredPreparation{Preparation: prep, State: state})
-			item.Tools = append([]project.ResolvedTool(nil), state.Tools...)
-			sort.Slice(item.Tools, func(i, j int) bool { return item.Tools[i].Name < item.Tools[j].Name })
-			observed = &item
-			break
-		}
+		observed := s.observePreparationRole(ctx, p, d, inputs, records, role)
 		if observed == nil {
 			return missing("Ready native " + role + " preparation and its exact accepted input bytes must be confirmed before reviewing decisions.")
 		}

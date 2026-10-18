@@ -62,6 +62,137 @@ struct LeaseWire {
     deadline_seen: bool,
 }
 
+fn ingest_lease_identity<'de, A>(
+    o: &mut LeaseWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "repository_id" => {
+            o.repository_id_seen = true;
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.repository_id = Some(v)
+            }
+            Ok(true)
+        }
+        "provider_id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.provider_id = Some(v)
+            }
+            Ok(true)
+        }
+        "id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.id = Some(v)
+            }
+            Ok(true)
+        }
+        "connection_id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.connection_id = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn ingest_lease_actor<'de, A>(o: &mut LeaseWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "generation" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                o.generation = Some(v)
+            }
+            Ok(true)
+        }
+        "actor_id" => {
+            o.actor_id_seen = true;
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.actor_id = Some(v)
+            }
+            Ok(true)
+        }
+        "project_id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.project_id = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn ingest_lease_execution<'de, A>(
+    o: &mut LeaseWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "execution_id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.execution_id = Some(v)
+            }
+            Ok(true)
+        }
+        "kind" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.kind = Some(v)
+            }
+            Ok(true)
+        }
+        "role" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.role = Some(v)
+            }
+            Ok(true)
+        }
+        "deadline" => {
+            o.deadline_seen = true;
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.deadline = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn ingest_lease_grant<'de, A>(o: &mut LeaseWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "grant_id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.grant_id = Some(v)
+            }
+            Ok(true)
+        }
+        "grant_revision" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                o.grant_revision = Some(v)
+            }
+            Ok(true)
+        }
+        "binding" => {
+            if let Some(v) = map.next_value::<Option<Binding>>()? {
+                o.binding = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 impl<'de> Deserialize<'de> for LeaseWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -79,102 +210,38 @@ impl<'de> Deserialize<'de> for LeaseWire {
             {
                 let mut o = LeaseWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "repository_id" => {
-                            o.repository_id_seen = true;
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.repository_id = Some(v)
-                            }
-                        }
-                        "provider_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.provider_id = Some(v)
-                            }
-                        }
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.id = Some(v)
-                            }
-                        }
-                        "connection_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.connection_id = Some(v)
-                            }
-                        }
-                        "generation" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.generation = Some(v)
-                            }
-                        }
-                        "actor_id" => {
-                            o.actor_id_seen = true;
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.actor_id = Some(v)
-                            }
-                        }
-                        "project_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.project_id = Some(v)
-                            }
-                        }
-                        "execution_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.execution_id = Some(v)
-                            }
-                        }
-                        "kind" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.kind = Some(v)
-                            }
-                        }
-                        "role" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.role = Some(v)
-                            }
-                        }
-                        "deadline" => {
-                            o.deadline_seen = true;
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.deadline = Some(v)
-                            }
-                        }
-                        "grant_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.grant_id = Some(v)
-                            }
-                        }
-                        "grant_revision" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.grant_revision = Some(v)
-                            }
-                        }
-                        "binding" => {
-                            if let Some(v) = map.next_value::<Option<Binding>>()? {
-                                o.binding = Some(v)
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "repository_id",
-                                    "provider_id",
-                                    "id",
-                                    "connection_id",
-                                    "generation",
-                                    "actor_id",
-                                    "project_id",
-                                    "execution_id",
-                                    "kind",
-                                    "role",
-                                    "deadline",
-                                    "grant_id",
-                                    "grant_revision",
-                                    "binding",
-                                ],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if ingest_lease_identity(&mut o, key.as_str(), &mut map)? {
+                        continue;
                     }
+                    if ingest_lease_actor(&mut o, key.as_str(), &mut map)? {
+                        continue;
+                    }
+                    if ingest_lease_execution(&mut o, key.as_str(), &mut map)? {
+                        continue;
+                    }
+                    if ingest_lease_grant(&mut o, key.as_str(), &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &k,
+                        &[
+                            "repository_id",
+                            "provider_id",
+                            "id",
+                            "connection_id",
+                            "generation",
+                            "actor_id",
+                            "project_id",
+                            "execution_id",
+                            "kind",
+                            "role",
+                            "deadline",
+                            "grant_id",
+                            "grant_revision",
+                            "binding",
+                        ],
+                    ));
                 }
                 Ok(o)
             }

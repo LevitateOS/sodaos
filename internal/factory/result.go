@@ -142,135 +142,171 @@ func validateClearShape(r *ClearReviewReport) error {
 func (o PhaseOutput) validate(phase, status string) error {
 	switch phase {
 	case project.ExecutionInvestigate:
-		if o.Plan == nil || !o.nilTypedOutputExceptPlan() {
-			return errors.New("investigation output must be exactly its plan")
-		}
-		if err := o.Plan.Validate(); err != nil {
-			return err
-		}
-		if status == "completed" {
-			if err := o.Plan.Executable(); err != nil {
-				return err
-			}
-		}
-		return nil
+		return o.validateInvestigationOutput(status)
 	case project.ExecutionImplement:
 		if o.Implementation == nil || !o.nilTypedOutputExceptImplementation() {
 			return errors.New("implementation output must be exactly its receipt")
 		}
 		return o.Implementation.validate(status)
 	case project.ExecutionReassess:
-		if !o.nilTypedOutputExceptReassessment() {
-			return errors.New("cross-phase result payload refused")
-		}
-		if status == "completed" {
-			if o.Reassessment == nil {
-				return errors.New("completed reassessment lacks its typed report")
-			}
-			return o.Reassessment.Validate()
-		}
-		if o.Reassessment != nil {
-			return errors.New("held reassessment carries no report")
-		}
-		return nil
+		return o.validateReassessmentOutput(status)
 	case project.ExecutionDecompose:
-		if !o.nilTypedOutputExceptDecomposition() {
-			return errors.New("cross-phase result payload refused")
-		}
-		// The decompose payload is the planner's original semantic
-		// answer: completed answers carry one to three candidates and
-		// no attention, blocked answers carry attention with no
-		// candidates, and failed/cancelled answers carry no payload.
-		// The chosen-graph type stays downstream with R13 adoption and
-		// never substitutes for this answer.
-		switch status {
-		case "completed":
-			if o.Decomposition == nil {
-				return errors.New("completed decomposition lacks its planner output")
-			}
-			if err := o.Decomposition.Validate(); err != nil {
-				return err
-			}
-			if o.Decomposition.Attention != "" || len(o.Decomposition.Candidates) == 0 {
-				return errors.New("completed decomposition carries its candidates, never attention")
-			}
-			return nil
-		case "blocked":
-			if o.Decomposition == nil {
-				return nil
-			}
-			if err := o.Decomposition.Validate(); err != nil {
-				return err
-			}
-			if len(o.Decomposition.Candidates) != 0 || o.Decomposition.Attention == "" {
-				return errors.New("blocked decomposition carries only attention")
-			}
-			return nil
-		default:
-			if o.Decomposition != nil {
-				return errors.New("non-completed decomposition carries no payload")
-			}
-			return nil
-		}
+		return o.validateDecompositionOutput(status)
 	case project.ExecutionReview:
-		if !o.nilTypedOutputExceptReview() {
-			return errors.New("cross-phase result payload refused")
-		}
-		if status != "completed" {
-			if o.Review != nil || o.Clear != nil {
-				return errors.New("non-completed review carries no verdict")
-			}
-			return nil
-		}
-		if (o.Review == nil) == (o.Clear == nil) {
-			return errors.New("completed review carries exactly one verdict")
-		}
-		if o.Review != nil {
-			return validateReviewShape(o.Review)
-		}
-		return validateClearShape(o.Clear)
+		return o.validateReviewOutput(status)
 	case project.ExecutionCorrect:
-		if o.Correction == nil || !o.nilTypedOutputExceptCorrection() {
-			return errors.New("cross-phase result payload refused")
-		}
-		if status != "completed" {
-			return errors.New("non-completed correction carries no payload")
-		}
-		return o.Correction.Validate()
+		return o.validateCorrectionOutput(status)
 	case project.ExecutionRepair:
-		if !o.nilTypedOutputExceptRepair() {
-			return errors.New("cross-phase result payload refused")
-		}
-		if status != "completed" {
-			if o.Repair != nil || o.DeliveryRepair != nil {
-				return errors.New("non-completed repair carries no report")
-			}
-			return nil
-		}
-		if (o.Repair == nil) == (o.DeliveryRepair == nil) {
-			return errors.New("completed repair carries exactly one repair report")
-		}
-		if o.Repair != nil {
-			return o.Repair.Validate()
-		}
-		return o.DeliveryRepair.Validate()
+		return o.validateRepairOutput(status)
 	case project.ExecutionVerify:
-		if !o.nilTypedOutputExceptVerification() {
-			return errors.New("cross-phase result payload refused")
-		}
-		if status != "completed" {
-			if o.Verification != nil {
-				return errors.New("non-completed verification carries no report")
-			}
-			return nil
-		}
-		if o.Verification == nil {
-			return errors.New("completed verification lacks its typed report")
-		}
-		return o.Verification.Validate()
+		return o.validateVerificationOutput(status)
 	default:
 		return errors.New("unknown result phase")
 	}
+}
+
+func (o PhaseOutput) validateInvestigationOutput(status string) error {
+	if o.Plan == nil || !o.nilTypedOutputExceptPlan() {
+		return errors.New("investigation output must be exactly its plan")
+	}
+	if err := o.Plan.Validate(); err != nil {
+		return err
+	}
+	if status == "completed" {
+		if err := o.Plan.Executable(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (o PhaseOutput) validateReassessmentOutput(status string) error {
+	if !o.nilTypedOutputExceptReassessment() {
+		return errors.New("cross-phase result payload refused")
+	}
+	if status == "completed" {
+		if o.Reassessment == nil {
+			return errors.New("completed reassessment lacks its typed report")
+		}
+		return o.Reassessment.Validate()
+	}
+	if o.Reassessment != nil {
+		return errors.New("held reassessment carries no report")
+	}
+	return nil
+}
+
+func (o PhaseOutput) validateDecompositionOutput(status string) error {
+	if !o.nilTypedOutputExceptDecomposition() {
+		return errors.New("cross-phase result payload refused")
+	}
+	// The decompose payload is the planner's original semantic
+	// answer: completed answers carry one to three candidates and
+	// no attention, blocked answers carry attention with no
+	// candidates, and failed/cancelled answers carry no payload.
+	// The chosen-graph type stays downstream with R13 adoption and
+	// never substitutes for this answer.
+	switch status {
+	case "completed":
+		return o.validateCompletedDecomposition()
+	case "blocked":
+		return o.validateBlockedDecomposition()
+	default:
+		if o.Decomposition != nil {
+			return errors.New("non-completed decomposition carries no payload")
+		}
+		return nil
+	}
+}
+
+func (o PhaseOutput) validateCompletedDecomposition() error {
+	if o.Decomposition == nil {
+		return errors.New("completed decomposition lacks its planner output")
+	}
+	if err := o.Decomposition.Validate(); err != nil {
+		return err
+	}
+	if o.Decomposition.Attention != "" || len(o.Decomposition.Candidates) == 0 {
+		return errors.New("completed decomposition carries its candidates, never attention")
+	}
+	return nil
+}
+
+func (o PhaseOutput) validateBlockedDecomposition() error {
+	if o.Decomposition == nil {
+		return nil
+	}
+	if err := o.Decomposition.Validate(); err != nil {
+		return err
+	}
+	if len(o.Decomposition.Candidates) != 0 || o.Decomposition.Attention == "" {
+		return errors.New("blocked decomposition carries only attention")
+	}
+	return nil
+}
+
+func (o PhaseOutput) validateReviewOutput(status string) error {
+	if !o.nilTypedOutputExceptReview() {
+		return errors.New("cross-phase result payload refused")
+	}
+	if status != "completed" {
+		if o.Review != nil || o.Clear != nil {
+			return errors.New("non-completed review carries no verdict")
+		}
+		return nil
+	}
+	if (o.Review == nil) == (o.Clear == nil) {
+		return errors.New("completed review carries exactly one verdict")
+	}
+	if o.Review != nil {
+		return validateReviewShape(o.Review)
+	}
+	return validateClearShape(o.Clear)
+}
+
+func (o PhaseOutput) validateCorrectionOutput(status string) error {
+	if o.Correction == nil || !o.nilTypedOutputExceptCorrection() {
+		return errors.New("cross-phase result payload refused")
+	}
+	if status != "completed" {
+		return errors.New("non-completed correction carries no payload")
+	}
+	return o.Correction.Validate()
+}
+
+func (o PhaseOutput) validateRepairOutput(status string) error {
+	if !o.nilTypedOutputExceptRepair() {
+		return errors.New("cross-phase result payload refused")
+	}
+	if status != "completed" {
+		if o.Repair != nil || o.DeliveryRepair != nil {
+			return errors.New("non-completed repair carries no report")
+		}
+		return nil
+	}
+	if (o.Repair == nil) == (o.DeliveryRepair == nil) {
+		return errors.New("completed repair carries exactly one repair report")
+	}
+	if o.Repair != nil {
+		return o.Repair.Validate()
+	}
+	return o.DeliveryRepair.Validate()
+}
+
+func (o PhaseOutput) validateVerificationOutput(status string) error {
+	if !o.nilTypedOutputExceptVerification() {
+		return errors.New("cross-phase result payload refused")
+	}
+	if status != "completed" {
+		if o.Verification != nil {
+			return errors.New("non-completed verification carries no report")
+		}
+		return nil
+	}
+	if o.Verification == nil {
+		return errors.New("completed verification lacks its typed report")
+	}
+	return o.Verification.Validate()
 }
 
 // nilTypedOutputExceptPlan reports whether every payload slot except the
@@ -401,55 +437,79 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 	}
 	switch r.Phase {
 	case project.ExecutionDecompose:
-		if a.Subject.Kind != SubjectIntent || a.Subject.Intent == nil {
-			return errors.New("decomposition result needs its intent subject")
-		}
-		if err := a.Subject.Validate(); err != nil {
-			return err
-		}
-		if r.Status == "completed" {
-			if r.Output == nil || r.Output.Decomposition == nil ||
-				r.Output.Decomposition.Intent != a.Subject.Intent.IntentID ||
-				r.Output.Decomposition.Revision != a.Subject.Intent.RevisionID {
-				return errors.New("decomposition report does not match its assigned intent")
-			}
-		}
+		return r.bindDecompositionResult(a)
 	case project.ExecutionRepair:
-		if a.Subject.Kind != SubjectStall && a.Subject.Kind != SubjectDeliveryRepair {
-			return errors.New("repair result does not match its repair subject")
-		}
-		if err := a.Subject.Validate(); err != nil {
-			return err
-		}
-		if r.Output != nil && r.Status == "completed" {
-			if a.Subject.Kind == SubjectStall {
-				subject, report := a.Subject.Stall, r.Output.Repair
-				if report == nil || report.StallID != subject.StallID ||
-					report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
-					return errors.New("stall repair report does not match its assigned subject")
-				}
-				if report.SourceCommit != a.SourceCommit {
-					return errors.New("stall repair report runs a head its assignment was not admitted against")
-				}
-			} else {
-				subject, report := a.Subject.DeliveryRepair, r.Output.DeliveryRepair
-				if report == nil || report.Subject.DeliveryID != subject.DeliveryID ||
-					report.Subject.FailedVerificationRunID != subject.FailedVerificationRunID ||
-					report.Subject.CycleID != subject.CycleID || report.Subject.InventoryDigest != subject.InventoryDigest {
-					return errors.New("delivery repair report does not match its assigned subject")
-				}
-			}
-		}
+		return r.bindRepairResult(a)
 	case project.ExecutionVerify:
-		if a.Subject.Kind != SubjectDelivery {
-			return errors.New("verification result does not match its delivery subject")
+		return r.bindVerificationResult(a)
+	}
+	return nil
+}
+
+func (r PhaseResult) bindDecompositionResult(a Assignment) error {
+	if a.Subject.Kind != SubjectIntent || a.Subject.Intent == nil {
+		return errors.New("decomposition result needs its intent subject")
+	}
+	if err := a.Subject.Validate(); err != nil {
+		return err
+	}
+	if r.Status == "completed" {
+		if r.Output == nil || r.Output.Decomposition == nil ||
+			r.Output.Decomposition.Intent != a.Subject.Intent.IntentID ||
+			r.Output.Decomposition.Revision != a.Subject.Intent.RevisionID {
+			return errors.New("decomposition report does not match its assigned intent")
 		}
-		if err := a.Subject.Validate(); err != nil {
-			return err
+	}
+	return nil
+}
+
+func (r PhaseResult) bindRepairResult(a Assignment) error {
+	if a.Subject.Kind != SubjectStall && a.Subject.Kind != SubjectDeliveryRepair {
+		return errors.New("repair result does not match its repair subject")
+	}
+	if err := a.Subject.Validate(); err != nil {
+		return err
+	}
+	if r.Output != nil && r.Status == "completed" {
+		if a.Subject.Kind == SubjectStall {
+			return r.bindStallRepairResult(a)
 		}
-		if r.Status == "completed" && r.Output.Verification.DeliveryID != a.Subject.Delivery.DeliveryID {
-			return errors.New("verification report does not match its assigned delivery")
-		}
+		return r.bindDeliveryRepairResult(a)
+	}
+	return nil
+}
+
+func (r PhaseResult) bindStallRepairResult(a Assignment) error {
+	subject, report := a.Subject.Stall, r.Output.Repair
+	if report == nil || report.StallID != subject.StallID ||
+		report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
+		return errors.New("stall repair report does not match its assigned subject")
+	}
+	if report.SourceCommit != a.SourceCommit {
+		return errors.New("stall repair report runs a head its assignment was not admitted against")
+	}
+	return nil
+}
+
+func (r PhaseResult) bindDeliveryRepairResult(a Assignment) error {
+	subject, report := a.Subject.DeliveryRepair, r.Output.DeliveryRepair
+	if report == nil || report.Subject.DeliveryID != subject.DeliveryID ||
+		report.Subject.FailedVerificationRunID != subject.FailedVerificationRunID ||
+		report.Subject.CycleID != subject.CycleID || report.Subject.InventoryDigest != subject.InventoryDigest {
+		return errors.New("delivery repair report does not match its assigned subject")
+	}
+	return nil
+}
+
+func (r PhaseResult) bindVerificationResult(a Assignment) error {
+	if a.Subject.Kind != SubjectDelivery {
+		return errors.New("verification result does not match its delivery subject")
+	}
+	if err := a.Subject.Validate(); err != nil {
+		return err
+	}
+	if r.Status == "completed" && r.Output.Verification.DeliveryID != a.Subject.Delivery.DeliveryID {
+		return errors.New("verification report does not match its assigned delivery")
 	}
 	return nil
 }

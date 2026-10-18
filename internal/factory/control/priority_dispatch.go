@@ -240,15 +240,23 @@ func observePrioritySubject(ctx context.Context, deps DispatchDeps, occupancy *p
 // after rechecking the native revision, the full local digest and fresh
 // selected-issue evidence. The set is never truncated to fit a pass and
 // never re-observed: only the winner reads fresh evidence.
-func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev int64, scan store.PriorityScanState, report DispatchReport) DispatchReport {
-	candidates := make([]factory.PriorityCandidate, 0, len(scan.Subjects))
-	storedByID := map[string]factory.PriorityCandidate{}
-	subjectsByID := map[string]store.PriorityInventorySubject{}
+type prioritySelection struct {
+	candidates   []factory.PriorityCandidate
+	storedByID   map[string]factory.PriorityCandidate
+	subjectsByID map[string]store.PriorityInventorySubject
+}
+
+func collectPriorityCandidates(scan store.PriorityScanState, report DispatchReport) (prioritySelection, DispatchReport, bool) {
+	selection := prioritySelection{
+		candidates:   make([]factory.PriorityCandidate, 0, len(scan.Subjects)),
+		storedByID:   map[string]factory.PriorityCandidate{},
+		subjectsByID: map[string]store.PriorityInventorySubject{},
+	}
 	for _, subject := range scan.Subjects {
 		observation, ok := scan.Observations[store.PrioritySubjectKey(subject.Repository, subject.Issue)]
 		if !ok {
 			report.Errors = append(report.Errors, DispatchError{Reason: "priority_incomplete", Detail: "candidate observations incomplete"})
-			return report
+			return selection, report, false
 		}
 		if observation.Exclusion != "" {
 			continue
@@ -256,62 +264,48 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 		var candidate factory.PriorityCandidate
 		if err := json.Unmarshal(observation.Candidate, &candidate); err != nil {
 			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "priority candidate unreadable"})
-			return report
+			return selection, report, false
 		}
-		candidates = append(candidates, candidate)
-		storedByID[candidate.ID] = candidate
-		subjectsByID[candidate.ID] = subject
+		selection.candidates = append(selection.candidates, candidate)
+		selection.storedByID[candidate.ID] = candidate
+		selection.subjectsByID[candidate.ID] = subject
 	}
-	if len(candidates) == 0 {
-		return report
-	}
-	// D13 completion fence (FW31): a pending event excludes its
-	// repository from selection with reassessment_pending waits. The
-	// rest still elect, so one fenced repository never stalls the
-	// global tournament. Observation above already happened and
-	// continues; this split only governs selection.
-	candidates, report = excludeFencedCandidates(ctx, deps, candidates, report)
-	if len(candidates) == 0 {
-		return report
-	}
-	selected, err := selectPriority(ctx, deps.Priority, candidates, time.Now())
-	if err != nil {
-		for _, candidate := range candidates {
-			report.Waits = append(report.Waits, DispatchWait{Repository: candidate.Control.Repository, Issue: candidate.Control.Issue, Reason: "priority_unavailable", Detail: "finite priority selection is unavailable"})
-		}
-		return report
-	}
-	if selected == "" {
-		return report
-	}
+	return selection, report, true
+}
+
+func confirmPrioritySnapshot(ctx context.Context, deps DispatchDeps, nativeRev int64, scan store.PriorityScanState, report DispatchReport) (int64, DispatchReport, bool) {
 	// After judgment, recheck the revision and the full local digest, then
 	// read fresh selected-issue evidence whose bracket also reports N.
 	confirmed, idle, err := priorityObserveRevision(ctx, deps)
 	if err != nil || !idle {
 		report.Errors = append(report.Errors, DispatchError{Reason: "priority_incomplete", Detail: "native revision unavailable"})
-		return report
+		return 0, report, false
 	}
 	if confirmed != nativeRev {
 		_ = deps.Store.DeletePriorityScan(ctx)
 		report.Errors = append(report.Errors, DispatchError{Reason: PrioritySnapshotChanging, Detail: "native revision advanced after judgment"})
-		return report
+		return 0, report, false
 	}
 	fresh, err := deps.Store.CapturePriorityInventory(ctx)
 	if err != nil {
 		if errors.Is(err, store.ErrPriorityInventoryTooLarge) {
 			report.Errors = append(report.Errors, DispatchError{Reason: "priority_incomplete", Detail: "complete candidate inventory unavailable"})
-			return report
+			return 0, report, false
 		}
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "priority inventory unavailable"})
-		return report
+		return 0, report, false
 	}
 	if fresh.LocalDigest != scan.LocalDigest || len(fresh.Subjects) != len(scan.Subjects) {
 		_ = deps.Store.DeletePriorityScan(ctx)
 		report.Errors = append(report.Errors, DispatchError{Reason: PrioritySnapshotChanging, Detail: "priority inputs changed after judgment"})
-		return report
+		return 0, report, false
 	}
-	subject := subjectsByID[selected]
-	stored := storedByID[selected]
+	return confirmed, report, true
+}
+
+func launchSelectedCandidate(ctx context.Context, deps DispatchDeps, selection prioritySelection, selected string, confirmed int64, report DispatchReport) DispatchReport {
+	subject := selection.subjectsByID[selected]
+	stored := selection.storedByID[selected]
 	current, err := deps.Store.IssueControl(ctx, subject.Repository, subject.Issue)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -344,6 +338,41 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 		}
 	}
 	return report
+}
+
+func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev int64, scan store.PriorityScanState, report DispatchReport) DispatchReport {
+	selection, report, ok := collectPriorityCandidates(scan, report)
+	if !ok {
+		return report
+	}
+	candidates := selection.candidates
+	if len(candidates) == 0 {
+		return report
+	}
+	// D13 completion fence (FW31): a pending event excludes its
+	// repository from selection with reassessment_pending waits. The
+	// rest still elect, so one fenced repository never stalls the
+	// global tournament. Observation above already happened and
+	// continues; this split only governs selection.
+	candidates, report = excludeFencedCandidates(ctx, deps, candidates, report)
+	if len(candidates) == 0 {
+		return report
+	}
+	selected, err := selectPriority(ctx, deps.Priority, candidates, time.Now())
+	if err != nil {
+		for _, candidate := range candidates {
+			report.Waits = append(report.Waits, DispatchWait{Repository: candidate.Control.Repository, Issue: candidate.Control.Issue, Reason: "priority_unavailable", Detail: "finite priority selection is unavailable"})
+		}
+		return report
+	}
+	if selected == "" {
+		return report
+	}
+	confirmed, report, ok := confirmPrioritySnapshot(ctx, deps, nativeRev, scan, report)
+	if !ok {
+		return report
+	}
+	return launchSelectedCandidate(ctx, deps, selection, selected, confirmed, report)
 }
 
 func priorityCandidate(plan *attemptPlan) factory.PriorityCandidate {

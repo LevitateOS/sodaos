@@ -41,6 +41,128 @@ struct HelperInspection {
     verified: LauncherEvidence,
 }
 
+fn visit_inspection_text<'de, A>(
+    map: &mut A,
+    out: &mut HelperInspection,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("phase") {
+        Some(&mut out.phase)
+    } else if key.eq_ignore_ascii_case("role") {
+        Some(&mut out.role)
+    } else if key.eq_ignore_ascii_case("setup_digest") {
+        Some(&mut out.setup_digest)
+    } else if key.eq_ignore_ascii_case("source_commit") {
+        Some(&mut out.source_commit)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    let slot = if key.eq_ignore_ascii_case("missing") {
+        Some(&mut out.missing)
+    } else if key.eq_ignore_ascii_case("setup_log") {
+        Some(&mut out.setup_log)
+    } else if key.eq_ignore_ascii_case("check_log") {
+        Some(&mut out.check_log)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_inspection_flag<'de, A>(
+    map: &mut A,
+    out: &mut HelperInspection,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("known") {
+        out.known = map.next_value::<Option<bool>>()?;
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("stopped") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.stopped = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("ready") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.ready = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_inspection_exit<'de, A>(
+    map: &mut A,
+    out: &mut HelperInspection,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("setup_exit") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.setup_exit = Some(v.0);
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("check_exit") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.check_exit = Some(v.0);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_inspection_structured<'de, A>(
+    map: &mut A,
+    out: &mut HelperInspection,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("tools") {
+        if let Some(v) = map.next_value::<Option<Vec<ResolvedTool>>>()? {
+            out.tools = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("hold") {
+        if let Some(v) = map.next_value::<Option<preparation::HoldState>>()? {
+            out.hold = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("verified") {
+        if let Some(v) = map.next_value::<Option<LauncherEvidence>>()? {
+            out.verified = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 impl<'de> Deserialize<'de> for HelperInspection {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -58,86 +180,38 @@ impl<'de> Deserialize<'de> for HelperInspection {
             {
                 let mut out = HelperInspection::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("known") {
-                        out.known = map.next_value::<Option<bool>>()?;
-                    } else if key.eq_ignore_ascii_case("phase") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.phase = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("role") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.role = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("setup_digest") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.setup_digest = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("source_commit") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.source_commit = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("tools") {
-                        if let Some(v) = map.next_value::<Option<Vec<ResolvedTool>>>()? {
-                            out.tools = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("missing") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.missing = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("stopped") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.stopped = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("ready") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.ready = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("setup_exit") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.setup_exit = Some(v.0);
-                        }
-                    } else if key.eq_ignore_ascii_case("check_exit") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.check_exit = Some(v.0);
-                        }
-                    } else if key.eq_ignore_ascii_case("setup_log") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.setup_log = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("check_log") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.check_log = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("hold") {
-                        if let Some(v) = map.next_value::<Option<preparation::HoldState>>()? {
-                            out.hold = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("verified") {
-                        if let Some(v) = map.next_value::<Option<LauncherEvidence>>()? {
-                            out.verified = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "known",
-                                "phase",
-                                "role",
-                                "setup_digest",
-                                "source_commit",
-                                "tools",
-                                "missing",
-                                "stopped",
-                                "ready",
-                                "setup_exit",
-                                "check_exit",
-                                "setup_log",
-                                "check_log",
-                                "hold",
-                                "verified",
-                            ],
-                        ));
+                    if visit_inspection_text(&mut map, &mut out, &key)? {
+                        continue;
                     }
+                    if visit_inspection_flag(&mut map, &mut out, &key)? {
+                        continue;
+                    }
+                    if visit_inspection_exit(&mut map, &mut out, &key)? {
+                        continue;
+                    }
+                    if visit_inspection_structured(&mut map, &mut out, &key)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "known",
+                            "phase",
+                            "role",
+                            "setup_digest",
+                            "source_commit",
+                            "tools",
+                            "missing",
+                            "stopped",
+                            "ready",
+                            "setup_exit",
+                            "check_exit",
+                            "setup_log",
+                            "check_log",
+                            "hold",
+                            "verified",
+                        ],
+                    ));
                 }
                 Ok(out)
             }
@@ -206,17 +280,68 @@ pub(crate) fn quote_bytes_base64(out: &mut String, bytes: &[u8]) {
     out.push_str(&json::quote(&crate::ssh::b64_encode(bytes)));
 }
 
-/// `mapPreparationState`: validated observation plus container identity.
-/// ID and project are filled in by the caller.
-pub fn map_preparation_state(
-    container: &str,
-    raw: &[u8],
-) -> Result<PrepareState, PreparationObservationError> {
-    const ERR: &str = "invalid preparation observation";
-    let observed: HelperInspection = json::decode_strict_as(raw)
-        .map_err(|_| PreparationObservationError::Invalid(ERR.to_string()))?;
+const INVALID_OBSERVATION: &str = "invalid preparation observation";
+
+fn decode_inspection(raw: &[u8]) -> Result<HelperInspection, PreparationObservationError> {
+    json::decode_strict_as(raw)
+        .map_err(|_| PreparationObservationError::Invalid(INVALID_OBSERVATION.to_string()))
+}
+
+fn check_unknown_identity_empty(
+    observed: &HelperInspection,
+) -> Result<(), PreparationObservationError> {
+    if !observed.phase.is_empty()
+        || !observed.role.is_empty()
+        || !observed.setup_digest.is_empty()
+        || !observed.source_commit.is_empty()
+        || !observed.tools.is_empty()
+        || !observed.missing.is_empty()
+    {
+        return Err(PreparationObservationError::Invalid(
+            INVALID_OBSERVATION.to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn check_unknown_progress_empty(
+    observed: &HelperInspection,
+) -> Result<(), PreparationObservationError> {
+    if observed.stopped
+        || observed.ready
+        || observed.setup_exit.is_some()
+        || observed.check_exit.is_some()
+        || !observed.setup_log.is_empty()
+        || !observed.check_log.is_empty()
+    {
+        return Err(PreparationObservationError::Invalid(
+            INVALID_OBSERVATION.to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn check_known_fields(observed: &HelperInspection) -> Result<(), PreparationObservationError> {
+    if !preparation::valid_prepare_phase(&observed.phase)
+        || !preparation::valid_factory_role(&observed.role)
+        || !preparation::valid_digest(&observed.setup_digest)
+        || !preparation::valid_commit(&observed.source_commit)
+    {
+        return Err(PreparationObservationError::Invalid(
+            INVALID_OBSERVATION.to_string(),
+        ));
+    }
+    if observed.setup_log.len() > 66560 || observed.check_log.len() > 66560 {
+        return Err(PreparationObservationError::Invalid(
+            "preparation observation exceeds the bounded size".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn build_known_state(container: &str, observed: HelperInspection) -> PrepareState {
     let HelperInspection {
-        known,
+        known: _,
         phase,
         role,
         setup_digest,
@@ -232,39 +357,6 @@ pub fn map_preparation_state(
         hold: _,
         verified: _,
     } = observed;
-    let Some(known) = known else {
-        return Err(PreparationObservationError::Invalid(ERR.to_string()));
-    };
-    if !known {
-        if !phase.is_empty()
-            || !role.is_empty()
-            || !setup_digest.is_empty()
-            || !source_commit.is_empty()
-            || !tools.is_empty()
-            || !missing.is_empty()
-            || stopped
-            || ready
-            || setup_exit.is_some()
-            || check_exit.is_some()
-            || !setup_log.is_empty()
-            || !check_log.is_empty()
-        {
-            return Err(PreparationObservationError::Invalid(ERR.to_string()));
-        }
-        return Err(PreparationObservationError::NotFound);
-    }
-    if !preparation::valid_prepare_phase(&phase)
-        || !preparation::valid_factory_role(&role)
-        || !preparation::valid_digest(&setup_digest)
-        || !preparation::valid_commit(&source_commit)
-    {
-        return Err(PreparationObservationError::Invalid(ERR.to_string()));
-    }
-    if setup_log.len() > 66560 || check_log.len() > 66560 {
-        return Err(PreparationObservationError::Invalid(
-            "preparation observation exceeds the bounded size".to_string(),
-        ));
-    }
     let mut state = PrepareState {
         role,
         phase,
@@ -282,6 +374,28 @@ pub fn map_preparation_state(
     if !setup_log.is_empty() || !check_log.is_empty() {
         state.output = format!("--- setup ---\n{setup_log}\n--- check ---\n{check_log}");
     }
+    state
+}
+
+/// `mapPreparationState`: validated observation plus container identity.
+/// ID and project are filled in by the caller.
+pub fn map_preparation_state(
+    container: &str,
+    raw: &[u8],
+) -> Result<PrepareState, PreparationObservationError> {
+    let observed = decode_inspection(raw)?;
+    let Some(known) = observed.known else {
+        return Err(PreparationObservationError::Invalid(
+            INVALID_OBSERVATION.to_string(),
+        ));
+    };
+    if !known {
+        check_unknown_identity_empty(&observed)?;
+        check_unknown_progress_empty(&observed)?;
+        return Err(PreparationObservationError::NotFound);
+    }
+    check_known_fields(&observed)?;
+    let state = build_known_state(container, observed);
     if state.ready != (state.phase == preparation::PREPARE_READY) {
         return Err(PreparationObservationError::Invalid(
             "preparation observation is inconsistent".to_string(),

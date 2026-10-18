@@ -80,6 +80,102 @@ impl Lease {
     }
 }
 
+fn visit_lease_int_id<'de, A>(map: &mut A, out: &mut Lease, key: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("repository_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.repository_id =
+                parse_go_int64(&v).ok_or_else(|| de::Error::custom("invalid repository_id"))?;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("actor_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.actor_id =
+                parse_go_int64(&v).ok_or_else(|| de::Error::custom("invalid actor_id"))?;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_lease_counter<'de, A>(map: &mut A, out: &mut Lease, key: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("generation") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.generation = v.0;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("grant_revision") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.grant_revision = v.0;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_lease_text<'de, A>(map: &mut A, out: &mut Lease, key: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("provider_id") {
+        Some(&mut out.provider_id)
+    } else if key.eq_ignore_ascii_case("id") {
+        Some(&mut out.id)
+    } else if key.eq_ignore_ascii_case("connection_id") {
+        Some(&mut out.connection_id)
+    } else if key.eq_ignore_ascii_case("project_id") {
+        Some(&mut out.project_id)
+    } else if key.eq_ignore_ascii_case("execution_id") {
+        Some(&mut out.execution_id)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    let slot = if key.eq_ignore_ascii_case("kind") {
+        Some(&mut out.kind)
+    } else if key.eq_ignore_ascii_case("role") {
+        Some(&mut out.role)
+    } else if key.eq_ignore_ascii_case("deadline") {
+        Some(&mut out.deadline)
+    } else if key.eq_ignore_ascii_case("grant_id") {
+        Some(&mut out.grant_id)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_lease_binding<'de, A>(map: &mut A, out: &mut Lease, key: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("binding") {
+        if let Some(v) = map.next_value::<Option<Binding>>()? {
+            out.binding = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 impl<'de> Deserialize<'de> for Lease {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -97,90 +193,16 @@ impl<'de> Deserialize<'de> for Lease {
             {
                 let mut out = Lease::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("repository_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.repository_id = parse_go_int64(&v)
-                                .ok_or_else(|| de::Error::custom("invalid repository_id"))?;
-                        }
+                    if visit_lease_int_id(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("actor_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.actor_id = parse_go_int64(&v)
-                                .ok_or_else(|| de::Error::custom("invalid actor_id"))?;
-                        }
+                    if visit_lease_counter(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("provider_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.provider_id = v;
-                        }
+                    if visit_lease_text(&mut map, &mut out, &key)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("connection_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.connection_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("generation") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.generation = v.0;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("project_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("execution_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.execution_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("kind") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.kind = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("role") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.role = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("deadline") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.deadline = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("grant_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.grant_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("grant_revision") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.grant_revision = v.0;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("binding") {
-                        if let Some(v) = map.next_value::<Option<Binding>>()? {
-                            out.binding = Some(v);
-                        }
+                    if visit_lease_binding(&mut map, &mut out, &key)? {
                         continue;
                     }
                     return Err(de::Error::unknown_field(

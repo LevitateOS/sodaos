@@ -27,6 +27,46 @@ impl<E, H> MuseLaunch<E, H> {
     }
 }
 
+/// Join completed serve workers while the listener is live, so churn does
+/// not accumulate completed JoinHandles. Returns whether one panicked.
+fn reap_serve_workers(handles: &mut Vec<std::thread::JoinHandle<()>>) -> bool {
+    let mut panicked = false;
+    let mut index = 0;
+    while index < handles.len() {
+        if handles[index].is_finished() {
+            let handle = handles.swap_remove(index);
+            if handle.join().is_err() {
+                panicked = true;
+            }
+        } else {
+            index += 1;
+        }
+    }
+    panicked
+}
+
+/// Notify main after a terminal listener error, join every worker, and
+/// report a panic that an otherwise clean shutdown did not already cover.
+fn join_serve_workers(
+    handles: Vec<std::thread::JoinHandle<()>>,
+    worker_panicked: bool,
+    outcome: Result<(), String>,
+    shutdown: &std::sync::Arc<AtomicBool>,
+) -> Result<(), String> {
+    if outcome.is_err() {
+        shutdown.store(true, Ordering::SeqCst);
+    }
+    let mut worker_panicked = worker_panicked;
+    for handle in handles {
+        worker_panicked |= handle.join().is_err();
+    }
+    if worker_panicked && outcome.is_ok() {
+        Err("muse launch worker panicked".to_string())
+    } else {
+        outcome
+    }
+}
+
 impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> MuseLaunch<E, H> {
     /// `MuseLaunch.Serve`: accept loop until `shutdown` is set, then join
     /// every live connection (Go's `wg.Wait`).
@@ -47,19 +87,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         let mut handles: Vec<std::thread::JoinHandle<()>> = Vec::new();
         let mut worker_panicked = false;
         let outcome = loop {
-            // Completed workers are joined while the listener is live, so
-            // churn does not accumulate completed JoinHandles.
-            let mut index = 0;
-            while index < handles.len() {
-                if handles[index].is_finished() {
-                    let handle = handles.swap_remove(index);
-                    if handle.join().is_err() {
-                        worker_panicked = true;
-                    }
-                } else {
-                    index += 1;
-                }
-            }
+            worker_panicked |= reap_serve_workers(&mut handles);
             if shutdown.load(Ordering::SeqCst) {
                 break Ok(());
             }
@@ -107,18 +135,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 Err(error) => break Err(format!("muse worker start failed: {error}")),
             }
         };
-        // Notify main before joining workers after a terminal listener error.
-        if outcome.is_err() {
-            shutdown.store(true, Ordering::SeqCst);
-        }
-        for handle in handles {
-            worker_panicked |= handle.join().is_err();
-        }
-        if worker_panicked && outcome.is_ok() {
-            Err("muse launch worker panicked".to_string())
-        } else {
-            outcome
-        }
+        join_serve_workers(handles, worker_panicked, outcome, &shutdown)
     }
 
     fn serve_one(
@@ -350,6 +367,62 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         }
     }
 
+    /// Consume one buffered control packet: `None` waits for more bytes,
+    /// `Some(true)` consumed a packet (keep draining), `Some(false)` ends
+    /// the loop after any failure.
+    fn step_control_packet(
+        &self,
+        execution: &MuseExecution,
+        stdin_fd: RawFd,
+        child_pidfd: RawFd,
+        session_end: Instant,
+        buffer: &mut Vec<u8>,
+    ) -> Option<bool> {
+        let trim: Vec<u8> = buffer
+            .iter()
+            .skip_while(|b| b.is_ascii_whitespace())
+            .cloned()
+            .collect();
+        if trim.is_empty() {
+            buffer.clear();
+            return None;
+        }
+        if trim[0] != b'{' {
+            return Some(false);
+        }
+        let len = match split_json_object(&trim) {
+            JsonPacket::Complete(len) => len,
+            JsonPacket::Incomplete => {
+                *buffer = trim;
+                return None;
+            }
+            JsonPacket::Invalid => return Some(false),
+        };
+        let control = match LaunchControl::decode(&trim[..len]) {
+            Ok(control) => control,
+            Err(_) => return Some(false),
+        };
+        let control_deadline = session_end.min(Instant::now() + Duration::from_secs(30));
+        if self
+            .runtime
+            .control_execution(execution, stdin_fd, &control, control_deadline)
+            .is_err()
+        {
+            return Some(false);
+        }
+        if control.signal == 0 && execution.request.tty {
+            // Resize has already been applied through the owned stdin
+            // handle; signal only through the identity-bound pidfd.
+            if let Err(error) = pidfd_send_signal(child_pidfd, libc::SIGWINCH) {
+                if error.raw_os_error() != Some(libc::ESRCH) {
+                    return Some(false);
+                }
+            }
+        }
+        *buffer = trim[len..].to_vec();
+        Some(true)
+    }
+
     /// Control supervisor (`museControls`): streaming strict control
     /// messages, 1MB total, unknown fields rejected. Any failure ends the
     /// loop; the spawner kills the session afterwards.
@@ -406,48 +479,17 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 return;
             }
             loop {
-                let trim: Vec<u8> = buffer
-                    .iter()
-                    .skip_while(|b| b.is_ascii_whitespace())
-                    .cloned()
-                    .collect();
-                if trim.is_empty() {
-                    buffer.clear();
-                    break;
+                match self.step_control_packet(
+                    execution,
+                    stdin_fd,
+                    child_pidfd,
+                    session_end,
+                    &mut buffer,
+                ) {
+                    Some(true) => {}
+                    Some(false) => return,
+                    None => break,
                 }
-                if trim[0] != b'{' {
-                    return;
-                }
-                let len = match split_json_object(&trim) {
-                    JsonPacket::Complete(len) => len,
-                    JsonPacket::Incomplete => {
-                        buffer = trim;
-                        break;
-                    }
-                    JsonPacket::Invalid => return,
-                };
-                let control = match LaunchControl::decode(&trim[..len]) {
-                    Ok(control) => control,
-                    Err(_) => return,
-                };
-                let control_deadline = session_end.min(Instant::now() + Duration::from_secs(30));
-                if self
-                    .runtime
-                    .control_execution(execution, stdin_fd, &control, control_deadline)
-                    .is_err()
-                {
-                    return;
-                }
-                if control.signal == 0 && execution.request.tty {
-                    // Resize has already been applied through the owned stdin
-                    // handle; signal only through the identity-bound pidfd.
-                    if let Err(error) = pidfd_send_signal(child_pidfd, libc::SIGWINCH) {
-                        if error.raw_os_error() != Some(libc::ESRCH) {
-                            return;
-                        }
-                    }
-                }
-                buffer = trim[len..].to_vec();
             }
         }
     }

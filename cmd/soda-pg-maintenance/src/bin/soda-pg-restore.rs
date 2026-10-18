@@ -23,7 +23,7 @@ fn main() {
     std::process::exit(run());
 }
 
-fn run() -> i32 {
+fn parse_restore_args() -> Result<(String, bool, String, Vec<String>), i32> {
     let container = env::var("SODA_PG_CONTAINER").unwrap_or_else(|_| "soda-postgres".to_string());
     let argv: Vec<String> = env::args().collect();
     let mut args = argv.iter().skip(1);
@@ -31,7 +31,7 @@ fn run() -> i32 {
         eprintln!(
             "refusing without --yes: stop forgejo.service and soda-host first, then repeat with --yes"
         );
-        return 2;
+        return Err(2);
     }
     let rest: Vec<&str> = args.map(String::as_str).collect();
     let (globals_only, rest) = match rest.first() {
@@ -40,77 +40,104 @@ fn run() -> i32 {
     };
     let Some(&run) = rest.first() else {
         eprintln!("backup dir required");
-        return 2;
+        return Err(2);
     };
     if !Path::new(run).is_dir() {
         eprintln!("backup dir required");
-        return 2;
+        return Err(2);
     }
-    let explicit: Vec<&str> = rest[1..].to_vec();
+    Ok((
+        container,
+        globals_only,
+        run.to_owned(),
+        rest[1..].iter().map(|s| (*s).to_owned()).collect(),
+    ))
+}
 
-    if globals_only {
-        let globals = format!("{run}/globals.sql");
-        if !is_nonempty(&globals) {
+fn restore_globals(container: &str, run: &str) -> i32 {
+    let globals = format!("{run}/globals.sql");
+    if !is_nonempty(&globals) {
+        eprintln!("no globals.sql in {run}");
+        return 1;
+    }
+    let sql = match fs::read(&globals) {
+        Ok(sql) => sql,
+        Err(_) => {
             eprintln!("no globals.sql in {run}");
             return 1;
         }
-        let sql = match fs::read(&globals) {
-            Ok(sql) => sql,
-            Err(_) => {
-                eprintln!("no globals.sql in {run}");
-                return 1;
-            }
-        };
-        if let Err(code) = psql_stdin(&container, &sql) {
-            return code;
-        }
-        println!("globals restored from {run}");
-        return 0;
+    };
+    if let Err(code) = psql_stdin(container, &sql) {
+        return code;
     }
+    println!("globals restored from {run}");
+    0
+}
 
-    let dbs: Vec<String> = if explicit.is_empty() {
+fn resolve_databases(run: &str, explicit: &[String]) -> Result<Vec<String>, i32> {
+    if explicit.is_empty() {
         match dump_names(run) {
-            Some(dbs) if !dbs.is_empty() => dbs,
+            Some(dbs) if !dbs.is_empty() => Ok(dbs),
             _ => {
                 eprintln!("no database dumps in {run}");
-                return 1;
+                Err(1)
             }
         }
     } else {
-        explicit.iter().map(|s| s.to_string()).collect()
-    };
+        Ok(explicit.to_vec())
+    }
+}
 
+fn restore_database(container: &str, run: &str, db: &str) -> Result<(), i32> {
+    if !valid_db_name(db) {
+        eprintln!("refusing database name: {db}");
+        return Err(2);
+    }
+    let dump = format!("{run}/{db}.dump");
+    if !is_nonempty(&dump) {
+        eprintln!("no dump for {db} in {run}");
+        return Err(1);
+    }
+    if !db_exists(container, db) {
+        if let Err(code) = createdb(container, db) {
+            return Err(code);
+        }
+    }
+    // Keep the stage container-local: the host cannot own this pathname
+    // or guarantee its cleanup after podman has copied into the container.
+    let stage = match create_remote_stage(container) {
+        Ok(path) => path,
+        Err(code) => return Err(code),
+    };
+    if let Err(error) = restore_dump_at_with(container, &dump, db, &stage, podman_status) {
+        if error.restore_failed {
+            eprintln!("restore of {db} failed");
+        }
+        if error.cleanup_failed {
+            eprintln!("cannot remove container restore staging {stage}");
+        }
+        return Err(error.exit_code);
+    }
+    println!("restored {db} from {run}");
+    Ok(())
+}
+
+fn run() -> i32 {
+    let (container, globals_only, run, explicit) = match parse_restore_args() {
+        Ok(args) => args,
+        Err(code) => return code,
+    };
+    if globals_only {
+        return restore_globals(&container, &run);
+    }
+    let dbs = match resolve_databases(&run, &explicit) {
+        Ok(dbs) => dbs,
+        Err(code) => return code,
+    };
     for db in &dbs {
-        if !valid_db_name(db) {
-            eprintln!("refusing database name: {db}");
-            return 2;
+        if let Err(code) = restore_database(&container, &run, db) {
+            return code;
         }
-        let dump = format!("{run}/{db}.dump");
-        if !is_nonempty(&dump) {
-            eprintln!("no dump for {db} in {run}");
-            return 1;
-        }
-        if !db_exists(&container, db) {
-            if let Err(code) = createdb(&container, db) {
-                return code;
-            }
-        }
-        // Keep the stage container-local: the host cannot own this pathname
-        // or guarantee its cleanup after podman has copied into the container.
-        let stage = match create_remote_stage(&container) {
-            Ok(path) => path,
-            Err(code) => return code,
-        };
-        if let Err(error) = restore_dump_at_with(&container, &dump, db, &stage, podman_status) {
-            if error.restore_failed {
-                eprintln!("restore of {db} failed");
-            }
-            if error.cleanup_failed {
-                eprintln!("cannot remove container restore staging {stage}");
-            }
-            return error.exit_code;
-        }
-        println!("restored {db} from {run}");
     }
     0
 }

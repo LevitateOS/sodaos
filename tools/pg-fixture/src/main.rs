@@ -153,9 +153,7 @@ fn secret_dir() -> Result<SecretDir, String> {
     })
 }
 
-/// Open or create a directory by walking from `/` through directory FDs only.
-/// Every component is resolved beneath the held root with all symlinks denied.
-fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String> {
+fn split_absolute_parts(path: &Path) -> Result<Vec<std::ffi::OsString>, String> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -177,23 +175,24 @@ fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String>
     if parts.is_empty() {
         return Err("fixture directory must be a private owned directory".to_owned());
     }
+    Ok(parts)
+}
 
+fn walk_components(
+    root: OwnedFd,
+    parts: &[std::ffi::OsString],
+    create_missing: bool,
+) -> Result<OwnedFd, String> {
     let resolve = ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS;
-    let mut current = open(
-        "/",
-        OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
-        Mode::empty(),
-    )
-    .map_err(|e| format!("cannot open fixture path root: {e}"))?;
-    for component in &parts {
-        let opened = openat2(
+    let mut current = root;
+    for component in parts {
+        let next = match openat2(
             &current,
             component,
             OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
             Mode::empty(),
             resolve,
-        );
-        let next = match opened {
+        ) {
             Ok(fd) => fd,
             Err(e) if create_missing && e == rustix::io::Errno::NOENT => {
                 match mkdir_private_at(&current, component) {
@@ -205,22 +204,24 @@ fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String>
                         ));
                     }
                 };
-                let fd = openat2(
+                openat2(
                     &current,
                     component,
                     OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
                     Mode::empty(),
                     resolve,
                 )
-                .map_err(|e| format!("cannot open fixture directory component: {e}"))?;
-                fd
+                .map_err(|e| format!("cannot open fixture directory component: {e}"))?
             }
             Err(e) => return Err(format!("cannot open fixture directory component: {e}")),
         };
         current = next;
     }
+    Ok(current)
+}
 
-    let stat = fstat(&current).map_err(|e| format!("cannot inspect fixture directory: {e}"))?;
+fn check_private_dir(current: &OwnedFd) -> Result<(), String> {
+    let stat = fstat(current).map_err(|e| format!("cannot inspect fixture directory: {e}"))?;
     let mode = stat.st_mode as u32;
     if stat.st_uid != unsafe { libc::geteuid() } as u32
         || FileType::from_raw_mode(stat.st_mode) != FileType::Directory
@@ -231,6 +232,21 @@ fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String>
             "fixture directory must be current-user-owned and private (mode 0700)".to_owned(),
         );
     }
+    Ok(())
+}
+
+/// Open or create a directory by walking from `/` through directory FDs only.
+/// Every component is resolved beneath the held root with all symlinks denied.
+fn open_secret_dir(path: &Path, create_missing: bool) -> Result<OwnedFd, String> {
+    let parts = split_absolute_parts(path)?;
+    let root = open(
+        "/",
+        OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|e| format!("cannot open fixture path root: {e}"))?;
+    let current = walk_components(root, &parts, create_missing)?;
+    check_private_dir(&current)?;
     Ok(current)
 }
 
@@ -313,66 +329,60 @@ fn cleanup(name: &str) {
         .status();
 }
 
-fn cmd_start() -> i32 {
+fn read_database_list() -> Result<(String, Vec<String>), i32> {
     // Unset -> default; explicitly empty -> bare cluster (superuser only).
     let databases = env::var("SODA_PG_DATABASES").unwrap_or_else(|_| "forgejo soda".to_string());
-    let list: Vec<&str> = databases.split_whitespace().collect();
-    for db in &list {
+    let mut list = Vec::new();
+    for db in databases.split_whitespace() {
         if !valid_db_name(db) {
             eprintln!("refusing database name: {db}");
-            return 2;
+            return Err(2);
         }
+        list.push(db.to_owned());
     }
+    Ok((databases, list))
+}
 
+fn ensure_image() -> Result<(), i32> {
     let have_image = Command::new("podman")
         .args(["image", "exists", IMAGE])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
         .is_ok_and(|s| s.success());
-    if !have_image {
-        let pulled = Command::new("podman")
-            .args(["pull", IMAGE])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|s| s.success());
-        if !pulled {
-            eprintln!("postgres fixture image unavailable");
-            return 3;
-        }
+    if have_image {
+        return Ok(());
     }
+    let pulled = Command::new("podman")
+        .args(["pull", IMAGE])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success());
+    if !pulled {
+        eprintln!("postgres fixture image unavailable");
+        return Err(3);
+    }
+    Ok(())
+}
 
-    let dir = match secret_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            eprintln!("{e}");
-            return 1;
-        }
-    };
-    let mut roles = vec!["postgres"];
-    roles.extend(list.iter().copied());
+fn write_role_passwords(dir: &SecretDir, roles: &[&str]) -> Result<HashMap<String, String>, i32> {
     let mut passwords = HashMap::new();
-    for role in &roles {
-        match write_password(&dir, role) {
+    for role in roles {
+        match write_password(dir, role) {
             Ok(password) => {
                 passwords.insert((*role).to_owned(), password);
             }
             Err(e) => {
                 eprintln!("{e}");
-                return 1;
+                return Err(1);
             }
         }
     }
+    Ok(passwords)
+}
 
-    let mut rand = [0u8; 2];
-    if let Err(e) = read_urandom(&mut rand) {
-        eprintln!("{e}");
-        return 1;
-    }
-    // `soda-pg-test-$$-$RANDOM`.
-    let random = u16::from_ne_bytes(rand) % 32768;
-    let name = format!("soda-pg-test-{}-{random}", std::process::id());
+fn run_postgres(dir: &SecretDir, name: &str) -> Result<(), i32> {
     let super_secret = format!(
         "{}/postgres.passwd:/run/secrets/soda-pg-super:ro,z",
         dir.path.display()
@@ -383,7 +393,7 @@ fn cmd_start() -> i32 {
             "-d",
             "--rm",
             "--name",
-            &name,
+            name,
             "--pull=never",
             "-p",
             "127.0.0.1::5432",
@@ -396,41 +406,48 @@ fn cmd_start() -> i32 {
         .stdout(Stdio::null())
         .status()
     {
-        Ok(status) if status.success() => {}
+        Ok(status) if status.success() => Ok(()),
         // `set -e`: the failing command's status is the script's status.
         // The EXIT trap is not armed yet, so no cleanup here.
-        Ok(status) => return status.code().unwrap_or(1),
+        Ok(status) => Err(status.code().unwrap_or(1)),
         Err(e) => {
             eprintln!("podman run: {e}");
-            return 1;
+            Err(1)
         }
     }
+}
 
-    let deadline = Instant::now() + READY_TIMEOUT;
+fn wait_ready(name: &str, deadline: Instant) -> Result<(), i32> {
     loop {
         let ready = Command::new("podman")
-            .args(["exec", "-u", "postgres", &name, "pg_isready", "-q"])
+            .args(["exec", "-u", "postgres", name, "pg_isready", "-q"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|s| s.success());
         if ready {
-            break;
+            return Ok(());
         }
         if Instant::now() >= deadline {
             eprintln!("postgres fixture never became ready");
-            cleanup(&name);
-            return 1;
+            cleanup(name);
+            return Err(1);
         }
         thread::sleep(Duration::from_secs(1));
     }
+}
 
+fn load_databases(
+    name: &str,
+    list: &[String],
+    passwords: &HashMap<String, String>,
+) -> Result<(), i32> {
     let mut sql = String::new();
-    for db in &list {
-        let Some(password) = passwords.get(*db) else {
+    for db in list {
+        let Some(password) = passwords.get(db.as_str()) else {
             eprintln!("password generation did not return a value for {db}");
-            cleanup(&name);
-            return 1;
+            cleanup(name);
+            return Err(1);
         };
         sql.push_str(&role_sql(db, password));
     }
@@ -440,7 +457,7 @@ fn cmd_start() -> i32 {
             "-i",
             "-u",
             "postgres",
-            &name,
+            name,
             "psql",
             "-v",
             "ON_ERROR_STOP=1",
@@ -454,8 +471,8 @@ fn cmd_start() -> i32 {
         Ok(child) => child,
         Err(e) => {
             eprintln!("{e}");
-            cleanup(&name);
-            return 1;
+            cleanup(name);
+            return Err(1);
         }
     };
     // A heredoc appends one trailing newline.
@@ -465,36 +482,38 @@ fn cmd_start() -> i32 {
         .take()
         .is_some_and(|mut stdin| stdin.write_all(input.as_bytes()).is_ok());
     match (wrote, child.wait()) {
-        (true, Ok(status)) if status.success() => {}
+        (true, Ok(status)) if status.success() => Ok(()),
         (_, Ok(status)) => {
-            cleanup(&name);
-            return status.code().filter(|code| *code != 0).unwrap_or(1);
+            cleanup(name);
+            Err(status.code().filter(|code| *code != 0).unwrap_or(1))
         }
         (_, Err(e)) => {
             eprintln!("{e}");
-            cleanup(&name);
-            return 1;
+            cleanup(name);
+            Err(1)
         }
     }
+}
 
+fn query_port(name: &str) -> Result<String, i32> {
     // Trap disarmed: from here failures exit without cleanup, like the script.
-    let port = match Command::new("podman")
-        .args(["port", &name, "5432"])
-        .output()
-    {
+    match Command::new("podman").args(["port", name, "5432"]).output() {
         Ok(output) if output.status.success() => {
-            first_port(&String::from_utf8_lossy(&output.stdout))
+            Ok(first_port(&String::from_utf8_lossy(&output.stdout)))
         }
         Ok(output) => {
-            cleanup(&name);
-            return output.status.code().unwrap_or(1);
+            cleanup(name);
+            Err(output.status.code().unwrap_or(1))
         }
         Err(e) => {
             eprintln!("{e}");
-            cleanup(&name);
-            return 1;
+            cleanup(name);
+            Err(1)
         }
-    };
+    }
+}
+
+fn write_handoff(dir: &SecretDir, name: &str, port: &str, databases: &str) -> Result<(), i32> {
     // Keep ownership until the complete handoff is written. A closed stdout
     // must not leave auto-created secrets behind with no caller receiving the
     // path needed to remove them.
@@ -505,7 +524,56 @@ fn cmd_start() -> i32 {
     );
     if let Err(e) = std::io::stdout().write_all(output.as_bytes()) {
         eprintln!("cannot write fixture handoff: {e}");
-        cleanup(&name);
+        cleanup(name);
+        return Err(1);
+    }
+    Ok(())
+}
+
+fn cmd_start() -> i32 {
+    let (databases, list) = match read_database_list() {
+        Ok((databases, list)) => (databases, list),
+        Err(code) => return code,
+    };
+    if let Err(code) = ensure_image() {
+        return code;
+    }
+    let dir = match secret_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("{e}");
+            return 1;
+        }
+    };
+    let mut roles = vec!["postgres"];
+    roles.extend(list.iter().map(String::as_str));
+    let passwords = match write_role_passwords(&dir, &roles) {
+        Ok(passwords) => passwords,
+        Err(code) => return code,
+    };
+
+    let mut rand = [0u8; 2];
+    if let Err(e) = read_urandom(&mut rand) {
+        eprintln!("{e}");
+        return 1;
+    }
+    // `soda-pg-test-$$-$RANDOM`.
+    let random = u16::from_ne_bytes(rand) % 32768;
+    let name = format!("soda-pg-test-{}-{random}", std::process::id());
+    if let Err(code) = run_postgres(&dir, &name) {
+        return code;
+    }
+    if let Err(code) = wait_ready(&name, Instant::now() + READY_TIMEOUT) {
+        return code;
+    }
+    if let Err(code) = load_databases(&name, &list, &passwords) {
+        return code;
+    }
+    let port = match query_port(&name) {
+        Ok(port) => port,
+        Err(code) => return code,
+    };
+    if write_handoff(&dir, &name, &port, &databases).is_err() {
         return 1;
     }
     let _caller_owned_dir = dir.handoff();

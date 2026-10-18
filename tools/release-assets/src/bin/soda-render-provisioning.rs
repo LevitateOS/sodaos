@@ -24,88 +24,94 @@ fn refusal(message: String) -> ! {
     std::process::exit(2);
 }
 
-fn parse(args: &[OsString]) -> Args {
-    let mut operator_key: Option<PathBuf> = None;
-    let mut password_hash: Option<PathBuf> = None;
-    let mut hostname: Option<String> = None;
-    let mut appliance_hostname: Option<String> = None;
-    let mut bootstrap = "extensions".to_string();
-    let mut host_key: Option<PathBuf> = None;
-    let mut out: Option<PathBuf> = None;
-    let mut stray: Vec<String> = Vec::new();
-    let mut i = 0;
-    let mut only_positionals = false;
-    while i < args.len() {
-        let raw = args[i].to_string_lossy().into_owned();
-        if !only_positionals && raw == "--" {
-            only_positionals = true;
-            i += 1;
-            continue;
-        }
-        let token = if only_positionals {
-            None
-        } else {
-            split_flag(&raw)
-        };
-        match token {
-            None => {
-                stray.push(raw);
-                i += 1;
-            }
-            Some((name, inline)) => {
-                if name == "h" || name == "help" {
-                    if let Some(explicit) = inline {
-                        refusal(format!(
-                            "argument --help: ignored explicit argument '{explicit}'"
-                        ));
-                    }
-                    print!("{HELP}");
-                    std::process::exit(0);
-                }
-                // Unknown flags never consume a value: argparse cannot know
-                // their arity, so the following token stays unrecognized too.
-                if !matches!(
-                    name.as_str(),
-                    "operator-key-file"
-                        | "root-password-hash-file"
-                        | "hostname"
-                        | "appliance-hostname"
-                        | "bootstrap"
-                        | "ssh-host-key-file"
-                        | "out"
-                ) {
-                    stray.push(raw);
-                    i += 1;
-                    continue;
-                }
-                let value = match inline {
-                    Some(value) => OsString::from(value),
-                    None => {
-                        i += 1;
-                        match args.get(i) {
-                            Some(value) => value.clone(),
-                            None => refusal(format!("argument --{name}: expected one argument")),
-                        }
-                    }
-                };
-                match name.as_str() {
-                    "operator-key-file" => operator_key = Some(PathBuf::from(value)),
-                    "root-password-hash-file" => password_hash = Some(PathBuf::from(value)),
-                    "hostname" => hostname = Some(value.to_string_lossy().into_owned()),
-                    "appliance-hostname" => {
-                        appliance_hostname = Some(value.to_string_lossy().into_owned())
-                    }
-                    "bootstrap" => bootstrap = value.to_string_lossy().into_owned(),
-                    "ssh-host-key-file" => host_key = Some(PathBuf::from(value)),
-                    "out" => out = Some(PathBuf::from(value)),
-                    _ => {
-                        stray.push(raw);
-                    }
-                }
-                i += 1;
+/// Take a flag value from `--flag=value` or the following token.
+fn take_value(args: &[OsString], i: &mut usize, name: &str, inline: Option<String>) -> OsString {
+    match inline {
+        Some(value) => OsString::from(value),
+        None => {
+            *i += 1;
+            match args.get(*i) {
+                Some(value) => value.clone(),
+                None => refusal(format!("argument --{name}: expected one argument")),
             }
         }
     }
+}
+
+/// Handle `--help`: print help or refuse an explicit value, else do nothing.
+fn help_flag(name: &str, inline: &Option<String>) {
+    if name != "h" && name != "help" {
+        return;
+    }
+    if let Some(explicit) = inline {
+        refusal(format!(
+            "argument --help: ignored explicit argument '{explicit}'"
+        ));
+    }
+    print!("{HELP}");
+    std::process::exit(0);
+}
+
+/// Bind one `--flag[=value]` token; unknown flags never consume a value.
+fn bind_flag(
+    args: &[OsString],
+    i: &mut usize,
+    operator_key: &mut Option<PathBuf>,
+    password_hash: &mut Option<PathBuf>,
+    hostname: &mut Option<String>,
+    appliance_hostname: &mut Option<String>,
+    bootstrap: &mut String,
+    host_key: &mut Option<PathBuf>,
+    out: &mut Option<PathBuf>,
+    name: &str,
+    inline: Option<String>,
+    raw: String,
+    stray: &mut Vec<String>,
+) {
+    help_flag(name, &inline);
+    // Unknown flags never consume a value: argparse cannot know
+    // their arity, so the following token stays unrecognized too.
+    if !matches!(
+        name,
+        "operator-key-file"
+            | "root-password-hash-file"
+            | "hostname"
+            | "appliance-hostname"
+            | "bootstrap"
+            | "ssh-host-key-file"
+            | "out"
+    ) {
+        stray.push(raw);
+        *i += 1;
+        return;
+    }
+    let value = take_value(args, i, name, inline);
+    match name {
+        "operator-key-file" => *operator_key = Some(PathBuf::from(value)),
+        "root-password-hash-file" => *password_hash = Some(PathBuf::from(value)),
+        "hostname" => *hostname = Some(value.to_string_lossy().into_owned()),
+        "appliance-hostname" => *appliance_hostname = Some(value.to_string_lossy().into_owned()),
+        "bootstrap" => *bootstrap = value.to_string_lossy().into_owned(),
+        "ssh-host-key-file" => *host_key = Some(PathBuf::from(value)),
+        "out" => *out = Some(PathBuf::from(value)),
+        _ => {
+            stray.push(raw);
+        }
+    }
+    *i += 1;
+}
+
+/// Reject stray, missing, mutually exclusive and invalid choices.
+fn check_args(
+    operator_key: Option<PathBuf>,
+    password_hash: Option<PathBuf>,
+    hostname: Option<String>,
+    appliance_hostname: Option<String>,
+    bootstrap: String,
+    host_key: Option<PathBuf>,
+    out: Option<PathBuf>,
+    stray: Vec<String>,
+) -> Args {
     if !stray.is_empty() {
         refusal(format!("unrecognized arguments: {}", stray.join(" ")));
     }
@@ -142,6 +148,65 @@ fn parse(args: &[OsString]) -> Args {
         host_key,
         out: out.unwrap(),
     }
+}
+
+fn parse(args: &[OsString]) -> Args {
+    let mut operator_key: Option<PathBuf> = None;
+    let mut password_hash: Option<PathBuf> = None;
+    let mut hostname: Option<String> = None;
+    let mut appliance_hostname: Option<String> = None;
+    let mut bootstrap = "extensions".to_string();
+    let mut host_key: Option<PathBuf> = None;
+    let mut out: Option<PathBuf> = None;
+    let mut stray: Vec<String> = Vec::new();
+    let mut i = 0;
+    let mut only_positionals = false;
+    while i < args.len() {
+        let raw = args[i].to_string_lossy().into_owned();
+        if !only_positionals && raw == "--" {
+            only_positionals = true;
+            i += 1;
+            continue;
+        }
+        let token = if only_positionals {
+            None
+        } else {
+            split_flag(&raw)
+        };
+        match token {
+            None => {
+                stray.push(raw);
+                i += 1;
+            }
+            Some((name, inline)) => {
+                bind_flag(
+                    args,
+                    &mut i,
+                    &mut operator_key,
+                    &mut password_hash,
+                    &mut hostname,
+                    &mut appliance_hostname,
+                    &mut bootstrap,
+                    &mut host_key,
+                    &mut out,
+                    &name,
+                    inline,
+                    raw,
+                    &mut stray,
+                );
+            }
+        }
+    }
+    check_args(
+        operator_key,
+        password_hash,
+        hostname,
+        appliance_hostname,
+        bootstrap,
+        host_key,
+        out,
+        stray,
+    )
 }
 
 fn main() {

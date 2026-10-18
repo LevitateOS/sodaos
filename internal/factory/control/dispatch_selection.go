@@ -50,6 +50,17 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 // usage, then sizes the plan's deadline from the remaining allowance. The
 // deadline never exceeds the host's supervised bound.
 func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
+	if wait, failed := checkConcurrencyLimits(ctx, deps, occupancy, plan); wait != nil || failed != nil {
+		return wait, failed
+	}
+	remaining, wait, failed := checkSponsorshipBudget(ctx, deps, occupancy, plan)
+	if wait != nil || failed != nil {
+		return wait, failed
+	}
+	return sizeAttemptDeadline(ctx, deps, plan, remaining)
+}
+
+func checkConcurrencyLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
 	capacity, err := deps.Store.Capacity(ctx)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -87,46 +98,54 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= repoLimit {
 		return waitFor(WaitRepository, "repository runs at its limit"), nil
 	}
+	return nil, nil
+}
+
+func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (int, *planWait, *planWait) {
+	repository := plan.policy.Repository
 	slots, planned := occupancy.heldConn(repository, plan.sponsorship.Connection)
 	if slots >= plan.sponsorship.MaxConcurrent {
-		return waitFor(WaitSponsorship, "sponsorship runs at its limit"), nil
+		return 0, waitFor(WaitSponsorship, "sponsorship runs at its limit"), nil
 	}
 	used, err := deps.Store.UsageTotal(ctx, repository, plan.sponsorship.Connection)
 	if err != nil {
-		return nil, waitFor(DispatchErrStore, "confirmed usage unreadable")
+		return 0, nil, waitFor(DispatchErrStore, "confirmed usage unreadable")
 	}
 	remaining := plan.sponsorship.AllowanceMinutes - used - planned
 	if remaining < 1 {
-		return waitFor(WaitAllowance, "sponsorship allowance is exhausted"), nil
+		return 0, waitFor(WaitAllowance, "sponsorship allowance is exhausted"), nil
 	}
 	if remaining > MaxDispatchDeadline {
 		remaining = MaxDispatchDeadline
 	}
 	budget, err := deps.Store.ConnectionUsageBudget(ctx, plan.sponsorship.Connection)
 	if err != nil {
-		return waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
+		return 0, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
 	}
 	if budget.Revision != plan.effective.Authority.ConnectionUsageBudget {
-		return waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
+		return 0, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
 	}
 	charge, err := deps.Store.ConnectionUsageCharge(ctx, plan.sponsorship.Connection, time.Now())
 	if err != nil {
-		return nil, waitFor(DispatchErrStore, "connection usage unreadable")
+		return 0, nil, waitFor(DispatchErrStore, "connection usage unreadable")
 	}
 	left := budget.RollingMinutes*factory.UsageMicrosPerMinute - charge
 	if left < factory.UsageMicrosPerMinute {
-		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted"), nil
+		return 0, waitFor(WaitAllowance, "connection rolling usage budget is exhausted"), nil
 	}
-	connectionMinutes := left / factory.UsageMicrosPerMinute
-	if connectionMinutes < int64(remaining) {
+	if connectionMinutes := left / factory.UsageMicrosPerMinute; connectionMinutes < int64(remaining) {
 		remaining = int(connectionMinutes)
 	}
+	return remaining, nil, nil
+}
+
+func sizeAttemptDeadline(ctx context.Context, deps DispatchDeps, plan *attemptPlan, remaining int) (*planWait, *planWait) {
 	now := time.Now()
 	deadline := now.Add(time.Duration(remaining) * time.Minute)
 	plan.attemptLimits = plan.policy.AttemptLimits
 	attemptSeconds := int64(plan.policy.AttemptLimits.ActiveMinutes) * 60
 	if !plan.freshAttempt {
-		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, repository, plan.control.Issue)
+		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, plan.policy.Repository, plan.control.Issue)
 		switch {
 		case allowanceErr == nil:
 			if allowance.Closed {

@@ -75,23 +75,15 @@ fn verify_program(source_hash: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Reserve a terminal locator; the caller holds the parent lock.
-#[allow(clippy::too_many_arguments)] // 8-arg shape mandated by the PR25 brief
-pub fn reserve_terminal(
-    identifier: &str,
-    account: &Account,
-    identity: i64,
-    cols: i64,
-    rows: i64,
-    name: &str,
-    source_hash: &str,
-    scope: &str,
-) -> Result<StateValue, String> {
-    verify_program(source_hash)?;
+fn check_infocmp() -> Result<(), String> {
     for term in ["xterm-256color", "screen-256color"] {
         sys::run_checked(&svc::infocmp_argv(term), 2)
             .map_err(|e| format!("infocmp {term}: {e}"))?;
     }
+    Ok(())
+}
+
+fn claim_locator(identifier: &str) -> Result<(std::fs::File, String), String> {
     let path = terminal_path(identifier)?;
     // Refuse occupied locators before retiring any completed runtime files.
     // The caller holds the native parent lock across preparation/admission.
@@ -109,9 +101,18 @@ pub fn reserve_terminal(
         return Err("native reservation capacity".to_string());
     }
     fs::mkdir_at(&parent, identifier, 0o711).map_err(|e| e.to_string())?;
-    drop(parent);
-    let directory = checked_chain(&path)?;
-    fs::fchmod(&directory, 0o711).map_err(|e| e.to_string())?;
+    Ok((parent, path))
+}
+
+fn write_runtime_files(
+    directory: &std::fs::File,
+    path: &str,
+    account: &Account,
+    dims: (i64, i64, i64),
+    name: &str,
+    scope: &str,
+) -> Result<(), String> {
+    let (identity, cols, rows) = dims;
     let created = BindingRecord {
         login: account.pw_name.clone(),
         uid: account.pw_uid,
@@ -124,21 +125,21 @@ pub fn reserve_terminal(
         created_at: timex::now_secs(),
     };
     fs::new_file(
-        &directory,
+        directory,
         "binding",
         &pyemit::line(&binding_object(&created)),
         0o600,
     )?;
     fs::new_file(
-        &directory,
+        directory,
         "reservation",
         &pyemit::line(&reservation_object(timex::now_secs() + 120, scope)),
         0o600,
     )?;
-    write_name(&directory, name)?;
-    fs::new_file(&directory, "writer", b"", 0o600)?;
-    fs::new_file(&directory, "tmux.conf", TMUX_CONFIG.as_bytes(), 0o644)?;
-    fs::mkdir_at(&directory, "screen", 0o700).map_err(|e| e.to_string())?;
+    write_name(directory, name)?;
+    fs::new_file(directory, "writer", b"", 0o600)?;
+    fs::new_file(directory, "tmux.conf", TMUX_CONFIG.as_bytes(), 0o644)?;
+    fs::mkdir_at(directory, "screen", 0o700).map_err(|e| e.to_string())?;
     fs::chown_path(
         &format!("{path}/screen"),
         account.pw_uid,
@@ -146,6 +147,35 @@ pub fn reserve_terminal(
         false,
     )
     .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Reserve a terminal locator; the caller holds the parent lock.
+#[allow(clippy::too_many_arguments)] // 8-arg shape mandated by the PR25 brief
+pub fn reserve_terminal(
+    identifier: &str,
+    account: &Account,
+    identity: i64,
+    cols: i64,
+    rows: i64,
+    name: &str,
+    source_hash: &str,
+    scope: &str,
+) -> Result<StateValue, String> {
+    verify_program(source_hash)?;
+    check_infocmp()?;
+    let (parent, path) = claim_locator(identifier)?;
+    drop(parent);
+    let directory = checked_chain(&path)?;
+    fs::fchmod(&directory, 0o711).map_err(|e| e.to_string())?;
+    write_runtime_files(
+        &directory,
+        &path,
+        account,
+        (identity, cols, rows),
+        name,
+        scope,
+    )?;
     drop(directory);
     terminal_status(identifier, account, identity)?
         .ok_or_else(|| "terminal reservation".to_string())

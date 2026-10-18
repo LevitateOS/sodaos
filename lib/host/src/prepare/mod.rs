@@ -143,6 +143,76 @@ impl<E: Executor> Runtime<E> {
         self.prepare_inner(input, deadline, None, None)
     }
 
+    fn observe_preparation(
+        &self,
+        prep: &preparation::Preparation,
+        container: &str,
+        deadline: Instant,
+        worker_deadline: Option<&str>,
+    ) -> Result<PrepareState, PreparationObservationError> {
+        self.inspect_preparation_state(
+            &prep.project,
+            &prep.id,
+            container,
+            deadline,
+            worker_deadline,
+        )
+    }
+
+    /// Approve the preparation; a failed approval still reports a stopped
+    /// preparation instead of failing. Returns the early state, if any.
+    fn approve_or_stopped(
+        &self,
+        input: &Prepare,
+        container: &str,
+        deadline: Instant,
+        worker_deadline: Option<&str>,
+    ) -> Result<Option<PrepareState>, String> {
+        let prep = &input.preparation;
+        match self.approve_preparation(prep, &input.setup, deadline) {
+            Ok(()) => Ok(None),
+            Err(err) => {
+                if let Ok(stopped) =
+                    self.observe_preparation(prep, container, deadline, worker_deadline)
+                {
+                    if stopped.stopped {
+                        return Ok(Some(stopped));
+                    }
+                }
+                Err(err)
+            }
+        }
+    }
+
+    /// Start the helper and report the resulting state; a failed start
+    /// re-observes before returning the error, like Go.
+    fn start_preparation(
+        &self,
+        input: &Prepare,
+        container: &str,
+        deadline: Instant,
+        worker_deadline: Option<&str>,
+    ) -> Result<PrepareState, String> {
+        let prep = &input.preparation;
+        let mut body = String::from("{");
+        if let Some(worker_deadline) = worker_deadline {
+            body.push_str("\"deadline\":");
+            body.push_str(&json::quote(worker_deadline));
+            body.push(',');
+        }
+        body.push_str("\"id\":");
+        body.push_str(&json::quote(&prep.id));
+        body.push_str(",\"op\":\"start\"}");
+        if let Err(err) = self.factory_helper(&prep.project, &body, deadline) {
+            // Go returns the re-observed state alongside the error; every
+            // caller drops the state on error, so only the error crosses.
+            let _ = self.observe_preparation(prep, container, deadline, worker_deadline);
+            return Err(err);
+        }
+        self.observe_preparation(prep, container, deadline, worker_deadline)
+            .map_err(|error| error.to_string())
+    }
+
     fn prepare_inner(
         &self,
         input: &Prepare,
@@ -154,28 +224,13 @@ impl<E: Executor> Runtime<E> {
         let prep = &input.preparation;
         let container = self.prepare_container(&prep.project, true, deadline)?;
         self.factory_helper(&prep.project, "{\"op\":\"ensure\"}", deadline)?;
-        if let Err(err) = self.approve_preparation(prep, &input.setup, deadline) {
-            if let Ok(stopped) = self.inspect_preparation_state(
-                &prep.project,
-                &prep.id,
-                &container,
-                deadline,
-                worker_deadline,
-            ) {
-                if stopped.stopped {
-                    return Ok(stopped);
-                }
-            }
-            return Err(err);
+        if let Some(stopped) =
+            self.approve_or_stopped(input, &container, deadline, worker_deadline)?
+        {
+            return Ok(stopped);
         }
         let state = self
-            .inspect_preparation_state(
-                &prep.project,
-                &prep.id,
-                &container,
-                deadline,
-                worker_deadline,
-            )
+            .observe_preparation(prep, &container, deadline, worker_deadline)
             .map_err(|error| error.to_string())?;
         if state.stopped || state.ready || state.phase == preparation::PREPARE_FAILED {
             return Ok(state);
@@ -195,44 +250,10 @@ impl<E: Executor> Runtime<E> {
         self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)?;
         if !missing.is_empty() || !verified.refusal.is_empty() {
             return self
-                .inspect_preparation_state(
-                    &prep.project,
-                    &prep.id,
-                    &container,
-                    deadline,
-                    worker_deadline,
-                )
+                .observe_preparation(prep, &container, deadline, worker_deadline)
                 .map_err(|error| error.to_string());
         }
-        let mut body = String::from("{");
-        if let Some(worker_deadline) = worker_deadline {
-            body.push_str("\"deadline\":");
-            body.push_str(&json::quote(worker_deadline));
-            body.push(',');
-        }
-        body.push_str("\"id\":");
-        body.push_str(&json::quote(&prep.id));
-        body.push_str(",\"op\":\"start\"}");
-        if let Err(err) = self.factory_helper(&prep.project, &body, deadline) {
-            // Go returns the re-observed state alongside the error; every
-            // caller drops the state on error, so only the error crosses.
-            let _ = self.inspect_preparation_state(
-                &prep.project,
-                &prep.id,
-                &container,
-                deadline,
-                worker_deadline,
-            );
-            return Err(err);
-        }
-        self.inspect_preparation_state(
-            &prep.project,
-            &prep.id,
-            &container,
-            deadline,
-            worker_deadline,
-        )
-        .map_err(|error| error.to_string())
+        self.start_preparation(input, &container, deadline, worker_deadline)
     }
 
     /// `InspectPreparation`: authoritative state, never mutating.

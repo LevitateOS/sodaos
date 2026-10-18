@@ -79,7 +79,7 @@ func ConsolidateContent(content ProposalContent, recommended, advice string) (Co
 }
 
 // Validate checks proposal binding, preserved direction and milestone bounds.
-func (p ConsolidatedProposal) Validate() error {
+func (p ConsolidatedProposal) validateIdentity() error {
 	if p.Producer != AuthoredProducer || !project.ValidDecisionID(p.Intent) || !project.ValidDecisionID(p.Revision) || !intentText(p.Objective, 16000) {
 		return errors.New("invalid consolidated proposal identity or objective")
 	}
@@ -92,6 +92,10 @@ func (p ConsolidatedProposal) Validate() error {
 	if len(p.Outcomes) == 0 || len(p.Outcomes) > 20 || len(p.Constraints) > 50 || len(p.Excluded) > 50 || len(p.Milestones) == 0 || len(p.Milestones) > 40 {
 		return errors.New("invalid consolidated proposal bounds")
 	}
+	return nil
+}
+
+func (p ConsolidatedProposal) validateCollections() error {
 	for _, outcome := range p.Outcomes {
 		if !intentText(outcome, 4000) {
 			return errors.New("invalid consolidated outcome")
@@ -113,4 +117,11 @@ func (p ConsolidatedProposal) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (p ConsolidatedProposal) Validate() error {
+	if err := p.validateIdentity(); err != nil {
+		return err
+	}
+	return p.validateCollections()
 }

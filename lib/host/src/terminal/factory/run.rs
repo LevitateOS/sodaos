@@ -111,6 +111,106 @@ struct FactoryRunWire {
     connection: Option<String>,
     deadline_seen: bool,
 }
+fn feed_identity<'de, A>(o: &mut FactoryRunWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "deadline" => {
+            o.deadline_seen = true;
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.deadline = Some(v)
+            }
+            Ok(true)
+        }
+        "actor" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                o.actor = Some(v)
+            }
+            Ok(true)
+        }
+        "id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.id = Some(v)
+            }
+            Ok(true)
+        }
+        "project" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.project = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn feed_config<'de, A>(o: &mut FactoryRunWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "role" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.role = Some(v)
+            }
+            Ok(true)
+        }
+        "preparation" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.preparation = Some(v)
+            }
+            Ok(true)
+        }
+        "harness" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.harness = Some(v)
+            }
+            Ok(true)
+        }
+        "harness_version" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.harness_version = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn feed_source<'de, A>(o: &mut FactoryRunWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "model" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.model = Some(v)
+            }
+            Ok(true)
+        }
+        "assignment" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.assignment = Some(v)
+            }
+            Ok(true)
+        }
+        "source_commit" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.source_commit = Some(v)
+            }
+            Ok(true)
+        }
+        "connection" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.connection = Some(v)
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 impl<'de> Deserialize<'de> for FactoryRunWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -128,88 +228,34 @@ impl<'de> Deserialize<'de> for FactoryRunWire {
             {
                 let mut o = FactoryRunWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "deadline" => {
-                            o.deadline_seen = true;
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.deadline = Some(v)
-                            }
-                        }
-                        "actor" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.actor = Some(v)
-                            }
-                        }
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.id = Some(v)
-                            }
-                        }
-                        "project" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.project = Some(v)
-                            }
-                        }
-                        "role" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.role = Some(v)
-                            }
-                        }
-                        "preparation" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.preparation = Some(v)
-                            }
-                        }
-                        "harness" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.harness = Some(v)
-                            }
-                        }
-                        "harness_version" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.harness_version = Some(v)
-                            }
-                        }
-                        "model" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.model = Some(v)
-                            }
-                        }
-                        "assignment" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.assignment = Some(v)
-                            }
-                        }
-                        "source_commit" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.source_commit = Some(v)
-                            }
-                        }
-                        "connection" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.connection = Some(v)
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "deadline",
-                                    "actor",
-                                    "id",
-                                    "project",
-                                    "role",
-                                    "preparation",
-                                    "harness",
-                                    "harness_version",
-                                    "model",
-                                    "assignment",
-                                    "source_commit",
-                                    "connection",
-                                ],
-                            ))
-                        }
+                    let lower = k.to_ascii_lowercase();
+                    let key = lower.as_str();
+                    if feed_identity(&mut o, key, &mut map)? {
+                        continue;
                     }
+                    if feed_config(&mut o, key, &mut map)? {
+                        continue;
+                    }
+                    if feed_source(&mut o, key, &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &k,
+                        &[
+                            "deadline",
+                            "actor",
+                            "id",
+                            "project",
+                            "role",
+                            "preparation",
+                            "harness",
+                            "harness_version",
+                            "model",
+                            "assignment",
+                            "source_commit",
+                            "connection",
+                        ],
+                    ));
                 }
                 Ok(o)
             }

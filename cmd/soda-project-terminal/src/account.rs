@@ -42,11 +42,9 @@ pub fn marker_matches(content: &[u8], identity: i64) -> bool {
     content == identity.to_string().as_bytes()
 }
 
-/// Resolve and validate the native account for a login/identity pair.
-pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
-    if unsafe { libc::geteuid() } != 0 || !valid_login(login) || login == "root" || identity <= 0 {
-        return Err("invalid identity".to_string());
-    }
+/// Held-descriptor walk to the account directory: every level is
+/// root-owned and group/other write-free, like the `.py` chain.
+fn open_account_chain() -> Result<std::fs::File, String> {
     // Refuse symlink/special-file/unsafe-ancestor adoption through held
     // no-follow descriptors; every level is root-owned and group/other
     // write-free, like the `.py` chain.
@@ -60,14 +58,18 @@ pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
             return Err("unsafe account directory".to_string());
         }
     }
+    Ok(fd)
+}
+
+fn read_identity_marker(dir: std::fs::File, login: &str, identity: i64) -> Result<(), String> {
     let marker: File = sys::open_at(
-        &fd,
+        &dir,
         login,
         sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW | sys::OFlags::NONBLOCK,
         rustix::fs::Mode::empty(),
     )
     .map_err(|e| format!("open marker: {e}"))?;
-    drop(fd);
+    drop(dir);
     let info = rustix::fs::fstat(&marker).map_err(|e| format!("stat marker: {e}"))?;
     if !s_isreg(info.st_mode) || info.st_uid != 0 || info.st_mode & 0o077 != 0 {
         return Err("unsafe identity marker".to_string());
@@ -93,6 +95,10 @@ pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
         return Err("identity mismatch".to_string());
     }
     drop(marker);
+    Ok(())
+}
+
+fn validate_account(login: &str) -> Result<Account, String> {
     let account = lookup_passwd(login)?;
     if account.pw_name != login
         || account.pw_uid == 0
@@ -105,6 +111,16 @@ pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
         return Err("login disabled".to_string());
     }
     Ok(account)
+}
+
+/// Resolve and validate the native account for a login/identity pair.
+pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
+    if unsafe { libc::geteuid() } != 0 || !valid_login(login) || login == "root" || identity <= 0 {
+        return Err("invalid identity".to_string());
+    }
+    let fd = open_account_chain()?;
+    read_identity_marker(fd, login, identity)?;
+    validate_account(login)
 }
 
 fn lookup_passwd(login: &str) -> Result<Account, String> {

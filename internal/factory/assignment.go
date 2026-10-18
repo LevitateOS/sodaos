@@ -203,63 +203,83 @@ func ParseSubjectKey(key string) (kind string, repository, issue int64, intent, 
 func (s ExecutionSubject) Validate() error {
 	switch s.Kind {
 	case SubjectIssue:
-		if s.Issue == nil || s.Intent != nil || s.Completion != nil ||
-			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
-			return errors.New("issue subject needs exactly its issue payload")
-		}
-		if s.Issue.Issue <= 0 || !project.ValidDecisionID(s.Issue.Acceptance) {
-			return errors.New("invalid issue subject")
-		}
+		return checkIssueSubject(s)
 	case SubjectIntent:
-		if s.Intent == nil || s.Issue != nil || s.Completion != nil ||
-			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
-			return errors.New("intent subject needs exactly its intent payload")
-		}
-		if !project.ValidDecisionID(s.Intent.IntentID) || !project.ValidDecisionID(s.Intent.RevisionID) {
-			return errors.New("invalid intent subject identity")
-		}
-		if !ValidDigest(s.Intent.ScopeDigest) || s.Intent.OwnerID <= 0 {
-			return errors.New("invalid intent subject scope or owner")
-		}
+		return checkIntentSubject(s)
 	case SubjectCompletion:
-		if s.Completion == nil || s.Issue != nil || s.Intent != nil ||
-			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
-			return errors.New("completion subject needs exactly its completion payload")
-		}
-		if !ValidID(s.Completion.CompletionID) || !ValidID(s.Completion.CycleID) {
-			return errors.New("invalid completion subject identity")
-		}
-		if !ValidDigest(s.Completion.InventoryDigest) {
-			return errors.New("invalid completion subject inventory digest")
-		}
+		return checkCompletionSubject(s)
 	case SubjectStall:
-		if s.Stall == nil || s.Issue != nil || s.Intent != nil ||
-			s.Completion != nil || s.Delivery != nil || s.DeliveryRepair != nil {
-			return errors.New("stall subject needs exactly its stall payload")
-		}
-		if err := s.Stall.Validate(); err != nil {
-			return err
-		}
+		return checkStallSubject(s)
 	case SubjectDelivery:
-		if s.Delivery == nil || s.Issue != nil || s.Intent != nil ||
-			s.Completion != nil || s.Stall != nil || s.DeliveryRepair != nil {
-			return errors.New("delivery subject needs exactly its delivery payload")
-		}
-		if err := s.Delivery.Validate(); err != nil {
-			return err
-		}
+		return checkDeliverySubject(s)
 	case SubjectDeliveryRepair:
-		if s.DeliveryRepair == nil || s.Issue != nil || s.Intent != nil ||
-			s.Completion != nil || s.Stall != nil || s.Delivery != nil {
-			return errors.New("delivery repair subject needs exactly its delivery repair payload")
-		}
-		if err := s.DeliveryRepair.Validate(); err != nil {
-			return err
-		}
+		return checkDeliveryRepairSubject(s)
 	default:
 		return errors.New("unknown execution subject kind")
 	}
+}
+
+func checkIssueSubject(s ExecutionSubject) error {
+	if s.Issue == nil || s.Intent != nil || s.Completion != nil ||
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
+		return errors.New("issue subject needs exactly its issue payload")
+	}
+	if s.Issue.Issue <= 0 || !project.ValidDecisionID(s.Issue.Acceptance) {
+		return errors.New("invalid issue subject")
+	}
 	return nil
+}
+
+func checkIntentSubject(s ExecutionSubject) error {
+	if s.Intent == nil || s.Issue != nil || s.Completion != nil ||
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
+		return errors.New("intent subject needs exactly its intent payload")
+	}
+	if !project.ValidDecisionID(s.Intent.IntentID) || !project.ValidDecisionID(s.Intent.RevisionID) {
+		return errors.New("invalid intent subject identity")
+	}
+	if !ValidDigest(s.Intent.ScopeDigest) || s.Intent.OwnerID <= 0 {
+		return errors.New("invalid intent subject scope or owner")
+	}
+	return nil
+}
+
+func checkCompletionSubject(s ExecutionSubject) error {
+	if s.Completion == nil || s.Issue != nil || s.Intent != nil ||
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
+		return errors.New("completion subject needs exactly its completion payload")
+	}
+	if !ValidID(s.Completion.CompletionID) || !ValidID(s.Completion.CycleID) {
+		return errors.New("invalid completion subject identity")
+	}
+	if !ValidDigest(s.Completion.InventoryDigest) {
+		return errors.New("invalid completion subject inventory digest")
+	}
+	return nil
+}
+
+func checkStallSubject(s ExecutionSubject) error {
+	if s.Stall == nil || s.Issue != nil || s.Intent != nil ||
+		s.Completion != nil || s.Delivery != nil || s.DeliveryRepair != nil {
+		return errors.New("stall subject needs exactly its stall payload")
+	}
+	return s.Stall.Validate()
+}
+
+func checkDeliverySubject(s ExecutionSubject) error {
+	if s.Delivery == nil || s.Issue != nil || s.Intent != nil ||
+		s.Completion != nil || s.Stall != nil || s.DeliveryRepair != nil {
+		return errors.New("delivery subject needs exactly its delivery payload")
+	}
+	return s.Delivery.Validate()
+}
+
+func checkDeliveryRepairSubject(s ExecutionSubject) error {
+	if s.DeliveryRepair == nil || s.Issue != nil || s.Intent != nil ||
+		s.Completion != nil || s.Stall != nil || s.Delivery != nil {
+		return errors.New("delivery repair subject needs exactly its delivery repair payload")
+	}
+	return s.DeliveryRepair.Validate()
 }
 
 // Assignment is one durable automatic dispatch for an admitted subject. Run
@@ -322,77 +342,111 @@ func (a Assignment) validateSubjectPhase() error {
 	if !ValidPhaseRole(a.Phase, a.Role) {
 		return errors.New("assignment role does not match its execution phase")
 	}
+	if err := checkAssignmentAttemptRoot(a); err != nil {
+		return err
+	}
+	if err := checkSubjectKindScope(a); err != nil {
+		return err
+	}
+	if a.Subject.Kind == SubjectDelivery && a.Subject.Delivery.SourceCommit != a.SourceCommit {
+		return errors.New("delivery assignment runs a head its subject was not admitted against")
+	}
+	return nil
+}
+
+func checkAssignmentAttemptRoot(a Assignment) error {
 	if a.ParentAssignment == "" {
 		if a.AttemptRoot != a.ID {
 			return errors.New("root assignment must carry its own attempt root")
 		}
-	} else {
-		if !ValidID(a.ParentAssignment) || a.ParentAssignment == a.ID {
-			return errors.New("invalid assignment parent")
-		}
-		if !ValidID(a.AttemptRoot) || a.AttemptRoot == a.ID {
-			return errors.New("child assignment must keep its attempt root")
-		}
+		return nil
 	}
+	if !ValidID(a.ParentAssignment) || a.ParentAssignment == a.ID {
+		return errors.New("invalid assignment parent")
+	}
+	if !ValidID(a.AttemptRoot) || a.AttemptRoot == a.ID {
+		return errors.New("child assignment must keep its attempt root")
+	}
+	return nil
+}
+
+func checkSubjectKindScope(a Assignment) error {
 	switch a.Subject.Kind {
 	case SubjectIssue:
-		if a.Repository <= 0 || a.Issue <= 0 || a.Issue != a.Subject.Issue.Issue {
-			return errors.New("issue assignment does not match its subject")
-		}
-		if a.Acceptance != a.Subject.Issue.Acceptance {
-			return errors.New("issue assignment acceptance does not match its subject")
-		}
+		return checkIssueAssignmentScope(a)
 	case SubjectIntent:
-		// A private intent decompose assignment is a FRESH root (D01):
-		// no parent, own attempt root, and no publication assignment
-		// until implementation. Both self and other publication IDs
-		// refuse; no child intent lives under another root.
-		if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
-			return errors.New("intent assignment is a fresh attempt root")
-		}
-		if a.PublicationAssignment != "" {
-			return errors.New("intent assignment carries no publication")
-		}
-		// An intent draft is not a native issue: never record zero as a
-		// fake issue number, and no acceptance decision exists before
-		// planning. The repository slot is shared with issue attempts.
-		if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
-			return errors.New("intent assignment carries issue authority")
-		}
+		return checkIntentAssignmentScope(a)
 	case SubjectCompletion:
-		// A reassessment cycle is not an issue attempt and never publishes:
-		// a fresh attempt root with no parent or publication assignment, in
-		// the completed repository slot, carrying no issue authority. It
-		// reviews the sealed inventory but implements nothing.
-		if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
-			return errors.New("reassessment cycle is a fresh attempt root")
-		}
-		if a.PublicationAssignment != "" {
-			return errors.New("reassessment cycle carries no publication")
-		}
-		if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
-			return errors.New("completion assignment carries issue authority")
-		}
+		return checkCompletionAssignmentScope(a)
 	case SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
-		// A stall investigation, app verification or delivery repair is
-		// not an issue attempt and never publishes: a fresh attempt root
-		// with no parent or publication assignment, in the repository
-		// slot, carrying no issue authority. Repair runs single-agent
-		// with no children; verification runs read-only. Their admission
-		// validators (R37/R38) own episode/version binding; this gate
-		// pins the root, slot and publication shape.
-		if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
-			return errors.New("repair cycle is a fresh attempt root")
-		}
-		if a.PublicationAssignment != "" {
-			return errors.New("repair cycle carries no publication")
-		}
-		if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
-			return errors.New("repair assignment carries issue authority")
-		}
+		return checkRepairAssignmentScope(a)
 	}
-	if a.Subject.Kind == SubjectDelivery && a.Subject.Delivery.SourceCommit != a.SourceCommit {
-		return errors.New("delivery assignment runs a head its subject was not admitted against")
+	return nil
+}
+
+func checkIssueAssignmentScope(a Assignment) error {
+	if a.Repository <= 0 || a.Issue <= 0 || a.Issue != a.Subject.Issue.Issue {
+		return errors.New("issue assignment does not match its subject")
+	}
+	if a.Acceptance != a.Subject.Issue.Acceptance {
+		return errors.New("issue assignment acceptance does not match its subject")
+	}
+	return nil
+}
+
+func checkIntentAssignmentScope(a Assignment) error {
+	// A private intent decompose assignment is a FRESH root (D01):
+	// no parent, own attempt root, and no publication assignment
+	// until implementation. Both self and other publication IDs
+	// refuse; no child intent lives under another root.
+	if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
+		return errors.New("intent assignment is a fresh attempt root")
+	}
+	if a.PublicationAssignment != "" {
+		return errors.New("intent assignment carries no publication")
+	}
+	// An intent draft is not a native issue: never record zero as a
+	// fake issue number, and no acceptance decision exists before
+	// planning. The repository slot is shared with issue attempts.
+	if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
+		return errors.New("intent assignment carries issue authority")
+	}
+	return nil
+}
+
+func checkCompletionAssignmentScope(a Assignment) error {
+	// A reassessment cycle is not an issue attempt and never publishes:
+	// a fresh attempt root with no parent or publication assignment, in
+	// the completed repository slot, carrying no issue authority. It
+	// reviews the sealed inventory but implements nothing.
+	if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
+		return errors.New("reassessment cycle is a fresh attempt root")
+	}
+	if a.PublicationAssignment != "" {
+		return errors.New("reassessment cycle carries no publication")
+	}
+	if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
+		return errors.New("completion assignment carries issue authority")
+	}
+	return nil
+}
+
+func checkRepairAssignmentScope(a Assignment) error {
+	// A stall investigation, app verification or delivery repair is
+	// not an issue attempt and never publishes: a fresh attempt root
+	// with no parent or publication assignment, in the repository
+	// slot, carrying no issue authority. Repair runs single-agent
+	// with no children; verification runs read-only. Their admission
+	// validators (R37/R38) own episode/version binding; this gate
+	// pins the root, slot and publication shape.
+	if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
+		return errors.New("repair cycle is a fresh attempt root")
+	}
+	if a.PublicationAssignment != "" {
+		return errors.New("repair cycle carries no publication")
+	}
+	if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
+		return errors.New("repair assignment carries issue authority")
 	}
 	return nil
 }
@@ -426,6 +480,29 @@ func (a Assignment) Validate() error {
 	// cycles never publish either (D15/D16). Every other assignment names
 	// its publication owner; complete subject validation follows in
 	// validateSubjectPhase.
+	if err := checkAssignmentPublication(a); err != nil {
+		return err
+	}
+	if !ValidProjectID(a.ProjectID) || !project.ValidFactoryRole(a.Role) {
+		return errors.New("invalid assignment address")
+	}
+	if a.Subject.Kind == "" {
+		if err := checkLegacyAssignmentScope(a); err != nil {
+			return err
+		}
+	} else if err := a.validateSubjectPhase(); err != nil {
+		return err
+	}
+	if err := checkAssignmentExecution(a); err != nil {
+		return err
+	}
+	if err := checkAssignmentRunHistory(a); err != nil {
+		return err
+	}
+	return checkAssignmentStage(a)
+}
+
+func checkAssignmentPublication(a Assignment) error {
 	switch a.Subject.Kind {
 	case SubjectCompletion, SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
 		if a.PublicationAssignment != "" {
@@ -439,25 +516,26 @@ func (a Assignment) Validate() error {
 			return errors.New("invalid assignment identity")
 		}
 	}
-	if !ValidProjectID(a.ProjectID) || !project.ValidFactoryRole(a.Role) {
-		return errors.New("invalid assignment address")
+	return nil
+}
+
+func checkLegacyAssignmentScope(a Assignment) error {
+	// Pre-phase issue record: legacy scope rules apply, and no
+	// half-migrated subject field may accompany it.
+	if a.Phase != "" || a.ParentAssignment != "" || a.Subject.Issue != nil || a.Subject.Intent != nil || a.Subject.Completion != nil ||
+		a.Subject.Stall != nil || a.Subject.Delivery != nil || a.Subject.DeliveryRepair != nil {
+		return errors.New("subject assignment lacks its subject kind")
 	}
-	if a.Subject.Kind == "" {
-		// Pre-phase issue record: legacy scope rules apply, and no
-		// half-migrated subject field may accompany it.
-		if a.Phase != "" || a.ParentAssignment != "" || a.Subject.Issue != nil || a.Subject.Intent != nil || a.Subject.Completion != nil ||
-			a.Subject.Stall != nil || a.Subject.Delivery != nil || a.Subject.DeliveryRepair != nil {
-			return errors.New("subject assignment lacks its subject kind")
-		}
-		if a.Repository <= 0 || a.Issue <= 0 {
-			return errors.New("invalid assignment scope")
-		}
-		if !project.ValidDecisionID(a.Acceptance) {
-			return errors.New("invalid assignment acceptance")
-		}
-	} else if err := a.validateSubjectPhase(); err != nil {
-		return err
+	if a.Repository <= 0 || a.Issue <= 0 {
+		return errors.New("invalid assignment scope")
 	}
+	if !project.ValidDecisionID(a.Acceptance) {
+		return errors.New("invalid assignment acceptance")
+	}
+	return nil
+}
+
+func checkAssignmentExecution(a Assignment) error {
 	if a.Revision < 0 || a.NativeRev < 1 {
 		return errors.New("invalid assignment scope")
 	}
@@ -488,6 +566,10 @@ func (a Assignment) Validate() error {
 	if a.Attempts < 1 || a.Attempts > MaxDispatchAttempts {
 		return errors.New("invalid assignment attempt count")
 	}
+	return nil
+}
+
+func checkAssignmentRunHistory(a Assignment) error {
 	if !ValidID(a.Run) || len(a.RunHistory) == 0 || len(a.RunHistory) > MaxDispatchAttempts {
 		return errors.New("invalid assignment run history")
 	}
@@ -504,28 +586,37 @@ func (a Assignment) Validate() error {
 	if len(a.RunHistory) != a.Attempts {
 		return errors.New("assignment attempts do not match its run history")
 	}
+	return nil
+}
+
+func checkAssignmentStage(a Assignment) error {
 	switch a.Stage {
 	case AssignmentAssigned:
 		if a.Outcome != "" || a.Reason != "" || a.Result != nil || a.FinishedUnix != 0 {
 			return errors.New("assigned work carries no outcome")
 		}
 	case AssignmentFinished:
-		if !validOutcome(a.Outcome) || a.Outcome == "" || !validAssignReason(a.Reason) || a.FinishedUnix <= 0 {
-			return errors.New("finished assignment lacks its outcome")
-		}
-		if a.Result == nil || a.Result.ValidateForAssignment(a.Role, a.SourceCommit) != nil {
-			return errors.New("finished assignment lacks its recorded result")
-		}
-		if a.Result.AssignmentID != a.ID || a.Result.RunID != a.Run {
-			return errors.New("assignment result does not match its attempt")
-		}
-		if a.Result.PhaseResult != nil {
-			if err := a.Result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
-				return errors.New("finished assignment lacks its bound phase result")
-			}
-		}
+		return checkFinishedAssignmentResult(a)
 	default:
 		return errors.New("invalid assignment stage")
+	}
+	return nil
+}
+
+func checkFinishedAssignmentResult(a Assignment) error {
+	if !validOutcome(a.Outcome) || a.Outcome == "" || !validAssignReason(a.Reason) || a.FinishedUnix <= 0 {
+		return errors.New("finished assignment lacks its outcome")
+	}
+	if a.Result == nil || a.Result.ValidateForAssignment(a.Role, a.SourceCommit) != nil {
+		return errors.New("finished assignment lacks its recorded result")
+	}
+	if a.Result.AssignmentID != a.ID || a.Result.RunID != a.Run {
+		return errors.New("assignment result does not match its attempt")
+	}
+	if a.Result.PhaseResult != nil {
+		if err := a.Result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
+			return errors.New("finished assignment lacks its bound phase result")
+		}
 	}
 	return nil
 }

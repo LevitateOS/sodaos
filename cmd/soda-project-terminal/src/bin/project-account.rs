@@ -98,6 +98,52 @@ fn fail_status() -> i32 {
     1
 }
 
+fn fail_for(status_mode: bool) -> i32 {
+    if status_mode {
+        fail_status()
+    } else {
+        fail()
+    }
+}
+
+fn run_status(config: &Config, text: &str) -> i32 {
+    let request = match parse_privilege_request(text) {
+        Some(request) => request,
+        None => return fail_status(),
+    };
+    match project_privilege_status(config, &request)
+        .ok()
+        .and_then(|response| privilege_response_line(&response))
+    {
+        Some(line) => {
+            let mut out = std::io::stdout().lock();
+            match out.write_all(&line).and_then(|()| out.flush()) {
+                Ok(()) => 0,
+                Err(_) => fail_status(),
+            }
+        }
+        None => fail_status(),
+    }
+}
+
+fn run_provision(config: &Config, text: &str) -> i32 {
+    let request = match parse_request(text) {
+        Some(request) => request,
+        None => return fail(),
+    };
+    match provision(config, &request) {
+        Ok(response) => {
+            let line = response_line(&response);
+            let mut out = std::io::stdout().lock();
+            match out.write_all(&line).and_then(|()| out.flush()) {
+                Ok(()) => 0,
+                Err(_) => fail(),
+            }
+        }
+        Err(_) => fail(),
+    }
+}
+
 fn run() -> i32 {
     // The existing no-argument provisioning mode remains unchanged. The one
     // fixed status argument selects a read-only path; every other argument
@@ -115,45 +161,16 @@ fn run() -> i32 {
         REQUEST_LIMIT
     }) {
         Some(body) => body,
-        None => return if status_mode { fail_status() } else { fail() },
+        None => return fail_for(status_mode),
     };
     let text = match std::str::from_utf8(&body) {
         Ok(text) => text,
-        Err(_) => return if status_mode { fail_status() } else { fail() },
+        Err(_) => return fail_for(status_mode),
     };
     if status_mode {
-        let request = match parse_privilege_request(text) {
-            Some(request) => request,
-            None => return fail_status(),
-        };
-        return match project_privilege_status(&config, &request)
-            .ok()
-            .and_then(|response| privilege_response_line(&response))
-        {
-            Some(line) => {
-                let mut out = std::io::stdout().lock();
-                match out.write_all(&line).and_then(|()| out.flush()) {
-                    Ok(()) => 0,
-                    Err(_) => fail_status(),
-                }
-            }
-            None => fail_status(),
-        };
-    }
-    let request = match parse_request(text) {
-        Some(request) => request,
-        None => return fail(),
-    };
-    match provision(&config, &request) {
-        Ok(response) => {
-            let line = response_line(&response);
-            let mut out = std::io::stdout().lock();
-            match out.write_all(&line).and_then(|()| out.flush()) {
-                Ok(()) => 0,
-                Err(_) => fail(),
-            }
-        }
-        Err(_) => fail(),
+        run_status(&config, text)
+    } else {
+        run_provision(&config, text)
     }
 }
 

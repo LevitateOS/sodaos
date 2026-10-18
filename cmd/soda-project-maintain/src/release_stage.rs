@@ -321,117 +321,164 @@ pub(crate) struct StagedContent {
     mounted: bool,
 }
 
+fn open_commit(target: &Target) -> Result<String, String> {
+    let commit = &target.media.deployment_commit;
+    if !digest(commit) || !digest(&target.media.rootfs.sha256) {
+        return Err("invalid admitted target content identity".into());
+    }
+    Ok(commit.clone())
+}
+
+fn open_verified_rootfs(target: &Target, deadline: Instant) -> Result<File, String> {
+    let size = u64::try_from(target.media.rootfs.bytes).map_err(|_| "invalid rootfs size")?;
+    let mut input = trusted(&target.rootfs, size)?;
+    if input.metadata().map_err(|_| "rootfs unavailable")?.len() != size
+        || hash(&mut input, deadline)? != target.media.rootfs.sha256
+    {
+        return Err("rootfs differs from admitted release".into());
+    }
+    input.rewind().map_err(|_| "rootfs rewind failed")?;
+    Ok(input)
+}
+
+fn fresh_staging(commit: &str) -> Result<(PathBuf, PathBuf, PathBuf), String> {
+    ensure_stage_directory()?;
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "staging clock unavailable")?
+        .as_nanos();
+    let scratch = Path::new(STAGE).join(format!("{}-{}-{unique}", commit, std::process::id()));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&scratch)
+        .map_err(|_| "fresh root-owned staging directory required")?;
+    let mountpoint = scratch.join("mount");
+    let image = scratch.join("root.erofs");
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&mountpoint)
+        .map_err(|_| "staging mountpoint unavailable")?;
+    Ok((scratch, image, mountpoint))
+}
+
+fn extract_rootfs(input: File, scratch: &Path, deadline: Instant) -> Result<(), String> {
+    // Mature cpio selects this one fixed member into a fresh directory;
+    // no source-controlled path or shell is executed during extraction.
+    let child = Command::new("/usr/bin/cpio")
+        .args([
+            "--extract",
+            "--quiet",
+            "--no-preserve-owner",
+            "--no-absolute-filenames",
+            "--directory",
+            text(scratch)?,
+            "root.erofs",
+        ])
+        .stdin(Stdio::from(input))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| "native rootfs extraction failed")?;
+    wait_output(child, deadline).map_err(|_| "native rootfs extraction failed")?;
+    Ok(())
+}
+
+fn admitted_image(image: &Path, size: u64) -> Result<(), String> {
+    trusted(image, size)?;
+    Ok(())
+}
+
+fn mount_image(image: &Path, mountpoint: &Path, deadline: Instant) -> Result<(), String> {
+    run(
+        "/usr/bin/mount",
+        &[
+            "-t",
+            "erofs",
+            "-o",
+            "ro,loop,nodev,nosuid,noexec",
+            text(image)?,
+            text(mountpoint)?,
+        ],
+        deadline,
+    )?;
+    Ok(())
+}
+
+fn verify_mounted_payload(
+    root: &Path,
+    target: &Target,
+    deadline: Instant,
+) -> Result<soda_release_deliver::payload::Payload, String> {
+    let payload_path = root.join("usr/share/soda/release.json");
+    let mut payload = trusted(&payload_path, 4 << 20)?;
+    if hash(&mut payload, deadline)? != target.candidate.payload_sha256 {
+        return Err("mounted target payload differs from admitted release".into());
+    }
+    payload
+        .rewind()
+        .map_err(|_| "target payload rewind failed")?;
+    let mut bytes = Vec::new();
+    payload
+        .read_to_end(&mut bytes)
+        .map_err(|_| "mounted release payload invalid")?;
+    let payload: soda_release_deliver::payload::Payload =
+        soda_build_tools::payload::PayloadV4::parse(&bytes)
+            .map_err(|_| "mounted release payload invalid")?;
+    if payload != target.payload {
+        return Err("mounted release binding differs".into());
+    }
+    Ok(payload)
+}
+
+fn verify_mounted_helpers(
+    root: &Path,
+    target: &Target,
+    deadline: Instant,
+) -> Result<String, String> {
+    let support = &target.payload.project_support;
+    for relative in [&support.destination, &support.payload_path] {
+        let path = root.join(relative.trim_start_matches('/'));
+        let mut helper = trusted(&path, 64 << 20)?;
+        if helper
+            .metadata()
+            .map_err(|_| "target helper unavailable")?
+            .mode()
+            & 0o111
+            == 0
+            || hash(&mut helper, deadline)? != support.sha256
+        {
+            return Err("mounted host and maintenance helper bytes differ".into());
+        }
+    }
+    Ok(text(&root.join(support.payload_path.trim_start_matches('/')))?.to_owned())
+}
+
 impl StagedContent {
     pub(crate) fn open(target: &Target, deadline: Instant) -> Result<Self, String> {
-        let commit = &target.media.deployment_commit;
-        if !digest(commit) || !digest(&target.media.rootfs.sha256) {
-            return Err("invalid admitted target content identity".into());
-        }
+        let commit = open_commit(target)?;
         let size = u64::try_from(target.media.rootfs.bytes).map_err(|_| "invalid rootfs size")?;
-        let mut input = trusted(&target.rootfs, size)?;
-        if input.metadata().map_err(|_| "rootfs unavailable")?.len() != size
-            || hash(&mut input, deadline)? != target.media.rootfs.sha256
-        {
-            return Err("rootfs differs from admitted release".into());
-        }
-        input.rewind().map_err(|_| "rootfs rewind failed")?;
-        ensure_stage_directory()?;
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| "staging clock unavailable")?
-            .as_nanos();
-        let scratch = Path::new(STAGE).join(format!("{}-{}-{unique}", commit, std::process::id()));
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&scratch)
-            .map_err(|_| "fresh root-owned staging directory required")?;
-        let mountpoint = scratch.join("mount");
-        let image = scratch.join("root.erofs");
+        let input = open_verified_rootfs(target, deadline)?;
+        let (scratch, image, mountpoint) = fresh_staging(&commit)?;
         let mut content = Self {
             helper_path: String::new(),
             root: String::new(),
-            commit: commit.clone(),
+            commit,
             scratch,
             image,
             mountpoint,
             mounted: false,
         };
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&content.mountpoint)
-            .map_err(|_| "staging mountpoint unavailable")?;
-        // Mature cpio selects this one fixed member into a fresh directory;
-        // no source-controlled path or shell is executed during extraction.
-        let child = Command::new("/usr/bin/cpio")
-            .args([
-                "--extract",
-                "--quiet",
-                "--no-preserve-owner",
-                "--no-absolute-filenames",
-                "--directory",
-                text(&content.scratch)?,
-                "root.erofs",
-            ])
-            .stdin(Stdio::from(input))
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| "native rootfs extraction failed")?;
-        wait_output(child, deadline).map_err(|_| "native rootfs extraction failed")?;
-        trusted(&content.image, size)?;
+        extract_rootfs(input, &content.scratch, deadline)?;
+        admitted_image(&content.image, size)?;
         content.mounted = true;
-        run(
-            "/usr/bin/mount",
-            &[
-                "-t",
-                "erofs",
-                "-o",
-                "ro,loop,nodev,nosuid,noexec",
-                text(&content.image)?,
-                text(&content.mountpoint)?,
-            ],
-            deadline,
-        )?;
+        mount_image(&content.image, &content.mountpoint, deadline)?;
         let root = content
             .mountpoint
             .join("ostree/deploy/fedora-coreos/deploy")
-            .join(format!("{commit}.0"));
+            .join(format!("{}.0", content.commit));
         content.root = text(&root)?.to_owned();
-        let payload_path = root.join("usr/share/soda/release.json");
-        let mut payload = trusted(&payload_path, 4 << 20)?;
-        if hash(&mut payload, deadline)? != target.candidate.payload_sha256 {
-            return Err("mounted target payload differs from admitted release".into());
-        }
-        payload
-            .rewind()
-            .map_err(|_| "target payload rewind failed")?;
-        let mut bytes = Vec::new();
-        payload
-            .read_to_end(&mut bytes)
-            .map_err(|_| "mounted release payload invalid")?;
-        let payload: soda_release_deliver::payload::Payload =
-            soda_build_tools::payload::PayloadV4::parse(&bytes)
-                .map_err(|_| "mounted release payload invalid")?;
-        if payload != target.payload {
-            return Err("mounted release binding differs".into());
-        }
-        let support = &target.payload.project_support;
-        for relative in [&support.destination, &support.payload_path] {
-            let path = root.join(relative.trim_start_matches('/'));
-            let mut helper = trusted(&path, 64 << 20)?;
-            if helper
-                .metadata()
-                .map_err(|_| "target helper unavailable")?
-                .mode()
-                & 0o111
-                == 0
-                || hash(&mut helper, deadline)? != support.sha256
-            {
-                return Err("mounted host and maintenance helper bytes differ".into());
-            }
-        }
-        content.helper_path =
-            text(&root.join(support.payload_path.trim_start_matches('/')))?.to_owned();
+        verify_mounted_payload(&root, target, deadline)?;
+        content.helper_path = verify_mounted_helpers(&root, target, deadline)?;
         Ok(content)
     }
 

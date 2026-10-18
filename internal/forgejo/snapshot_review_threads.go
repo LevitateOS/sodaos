@@ -81,17 +81,15 @@ func validThreadPage(page *ThreadPage, req SnapshotRequest) error {
 	return nil
 }
 
-// validThread checks one conversation: a visible thread carries its
-// location, commits, resolver binding, digest and members; a hidden
-// thread is redacted to its root locator.
-func validThread(item ThreadEvidence) error {
-	if !item.Visible {
-		if item.Digest != "" || item.Path != "" || item.Side != "" || item.Line != 0 ||
-			item.OriginalCommit != "" || item.HeadCommit != "" || len(item.Members) != 0 {
-			return ErrInvalidSnapshot
-		}
-		return nil
+func checkHiddenThread(item ThreadEvidence) error {
+	if item.Digest != "" || item.Path != "" || item.Side != "" || item.Line != 0 ||
+		item.OriginalCommit != "" || item.HeadCommit != "" || len(item.Members) != 0 {
+		return ErrInvalidSnapshot
 	}
+	return nil
+}
+
+func checkVisibleThreadShape(item ThreadEvidence) error {
 	if item.Path == "" || (item.Side != "old" && item.Side != "new") || item.Line <= 0 {
 		return ErrInvalidSnapshot
 	}
@@ -116,6 +114,10 @@ func validThread(item ThreadEvidence) error {
 	if item.ResolverID != "" && !decimalID(item.ResolverID) {
 		return ErrInvalidSnapshot
 	}
+	return nil
+}
+
+func checkThreadMembers(item ThreadEvidence) error {
 	for _, member := range item.Members {
 		if !decimalID(member.ID) || !decimalID(member.IssueID) {
 			return ErrInvalidSnapshot
@@ -134,6 +136,19 @@ func validThread(item ThreadEvidence) error {
 		}
 	}
 	return nil
+}
+
+// validThread checks one conversation: a visible thread carries its
+// location, commits, resolver binding, digest and members; a hidden
+// thread is redacted to its root locator.
+func validThread(item ThreadEvidence) error {
+	if !item.Visible {
+		return checkHiddenThread(item)
+	}
+	if err := checkVisibleThreadShape(item); err != nil {
+		return err
+	}
+	return checkThreadMembers(item)
 }
 
 // threadLocation renders one member location in the canonical digest

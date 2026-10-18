@@ -4,10 +4,20 @@ use std::time::Instant;
 
 use super::paths::preparation_paths;
 use crate::preparation::{
-    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, MAX_CONTEXT_FILES,
-    MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
+    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, PrepareState,
+    MAX_CONTEXT_FILES, MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
 };
 use crate::project::{Executor, Runtime};
+
+/// Admitted context source: the recorded ready checkout plus its
+/// derived paths. Every later phase reads from this exact checkout.
+struct AdmittedPreparationContext {
+    container: String,
+    state: PrepareState,
+    checkout: String,
+    home: String,
+    deadline: Instant,
+}
 
 impl<E: Executor> Runtime<E> {
     /// `roleExec`: run a fixed argv as the preparation role.
@@ -115,14 +125,13 @@ impl<E: Executor> Runtime<E> {
         Ok(())
     }
 
-    /// Read bounded prompt material from exact Git objects in one ready
-    /// preparation checkout. The returned bytes are transient and never
-    /// enter the durable preparation receipt.
-    pub fn read_preparation_context(
+    /// Admit the context source: the container must hold the recorded ready
+    /// checkout for the requested role and source commit.
+    fn admit_preparation_context(
         &self,
         input: &PrepareContextRead,
         deadline: Instant,
-    ) -> Result<PreparationContext, String> {
+    ) -> Result<AdmittedPreparationContext, String> {
         input.validate()?;
         let deadline = Self::cap_by_wire_deadline(deadline, &input.not_after)?;
         let container = self.prepare_container(&input.project, true, deadline)?;
@@ -142,25 +151,39 @@ impl<E: Executor> Runtime<E> {
         {
             return Err("preparation context commits do not match the recorded role source".into());
         }
-
         let (checkout, _, _, home) = preparation_paths(&state.role, &state.id);
+        Ok(AdmittedPreparationContext {
+            container,
+            state,
+            checkout,
+            home,
+            deadline,
+        })
+    }
+
+    /// Confirm the checkout HEAD and both ancestry edges before reading.
+    fn confirm_context_commits(
+        &self,
+        admitted: &AdmittedPreparationContext,
+        input: &PrepareContextRead,
+    ) -> Result<(), String> {
         let head = self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &["rev-parse", "--verify", "HEAD^{commit}"],
             1024,
-            deadline,
+            admitted.deadline,
         )?;
         if std::str::from_utf8(&head).ok().map(str::trim) != Some(input.candidate.as_str()) {
             return Err("preparation context candidate differs from checkout HEAD".into());
         }
         self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &[
                 "merge-base",
                 "--is-ancestor",
@@ -168,13 +191,13 @@ impl<E: Executor> Runtime<E> {
                 &input.candidate,
             ],
             1,
-            deadline,
+            admitted.deadline,
         )?;
         self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &[
                 "merge-base",
                 "--is-ancestor",
@@ -182,14 +205,23 @@ impl<E: Executor> Runtime<E> {
                 &input.candidate,
             ],
             1,
-            deadline,
+            admitted.deadline,
         )?;
+        Ok(())
+    }
 
+    /// Select the bounded context path set: requested paths plus every
+    /// changed path, expanded with instruction paths and re-validated.
+    fn select_context_paths(
+        &self,
+        admitted: &AdmittedPreparationContext,
+        input: &PrepareContextRead,
+    ) -> Result<Vec<String>, String> {
         let changed = self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &[
                 "diff",
                 "--no-ext-diff",
@@ -202,7 +234,7 @@ impl<E: Executor> Runtime<E> {
                 "--",
             ],
             MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES + 1,
-            deadline,
+            admitted.deadline,
         )?;
         if changed.len() > MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES {
             return Err("candidate context path set exceeds its bound".into());
@@ -234,15 +266,23 @@ impl<E: Executor> Runtime<E> {
                 return Err("candidate changes a forbidden context path".into());
             }
         }
+        Ok(selected)
+    }
 
+    /// Load the approved setup and check entrypoints and seed the
+    /// aggregate byte budget.
+    fn load_approved_setup(
+        &self,
+        admitted: &AdmittedPreparationContext,
+    ) -> Result<(Vec<u8>, Vec<u8>, usize), String> {
         let files = self.approved_preparation_files(
-            &container,
-            &state.id,
-            &state.role,
-            &state.setup_digest,
+            &admitted.container,
+            &admitted.state.id,
+            &admitted.state.role,
+            &admitted.state.setup_digest,
             None,
-            &state.source_commit,
-            deadline,
+            &admitted.state.source_commit,
+            admitted.deadline,
         )?;
         let setup = files
             .get(preparation::FACTORY_SETUP_ENTRY)
@@ -255,11 +295,21 @@ impl<E: Executor> Runtime<E> {
         if std::str::from_utf8(&setup).is_err() || std::str::from_utf8(&check).is_err() {
             return Err("approved setup context is not UTF-8 text".into());
         }
-        let mut total = setup.len().saturating_add(check.len());
+        let total = setup.len().saturating_add(check.len());
         if total > MAX_CONTEXT_TOTAL_BYTES {
             return Err("preparation context exceeds its aggregate bound".into());
         }
+        Ok((setup, check, total))
+    }
 
+    /// List the selected paths that exist as regular files at the
+    /// approved base.
+    fn list_approved_tree(
+        &self,
+        admitted: &AdmittedPreparationContext,
+        input: &PrepareContextRead,
+        selected: &[String],
+    ) -> Result<Vec<u8>, String> {
         let mut tree_args = vec![
             "ls-tree".to_string(),
             "-r".to_string(),
@@ -270,15 +320,19 @@ impl<E: Executor> Runtime<E> {
         ];
         tree_args.extend(selected.iter().map(|path| format!(":(literal){path}")));
         let tree_refs: Vec<&str> = tree_args.iter().map(String::as_str).collect();
-        let tree = self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+        self.context_git(
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &tree_refs,
             MAX_CONTEXT_FILES * (MAX_CONTEXT_PATH_BYTES + 96) + 1,
-            deadline,
-        )?;
+            admitted.deadline,
+        )
+    }
+
+    /// Keep only selected regular-file blobs from the approved-base tree.
+    fn parse_approved_tree(tree: &[u8], selected: &[String]) -> Result<BTreeSet<String>, String> {
         let mut existing = BTreeSet::new();
         for record in tree
             .split(|byte| *byte == 0)
@@ -305,8 +359,23 @@ impl<E: Executor> Runtime<E> {
             }
             existing.insert(path.to_string());
         }
+        Ok(existing)
+    }
+
+    /// Read every selected file that exists at the approved base into the
+    /// aggregate byte budget.
+    fn collect_approved_files(
+        &self,
+        admitted: &AdmittedPreparationContext,
+        input: &PrepareContextRead,
+        selected: &[String],
+        total: usize,
+    ) -> Result<(Vec<ContextFile>, usize), String> {
+        let tree = self.list_approved_tree(admitted, input, selected)?;
+        let existing = Self::parse_approved_tree(&tree, selected)?;
+        let mut total = total;
         let mut context_files = Vec::with_capacity(existing.len());
-        for path in &selected {
+        for path in selected {
             if !existing.contains(path) {
                 continue;
             }
@@ -314,13 +383,13 @@ impl<E: Executor> Runtime<E> {
             let cap = MAX_CONTEXT_FILE_BYTES.min(remaining);
             let expression = format!("{}:{path}", input.approved_base);
             let content = self.context_git(
-                &container,
-                &state.role,
-                &checkout,
-                &home,
+                &admitted.container,
+                &admitted.state.role,
+                &admitted.checkout,
+                &admitted.home,
                 &["cat-file", "blob", expression.as_str()],
                 cap.saturating_add(1),
-                deadline,
+                admitted.deadline,
             )?;
             if content.len() > cap {
                 return Err("approved-base context file exceeds its bound".into());
@@ -334,7 +403,16 @@ impl<E: Executor> Runtime<E> {
                 content,
             });
         }
+        Ok((context_files, total))
+    }
 
+    /// Read the bounded candidate diff against the remaining budget.
+    fn load_candidate_diff(
+        &self,
+        admitted: &AdmittedPreparationContext,
+        input: &PrepareContextRead,
+        total: usize,
+    ) -> Result<Vec<u8>, String> {
         let diff_args = vec![
             "diff".to_string(),
             "--no-ext-diff".to_string(),
@@ -346,13 +424,13 @@ impl<E: Executor> Runtime<E> {
         let diff_refs: Vec<&str> = diff_args.iter().map(String::as_str).collect();
         let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
         let diff = self.context_git(
-            &container,
-            &state.role,
-            &checkout,
-            &home,
+            &admitted.container,
+            &admitted.state.role,
+            &admitted.checkout,
+            &admitted.home,
             &diff_refs,
             remaining.saturating_add(1),
-            deadline,
+            admitted.deadline,
         )?;
         if diff.len() > remaining {
             return Err("candidate context diff exceeds its aggregate bound".into());
@@ -366,12 +444,29 @@ impl<E: Executor> Runtime<E> {
         if diff.contains(&0) || std::str::from_utf8(&diff).is_err() {
             return Err("candidate context diff is not UTF-8 text".into());
         }
+        Ok(diff)
+    }
 
+    /// Read bounded prompt material from exact Git objects in one ready
+    /// preparation checkout. The returned bytes are transient and never
+    /// enter the durable preparation receipt.
+    pub fn read_preparation_context(
+        &self,
+        input: &PrepareContextRead,
+        deadline: Instant,
+    ) -> Result<PreparationContext, String> {
+        let admitted = self.admit_preparation_context(input, deadline)?;
+        self.confirm_context_commits(&admitted, input)?;
+        let selected = self.select_context_paths(&admitted, input)?;
+        let (setup, check, total) = self.load_approved_setup(&admitted)?;
+        let (context_files, total) =
+            self.collect_approved_files(&admitted, input, &selected, total)?;
+        let diff = self.load_candidate_diff(&admitted, input, total)?;
         Ok(PreparationContext {
             project: input.project.clone(),
             id: input.id.clone(),
-            role: state.role,
-            source_commit: state.source_commit,
+            role: admitted.state.role,
+            source_commit: admitted.state.source_commit,
             approved_base: input.approved_base.clone(),
             diff_base: input.diff_base.clone(),
             candidate: input.candidate.clone(),

@@ -46,6 +46,108 @@ pub(crate) fn dispatch(
     }
 }
 
+// Connection inventory routes; `None` when `path` belongs to another family.
+fn route_connections(
+    controller: &Controller,
+    path: &str,
+    input: &Request,
+) -> Option<Result<Option<Vec<u8>>, Error>> {
+    match path {
+        "/connections" => Some(controller.connections(input.owner_id).map(Some)),
+        "/available" => Some(
+            controller
+                .available(input.owner_id, &input.project_id)
+                .map(Some),
+        ),
+        "/revoke" => Some(controller.revoke(input.owner_id, &input.id).map(|()| None)),
+        _ => None,
+    }
+}
+
+// Enrollment lifecycle routes; `None` when `path` belongs to another family.
+fn route_enrollment(
+    controller: &Controller,
+    path: &str,
+    input: &Request,
+) -> Option<Result<Option<Vec<u8>>, Error>> {
+    match path {
+        "/enrollment/start" => Some(
+            controller
+                .start_enrollment(input.owner_id, &input.provider_id, &input.label)
+                .and_then(|enrollment| serde_json::to_vec(&enrollment).map_err(Error::from))
+                .map(Some),
+        ),
+        "/enrollment/read" => Some(
+            controller
+                .enrollment(input.owner_id, &input.id)
+                .and_then(|enrollment| serde_json::to_vec(&enrollment).map_err(Error::from))
+                .map(Some),
+        ),
+        "/enrollment/cancel" => Some(
+            controller
+                .cancel_enrollment(input.owner_id, &input.id)
+                .map(|()| None),
+        ),
+        _ => None,
+    }
+}
+
+// Grant routes; `None` when `path` belongs to another family.
+fn route_grants(
+    controller: &Controller,
+    path: &str,
+    input: &Request,
+) -> Option<Result<Option<Vec<u8>>, Error>> {
+    match path {
+        "/grants" => Some(controller.grants(input.owner_id, &input.id).map(Some)),
+        "/grant/create" => {
+            let Some(grant) = &input.grant else {
+                return Some(Err(Error::denied("identity authority denied")));
+            };
+            Some(
+                controller
+                    .create_grant(input.owner_id, grant)
+                    .and_then(|grant| serde_json::to_vec(&grant).map_err(Error::from))
+                    .map(Some),
+            )
+        }
+        "/grant/revoke" => Some(
+            controller
+                .revoke_grant(input.owner_id, &input.id)
+                .map(|()| None),
+        ),
+        _ => None,
+    }
+}
+
+// Lease and execution routes; `None` when `path` belongs to another family.
+fn route_leases(
+    controller: &Controller,
+    path: &str,
+    input: &Request,
+) -> Option<Result<Option<Vec<u8>>, Error>> {
+    match path {
+        "/leases" => Some(controller.leases(input.owner_id, &input.id).map(Some)),
+        "/lease/end" => Some(
+            controller
+                .end_lease(input.owner_id, &input.id)
+                .map(|()| None),
+        ),
+        "/execution/get" => Some(
+            controller
+                .get_execution(&input.kind, &input.execution_id)
+                .and_then(|execution| serde_json::to_vec(&execution).map_err(Error::from))
+                .map(Some),
+        ),
+        "/execution/close" => Some(
+            controller
+                .close_execution(&input.kind, &input.execution_id)
+                .map(|()| None),
+        ),
+        _ => None,
+    }
+}
+
 // read_request returns the head plus body separately to keep header limits
 // distinct from body limits.
 fn route(
@@ -54,59 +156,22 @@ fn route(
     input: &Request,
     runtime_allowed: bool,
 ) -> Result<Option<Vec<u8>>, Error> {
-    match path {
-        "/connections" => Ok(Some(controller.connections(input.owner_id)?)),
-        "/available" => Ok(Some(
-            controller.available(input.owner_id, &input.project_id)?,
-        )),
-        "/revoke" => {
-            controller.revoke(input.owner_id, &input.id)?;
-            Ok(None)
-        }
-        "/enrollment/start" => {
-            let enrollment =
-                controller.start_enrollment(input.owner_id, &input.provider_id, &input.label)?;
-            Ok(Some(serde_json::to_vec(&enrollment)?))
-        }
-        "/enrollment/read" => Ok(Some(serde_json::to_vec(
-            &controller.enrollment(input.owner_id, &input.id)?,
-        )?)),
-        "/enrollment/cancel" => {
-            controller.cancel_enrollment(input.owner_id, &input.id)?;
-            Ok(None)
-        }
-        "/grants" => Ok(Some(controller.grants(input.owner_id, &input.id)?)),
-        "/grant/create" => {
-            let Some(grant) = &input.grant else {
-                return Err(Error::denied("identity authority denied"));
-            };
-            Ok(Some(serde_json::to_vec(
-                &controller.create_grant(input.owner_id, grant)?,
-            )?))
-        }
-        "/grant/revoke" => {
-            controller.revoke_grant(input.owner_id, &input.id)?;
-            Ok(None)
-        }
-        "/leases" => Ok(Some(controller.leases(input.owner_id, &input.id)?)),
-        "/lease/end" => {
-            controller.end_lease(input.owner_id, &input.id)?;
-            Ok(None)
-        }
-        "/execution/get" => Ok(Some(serde_json::to_vec(
-            &controller.get_execution(&input.kind, &input.execution_id)?,
-        )?)),
-        "/execution/close" => {
-            controller.close_execution(&input.kind, &input.execution_id)?;
-            Ok(None)
-        }
-        _ => {
-            if !runtime_allowed {
-                return Err(Error::denied("identity authority denied"));
-            }
-            route_runtime(controller, path, input)
-        }
+    if let Some(result) = route_connections(controller, path, input) {
+        return result;
     }
+    if let Some(result) = route_enrollment(controller, path, input) {
+        return result;
+    }
+    if let Some(result) = route_grants(controller, path, input) {
+        return result;
+    }
+    if let Some(result) = route_leases(controller, path, input) {
+        return result;
+    }
+    if !runtime_allowed {
+        return Err(Error::denied("identity authority denied"));
+    }
+    route_runtime(controller, path, input)
 }
 
 pub(crate) fn route_runtime(

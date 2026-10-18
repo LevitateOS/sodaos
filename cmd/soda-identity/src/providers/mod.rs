@@ -236,15 +236,33 @@ mod entropy_tests {
 const VERSION_PROBE_OUTPUT_LIMIT: usize = 64 * 1024;
 const VERSION_PROBE_CLEANUP: Duration = Duration::from_millis(250);
 
-/// Run a version probe with bounded output and time. A complete, successful
-/// child is required before any captured bytes reach the version comparison.
-pub(crate) fn run_capture(
+/// Mutable capture state for one version probe child. Every phase reads
+/// and updates this exact state; the parent only sequences the phases.
+struct ProbeCapture {
+    text: Vec<u8>,
+    buffer: [u8; 4096],
+    eof: bool,
+    overflow: bool,
+    read_failed: bool,
+    timed_out: bool,
+    completion_before_deadline: bool,
+    cleanup_unconfirmed: bool,
+    child_status: Option<bool>,
+}
+
+/// Poll outcome for one probe iteration.
+enum ProbePoll {
+    Settled,
+    Redrain,
+    Sleep,
+}
+
+fn spawn_probe_child(
     binary: &str,
     args: &[&str],
     env: &[String],
     dir: Option<&Path>,
-    timeout: Duration,
-) -> Result<String, Error> {
+) -> Result<Child, Error> {
     let mut command = Command::new(binary);
     command
         .args(args)
@@ -259,128 +277,142 @@ pub(crate) fn run_capture(
     if let Some(dir) = dir {
         command.current_dir(dir);
     }
-    let deadline = std::time::Instant::now() + timeout;
-    let mut child: Child = command
+    command
         .spawn()
-        .map_err(|_| Error::failed("version probe failed"))?;
-    let mut stdout = match child.stdout.take() {
-        Some(stdout) => stdout,
-        None => {
-            return Err(
-                if terminate_probe_child(&mut child, VERSION_PROBE_CLEANUP) {
-                    Error::failed("version probe failed")
-                } else {
-                    Error::failed("version probe cleanup unconfirmed")
-                },
-            );
-        }
-    };
-    let flags = unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_GETFL) };
-    if flags < 0
-        || unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
-    {
-        return Err(
-            if terminate_probe_child(&mut child, VERSION_PROBE_CLEANUP) {
-                Error::failed("version probe failed")
-            } else {
-                Error::failed("version probe cleanup unconfirmed")
-            },
-        );
+        .map_err(|_| Error::failed("version probe failed"))
+}
+
+fn fail_probe_start(child: &mut Child) -> Error {
+    if terminate_probe_child(child, VERSION_PROBE_CLEANUP) {
+        Error::failed("version probe failed")
+    } else {
+        Error::failed("version probe cleanup unconfirmed")
     }
-    let mut text = Vec::with_capacity(VERSION_PROBE_OUTPUT_LIMIT);
-    let mut eof = false;
-    let mut overflow = false;
-    let mut read_failed = false;
-    let mut child_status = None;
-    let mut timed_out = false;
-    let mut completion_before_deadline = false;
-    let mut cleanup_unconfirmed = false;
-    let mut buffer = [0u8; 4096];
+}
+
+fn take_probe_stdout(child: &mut Child) -> Result<std::process::ChildStdout, Error> {
+    match child.stdout.take() {
+        Some(stdout) => {
+            let flags = unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_GETFL) };
+            if flags < 0
+                || unsafe {
+                    libc::fcntl(stdout.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK)
+                } < 0
+            {
+                return Err(fail_probe_start(child));
+            }
+            Ok(stdout)
+        }
+        None => Err(fail_probe_start(child)),
+    }
+}
+
+/// Run a version probe with bounded output and time. A complete, successful
+/// child is required before any captured bytes reach the version comparison.
+pub(crate) fn run_capture(
+    binary: &str,
+    args: &[&str],
+    env: &[String],
+    dir: Option<&Path>,
+    timeout: Duration,
+) -> Result<String, Error> {
+    let mut child = spawn_probe_child(binary, args, env, dir)?;
+    let mut stdout = take_probe_stdout(&mut child)?;
+    let deadline = std::time::Instant::now() + timeout;
+    let mut capture = ProbeCapture {
+        text: Vec::with_capacity(VERSION_PROBE_OUTPUT_LIMIT),
+        buffer: [0u8; 4096],
+        eof: false,
+        overflow: false,
+        read_failed: false,
+        timed_out: false,
+        completion_before_deadline: false,
+        cleanup_unconfirmed: false,
+        child_status: None,
+    };
     'probe: loop {
+        capture.drain_probe_output(&mut stdout, deadline);
+        match poll_probe_exit(&child, &mut capture, deadline) {
+            ProbePoll::Settled => break,
+            ProbePoll::Redrain => continue 'probe,
+            ProbePoll::Sleep => {}
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
+
+    let cleanup_deadline = std::time::Instant::now() + VERSION_PROBE_CLEANUP;
+    capture.await_probe_exit(&mut child, cleanup_deadline);
+    let mut reaped = false;
+    if capture.child_status.is_some() {
+        reaped = child.wait().is_ok();
+        capture.cleanup_unconfirmed |= !reaped;
+    } else {
+        capture.cleanup_unconfirmed = true;
+    }
+    capture.drain_probe_tail(&mut stdout, deadline, cleanup_deadline);
+    if !reaped || capture.cleanup_unconfirmed || !capture.eof {
+        return Err(Error::failed("version probe cleanup unconfirmed"));
+    }
+    if capture.timed_out || !capture.completion_before_deadline {
+        return Err(Error::failed("version probe timed out"));
+    }
+    if capture.child_status != Some(true) || capture.overflow || capture.read_failed {
+        return Err(Error::failed("version probe failed"));
+    }
+    Ok(String::from_utf8_lossy(&capture.text).into_owned())
+}
+
+impl ProbeCapture {
+    /// Drain ready stdout bytes into the bounded text buffer.
+    fn drain_probe_output(
+        &mut self,
+        stdout: &mut std::process::ChildStdout,
+        deadline: std::time::Instant,
+    ) {
         loop {
             let remaining = VERSION_PROBE_OUTPUT_LIMIT
                 .saturating_add(1)
-                .saturating_sub(text.len());
+                .saturating_sub(self.text.len());
             if remaining == 0 {
-                overflow = true;
+                self.overflow = true;
                 break;
             }
-            let cap = buffer.len().min(remaining);
-            match stdout.read(&mut buffer[..cap]) {
+            let cap = self.buffer.len().min(remaining);
+            match stdout.read(&mut self.buffer[..cap]) {
                 Ok(0) => {
-                    eof = true;
+                    self.eof = true;
                     break;
                 }
                 Ok(n) => {
-                    let admitted = n.min(VERSION_PROBE_OUTPUT_LIMIT.saturating_sub(text.len()));
-                    text.extend_from_slice(&buffer[..admitted]);
+                    let admitted =
+                        n.min(VERSION_PROBE_OUTPUT_LIMIT.saturating_sub(self.text.len()));
+                    self.text.extend_from_slice(&self.buffer[..admitted]);
                     if admitted != n {
-                        overflow = true;
+                        self.overflow = true;
                         break;
                     }
                 }
                 Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
                 Err(err) if err.kind() == io::ErrorKind::Interrupted => {
                     if std::time::Instant::now() >= deadline {
-                        timed_out = true;
+                        self.timed_out = true;
                         break;
                     }
                     continue;
                 }
                 Err(_) => {
-                    read_failed = true;
+                    self.read_failed = true;
                     break;
                 }
             }
         }
-
-        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
-        let wait_result = unsafe {
-            libc::waitid(
-                libc::P_PID,
-                child.id() as libc::id_t,
-                &mut info,
-                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
-            )
-        };
-        if wait_result < 0 {
-            let wait_error = io::Error::last_os_error();
-            if wait_error.kind() == io::ErrorKind::Interrupted {
-                if std::time::Instant::now() < deadline {
-                    continue 'probe;
-                }
-                timed_out = true;
-            } else {
-                read_failed = true;
-            }
-            // No numeric group signal is safe unless waitid successfully
-            // confirmed this unreaped child in the current iteration.
-            cleanup_unconfirmed = true;
-            break;
-        }
-        if unsafe { info.si_pid() } != 0 {
-            child_status =
-                Some(info.si_code == libc::CLD_EXITED && unsafe { info.si_status() } == 0);
-            // Keep the leader unreaped while killing descendants in its group,
-            // so the group ID cannot be reused before this cleanup signal.
-            cleanup_unconfirmed |= !terminate_probe_group(child.id());
-            completion_before_deadline = eof && std::time::Instant::now() < deadline;
-            break;
-        }
-        if overflow || read_failed {
-            cleanup_unconfirmed |= !terminate_probe_group(child.id());
-            break;
-        }
-        if std::time::Instant::now() >= deadline {
-            timed_out = true;
-            cleanup_unconfirmed |= !terminate_probe_group(child.id());
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(2));
     }
 
-    let cleanup_deadline = std::time::Instant::now() + VERSION_PROBE_CLEANUP;
-    if child_status.is_none() {
+    /// Wait for the leader exit inside the cleanup window.
+    fn await_probe_exit(&mut self, child: &mut Child, cleanup_deadline: std::time::Instant) {
+        if self.child_status.is_some() {
+            return;
+        }
         while std::time::Instant::now() < cleanup_deadline {
             let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
             let result = unsafe {
@@ -395,72 +427,116 @@ pub(crate) fn run_capture(
                 continue;
             }
             if result < 0 {
-                read_failed = true;
+                self.read_failed = true;
                 break;
             }
             if unsafe { info.si_pid() } != 0 {
-                child_status =
+                self.child_status =
                     Some(info.si_code == libc::CLD_EXITED && unsafe { info.si_status() } == 0);
                 break;
             }
             std::thread::sleep(Duration::from_millis(2));
         }
     }
-    let mut reaped = false;
-    if child_status.is_some() {
-        reaped = child.wait().is_ok();
-        cleanup_unconfirmed |= !reaped;
-    } else {
-        cleanup_unconfirmed = true;
-    }
-    // The descriptor is nonblocking, so draining after group termination is
-    // bounded by the same cleanup window and never needs a reader thread.
-    loop {
-        match stdout.read(&mut buffer) {
-            Ok(0) => {
-                eof = true;
-                completion_before_deadline =
-                    child_status.is_some() && std::time::Instant::now() < deadline;
-                break;
-            }
-            Ok(n) => {
-                let admitted = n.min(VERSION_PROBE_OUTPUT_LIMIT.saturating_sub(text.len()));
-                text.extend_from_slice(&buffer[..admitted]);
-                if admitted != n {
-                    overflow = true;
+
+    /// The descriptor is nonblocking, so draining after group termination is
+    /// bounded by the same cleanup window and never needs a reader thread.
+    fn drain_probe_tail(
+        &mut self,
+        stdout: &mut std::process::ChildStdout,
+        deadline: std::time::Instant,
+        cleanup_deadline: std::time::Instant,
+    ) {
+        loop {
+            match stdout.read(&mut self.buffer) {
+                Ok(0) => {
+                    self.eof = true;
+                    self.completion_before_deadline =
+                        self.child_status.is_some() && std::time::Instant::now() < deadline;
                     break;
                 }
-            }
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                if std::time::Instant::now() >= cleanup_deadline {
-                    cleanup_unconfirmed = true;
+                Ok(n) => {
+                    let admitted =
+                        n.min(VERSION_PROBE_OUTPUT_LIMIT.saturating_sub(self.text.len()));
+                    self.text.extend_from_slice(&self.buffer[..admitted]);
+                    if admitted != n {
+                        self.overflow = true;
+                        break;
+                    }
+                }
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                    if std::time::Instant::now() >= cleanup_deadline {
+                        self.cleanup_unconfirmed = true;
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(err) if err.kind() == io::ErrorKind::Interrupted => {
+                    if std::time::Instant::now() >= cleanup_deadline {
+                        self.cleanup_unconfirmed = true;
+                        break;
+                    }
+                    continue;
+                }
+                Err(_) => {
+                    self.read_failed = true;
                     break;
                 }
-                std::thread::sleep(Duration::from_millis(2));
-            }
-            Err(err) if err.kind() == io::ErrorKind::Interrupted => {
-                if std::time::Instant::now() >= cleanup_deadline {
-                    cleanup_unconfirmed = true;
-                    break;
-                }
-                continue;
-            }
-            Err(_) => {
-                read_failed = true;
-                break;
             }
         }
     }
-    if !reaped || cleanup_unconfirmed || !eof {
-        return Err(Error::failed("version probe cleanup unconfirmed"));
+}
+
+/// Poll the unreaped probe leader once: record an exit, retire the group
+/// on terminal states, or report whether the loop must redrain or sleep.
+fn poll_probe_exit(
+    child: &Child,
+    capture: &mut ProbeCapture,
+    deadline: std::time::Instant,
+) -> ProbePoll {
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    let wait_result = unsafe {
+        libc::waitid(
+            libc::P_PID,
+            child.id() as libc::id_t,
+            &mut info,
+            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+        )
+    };
+    if wait_result < 0 {
+        let wait_error = io::Error::last_os_error();
+        if wait_error.kind() == io::ErrorKind::Interrupted {
+            if std::time::Instant::now() < deadline {
+                return ProbePoll::Redrain;
+            }
+            capture.timed_out = true;
+        } else {
+            capture.read_failed = true;
+        }
+        // No numeric group signal is safe unless waitid successfully
+        // confirmed this unreaped child in the current iteration.
+        capture.cleanup_unconfirmed = true;
+        return ProbePoll::Settled;
     }
-    if timed_out || !completion_before_deadline {
-        return Err(Error::failed("version probe timed out"));
+    if unsafe { info.si_pid() } != 0 {
+        capture.child_status =
+            Some(info.si_code == libc::CLD_EXITED && unsafe { info.si_status() } == 0);
+        // Keep the leader unreaped while killing descendants in its group,
+        // so the group ID cannot be reused before this cleanup signal.
+        capture.cleanup_unconfirmed |= !terminate_probe_group(child.id());
+        capture.completion_before_deadline = capture.eof && std::time::Instant::now() < deadline;
+        return ProbePoll::Settled;
     }
-    if child_status != Some(true) || overflow || read_failed {
-        return Err(Error::failed("version probe failed"));
+    if capture.overflow || capture.read_failed {
+        capture.cleanup_unconfirmed |= !terminate_probe_group(child.id());
+        return ProbePoll::Settled;
     }
-    Ok(String::from_utf8_lossy(&text).into_owned())
+    if std::time::Instant::now() >= deadline {
+        capture.timed_out = true;
+        capture.cleanup_unconfirmed |= !terminate_probe_group(child.id());
+        return ProbePoll::Settled;
+    }
+    ProbePoll::Sleep
 }
 
 fn terminate_probe_group(pid: u32) -> bool {

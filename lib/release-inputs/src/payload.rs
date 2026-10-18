@@ -381,7 +381,7 @@ impl PayloadV4 {
         Ok(payload)
     }
 
-    pub fn validate(&self) -> Result<(), Error> {
+    fn validate_identity(&self) -> Result<(), Error> {
         if self.format != FORMAT
             || !crate::reader::is_revision(&self.revision)
             || self.id != format!("{}.soda-{}", self.core_os, &self.revision[..12])
@@ -392,12 +392,20 @@ impl PayloadV4 {
         if self.architecture != "x86_64" {
             return Err(invalid("expected x86_64"));
         }
+        Ok(())
+    }
+
+    fn release_version(&self) -> Result<&str, Error> {
         let Some(version) = self.release_tag.strip_prefix('v') else {
             return Err(invalid("invalid appliance payload identity"));
         };
         if !valid_release_tag(&self.release_tag) {
             return Err(invalid("invalid appliance payload identity"));
         }
+        Ok(version)
+    }
+
+    fn validate_base(&self) -> Result<(), Error> {
         match self.base.split_once("/fedora/fedora-coreos@sha256:") {
             Some((host, digest))
                 if !host.is_empty()
@@ -408,6 +416,10 @@ impl PayloadV4 {
                     && is_hex_digest(&self.host_packages_sha256) => {}
             _ => return Err(invalid("incomplete appliance payload")),
         }
+        Ok(())
+    }
+
+    fn validate_images(&self) -> Result<(), Error> {
         for role in Role::iter() {
             validate_binding(role.binding(&self.images), role.name())?;
         }
@@ -430,10 +442,10 @@ impl PayloadV4 {
         } else {
             return Err(invalid("invalid forgejo image provenance"));
         }
-        self.project_support
-            .validate(&self.images.project_os.config)
-            .map_err(invalid)?;
-        self.fountain.validate()?;
+        Ok(())
+    }
+
+    fn validate_extensions(&self, version: &str) -> Result<(), Error> {
         if self.extension_catalog.version != CATALOG_VERSION
             || self.extension_catalog.packages.len() != 2
         {
@@ -468,6 +480,19 @@ impl PayloadV4 {
         ) {
             return Err(invalid("invalid tailscale image provenance"));
         }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), Error> {
+        self.validate_identity()?;
+        let version = self.release_version()?;
+        self.validate_base()?;
+        self.validate_images()?;
+        self.project_support
+            .validate(&self.images.project_os.config)
+            .map_err(invalid)?;
+        self.fountain.validate()?;
+        self.validate_extensions(version)?;
         crate::project_support::validate_upgrade_sources(&self.upgrade_from, &self.id)
             .map_err(invalid)?;
         Ok(())

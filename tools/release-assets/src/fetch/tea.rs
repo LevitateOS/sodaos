@@ -147,26 +147,19 @@ fn valid_elf64(body: &[u8], machine: u16) -> bool {
     soda_build_tools::elf::elf64_le_header(body).is_some_and(|header| header.machine == machine)
 }
 
-/// Stage Tea for `arch` into `out`; returns the stdout line.
-pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, String> {
-    if arch != "x86_64" {
-        return Err("Tea staging supports x86_64 only".to_string());
-    }
-    let binary = out.join("bin/tea");
-    let license_file = out.join("licenses/tea/LICENSE");
-    if std::fs::symlink_metadata(&binary).is_ok()
-        || std::fs::symlink_metadata(&license_file).is_ok()
+fn check_fresh_output(binary: &Path, license_file: &Path) -> Result<(), String> {
+    if std::fs::symlink_metadata(binary).is_ok() || std::fs::symlink_metadata(license_file).is_ok()
     {
         return Err("Tea output already exists; select a fresh output directory".to_string());
     }
-    let tag = latest_tag(endpoints)?;
-    let version = &tag[1..];
-    let filename = format!("tea-{version}-linux-amd64");
-    let base = format!("{}/{version}", endpoints.dl_base);
+    Ok(())
+}
+
+fn fetch_verified_binary(base: &str, filename: &str) -> Result<Vec<u8>, String> {
     let sums_url = format!("{base}/checksums.txt");
     let sums = download(&sums_url, META_LIMIT)?;
     let sums_text = std::str::from_utf8(&sums).map_err(|e| format!("fetch {sums_url}: {e}"))?;
-    let expected = checksums_for(sums_text, &filename)
+    let expected = checksums_for(sums_text, filename)
         .ok_or_else(|| "Tea checksums omit the requested archive".to_string())?;
     let body = download(&format!("{base}/{filename}"), BINARY_LIMIT)?;
     if body.len() as u64 > BINARY_LIMIT || crate::fetch::sha256_hex(&body) != expected {
@@ -175,6 +168,44 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     if !valid_elf64(&body, 62) {
         return Err("Tea binary is not ELF64 for the requested architecture".to_string());
     }
+    Ok(body)
+}
+
+fn write_staged_tree(
+    out: &Path,
+    binary: &Path,
+    body: &[u8],
+    license_file: &Path,
+    license: &[u8],
+) -> Result<(), String> {
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    match std::fs::create_dir(out.join("bin")) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(e.to_string()),
+    }
+    std::fs::write(binary, body).map_err(|e| e.to_string())?;
+    crate::fetch::chmod(binary, 0o755)?;
+    let license_dir = out.join("licenses/tea");
+    std::fs::create_dir_all(&license_dir).map_err(|e| e.to_string())?;
+    std::fs::write(license_file, license).map_err(|e| e.to_string())?;
+    crate::fetch::chmod(license_file, 0o644)?;
+    Ok(())
+}
+
+/// Stage Tea for `arch` into `out`; returns the stdout line.
+pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, String> {
+    if arch != "x86_64" {
+        return Err("Tea staging supports x86_64 only".to_string());
+    }
+    let binary = out.join("bin/tea");
+    let license_file = out.join("licenses/tea/LICENSE");
+    check_fresh_output(&binary, &license_file)?;
+    let tag = latest_tag(endpoints)?;
+    let version = &tag[1..];
+    let filename = format!("tea-{version}-linux-amd64");
+    let base = format!("{}/{version}", endpoints.dl_base);
+    let body = fetch_verified_binary(&base, &filename)?;
     let license = download(
         &format!("{}/{tag}/LICENSE", endpoints.license_base),
         META_LIMIT,
@@ -182,18 +213,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     if license.is_empty() {
         return Err("Tea license download is empty".to_string());
     }
-    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
-    match std::fs::create_dir(out.join("bin")) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(e) => return Err(e.to_string()),
-    }
-    std::fs::write(&binary, &body).map_err(|e| e.to_string())?;
-    crate::fetch::chmod(&binary, 0o755)?;
-    let license_dir = out.join("licenses/tea");
-    std::fs::create_dir_all(&license_dir).map_err(|e| e.to_string())?;
-    std::fs::write(&license_file, &license).map_err(|e| e.to_string())?;
-    crate::fetch::chmod(&license_file, 0o644)?;
+    write_staged_tree(out, &binary, &body, &license_file, &license)?;
     Ok(format!(
         "Upstream Tea {version} ({arch}) staged at {}",
         out.display()

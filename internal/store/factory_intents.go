@@ -77,69 +77,86 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 // saveIntentRevisionTx runs the head-serialized CAS revision save inside an
 // open transaction. Atomic review saves share it so a revision and its exact
 // presentation commit or roll back together.
-func saveIntentRevisionTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, raw []byte) error {
-	var err error
+func lockIntentHeadTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision) (string, error) {
 	if r.Department != "" {
-		var owner int64
-		if err = tx.QueryRowContext(ctx, `SELECT owner_id FROM factory_departments WHERE id=$1`, r.Department).Scan(&owner); err != nil {
-			return err
+		var deptOwner int64
+		if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM factory_departments WHERE id=$1`, r.Department).Scan(&deptOwner); err != nil {
+			return "", err
 		}
-		if owner != r.Owner {
-			return errors.New("department is private to another owner")
+		if deptOwner != r.Owner {
+			return "", errors.New("department is private to another owner")
 		}
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_heads(id,owner_id,revision) VALUES($1,$2,'') ON CONFLICT(id) DO NOTHING`, r.Intent, r.Owner)
-	if err != nil {
-		return err
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_intent_heads(id,owner_id,revision) VALUES($1,$2,'') ON CONFLICT(id) DO NOTHING`, r.Intent, r.Owner); err != nil {
+		return "", err
 	}
 	var head string
 	var owner int64
-	if err = tx.QueryRowContext(ctx, `SELECT revision,owner_id FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, r.Intent).Scan(&head, &owner); err != nil {
-		return err
+	if err := tx.QueryRowContext(ctx, `SELECT revision,owner_id FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, r.Intent).Scan(&head, &owner); err != nil {
+		return "", err
 	}
 	if owner != r.Owner {
+		return "", ErrCommandConflict
+	}
+	return head, nil
+}
+
+func replayIntentRevisionTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, raw []byte) error {
+	var old []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, r.ID).Scan(&old); err != nil {
+		return err
+	}
+	same, e := sameJSONDocument(ctx, tx, old, raw)
+	if e != nil {
+		return e
+	}
+	if !same {
 		return ErrCommandConflict
 	}
+	return nil
+}
+
+func admitIntentPredecessorTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, head string) error {
+	var headRaw []byte
+	var headRev factory.IntentRevision
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, head).Scan(&headRaw); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(headRaw, &headRev); err != nil {
+		return err
+	}
+	if headRev.State == "accepted" && r.Repository != headRev.Repository {
+		return errors.New("repository change needs a separate build request")
+	}
+	// The first commitment pins the repository for the whole intent:
+	// any later draft, rejected, declined, or abandoned head keeps it.
+	// Revision rows are immutable and the head lock serializes saves,
+	// so one committed row read here binds this save exactly.
+	var committed string
+	err := tx.QueryRowContext(ctx, `SELECT data->>'repository' FROM factory_intent_revisions WHERE intent=$1 AND data->>'state'='accepted' LIMIT 1`, r.Intent).Scan(&committed)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if err == nil && committed != strconv.FormatInt(r.Repository, 10) {
+		return errors.New("repository change needs a separate build request")
+	}
+	return nil
+}
+
+func saveIntentRevisionTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, raw []byte) error {
+	head, err := lockIntentHeadTx(ctx, tx, r)
+	if err != nil {
+		return err
+	}
 	if head == r.ID {
-		var old []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, r.ID).Scan(&old); err != nil {
-			return err
-		}
-		same, e := sameJSONDocument(ctx, tx, old, raw)
-		if e != nil {
-			return e
-		}
-		if !same {
-			return ErrCommandConflict
-		}
-		return nil
+		return replayIntentRevisionTx(ctx, tx, r, raw)
 	}
 	if head != r.Predecessor {
 		return ErrStaleRevision
 	}
 	if head != "" {
-		var headRaw []byte
-		var headRev factory.IntentRevision
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, head).Scan(&headRaw); err != nil {
+		if err = admitIntentPredecessorTx(ctx, tx, r, head); err != nil {
 			return err
-		}
-		if err = json.Unmarshal(headRaw, &headRev); err != nil {
-			return err
-		}
-		if headRev.State == "accepted" && r.Repository != headRev.Repository {
-			return errors.New("repository change needs a separate build request")
-		}
-		// The first commitment pins the repository for the whole intent:
-		// any later draft, rejected, declined, or abandoned head keeps it.
-		// Revision rows are immutable and the head lock serializes saves,
-		// so one committed row read here binds this save exactly.
-		var committed string
-		err = tx.QueryRowContext(ctx, `SELECT data->>'repository' FROM factory_intent_revisions WHERE intent=$1 AND data->>'state'='accepted' LIMIT 1`, r.Intent).Scan(&committed)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if err == nil && committed != strconv.FormatInt(r.Repository, 10) {
-			return errors.New("repository change needs a separate build request")
 		}
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_revisions(id,intent,data) VALUES($1,$2,$3)`, r.ID, r.Intent, string(raw)); err != nil {

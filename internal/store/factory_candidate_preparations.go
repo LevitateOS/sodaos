@@ -120,47 +120,43 @@ var (
 // AdmitCandidatePreparation is the atomic pre-host gate for a candidate
 // preparation. Replays retain the first absolute native deadline and exact
 // owner/authority tuple.
-func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation project.StoredPreparation, registration CandidatePreparationRegistration) (CandidatePreparationRecord, bool, error) {
-	var empty CandidatePreparationRecord
+func admitCandidatePreparationShape(preparation project.StoredPreparation, registration CandidatePreparationRegistration) error {
 	if err := preparation.Validate(); err != nil {
-		return empty, false, fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
+		return fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
 	}
 	if preparation.State.ID != "" || preparation.State.Phase != "" {
-		return empty, false, fmt.Errorf("%w: admission must start without observed state", ErrCandidatePreparationConflict)
+		return fmt.Errorf("%w: admission must start without observed state", ErrCandidatePreparationConflict)
 	}
 	if err := validateCandidatePreparationRegistration(preparation, registration); err != nil {
-		return empty, false, fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
+		return fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return empty, false, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	grants, err := authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
-	if err != nil {
-		return empty, false, err
-	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
-		return empty, false, err
-	}
-	now := time.Now()
+	return nil
+}
+
+func admitCandidatePreparationDeadlineTx(ctx context.Context, tx *sql.Tx, registration CandidatePreparationRegistration, grants admissionGrants, now time.Time) (int64, error) {
 	deadline := now.Add(10 * time.Minute).Unix()
 	if registration.PublicationID != "" {
 		allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
 		if lockErr != nil {
-			return empty, false, lockErr
+			return 0, lockErr
 		}
+		var err error
 		deadline, err = attemptDeadlineUnix(allowance, now)
 		if err != nil {
-			return empty, false, err
+			return 0, err
 		}
 	}
 	if registration.RequestedNotAfter < deadline {
 		deadline = registration.RequestedNotAfter
 	}
 	if deadline <= now.Unix() {
-		return empty, false, factory.ErrAttemptTimeExhausted
+		return 0, factory.ErrAttemptTimeExhausted
 	}
+	return deadline, nil
+}
+
+func insertCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, registration CandidatePreparationRegistration, grants admissionGrants, deadline int64) (CandidatePreparationRecord, bool, error) {
+	var empty CandidatePreparationRecord
 	meta := candidatePreparationRegistration{
 		Repository: registration.Repository, Issue: registration.Issue, ActorID: registration.ActorID, Project: registration.Project,
 		OwnerAssignment: registration.OwnerAssignment, ChildAssignment: registration.ChildAssignment,
@@ -217,8 +213,74 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 	}, created, nil
 }
 
+func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation project.StoredPreparation, registration CandidatePreparationRegistration) (CandidatePreparationRecord, bool, error) {
+	var empty CandidatePreparationRecord
+	if err := admitCandidatePreparationShape(preparation, registration); err != nil {
+		return empty, false, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return empty, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	grants, err := authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
+	if err != nil {
+		return empty, false, err
+	}
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
+		return empty, false, err
+	}
+	now := time.Now()
+	deadline, err := admitCandidatePreparationDeadlineTx(ctx, tx, registration, grants, now)
+	if err != nil {
+		return empty, false, err
+	}
+	return insertCandidatePreparationTx(ctx, tx, preparation, registration, grants, deadline)
+}
+
 // AuthorizeCandidatePreparation rechecks the recorded exact gate and owner
 // immediately before the host call and returns its original deadline.
+type admittedCandidatePreparation struct {
+	preparation  project.StoredPreparation
+	meta         *candidatePreparationRegistration
+	registration CandidatePreparationRegistration
+	grants       admissionGrants
+}
+
+func (s *Store) admitCandidatePreparationTx(ctx context.Context, tx *sql.Tx, id string, preparation project.StoredPreparation, meta *candidatePreparationRegistration) (admittedCandidatePreparation, error) {
+	var admitted admittedCandidatePreparation
+	registration := registrationFromMeta(*meta)
+	grants, err := authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
+	if err != nil {
+		return admitted, err
+	}
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
+		return admitted, err
+	}
+	var currentData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1 FOR UPDATE`, id).Scan(&currentData); err != nil {
+		return admitted, err
+	}
+	currentPreparation, currentMeta, err := unmarshalCandidatePreparation(currentData)
+	if err != nil || currentMeta == nil || !samePreparationIdentity(currentPreparation, preparation) ||
+		!sameCandidatePreparationAdmission(*currentMeta, *meta, false) {
+		return admitted, errors.New("candidate preparation admission changed")
+	}
+	return admittedCandidatePreparation{preparation: currentPreparation, meta: currentMeta, registration: registration, grants: grants}, nil
+}
+
+func candidatePreparationDeadlineTx(ctx context.Context, tx *sql.Tx, admitted admittedCandidatePreparation) (int64, error) {
+	deadline := admitted.meta.NotAfter
+	if admitted.registration.PublicationID != "" {
+		allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, admitted.registration.Repository, admitted.registration.Issue, admitted.registration.AttemptRoot)
+		if lockErr != nil {
+			return 0, lockErr
+		}
+		return attemptDeadlineUnix(allowance, time.Now())
+	}
+	return deadline, nil
+}
+
 func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (int64, error) {
 	if !project.ValidPreparationID(id) {
 		return 0, errors.New("invalid candidate preparation identity")
@@ -231,41 +293,20 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 	if err != nil || meta == nil {
 		return 0, errors.New("candidate preparation admission is missing")
 	}
-	registration := registrationFromMeta(*meta)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	grants, err := authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
+	admitted, err := s.admitCandidatePreparationTx(ctx, tx, id, preparation, meta)
 	if err != nil {
 		return 0, err
 	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
+	deadline, err := candidatePreparationDeadlineTx(ctx, tx, admitted)
+	if err != nil {
 		return 0, err
 	}
-	var currentData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1 FOR UPDATE`, id).Scan(&currentData); err != nil {
-		return 0, err
-	}
-	currentPreparation, currentMeta, err := unmarshalCandidatePreparation(currentData)
-	if err != nil || currentMeta == nil || !samePreparationIdentity(currentPreparation, preparation) ||
-		!sameCandidatePreparationAdmission(*currentMeta, *meta, false) {
-		return 0, errors.New("candidate preparation admission changed")
-	}
-	meta = currentMeta
-	preparation = currentPreparation
-	deadline := meta.NotAfter
-	if registration.PublicationID != "" {
-		allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
-		if lockErr != nil {
-			return 0, lockErr
-		}
-		deadline, err = attemptDeadlineUnix(allowance, time.Now())
-		if err != nil {
-			return 0, err
-		}
-	}
+	meta, preparation = admitted.meta, admitted.preparation
 	now := time.Now().Unix()
 	if meta.Stopped || meta.Retirement == "confirmed" {
 		return 0, factory.ErrAttemptClosed
@@ -326,47 +367,37 @@ func (s *Store) CandidatePreparations(ctx context.Context, repository int64, pro
 
 // RecordCandidatePreparationStop saves the native stop tombstone without
 // fabricating role/setup observations for a stop-before-approve response.
-func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, state project.PrepareState) error {
+func admitCandidatePreparationStopShape(id string, state project.PrepareState) error {
 	if !project.ValidPreparationID(id) || state.ID != id || !state.Stopped ||
 		(state.Retirement != "confirmed" && state.Retirement != "uncertain") {
 		return errors.New("invalid candidate preparation stop receipt")
 	}
-	var raw []byte
-	if err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, id).Scan(&raw); err != nil {
-		return err
-	}
-	preparation, meta, err := unmarshalCandidatePreparation(raw)
-	if err != nil || meta == nil {
-		return errors.New("candidate preparation admission is missing")
-	}
+	return nil
+}
+
+func admitCandidatePreparationStopIdentity(state project.PrepareState, preparation project.StoredPreparation) error {
 	if state.Project != preparation.Preparation.Project || state.Role != "" && state.Role != preparation.Preparation.Role {
 		return errors.New("candidate preparation stop receipt identity differs")
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
-	if lockErr != nil && !errors.Is(lockErr, sql.ErrNoRows) {
-		return lockErr
-	}
+	return nil
+}
+
+func lockStopPreparationTx(ctx context.Context, tx *sql.Tx, id string, preparation project.StoredPreparation, meta *candidatePreparationRegistration) (project.StoredPreparation, *candidatePreparationRegistration, int64, error) {
+	var empty project.StoredPreparation
 	var current []byte
 	var revision int64
-	if err = tx.QueryRowContext(ctx, `SELECT revision,data FROM project_preparations WHERE id=$1 FOR UPDATE`, id).Scan(&revision, &current); err != nil {
-		return err
+	if err := tx.QueryRowContext(ctx, `SELECT revision,data FROM project_preparations WHERE id=$1 FOR UPDATE`, id).Scan(&revision, &current); err != nil {
+		return empty, nil, 0, err
 	}
 	stored, currentMeta, err := unmarshalCandidatePreparation(current)
 	if err != nil || currentMeta == nil || !samePreparationIdentity(stored, preparation) ||
 		!sameCandidatePreparationAdmission(*currentMeta, *meta, false) {
-		return errors.New("candidate preparation admission changed during stop")
+		return empty, nil, 0, errors.New("candidate preparation admission changed during stop")
 	}
-	if currentMeta.Stopped && currentMeta.Retirement == "confirmed" && state.Retirement != "confirmed" {
-		return errors.New("confirmed candidate preparation retirement cannot be downgraded")
-	}
-	if currentMeta.Stopped && currentMeta.Retirement == state.Retirement {
-		return tx.Commit()
-	}
+	return stored, currentMeta, revision, nil
+}
+
+func persistPreparationStopTx(ctx context.Context, tx *sql.Tx, id string, stored project.StoredPreparation, currentMeta *candidatePreparationRegistration, revision int64, state project.PrepareState) error {
 	currentMeta.Stopped, currentMeta.Retirement = state.Stopped, state.Retirement
 	stored.Preparation.Revision++
 	data, err := marshalCandidatePreparation(stored, *currentMeta)
@@ -383,6 +414,46 @@ func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, s
 		}
 		return errors.New("candidate preparation stop receipt became stale")
 	}
+	return nil
+}
+
+func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, state project.PrepareState) error {
+	if err := admitCandidatePreparationStopShape(id, state); err != nil {
+		return err
+	}
+	var raw []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, id).Scan(&raw); err != nil {
+		return err
+	}
+	preparation, meta, err := unmarshalCandidatePreparation(raw)
+	if err != nil || meta == nil {
+		return errors.New("candidate preparation admission is missing")
+	}
+	if err = admitCandidatePreparationStopIdentity(state, preparation); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
+	if lockErr != nil && !errors.Is(lockErr, sql.ErrNoRows) {
+		return lockErr
+	}
+	stored, currentMeta, revision, err := lockStopPreparationTx(ctx, tx, id, preparation, meta)
+	if err != nil {
+		return err
+	}
+	if currentMeta.Stopped && currentMeta.Retirement == "confirmed" && state.Retirement != "confirmed" {
+		return errors.New("confirmed candidate preparation retirement cannot be downgraded")
+	}
+	if currentMeta.Stopped && currentMeta.Retirement == state.Retirement {
+		return tx.Commit()
+	}
+	if err = persistPreparationStopTx(ctx, tx, id, stored, currentMeta, revision, state); err != nil {
+		return err
+	}
 	if lockErr == nil {
 		if err = transitionLockedAttemptRootTx(ctx, tx, allowance, allowance.Closed, time.Now()); err != nil {
 			return err
@@ -391,17 +462,33 @@ func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, s
 	return tx.Commit()
 }
 
-func validateCandidatePreparationRegistration(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
+func validateCandidatePreparationIdentity(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
 	if r.Repository <= 0 || r.Issue <= 0 || r.ActorID <= 0 || !project.ValidID(r.Project) || r.Project != preparation.Preparation.Project ||
 		!factory.ValidID(r.OwnerAssignment) || !factory.ValidID(r.ChildAssignment) || !factory.ValidID(r.AttemptRoot) ||
-		(r.PublicationID != "" && !factory.ValidID(r.PublicationID)) || r.Connection == "" || r.GateRevision < 0 || r.RequestedNotAfter <= 0 ||
-		r.Control.Validate() != nil || r.Control.Repository != r.Repository || r.Control.Issue != r.Issue ||
+		(r.PublicationID != "" && !factory.ValidID(r.PublicationID)) || r.Connection == "" || r.GateRevision < 0 || r.RequestedNotAfter <= 0 {
+		return errors.New("invalid candidate preparation registration")
+	}
+	return nil
+}
+
+func validateCandidatePreparationControl(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
+	if r.Control.Validate() != nil || r.Control.Repository != r.Repository || r.Control.Issue != r.Issue ||
 		r.Control.Readiness != factory.ReadinessQueued || r.Authority.RequirementsID != preparation.Preparation.Requirements.ID ||
 		r.Authority.ApprovalID != preparation.Preparation.Approval.ID || r.Authority.SponsorshipConnection != r.Connection ||
 		(r.PublicationID != "" && preparation.Preparation.Role != project.RoleReviewer) ||
 		(r.PublicationID == "" && (preparation.Preparation.Role != project.RoleCoder ||
 			r.OwnerAssignment != r.ChildAssignment || r.AttemptRoot != r.OwnerAssignment)) {
 		return errors.New("invalid candidate preparation registration")
+	}
+	return nil
+}
+
+func validateCandidatePreparationRegistration(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
+	if err := validateCandidatePreparationIdentity(preparation, r); err != nil {
+		return err
+	}
+	if err := validateCandidatePreparationControl(preparation, r); err != nil {
+		return err
 	}
 	if r.SourceRun != nil {
 		input := project.FactoryCandidate{Preparation: preparation.Preparation, SourcePreparation: r.SourceRun.Preparation, SourceRun: r.SourceRun, Deadline: time.Unix(r.RequestedNotAfter, 0)}

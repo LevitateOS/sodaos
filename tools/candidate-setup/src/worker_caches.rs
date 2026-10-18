@@ -10,31 +10,13 @@ pub(super) struct WorkerCaches {
     pub(super) cargo_target: String,
 }
 
-/// Warm compiler dependencies before the isolated worker runs offline.
-pub(super) fn warm_worker_caches(
+/// Warm the Go module cache and the full module set.
+fn warm_go_caches(
     storage: &Storage,
     pinned: &str,
-    owned: &str,
-    bun_final: &str,
-    rust_bin: &str,
-) -> Result<WorkerCaches, Exit> {
-    println!("-- warm worker caches before offline worker execution");
-    let go_mod = format!("{}/go-mod", storage.home);
-    let go_build_cache = format!("{}/go-build", storage.home);
-    let cargo_home = format!("{}/cargo", storage.home);
-    let cargo_target = format!("{}/cargo-target", storage.home);
-    run(
-        "sudo",
-        &[
-            "mkdir",
-            "-p",
-            &go_mod,
-            &go_build_cache,
-            &cargo_home,
-            &cargo_target,
-        ],
-    )?;
-    run("sudo", &["chown", "-R", owned, &cargo_home, &cargo_target])?;
+    go_mod: &str,
+    go_build_cache: &str,
+) -> Result<(), Exit> {
     let toolchain = format!("go{pinned}");
     let pinned_go_bin = format!("{PINNED_GO}/bin/go");
     let home_env = format!("HOME={}", storage.home);
@@ -68,6 +50,16 @@ pub(super) fn warm_worker_caches(
     if run("sudo", &download_args).is_err() {
         return fail("cannot warm full Go module set");
     }
+    Ok(())
+}
+
+/// Warm the locked Cargo cache.
+fn warm_cargo_cache(
+    storage: &Storage,
+    rust_bin: &str,
+    cargo_home: &str,
+    cargo_target: &str,
+) -> Result<(), Exit> {
     let rust_path = format!("{rust_bin}:/usr/sbin:/usr/bin:/sbin:/bin");
     let cargo_user_home = format!("HOME={}", storage.home);
     let cargo_home_env = format!("CARGO_HOME={cargo_home}");
@@ -92,6 +84,12 @@ pub(super) fn warm_worker_caches(
     if run_in_dir("sudo", &cargo_warm, ".", false, "cannot warm Cargo cache").is_err() {
         return fail("cannot warm locked Rust dependency cache");
     }
+    Ok(())
+}
+
+/// Pin the worker Go offline after the caches are warm.
+fn lock_go_offline(storage: &Storage) -> Result<(), Exit> {
+    let pinned_go_bin = format!("{PINNED_GO}/bin/go");
     if run(
         "sudo",
         &[
@@ -109,6 +107,107 @@ pub(super) fn warm_worker_caches(
     {
         return fail("cannot lock worker Go offline");
     }
+    Ok(())
+}
+
+/// Warm the Bun cache and stage Playwright chromium in the scratch tree.
+fn warm_bun_cache(storage: &Storage, owned: &str, bun_final: &str, tmpw: &str) -> Result<(), Exit> {
+    let tmpw_tools = format!("{tmpw}/tools");
+    run("mkdir", &["-p", &tmpw_tools])?;
+    run("cp", &["package.json", "bun.lock", "bunfig.toml", tmpw])?;
+    run("cp", &["-a", "tools/lit-check", &tmpw_tools])?;
+    run("sudo", &["chown", "-R", owned, tmpw])?;
+    run(
+        "sudo",
+        &[
+            "find", tmpw, "-type", "d", "-exec", "chmod", "0755", "{}", "+",
+        ],
+    )?;
+    if run_in_dir(
+        "sudo",
+        &[
+            "-u",
+            WORKER_USER,
+            "env",
+            &format!("HOME={}", storage.home),
+            bun_final,
+            "install",
+            "--frozen-lockfile",
+        ],
+        tmpw,
+        true,
+        "cannot warm Bun cache",
+    )
+    .is_err()
+    {
+        return fail("cannot warm Bun cache");
+    }
+    let browsers = format!("{}/browsers", storage.home);
+    run(
+        "sudo",
+        &[
+            "install",
+            "-d",
+            "-o",
+            WORKER_USER,
+            "-g",
+            WORKER_USER,
+            &browsers,
+        ],
+    )?;
+    if run_in_dir(
+        "sudo",
+        &[
+            "-u",
+            WORKER_USER,
+            "env",
+            &format!("HOME={}", storage.home),
+            &format!("PLAYWRIGHT_BROWSERS_PATH={browsers}"),
+            bun_final,
+            "x",
+            "playwright",
+            "install",
+            "chromium",
+        ],
+        tmpw,
+        false,
+        "cannot stage Playwright chromium",
+    )
+    .is_err()
+    {
+        return fail("cannot stage Playwright chromium");
+    }
+    Ok(())
+}
+
+/// Warm compiler dependencies before the isolated worker runs offline.
+pub(super) fn warm_worker_caches(
+    storage: &Storage,
+    pinned: &str,
+    owned: &str,
+    bun_final: &str,
+    rust_bin: &str,
+) -> Result<WorkerCaches, Exit> {
+    println!("-- warm worker caches before offline worker execution");
+    let go_mod = format!("{}/go-mod", storage.home);
+    let go_build_cache = format!("{}/go-build", storage.home);
+    let cargo_home = format!("{}/cargo", storage.home);
+    let cargo_target = format!("{}/cargo-target", storage.home);
+    run(
+        "sudo",
+        &[
+            "mkdir",
+            "-p",
+            &go_mod,
+            &go_build_cache,
+            &cargo_home,
+            &cargo_target,
+        ],
+    )?;
+    run("sudo", &["chown", "-R", owned, &cargo_home, &cargo_target])?;
+    warm_go_caches(storage, pinned, &go_mod, &go_build_cache)?;
+    warm_cargo_cache(storage, rust_bin, &cargo_home, &cargo_target)?;
+    lock_go_offline(storage)?;
     let bun_template = format!("{}/setup-bun.XXXXXXXX", storage.scratch);
     let tmpw = match capture("mktemp", &["-d", &bun_template], false) {
         Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
@@ -122,74 +221,7 @@ pub(super) fn warm_worker_caches(
     // The worker owns this tree after chown, so a host TempDir cannot perform
     // reliable Drop cleanup. Keep the exact scratch path and always run the
     // owner-privileged cleanup after staging, including failed warm commands.
-    let warm_result = (|| {
-        let tmpw_tools = format!("{tmpw}/tools");
-        run("mkdir", &["-p", &tmpw_tools])?;
-        run("cp", &["package.json", "bun.lock", "bunfig.toml", &tmpw])?;
-        run("cp", &["-a", "tools/lit-check", &tmpw_tools])?;
-        run("sudo", &["chown", "-R", &owned, &tmpw])?;
-        run(
-            "sudo",
-            &[
-                "find", &tmpw, "-type", "d", "-exec", "chmod", "0755", "{}", "+",
-            ],
-        )?;
-        if run_in_dir(
-            "sudo",
-            &[
-                "-u",
-                WORKER_USER,
-                "env",
-                &format!("HOME={}", storage.home),
-                &bun_final,
-                "install",
-                "--frozen-lockfile",
-            ],
-            &tmpw,
-            true,
-            "cannot warm Bun cache",
-        )
-        .is_err()
-        {
-            return fail("cannot warm Bun cache");
-        }
-        let browsers = format!("{}/browsers", storage.home);
-        run(
-            "sudo",
-            &[
-                "install",
-                "-d",
-                "-o",
-                WORKER_USER,
-                "-g",
-                WORKER_USER,
-                &browsers,
-            ],
-        )?;
-        if run_in_dir(
-            "sudo",
-            &[
-                "-u",
-                WORKER_USER,
-                "env",
-                &format!("HOME={}", storage.home),
-                &format!("PLAYWRIGHT_BROWSERS_PATH={browsers}"),
-                &bun_final,
-                "x",
-                "playwright",
-                "install",
-                "chromium",
-            ],
-            &tmpw,
-            false,
-            "cannot stage Playwright chromium",
-        )
-        .is_err()
-        {
-            return fail("cannot stage Playwright chromium");
-        }
-        Ok(())
-    })();
+    let warm_result = warm_bun_cache(storage, owned, bun_final, &tmpw);
     let cleanup_result = run("sudo", &["rm", "-rf", &tmpw]);
     match (warm_result, cleanup_result) {
         (Ok(()), Ok(())) => {}

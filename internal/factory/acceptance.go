@@ -142,7 +142,7 @@ func validSourceList(sources []SelectedSource) error {
 
 // Validate rejects malformed acceptances. Shape only: admission verifies
 // every selected revision against a bracketed native snapshot.
-func (a Acceptance) Validate() error {
+func (a Acceptance) validateScope() error {
 	if !project.ValidDecisionID(a.ID) || (a.Predecessor != "" && !project.ValidDecisionID(a.Predecessor)) || a.Predecessor == a.ID {
 		return errors.New("invalid acceptance decision identity")
 	}
@@ -155,6 +155,10 @@ func (a Acceptance) Validate() error {
 	if !ValidTitleOccurrence(a.TitleOccurrence) {
 		return errors.New("invalid accepted title occurrence")
 	}
+	return nil
+}
+
+func (a Acceptance) validatePrerequisites() error {
 	if err := validSourceList(a.Sources); err != nil {
 		return err
 	}
@@ -178,6 +182,13 @@ func (a Acceptance) Validate() error {
 		return errors.New("initial acceptance binds the objective only")
 	}
 	return nil
+}
+
+func (a Acceptance) Validate() error {
+	if err := a.validateScope(); err != nil {
+		return err
+	}
+	return a.validatePrerequisites()
 }
 
 // InitialAcceptanceID derives the deterministic decision ID for the

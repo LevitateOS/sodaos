@@ -56,30 +56,26 @@ func (s *Store) PublicationByAssignment(ctx context.Context, assignmentID string
 // The caller increments Revision first; only the recorded predecessor
 // advances, and anything else reports stale instead of overwriting a
 // concurrent receipt.
-func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) error {
-	if err := p.Validate(); err != nil {
-		return err
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
+func loadPreviousPublicationTx(ctx context.Context, tx *sql.Tx, p factory.Publication) (factory.Publication, error) {
 	var previous factory.Publication
 	var previousData []byte
-	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, p.AssignmentID).Scan(&previousData)
+	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, p.AssignmentID).Scan(&previousData)
 	if err == nil {
 		err = json.Unmarshal(previousData, &previous)
 	}
 	if err != nil {
-		return err
+		return previous, err
 	}
 	if previous.Revision != p.Revision-1 {
-		return ErrStaleRevision
+		return previous, ErrStaleRevision
 	}
 	if err := publicationUpdateAllowed(previous, p); err != nil {
-		return err
+		return previous, err
 	}
+	return previous, nil
+}
+
+func publicationRegistration(previous, p factory.Publication) (bool, []int64, error) {
 	registering := previous.Publish.Work == nil && p.Publish.Work != nil ||
 		previous.PRCreate.Work == nil && p.PRCreate.Work != nil ||
 		len(p.Corrections) > len(previous.Corrections) ||
@@ -93,7 +89,7 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	for i := len(previous.Corrections); i < len(p.Corrections); i++ {
 		if p.Corrections[i].Work == nil {
-			return factory.ErrAttemptTimeExhausted
+			return false, nil, factory.ErrAttemptTimeExhausted
 		}
 		newDeadlines = append(newDeadlines, p.Corrections[i].Work.NotAfter)
 	}
@@ -101,26 +97,51 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 		newDeadlines = append(newDeadlines, p.ReviewOperations[i].Work.NotAfter)
 	}
 	if registering && (previous.WithdrawRequested || p.WithdrawRequested) {
+		return false, nil, ErrDispatchClosed
+	}
+	return registering, newDeadlines, nil
+}
+
+func admitPublicationRegistrationTx(ctx context.Context, tx *sql.Tx, p factory.Publication, registering bool, newDeadlines []int64) error {
+	if !registering {
+		return nil
+	}
+	// Materialize the logical default-open gate so registration and
+	// WithdrawDispatch serialize on the same row even before its first
+	// withdrawal. A missing row otherwise has no lockable identity.
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
+		VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, p.Repository); err != nil {
+		return err
+	}
+	var open bool
+	if err := tx.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, p.Repository).Scan(&open); err != nil {
+		return err
+	}
+	if !open {
 		return ErrDispatchClosed
 	}
-	if registering {
-		// Materialize the logical default-open gate so registration and
-		// WithdrawDispatch serialize on the same row even before its first
-		// withdrawal. A missing row otherwise has no lockable identity.
-		if _, err = tx.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
-			VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, p.Repository); err != nil {
-			return err
-		}
-		var open bool
-		if err = tx.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, p.Repository).Scan(&open); err != nil {
-			return err
-		}
-		if !open {
-			return ErrDispatchClosed
-		}
-		if err = ensureAttemptDeadlineForRegistrationTx(ctx, tx, p.AssignmentID, newDeadlines...); err != nil {
-			return err
-		}
+	return ensureAttemptDeadlineForRegistrationTx(ctx, tx, p.AssignmentID, newDeadlines...)
+}
+
+func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	previous, err := loadPreviousPublicationTx(ctx, tx, p)
+	if err != nil {
+		return err
+	}
+	registering, newDeadlines, err := publicationRegistration(previous, p)
+	if err != nil {
+		return err
+	}
+	if err = admitPublicationRegistrationTx(ctx, tx, p, registering, newDeadlines); err != nil {
+		return err
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
@@ -202,84 +223,116 @@ func publicationTupleTransitionAllowed(old, next factory.Publication) error {
 	return nil
 }
 
-func publicationUpdateAllowed(old, next factory.Publication) error {
-	if old.ID != next.ID || old.AssignmentID != next.AssignmentID || old.ProjectID != next.ProjectID ||
-		old.Role != next.Role || old.Acceptance != next.Acceptance || old.Preparation != next.Preparation ||
-		old.BaseSHA != next.BaseSHA ||
-		old.TargetBranch != next.TargetBranch || old.Repository != next.Repository || old.Issue != next.Issue ||
-		old.CreatedUnix != next.CreatedUnix || old.Authority != next.Authority || old.WithdrawRequested && !next.WithdrawRequested {
-		return ErrPublicationConflict
-	}
+func publicationIdentityStable(old, next factory.Publication) bool {
+	return old.ID == next.ID && old.AssignmentID == next.AssignmentID && old.ProjectID == next.ProjectID &&
+		old.Role == next.Role && old.Acceptance == next.Acceptance && old.Preparation == next.Preparation &&
+		old.BaseSHA == next.BaseSHA &&
+		old.TargetBranch == next.TargetBranch && old.Repository == next.Repository && old.Issue == next.Issue &&
+		old.CreatedUnix == next.CreatedUnix && old.Authority == next.Authority && (!old.WithdrawRequested || next.WithdrawRequested)
+}
+
+func publicationRunAdvanced(old, next factory.Publication) bool {
 	// The run and head advance only along a recorded correction chain;
 	// Publication.Validate pins the exact chain and head.
 	if (old.Run != next.Run || old.Candidate != next.Candidate) && len(next.Corrections) == 0 {
-		return ErrPublicationConflict
+		return false
 	}
-	if old.Run != next.Run {
-		committedRun := ""
-		for _, op := range next.Corrections {
-			if op.Effect == factory.OpEffectCommitted {
-				committedRun = op.RunID
-			}
-		}
-		if next.Run != committedRun {
-			return ErrPublicationConflict
+	if old.Run == next.Run {
+		return true
+	}
+	committedRun := ""
+	for _, op := range next.Corrections {
+		if op.Effect == factory.OpEffectCommitted {
+			committedRun = op.RunID
 		}
 	}
-	if err := publicationTupleTransitionAllowed(old, next); err != nil {
-		return err
-	}
+	return next.Run == committedRun
+}
+
+func publicationCorrectionsStable(old, next factory.Publication) bool {
 	if len(next.Corrections) < len(old.Corrections) {
-		return ErrPublicationConflict
+		return false
 	}
 	for i := range old.Corrections {
 		if !publicationOperationUpdateAllowed(old.Corrections[i], next.Corrections[i]) {
-			return ErrPublicationConflict
+			return false
 		}
 	}
+	return true
+}
+
+func publicationReviewsStable(old, next factory.Publication) bool {
 	if len(next.ReviewOperations) < len(old.ReviewOperations) {
-		return ErrPublicationConflict
+		return false
 	}
 	for i := range old.ReviewOperations {
 		if !reviewOperationUpdateAllowed(old.ReviewOperations[i], next.ReviewOperations[i]) {
-			return ErrPublicationConflict
+			return false
 		}
 	}
+	return true
+}
+
+func publicationJournalsStable(old, next factory.Publication) bool {
 	// Review cycles and correction journals are immutable once recorded:
 	// entries never change, and new entries only append. Publication
 	// validation pins the cycle/disposition linkage for the appended tail.
 	if len(next.ReviewCycles) < len(old.ReviewCycles) {
-		return ErrPublicationConflict
+		return false
 	}
 	for i := range old.ReviewCycles {
 		if next.ReviewCycles[i] != old.ReviewCycles[i] {
-			return ErrPublicationConflict
+			return false
 		}
 	}
 	if len(next.CorrectionJournals) < len(old.CorrectionJournals) {
-		return ErrPublicationConflict
+		return false
 	}
 	for i := range old.CorrectionJournals {
 		if !correctionJournalUpdateAllowed(old.CorrectionJournals[i], next.CorrectionJournals[i]) {
-			return ErrPublicationConflict
+			return false
 		}
 	}
+	return true
+}
+
+func publicationAcceptancesStable(old, next factory.Publication) bool {
 	// Delivery acceptances are immutable once recorded: entries never
 	// change, and new acceptances only append. FW35 journals clean_review
 	// acceptance here; FW37 appends jev_acceptance through the same rule.
 	if len(next.DeliveryAcceptances) < len(old.DeliveryAcceptances) {
-		return ErrPublicationConflict
+		return false
 	}
 	for i := range old.DeliveryAcceptances {
 		if !deliveryAcceptanceEqual(old.DeliveryAcceptances[i], next.DeliveryAcceptances[i]) {
-			return ErrPublicationConflict
+			return false
 		}
 	}
+	return true
+}
+
+func publicationStageAllowed(old, next factory.Publication) bool {
 	switch {
 	case old.Stage == factory.PublicationOpen || old.Stage == factory.PublicationFenced:
+		return true
 	case old.Stage == factory.PublicationPublished &&
 		(next.Stage == factory.PublicationPublished || next.Stage == factory.PublicationFenced):
+		return true
 	default:
+		return false
+	}
+}
+
+func publicationUpdateAllowed(old, next factory.Publication) error {
+	if !publicationIdentityStable(old, next) || !publicationRunAdvanced(old, next) {
+		return ErrPublicationConflict
+	}
+	if err := publicationTupleTransitionAllowed(old, next); err != nil {
+		return err
+	}
+	if !publicationCorrectionsStable(old, next) || !publicationReviewsStable(old, next) ||
+		!publicationJournalsStable(old, next) || !publicationAcceptancesStable(old, next) ||
+		!publicationStageAllowed(old, next) {
 		return ErrPublicationConflict
 	}
 	if !publicationOperationUpdateAllowed(old.Publish, next.Publish) || !publicationOperationUpdateAllowed(old.PRCreate, next.PRCreate) {
@@ -369,7 +422,7 @@ func deliveryAcceptanceEqual(old, next factory.DeliveryAcceptance) bool {
 	return true
 }
 
-func reviewOperationUpdateAllowed(old, next factory.ReviewOperation) bool {
+func reviewOperationIdentityStable(old, next factory.ReviewOperation) bool {
 	if old.RunID != next.RunID || !factory.ReviewWorkEqual(old.Work, next.Work) {
 		return false
 	}
@@ -380,19 +433,22 @@ func reviewOperationUpdateAllowed(old, next factory.ReviewOperation) bool {
 		prior.RepositoryID != 0 && prior.RepositoryID != updated.RepositoryID {
 		return false
 	}
-	if len(prior.Receipt) > 0 && string(prior.Receipt) != string(updated.Receipt) {
-		return false
-	}
+	return len(prior.Receipt) == 0 || string(prior.Receipt) == string(updated.Receipt)
+}
+
+func reviewOperationOutcomeMonotonic(old, next factory.ReviewOperation) bool {
+	prior, updated := old.Outcome, next.Outcome
 	if (prior.Effect == factory.OpEffectCommitted || prior.Effect == factory.OpEffectNotCommitted) && prior.Effect != updated.Effect {
 		return false
 	}
 	if prior.Cancellation == factory.OpCancelCancelled && updated.Cancellation != prior.Cancellation {
 		return false
 	}
-	if prior.Completion == factory.OpCompletionComplete && updated.Completion != prior.Completion {
-		return false
-	}
-	return true
+	return prior.Completion != factory.OpCompletionComplete || updated.Completion == prior.Completion
+}
+
+func reviewOperationUpdateAllowed(old, next factory.ReviewOperation) bool {
+	return reviewOperationIdentityStable(old, next) && reviewOperationOutcomeMonotonic(old, next)
 }
 
 // OutstandingPublications lists every open or fenced publication and each

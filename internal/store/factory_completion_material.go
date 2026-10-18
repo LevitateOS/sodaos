@@ -190,25 +190,7 @@ func completionIntentScopesTx(ctx context.Context, tx *sql.Tx, repository int64)
 			}
 			latest := !latestMarked
 			latestMarked = true
-			var generation *factory.IntentGeneration
-			var raw []byte
-			if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1`, revision.ID).Scan(&raw); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, nil, err
-			} else if err == nil {
-				var stored factory.IntentGeneration
-				if err = json.Unmarshal(raw, &stored); err != nil {
-					return nil, nil, errors.New("completion material generation is malformed")
-				}
-				if err = checkCompletionGeneration(stored, revision); err != nil {
-					return nil, nil, err
-				}
-				generation = &stored
-			}
-			bindings, err := completionTaskBindingsTx(ctx, tx, revision.ID)
-			if err != nil {
-				return nil, nil, err
-			}
-			scope, err := factory.NewCompletionIntentScope(revision, headState, latest, generation, bindings)
+			scope, err := projectCompletionIntentScopeTx(ctx, tx, revision, headState, latest)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -272,6 +254,28 @@ func completionIntentChainTx(ctx context.Context, tx *sql.Tx, intent, head strin
 		return nil, errors.New("completion material lacks its intent head revision")
 	}
 	return chain, nil
+}
+
+func projectCompletionIntentScopeTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision, headState string, latest bool) (factory.CompletionIntentScope, error) {
+	var generation *factory.IntentGeneration
+	var raw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1`, revision.ID).Scan(&raw); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return factory.CompletionIntentScope{}, err
+	} else if err == nil {
+		var stored factory.IntentGeneration
+		if err = json.Unmarshal(raw, &stored); err != nil {
+			return factory.CompletionIntentScope{}, errors.New("completion material generation is malformed")
+		}
+		if err = checkCompletionGeneration(stored, revision); err != nil {
+			return factory.CompletionIntentScope{}, err
+		}
+		generation = &stored
+	}
+	bindings, err := completionTaskBindingsTx(ctx, tx, revision.ID)
+	if err != nil {
+		return factory.CompletionIntentScope{}, err
+	}
+	return factory.NewCompletionIntentScope(revision, headState, latest, generation, bindings)
 }
 
 func checkCompletionGeneration(generation factory.IntentGeneration, revision factory.IntentRevision) error {
@@ -345,30 +349,9 @@ func completionTaskBindingsTx(ctx context.Context, tx *sql.Tx, revision string) 
 // closed: settlement is never inferred. Assignment.Prompt,
 // account/lease/binding/credential data and run output never enter.
 func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, projectID string) ([]factory.CompletionAssignment, map[string]bool, map[string]bool, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id, data FROM factory_assignments WHERE repository=$1 ORDER BY id LIMIT `+completionMaterialLimit(), repository)
+	all, err := loadCompletionAssignmentRowsTx(ctx, tx, repository)
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	type assignmentRow struct {
-		id   string
-		data []byte
-	}
-	var all []assignmentRow
-	for rows.Next() {
-		var row assignmentRow
-		if err = rows.Scan(&row.id, &row.data); err != nil {
-			_ = rows.Close()
-			return nil, nil, nil, err
-		}
-		all = append(all, row)
-	}
-	if err = rows.Err(); err != nil {
-		_ = rows.Close()
-		return nil, nil, nil, err
-	}
-	_ = rows.Close()
-	if len(all) > factory.MaxReassessmentIssues {
-		return nil, nil, nil, errors.New("completion material assignments exceed their bound")
 	}
 	assignments := []factory.CompletionAssignment{}
 	referenced := make(map[string]bool)
@@ -388,78 +371,8 @@ func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, 
 		if stored.ProjectID != projectID {
 			return nil, nil, nil, errors.New("completion material assignment names another project")
 		}
-		projected := factory.CompletionAssignment{
-			RunHistory:   make([]factory.CompletionRunState, 0, len(stored.RunHistory)),
-			Subject:      stored.Subject,
-			ID:           stored.ID,
-			AttemptRoot:  stored.AttemptRoot,
-			ProjectID:    stored.ProjectID,
-			Role:         stored.Role,
-			Phase:        stored.Phase,
-			Stage:        stored.Stage,
-			Outcome:      stored.Outcome,
-			Reason:       stored.Reason,
-			Acceptance:   stored.Acceptance,
-			Preparation:  stored.Preparation,
-			SourceCommit: stored.SourceCommit,
-			Issue:        stored.Issue,
-			Revision:     stored.Revision,
-		}
-		for _, runID := range stored.RunHistory {
-			state, ok := runCache[runID]
-			if !ok {
-				var active, settled bool
-				var raw []byte
-				if err = tx.QueryRowContext(ctx, `SELECT active, settled, data FROM factory_runs WHERE id=$1`, runID).Scan(&active, &settled, &raw); err != nil {
-					return nil, nil, nil, errors.New("completion material lacks its run")
-				}
-				var run factory.Run
-				if err = json.Unmarshal(raw, &run); err != nil {
-					return nil, nil, nil, errors.New("completion material run is malformed")
-				}
-				if err = run.Validate(); err != nil {
-					return nil, nil, nil, errors.New("completion material run is invalid")
-				}
-				state = factory.CompletionRunState{
-					ID: run.ID, Outcome: run.Outcome, Reconciled: run.Reconciled,
-					Active: active, Settled: settled,
-				}
-				if err = state.Validate(); err != nil {
-					return nil, nil, nil, errors.New("completion material run is invalid")
-				}
-				runCache[runID] = state
-			}
-			projected.RunHistory = append(projected.RunHistory, state)
-			runs[runID] = true
-		}
-		var viewRepository, viewIssue int64
-		var viewAttempt string
-		if err = tx.QueryRowContext(ctx, `SELECT repository, issue, attempt FROM factory_run_views WHERE run=$1`, stored.Run).Scan(&viewRepository, &viewIssue, &viewAttempt); err != nil {
-			return nil, nil, nil, errors.New("completion material lacks its run view")
-		}
-		if viewRepository != repository || viewIssue != stored.Issue {
-			return nil, nil, nil, errors.New("completion material run view names another scope")
-		}
-		var reservationRaw []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1`, stored.ID).Scan(&reservationRaw); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, nil, err
-		} else if err == nil {
-			var reservation factory.Reservation
-			if err = json.Unmarshal(reservationRaw, &reservation); err != nil {
-				return nil, nil, nil, errors.New("completion material reservation is malformed")
-			}
-			if err = reservation.Validate(); err != nil {
-				return nil, nil, nil, errors.New("completion material reservation is invalid")
-			}
-			if reservation.Repository != repository || reservation.AssignmentID != stored.ID {
-				return nil, nil, nil, errors.New("completion material reservation names another scope")
-			}
-			projected.Reservation = &factory.CompletionReservation{
-				Connection: reservation.Connection, State: reservation.State,
-				PlannedMinutes: reservation.PlannedMinutes, Revision: reservation.Revision,
-			}
-		}
-		if err = projected.Validate(); err != nil {
+		projected, err := projectCompletionAssignmentTx(ctx, tx, runCache, repository, stored, runs)
+		if err != nil {
 			return nil, nil, nil, err
 		}
 		assignments = append(assignments, projected)
@@ -477,6 +390,122 @@ func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, 
 		}
 	}
 	return assignments, referenced, runs, nil
+}
+
+type completionAssignmentRow struct {
+	id   string
+	data []byte
+}
+
+func loadCompletionAssignmentRowsTx(ctx context.Context, tx *sql.Tx, repository int64) ([]completionAssignmentRow, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id, data FROM factory_assignments WHERE repository=$1 ORDER BY id LIMIT `+completionMaterialLimit(), repository)
+	if err != nil {
+		return nil, err
+	}
+	var all []completionAssignmentRow
+	for rows.Next() {
+		var row completionAssignmentRow
+		if err = rows.Scan(&row.id, &row.data); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		all = append(all, row)
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	_ = rows.Close()
+	if len(all) > factory.MaxReassessmentIssues {
+		return nil, errors.New("completion material assignments exceed their bound")
+	}
+	return all, nil
+}
+
+func resolveCompletionRunStateTx(ctx context.Context, tx *sql.Tx, runCache map[string]factory.CompletionRunState, runID string) (factory.CompletionRunState, error) {
+	if state, ok := runCache[runID]; ok {
+		return state, nil
+	}
+	var active, settled bool
+	var raw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT active, settled, data FROM factory_runs WHERE id=$1`, runID).Scan(&active, &settled, &raw); err != nil {
+		return factory.CompletionRunState{}, errors.New("completion material lacks its run")
+	}
+	var run factory.Run
+	if err := json.Unmarshal(raw, &run); err != nil {
+		return factory.CompletionRunState{}, errors.New("completion material run is malformed")
+	}
+	if err := run.Validate(); err != nil {
+		return factory.CompletionRunState{}, errors.New("completion material run is invalid")
+	}
+	state := factory.CompletionRunState{
+		ID: run.ID, Outcome: run.Outcome, Reconciled: run.Reconciled,
+		Active: active, Settled: settled,
+	}
+	if err := state.Validate(); err != nil {
+		return factory.CompletionRunState{}, errors.New("completion material run is invalid")
+	}
+	runCache[runID] = state
+	return state, nil
+}
+
+func projectCompletionAssignmentTx(ctx context.Context, tx *sql.Tx, runCache map[string]factory.CompletionRunState, repository int64, stored factory.Assignment, runs map[string]bool) (factory.CompletionAssignment, error) {
+	projected := factory.CompletionAssignment{
+		RunHistory:   make([]factory.CompletionRunState, 0, len(stored.RunHistory)),
+		Subject:      stored.Subject,
+		ID:           stored.ID,
+		AttemptRoot:  stored.AttemptRoot,
+		ProjectID:    stored.ProjectID,
+		Role:         stored.Role,
+		Phase:        stored.Phase,
+		Stage:        stored.Stage,
+		Outcome:      stored.Outcome,
+		Reason:       stored.Reason,
+		Acceptance:   stored.Acceptance,
+		Preparation:  stored.Preparation,
+		SourceCommit: stored.SourceCommit,
+		Issue:        stored.Issue,
+		Revision:     stored.Revision,
+	}
+	for _, runID := range stored.RunHistory {
+		state, err := resolveCompletionRunStateTx(ctx, tx, runCache, runID)
+		if err != nil {
+			return factory.CompletionAssignment{}, err
+		}
+		projected.RunHistory = append(projected.RunHistory, state)
+		runs[runID] = true
+	}
+	var viewRepository, viewIssue int64
+	var viewAttempt string
+	if err := tx.QueryRowContext(ctx, `SELECT repository, issue, attempt FROM factory_run_views WHERE run=$1`, stored.Run).Scan(&viewRepository, &viewIssue, &viewAttempt); err != nil {
+		return factory.CompletionAssignment{}, errors.New("completion material lacks its run view")
+	}
+	if viewRepository != repository || viewIssue != stored.Issue {
+		return factory.CompletionAssignment{}, errors.New("completion material run view names another scope")
+	}
+	var reservationRaw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1`, stored.ID).Scan(&reservationRaw); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return factory.CompletionAssignment{}, err
+	} else if err == nil {
+		var reservation factory.Reservation
+		if err = json.Unmarshal(reservationRaw, &reservation); err != nil {
+			return factory.CompletionAssignment{}, errors.New("completion material reservation is malformed")
+		}
+		if err = reservation.Validate(); err != nil {
+			return factory.CompletionAssignment{}, errors.New("completion material reservation is invalid")
+		}
+		if reservation.Repository != repository || reservation.AssignmentID != stored.ID {
+			return factory.CompletionAssignment{}, errors.New("completion material reservation names another scope")
+		}
+		projected.Reservation = &factory.CompletionReservation{
+			Connection: reservation.Connection, State: reservation.State,
+			PlannedMinutes: reservation.PlannedMinutes, Revision: reservation.Revision,
+		}
+	}
+	if err := projected.Validate(); err != nil {
+		return factory.CompletionAssignment{}, err
+	}
+	return projected, nil
 }
 
 // completionPublicationsTx projects repository publications with exact
@@ -841,114 +870,136 @@ func completionPlansTx(ctx context.Context, tx *sql.Tx, assignments []factory.Co
 	// plans/heads/tasks out of the validated ascending order.
 	sort.Strings(roots)
 	for _, root := range roots {
-		revisionRows, err := tx.QueryContext(ctx, `SELECT plan_id, data FROM factory_plan_revisions
-			WHERE attempt_root=$1 ORDER BY plan_id LIMIT `+completionMaterialLimit(), root)
-		if err != nil {
+		var err error
+		if plans, err = appendCompletionRootPlansTx(ctx, tx, root, plans); err != nil {
 			return nil, nil, nil, err
 		}
-		for revisionRows.Next() {
-			var planID string
-			var raw []byte
-			var plan factory.InvestigationPlan
-			if err = revisionRows.Scan(&planID, &raw); err != nil {
-				_ = revisionRows.Close()
-				return nil, nil, nil, err
-			}
-			if err = json.Unmarshal(raw, &plan); err != nil {
-				_ = revisionRows.Close()
-				return nil, nil, nil, errors.New("completion material plan is malformed")
-			}
-			if err = plan.Validate(); err != nil {
-				_ = revisionRows.Close()
-				return nil, nil, nil, errors.New("completion material plan is invalid")
-			}
-			plans = append(plans, plan)
-		}
-		if err = revisionRows.Err(); err != nil {
-			_ = revisionRows.Close()
+		if heads, err = appendCompletionRootHeadsTx(ctx, tx, root, heads); err != nil {
 			return nil, nil, nil, err
 		}
-		_ = revisionRows.Close()
-		headRows, err := tx.QueryContext(ctx, `SELECT plan_id, generation FROM factory_plan_heads
-			WHERE attempt_root=$1 ORDER BY plan_id LIMIT `+completionMaterialLimit(), root)
-		if err != nil {
+		if tasks, err = appendCompletionRootTasksTx(ctx, tx, root, tasks); err != nil {
 			return nil, nil, nil, err
 		}
-		for headRows.Next() {
-			var head factory.CompletionPlanHead
-			head.AttemptRoot = root
-			if err = headRows.Scan(&head.PlanID, &head.Generation); err != nil {
-				_ = headRows.Close()
-				return nil, nil, nil, err
-			}
-			if err = head.Validate(); err != nil {
-				_ = headRows.Close()
-				return nil, nil, nil, errors.New("completion material plan head is invalid")
-			}
-			heads = append(heads, head)
-		}
-		if err = headRows.Err(); err != nil {
-			_ = headRows.Close()
-			return nil, nil, nil, err
-		}
-		_ = headRows.Close()
-		taskRows, err := tx.QueryContext(ctx, `SELECT data FROM factory_plan_tasks
-			WHERE attempt_root=$1 ORDER BY plan_id, task_id LIMIT `+completionMaterialLimit(), root)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		for taskRows.Next() {
-			var raw []byte
-			var receipt PlanTaskReceipt
-			if err = taskRows.Scan(&raw); err != nil {
-				_ = taskRows.Close()
-				return nil, nil, nil, err
-			}
-			if err = json.Unmarshal(raw, &receipt); err != nil {
-				_ = taskRows.Close()
-				return nil, nil, nil, errors.New("completion material plan task is malformed")
-			}
-			if err = receipt.Validate(); err != nil {
-				_ = taskRows.Close()
-				return nil, nil, nil, errors.New("completion material plan task is invalid")
-			}
-			if receipt.AttemptRoot != root {
-				_ = taskRows.Close()
-				return nil, nil, nil, errors.New("completion material plan task names another root")
-			}
-			projected := factory.CompletionPlanTask{
-				Checks:       append([]string(nil), receipt.Checks...),
-				InputDigest:  receipt.InputDigest,
-				OutputDigest: receipt.OutputDigest,
-				Tree:         receipt.Tree,
-				Commit:       receipt.Commit,
-				AttemptRoot:  receipt.AttemptRoot,
-				PlanID:       receipt.PlanID,
-				TaskID:       receipt.TaskID,
-				Revision:     receipt.Revision,
-				State:        receipt.State,
-				Child:        receipt.Child,
-			}
-			if projected.Checks == nil {
-				projected.Checks = []string{}
-			}
-			if err = projected.Validate(); err != nil {
-				_ = taskRows.Close()
-				return nil, nil, nil, err
-			}
-			tasks = append(tasks, projected)
-		}
-		if err = taskRows.Err(); err != nil {
-			_ = taskRows.Close()
-			return nil, nil, nil, err
-		}
-		_ = taskRows.Close()
 	}
 	if len(plans) > factory.MaxReassessmentIssues || len(heads) > factory.MaxReassessmentIssues ||
 		len(tasks) > factory.MaxReassessmentIssues {
 		return nil, nil, nil, errors.New("completion material plans exceed their bound")
 	}
 	return plans, heads, tasks, nil
+}
+
+func appendCompletionRootPlansTx(ctx context.Context, tx *sql.Tx, root string, plans []factory.InvestigationPlan) ([]factory.InvestigationPlan, error) {
+	revisionRows, err := tx.QueryContext(ctx, `SELECT plan_id, data FROM factory_plan_revisions
+		WHERE attempt_root=$1 ORDER BY plan_id LIMIT `+completionMaterialLimit(), root)
+	if err != nil {
+		return nil, err
+	}
+	for revisionRows.Next() {
+		var planID string
+		var raw []byte
+		var plan factory.InvestigationPlan
+		if err = revisionRows.Scan(&planID, &raw); err != nil {
+			_ = revisionRows.Close()
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &plan); err != nil {
+			_ = revisionRows.Close()
+			return nil, errors.New("completion material plan is malformed")
+		}
+		if err = plan.Validate(); err != nil {
+			_ = revisionRows.Close()
+			return nil, errors.New("completion material plan is invalid")
+		}
+		plans = append(plans, plan)
+	}
+	if err = revisionRows.Err(); err != nil {
+		_ = revisionRows.Close()
+		return nil, err
+	}
+	_ = revisionRows.Close()
+	return plans, nil
+}
+
+func appendCompletionRootHeadsTx(ctx context.Context, tx *sql.Tx, root string, heads []factory.CompletionPlanHead) ([]factory.CompletionPlanHead, error) {
+	headRows, err := tx.QueryContext(ctx, `SELECT plan_id, generation FROM factory_plan_heads
+		WHERE attempt_root=$1 ORDER BY plan_id LIMIT `+completionMaterialLimit(), root)
+	if err != nil {
+		return nil, err
+	}
+	for headRows.Next() {
+		var head factory.CompletionPlanHead
+		head.AttemptRoot = root
+		if err = headRows.Scan(&head.PlanID, &head.Generation); err != nil {
+			_ = headRows.Close()
+			return nil, err
+		}
+		if err = head.Validate(); err != nil {
+			_ = headRows.Close()
+			return nil, errors.New("completion material plan head is invalid")
+		}
+		heads = append(heads, head)
+	}
+	if err = headRows.Err(); err != nil {
+		_ = headRows.Close()
+		return nil, err
+	}
+	_ = headRows.Close()
+	return heads, nil
+}
+
+func appendCompletionRootTasksTx(ctx context.Context, tx *sql.Tx, root string, tasks []factory.CompletionPlanTask) ([]factory.CompletionPlanTask, error) {
+	taskRows, err := tx.QueryContext(ctx, `SELECT data FROM factory_plan_tasks
+		WHERE attempt_root=$1 ORDER BY plan_id, task_id LIMIT `+completionMaterialLimit(), root)
+	if err != nil {
+		return nil, err
+	}
+	for taskRows.Next() {
+		var raw []byte
+		var receipt PlanTaskReceipt
+		if err = taskRows.Scan(&raw); err != nil {
+			_ = taskRows.Close()
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &receipt); err != nil {
+			_ = taskRows.Close()
+			return nil, errors.New("completion material plan task is malformed")
+		}
+		if err = receipt.Validate(); err != nil {
+			_ = taskRows.Close()
+			return nil, errors.New("completion material plan task is invalid")
+		}
+		if receipt.AttemptRoot != root {
+			_ = taskRows.Close()
+			return nil, errors.New("completion material plan task names another root")
+		}
+		projected := factory.CompletionPlanTask{
+			Checks:       append([]string(nil), receipt.Checks...),
+			InputDigest:  receipt.InputDigest,
+			OutputDigest: receipt.OutputDigest,
+			Tree:         receipt.Tree,
+			Commit:       receipt.Commit,
+			AttemptRoot:  receipt.AttemptRoot,
+			PlanID:       receipt.PlanID,
+			TaskID:       receipt.TaskID,
+			Revision:     receipt.Revision,
+			State:        receipt.State,
+			Child:        receipt.Child,
+		}
+		if projected.Checks == nil {
+			projected.Checks = []string{}
+		}
+		if err = projected.Validate(); err != nil {
+			_ = taskRows.Close()
+			return nil, err
+		}
+		tasks = append(tasks, projected)
+	}
+	if err = taskRows.Err(); err != nil {
+		_ = taskRows.Close()
+		return nil, err
+	}
+	_ = taskRows.Close()
+	return tasks, nil
 }
 
 // completionChecksTx projects the recorded check verdicts for one

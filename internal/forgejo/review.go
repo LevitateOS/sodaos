@@ -88,17 +88,17 @@ func reviewReadError(err error) error {
 	return &factory.PublicationWait{Reason: "review_evidence_unavailable"}
 }
 
-func matchReviewTarget(w factory.ReviewWork, issue, snapshot NativeSnapshot) error {
-	i, p := issue.Issue, snapshot.Pull
+func checkReviewIdentity(w factory.ReviewWork, i *IssueEvidence, p *PullEvidence) error {
 	if i == nil || p == nil || !i.Visible || !p.Visible || !i.IsPull || i.IsClosed || p.HasMerged ||
 		i.ID != strconv.FormatInt(w.IssueID, 10) || i.Provenance.PosterID != strconv.FormatInt(w.PRAuthorID, 10) ||
 		p.ID != strconv.FormatInt(w.PRID, 10) || p.IssueID != i.ID || p.HeadRepoID != strconv.FormatInt(w.Repository, 10) ||
 		p.HeadBranch != factory.RefHead(w.HeadRef) || p.BaseBranch != factory.RefHead(w.BaseRef) {
 		return &factory.PublicationRefusal{Reason: "pr_mismatch"}
 	}
-	if p.HeadTip != w.HeadOID {
-		return &factory.PublicationRefusal{Reason: "stale_head"}
-	}
+	return nil
+}
+
+func checkReviewRefs(snapshot NativeSnapshot, w factory.ReviewWork) error {
 	for _, ref := range snapshot.Refs {
 		if !ref.Visible || !ref.Exists {
 			return &factory.PublicationRefusal{Reason: "pr_mismatch"}
@@ -110,18 +110,36 @@ func matchReviewTarget(w factory.ReviewWork, issue, snapshot NativeSnapshot) err
 			return &factory.PublicationRefusal{Reason: "stale_base_or_result"}
 		}
 	}
-	if snapshot.Reviews == nil || snapshot.Reviews.IssueID != i.ID {
+	return nil
+}
+
+func checkPendingReview(snapshot NativeSnapshot, issueID string, actorID int64) error {
+	if snapshot.Reviews == nil || snapshot.Reviews.IssueID != issueID {
 		return &factory.PublicationWait{Reason: "review_evidence_unavailable"}
 	}
 	for _, review := range snapshot.Reviews.Items {
-		if !review.Visible || review.IssueID != i.ID {
+		if !review.Visible || review.IssueID != issueID {
 			return &factory.PublicationWait{Reason: "review_evidence_unavailable"}
 		}
-		if review.ReviewerID == strconv.FormatInt(w.ActorID, 10) && review.Type == "PENDING" {
+		if review.ReviewerID == strconv.FormatInt(actorID, 10) && review.Type == "PENDING" {
 			return &factory.PublicationRefusal{Reason: "pending_review_exists"}
 		}
 	}
 	return nil
+}
+
+func matchReviewTarget(w factory.ReviewWork, issue, snapshot NativeSnapshot) error {
+	i, p := issue.Issue, snapshot.Pull
+	if err := checkReviewIdentity(w, i, p); err != nil {
+		return err
+	}
+	if p.HeadTip != w.HeadOID {
+		return &factory.PublicationRefusal{Reason: "stale_head"}
+	}
+	if err := checkReviewRefs(snapshot, w); err != nil {
+		return err
+	}
+	return checkPendingReview(snapshot, i.ID, w.ActorID)
 }
 
 func reviewIntent(w factory.ReviewWork) (extensions.OperationIntent, error) {
@@ -230,7 +248,7 @@ func reviewCallError(err error) error {
 	return errors.New("native review operation response unconfirmed")
 }
 
-func reviewOperationOutcome(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+func reviewOutcomeState(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
 	var empty factory.OperationOutcome
 	if record.OperationID != id || record.InstallationID == "" {
 		return empty, errors.New("review operation identity differs")
@@ -248,14 +266,30 @@ func reviewOperationOutcome(id string, record extensions.OperationRecord) (facto
 	if !factory.ValidOpEffect(o.Effect) || !factory.ValidOpCancellation(o.Cancellation) || (o.Completion != "" && !factory.ValidOpCompletion(o.Completion)) || len(o.Reason) > 64 || len(record.Receipt) > factory.MaxReviewReceiptBytes {
 		return empty, errors.New("invalid native review operation state")
 	}
+	return o, nil
+}
+
+func reviewOutcomeScope(o *factory.OperationOutcome, record extensions.OperationRecord) error {
 	tombstone := record.Kind == "" && record.ActorID == "" && record.RepositoryID == "" && o.Effect == factory.OpEffectNotCommitted && o.Cancellation == factory.OpCancelCancelled
 	if !tombstone {
 		actor, ae := strconv.ParseInt(record.ActorID, 10, 64)
 		repo, re := strconv.ParseInt(record.RepositoryID, 10, 64)
 		if record.Kind != factory.OpReviewSubmit || ae != nil || re != nil || actor <= 0 || repo <= 0 {
-			return empty, errors.New("native review operation scope differs")
+			return errors.New("native review operation scope differs")
 		}
 		o.ActorID, o.RepositoryID = actor, repo
+	}
+	return nil
+}
+
+func reviewOperationOutcome(id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+	var empty factory.OperationOutcome
+	o, err := reviewOutcomeState(id, record)
+	if err != nil {
+		return empty, err
+	}
+	if err := reviewOutcomeScope(&o, record); err != nil {
+		return empty, err
 	}
 	o.Receipt = append([]byte(nil), record.Receipt...)
 	return o, nil
@@ -269,38 +303,49 @@ func reviewOperationOutcome(id string, record extensions.OperationRecord) (facto
 // and operation envelope. The adopted
 // per-key mapping is the stable native/factory identity: every submitted
 // finding key arrives exactly once with its native comment record.
-func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
-	var empty factory.ReviewOutcome
+func checkReviewEnvelope(w factory.ReviewWork, o factory.OperationOutcome) error {
 	if err := w.Validate(); err != nil {
-		return empty, err
+		return err
 	}
 	if o.NotObserved || o.OperationID != w.OperationID || o.InstallationID == "" || o.Kind != factory.OpReviewSubmit || o.ActorID != w.ActorID || o.RepositoryID != w.Repository || o.Effect != factory.OpEffectCommitted || len(o.Receipt) == 0 || len(o.Receipt) > factory.MaxReviewReceiptBytes {
-		return empty, errors.New("review outcome differs from its recorded intent")
+		return errors.New("review outcome differs from its recorded intent")
 	}
+	return nil
+}
+
+func decodeReviewReceipt(o factory.OperationOutcome) (extensions.ReviewSubmitReceipt, error) {
 	var receipt extensions.ReviewSubmitReceipt
 	decoder := json.NewDecoder(bytes.NewReader(o.Receipt))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&receipt); err != nil {
-		return empty, errors.New("native review receipt is malformed")
+		return receipt, errors.New("native review receipt is malformed")
 	}
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return empty, errors.New("native review receipt is malformed")
+		return receipt, errors.New("native review receipt is malformed")
 	}
 	// The receipt echoes the immutable admitted identity envelope; every
 	// echoed field must match the recorded work and operation envelope.
 	// The receipt is historical evidence for its admitted tuple only.
 	if receipt.ReviewID <= 0 || receipt.CommentID <= 0 {
-		return empty, errors.New("native review receipt differs from its recorded intent")
+		return receipt, errors.New("native review receipt differs from its recorded intent")
 	}
+	return receipt, nil
+}
+
+func checkReceiptIdentity(receipt extensions.ReviewSubmitReceipt, w factory.ReviewWork, o factory.OperationOutcome) error {
 	if receipt.ReviewerID != w.ActorID || receipt.ReviewerID != o.ActorID || receipt.PRID != w.PRID || receipt.IssueID != w.IssueID || receipt.PRNumber != w.PRNumber || receipt.CommitID != w.HeadOID || receipt.Event != w.Event || receipt.HeadOID != w.HeadOID || receipt.BaseOID != w.BaseOID || o.RepositoryID != w.Repository {
-		return empty, errors.New("native review receipt differs from its recorded intent")
+		return errors.New("native review receipt differs from its recorded intent")
 	}
 	if !factory.ValidCommit(receipt.MergeBaseOID) {
-		return empty, errors.New("native review receipt lacks its merge base")
+		return errors.New("native review receipt lacks its merge base")
 	}
 	if len(receipt.Comments) != len(w.Comments) {
-		return empty, errors.New("native review receipt differs from its recorded comments")
+		return errors.New("native review receipt differs from its recorded comments")
 	}
+	return nil
+}
+
+func mapReceiptComments(receipt extensions.ReviewSubmitReceipt, w factory.ReviewWork) ([]factory.ReviewCommentMapping, error) {
 	submitted := make(map[string]factory.FindingComment, len(w.Comments))
 	for _, comment := range w.Comments {
 		submitted[comment.Key] = comment
@@ -309,18 +354,37 @@ func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome)
 	seenIDs := make(map[int64]bool, len(receipt.Comments))
 	for _, comment := range receipt.Comments {
 		if _, ok := submitted[comment.Key]; !ok {
-			return empty, errors.New("native review receipt maps an unknown finding key")
+			return nil, errors.New("native review receipt maps an unknown finding key")
 		}
 		delete(submitted, comment.Key)
 		if comment.CommentID <= 0 || seenIDs[comment.CommentID] {
-			return empty, errors.New("native review receipt carries an invalid comment record")
+			return nil, errors.New("native review receipt carries an invalid comment record")
 		}
 		seenIDs[comment.CommentID] = true
 		mapping := factory.ReviewCommentMapping{Key: comment.Key, CommentID: comment.CommentID}
 		if err := mapping.Validate(); err != nil {
-			return empty, err
+			return nil, err
 		}
 		mappings = append(mappings, mapping)
+	}
+	return mappings, nil
+}
+
+func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
+	var empty factory.ReviewOutcome
+	if err := checkReviewEnvelope(w, o); err != nil {
+		return empty, err
+	}
+	receipt, err := decodeReviewReceipt(o)
+	if err != nil {
+		return empty, err
+	}
+	if err := checkReceiptIdentity(receipt, w, o); err != nil {
+		return empty, err
+	}
+	mappings, err := mapReceiptComments(receipt, w)
+	if err != nil {
+		return empty, err
 	}
 	return factory.ReviewOutcome{Operation: o, Comments: mappings, ReviewID: receipt.ReviewID, CommentID: receipt.CommentID, ReviewerID: w.ActorID, PRID: w.PRID, PRNumber: w.PRNumber, IssueID: w.IssueID, HeadOID: w.HeadOID, BaseOID: w.BaseOID, CommitID: w.HeadOID, Event: w.Event, MergeBaseOID: receipt.MergeBaseOID}, nil
 }

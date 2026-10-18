@@ -28,6 +28,84 @@ pub struct TerminalRequest {
 #[derive(Default)]
 struct TerminalRequestWire(TerminalRequest);
 
+fn visit_request_text<'a, A>(
+    out: &mut TerminalRequest,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "action" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.action = v;
+            }
+        }
+        "id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.id = v;
+            }
+        }
+        "project" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.project = v;
+            }
+        }
+        "login" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.login = v;
+            }
+        }
+        "name" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.name = v;
+            }
+        }
+        "scope" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.scope = v;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+fn visit_request_int<'a, A>(
+    out: &mut TerminalRequest,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "identity" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.identity = v.0;
+            }
+        }
+        "cols" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.cols = v.0;
+            }
+        }
+        "rows" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.rows = v.0;
+            }
+        }
+        "expires" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.expires = v.0;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for TerminalRequestWire {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -45,66 +123,17 @@ impl<'de> Deserialize<'de> for TerminalRequestWire {
             {
                 let mut out = TerminalRequest::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "action" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.action = v;
-                            }
-                        }
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.id = v;
-                            }
-                        }
-                        "project" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.project = v;
-                            }
-                        }
-                        "login" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.login = v;
-                            }
-                        }
-                        "identity" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.identity = v.0;
-                            }
-                        }
-                        "cols" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.cols = v.0;
-                            }
-                        }
-                        "rows" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.rows = v.0;
-                            }
-                        }
-                        "expires" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.expires = v.0;
-                            }
-                        }
-                        "name" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.name = v;
-                            }
-                        }
-                        "scope" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.scope = v;
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "action", "id", "project", "login", "identity", "cols", "rows",
-                                    "expires", "name", "scope",
-                                ],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if !visit_request_text(&mut out, &key, &mut map)?
+                        && !visit_request_int(&mut out, &key, &mut map)?
+                    {
+                        return Err(de::Error::unknown_field(
+                            &k,
+                            &[
+                                "action", "id", "project", "login", "identity", "cols", "rows",
+                                "expires", "name", "scope",
+                            ],
+                        ));
                     }
                 }
                 Ok(TerminalRequestWire(out))
@@ -128,6 +157,64 @@ pub struct TerminalState {
 #[derive(Default)]
 struct TerminalStateWire(TerminalState);
 
+fn visit_state_text<'a, A>(
+    out: &mut TerminalState,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "id" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.id = v;
+            }
+        }
+        "name" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.name = v;
+            }
+        }
+        "state" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.state = v;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+fn visit_state_scalar<'a, A>(
+    out: &mut TerminalState,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "created_at" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.created_at = v.0;
+            }
+        }
+        "ready" => {
+            if let Some(v) = map.next_value::<Option<bool>>()? {
+                out.ready = v;
+            }
+        }
+        "attached" => {
+            if let Some(v) = map.next_value::<Option<bool>>()? {
+                out.attached = v;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for TerminalStateWire {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -145,43 +232,14 @@ impl<'de> Deserialize<'de> for TerminalStateWire {
             {
                 let mut out = TerminalState::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.id = v;
-                            }
-                        }
-                        "name" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.name = v;
-                            }
-                        }
-                        "created_at" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.created_at = v.0;
-                            }
-                        }
-                        "ready" => {
-                            if let Some(v) = map.next_value::<Option<bool>>()? {
-                                out.ready = v;
-                            }
-                        }
-                        "attached" => {
-                            if let Some(v) = map.next_value::<Option<bool>>()? {
-                                out.attached = v;
-                            }
-                        }
-                        "state" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.state = v;
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &["id", "name", "created_at", "ready", "attached", "state"],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if !visit_state_text(&mut out, &key, &mut map)?
+                        && !visit_state_scalar(&mut out, &key, &mut map)?
+                    {
+                        return Err(de::Error::unknown_field(
+                            &k,
+                            &["id", "name", "created_at", "ready", "attached", "state"],
+                        ));
                     }
                 }
                 Ok(TerminalStateWire(out))
@@ -204,6 +262,55 @@ pub struct TerminalFrame {
 
 #[derive(Default)]
 struct TerminalFrameWire(TerminalFrame);
+
+fn visit_frame_text<'a, A>(
+    out: &mut TerminalFrame,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "type" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.frame_type = v;
+            }
+        }
+        "data" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.data = v;
+            }
+        }
+        "reason" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.reason = v;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+fn visit_frame_int<'a, A>(out: &mut TerminalFrame, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "cols" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.cols = v.0;
+            }
+        }
+        "rows" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.rows = v.0;
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
 
 impl<'de> Deserialize<'de> for TerminalFrameWire {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -232,38 +339,14 @@ impl<'de> Deserialize<'de> for TerminalFrameWire {
                         }
                         continue;
                     }
-                    match k.to_ascii_lowercase().as_str() {
-                        "type" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.frame_type = v;
-                            }
-                        }
-                        "data" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.data = v;
-                            }
-                        }
-                        "cols" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.cols = v.0;
-                            }
-                        }
-                        "rows" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.rows = v.0;
-                            }
-                        }
-                        "reason" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.reason = v;
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &["type", "data", "cols", "rows", "reason", "terminals"],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if !visit_frame_text(&mut out, &key, &mut map)?
+                        && !visit_frame_int(&mut out, &key, &mut map)?
+                    {
+                        return Err(de::Error::unknown_field(
+                            &k,
+                            &["type", "data", "cols", "rows", "reason", "terminals"],
+                        ));
                     }
                 }
                 if terminal_count > 1 {

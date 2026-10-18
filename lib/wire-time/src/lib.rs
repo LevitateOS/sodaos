@@ -63,35 +63,36 @@ pub fn compact_utc(seconds: i64) -> Option<String> {
     ))
 }
 
-fn wire_shape(text: &str) -> bool {
-    let b = text.as_bytes();
-    if b.len() < 20
-        || b[4] != b'-'
-        || b[7] != b'-'
-        || b[10] != b'T'
-        || b[13] != b':'
-        || b[16] != b':'
-        || !digits(&b[0..4])
-        || !digits(&b[5..7])
-        || !digits(&b[8..10])
-        || !digits(&b[11..13])
-        || !digits(&b[14..16])
-        || !digits(&b[17..19])
-    {
-        return false;
+fn fixed_prefix(b: &[u8]) -> bool {
+    b.len() >= 20
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b[10] == b'T'
+        && b[13] == b':'
+        && b[16] == b':'
+        && digits(&b[0..4])
+        && digits(&b[5..7])
+        && digits(&b[8..10])
+        && digits(&b[11..13])
+        && digits(&b[14..16])
+        && digits(&b[17..19])
+        && b[0..4] != *b"0000"
+        && &b[17..19] <= b"59".as_slice()
+}
+
+fn skip_fraction(rest: &[u8]) -> Option<&[u8]> {
+    if rest.first() != Some(&b'.') {
+        return Some(rest);
     }
-    if b[0..4] == *b"0000" || &b[17..19] > b"59".as_slice() {
-        return false;
+    let rest = &rest[1..];
+    let count = rest.iter().take_while(|c| c.is_ascii_digit()).count();
+    if !(1..=9).contains(&count) {
+        return None;
     }
-    let mut rest = &b[19..];
-    if rest.first() == Some(&b'.') {
-        rest = &rest[1..];
-        let count = rest.iter().take_while(|c| c.is_ascii_digit()).count();
-        if !(1..=9).contains(&count) {
-            return false;
-        }
-        rest = &rest[count..];
-    }
+    Some(&rest[count..])
+}
+
+fn zone_suffix(rest: &[u8]) -> bool {
     if rest == b"Z" {
         return true;
     }
@@ -100,6 +101,17 @@ fn wire_shape(text: &str) -> bool {
         && rest[3] == b':'
         && digits(&rest[1..3])
         && digits(&rest[4..6])
+}
+
+fn wire_shape(text: &str) -> bool {
+    let b = text.as_bytes();
+    if !fixed_prefix(b) {
+        return false;
+    }
+    let Some(rest) = skip_fraction(&b[19..]) else {
+        return false;
+    };
+    zone_suffix(rest)
 }
 
 fn digits(bytes: &[u8]) -> bool {

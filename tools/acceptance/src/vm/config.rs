@@ -63,8 +63,7 @@ impl RemoteConfig {
     }
 }
 
-/// Decode a VM configuration with Go field names and no unknown fields.
-pub fn decode_vm_config(value: &RawValue) -> Result<VmConfig, Error> {
+fn config_fields(value: &RawValue) -> Result<BTreeMap<String, Box<RawValue>>, Error> {
     let fields = match serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(value.get()) {
         Ok(fields) => fields,
         Err(_) if !value.get().trim_start().starts_with('{') => BTreeMap::new(),
@@ -88,14 +87,19 @@ pub fn decode_vm_config(value: &RawValue) -> Result<VmConfig, Error> {
             return Err(Error::msg("unknown JSON field"));
         }
     }
-    let string_field = |name: &str| -> Result<String, Error> {
-        match fields.get(name) {
-            None => Ok(String::new()),
-            Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
-                .map(|v| v.unwrap_or_default())
-                .map_err(|_| Error::msg("invalid JSON string field")),
-        }
-    };
+    Ok(fields)
+}
+
+fn string_field(fields: &BTreeMap<String, Box<RawValue>>, name: &str) -> Result<String, Error> {
+    match fields.get(name) {
+        None => Ok(String::new()),
+        Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+            .map(|v| v.unwrap_or_default())
+            .map_err(|_| Error::msg("invalid JSON string field")),
+    }
+}
+
+fn config_disk_gib(fields: &BTreeMap<String, Box<RawValue>>) -> Result<i64, Error> {
     let disk_gib = match fields.get("DiskGiB") {
         None => 0,
         Some(raw) if raw.get() == "null" => 0,
@@ -104,20 +108,25 @@ pub fn decode_vm_config(value: &RawValue) -> Result<VmConfig, Error> {
             .parse::<i128>()
             .map_err(|_| Error::msg("invalid DiskGiB: integer required"))?,
     };
-    let disk_gib =
-        i64::try_from(disk_gib).map_err(|_| Error::msg("invalid DiskGiB: integer required"))?;
+    i64::try_from(disk_gib).map_err(|_| Error::msg("invalid DiskGiB: integer required"))
+}
+
+/// Decode a VM configuration with Go field names and no unknown fields.
+pub fn decode_vm_config(value: &RawValue) -> Result<VmConfig, Error> {
+    let fields = config_fields(value)?;
+    let disk_gib = config_disk_gib(&fields)?;
     let absent_ssh = RawValue::from_string("null".to_string()).expect("valid JSON literal");
     let ssh_value = fields.get("SSH").map(Box::as_ref).unwrap_or(&absent_ssh);
     let ssh = command::decode_remote(ssh_value)?;
     Ok(VmConfig {
-        name: string_field("Name")?,
-        architecture: string_field("Architecture")?,
-        base_receipt: string_field("BaseReceipt")?,
-        ignition: string_field("Ignition")?,
-        qemu: string_field("QEMU")?,
-        firmware: string_field("Firmware")?,
-        variables: string_field("Variables")?,
-        work: string_field("Work")?,
+        name: string_field(&fields, "Name")?,
+        architecture: string_field(&fields, "Architecture")?,
+        base_receipt: string_field(&fields, "BaseReceipt")?,
+        ignition: string_field(&fields, "Ignition")?,
+        qemu: string_field(&fields, "QEMU")?,
+        firmware: string_field(&fields, "Firmware")?,
+        variables: string_field(&fields, "Variables")?,
+        work: string_field(&fields, "Work")?,
         disk_gib,
         ssh: RemoteConfig {
             user: ssh.user,

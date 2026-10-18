@@ -84,6 +84,66 @@ struct PeerWire {
     online: Option<bool>,
     expired: Option<bool>,
 }
+fn visit_peer_text<'de, A>(map: &mut A, out: &mut PeerWire, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if fold_eq(k, "ID") {
+        Some(&mut out.id)
+    } else if fold_eq(k, "DNSName") {
+        Some(&mut out.dns_name)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            *slot = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_peer_list<'de, A>(map: &mut A, out: &mut PeerWire, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if fold_eq(k, "TailscaleIPs") {
+        Some(&mut out.ips)
+    } else if fold_eq(k, "Tags") {
+        Some(&mut out.tags)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<StringList>>()? {
+            *slot = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_peer_flag<'de, A>(map: &mut A, out: &mut PeerWire, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if fold_eq(k, "Online") {
+        Some(&mut out.online)
+    } else if fold_eq(k, "Expired") {
+        Some(&mut out.expired)
+    } else {
+        None
+    };
+    if let Some(slot) = slot {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            *slot = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 impl<'de> Deserialize<'de> for PeerWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -101,33 +161,16 @@ impl<'de> Deserialize<'de> for PeerWire {
             {
                 let mut out = PeerWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    if fold_eq(&k, "ID") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = Some(v);
-                        }
-                    } else if fold_eq(&k, "DNSName") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.dns_name = Some(v);
-                        }
-                    } else if fold_eq(&k, "TailscaleIPs") {
-                        if let Some(v) = map.next_value::<Option<StringList>>()? {
-                            out.ips = Some(v);
-                        }
-                    } else if fold_eq(&k, "Tags") {
-                        if let Some(v) = map.next_value::<Option<StringList>>()? {
-                            out.tags = Some(v);
-                        }
-                    } else if fold_eq(&k, "Online") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.online = Some(v);
-                        }
-                    } else if fold_eq(&k, "Expired") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.expired = Some(v);
-                        }
-                    } else {
-                        map.next_value::<de::IgnoredAny>()?;
+                    if visit_peer_text(&mut map, &mut out, &k)? {
+                        continue;
                     }
+                    if visit_peer_list(&mut map, &mut out, &k)? {
+                        continue;
+                    }
+                    if visit_peer_flag(&mut map, &mut out, &k)? {
+                        continue;
+                    }
+                    map.next_value::<de::IgnoredAny>()?;
                 }
                 Ok(out)
             }
@@ -174,6 +217,94 @@ struct StatusWire {
     exact_key_null: bool,
     key_value_seen: bool,
 }
+fn visit_status_backend<'de, A>(
+    map: &mut A,
+    out: &mut StatusWire,
+    k: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !fold_eq(k, "BackendState") {
+        return Ok(false);
+    }
+    let value = map.next_value::<Option<String>>()?;
+    if k == "BackendState" {
+        out.required_state = value.is_some();
+    }
+    if let Some(v) = value {
+        out.value.backend_state = v;
+    }
+    Ok(true)
+}
+
+fn visit_status_key<'de, A>(map: &mut A, out: &mut StatusWire, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !fold_eq(k, "HaveNodeKey") {
+        return Ok(false);
+    }
+    let value = map.next_value::<Option<bool>>()?;
+    out.key_seen = true;
+    out.exact_key_seen |= k == "HaveNodeKey";
+    out.exact_key_null |= k == "HaveNodeKey" && value.is_none();
+    out.key_value_seen |= value.is_some();
+    if let Some(v) = value {
+        out.value.have_node_key = v;
+    }
+    Ok(true)
+}
+
+fn visit_status_tailnet<'de, A>(
+    map: &mut A,
+    out: &mut StatusWire,
+    k: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !fold_eq(k, "CurrentTailnet") {
+        return Ok(false);
+    }
+    let value = map.next_value::<Option<TailnetWire>>()?;
+    if let Some(v) = value {
+        if let Some(name) = v.name {
+            out.value.tailnet = Some(name);
+        } else {
+            out.value.tailnet.get_or_insert_with(String::new);
+        }
+    }
+    Ok(true)
+}
+
+fn visit_status_self<'de, A>(map: &mut A, out: &mut StatusWire, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !fold_eq(k, "Self") {
+        return Ok(false);
+    }
+    let value = map.next_value::<Option<PeerWire>>()?;
+    if let Some(v) = value {
+        let peer = out.value.peer.get_or_insert_with(SelfPeer::default);
+        merge_peer(peer, v);
+    }
+    Ok(true)
+}
+
+fn check_status_complete<'de, A>(out: &StatusWire) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !out.required_state
+        || (out.key_seen && (!out.exact_key_seen || out.exact_key_null || !out.key_value_seen))
+    {
+        return Err(de::Error::custom("missing required native status field"));
+    }
+    Ok(())
+}
+
 impl<'de> Deserialize<'de> for StatusWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -191,48 +322,21 @@ impl<'de> Deserialize<'de> for StatusWire {
             {
                 let mut out = StatusWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    if fold_eq(&k, "BackendState") {
-                        let value = map.next_value::<Option<String>>()?;
-                        if k == "BackendState" {
-                            out.required_state = value.is_some();
-                        }
-                        if let Some(v) = value {
-                            out.value.backend_state = v;
-                        }
-                    } else if fold_eq(&k, "HaveNodeKey") {
-                        let value = map.next_value::<Option<bool>>()?;
-                        out.key_seen = true;
-                        out.exact_key_seen |= k == "HaveNodeKey";
-                        out.exact_key_null |= k == "HaveNodeKey" && value.is_none();
-                        out.key_value_seen |= value.is_some();
-                        if let Some(v) = value {
-                            out.value.have_node_key = v;
-                        }
-                    } else if fold_eq(&k, "CurrentTailnet") {
-                        let value = map.next_value::<Option<TailnetWire>>()?;
-                        if let Some(v) = value {
-                            if let Some(name) = v.name {
-                                out.value.tailnet = Some(name);
-                            } else {
-                                out.value.tailnet.get_or_insert_with(String::new);
-                            }
-                        }
-                    } else if fold_eq(&k, "Self") {
-                        let value = map.next_value::<Option<PeerWire>>()?;
-                        if let Some(v) = value {
-                            let peer = out.value.peer.get_or_insert_with(SelfPeer::default);
-                            merge_peer(peer, v);
-                        }
-                    } else {
-                        map.next_value::<de::IgnoredAny>()?;
+                    if visit_status_backend(&mut map, &mut out, &k)? {
+                        continue;
                     }
+                    if visit_status_key(&mut map, &mut out, &k)? {
+                        continue;
+                    }
+                    if visit_status_tailnet(&mut map, &mut out, &k)? {
+                        continue;
+                    }
+                    if visit_status_self(&mut map, &mut out, &k)? {
+                        continue;
+                    }
+                    map.next_value::<de::IgnoredAny>()?;
                 }
-                if !out.required_state
-                    || (out.key_seen
-                        && (!out.exact_key_seen || out.exact_key_null || !out.key_value_seen))
-                {
-                    return Err(de::Error::custom("missing required native status field"));
-                }
+                check_status_complete::<A>(&out)?;
                 Ok(out)
             }
         }
@@ -298,6 +402,123 @@ struct PrefsWire {
     value: NativePrefs,
     required: [bool; 7],
 }
+fn prefs_slot(k: &str) -> (usize, bool) {
+    [
+        "WantRunning",
+        "CorpDNS",
+        "RouteAll",
+        "RunSSH",
+        "ExitNodeID",
+        "ExitNodeIP",
+        "AdvertiseRoutes",
+    ]
+    .iter()
+    .enumerate()
+    .find(|(_, name)| fold_eq(k, name))
+    .map(|(i, n)| (i, k == *n))
+    .unwrap_or((usize::MAX, false))
+}
+
+fn visit_prefs_bool<'de, A>(
+    map: &mut A,
+    slot: &mut bool,
+    seen: &mut bool,
+    exact: bool,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let v = map.next_value::<Option<bool>>()?;
+    if exact {
+        *seen = v.is_some();
+    }
+    if let Some(v) = v {
+        *slot = v;
+    }
+    Ok(())
+}
+
+fn visit_prefs_text<'de, A>(
+    map: &mut A,
+    slot: &mut String,
+    seen: &mut bool,
+    exact: bool,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let v = map.next_value::<Option<String>>()?;
+    if exact {
+        *seen = v.is_some();
+    }
+    if let Some(v) = v {
+        *slot = v;
+    }
+    Ok(())
+}
+
+fn visit_prefs_routes<'de, A>(map: &mut A, out: &mut PrefsWire, exact: bool) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let v = map.next_value::<Option<StringList>>()?;
+    if exact {
+        out.required[6] = true;
+    }
+    if let Some(v) = v {
+        out.value.advertise_routes = v.0;
+    }
+    Ok(())
+}
+
+fn check_prefs_complete<'de, A>(out: &PrefsWire) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if !out.required.iter().all(|v| *v) {
+        return Err(de::Error::custom(
+            "missing required exact native preference field",
+        ));
+    }
+    Ok(())
+}
+
+fn visit_prefs_index<'de, A>(
+    map: &mut A,
+    out: &mut PrefsWire,
+    index: usize,
+    exact: bool,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match index {
+        0 => visit_prefs_bool(
+            map,
+            &mut out.value.want_running,
+            &mut out.required[0],
+            exact,
+        )?,
+        1 => visit_prefs_bool(map, &mut out.value.corp_dns, &mut out.required[1], exact)?,
+        2 => visit_prefs_bool(map, &mut out.value.route_all, &mut out.required[2], exact)?,
+        3 => visit_prefs_bool(map, &mut out.value.run_ssh, &mut out.required[3], exact)?,
+        4 => visit_prefs_text(
+            map,
+            &mut out.value.exit_node_id,
+            &mut out.required[4],
+            exact,
+        )?,
+        5 => visit_prefs_text(
+            map,
+            &mut out.value.exit_node_ip,
+            &mut out.required[5],
+            exact,
+        )?,
+        _ => visit_prefs_routes(map, out, exact)?,
+    }
+    Ok(())
+}
+
 impl<'de> Deserialize<'de> for PrefsWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -315,95 +536,14 @@ impl<'de> Deserialize<'de> for PrefsWire {
             {
                 let mut out = PrefsWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    let (index, exact) = [
-                        "WantRunning",
-                        "CorpDNS",
-                        "RouteAll",
-                        "RunSSH",
-                        "ExitNodeID",
-                        "ExitNodeIP",
-                        "AdvertiseRoutes",
-                    ]
-                    .iter()
-                    .enumerate()
-                    .find(|(_, name)| fold_eq(&k, name))
-                    .map(|(i, n)| (i, k == *n))
-                    .unwrap_or((usize::MAX, false));
+                    let (index, exact) = prefs_slot(&k);
                     if index == usize::MAX {
                         map.next_value::<de::IgnoredAny>()?;
                         continue;
                     }
-                    match index {
-                        0 => {
-                            let v = map.next_value::<Option<bool>>()?;
-                            if exact {
-                                out.required[0] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.want_running = v;
-                            }
-                        }
-                        1 => {
-                            let v = map.next_value::<Option<bool>>()?;
-                            if exact {
-                                out.required[1] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.corp_dns = v;
-                            }
-                        }
-                        2 => {
-                            let v = map.next_value::<Option<bool>>()?;
-                            if exact {
-                                out.required[2] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.route_all = v;
-                            }
-                        }
-                        3 => {
-                            let v = map.next_value::<Option<bool>>()?;
-                            if exact {
-                                out.required[3] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.run_ssh = v;
-                            }
-                        }
-                        4 => {
-                            let v = map.next_value::<Option<String>>()?;
-                            if exact {
-                                out.required[4] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.exit_node_id = v;
-                            }
-                        }
-                        5 => {
-                            let v = map.next_value::<Option<String>>()?;
-                            if exact {
-                                out.required[5] = v.is_some();
-                            }
-                            if let Some(v) = v {
-                                out.value.exit_node_ip = v;
-                            }
-                        }
-                        _ => {
-                            let v = map.next_value::<Option<StringList>>()?;
-                            if exact {
-                                out.required[6] = true;
-                            }
-                            if let Some(v) = v {
-                                out.value.advertise_routes = v.0;
-                            }
-                        }
-                    }
+                    visit_prefs_index(&mut map, &mut out, index, exact)?;
                 }
-                if !out.required.iter().all(|v| *v) {
-                    return Err(de::Error::custom(
-                        "missing required exact native preference field",
-                    ));
-                }
+                check_prefs_complete::<A>(&out)?;
                 Ok(out)
             }
         }

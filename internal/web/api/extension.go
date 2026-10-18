@@ -168,26 +168,8 @@ func extensionProductRoute(r *http.Request) bool {
 	case "repositories":
 		return extensionRepositoryRoute(parts, r.Method)
 	case "factory":
-		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
-			return r.Method == http.MethodGet || r.Method == http.MethodPost
-		}
-		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions") {
-			return r.Method == http.MethodGet
-		}
-		if len(parts) == 2 && parts[1] == "intent-allowances" {
-			return r.Method == http.MethodPost
-		}
-		if len(parts) == 2 && parts[1] == "departments" {
-			return r.Method == http.MethodGet || r.Method == http.MethodPost
-		}
-		if len(parts) == 2 && parts[1] == "intents" {
-			return r.Method == http.MethodPost || r.Method == http.MethodGet
-		}
-		if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
-			return r.Method == http.MethodGet
-		}
-		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "explore" || parts[3] == "generate" || parts[3] == "plan") {
-			return r.Method == http.MethodPost
+		if admitted, handled := extensionFactoryIntentsRoute(parts, r.Method); handled {
+			return admitted
 		}
 		return extensionFactoryRoute(parts, r.Method)
 	case "spaces":
@@ -208,45 +190,108 @@ func extensionProductID(value string) bool {
 	return value != "" && value != "." && value != ".."
 }
 
-func extensionRepositoryRoute(parts []string, method string) bool {
-	if len(parts) == 1 {
-		return method == http.MethodGet
+func extensionFactoryIntentsRoute(parts []string, method string) (admitted, handled bool) {
+	if admitted, handled := extensionIntentsRevisionRoute(parts, method); handled {
+		return admitted, true
 	}
+	return extensionIntentsMutationRoute(parts, method)
+}
+
+func extensionIntentsRevisionRoute(parts []string, method string) (admitted, handled bool) {
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
+		return method == http.MethodGet || method == http.MethodPost, true
+	}
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions") {
+		return method == http.MethodGet, true
+	}
+	if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
+		return method == http.MethodGet, true
+	}
+	return false, false
+}
+
+func extensionIntentsMutationRoute(parts []string, method string) (admitted, handled bool) {
+	if len(parts) == 2 && parts[1] == "intent-allowances" {
+		return method == http.MethodPost, true
+	}
+	if len(parts) == 2 && parts[1] == "departments" {
+		return method == http.MethodGet || method == http.MethodPost, true
+	}
+	if len(parts) == 2 && parts[1] == "intents" {
+		return method == http.MethodPost || method == http.MethodGet, true
+	}
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "explore" || parts[3] == "generate" || parts[3] == "plan") {
+		return method == http.MethodPost, true
+	}
+	return false, false
+}
+
+func extensionRepositoryRoute(parts []string, method string) bool {
+	switch len(parts) {
+	case 1:
+		return method == http.MethodGet
+	case 3:
+		return extensionRepositoryProfileRoute(parts, method)
+	case 4:
+		return extensionRepositoryFactoryAction(parts, method)
+	case 5:
+		return extensionRepositoryFactoryResource(parts, method)
+	case 6:
+		return extensionRepositoryFactoryItem(parts, method)
+	}
+	return false
+}
+
+func extensionRepositoryProfileRoute(parts []string, method string) bool {
 	if !extensionProductID(parts[1]) {
 		return false
 	}
-	if len(parts) == 3 {
-		if parts[2] == "profiles" || parts[2] == "tailnet-options" {
-			return method == http.MethodGet
-		}
-		return parts[2] == "factory" && method == http.MethodGet
+	if parts[2] == "profiles" || parts[2] == "tailnet-options" {
+		return method == http.MethodGet
 	}
-	if len(parts) == 4 && parts[2] == "factory" {
-		switch parts[3] {
-		case "access":
-			return method == http.MethodGet
-		case "activity":
-			return method == http.MethodGet || method == http.MethodPut
-		case "policy", "operator-grant", "environment-grant":
-			return method == http.MethodPut
-		case "actions":
-			return method == http.MethodPost
-		}
+	return parts[2] == "factory" && method == http.MethodGet
+}
+
+func extensionRepositoryFactoryAction(parts []string, method string) bool {
+	if !extensionProductID(parts[1]) || parts[2] != "factory" {
 		return false
 	}
-	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "sponsorships" {
-		return extensionProductID(parts[4]) && method == http.MethodPut
+	switch parts[3] {
+	case "access":
+		return method == http.MethodGet
+	case "activity":
+		return method == http.MethodGet || method == http.MethodPut
+	case "policy", "operator-grant", "environment-grant":
+		return method == http.MethodPut
+	case "actions":
+		return method == http.MethodPost
 	}
-	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "issues" {
-		return extensionProductID(parts[4]) && method == http.MethodGet
+	return false
+}
+
+func extensionRepositoryFactoryResource(parts []string, method string) bool {
+	if !extensionProductID(parts[1]) || parts[2] != "factory" || !extensionProductID(parts[4]) {
+		return false
 	}
-	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "lifecycle" {
-		return extensionProductID(parts[4]) && (method == http.MethodGet || method == http.MethodPut)
+	switch parts[3] {
+	case "sponsorships":
+		return method == http.MethodPut
+	case "issues":
+		return method == http.MethodGet
+	case "lifecycle":
+		return method == http.MethodGet || method == http.MethodPut
 	}
-	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "lifecycle" && extensionProductID(parts[4]) {
+	return false
+}
+
+func extensionRepositoryFactoryItem(parts []string, method string) bool {
+	if !extensionProductID(parts[1]) || parts[2] != "factory" || !extensionProductID(parts[4]) {
+		return false
+	}
+	if parts[3] == "lifecycle" {
 		return parts[5] == "actions" && method == http.MethodGet
 	}
-	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
+	if parts[3] == "issues" {
 		return parts[5] == "acceptances" && method == http.MethodPost ||
 			parts[5] == "acceptance-preview" && method == http.MethodGet ||
 			parts[5] == "assignment" && method == http.MethodGet ||

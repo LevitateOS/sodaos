@@ -89,6 +89,108 @@ pub struct LaunchRequest {
     pub rows: u16,
 }
 
+fn apply_launch_head_fields<'de, A>(
+    out: &mut LaunchRequest,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("home") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.home = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("register") {
+        if let Some(v) = map.next_value::<Option<NestedRegistration>>()? {
+            out.register = Some(v);
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("config_home") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.config_home = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn apply_launch_session_fields<'de, A>(
+    out: &mut LaunchRequest,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("term") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.term = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("connection_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.connection_id = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("cwd") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.cwd = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("args") {
+        if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
+            out.args = v.into_iter().map(Option::unwrap_or_default).collect();
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn apply_launch_terminal_fields<'de, A>(
+    out: &mut LaunchRequest,
+    cols: &mut i64,
+    rows: &mut i64,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("tty") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.tty = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("cols") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            *cols = v.0;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("rows") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            *rows = v.0;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn check_launch_dimensions(cols: i64, rows: i64) -> Result<(u16, u16), &'static str> {
+    if !(0..=u16::MAX as i64).contains(&cols) || !(0..=u16::MAX as i64).contains(&rows) {
+        return Err("cols/rows out of range");
+    }
+    Ok((cols as u16, rows as u16))
+}
+
 impl<'de> Deserialize<'de> for LaunchRequest {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -108,64 +210,14 @@ impl<'de> Deserialize<'de> for LaunchRequest {
                 let mut cols = 0i64;
                 let mut rows = 0i64;
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("home") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.home = v;
-                        }
+                    if apply_launch_head_fields(&mut out, &key, &mut map)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("register") {
-                        if let Some(v) = map.next_value::<Option<NestedRegistration>>()? {
-                            out.register = Some(v);
-                        }
+                    if apply_launch_session_fields(&mut out, &key, &mut map)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("config_home") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.config_home = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("term") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.term = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("connection_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.connection_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("cwd") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.cwd = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("args") {
-                        if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
-                            out.args = v.into_iter().map(Option::unwrap_or_default).collect();
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("tty") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.tty = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("cols") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            cols = v.0;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("rows") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            rows = v.0;
-                        }
+                    if apply_launch_terminal_fields(&mut out, &mut cols, &mut rows, &key, &mut map)?
+                    {
                         continue;
                     }
                     return Err(de::Error::unknown_field(
@@ -184,12 +236,13 @@ impl<'de> Deserialize<'de> for LaunchRequest {
                         ],
                     ));
                 }
-                if !(0..=u16::MAX as i64).contains(&cols) || !(0..=u16::MAX as i64).contains(&rows)
-                {
-                    return Err(de::Error::custom("cols/rows out of range"));
+                match check_launch_dimensions(cols, rows) {
+                    Ok((parsed_cols, parsed_rows)) => {
+                        out.cols = parsed_cols;
+                        out.rows = parsed_rows;
+                    }
+                    Err(message) => return Err(de::Error::custom(message)),
                 }
-                out.cols = cols as u16;
-                out.rows = rows as u16;
                 Ok(out)
             }
         }

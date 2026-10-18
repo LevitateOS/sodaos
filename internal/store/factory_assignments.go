@@ -124,12 +124,25 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err != nil {
 		return err
 	}
+	if err = checkAssignmentFinishFreshTx(ctx, tx, a); err != nil {
+		return err
+	}
+	if err = writeAssignmentFinishTx(ctx, tx, a, data); err != nil {
+		return err
+	}
+	if err = settleFinishedAssignmentTx(ctx, tx, a, paused); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func checkAssignmentFinishFreshTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
 	var currentData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID).Scan(&currentData); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID).Scan(&currentData); err != nil {
 		return err
 	}
 	var current factory.Assignment
-	if err = json.Unmarshal(currentData, &current); err != nil {
+	if err := json.Unmarshal(currentData, &current); err != nil {
 		return err
 	}
 	// All recorded inputs are immutable through finish: the current row
@@ -143,6 +156,10 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if !sameAssignmentFinishInput(current, a) {
 		return ErrNotFound
 	}
+	return nil
+}
+
+func writeAssignmentFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, data []byte) error {
 	result, err := tx.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1
 		WHERE id=$2 AND revision=$3 AND stage='assigned'
 		AND data->>'attempt_root'=$4 AND data->>'publication_assignment'=$5`,
@@ -157,6 +174,10 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if n != 1 {
 		return ErrNotFound
 	}
+	return nil
+}
+
+func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, paused bool) error {
 	// A valid canonical completion root addresses its own typed
 	// allowance through the shared transition joint in this same
 	// transaction. It never enqueues ordinary issue readiness:
@@ -165,45 +186,43 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	isCompletion := a.Subject.Kind == factory.SubjectCompletion
 	isIntent := a.Subject.Kind == factory.SubjectIntent
 	if a.Outcome == factory.Succeeded && a.Reason == factory.AssignReasonReported {
-		if isCompletion {
-			// Successful+reported terminal completion closes its
-			// coder-only root admission here; the shared joint
-			// retains the active clock until actual recorded
-			// run/preparation effects settle.
-			if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
-				return err
-			}
-		} else if isIntent {
-			// Successful+reported terminal intent closes its
-			// decompose-only root admission here through the same
-			// shared joint. It never enqueues ordinary issue
-			// readiness: readiness refuses issue zero, and intent
-			// accounting is per-root, never per-latest(repository, 0).
-			if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
-				return err
-			}
-		} else if err = enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue); err != nil {
-			return err
-		}
-	} else {
-		closeRoot := a.Reason != factory.AssignReasonSuperseded && a.Reason != factory.AssignReasonWithdrawn && a.Reason != factory.AssignReasonCancelled
-		if paused {
-			closeRoot = false
-		}
-		if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, closeRoot, time.Now()); err != nil {
-			// Terminal completion and intent accounting is
-			// mandatory: a missing or mismatched typed allowance
-			// fails the finish instead of committing without
-			// accounting. Ordinary issue paths keep the historical
-			// absent-row tolerance.
-			if !isCompletion && !isIntent && errors.Is(err, sql.ErrNoRows) {
-				err = nil
-			} else {
-				return err
-			}
-		}
+		return settleReportedFinishTx(ctx, tx, a, isCompletion, isIntent)
 	}
-	return tx.Commit()
+	closeRoot := a.Reason != factory.AssignReasonSuperseded && a.Reason != factory.AssignReasonWithdrawn && a.Reason != factory.AssignReasonCancelled
+	if paused {
+		closeRoot = false
+	}
+	if err := transitionAttemptAssignmentTx(ctx, tx, a.ID, closeRoot, time.Now()); err != nil {
+		// Terminal completion and intent accounting is
+		// mandatory: a missing or mismatched typed allowance
+		// fails the finish instead of committing without
+		// accounting. Ordinary issue paths keep the historical
+		// absent-row tolerance.
+		if !isCompletion && !isIntent && errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, isCompletion, isIntent bool) error {
+	if isCompletion {
+		// Successful+reported terminal completion closes its
+		// coder-only root admission here; the shared joint
+		// retains the active clock until actual recorded
+		// run/preparation effects settle.
+		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
+	}
+	if isIntent {
+		// Successful+reported terminal intent closes its
+		// decompose-only root admission here through the same
+		// shared joint. It never enqueues ordinary issue
+		// readiness: readiness refuses issue zero, and intent
+		// accounting is per-root, never per-latest(repository, 0).
+		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
+	}
+	return enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue)
 }
 
 // AssignedAssignments lists every unfinished dispatch assignment, oldest

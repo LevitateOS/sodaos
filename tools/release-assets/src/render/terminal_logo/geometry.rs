@@ -1,5 +1,70 @@
 //! Polygon tokenization and even-odd raster geometry.
 
+fn push_move(
+    points: &mut Vec<(f64, f64)>,
+    x: &mut f64,
+    y: &mut f64,
+    next_x: f64,
+    next_y: f64,
+) -> Result<(), String> {
+    if !points.is_empty() {
+        return Err("Unterminated emblem geometry".to_string());
+    }
+    *x = finite(next_x)?;
+    *y = finite(next_y)?;
+    points.push((*x, *y));
+    Ok(())
+}
+
+fn push_line(
+    points: &mut Vec<(f64, f64)>,
+    x: &mut f64,
+    y: &mut f64,
+    next_x: f64,
+    next_y: f64,
+) -> Result<(), String> {
+    require_ring(points)?;
+    *x = finite(next_x)?;
+    *y = finite(next_y)?;
+    points.push((*x, *y));
+    Ok(())
+}
+
+fn push_horizontal(
+    points: &mut Vec<(f64, f64)>,
+    x: &mut f64,
+    y: &mut f64,
+    next_x: f64,
+) -> Result<(), String> {
+    require_ring(points)?;
+    *x = finite(next_x)?;
+    points.push((*x, *y));
+    Ok(())
+}
+
+fn push_vertical(
+    points: &mut Vec<(f64, f64)>,
+    x: &mut f64,
+    y: &mut f64,
+    next_y: f64,
+) -> Result<(), String> {
+    require_ring(points)?;
+    *y = finite(next_y)?;
+    points.push((*x, *y));
+    Ok(())
+}
+
+fn close_ring(
+    result: &mut Vec<Vec<(f64, f64)>>,
+    points: &mut Vec<(f64, f64)>,
+) -> Result<(), String> {
+    if points.len() < 3 {
+        return Err("Emblem polygon has fewer than 3 points".to_string());
+    }
+    result.push(std::mem::take(points));
+    Ok(())
+}
+
 /// Parse absolute polygon path data into explicitly closed rings.
 pub(crate) fn polygons(data: &str) -> Result<Vec<Vec<(f64, f64)>>, String> {
     let mut result: Vec<Vec<(f64, f64)>> = Vec::new();
@@ -12,46 +77,21 @@ pub(crate) fn polygons(data: &str) -> Result<Vec<Vec<(f64, f64)>>, String> {
                 abs: true,
                 x: next_x,
                 y: next_y,
-            } => {
-                if !points.is_empty() {
-                    return Err("Unterminated emblem geometry".to_string());
-                }
-                x = finite(next_x)?;
-                y = finite(next_y)?;
-                points.push((x, y));
-            }
+            } => push_move(&mut points, &mut x, &mut y, next_x, next_y)?,
             svgtypes::PathSegment::LineTo {
                 abs: true,
                 x: next_x,
                 y: next_y,
-            } => {
-                require_ring(&points)?;
-                x = finite(next_x)?;
-                y = finite(next_y)?;
-                points.push((x, y));
-            }
+            } => push_line(&mut points, &mut x, &mut y, next_x, next_y)?,
             svgtypes::PathSegment::HorizontalLineTo {
                 abs: true,
                 x: next_x,
-            } => {
-                require_ring(&points)?;
-                x = finite(next_x)?;
-                points.push((x, y));
-            }
+            } => push_horizontal(&mut points, &mut x, &mut y, next_x)?,
             svgtypes::PathSegment::VerticalLineTo {
                 abs: true,
                 y: next_y,
-            } => {
-                require_ring(&points)?;
-                y = finite(next_y)?;
-                points.push((x, y));
-            }
-            svgtypes::PathSegment::ClosePath { abs: true } => {
-                if points.len() < 3 {
-                    return Err("Emblem polygon has fewer than 3 points".to_string());
-                }
-                result.push(std::mem::take(&mut points));
-            }
+            } => push_vertical(&mut points, &mut x, &mut y, next_y)?,
+            svgtypes::PathSegment::ClosePath { abs: true } => close_ring(&mut result, &mut points)?,
             other => {
                 return Err(format!(
                     "Unsupported emblem command: {}",

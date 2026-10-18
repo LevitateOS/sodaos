@@ -64,75 +64,95 @@ func AssessProposedTasks(r IntentRevision, tasks []IntentTask, maxIssues int) er
 	for _, idea := range r.Ideas {
 		ideas[idea.ID] = idea
 	}
+	seen, err := checkProposedTaskShapes(tasks, ideas)
+	if err != nil {
+		return err
+	}
+	if err := checkProposedTaskGraph(seen); err != nil {
+		return err
+	}
+	return checkProposedTaskCoverage(r, tasks)
+}
+
+func checkProposedTaskShapes(tasks []IntentTask, ideas map[string]ProductIdea) (map[string]IntentTask, error) {
 	seen := map[string]IntentTask{}
 	for _, task := range tasks {
 		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, 4000) ||
 			len(task.Outcomes) == 0 || len(task.Outcomes) > 20 || len(task.IdeaIDs) == 0 {
-			return errors.New("invalid candidate task")
+			return nil, errors.New("invalid candidate task")
 		}
 		if _, exists := seen[task.Key]; exists {
-			return errors.New("duplicate candidate task")
+			return nil, errors.New("duplicate candidate task")
 		}
 		for _, outcome := range task.Outcomes {
 			if !intentText(outcome, 4000) {
-				return errors.New("invalid candidate outcome")
+				return nil, errors.New("invalid candidate outcome")
 			}
 		}
 		for _, id := range task.IdeaIDs {
 			idea, exists := ideas[id]
 			if !exists {
-				return errors.New("candidate references unknown product choice")
+				return nil, errors.New("candidate references unknown product choice")
 			}
 			if idea.Decision != "accept" && idea.Decision != "edit" {
-				return errors.New("candidate references undecided product choice")
+				return nil, errors.New("candidate references undecided product choice")
 			}
 		}
 		seen[task.Key] = task
 	}
+	return seen, nil
+}
+
+func checkProposedTaskGraph(seen map[string]IntentTask) error {
 	visited, active := map[string]bool{}, map[string]bool{}
-	var visit func(string) error
-	visit = func(key string) error {
-		if active[key] {
-			return errors.New("cyclic candidate dependencies")
-		}
-		if visited[key] {
-			return nil
-		}
-		task, exists := seen[key]
-		if !exists {
-			return errors.New("unknown candidate dependency")
-		}
-		active[key] = true
-		edge := map[string]bool{}
-		for _, dep := range task.DependsOn {
-			if edge[dep] {
-				return errors.New("duplicate candidate dependency")
-			}
-			edge[dep] = true
-			if err := visit(dep); err != nil {
-				return err
-			}
-		}
-		active[key] = false
-		visited[key] = true
-		return nil
-	}
 	for key := range seen {
-		if err := visit(key); err != nil {
+		if err := visitProposedTask(seen, visited, active, key); err != nil {
 			return err
 		}
 	}
-	if len(r.EffectiveOutcomes) > 0 {
-		covered := map[string]bool{}
-		for _, task := range tasks {
-			for _, id := range task.IdeaIDs {
-				covered[id] = true
-			}
+	return nil
+}
+
+func visitProposedTask(seen map[string]IntentTask, visited, active map[string]bool, key string) error {
+	if active[key] {
+		return errors.New("cyclic candidate dependencies")
+	}
+	if visited[key] {
+		return nil
+	}
+	task, exists := seen[key]
+	if !exists {
+		return errors.New("unknown candidate dependency")
+	}
+	active[key] = true
+	edge := map[string]bool{}
+	for _, dep := range task.DependsOn {
+		if edge[dep] {
+			return errors.New("duplicate candidate dependency")
 		}
-		for _, id := range r.EffectiveOutcomes {
-			if !covered[id] {
-				return errors.New("candidate leaves authorized outcomes uncovered")
-			}
+		edge[dep] = true
+		if err := visitProposedTask(seen, visited, active, dep); err != nil {
+			return err
+		}
+	}
+	active[key] = false
+	visited[key] = true
+	return nil
+}
+
+func checkProposedTaskCoverage(r IntentRevision, tasks []IntentTask) error {
+	if len(r.EffectiveOutcomes) == 0 {
+		return nil
+	}
+	covered := map[string]bool{}
+	for _, task := range tasks {
+		for _, id := range task.IdeaIDs {
+			covered[id] = true
+		}
+	}
+	for _, id := range r.EffectiveOutcomes {
+		if !covered[id] {
+			return errors.New("candidate leaves authorized outcomes uncovered")
 		}
 	}
 	return nil

@@ -63,35 +63,49 @@ type attemptPlan struct {
 // dispatchOne dispatches one queued issue or reports exactly why it
 // waited. Checks run in fixed order so the same state reports the same reason.
 // An explicit Retry can retain bounded private preparation custody while waiting.
-func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, report *DispatchReport) {
+type admittedDispatchAttempt struct {
+	latest        factory.Assignment
+	head          string
+	attemptClosed bool
+	hasAssignment bool
+}
+
+func admitDispatchAttempt(ctx context.Context, deps DispatchDeps, control factory.IssueControl, report *DispatchReport) (admittedDispatchAttempt, bool) {
+	var admitted admittedDispatchAttempt
 	repository, issue := control.Repository, control.Issue
 	latest, err := deps.Store.LatestIssueAssignment(ctx, repository, issue)
 	hasAssignment := err == nil
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "assignments unreadable"})
-		return
+		return admitted, false
 	}
 	attemptClosed := false
 	if hasAssignment {
 		attemptClosed, err = deps.Store.CloseExpiredAttempt(ctx, latest.ID)
 		if err != nil {
 			report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "attempt allowance unreadable"})
-			return
+			return admitted, false
 		}
 		if attemptClosed && latest.Stage != factory.AssignmentFinished {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAllowance, Detail: "attempt is closed; maintainer intervention is required"})
-			return
+			return admitted, false
 		}
 	}
 	if hasAssignment && latest.Stage != factory.AssignmentFinished {
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned})
-		return
+		return admitted, false
 	}
 	head, err := deps.Store.AcceptanceHead(ctx, repository, issue)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "acceptance head unreadable"})
-		return
+		return admitted, false
 	}
+	return admittedDispatchAttempt{latest: latest, head: head, attemptClosed: attemptClosed, hasAssignment: hasAssignment}, true
+}
+
+func resolveDispatchRetry(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, admitted admittedDispatchAttempt, report *DispatchReport) (*factory.RetryDecision, bool) {
+	repository, issue := control.Repository, control.Issue
+	latest, head, attemptClosed, hasAssignment := admitted.latest, admitted.head, admitted.attemptClosed, admitted.hasAssignment
 	var retry *factory.RetryDecision
 	if hasAssignment && latest.Acceptance == head {
 		pending, retryErr := deps.Store.PendingExplicitRetry(ctx, repository, issue, head)
@@ -100,31 +114,49 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 			// advances to its implementation child instead of
 			// requiring Retry. A closed root never advances.
 			if !attemptClosed && maybeAdvanceCompletedPlanning(ctx, deps, occupancy, control, latest, head, report) {
-				return
+				return nil, false
 			}
 			detail := "attempt result is recorded; explicit Retry is required"
 			if attemptClosed {
 				detail = "attempt is closed; maintainer intervention is required"
 			}
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded, Detail: detail})
-			return
+			return nil, false
 		}
 		if retryErr != nil {
 			report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "explicit retry unreadable"})
-			return
+			return nil, false
 		}
 		retry = &pending
 	}
 	if attemptClosed && retry == nil {
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded, Detail: "attempt is closed; maintainer intervention is required"})
+		return nil, false
+	}
+	return retry, true
+}
+
+func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, report *DispatchReport) {
+	admitted, ok := admitDispatchAttempt(ctx, deps, control, report)
+	if !ok {
 		return
 	}
+	retry, ok := resolveDispatchRetry(ctx, deps, occupancy, control, admitted, report)
+	if !ok {
+		return
+	}
+	launchDispatchPlan(ctx, deps, occupancy, control, admitted.head, retry, report)
+}
+
+func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, head string, retry *factory.RetryDecision, report *DispatchReport) {
+	repository, issue := control.Repository, control.Issue
 	if deps.Refresh != nil {
-		control, err = deps.Refresh(ctx, control)
+		refreshed, err := deps.Refresh(ctx, control)
 		if err != nil {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsUnavailable, Detail: "readiness refresh is unavailable"})
 			return
 		}
+		control = refreshed
 	}
 	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry)
 	if failed != nil {
@@ -231,207 +263,252 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // Every other phased combination refuses, with intent subjects arriving
 // through the intent-bound admission and other phases through their owning
 // boundaries.
-func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string, lineage attemptLineage) (*attemptPlan, *planWait, *planWait) {
-	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
-		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
+func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string, recordedPrompt bool, issue int64, head string) (*planWait, *planWait) {
+	if lineage.phase == "" {
+		return nil, nil
 	}
-	plan := &attemptPlan{control: control, freshAttempt: freshAttempt, phase: lineage.phase, parent: lineage.parent, advancePlan: lineage.advancePlan}
-	if lineage.phase != "" {
-		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
-			lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect {
-			return nil, nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
-		}
-		if !factory.ValidPhaseRole(lineage.phase, role) {
-			return nil, nil, waitFor("phase_not_admitted", "assignment role does not match its execution phase")
-		}
-		if lineage.parent == "" {
-			if lineage.phase != project.ExecutionInvestigate {
-				return nil, nil, waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
-			}
-		} else {
-			switch lineage.phase {
-			case project.ExecutionImplement:
-				if !recordedPrompt && lineage.advancePlan == nil {
-					return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
-				}
-			case project.ExecutionReview, project.ExecutionCorrect:
-				// Publication children never rebuild prompts: the caller
-				// stages the admitted publication prompt carrying the
-				// exact current review/check evidence, and planning never
-				// invents review or correction content. The investigation
-				// plan slot stays empty on this path; the correction
-				// manifest is staged from the derived singleton plan at
-				// launch instead.
-				if !recordedPrompt || lineage.advancePlan != nil {
-					return nil, nil, waitFor("phase_not_admitted", "publication children keep their staged prompt under their parent")
-				}
-			default:
-				return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
-			}
-		}
-		plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
-		if !factory.SubjectKindAllowed(plan.subject.Kind, lineage.phase) {
-			return nil, nil, waitFor("phase_not_admitted", "execution subject cannot enter its phase")
-		}
+	if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
+		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect {
+		return nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
 	}
+	if !factory.ValidPhaseRole(lineage.phase, role) {
+		return nil, waitFor("phase_not_admitted", "assignment role does not match its execution phase")
+	}
+	if failed := admitAttemptParent(lineage, recordedPrompt); failed != nil {
+		return nil, failed
+	}
+	plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
+	if !factory.SubjectKindAllowed(plan.subject.Kind, lineage.phase) {
+		return nil, waitFor("phase_not_admitted", "execution subject cannot enter its phase")
+	}
+	return nil, nil
+}
+
+func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
+	if lineage.parent == "" {
+		if lineage.phase != project.ExecutionInvestigate {
+			return waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
+		}
+		return nil
+	}
+	switch lineage.phase {
+	case project.ExecutionImplement:
+		if !recordedPrompt && lineage.advancePlan == nil {
+			return waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+		}
+	case project.ExecutionReview, project.ExecutionCorrect:
+		// Publication children never rebuild prompts: the caller
+		// stages the admitted publication prompt carrying the
+		// exact current review/check evidence, and planning never
+		// invents review or correction content. The investigation
+		// plan slot stays empty on this path; the correction
+		// manifest is staged from the derived singleton plan at
+		// launch instead.
+		if !recordedPrompt || lineage.advancePlan != nil {
+			return waitFor("phase_not_admitted", "publication children keep their staged prompt under their parent")
+		}
+	default:
+		return waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+	}
+	return nil
+}
+
+func loadAttemptPlanBasis(ctx context.Context, deps DispatchDeps, plan *attemptPlan, repository int64, role, head string) (factory.RepositoryPolicy, *planWait, *planWait) {
+	var empty factory.RepositoryPolicy
 	effective, err := deps.Authority(ctx, repository)
 	if err != nil {
-		return nil, nil, waitFor(DispatchErrStore, "authority unreadable")
+		return empty, nil, waitFor(DispatchErrStore, "authority unreadable")
 	}
 	plan.effective = effective
 	if !effective.Effective {
 		if onlyDispatchClosed(effective) {
-			return nil, waitFor(WaitDispatchClosed, "dispatch gate is closed"), nil
+			return empty, waitFor(WaitDispatchClosed, "dispatch gate is closed"), nil
 		}
-		return nil, waitFor(WaitAuthority, "grants do not authorize dispatch"), nil
+		return empty, waitFor(WaitAuthority, "grants do not authorize dispatch"), nil
 	}
 	p, err := deps.Store.ProjectByRepository(ctx, repository)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, waitFor(WaitPreparation, "repository has no project"), nil
+			return empty, waitFor(WaitPreparation, "repository has no project"), nil
 		}
-		return nil, nil, waitFor(DispatchErrStore, "project unreadable")
+		return empty, nil, waitFor(DispatchErrStore, "project unreadable")
 	}
 	plan.projectID = p.ID
 	policy, err := deps.Store.RepositoryPolicy(ctx, repository)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, waitFor(WaitAuthority, "policy changed during dispatch"), nil
+			return empty, waitFor(WaitAuthority, "policy changed during dispatch"), nil
 		}
-		return nil, nil, waitFor(DispatchErrStore, "policy unreadable")
+		return empty, nil, waitFor(DispatchErrStore, "policy unreadable")
 	}
 	plan.policy = policy
 	sponsorship, wait, failed := selectSponsorship(ctx, deps, repository, effective, role)
 	if failed != nil || wait != nil {
-		return nil, wait, failed
+		return empty, wait, failed
 	}
 	plan.sponsorship = sponsorship
 	if sponsorship.ProjectID != plan.projectID {
-		return nil, waitFor(WaitAuthority, "sponsorship grant belongs to a different Project"), nil
+		return empty, waitFor(WaitAuthority, "sponsorship grant belongs to a different Project"), nil
 	}
 	decision, err := deps.Store.AcceptanceDecision(ctx, head)
 	if err != nil {
-		return nil, nil, waitFor(DispatchErrStore, "acceptance decision unreadable")
+		return empty, nil, waitFor(DispatchErrStore, "acceptance decision unreadable")
 	}
 	plan.acceptance = decision
+	return policy, nil, nil
+}
+
+func prepareAttemptInputs(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, role, preparation string, repository, issue int64, control factory.IssueControl) (*planWait, *planWait) {
 	if wait, failed := checkLimits(ctx, deps, occupancy, plan); failed != nil || wait != nil {
-		return nil, wait, failed
+		return wait, failed
 	}
 	if wait, failed := selectPreparationFor(ctx, deps, plan, role, preparation); failed != nil || wait != nil {
-		return nil, wait, failed
+		return wait, failed
 	}
 	plan.effective.Authority.RequirementsID = plan.requirement
 	plan.effective.Authority.ApprovalID = plan.approval
 	if wait := checkHarnessFor(ctx, deps, plan, role); wait != nil {
-		return nil, wait, nil
+		return wait, nil
 	}
 	if wait, failed := readAttemptInputs(ctx, deps, plan, repository, issue); failed != nil || wait != nil {
-		return nil, wait, failed
+		return wait, failed
 	}
 	if plan.inputs.Revision != control.NativeRev {
-		return nil, waitFor(WaitInputsChanged, "readiness observation changed before dispatch"), nil
+		return waitFor(WaitInputsChanged, "readiness observation changed before dispatch"), nil
 	}
+	return nil, nil
+}
+
+func confirmAttemptPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string, recordedPrompt bool, retryID string) *planWait {
 	if retryID != "" {
 		if deps.PrepareRetry == nil {
-			return nil, waitFor(WaitPreparation, "fresh retry preparation is unavailable"), nil
+			return waitFor(WaitPreparation, "fresh retry preparation is unavailable")
 		}
 		ready, err := deps.PrepareRetry(ctx, plan, retryID)
 		if err != nil {
-			return nil, waitFor(WaitPreparation, "fresh retry preparation is not confirmed"), nil
+			return waitFor(WaitPreparation, "fresh retry preparation is not confirmed")
 		}
 		if !ready {
-			return nil, waitFor(WaitPreparation, "fresh retry preparation is running"), nil
+			return waitFor(WaitPreparation, "fresh retry preparation is running")
 		}
 	} else if role == project.RoleCoder && !recordedPrompt && plan.prep.Preparation.SourceCommit != plan.inputs.Tip {
 		if deps.PrepareSource == nil {
-			return nil, waitFor(WaitPreparation, "current source preparation is unavailable"), nil
+			return waitFor(WaitPreparation, "current source preparation is unavailable")
 		}
 		ready, err := deps.PrepareSource(ctx, plan)
 		if err != nil || !ready {
-			return nil, waitFor(WaitPreparation, "current source preparation is not confirmed"), nil
+			return waitFor(WaitPreparation, "current source preparation is not confirmed")
 		}
 	}
+	return nil
+}
+
+func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPlan, policy factory.RepositoryPolicy, role string, repository, issue int64, head string, recordedPrompt bool) (*planWait, *planWait) {
 	selection := policy.Roles[role]
 	if recordedPrompt {
 		plan.prompt = nil
 		plan.promptSHA = ""
-	} else {
-		repositoryContext, contextErr := readRepositoryContext(ctx, deps.Host, plan, plan.prep.Preparation, role,
-			plan.prep.Preparation.SourceCommit, plan.prep.Preparation.SourceCommit, plan.inputs.Tip, true)
-		if contextErr != nil {
-			return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
+		return nil, nil
+	}
+	repositoryContext, contextErr := readRepositoryContext(ctx, deps.Host, plan, plan.prep.Preparation, role,
+		plan.prep.Preparation.SourceCommit, plan.prep.Preparation.SourceCommit, plan.inputs.Tip, true)
+	if contextErr != nil {
+		return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed")
+	}
+	var implementationPlan *factory.PlanningRecord
+	// FW12 joint: the generic planning record stages only on the
+	// legacy pre-phase path. Phased prompts carry the admitted
+	// dispatcher phase instead; investigation renders its own
+	// inspection directive and implementation stages the recorded
+	// investigation plan below.
+	if plan.phase == "" && plan.advancePlan == nil && deps.PlanRecord != nil {
+		record, recordErr := deps.PlanRecord(ctx, repository, issue)
+		if recordErr != nil {
+			return nil, waitFor("plan_not_current", "implementation approach is unavailable")
 		}
-		var implementationPlan *factory.PlanningRecord
-		// FW12 joint: the generic planning record stages only on the
-		// legacy pre-phase path. Phased prompts carry the admitted
-		// dispatcher phase instead; investigation renders its own
-		// inspection directive and implementation stages the recorded
-		// investigation plan below.
-		if plan.phase == "" && plan.advancePlan == nil && deps.PlanRecord != nil {
-			record, recordErr := deps.PlanRecord(ctx, repository, issue)
-			if recordErr != nil {
-				return nil, waitFor("plan_not_current", "implementation approach is unavailable"), nil
+		if record.Snapshot != "" {
+			if record.Provisional || record.Outcome != "planned" {
+				return nil, waitFor("plan_not_current", "implementation approach is provisional or waiting")
 			}
-			if record.Snapshot != "" {
-				if record.Provisional || record.Outcome != "planned" {
-					return nil, waitFor("plan_not_current", "implementation approach is provisional or waiting"), nil
-				}
-				implementationPlan = &record
-			}
+			implementationPlan = &record
 		}
-		// FW12 joint: the admitted dispatcher phase travels into the
-		// prompt so the template owns phased rendering. Investigation
-		// prompts additionally carry the canonical prerequisite
-		// bindings the reported plan must echo for later admission.
-		var planPrerequisites []string
-		if plan.phase == project.ExecutionInvestigate {
-			bindings, bindingsErr := livePlanBindings(plan.acceptance, plan.control, plan.inputs.Tip, plan.prep.Preparation.ID)
-			if bindingsErr != nil {
-				return nil, waitFor(WaitInputsChanged, "investigation prerequisite bindings are incomplete"), nil
-			}
-			planPrerequisites = bindings.Prerequisites
+	}
+	// FW12 joint: the admitted dispatcher phase travels into the
+	// prompt so the template owns phased rendering. Investigation
+	// prompts additionally carry the canonical prerequisite
+	// bindings the reported plan must echo for later admission.
+	var planPrerequisites []string
+	if plan.phase == project.ExecutionInvestigate {
+		bindings, bindingsErr := livePlanBindings(plan.acceptance, plan.control, plan.inputs.Tip, plan.prep.Preparation.ID)
+		if bindingsErr != nil {
+			return nil, waitFor(WaitInputsChanged, "investigation prerequisite bindings are incomplete")
 		}
-		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
-			Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
-			Phase: plan.phase, PlanPrerequisites: planPrerequisites,
-			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
-			ApprovedBase:   plan.prep.Preparation.SourceCommit,
-			Preparation:    plan.prep.Preparation.ID,
-			RequirementsID: plan.requirement, ApprovalID: plan.approval,
-			Harness: plan.pin.Harness, Model: selection.Model, Role: role,
-			ProviderConnection:    plan.sponsorship.Connection,
-			RequiredChecks:        policy.Checks,
-			ApplianceConcurrent:   plan.applianceConcurrent,
-			RepositoryConcurrent:  plan.repositoryConcurrent,
-			SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
-			AttemptLimits:         plan.attemptLimits,
-			Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
-			Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
-			Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
-			Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
-			RepositoryContext:  repositoryContext,
-			ImplementationPlan: implementationPlan,
-		})
+		planPrerequisites = bindings.Prerequisites
+	}
+	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
+		Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
+		Phase: plan.phase, PlanPrerequisites: planPrerequisites,
+		AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
+		ApprovedBase:   plan.prep.Preparation.SourceCommit,
+		Preparation:    plan.prep.Preparation.ID,
+		RequirementsID: plan.requirement, ApprovalID: plan.approval,
+		Harness: plan.pin.Harness, Model: selection.Model, Role: role,
+		ProviderConnection:    plan.sponsorship.Connection,
+		RequiredChecks:        policy.Checks,
+		ApplianceConcurrent:   plan.applianceConcurrent,
+		RepositoryConcurrent:  plan.repositoryConcurrent,
+		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
+		AttemptLimits:         plan.attemptLimits,
+		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
+		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
+		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
+		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
+		RepositoryContext:  repositoryContext,
+		ImplementationPlan: implementationPlan,
+	})
+	if err != nil {
+		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
+			return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes")
+		}
+		return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound")
+	}
+	// Phased attempts report through the strict v2 phase contract,
+	// not the legacy harness shape: replace the trailing legacy
+	// report section and, for an advanced implementation, stage the
+	// recorded investigation plan the run must execute. The shared
+	// prompt template keeps the legacy text for pre-phase runs and
+	// FW12 absorbs this rendering when it takes prompt ownership.
+	if plan.phase != "" {
+		prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
 		if err != nil {
-			if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
-				return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
-			}
-			return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
+			return nil, waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound")
 		}
-		// Phased attempts report through the strict v2 phase contract,
-		// not the legacy harness shape: replace the trailing legacy
-		// report section and, for an advanced implementation, stage the
-		// recorded investigation plan the run must execute. The shared
-		// prompt template keeps the legacy text for pre-phase runs and
-		// FW12 absorbs this rendering when it takes prompt ownership.
-		if plan.phase != "" {
-			prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
-			if err != nil {
-				return nil, waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound"), nil
-			}
-		}
-		plan.prompt = prompt
-		plan.promptSHA = project.FactoryPromptDigest(prompt)
+	}
+	plan.prompt = prompt
+	plan.promptSHA = project.FactoryPromptDigest(prompt)
+	return nil, nil
+}
+
+func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string, lineage attemptLineage) (*attemptPlan, *planWait, *planWait) {
+	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
+		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
+	}
+	plan := &attemptPlan{control: control, freshAttempt: freshAttempt, phase: lineage.phase, parent: lineage.parent, advancePlan: lineage.advancePlan}
+	if wait, failed := admitAttemptLineage(plan, lineage, role, recordedPrompt, issue, head); failed != nil || wait != nil {
+		return nil, wait, failed
+	}
+	policy, wait, failed := loadAttemptPlanBasis(ctx, deps, plan, repository, role, head)
+	if failed != nil || wait != nil {
+		return nil, wait, failed
+	}
+	if wait, failed := prepareAttemptInputs(ctx, deps, occupancy, plan, role, preparation, repository, issue, control); failed != nil || wait != nil {
+		return nil, wait, failed
+	}
+	if wait := confirmAttemptPreparation(ctx, deps, plan, role, recordedPrompt, retryID); wait != nil {
+		return nil, wait, nil
+	}
+	if wait, failed := renderAttemptPrompt(ctx, deps, plan, policy, role, repository, issue, head, recordedPrompt); failed != nil || wait != nil {
+		return nil, wait, failed
 	}
 	open, gateRev, _, err := deps.Store.DispatchState(ctx, repository)
 	if err != nil {
@@ -451,24 +528,36 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 // intact. Pre-phase owners, non-completed planning and anything without an
 // executable plan refuse with no child: the issue stays recorded instead
 // of advancing.
-func advanceChildID(owner factory.Assignment, head string) (string, *factory.InvestigationPlan, bool) {
-	if owner.Subject.Kind != factory.SubjectIssue || owner.Subject.Issue == nil ||
-		owner.Subject.Issue.Acceptance != head || owner.Phase != project.ExecutionInvestigate ||
-		owner.ParentAssignment != "" || owner.Outcome != factory.Succeeded ||
-		owner.Reason != factory.AssignReasonReported || owner.Result == nil || owner.Result.PhaseResult == nil {
-		return "", nil, false
-	}
+func advanceChildOwner(owner factory.Assignment, head string) bool {
+	return owner.Subject.Kind == factory.SubjectIssue && owner.Subject.Issue != nil &&
+		owner.Subject.Issue.Acceptance == head && owner.Phase == project.ExecutionInvestigate &&
+		owner.ParentAssignment == "" && owner.Outcome == factory.Succeeded &&
+		owner.Reason == factory.AssignReasonReported && owner.Result != nil && owner.Result.PhaseResult != nil
+}
+
+func advanceChildPlan(owner factory.Assignment) *factory.InvestigationPlan {
 	phased := owner.Result.PhaseResult
 	if phased.Phase != project.ExecutionInvestigate || phased.Status != "completed" ||
 		phased.Output == nil || phased.Output.Plan == nil {
-		return "", nil, false
+		return nil
 	}
 	plan := phased.Output.Plan
 	if plan.Validate() != nil || plan.Executable() != nil {
-		return "", nil, false
+		return nil
 	}
 	if plan.AttemptRoot != owner.AttemptRoot || plan.SourceCommit != owner.SourceCommit ||
 		plan.Preparation != owner.Preparation {
+		return nil
+	}
+	return plan
+}
+
+func advanceChildID(owner factory.Assignment, head string) (string, *factory.InvestigationPlan, bool) {
+	if !advanceChildOwner(owner, head) {
+		return "", nil, false
+	}
+	plan := advanceChildPlan(owner)
+	if plan == nil {
 		return "", nil, false
 	}
 	digest := factory.ResultDigest(*owner.Result)

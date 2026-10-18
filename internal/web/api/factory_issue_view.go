@@ -533,17 +533,12 @@ type workCapabilityInput struct {
 	SessionCurrent  bool
 }
 
-func workCapabilitiesDTO(in workCapabilityInput) workCapabilitiesView {
-	view := workCapabilitiesView{}
-	view.Watch = workCapabilityView{Available: in.AuthorityReason == ""}
-	if in.AuthorityReason != "" {
-		view.Watch.Reason = in.AuthorityReason
-	}
-	mutating := in.AuthorityReason
+func workCapabilityGates(in workCapabilityInput) (mutating, attempt string) {
+	mutating = in.AuthorityReason
 	if mutating == "" && !in.SessionCurrent {
 		mutating = workCapSession
 	}
-	attempt := mutating
+	attempt = mutating
 	if attempt == "" {
 		switch {
 		case !in.HasRun:
@@ -552,43 +547,78 @@ func workCapabilitiesDTO(in workCapabilityInput) workCapabilitiesView {
 			attempt = workCapUnsettled
 		}
 	}
-	view.Stop = workCapabilityView{Available: mutating == "" && in.HasRun && !in.RunSettled}
+	return mutating, attempt
+}
+
+func workStopCapability(in workCapabilityInput, mutating string) workCapabilityView {
+	view := workCapabilityView{Available: mutating == "" && in.HasRun && !in.RunSettled}
 	switch {
 	case mutating != "":
-		view.Stop.Reason = mutating
+		view.Reason = mutating
 	case !in.HasRun:
-		view.Stop.Reason = workCapNoRun
+		view.Reason = workCapNoRun
 	case in.RunSettled:
-		view.Stop.Reason = workCapSettled
+		view.Reason = workCapSettled
 	}
-	view.Retry = workCapabilityView{Available: attempt == "" && !in.RetryQueued}
+	return view
+}
+
+func workRetryCapability(in workCapabilityInput, attempt string) workCapabilityView {
+	view := workCapabilityView{Available: attempt == "" && !in.RetryQueued}
 	switch {
 	case attempt != "":
-		view.Retry.Reason = attempt
+		view.Reason = attempt
 	case in.RetryQueued:
-		view.Retry.Reason = workCapRetryQueued
+		view.Reason = workCapRetryQueued
 	}
-	view.Takeover = workCapabilityView{Available: attempt == "" && in.Member}
+	return view
+}
+
+func workTakeoverCapability(in workCapabilityInput, attempt string) workCapabilityView {
+	view := workCapabilityView{Available: attempt == "" && in.Member}
 	switch {
 	case attempt != "":
-		view.Takeover.Reason = attempt
+		view.Reason = attempt
 	case !in.Member:
-		view.Takeover.Reason = workCapMembership
+		view.Reason = workCapMembership
 	}
-	view.Pause = workCapabilityView{Available: mutating == "" && in.DispatchOpen}
+	return view
+}
+
+func workPauseCapability(in workCapabilityInput, mutating string) workCapabilityView {
+	view := workCapabilityView{Available: mutating == "" && in.DispatchOpen}
 	switch {
 	case mutating != "":
-		view.Pause.Reason = mutating
+		view.Reason = mutating
 	case !in.DispatchOpen:
-		view.Pause.Reason = workCapDispatchShut
+		view.Reason = workCapDispatchShut
 	}
-	view.Resume = workCapabilityView{Available: mutating == "" && !in.DispatchOpen}
+	return view
+}
+
+func workResumeCapability(in workCapabilityInput, mutating string) workCapabilityView {
+	view := workCapabilityView{Available: mutating == "" && !in.DispatchOpen}
 	switch {
 	case mutating != "":
-		view.Resume.Reason = mutating
+		view.Reason = mutating
 	case in.DispatchOpen:
-		view.Resume.Reason = workCapDispatchOpen
+		view.Reason = workCapDispatchOpen
 	}
+	return view
+}
+
+func workCapabilitiesDTO(in workCapabilityInput) workCapabilitiesView {
+	view := workCapabilitiesView{}
+	view.Watch = workCapabilityView{Available: in.AuthorityReason == ""}
+	if in.AuthorityReason != "" {
+		view.Watch.Reason = in.AuthorityReason
+	}
+	mutating, attempt := workCapabilityGates(in)
+	view.Stop = workStopCapability(in, mutating)
+	view.Retry = workRetryCapability(in, attempt)
+	view.Takeover = workTakeoverCapability(in, attempt)
+	view.Pause = workPauseCapability(in, mutating)
+	view.Resume = workResumeCapability(in, mutating)
 	return view
 }
 

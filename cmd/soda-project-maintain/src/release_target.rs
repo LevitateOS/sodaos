@@ -277,15 +277,11 @@ fn verify_asset(tag: &str, path: &Path, deadline: Instant) -> Result<(), String>
         .map_err(|_| "GitHub release asset authentication failed".into())
 }
 
-pub(crate) fn admit(
+/// Open the held directory and require the fixed admission files.
+fn open_admission(
     directory: &Path,
     qualification_fixture: bool,
-    deadline: Instant,
-) -> Result<Target, String> {
-    if unsafe { libc::geteuid() } != 0 {
-        return Err("release target admission requires root".into());
-    }
-    let source = installed_source(deadline)?;
+) -> Result<(Custody, PathBuf, &'static str), String> {
     let custody = Custody::open(directory, 0)?;
     let anchored = custody.path();
     let media_name = if qualification_fixture && anchored.join("media/media.json").is_file() {
@@ -296,6 +292,14 @@ pub(crate) fn admit(
     for name in ["payload.json", "candidate.json", media_name] {
         custody.file(name, 0, 4 << 20)?;
     }
+    Ok((custody, anchored, media_name))
+}
+
+/// Read the media binding and require the hash-bound rootfs file.
+fn read_admitted_media(
+    custody: &Custody,
+    media_name: &str,
+) -> Result<(MediaBinding, String), String> {
     let body = custody.read(media_name, 4 << 20)?;
     let media: MediaBinding =
         serde_json::from_slice(&body).map_err(|_| "invalid release media metadata")?;
@@ -314,47 +318,82 @@ pub(crate) fn admit(
         0,
         soda_release_deliver::publish::assets::MAX_ASSET_BYTES - 1,
     )?;
-    if !qualification_fixture {
-        custody.file(upgrade::QUALIFICATION_FILE, 0, 1 << 20)?;
-        let tag = release_tag(&media.rootfs_url, &rootfs_name)?;
-        for name in [
-            "payload.json",
-            "candidate.json",
-            "media.json",
-            upgrade::QUALIFICATION_FILE,
-            rootfs_name.as_str(),
-        ] {
-            verify_asset(&tag, &anchored.join(name), deadline)?;
-        }
+    Ok((media, rootfs_name))
+}
+
+/// Verify the GitHub release assets for a qualified upgrade.
+fn verify_release_assets(
+    anchored: &Path,
+    media: &MediaBinding,
+    rootfs_name: &str,
+    deadline: Instant,
+) -> Result<(), String> {
+    let tag = release_tag(&media.rootfs_url, rootfs_name)?;
+    for name in [
+        "payload.json",
+        "candidate.json",
+        "media.json",
+        upgrade::QUALIFICATION_FILE,
+        rootfs_name,
+    ] {
+        verify_asset(&tag, &anchored.join(name), deadline)?;
     }
-    let (payload, candidate, media, rootfs) = if qualification_fixture {
+    Ok(())
+}
+
+/// Admit the upgrade target, fixture or qualified, against the source.
+fn admit_target(
+    anchored: &Path,
+    source: &InstalledSource,
+    qualification_fixture: bool,
+) -> Result<(Payload, Candidate, MediaBinding, PathBuf), String> {
+    if qualification_fixture {
         let target =
-            upgrade::admit_candidate_directory(&anchored).map_err(|error| error.to_string())?;
+            upgrade::admit_candidate_directory(anchored).map_err(|error| error.to_string())?;
         if target.payload.upgrade_from.as_slice() != [source.release_id.clone()]
             || target.payload.id == source.release_id
             || target.media.deployment_commit == source.deployment
         {
             return Err("qualification fixture must declare this exact different installed source and native target".into());
         }
-        (
+        Ok((
             target.payload,
             target.candidate,
             target.media,
             target.rootfs,
-        )
+        ))
     } else {
-        let target = upgrade::admit_directory(&anchored, &source.release_id, &source.helper_sha256)
+        let target = upgrade::admit_directory(anchored, &source.release_id, &source.helper_sha256)
             .map_err(|error| error.to_string())?;
         if target.media.deployment_commit == source.deployment {
             return Err("qualified upgrade requires a different native target deployment".into());
         }
-        (
+        Ok((
             target.payload,
             target.candidate,
             target.media,
             target.rootfs,
-        )
-    };
+        ))
+    }
+}
+
+pub(crate) fn admit(
+    directory: &Path,
+    qualification_fixture: bool,
+    deadline: Instant,
+) -> Result<Target, String> {
+    if unsafe { libc::geteuid() } != 0 {
+        return Err("release target admission requires root".into());
+    }
+    let source = installed_source(deadline)?;
+    let (custody, anchored, media_name) = open_admission(directory, qualification_fixture)?;
+    let (media, rootfs_name) = read_admitted_media(&custody, media_name)?;
+    if !qualification_fixture {
+        custody.file(upgrade::QUALIFICATION_FILE, 0, 1 << 20)?;
+        verify_release_assets(&anchored, &media, &rootfs_name, deadline)?;
+    }
+    let (payload, candidate, media, rootfs) =
+        admit_target(&anchored, &source, qualification_fixture)?;
     Ok(Target {
         payload,
         candidate,

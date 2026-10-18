@@ -222,6 +222,96 @@ fn absolute(value: &str) -> bool {
     Path::new(value).is_absolute() && !value.as_bytes().contains(&0)
 }
 
+fn check_provider_pin(
+    name: &str,
+    provider: &ProviderSettings,
+    expected: &str,
+) -> Result<(), String> {
+    if [
+        &provider.binary,
+        &provider.version,
+        &provider.sha256,
+        &provider.root,
+    ]
+    .iter()
+    .any(|value| value.is_empty())
+        || !absolute(&provider.binary)
+        || !absolute(&provider.root)
+        || provider.version != expected
+        || provider.sha256.len() != 64
+        || !provider.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(format!("{name} provider pin is incomplete or unsupported"));
+    }
+    Ok(())
+}
+
+fn digest_provider_binary(name: &str, binary: &str) -> Result<String, String> {
+    let mut file =
+        fs::File::open(binary).map_err(|_| format!("{name} provider executable is unavailable"))?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let count = file
+            .read(&mut buffer)
+            .map_err(|_| format!("{name} provider executable is unavailable"))?;
+        if count == 0 {
+            break;
+        }
+        digest.update(&buffer[..count]);
+    }
+    Ok(digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>())
+}
+
+fn validate_provider_binary(
+    name: &str,
+    provider: &ProviderSettings,
+    owner: u32,
+    group: u32,
+) -> Result<(), String> {
+    let binary = fs::symlink_metadata(&provider.binary)
+        .map_err(|_| format!("{name} provider executable is unavailable"))?;
+    if !binary.file_type().is_file()
+        || binary.uid() != owner
+        || binary.gid() != group
+        || binary.permissions().mode() & 0o077 != 0
+        || binary.permissions().mode() & 0o100 == 0
+    {
+        return Err(format!(
+            "{name} provider executable is not a regular executable"
+        ));
+    }
+    let actual = digest_provider_binary(name, &provider.binary)?;
+    if actual != provider.sha256.to_ascii_lowercase() {
+        return Err(format!(
+            "{name} provider executable does not match its selected digest"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_provider_root(
+    name: &str,
+    provider: &ProviderSettings,
+    owner: u32,
+    group: u32,
+) -> Result<(), String> {
+    let root = fs::symlink_metadata(&provider.root)
+        .map_err(|_| format!("{name} provider root is unavailable"))?;
+    if !root.file_type().is_dir()
+        || root.uid() != owner
+        || root.gid() != group
+        || root.permissions().mode() & 0o077 != 0
+    {
+        return Err(format!("{name} provider root must be a private directory"));
+    }
+    Ok(())
+}
+
 fn validate_provider(
     name: &str,
     provider: &ProviderSettings,
@@ -238,60 +328,9 @@ fn validate_provider(
     if values.iter().all(|value| value.is_empty()) {
         return Ok(());
     }
-    if values.iter().any(|value| value.is_empty())
-        || !absolute(&provider.binary)
-        || !absolute(&provider.root)
-        || provider.version != expected
-        || provider.sha256.len() != 64
-        || !provider.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
-    {
-        return Err(format!("{name} provider pin is incomplete or unsupported"));
-    }
-    let binary = fs::symlink_metadata(&provider.binary)
-        .map_err(|_| format!("{name} provider executable is unavailable"))?;
-    if !binary.file_type().is_file()
-        || binary.uid() != owner
-        || binary.gid() != group
-        || binary.permissions().mode() & 0o077 != 0
-        || binary.permissions().mode() & 0o100 == 0
-    {
-        return Err(format!(
-            "{name} provider executable is not a regular executable"
-        ));
-    }
-    let mut file = fs::File::open(&provider.binary)
-        .map_err(|_| format!("{name} provider executable is unavailable"))?;
-    let mut digest = Sha256::new();
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        let count = file
-            .read(&mut buffer)
-            .map_err(|_| format!("{name} provider executable is unavailable"))?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-    }
-    let actual = digest
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    if actual != provider.sha256.to_ascii_lowercase() {
-        return Err(format!(
-            "{name} provider executable does not match its selected digest"
-        ));
-    }
-    let root = fs::symlink_metadata(&provider.root)
-        .map_err(|_| format!("{name} provider root is unavailable"))?;
-    if !root.file_type().is_dir()
-        || root.uid() != owner
-        || root.gid() != group
-        || root.permissions().mode() & 0o077 != 0
-    {
-        return Err(format!("{name} provider root must be a private directory"));
-    }
-    Ok(())
+    check_provider_pin(name, provider, expected)?;
+    validate_provider_binary(name, provider, owner, group)?;
+    validate_provider_root(name, provider, owner, group)
 }
 
 fn restricted_regular(path: &str, name: &str, owner: u32, group: u32) -> Result<(), String> {
@@ -341,7 +380,7 @@ struct ValidationPolicy<'a> {
     fixed_factory_paths: bool,
 }
 
-fn validate_with(
+fn validate_native_paths(
     manifest: &EnrollmentManifest,
     policy: ValidationPolicy<'_>,
 ) -> Result<(), String> {
@@ -367,6 +406,13 @@ fn validate_with(
         }
         restricted_regular(NATIVE_HOOK_TOKEN, "native hook credential", 0, 0)?;
     }
+    Ok(())
+}
+
+fn validate_target_and_identity(
+    manifest: &EnrollmentManifest,
+    policy: ValidationPolicy<'_>,
+) -> Result<(), String> {
     let target = &manifest.target;
     if target.dashboard_config != policy.dashboard_config
         || target.identity_config != policy.identity_config
@@ -413,8 +459,13 @@ fn validate_with(
         "1.4.0-R4161.1",
         policy.identity_uid,
         policy.identity_gid,
-    )?;
+    )
+}
 
+fn validate_factory_mounts(
+    manifest: &EnrollmentManifest,
+    policy: ValidationPolicy<'_>,
+) -> Result<(), String> {
     let dashboard = &manifest.dashboard;
     if policy.fixed_factory_paths
         && (dashboard.forgejo_background_socket != CALLBACK_SOCKET
@@ -459,6 +510,14 @@ fn validate_with(
     ] {
         restricted_regular(path, name, policy.dashboard_uid, policy.dashboard_gid)?;
     }
+    Ok(())
+}
+
+fn validate_publication_and_callback(
+    manifest: &EnrollmentManifest,
+    policy: ValidationPolicy<'_>,
+) -> Result<(), String> {
+    let dashboard = &manifest.dashboard;
     let publication = fs::symlink_metadata(&dashboard.factory_publication_root)
         .map_err(|_| "publication root is unavailable".to_string())?;
     if !publication.file_type().is_dir()
@@ -477,6 +536,23 @@ fn validate_with(
         return Err("background callback socket does not match its selected host UID".to_string());
     }
     Ok(())
+}
+
+fn validate_dashboard_paths(
+    manifest: &EnrollmentManifest,
+    policy: ValidationPolicy<'_>,
+) -> Result<(), String> {
+    validate_factory_mounts(manifest, policy)?;
+    validate_publication_and_callback(manifest, policy)
+}
+
+fn validate_with(
+    manifest: &EnrollmentManifest,
+    policy: ValidationPolicy<'_>,
+) -> Result<(), String> {
+    validate_native_paths(manifest, policy)?;
+    validate_target_and_identity(manifest, policy)?;
+    validate_dashboard_paths(manifest, policy)
 }
 
 fn validate_hook_selection(hooks: &NativeHooks) -> Result<(), String> {
@@ -735,22 +811,12 @@ fn receipt_path(manifest: &EnrollmentManifest, policy: ValidationPolicy<'_>) -> 
     }
 }
 
-fn read_hook_receipt(
-    path: &Path,
-    root_owned: bool,
-    manifest: &EnrollmentManifest,
-) -> Result<NativeHookReceipt, String> {
+/// Read the bounded receipt bytes, or `None` when no receipt exists yet.
+/// A missing receipt is a fresh enrollment, not an error.
+fn read_receipt_bytes(path: &Path, root_owned: bool) -> Result<Option<Vec<u8>>, String> {
     let info = match fs::symlink_metadata(path) {
         Ok(info) => info,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(NativeHookReceipt {
-                format: "soda-native-hooks/v1".to_string(),
-                operator_id: manifest.target.operator_id,
-                forgejo_url: manifest.target.forgejo_url.clone(),
-                forgejo_internal_url: manifest.target.forgejo_internal_url.clone(),
-                hooks: Vec::new(),
-            });
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => return Err("native hook ownership receipt is unavailable".to_string()),
     };
     let expected_owner = if root_owned {
@@ -777,8 +843,13 @@ fn read_hook_receipt(
     if bytes.len() > 16 * 1024 {
         return Err("native hook ownership receipt is invalid".to_string());
     }
-    let receipt: NativeHookReceipt = serde_json::from_slice(&bytes)
-        .map_err(|_| "native hook ownership receipt is invalid".to_string())?;
+    Ok(Some(bytes))
+}
+
+fn check_receipt_consistency(
+    receipt: &NativeHookReceipt,
+    manifest: &EnrollmentManifest,
+) -> Result<(), String> {
     if receipt.format != "soda-native-hooks/v1"
         || receipt.hooks.len() > 64
         || receipt.operator_id != manifest.target.operator_id
@@ -807,6 +878,26 @@ fn read_hook_receipt(
     {
         return Err("native hook ownership receipt is invalid".to_string());
     }
+    Ok(())
+}
+
+fn read_hook_receipt(
+    path: &Path,
+    root_owned: bool,
+    manifest: &EnrollmentManifest,
+) -> Result<NativeHookReceipt, String> {
+    let Some(bytes) = read_receipt_bytes(path, root_owned)? else {
+        return Ok(NativeHookReceipt {
+            format: "soda-native-hooks/v1".to_string(),
+            operator_id: manifest.target.operator_id,
+            forgejo_url: manifest.target.forgejo_url.clone(),
+            forgejo_internal_url: manifest.target.forgejo_internal_url.clone(),
+            hooks: Vec::new(),
+        });
+    };
+    let receipt: NativeHookReceipt = serde_json::from_slice(&bytes)
+        .map_err(|_| "native hook ownership receipt is invalid".to_string())?;
+    check_receipt_consistency(&receipt, manifest)?;
     Ok(receipt)
 }
 
@@ -882,6 +973,134 @@ fn preflight_native_hooks(
     Ok(())
 }
 
+fn check_intake_secret(intake_secret: &[u8]) -> Result<&str, String> {
+    let secret = std::str::from_utf8(intake_secret)
+        .map_err(|_| "factory intake secret has invalid encoding".to_string())?
+        .trim_end_matches(['\n', '\r']);
+    if secret.is_empty() || secret.len() > 512 || secret.bytes().any(|b| b.is_ascii_control()) {
+        return Err("factory intake secret has invalid contents".to_string());
+    }
+    Ok(secret)
+}
+
+fn select_hook_method(
+    existing: &[&ForgejoHookView],
+    repository: &NativeHookRepository,
+    maintenance: bool,
+    receipt: &NativeHookReceipt,
+) -> Result<(&'static str, Option<i64>), String> {
+    if let Some(hook) = existing.first() {
+        if existing.len() != 1
+            || !exact_intake_hook(hook)
+            || !maintenance
+            || matching_receipt(receipt, repository).map_or(true, |entry| entry.hook_id != hook.id)
+        {
+            return Err(format!(
+                "repository {}/{} intake hook changed after preflight; no hook was changed",
+                repository.owner, repository.name
+            ));
+        }
+        return Ok(("PATCH", Some(hook.id)));
+    }
+    if matching_receipt(receipt, repository).is_some() {
+        return Err(format!("repository {}/{} enrolled hook disappeared after preflight; no replacement was created", repository.owner, repository.name));
+    }
+    Ok(("POST", None))
+}
+
+fn send_repository_hook(
+    native: &dyn NativeBindingCommand,
+    token: &str,
+    origin: &str,
+    secret: &str,
+    repository: &NativeHookRepository,
+    method: &str,
+    hook_id: Option<i64>,
+) -> Result<u16, String> {
+    let url = if let Some(id) = hook_id {
+        format!(
+            "{}/api/v1/repos/{}/{}/hooks/{id}",
+            origin.trim_end_matches('/'),
+            repository.owner,
+            repository.name
+        )
+    } else {
+        format!(
+            "{}/api/v1/repos/{}/{}/hooks",
+            origin.trim_end_matches('/'),
+            repository.owner,
+            repository.name
+        )
+    };
+    let create_body = serde_json::to_vec(&serde_json::json!({
+        "type": "forgejo",
+        "config": {
+            "url": NATIVE_INTAKE_URL,
+            "content_type": "json",
+            "secret": secret,
+        },
+        "events": ["issues"],
+        "active": true,
+    }))
+    .map_err(|_| "native hook request could not be encoded".to_string())?;
+    let (status, _) = native_hook_api(native, token, method, &url, Some(&create_body))?;
+    if (method == "POST" && status != 201) || (method == "PATCH" && status != 200 && status != 204)
+    {
+        return Err(format!(
+            "native intake hook {method} failed with HTTP {status} for {}/{}; any earlier changes were retained",
+            repository.owner, repository.name
+        ));
+    }
+    Ok(status)
+}
+
+fn confirm_repository_hook(
+    native: &dyn NativeBindingCommand,
+    token: &str,
+    origin: &str,
+    repository: &NativeHookRepository,
+    hook_id: Option<i64>,
+) -> Result<i64, String> {
+    let inventory = list_native_hooks(native, token, origin, repository).map_err(|_| {
+        format!(
+            "native intake hook was created for {}/{}, but its readback failed; inspect the retained hook",
+            repository.owner, repository.name
+        )
+    })?;
+    let matching = inventory
+        .iter()
+        .filter(|hook| hook.id > 0 && hook.url == NATIVE_INTAKE_URL && exact_intake_hook(hook))
+        .collect::<Vec<_>>();
+    if matching.len() != 1 || hook_id.is_some_and(|id| matching[0].id != id) {
+        return Err(format!(
+            "native intake hook was created for {}/{}, but exact readback was not confirmed; inspect the retained hook",
+            repository.owner, repository.name
+        ));
+    }
+    Ok(matching[0].id)
+}
+
+fn record_repository_hook(
+    receipt: &mut NativeHookReceipt,
+    repository: &NativeHookRepository,
+    hook_id: i64,
+) -> Result<(), String> {
+    let entry = NativeHookReceiptEntry {
+        repository_id: repository.repository_id,
+        owner: repository.owner.clone(),
+        name: repository.name.clone(),
+        hook_id,
+    };
+    if let Some(prior) = matching_receipt(receipt, repository) {
+        if prior.hook_id != entry.hook_id {
+            return Err("native hook ownership changed during reconciliation".to_string());
+        }
+    } else {
+        receipt.hooks.push(entry);
+    }
+    Ok(())
+}
+
 fn create_native_hooks(
     native: &dyn NativeBindingCommand,
     token: &str,
@@ -893,12 +1112,7 @@ fn create_native_hooks(
     receipt: &mut NativeHookReceipt,
     root_owned_receipt: bool,
 ) -> Result<(), String> {
-    let secret = std::str::from_utf8(intake_secret)
-        .map_err(|_| "factory intake secret has invalid encoding".to_string())?
-        .trim_end_matches(['\n', '\r']);
-    if secret.is_empty() || secret.len() > 512 || secret.bytes().any(|b| b.is_ascii_control()) {
-        return Err("factory intake secret has invalid contents".to_string());
-    }
+    let secret = check_intake_secret(intake_secret)?;
     for repository in &hooks.repositories {
         verify_hook_repository(native, token, origin, repository)?;
         let inventory = list_native_hooks(native, token, origin, repository)?;
@@ -906,89 +1120,10 @@ fn create_native_hooks(
             .iter()
             .filter(|hook| hook.url == NATIVE_INTAKE_URL)
             .collect::<Vec<_>>();
-        let (method, hook_id) = if let Some(hook) = existing.first() {
-            if existing.len() != 1
-                || !exact_intake_hook(hook)
-                || !maintenance
-                || matching_receipt(receipt, repository)
-                    .map_or(true, |entry| entry.hook_id != hook.id)
-            {
-                return Err(format!(
-                    "repository {}/{} intake hook changed after preflight; no hook was changed",
-                    repository.owner, repository.name
-                ));
-            }
-            ("PATCH", Some(hook.id))
-        } else {
-            if matching_receipt(receipt, repository).is_some() {
-                return Err(format!("repository {}/{} enrolled hook disappeared after preflight; no replacement was created", repository.owner, repository.name));
-            }
-            ("POST", None)
-        };
-        let url = if let Some(id) = hook_id {
-            format!(
-                "{}/api/v1/repos/{}/{}/hooks/{id}",
-                origin.trim_end_matches('/'),
-                repository.owner,
-                repository.name
-            )
-        } else {
-            format!(
-                "{}/api/v1/repos/{}/{}/hooks",
-                origin.trim_end_matches('/'),
-                repository.owner,
-                repository.name
-            )
-        };
-        let create_body = serde_json::to_vec(&serde_json::json!({
-            "type": "forgejo",
-            "config": {
-                "url": NATIVE_INTAKE_URL,
-                "content_type": "json",
-                "secret": secret,
-            },
-            "events": ["issues"],
-            "active": true,
-        }))
-        .map_err(|_| "native hook request could not be encoded".to_string())?;
-        let (status, _) = native_hook_api(native, token, method, &url, Some(&create_body))?;
-        if (method == "POST" && status != 201)
-            || (method == "PATCH" && status != 200 && status != 204)
-        {
-            return Err(format!(
-                "native intake hook {method} failed with HTTP {status} for {}/{}; any earlier changes were retained",
-                repository.owner, repository.name
-            ));
-        }
-        let inventory = list_native_hooks(native, token, origin, repository).map_err(|_| {
-            format!(
-                "native intake hook was created for {}/{}, but its readback failed; inspect the retained hook",
-                repository.owner, repository.name
-            )
-        })?;
-        let matching = inventory
-            .iter()
-            .filter(|hook| hook.id > 0 && hook.url == NATIVE_INTAKE_URL && exact_intake_hook(hook))
-            .collect::<Vec<_>>();
-        if matching.len() != 1 || hook_id.is_some_and(|id| matching[0].id != id) {
-            return Err(format!(
-                "native intake hook was created for {}/{}, but exact readback was not confirmed; inspect the retained hook",
-                repository.owner, repository.name
-            ));
-        }
-        let entry = NativeHookReceiptEntry {
-            repository_id: repository.repository_id,
-            owner: repository.owner.clone(),
-            name: repository.name.clone(),
-            hook_id: matching[0].id,
-        };
-        if let Some(prior) = matching_receipt(receipt, repository) {
-            if prior.hook_id != entry.hook_id {
-                return Err("native hook ownership changed during reconciliation".to_string());
-            }
-        } else {
-            receipt.hooks.push(entry);
-        }
+        let (method, hook_id) = select_hook_method(&existing, repository, maintenance, receipt)?;
+        send_repository_hook(native, token, origin, secret, repository, method, hook_id)?;
+        let confirmed = confirm_repository_hook(native, token, origin, repository, hook_id)?;
+        record_repository_hook(receipt, repository, confirmed)?;
         write_hook_receipt(receipt_path, receipt, root_owned_receipt)?;
     }
     Ok(())
@@ -1127,17 +1262,18 @@ pub(crate) fn apply_with_commands(
     )
 }
 
-fn apply_at(
-    manifest: EnrollmentManifest,
-    maintenance: bool,
-    service: &dyn IdentityServiceAction,
-    native: &dyn NativeBindingCommand,
-    policy: ValidationPolicy<'_>,
-) -> Result<BindingEnrollmentReport, String> {
-    validate_with(&manifest, policy)?;
-    validate_bindings(&manifest.bindings)?;
+/// Admitted enrollment target: the validated manifest plus the existing
+/// dashboard record, hook custody and maintenance-mode gates.
+struct AdmittedEnrollmentTarget {
+    existing: ExistingDashboard,
+    identity_exists: bool,
+    hook_token: String,
+    hook_receipt_path: PathBuf,
+    hook_receipt: NativeHookReceipt,
+}
+
+fn read_existing_dashboard(manifest: &EnrollmentManifest) -> Result<ExistingDashboard, String> {
     let dashboard_path = Path::new(&manifest.target.dashboard_config);
-    let identity_path = Path::new(&manifest.target.identity_config);
     let dashboard_info = fs::symlink_metadata(dashboard_path)
         .map_err(|_| "existing dashboard configuration is unavailable".to_string())?;
     if !dashboard_info.file_type().is_file() {
@@ -1159,17 +1295,14 @@ fn apply_at(
                 .to_string(),
         );
     }
+    Ok(existing)
+}
 
-    let identity_exists = match fs::symlink_metadata(identity_path) {
-        Ok(info) if info.file_type().is_file() => true,
-        Ok(_) => return Err("identity configuration must be a regular file".to_string()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => false,
-        Err(_) => return Err("identity configuration cannot be inspected".to_string()),
-    };
-    let hook_token = private_hook_token(&manifest.hooks.token_file, policy.fixed_factory_paths)?;
-    let hook_receipt_path = receipt_path(&manifest, policy);
-    let mut hook_receipt =
-        read_hook_receipt(&hook_receipt_path, policy.fixed_factory_paths, &manifest)?;
+fn check_maintenance_gates(
+    identity_exists: bool,
+    maintenance: bool,
+    hook_receipt: &NativeHookReceipt,
+) -> Result<(), String> {
     if identity_exists && !maintenance {
         return Err("identity configuration exists; pass --maintenance after reviewing the selected replacement".to_string());
     }
@@ -1182,18 +1315,107 @@ fn apply_at(
     if !identity_exists && !maintenance && !hook_receipt.hooks.is_empty() {
         return Err("an incomplete native enrollment has a hook receipt; pass --maintenance to resume the exact selected target".to_string());
     }
-    preflight_factory_actors(native, &manifest)?;
+    Ok(())
+}
+
+fn admit_enrollment_target(
+    manifest: &EnrollmentManifest,
+    maintenance: bool,
+    policy: ValidationPolicy<'_>,
+) -> Result<AdmittedEnrollmentTarget, String> {
+    validate_with(manifest, policy)?;
+    validate_bindings(&manifest.bindings)?;
+    let existing = read_existing_dashboard(manifest)?;
+    let identity_path = Path::new(&manifest.target.identity_config);
+    let identity_exists = match fs::symlink_metadata(identity_path) {
+        Ok(info) if info.file_type().is_file() => true,
+        Ok(_) => return Err("identity configuration must be a regular file".to_string()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => false,
+        Err(_) => return Err("identity configuration cannot be inspected".to_string()),
+    };
+    let hook_token = private_hook_token(&manifest.hooks.token_file, policy.fixed_factory_paths)?;
+    let hook_receipt_path = receipt_path(manifest, policy);
+    let hook_receipt = read_hook_receipt(&hook_receipt_path, policy.fixed_factory_paths, manifest)?;
+    check_maintenance_gates(identity_exists, maintenance, &hook_receipt)?;
+    Ok(AdmittedEnrollmentTarget {
+        existing,
+        identity_exists,
+        hook_token,
+        hook_receipt_path,
+        hook_receipt,
+    })
+}
+
+/// Captured pre-write state for one enrollment run.
+struct EnrollmentPreflight {
+    dashboard_before: Snapshot,
+    identity_before: Snapshot,
+    existing_bindings: Vec<ExistingNativeBinding>,
+}
+
+fn preflight_enrollment_writes(
+    native: &dyn NativeBindingCommand,
+    manifest: &EnrollmentManifest,
+    admitted: &AdmittedEnrollmentTarget,
+    maintenance: bool,
+) -> Result<EnrollmentPreflight, String> {
+    preflight_factory_actors(native, manifest)?;
+    let dashboard_path = Path::new(&manifest.target.dashboard_config);
+    let identity_path = Path::new(&manifest.target.identity_config);
     let dashboard_before = Snapshot::capture(dashboard_path)?;
     let identity_before = Snapshot::capture(identity_path)?;
     let existing_bindings = inspect_native_bindings(native, &manifest.bindings.installation_id)?;
     preflight_native_hooks(
         native,
-        &hook_token,
+        &admitted.hook_token,
         &manifest.target.forgejo_internal_url,
         &manifest.hooks,
         maintenance,
-        &hook_receipt,
+        &admitted.hook_receipt,
     )?;
+    Ok(EnrollmentPreflight {
+        dashboard_before,
+        identity_before,
+        existing_bindings,
+    })
+}
+
+/// Roll back written configs after a failed enrollment step and restore
+/// services. The config-rollback error propagates when the rollback itself
+/// fails; otherwise the unrecovered message when service recovery is
+/// unconfirmed, else the step's own error.
+fn recover_enrolled_configs(
+    service: &dyn IdentityServiceAction,
+    preflight: &EnrollmentPreflight,
+    identity_exists: bool,
+    primary: String,
+    unrecovered: &str,
+) -> Result<String, String> {
+    rollback(&preflight.dashboard_before, &preflight.identity_before)?;
+    if restore_services_after_rollback(service, identity_exists).is_err() {
+        return Ok(unrecovered.to_string());
+    }
+    Ok(primary)
+}
+
+fn apply_at(
+    manifest: EnrollmentManifest,
+    maintenance: bool,
+    service: &dyn IdentityServiceAction,
+    native: &dyn NativeBindingCommand,
+    policy: ValidationPolicy<'_>,
+) -> Result<BindingEnrollmentReport, String> {
+    let admitted = admit_enrollment_target(&manifest, maintenance, policy)?;
+    let preflight = preflight_enrollment_writes(native, &manifest, &admitted, maintenance)?;
+    let AdmittedEnrollmentTarget {
+        existing,
+        identity_exists,
+        hook_token,
+        hook_receipt_path,
+        mut hook_receipt,
+    } = admitted;
+    let dashboard_path = Path::new(&manifest.target.dashboard_config);
+    let identity_path = Path::new(&manifest.target.identity_config);
     let dsn = existing.database_dsn_file;
     let dashboard = crate::config::encode_enrolled_dashboard_config(
         &existing.listen,
@@ -1224,22 +1446,26 @@ fn apply_at(
         policy.identity_gid,
     )?;
     if let Err(err) = activate_services(service, maintenance) {
-        rollback(&dashboard_before, &identity_before)?;
-        if restore_services_after_rollback(service, identity_exists).is_err() {
-            return Err("service activation failed and previous configuration was restored, but service recovery was not confirmed".to_string());
-        }
-        return Err(err);
+        return Err(recover_enrolled_configs(
+            service,
+            &preflight,
+            identity_exists,
+            err,
+            "service activation failed and previous configuration was restored, but service recovery was not confirmed",
+        )?);
     }
-    match reconcile_native_bindings(native, &manifest.bindings, &existing_bindings) {
+    match reconcile_native_bindings(native, &manifest.bindings, &preflight.existing_bindings) {
         Ok(report) => {
             let intake_secret = match fs::read(&manifest.dashboard.factory_intake_secret_file) {
                 Ok(secret) => secret,
                 Err(_) => {
-                    rollback(&dashboard_before, &identity_before)?;
-                    if restore_services_after_rollback(service, identity_exists).is_err() {
-                        return Err("factory intake secret became unavailable; previous configuration was restored, but service recovery was not confirmed".to_string());
-                    }
-                    return Err("factory intake secret became unavailable; previous configuration was restored".to_string());
+                    return Err(recover_enrolled_configs(
+                        service,
+                        &preflight,
+                        identity_exists,
+                        "factory intake secret became unavailable; previous configuration was restored".to_string(),
+                        "factory intake secret became unavailable; previous configuration was restored, but service recovery was not confirmed",
+                    )?);
                 }
             };
             if let Err(err) = create_native_hooks(
@@ -1253,21 +1479,23 @@ fn apply_at(
                 &mut hook_receipt,
                 policy.fixed_factory_paths,
             ) {
-                rollback(&dashboard_before, &identity_before)?;
-                if restore_services_after_rollback(service, identity_exists).is_err() {
-                    return Err("native hook enrollment was incomplete; previous configuration was restored, but service recovery was not confirmed".to_string());
-                }
-                return Err(err);
+                return Err(recover_enrolled_configs(
+                    service,
+                    &preflight,
+                    identity_exists,
+                    err,
+                    "native hook enrollment was incomplete; previous configuration was restored, but service recovery was not confirmed",
+                )?);
             }
             Ok(report)
         }
-        Err(err) => {
-            rollback(&dashboard_before, &identity_before)?;
-            if restore_services_after_rollback(service, identity_exists).is_err() {
-                return Err("native binding enrollment was incomplete; previous configuration was restored, but service recovery was not confirmed".to_string());
-            }
-            Err(err)
-        }
+        Err(err) => Err(recover_enrolled_configs(
+            service,
+            &preflight,
+            identity_exists,
+            err,
+            "native binding enrollment was incomplete; previous configuration was restored, but service recovery was not confirmed",
+        )?),
     }
 }
 

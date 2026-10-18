@@ -103,7 +103,7 @@ func TaskEventDigest(event TaskEvent) string {
 
 // Validate checks one event's shape. Chain continuity (sequence and
 // PrevDigest against the journal head) is enforced at append, not here.
-func (e TaskEvent) Validate() error {
+func (e TaskEvent) validateChain() error {
 	if e.Sequence < 1 {
 		return errors.New("task event sequence is invalid")
 	}
@@ -113,24 +113,29 @@ func (e TaskEvent) Validate() error {
 	if (e.Sequence == 1) != (e.PrevDigest == "") {
 		return errors.New("task event chain origin is invalid")
 	}
-	if !ValidTaskEventType(e.Type) {
-		return errors.New("unknown task event type")
+	return nil
+}
+
+func validTaskKeyRune(c byte, first bool) bool {
+	if first {
+		return c >= 'a' && c <= 'z'
 	}
+	return c == '-' || c == '_' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+}
+
+func (e TaskEvent) validateTaskKey() error {
 	if len(e.TaskKey) == 0 || len(e.TaskKey) > 32 {
 		return errors.New("task event task key is invalid")
 	}
 	for i := 0; i < len(e.TaskKey); i++ {
-		c := e.TaskKey[i]
-		if i == 0 {
-			if c < 'a' || c > 'z' {
-				return errors.New("task event task key is invalid")
-			}
-			continue
-		}
-		if c != '-' && c != '_' && (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+		if !validTaskKeyRune(e.TaskKey[i], i == 0) {
 			return errors.New("task event task key is invalid")
 		}
 	}
+	return nil
+}
+
+func (e TaskEvent) validatePayload() error {
 	if e.ChildID != "" && !ValidFactoryRunID(e.ChildID) {
 		return errors.New("task event child identity is invalid")
 	}
@@ -144,6 +149,19 @@ func (e TaskEvent) Validate() error {
 		return errors.New("task event detail exceeds its bound")
 	}
 	return nil
+}
+
+func (e TaskEvent) Validate() error {
+	if err := e.validateChain(); err != nil {
+		return err
+	}
+	if !ValidTaskEventType(e.Type) {
+		return errors.New("unknown task event type")
+	}
+	if err := e.validateTaskKey(); err != nil {
+		return err
+	}
+	return e.validatePayload()
 }
 
 // FactoryTaskEvents pages one admitted run's typed task journal. It is

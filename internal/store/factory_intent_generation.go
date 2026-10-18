@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 
@@ -19,9 +20,9 @@ func (s *Store) IntentGeneration(ctx context.Context, revision string) (factory.
 	return g, err
 }
 
-func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
-	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 || len(g.SubmittedTasks) == 0 {
-		return errors.New("invalid intent generation")
+func checkSubmittedGenerationGraph(g factory.IntentGeneration) error {
+	if err := checkGenerationIdentity(g); err != nil {
+		return err
 	}
 	seen := map[string]bool{}
 	for _, task := range g.SubmittedTasks {
@@ -52,68 +53,75 @@ func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGener
 			}
 		}
 	}
-	raw, err := json.Marshal(g)
-	if err != nil {
-		return err
+	return nil
+}
+
+func checkGenerationIdentity(g factory.IntentGeneration) error {
+	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 || len(g.SubmittedTasks) == 0 {
+		return errors.New("invalid intent generation")
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
+	return nil
+}
+
+func checkGenerationHeadTx(ctx context.Context, tx *sql.Tx, g factory.IntentGeneration) error {
 	var head string
 	var intentRaw []byte
-	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, g.IntentID).Scan(&head); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, g.IntentID).Scan(&head); err != nil {
 		return err
 	}
 	if head != g.RevisionID {
 		return ErrStaleRevision
 	}
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, head).Scan(&intentRaw); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, head).Scan(&intentRaw); err != nil {
 		return err
 	}
 	var r factory.IntentRevision
-	if err = json.Unmarshal(intentRaw, &r); err != nil {
+	if err := json.Unmarshal(intentRaw, &r); err != nil {
 		return err
 	}
 	if r.State != "accepted" || r.Digest() != g.IntentDigest {
 		return ErrStaleRevision
 	}
-	for key, ref := range g.Delivered {
-		rows, err := tx.QueryContext(ctx, `SELECT data FROM factory_intent_tasks WHERE task=$1 AND revision IN (SELECT id FROM factory_intent_revisions WHERE intent=$2 AND id<>$3)`, key, g.IntentID, g.RevisionID)
-		if err != nil {
-			return err
-		}
-		chained := false
-		for rows.Next() {
-			var rawBinding []byte
-			var b factory.IntentTaskBinding
-			if err = rows.Scan(&rawBinding); err != nil {
-				rows.Close()
-				return err
-			}
-			if err = json.Unmarshal(rawBinding, &b); err != nil {
-				rows.Close()
-				return err
-			}
-			if b.IssueID == ref.IssueID && b.IssueIndex == ref.IssueIndex && b.ContentVersion == ref.ContentVersion {
-				chained = true
-			}
-		}
-		rows.Close()
-		if rows.Err() != nil {
-			return rows.Err()
-		}
-		if !chained {
-			return errors.New("invalid delivered reuse")
-		}
-	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2) ON CONFLICT(revision) DO NOTHING`, g.RevisionID, string(raw))
+	return nil
+}
+
+func checkDeliveredBindingTx(ctx context.Context, tx *sql.Tx, g factory.IntentGeneration, key string, ref factory.DeliveredIssue) error {
+	rows, err := tx.QueryContext(ctx, `SELECT data FROM factory_intent_tasks WHERE task=$1 AND revision IN (SELECT id FROM factory_intent_revisions WHERE intent=$2 AND id<>$3)`, key, g.IntentID, g.RevisionID)
 	if err != nil {
 		return err
 	}
+	chained := false
+	for rows.Next() {
+		var rawBinding []byte
+		var b factory.IntentTaskBinding
+		if err = rows.Scan(&rawBinding); err != nil {
+			rows.Close()
+			return err
+		}
+		if err = json.Unmarshal(rawBinding, &b); err != nil {
+			rows.Close()
+			return err
+		}
+		if b.IssueID == ref.IssueID && b.IssueIndex == ref.IssueIndex && b.ContentVersion == ref.ContentVersion {
+			chained = true
+		}
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+	if !chained {
+		return errors.New("invalid delivered reuse")
+	}
+	return nil
+}
+
+func insertGenerationRecordTx(ctx context.Context, tx *sql.Tx, g factory.IntentGeneration, raw []byte) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2) ON CONFLICT(revision) DO NOTHING`, g.RevisionID, string(raw)); err != nil {
+		return err
+	}
 	var old []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1`, g.RevisionID).Scan(&old); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1`, g.RevisionID).Scan(&old); err != nil {
 		return err
 	}
 	same, err := sameJSONDocument(ctx, tx, old, raw)
@@ -123,22 +131,14 @@ func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGener
 	if !same {
 		return ErrCommandConflict
 	}
-	return tx.Commit()
+	return nil
 }
 
-func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
-	old, err := s.IntentGeneration(ctx, g.RevisionID)
-	if err != nil {
+func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
+	if err := checkSubmittedGenerationGraph(g); err != nil {
 		return err
 	}
-	compare := g
-	compare.State = old.State
-	compare.Receipt = old.Receipt
-	a, err := json.Marshal(compare)
-	if err != nil {
-		return err
-	}
-	b, err := json.Marshal(old)
+	raw, err := json.Marshal(g)
 	if err != nil {
 		return err
 	}
@@ -147,13 +147,34 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	same, err := sameJSONDocument(ctx, tx, a, b)
-	if err != nil {
+	if err = checkGenerationHeadTx(ctx, tx, g); err != nil {
 		return err
 	}
-	if !same {
-		return ErrCommandConflict
+	for key, ref := range g.Delivered {
+		if err = checkDeliveredBindingTx(ctx, tx, g, key, ref); err != nil {
+			return err
+		}
 	}
+	if err = insertGenerationRecordTx(ctx, tx, g, raw); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func compareGenerationRecord(old, g factory.IntentGeneration) (a, b []byte, err error) {
+	compare := g
+	compare.State = old.State
+	compare.Receipt = old.Receipt
+	if a, err = json.Marshal(compare); err != nil {
+		return nil, nil, err
+	}
+	if b, err = json.Marshal(old); err != nil {
+		return nil, nil, err
+	}
+	return a, b, nil
+}
+
+func checkGenerationReceipt(g factory.IntentGeneration) error {
 	if g.State != "pending" && g.State != "committed" && g.State != "refused" && g.State != "completed" {
 		return errors.New("invalid generation outcome")
 	}
@@ -174,9 +195,17 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 			}
 		}
 	}
+	return nil
+}
+
+func checkGenerationRollback(old, g factory.IntentGeneration) error {
 	if old.State == "completed" && g.State != "completed" || old.State == "refused" && g.State != "refused" || old.State == "committed" && g.State == "pending" {
 		return ErrCommandConflict
 	}
+	return nil
+}
+
+func writeGenerationRecordTx(ctx context.Context, tx *sql.Tx, g factory.IntentGeneration, b []byte) error {
 	raw, err := json.Marshal(g)
 	if err != nil {
 		return err
@@ -191,6 +220,39 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 	}
 	if n != 1 {
 		return ErrStaleRevision
+	}
+	return nil
+}
+
+func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
+	old, err := s.IntentGeneration(ctx, g.RevisionID)
+	if err != nil {
+		return err
+	}
+	a, b, err := compareGenerationRecord(old, g)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	same, err := sameJSONDocument(ctx, tx, a, b)
+	if err != nil {
+		return err
+	}
+	if !same {
+		return ErrCommandConflict
+	}
+	if err = checkGenerationReceipt(g); err != nil {
+		return err
+	}
+	if err = checkGenerationRollback(old, g); err != nil {
+		return err
+	}
+	if err = writeGenerationRecordTx(ctx, tx, g, b); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

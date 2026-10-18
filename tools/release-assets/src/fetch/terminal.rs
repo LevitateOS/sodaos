@@ -186,17 +186,91 @@ fn read_members(
     read_members_with_limit(body, assets, DECOMPRESSED_LIMIT)
 }
 
-fn read_members_with_limit(
-    body: &[u8],
-    assets: &[Asset],
-    decoded_limit: u64,
-) -> Result<std::collections::HashMap<String, Vec<u8>>, String> {
+fn wanted_members(assets: &[Asset]) -> Result<std::collections::HashMap<&str, ()>, String> {
     let mut wanted = std::collections::HashMap::new();
     for asset in assets {
         if wanted.insert(asset.member.as_str(), ()).is_some() {
             return Err("duplicate terminal distribution member request".to_string());
         }
     }
+    Ok(wanted)
+}
+
+fn collect_entry<R: std::io::Read>(
+    entry: &mut tar::Entry<'_, R>,
+    wanted: &std::collections::HashMap<&str, ()>,
+    found: &mut std::collections::HashMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    let name = entry
+        .path()
+        .map_err(|e| format!("terminal archive is not readable: {e}"))?
+        .to_str()
+        .unwrap_or("")
+        .to_string();
+    if !wanted.contains_key(name.as_str()) {
+        return Ok(());
+    }
+    if found.contains_key(&name) {
+        return Err("duplicate terminal distribution member".to_string());
+    }
+    let size = entry
+        .header()
+        .size()
+        .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+    if !entry.header().entry_type().is_file() || size > MEMBER_LIMIT {
+        return Err("invalid terminal distribution member".to_string());
+    }
+    let capacity =
+        usize::try_from(size).map_err(|_| "invalid terminal distribution member".to_string())?;
+    let mut data = Vec::new();
+    data.try_reserve_exact(capacity)
+        .map_err(|_| "invalid terminal distribution member".to_string())?;
+    entry
+        .read_to_end(&mut data)
+        .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+    if data.len() as u64 != size {
+        return Err("terminal archive is not readable: member size changed".to_string());
+    }
+    found.insert(name, data);
+    Ok(())
+}
+
+fn drain_zero_tail(
+    bounded: &mut BudgetReader<'_, flate2::read::MultiGzDecoder<&[u8]>>,
+) -> Result<(), String> {
+    let mut tail = [0u8; 65536];
+    loop {
+        let n = bounded
+            .read(&mut tail)
+            .map_err(|e| format!("terminal archive is not readable: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        if tail[..n].iter().any(|byte| *byte != 0) {
+            return Err("terminal archive has trailing data".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn require_all_found(
+    assets: &[Asset],
+    found: &std::collections::HashMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    for asset in assets {
+        if !found.contains_key(&asset.member) {
+            return Err("invalid terminal distribution member".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn read_members_with_limit(
+    body: &[u8],
+    assets: &[Asset],
+    decoded_limit: u64,
+) -> Result<std::collections::HashMap<String, Vec<u8>>, String> {
+    let wanted = wanted_members(assets)?;
     // Consume every gzip member and require only zero tar padding after the
     // first archive terminator; concatenated archives and junk are rejected.
     let mut decoder = flate2::read::MultiGzDecoder::new(body);
@@ -218,57 +292,12 @@ fn read_members_with_limit(
             if count > MEMBER_COUNT_LIMIT {
                 return Err("terminal archive has too many members".to_string());
             }
-            let name = entry
-                .path()
-                .map_err(|e| format!("terminal archive is not readable: {e}"))?
-                .to_str()
-                .unwrap_or("")
-                .to_string();
-            if !wanted.contains_key(name.as_str()) {
-                continue;
-            }
-            if found.contains_key(&name) {
-                return Err("duplicate terminal distribution member".to_string());
-            }
-            let size = entry
-                .header()
-                .size()
-                .map_err(|e| format!("terminal archive is not readable: {e}"))?;
-            if !entry.header().entry_type().is_file() || size > MEMBER_LIMIT {
-                return Err("invalid terminal distribution member".to_string());
-            }
-            let capacity = usize::try_from(size)
-                .map_err(|_| "invalid terminal distribution member".to_string())?;
-            let mut data = Vec::new();
-            data.try_reserve_exact(capacity)
-                .map_err(|_| "invalid terminal distribution member".to_string())?;
-            entry
-                .read_to_end(&mut data)
-                .map_err(|e| format!("terminal archive is not readable: {e}"))?;
-            if data.len() as u64 != size {
-                return Err("terminal archive is not readable: member size changed".to_string());
-            }
-            found.insert(name, data);
+            collect_entry(&mut entry, &wanted, &mut found)?;
         }
         found
     };
-    let mut tail = [0u8; 65536];
-    loop {
-        let n = bounded
-            .read(&mut tail)
-            .map_err(|e| format!("terminal archive is not readable: {e}"))?;
-        if n == 0 {
-            break;
-        }
-        if tail[..n].iter().any(|byte| *byte != 0) {
-            return Err("terminal archive has trailing data".to_string());
-        }
-    }
-    for asset in assets {
-        if !found.contains_key(&asset.member) {
-            return Err("invalid terminal distribution member".to_string());
-        }
-    }
+    drain_zero_tail(&mut bounded)?;
+    require_all_found(assets, &found)?;
     Ok(found)
 }
 

@@ -165,20 +165,29 @@ const OBSERVATION_FIELDS: &[&str] = &[
     "Finished",
 ];
 
-/// Decode an observation using its exact known names and last exact duplicate.
-pub fn observation_from_json(value: &RawValue) -> Result<Observation, Error> {
-    let slots = if value.get().as_bytes()[0] == b'{' {
+/// Parse the raw slots, tolerating non-object input as empty.
+fn parse_slots(value: &RawValue) -> Result<ObservationSlots, Error> {
+    if value.get().as_bytes()[0] == b'{' {
         serde_json::from_str::<ObservationSlots>(value.get())
-            .map_err(|_| Error::msg("invalid JSON input"))?
+            .map_err(|_| Error::msg("invalid JSON input"))
     } else {
-        ObservationSlots(Vec::new())
-    };
+        Ok(ObservationSlots(Vec::new()))
+    }
+}
+
+/// Reject names outside the exact known field set.
+fn reject_unknown_fields(slots: &ObservationSlots) -> Result<(), Error> {
     for (key, _) in &slots.0 {
         if !OBSERVATION_FIELDS.contains(&key.as_str()) {
             return Err(Error::msg(format!("json: unknown field {key:?}")));
         }
     }
-    let exit_code = match last(&slots, "ExitCode") {
+    Ok(())
+}
+
+/// Decode the optional check exit code and dirty-tree flag.
+fn decode_check_flags(slots: &ObservationSlots) -> Result<(Option<i64>, bool), Error> {
+    let exit_code = match last(slots, "ExitCode") {
         None => None,
         Some(raw) if raw.get() == "null" => None,
         Some(raw) => Some(
@@ -186,33 +195,61 @@ pub fn observation_from_json(value: &RawValue) -> Result<Observation, Error> {
                 .map_err(|_| Error::msg("invalid ExitCode: integer required"))?,
         ),
     };
-    let tool_dirty = match last(&slots, "ToolDirty") {
+    let tool_dirty = match last(slots, "ToolDirty") {
         None => false,
         Some(raw) if raw.get() == "null" => false,
         Some(raw) => serde_json::from_str::<bool>(raw.get())
             .map_err(|_| Error::msg("invalid ToolDirty: boolean required"))?,
     };
-    Ok(Observation {
-        owner: optional_string(&slots, "Owner")?,
-        requested_revision: optional_string(&slots, "RequestedRevision")?,
-        tool_revision: optional_string(&slots, "ToolRevision")?,
-        requested_architecture: optional_string(&slots, "RequestedArchitecture")?,
-        target: optional_string(&slots, "Target")?,
-        client_platform: optional_string(&slots, "ClientPlatform")?,
-        action: optional_string(&slots, "Action")?,
-        outcome: optional_string(&slots, "Outcome")?,
-        execution: optional_string(&slots, "Execution")?,
-        evidence: optional_string(&slots, "Evidence")?,
-        cleanup: optional_string(&slots, "Cleanup")?,
-        topology: optional_string(&slots, "Topology")?,
+    Ok((exit_code, tool_dirty))
+}
+
+/// Fill the identity string fields.
+fn fill_identity_fields(o: &mut Observation, slots: &ObservationSlots) -> Result<(), Error> {
+    o.owner = optional_string(slots, "Owner")?;
+    o.requested_revision = optional_string(slots, "RequestedRevision")?;
+    o.tool_revision = optional_string(slots, "ToolRevision")?;
+    o.requested_architecture = optional_string(slots, "RequestedArchitecture")?;
+    o.target = optional_string(slots, "Target")?;
+    o.client_platform = optional_string(slots, "ClientPlatform")?;
+    Ok(())
+}
+
+/// Fill the outcome string fields.
+fn fill_result_fields(o: &mut Observation, slots: &ObservationSlots) -> Result<(), Error> {
+    o.action = optional_string(slots, "Action")?;
+    o.outcome = optional_string(slots, "Outcome")?;
+    o.execution = optional_string(slots, "Execution")?;
+    o.evidence = optional_string(slots, "Evidence")?;
+    o.cleanup = optional_string(slots, "Cleanup")?;
+    o.topology = optional_string(slots, "Topology")?;
+    Ok(())
+}
+
+/// Fill the optional collection and timestamp fields.
+fn fill_optional_fields(o: &mut Observation, slots: &ObservationSlots) -> Result<(), Error> {
+    o.invocation = optional_string_list(slots, "Invocation")?;
+    o.files = optional_string_map(slots, "Files")?;
+    o.artifacts = optional_string_map(slots, "Artifacts")?;
+    o.started = optional_timestamp(slots, "Started")?;
+    o.finished = optional_timestamp(slots, "Finished")?;
+    Ok(())
+}
+
+/// Decode an observation using its exact known names and last exact duplicate.
+pub fn observation_from_json(value: &RawValue) -> Result<Observation, Error> {
+    let slots = parse_slots(value)?;
+    reject_unknown_fields(&slots)?;
+    let (exit_code, tool_dirty) = decode_check_flags(&slots)?;
+    let mut o = Observation {
         exit_code,
         tool_dirty,
-        invocation: optional_string_list(&slots, "Invocation")?,
-        files: optional_string_map(&slots, "Files")?,
-        artifacts: optional_string_map(&slots, "Artifacts")?,
-        started: optional_timestamp(&slots, "Started")?,
-        finished: optional_timestamp(&slots, "Finished")?,
-    })
+        ..Default::default()
+    };
+    fill_identity_fields(&mut o, &slots)?;
+    fill_result_fields(&mut o, &slots)?;
+    fill_optional_fields(&mut o, &slots)?;
+    Ok(o)
 }
 
 /// Fixed Go struct field order; maps use BTreeMap's Go-compatible key order.

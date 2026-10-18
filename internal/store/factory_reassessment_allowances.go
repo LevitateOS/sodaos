@@ -192,15 +192,7 @@ func refuseDuplicateReassessmentAttemptTx(ctx context.Context, tx *sql.Tx, repos
 // minutes or a different completion subject conflicts instead of
 // overwriting. This constructor performs no dispatch-gate, owner or
 // current-cycle admission: the future packet owns those locks.
-func insertReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, minutes int, deadline, now time.Time) error {
-	admitted := factory.EffectiveReassessmentMinutes(minutes)
-	if admitted < factory.MinReassessmentMinutes || admitted > factory.MaxReassessmentMinutes {
-		return errors.New("reassessment minutes outside their bound")
-	}
-	if a.Subject.Kind != factory.SubjectCompletion || a.Subject.Completion == nil {
-		return errors.New("reassessment root lacks its completion subject")
-	}
-	subject := *a.Subject.Completion
+func admitReassessmentRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, subject factory.CompletionSubject) error {
 	if err := validateReassessmentRootAssignment(a, a.Repository, subject, a.ID); err != nil {
 		return err
 	}
@@ -217,23 +209,46 @@ func insertReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a fac
 	if !sameReassessmentRootScope(stored, a) {
 		return errors.New("reassessment root assignment does not match its recorded row")
 	}
+	return nil
+}
+
+func replayReassessmentAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, subject factory.CompletionSubject, admitted int) (bool, error) {
 	var existingData []byte
-	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2`, a.Repository, a.ID).Scan(&existingData)
-	if err == nil {
-		var existing factory.AttemptAllowance
-		if err = json.Unmarshal(existingData, &existing); err != nil {
-			return err
-		}
-		if err = validateAttemptAllowanceRow(existing, a.Repository, 0, a.ID, existing.Revision); err != nil {
-			return err
-		}
-		if existing.Completion == nil || *existing.Completion != subject ||
-			existing.Limits.ActiveMinutes != admitted {
-			return errors.New("reassessment allowance does not match its recorded root")
-		}
-		return nil
+	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2`, a.Repository, a.ID).Scan(&existingData)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		return false, err
+	}
+	var existing factory.AttemptAllowance
+	if err = json.Unmarshal(existingData, &existing); err != nil {
+		return false, err
+	}
+	if err = validateAttemptAllowanceRow(existing, a.Repository, 0, a.ID, existing.Revision); err != nil {
+		return false, err
+	}
+	if existing.Completion == nil || *existing.Completion != subject ||
+		existing.Limits.ActiveMinutes != admitted {
+		return false, errors.New("reassessment allowance does not match its recorded root")
+	}
+	return true, nil
+}
+
+func insertReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, minutes int, deadline, now time.Time) error {
+	admitted := factory.EffectiveReassessmentMinutes(minutes)
+	if admitted < factory.MinReassessmentMinutes || admitted > factory.MaxReassessmentMinutes {
+		return errors.New("reassessment minutes outside their bound")
+	}
+	if a.Subject.Kind != factory.SubjectCompletion || a.Subject.Completion == nil {
+		return errors.New("reassessment root lacks its completion subject")
+	}
+	subject := *a.Subject.Completion
+	if err := admitReassessmentRootTx(ctx, tx, a, subject); err != nil {
+		return err
+	}
+	replayed, err := replayReassessmentAllowanceTx(ctx, tx, a, subject, admitted)
+	if err != nil || replayed {
 		return err
 	}
 	// Cross-root operation binding (R11 retry contract): the same

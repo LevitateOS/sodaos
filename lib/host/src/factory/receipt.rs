@@ -109,6 +109,122 @@ impl FactoryReceipt {
     }
 }
 
+fn visit_receipt_identity<'a, A>(
+    out: &mut FactoryReceipt,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    if key.eq_ignore_ascii_case("run") {
+        if let Some(v) = map.next_value::<Option<FactoryRun>>()? {
+            out.run = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("lease") {
+        if let Some(v) = map.next_value::<Option<Lease>>()? {
+            out.lease = Some(v);
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("binding") {
+        if let Some(v) = map.next_value::<Option<Binding>>()? {
+            out.binding = Some(v);
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_receipt_scalars<'a, A>(
+    out: &mut FactoryReceipt,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    if key.eq_ignore_ascii_case("exit_code") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.exit_code = Some(v.0);
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("generation") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.generation = v.0;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("phase") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.phase = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_receipt_flags<'a, A>(
+    out: &mut FactoryReceipt,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    if key.eq_ignore_ascii_case("started") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.started = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("delivered") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.delivered = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("credential_returned") {
+        if let Some(v) = map.next_value::<Option<bool>>()? {
+            out.credential_returned = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn visit_receipt_text<'a, A>(
+    out: &mut FactoryReceipt,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    if key.eq_ignore_ascii_case("output") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.output = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("retirement") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.retirement = v;
+        }
+        return Ok(true);
+    }
+    if key.eq_ignore_ascii_case("reason") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.reason = v;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 impl<'de> Deserialize<'de> for FactoryReceipt {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -126,76 +242,16 @@ impl<'de> Deserialize<'de> for FactoryReceipt {
             {
                 let mut out = FactoryReceipt::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("run") {
-                        if let Some(v) = map.next_value::<Option<FactoryRun>>()? {
-                            out.run = v;
-                        }
+                    if visit_receipt_identity(&mut out, &key, &mut map)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("lease") {
-                        if let Some(v) = map.next_value::<Option<Lease>>()? {
-                            out.lease = Some(v);
-                        }
+                    if visit_receipt_scalars(&mut out, &key, &mut map)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("binding") {
-                        if let Some(v) = map.next_value::<Option<Binding>>()? {
-                            out.binding = Some(v);
-                        }
+                    if visit_receipt_flags(&mut out, &key, &mut map)? {
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("exit_code") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.exit_code = Some(v.0);
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("generation") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.generation = v.0;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("phase") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.phase = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("started") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.started = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("delivered") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.delivered = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("credential_returned") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.credential_returned = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("output") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.output = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("retirement") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.retirement = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("reason") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.reason = v;
-                        }
+                    if visit_receipt_text(&mut out, &key, &mut map)? {
                         continue;
                     }
                     return Err(de::Error::unknown_field(

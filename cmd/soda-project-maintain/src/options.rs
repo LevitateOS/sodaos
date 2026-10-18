@@ -10,81 +10,68 @@ pub(crate) fn default_tools() -> String {
     "/usr/share/soda/muse-tools".to_string()
 }
 
-pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
-    let mut config = String::from("/etc/soda/host.json");
-    let mut project = String::new();
-    let mut tools = default_tools();
-    let mut bind_only = false;
-    let mut i = 0;
-    let mut positional = 0;
-    while i < args.len() {
-        let arg = &args[i];
-        if arg == "--" {
-            positional += args.len() - i - 1;
-            break;
-        }
-        // Go stops flag parsing at the first non-flag argument.
-        if !(arg.starts_with('-') && arg.len() > 1) {
-            positional += args.len() - i;
-            break;
-        }
-        // Go strips one dash, or two for a long flag; more is bad syntax.
-        let raw = match arg.strip_prefix("--") {
-            Some(s) => s,
-            None => &arg[1..],
-        };
-        if raw.is_empty() || raw.starts_with('-') || raw.starts_with('=') {
-            return Err(flag_error(format!("bad flag syntax: {arg}")));
-        }
-        let (key, inline) = match raw.find('=') {
-            Some(p) => (&raw[..p], Some(&raw[p + 1..])),
-            None => (raw, None),
-        };
-        match key {
-            "config" | "project" | "tools" => {
-                let value = match inline {
-                    Some(v) => v.to_string(),
-                    None => {
-                        i += 1;
-                        if i >= args.len() {
-                            return Err(flag_error(format!("flag needs an argument: -{key}")));
-                        }
-                        args[i].clone()
-                    }
-                };
-                match key {
-                    "config" => config = value,
-                    "project" => project = value,
-                    _ => tools = value,
-                }
-            }
-            "bind-only" => match inline {
-                Some(v) => {
-                    bind_only = parse_bool_flag(v).ok_or_else(|| {
-                        flag_error(format!(
-                            "invalid boolean value {} for -bind-only: parse error",
-                            super::config_wire::go_quoted(v)
-                        ))
-                    })?;
-                }
-                None => bind_only = true,
-            },
-            "h" | "help" => {
-                print_usage(&default_tools());
-                return Err(String::from("flag: help requested"));
-            }
-            _ => {
-                return Err(flag_error(format!("flag provided but not defined: -{key}")));
-            }
-        }
-        i += 1;
+/// Go stops flag parsing at the first non-flag argument: count the rest
+/// as positionals. Reports whether parsing stops here.
+fn stop_at_positional(arg: &str, args_len: usize, i: usize, positional: &mut usize) -> bool {
+    if arg == "--" {
+        *positional += args_len - i - 1;
+        return true;
     }
-    let o = Options {
-        config,
-        project,
-        tools,
-        bind_only,
+    if !(arg.starts_with('-') && arg.len() > 1) {
+        *positional += args_len - i;
+        return true;
+    }
+    false
+}
+
+/// Strip one dash, or two for a long flag, and reject bad syntax.
+/// More dashes, an empty body or a leading `=` never parse.
+fn flag_body<'a>(arg: &'a str) -> Result<&'a str, String> {
+    // Go strips one dash, or two for a long flag; more is bad syntax.
+    let raw = match arg.strip_prefix("--") {
+        Some(s) => s,
+        None => &arg[1..],
     };
+    if raw.is_empty() || raw.starts_with('-') || raw.starts_with('=') {
+        return Err(flag_error(format!("bad flag syntax: {arg}")));
+    }
+    Ok(raw)
+}
+
+/// Take a string flag value inline or from the next argument.
+fn take_flag_value(
+    args: &[String],
+    i: &mut usize,
+    key: &str,
+    inline: Option<&str>,
+) -> Result<String, String> {
+    match inline {
+        Some(v) => Ok(v.to_string()),
+        None => {
+            *i += 1;
+            if *i >= args.len() {
+                return Err(flag_error(format!("flag needs an argument: -{key}")));
+            }
+            Ok(args[*i].clone())
+        }
+    }
+}
+
+/// Parse the `bind-only` flag: bare means true, inline needs a bool.
+fn parse_bind_only(inline: Option<&str>) -> Result<bool, String> {
+    match inline {
+        Some(v) => parse_bool_flag(v).ok_or_else(|| {
+            flag_error(format!(
+                "invalid boolean value {} for -bind-only: parse error",
+                super::config_wire::go_quoted(v)
+            ))
+        }),
+        None => Ok(true),
+    }
+}
+
+/// Reject trailing positionals, bad project ids and relative paths.
+fn check_options(o: Options, positional: usize) -> Result<Options, String> {
     if positional != 0
         || !valid_project_id(&o.project)
         || !o.config.starts_with('/')
@@ -95,6 +82,54 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
         ));
     }
     Ok(o)
+}
+
+pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
+    let mut config = String::from("/etc/soda/host.json");
+    let mut project = String::new();
+    let mut tools = default_tools();
+    let mut bind_only = false;
+    let mut i = 0;
+    let mut positional = 0;
+    while i < args.len() {
+        let arg = &args[i];
+        if stop_at_positional(arg, args.len(), i, &mut positional) {
+            break;
+        }
+        let raw = flag_body(arg)?;
+        let (key, inline) = match raw.find('=') {
+            Some(p) => (&raw[..p], Some(&raw[p + 1..])),
+            None => (raw, None),
+        };
+        match key {
+            "config" | "project" | "tools" => {
+                let value = take_flag_value(args, &mut i, key, inline)?;
+                match key {
+                    "config" => config = value,
+                    "project" => project = value,
+                    _ => tools = value,
+                }
+            }
+            "bind-only" => bind_only = parse_bind_only(inline)?,
+            "h" | "help" => {
+                print_usage(&default_tools());
+                return Err(String::from("flag: help requested"));
+            }
+            _ => {
+                return Err(flag_error(format!("flag provided but not defined: -{key}")));
+            }
+        }
+        i += 1;
+    }
+    check_options(
+        Options {
+            config,
+            project,
+            tools,
+            bind_only,
+        },
+        positional,
+    )
 }
 
 fn print_usage(tools_default: &str) {

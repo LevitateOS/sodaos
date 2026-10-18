@@ -91,7 +91,9 @@ pub fn prepare(identifier: &str) -> i32 {
     }
 }
 
-fn prepare_inner(identifier: &str) -> Result<(), String> {
+/// Open the identifier's cgroup and prove it is root-owned and closed
+/// to group/others, like the inline admission it replaces.
+fn open_terminal_cgroup(identifier: &str) -> Result<(String, File), String> {
     let path = terminal_path(identifier)?;
     let parent = svc::cgroup_parent()?;
     let group =
@@ -101,14 +103,19 @@ fn prepare_inner(identifier: &str) -> Result<(), String> {
     if uid != 0 || mode & 0o022 != 0 {
         return Err("unsafe terminal cgroup".to_string());
     }
+    Ok((path, group))
+}
+
+/// Prove this process runs inside the cgroup: EINTR-retry the procs read,
+/// then require our own pid in the member list.
+fn verify_cgroup_membership(group: &File) -> Result<(), String> {
     let procs = sys::open_at(
-        &group,
+        group,
         "cgroup.procs",
         sys::OFlags::RDONLY | sys::OFlags::NOFOLLOW,
         rustix::fs::Mode::empty(),
     )
     .map_err(|e| e.to_string())?;
-    drop(group);
     let mut content = vec![0u8; 16384];
     let got = loop {
         let got = unsafe {
@@ -139,11 +146,87 @@ fn prepare_inner(identifier: &str) -> Result<(), String> {
     {
         return Err("preparation outside owned cgroup".to_string());
     }
-    drop(procs);
-    let directory = checked_chain(&path)?;
+    Ok(())
+}
+
+/// Resolve the terminal directory and bind it to its project account.
+fn bind_terminal_account(
+    path: &str,
+) -> Result<
+    (
+        File,
+        crate::term_binding::BindingRecord,
+        crate::account::Account,
+    ),
+    String,
+> {
+    let directory = checked_chain(path)?;
     let record = binding_record(&directory, None, 0)?;
     let account = account::account_for(&record.login, record.identity)?;
     binding_record(&directory, Some(&account), record.identity)?;
+    Ok((directory, record, account))
+}
+
+/// Wait up to five seconds for the tmux socket: lock files and retryable
+/// probes sleep on, fatal probes fail.
+fn await_tmux_socket(
+    sock: &str,
+    account: &crate::account::Account,
+    pid: i32,
+) -> Result<(), String> {
+    let until = sys::monotonic() + 5.0;
+    loop {
+        if sys::monotonic() >= until {
+            return Err("tmux startup failed".to_string());
+        }
+        if std::path::Path::new(&format!("{sock}.lock")).exists() {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            continue;
+        }
+        match svc::socket_identity_kinded(sock, account, pid) {
+            Ok(_) => break,
+            Err(svc::SocketCheck::Retryable(_)) => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            Err(svc::SocketCheck::Fatal(message)) => return Err(message),
+        }
+    }
+    Ok(())
+}
+
+/// Seal the socket's parent before publishing readiness: the project user
+/// may connect but cannot replace this socket with another context.
+fn publish_terminal_ready(
+    path: &str,
+    directory: &File,
+    account: &crate::account::Account,
+    record: &crate::term_binding::BindingRecord,
+    pid: i32,
+) -> Result<(), String> {
+    fs::chown_path(&format!("{path}/screen"), 0, 0, true).map_err(|e| e.to_string())?;
+    fs::chmod_path(&format!("{path}/screen"), 0o711, true).map_err(|e| e.to_string())?;
+    let sock = format!("{path}/screen/socket");
+    let (dev, ino) = svc::socket_identity(&sock, account, pid)?;
+    let profile = subscription_session(directory)?;
+    svc::tmux_control(
+        account,
+        &sock,
+        &tmux_new_session_args(record.cols, record.rows, &account.pw_dir, &profile),
+    )?;
+    fs::new_file(
+        directory,
+        "ready",
+        &pyemit::line(&ready_object(i64::from(pid), dev, ino)),
+        0o600,
+    )?;
+    Ok(())
+}
+
+fn prepare_inner(identifier: &str) -> Result<(), String> {
+    let (path, group) = open_terminal_cgroup(identifier)?;
+    verify_cgroup_membership(&group)?;
+    drop(group);
+    let (directory, record, account) = bind_terminal_account(&path)?;
     let sock = format!("{path}/screen/socket");
     // MAINPID is supplied by systemd, never by the browser.
     let pid: i64 = std::env::var("MAINPID")
@@ -154,39 +237,7 @@ fn prepare_inner(identifier: &str) -> Result<(), String> {
         return Err("missing main process".to_string());
     }
     let pid = pid as i32;
-    let until = sys::monotonic() + 5.0;
-    loop {
-        if sys::monotonic() >= until {
-            return Err("tmux startup failed".to_string());
-        }
-        if std::path::Path::new(&format!("{sock}.lock")).exists() {
-            std::thread::sleep(std::time::Duration::from_millis(20));
-            continue;
-        }
-        match svc::socket_identity_kinded(&sock, &account, pid) {
-            Ok(_) => break,
-            Err(svc::SocketCheck::Retryable(_)) => {
-                std::thread::sleep(std::time::Duration::from_millis(20));
-            }
-            Err(svc::SocketCheck::Fatal(message)) => return Err(message),
-        }
-    }
-    // Seal the socket's parent before publishing readiness: the project user
-    // may connect but cannot replace this socket with another context.
-    fs::chown_path(&format!("{path}/screen"), 0, 0, true).map_err(|e| e.to_string())?;
-    fs::chmod_path(&format!("{path}/screen"), 0o711, true).map_err(|e| e.to_string())?;
-    let (dev, ino) = svc::socket_identity(&sock, &account, pid)?;
-    let profile = subscription_session(&directory)?;
-    svc::tmux_control(
-        &account,
-        &sock,
-        &tmux_new_session_args(record.cols, record.rows, &account.pw_dir, &profile),
-    )?;
-    fs::new_file(
-        &directory,
-        "ready",
-        &pyemit::line(&ready_object(i64::from(pid), dev, ino)),
-        0o600,
-    )?;
+    await_tmux_socket(&sock, &account, pid)?;
+    publish_terminal_ready(&path, &directory, &account, &record, pid)?;
     Ok(())
 }

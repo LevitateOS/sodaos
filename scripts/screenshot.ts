@@ -98,7 +98,29 @@ export async function captureSpacesComponent(page: Page, name: string) {
   );
 }
 
-async function main() {
+interface CaptureArgs {
+  login?: boolean;
+  help?: boolean;
+  'local-css'?: boolean;
+  verify?: boolean;
+  landmark?: string;
+  theme?: string;
+  'scroll-top'?: boolean;
+  'full-page'?: boolean;
+  profile: string;
+  out?: string;
+  width: string;
+  height: string;
+  wait: string;
+}
+
+interface StyleRegistry {
+  source: string;
+  revision: string | undefined;
+  styles: {name: string; version: string; sha256?: string}[];
+}
+
+function parse_capture_input(): {values: CaptureArgs; urls: string[]} {
   const {values, positionals} = parseArgs({
     allowPositionals: true,
     options: {
@@ -117,7 +139,6 @@ async function main() {
       wait: {type: 'string', default: '1500'},
     },
   });
-  if (values.help) return console.log(help);
   if (!positionals.length || (values.login && positionals.length !== 1)) {
     throw new Error('Supply one login URL, or one or more capture URLs. Use --help.');
   }
@@ -133,6 +154,10 @@ async function main() {
     }
     return url.href;
   });
+  return {values: values as CaptureArgs, urls};
+}
+
+function validate_capture_args(values: CaptureArgs, urls: string[]) {
   if (values['local-css'] && (values.login || urls.some((url) => new URL(url).origin !== 'http://localhost:3300'))) {
     throw new Error('--local-css is only for captures of the local Forgejo preview.');
   }
@@ -142,59 +167,69 @@ async function main() {
   if (values.landmark && !values.verify) throw new Error('--landmark requires --verify');
   if (values.verify && values['local-css'])
     throw new Error('Verified native captures must load server assets without --local-css');
-  const registrySource = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
-  const expectedRevision = registrySource.match(/name="soda-presentation-revision" content="([^"]+)"/)?.[1];
-  const expectedStyles = [...registrySource.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=([0-9]+)/g)].map(
-    ([, name, version]): {name: string; version: string; sha256?: string} => {
-      assert(name && version);
-      return {name, version};
-    }
-  );
   for (const option of ['width', 'height', 'wait'] as const) {
     if (!/^\d+$/.test(values[option]) || !Number.isSafeInteger(Number(values[option])) || Number(values[option]) < 1) {
       throw new Error(`--${option} must be a positive integer.`);
     }
   }
   if (values.login && !process.stdin.isTTY) throw new Error('Run --login in an interactive terminal.');
+}
 
+async function load_style_registry(): Promise<StyleRegistry> {
+  const source = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
+  const revision = source.match(/name="soda-presentation-revision" content="([^"]+)"/)?.[1];
+  const styles = [...source.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=([0-9]+)/g)].map(
+    ([, name, version]): {name: string; version: string; sha256?: string} => {
+      assert(name && version);
+      return {name, version};
+    }
+  );
+  return {source, revision, styles};
+}
+
+async function prepare_capture_output(values: CaptureArgs): Promise<{profile: string; output?: string}> {
   // Profiles contain authentication cookies; captures can contain private content.
   process.umask(0o077);
   const profile = path.resolve(values.profile);
   await mkdir(profile, {recursive: true, mode: 0o700});
+  if (!values.login && values.out) {
+    const output = path.resolve(values.out);
+    await mkdir(path.dirname(output), {recursive: true});
+    await mkdir(output); // Never overwrite an earlier capture directory.
+    return {profile, output};
+  }
+  if (!values.login) {
+    const parent = path.join(root, '.artifacts/screenshots');
+    await mkdir(parent, {recursive: true});
+    return {profile, output: await mkdtemp(path.join(parent, 'capture-'))};
+  }
+  return {profile};
+}
+
+async function load_local_styles(): Promise<Map<string, string>> {
+  const header = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
+  const names = [...header.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=/g)].map(([, name]) => {
+    assert(name);
+    return name;
+  });
+  return new Map(
+    await Promise.all(
+      names.map(
+        async (name) => [name, await Bun.file(path.join(root, 'assets/branding/forgejo', name)).text()] as const
+      )
+    )
+  );
+}
+
+async function launch_capture_browser(profile: string, values: CaptureArgs) {
   let chromium: typeof import('playwright').chromium;
   try {
     ({chromium} = await import('playwright'));
   } catch {
     throw new Error('Playwright is missing. Run bun install --frozen-lockfile from the repository root.');
   }
-  let output;
-  if (!values.login && values.out) {
-    output = path.resolve(values.out);
-    await mkdir(path.dirname(output), {recursive: true});
-    await mkdir(output); // Never overwrite an earlier capture directory.
-  } else if (!values.login) {
-    const parent = path.join(root, '.artifacts/screenshots');
-    await mkdir(parent, {recursive: true});
-    output = await mkdtemp(path.join(parent, 'capture-'));
-  }
-  let context;
-  let localStyles = new Map<string, string>();
-  if (values['local-css']) {
-    const header = await Bun.file(path.join(root, 'frontend/forgejo/templates/custom/header.tmpl')).text();
-    const names = [...header.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=/g)].map(([, name]) => {
-      assert(name);
-      return name;
-    });
-    localStyles = new Map(
-      await Promise.all(
-        names.map(
-          async (name) => [name, await Bun.file(path.join(root, 'assets/branding/forgejo', name)).text()] as const
-        )
-      )
-    );
-  }
   try {
-    context = await chromium.launchPersistentContext(profile, {
+    return await chromium.launchPersistentContext(profile, {
       ...(process.env.CHROME ? {executablePath: process.env.CHROME} : {channel: 'chrome'}),
       headless: !values.login,
       chromiumSandbox: true,
@@ -204,6 +239,128 @@ async function main() {
   } catch {
     throw new Error('Cannot launch Chrome. Check CHROME and that the dedicated profile is closed.');
   }
+}
+
+interface CaptureContext {
+  values: CaptureArgs;
+  registry: StyleRegistry;
+  localStyles: Map<string, string>;
+  browserErrors: string[];
+}
+
+async function verify_capture(
+  page: Page,
+  url: string,
+  response: Awaited<ReturnType<Page['goto']>>,
+  ctx: CaptureContext
+) {
+  const {values, registry} = ctx;
+  if (!response || !response.ok()) throw new Error(`HTTP ${response?.status()}`);
+  if (page.url() !== url) throw new Error('Requested URL redirected');
+  await page
+    .locator(values.landmark || '[role="main"], main')
+    .first()
+    .waitFor({state: 'visible'});
+  if (await page.locator('.soda-status, .error-code').count()) throw new Error('Unexpected status page');
+  if (
+    !registry.revision ||
+    (await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content')) !== registry.revision
+  )
+    throw new Error('Stale template revision');
+  const loaded = await page
+    .locator('link[rel="stylesheet"]')
+    .evaluateAll((links: HTMLLinkElement[]) => links.map((link) => link.href));
+  for (const style of registry.styles) {
+    const {name, version} = style;
+    const asset = `http://localhost:3300/assets/soda/forgejo/${name}?v=${version}`;
+    if (!loaded.includes(asset)) throw new Error(`Stale stylesheet registry: ${name}`);
+    const remote = await page.request.get(asset);
+    const local = await Bun.file(path.join(root, 'assets/branding/forgejo', name)).bytes();
+    style.sha256 = new Bun.CryptoHasher('sha256').update(local).digest('hex');
+    if (!remote.ok() || !(await remote.body()).equals(local)) throw new Error(`Stale stylesheet bytes: ${name}`);
+  }
+}
+
+async function write_capture_receipt(
+  page: Page,
+  url: string,
+  filename: string,
+  response: Awaited<ReturnType<Page['goto']>>,
+  ctx: CaptureContext
+) {
+  const {values, registry, browserErrors} = ctx;
+  await Bun.write(
+    filename.replace('.png', '.json'),
+    JSON.stringify(
+      {
+        requestedURL: url,
+        actualURL: page.url(),
+        landmark: values.landmark || '[role="main"], main',
+        status: response?.status(),
+        theme: values.theme || 'native',
+        viewport: page.viewportSize(),
+        fullPage: Boolean(values['full-page']),
+        browserErrors,
+        presentationRevision: registry.revision,
+        registrySHA256: new Bun.CryptoHasher('sha256').update(registry.source).digest('hex'),
+        styles: registry.styles,
+        verifiedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    )
+  );
+}
+
+async function capture_single_url(page: Page, url: string, filename: string, ctx: CaptureContext) {
+  const {values, localStyles, browserErrors} = ctx;
+  // Fragment-only navigation returns no HTTP response. Start each capture
+  // from a fresh document so --verify always checks an actual native GET.
+  await page.goto('about:blank');
+  browserErrors.length = 0;
+  const response = await page.goto(url, {waitUntil: 'load'});
+  if (values.verify) await verify_capture(page, url, response, ctx);
+  if (values.theme === 'light' || values.theme === 'dark') await setCaptureTheme(page, values.theme);
+  if (values['local-css']) {
+    // Use the candidate registry/order too, including added or removed sheets.
+    await page.evaluate(
+      async (names) => {
+        document
+          .querySelectorAll('link[rel="stylesheet"][href*="/assets/soda/forgejo/"]')
+          .forEach((link) => link.remove());
+        await Promise.all(
+          names.map(
+            (name) =>
+              new Promise((resolve, reject) => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `/assets/soda/forgejo/${name}`;
+                link.onload = resolve;
+                link.onerror = reject;
+                document.head.append(link);
+              })
+          )
+        );
+      },
+      [...localStyles.keys()]
+    );
+  }
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(Number(values.wait));
+  if (values['scroll-top']) await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
+  if (values.verify && browserErrors.length) throw new Error(`Browser errors: ${browserErrors.join('; ')}`);
+  await page.screenshot({path: filename, fullPage: Boolean(values['full-page'])});
+  if (values.verify) await write_capture_receipt(page, url, filename, response, ctx);
+}
+
+async function main() {
+  const {values, urls} = parse_capture_input();
+  if (values.help) return console.log(help);
+  validate_capture_args(values, urls);
+  const registry = await load_style_registry();
+  const {profile, output} = await prepare_capture_output(values);
+  const localStyles = values['local-css'] ? await load_local_styles() : new Map<string, string>();
+  const context = await launch_capture_browser(profile, values);
   try {
     if (values['local-css']) {
       // Browser-only stylesheet substitution: keep the fixture, live checkout,
@@ -243,90 +400,7 @@ async function main() {
       assert(output);
       const filename = path.join(output, `${String(index + 1).padStart(3, '0')}.png`);
       try {
-        // Fragment-only navigation returns no HTTP response. Start each capture
-        // from a fresh document so --verify always checks an actual native GET.
-        await page.goto('about:blank');
-        browserErrors.length = 0;
-        const response = await page.goto(url, {waitUntil: 'load'});
-        if (values.verify) {
-          if (!response || !response.ok()) throw new Error(`HTTP ${response?.status()}`);
-          if (page.url() !== url) throw new Error('Requested URL redirected');
-          await page
-            .locator(values.landmark || '[role="main"], main')
-            .first()
-            .waitFor({state: 'visible'});
-          if (await page.locator('.soda-status, .error-code').count()) throw new Error('Unexpected status page');
-          if (
-            !expectedRevision ||
-            (await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content')) !== expectedRevision
-          )
-            throw new Error('Stale template revision');
-          const loaded = await page
-            .locator('link[rel="stylesheet"]')
-            .evaluateAll((links: HTMLLinkElement[]) => links.map((link) => link.href));
-          for (const style of expectedStyles) {
-            const {name, version} = style;
-            const asset = `http://localhost:3300/assets/soda/forgejo/${name}?v=${version}`;
-            if (!loaded.includes(asset)) throw new Error(`Stale stylesheet registry: ${name}`);
-            const remote = await page.request.get(asset);
-            const local = await Bun.file(path.join(root, 'assets/branding/forgejo', name)).bytes();
-            style.sha256 = new Bun.CryptoHasher('sha256').update(local).digest('hex');
-            if (!remote.ok() || !(await remote.body()).equals(local))
-              throw new Error(`Stale stylesheet bytes: ${name}`);
-          }
-        }
-        if (values.theme === 'light' || values.theme === 'dark') await setCaptureTheme(page, values.theme);
-        if (values['local-css']) {
-          // Use the candidate registry/order too, including added or removed sheets.
-          await page.evaluate(
-            async (names) => {
-              document
-                .querySelectorAll('link[rel="stylesheet"][href*="/assets/soda/forgejo/"]')
-                .forEach((link) => link.remove());
-              await Promise.all(
-                names.map(
-                  (name) =>
-                    new Promise((resolve, reject) => {
-                      const link = document.createElement('link');
-                      link.rel = 'stylesheet';
-                      link.href = `/assets/soda/forgejo/${name}`;
-                      link.onload = resolve;
-                      link.onerror = reject;
-                      document.head.append(link);
-                    })
-                )
-              );
-            },
-            [...localStyles.keys()]
-          );
-        }
-        await page.evaluate(() => document.fonts.ready);
-        await page.waitForTimeout(Number(values.wait));
-        if (values['scroll-top']) await page.evaluate(() => window.scrollTo({top: 0, left: 0, behavior: 'instant'}));
-        if (values.verify && browserErrors.length) throw new Error(`Browser errors: ${browserErrors.join('; ')}`);
-        await page.screenshot({path: filename, fullPage: Boolean(values['full-page'])});
-        if (values.verify)
-          await Bun.write(
-            filename.replace('.png', '.json'),
-            JSON.stringify(
-              {
-                requestedURL: url,
-                actualURL: page.url(),
-                landmark: values.landmark || '[role="main"], main',
-                status: response?.status(),
-                theme: values.theme || 'native',
-                viewport: page.viewportSize(),
-                fullPage: Boolean(values['full-page']),
-                browserErrors,
-                presentationRevision: expectedRevision,
-                registrySHA256: new Bun.CryptoHasher('sha256').update(registrySource).digest('hex'),
-                styles: expectedStyles,
-                verifiedAt: new Date().toISOString(),
-              },
-              null,
-              2
-            )
-          );
+        await capture_single_url(page, url, filename, {values, registry, localStyles, browserErrors});
       } catch (error) {
         throw new Error(
           `Capture ${index + 1} failed (${error instanceof Error ? error.message : String(error)}). Earlier captures remain in ${output}`

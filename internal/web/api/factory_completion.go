@@ -104,10 +104,15 @@ func (s *CompletionSnapshotSource) ObserveRevision(ctx context.Context) (int64, 
 // Revision movement across the page bracket reports a revision hold
 // for the collector's restart path; anything else that prevents an
 // exact page reports unavailable or the exact producer hold.
-func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, repository int64, cursor string) (control.NativeInventoryPage, error) {
-	if s == nil || s.Reader == nil {
-		return control.NativeInventoryPage{}, forgejo.ErrUnavailable
-	}
+type bracketedCompletionPage struct {
+	repositoryID string
+	requestLimit int
+	before       extensions.NativeRevisionObservation
+	snapshot     forgejo.NativeSnapshot
+}
+
+func (s *CompletionSnapshotSource) openCompletionPage(ctx context.Context, repository int64, cursor string) (bracketedCompletionPage, error) {
+	var empty bracketedCompletionPage
 	// The page budget bounds every page before any native call: at
 	// most min(native 50, floor((remaining-3)/3)) items fit beside
 	// the page's own 3-call bracket, with the fixed-8 bracket
@@ -118,16 +123,16 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 	// spending a single call.
 	requestLimit := control.CompletionPageItemLimit(ctx)
 	if requestLimit < 1 {
-		return control.NativeInventoryPage{}, control.ErrReadinessPassPending
+		return empty, control.ErrReadinessPassPending
 	}
 	repositoryID := strconv.FormatInt(repository, 10)
 	reader := completionPageReader{inner: s.Reader}
 	before, err := reader.ReadNativeRevision(ctx)
 	if err != nil {
-		return control.NativeInventoryPage{}, err
+		return empty, err
 	}
 	if before.Revision < 1 || !before.Idle {
-		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryRevision)
+		return empty, errors.New(control.HoldInventoryRevision)
 	}
 	snapshot, err := reader.ReadSnapshot(ctx, s.Credential, forgejo.SnapshotRequest{
 		RepositoryID: repositoryID,
@@ -135,50 +140,103 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 		Limit:        requestLimit, Cursor: cursor,
 	})
 	if err != nil {
-		return control.NativeInventoryPage{}, err
+		return empty, err
 	}
 	after, err := reader.ReadNativeRevision(ctx)
 	if err != nil {
-		return control.NativeInventoryPage{}, err
+		return empty, err
 	}
 	if !after.Idle || after.Revision != before.Revision {
-		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryRevision)
+		return empty, errors.New(control.HoldInventoryRevision)
 	}
 	if snapshot.RepositoryIssues == nil {
-		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryUnavailable)
+		return empty, errors.New(control.HoldInventoryUnavailable)
 	}
 	// The producer must honor the requested bound: more items than
 	// requested refuse instead of truncating silently, and an
 	// incomplete prefix is never treated as terminal.
 	if len(snapshot.RepositoryIssues.Items) > requestLimit {
-		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
+		return empty, errors.New(control.HoldInventoryPage)
 	}
 	if err := forgejo.ValidateRepositoryIssuesPage(snapshot.RepositoryIssues, repositoryID, cursor); err != nil {
-		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
+		return empty, errors.New(control.HoldInventoryPage)
 	}
-	issues := make([]control.NativeInventoryIssue, 0, len(snapshot.RepositoryIssues.Items))
-	for _, item := range snapshot.RepositoryIssues.Items {
-		body, err := s.readIssueBody(ctx, repositoryID, item, before.Revision)
+	return bracketedCompletionPage{repositoryID: repositoryID, requestLimit: requestLimit, before: before, snapshot: snapshot}, nil
+}
+
+func (s *CompletionSnapshotSource) assembleInventoryIssue(ctx context.Context, page bracketedCompletionPage, item forgejo.RepositoryIssueItem) (control.NativeInventoryIssue, error) {
+	var empty control.NativeInventoryIssue
+	body, err := s.readIssueBody(ctx, page.repositoryID, item, page.before.Revision)
+	if err != nil {
+		return empty, err
+	}
+	data, err := body.CanonicalData()
+	if err != nil {
+		return empty, errors.New(control.HoldInventoryPage)
+	}
+	if len(data) > factory.MaxReassessmentEvidenceBytes {
+		return empty, errors.New(control.HoldInventoryOversize)
+	}
+	index, err := strconv.ParseInt(item.IssueIndex, 10, 64)
+	if err != nil || index < 1 || body.Index != index {
+		return empty, errors.New(control.HoldInventoryPage)
+	}
+	return control.NativeInventoryIssue{Index: index, Data: data}, nil
+}
+
+func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, repository int64, cursor string) (control.NativeInventoryPage, error) {
+	if s == nil || s.Reader == nil {
+		return control.NativeInventoryPage{}, forgejo.ErrUnavailable
+	}
+	page, err := s.openCompletionPage(ctx, repository, cursor)
+	if err != nil {
+		return control.NativeInventoryPage{}, err
+	}
+	issues := make([]control.NativeInventoryIssue, 0, len(page.snapshot.RepositoryIssues.Items))
+	for _, item := range page.snapshot.RepositoryIssues.Items {
+		issue, err := s.assembleInventoryIssue(ctx, page, item)
 		if err != nil {
 			return control.NativeInventoryPage{}, err
 		}
-		data, err := body.CanonicalData()
-		if err != nil {
-			return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
-		}
-		if len(data) > factory.MaxReassessmentEvidenceBytes {
-			return control.NativeInventoryPage{}, errors.New(control.HoldInventoryOversize)
-		}
-		index, err := strconv.ParseInt(item.IssueIndex, 10, 64)
-		if err != nil || index < 1 || body.Index != index {
-			return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
-		}
-		issues = append(issues, control.NativeInventoryIssue{Index: index, Data: data})
+		issues = append(issues, issue)
 	}
 	return control.NativeInventoryPage{
-		Issues: issues, NextCursor: snapshot.RepositoryIssues.NextCursor,
-		Revision: before.Revision, Complete: snapshot.RepositoryIssues.Complete, Idle: true,
+		Issues: issues, NextCursor: page.snapshot.RepositoryIssues.NextCursor,
+		Revision: page.before.Revision, Complete: page.snapshot.RepositoryIssues.Complete, Idle: true,
 	}, nil
+}
+
+func mapBracketedReadError(err error) error {
+	switch {
+	case errors.Is(err, forgejo.ErrStaleSnapshot), errors.Is(err, forgejo.ErrNativeBusy):
+		return errors.New(control.HoldInventoryRevision)
+	case errors.Is(err, forgejo.ErrIncompleteSnapshot):
+		return errors.New(control.HoldInventoryUnavailable)
+	default:
+		return err
+	}
+}
+
+func admitIssueDependencies(snapshot forgejo.NativeSnapshot) ([]string, error) {
+	dependencies := make([]string, 0, len(snapshot.Dependencies.Items))
+	for _, edge := range snapshot.Dependencies.Items {
+		if !edge.Visible || !edge.Complete || !factory.ValidDependencyRef(edge.DependencyID) {
+			return nil, errors.New(control.HoldInventoryUnavailable)
+		}
+		dependencies = append(dependencies, edge.DependencyID)
+	}
+	sort.Slice(dependencies, func(i, j int) bool {
+		if len(dependencies[i]) != len(dependencies[j]) {
+			return len(dependencies[i]) < len(dependencies[j])
+		}
+		return dependencies[i] < dependencies[j]
+	})
+	for i := 1; i < len(dependencies); i++ {
+		if dependencies[i] == dependencies[i-1] {
+			return nil, errors.New(control.HoldInventoryPage)
+		}
+	}
+	return dependencies, nil
 }
 
 // readIssueBody fetches one enumerated issue's exact title, body and
@@ -193,14 +251,7 @@ func (s *CompletionSnapshotSource) readIssueBody(ctx context.Context, repository
 		Limit:    forgejo.SnapshotPageLimit,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, forgejo.ErrStaleSnapshot), errors.Is(err, forgejo.ErrNativeBusy):
-			return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryRevision)
-		case errors.Is(err, forgejo.ErrIncompleteSnapshot):
-			return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryUnavailable)
-		default:
-			return factory.CompletionIssueEvidence{}, err
-		}
+		return factory.CompletionIssueEvidence{}, mapBracketedReadError(err)
 	}
 	if snapshot.Revision != revision {
 		return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryRevision)
@@ -216,23 +267,9 @@ func (s *CompletionSnapshotSource) readIssueBody(ctx context.Context, repository
 	if err != nil || index < 1 || issue.Index != item.IssueIndex {
 		return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryPage)
 	}
-	dependencies := make([]string, 0, len(snapshot.Dependencies.Items))
-	for _, edge := range snapshot.Dependencies.Items {
-		if !edge.Visible || !edge.Complete || !factory.ValidDependencyRef(edge.DependencyID) {
-			return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryUnavailable)
-		}
-		dependencies = append(dependencies, edge.DependencyID)
-	}
-	sort.Slice(dependencies, func(i, j int) bool {
-		if len(dependencies[i]) != len(dependencies[j]) {
-			return len(dependencies[i]) < len(dependencies[j])
-		}
-		return dependencies[i] < dependencies[j]
-	})
-	for i := 1; i < len(dependencies); i++ {
-		if dependencies[i] == dependencies[i-1] {
-			return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryPage)
-		}
+	dependencies, err := admitIssueDependencies(snapshot)
+	if err != nil {
+		return factory.CompletionIssueEvidence{}, err
 	}
 	body := factory.CompletionIssueEvidence{
 		Dependencies: dependencies, Index: index,

@@ -15,9 +15,7 @@ function functionBody(node: ts.Node): node is ts.FunctionLikeDeclaration & {body
   return ts.isFunctionLike(node) && 'body' in node && !!node.body;
 }
 
-function decisions(node: ts.Node, root: ts.Node): number {
-  if (node !== root && functionBody(node)) return 0;
-  let score = 0;
+function statementDecision(node: ts.Node): number {
   switch (node.kind) {
     case ts.SyntaxKind.IfStatement:
     case ts.SyntaxKind.ForStatement:
@@ -28,8 +26,13 @@ function decisions(node: ts.Node, root: ts.Node): number {
     case ts.SyntaxKind.CaseClause:
     case ts.SyntaxKind.CatchClause:
     case ts.SyntaxKind.ConditionalExpression:
-      score++;
+      return 1;
+    default:
+      return 0;
   }
+}
+
+function operatorDecision(node: ts.Node): number {
   if (
     ts.isBinaryExpression(node) &&
     [
@@ -41,13 +44,24 @@ function decisions(node: ts.Node, root: ts.Node): number {
       ts.SyntaxKind.QuestionQuestionEqualsToken,
     ].includes(node.operatorToken.kind)
   )
-    score++;
+    return 1;
+  return 0;
+}
+
+function syntaxDecision(node: ts.Node): number {
+  let score = 0;
   if ((ts.isParameter(node) || ts.isBindingElement(node)) && node.initializer) score++;
   if (
     (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) &&
     node.questionDotToken
   )
     score++;
+  return score;
+}
+
+function decisions(node: ts.Node, root: ts.Node): number {
+  if (node !== root && functionBody(node)) return 0;
+  let score = statementDecision(node) + operatorDecision(node) + syntaxDecision(node);
   ts.forEachChild(node, (child) => {
     score += decisions(child, root);
   });

@@ -140,35 +140,23 @@ type CorrectionReport struct {
 }
 
 // Validate binds the dispositions to the exact supplied finding set.
-func (r CorrectionReport) Validate() error {
-	if len(r.Findings) == 0 || len(r.Findings) > MaxOutstandingFindings {
-		return errors.New("correction report needs its bounded finding set")
-	}
-	if !ValidCommit(r.NewCandidate) {
-		return errors.New("correction report lacks its exact candidate nomination")
-	}
+func (r CorrectionReport) indexFindings() ([]string, map[string]Finding, error) {
 	keys := make([]string, 0, len(r.Findings))
 	byKey := make(map[string]Finding, len(r.Findings))
 	for _, finding := range r.Findings {
 		if err := finding.Validate(); err != nil {
-			return err
+			return nil, nil, err
 		}
 		if _, dup := byKey[finding.Key]; dup {
-			return errors.New("correction report carries a duplicate finding")
+			return nil, nil, errors.New("correction report carries a duplicate finding")
 		}
 		byKey[finding.Key] = finding
 		keys = append(keys, finding.Key)
 	}
-	digest, err := FindingSetDigest(keys)
-	if err != nil {
-		return err
-	}
-	if !ValidDigest(r.SetDigest) || r.SetDigest != digest {
-		return errors.New("correction dispositions answer a changed finding set")
-	}
-	if len(r.Dispositions) != len(r.Findings) {
-		return errors.New("correction dispositions omit a supplied finding")
-	}
+	return keys, byKey, nil
+}
+
+func (r CorrectionReport) validateEvidence(byKey map[string]Finding) error {
 	seenEvidence := make(map[string]bool, len(r.Evidence))
 	for _, entry := range r.Evidence {
 		if err := entry.Validate(); err != nil {
@@ -182,6 +170,10 @@ func (r CorrectionReport) Validate() error {
 		}
 		seenEvidence[entry.Key] = true
 	}
+	return nil
+}
+
+func (r CorrectionReport) validateDispositions(byKey map[string]Finding) error {
 	seen := make(map[string]bool, len(r.Dispositions))
 	for _, disposition := range r.Dispositions {
 		if err := disposition.Validate(); err != nil {
@@ -200,6 +192,33 @@ func (r CorrectionReport) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (r CorrectionReport) Validate() error {
+	if len(r.Findings) == 0 || len(r.Findings) > MaxOutstandingFindings {
+		return errors.New("correction report needs its bounded finding set")
+	}
+	if !ValidCommit(r.NewCandidate) {
+		return errors.New("correction report lacks its exact candidate nomination")
+	}
+	keys, byKey, err := r.indexFindings()
+	if err != nil {
+		return err
+	}
+	digest, err := FindingSetDigest(keys)
+	if err != nil {
+		return err
+	}
+	if !ValidDigest(r.SetDigest) || r.SetDigest != digest {
+		return errors.New("correction dispositions answer a changed finding set")
+	}
+	if len(r.Dispositions) != len(r.Findings) {
+		return errors.New("correction dispositions omit a supplied finding")
+	}
+	if err := r.validateEvidence(byKey); err != nil {
+		return err
+	}
+	return r.validateDispositions(byKey)
 }
 
 // CorrectionJournal is one persisted correction run's immutable report
@@ -349,7 +368,7 @@ func DeliveryAcceptanceID(publicationID, attemptRoot string, round int, kind str
 // acceptance names its decision. Digest format alone cannot prove content
 // coverage (both digest versions are SHA-256 hex): only admission
 // constructors that compute the complete content digest may create one.
-func (a DeliveryAcceptance) Validate() error {
+func (a DeliveryAcceptance) validateKind() error {
 	switch a.Kind {
 	case AcceptanceCleanReview:
 		if a.DecisionID != "" {
@@ -365,6 +384,10 @@ func (a DeliveryAcceptance) Validate() error {
 	default:
 		return errors.New("invalid delivery acceptance kind")
 	}
+	return nil
+}
+
+func (a DeliveryAcceptance) validateIdentity() error {
 	if !ValidID(a.PublicationID) || !ValidID(a.AttemptRoot) {
 		return errors.New("invalid delivery acceptance scope")
 	}
@@ -374,9 +397,10 @@ func (a DeliveryAcceptance) Validate() error {
 	if a.ID != DeliveryAcceptanceID(a.PublicationID, a.AttemptRoot, a.Round, a.Kind) {
 		return errors.New("delivery acceptance identity differs from its derivation")
 	}
-	if err := a.Tuple.Validate(); err != nil {
-		return err
-	}
+	return a.Tuple.Validate()
+}
+
+func (a DeliveryAcceptance) validateEvidence() error {
 	for _, digest := range []string{a.ScopeDigest, a.FindingDigest, a.CoverageDigest, a.CheckDigest} {
 		if !ValidDigest(digest) {
 			return errors.New("delivery acceptance lacks its bound evidence digests")
@@ -402,6 +426,16 @@ func (a DeliveryAcceptance) Validate() error {
 		seen[intent] = true
 	}
 	return nil
+}
+
+func (a DeliveryAcceptance) Validate() error {
+	if err := a.validateKind(); err != nil {
+		return err
+	}
+	if err := a.validateIdentity(); err != nil {
+		return err
+	}
+	return a.validateEvidence()
 }
 
 // ReviewCycleReport is one reviewer round's verdict over the carried set:

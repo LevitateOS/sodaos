@@ -117,6 +117,22 @@ type AcceptanceReceipt struct {
 // complete current native edge set. Code prerequisite routes must name an
 // existing acceptance that is still the endpoint's head. A repeated
 // decision ID returns the same receipt; new content under it conflicts.
+func acceptanceCommand(commandID, principal string, decision factory.Acceptance) (factory.Command, error) {
+	payload, err := json.Marshal(decision)
+	if err != nil {
+		return factory.Command{}, err
+	}
+	target := "repository/" + strconv.FormatInt(decision.Repository, 10) + "/issue/" + decision.IssueIndex + "/acceptance"
+	cmd := factory.Command{
+		ID: commandID, Type: factory.CommandAcceptance, Target: target, Principal: principal,
+		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandAcceptance, target, string(payload)),
+	}
+	if err = cmd.Validate(); err != nil {
+		return factory.Command{}, err
+	}
+	return cmd, nil
+}
+
 func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal string, decision factory.Acceptance) (AcceptanceReceipt, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
@@ -128,16 +144,8 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if decision.Initial {
 		return AcceptanceReceipt{}, refuseAcceptance(RefusalCreationUnverified)
 	}
-	payload, err := json.Marshal(decision)
+	cmd, err := acceptanceCommand(commandID, principal, decision)
 	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	target := "repository/" + strconv.FormatInt(decision.Repository, 10) + "/issue/" + decision.IssueIndex + "/acceptance"
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandAcceptance, Target: target, Principal: principal,
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandAcceptance, target, string(payload)),
-	}
-	if err = cmd.Validate(); err != nil {
 		return AcceptanceReceipt{}, err
 	}
 	// F05-F1: a stored matching admitted command replays its retained
@@ -161,6 +169,10 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
 		return AcceptanceReceipt{}, err
 	}
+	return c.recordAcceptedDecision(bounded, ownsPass, cmd, decision)
+}
+
+func (c *Coordinator) recordAcceptedDecision(bounded context.Context, ownsPass bool, cmd factory.Command, decision factory.Acceptance) (AcceptanceReceipt, error) {
 	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
 	if err != nil {
 		return AcceptanceReceipt{}, err

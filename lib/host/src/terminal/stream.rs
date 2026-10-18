@@ -19,6 +19,72 @@ pub struct TerminalStart {
     pub rows: i64,
 }
 
+/// Bind one connection/project/actor/login start field; true on match.
+fn bind_start_head<'de, A>(
+    out: &mut TerminalStart,
+    map: &mut A,
+    key: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("connection_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.connection_id = v;
+        }
+    } else if key.eq_ignore_ascii_case("project_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.project_id = v;
+        }
+    } else if key.eq_ignore_ascii_case("actor_id") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.actor_id =
+                parse_string_i64(&v).ok_or_else(|| de::Error::custom("invalid actor_id"))?;
+        }
+    } else if key.eq_ignore_ascii_case("login") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.login = v;
+        }
+    } else {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Bind one scope/cols/rows start field; unknown names fail.
+fn bind_start_tail<'de, A>(out: &mut TerminalStart, map: &mut A, key: &str) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if key.eq_ignore_ascii_case("scope") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.scope = v;
+        }
+    } else if key.eq_ignore_ascii_case("cols") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.cols = v.0;
+        }
+    } else if key.eq_ignore_ascii_case("rows") {
+        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
+            out.rows = v.0;
+        }
+    } else {
+        return Err(de::Error::unknown_field(
+            &key,
+            &[
+                "connection_id",
+                "project_id",
+                "actor_id",
+                "login",
+                "scope",
+                "cols",
+                "rows",
+            ],
+        ));
+    }
+    Ok(())
+}
+
 impl<'de> Deserialize<'de> for TerminalStart {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -36,61 +102,9 @@ impl<'de> Deserialize<'de> for TerminalStart {
             {
                 let mut out = TerminalStart::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("connection_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.connection_id = v;
-                        }
-                        continue;
+                    if !bind_start_head(&mut out, &mut map, &key)? {
+                        bind_start_tail(&mut out, &mut map, &key)?;
                     }
-                    if key.eq_ignore_ascii_case("project_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.project_id = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("actor_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.actor_id = parse_string_i64(&v)
-                                .ok_or_else(|| de::Error::custom("invalid actor_id"))?;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("login") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.login = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("scope") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.scope = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("cols") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.cols = v.0;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("rows") {
-                        if let Some(v) = map.next_value::<Option<json::SignedInteger>>()? {
-                            out.rows = v.0;
-                        }
-                        continue;
-                    }
-                    return Err(de::Error::unknown_field(
-                        &key,
-                        &[
-                            "connection_id",
-                            "project_id",
-                            "actor_id",
-                            "login",
-                            "scope",
-                            "cols",
-                            "rows",
-                        ],
-                    ));
                 }
                 Ok(out)
             }

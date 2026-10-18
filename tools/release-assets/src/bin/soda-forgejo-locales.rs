@@ -43,56 +43,52 @@ fn take_value(name: &str, inline: Option<String>, args: &[OsString], i: &mut usi
     args[*i].to_string_lossy().into_owned()
 }
 
-fn parse(args: &[OsString]) -> Args {
-    let mut native: Option<PathBuf> = None;
-    let mut lock: Option<PathBuf> = None;
-    let mut additions = PathBuf::from(DEFAULT_ADDITIONS);
-    let mut out: Option<PathBuf> = None;
-    let mut stray: Vec<String> = Vec::new();
-    let mut i = 0;
-    let mut only_positionals = false;
-    while i < args.len() {
-        let raw = args[i].to_string_lossy().into_owned();
-        if !only_positionals && raw == "--" {
-            only_positionals = true;
-            i += 1;
-            continue;
+/// Bind one parsed token into the partial argument slots.
+fn bind_locale_flag(
+    args: &[OsString],
+    i: &mut usize,
+    native: &mut Option<PathBuf>,
+    lock: &mut Option<PathBuf>,
+    additions: &mut PathBuf,
+    out: &mut Option<PathBuf>,
+    stray: &mut Vec<String>,
+    token: Option<(String, Option<String>)>,
+    raw: String,
+) {
+    match token {
+        Some((name, inline)) if name == "native" => {
+            *native = Some(PathBuf::from(take_value(&name, inline, args, i)));
         }
-        if !only_positionals && (raw == "-h" || raw == "-help") {
+        Some((name, inline)) if name == "lock" => {
+            *lock = Some(PathBuf::from(take_value(&name, inline, args, i)));
+        }
+        Some((name, inline)) if name == "additions" => {
+            *additions = PathBuf::from(take_value(&name, inline, args, i));
+        }
+        Some((name, inline)) if name == "out" => {
+            *out = Some(PathBuf::from(take_value(&name, inline, args, i)));
+        }
+        Some((name, _)) if name == "help" => {
             print!("{HELP}");
             std::process::exit(0);
         }
-        let token = if only_positionals {
-            None
-        } else {
-            split_flag(&raw)
-        };
-        match token {
-            Some((name, inline)) if name == "native" => {
-                native = Some(PathBuf::from(take_value(&name, inline, args, &mut i)));
-            }
-            Some((name, inline)) if name == "lock" => {
-                lock = Some(PathBuf::from(take_value(&name, inline, args, &mut i)));
-            }
-            Some((name, inline)) if name == "additions" => {
-                additions = PathBuf::from(take_value(&name, inline, args, &mut i));
-            }
-            Some((name, inline)) if name == "out" => {
-                out = Some(PathBuf::from(take_value(&name, inline, args, &mut i)));
-            }
-            Some((name, _)) if name == "help" => {
-                print!("{HELP}");
-                std::process::exit(0);
-            }
-            Some((name, _)) => {
-                refusal(format!("unrecognized arguments: --{name}"));
-            }
-            None => {
-                stray.push(raw);
-            }
+        Some((name, _)) => {
+            refusal(format!("unrecognized arguments: --{name}"));
         }
-        i += 1;
+        None => {
+            stray.push(raw);
+        }
     }
+}
+
+/// Reject stray/missing/mutually exclusive inputs into the final args.
+fn finish_locale_args(
+    native: Option<PathBuf>,
+    lock: Option<PathBuf>,
+    additions: PathBuf,
+    out: Option<PathBuf>,
+    stray: Vec<String>,
+) -> Args {
     if !stray.is_empty() {
         refusal(format!("unrecognized arguments: {}", stray.join(" ")));
     }
@@ -117,6 +113,46 @@ fn parse(args: &[OsString]) -> Args {
     } else {
         refusal("one of the arguments --native --lock is required".to_string())
     }
+}
+
+fn parse(args: &[OsString]) -> Args {
+    let mut native: Option<PathBuf> = None;
+    let mut lock: Option<PathBuf> = None;
+    let mut additions = PathBuf::from(DEFAULT_ADDITIONS);
+    let mut out: Option<PathBuf> = None;
+    let mut stray: Vec<String> = Vec::new();
+    let mut i = 0;
+    let mut only_positionals = false;
+    while i < args.len() {
+        let raw = args[i].to_string_lossy().into_owned();
+        if !only_positionals && raw == "--" {
+            only_positionals = true;
+            i += 1;
+            continue;
+        }
+        if !only_positionals && (raw == "-h" || raw == "-help") {
+            print!("{HELP}");
+            std::process::exit(0);
+        }
+        let token = if only_positionals {
+            None
+        } else {
+            split_flag(&raw)
+        };
+        bind_locale_flag(
+            args,
+            &mut i,
+            &mut native,
+            &mut lock,
+            &mut additions,
+            &mut out,
+            &mut stray,
+            token,
+            raw,
+        );
+        i += 1;
+    }
+    finish_locale_args(native, lock, additions, out, stray)
 }
 
 fn main() {

@@ -63,27 +63,19 @@ impl<'de> Deserialize<'de> for RawObject {
     }
 }
 
-/// Validate a `binding` record (dup-tolerant like `json.loads`, unlike the
-/// control-frame decoder). Uid/gid widen to `u32` at most: larger JSON ints
-/// error here instead of failing later comparisons, a deliberate hardening
-/// delta confined to corrupt root-owned files.
-pub fn validate_binding(text: &str) -> Result<BindingRecord, String> {
-    let fields: RawObject =
-        serde_json::from_str(text).map_err(|_| "terminal binding".to_string())?;
-    let keys: HashSet<&str> = fields.0.keys().map(String::as_str).collect();
-    let want: HashSet<&str> = ["account", "identity", "cols", "rows", "created_at"]
-        .into_iter()
-        .collect();
-    if keys != want {
-        return Err("terminal binding".to_string());
-    }
+/// Decode the `account` tuple and narrow uid/gid to nonzero `u32`.
+/// Larger JSON ints error here instead of failing later comparisons, a
+/// deliberate hardening delta confined to corrupt root-owned files.
+fn decode_binding_account(
+    fields: &RawObject,
+) -> Result<(String, u32, u32, String, String), String> {
     let (login, uid_raw, gid_raw, home, shell): (
         String,
         Box<RawValue>,
         Box<RawValue>,
         String,
         String,
-    ) = serde_json::from_str(raw(&fields, "account")?)
+    ) = serde_json::from_str(raw(fields, "account")?)
         .map_err(|_| "terminal binding values".to_string())?;
     let uid_raw: i128 = uid_raw
         .get()
@@ -98,16 +90,21 @@ pub fn validate_binding(text: &str) -> Result<BindingRecord, String> {
         .filter(|uid| *uid > 0)
         .ok_or_else(|| "terminal binding values".to_string())?;
     let gid = u32::try_from(gid_raw).map_err(|_| "terminal binding values".to_string())?;
-    let integer = |key: &str| -> Result<i64, String> {
-        raw(&fields, key)?
-            .parse()
-            .map_err(|_| "terminal binding values".to_string())
-    };
-    let identity = integer("identity")?;
-    let cols = integer("cols")?;
-    let rows = integer("rows")?;
-    let created_at = integer("created_at")?;
-    if !account::valid_login(&login) || login == "root" {
+    Ok((login, uid, gid, home, shell))
+}
+
+/// Check the decoded binding values: login, absolute paths, dimensions
+/// and the created-at range.
+fn check_binding_values(
+    login: &str,
+    home: &str,
+    shell: &str,
+    identity: i64,
+    cols: i64,
+    rows: i64,
+    created_at: i64,
+) -> Result<(), String> {
+    if !account::valid_login(login) || login == "root" {
         return Err("terminal binding values".to_string());
     }
     if !home.starts_with('/') || !shell.starts_with('/') {
@@ -119,6 +116,34 @@ pub fn validate_binding(text: &str) -> Result<BindingRecord, String> {
     if !(1..=9007199254740991).contains(&created_at) {
         return Err("terminal binding values".to_string());
     }
+    Ok(())
+}
+
+/// Validate a `binding` record (dup-tolerant like `json.loads`, unlike the
+/// control-frame decoder). Uid/gid widen to `u32` at most: larger JSON ints
+/// error here instead of failing later comparisons, a deliberate hardening
+/// delta confined to corrupt root-owned files.
+pub fn validate_binding(text: &str) -> Result<BindingRecord, String> {
+    let fields: RawObject =
+        serde_json::from_str(text).map_err(|_| "terminal binding".to_string())?;
+    let keys: HashSet<&str> = fields.0.keys().map(String::as_str).collect();
+    let want: HashSet<&str> = ["account", "identity", "cols", "rows", "created_at"]
+        .into_iter()
+        .collect();
+    if keys != want {
+        return Err("terminal binding".to_string());
+    }
+    let (login, uid, gid, home, shell) = decode_binding_account(&fields)?;
+    let integer = |key: &str| -> Result<i64, String> {
+        raw(&fields, key)?
+            .parse()
+            .map_err(|_| "terminal binding values".to_string())
+    };
+    let identity = integer("identity")?;
+    let cols = integer("cols")?;
+    let rows = integer("rows")?;
+    let created_at = integer("created_at")?;
+    check_binding_values(&login, &home, &shell, identity, cols, rows, created_at)?;
     Ok(BindingRecord {
         login,
         uid,

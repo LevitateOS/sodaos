@@ -249,39 +249,29 @@ func sameStandingPreparationIdentity(left, right project.StoredPreparation) bool
 
 // ObservePreparation advances only the observed state under CAS revision. The
 // approved references are additionally guarded by a schema trigger.
-func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparation) error {
+func readPreparationHead(ctx context.Context, db *sql.DB, p project.StoredPreparation) (*candidatePreparationRegistration, error) {
 	if err := p.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	var raw []byte
-	if err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, p.Preparation.ID).Scan(&raw); err != nil {
-		return err
+	if err := db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, p.Preparation.ID).Scan(&raw); err != nil {
+		return nil, err
 	}
 	_, meta, err := unmarshalCandidatePreparation(raw)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+	return meta, nil
+}
+
+func lockPreparationObservationTx(ctx context.Context, tx *sql.Tx, meta *candidatePreparationRegistration) (factory.AttemptAllowance, error) {
+	if meta == nil || meta.PublicationID == "" {
+		return factory.AttemptAllowance{}, nil
 	}
-	defer func() { _ = tx.Rollback() }()
-	var allowance factory.AttemptAllowance
-	if meta != nil && meta.PublicationID != "" {
-		allowance, err = lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
-		if err != nil {
-			return err
-		}
-	}
-	var currentRaw []byte
-	var revision int64
-	if err = tx.QueryRowContext(ctx, `SELECT revision,data FROM project_preparations WHERE id=$1 FOR UPDATE`, p.Preparation.ID).Scan(&revision, &currentRaw); err != nil {
-		return err
-	}
-	current, currentMeta, err := unmarshalCandidatePreparation(currentRaw)
-	if err != nil {
-		return err
-	}
+	return lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
+}
+
+func checkPreparationObservationCurrent(current project.StoredPreparation, currentMeta, meta *candidatePreparationRegistration, p project.StoredPreparation, revision int64) error {
 	if (meta == nil) != (currentMeta == nil) || meta != nil && !sameCandidatePreparationAdmission(*meta, *currentMeta, false) {
 		return errors.New("preparation admission changed during observation")
 	}
@@ -291,9 +281,14 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 	if revision != p.Preparation.Revision || !samePreparationIdentity(current, p) {
 		return errors.New("stale or changed preparation observation")
 	}
+	return nil
+}
+
+func writePreparationObservationTx(ctx context.Context, tx *sql.Tx, current project.StoredPreparation, currentMeta, meta *candidatePreparationRegistration, p project.StoredPreparation, revision int64, allowance factory.AttemptAllowance) error {
 	current.State = p.State
 	current.Preparation.Revision++
 	var data []byte
+	var err error
 	if currentMeta == nil {
 		data, err = json.Marshal(current)
 	} else {
@@ -312,6 +307,35 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 		}
 	}
 	return tx.Commit()
+}
+
+func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparation) error {
+	meta, err := readPreparationHead(ctx, s.db, p)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	allowance, err := lockPreparationObservationTx(ctx, tx, meta)
+	if err != nil {
+		return err
+	}
+	var currentRaw []byte
+	var revision int64
+	if err = tx.QueryRowContext(ctx, `SELECT revision,data FROM project_preparations WHERE id=$1 FOR UPDATE`, p.Preparation.ID).Scan(&revision, &currentRaw); err != nil {
+		return err
+	}
+	current, currentMeta, err := unmarshalCandidatePreparation(currentRaw)
+	if err != nil {
+		return err
+	}
+	if err = checkPreparationObservationCurrent(current, currentMeta, meta, p, revision); err != nil {
+		return err
+	}
+	return writePreparationObservationTx(ctx, tx, current, currentMeta, meta, p, revision, allowance)
 }
 
 // Preparation returns one durable preparation record by identity.

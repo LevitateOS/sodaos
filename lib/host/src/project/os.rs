@@ -120,6 +120,56 @@ fn split_lines(text: &str) -> Vec<&str> {
     lines
 }
 
+fn push_single_quoted(
+    chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    word: &mut String,
+) -> Result<(), ()> {
+    let mut closed = false;
+    for c in chars.by_ref() {
+        if c == '\'' {
+            closed = true;
+            break;
+        }
+        word.push(c);
+    }
+    if closed {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
+fn push_double_quoted(
+    chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    word: &mut String,
+) -> Result<(), ()> {
+    let mut closed = false;
+    while let Some(c) = chars.next() {
+        if c == '"' {
+            closed = true;
+            break;
+        }
+        if c == '\\' {
+            match chars.next() {
+                Some(n @ ('$' | '`' | '"' | '\\')) => word.push(n),
+                Some('\n') => {}
+                Some(other) => {
+                    word.push('\\');
+                    word.push(other);
+                }
+                None => return Err(()),
+            }
+        } else {
+            word.push(c);
+        }
+    }
+    if closed {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
 /// POSIX shell word parsing for one os-release value: `shlex.split(value,
 /// comments=False, posix=True)` semantics with `#` ordinary.
 fn shlex_posix(value: &str) -> Result<Vec<String>, ()> {
@@ -137,44 +187,8 @@ fn shlex_posix(value: &str) -> Result<Vec<String>, ()> {
         }
         started = true;
         match c {
-            '\'' => {
-                let mut closed = false;
-                for c in chars.by_ref() {
-                    if c == '\'' {
-                        closed = true;
-                        break;
-                    }
-                    word.push(c);
-                }
-                if !closed {
-                    return Err(());
-                }
-            }
-            '"' => {
-                let mut closed = false;
-                while let Some(c) = chars.next() {
-                    if c == '"' {
-                        closed = true;
-                        break;
-                    }
-                    if c == '\\' {
-                        match chars.next() {
-                            Some(n @ ('$' | '`' | '"' | '\\')) => word.push(n),
-                            Some('\n') => {}
-                            Some(other) => {
-                                word.push('\\');
-                                word.push(other);
-                            }
-                            None => return Err(()),
-                        }
-                    } else {
-                        word.push(c);
-                    }
-                }
-                if !closed {
-                    return Err(());
-                }
-            }
+            '\'' => push_single_quoted(&mut chars, &mut word)?,
+            '"' => push_double_quoted(&mut chars, &mut word)?,
             '\\' => match chars.next() {
                 Some(n) => word.push(n),
                 None => return Err(()),

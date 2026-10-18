@@ -283,6 +283,16 @@ fn pinned_role_group_leader(pid: i32, pgid: i32, start_ticks: u64, uid: u32, pro
         && std::fs::symlink_metadata(entry).is_ok_and(|metadata| metadata.uid() == uid)
 }
 
+fn signal_role_group(pgid: i32, proot: &Path, signal: libc::c_int) -> Result<Option<bool>, Error> {
+    match killpg(pgid, signal) {
+        Ok(()) => Ok(None),
+        Err(errno) if errno == libc::ESRCH => {
+            Ok(Some(probe_group_quiet(pgid, proot) == Some(true)))
+        }
+        Err(errno) => Err(Error::io_msg(format!("killpg: errno {errno}"))),
+    }
+}
+
 fn terminate_role_group(
     pid: i32,
     pgid: i32,
@@ -296,12 +306,8 @@ fn terminate_role_group(
     if !pinned_role_group_leader(pid, pgid, start_ticks, uid, proot) {
         return Ok(false);
     }
-    match killpg(pgid, libc::SIGTERM) {
-        Ok(()) => {}
-        Err(errno) if errno == libc::ESRCH => {
-            return Ok(probe_group_quiet(pgid, proot) == Some(true));
-        }
-        Err(errno) => return Err(Error::io_msg(format!("killpg: errno {errno}"))),
+    if let Some(done) = signal_role_group(pgid, proot, libc::SIGTERM)? {
+        return Ok(done);
     }
     let term_deadline = Instant::now() + Duration::from_millis(TERM_GRACE_MS);
     while Instant::now() < term_deadline {
@@ -317,12 +323,8 @@ fn terminate_role_group(
     if !pinned_role_group_leader(pid, pgid, start_ticks, uid, proot) {
         return Ok(false);
     }
-    match killpg(pgid, libc::SIGKILL) {
-        Ok(()) => {}
-        Err(errno) if errno == libc::ESRCH => {
-            return Ok(probe_group_quiet(pgid, proot) == Some(true));
-        }
-        Err(errno) => return Err(Error::io_msg(format!("killpg: errno {errno}"))),
+    if let Some(done) = signal_role_group(pgid, proot, libc::SIGKILL)? {
+        return Ok(done);
     }
     let kill_deadline = Instant::now() + Duration::from_millis(KILL_GRACE_MS);
     while Instant::now() < kill_deadline {
@@ -376,6 +378,317 @@ fn to_cstring(bytes: &[u8]) -> Option<CString> {
     CString::new(bytes).ok()
 }
 
+fn run_role_child(
+    lock_fd: std::os::unix::io::RawFd,
+    gate_reader: libc::c_int,
+    gate_writer: libc::c_int,
+    reader: libc::c_int,
+    writer: libc::c_int,
+    workdir: &Path,
+    argv: &[String],
+    environ: &[(String, String)],
+    uid: u32,
+    gid: u32,
+) -> ! {
+    unsafe {
+        libc::close(lock_fd);
+        libc::close(gate_writer);
+        libc::close(reader);
+        libc::dup2(writer, 1);
+        libc::dup2(writer, 2);
+        libc::close(writer);
+        let mut release = 0u8;
+        loop {
+            let count = libc::read(gate_reader, &mut release as *mut u8 as *mut libc::c_void, 1);
+            if count < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+                continue;
+            }
+            libc::close(gate_reader);
+            if count != 1 || release != 1 {
+                libc::_exit(127);
+            }
+            break;
+        }
+        let dir = match to_cstring(workdir.as_os_str().as_bytes()) {
+            Some(dir) => dir,
+            None => libc::_exit(127),
+        };
+        if libc::chdir(dir.as_ptr()) != 0 {
+            libc::_exit(127);
+        }
+        // Drop supplementary groups first so the role keeps exactly
+        // its primary group. The privileged supervisor is always
+        // root; the call is skipped only for unprivileged test
+        // drivers of this function.
+        if libc::geteuid() == 0 && libc::setgroups(0, std::ptr::null()) != 0 {
+            libc::_exit(127);
+        }
+        if libc::setgid(gid) != 0 {
+            libc::_exit(127);
+        }
+        if libc::setuid(uid) != 0 {
+            libc::_exit(127);
+        }
+        let mut owned: Vec<CString> = Vec::with_capacity(argv.len() + environ.len());
+        for word in argv {
+            match to_cstring(word.as_bytes()) {
+                Some(word) => owned.push(word),
+                None => libc::_exit(127),
+            }
+        }
+        let argv_count = owned.len();
+        for (key, value) in environ {
+            let mut pair = Vec::with_capacity(key.len() + value.len() + 1);
+            pair.extend_from_slice(key.as_bytes());
+            pair.push(b'=');
+            pair.extend_from_slice(value.as_bytes());
+            match to_cstring(&pair) {
+                Some(pair) => owned.push(pair),
+                None => libc::_exit(127),
+            }
+        }
+        let mut argv_ptrs: Vec<*const libc::c_char> =
+            owned[..argv_count].iter().map(|s| s.as_ptr()).collect();
+        argv_ptrs.push(std::ptr::null());
+        let mut env_ptrs: Vec<*const libc::c_char> =
+            owned[argv_count..].iter().map(|s| s.as_ptr()).collect();
+        env_ptrs.push(std::ptr::null());
+        libc::execve(argv_ptrs[0], argv_ptrs.as_ptr(), env_ptrs.as_ptr());
+        libc::_exit(127);
+    }
+}
+
+struct LaunchedRole {
+    pid: libc::pid_t,
+    pgid: i32,
+    start_ticks: u64,
+    log: File,
+    reader: libc::c_int,
+}
+
+fn admit_role_parent(
+    pid: libc::pid_t,
+    gate_writer: libc::c_int,
+    reader: libc::c_int,
+    directory: &Path,
+    lock: File,
+    logpath: &Path,
+    deadline: Option<Instant>,
+) -> Result<Option<LaunchedRole>, Error> {
+    let pgid = pid;
+    if unsafe { libc::setpgid(pid, pgid) } != 0 {
+        abort_gated_child(pid, gate_writer, reader, directory, false)?;
+        return Err(Error::io_msg("role child group setup failed"));
+    }
+    let (child_state, child_group, start_ticks) =
+        proc_identity(&Path::new("/proc").join(pid.to_string()));
+    let Some(start_ticks) = start_ticks else {
+        abort_gated_child(pid, gate_writer, reader, directory, false)?;
+        return Err(Error::io_msg("role child identity unavailable"));
+    };
+    if child_group.as_deref() != Some(pgid.to_string().as_str()) || child_state.is_none() {
+        abort_gated_child(pid, gate_writer, reader, directory, false)?;
+        return Err(Error::io_msg("role child group setup failed"));
+    }
+    let active_payload = crate::emit::dumps_default(&obj(vec![
+        ("pid", StateValue::Number(pid.to_string())),
+        ("pgid", StateValue::Number(pgid.to_string())),
+        ("start_ticks", StateValue::Number(start_ticks.to_string())),
+    ]));
+    if let Err(error) = fsx::write_new(
+        &active_child_path(directory),
+        active_payload.as_bytes(),
+        0o644,
+    ) {
+        abort_gated_child(pid, gate_writer, reader, directory, false)?;
+        return Err(error);
+    }
+    let log = match File::create(logpath) {
+        Ok(log) => log,
+        Err(error) => {
+            abort_gated_child(pid, gate_writer, reader, directory, true)?;
+            drop(lock);
+            return Err(Error::io("create setup log", &error));
+        }
+    };
+    let flags = unsafe { libc::fcntl(reader, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(reader, libc::F_SETFL, flags | libc::O_NONBLOCK) } != 0 {
+        abort_gated_child(pid, gate_writer, reader, directory, true)?;
+        drop(lock);
+        return Err(Error::io_msg("role output pipe setup failed"));
+    }
+    if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+        abort_gated_child(pid, gate_writer, reader, directory, true)?;
+        drop(lock);
+        return Ok(None);
+    }
+    let release = 1u8;
+    if unsafe { libc::write(gate_writer, &release as *const u8 as *const libc::c_void, 1) } != 1 {
+        abort_gated_child(pid, gate_writer, reader, directory, true)?;
+        drop(lock);
+        return Err(Error::io_msg("role launch gate release failed"));
+    }
+    unsafe { libc::close(gate_writer) };
+    drop(lock);
+    Ok(Some(LaunchedRole {
+        pid,
+        pgid,
+        start_ticks,
+        log,
+        reader,
+    }))
+}
+
+struct RoleDrain {
+    kept: usize,
+    expired: bool,
+    descendants_found: bool,
+}
+
+fn abort_role_drain(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    pid: libc::pid_t,
+    pgid: i32,
+    start_ticks: u64,
+    uid: u32,
+    reader: libc::c_int,
+) -> Result<(), Error> {
+    unsafe { libc::close(reader) };
+    let cleaned = terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))?;
+    if !cleaned {
+        return Err(Error::fail("role child cleanup unconfirmed"));
+    }
+    finish_role_child(ctx, directory, pid, pgid)?;
+    Ok(())
+}
+
+struct RoleDrainState {
+    eof: bool,
+    expired: bool,
+    capture_join_deadline: Option<Instant>,
+    descendants_found: bool,
+}
+
+fn advance_role_drain(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    pid: libc::pid_t,
+    pgid: i32,
+    start_ticks: u64,
+    uid: u32,
+    reader: libc::c_int,
+    deadline: Option<Instant>,
+    child_exited: bool,
+    child_group: Option<String>,
+    state: &mut RoleDrainState,
+) -> Result<bool, Error> {
+    if !state.expired && deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+        state.expired = true;
+        state.capture_join_deadline = Some(Instant::now() + Duration::from_millis(KILL_GRACE_MS));
+        if !terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))? {
+            unsafe { libc::close(reader) };
+            return Err(Error::fail("deadline cleanup unconfirmed"));
+        }
+    } else if child_exited && probe_group_quiet(pgid, Path::new("/proc")) != Some(true) {
+        state.descendants_found = true;
+        if !terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))? {
+            unsafe { libc::close(reader) };
+            return Err(Error::fail("role descendants remain active"));
+        }
+    }
+    if !state.eof
+        && state
+            .capture_join_deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+    {
+        unsafe { libc::close(reader) };
+        return Err(Error::fail(
+            "role output join after deadline is unconfirmed",
+        ));
+    }
+    if child_exited && state.eof && probe_group_quiet(pgid, Path::new("/proc")) == Some(true) {
+        return Ok(true);
+    }
+    if child_group.as_deref() != Some(pgid.to_string().as_str()) && !child_exited {
+        unsafe { libc::close(reader) };
+        return Err(Error::fail("role child identity changed"));
+    }
+    Ok(false)
+}
+
+fn drain_role_output(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    pid: libc::pid_t,
+    pgid: i32,
+    start_ticks: u64,
+    uid: u32,
+    log: &mut File,
+    reader: libc::c_int,
+    deadline: Option<Instant>,
+) -> Result<RoleDrain, Error> {
+    // P07-F1/001: log-I/O failures must still close owned descriptors
+    // and terminate/reap the role child within a bound before reporting;
+    // unconfirmed cleanup retains uncertainty instead of the log error.
+    let mut kept = 0usize;
+    let mut state = RoleDrainState {
+        eof: false,
+        expired: false,
+        capture_join_deadline: None,
+        descendants_found: false,
+    };
+    loop {
+        let mut chunk = [0u8; 65536];
+        let got =
+            unsafe { libc::read(reader, chunk.as_mut_ptr() as *mut libc::c_void, chunk.len()) };
+        if got < 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() == Some(libc::EINTR) {
+                continue;
+            } else if error.kind() == std::io::ErrorKind::WouldBlock {
+                // The same loop observes the deadline and child group.
+            } else {
+                abort_role_drain(ctx, directory, pid, pgid, start_ticks, uid, reader)?;
+                return Err(Error::io_msg("log pipe failed"));
+            }
+        } else if got == 0 {
+            state.eof = true;
+        } else if kept < crate::LOG_CAP {
+            let take = (got as usize).min(crate::LOG_CAP - kept);
+            if let Err(err) = log.write_all(&chunk[..take]) {
+                abort_role_drain(ctx, directory, pid, pgid, start_ticks, uid, reader)?;
+                return Err(Error::io("write", &err));
+            }
+            kept += take;
+        }
+        let (child_state, child_group) =
+            proc_state_group(&Path::new("/proc").join(pid.to_string()));
+        let child_exited = child_state.as_deref() == Some("Z");
+        if advance_role_drain(
+            ctx,
+            directory,
+            pid,
+            pgid,
+            start_ticks,
+            uid,
+            reader,
+            deadline,
+            child_exited,
+            child_group,
+            &mut state,
+        )? {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(POLL_SLICE_MS));
+    }
+    Ok(RoleDrain {
+        kept,
+        expired: state.expired,
+        descendants_found: state.descendants_found,
+    })
+}
+
 /// Run one fixed entry point as the role, capturing bounded output. The
 /// supervisor stays privileged so role code cannot forge logs or
 /// completion. Anything failing in the child exits it with 127.
@@ -423,228 +736,57 @@ pub fn run_as_role(
         return Err(Error::io_msg("fork failed"));
     }
     if pid == 0 {
-        unsafe {
-            libc::close(lock_fd);
-            libc::close(gate_writer);
-            libc::close(reader);
-            libc::dup2(writer, 1);
-            libc::dup2(writer, 2);
-            libc::close(writer);
-            let mut release = 0u8;
-            loop {
-                let count =
-                    libc::read(gate_reader, &mut release as *mut u8 as *mut libc::c_void, 1);
-                if count < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
-                {
-                    continue;
-                }
-                libc::close(gate_reader);
-                if count != 1 || release != 1 {
-                    libc::_exit(127);
-                }
-                break;
-            }
-            let dir = match to_cstring(workdir.as_os_str().as_bytes()) {
-                Some(dir) => dir,
-                None => libc::_exit(127),
-            };
-            if libc::chdir(dir.as_ptr()) != 0 {
-                libc::_exit(127);
-            }
-            // Drop supplementary groups first so the role keeps exactly
-            // its primary group. The privileged supervisor is always
-            // root; the call is skipped only for unprivileged test
-            // drivers of this function.
-            if libc::geteuid() == 0 && libc::setgroups(0, std::ptr::null()) != 0 {
-                libc::_exit(127);
-            }
-            if libc::setgid(gid) != 0 {
-                libc::_exit(127);
-            }
-            if libc::setuid(uid) != 0 {
-                libc::_exit(127);
-            }
-            let mut owned: Vec<CString> = Vec::with_capacity(argv.len() + environ.len());
-            for word in argv {
-                match to_cstring(word.as_bytes()) {
-                    Some(word) => owned.push(word),
-                    None => libc::_exit(127),
-                }
-            }
-            let argv_count = owned.len();
-            for (key, value) in environ {
-                let mut pair = Vec::with_capacity(key.len() + value.len() + 1);
-                pair.extend_from_slice(key.as_bytes());
-                pair.push(b'=');
-                pair.extend_from_slice(value.as_bytes());
-                match to_cstring(&pair) {
-                    Some(pair) => owned.push(pair),
-                    None => libc::_exit(127),
-                }
-            }
-            let mut argv_ptrs: Vec<*const libc::c_char> =
-                owned[..argv_count].iter().map(|s| s.as_ptr()).collect();
-            argv_ptrs.push(std::ptr::null());
-            let mut env_ptrs: Vec<*const libc::c_char> =
-                owned[argv_count..].iter().map(|s| s.as_ptr()).collect();
-            env_ptrs.push(std::ptr::null());
-            libc::execve(argv_ptrs[0], argv_ptrs.as_ptr(), env_ptrs.as_ptr());
-            libc::_exit(127);
-        }
+        run_role_child(
+            lock_fd,
+            gate_reader,
+            gate_writer,
+            reader,
+            writer,
+            workdir,
+            argv,
+            environ,
+            uid,
+            gid,
+        );
     }
     unsafe {
         libc::close(writer);
         libc::close(gate_reader);
     }
-    let pgid = pid;
-    if unsafe { libc::setpgid(pid, pgid) } != 0 {
-        abort_gated_child(pid, gate_writer, reader, directory, false)?;
-        return Err(Error::io_msg("role child group setup failed"));
-    }
-    let (child_state, child_group, start_ticks) =
-        proc_identity(&Path::new("/proc").join(pid.to_string()));
-    let Some(start_ticks) = start_ticks else {
-        abort_gated_child(pid, gate_writer, reader, directory, false)?;
-        return Err(Error::io_msg("role child identity unavailable"));
-    };
-    if child_group.as_deref() != Some(pgid.to_string().as_str()) || child_state.is_none() {
-        abort_gated_child(pid, gate_writer, reader, directory, false)?;
-        return Err(Error::io_msg("role child group setup failed"));
-    }
-    let active_payload = crate::emit::dumps_default(&obj(vec![
-        ("pid", StateValue::Number(pid.to_string())),
-        ("pgid", StateValue::Number(pgid.to_string())),
-        ("start_ticks", StateValue::Number(start_ticks.to_string())),
-    ]));
-    if let Err(error) = fsx::write_new(
-        &active_child_path(directory),
-        active_payload.as_bytes(),
-        0o644,
-    ) {
-        abort_gated_child(pid, gate_writer, reader, directory, false)?;
-        return Err(error);
-    }
-    let mut log = match File::create(logpath) {
-        Ok(log) => log,
-        Err(error) => {
-            abort_gated_child(pid, gate_writer, reader, directory, true)?;
-            drop(lock);
-            return Err(Error::io("create setup log", &error));
-        }
-    };
-    let flags = unsafe { libc::fcntl(reader, libc::F_GETFL) };
-    if flags < 0 || unsafe { libc::fcntl(reader, libc::F_SETFL, flags | libc::O_NONBLOCK) } != 0 {
-        abort_gated_child(pid, gate_writer, reader, directory, true)?;
-        drop(lock);
-        return Err(Error::io_msg("role output pipe setup failed"));
-    }
-    if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-        abort_gated_child(pid, gate_writer, reader, directory, true)?;
-        drop(lock);
+    let Some(mut launched) =
+        admit_role_parent(pid, gate_writer, reader, directory, lock, logpath, deadline)?
+    else {
         return Ok(124);
-    }
-    let release = 1u8;
-    if unsafe { libc::write(gate_writer, &release as *const u8 as *const libc::c_void, 1) } != 1 {
-        abort_gated_child(pid, gate_writer, reader, directory, true)?;
-        drop(lock);
-        return Err(Error::io_msg("role launch gate release failed"));
-    }
-    unsafe { libc::close(gate_writer) };
-    drop(lock);
-    // P07-F1/001: log-I/O failures must still close owned descriptors
-    // and terminate/reap the role child within a bound before reporting;
-    // unconfirmed cleanup retains uncertainty instead of the log error.
-    let mut kept = 0usize;
-    let mut eof = false;
-    let mut expired = false;
-    let mut capture_join_deadline = None;
-    let mut descendants_found = false;
-    loop {
-        let mut chunk = [0u8; 65536];
-        let got =
-            unsafe { libc::read(reader, chunk.as_mut_ptr() as *mut libc::c_void, chunk.len()) };
-        if got < 0 {
-            let error = std::io::Error::last_os_error();
-            if error.raw_os_error() == Some(libc::EINTR) {
-                continue;
-            } else if error.kind() == std::io::ErrorKind::WouldBlock {
-                // The same loop observes the deadline and child group.
-            } else {
-                unsafe { libc::close(reader) };
-                let cleaned =
-                    terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))?;
-                if !cleaned {
-                    return Err(Error::fail("role child cleanup unconfirmed"));
-                }
-                finish_role_child(ctx, directory, pid, pgid)?;
-                return Err(Error::io_msg("log pipe failed"));
-            }
-        } else if got == 0 {
-            eof = true;
-        } else if kept < crate::LOG_CAP {
-            let take = (got as usize).min(crate::LOG_CAP - kept);
-            if let Err(err) = log.write_all(&chunk[..take]) {
-                unsafe { libc::close(reader) };
-                let cleaned =
-                    terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))?;
-                if !cleaned {
-                    return Err(Error::fail("role child cleanup unconfirmed"));
-                }
-                finish_role_child(ctx, directory, pid, pgid)?;
-                return Err(Error::io("write", &err));
-            }
-            kept += take;
-        }
-        let (child_state, child_group) =
-            proc_state_group(&Path::new("/proc").join(pid.to_string()));
-        let child_exited = child_state.as_deref() == Some("Z");
-        if !expired && deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-            expired = true;
-            capture_join_deadline = Some(Instant::now() + Duration::from_millis(KILL_GRACE_MS));
-            if !terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))? {
-                unsafe { libc::close(reader) };
-                return Err(Error::fail("deadline cleanup unconfirmed"));
-            }
-        } else if child_exited && probe_group_quiet(pgid, Path::new("/proc")) != Some(true) {
-            descendants_found = true;
-            if !terminate_role_group(pid, pgid, start_ticks, uid, Path::new("/proc"))? {
-                unsafe { libc::close(reader) };
-                return Err(Error::fail("role descendants remain active"));
-            }
-        }
-        if !eof && capture_join_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-            unsafe { libc::close(reader) };
-            return Err(Error::fail(
-                "role output join after deadline is unconfirmed",
-            ));
-        }
-        if child_exited && eof && probe_group_quiet(pgid, Path::new("/proc")) == Some(true) {
-            break;
-        }
-        if child_group.as_deref() != Some(pgid.to_string().as_str()) && !child_exited {
-            unsafe { libc::close(reader) };
-            return Err(Error::fail("role child identity changed"));
-        }
-        std::thread::sleep(Duration::from_millis(POLL_SLICE_MS));
-    }
-    if kept >= crate::LOG_CAP {
-        if let Err(err) = log.write_all(b"\n[output truncated]\n") {
-            drop(log);
+    };
+    let drained = drain_role_output(
+        ctx,
+        directory,
+        launched.pid,
+        launched.pgid,
+        launched.start_ticks,
+        uid,
+        &mut launched.log,
+        launched.reader,
+        deadline,
+    )?;
+    if drained.kept >= crate::LOG_CAP {
+        if let Err(err) = launched.log.write_all(b"\n[output truncated]\n") {
+            drop(launched.log);
             unsafe {
-                libc::close(reader);
+                libc::close(launched.reader);
             }
-            finish_role_child(ctx, directory, pid, pgid)?;
+            finish_role_child(ctx, directory, launched.pid, launched.pgid)?;
             return Err(Error::io("write", &err));
         }
     }
-    drop(log);
+    drop(launched.log);
     unsafe {
-        libc::close(reader);
+        libc::close(launched.reader);
     }
-    let status = finish_role_child(ctx, directory, pid, pgid)?;
-    if expired {
+    let status = finish_role_child(ctx, directory, launched.pid, launched.pgid)?;
+    if drained.expired {
         Ok(124)
-    } else if descendants_found {
+    } else if drained.descendants_found {
         Ok(125)
     } else {
         Ok(exit_code(status))
@@ -852,7 +994,7 @@ fn grandchild_body(
     }
 }
 
-pub fn do_start(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+fn admit_start_request(data: &StateValue) -> Result<(String, Option<String>), Error> {
     let Some(entries) = validate::as_object(data) else {
         return fail("unsupported start request");
     };
@@ -875,28 +1017,45 @@ pub fn do_start(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error
     } else {
         None
     };
-    fsx::ensure_layout(ctx)?;
-    let directory = fsx::prep_dir(ctx, &pid)?;
-    ops_inspect::refuse_barred(ctx, &directory)?;
-    let prestate = start_prestate(ctx, &directory)?;
+    Ok((pid, deadline))
+}
+
+fn join_started_preparation(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    pid: &str,
+    deadline: Option<&str>,
+) -> Result<Option<StateValue>, Error> {
     let started = match fsx::read_json(ctx, &directory.join("started.json"), 1024) {
         Ok(value) => Some(value),
         Err(Error::Missing) => None,
         Err(err) => return Err(err),
     };
-    if let Some(started) = started {
-        let saved_deadline = started.get("deadline").and_then(|value| value.as_str());
-        if saved_deadline != deadline.as_deref() {
-            return fail("preparation start deadline changed");
-        }
-        let pgid = ops_inspect::started_pgid(&started)?;
-        if !ops_inspect::group_alive(pgid, std::path::Path::new("/proc")) {
-            return fail("preparation supervisor is gone; stop and use a new identity");
-        }
-        return Ok(obj(vec![
-            ("started", str_value(&pid)),
-            ("repeated", StateValue::Bool(true)),
-        ]));
+    let Some(started) = started else {
+        return Ok(None);
+    };
+    let saved_deadline = started.get("deadline").and_then(|value| value.as_str());
+    if saved_deadline != deadline {
+        return fail("preparation start deadline changed");
+    }
+    let pgid = ops_inspect::started_pgid(&started)?;
+    if !ops_inspect::group_alive(pgid, std::path::Path::new("/proc")) {
+        return fail("preparation supervisor is gone; stop and use a new identity");
+    }
+    Ok(Some(obj(vec![
+        ("started", str_value(pid)),
+        ("repeated", StateValue::Bool(true)),
+    ])))
+}
+
+pub fn do_start(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+    let (pid, deadline) = admit_start_request(data)?;
+    fsx::ensure_layout(ctx)?;
+    let directory = fsx::prep_dir(ctx, &pid)?;
+    ops_inspect::refuse_barred(ctx, &directory)?;
+    let prestate = start_prestate(ctx, &directory)?;
+    if let Some(repeated) = join_started_preparation(ctx, &directory, &pid, deadline.as_deref())? {
+        return Ok(repeated);
     }
     let started = proc::spawn_detached(
         ctx,
@@ -1094,6 +1253,18 @@ fn killpg(pgid: i32, signal: libc::c_int) -> Result<(), i32> {
     }
 }
 
+fn wait_role_group_down(pgid: i32, proot: &Path, millis: u64, slice_ms: u64) -> Option<bool> {
+    let deadline = Instant::now() + Duration::from_millis(millis);
+    while Instant::now() < deadline {
+        match probe_group_quiet(pgid, proot) {
+            Some(true) => return Some(true),
+            Some(false) => std::thread::sleep(Duration::from_millis(slice_ms)),
+            None => return None,
+        }
+    }
+    Some(false)
+}
+
 /// `SIGTERM` the group, wait up to 5s, escalate to `SIGKILL`, and report
 /// whether retirement is confirmed.
 pub fn signal_group(pgid: i32, proot: &Path) -> Result<String, Error> {
@@ -1103,13 +1274,10 @@ pub fn signal_group(pgid: i32, proot: &Path) -> Result<String, Error> {
         Err(errno) if errno == libc::EPERM => return Ok("uncertain".to_string()),
         Err(errno) => return Err(Error::io_msg(format!("killpg: errno {errno}"))),
     }
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while Instant::now() < deadline {
-        match probe_group_quiet(pgid, proot) {
-            Some(true) => return Ok("confirmed".to_string()),
-            Some(false) => std::thread::sleep(Duration::from_millis(200)),
-            None => return Ok("uncertain".to_string()),
-        }
+    match wait_role_group_down(pgid, proot, 5000, 200) {
+        Some(true) => return Ok("confirmed".to_string()),
+        None => return Ok("uncertain".to_string()),
+        Some(false) => {}
     }
     if probe_group_quiet(pgid, proot) == Some(true) {
         return Ok("confirmed".to_string());
@@ -1119,13 +1287,10 @@ pub fn signal_group(pgid: i32, proot: &Path) -> Result<String, Error> {
         Err(errno) if errno == libc::ESRCH || errno == libc::EPERM => {}
         Err(errno) => return Err(Error::io_msg(format!("killpg: errno {errno}"))),
     }
-    let deadline = Instant::now() + Duration::from_millis(500);
-    while Instant::now() < deadline {
-        match probe_group_quiet(pgid, proot) {
-            Some(true) => return Ok("confirmed".to_string()),
-            Some(false) => std::thread::sleep(Duration::from_millis(50)),
-            None => return Ok("uncertain".to_string()),
-        }
+    match wait_role_group_down(pgid, proot, 500, 50) {
+        Some(true) => return Ok("confirmed".to_string()),
+        None => return Ok("uncertain".to_string()),
+        Some(false) => {}
     }
     Ok(if probe_group_quiet(pgid, proot) == Some(true) {
         "confirmed"
@@ -1159,21 +1324,12 @@ pub fn retire_group(ctx: &crate::Ctx, directory: &Path, role: &str) -> Result<St
     signal_group(pgid, proot)
 }
 
-pub fn do_stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
-    if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op", "id"])) {
-        return fail("unsupported stop request");
-    }
-    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
-    fsx::ensure_layout(ctx)?;
-    let directory = fsx::prep_dir(ctx, &pid)?;
-    // Serialize request observation, the stop fence, and active-child
-    // identity/signalling against start and role-child admission.
-    let lock = state_lock(ctx)?;
+fn read_stop_request(ctx: &crate::Ctx, directory: &Path) -> Result<Option<StateValue>, Error> {
     let request = match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
         Ok(value) => Some(value),
         Err(Error::Missing) => {
             // A stop tombstone before any observation still bars the identity.
-            fsx::mkdir_p(&directory, 0o755)?;
+            fsx::mkdir_p(directory, 0o755)?;
             None
         }
         Err(err) => return Err(err),
@@ -1187,6 +1343,67 @@ pub fn do_stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error>
         Err(Error::Exists) => {}
         Err(err) => return Err(err),
     }
+    Ok(request)
+}
+
+fn retire_stopped_preparation(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    pid: &str,
+    request: StateValue,
+    lock: File,
+) -> Result<StateValue, Error> {
+    let role = match request.get("role").and_then(|v| v.as_str()) {
+        Some(role) => role.to_string(),
+        None => return Err(Error::fail("unsafe factory metadata")),
+    };
+    let mut child_retirement = retire_active_role_group(ctx, directory, &role)?;
+    drop(lock);
+    if child_retirement == "confirmed" && !wait_active_role_join(directory) {
+        child_retirement = "uncertain".to_string();
+    }
+    // P07-F1: a launch-error (or unreadable) receipt never
+    // independently establishes retirement; verify the group.
+    let finished_clean = match fsx::read_json(ctx, &directory.join("finished.json"), 1024) {
+        Ok(finished) => finished.get("launch_error").and_then(|v| v.as_bool()) != Some(true),
+        Err(Error::Missing) => false,
+        Err(_) => false,
+    };
+    if finished_clean {
+        return Ok(obj(vec![
+            ("stopped", str_value(pid)),
+            ("retirement", str_value(&child_retirement)),
+            ("known", StateValue::Bool(true)),
+        ]));
+    }
+    let retirement = retire_group(ctx, directory, &role)?;
+    Ok(obj(vec![
+        ("stopped", str_value(pid)),
+        (
+            "retirement",
+            str_value(
+                if child_retirement == "confirmed" && retirement == "confirmed" {
+                    "confirmed"
+                } else {
+                    "uncertain"
+                },
+            ),
+        ),
+        ("known", StateValue::Bool(true)),
+    ]))
+}
+
+pub fn do_stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+    if !validate::as_object(data).is_some_and(|e| validate::key_set(e, &["op", "id"])) {
+        return fail("unsupported stop request");
+    }
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
+    fsx::ensure_layout(ctx)?;
+    let directory = fsx::prep_dir(ctx, &pid)?;
+    // Serialize request observation, the stop fence, and active-child
+    // identity/signalling against start and role-child admission.
+    let lock = state_lock(ctx)?;
+    let request = read_stop_request(ctx, &directory)?;
     match request {
         None => {
             drop(lock);
@@ -1196,48 +1413,7 @@ pub fn do_stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error>
                 ("known", StateValue::Bool(false)),
             ]))
         }
-        Some(request) => {
-            let role = match request.get("role").and_then(|v| v.as_str()) {
-                Some(role) => role.to_string(),
-                None => return Err(Error::fail("unsafe factory metadata")),
-            };
-            let mut child_retirement = retire_active_role_group(ctx, &directory, &role)?;
-            drop(lock);
-            if child_retirement == "confirmed" && !wait_active_role_join(&directory) {
-                child_retirement = "uncertain".to_string();
-            }
-            // P07-F1: a launch-error (or unreadable) receipt never
-            // independently establishes retirement; verify the group.
-            let finished_clean = match fsx::read_json(ctx, &directory.join("finished.json"), 1024) {
-                Ok(finished) => {
-                    finished.get("launch_error").and_then(|v| v.as_bool()) != Some(true)
-                }
-                Err(Error::Missing) => false,
-                Err(_) => false,
-            };
-            if finished_clean {
-                return Ok(obj(vec![
-                    ("stopped", str_value(&pid)),
-                    ("retirement", str_value(&child_retirement)),
-                    ("known", StateValue::Bool(true)),
-                ]));
-            }
-            let retirement = retire_group(ctx, &directory, &role)?;
-            Ok(obj(vec![
-                ("stopped", str_value(&pid)),
-                (
-                    "retirement",
-                    str_value(
-                        if child_retirement == "confirmed" && retirement == "confirmed" {
-                            "confirmed"
-                        } else {
-                            "uncertain"
-                        },
-                    ),
-                ),
-                ("known", StateValue::Bool(true)),
-            ]))
-        }
+        Some(request) => retire_stopped_preparation(ctx, &directory, &pid, request, lock),
     }
 }
 

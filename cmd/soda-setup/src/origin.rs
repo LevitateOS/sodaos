@@ -4,18 +4,19 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use url::Url;
 
-// base_url admits the setup origin while retaining the entered literal.
-fn base_url(value: &str) -> Result<(), String> {
-    let reject =
-        || "must be an HTTP(S) origin without credentials, path, query or fragment".to_string();
+/// Reject control characters, bad escapes, or a non-HTTP(S) scheme prefix.
+fn check_origin_chars(value: &str) -> Result<(), ()> {
     if value.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\')
         || !valid_percent_escapes(value)
         || !(value.starts_with("http://") || value.starts_with("https://"))
     {
-        return Err(reject());
+        return Err(());
     }
-    let rest = value.split_once("://").map(|(_, rest)| rest).unwrap_or("");
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    Ok(())
+}
+
+/// Reject an empty, credentialed, or zone-scoped authority.
+fn check_authority(authority: &str) -> Result<(), ()> {
     if authority.is_empty()
         || authority.contains('@')
         || authority.starts_with('[')
@@ -23,8 +24,43 @@ fn base_url(value: &str) -> Result<(), String> {
                 .split_once(']')
                 .is_some_and(|(inside, _)| inside.contains('%'))
     {
-        return Err(reject());
+        return Err(());
     }
+    Ok(())
+}
+
+/// Reject a parsed URL with path, query, fragment, or host defects.
+fn check_parsed_url(parsed: &Url) -> Result<(), ()> {
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none_or(str::is_empty)
+        || !matches!(parsed.path(), "" | "/")
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+/// Reject a non-numeric or out-of-range explicit port.
+fn check_port(port: &str) -> Result<(), ()> {
+    if !port.is_empty()
+        && (!port.bytes().all(|b| b.is_ascii_digit())
+            || port.parse::<u32>().map_or(true, |p| p > 65535))
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+// base_url admits the setup origin while retaining the entered literal.
+fn base_url(value: &str) -> Result<(), String> {
+    let reject =
+        || "must be an HTTP(S) origin without credentials, path, query or fragment".to_string();
+    check_origin_chars(value).map_err(|_| reject())?;
+    let rest = value.split_once("://").map(|(_, rest)| rest).unwrap_or("");
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    check_authority(authority).map_err(|_| reject())?;
     let after_authority = rest.strip_prefix(authority).unwrap_or("");
     let raw_path = if after_authority.starts_with('/') {
         after_authority.split(['?', '#']).next().unwrap_or("")
@@ -35,23 +71,11 @@ fn base_url(value: &str) -> Result<(), String> {
         return Err(reject());
     }
     let parsed = Url::parse(value).map_err(|_| reject())?;
-    if !matches!(parsed.scheme(), "http" | "https")
-        || parsed.host_str().is_none_or(str::is_empty)
-        || !matches!(parsed.path(), "" | "/")
-        || parsed.query().is_some()
-        || parsed.fragment().is_some()
-    {
-        return Err(reject());
-    }
+    check_parsed_url(&parsed).map_err(|_| reject())?;
     // Keep explicit port zero syntactic and retain it in the input literal.
     // Empty explicit ports follow Url's parser behavior and are not defaulted.
     if let Some(port) = raw_port(authority) {
-        if !port.is_empty()
-            && (!port.bytes().all(|b| b.is_ascii_digit())
-                || port.parse::<u32>().map_or(true, |p| p > 65535))
-        {
-            return Err(reject());
-        }
+        check_port(port).map_err(|_| reject())?;
     }
     Ok(())
 }

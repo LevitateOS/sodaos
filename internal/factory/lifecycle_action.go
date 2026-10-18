@@ -142,6 +142,25 @@ func ValidHandshake(h LifecycleHandshake) bool {
 
 // Validate checks identity, event/action pairing, bounds and targets.
 func (a LifecycleAction) Validate() error {
+	if err := checkLifecycleActionIdentity(a); err != nil {
+		return err
+	}
+	if err := checkLifecycleResults(a); err != nil {
+		return err
+	}
+	switch a.Action {
+	case LifecycleActionIssueLabelAssignee:
+		return checkLabelAssigneeAction(a)
+	case LifecycleActionPRReviewerRequest:
+		return checkReviewerRequestAction(a)
+	case LifecycleActionCompletionNote:
+		return checkCompletionNoteAction(a)
+	default:
+		return ErrLifecycleAction
+	}
+}
+
+func checkLifecycleActionIdentity(a LifecycleAction) error {
 	if a.ID == "" || !ValidLifecycleEvent(a.Event) || EventAction(a.Event) != a.Action {
 		return ErrLifecycleAction
 	}
@@ -158,6 +177,10 @@ func (a LifecycleAction) Validate() error {
 	if a.Attempts < 0 || a.Attempts > MaxLifecycleAttempts {
 		return ErrLifecycleAction
 	}
+	return nil
+}
+
+func checkLifecycleResults(a LifecycleAction) error {
 	for _, state := range a.Results {
 		switch state {
 		case LifecycleResultPending, LifecycleResultDelivered, LifecycleResultFailed, LifecycleResultUncertain, LifecycleResultDenied:
@@ -165,39 +188,44 @@ func (a LifecycleAction) Validate() error {
 			return ErrLifecycleAction
 		}
 	}
-	switch a.Action {
-	case LifecycleActionIssueLabelAssignee:
-		if a.LabelID < 0 || a.AssigneeID < 0 || (a.LabelID == 0 && a.AssigneeID == 0) {
+	return nil
+}
+
+func checkLabelAssigneeAction(a LifecycleAction) error {
+	if a.LabelID < 0 || a.AssigneeID < 0 || (a.LabelID == 0 && a.AssigneeID == 0) {
+		return ErrLifecycleAction
+	}
+	if len(a.ReviewerIDs) > 0 || a.Note != "" {
+		return ErrLifecycleAction
+	}
+	return nil
+}
+
+func checkReviewerRequestAction(a LifecycleAction) error {
+	if len(a.ReviewerIDs) == 0 || len(a.ReviewerIDs) > MaxLifecycleReviewers {
+		return ErrLifecycleAction
+	}
+	seen := map[int64]bool{}
+	for _, id := range a.ReviewerIDs {
+		if id <= 0 || seen[id] {
 			return ErrLifecycleAction
 		}
-		if len(a.ReviewerIDs) > 0 || a.Note != "" {
-			return ErrLifecycleAction
-		}
-	case LifecycleActionPRReviewerRequest:
-		if len(a.ReviewerIDs) == 0 || len(a.ReviewerIDs) > MaxLifecycleReviewers {
-			return ErrLifecycleAction
-		}
-		seen := map[int64]bool{}
-		for _, id := range a.ReviewerIDs {
-			if id <= 0 || seen[id] {
-				return ErrLifecycleAction
-			}
-			seen[id] = true
-		}
-		if a.LabelID != 0 || a.AssigneeID != 0 || a.Note != "" {
-			return ErrLifecycleAction
-		}
-	case LifecycleActionCompletionNote:
-		if strings.TrimSpace(a.Note) == "" || utf8.RuneCountInString(a.Note) > MaxCompletionNoteChars || strings.ContainsRune(a.Note, 0) || !utf8.ValidString(a.Note) {
-			return ErrLifecycleAction
-		}
-		if a.MergeRef == "" || !a.Closed {
-			return ErrLifecycleAction
-		}
-		if a.LabelID != 0 || a.AssigneeID != 0 || len(a.ReviewerIDs) > 0 {
-			return ErrLifecycleAction
-		}
-	default:
+		seen[id] = true
+	}
+	if a.LabelID != 0 || a.AssigneeID != 0 || a.Note != "" {
+		return ErrLifecycleAction
+	}
+	return nil
+}
+
+func checkCompletionNoteAction(a LifecycleAction) error {
+	if strings.TrimSpace(a.Note) == "" || utf8.RuneCountInString(a.Note) > MaxCompletionNoteChars || strings.ContainsRune(a.Note, 0) || !utf8.ValidString(a.Note) {
+		return ErrLifecycleAction
+	}
+	if a.MergeRef == "" || !a.Closed {
+		return ErrLifecycleAction
+	}
+	if a.LabelID != 0 || a.AssigneeID != 0 || len(a.ReviewerIDs) > 0 {
 		return ErrLifecycleAction
 	}
 	return nil

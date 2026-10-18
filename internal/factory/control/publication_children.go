@@ -40,16 +40,17 @@ func (c *Coordinator) producePublishedChildren(ctx context.Context, report *Publ
 	}
 }
 
-func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Publication, report *PublishReport) {
-	if p.Validate() != nil || p.Stage != factory.PublicationPublished || p.WithdrawRequested ||
-		p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.Work == nil || p.PRCreate.BaseOID == "" {
-		return
-	}
+func admitPublicationChildInput(p factory.Publication) bool {
+	return p.Validate() == nil && p.Stage == factory.PublicationPublished && !p.WithdrawRequested &&
+		p.PRNumber > 0 && p.PRID > 0 && p.PRCreate.Work != nil && p.PRCreate.BaseOID != ""
+}
+
+func (c *Coordinator) loadPublicationChildOwner(ctx context.Context, p factory.Publication, report *PublishReport) (owner factory.Assignment, phasedOwner bool, stop bool) {
 	owner, err := c.Store.Assignment(ctx, p.AssignmentID)
 	if err != nil || owner.Validate() != nil || owner.Role != project.RoleCoder ||
 		owner.PublicationAssignment != owner.ID || owner.AttemptRoot == "" || owner.SourceCommit == "" {
 		publicationError(report, p.ID, "publication_owner_unavailable")
-		return
+		return factory.Assignment{}, false, true
 	}
 	// Phased activation: children of a phased (explicit-phase) publication
 	// owner enter the typed review/correct wire with their record phase,
@@ -57,151 +58,175 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	// wire, and follow-up children match the evidence they answer, so an
 	// upgrade-era publication heals through the leg its current verdict
 	// admits instead of stranding.
-	phasedOwner := owner.Phase != ""
+	return owner, owner.Phase != "", false
+}
+
+func (c *Coordinator) gatePublicationChildAttempt(ctx context.Context, p factory.Publication, owner factory.Assignment, report *PublishReport) (factory.AttemptAllowance, bool) {
 	latest, err := c.Store.LatestIssueAssignment(ctx, p.Repository, p.Issue)
 	if err != nil {
 		publicationError(report, p.ID, "issue_assignment_unavailable")
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	if latest.AttemptRoot != owner.AttemptRoot || latest.Acceptance != p.Acceptance {
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	allowance, err := c.Store.AttemptAllowance(ctx, p.Repository, p.Issue)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return
+			return factory.AttemptAllowance{}, true
 		}
 		publicationError(report, p.ID, "attempt_allowance_unavailable")
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	if allowance.RootAssignment != owner.AttemptRoot {
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	if allowance.Closed {
 		if allowance.Active {
 			if stopErr := c.stopCandidatePreparationsForRoot(ctx, p.Repository, p.ProjectID, p.Issue, owner.AttemptRoot); stopErr != nil {
 				publicationWait(report, p.ID, "attempt is closed; native preparation retirement remains pending")
-				return
+				return factory.AttemptAllowance{}, true
 			}
 		}
 		publicationWait(report, p.ID, "attempt is closed; maintainer intervention is required")
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	if !allowance.Active {
-		return
+		return factory.AttemptAllowance{}, true
 	}
 	if allowance.RemainingSeconds(time.Now()) <= 0 {
 		closed, closeErr := c.Store.CloseExpiredAttempt(ctx, owner.ID)
 		if closeErr != nil {
 			publicationError(report, p.ID, "attempt_allowance_unavailable")
-			return
+			return factory.AttemptAllowance{}, true
 		}
 		if closed {
 			if stopErr := c.stopCandidatePreparationsForRoot(ctx, p.Repository, p.ProjectID, p.Issue, owner.AttemptRoot); stopErr != nil {
 				publicationWait(report, p.ID, "attempt is closed; native preparation retirement remains pending")
-				return
+				return factory.AttemptAllowance{}, true
 			}
 			publicationWait(report, p.ID, "attempt is closed; maintainer intervention is required")
 		}
-		return
+		return factory.AttemptAllowance{}, true
 	}
-	head, err := c.Store.AcceptanceHead(ctx, p.Repository, p.Issue)
-	if err != nil {
-		publicationError(report, p.ID, "acceptance_unavailable")
-		return
-	}
-	if head != p.Acceptance {
-		return
-	}
+	return allowance, false
+}
 
+type childReviewInput struct {
+	review       ResolvedReviewVerdict
+	hasReview    bool
+	role         string
+	checks       *factory.CheckAssessment
+	policyReview bool
+	policyActor  int64
+}
+
+func routePublicationChildCorrection(p factory.Publication, review ResolvedReviewVerdict, checks *factory.CheckAssessment, report *PublishReport) bool {
+	checksVerdict := ""
+	if checks != nil {
+		checksVerdict = checks.Verdict
+	}
+	// Correction-entry feedback routes only to a bounded correction
+	// or to the withheld Jev decision; any other route is a
+	// programming error, so it refuses loudly instead of spending.
+	if route := routeDeliveryFeedback(deliveryFeedback{
+		HasReview: true, ReviewVerdict: review.Verdict, ChecksVerdict: checksVerdict,
+		NewestDispositions: newestCurrentHeadDispositions(p),
+	}); route == routeJev {
+		publicationWait(report, p.ID, "delivery_judgment_required")
+		return true
+	} else if route != routeCorrection {
+		publicationError(report, p.ID, "child_assignment_unrecorded")
+		return true
+	}
+	return false
+}
+
+type childWire struct {
+	phase   string
+	phased  bool
+	parent  string
+	lineage attemptLineage
+}
+
+func (c *Coordinator) resolvePublicationChildReview(ctx context.Context, p factory.Publication, report *PublishReport) (childReviewInput, bool) {
+	var in childReviewInput
 	review, hasReview, reviewPending, reviewRefused := c.currentReviewReport(ctx, p)
 	if reviewRefused {
 		c.fenceChildPublication(ctx, p, report)
-		return
+		return in, true
 	}
 	if reviewPending {
-		return
+		return in, true
 	}
-	role := project.RoleReviewer
-	var checks *factory.CheckAssessment
+	in.review, in.hasReview, in.role = review, hasReview, project.RoleReviewer
 	if hasReview {
 		assessment, ok := c.currentChildCheckAssessment(ctx, p)
 		if !ok {
-			return
+			return in, true
 		}
-		checks = assessment
+		in.checks = assessment
 		if (review.Verdict != "request-changes") && assessment.Verdict != factory.CheckFailed {
-			return
+			return in, true
 		}
-		role = project.RoleCoder
+		in.role = project.RoleCoder
 	} else if assessment, ok := c.currentChildCheckAssessment(ctx, p); ok {
-		checks = assessment
+		in.checks = assessment
 	}
-	if role == project.RoleReviewer && c.Reviews == nil {
+	if in.role == project.RoleReviewer && c.Reviews == nil {
 		publicationWait(report, p.ID, "review_submission_unavailable")
-		return
+		return in, true
 	}
 	// D08 route before spending: a concrete unfixed defect takes the
 	// bounded correction; optional-only, disputed or repetitive feedback
 	// withholds the run pending the funded Jev decision, and optional
 	// advice never forces a correction. The policy-required cause is
 	// detected below for first inspections with passing checks.
-	policyReview := false
-	var policyActor int64
-	if role == project.RoleCoder && hasReview && review.Verdict == "request-changes" {
-		checksVerdict := ""
-		if checks != nil {
-			checksVerdict = checks.Verdict
-		}
-		// Correction-entry feedback routes only to a bounded correction
-		// or to the withheld Jev decision; any other route is a
-		// programming error, so it refuses loudly instead of spending.
-		if route := routeDeliveryFeedback(deliveryFeedback{
-			HasReview: true, ReviewVerdict: review.Verdict, ChecksVerdict: checksVerdict,
-			NewestDispositions: newestCurrentHeadDispositions(p),
-		}); route == routeJev {
-			publicationWait(report, p.ID, "delivery_judgment_required")
-			return
-		} else if route != routeCorrection {
-			publicationError(report, p.ID, "child_assignment_unrecorded")
-			return
+	if in.role == project.RoleCoder && hasReview && review.Verdict == "request-changes" {
+		if stop := routePublicationChildCorrection(p, review, in.checks, report); stop {
+			return in, true
 		}
 	}
-	if role == project.RoleReviewer && !hasReview && checks != nil && checks.Verdict == factory.CheckPass {
+	if in.role == project.RoleReviewer && !hasReview && in.checks != nil && in.checks.Verdict == factory.CheckPass {
 		if policy, err := c.Store.RepositoryPolicy(ctx, p.Repository); err == nil && policy.Validate() == nil {
-			policyActor = policy.Review.ActorID
-			policyReview = policyCauseOwed(p, checks.Verdict, policyActor)
+			in.policyActor = policy.Review.ActorID
+			in.policyReview = policyCauseOwed(p, in.checks.Verdict, in.policyActor)
 		}
 	}
+	return in, false
+}
+
+func (c *Coordinator) resolvePublicationChildWire(ctx context.Context, p factory.Publication, owner factory.Assignment, in childReviewInput, phasedOwner bool, report *PublishReport) (childWire, bool) {
 	// Typed-wire leg: a phased child records its execution phase, issue
 	// subject and parent. First reviews follow a phased owner; follow-up
 	// children follow the evidence they answer, so a typed verdict earns
 	// a phased child while legacy string verdicts keep the legacy child
 	// they admit. Anything else stays pre-phase.
-	childPhase := ""
-	phasedChild := false
-	if phasedOwner && (review.Legacy == nil) {
-		childPhase = project.ExecutionCorrect
-		if role == project.RoleReviewer {
-			childPhase = project.ExecutionReview
+	var wire childWire
+	if phasedOwner && (in.review.Legacy == nil) {
+		wire.phase = project.ExecutionCorrect
+		if in.role == project.RoleReviewer {
+			wire.phase = project.ExecutionReview
 		}
-		phasedChild = true
+		wire.phased = true
 	}
-	lineage := attemptLineage{}
-	parentAssignment := ""
-	if phasedChild {
-		if role == project.RoleReviewer {
-			parentAssignment = owner.ID
+	if wire.phased {
+		if in.role == project.RoleReviewer {
+			wire.parent = owner.ID
 		} else {
 			reviewer, ok := c.currentReviewerForCorrection(ctx, p, owner)
 			if !ok {
 				publicationWait(report, p.ID, "child_assignment_unavailable")
-				return
+				return wire, true
 			}
-			parentAssignment = reviewer.ID
+			wire.parent = reviewer.ID
 		}
-		lineage = attemptLineage{phase: childPhase, parent: parentAssignment}
+		wire.lineage = attemptLineage{phase: wire.phase, parent: wire.parent}
 	}
+	return wire, false
+}
+
+func childCycleDigests(p factory.Publication, role string, in childReviewInput, report *PublishReport) (digest, inputDigest, triggerDecision, triggerReason string, stop bool) {
 	// Durable D07 cycle: fresh independent reviews bind head/base only;
 	// corrections and same-head re-reviews bind the full outstanding
 	// review/check evidence. New digests open new rounds (fresh IDs);
@@ -210,21 +235,20 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	// coverage while the complete input fingerprint drives round reuse,
 	// so same-key changed inputs open a new round instead of silently
 	// reusing the prior admitted correction.
-	var digest, inputDigest, triggerDecision, triggerReason string
 	shortHead := p.Candidate
 	if len(shortHead) > 8 {
 		shortHead = shortHead[:8]
 	}
 	if role == project.RoleReviewer {
-		if policyReview {
+		if in.policyReview {
 			// The bounded policy-required pass carries its separately
 			// recorded cause; the digest stays head/base-only so a
 			// replay reuses its round and never double-charges.
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
-			triggerDecision, triggerReason = policyReviewDecision, policyReviewReason(policyActor, p.Candidate)
-		} else if hasReview {
-			digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
-			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" after "+review.Verdict+" with outstanding findings"
+			triggerDecision, triggerReason = policyReviewDecision, policyReviewReason(in.policyActor, p.Candidate)
+		} else if in.hasReview {
+			digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, in.review, in.checks)
+			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" after "+in.review.Verdict+" with outstanding findings"
 		} else if len(p.ReviewCycles) == 0 {
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
 			triggerDecision, triggerReason = "initial-review", "first review of published head "+shortHead
@@ -243,93 +267,98 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		// the correction. The input fingerprint separately preserves
 		// the broad evidence the round answers; checks still gate
 		// correction entry through the current assessment as well.
-		setDigest, setErr := factory.FindingSetDigest(correctionFindingKeys(review))
+		setDigest, setErr := factory.FindingSetDigest(correctionFindingKeys(in.review))
 		if setErr != nil {
 			publicationError(report, p.ID, "child_assignment_unrecorded")
-			return
+			return "", "", "", "", true
 		}
 		digest = setDigest
-		inputDigest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
-		triggerDecision, triggerReason = "correction-after-review", "address "+review.Verdict+" with "+checks.Verdict+" checks on head "+shortHead
+		inputDigest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, in.review, in.checks)
+		triggerDecision, triggerReason = "correction-after-review", "address "+in.review.Verdict+" with "+in.checks.Verdict+" checks on head "+shortHead
 	}
-	cycle, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, inputDigest, triggerDecision, triggerReason)
-	if cycleErr != nil {
-		publicationWait(report, p.ID, "child_cycle_unrecorded")
-		return
-	}
+	return digest, inputDigest, triggerDecision, triggerReason, false
+}
+
+func (c *Coordinator) admitNewPublicationChild(ctx context.Context, p factory.Publication, owner factory.Assignment, role, childPhase, parentAssignment, childID string, allowance factory.AttemptAllowance, report *PublishReport) bool {
 	existing, err := c.Store.Assignment(ctx, childID)
 	if err == nil {
 		if !existingMatchesPublicationChild(childID, existing, p, owner, role, childPhase, parentAssignment) {
 			c.fenceChildPublication(ctx, p, report)
-			return
+			return true
 		}
 		if existing.Stage == factory.AssignmentFinished &&
 			(existing.Outcome != factory.Succeeded || existing.Result == nil || !existing.Result.Reported || existing.Result.Status != "completed") {
 			c.fenceChildPublication(ctx, p, report)
 		}
-		return
+		return true
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		publicationError(report, p.ID, "child_assignment_unavailable")
-		return
+		return true
 	}
 	if role == project.RoleCoder && !slices.Contains(allowance.Corrections, childID) &&
 		len(allowance.Corrections) >= allowance.Limits.CorrectionCycles {
 		c.fenceChildPublication(ctx, p, report)
-		return
+		return true
 	}
-	if role == project.RoleReviewer {
-		// D08 positive evidence before buying a review: charge the
-		// attempt-root allowance by the immutable reviewer assignment
-		// identity before any native work or dispatch packet. Every
-		// review consumes one ReviewRound; a discretionary re-review
-		// of an inspected head additionally spends that head's single
-		// extra pass, while the policy-required cause spends only the
-		// round. Replays of the same assignment never recharge.
-		// Exhaustion withholds the run instead of launching review
-		// without cover.
-		_, exhausted, chargeErr := c.Store.ChargeReviewDispatch(ctx, p.Repository, p.Issue, owner.AttemptRoot, childID, p.Candidate, policyReview)
-		if chargeErr != nil {
-			publicationError(report, p.ID, "review_allowance_unavailable")
-			return
-		}
-		if exhausted {
-			publicationWait(report, p.ID, "review_allowance_exhausted")
-			return
-		}
+	return false
+}
+
+func (c *Coordinator) chargePublicationChildReview(ctx context.Context, p factory.Publication, owner factory.Assignment, childID string, policyReview bool, report *PublishReport) bool {
+	// D08 positive evidence before buying a review: charge the
+	// attempt-root allowance by the immutable reviewer assignment
+	// identity before any native work or dispatch packet. Every
+	// review consumes one ReviewRound; a discretionary re-review
+	// of an inspected head additionally spends that head's single
+	// extra pass, while the policy-required cause spends only the
+	// round. Replays of the same assignment never recharge.
+	// Exhaustion withholds the run instead of launching review
+	// without cover.
+	_, exhausted, chargeErr := c.Store.ChargeReviewDispatch(ctx, p.Repository, p.Issue, owner.AttemptRoot, childID, p.Candidate, policyReview)
+	if chargeErr != nil {
+		publicationError(report, p.ID, "review_allowance_unavailable")
+		return true
 	}
-	deps := c.dispatchDeps()
-	occupancy, err := snapshotOccupancy(ctx, deps.Store)
+	if exhausted {
+		publicationWait(report, p.ID, "review_allowance_exhausted")
+		return true
+	}
+	return false
+}
+
+func (c *Coordinator) planPublicationChildDispatch(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, p factory.Publication, owner factory.Assignment, role, expectedPrepID, childID string, lineage attemptLineage, report *PublishReport) (*attemptPlan, string, project.Preparation, bool) {
+	occupancySnapshot, err := snapshotOccupancy(ctx, deps.Store)
 	if err != nil {
 		publicationError(report, p.ID, "capacity_accounting_unavailable")
-		return
+		return nil, "", project.Preparation{}, true
 	}
+	*occupancy = occupancySnapshot
 	control, err := deps.Store.IssueControl(ctx, p.Repository, p.Issue)
 	if err == nil {
 		control, err = c.refreshReadiness(ctx, control)
 	}
 	if err != nil || control.Readiness != factory.ReadinessQueued || control.Acceptance != p.Acceptance {
 		publicationWait(report, p.ID, "issue_readiness_not_current")
-		return
+		return nil, "", project.Preparation{}, true
 	}
 	exactPreparation := ""
 	if role == project.RoleCoder {
 		exactPreparation = owner.Preparation
 	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "", lineage)
+	plan, wait, failed := planAttemptForRole(ctx, deps, occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "", lineage)
 	if failed != nil {
 		publicationWait(report, p.ID, failed.Reason)
-		return
+		return nil, "", project.Preparation{}, true
 	}
 	if wait != nil {
 		publicationWait(report, p.ID, wait.Reason)
-		return
+		return nil, "", project.Preparation{}, true
 	}
 	if plan.attemptRoot != owner.AttemptRoot || plan.projectID != owner.ProjectID ||
 		plan.policy.Roles[role].Model == "" ||
 		plan.inputs.Revision != control.NativeRev {
 		publicationWait(report, p.ID, "child_dispatch_inputs_changed")
-		return
+		return nil, "", project.Preparation{}, true
 	}
 	plan.inputs.Tip = p.Candidate
 	preparationID := plan.prep.Preparation.ID
@@ -338,22 +367,26 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		prep, ready, prepErr := c.prepareReviewCandidate(ctx, p, owner, plan, report, expectedPrepID, childID)
 		if prepErr != nil {
 			publicationWait(report, p.ID, "review_preparation_unavailable")
-			return
+			return nil, "", project.Preparation{}, true
 		}
 		if !ready {
 			publicationWait(report, p.ID, "review_preparation_pending")
-			return
+			return nil, "", project.Preparation{}, true
 		}
 		if prep.ID != expectedPrepID {
 			publicationError(report, p.ID, "child_assignment_unrecorded")
-			return
+			return nil, "", project.Preparation{}, true
 		}
 		preparationID = prep.ID
 		contextPreparation = prep
 	}
+	return plan, preparationID, contextPreparation, false
+}
+
+func (c *Coordinator) promptPublicationChild(ctx context.Context, plan *attemptPlan, p factory.Publication, owner factory.Assignment, preparationID string, contextPreparation project.Preparation, role string, in childReviewInput, cycle factory.ReviewCycle, phasedChild bool, report *PublishReport) (*factory.InvestigationPlan, bool) {
 	if !time.Now().Before(plan.deadline) {
 		publicationWait(report, p.ID, "attempt_deadline_exhausted")
-		return
+		return nil, true
 	}
 	// Full outstanding finding/correction evidence goes to corrections
 	// always, and to same-head re-reviews; fresh independent reviews stay
@@ -365,25 +398,25 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	var typedClear *factory.ClearReviewReport
 	var checksPrompt *factory.CheckAssessment
 	if role == project.RoleReviewer {
-		if hasReview {
-			reviewInput, typedReview, typedClear, checksPrompt = review.Legacy, review.Review, review.Clear, checks
+		if in.hasReview {
+			reviewInput, typedReview, typedClear, checksPrompt = in.review.Legacy, in.review.Review, in.review.Clear, in.checks
 		}
 	} else {
-		if hasReview {
-			reviewInput, typedReview, typedClear = review.Legacy, review.Review, review.Clear
+		if in.hasReview {
+			reviewInput, typedReview, typedClear = in.review.Legacy, in.review.Review, in.review.Clear
 		}
-		checksPrompt = checks
+		checksPrompt = in.checks
 	}
 	repositoryContext, contextErr := readRepositoryContext(ctx, c.Host, plan, contextPreparation, role,
 		owner.SourceCommit, p.CurrentDiffBase(), p.Candidate, false)
 	if contextErr != nil {
 		publicationWait(report, p.ID, "native prepared repository context is unavailable or changed")
-		return
+		return nil, true
 	}
 	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, typedReview, typedClear, checksPrompt, repositoryContext)
 	if err != nil {
 		publicationWait(report, p.ID, "child_prompt_invalid")
-		return
+		return nil, true
 	}
 	plan.prompt, plan.promptSHA = prompt, project.FactoryPromptDigest(prompt)
 	// A phased corrector executes the controller-derived singleton plan,
@@ -392,16 +425,79 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	// loudly instead of launching without a manifest.
 	var correctionPlan *factory.InvestigationPlan
 	if phasedChild && role == project.RoleCoder {
-		derived, derivationErr := c.correctionPlanFor(ctx, plan, p, owner, cycle, review)
+		derived, derivationErr := c.correctionPlanFor(ctx, plan, p, owner, cycle, in.review)
 		if derivationErr != nil {
 			if reason, blocked := correctionPlanWaitReason(derivationErr); blocked {
 				publicationWait(report, p.ID, reason)
-				return
+				return nil, true
 			}
 			publicationError(report, p.ID, "child_assignment_unrecorded")
-			return
+			return nil, true
 		}
 		correctionPlan = derived
+	}
+	return correctionPlan, false
+}
+
+func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Publication, report *PublishReport) {
+	if !admitPublicationChildInput(p) {
+		return
+	}
+	owner, phasedOwner, stop := c.loadPublicationChildOwner(ctx, p, report)
+	if stop {
+		return
+	}
+	allowance, stop := c.gatePublicationChildAttempt(ctx, p, owner, report)
+	if stop {
+		return
+	}
+	head, err := c.Store.AcceptanceHead(ctx, p.Repository, p.Issue)
+	if err != nil {
+		publicationError(report, p.ID, "acceptance_unavailable")
+		return
+	}
+	if head != p.Acceptance {
+		return
+	}
+
+	in, stop := c.resolvePublicationChildReview(ctx, p, report)
+	if stop {
+		return
+	}
+	role := in.role
+	policyReview := in.policyReview
+	wire, stop := c.resolvePublicationChildWire(ctx, p, owner, in, phasedOwner, report)
+	if stop {
+		return
+	}
+	childPhase, phasedChild := wire.phase, wire.phased
+	lineage, parentAssignment := wire.lineage, wire.parent
+	digest, inputDigest, triggerDecision, triggerReason, stop := childCycleDigests(p, role, in, report)
+	if stop {
+		return
+	}
+	cycle, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, inputDigest, triggerDecision, triggerReason)
+	if cycleErr != nil {
+		publicationWait(report, p.ID, "child_cycle_unrecorded")
+		return
+	}
+	if c.admitNewPublicationChild(ctx, p, owner, role, childPhase, parentAssignment, childID, allowance, report) {
+		return
+	}
+	if role == project.RoleReviewer {
+		if c.chargePublicationChildReview(ctx, p, owner, childID, policyReview, report) {
+			return
+		}
+	}
+	deps := c.dispatchDeps()
+	var occupancy passOccupancy
+	plan, preparationID, contextPreparation, stop := c.planPublicationChildDispatch(ctx, deps, &occupancy, p, owner, role, expectedPrepID, childID, lineage, report)
+	if stop {
+		return
+	}
+	correctionPlan, stop := c.promptPublicationChild(ctx, plan, p, owner, preparationID, contextPreparation, role, in, cycle, phasedChild, report)
+	if stop {
+		return
 	}
 	// Recheck the source, preparation, current tuple and allowance after
 	// the waits above: a moved head, retired preparation, replaced
@@ -518,6 +614,29 @@ func (c *Coordinator) recheckPublicationChild(ctx context.Context, p factory.Pub
 // base. A pending or refused current-head operation, a missing or stale
 // reviewer, or any other head all report false with zero downstream
 // effect: no native call happens before every check passes.
+func currentReviewOpReady(p factory.Publication, op factory.ReviewOperation) bool {
+	if op.Work.HeadOID != p.Candidate {
+		return false
+	}
+	if op.Work.BaseOID != p.PRCreate.BaseOID {
+		return false
+	}
+	if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
+		op.Outcome.Completion == factory.OpCompletionPending {
+		return false
+	}
+	return op.Outcome.Effect == factory.OpEffectCommitted && op.Outcome.Completion == factory.OpCompletionComplete
+}
+
+func reviewerMatchesPublication(reviewer factory.Assignment, p factory.Publication, owner factory.Assignment) bool {
+	return reviewer.Validate() == nil && reviewer.Role == project.RoleReviewer &&
+		reviewer.PublicationAssignment == owner.ID && reviewer.AttemptRoot == owner.AttemptRoot &&
+		reviewer.SourceCommit == p.Candidate && reviewer.Repository == p.Repository &&
+		reviewer.Issue == p.Issue && reviewer.Acceptance == p.Acceptance &&
+		reviewer.Stage == factory.AssignmentFinished && reviewer.Outcome == factory.Succeeded &&
+		reviewer.Result != nil && reviewer.Result.Reported && reviewer.Result.Status == "completed"
+}
+
 func (c *Coordinator) currentReviewerForCorrection(ctx context.Context, p factory.Publication, owner factory.Assignment) (factory.Assignment, bool) {
 	var empty factory.Assignment
 	for i := len(p.ReviewOperations) - 1; i >= 0; i-- {
@@ -525,23 +644,11 @@ func (c *Coordinator) currentReviewerForCorrection(ctx context.Context, p factor
 		if op.Work.HeadOID != p.Candidate {
 			continue
 		}
-		if op.Work.BaseOID != p.PRCreate.BaseOID {
-			return empty, false
-		}
-		if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
-			op.Outcome.Completion == factory.OpCompletionPending {
-			return empty, false
-		}
-		if op.Outcome.Effect != factory.OpEffectCommitted || op.Outcome.Completion != factory.OpCompletionComplete {
+		if !currentReviewOpReady(p, op) {
 			return empty, false
 		}
 		reviewer, err := c.Store.AssignmentByRun(ctx, op.RunID)
-		if err != nil || reviewer.Validate() != nil || reviewer.Role != project.RoleReviewer ||
-			reviewer.PublicationAssignment != owner.ID || reviewer.AttemptRoot != owner.AttemptRoot ||
-			reviewer.SourceCommit != p.Candidate || reviewer.Repository != p.Repository ||
-			reviewer.Issue != p.Issue || reviewer.Acceptance != p.Acceptance ||
-			reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded ||
-			reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+		if err != nil || !reviewerMatchesPublication(reviewer, p, owner) {
 			return empty, false
 		}
 		return reviewer, true
@@ -556,6 +663,49 @@ func (c *Coordinator) currentReviewerForCorrection(ctx context.Context, p factor
 // reports for pre-phase runs, typed verdicts for phased runs, with the
 // full head/base/cycle/reviewer/carried binding enforced for the latter
 // before it routes any further work.
+func currentReviewOpCurrent(p factory.Publication, op factory.ReviewOperation) (settled, pending bool) {
+	if op.Work.BaseOID != p.PRCreate.BaseOID {
+		return false, false
+	}
+	if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
+		op.Outcome.Completion == factory.OpCompletionPending {
+		return false, true
+	}
+	return op.Outcome.Effect == factory.OpEffectCommitted && op.Outcome.Completion == factory.OpCompletionComplete, false
+}
+
+func reviewAssignmentMatches(assignment factory.Assignment, p factory.Publication) bool {
+	return assignment.Validate() == nil && assignment.Role == project.RoleReviewer &&
+		assignment.PublicationAssignment == p.AssignmentID && assignment.SourceCommit == p.Candidate &&
+		assignment.Stage == factory.AssignmentFinished && assignment.Outcome == factory.Succeeded &&
+		assignment.Result != nil && assignment.Result.Reported
+}
+
+func (c *Coordinator) resolveCurrentReviewReport(ctx context.Context, p factory.Publication, op factory.ReviewOperation, assignment factory.Assignment) (ResolvedReviewVerdict, bool, bool, bool) {
+	var empty ResolvedReviewVerdict
+	resolved, err := resolveAssignmentVerdict(assignment)
+	if err != nil {
+		return empty, false, false, true
+	}
+	wantEvent := "APPROVED"
+	if resolved.Verdict == "request-changes" {
+		wantEvent = "REQUEST_CHANGES"
+	}
+	if op.Work.Event != wantEvent {
+		return empty, false, false, true
+	}
+	if resolved.Legacy != nil {
+		if resolved.Legacy.Validate() != nil {
+			return empty, false, false, true
+		}
+		return resolved, true, false, false
+	}
+	if _, _, err := c.bindPhasedReviewVerdict(ctx, p, assignment, p.Candidate, resolved); err != nil {
+		return empty, false, false, true
+	}
+	return resolved, true, false, false
+}
+
 func (c *Coordinator) currentReviewReport(ctx context.Context, p factory.Publication) (ResolvedReviewVerdict, bool, bool, bool) {
 	var empty ResolvedReviewVerdict
 	for i := len(p.ReviewOperations) - 1; i >= 0; i-- {
@@ -563,44 +713,18 @@ func (c *Coordinator) currentReviewReport(ctx context.Context, p factory.Publica
 		if op.Work.HeadOID != p.Candidate {
 			continue
 		}
-		if op.Work.BaseOID != p.PRCreate.BaseOID {
-			return empty, false, false, true
-		}
-		if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
-			op.Outcome.Completion == factory.OpCompletionPending {
+		settled, pending := currentReviewOpCurrent(p, op)
+		if pending {
 			return empty, false, true, false
 		}
-		if op.Outcome.Effect != factory.OpEffectCommitted || op.Outcome.Completion != factory.OpCompletionComplete {
+		if !settled {
 			return empty, false, false, true
 		}
 		assignment, err := c.Store.AssignmentByRun(ctx, op.RunID)
-		if err != nil || assignment.Validate() != nil || assignment.Role != project.RoleReviewer ||
-			assignment.PublicationAssignment != p.AssignmentID || assignment.SourceCommit != p.Candidate ||
-			assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
-			assignment.Result == nil || !assignment.Result.Reported {
+		if err != nil || !reviewAssignmentMatches(assignment, p) {
 			return empty, false, false, true
 		}
-		resolved, err := resolveAssignmentVerdict(assignment)
-		if err != nil {
-			return empty, false, false, true
-		}
-		wantEvent := "APPROVED"
-		if resolved.Verdict == "request-changes" {
-			wantEvent = "REQUEST_CHANGES"
-		}
-		if op.Work.Event != wantEvent {
-			return empty, false, false, true
-		}
-		if resolved.Legacy != nil {
-			if resolved.Legacy.Validate() != nil {
-				return empty, false, false, true
-			}
-			return resolved, true, false, false
-		}
-		if _, _, err := c.bindPhasedReviewVerdict(ctx, p, assignment, p.Candidate, resolved); err != nil {
-			return empty, false, false, true
-		}
-		return resolved, true, false, false
+		return c.resolveCurrentReviewReport(ctx, p, op, assignment)
 	}
 	return empty, false, false, false
 }
@@ -627,16 +751,20 @@ func (c *Coordinator) currentChildCheckAssessment(ctx context.Context, p factory
 	return &assessment, true
 }
 
-func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publication, owner factory.Assignment, plan *attemptPlan, report *PublishReport, expectedPrepID, expectedChildID string) (project.Preparation, bool, error) {
-	source := plan.prep.Preparation
-	prep := project.Preparation{
+func buildReviewCandidatePrep(plan *attemptPlan, p factory.Publication, expectedPrepID string) (source, prep project.Preparation, err error) {
+	source = plan.prep.Preparation
+	prep = project.Preparation{
 		ID: expectedPrepID, Project: p.ProjectID, Role: project.RoleReviewer,
 		Requirements: source.Requirements, Approval: source.Approval, SourceCommit: p.Candidate,
 		SetupDigest: source.SetupDigest, Tools: append([]string(nil), source.Tools...), Credential: source.Credential,
 	}
 	if err := prep.Validate(); err != nil {
-		return project.Preparation{}, false, err
+		return project.Preparation{}, project.Preparation{}, err
 	}
+	return source, prep, nil
+}
+
+func (c *Coordinator) admitReviewCandidatePrep(ctx context.Context, plan *attemptPlan, p factory.Publication, owner factory.Assignment, prep project.Preparation, expectedChildID string, report *PublishReport) (project.StoredPreparation, bool, error) {
 	requested := time.Now().Add(10 * time.Minute).Unix()
 	if plan.deadline.Unix() < requested {
 		requested = plan.deadline.Unix()
@@ -656,51 +784,84 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 		if errors.Is(err, store.ErrCandidatePreparationConflict) || errors.Is(err, store.ErrAttemptRootMismatch) {
 			c.fenceChildPublication(ctx, p, report)
 		}
-		return project.Preparation{}, false, err
+		return project.StoredPreparation{}, false, err
 	}
-	stored := storedRecord.Preparation
+	return storedRecord.Preparation, created, nil
+}
+
+func (c *Coordinator) verifyStoredReviewCandidatePrep(ctx context.Context, p factory.Publication, prep project.Preparation, stored project.StoredPreparation, report *PublishReport) error {
 	if stored.Preparation.ID != prep.ID || stored.Preparation.Role != prep.Role ||
 		stored.Preparation.Project != prep.Project || stored.Preparation.SourceCommit != prep.SourceCommit ||
 		!stored.Preparation.Requirements.Equal(prep.Requirements) || stored.Preparation.Approval != prep.Approval ||
 		stored.Preparation.SetupDigest != prep.SetupDigest || stored.Preparation.Credential != prep.Credential ||
 		!slices.Equal(stored.Preparation.Tools, prep.Tools) {
 		c.fenceChildPublication(ctx, p, report)
-		return project.Preparation{}, false, errors.New("review preparation identity differs")
+		return errors.New("review preparation identity differs")
 	}
+	return nil
+}
+
+func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publication, owner factory.Assignment, plan *attemptPlan, report *PublishReport, expectedPrepID, expectedChildID string) (project.Preparation, bool, error) {
+	source, prep, err := buildReviewCandidatePrep(plan, p, expectedPrepID)
+	if err != nil {
+		return project.Preparation{}, false, err
+	}
+	stored, created, err := c.admitReviewCandidatePrep(ctx, plan, p, owner, prep, expectedChildID, report)
+	if err != nil {
+		return project.Preparation{}, false, err
+	}
+	if err := c.verifyStoredReviewCandidatePrep(ctx, p, prep, stored, report); err != nil {
+		return project.Preparation{}, false, err
+	}
+	if out, ready, err, proceed := c.reconcileStoredReviewCandidatePrep(ctx, p, prep, stored, created, report); !proceed {
+		return out, ready, err
+	}
+	bundle, err := c.provePublishedCandidateForReview(ctx, p, owner, report)
+	if err != nil {
+		return project.Preparation{}, false, err
+	}
+	return c.launchReviewCandidatePrep(ctx, p, prep, source, bundle, stored, report)
+}
+
+func (c *Coordinator) reconcileStoredReviewCandidatePrep(ctx context.Context, p factory.Publication, prep project.Preparation, stored project.StoredPreparation, created bool, report *PublishReport) (project.Preparation, bool, error, bool) {
 	if stored.State.Ready {
 		if !candidatePreparationStateMatches(stored.State, prep) {
 			c.fenceChildPublication(ctx, p, report)
-			return project.Preparation{}, false, errors.New("review preparation state differs")
+			return project.Preparation{}, false, errors.New("review preparation state differs"), false
 		}
-		return prep, true, nil
+		return prep, true, nil, false
 	}
 	if !created {
 		state, inspectErr := c.Host.InspectPreparation(ctx, project.PrepareInspect{Project: p.ProjectID, ID: prep.ID})
 		if inspectErr == nil {
 			if state.ID != "" && !candidatePreparationIdentityMatches(state, prep) {
 				c.fenceChildPublication(ctx, p, report)
-				return project.Preparation{}, false, errors.New("native review preparation differs")
+				return project.Preparation{}, false, errors.New("native review preparation differs"), false
 			}
 			if err := c.observeCandidatePreparation(ctx, stored, state); err != nil {
-				return project.Preparation{}, false, err
+				return project.Preparation{}, false, err, false
 			}
 			if state.Ready {
-				return prep, true, nil
+				return prep, true, nil, false
 			}
 			if state.Phase == project.PrepareRunning {
-				return project.Preparation{}, false, nil
+				return project.Preparation{}, false, nil, false
 			}
 			if state.Phase == project.PrepareFailed || state.Phase == project.PrepareStopped || state.Phase == project.PrepareInterrupted {
 				c.fenceChildPublication(ctx, p, report)
-				return project.Preparation{}, false, errors.New("review preparation requires intervention")
+				return project.Preparation{}, false, errors.New("review preparation requires intervention"), false
 			}
 		} else if !errors.Is(inspectErr, project.ErrPreparationNotFound) {
-			return project.Preparation{}, false, inspectErr
+			return project.Preparation{}, false, inspectErr, false
 		}
 	}
+	return project.Preparation{}, false, nil, true
+}
+
+func (c *Coordinator) provePublishedCandidateForReview(ctx context.Context, p factory.Publication, owner factory.Assignment, report *PublishReport) ([]byte, error) {
 	parentRun, err := c.Store.FactoryRun(ctx, p.Run)
 	if err != nil || parentRun.Role != project.RoleCoder || !parentRun.Reconciled || parentRun.Outcome != factory.Succeeded {
-		return project.Preparation{}, false, errors.New("published candidate run is not settled")
+		return nil, errors.New("published candidate run is not settled")
 	}
 	candidateAssignment, err := c.Store.AssignmentByRun(ctx, p.Run)
 	if err != nil || candidateAssignment.Validate() != nil || candidateAssignment.Role != project.RoleCoder ||
@@ -708,16 +869,20 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 		candidateAssignment.Stage != factory.AssignmentFinished || candidateAssignment.Outcome != factory.Succeeded ||
 		candidateAssignment.Result == nil || !candidateAssignment.Result.Reported || candidateAssignment.Result.Status != "completed" ||
 		candidateAssignment.Result.Candidate != p.Candidate {
-		return project.Preparation{}, false, errors.New("published candidate lacks its exact recorded report")
+		return nil, errors.New("published candidate lacks its exact recorded report")
 	}
 	bundle, terminal, wait := c.exportCandidate(ctx, p, parentRun)
 	if wait != nil {
-		return project.Preparation{}, false, errors.New(wait.Detail)
+		return nil, errors.New(wait.Detail)
 	}
 	if terminal != nil {
 		c.fenceChildPublication(ctx, p, report)
-		return project.Preparation{}, false, errors.New("published candidate export is invalid")
+		return nil, errors.New("published candidate export is invalid")
 	}
+	return bundle, nil
+}
+
+func (c *Coordinator) launchReviewCandidatePrep(ctx context.Context, p factory.Publication, prep, source project.Preparation, bundle []byte, stored project.StoredPreparation, report *PublishReport) (project.Preparation, bool, error) {
 	notAfter, err := c.Store.AuthorizeCandidatePreparation(ctx, prep.ID)
 	if err != nil {
 		return project.Preparation{}, false, err

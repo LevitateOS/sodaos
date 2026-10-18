@@ -712,61 +712,74 @@ type ReassessmentIntentChange struct {
 	Reason           string       `json:"reason"`
 }
 
+func validateReassessmentTask(task IntentTask, seen map[string]IntentTask) error {
+	if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, MaxPlanTextBytes) ||
+		len(task.Outcomes) == 0 || len(task.Outcomes) > 20 || len(task.IdeaIDs) == 0 {
+		return errors.New("invalid reassessment task")
+	}
+	if _, dup := seen[task.Key]; dup {
+		return errors.New("duplicate reassessment task")
+	}
+	for _, outcome := range task.Outcomes {
+		if !intentText(outcome, MaxPlanTextBytes) {
+			return errors.New("invalid reassessment task outcome")
+		}
+	}
+	for _, id := range task.IdeaIDs {
+		if !project.ValidDecisionID(id) {
+			return errors.New("reassessment task references an invalid product choice")
+		}
+	}
+	return nil
+}
+
+type reassessmentGraph struct {
+	tasks   map[string]IntentTask
+	visited map[string]bool
+	active  map[string]bool
+}
+
+func (g *reassessmentGraph) visit(key string) error {
+	if g.active[key] {
+		return errors.New("cyclic reassessment dependencies")
+	}
+	if g.visited[key] {
+		return nil
+	}
+	task, ok := g.tasks[key]
+	if !ok {
+		return errors.New("unknown reassessment dependency")
+	}
+	g.active[key] = true
+	edge := map[string]bool{}
+	for _, dep := range task.DependsOn {
+		if edge[dep] {
+			return errors.New("duplicate reassessment dependency")
+		}
+		edge[dep] = true
+		if err := g.visit(dep); err != nil {
+			return err
+		}
+	}
+	g.active[key] = false
+	g.visited[key] = true
+	return nil
+}
+
 func validateReassessmentTasks(tasks []IntentTask) error {
 	if len(tasks) == 0 || len(tasks) > MaxPlanTasks {
 		return errors.New("reassessment task count outside its bound")
 	}
 	seen := make(map[string]IntentTask, len(tasks))
 	for _, task := range tasks {
-		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, MaxPlanTextBytes) ||
-			len(task.Outcomes) == 0 || len(task.Outcomes) > 20 || len(task.IdeaIDs) == 0 {
-			return errors.New("invalid reassessment task")
-		}
-		if _, dup := seen[task.Key]; dup {
-			return errors.New("duplicate reassessment task")
-		}
-		for _, outcome := range task.Outcomes {
-			if !intentText(outcome, MaxPlanTextBytes) {
-				return errors.New("invalid reassessment task outcome")
-			}
-		}
-		for _, id := range task.IdeaIDs {
-			if !project.ValidDecisionID(id) {
-				return errors.New("reassessment task references an invalid product choice")
-			}
+		if err := validateReassessmentTask(task, seen); err != nil {
+			return err
 		}
 		seen[task.Key] = task
 	}
-	visited, active := map[string]bool{}, map[string]bool{}
-	var visit func(string) error
-	visit = func(key string) error {
-		if active[key] {
-			return errors.New("cyclic reassessment dependencies")
-		}
-		if visited[key] {
-			return nil
-		}
-		task, ok := seen[key]
-		if !ok {
-			return errors.New("unknown reassessment dependency")
-		}
-		active[key] = true
-		edge := map[string]bool{}
-		for _, dep := range task.DependsOn {
-			if edge[dep] {
-				return errors.New("duplicate reassessment dependency")
-			}
-			edge[dep] = true
-			if err := visit(dep); err != nil {
-				return err
-			}
-		}
-		active[key] = false
-		visited[key] = true
-		return nil
-	}
+	g := &reassessmentGraph{tasks: seen, visited: map[string]bool{}, active: map[string]bool{}}
 	for key := range seen {
-		if err := visit(key); err != nil {
+		if err := g.visit(key); err != nil {
 			return err
 		}
 	}
@@ -871,7 +884,7 @@ type ReassessmentReport struct {
 	CycleID              string                       `json:"cycle_id"`
 }
 
-func (r ReassessmentReport) Validate() error {
+func (r ReassessmentReport) validateScope() error {
 	if !ValidID(r.CompletionID) || !ValidID(r.CycleID) {
 		return errors.New("invalid reassessment report identity")
 	}
@@ -881,6 +894,10 @@ func (r ReassessmentReport) Validate() error {
 	if !ValidCommit(r.SourceCommit) {
 		return errors.New("invalid reassessment report source")
 	}
+	return nil
+}
+
+func (r ReassessmentReport) validateInspected() error {
 	if len(r.Inspected) > MaxInspectedRefs {
 		return errors.New("reassessment report inspects too many sources")
 	}
@@ -895,6 +912,10 @@ func (r ReassessmentReport) Validate() error {
 			return errors.New("reassessment inspected evidence outside its bound")
 		}
 	}
+	return nil
+}
+
+func (r ReassessmentReport) validateTasks() error {
 	if r.Summary == "" || len(r.Summary) > MaxReassessmentSummaryBytes {
 		return errors.New("reassessment summary outside its bound")
 	}
@@ -919,6 +940,10 @@ func (r ReassessmentReport) Validate() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (r ReassessmentReport) validateCoverage() error {
 	if len(r.Coverage) > MaxReassessmentCoverage {
 		return errors.New("reassessment coverage exceeds its bound")
 	}
@@ -949,6 +974,19 @@ func (r ReassessmentReport) Validate() error {
 		return errors.New("encoded reassessment report exceeds its bound")
 	}
 	return nil
+}
+
+func (r ReassessmentReport) Validate() error {
+	if err := r.validateScope(); err != nil {
+		return err
+	}
+	if err := r.validateInspected(); err != nil {
+		return err
+	}
+	if err := r.validateTasks(); err != nil {
+		return err
+	}
+	return r.validateCoverage()
 }
 
 // coverageMatchesChanges enforces exact outcome accounting: every

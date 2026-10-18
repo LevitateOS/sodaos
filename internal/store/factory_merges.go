@@ -63,6 +63,18 @@ func (s *Store) MergeByPublication(ctx context.Context, publicationID string) (f
 // increments Revision first; only the recorded predecessor advances,
 // and anything else reports stale instead of overwriting a concurrent
 // receipt.
+func loadPreviousMergeTx(ctx context.Context, tx *sql.Tx, publicationID string) (factory.Merge, error) {
+	var previousData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE publication=$1 FOR UPDATE`, publicationID).Scan(&previousData); err != nil {
+		return factory.Merge{}, err
+	}
+	var previous factory.Merge
+	if err := json.Unmarshal(previousData, &previous); err != nil {
+		return factory.Merge{}, err
+	}
+	return previous, nil
+}
+
 func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 	if err := m.Validate(); err != nil {
 		return err
@@ -72,12 +84,8 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var previousData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE publication=$1 FOR UPDATE`, m.PublicationID).Scan(&previousData); err != nil {
-		return err
-	}
-	var previous factory.Merge
-	if err = json.Unmarshal(previousData, &previous); err != nil {
+	previous, err := loadPreviousMergeTx(ctx, tx, m.PublicationID)
+	if err != nil {
 		return err
 	}
 	if previous.Revision != m.Revision-1 {
@@ -107,13 +115,21 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 			return err
 		}
 	}
-	data, err := json.Marshal(m)
+	result, err := applyMergeUpdateTx(ctx, tx, m, registering)
 	if err != nil {
 		return err
 	}
+	return s.settleMergeUpdateTx(ctx, tx, previous, m, registering, result)
+}
+
+func applyMergeUpdateTx(ctx context.Context, tx *sql.Tx, m factory.Merge, registering bool) (sql.Result, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
-	result, err := tx.ExecContext(ctx, `UPDATE factory_merges SET stage=$1,revision=$2,data=$3
+	return tx.ExecContext(ctx, `UPDATE factory_merges SET stage=$1,revision=$2,data=$3
 		WHERE publication=$4 AND revision=$5
 		AND (NOT $6 OR (
 		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
@@ -133,9 +149,9 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 		m.Repository, m.Authority.Policy, m.Repository, m.Authority.Operator, m.Repository, m.Authority.Environment,
 		m.AssignmentID, m.Repository, m.Authority.Sponsorship,
 		m.ProjectID, m.Authority.RequirementsID, m.ProjectID, m.Authority.ApprovalID)
-	if err != nil {
-		return err
-	}
+}
+
+func (s *Store) settleMergeUpdateTx(ctx context.Context, tx *sql.Tx, previous, m factory.Merge, registering bool, result sql.Result) error {
 	n, err := result.RowsAffected()
 	if err != nil {
 		return err
@@ -220,14 +236,7 @@ func recheckMergeUnionBindingTx(ctx context.Context, tx *sql.Tx, m factory.Merge
 	return nil
 }
 
-func mergeUpdateAllowed(old, next factory.Merge) error {
-	// A history length change is a generation replacement: the
-	// finalized predecessor snapshots exactly once and the live fields
-	// become the fresh generation. Anything else is a current-generation
-	// update under immutable bindings.
-	if len(next.History) != len(old.History) {
-		return mergeReplacementAllowed(old, next)
-	}
+func mergeHistoryPrefixStable(old, next factory.Merge) error {
 	// History is append-only: an ordinary same-generation update carries
 	// every prior snapshot exactly. Any equal-length rewrite — receipt,
 	// authorization, effect or tuple — refuses with zero writes.
@@ -237,13 +246,25 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 			return ErrMergeConflict
 		}
 	}
-	if old.ID != next.ID || old.PublicationID != next.PublicationID || old.AssignmentID != next.AssignmentID ||
-		old.ProjectID != next.ProjectID || old.Role != next.Role || old.Acceptance != next.Acceptance ||
-		old.Repository != next.Repository || old.Issue != next.Issue || old.PRNumber != next.PRNumber ||
-		old.PRID != next.PRID || old.IssueID != next.IssueID || old.PRAuthorID != next.PRAuthorID ||
-		old.ReviewerID != next.ReviewerID || old.HeadRef != next.HeadRef || old.BaseRef != next.BaseRef ||
-		old.BaseOID != next.BaseOID ||
-		old.CreatedUnix != next.CreatedUnix || old.Authority != next.Authority || old.WithdrawRequested && !next.WithdrawRequested {
+	return nil
+}
+
+func mergeLedgerStable(old, next factory.Merge) bool {
+	return old.ID == next.ID && old.PublicationID == next.PublicationID && old.AssignmentID == next.AssignmentID &&
+		old.ProjectID == next.ProjectID && old.Role == next.Role && old.Acceptance == next.Acceptance &&
+		old.Repository == next.Repository && old.Issue == next.Issue && old.PRNumber == next.PRNumber &&
+		old.PRID == next.PRID && old.IssueID == next.IssueID && old.PRAuthorID == next.PRAuthorID &&
+		old.ReviewerID == next.ReviewerID && old.HeadRef == next.HeadRef && old.BaseRef == next.BaseRef &&
+		old.BaseOID == next.BaseOID
+}
+
+func mergeAuthorityStable(old, next factory.Merge) bool {
+	return old.CreatedUnix == next.CreatedUnix && old.Authority == next.Authority &&
+		!(old.WithdrawRequested && !next.WithdrawRequested)
+}
+
+func mergeIdentityStable(old, next factory.Merge) error {
+	if !mergeLedgerStable(old, next) || !mergeAuthorityStable(old, next) {
 		return ErrMergeConflict
 	}
 	// A pristine row (no drive ever recorded) may follow the newest
@@ -265,6 +286,23 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 	if old.Authorization.Bound() && !reflect.DeepEqual(next.Authorization, old.Authorization) &&
 		(old.HeadOID == next.HeadOID || next.Authorization.Bound()) {
 		return ErrMergeConflict
+	}
+	return nil
+}
+
+func mergeUpdateAllowed(old, next factory.Merge) error {
+	// A history length change is a generation replacement: the
+	// finalized predecessor snapshots exactly once and the live fields
+	// become the fresh generation. Anything else is a current-generation
+	// update under immutable bindings.
+	if len(next.History) != len(old.History) {
+		return mergeReplacementAllowed(old, next)
+	}
+	if err := mergeHistoryPrefixStable(old, next); err != nil {
+		return err
+	}
+	if err := mergeIdentityStable(old, next); err != nil {
+		return err
 	}
 	if !old.Authorization.Bound() && next.Authorization.Bound() {
 		if old.Operation.Work != nil || old.Operation.Attempts != 0 {
@@ -298,7 +336,7 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 // is created, no receipt is discarded and no allowance resets — the
 // predecessor receipt rests in its snapshot and the new generation
 // drives its own derived operation identity.
-func mergeReplacementAllowed(old, next factory.Merge) error {
+func mergeReplacementIdentity(old, next factory.Merge) error {
 	if old.ID != next.ID || old.PublicationID != next.PublicationID || old.AssignmentID != next.AssignmentID ||
 		old.ProjectID != next.ProjectID || old.Role != next.Role || old.Acceptance != next.Acceptance ||
 		old.Repository != next.Repository || old.Issue != next.Issue || old.PRNumber != next.PRNumber ||
@@ -307,22 +345,10 @@ func mergeReplacementAllowed(old, next factory.Merge) error {
 		old.CreatedUnix != next.CreatedUnix {
 		return ErrMergeConflict
 	}
-	// Immutable prefix plus exactly one appended snapshot.
-	if len(next.History) != len(old.History)+1 {
-		return ErrMergeConflict
-	}
-	for i := range old.History {
-		if !reflect.DeepEqual(old.History[i], next.History[i]) {
-			return ErrMergeConflict
-		}
-	}
-	// The appended snapshot is exactly the finalized predecessor: its
-	// authorization, native operation with intent, observations and
-	// receipts, and terminal effect, stage, outcome and finish.
-	want := factory.SnapshotMergeGeneration(old.Authorization, old.Operation, old.Stage, old.Outcome, old.Reason, old.FinishedUnix)
-	if !reflect.DeepEqual(next.History[len(old.History)], want) {
-		return ErrMergeConflict
-	}
+	return nil
+}
+
+func mergePredecessorFinalized(old factory.Merge) error {
 	if !old.Authorization.Bound() {
 		return ErrMergeConflict
 	}
@@ -342,6 +368,36 @@ func mergeReplacementAllowed(old, next factory.Merge) error {
 			return ErrMergeConflict
 		}
 	}
+	return nil
+}
+
+func mergeReplacementAllowed(old, next factory.Merge) error {
+	if err := mergeReplacementIdentity(old, next); err != nil {
+		return err
+	}
+	// Immutable prefix plus exactly one appended snapshot.
+	if len(next.History) != len(old.History)+1 {
+		return ErrMergeConflict
+	}
+	for i := range old.History {
+		if !reflect.DeepEqual(old.History[i], next.History[i]) {
+			return ErrMergeConflict
+		}
+	}
+	// The appended snapshot is exactly the finalized predecessor: its
+	// authorization, native operation with intent, observations and
+	// receipts, and terminal effect, stage, outcome and finish.
+	want := factory.SnapshotMergeGeneration(old.Authorization, old.Operation, old.Stage, old.Outcome, old.Reason, old.FinishedUnix)
+	if !reflect.DeepEqual(next.History[len(old.History)], want) {
+		return ErrMergeConflict
+	}
+	if err := mergePredecessorFinalized(old); err != nil {
+		return err
+	}
+	return mergeReplacementFresh(next)
+}
+
+func mergeReplacementFresh(next factory.Merge) error {
 	// The live fields become exactly the fresh generation, once: the
 	// next number in line, its exact tuple and authority, its undriven
 	// operation and observations, and a cleared admission.
@@ -364,17 +420,18 @@ func mergeReplacementAllowed(old, next factory.Merge) error {
 	return nil
 }
 
+func pristineMergeOperation(o factory.MergeOperation) bool {
+	return o.Work == nil && o.OperationID == "" && o.InstallationID == "" &&
+		o.ActorID == 0 && o.RepositoryID == 0 && o.Effect == "" &&
+		o.Cancellation == "" && o.Completion == "" && o.Reason == "" &&
+		o.Receipt == "" && o.HeadRef == "" && o.BaseRef == "" &&
+		o.HeadOID == "" && o.BaseOID == "" && o.MergedCommit == "" &&
+		o.Attempts == 0 && o.PRNumber == 0 && o.PRID == 0 &&
+		o.IssueID == 0 && o.UpdatedUnix == 0
+}
+
 func mergeRebaseAllowed(old, next factory.Merge) bool {
-	pristine := func(o factory.MergeOperation) bool {
-		return o.Work == nil && o.OperationID == "" && o.InstallationID == "" &&
-			o.ActorID == 0 && o.RepositoryID == 0 && o.Effect == "" &&
-			o.Cancellation == "" && o.Completion == "" && o.Reason == "" &&
-			o.Receipt == "" && o.HeadRef == "" && o.BaseRef == "" &&
-			o.HeadOID == "" && o.BaseOID == "" && o.MergedCommit == "" &&
-			o.Attempts == 0 && o.PRNumber == 0 && o.PRID == 0 &&
-			o.IssueID == 0 && o.UpdatedUnix == 0
-	}
-	return old.Operation.Kind == next.Operation.Kind && pristine(old.Operation) && pristine(next.Operation) && next.HeadOID != ""
+	return old.Operation.Kind == next.Operation.Kind && pristineMergeOperation(old.Operation) && pristineMergeOperation(next.Operation) && next.HeadOID != ""
 }
 
 func mergeOperationUpdateAllowed(old, next factory.MergeOperation) bool {

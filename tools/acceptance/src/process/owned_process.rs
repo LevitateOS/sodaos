@@ -143,44 +143,69 @@ fn reap_leader(pid: i32) -> (Option<i32>, Option<String>) {
     }
 }
 
+/// Job-control and termination signals in Go's `Signal.String` table.
+#[cfg(target_os = "linux")]
+fn signal_name_job(signal: i32) -> Option<&'static str> {
+    match signal {
+        libc::SIGHUP => Some("hangup"),
+        libc::SIGINT => Some("interrupt"),
+        libc::SIGQUIT => Some("quit"),
+        libc::SIGKILL => Some("killed"),
+        libc::SIGTERM => Some("terminated"),
+        libc::SIGCONT => Some("continued"),
+        libc::SIGSTOP => Some("stopped (signal)"),
+        libc::SIGTSTP => Some("stopped"),
+        libc::SIGTTIN => Some("stopped (tty input)"),
+        libc::SIGTTOU => Some("stopped (tty output)"),
+        _ => None,
+    }
+}
+
+/// Program-error signals in Go's `Signal.String` table.
+#[cfg(target_os = "linux")]
+fn signal_name_error(signal: i32) -> Option<&'static str> {
+    match signal {
+        libc::SIGILL => Some("illegal instruction"),
+        libc::SIGTRAP => Some("trace/breakpoint trap"),
+        libc::SIGABRT => Some("aborted"),
+        libc::SIGBUS => Some("bus error"),
+        libc::SIGFPE => Some("floating point exception"),
+        libc::SIGSEGV => Some("segmentation violation"),
+        libc::SIGSTKFLT => Some("stack fault"),
+        libc::SIGSYS => Some("bad system call"),
+        libc::SIGXCPU => Some("CPU time limit exceeded"),
+        libc::SIGXFSZ => Some("file size limit exceeded"),
+        _ => None,
+    }
+}
+
+/// Timer, IPC and device signals in Go's `Signal.String` table.
+#[cfg(target_os = "linux")]
+fn signal_name_other(signal: i32) -> Option<&'static str> {
+    match signal {
+        libc::SIGUSR1 => Some("user defined signal 1"),
+        libc::SIGUSR2 => Some("user defined signal 2"),
+        libc::SIGPIPE => Some("broken pipe"),
+        libc::SIGALRM => Some("alarm clock"),
+        libc::SIGCHLD => Some("child exited"),
+        libc::SIGURG => Some("urgent I/O condition"),
+        libc::SIGVTALRM => Some("virtual timer expired"),
+        libc::SIGPROF => Some("profiling timer expired"),
+        libc::SIGWINCH => Some("window changed"),
+        libc::SIGIO => Some("I/O possible"),
+        libc::SIGPWR => Some("power failure"),
+        _ => None,
+    }
+}
+
 /// Go `syscall.Signal.String` names on Linux.
 #[cfg(target_os = "linux")]
 fn signal_name(signal: i32) -> String {
-    match signal {
-        libc::SIGHUP => "hangup",
-        libc::SIGINT => "interrupt",
-        libc::SIGQUIT => "quit",
-        libc::SIGILL => "illegal instruction",
-        libc::SIGTRAP => "trace/breakpoint trap",
-        libc::SIGABRT => "aborted",
-        libc::SIGBUS => "bus error",
-        libc::SIGFPE => "floating point exception",
-        libc::SIGKILL => "killed",
-        libc::SIGUSR1 => "user defined signal 1",
-        libc::SIGSEGV => "segmentation violation",
-        libc::SIGUSR2 => "user defined signal 2",
-        libc::SIGPIPE => "broken pipe",
-        libc::SIGALRM => "alarm clock",
-        libc::SIGTERM => "terminated",
-        libc::SIGSTKFLT => "stack fault",
-        libc::SIGCHLD => "child exited",
-        libc::SIGCONT => "continued",
-        libc::SIGSTOP => "stopped (signal)",
-        libc::SIGTSTP => "stopped",
-        libc::SIGTTIN => "stopped (tty input)",
-        libc::SIGTTOU => "stopped (tty output)",
-        libc::SIGURG => "urgent I/O condition",
-        libc::SIGXCPU => "CPU time limit exceeded",
-        libc::SIGXFSZ => "file size limit exceeded",
-        libc::SIGVTALRM => "virtual timer expired",
-        libc::SIGPROF => "profiling timer expired",
-        libc::SIGWINCH => "window changed",
-        libc::SIGIO => "I/O possible",
-        libc::SIGPWR => "power failure",
-        libc::SIGSYS => "bad system call",
-        _ => return format!("signal {signal}"),
-    }
-    .to_string()
+    signal_name_job(signal)
+        .or(signal_name_error(signal))
+        .or(signal_name_other(signal))
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("signal {signal}"))
 }
 
 #[cfg(target_os = "linux")]

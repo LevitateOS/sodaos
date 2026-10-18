@@ -88,6 +88,16 @@ func (i PublicationIntent) Apply(w PublicationWork) PublicationWork {
 func (i PublicationIntent) Validate() error { return i.validate(true) }
 
 func (i PublicationIntent) validate(observed bool) error {
+	if err := i.checkPublicationIntentScope(); err != nil {
+		return err
+	}
+	if err := i.checkPublicationIntentBinding(observed); err != nil {
+		return err
+	}
+	return i.checkPublicationIntentContent(observed)
+}
+
+func (i PublicationIntent) checkPublicationIntentScope() error {
 	if !ValidTargetBranch(i.TargetBranch) || !ValidCommit(i.Candidate) {
 		return errors.New("invalid publication target or candidate")
 	}
@@ -97,12 +107,20 @@ func (i PublicationIntent) validate(observed bool) error {
 	if i.Repository <= 0 || i.ActorID <= 0 {
 		return errors.New("invalid publication work scope")
 	}
+	return nil
+}
+
+func (i PublicationIntent) checkPublicationIntentBinding(observed bool) error {
 	if i.AuthRevision == "" || len(i.AuthRevision) > 512 {
 		return errors.New("invalid publication authorization revision")
 	}
 	if i.NativeRev < 0 || i.NotAfter < 0 || (observed && (i.NativeRev == 0 || i.NotAfter == 0)) {
 		return errors.New("invalid publication observation binding")
 	}
+	return nil
+}
+
+func (i PublicationIntent) checkPublicationIntentContent(observed bool) error {
 	if i.ExpectedOld != "absent" && !ValidCommit(i.ExpectedOld) {
 		return errors.New("invalid publication expected lease")
 	}

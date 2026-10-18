@@ -185,6 +185,47 @@ struct RawBlockDevice {
     partuuid: Option<Box<RawValue>>,
     children: Option<Box<RawValue>>,
 }
+fn visit_device_identity<'a, A>(
+    dto: &mut RawBlockDevice,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "name" => dto.name = Some(map.next_value()?),
+        "kname" => dto.kname = Some(map.next_value()?),
+        "type" => dto.kind = Some(map.next_value()?),
+        "tran" => dto.tran = Some(map.next_value()?),
+        "size" => dto.size = Some(map.next_value()?),
+        "model" => dto.model = Some(map.next_value()?),
+        "serial" => dto.serial = Some(map.next_value()?),
+        "wwn" => dto.wwn = Some(map.next_value()?),
+        "maj:min" => dto.major_minor = Some(map.next_value()?),
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+fn visit_device_mounts<'a, A>(
+    dto: &mut RawBlockDevice,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'a>,
+{
+    match key {
+        "ro" => dto.ro = Some(map.next_value()?),
+        "mountpoints" => dto.mountpoints = Some(map.next_value()?),
+        "fstype" => dto.fstype = Some(map.next_value()?),
+        "uuid" => dto.uuid = Some(map.next_value()?),
+        "partuuid" => dto.partuuid = Some(map.next_value()?),
+        "children" => dto.children = Some(map.next_value()?),
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
 impl<'de> Deserialize<'de> for RawBlockDevice {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
@@ -202,25 +243,10 @@ impl<'de> Deserialize<'de> for RawBlockDevice {
             {
                 let mut dto = RawBlockDevice::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "name" => dto.name = Some(map.next_value()?),
-                        "kname" => dto.kname = Some(map.next_value()?),
-                        "type" => dto.kind = Some(map.next_value()?),
-                        "tran" => dto.tran = Some(map.next_value()?),
-                        "size" => dto.size = Some(map.next_value()?),
-                        "model" => dto.model = Some(map.next_value()?),
-                        "serial" => dto.serial = Some(map.next_value()?),
-                        "wwn" => dto.wwn = Some(map.next_value()?),
-                        "maj:min" => dto.major_minor = Some(map.next_value()?),
-                        "ro" => dto.ro = Some(map.next_value()?),
-                        "mountpoints" => dto.mountpoints = Some(map.next_value()?),
-                        "fstype" => dto.fstype = Some(map.next_value()?),
-                        "uuid" => dto.uuid = Some(map.next_value()?),
-                        "partuuid" => dto.partuuid = Some(map.next_value()?),
-                        "children" => dto.children = Some(map.next_value()?),
-                        _ => {
-                            let _: IgnoredAny = map.next_value()?;
-                        }
+                    if !visit_device_identity(&mut dto, key.as_str(), &mut map)?
+                        && !visit_device_mounts(&mut dto, key.as_str(), &mut map)?
+                    {
+                        let _: IgnoredAny = map.next_value()?;
                     }
                 }
                 Ok(dto)
@@ -249,8 +275,9 @@ fn block_size(raw: Option<&RawValue>) -> Result<u64, ()> {
             .ok_or(()),
     }
 }
-fn decode_device(raw: &RawValue) -> Result<BlockDevice, ()> {
-    let dto: RawBlockDevice = serde_json::from_str(raw.get()).map_err(|_| ())?;
+fn decode_device_scalars(
+    dto: &RawBlockDevice,
+) -> Result<(u64, bool, Option<Vec<Option<String>>>), ()> {
     let size = block_size(dto.size.as_deref())?;
     let read_only = match dto.ro.as_deref() {
         None => false,
@@ -262,6 +289,9 @@ fn decode_device(raw: &RawValue) -> Result<BlockDevice, ()> {
         Some(raw) if raw.get() == "null" => None,
         Some(raw) => Some(serde_json::from_str::<Vec<Option<String>>>(raw.get()).map_err(|_| ())?),
     };
+    Ok((size, read_only, mountpoints))
+}
+fn decode_device_children(dto: &RawBlockDevice) -> Result<Vec<BlockDevice>, ()> {
     let mut children = Vec::new();
     if let Some(raw) = dto.children.as_deref() {
         if raw.get() != "null" {
@@ -271,6 +301,12 @@ fn decode_device(raw: &RawValue) -> Result<BlockDevice, ()> {
             }
         }
     }
+    Ok(children)
+}
+fn decode_device(raw: &RawValue) -> Result<BlockDevice, ()> {
+    let dto: RawBlockDevice = serde_json::from_str(raw.get()).map_err(|_| ())?;
+    let (size, read_only, mountpoints) = decode_device_scalars(&dto)?;
+    let children = decode_device_children(&dto)?;
     Ok(BlockDevice {
         name: block_string(dto.name.as_deref())?,
         kname: block_string(dto.kname.as_deref())?,
@@ -354,13 +390,11 @@ pub fn parent_disk_of(dev: &str) -> String {
     parent_disk_of_sys("/sys/class/block", dev)
 }
 
-/// Pure `parseLiveMediaDisks` over mount table and cmdline bytes.
-pub fn parse_live_media_disks(
+fn collect_mount_live_disks(
     mountinfo: &[u8],
-    cmdline: &[u8],
     parent_of: &dyn Fn(&str) -> String,
-) -> std::collections::BTreeSet<String> {
-    let mut out = std::collections::BTreeSet::new();
+    out: &mut std::collections::BTreeSet<String>,
+) {
     for line in String::from_utf8_lossy(mountinfo).split('\n') {
         let fields: Vec<&str> = line.split(' ').collect();
         let mut sep: Option<usize> = None;
@@ -393,6 +427,12 @@ pub fn parse_live_media_disks(
             out.insert(parent);
         }
     }
+}
+fn collect_cmdline_live_disks(
+    cmdline: &[u8],
+    parent_of: &dyn Fn(&str) -> String,
+    out: &mut std::collections::BTreeSet<String>,
+) {
     for token in String::from_utf8_lossy(cmdline).split_whitespace() {
         let mut dev = "";
         for prefix in ["root=live:", "live:", "bootdev="] {
@@ -410,6 +450,16 @@ pub fn parse_live_media_disks(
             out.insert(parent);
         }
     }
+}
+/// Pure `parseLiveMediaDisks` over mount table and cmdline bytes.
+pub fn parse_live_media_disks(
+    mountinfo: &[u8],
+    cmdline: &[u8],
+    parent_of: &dyn Fn(&str) -> String,
+) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    collect_mount_live_disks(mountinfo, parent_of, &mut out);
+    collect_cmdline_live_disks(cmdline, parent_of, &mut out);
     out
 }
 

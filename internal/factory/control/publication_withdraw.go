@@ -8,6 +8,47 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
+func collectWithdrawalOperations(p *factory.Publication, result *factory.PublicationWithdrawal) {
+	for _, op := range []factory.PublicationOperation{p.Publish, p.PRCreate} {
+		if op.OperationID != "" {
+			result.Operations = append(result.Operations, op.OperationID)
+		}
+	}
+	for _, op := range p.Corrections {
+		if op.OperationID != "" {
+			result.Operations = append(result.Operations, op.OperationID)
+		}
+	}
+	for _, op := range p.ReviewOperations {
+		if op.Work.OperationID != "" {
+			result.Operations = append(result.Operations, op.Work.OperationID)
+		}
+	}
+}
+
+func (c *Coordinator) withdrawOnePublication(ctx context.Context, p *factory.Publication, result *factory.PublicationWithdrawal) {
+	a, err := c.assignmentForPublication(ctx, *p)
+	if err != nil {
+		result.Pending = true
+		return
+	}
+	run, err := c.Store.FactoryRun(ctx, p.Run)
+	if err != nil {
+		result.Pending = true
+		return
+	}
+	report := PublishReport{Published: []PublishLink{}}
+	if c.Publication == nil {
+		result.Pending = true
+		return
+	}
+	c.withdrawPublication(ctx, a, p, run, &report)
+	current, err := c.Store.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil || current.Stage == factory.PublicationOpen || current.Stage == factory.PublicationFenced || len(report.Errors) > 0 || len(report.Waits) > 0 {
+		result.Pending = true
+	}
+}
+
 func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue int64, acceptance string) factory.PublicationWithdrawal {
 	result := factory.PublicationWithdrawal{Publications: []string{}, Operations: []string{}}
 	pending, err := c.Store.OutstandingPublications(ctx, repository, publishPassLimit+1)
@@ -19,46 +60,14 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 		result.Pending = true
 		pending = pending[:publishPassLimit]
 	}
-	for _, p := range pending {
+	for i := range pending {
+		p := pending[i]
 		if (issue != 0 && p.Issue != issue) || (acceptance != "" && p.Acceptance != acceptance) {
 			continue
 		}
 		result.Publications = append(result.Publications, p.ID)
-		for _, op := range []factory.PublicationOperation{p.Publish, p.PRCreate} {
-			if op.OperationID != "" {
-				result.Operations = append(result.Operations, op.OperationID)
-			}
-		}
-		for _, op := range p.Corrections {
-			if op.OperationID != "" {
-				result.Operations = append(result.Operations, op.OperationID)
-			}
-		}
-		for _, op := range p.ReviewOperations {
-			if op.Work.OperationID != "" {
-				result.Operations = append(result.Operations, op.Work.OperationID)
-			}
-		}
-		a, err := c.assignmentForPublication(ctx, p)
-		if err != nil {
-			result.Pending = true
-			continue
-		}
-		run, err := c.Store.FactoryRun(ctx, p.Run)
-		if err != nil {
-			result.Pending = true
-			continue
-		}
-		report := PublishReport{Published: []PublishLink{}}
-		if c.Publication == nil {
-			result.Pending = true
-			continue
-		}
-		c.withdrawPublication(ctx, a, &p, run, &report)
-		current, err := c.Store.PublicationByAssignment(ctx, p.AssignmentID)
-		if err != nil || current.Stage == factory.PublicationOpen || current.Stage == factory.PublicationFenced || len(report.Errors) > 0 || len(report.Waits) > 0 {
-			result.Pending = true
-		}
+		collectWithdrawalOperations(&p, &result)
+		c.withdrawOnePublication(ctx, &p, &result)
 	}
 	return result
 }
@@ -87,11 +96,7 @@ func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchR
 
 // Withdrawal stays open while any cancellation or effect is unknown. Native
 // committed receipts are adopted even when cancellation arrived too late.
-func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignment, p *factory.Publication, run factory.Run, report *PublishReport) {
-	p.WithdrawRequested = true
-	if !c.storePublication(ctx, p, report) {
-		return
-	}
+func (c *Coordinator) cancelPrimaryWithdrawOps(ctx context.Context, p *factory.Publication) bool {
 	confirmed := true
 	for _, op := range []*factory.PublicationOperation{&p.Publish, &p.PRCreate} {
 		if op.Attempts == 0 {
@@ -110,6 +115,11 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 			confirmed = false
 		}
 	}
+	return confirmed
+}
+
+func (c *Coordinator) cancelCorrectionWithdrawOps(ctx context.Context, p *factory.Publication) bool {
+	confirmed := true
 	for i := range p.Corrections {
 		op := &p.Corrections[i]
 		if op.Attempts == 0 {
@@ -139,6 +149,11 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 			}
 		}
 	}
+	return confirmed
+}
+
+func (c *Coordinator) cancelReviewWithdrawOps(ctx context.Context, p *factory.Publication) bool {
+	confirmed := true
 	for i := range p.ReviewOperations {
 		op := &p.ReviewOperations[i]
 		if c.Reviews == nil {
@@ -166,6 +181,18 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 			}
 		}
 	}
+	return confirmed
+}
+
+func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignment, p *factory.Publication, run factory.Run, report *PublishReport) {
+	p.WithdrawRequested = true
+	if !c.storePublication(ctx, p, report) {
+		return
+	}
+	primary := c.cancelPrimaryWithdrawOps(ctx, p)
+	corrections := c.cancelCorrectionWithdrawOps(ctx, p)
+	reviews := c.cancelReviewWithdrawOps(ctx, p)
+	confirmed := primary && corrections && reviews
 	if !c.storePublication(ctx, p, report) {
 		return
 	}

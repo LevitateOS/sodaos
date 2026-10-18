@@ -151,13 +151,13 @@ type intentPlanStatusView struct {
 // apiIntentPlanStatus shows the latest draft-planning attempt for the
 // current revision. Unknown or foreign requests report 404 without
 // disclosure. GET never judges, provisions or dispatches.
-func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) admitIntentPlanHead(w http.ResponseWriter, r *http.Request, v store.Session) *factory.IntentRevision {
 	if !s.checkLifecycleSession(w, r, v) {
-		return
+		return nil
 	}
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
+		return nil
 	}
 	head, err := s.Store.IntentRevision(r.Context(), r.PathValue("intentID"), v.User.ID)
 	if err != nil {
@@ -166,26 +166,17 @@ func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v stor
 		} else {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read build request.")
 		}
-		return
+		return nil
 	}
 	if head.State != "draft" {
 		auth.JSONError(w, 409, "intent_not_draft", "Only draft direction carries a planning status; accepted direction uses generation.")
-		return
+		return nil
 	}
-	a, err := s.Store.IntentPlanAttempt(r.Context(), head.Intent, head.ID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			auth.JSONResponse(w, 200, intentPlanStatusView{Revision: head.ID, State: "none"})
-		} else {
-			auth.JSONError(w, 503, "store_unavailable", "Could not read planning status.")
-		}
-		return
-	}
-	if a.Subject.Intent == nil || a.Subject.Intent.OwnerID != v.User.ID {
-		auth.JSONError(w, 404, "not_found", "Build request not found.")
-		return
-	}
-	view := intentPlanStatusView{Revision: head.ID, AssignmentID: a.ID, RunID: a.Run}
+	return &head
+}
+
+func renderIntentPlanOutcome(a factory.Assignment) intentPlanStatusView {
+	view := intentPlanStatusView{AssignmentID: a.ID, RunID: a.Run}
 	switch {
 	case a.Stage != factory.AssignmentFinished || a.Result == nil:
 		view.State = "pending"
@@ -204,6 +195,29 @@ func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v stor
 			view.Attention = out.Output.Decomposition.Attention
 		}
 	}
+	return view
+}
+
+func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v store.Session) {
+	head := s.admitIntentPlanHead(w, r, v)
+	if head == nil {
+		return
+	}
+	a, err := s.Store.IntentPlanAttempt(r.Context(), head.Intent, head.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONResponse(w, 200, intentPlanStatusView{Revision: head.ID, State: "none"})
+		} else {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read planning status.")
+		}
+		return
+	}
+	if a.Subject.Intent == nil || a.Subject.Intent.OwnerID != v.User.ID {
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	}
+	view := renderIntentPlanOutcome(a)
+	view.Revision = head.ID
 	auth.JSONResponse(w, 200, view)
 }
 

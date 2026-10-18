@@ -106,83 +106,94 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 		return ErrInvalidSnapshot
 	}
 	for _, family := range req.Families {
-		switch family {
-		case FamilyRepositoryIssues:
-			if snapshot.RepositoryIssues == nil || !snapshot.RepositoryIssues.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validRepositoryIssuesPage(snapshot.RepositoryIssues, req); err != nil {
-				return err
-			}
-		case FamilyIssue:
-			if snapshot.Issue == nil || !snapshot.Issue.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validIssue(snapshot.Issue, req); err != nil {
-				return err
-			}
-		case FamilyComments:
-			if snapshot.Comments == nil || !snapshot.Comments.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validCommentPage(snapshot.Comments); err != nil {
-				return err
-			}
-		case FamilyDependencies:
-			if snapshot.Dependencies == nil || !snapshot.Dependencies.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validDependencyPage(snapshot.Dependencies); err != nil {
-				return err
-			}
-		case FamilyPull:
-			if snapshot.Pull == nil || !snapshot.Pull.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validPull(snapshot.Pull, req); err != nil {
-				return err
-			}
-		case FamilyReviews:
-			if snapshot.Reviews == nil || !snapshot.Reviews.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validReviewPage(snapshot.Reviews); err != nil {
-				return err
-			}
-		case FamilyReviewThreads:
-			if snapshot.Threads == nil || !snapshot.Threads.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validThreadPage(snapshot.Threads, req); err != nil {
-				return err
-			}
-		case FamilyMergeEligibility:
-			if snapshot.Eligibility == nil || !snapshot.Eligibility.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validEligibility(snapshot.Eligibility, req); err != nil {
-				return err
-			}
-		case FamilyChecks:
-			if snapshot.Checks == nil || !snapshot.Checks.Complete {
-				return ErrIncompleteSnapshot
-			}
-			if err := validCheckSet(snapshot.Checks, req); err != nil {
-				return err
-			}
-		case FamilyRefs:
-			if err := validRefs(snapshot.Refs, req); err != nil {
-				return err
-			}
-		case FamilyAncestry:
-			if snapshot.Ancestry == nil || snapshot.Ancestry.AncestorOID != req.Ancestry.AncestorOID || snapshot.Ancestry.DescendantOID != req.Ancestry.DescendantOID {
-				return ErrIncompleteSnapshot
-			}
-		default:
-			return ErrInvalidSnapshot
+		if handled, err := checkIssueSnapshotFamily(family, snapshot, req); err != nil {
+			return err
+		} else if handled {
+			continue
 		}
+		if handled, err := checkReviewSnapshotFamily(family, snapshot, req); err != nil {
+			return err
+		} else if handled {
+			continue
+		}
+		if handled, err := checkRefSnapshotFamily(family, snapshot, req); err != nil {
+			return err
+		} else if handled {
+			continue
+		}
+		return ErrInvalidSnapshot
 	}
 	return nil
+}
+
+func checkIssueSnapshotFamily(family SnapshotFamily, snapshot NativeSnapshot, req SnapshotRequest) (bool, error) {
+	switch family {
+	case FamilyRepositoryIssues:
+		if snapshot.RepositoryIssues == nil || !snapshot.RepositoryIssues.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validRepositoryIssuesPage(snapshot.RepositoryIssues, req)
+	case FamilyIssue:
+		if snapshot.Issue == nil || !snapshot.Issue.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validIssue(snapshot.Issue, req)
+	case FamilyComments:
+		if snapshot.Comments == nil || !snapshot.Comments.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validCommentPage(snapshot.Comments)
+	case FamilyDependencies:
+		if snapshot.Dependencies == nil || !snapshot.Dependencies.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validDependencyPage(snapshot.Dependencies)
+	}
+	return false, nil
+}
+
+func checkReviewSnapshotFamily(family SnapshotFamily, snapshot NativeSnapshot, req SnapshotRequest) (bool, error) {
+	switch family {
+	case FamilyPull:
+		if snapshot.Pull == nil || !snapshot.Pull.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validPull(snapshot.Pull, req)
+	case FamilyReviews:
+		if snapshot.Reviews == nil || !snapshot.Reviews.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validReviewPage(snapshot.Reviews)
+	case FamilyReviewThreads:
+		if snapshot.Threads == nil || !snapshot.Threads.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validThreadPage(snapshot.Threads, req)
+	case FamilyMergeEligibility:
+		if snapshot.Eligibility == nil || !snapshot.Eligibility.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validEligibility(snapshot.Eligibility, req)
+	case FamilyChecks:
+		if snapshot.Checks == nil || !snapshot.Checks.Complete {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, validCheckSet(snapshot.Checks, req)
+	}
+	return false, nil
+}
+
+func checkRefSnapshotFamily(family SnapshotFamily, snapshot NativeSnapshot, req SnapshotRequest) (bool, error) {
+	switch family {
+	case FamilyRefs:
+		return true, validRefs(snapshot.Refs, req)
+	case FamilyAncestry:
+		if snapshot.Ancestry == nil || snapshot.Ancestry.AncestorOID != req.Ancestry.AncestorOID || snapshot.Ancestry.DescendantOID != req.Ancestry.DescendantOID {
+			return true, ErrIncompleteSnapshot
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 // HasHiddenEvidence reports whether any requested evidence is hidden. The
@@ -190,73 +201,92 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 // informative rather than failing.
 func HasHiddenEvidence(req SnapshotRequest, snapshot NativeSnapshot) bool {
 	for _, family := range req.Families {
-		switch family {
-		case FamilyRepositoryIssues:
-			if snapshot.RepositoryIssues != nil {
-				for _, item := range snapshot.RepositoryIssues.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyIssue:
-			if snapshot.Issue != nil && !snapshot.Issue.Visible {
-				return true
-			}
-		case FamilyComments:
-			if snapshot.Comments != nil {
-				for _, item := range snapshot.Comments.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyDependencies:
-			if snapshot.Dependencies != nil {
-				for _, item := range snapshot.Dependencies.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyPull:
-			if snapshot.Pull != nil && !snapshot.Pull.Visible {
-				return true
-			}
-		case FamilyReviews:
-			if snapshot.Reviews != nil {
-				for _, item := range snapshot.Reviews.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyReviewThreads:
-			if snapshot.Threads != nil {
-				for _, item := range snapshot.Threads.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyMergeEligibility:
-			if snapshot.Eligibility != nil && !snapshot.Eligibility.Visible {
-				return true
-			}
-		case FamilyChecks:
-			if snapshot.Checks != nil {
-				for _, item := range snapshot.Checks.Items {
-					if !item.Visible {
-						return true
-					}
-				}
-			}
-		case FamilyRefs:
-			for _, ref := range snapshot.Refs {
-				if !ref.Visible {
+		if hiddenIssueEvidence(family, snapshot) || hiddenReviewEvidence(family, snapshot) || hiddenRefEvidence(family, snapshot) {
+			return true
+		}
+	}
+	return false
+}
+
+func hiddenIssueEvidence(family SnapshotFamily, snapshot NativeSnapshot) bool {
+	switch family {
+	case FamilyRepositoryIssues:
+		if snapshot.RepositoryIssues != nil {
+			for _, item := range snapshot.RepositoryIssues.Items {
+				if !item.Visible {
 					return true
 				}
 			}
+		}
+		return false
+	case FamilyIssue:
+		return snapshot.Issue != nil && !snapshot.Issue.Visible
+	case FamilyComments:
+		if snapshot.Comments != nil {
+			for _, item := range snapshot.Comments.Items {
+				if !item.Visible {
+					return true
+				}
+			}
+		}
+		return false
+	case FamilyDependencies:
+		if snapshot.Dependencies != nil {
+			for _, item := range snapshot.Dependencies.Items {
+				if !item.Visible {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func hiddenReviewEvidence(family SnapshotFamily, snapshot NativeSnapshot) bool {
+	switch family {
+	case FamilyPull:
+		return snapshot.Pull != nil && !snapshot.Pull.Visible
+	case FamilyReviews:
+		if snapshot.Reviews != nil {
+			for _, item := range snapshot.Reviews.Items {
+				if !item.Visible {
+					return true
+				}
+			}
+		}
+		return false
+	case FamilyReviewThreads:
+		if snapshot.Threads != nil {
+			for _, item := range snapshot.Threads.Items {
+				if !item.Visible {
+					return true
+				}
+			}
+		}
+		return false
+	case FamilyMergeEligibility:
+		return snapshot.Eligibility != nil && !snapshot.Eligibility.Visible
+	case FamilyChecks:
+		if snapshot.Checks != nil {
+			for _, item := range snapshot.Checks.Items {
+				if !item.Visible {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func hiddenRefEvidence(family SnapshotFamily, snapshot NativeSnapshot) bool {
+	if family != FamilyRefs {
+		return false
+	}
+	for _, ref := range snapshot.Refs {
+		if !ref.Visible {
+			return true
 		}
 	}
 	return false

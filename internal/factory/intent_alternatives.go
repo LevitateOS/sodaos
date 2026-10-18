@@ -216,7 +216,7 @@ func (s AlternativeSet) Validate() error {
 }
 
 // Validate checks bounds and the fixed authored alternative keys.
-func (a ProductAlternative) Validate() error {
+func (a ProductAlternative) validateIdentity() error {
 	authored, exists := authoredAlternatives[a.Key]
 	if !exists || a.Name != authored.Name {
 		return errors.New("unknown product alternative")
@@ -227,14 +227,28 @@ func (a ProductAlternative) Validate() error {
 	if len(a.Steps) == 0 || len(a.Steps) > 8 || len(a.Outcomes) == 0 || len(a.Outcomes) > 20 {
 		return errors.New("invalid product alternative bounds")
 	}
-	for _, step := range a.Steps {
-		if !intentText(step.Actor, 4000) || !intentText(step.Action, 4000) || !intentText(step.Result, 4000) || len(step.Branches) > 4 {
-			return errors.New("invalid walkthrough step")
+	return nil
+}
+
+func validateWalkthroughStep(step WalkthroughStep) error {
+	if !intentText(step.Actor, 4000) || !intentText(step.Action, 4000) || !intentText(step.Result, 4000) || len(step.Branches) > 4 {
+		return errors.New("invalid walkthrough step")
+	}
+	for _, branch := range step.Branches {
+		if !intentText(branch.Outcome, 4000) || !intentText(branch.Result, 4000) {
+			return errors.New("invalid walkthrough branch")
 		}
-		for _, branch := range step.Branches {
-			if !intentText(branch.Outcome, 4000) || !intentText(branch.Result, 4000) {
-				return errors.New("invalid walkthrough branch")
-			}
+	}
+	return nil
+}
+
+func (a ProductAlternative) Validate() error {
+	if err := a.validateIdentity(); err != nil {
+		return err
+	}
+	for _, step := range a.Steps {
+		if err := validateWalkthroughStep(step); err != nil {
+			return err
 		}
 	}
 	for _, outcome := range a.Outcomes {

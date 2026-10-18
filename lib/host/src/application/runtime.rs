@@ -258,15 +258,14 @@ impl<E: Executor> Runtime<E> {
         }
     }
 
-    pub fn operate(&self, request: &Request, deadline: Instant) -> Result<Observation, String> {
-        request.validate()?;
-        let spec = &request.application;
+    fn check_release(&self, request: &Request) -> Result<(), String> {
         if matches!(request.action.as_str(), "install" | "replace") {
             let selected = self
                 .release
                 .as_ref()
                 .ok_or("selected Canlang runtime is unavailable")?;
             selected.validate()?;
+            let spec = &request.application;
             if spec.runtime_image != selected.image || spec.tools_sha256 != selected.tools_sha256 {
                 return Err(
                     "application runtime or tools differ from the selected appliance release"
@@ -274,65 +273,99 @@ impl<E: Executor> Runtime<E> {
                 );
             }
         }
+        Ok(())
+    }
+
+    fn install(&self, spec: &Spec, deadline: Instant) -> Result<Observation, String> {
+        let created = self.create(spec, deadline)?;
+        let native = self.inspect(spec, &created, deadline)?;
+        if native.running || native.image != spec.image {
+            return Err("new application must be installed stopped with its admitted image".into());
+        }
+        super::ingress::install(spec)?;
+        self.activate_ingress(deadline)?;
+        self.systemd("disable", &spec.id, deadline)?;
+        self.observe(spec, native, deadline)
+    }
+
+    fn run_start(
+        &self,
+        spec: &Spec,
+        container: &str,
+        deadline: Instant,
+    ) -> Result<Observation, String> {
+        super::ingress::verify(spec)?;
+        self.systemd("enable", &spec.id, deadline)?;
+        self.systemd("start", &spec.id, deadline)?;
+        self.wait_ready(spec, container, deadline)
+    }
+
+    fn run_stop(
+        &self,
+        spec: &Spec,
+        action: &str,
+        deadline: Instant,
+    ) -> Result<Observation, String> {
+        self.systemd("disable", &spec.id, deadline)?;
+        self.systemd("stop", &spec.id, deadline)?;
+        self.finish(spec, action, deadline)
+    }
+
+    fn run_replace(
+        &self,
+        spec: &Spec,
+        native: NativeContainer,
+        action: &str,
+        deadline: Instant,
+    ) -> Result<Observation, String> {
+        // This target currently rejects authored schema migrations. Image
+        // replacement must preserve the exact artifact and bundle.
+        if native.labels.get("io.canlang.artifact") != Some(&spec.artifact_sha256)
+            || native.labels.get("io.canlang.bundle") != Some(&spec.bundle_sha256)
+        {
+            return Err("application migration is not qualified; replacement refused".into());
+        }
+        super::ingress::verify(spec)?;
+        self.admit_image(spec, deadline)?;
+        self.systemd("disable", &spec.id, deadline)?;
+        self.systemd("stop", &spec.id, deadline)?;
+        let stopped = self.inspect(spec, &native.container, deadline)?;
+        if stopped.running {
+            return Err("application writer did not stop".into());
+        }
+        // No deletion of app data; a failure leaves an honestly stopped
+        // app. Retained old image identity is available in the Go ledger.
+        self.command("podman", &["rm".into(), native.container], deadline)?;
+        self.create(spec, deadline)?;
+        self.finish(spec, action, deadline)
+    }
+
+    fn finish(&self, spec: &Spec, action: &str, deadline: Instant) -> Result<Observation, String> {
+        let observed = self.observe(spec, self.inspect(spec, "", deadline)?, deadline)?;
+        if action == "stop" && observed.running {
+            return Err("application writer did not stop".into());
+        }
+        Ok(observed)
+    }
+
+    pub fn operate(&self, request: &Request, deadline: Instant) -> Result<Observation, String> {
+        request.validate()?;
+        let spec = &request.application;
+        self.check_release(request)?;
         if request.action == "install" {
-            let created = self.create(spec, deadline)?;
-            let native = self.inspect(spec, &created, deadline)?;
-            if native.running || native.image != spec.image {
-                return Err(
-                    "new application must be installed stopped with its admitted image".into(),
-                );
-            }
-            super::ingress::install(spec)?;
-            self.activate_ingress(deadline)?;
-            self.systemd("disable", &spec.id, deadline)?;
-            return self.observe(spec, native, deadline);
+            return self.install(spec, deadline);
         }
         let native = self.inspect(spec, &request.expected_container, deadline)?;
         if request.action == "start" && native.image != spec.image {
             return Err("start requires the admitted application image generation".into());
         }
         match request.action.as_str() {
-            "start" => {
-                super::ingress::verify(spec)?;
-                self.systemd("enable", &spec.id, deadline)?;
-                self.systemd("start", &spec.id, deadline)?;
-                return self.wait_ready(spec, &native.container, deadline);
-            }
-            "stop" => {
-                self.systemd("disable", &spec.id, deadline)?;
-                self.systemd("stop", &spec.id, deadline)?;
-            }
-            "replace" => {
-                // This target currently rejects authored schema migrations. Image
-                // replacement must preserve the exact artifact and bundle.
-                if native.labels.get("io.canlang.artifact") != Some(&spec.artifact_sha256)
-                    || native.labels.get("io.canlang.bundle") != Some(&spec.bundle_sha256)
-                {
-                    return Err(
-                        "application migration is not qualified; replacement refused".into(),
-                    );
-                }
-                super::ingress::verify(spec)?;
-                self.admit_image(spec, deadline)?;
-                self.systemd("disable", &spec.id, deadline)?;
-                self.systemd("stop", &spec.id, deadline)?;
-                let stopped = self.inspect(spec, &native.container, deadline)?;
-                if stopped.running {
-                    return Err("application writer did not stop".into());
-                }
-                // No deletion of app data; a failure leaves an honestly stopped
-                // app. Retained old image identity is available in the Go ledger.
-                self.command("podman", &["rm".into(), native.container], deadline)?;
-                self.create(spec, deadline)?;
-            }
-            "inspect" => {}
+            "start" => self.run_start(spec, &native.container, deadline),
+            "stop" => self.run_stop(spec, &request.action, deadline),
+            "replace" => self.run_replace(spec, native, &request.action, deadline),
+            "inspect" => self.finish(spec, &request.action, deadline),
             _ => unreachable!(),
         }
-        let observed = self.observe(spec, self.inspect(spec, "", deadline)?, deadline)?;
-        if request.action == "stop" && observed.running {
-            return Err("application writer did not stop".into());
-        }
-        Ok(observed)
     }
 
     fn observe(

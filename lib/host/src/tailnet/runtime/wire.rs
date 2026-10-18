@@ -162,6 +162,80 @@ impl<'de> Deserialize<'de> for RunTargetWire {
     }
 }
 
+/// Bind one target/pid/started/userns run field; true when `key` matched.
+fn bind_run_head<'de, A>(out: &mut ProjectRunWire, map: &mut A, key: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "target" => {
+            if let Some(v) = map.next_value::<Option<RunTargetWire>>()? {
+                out.target = Some(v);
+            }
+        }
+        "pid" => {
+            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+                out.pid = Some(v);
+            }
+        }
+        "started" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.started = Some(v);
+            }
+        }
+        "userns" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.userns = Some(v);
+            }
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+/// Bind one netns/uid/gid/resolver run field; unknown names fail.
+fn bind_run_tail<'de, A>(
+    out: &mut ProjectRunWire,
+    map: &mut A,
+    key: &str,
+    raw: &str,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    match key {
+        "netns" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.netns = Some(v);
+            }
+        }
+        "uid" => {
+            if let Some(v) = map.next_value::<Option<u32>>()? {
+                out.uid = Some(v);
+            }
+        }
+        "gid" => {
+            if let Some(v) = map.next_value::<Option<u32>>()? {
+                out.gid = Some(v);
+            }
+        }
+        "resolver" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                out.resolver = Some(v);
+            }
+        }
+        _ => {
+            return Err(de::Error::unknown_field(
+                raw,
+                &[
+                    "Target", "PID", "Started", "UserNS", "NetNS", "UID", "GID", "Resolver",
+                ],
+            ))
+        }
+    }
+    Ok(())
+}
+
 #[derive(Default)]
 struct ProjectRunWire {
     target: Option<RunTargetWire>,
@@ -191,56 +265,9 @@ impl<'de> Deserialize<'de> for ProjectRunWire {
             {
                 let mut out = ProjectRunWire::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    match key.to_ascii_lowercase().as_str() {
-                        "target" => {
-                            if let Some(v) = map.next_value::<Option<RunTargetWire>>()? {
-                                out.target = Some(v);
-                            }
-                        }
-                        "pid" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                out.pid = Some(v);
-                            }
-                        }
-                        "started" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.started = Some(v);
-                            }
-                        }
-                        "userns" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.userns = Some(v);
-                            }
-                        }
-                        "netns" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.netns = Some(v);
-                            }
-                        }
-                        "uid" => {
-                            if let Some(v) = map.next_value::<Option<u32>>()? {
-                                out.uid = Some(v);
-                            }
-                        }
-                        "gid" => {
-                            if let Some(v) = map.next_value::<Option<u32>>()? {
-                                out.gid = Some(v);
-                            }
-                        }
-                        "resolver" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                out.resolver = Some(v);
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &key,
-                                &[
-                                    "Target", "PID", "Started", "UserNS", "NetNS", "UID", "GID",
-                                    "Resolver",
-                                ],
-                            ))
-                        }
+                    let lowered = key.to_ascii_lowercase();
+                    if !bind_run_head(&mut out, &mut map, &lowered)? {
+                        bind_run_tail(&mut out, &mut map, &lowered, &key)?;
                     }
                 }
                 Ok(out)

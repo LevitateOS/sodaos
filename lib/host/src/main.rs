@@ -92,6 +92,71 @@ fn usage() -> String {
         .to_string()
 }
 
+fn split_flag_arg(arg: &str) -> Option<(&str, Option<String>)> {
+    if let Some(rest) = arg.strip_prefix("--") {
+        match rest.split_once('=') {
+            Some((name, value)) => Some((name, Some(value.to_string()))),
+            None => Some((rest, None)),
+        }
+    } else if let Some(rest) = arg.strip_prefix('-') {
+        match rest.split_once('=') {
+            Some((name, value)) => Some((name, Some(value.to_string()))),
+            None => Some((rest, None)),
+        }
+    } else {
+        None
+    }
+}
+
+fn take_flag_value(
+    name: &str,
+    inline: Option<String>,
+    args: &[String],
+    next: &mut usize,
+) -> Result<String, String> {
+    if let Some(value) = inline {
+        return Ok(value);
+    }
+    *next += 1;
+    if *next >= args.len() {
+        return Err(format!("flag needs an argument: -{name}"));
+    }
+    Ok(args[*next].clone())
+}
+
+fn assign_flag(flags: &mut Flags, name: &str, value: String) -> Result<(), String> {
+    match name {
+        "fixture-canlang-runtime" => flags.fixture_runtime_image = value,
+        "fixture-canlang-tools" => flags.fixture_tools_sha256 = value,
+        "config" => flags.config = value,
+        "release" => flags.release = value,
+        "listen-path" => flags.listen_path = value,
+        "tailnet-action" => flags.tailnet_action = value,
+        "tailnet-host-action" => flags.tailnet_host_action = value,
+        "project" => flags.project = value,
+        _ => return Err(format!("flag provided but not defined: -{name}")),
+    }
+    Ok(())
+}
+
+fn validate_fixture_flags(flags: &Flags) -> Result<(), String> {
+    if flags.fixture_runtime_image.is_empty() && flags.fixture_tools_sha256.is_empty() {
+        return Ok(());
+    }
+    if !flags.release.is_empty()
+        || !flags.tailnet_action.is_empty()
+        || !flags.tailnet_host_action.is_empty()
+    {
+        return Err("Canlang fixture references require --release= and the daemon path".into());
+    }
+    soda_host::application::ReleaseBinding {
+        image: flags.fixture_runtime_image.clone(),
+        tools_sha256: flags.fixture_tools_sha256.clone(),
+    }
+    .validate()?;
+    Ok(())
+}
+
 /// Go `flag` subset: `--name value`, `--name=value`, `-name value`,
 /// single `-h`. Unknown flags and missing values are parse errors.
 fn parse_flags(args: &[String]) -> Result<Flags, String> {
@@ -109,17 +174,7 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
     let mut i = 0;
     while i < args.len() {
         let arg = &args[i];
-        let (name, inline) = if let Some(rest) = arg.strip_prefix("--") {
-            match rest.split_once('=') {
-                Some((name, value)) => (name, Some(value.to_string())),
-                None => (rest, None),
-            }
-        } else if let Some(rest) = arg.strip_prefix('-') {
-            match rest.split_once('=') {
-                Some((name, value)) => (name, Some(value.to_string())),
-                None => (rest, None),
-            }
-        } else {
+        let Some((name, inline)) = split_flag_arg(arg) else {
             flags.positionals.push(arg.clone());
             i += 1;
             continue;
@@ -127,42 +182,11 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
         if name == "h" || name == "help" {
             return Err("__help__".to_string());
         }
-        let value = match inline {
-            Some(value) => value,
-            None => {
-                i += 1;
-                if i >= args.len() {
-                    return Err(format!("flag needs an argument: -{name}"));
-                }
-                args[i].clone()
-            }
-        };
-        match name {
-            "fixture-canlang-runtime" => flags.fixture_runtime_image = value,
-            "fixture-canlang-tools" => flags.fixture_tools_sha256 = value,
-            "config" => flags.config = value,
-            "release" => flags.release = value,
-            "listen-path" => flags.listen_path = value,
-            "tailnet-action" => flags.tailnet_action = value,
-            "tailnet-host-action" => flags.tailnet_host_action = value,
-            "project" => flags.project = value,
-            _ => return Err(format!("flag provided but not defined: -{name}")),
-        }
+        let value = take_flag_value(name, inline, args, &mut i)?;
+        assign_flag(&mut flags, name, value)?;
         i += 1;
     }
-    if !flags.fixture_runtime_image.is_empty() || !flags.fixture_tools_sha256.is_empty() {
-        if !flags.release.is_empty()
-            || !flags.tailnet_action.is_empty()
-            || !flags.tailnet_host_action.is_empty()
-        {
-            return Err("Canlang fixture references require --release= and the daemon path".into());
-        }
-        soda_host::application::ReleaseBinding {
-            image: flags.fixture_runtime_image.clone(),
-            tools_sha256: flags.fixture_tools_sha256.clone(),
-        }
-        .validate()?;
-    }
+    validate_fixture_flags(&flags)?;
     Ok(flags)
 }
 
@@ -328,7 +352,7 @@ fn open_backend(config: &config::Config) -> DaemonBackend {
     )
 }
 
-fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), MainError> {
+fn require_host_socket() -> Result<(), MainError> {
     if !is_root() {
         return Err(MainError::Other(
             "requires root and the soda-host systemd Unix socket".to_string(),
@@ -337,7 +361,11 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
     soda_host::tailnet_admission::GrantStore::default()
         .close()
         .map_err(MainError::Other)?;
-    let listener = if listen_path.is_empty() {
+    Ok(())
+}
+
+fn open_host_listener(listen_path: &str) -> Result<std::os::unix::net::UnixListener, MainError> {
+    if listen_path.is_empty() {
         if std::env::var("LISTEN_PID").unwrap_or_default() != std::process::id().to_string()
             || std::env::var("LISTEN_FDS").unwrap_or_default() != "1"
         {
@@ -345,40 +373,33 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
                 "requires root and the soda-host systemd Unix socket".to_string(),
             ));
         }
-        server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))?
+        server::systemd_listener().map_err(|e| MainError::Other(e.to_string()))
     } else {
-        server::bind_listener(listen_path).map_err(|e| MainError::Other(e.to_string()))?
-    };
+        server::bind_listener(listen_path).map_err(|e| MainError::Other(e.to_string()))
+    }
+}
 
-    let backend = Arc::new(open_backend(&config));
-    let server = Arc::new(Server::new(
-        Arc::clone(&backend),
-        DaemonConfig {
-            image: config.image.clone(),
-            tailnet_package_version: config.tailnet_package_version.clone(),
-            tailnet_package_sha256: config.tailnet_package_sha256.clone(),
-            release_payload: config.release_payload.clone(),
-            terminal_available: true,
-            identity_available: true,
-        },
-    ));
-
+fn open_muse_listener_opt(
+    config: &config::Config,
+) -> Result<Option<std::os::unix::net::UnixListener>, MainError> {
     // Muse launch listener (Go `startRuntimeLaunchers`): empty socket
     // skips the launcher; open failures abort before serving.
-    let muse_listener = if config.muse_socket.is_empty() {
-        None
-    } else {
-        match muse_serve::open_muse_listener(&config.muse_socket) {
-            Ok(listener) => Some(listener),
-            Err(e) => return Err(MainError::Other(e)),
-        }
-    };
+    if config.muse_socket.is_empty() {
+        return Ok(None);
+    }
+    match muse_serve::open_muse_listener(&config.muse_socket) {
+        Ok(listener) => Ok(Some(listener)),
+        Err(e) => Err(MainError::Other(e)),
+    }
+}
 
-    install_signal_handlers();
-
+fn spawn_muse_listener(
+    muse_listener: Option<std::os::unix::net::UnixListener>,
+    config: &config::Config,
+    muse_shutdown: &Arc<AtomicBool>,
+) -> Option<std::thread::JoinHandle<Result<(), String>>> {
     // Muse serve thread joins the bounded retirement window on shutdown.
-    let muse_shutdown = Arc::new(AtomicBool::new(false));
-    let muse_handle = muse_listener.map(|listener| {
+    muse_listener.map(|listener| {
         let launch = Arc::new(soda_host::muse::MuseLaunch::new(
             soda_host::muse::MuseRuntime::new(
                 project::Native,
@@ -387,7 +408,7 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
                 config.muse_sha256.clone(),
             ),
         ));
-        let flag = Arc::clone(&muse_shutdown);
+        let flag = Arc::clone(muse_shutdown);
         let fd = listener.as_raw_fd();
         // The listener outlives the serve loop: it is dropped after the
         // join below while `serve` borrows only the fd.
@@ -396,17 +417,14 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
             drop(listener);
             result
         })
-    });
+    })
+}
 
-    // Serve until a signal arrives.
-    let serve_server = Arc::clone(&server);
-    let serve_handle = std::thread::spawn(move || {
-        // `serve` polls its own shutdown flag; the listener is borrowed
-        // for the loop and closed on return.
-        let result = serve_server.serve(&listener);
-        drop(listener);
-        result
-    });
+fn wait_for_shutdown(
+    server: &Arc<Server<DaemonBackend>>,
+    muse_shutdown: &Arc<AtomicBool>,
+    serve_handle: &std::thread::JoinHandle<Result<(), String>>,
+) {
     while !SHUTDOWN.load(Ordering::SeqCst)
         && !server.is_shutdown()
         && !muse_shutdown.load(Ordering::SeqCst)
@@ -416,17 +434,28 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
         }
         std::thread::sleep(Duration::from_millis(50));
     }
+}
 
+fn begin_retirement(
+    server: &Arc<Server<DaemonBackend>>,
+    muse_shutdown: &Arc<AtomicBool>,
+) -> (Instant, Instant) {
     // Stop HTTP admission and cancel mux-owned request work as soon as the
     // signal arrives, before waiting for Muse execution retirement.
-    let shutdown_started = Instant::now();
-    let shutdown_deadline = shutdown_started + HOST_SHUTDOWN_TIMEOUT;
     muse_shutdown.store(true, Ordering::SeqCst);
     server.shutdown();
+    let started = Instant::now();
+    (started + MUSE_JOIN_TIMEOUT, started + HOST_SHUTDOWN_TIMEOUT)
+}
+
+fn await_retirement(
+    muse_handle: &Option<std::thread::JoinHandle<Result<(), String>>>,
+    serve_handle: &std::thread::JoinHandle<Result<(), String>>,
+    muse_deadline: Instant,
+    shutdown_deadline: Instant,
+) -> Option<String> {
     let mut launch_failure: Option<String> = None;
-    let muse_deadline = shutdown_started + MUSE_JOIN_TIMEOUT;
     let mut muse_window_expired = false;
-    let mut muse_handle = muse_handle;
     loop {
         if !muse_window_expired
             && muse_deadline <= Instant::now()
@@ -448,7 +477,15 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
         }
         std::thread::sleep(Duration::from_millis(25));
     }
-    if let Some(handle) = muse_handle.take() {
+    launch_failure
+}
+
+fn join_muse_worker(
+    muse_handle: Option<std::thread::JoinHandle<Result<(), String>>>,
+    prior: Option<String>,
+) -> Option<String> {
+    let mut launch_failure = prior;
+    if let Some(handle) = muse_handle {
         if handle.is_finished() {
             match handle.join() {
                 Ok(Ok(())) => {}
@@ -461,7 +498,11 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
             launch_failure = Some("launch execution retirement remains unconfirmed".to_string());
         }
     }
-    let server_failure = if serve_handle.is_finished() {
+    launch_failure
+}
+
+fn join_host_worker(serve_handle: std::thread::JoinHandle<Result<(), String>>) -> Option<String> {
+    if serve_handle.is_finished() {
         match serve_handle.join() {
             Ok(Ok(())) => None,
             Ok(Err(error)) => Some(error),
@@ -469,13 +510,65 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
         }
     } else {
         Some("HTTP server retirement remains unconfirmed".to_string())
-    };
+    }
+}
 
+fn combine_retirement(
+    launch_failure: Option<String>,
+    server_failure: Option<String>,
+) -> Result<(), MainError> {
     match (launch_failure, server_failure) {
         (Some(launch), Some(server)) => Err(MainError::Other(format!("{launch}; {server}"))),
         (Some(error), None) | (None, Some(error)) => Err(MainError::Other(error)),
         (None, None) => Ok(()),
     }
+}
+
+fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), MainError> {
+    require_host_socket()?;
+    let listener = open_host_listener(listen_path)?;
+
+    let backend = Arc::new(open_backend(&config));
+    let server = Arc::new(Server::new(
+        Arc::clone(&backend),
+        DaemonConfig {
+            image: config.image.clone(),
+            tailnet_package_version: config.tailnet_package_version.clone(),
+            tailnet_package_sha256: config.tailnet_package_sha256.clone(),
+            release_payload: config.release_payload.clone(),
+            terminal_available: true,
+            identity_available: true,
+        },
+    ));
+
+    let muse_listener = open_muse_listener_opt(&config)?;
+
+    install_signal_handlers();
+
+    let muse_shutdown = Arc::new(AtomicBool::new(false));
+    let muse_handle = spawn_muse_listener(muse_listener, &config, &muse_shutdown);
+
+    // Serve until a signal arrives.
+    let serve_server = Arc::clone(&server);
+    let serve_handle = std::thread::spawn(move || {
+        // `serve` polls its own shutdown flag; the listener is borrowed
+        // for the loop and closed on return.
+        let result = serve_server.serve(&listener);
+        drop(listener);
+        result
+    });
+    wait_for_shutdown(&server, &muse_shutdown, &serve_handle);
+
+    let (muse_deadline, shutdown_deadline) = begin_retirement(&server, &muse_shutdown);
+    let pending = await_retirement(
+        &muse_handle,
+        &serve_handle,
+        muse_deadline,
+        shutdown_deadline,
+    );
+    let launch_failure = join_muse_worker(muse_handle, pending);
+    let server_failure = join_host_worker(serve_handle);
+    combine_retirement(launch_failure, server_failure)
 }
 
 fn run() -> Result<(), MainError> {

@@ -20,6 +20,81 @@ fn refusal(message: String) -> ! {
     std::process::exit(2);
 }
 
+/// Take a known flag's value: inline `--name=value` or the following token.
+fn flag_value(args: &[OsString], i: &mut usize, name: &str, inline: Option<String>) -> OsString {
+    match inline {
+        Some(value) => OsString::from(value),
+        None => {
+            *i += 1;
+            match args.get(*i) {
+                Some(value) => value.clone(),
+                None => refusal(format!("argument --{name}: expected one argument")),
+            }
+        }
+    }
+}
+
+/// Store one known flag; anything else stays unrecognized, like argparse.
+fn store_flag(
+    name: &str,
+    value: OsString,
+    raw: String,
+    arch: &mut Option<String>,
+    host_context: &mut Option<PathBuf>,
+    forgejo_context: &mut Option<PathBuf>,
+    stray: &mut Vec<String>,
+) {
+    match name {
+        // Non-UTF-8 can never equal x86_64; it falls out below
+        // as an invalid choice, like argparse's failed test.
+        "arch" => *arch = Some(value.to_string_lossy().into_owned()),
+        "host-context" => *host_context = Some(PathBuf::from(value)),
+        "forgejo-context" => *forgejo_context = Some(PathBuf::from(value)),
+        _ => {
+            stray.push(raw);
+        }
+    }
+}
+
+/// Reject stray tokens, require every option, and admit only x86_64.
+fn finish_args(
+    arch: Option<String>,
+    host_context: Option<PathBuf>,
+    forgejo_context: Option<PathBuf>,
+    stray: Vec<String>,
+) -> Args {
+    if !stray.is_empty() {
+        refusal(format!("unrecognized arguments: {}", stray.join(" ")));
+    }
+    let mut missing = Vec::new();
+    if arch.is_none() {
+        missing.push("--arch");
+    }
+    if host_context.is_none() {
+        missing.push("--host-context");
+    }
+    if forgejo_context.is_none() {
+        missing.push("--forgejo-context");
+    }
+    if !missing.is_empty() {
+        refusal(format!(
+            "the following arguments are required: {}",
+            missing.join(", ")
+        ));
+    }
+    let arch = arch.unwrap();
+    if arch != "x86_64" {
+        refusal(format!(
+            "argument --arch: invalid choice: '{arch}' (choose from x86_64)"
+        ));
+    }
+    Args {
+        arch,
+        host_context: host_context.unwrap(),
+        forgejo_context: forgejo_context.unwrap(),
+    }
+}
+
 fn parse(args: &[OsString]) -> Args {
     let mut arch: Option<String> = None;
     let mut host_context: Option<PathBuf> = None;
@@ -61,60 +136,21 @@ fn parse(args: &[OsString]) -> Args {
                     i += 1;
                     continue;
                 }
-                let value = match inline {
-                    Some(value) => OsString::from(value),
-                    None => {
-                        i += 1;
-                        match args.get(i) {
-                            Some(value) => value.clone(),
-                            None => refusal(format!("argument --{name}: expected one argument")),
-                        }
-                    }
-                };
-                match name.as_str() {
-                    // Non-UTF-8 can never equal x86_64; it falls out below
-                    // as an invalid choice, like argparse's failed test.
-                    "arch" => arch = Some(value.to_string_lossy().into_owned()),
-                    "host-context" => host_context = Some(PathBuf::from(value)),
-                    "forgejo-context" => forgejo_context = Some(PathBuf::from(value)),
-                    _ => {
-                        stray.push(raw);
-                    }
-                }
+                let value = flag_value(args, &mut i, &name, inline);
+                store_flag(
+                    &name,
+                    value,
+                    raw,
+                    &mut arch,
+                    &mut host_context,
+                    &mut forgejo_context,
+                    &mut stray,
+                );
                 i += 1;
             }
         }
     }
-    if !stray.is_empty() {
-        refusal(format!("unrecognized arguments: {}", stray.join(" ")));
-    }
-    let mut missing = Vec::new();
-    if arch.is_none() {
-        missing.push("--arch");
-    }
-    if host_context.is_none() {
-        missing.push("--host-context");
-    }
-    if forgejo_context.is_none() {
-        missing.push("--forgejo-context");
-    }
-    if !missing.is_empty() {
-        refusal(format!(
-            "the following arguments are required: {}",
-            missing.join(", ")
-        ));
-    }
-    let arch = arch.unwrap();
-    if arch != "x86_64" {
-        refusal(format!(
-            "argument --arch: invalid choice: '{arch}' (choose from x86_64)"
-        ));
-    }
-    Args {
-        arch,
-        host_context: host_context.unwrap(),
-        forgejo_context: forgejo_context.unwrap(),
-    }
+    finish_args(arch, host_context, forgejo_context, stray)
 }
 
 fn main() {

@@ -75,71 +75,83 @@ func validCompletionIntentState(state string) bool {
 // produced its ideas/tasks, generation/binding/delivered consistency and
 // digest shape. Cross-entry references (binding acceptances inside the
 // material acceptance set) are checked by CompletionMaterial.Validate.
-func (s CompletionIntentScope) Validate() error {
+func (s CompletionIntentScope) validateIdentity() (map[string]bool, error) {
 	if !project.ValidDecisionID(s.IntentID) || !project.ValidDecisionID(s.RevisionID) {
-		return errors.New("invalid completion scope identity")
+		return nil, errors.New("invalid completion scope identity")
 	}
 	if s.Repository <= 0 {
-		return errors.New("invalid completion scope repository")
+		return nil, errors.New("invalid completion scope repository")
 	}
 	if !ValidDigest(s.RevisionDigest) {
-		return errors.New("invalid completion scope revision digest")
+		return nil, errors.New("invalid completion scope revision digest")
 	}
 	if !validCompletionIntentState(s.CurrentState) {
-		return errors.New("invalid completion scope head state")
+		return nil, errors.New("invalid completion scope head state")
 	}
 	if !intentText(s.Objective, 16000) {
-		return errors.New("invalid completion scope objective")
+		return nil, errors.New("invalid completion scope objective")
 	}
 	if s.Approach != "" && s.Approach != "incremental" && s.Approach != "complete_first" {
-		return errors.New("invalid completion scope approach")
+		return nil, errors.New("invalid completion scope approach")
 	}
 	effective := make(map[string]bool, len(s.EffectiveOutcomes))
 	for _, id := range s.EffectiveOutcomes {
 		if !project.ValidDecisionID(id) || effective[id] {
-			return errors.New("invalid completion scope effective outcome")
+			return nil, errors.New("invalid completion scope effective outcome")
 		}
 		effective[id] = true
 	}
+	return effective, nil
+}
+
+func (s CompletionIntentScope) validateIdeas(effective map[string]bool) (map[string]bool, error) {
 	if s.Ideas == nil {
-		return errors.New("completion scope lacks its ideas")
+		return nil, errors.New("completion scope lacks its ideas")
 	}
 	kept := make(map[string]bool, len(s.Ideas))
 	for _, idea := range s.Ideas {
 		if !project.ValidDecisionID(idea.ID) || !intentText(idea.Description, 4000) ||
 			!intentText(idea.Consequence, 4000) {
-			return errors.New("invalid completion scope idea")
+			return nil, errors.New("invalid completion scope idea")
 		}
 		if kept[idea.ID] {
-			return errors.New("duplicate completion scope idea")
+			return nil, errors.New("duplicate completion scope idea")
 		}
 		kept[idea.ID] = true
 		if idea.Decision != "accept" && idea.Decision != "edit" {
-			return errors.New("completion scope idea is not an authorized choice")
+			return nil, errors.New("completion scope idea is not an authorized choice")
 		}
 		if len(effective) > 0 && !effective[idea.ID] {
-			return errors.New("completion scope idea exceeds its effective outcomes")
+			return nil, errors.New("completion scope idea exceeds its effective outcomes")
 		}
 	}
+	return kept, nil
+}
+
+func (s CompletionIntentScope) validateTasks(kept map[string]bool) (map[string]IntentTask, error) {
 	if len(s.Tasks) == 0 {
-		return errors.New("completion scope lacks its authorized tasks")
+		return nil, errors.New("completion scope lacks its authorized tasks")
 	}
 	tasks := make(map[string]IntentTask, len(s.Tasks))
 	for _, task := range s.Tasks {
 		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, 4000) ||
 			len(task.Outcomes) == 0 || len(task.IdeaIDs) == 0 {
-			return errors.New("invalid completion scope task")
+			return nil, errors.New("invalid completion scope task")
 		}
 		if _, dup := tasks[task.Key]; dup {
-			return errors.New("duplicate completion scope task")
+			return nil, errors.New("duplicate completion scope task")
 		}
 		for _, id := range task.IdeaIDs {
 			if !kept[id] {
-				return errors.New("completion scope task exceeds its exported ideas")
+				return nil, errors.New("completion scope task exceeds its exported ideas")
 			}
 		}
 		tasks[task.Key] = task
 	}
+	return tasks, nil
+}
+
+func (s CompletionIntentScope) validateSubmitted(kept map[string]bool, tasks map[string]IntentTask) (map[string]bool, error) {
 	// Submitted tasks are validated against the same exported
 	// authority as authorized tasks: shape, exported effective ideas,
 	// and dependency existence. The constructor additionally proves
@@ -149,14 +161,14 @@ func (s CompletionIntentScope) Validate() error {
 	for _, task := range s.SubmittedTasks {
 		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, 4000) ||
 			len(task.Outcomes) == 0 || len(task.IdeaIDs) == 0 {
-			return errors.New("invalid completion scope submitted task")
+			return nil, errors.New("invalid completion scope submitted task")
 		}
 		if submitted[task.Key] {
-			return errors.New("duplicate completion scope submitted task")
+			return nil, errors.New("duplicate completion scope submitted task")
 		}
 		for _, id := range task.IdeaIDs {
 			if !kept[id] {
-				return errors.New("completion scope submitted task exceeds its exported ideas")
+				return nil, errors.New("completion scope submitted task exceeds its exported ideas")
 			}
 		}
 		submitted[task.Key] = true
@@ -172,14 +184,18 @@ func (s CompletionIntentScope) Validate() error {
 	for _, task := range s.SubmittedTasks {
 		for _, dep := range task.DependsOn {
 			if !known[dep] {
-				return errors.New("completion scope submitted task depends on an unexported task")
+				return nil, errors.New("completion scope submitted task depends on an unexported task")
 			}
 		}
 		graph[task.Key] = task.DependsOn
 	}
 	if err := checkSubmittedAcyclic(graph); err != nil {
-		return err
+		return nil, err
 	}
+	return submitted, nil
+}
+
+func (s CompletionIntentScope) validateGenerationState() error {
 	if s.OperationID == "" {
 		if s.GenerationState != "" || len(s.SubmittedTasks) != 0 || len(s.Delivered) != 0 {
 			return errors.New("completion scope generation lacks its operation")
@@ -193,6 +209,10 @@ func (s CompletionIntentScope) Validate() error {
 			return errors.New("completion scope generation lacks its submitted tasks")
 		}
 	}
+	return nil
+}
+
+func (s CompletionIntentScope) validateDeliveredBindings(submitted map[string]bool, tasks map[string]IntentTask) error {
 	for key, ref := range s.Delivered {
 		if !submitted[key] {
 			return errors.New("completion scope delivered names an unsubmitted task")
@@ -218,6 +238,33 @@ func (s CompletionIntentScope) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (s CompletionIntentScope) validateGeneration(submitted map[string]bool, tasks map[string]IntentTask) error {
+	if err := s.validateGenerationState(); err != nil {
+		return err
+	}
+	return s.validateDeliveredBindings(submitted, tasks)
+}
+
+func (s CompletionIntentScope) Validate() error {
+	effective, err := s.validateIdentity()
+	if err != nil {
+		return err
+	}
+	kept, err := s.validateIdeas(effective)
+	if err != nil {
+		return err
+	}
+	tasks, err := s.validateTasks(kept)
+	if err != nil {
+		return err
+	}
+	submitted, err := s.validateSubmitted(kept, tasks)
+	if err != nil {
+		return err
+	}
+	return s.validateGeneration(submitted, tasks)
 }
 
 // checkSubmittedAcyclic refuses cyclic dependencies among submitted
@@ -258,29 +305,23 @@ func checkSubmittedAcyclic(graph map[string][]string) error {
 // revision, and the stored generation/bindings with observation time
 // normalized away. The caller supplies the head state and whether this
 // revision is the newest accepted on the head predecessor chain.
-func NewCompletionIntentScope(revision IntentRevision, headState string, latestAccepted bool, generation *IntentGeneration, bindings []IntentTaskBinding) (CompletionIntentScope, error) {
+func admitScopeRevision(revision IntentRevision, headState string) error {
 	if err := revision.Validate(); err != nil {
-		return CompletionIntentScope{}, err
+		return err
 	}
 	if revision.State != "accepted" {
-		return CompletionIntentScope{}, errors.New("completion scope needs its accepted revision")
+		return errors.New("completion scope needs its accepted revision")
 	}
 	if !validCompletionIntentState(headState) {
-		return CompletionIntentScope{}, errors.New("invalid completion scope head state")
+		return errors.New("invalid completion scope head state")
 	}
+	return nil
+}
+
+func exportScopeIdeas(revision IntentRevision, scope *CompletionIntentScope) {
 	effective := make(map[string]bool, len(revision.EffectiveOutcomes))
 	for _, id := range revision.EffectiveOutcomes {
 		effective[id] = true
-	}
-	scope := CompletionIntentScope{
-		Bindings: make([]IntentTaskBinding, 0, len(bindings)),
-		Ideas:    []ProductIdea{},
-		Tasks:    []IntentTask{},
-		IntentID: revision.Intent, RevisionID: revision.ID,
-		RevisionDigest: revision.Digest(), CurrentState: headState,
-		Objective: revision.Objective, Approach: revision.Approach,
-		EffectiveOutcomes: append([]string(nil), revision.EffectiveOutcomes...),
-		LatestAccepted:    latestAccepted, Repository: revision.Repository,
 	}
 	for _, idea := range revision.Ideas {
 		// Current authorized-choice semantics: effective members when an
@@ -310,34 +351,58 @@ func NewCompletionIntentScope(revision IntentRevision, headState string, latestA
 			scope.Tasks = append(scope.Tasks, task)
 		}
 	}
+}
+
+func admitScopeGeneration(revision IntentRevision, generation *IntentGeneration, scope *CompletionIntentScope) error {
+	if generation.RevisionID != revision.ID || generation.IntentID != revision.Intent {
+		return errors.New("completion scope generation names another revision")
+	}
+	if generation.IntentDigest != revision.Digest() {
+		return errors.New("completion scope generation names another revision digest")
+	}
+	// Authorize the submitted graph against the current
+	// accepted/effective idea authority: the accepted revision
+	// carrying the submitted tasks must validate under the
+	// accepted-state rules, so every submitted task names
+	// exported effective accepted/edit choices with valid
+	// text, outcomes, IDs, and dependency DAG. Derived
+	// keys/objectives are allowed; unaccepted, unknown, or
+	// pending ideas refuse the WHOLE capture — never filter.
+	authorized := revision
+	authorized.Tasks = append([]IntentTask(nil), generation.SubmittedTasks...)
+	if err := authorized.Validate(); err != nil {
+		return err
+	}
+	scope.GenerationState = generation.State
+	scope.OperationID = generation.OperationID
+	scope.SubmittedTasks = append([]IntentTask(nil), generation.SubmittedTasks...)
+	if len(generation.Delivered) > 0 {
+		scope.Delivered = make(map[string]DeliveredIssue, len(generation.Delivered))
+		for key, ref := range generation.Delivered {
+			scope.Delivered[key] = ref
+		}
+	}
+	return nil
+}
+
+func NewCompletionIntentScope(revision IntentRevision, headState string, latestAccepted bool, generation *IntentGeneration, bindings []IntentTaskBinding) (CompletionIntentScope, error) {
+	if err := admitScopeRevision(revision, headState); err != nil {
+		return CompletionIntentScope{}, err
+	}
+	scope := CompletionIntentScope{
+		Bindings: make([]IntentTaskBinding, 0, len(bindings)),
+		Ideas:    []ProductIdea{},
+		Tasks:    []IntentTask{},
+		IntentID: revision.Intent, RevisionID: revision.ID,
+		RevisionDigest: revision.Digest(), CurrentState: headState,
+		Objective: revision.Objective, Approach: revision.Approach,
+		EffectiveOutcomes: append([]string(nil), revision.EffectiveOutcomes...),
+		LatestAccepted:    latestAccepted, Repository: revision.Repository,
+	}
+	exportScopeIdeas(revision, &scope)
 	if generation != nil {
-		if generation.RevisionID != revision.ID || generation.IntentID != revision.Intent {
-			return CompletionIntentScope{}, errors.New("completion scope generation names another revision")
-		}
-		if generation.IntentDigest != revision.Digest() {
-			return CompletionIntentScope{}, errors.New("completion scope generation names another revision digest")
-		}
-		// Authorize the submitted graph against the current
-		// accepted/effective idea authority: the accepted revision
-		// carrying the submitted tasks must validate under the
-		// accepted-state rules, so every submitted task names
-		// exported effective accepted/edit choices with valid
-		// text, outcomes, IDs, and dependency DAG. Derived
-		// keys/objectives are allowed; unaccepted, unknown, or
-		// pending ideas refuse the WHOLE capture — never filter.
-		authorized := revision
-		authorized.Tasks = append([]IntentTask(nil), generation.SubmittedTasks...)
-		if err := authorized.Validate(); err != nil {
+		if err := admitScopeGeneration(revision, generation, &scope); err != nil {
 			return CompletionIntentScope{}, err
-		}
-		scope.GenerationState = generation.State
-		scope.OperationID = generation.OperationID
-		scope.SubmittedTasks = append([]IntentTask(nil), generation.SubmittedTasks...)
-		if len(generation.Delivered) > 0 {
-			scope.Delivered = make(map[string]DeliveredIssue, len(generation.Delivered))
-			for key, ref := range generation.Delivered {
-				scope.Delivered[key] = ref
-			}
 		}
 	}
 	for _, binding := range bindings {
@@ -440,7 +505,7 @@ type CompletionPlanTask struct {
 	Child        string   `json:"child,omitempty"`
 }
 
-func (t CompletionPlanTask) Validate() error {
+func (t CompletionPlanTask) validateIdentity() error {
 	if !ValidID(t.AttemptRoot) || !ValidID(t.PlanID) || !ValidPlanKey(t.TaskID) {
 		return errors.New("invalid completion plan task identity")
 	}
@@ -454,6 +519,10 @@ func (t CompletionPlanTask) Validate() error {
 	} else if len(t.Child) > 128 || (t.Child == "" && t.State != "cancelled") {
 		return errors.New("completion plan task child outside its bound")
 	}
+	return nil
+}
+
+func (t CompletionPlanTask) validateDigests() error {
 	if t.InputDigest != "" && !ValidDigest(t.InputDigest) {
 		return errors.New("invalid completion plan task input digest")
 	}
@@ -478,6 +547,13 @@ func (t CompletionPlanTask) Validate() error {
 		return errors.New("completion plan task commit evidence lacks its identity")
 	}
 	return nil
+}
+
+func (t CompletionPlanTask) Validate() error {
+	if err := t.validateIdentity(); err != nil {
+		return err
+	}
+	return t.validateDigests()
 }
 
 // CompletionRunState is one run-history entry: the run ID, its outcome,
@@ -552,7 +628,7 @@ type CompletionAssignment struct {
 	Revision     int64                  `json:"revision"`
 }
 
-func (a CompletionAssignment) Validate() error {
+func (a CompletionAssignment) validateAddress() error {
 	if !ValidID(a.ID) || !ValidID(a.AttemptRoot) {
 		return errors.New("invalid completion assignment identity")
 	}
@@ -562,6 +638,10 @@ func (a CompletionAssignment) Validate() error {
 	if a.Subject.Kind == SubjectCompletion {
 		return errors.New("completion subject carries no issue snapshot row")
 	}
+	return nil
+}
+
+func (a CompletionAssignment) validateSubject() error {
 	if a.Subject.Kind == "" {
 		if a.Phase != "" {
 			return errors.New("unsubjected completion assignment names a phase")
@@ -569,27 +649,31 @@ func (a CompletionAssignment) Validate() error {
 		if a.Issue <= 0 || !project.ValidDecisionID(a.Acceptance) {
 			return errors.New("invalid completion assignment scope")
 		}
-	} else {
-		if err := a.Subject.Validate(); err != nil {
-			return err
-		}
-		if !project.ValidExecutionPhase(a.Phase) || !SubjectKindAllowed(a.Subject.Kind, a.Phase) ||
-			!ValidPhaseRole(a.Phase, a.Role) {
-			return errors.New("completion assignment role does not match its execution phase")
-		}
-		switch a.Subject.Kind {
-		case SubjectIssue:
-			if a.Issue <= 0 || !project.ValidDecisionID(a.Acceptance) {
-				return errors.New("invalid completion assignment scope")
-			}
-		case SubjectIntent:
-			if a.Issue != 0 || a.Acceptance != "" {
-				return errors.New("intent completion assignment carries issue authority")
-			}
-		default:
-			return errors.New("invalid completion assignment subject")
-		}
+		return nil
 	}
+	if err := a.Subject.Validate(); err != nil {
+		return err
+	}
+	if !project.ValidExecutionPhase(a.Phase) || !SubjectKindAllowed(a.Subject.Kind, a.Phase) ||
+		!ValidPhaseRole(a.Phase, a.Role) {
+		return errors.New("completion assignment role does not match its execution phase")
+	}
+	switch a.Subject.Kind {
+	case SubjectIssue:
+		if a.Issue <= 0 || !project.ValidDecisionID(a.Acceptance) {
+			return errors.New("invalid completion assignment scope")
+		}
+	case SubjectIntent:
+		if a.Issue != 0 || a.Acceptance != "" {
+			return errors.New("intent completion assignment carries issue authority")
+		}
+	default:
+		return errors.New("invalid completion assignment subject")
+	}
+	return nil
+}
+
+func (a CompletionAssignment) validateStage() error {
 	switch a.Stage {
 	case AssignmentAssigned:
 		if a.Outcome != "" || a.Reason != "" {
@@ -602,6 +686,10 @@ func (a CompletionAssignment) Validate() error {
 	default:
 		return errors.New("invalid completion assignment stage")
 	}
+	return nil
+}
+
+func (a CompletionAssignment) validateHistory() error {
 	if !ValidCommit(a.SourceCommit) || !ValidPreparationRef(a.Preparation) || a.Revision < 0 {
 		return errors.New("invalid completion assignment bindings")
 	}
@@ -624,6 +712,19 @@ func (a CompletionAssignment) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (a CompletionAssignment) Validate() error {
+	if err := a.validateAddress(); err != nil {
+		return err
+	}
+	if err := a.validateSubject(); err != nil {
+		return err
+	}
+	if err := a.validateStage(); err != nil {
+		return err
+	}
+	return a.validateHistory()
 }
 
 // CompletionPublication projects one durable publication: the immutable
@@ -652,7 +753,7 @@ type CompletionPublication struct {
 	PRID         int64   `json:"pr_id"`
 }
 
-func (p CompletionPublication) Validate() error {
+func (p CompletionPublication) validateIdentity() error {
 	if !ValidID(p.ID) || !ValidID(p.AssignmentID) || !ValidID(p.Run) {
 		return errors.New("invalid completion publication identity")
 	}
@@ -671,43 +772,64 @@ func (p CompletionPublication) Validate() error {
 	if !ValidTargetBranch(p.TargetBranch) {
 		return errors.New("invalid completion publication target branch")
 	}
+	return nil
+}
+
+func (p CompletionPublication) validateOpenStage() error {
+	if p.Outcome != "" || p.Reason != "" {
+		return errors.New("open completion publication carries no outcome")
+	}
+	if p.PRNumber != 0 || p.PRID != 0 {
+		return errors.New("unlinked completion publication names a PR")
+	}
+	return nil
+}
+
+func (p CompletionPublication) validatePublishedStage() error {
+	if p.Outcome != Succeeded || p.Reason != PublishReasonLinked {
+		return errors.New("published completion publication lacks its outcome")
+	}
+	if p.PRNumber <= 0 || p.PRID <= 0 {
+		return errors.New("published completion publication lacks its PR links")
+	}
+	return nil
+}
+
+func (p CompletionPublication) validateFinishedStage() error {
+	if !validPublishReason(p.Reason) || p.Reason == PublishReasonLinked {
+		return errors.New("finished completion publication lacks its outcome")
+	}
+	switch p.Stage {
+	case PublicationFailed:
+		if p.Outcome != Failed {
+			return errors.New("failed completion publication lacks its outcome")
+		}
+	case PublicationWithdrawn:
+		if p.Outcome != Cancelled {
+			return errors.New("withdrawn completion publication lacks its outcome")
+		}
+	case PublicationFenced:
+		if p.Outcome != NeedsHuman {
+			return errors.New("fenced completion publication lacks its outcome")
+		}
+	}
+	return nil
+}
+
+func (p CompletionPublication) Validate() error {
+	if err := p.validateIdentity(); err != nil {
+		return err
+	}
 	switch p.Stage {
 	case PublicationOpen:
-		if p.Outcome != "" || p.Reason != "" {
-			return errors.New("open completion publication carries no outcome")
-		}
-		if p.PRNumber != 0 || p.PRID != 0 {
-			return errors.New("unlinked completion publication names a PR")
-		}
+		return p.validateOpenStage()
 	case PublicationPublished:
-		if p.Outcome != Succeeded || p.Reason != PublishReasonLinked {
-			return errors.New("published completion publication lacks its outcome")
-		}
-		if p.PRNumber <= 0 || p.PRID <= 0 {
-			return errors.New("published completion publication lacks its PR links")
-		}
+		return p.validatePublishedStage()
 	case PublicationFailed, PublicationWithdrawn, PublicationFenced:
-		if !validPublishReason(p.Reason) || p.Reason == PublishReasonLinked {
-			return errors.New("finished completion publication lacks its outcome")
-		}
-		switch p.Stage {
-		case PublicationFailed:
-			if p.Outcome != Failed {
-				return errors.New("failed completion publication lacks its outcome")
-			}
-		case PublicationWithdrawn:
-			if p.Outcome != Cancelled {
-				return errors.New("withdrawn completion publication lacks its outcome")
-			}
-		case PublicationFenced:
-			if p.Outcome != NeedsHuman {
-				return errors.New("fenced completion publication lacks its outcome")
-			}
-		}
+		return p.validateFinishedStage()
 	default:
 		return errors.New("invalid completion publication stage")
 	}
-	return nil
 }
 
 // CompletionMerge projects one durable merge: the immutable
@@ -740,7 +862,7 @@ type CompletionMerge struct {
 	Revision                  int64   `json:"revision"`
 }
 
-func (m CompletionMerge) Validate() error {
+func (m CompletionMerge) validateIdentity() error {
 	if !ValidID(m.ID) || !ValidID(m.PublicationID) || !ValidID(m.AssignmentID) {
 		return errors.New("invalid completion merge identity")
 	}
@@ -754,6 +876,10 @@ func (m CompletionMerge) Validate() error {
 	if !project.ValidDecisionID(m.Acceptance) {
 		return errors.New("invalid completion merge acceptance")
 	}
+	return nil
+}
+
+func (m CompletionMerge) validateRefs() error {
 	if !ValidTargetBranch(m.HeadRef) || !ValidTargetBranch(m.BaseRef) || m.HeadRef == m.BaseRef {
 		return errors.New("invalid completion merge refs")
 	}
@@ -766,6 +892,10 @@ func (m CompletionMerge) Validate() error {
 	if m.OriginalClosingOccurrence != "" && !ValidNativeOccurrence(m.OriginalClosingOccurrence) {
 		return errors.New("invalid completion merge closing occurrence")
 	}
+	return nil
+}
+
+func (m CompletionMerge) validateStage() error {
 	if !ValidMergeStage(m.Stage) {
 		return errors.New("invalid completion merge stage")
 	}
@@ -783,6 +913,16 @@ func (m CompletionMerge) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (m CompletionMerge) Validate() error {
+	if err := m.validateIdentity(); err != nil {
+		return err
+	}
+	if err := m.validateRefs(); err != nil {
+		return err
+	}
+	return m.validateStage()
 }
 
 // CompletionCheck projects one recorded check verdict: native PR/issue
@@ -832,7 +972,7 @@ func NewCompletionCheck(assessment CheckAssessment) (CompletionCheck, error) {
 	return check, nil
 }
 
-func (c CompletionCheck) Validate() error {
+func (c CompletionCheck) validateScope() error {
 	if c.Repository <= 0 || c.PRNumber <= 0 || c.PRID <= 0 || c.IssueID <= 0 {
 		return errors.New("invalid completion check scope")
 	}
@@ -845,6 +985,10 @@ func (c CompletionCheck) Validate() error {
 	if c.PolicyRevision < 0 || c.Revision < 0 {
 		return errors.New("invalid completion check revision")
 	}
+	return nil
+}
+
+func (c CompletionCheck) validateCheckSet() error {
 	if len(c.Checks) == 0 || len(c.Checks) > MaxRequiredChecks {
 		return errors.New("completion check requires its nonempty check set")
 	}
@@ -858,6 +1002,10 @@ func (c CompletionCheck) Validate() error {
 	if !ValidDigest(c.ChecksDigest) || c.ChecksDigest != ChecksDigest(c.Checks) {
 		return errors.New("completion check digest differs from its set")
 	}
+	return nil
+}
+
+func (c CompletionCheck) validateResults() error {
 	if !ValidCheckVerdict(c.Verdict) || c.Reason == "" || len(c.Reason) > MaxCheckName ||
 		strings.IndexFunc(c.Reason, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
 		return errors.New("invalid completion check verdict")
@@ -874,6 +1022,16 @@ func (c CompletionCheck) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (c CompletionCheck) Validate() error {
+	if err := c.validateScope(); err != nil {
+		return err
+	}
+	if err := c.validateCheckSet(); err != nil {
+		return err
+	}
+	return c.validateResults()
 }
 
 // CompletionAuthority projects the standing authority behind the seal:
@@ -926,7 +1084,7 @@ func PermittedCompletionRoles(configured map[string]RoleSelection, sponsorship *
 	return permitted
 }
 
-func (a CompletionAuthority) Validate() error {
+func (a CompletionAuthority) validateVerdict() error {
 	if a.Effective.Missing == nil {
 		return errors.New("completion authority lacks its verdict")
 	}
@@ -939,6 +1097,10 @@ func (a CompletionAuthority) Validate() error {
 		!project.ValidDecisionID(a.Effective.Authority.ApprovalID) {
 		return errors.New("completion authority lacks its current head identities")
 	}
+	return nil
+}
+
+func (a CompletionAuthority) validateScope() error {
 	if !project.ValidID(a.ProjectID) {
 		return errors.New("invalid completion authority project")
 	}
@@ -952,6 +1114,10 @@ func (a CompletionAuthority) Validate() error {
 	if !ValidTargetBranch(a.TargetBranch) {
 		return errors.New("invalid completion authority target")
 	}
+	return nil
+}
+
+func (a CompletionAuthority) validateRoles() error {
 	if a.Roles == nil {
 		return errors.New("completion authority lacks its permitted roles")
 	}
@@ -966,6 +1132,16 @@ func (a CompletionAuthority) Validate() error {
 		return errors.New("completion authority minutes outside their bound")
 	}
 	return nil
+}
+
+func (a CompletionAuthority) Validate() error {
+	if err := a.validateVerdict(); err != nil {
+		return err
+	}
+	if err := a.validateScope(); err != nil {
+		return err
+	}
+	return a.validateRoles()
 }
 
 // CompletionMaterial is the canonical model-safe local context: the
@@ -1009,7 +1185,15 @@ func compareIssueIndex(a, b string) int {
 // deterministic order and the full encoded bound. A nil section is
 // missing data and refuses: query layers must emit explicit empty
 // arrays instead.
-func (m CompletionMaterial) Validate() error {
+type completionMaterialIndex struct {
+	acceptances  map[string]Acceptance
+	plans        map[string]map[string]bool
+	planTasks    map[string]map[string]map[string]bool
+	assignments  map[string]CompletionAssignment
+	publications map[string]bool
+}
+
+func (m CompletionMaterial) validateSections() error {
 	if m.Repository <= 0 {
 		return errors.New("invalid completion material repository")
 	}
@@ -1039,6 +1223,10 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("completion material " + section.name + " exceed their bound")
 		}
 	}
+	return nil
+}
+
+func (m CompletionMaterial) validateAcceptances(idx *completionMaterialIndex) error {
 	acceptances := make(map[string]Acceptance, len(m.Acceptances))
 	priorIssue, priorAcceptance := "", ""
 	for _, acceptance := range m.Acceptances {
@@ -1075,6 +1263,11 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("completion material withdrawal lacks its acceptance body")
 		}
 	}
+	idx.acceptances = acceptances
+	return nil
+}
+
+func (m CompletionMaterial) validateControls(idx *completionMaterialIndex) error {
 	priorControl := int64(0)
 	for i, control := range m.Controls {
 		if err := control.Validate(); err != nil {
@@ -1088,7 +1281,7 @@ func (m CompletionMaterial) Validate() error {
 		}
 		priorControl = control.Issue
 		if control.Acceptance != "" {
-			if _, ok := acceptances[control.Acceptance]; !ok {
+			if _, ok := idx.acceptances[control.Acceptance]; !ok {
 				return errors.New("completion material control lacks its acceptance body")
 			}
 		}
@@ -1103,6 +1296,10 @@ func (m CompletionMaterial) Validate() error {
 		}
 		priorPreparation = preparation.ID
 	}
+	return nil
+}
+
+func (m CompletionMaterial) indexPlans(idx *completionMaterialIndex) error {
 	plans := make(map[string]map[string]bool, len(m.Plans))
 	planTasks := make(map[string]map[string]map[string]bool, len(m.Plans))
 	priorRoot, priorPlan := "", ""
@@ -1137,6 +1334,12 @@ func (m CompletionMaterial) Validate() error {
 		}
 		tasks[plan.ID] = known
 	}
+	idx.plans = plans
+	idx.planTasks = planTasks
+	return nil
+}
+
+func (m CompletionMaterial) validatePlanHeads(idx *completionMaterialIndex) error {
 	priorHead := ""
 	for _, head := range m.PlanHeads {
 		if err := head.Validate(); err != nil {
@@ -1146,7 +1349,7 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("completion material plan heads are not ordered")
 		}
 		priorHead = head.AttemptRoot
-		if !plans[head.AttemptRoot][head.PlanID] {
+		if !idx.plans[head.AttemptRoot][head.PlanID] {
 			return errors.New("completion material plan head lacks its plan revision")
 		}
 	}
@@ -1157,6 +1360,10 @@ func (m CompletionMaterial) Validate() error {
 		}
 		seenHeads[head.AttemptRoot] = true
 	}
+	return nil
+}
+
+func (m CompletionMaterial) validatePlanTasks(idx *completionMaterialIndex) error {
 	priorTaskRoot, priorTaskPlan, priorTask := "", "", ""
 	for _, task := range m.PlanTasks {
 		if err := task.Validate(); err != nil {
@@ -1170,7 +1377,7 @@ func (m CompletionMaterial) Validate() error {
 			}
 		}
 		priorTaskRoot, priorTaskPlan, priorTask = task.AttemptRoot, task.PlanID, task.TaskID
-		known, ok := planTasks[task.AttemptRoot][task.PlanID]
+		known, ok := idx.planTasks[task.AttemptRoot][task.PlanID]
 		if !ok {
 			return errors.New("completion material plan task lacks its plan revision")
 		}
@@ -1178,6 +1385,24 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("completion material plan task is not a plan task")
 		}
 	}
+	return nil
+}
+
+func (m CompletionMaterial) validatePlanRefs(idx *completionMaterialIndex) error {
+	if err := m.validatePlanHeads(idx); err != nil {
+		return err
+	}
+	return m.validatePlanTasks(idx)
+}
+
+func (m CompletionMaterial) validatePlans(idx *completionMaterialIndex) error {
+	if err := m.indexPlans(idx); err != nil {
+		return err
+	}
+	return m.validatePlanRefs(idx)
+}
+
+func (m CompletionMaterial) validateAssignments(idx *completionMaterialIndex) error {
 	assignments := make(map[string]CompletionAssignment, len(m.Assignments))
 	priorAssignment := ""
 	for _, assignment := range m.Assignments {
@@ -1198,6 +1423,11 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("completion material assignment lacks its attempt root")
 		}
 	}
+	idx.assignments = assignments
+	return nil
+}
+
+func (m CompletionMaterial) validatePublications(idx *completionMaterialIndex) error {
 	publications := make(map[string]bool, len(m.Publications))
 	priorPublication := ""
 	for _, publication := range m.Publications {
@@ -1215,10 +1445,10 @@ func (m CompletionMaterial) Validate() error {
 			return errors.New("duplicate completion material publication")
 		}
 		publications[publication.ID] = true
-		if _, ok := assignments[publication.AssignmentID]; !ok {
+		if _, ok := idx.assignments[publication.AssignmentID]; !ok {
 			return errors.New("completion material publication lacks its assignment")
 		}
-		if _, ok := acceptances[publication.Acceptance]; !ok {
+		if _, ok := idx.acceptances[publication.Acceptance]; !ok {
 			return errors.New("completion material publication lacks its acceptance body")
 		}
 	}
@@ -1242,13 +1472,18 @@ func (m CompletionMaterial) Validate() error {
 		if !publications[merge.PublicationID] {
 			return errors.New("completion material merge lacks its publication")
 		}
-		if _, ok := assignments[merge.AssignmentID]; !ok {
+		if _, ok := idx.assignments[merge.AssignmentID]; !ok {
 			return errors.New("completion material merge lacks its assignment")
 		}
-		if _, ok := acceptances[merge.Acceptance]; !ok {
+		if _, ok := idx.acceptances[merge.Acceptance]; !ok {
 			return errors.New("completion material merge lacks its acceptance body")
 		}
 	}
+	idx.publications = publications
+	return nil
+}
+
+func (m CompletionMaterial) validateChecksIntents(idx *completionMaterialIndex) error {
 	priorPR := int64(0)
 	for i, check := range m.Checks {
 		if err := check.Validate(); err != nil {
@@ -1278,18 +1513,22 @@ func (m CompletionMaterial) Validate() error {
 		}
 		priorIntent, priorRevision = scope.IntentID, scope.RevisionID
 		for _, binding := range scope.Bindings {
-			if _, ok := acceptances[binding.AcceptanceID]; !ok {
+			if _, ok := idx.acceptances[binding.AcceptanceID]; !ok {
 				return errors.New("completion material binding lacks its acceptance body")
 			}
 		}
 	}
 	for _, plan := range m.Plans {
-		if _, ok := assignments[plan.AttemptRoot]; !ok {
-			if !isCompletionMaterialRoot(plan.AttemptRoot, assignments) {
+		if _, ok := idx.assignments[plan.AttemptRoot]; !ok {
+			if !isCompletionMaterialRoot(plan.AttemptRoot, idx.assignments) {
 				return errors.New("completion material plan lacks its assignment root")
 			}
 		}
 	}
+	return nil
+}
+
+func (m CompletionMaterial) validateSeal() error {
 	if err := m.Authority.Validate(); err != nil {
 		return err
 	}
@@ -1301,6 +1540,32 @@ func (m CompletionMaterial) Validate() error {
 		return errors.New("encoded completion material exceeds its bound")
 	}
 	return nil
+}
+
+func (m CompletionMaterial) Validate() error {
+	if err := m.validateSections(); err != nil {
+		return err
+	}
+	idx := &completionMaterialIndex{}
+	if err := m.validateAcceptances(idx); err != nil {
+		return err
+	}
+	if err := m.validateControls(idx); err != nil {
+		return err
+	}
+	if err := m.validatePlans(idx); err != nil {
+		return err
+	}
+	if err := m.validateAssignments(idx); err != nil {
+		return err
+	}
+	if err := m.validatePublications(idx); err != nil {
+		return err
+	}
+	if err := m.validateChecksIntents(idx); err != nil {
+		return err
+	}
+	return m.validateSeal()
 }
 
 // isCompletionMaterialRoot reports whether root is an attempt root carried

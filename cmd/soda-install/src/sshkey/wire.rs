@@ -32,58 +32,65 @@ impl Key {
     }
 }
 
+fn validate_rsa(e: &[u8], n: &[u8]) -> Result<(), ()> {
+    let e_bits = bit_len(e);
+    if e_bits > 24 || e_bits < 2 || e.last().is_none_or(|byte| byte & 1 == 0) || bit_len(n) > 16_384
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+fn canonical_sec1(curve: ssh_key::EcdsaCurve, point: &[u8]) -> Result<Vec<u8>, ()> {
+    match curve {
+        ssh_key::EcdsaCurve::NistP256 if point.len() == 65 && point[0] == 4 => {
+            p256::PublicKey::from_sec1_bytes(point)
+                .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
+                .map_err(|_| ())
+        }
+        ssh_key::EcdsaCurve::NistP384 if point.len() == 97 && point[0] == 4 => {
+            p384::PublicKey::from_sec1_bytes(point)
+                .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
+                .map_err(|_| ())
+        }
+        ssh_key::EcdsaCurve::NistP521 if point.len() == 133 && point[0] == 4 => {
+            p521::PublicKey::from_sec1_bytes(point)
+                .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
+                .map_err(|_| ())
+        }
+        _ => Err(()),
+    }
+}
+
+fn validate_sk_point(point: &[u8]) -> Result<(), ()> {
+    if point.len() != 65 || point[0] != 4 {
+        return Err(());
+    }
+    let parsed = p256::PublicKey::from_sec1_bytes(point).map_err(|_| ())?;
+    if parsed.to_encoded_point(false).as_bytes() != point {
+        return Err(());
+    }
+    Ok(())
+}
+
 fn validate_point(data: &KeyData) -> Result<(), ()> {
     match data {
         KeyData::Rsa(key) => {
             let e = key.e().as_positive_bytes().ok_or(())?;
             let n = key.n().as_positive_bytes().ok_or(())?;
-            let e_bits = bit_len(e);
-            if e_bits > 24
-                || e_bits < 2
-                || e.last().is_none_or(|byte| byte & 1 == 0)
-                || bit_len(n) > 16_384
-            {
-                return Err(());
-            }
+            validate_rsa(e, n)
         }
         KeyData::Ecdsa(key) => {
             let point = key.as_sec1_bytes();
-            let canonical = match key.curve() {
-                ssh_key::EcdsaCurve::NistP256 if point.len() == 65 && point[0] == 4 => {
-                    p256::PublicKey::from_sec1_bytes(point)
-                        .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
-                        .map_err(|_| ())?
-                }
-                ssh_key::EcdsaCurve::NistP384 if point.len() == 97 && point[0] == 4 => {
-                    p384::PublicKey::from_sec1_bytes(point)
-                        .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
-                        .map_err(|_| ())?
-                }
-                ssh_key::EcdsaCurve::NistP521 if point.len() == 133 && point[0] == 4 => {
-                    p521::PublicKey::from_sec1_bytes(point)
-                        .map(|p| p.to_encoded_point(false).as_bytes().to_vec())
-                        .map_err(|_| ())?
-                }
-                _ => return Err(()),
-            };
-            if canonical.as_slice() != point {
+            if canonical_sec1(key.curve(), point)?.as_slice() != point {
                 return Err(());
             }
+            Ok(())
         }
-        KeyData::SkEcdsaSha2NistP256(key) => {
-            let point = key.ec_point().as_bytes();
-            if point.len() != 65 || point[0] != 4 {
-                return Err(());
-            }
-            let parsed = p256::PublicKey::from_sec1_bytes(point).map_err(|_| ())?;
-            if parsed.to_encoded_point(false).as_bytes() != point {
-                return Err(());
-            }
-        }
-        KeyData::Certificate(_) | KeyData::Other(_) => return Err(()),
-        _ => {}
+        KeyData::SkEcdsaSha2NistP256(key) => validate_sk_point(key.ec_point().as_bytes()),
+        KeyData::Certificate(_) | KeyData::Other(_) => Err(()),
+        _ => Ok(()),
     }
-    Ok(())
 }
 
 fn bit_len(value: &[u8]) -> usize {
@@ -92,28 +99,26 @@ fn bit_len(value: &[u8]) -> usize {
     })
 }
 
-pub(super) fn parse_public_key(wire: &[u8]) -> Result<Key, ()> {
-    let len = u32::from_be_bytes(wire.get(..4).ok_or(())?.try_into().map_err(|_| ())?) as usize;
-    let end = 4usize.checked_add(len).ok_or(())?;
-    let name = std::str::from_utf8(wire.get(4..end).ok_or(())?).map_err(|_| ())?;
-    if name.ends_with("-cert-v01@openssh.com") {
-        let cert = Certificate::from_bytes(wire).map_err(|_| ())?;
-        validate_point(cert.public_key())?;
-        validate_point(cert.signature_key())?;
-        let algorithm = cert.algorithm().to_certificate_type();
-        if algorithm != name {
-            return Err(());
-        }
-        let serialized = cert.to_bytes().map_err(|_| ())?;
-        if serialized.as_slice() != wire {
-            return Err(());
-        }
-        return Ok(Key {
-            algorithm,
-            kind: Kind::Certificate,
-            wire: wire.to_vec(),
-        });
+fn parse_cert_key(wire: &[u8], name: &str) -> Result<Key, ()> {
+    let cert = Certificate::from_bytes(wire).map_err(|_| ())?;
+    validate_point(cert.public_key())?;
+    validate_point(cert.signature_key())?;
+    let algorithm = cert.algorithm().to_certificate_type();
+    if algorithm != name {
+        return Err(());
     }
+    let serialized = cert.to_bytes().map_err(|_| ())?;
+    if serialized.as_slice() != wire {
+        return Err(());
+    }
+    Ok(Key {
+        algorithm,
+        kind: Kind::Certificate,
+        wire: wire.to_vec(),
+    })
+}
+
+fn parse_plain_key(wire: &[u8]) -> Result<Key, ()> {
     let key = PublicKey::from_bytes(wire).map_err(|_| ())?;
     validate_point(key.key_data())?;
     let kind = match key.key_data() {
@@ -132,4 +137,14 @@ pub(super) fn parse_public_key(wire: &[u8]) -> Result<Key, ()> {
         kind,
         wire: key.to_bytes().map_err(|_| ())?,
     })
+}
+
+pub(super) fn parse_public_key(wire: &[u8]) -> Result<Key, ()> {
+    let len = u32::from_be_bytes(wire.get(..4).ok_or(())?.try_into().map_err(|_| ())?) as usize;
+    let end = 4usize.checked_add(len).ok_or(())?;
+    let name = std::str::from_utf8(wire.get(4..end).ok_or(())?).map_err(|_| ())?;
+    if name.ends_with("-cert-v01@openssh.com") {
+        return parse_cert_key(wire, name);
+    }
+    parse_plain_key(wire)
 }

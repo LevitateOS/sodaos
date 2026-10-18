@@ -30,6 +30,24 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 		}
 		return false
 	}
+	if !checkMergeObservationIdentity(observation, m, revision, report) {
+		return false
+	}
+	assessment, ok := c.loadMergeAssessment(ctx, m, report)
+	if !ok {
+		return false
+	}
+	work.AssessmentRevision, work.ReviewID = assessment.Revision, observation.ReviewID
+	if !c.verifyStoredMergeEvidence(ctx, work, assessment, policy, m, report) {
+		return false
+	}
+	if !c.verifyFreshMergeChecks(ctx, policy, observation, m, report) {
+		return false
+	}
+	return c.persistMergeIntent(ctx, m, work, observation, report)
+}
+
+func checkMergeObservationIdentity(observation factory.MergeObservation, m *factory.Merge, revision int64, report *MergeReport) bool {
 	if observation.NativeRev != revision {
 		mergeWait(report, m.ID, "native_inputs_changed")
 		return false
@@ -40,6 +58,10 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 		mergeWait(report, m.ID, "observation_invalid")
 		return false
 	}
+	return true
+}
+
+func (c *Coordinator) loadMergeAssessment(ctx context.Context, m *factory.Merge, report *MergeReport) (factory.CheckAssessment, bool) {
 	assessment, err := c.Store.CheckAssessment(ctx, m.Repository, m.PRNumber)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -47,9 +69,12 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 		} else {
 			mergeError(report, m.ID, "store_unavailable")
 		}
-		return false
+		return factory.CheckAssessment{}, false
 	}
-	work.AssessmentRevision, work.ReviewID = assessment.Revision, observation.ReviewID
+	return assessment, true
+}
+
+func (c *Coordinator) verifyStoredMergeEvidence(ctx context.Context, work factory.MergeWork, assessment factory.CheckAssessment, policy factory.RepositoryPolicy, m *factory.Merge, report *MergeReport) bool {
 	if err := factory.VerifyMergeCheckEvidence(work, assessment, policy); err != nil {
 		// A failed verdict on the exact head is terminal: new code
 		// means a new publication cycle. Anything else waits for a
@@ -61,6 +86,10 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 		}
 		return false
 	}
+	return true
+}
+
+func (c *Coordinator) verifyFreshMergeChecks(ctx context.Context, policy factory.RepositoryPolicy, observation factory.MergeObservation, m *factory.Merge, report *MergeReport) bool {
 	target := factory.CheckTarget{Repository: m.Repository, PRNumber: m.PRNumber, PRID: m.PRID, IssueID: m.IssueID, HeadRef: m.HeadRef, BaseRef: m.BaseRef, HeadOID: m.HeadOID, BaseOID: m.BaseOID}
 	adopted := factory.AdoptedChecks{Checks: append([]string(nil), policy.Checks...), PolicyRevision: policy.Revision, Digest: factory.ChecksDigest(policy.Checks)}
 	fresh, err := factory.VerifyChecks(target, adopted, policy, observation.Checks, time.Now().Unix())
@@ -70,16 +99,18 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 	}
 	switch fresh.Verdict {
 	case factory.CheckPass:
+		return true
 	case factory.CheckPending:
 		mergeWait(report, m.ID, "check_evidence_pending")
-		return false
 	case factory.CheckRefused:
 		mergeWait(report, m.ID, "check_evidence_hidden")
-		return false
 	default:
 		c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
-		return false
 	}
+	return false
+}
+
+func (c *Coordinator) persistMergeIntent(ctx context.Context, m *factory.Merge, work factory.MergeWork, observation factory.MergeObservation, report *MergeReport) bool {
 	now := time.Now()
 	notAfter, err := c.Store.CapAttemptDeadline(ctx, m.AssignmentID, now.Add(10*time.Minute).Unix())
 	if err != nil {

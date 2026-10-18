@@ -29,26 +29,48 @@ type mergeReceipt struct {
 	PRID         int64  `json:"pr_id"`
 }
 
-func (m *Merger) AdoptMerge(w factory.MergeWork, o factory.OperationOutcome) (factory.MergeOutcome, error) {
-	var empty factory.MergeOutcome
+func checkMergeEnvelope(w factory.MergeWork, o factory.OperationOutcome) error {
 	if err := w.Validate(); err != nil {
-		return empty, err
+		return err
 	}
 	if o.NotObserved || o.OperationID != w.OperationID || o.InstallationID == "" || o.Kind != factory.OpMerge || o.ActorID != w.ActorID || o.RepositoryID != w.Repository || o.Effect != factory.OpEffectCommitted || len(o.Receipt) == 0 || len(o.Receipt) > factory.MaxPublicationReceipt {
-		return empty, errors.New("merge outcome differs from its recorded intent")
+		return errors.New("merge outcome differs from its recorded intent")
 	}
+	return nil
+}
+
+func decodeMergeReceipt(o factory.OperationOutcome) (mergeReceipt, error) {
 	var receipt mergeReceipt
 	decoder := json.NewDecoder(bytes.NewReader(o.Receipt))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&receipt); err != nil {
-		return empty, errors.New("native merge receipt is malformed")
+		return receipt, errors.New("native merge receipt is malformed")
 	}
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return empty, errors.New("native merge receipt is malformed")
+		return receipt, errors.New("native merge receipt is malformed")
 	}
+	return receipt, nil
+}
+
+func checkMergeReceiptIdentity(receipt mergeReceipt, w factory.MergeWork) error {
 	if receipt.ActorID != w.ActorID || receipt.RepositoryID != w.Repository || receipt.PRNumber != w.PRNumber || receipt.PRID != w.PRID ||
 		receipt.HeadRef != w.HeadRef || receipt.BaseRef != w.BaseRef || receipt.OldOID != w.BaseOID || receipt.NewOID != w.HeadOID || receipt.Method != factory.MergeFastForward {
-		return empty, errors.New("native merge receipt differs from its recorded intent")
+		return errors.New("native merge receipt differs from its recorded intent")
+	}
+	return nil
+}
+
+func (m *Merger) AdoptMerge(w factory.MergeWork, o factory.OperationOutcome) (factory.MergeOutcome, error) {
+	var empty factory.MergeOutcome
+	if err := checkMergeEnvelope(w, o); err != nil {
+		return empty, err
+	}
+	receipt, err := decodeMergeReceipt(o)
+	if err != nil {
+		return empty, err
+	}
+	if err := checkMergeReceiptIdentity(receipt, w); err != nil {
+		return empty, err
 	}
 	return factory.MergeOutcome{Operation: o, HeadRef: w.HeadRef, BaseRef: w.BaseRef, HeadOID: w.HeadOID, BaseOID: w.BaseOID, MergedCommit: w.HeadOID, PRNumber: w.PRNumber, PRID: w.PRID, IssueID: w.IssueID, ActorID: w.ActorID}, nil
 }
@@ -126,37 +148,59 @@ func mergeCompletionBaseTip(w factory.MergeWork, snapshot NativeSnapshot) (strin
 	return baseTip, nil
 }
 
-func matchMergeConfirmation(w factory.MergeWork, issue, original, snapshot NativeSnapshot) (factory.MergeConfirmation, error) {
-	var empty factory.MergeConfirmation
-	i, p := issue.Issue, snapshot.Pull
+func checkConfirmationIdentity(w factory.MergeWork, i *IssueEvidence, p *PullEvidence) error {
 	if i == nil || p == nil || !i.Visible || !p.Visible || !i.IsPull ||
 		i.ID != strconv.FormatInt(w.IssueID, 10) || i.Provenance.PosterID != strconv.FormatInt(w.PRAuthorID, 10) ||
 		p.ID != strconv.FormatInt(w.PRID, 10) || p.IssueID != i.ID || p.HeadRepoID != strconv.FormatInt(w.Repository, 10) ||
 		p.HeadBranch != factory.RefHead(w.HeadRef) || p.BaseBranch != factory.RefHead(w.BaseRef) {
-		return empty, &factory.PublicationRefusal{Reason: "pr_mismatch"}
+		return &factory.PublicationRefusal{Reason: "pr_mismatch"}
+	}
+	return nil
+}
+
+func checkConfirmationMerged(w factory.MergeWork, p *PullEvidence) (int64, error) {
+	if !p.HasMerged || p.MergedCommit != w.HeadOID {
+		return 0, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
+	}
+	merger, err := strconv.ParseInt(p.MergerID, 10, 64)
+	if err != nil || merger != w.ActorID || p.MergedUnix <= 0 {
+		return 0, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
+	}
+	return merger, nil
+}
+
+func confirmBaseContainsCommit(w factory.MergeWork, snapshot NativeSnapshot) (string, error) {
+	baseTip, err := mergeCompletionBaseTip(w, snapshot)
+	if err != nil {
+		return "", err
+	}
+	if baseTip == w.HeadOID {
+		return baseTip, nil
+	}
+	proof := snapshot.Ancestry
+	if proof == nil || proof.AncestorOID != w.HeadOID || proof.DescendantOID != baseTip || !proof.Reachable {
+		return "", &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
+	}
+	return baseTip, nil
+}
+
+func matchMergeConfirmation(w factory.MergeWork, issue, original, snapshot NativeSnapshot) (factory.MergeConfirmation, error) {
+	var empty factory.MergeConfirmation
+	i, p := issue.Issue, snapshot.Pull
+	if err := checkConfirmationIdentity(w, i, p); err != nil {
+		return empty, err
 	}
 	if original.Issue == nil || !original.Issue.Visible || original.Issue.IsPull ||
 		original.Issue.Index != strconv.FormatInt(w.Issue, 10) {
 		return empty, &factory.PublicationRefusal{Reason: "issue_mismatch"}
 	}
-	if !p.HasMerged || p.MergedCommit != w.HeadOID {
-		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
-	}
-	merger, err := strconv.ParseInt(p.MergerID, 10, 64)
-	if err != nil || merger != w.ActorID || p.MergedUnix <= 0 {
-		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
-	}
-	baseTip, err := mergeCompletionBaseTip(w, snapshot)
+	merger, err := checkConfirmationMerged(w, p)
 	if err != nil {
 		return empty, err
 	}
-	baseContainsMergedCommit := baseTip == w.HeadOID
-	if !baseContainsMergedCommit {
-		proof := snapshot.Ancestry
-		if proof == nil || proof.AncestorOID != w.HeadOID || proof.DescendantOID != baseTip || !proof.Reachable {
-			return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
-		}
-		baseContainsMergedCommit = true
+	baseTip, err := confirmBaseContainsCommit(w, snapshot)
+	if err != nil {
+		return empty, err
 	}
 	if !i.IsClosed || i.ClosedUnix <= 0 {
 		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
@@ -166,7 +210,7 @@ func matchMergeConfirmation(w factory.MergeWork, issue, original, snapshot Nativ
 		return empty, &factory.PublicationWait{Reason: "original_issue_closure_pending"}
 	}
 	return factory.MergeConfirmation{
-		MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: baseContainsMergedCommit,
+		MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: true,
 		MergerID: merger, MergedUnix: p.MergedUnix, ClosedUnix: i.ClosedUnix,
 		OriginalClosed: true, OriginalClosingOccurrence: closingOccurrence, OriginalClosedUnix: originalClosedUnix,
 		NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), IssueClosed: true,

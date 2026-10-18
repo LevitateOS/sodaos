@@ -590,12 +590,7 @@ func stringMapPrefix(next, stored map[string]string) bool {
 
 // FreezeAttemptAllowances closes active issue clocks only under the exact
 // closed pause revision and after every repository run view is settled.
-func (s *Store) FreezeAttemptAllowances(ctx context.Context, repository, expectedGateRevision int64, now time.Time) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
+func admitFreezeGateTx(ctx context.Context, tx *sql.Tx, repository, expectedGateRevision int64) error {
 	open, revision, raw, err := ensureDispatchGateTx(ctx, tx, repository)
 	if err != nil {
 		return err
@@ -620,6 +615,10 @@ func (s *Store) FreezeAttemptAllowances(ctx context.Context, repository, expecte
 	if !paused {
 		return errors.New("attempt clocks can freeze only for an explicit repository pause")
 	}
+	return nil
+}
+
+func admitFreezeRunsSettledTx(ctx context.Context, tx *sql.Tx, repository int64) error {
 	rows, err := tx.QueryContext(ctx, `SELECT r.settled,r.data FROM factory_run_views v JOIN factory_runs r ON r.id=v.run WHERE v.repository=$1 ORDER BY v.seq FOR UPDATE OF r`, repository)
 	if err != nil {
 		return err
@@ -662,56 +661,83 @@ func (s *Store) FreezeAttemptAllowances(ctx context.Context, repository, expecte
 	if preparationsPending {
 		return ErrAttemptRunsPending
 	}
+	return nil
+}
+
+func freezeAllowancePageTx(ctx context.Context, tx *sql.Tx, repository int64, afterRoot string, pageLimit int, now time.Time) (string, bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT issue,root_assignment,revision,data FROM factory_attempt_allowances WHERE repository=$1 AND root_assignment>$2 ORDER BY root_assignment LIMIT $3 FOR UPDATE`, repository, afterRoot, pageLimit)
+	if err != nil {
+		return afterRoot, false, err
+	}
+	locked := make([]factory.AttemptAllowance, 0, pageLimit)
+	for rows.Next() {
+		var issue, revision int64
+		var root string
+		var data []byte
+		if err = rows.Scan(&issue, &root, &revision, &data); err != nil {
+			_ = rows.Close()
+			return afterRoot, false, err
+		}
+		var allowance factory.AttemptAllowance
+		if err = json.Unmarshal(data, &allowance); err != nil {
+			_ = rows.Close()
+			return afterRoot, false, err
+		}
+		if err = validateAttemptAllowanceRow(allowance, repository, issue, root, revision); err != nil {
+			_ = rows.Close()
+			return afterRoot, false, err
+		}
+		locked = append(locked, allowance)
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return afterRoot, false, err
+	}
+	if err = rows.Close(); err != nil {
+		return afterRoot, false, err
+	}
+	if len(locked) == 0 {
+		return afterRoot, true, nil
+	}
+	for _, allowance := range locked {
+		afterRoot = allowance.RootAssignment
+		if !allowance.Active {
+			continue
+		}
+		next, err := allowance.Checkpoint(now, false)
+		if err != nil {
+			return afterRoot, false, err
+		}
+		next.Revision++
+		if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
+			return afterRoot, false, err
+		}
+	}
+	return afterRoot, false, nil
+}
+
+func (s *Store) FreezeAttemptAllowances(ctx context.Context, repository, expectedGateRevision int64, now time.Time) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = admitFreezeGateTx(ctx, tx, repository, expectedGateRevision); err != nil {
+		return err
+	}
+	if err = admitFreezeRunsSettledTx(ctx, tx, repository); err != nil {
+		return err
+	}
 	const pageLimit = 128
-	var afterRoot string
+	afterRoot := ""
 	for {
-		rows, err := tx.QueryContext(ctx, `SELECT issue,root_assignment,revision,data FROM factory_attempt_allowances WHERE repository=$1 AND root_assignment>$2 ORDER BY root_assignment LIMIT $3 FOR UPDATE`, repository, afterRoot, pageLimit)
+		next, done, err := freezeAllowancePageTx(ctx, tx, repository, afterRoot, pageLimit, now)
 		if err != nil {
 			return err
 		}
-		locked := make([]factory.AttemptAllowance, 0, pageLimit)
-		for rows.Next() {
-			var issue, revision int64
-			var root string
-			var data []byte
-			if err = rows.Scan(&issue, &root, &revision, &data); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			var allowance factory.AttemptAllowance
-			if err = json.Unmarshal(data, &allowance); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			if err = validateAttemptAllowanceRow(allowance, repository, issue, root, revision); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			locked = append(locked, allowance)
-		}
-		if err = rows.Err(); err != nil {
-			_ = rows.Close()
-			return err
-		}
-		if err = rows.Close(); err != nil {
-			return err
-		}
-		if len(locked) == 0 {
+		afterRoot = next
+		if done {
 			break
-		}
-		for _, allowance := range locked {
-			afterRoot = allowance.RootAssignment
-			if !allowance.Active {
-				continue
-			}
-			next, err := allowance.Checkpoint(now, false)
-			if err != nil {
-				return err
-			}
-			next.Revision++
-			if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
-				return err
-			}
 		}
 	}
 	return tx.Commit()
@@ -904,14 +930,7 @@ func refuseDuplicateIntentAttemptTx(ctx context.Context, tx *sql.Tx, repository 
 // minutes or a different intent scope conflicts instead of overwriting.
 // This constructor performs no dispatch-gate, owner or head-revision
 // admission: the packet guard owns those locks.
-func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, minutes int, deadline, now time.Time) error {
-	if minutes < 1 || int64(minutes) > math.MaxInt64/int64(time.Minute) {
-		return errors.New("intent minutes outside their bound")
-	}
-	if a.Subject.Kind != factory.SubjectIntent || a.Subject.Intent == nil {
-		return errors.New("intent root lacks its intent subject")
-	}
-	scope := factory.IntentAttemptScope{IntentID: a.Subject.Intent.IntentID, OwnerID: a.Subject.Intent.OwnerID}
+func admitIntentRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, scope factory.IntentAttemptScope) error {
 	if err := validateIntentRootAssignment(a, a.Repository, scope, a.ID); err != nil {
 		return err
 	}
@@ -928,23 +947,45 @@ func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.A
 	if !sameIntentRootScope(stored, a) {
 		return errors.New("intent root assignment does not match its recorded row")
 	}
+	return nil
+}
+
+func replayIntentAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, scope factory.IntentAttemptScope, minutes int) (bool, error) {
 	var existingData []byte
-	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2`, a.Repository, a.ID).Scan(&existingData)
-	if err == nil {
-		var existing factory.AttemptAllowance
-		if err = json.Unmarshal(existingData, &existing); err != nil {
-			return err
-		}
-		if err = validateAttemptAllowanceRow(existing, a.Repository, 0, a.ID, existing.Revision); err != nil {
-			return err
-		}
-		if existing.Intent == nil || *existing.Intent != scope ||
-			existing.Limits.ActiveMinutes != minutes {
-			return errors.New("intent allowance does not match its recorded root")
-		}
-		return nil
+	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2`, a.Repository, a.ID).Scan(&existingData)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		return false, err
+	}
+	var existing factory.AttemptAllowance
+	if err = json.Unmarshal(existingData, &existing); err != nil {
+		return false, err
+	}
+	if err = validateAttemptAllowanceRow(existing, a.Repository, 0, a.ID, existing.Revision); err != nil {
+		return false, err
+	}
+	if existing.Intent == nil || *existing.Intent != scope ||
+		existing.Limits.ActiveMinutes != minutes {
+		return false, errors.New("intent allowance does not match its recorded root")
+	}
+	return true, nil
+}
+
+func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, minutes int, deadline, now time.Time) error {
+	if minutes < 1 || int64(minutes) > math.MaxInt64/int64(time.Minute) {
+		return errors.New("intent minutes outside their bound")
+	}
+	if a.Subject.Kind != factory.SubjectIntent || a.Subject.Intent == nil {
+		return errors.New("intent root lacks its intent subject")
+	}
+	scope := factory.IntentAttemptScope{IntentID: a.Subject.Intent.IntentID, OwnerID: a.Subject.Intent.OwnerID}
+	if err := admitIntentRootTx(ctx, tx, a, scope); err != nil {
+		return err
+	}
+	replayed, err := replayIntentAllowanceTx(ctx, tx, a, scope, minutes)
+	if err != nil || replayed {
 		return err
 	}
 	// Cross-root operation binding (R11 retry contract): the same intent

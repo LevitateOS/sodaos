@@ -104,6 +104,56 @@ pub struct EnrollmentPolicy {
     pub credential: Credential,
 }
 
+/// Feed one free-text policy field (`revision`, `binding`, `tailnet`).
+/// Returns whether `key` belonged to this family.
+fn feed_policy_string<'de, A>(
+    out: &mut EnrollmentPolicy,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("revision") {
+        &mut out.revision
+    } else if key.eq_ignore_ascii_case("binding") {
+        &mut out.binding
+    } else if key.eq_ignore_ascii_case("tailnet") {
+        &mut out.tailnet
+    } else {
+        return Ok(false);
+    };
+    if let Some(value) = map.next_value::<Option<String>>()? {
+        *slot = value;
+    }
+    Ok(true)
+}
+
+/// Feed one admission switch (`preauthorized`, `admission`, `default`).
+/// Returns whether `key` belonged to this family.
+fn feed_policy_switch<'de, A>(
+    out: &mut EnrollmentPolicy,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("preauthorized") {
+        &mut out.preauthorized
+    } else if key.eq_ignore_ascii_case("admission") {
+        &mut out.admission
+    } else if key.eq_ignore_ascii_case("default") {
+        &mut out.default
+    } else {
+        return Ok(false);
+    };
+    if let Some(value) = map.next_value::<Option<bool>>()? {
+        *slot = value;
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for EnrollmentPolicy {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -127,31 +177,16 @@ impl<'de> Deserialize<'de> for EnrollmentPolicy {
                         }
                         continue;
                     }
-                    policy_string_field!(key, "revision", map, out.revision);
-                    policy_string_field!(key, "binding", map, out.binding);
-                    policy_string_field!(key, "tailnet", map, out.tailnet);
+                    if feed_policy_string(&mut out, &key, &mut map)? {
+                        continue;
+                    }
                     if key.eq_ignore_ascii_case("tags") {
                         if let Some(v) = map.next_value::<Option<Vec<Option<String>>>>()? {
                             out.tags = v.into_iter().map(Option::unwrap_or_default).collect();
                         }
                         continue;
                     }
-                    if key.eq_ignore_ascii_case("preauthorized") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.preauthorized = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("admission") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.admission = v;
-                        }
-                        continue;
-                    }
-                    if key.eq_ignore_ascii_case("default") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.default = v;
-                        }
+                    if feed_policy_switch(&mut out, &key, &mut map)? {
                         continue;
                     }
                     if key.eq_ignore_ascii_case("credential") {
@@ -725,6 +760,67 @@ impl PolicyStore {
         Ok(out)
     }
 
+    /// Lock the policy directory and load the current enrollment,
+    /// checking the caller revision.
+    fn admit_locked(
+        &self,
+        deadline: Instant,
+        r: &wire::EnrollmentRequest,
+    ) -> Result<(PolicyLock, EnrollmentPolicy), String> {
+        let lock = match self.lock(deadline, r.action == "save")? {
+            Some(l) => l,
+            None => return Err(wire::err_conflict()),
+        };
+        let v = self.load(&lock)?;
+        if v.revision != r.revision {
+            return Err(wire::err_conflict());
+        }
+        Ok((lock, v))
+    }
+
+    /// Dispatch one enrollment mutation to its apply helper.
+    fn apply_enrollment_action(
+        v: EnrollmentPolicy,
+        r: &wire::EnrollmentRequest,
+        deadline: Instant,
+        check: &dyn Fn(Instant, &wire::EnrollmentRequest) -> Result<(), String>,
+    ) -> Result<EnrollmentPolicy, String> {
+        match r.action.as_str() {
+            "save" | "rotate" => Self::apply_save_or_rotate(&v, r, deadline, check),
+            "default" => Self::apply_default(&v, r),
+            "disable" => Self::apply_disable(&v),
+            _ => Ok(v),
+        }
+    }
+
+    /// Stamp, encode and publish the mutated enrollment, then confirm it.
+    fn publish_enrollment(
+        &self,
+        lock: &PolicyLock,
+        mut v: EnrollmentPolicy,
+        deadline: Instant,
+    ) -> Result<wire::EnrollmentResult, String> {
+        if Instant::now() >= deadline {
+            return Err(wire::err_unconfirmed());
+        }
+        v.revision = new_revision()?;
+        let mut body = encode_enrollment_policy(&v);
+        let published = self.publish(lock, "policy.json", &body);
+        // Zero the transient encoded copy; the file keeps the credential, as
+        // in Go.
+        for b in body.iter_mut() {
+            *b = 0;
+        }
+        published?;
+        let checked = v.revision != "0";
+        Ok(wire::EnrollmentResult {
+            outcome: "confirmed".to_string(),
+            saved: true,
+            credential_checked: checked,
+            enrollment: self.view(&v),
+        })
+    }
+
     /// Apply an enrollment mutation under the directory lock. `check`
     /// verifies the credential against the provider (or a test stub).
     pub fn update(
@@ -741,39 +837,9 @@ impl PolicyStore {
         if r.action == "check" {
             return self.check_enrollment(deadline, r, check);
         }
-        let lock = match self.lock(deadline, r.action == "save")? {
-            Some(l) => l,
-            None => return Err(wire::err_conflict()),
-        };
-        let v = self.load(&lock)?;
-        if v.revision != r.revision {
-            return Err(wire::err_conflict());
-        }
-        let mut v = match r.action.as_str() {
-            "save" | "rotate" => Self::apply_save_or_rotate(&v, r, deadline, check)?,
-            "default" => Self::apply_default(&v, r)?,
-            "disable" => Self::apply_disable(&v)?,
-            _ => v,
-        };
-        if Instant::now() >= deadline {
-            return Err(wire::err_unconfirmed());
-        }
-        v.revision = new_revision()?;
-        let mut body = encode_enrollment_policy(&v);
-        let published = self.publish(&lock, "policy.json", &body);
-        // Zero the transient encoded copy; the file keeps the credential, as
-        // in Go.
-        for b in body.iter_mut() {
-            *b = 0;
-        }
-        published?;
-        let checked = v.revision != "0";
-        Ok(wire::EnrollmentResult {
-            outcome: "confirmed".to_string(),
-            saved: true,
-            credential_checked: checked,
-            enrollment: self.view(&v),
-        })
+        let (lock, v) = self.admit_locked(deadline, r)?;
+        let v = Self::apply_enrollment_action(v, r, deadline, check)?;
+        self.publish_enrollment(&lock, v, deadline)
     }
 
     // ---------- Project policy ----------

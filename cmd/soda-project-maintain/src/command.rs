@@ -409,6 +409,121 @@ pub(crate) fn wait_output(
 ) -> Result<Vec<u8>, String> {
     wait_output_owned(child, deadline, None)
 }
+
+fn settle_owned_err(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+    failed: &str,
+) -> String {
+    match settle_owned_child(child, group, deadline) {
+        Err(e) if e == UNCERTAIN_CLEANUP => e,
+        _ => failed.to_owned(),
+    }
+}
+
+fn mark_owned_nonblocking(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+    stdout: &Option<std::process::ChildStdout>,
+    failed: &str,
+) -> Result<(), String> {
+    if let Some(pipe) = stdout.as_ref() {
+        let flags = unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_GETFL) };
+        if flags < 0
+            || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
+        {
+            return Err(settle_owned_err(child, group, deadline, failed));
+        }
+    }
+    Ok(())
+}
+
+fn poll_owned_exit(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+    failed: &str,
+    now: Instant,
+) -> Result<Option<Instant>, String> {
+    match wait_exit_unreaped(child.id()) {
+        Ok(Some(_)) => Ok(Some(now)),
+        Ok(None) => Ok(None),
+        Err(_) => Err(settle_owned_err(child, group, deadline, failed)),
+    }
+}
+
+fn read_owned_stdout(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+    pipe: &mut std::process::ChildStdout,
+    buf: &mut [u8],
+    out: &mut Vec<u8>,
+    failed: &str,
+) -> Result<(bool, bool), String> {
+    match pipe.read(buf) {
+        Ok(0) => Ok((true, true)),
+        Ok(n) => {
+            const OUTPUT_LIMIT: usize = 8 << 20;
+            if out.len().saturating_add(n) > OUTPUT_LIMIT {
+                return Err(settle_owned_err(child, group, deadline, failed));
+            }
+            out.extend_from_slice(&buf[..n]);
+            Ok((false, false))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok((false, false)),
+        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => Ok((false, false)),
+        Err(_) => Err(settle_owned_err(child, group, deadline, failed)),
+    }
+}
+
+fn settle_exited_child(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+    stdout: &mut Option<std::process::ChildStdout>,
+    now: Instant,
+    exited_at: Option<Instant>,
+    eof: bool,
+    failed: &str,
+) -> Result<bool, String> {
+    if eof {
+        // The leader exited but stays unreaped: its zombie anchor
+        // pins the group id, so retiring the group here signals
+        // only owned descendants. Descendants retire before the
+        // single final reap below; a retirement failure still
+        // reaps so the anchor is never dropped, then fences with
+        // an error instead of releasing custody. The final reap
+        // is the only reap on this path; after it no numeric
+        // group from this execution may be signaled again.
+        let retired = group
+            .map(|group| retire_group(group, deadline).is_ok())
+            .unwrap_or(true);
+        let status = child.wait().map_err(|_| failed.to_owned())?;
+        if !retired || !status.success() {
+            return Err(failed.to_owned());
+        }
+        return Ok(true);
+    }
+    if exited_at.is_some_and(|at| now.duration_since(at) >= Duration::from_secs(2)) {
+        stdout.take();
+        if let Some(group) = group {
+            // Best effort while the outcome is already an error: a
+            // descendant still holds stdout. Retire while the
+            // anchor pins the group, then reap the exited leader
+            // so no zombie leaks, and fence.
+            let _ = retire_group(group, deadline);
+        }
+        // The leader is observed exited: this reap is immediate,
+        // never a wait on a running child.
+        let _ = child.wait();
+        return Err(failed.to_owned());
+    }
+    Ok(false)
+}
+
 fn wait_output_owned(
     mut child: std::process::Child,
     deadline: Instant,
@@ -418,17 +533,7 @@ fn wait_output_owned(
     // stdout cannot strand an unowned reader after the direct child exits.
     let failed = String::from("project maintenance command failed");
     let mut stdout = child.stdout.take();
-    if let Some(pipe) = stdout.as_ref() {
-        let flags = unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_GETFL) };
-        if flags < 0
-            || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
-        {
-            match settle_owned_child(&mut child, group, deadline) {
-                Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-                _ => return Err(failed),
-            }
-        }
-    }
+    mark_owned_nonblocking(&mut child, group, deadline, &stdout, &failed)?;
     let mut out = Vec::new();
     let mut exited = false;
     let mut exited_at = None;
@@ -436,86 +541,35 @@ fn wait_output_owned(
     loop {
         let now = Instant::now();
         if now >= deadline {
-            match settle_owned_child(&mut child, group, deadline) {
-                Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-                _ => return Err(failed),
-            }
+            return Err(settle_owned_err(&mut child, group, deadline, &failed));
         }
         if !exited {
-            match wait_exit_unreaped(child.id()) {
-                Ok(Some(_)) => {
-                    exited = true;
-                    exited_at = Some(now);
-                }
-                Ok(None) => {}
-                Err(_) => match settle_owned_child(&mut child, group, deadline) {
-                    Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-                    _ => return Err(failed),
-                },
-            }
+            exited_at = poll_owned_exit(&mut child, group, deadline, &failed, now)?;
+            exited = exited_at.is_some();
         }
         let mut eof = stdout.is_none();
         let mut close_stdout = false;
         if let Some(pipe) = stdout.as_mut() {
-            match pipe.read(&mut buf) {
-                Ok(0) => {
-                    eof = true;
-                    close_stdout = true;
-                }
-                Ok(n) => {
-                    const OUTPUT_LIMIT: usize = 8 << 20;
-                    if out.len().saturating_add(n) > OUTPUT_LIMIT {
-                        match settle_owned_child(&mut child, group, deadline) {
-                            Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-                            _ => return Err(failed),
-                        }
-                    }
-                    out.extend_from_slice(&buf[..n]);
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(_) => match settle_owned_child(&mut child, group, deadline) {
-                    Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-                    _ => return Err(failed),
-                },
-            }
+            (eof, close_stdout) = read_owned_stdout(
+                &mut child, group, deadline, pipe, &mut buf, &mut out, &failed,
+            )?;
         }
         if close_stdout {
             stdout = None;
         }
-        if exited {
-            if eof {
-                // The leader exited but stays unreaped: its zombie anchor
-                // pins the group id, so retiring the group here signals
-                // only owned descendants. Descendants retire before the
-                // single final reap below; a retirement failure still
-                // reaps so the anchor is never dropped, then fences with
-                // an error instead of releasing custody. The final reap
-                // is the only reap on this path; after it no numeric
-                // group from this execution may be signaled again.
-                let retired = group
-                    .map(|group| retire_group(group, deadline).is_ok())
-                    .unwrap_or(true);
-                let status = child.wait().map_err(|_| failed.clone())?;
-                if !retired || !status.success() {
-                    return Err(failed);
-                }
-                return Ok(out);
-            }
-            if exited_at.is_some_and(|at| now.duration_since(at) >= Duration::from_secs(2)) {
-                stdout.take();
-                if let Some(group) = group {
-                    // Best effort while the outcome is already an error: a
-                    // descendant still holds stdout. Retire while the
-                    // anchor pins the group, then reap the exited leader
-                    // so no zombie leaks, and fence.
-                    let _ = retire_group(group, deadline);
-                }
-                // The leader is observed exited: this reap is immediate,
-                // never a wait on a running child.
-                let _ = child.wait();
-                return Err(failed);
-            }
+        if exited
+            && settle_exited_child(
+                &mut child,
+                group,
+                deadline,
+                &mut stdout,
+                now,
+                exited_at,
+                eof,
+                &failed,
+            )?
+        {
+            return Ok(out);
         }
         std::thread::sleep(Duration::from_millis(5));
     }

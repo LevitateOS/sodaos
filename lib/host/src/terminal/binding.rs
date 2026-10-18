@@ -63,87 +63,72 @@ impl<'de> Deserialize<'de> for BindingWire {
             {
                 let mut o = BindingWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    match k.to_ascii_lowercase().as_str() {
-                        "child_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.child_id = Some(v)
-                            }
-                        }
-                        "uid" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.uid = Some(v)
-                            }
-                        }
-                        "gid" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.gid = Some(v)
-                            }
-                        }
-                        "scope" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.scope = Some(v)
-                            }
-                        }
-                        "credential_root" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.credential_root = Some(v)
-                            }
-                        }
-                        "invocation_id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.invocation_id = Some(v)
-                            }
-                        }
-                        "kind" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.kind = Some(v)
-                            }
-                        }
-                        "id" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.id = Some(v)
-                            }
-                        }
-                        "project" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.project = Some(v)
-                            }
-                        }
-                        "login" => {
-                            if let Some(v) = map.next_value::<Option<String>>()? {
-                                o.login = Some(v)
-                            }
-                        }
-                        "generation" => {
-                            if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
-                                o.generation = Some(v)
-                            }
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                &k,
-                                &[
-                                    "child_id",
-                                    "uid",
-                                    "gid",
-                                    "scope",
-                                    "credential_root",
-                                    "invocation_id",
-                                    "kind",
-                                    "id",
-                                    "project",
-                                    "login",
-                                    "generation",
-                                ],
-                            ))
-                        }
+                    let key = k.to_ascii_lowercase();
+                    if take_string_field(&mut o, key.as_str(), &mut map)? {
+                        continue;
                     }
+                    if take_integer_field(&mut o, key.as_str(), &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &k,
+                        &[
+                            "child_id",
+                            "uid",
+                            "gid",
+                            "scope",
+                            "credential_root",
+                            "invocation_id",
+                            "kind",
+                            "id",
+                            "project",
+                            "login",
+                            "generation",
+                        ],
+                    ));
                 }
                 Ok(o)
             }
         }
         d.deserialize_map(V)
     }
+}
+
+fn take_string_field<'de, A>(o: &mut BindingWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = match key {
+        "child_id" => &mut o.child_id,
+        "scope" => &mut o.scope,
+        "credential_root" => &mut o.credential_root,
+        "invocation_id" => &mut o.invocation_id,
+        "kind" => &mut o.kind,
+        "id" => &mut o.id,
+        "project" => &mut o.project,
+        "login" => &mut o.login,
+        _ => return Ok(false),
+    };
+    if let Some(v) = map.next_value::<Option<String>>()? {
+        *slot = Some(v);
+    }
+    Ok(true)
+}
+
+fn take_integer_field<'de, A>(o: &mut BindingWire, key: &str, map: &mut A) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = match key {
+        "uid" => &mut o.uid,
+        "gid" => &mut o.gid,
+        "generation" => &mut o.generation,
+        _ => return Ok(false),
+    };
+    if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
+        *slot = Some(v);
+    }
+    Ok(true)
 }
 
 fn binding_from_wire(m: BindingWire) -> Binding {

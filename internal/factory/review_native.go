@@ -48,7 +48,7 @@ type ReviewOperation struct {
 // identity and candidate history that admitted it. Historical actor, head and
 // deadline values remain immutable when current policy or publication state
 // later changes.
-func (op ReviewOperation) ValidateForPublication(p Publication) error {
+func (op ReviewOperation) validateReviewWork(p Publication) error {
 	if !ValidID(op.RunID) || op.Work.OperationID != "review-"+op.RunID {
 		return errors.New("invalid review run operation identity")
 	}
@@ -70,6 +70,10 @@ func (op ReviewOperation) ValidateForPublication(p Publication) error {
 	if !knownHead {
 		return errors.New("review head is outside the publication candidate history")
 	}
+	return nil
+}
+
+func (op ReviewOperation) validateReviewOutcomeIdentity() error {
 	if op.Outcome.NotObserved {
 		return errors.New("review outcome cannot persist an absent lookup")
 	}
@@ -84,6 +88,10 @@ func (op ReviewOperation) ValidateForPublication(p Publication) error {
 	if op.Outcome.InstallationID != "" && len(op.Outcome.InstallationID) > 256 {
 		return errors.New("review installation identity exceeds bounds")
 	}
+	return nil
+}
+
+func (op ReviewOperation) validateReviewOutcomeEnums() error {
 	if op.Outcome.Effect != "" && !ValidOpEffect(op.Outcome.Effect) {
 		return errors.New("invalid review operation effect")
 	}
@@ -99,12 +107,29 @@ func (op ReviewOperation) ValidateForPublication(p Publication) error {
 	if op.Outcome.Effect == OpEffectCommitted && (op.Outcome.InstallationID == "" || len(op.Outcome.Receipt) == 0 || op.Outcome.Completion == "") {
 		return errors.New("committed review lacks its receipt or completion")
 	}
+	return nil
+}
+
+func (op ReviewOperation) validateReviewOutcomeScope() error {
 	tombstone := op.Outcome.OperationID != "" && op.Outcome.Kind == "" && op.Outcome.ActorID == 0 && op.Outcome.RepositoryID == 0 &&
 		op.Outcome.Effect == OpEffectNotCommitted && op.Outcome.Cancellation == OpCancelCancelled
 	if op.Outcome.OperationID != "" && !tombstone && (op.Outcome.InstallationID == "" || op.Outcome.Kind != OpReviewSubmit || op.Outcome.ActorID != op.Work.ActorID || op.Outcome.RepositoryID != op.Work.Repository) {
 		return errors.New("review operation outcome scope differs")
 	}
 	return nil
+}
+
+func (op ReviewOperation) ValidateForPublication(p Publication) error {
+	if err := op.validateReviewWork(p); err != nil {
+		return err
+	}
+	if err := op.validateReviewOutcomeIdentity(); err != nil {
+		return err
+	}
+	if err := op.validateReviewOutcomeEnums(); err != nil {
+		return err
+	}
+	return op.validateReviewOutcomeScope()
 }
 
 // WithOutcome adopts one native lookup/cancel/submit response without
@@ -658,7 +683,7 @@ type ResolveRequest struct {
 // or wrong-kind binding, a wrong actor, the PR author's own identity, a
 // reply passed as root, a deleted root or changed content all refuse;
 // exact replay against unchanged evidence validates.
-func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID int64, evidence ThreadEvidence) error {
+func (r ResolveRequest) validateResolveBinding(binding ActorBindingRef, prAuthorID int64) error {
 	if binding == (ActorBindingRef{}) || binding.Kind != OpThreadResolve {
 		return errors.New("missing resolve binding")
 	}
@@ -671,6 +696,10 @@ func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID 
 	if prAuthorID <= 0 || r.ActorID == prAuthorID {
 		return errors.New("resolve actor needs its independent reviewer")
 	}
+	return nil
+}
+
+func (r ResolveRequest) validateResolveTarget() error {
 	if r.Repository <= 0 || r.PRNumber <= 0 || r.PRID <= 0 || r.RootCommentID <= 0 {
 		return errors.New("invalid resolve target")
 	}
@@ -686,6 +715,10 @@ func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID 
 	if !ValidDigest(r.Digest) {
 		return errors.New("invalid resolve conversation digest")
 	}
+	return nil
+}
+
+func (r ResolveRequest) validateResolveEvidence(evidence ThreadEvidence) error {
 	if evidence.Deleted {
 		return errors.New("resolve root deleted")
 	}
@@ -696,6 +729,16 @@ func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID 
 		return errors.New("resolve conversation changed under its request")
 	}
 	return nil
+}
+
+func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID int64, evidence ThreadEvidence) error {
+	if err := r.validateResolveBinding(binding, prAuthorID); err != nil {
+		return err
+	}
+	if err := r.validateResolveTarget(); err != nil {
+		return err
+	}
+	return r.validateResolveEvidence(evidence)
 }
 
 // ReviewCycleID derives the deterministic review-cycle identity from
@@ -858,7 +901,7 @@ type ClearReviewReport struct {
 // needs its verified assessment with evidence. A still-open assessment, a
 // missing assessment, an assessment for an unknown key or a coverage digest
 // that does not bind this exact input refuses.
-func (r ClearReviewReport) Validate(carried []Finding) error {
+func (r ClearReviewReport) validateScope(carried []Finding) error {
 	if r.Conclusion != ClearReviewConclusion {
 		return errors.New("review report is not an explicit clear")
 	}
@@ -874,29 +917,41 @@ func (r ClearReviewReport) Validate(carried []Finding) error {
 	if len(carried) > MaxOutstandingFindings {
 		return errors.New("carried finding set exceeds its bound")
 	}
+	return nil
+}
+
+func indexCarriedFindings(carried []Finding) (map[string]Finding, error) {
 	byKey := make(map[string]Finding, len(carried))
 	for _, finding := range carried {
 		if err := finding.Validate(); err != nil {
-			return err
+			return nil, err
 		}
 		if _, dup := byKey[finding.Key]; dup {
-			return errors.New("carried finding set carries a duplicate key")
+			return nil, errors.New("carried finding set carries a duplicate key")
 		}
 		byKey[finding.Key] = finding
 	}
+	return byKey, nil
+}
+
+func (r ClearReviewReport) validateAssessments(byKey map[string]Finding) (map[string]bool, error) {
 	assessed := make(map[string]bool, len(r.Assessments))
 	for _, assessment := range r.Assessments {
 		if _, ok := byKey[assessment.Key]; !ok {
-			return errors.New("clear assessment answers an unknown finding")
+			return nil, errors.New("clear assessment answers an unknown finding")
 		}
 		if assessed[assessment.Key] {
-			return errors.New("clear assessment repeats its key")
+			return nil, errors.New("clear assessment repeats its key")
 		}
 		assessed[assessment.Key] = true
 		if err := assessment.Validate(); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	return assessed, nil
+}
+
+func (r ClearReviewReport) validateActionableCoverage(carried []Finding, assessed map[string]bool) error {
 	for _, finding := range carried {
 		if !finding.Actionable {
 			continue
@@ -911,6 +966,21 @@ func (r ClearReviewReport) Validate(carried []Finding) error {
 		}
 	}
 	return nil
+}
+
+func (r ClearReviewReport) Validate(carried []Finding) error {
+	if err := r.validateScope(carried); err != nil {
+		return err
+	}
+	byKey, err := indexCarriedFindings(carried)
+	if err != nil {
+		return err
+	}
+	assessed, err := r.validateAssessments(byKey)
+	if err != nil {
+		return err
+	}
+	return r.validateActionableCoverage(carried, assessed)
 }
 
 // ClearCoverageDigest binds one clear round's claimed coverage to the

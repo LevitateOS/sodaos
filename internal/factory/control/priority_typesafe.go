@@ -33,53 +33,60 @@ func (p *TypeSafePriority) Choose(ctx context.Context, request factory.PriorityR
 // Select is shared by narrow product and planning judgments. Code supplies
 // complete state, a single rubric and explicit alternatives; this method grants
 // no authority and its caller must reserve consultation funding first.
-func (p *TypeSafePriority) Select(ctx context.Context, state any, question string, choices map[string]any) (factory.PriorityAnswer, error) {
+func admitPriorityCandidates(choices map[string]any) (factory.PriorityRequest, error) {
 	request := factory.PriorityRequest{}
 	for id := range choices {
 		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
 	}
 	if len(request.Candidates) < 2 || len(request.Candidates) > 255 {
-		return factory.PriorityAnswer{}, errors.New("invalid priority choice size")
+		return factory.PriorityRequest{}, errors.New("invalid priority choice size")
 	}
-	file, err := os.Open(p.APIKeyFile)
+	return request, nil
+}
+
+func readPriorityKeyFile(path string) (string, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+		return "", ErrPriorityUnavailable
 	}
 	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+		return "", ErrPriorityUnavailable
 	}
 	key, err := io.ReadAll(io.LimitReader(file, 65537))
 	if err != nil || len(key) > 65536 || len(bytes.TrimSpace(key)) == 0 {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+		return "", ErrPriorityUnavailable
 	}
-	model := p.Model
-	if model == "" {
-		model = "jev-latest"
-	}
+	return strings.TrimSpace(string(key)), nil
+}
+
+func postPriorityRequest(ctx context.Context, client *http.Client, model string, state any, question string, choices map[string]any, key string) (*http.Response, error) {
 	body, err := json.Marshal(map[string]any{"model": model, "state": state, "questions": map[string]any{"priority": map[string]any{"type": "choice", "instructions": question, "criteria": choices}}})
 	if err != nil {
-		return factory.PriorityAnswer{}, err
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.typesafe.ai/v1/systemone", bytes.NewReader(body))
 	if err != nil {
-		return factory.PriorityAnswer{}, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(key)))
-	client := p.Client
+	req.Header.Set("Authorization", "Bearer "+key)
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+		return nil, ErrPriorityUnavailable
 	}
-	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+		_ = response.Body.Close()
+		return nil, ErrPriorityUnavailable
 	}
+	return response, nil
+}
+
+func decodePriorityResponse(response *http.Response, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
 	var out struct {
 		Model   string `json:"model"`
 		Answers map[string]struct {
@@ -110,4 +117,25 @@ func (p *TypeSafePriority) Select(ctx context.Context, state any, question strin
 		return answer, ErrPriorityUnavailable
 	}
 	return answer, answer.Validate(request)
+}
+
+func (p *TypeSafePriority) Select(ctx context.Context, state any, question string, choices map[string]any) (factory.PriorityAnswer, error) {
+	request, err := admitPriorityCandidates(choices)
+	if err != nil {
+		return factory.PriorityAnswer{}, err
+	}
+	key, err := readPriorityKeyFile(p.APIKeyFile)
+	if err != nil {
+		return factory.PriorityAnswer{}, err
+	}
+	model := p.Model
+	if model == "" {
+		model = "jev-latest"
+	}
+	response, err := postPriorityRequest(ctx, p.Client, model, state, question, choices, key)
+	if err != nil {
+		return factory.PriorityAnswer{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return decodePriorityResponse(response, request)
 }

@@ -40,9 +40,7 @@ pub(super) fn bridge_ip(ip_output: &[u8]) -> Option<String> {
     }
 }
 
-/// Input, native-toolchain and lease admission: the setup stages below
-/// only run once this returns.
-pub(super) fn preflight() -> Result<Preflight, Exit> {
+fn admitted_inputs() -> Result<(String, String, String, String), Exit> {
     // Like the script, which parsed none, all arguments are ignored.
     let prefix = env_or("SODA_REPOSITORY_PREFIX", PREFIX_DEFAULT);
     let refresh = env_or("SODA_REFRESH_AUTHORITY", "0");
@@ -55,14 +53,20 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
             "set SODA_FOUNTAIN_RELEASE_URL to the selected immutable HTTPS Fountain release.json",
         );
     }
+    Ok((prefix, refresh, forgejo_source, fountain_release_url))
+}
+
+fn admitted_storage() -> Storage {
     let storage_root = env_or("SODA_CANDIDATE_ROOT", STORAGE_ROOT_DEFAULT);
-    let storage = Storage {
+    Storage {
         home: env_or("SODA_CANDIDATE_HOME", &format!("{storage_root}/home")),
         run: env_or("SODA_CANDIDATE_RUN", &format!("{storage_root}/run")),
         scratch: env_or("SODA_CANDIDATE_SCRATCH", &format!("{storage_root}/scratch")),
         root: storage_root,
-    };
+    }
+}
 
+fn bridge_rootfs_url() -> String {
     let mut rootfs_url = String::new();
     if let Captured::Done(code, out) = capture("ip", &["-4", "-o", "addr", "show", "virbr0"], true)
     {
@@ -72,20 +76,16 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
             }
         }
     }
+    rootfs_url
+}
 
-    let pwd = current_pwd();
-    let output_parent = format!("{pwd}/.artifacts/releases/isolated");
-    let worker_json_path = format!("{AUTHORITY}/worker.json");
-
-    if !is_file("go.mod") {
-        return fail("run from the repository root");
-    }
+fn admitted_checkout(forgejo_source: &str) -> Result<(), Exit> {
     if forgejo_source.is_empty() {
         return fail("set SODA_FORGEJO_SOURCE to the canonical Fountain SDK checkout");
     }
     let forgejo_git = format!("{forgejo_source}/.git");
     let canonical_ok = is_dir(&forgejo_git)
-        && match capture("realpath", &[forgejo_source.as_str()], false) {
+        && match capture("realpath", &[forgejo_source], false) {
             Captured::SpawnFailed(_) => false,
             Captured::Done(code, out) => code == 0 && stripped(&out) == forgejo_source.as_bytes(),
         };
@@ -102,7 +102,7 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
                 "-c",
                 &safe_dir,
                 "-C",
-                &forgejo_source,
+                forgejo_source,
                 "rev-parse",
                 "--verify",
                 "HEAD^{commit}",
@@ -114,6 +114,10 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     if !forgejo_committed {
         return fail("committed canonical Fountain SDK checkout required");
     }
+    Ok(())
+}
+
+fn admitted_host() -> Result<(), Exit> {
     let arch_ok = match capture("uname", &["-m"], false) {
         Captured::SpawnFailed(_) => false,
         Captured::Done(_, out) => stripped(&out) == b"x86_64",
@@ -135,6 +139,10 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     if !user_ok {
         return fail("soda-build-worker user missing");
     }
+    Ok(())
+}
+
+fn admitted_toolchain() -> Result<(String, String, String), Exit> {
     // D01-F3: only a successful empty status proves clean.
     let dirty = !git_tree_clean(&capture(
         "git",
@@ -166,7 +174,10 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
         }
     };
     let want = format!("go version go{pinned} linux/amd64");
+    Ok((pinned, pinned_goroot, want))
+}
 
+fn held_lease() -> Result<(), Exit> {
     let user = String::from_utf8_lossy(&id_un()).into_owned();
     let lock_path = env::temp_dir()
         .join(format!("soda-setup-{user}.lock"))
@@ -194,6 +205,25 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     // just until this function returns and the staging cleanup runs.
     std::mem::forget(lease);
     refuse_active_build()?;
+    Ok(())
+}
+
+/// Input, native-toolchain and lease admission: the setup stages below
+/// only run once this returns.
+pub(super) fn preflight() -> Result<Preflight, Exit> {
+    let (prefix, refresh, forgejo_source, fountain_release_url) = admitted_inputs()?;
+    let storage = admitted_storage();
+    let rootfs_url = bridge_rootfs_url();
+    let pwd = current_pwd();
+    let output_parent = format!("{pwd}/.artifacts/releases/isolated");
+    let worker_json_path = format!("{AUTHORITY}/worker.json");
+    if !is_file("go.mod") {
+        return fail("run from the repository root");
+    }
+    admitted_checkout(&forgejo_source)?;
+    admitted_host()?;
+    let (pinned, pinned_goroot, want) = admitted_toolchain()?;
+    held_lease()?;
     Ok(Preflight {
         prefix,
         refresh,

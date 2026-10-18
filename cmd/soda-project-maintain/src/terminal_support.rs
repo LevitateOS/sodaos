@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use soda_build_tools::project_support::{ProjectSupport, DESTINATION};
 use soda_host::project::admission;
 
-use crate::filesystem::{open_tool, verify_native};
+use crate::filesystem::{open_tool, verify_native, Tool};
 use crate::project::Observation;
 use crate::release::is_hex_string;
 use crate::support_root::Root;
@@ -186,15 +186,149 @@ fn save(path: &Path, record: &Operation) -> Result<(), String> {
         .map_err(|_| "maintenance directory sync failed".into())
 }
 
-pub(crate) fn run(args: &[String]) -> Result<(), String> {
-    let o = options(args)?;
-    let (release, path, digest) = target(o.development)?;
+fn admitted_source(path: &str, digest: &str) -> Result<Tool, String> {
     let (dir, name) = path.rsplit_once('/').ok_or("invalid support path")?;
     let source = open_tool(dir, name)?;
     if source.size == 0 || source.size > 32 << 20 {
         return Err("invalid support size".into());
     }
-    verify_native(&source, &digest)?;
+    verify_native(&source, digest)?;
+    Ok(source)
+}
+
+fn load_interrupted(
+    marker: &Path,
+    observation: &Observation,
+    release: &str,
+    digest: &str,
+    actual: &str,
+) -> Result<Option<Operation>, String> {
+    match fs::symlink_metadata(marker) {
+        Ok(_) => {
+            let record: Operation =
+                serde_json::from_slice(&trusted_read(marker, 16384)?).map_err(|_| {
+                    "interrupted maintenance record unreadable; admission remains closed"
+                })?;
+            reconcile(&record, observation, release, digest, actual)?;
+            Ok(Some(record))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(_) => Err("maintenance state unavailable".into()),
+    }
+}
+
+fn preflight(
+    project: &str,
+    target: Root,
+    interrupted: bool,
+    actual: &str,
+    digest: &str,
+    deadline: Instant,
+) -> Result<(), String> {
+    if actual != digest {
+        guest(&target, "idle", digest, deadline).map_err(|_| {
+            "active or uncertain managed terminal/factory work blocks maintenance; no files changed"
+        })?;
+    }
+    println!(
+        "Project {}: {}; {}",
+        project,
+        if actual == digest {
+            "ready"
+        } else {
+            "support mismatch; explicit maintenance required"
+        },
+        if interrupted {
+            "interrupted operation requires reconciliation"
+        } else {
+            "read-only preflight; runtime compatibility checked only during maintenance"
+        }
+    );
+    target.close()
+}
+
+fn replace_support(
+    target: &Root,
+    record: &mut Option<Operation>,
+    project: &str,
+    release: String,
+    digest: &str,
+    actual: &str,
+    source: &Tool,
+    marker: &Path,
+    deadline: Instant,
+) -> Result<(), String> {
+    // Prove idle before recording an operation; an ordinary busy refusal closes no admission.
+    guest(target, "idle", digest, deadline).map_err(|_| {
+        "active or uncertain managed terminal/factory work blocks maintenance; no files changed"
+    })?;
+    let record = record.get_or_insert(Operation {
+        project: project.to_owned(),
+        container: target.observation.id.clone(),
+        release,
+        old_sha256: actual.to_owned(),
+        target_sha256: digest.to_owned(),
+        previous: format!("{PREVIOUS}{actual}"),
+    });
+    if !marker.exists() {
+        save(marker, record)?;
+    }
+    // Staging and replacement share the guest terminal/factory exclusion; interruption leaves the marker.
+    target
+        .install(SCRIPT, digest, &record.old_sha256, source, deadline)
+        .map_err(|e| {
+            format!(
+                "{e}; rerun the same maintenance to reconcile; managed admission remains closed"
+            )
+        })?;
+    Ok(())
+}
+
+fn finish(
+    target: Root,
+    record: &Option<Operation>,
+    marker: &Path,
+    project: &str,
+    development: bool,
+    digest: &str,
+    deadline: Instant,
+) -> Result<(), String> {
+    if guest(&target, "observe", digest, deadline)? != digest {
+        return Err("support replacement unconfirmed; admission remains closed".into());
+    }
+    if let Some(record) = &record {
+        retire_recovery_copies(
+            &target,
+            digest,
+            &record.old_sha256,
+            &record.target_sha256,
+            deadline,
+        )?;
+    }
+    target.close()?;
+    if marker.exists() {
+        fs::remove_file(marker)
+            .map_err(|_| "verified support, but admission record removal failed")?;
+        fs::File::open(admission::DIRECTORY)
+            .and_then(|f| f.sync_all())
+            .map_err(|_| "admission directory sync failed")?;
+    }
+    println!(
+        "Project {}: terminal support ready{}",
+        project,
+        if development {
+            " (development installed-host repair; no release upgrade qualification)"
+        } else {
+            ""
+        }
+    );
+    Ok(())
+}
+
+pub(crate) fn run(args: &[String]) -> Result<(), String> {
+    let o = options(args)?;
+    let (release, path, digest) = target(o.development)?;
+    let source = admitted_source(&path, &digest)?;
     let _guard = admission::exclusive()?;
     if fs::symlink_metadata(Path::new(admission::DIRECTORY).join("operation.json")).is_ok() {
         return Err("release maintenance is in progress; use release recovery".into());
@@ -203,94 +337,39 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     let target = Root::open(&o.project, deadline)?;
     let actual = guest(&target, "observe", &digest, deadline)?;
     let marker = admission::marker_path(&o.project);
-    let mut record = match fs::symlink_metadata(&marker) {
-        Ok(_) => {
-            let record: Operation = serde_json::from_slice(&trusted_read(&marker, 16384)?)
-                .map_err(|_| {
-                    "interrupted maintenance record unreadable; admission remains closed"
-                })?;
-            reconcile(&record, &target.observation, &release, &digest, &actual)?;
-            Some(record)
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(_) => return Err("maintenance state unavailable".into()),
-    };
+    let mut record = load_interrupted(&marker, &target.observation, &release, &digest, &actual)?;
     if o.check {
-        if actual != digest {
-            guest(&target, "idle", &digest, deadline)
-                .map_err(|_| "active or uncertain managed terminal/factory work blocks maintenance; no files changed")?;
-        }
-        println!(
-            "Project {}: {}; {}",
-            o.project,
-            if actual == digest {
-                "ready"
-            } else {
-                "support mismatch; explicit maintenance required"
-            },
-            if record.is_some() {
-                "interrupted operation requires reconciliation"
-            } else {
-                "read-only preflight; runtime compatibility checked only during maintenance"
-            }
+        return preflight(
+            &o.project,
+            target,
+            record.is_some(),
+            &actual,
+            &digest,
+            deadline,
         );
-        return target.close();
     }
     if actual != digest {
-        // Prove idle before recording an operation; an ordinary busy refusal closes no admission.
-        guest(&target, "idle", &digest, deadline).map_err(|_| {
-            "active or uncertain managed terminal/factory work blocks maintenance; no files changed"
-        })?;
-        let record = record.get_or_insert(Operation {
-            project: o.project.clone(),
-            container: target.observation.id.clone(),
-            release,
-            old_sha256: actual.clone(),
-            target_sha256: digest.clone(),
-            previous: format!("{PREVIOUS}{actual}"),
-        });
-        if !marker.exists() {
-            save(&marker, &record)?;
-        }
-        // Staging and replacement share the guest terminal/factory exclusion; interruption leaves the marker.
-        target
-            .install(SCRIPT, &digest, &record.old_sha256, &source, deadline)
-            .map_err(|e| {
-                format!(
-                "{e}; rerun the same maintenance to reconcile; managed admission remains closed"
-            )
-            })?;
-    }
-    if guest(&target, "observe", &digest, deadline)? != digest {
-        return Err("support replacement unconfirmed; admission remains closed".into());
-    }
-    if let Some(record) = &record {
-        retire_recovery_copies(
+        replace_support(
             &target,
+            &mut record,
+            &o.project,
+            release,
             &digest,
-            &record.old_sha256,
-            &record.target_sha256,
+            &actual,
+            &source,
+            &marker,
             deadline,
         )?;
     }
-    target.close()?;
-    if marker.exists() {
-        fs::remove_file(&marker)
-            .map_err(|_| "verified support, but admission record removal failed")?;
-        fs::File::open(admission::DIRECTORY)
-            .and_then(|f| f.sync_all())
-            .map_err(|_| "admission directory sync failed")?;
-    }
-    println!(
-        "Project {}: terminal support ready{}",
-        o.project,
-        if o.development {
-            " (development installed-host repair; no release upgrade qualification)"
-        } else {
-            ""
-        }
-    );
-    Ok(())
+    finish(
+        target,
+        &record,
+        &marker,
+        &o.project,
+        o.development,
+        &digest,
+        deadline,
+    )
 }
 
 #[cfg(test)]

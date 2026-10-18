@@ -65,27 +65,39 @@ fn field<'a>(fields: &'a [(String, Box<RawValue>)], name: &str) -> Option<&'a Ra
         .map(|(_, value)| value.as_ref())
 }
 
+/// Decode an input frame: base64 data within its bound.
+fn decode_input_frame(fields: &[(String, Box<RawValue>)]) -> Option<ControlFrame> {
+    if !has_fields(fields, &["type", "data"]) {
+        return None;
+    }
+    let data: String = serde_json::from_str(field(fields, "data")?.get()).ok()?;
+    let decoded = b64::decode(&data)?;
+    if decoded.is_empty() || decoded.len() > 16384 {
+        return None;
+    }
+    Some(ControlFrame::Input(decoded))
+}
+
+/// Decode a resize frame: bounded terminal dimensions.
+fn decode_resize_frame(fields: &[(String, Box<RawValue>)]) -> Option<ControlFrame> {
+    if !has_fields(fields, &["type", "cols", "rows"]) {
+        return None;
+    }
+    let cols: i64 = field(fields, "cols")?.get().parse().ok()?;
+    let rows: i64 = field(fields, "rows")?.get().parse().ok()?;
+    if !dimensions(cols, rows) {
+        return None;
+    }
+    Some(ControlFrame::Resize { cols, rows })
+}
+
 /// `decode_frame`: strict shapes over unique-key objects.
 pub fn decode_frame(raw: &[u8]) -> Option<ControlFrame> {
     let FrameFields(fields) = serde_json::from_slice(raw).ok()?;
     let kind: String = serde_json::from_str(field(&fields, "type")?.get()).ok()?;
     match kind.as_str() {
-        "input" if has_fields(&fields, &["type", "data"]) => {
-            let data: String = serde_json::from_str(field(&fields, "data")?.get()).ok()?;
-            let decoded = b64::decode(&data)?;
-            if decoded.is_empty() || decoded.len() > 16384 {
-                return None;
-            }
-            Some(ControlFrame::Input(decoded))
-        }
-        "resize" if has_fields(&fields, &["type", "cols", "rows"]) => {
-            let cols: i64 = field(&fields, "cols")?.get().parse().ok()?;
-            let rows: i64 = field(&fields, "rows")?.get().parse().ok()?;
-            if !dimensions(cols, rows) {
-                return None;
-            }
-            Some(ControlFrame::Resize { cols, rows })
-        }
+        "input" => decode_input_frame(&fields),
+        "resize" => decode_resize_frame(&fields),
         "heartbeat" if has_fields(&fields, &["type"]) => Some(ControlFrame::Heartbeat),
         "close" if has_fields(&fields, &["type"]) => Some(ControlFrame::Close),
         _ => None,

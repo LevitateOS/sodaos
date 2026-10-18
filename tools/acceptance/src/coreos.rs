@@ -379,7 +379,9 @@ pub fn registry_endpoint(registry: &str) -> Result<(String, String), Error> {
 
 /// Read the container manifest index and return the x86_64 digest-pinned
 /// ref. Mirrors `resolveRegistryDigests`.
-pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
+/// Fetch the container index: endpoint, bounded fetch, status gate.
+/// Returns the registry host plus the raw body.
+fn fetch_container_index(phase: &Phase) -> Result<(String, Vec<u8>), Error> {
     let registry = registry_url();
     let (endpoint, host) = registry_endpoint(&registry)?;
     let extra = vec![
@@ -409,6 +411,42 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
             "container registry HTTP failure: {shown}"
         )));
     }
+    Ok((host, body))
+}
+
+/// Check one index entry for the wanted architecture, returning its digest.
+/// `None` means another architecture: keep looking.
+fn match_manifest_arch(manifest: &JsonValue, oci_arch: &str) -> Result<Option<String>, Error> {
+    let JsonValue::Object(_) = manifest else {
+        return Err(Error::msg("container index is malformed"));
+    };
+    if let Some(platform) = manifest.get("platform") {
+        if !matches!(platform, JsonValue::Object(_) | JsonValue::Null) {
+            return Err(Error::msg("container index is malformed"));
+        }
+    }
+    if manifest
+        .get("platform")
+        .and_then(|p| p.get("architecture"))
+        .and_then(|v| v.as_str())
+        != Some(oci_arch)
+    {
+        return Ok(None);
+    }
+    let Some(digest) = manifest.get("digest").and_then(|v| v.as_str()) else {
+        return Err(Error::msg("container index x86_64 digest is malformed"));
+    };
+    let Some(hex) = digest.strip_prefix("sha256:") else {
+        return Err(Error::msg("container index x86_64 digest is malformed"));
+    };
+    if !is_digest(hex) {
+        return Err(Error::msg("container index x86_64 digest is malformed"));
+    }
+    Ok(Some(digest.to_string()))
+}
+
+pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
+    let (host, body) = fetch_container_index(phase)?;
     let text =
         std::str::from_utf8(&body).map_err(|_| Error::msg("container index is malformed"))?;
     let index = JsonValue::parse(text).map_err(|_| Error::msg("container index is malformed"))?;
@@ -422,32 +460,9 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
     let oci_arch = oci_architecture("x86_64").map_err(|err| Error::msg(err.to_string()))?;
     let mut found = String::new();
     for manifest in manifests {
-        let JsonValue::Object(_) = manifest else {
-            return Err(Error::msg("container index is malformed"));
-        };
-        if let Some(platform) = manifest.get("platform") {
-            if !matches!(platform, JsonValue::Object(_) | JsonValue::Null) {
-                return Err(Error::msg("container index is malformed"));
-            }
+        if let Some(digest) = match_manifest_arch(manifest, &oci_arch)? {
+            found = digest;
         }
-        if manifest
-            .get("platform")
-            .and_then(|p| p.get("architecture"))
-            .and_then(|v| v.as_str())
-            != Some(oci_arch)
-        {
-            continue;
-        }
-        let Some(digest) = manifest.get("digest").and_then(|v| v.as_str()) else {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
-        };
-        let Some(hex) = digest.strip_prefix("sha256:") else {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
-        };
-        if !is_digest(hex) {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
-        }
-        found = digest.to_string();
     }
     if found.is_empty() {
         return Err(Error::msg("container index lacks architecture x86_64"));

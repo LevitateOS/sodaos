@@ -184,6 +184,37 @@ struct ConnectionWire {
     state: String,
 }
 
+/// Feed one free-text connection field. Returns whether `key` belonged to
+/// this family.
+fn feed_connection_text<'de, A>(
+    out: &mut ConnectionWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("provider_id") {
+        &mut out.provider_id
+    } else if key.eq_ignore_ascii_case("id") {
+        &mut out.id
+    } else if key.eq_ignore_ascii_case("label") {
+        &mut out.label
+    } else if key.eq_ignore_ascii_case("email") {
+        &mut out.email
+    } else if key.eq_ignore_ascii_case("plan") {
+        &mut out.plan
+    } else if key.eq_ignore_ascii_case("state") {
+        &mut out.state
+    } else {
+        return Ok(false);
+    };
+    if let Some(v) = map.next_value::<Option<String>>()? {
+        *slot = v;
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for ConnectionWire {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -201,53 +232,34 @@ impl<'de> Deserialize<'de> for ConnectionWire {
             {
                 let mut out = ConnectionWire::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    if key.eq_ignore_ascii_case("provider_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.provider_id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("owner_id") {
+                    if key.eq_ignore_ascii_case("owner_id") {
                         if let Some(v) = map.next_value::<Option<String>>()? {
                             out.owner_id = Some(v);
                         }
-                    } else if key.eq_ignore_ascii_case("label") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.label = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("email") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.email = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("plan") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.plan = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("generation") {
+                        continue;
+                    }
+                    if key.eq_ignore_ascii_case("generation") {
                         if let Some(v) = map.next_value::<Option<SignedInteger>>()? {
                             out.generation = v.0;
                         }
-                    } else if key.eq_ignore_ascii_case("state") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.state = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "provider_id",
-                                "id",
-                                "owner_id",
-                                "label",
-                                "email",
-                                "plan",
-                                "generation",
-                                "state",
-                            ],
-                        ));
+                        continue;
                     }
+                    if feed_connection_text(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "provider_id",
+                            "id",
+                            "owner_id",
+                            "label",
+                            "email",
+                            "plan",
+                            "generation",
+                            "state",
+                        ],
+                    ));
                 }
                 Ok(out)
             }
@@ -287,6 +299,35 @@ struct ExecutionWire {
     lease_id: String,
 }
 
+/// Feed one free-text execution field. Returns whether `key` belonged to
+/// this family.
+fn feed_execution_text<'de, A>(
+    out: &mut ExecutionWire,
+    key: &str,
+    map: &mut A,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let slot = if key.eq_ignore_ascii_case("kind") {
+        &mut out.kind
+    } else if key.eq_ignore_ascii_case("execution_id") {
+        &mut out.execution_id
+    } else if key.eq_ignore_ascii_case("digest") {
+        &mut out.digest
+    } else if key.eq_ignore_ascii_case("state") {
+        &mut out.state
+    } else if key.eq_ignore_ascii_case("lease_id") {
+        &mut out.lease_id
+    } else {
+        return Ok(false);
+    };
+    if let Some(v) = map.next_value::<Option<String>>()? {
+        *slot = v;
+    }
+    Ok(true)
+}
+
 impl<'de> Deserialize<'de> for ExecutionWire {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -308,39 +349,22 @@ impl<'de> Deserialize<'de> for ExecutionWire {
                         if let Some(v) = map.next_value::<Option<Binding>>()? {
                             out.binding = Some(v);
                         }
-                    } else if key.eq_ignore_ascii_case("kind") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.kind = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("execution_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.execution_id = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("digest") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.digest = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("state") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.state = v;
-                        }
-                    } else if key.eq_ignore_ascii_case("lease_id") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            out.lease_id = v;
-                        }
-                    } else {
-                        return Err(de::Error::unknown_field(
-                            &key,
-                            &[
-                                "binding",
-                                "kind",
-                                "execution_id",
-                                "digest",
-                                "state",
-                                "lease_id",
-                            ],
-                        ));
+                        continue;
                     }
+                    if feed_execution_text(&mut out, &key, &mut map)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(
+                        &key,
+                        &[
+                            "binding",
+                            "kind",
+                            "execution_id",
+                            "digest",
+                            "state",
+                            "lease_id",
+                        ],
+                    ));
                 }
                 Ok(out)
             }

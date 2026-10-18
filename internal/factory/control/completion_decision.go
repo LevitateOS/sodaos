@@ -183,15 +183,15 @@ var errReassessmentExhausted = errors.New("reassessment funding exhausted")
 // drive re-reads the shared receipt instead of charging again.
 var errReassessmentDeferred = errors.New("reassessment decision in flight")
 
-func (c *Coordinator) DecideReassessment(ctx context.Context, record store.ReassessmentRecord, state ReassessmentDecisionState) (store.ReassessmentRecord, error) {
+func checkReassessmentDecisionInput(c *Coordinator, record store.ReassessmentRecord, state ReassessmentDecisionState) error {
 	if c.Planning == nil || c.Planning.Chooser == nil || c.Store == nil {
-		return store.ReassessmentRecord{}, ErrPriorityUnavailable
+		return ErrPriorityUnavailable
 	}
 	if record.Cycle.State != factory.ReassessmentDeciding {
-		return store.ReassessmentRecord{}, errors.New("reassessment decision outside its deciding state")
+		return errors.New("reassessment decision outside its deciding state")
 	}
 	if state.CompletionID != record.Cycle.EventID || state.CycleID != record.Cycle.CycleID {
-		return store.ReassessmentRecord{}, errors.New("reassessment decision does not match its cycle")
+		return errors.New("reassessment decision does not match its cycle")
 	}
 	// Material mismatch refuses before any reservation or provider
 	// spend: the decision input carries the sealed local and digests of
@@ -199,32 +199,72 @@ func (c *Coordinator) DecideReassessment(ctx context.Context, record store.Reass
 	// closed on unvalidated material: pointer-identical locals with
 	// invalid bodies never compare equal.
 	if err := state.Local.Validate(); err != nil {
-		return store.ReassessmentRecord{}, errors.New("reassessment decision lacks its sealed material")
+		return errors.New("reassessment decision lacks its sealed material")
 	}
 	if !state.Local.Equal(record.Local) {
-		return store.ReassessmentRecord{}, errors.New("reassessment decision material does not match its cycle")
+		return errors.New("reassessment decision material does not match its cycle")
 	}
 	if state.InventoryDigest != record.InventoryDigest || state.EvidenceFingerprint != record.EvidenceFingerprint {
-		return store.ReassessmentRecord{}, errors.New("reassessment decision evidence does not match its cycle")
+		return errors.New("reassessment decision evidence does not match its cycle")
 	}
-	cycleID := record.Cycle.CycleID
+	return nil
+}
+
+func (c *Coordinator) reserveReassessmentDecision(ctx context.Context, cycleID, decision, fingerprint string) (bool, error) {
+	reserved, err := c.Store.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, decision, fingerprint)
+	if err != nil {
+		if errors.Is(err, store.ErrReassessmentBudgetExhausted) {
+			return false, errReassessmentExhausted
+		}
+		return false, err
+	}
+	if !reserved {
+		// Fingerprint taken without a completed receipt yet, or
+		// the ledger already holds this call: reconcile against
+		// the shared read path instead of charging again.
+		if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprint); readErr == nil && len(prior.Calls) == 1 && prior.Calls[0].Failure == "" {
+			return false, nil
+		}
+	}
+	return reserved, nil
+}
+
+func (c *Coordinator) recoverReassessmentDecision(ctx context.Context, record store.ReassessmentRecord, state ReassessmentDecisionState, adviceErr error) (store.ReassessmentRecord, error) {
+	// The shared receipt tells a charged failure from an
+	// in-flight reservation. A completed receipt never hides
+	// behind this error: apply it, or hold with attention
+	// when it is not actionable. Without any receipt the
+	// reservation is still in flight (or its ledger is spent
+	// with receipts lost): defer while calls remain, attend
+	// when the ledger is exhausted so explicit Retry can
+	// reconcile. Nothing here infers continue.
+	if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); readErr == nil && len(prior.Calls) == 1 {
+		if prior.Calls[0].Failure == "" {
+			updated, applyErr := applyReassessmentAnswer(record.Cycle, prior.Calls[0].Answer)
+			if applyErr != nil {
+				record.WaitReason = "decision_not_actionable"
+				return record, applyErr
+			}
+			record.Cycle = updated
+			return record, nil
+		}
+		record.WaitReason = "decision_unavailable"
+		return record, adviceErr
+	}
+	if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
+		record.WaitReason = "decision_unavailable"
+		return record, adviceErr
+	}
+	return record, errReassessmentDeferred
+}
+
+func (c *Coordinator) DecideReassessment(ctx context.Context, record store.ReassessmentRecord, state ReassessmentDecisionState) (store.ReassessmentRecord, error) {
+	if err := checkReassessmentDecisionInput(c, record, state); err != nil {
+		return store.ReassessmentRecord{}, err
+	}
+	cycleID, decision := record.Cycle.CycleID, record.Cycle.Decision
 	reserve := func(ctx context.Context, fingerprint string) (bool, error) {
-		reserved, err := c.Store.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, record.Cycle.Decision, fingerprint)
-		if err != nil {
-			if errors.Is(err, store.ErrReassessmentBudgetExhausted) {
-				return false, errReassessmentExhausted
-			}
-			return false, err
-		}
-		if !reserved {
-			// Fingerprint taken without a completed receipt yet, or
-			// the ledger already holds this call: reconcile against
-			// the shared read path instead of charging again.
-			if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprint); readErr == nil && len(prior.Calls) == 1 && prior.Calls[0].Failure == "" {
-				return false, nil
-			}
-		}
-		return reserved, nil
+		return c.reserveReassessmentDecision(ctx, cycleID, decision, fingerprint)
 	}
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose: factory.JudgmentPurpose(factory.ReassessmentDecisionPurpose),
@@ -237,32 +277,7 @@ func (c *Coordinator) DecideReassessment(ctx context.Context, record store.Reass
 			return record, errReassessmentExhausted
 		}
 		if errors.Is(err, ErrPriorityUnavailable) {
-			// The shared receipt tells a charged failure from an
-			// in-flight reservation. A completed receipt never hides
-			// behind this error: apply it, or hold with attention
-			// when it is not actionable. Without any receipt the
-			// reservation is still in flight (or its ledger is spent
-			// with receipts lost): defer while calls remain, attend
-			// when the ledger is exhausted so explicit Retry can
-			// reconcile. Nothing here infers continue.
-			if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); readErr == nil && len(prior.Calls) == 1 {
-				if prior.Calls[0].Failure == "" {
-					updated, applyErr := applyReassessmentAnswer(record.Cycle, prior.Calls[0].Answer)
-					if applyErr != nil {
-						record.WaitReason = "decision_not_actionable"
-						return record, applyErr
-					}
-					record.Cycle = updated
-					return record, nil
-				}
-				record.WaitReason = "decision_unavailable"
-				return record, err
-			}
-			if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
-				record.WaitReason = "decision_unavailable"
-				return record, err
-			}
-			return record, errReassessmentDeferred
+			return c.recoverReassessmentDecision(ctx, record, state, err)
 		}
 		return store.ReassessmentRecord{}, err
 	}

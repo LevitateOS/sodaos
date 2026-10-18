@@ -1,6 +1,6 @@
 //! `record` and `start`: tool-evidence intake plus supervised launch.
 
-use super::fsx::{hold_json, hold_state};
+use super::fsx::{hold_json, hold_state, Hold};
 use super::ops_inspect::group_alive;
 use crate::emit::{self, obj, str_value};
 use crate::error::{fail, Error};
@@ -250,7 +250,7 @@ pub fn phase_of(ctx: &crate::Ctx, directory: &Path) -> Result<(String, Option<St
     Ok(("running".to_string(), None))
 }
 
-pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+fn check_inspect_shape(data: &StateValue) -> Result<(), Error> {
     let shape_ok = validate::as_object(data).is_some_and(|entries| {
         validate::key_set(entries, &["op"])
             || validate::key_set(entries, &["op", "id"])
@@ -259,58 +259,66 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
     if !shape_ok {
         return fail("unsupported inspect request");
     }
-    fsx::ensure_layout(ctx)?;
-    let hold = hold_state(ctx)?;
-    if data.get("id").is_none() {
-        return Ok(obj(vec![("hold", hold_json(&hold))]));
+    Ok(())
+}
+
+fn check_start_deadline(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    deadline: &StateValue,
+) -> Result<(), Error> {
+    let expected = deadline
+        .as_str()
+        .filter(|text| soda_wire_time::parse_nanos(text).is_some())
+        .ok_or_else(|| Error::fail("invalid preparation deadline"))?;
+    match fsx::read_json(ctx, &directory.join("started.json"), 1024) {
+        Ok(started)
+            if started.get("deadline").and_then(|value| value.as_str()) == Some(expected) => {}
+        Err(Error::Missing) => {}
+        Ok(_) => return fail("preparation start deadline changed"),
+        Err(error) => return Err(error),
     }
-    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
-    let directory = fsx::prep_dir(ctx, &pid)?;
-    if let Some(deadline) = data.get("deadline") {
-        let expected = deadline
-            .as_str()
-            .filter(|text| soda_wire_time::parse_nanos(text).is_some())
-            .ok_or_else(|| Error::fail("invalid preparation deadline"))?;
-        match fsx::read_json(ctx, &directory.join("started.json"), 1024) {
-            Ok(started)
-                if started.get("deadline").and_then(|value| value.as_str()) == Some(expected) => {}
-            Err(Error::Missing) => {}
-            Ok(_) => return fail("preparation start deadline changed"),
-            Err(error) => return Err(error),
-        }
+    Ok(())
+}
+
+fn read_known_request(ctx: &crate::Ctx, directory: &Path) -> Result<Option<StateValue>, Error> {
+    match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
+        Ok(value) => Ok(Some(value)),
+        Err(Error::Missing) => Ok(None),
+        Err(err) => Err(err),
     }
-    let request = match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
-        Ok(value) => value,
-        Err(Error::Missing) => {
-            return Ok(obj(vec![
-                ("hold", hold_json(&hold)),
-                ("known", StateValue::Bool(false)),
-            ]));
-        }
-        Err(err) => return Err(err),
-    };
-    let (mut phase, finished) = phase_of(ctx, &directory)?;
-    let tools = match fsx::read_json(ctx, &directory.join("tools.json"), 65536) {
-        Ok(value) => value,
-        Err(Error::Missing) => obj(vec![
+}
+
+fn read_inspect_tools(ctx: &crate::Ctx, directory: &Path) -> Result<StateValue, Error> {
+    match fsx::read_json(ctx, &directory.join("tools.json"), 65536) {
+        Ok(value) => Ok(value),
+        Err(Error::Missing) => Ok(obj(vec![
             ("tools", StateValue::Array(Vec::new())),
             ("missing", str_value("")),
             ("verified", obj(vec![])),
-        ]),
-        Err(err) => return Err(err),
-    };
-    let stopped = fsx::lexists(&directory.join("stopped.json"));
-    if stopped && ["running", "approved", "waiting", "interrupted"].contains(&phase.as_str()) {
-        phase = "stopped".to_string();
+        ])),
+        Err(err) => Err(err),
     }
+}
+
+fn assemble_inspection(
+    ctx: &crate::Ctx,
+    directory: &Path,
+    hold: &Hold,
+    phase: &str,
+    stopped: bool,
+    request: &StateValue,
+    tools: &StateValue,
+    finished: Option<&StateValue>,
+) -> Result<StateValue, Error> {
     let get_str = |key: &str| match request.get(key).and_then(|v| v.as_str()) {
         Some(text) => Ok(str_value(text)),
         None => Err(Error::fail("unsafe factory metadata")),
     };
     let mut result = vec![
-        ("hold", hold_json(&hold)),
+        ("hold", hold_json(hold)),
         ("known", StateValue::Bool(true)),
-        ("phase", str_value(&phase)),
+        ("phase", str_value(phase)),
         ("role", get_str("role")?),
         ("setup_digest", get_str("setup_digest")?),
         ("source_commit", get_str("source_commit")?),
@@ -354,6 +362,45 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
         ));
     }
     Ok(obj(result))
+}
+
+pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+    check_inspect_shape(data)?;
+    fsx::ensure_layout(ctx)?;
+    let hold = hold_state(ctx)?;
+    if data.get("id").is_none() {
+        return Ok(obj(vec![("hold", hold_json(&hold))]));
+    }
+    let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
+    let directory = fsx::prep_dir(ctx, &pid)?;
+    if let Some(deadline) = data.get("deadline") {
+        check_start_deadline(ctx, &directory, deadline)?;
+    }
+    let request = match read_known_request(ctx, &directory)? {
+        Some(value) => value,
+        None => {
+            return Ok(obj(vec![
+                ("hold", hold_json(&hold)),
+                ("known", StateValue::Bool(false)),
+            ]));
+        }
+    };
+    let (mut phase, finished) = phase_of(ctx, &directory)?;
+    let tools = read_inspect_tools(ctx, &directory)?;
+    let stopped = fsx::lexists(&directory.join("stopped.json"));
+    if stopped && ["running", "approved", "waiting", "interrupted"].contains(&phase.as_str()) {
+        phase = "stopped".to_string();
+    }
+    assemble_inspection(
+        ctx,
+        &directory,
+        &hold,
+        &phase,
+        stopped,
+        &request,
+        &tools,
+        finished.as_ref(),
+    )
 }
 
 #[cfg(test)]

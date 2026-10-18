@@ -222,14 +222,9 @@ fn write_git_ssh() -> Result<(), Error> {
     private_replace(&path, script, 0o700)
 }
 
-/// Read the passphrase from SSH stdin, then prepare or unlock this user’s key.
-/// The caller’s shell stages the binary prefix, leaving exactly 43 secret
-/// bytes on stdin; no passphrase enters command arguments or output.
-pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
-    if phase != "prepare" && phase != "unlock" {
-        return Err(Error::msg("unknown personal-Git phase"));
-    }
-    unsafe { libc::umask(0o077) };
+/// Read the staged 43 secret bytes from stdin and check the charset.
+/// No passphrase enters command arguments or output.
+fn read_passphrase() -> Result<[u8; 43], Error> {
     let mut passphrase = [0u8; 43];
     std::io::stdin()
         .read_exact(&mut passphrase)
@@ -240,9 +235,12 @@ pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
     {
         return Err(Error::msg("invalid personal-Git passphrase input"));
     }
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+    Ok(passphrase)
+}
+
+/// Ensure `~/.ssh` and resolve the key base. `prepare` creates the base;
+/// `unlock` requires the base directory and identity file to exist.
+fn prepare_base(home: &Path, phase: &str) -> Result<(PathBuf, PathBuf), Error> {
     let ssh_dir = home.join(".ssh");
     fs::create_dir_all(&ssh_dir).map_err(io)?;
     fs::set_permissions(&ssh_dir, fs::Permissions::from_mode(0o700)).map_err(io)?;
@@ -254,16 +252,118 @@ pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
     } else if !base.is_dir() || !identity.is_file() {
         return Err(Error::msg("Git key/agent operation failed"));
     }
+    Ok((base, identity))
+}
+
+/// Borrow the staged credential paths as text for command environments.
+fn credential_texts<'a>(
+    password_path: &'a Path,
+    ask_path: &'a Path,
+) -> Result<(&'a str, &'a str), Error> {
+    let password_text = password_path
+        .to_str()
+        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+    let ask_text = ask_path
+        .to_str()
+        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+    Ok((password_text, ask_text))
+}
+
+/// Generate the ed25519 identity for `prepare` via the askpass environment.
+fn keygen_prepare(identity: &Path, ask_env: &[(&str, &str)]) -> Result<(), Error> {
+    let output = run_quiet(
+        "ssh-keygen",
+        &[
+            "-q",
+            "-t",
+            "ed25519",
+            "-f",
+            identity
+                .to_str()
+                .ok_or_else(|| Error::msg("Git key/agent operation failed"))?,
+            "-C",
+            "U08 personal project Git",
+        ],
+        ask_env,
+    )?;
+    if !output.status.success() {
+        return Err(Error::msg("Git key/agent operation failed"));
+    }
+    Ok(())
+}
+
+/// Remove a dead agent socket. A live agent refuses the duplicate start.
+fn reap_stale_agent(socket: &Path) -> Result<(), Error> {
+    if socket.exists() {
+        let socket_text = socket
+            .to_str()
+            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        let probe = run_quiet("ssh-add", &["-l"], &[("SSH_AUTH_SOCK", socket_text)])?;
+        if probe.status.code() != Some(2) {
+            return Err(Error::msg("Agent already live; no duplicate start"));
+        }
+        fs::remove_file(socket).map_err(io)?;
+    }
+    Ok(())
+}
+
+/// Start `ssh-agent` on the socket and record its pid.
+fn start_agent(base: &Path, socket_text: &str) -> Result<(), Error> {
+    let agent = Command::new("ssh-agent")
+        .args(["-a", socket_text, "-s"])
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .map_err(io)?;
+    if !agent.status.success() {
+        return Err(Error::msg("Git key/agent operation failed"));
+    }
+    let pid =
+        agent_pid(&agent.stdout).ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+    private_replace(
+        &base.join("agent.pid"),
+        format!("{pid}\n").as_bytes(),
+        0o600,
+    )
+}
+
+/// Load the identity into the agent through the askpass environment.
+fn load_key(identity_text: &str, socket_text: &str, ask_env: &[(&str, &str)]) -> Result<(), Error> {
+    let loaded = run_quiet(
+        "ssh-add",
+        &[identity_text],
+        &[
+            ("SSH_AUTH_SOCK", socket_text),
+            ask_env[0],
+            ask_env[1],
+            ask_env[2],
+            ask_env[3],
+        ],
+    )?;
+    if !loaded.status.success() {
+        return Err(Error::msg("Git key/agent operation failed"));
+    }
+    Ok(())
+}
+
+/// Read the passphrase from SSH stdin, then prepare or unlock this user’s key.
+/// The caller’s shell stages the binary prefix, leaving exactly 43 secret
+/// bytes on stdin; no passphrase enters command arguments or output.
+pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
+    if phase != "prepare" && phase != "unlock" {
+        return Err(Error::msg("unknown personal-Git phase"));
+    }
+    unsafe { libc::umask(0o077) };
+    let passphrase = read_passphrase()?;
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+    let (base, identity) = prepare_base(&home, phase)?;
 
     let ask_script =
         b"#!/bin/sh\nexec /usr/bin/head -c 128 \"$SODA_PERSONAL_GIT_PASSPHRASE_FILE\"\n";
     with_temporary_credentials(&base, &passphrase, ask_script, |password_path, ask_path| {
-        let password_text = password_path
-            .to_str()
-            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-        let ask_text = ask_path
-            .to_str()
-            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        let (password_text, ask_text) = credential_texts(password_path, ask_path)?;
         let ask_env = [
             ("SSH_ASKPASS", ask_text),
             ("SSH_ASKPASS_REQUIRE", "force"),
@@ -271,72 +371,19 @@ pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
             ("SODA_PERSONAL_GIT_PASSPHRASE_FILE", password_text),
         ];
         if phase == "prepare" {
-            let output = run_quiet(
-                "ssh-keygen",
-                &[
-                    "-q",
-                    "-t",
-                    "ed25519",
-                    "-f",
-                    identity
-                        .to_str()
-                        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?,
-                    "-C",
-                    "U08 personal project Git",
-                ],
-                &ask_env,
-            )?;
-            if !output.status.success() {
-                return Err(Error::msg("Git key/agent operation failed"));
-            }
+            keygen_prepare(&identity, &ask_env)?;
         }
 
         let socket = base.join("agent");
-        if socket.exists() {
-            let socket_text = socket
-                .to_str()
-                .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-            let probe = run_quiet("ssh-add", &["-l"], &[("SSH_AUTH_SOCK", socket_text)])?;
-            if probe.status.code() != Some(2) {
-                return Err(Error::msg("Agent already live; no duplicate start"));
-            }
-            fs::remove_file(&socket).map_err(io)?;
-        }
+        reap_stale_agent(&socket)?;
         let socket_text = socket
             .to_str()
             .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-        let agent = Command::new("ssh-agent")
-            .args(["-a", socket_text, "-s"])
-            .stdin(Stdio::null())
-            .stderr(Stdio::null())
-            .output()
-            .map_err(io)?;
-        if !agent.status.success() {
-            return Err(Error::msg("Git key/agent operation failed"));
-        }
-        let pid =
-            agent_pid(&agent.stdout).ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-        private_replace(
-            &base.join("agent.pid"),
-            format!("{pid}\n").as_bytes(),
-            0o600,
-        )?;
-        let loaded = run_quiet(
-            "ssh-add",
-            &[identity
-                .to_str()
-                .ok_or_else(|| Error::msg("Git key/agent operation failed"))?],
-            &[
-                ("SSH_AUTH_SOCK", socket_text),
-                ask_env[0],
-                ask_env[1],
-                ask_env[2],
-                ask_env[3],
-            ],
-        )?;
-        if !loaded.status.success() {
-            return Err(Error::msg("Git key/agent operation failed"));
-        }
+        start_agent(&base, socket_text)?;
+        let identity_text = identity
+            .to_str()
+            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        load_key(identity_text, socket_text, &ask_env)?;
         write_git_ssh()?;
         fs::read(base.join("identity.pub")).map_err(io)
     })

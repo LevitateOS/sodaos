@@ -290,6 +290,143 @@ impl<'de> Deserialize<'de> for TailnetWire {
     }
 }
 
+/// Bind one exact-or-folded scalar status field; true when `k` matched.
+fn bind_status_head<'de, A>(
+    o: &mut NativeStatusWire,
+    map: &mut A,
+    k: &str,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if fold_eq(k, "BackendState") {
+        let v: Option<String> = map.next_value()?;
+        if k == "BackendState" {
+            o.exact_backend = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.backend_state = v;
+        }
+    } else if fold_eq(k, "HaveNodeKey") {
+        let v: Option<bool> = map.next_value()?;
+        o.folded_key_seen = true;
+        if k == "HaveNodeKey" {
+            o.exact_key_seen = true;
+            o.exact_key = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.have_node_key = v;
+        }
+    } else if fold_eq(k, "AuthURL") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            o.value.auth_url = v;
+        }
+    } else {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Bind the tailnet document of a status field.
+fn bind_status_tailnet<'de, A>(o: &mut NativeStatusWire, map: &mut A) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if let Some(v) = map.next_value::<Option<TailnetWire>>()? {
+        o.value.has_tailnet = true;
+        if let Some(x) = v.name {
+            o.value.tailnet_name = x;
+        }
+        if let Some(x) = v.magic {
+            o.value.tailnet_magic_dns = x;
+        }
+    }
+    Ok(())
+}
+
+/// Merge one decoded peer map into status order, replacing repeats.
+fn merge_status_peers(
+    o: &mut NativeStatusWire,
+    peer_keys: &mut Vec<String>,
+    entries: std::collections::BTreeMap<String, Option<PeerWire>>,
+) {
+    for (key, v) in entries {
+        let decoded = v.map(NativePeer::from).unwrap_or_default();
+        match peer_keys.iter().position(|old| old == &key) {
+            Some(i) => o.value.peers[i] = decoded,
+            None => {
+                peer_keys.push(key);
+                o.value.peers.push(decoded);
+            }
+        }
+    }
+}
+
+/// Bind one compound status field; unknown keys are ignored.
+fn bind_status_tail<'de, A>(
+    o: &mut NativeStatusWire,
+    peer_keys: &mut Vec<String>,
+    map: &mut A,
+    k: &str,
+) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if fold_eq(k, "CurrentTailnet") {
+        bind_status_tailnet(o, map)?;
+    } else if fold_eq(k, "Self") {
+        if let Some(v) = map.next_value::<Option<PeerWire>>()? {
+            let p = o.value.self_peer.get_or_insert_with(NativePeer::default);
+            merge_peer(p, v);
+        }
+    } else if fold_eq(k, "Peer") {
+        if let Some(entries) =
+            map.next_value::<Option<std::collections::BTreeMap<String, Option<PeerWire>>>>()?
+        {
+            merge_status_peers(o, peer_keys, entries);
+        }
+    } else if fold_eq(k, "Health") {
+        if let Some(v) = map.next_value::<Option<GoStringList>>()? {
+            o.value.health_count = v.0.len();
+        }
+    } else {
+        map.next_value::<de::IgnoredAny>()?;
+    }
+    Ok(())
+}
+
+/// Consume one status entry; false at the end of the map.
+fn status_next<'de, A>(
+    map: &mut A,
+    o: &mut NativeStatusWire,
+    peer_keys: &mut Vec<String>,
+) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let Some(k) = map.next_key::<String>()? else {
+        return Ok(false);
+    };
+    if !bind_status_head(o, map, &k)? {
+        bind_status_tail(o, peer_keys, map, &k)?;
+    }
+    Ok(true)
+}
+
+/// Reject status documents missing an exact backend or node-key field.
+fn check_status_required<E>(o: &NativeStatusWire) -> Result<(), E>
+where
+    E: de::Error,
+{
+    if !o.exact_backend
+        || (o.exact_key_seen && !o.exact_key)
+        || (o.folded_key_seen && !o.exact_key_seen)
+    {
+        return Err(E::custom("required exact native status field missing"));
+    }
+    Ok(())
+}
+
 #[derive(Default)]
 struct NativeStatusWire {
     value: NativeStatus,
@@ -315,62 +452,8 @@ impl<'de> Deserialize<'de> for NativeStatusWire {
             {
                 let mut o = NativeStatusWire::default();
                 let mut peer_keys: Vec<String> = Vec::new();
-                while let Some(k) = map.next_key::<String>()? {
-                    if fold_eq(&k, "BackendState") {
-                        let v: Option<String> = map.next_value()?;
-                        if k == "BackendState" {
-                            o.exact_backend = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.backend_state = v;
-                        }
-                    } else if fold_eq(&k, "HaveNodeKey") {
-                        let v: Option<bool> = map.next_value()?;
-                        o.folded_key_seen = true;
-                        if k == "HaveNodeKey" {
-                            o.exact_key_seen = true;
-                            o.exact_key = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.have_node_key = v;
-                        }
-                    } else if fold_eq(&k, "AuthURL") {
-                        if let Some(v) = map.next_value::<Option<String>>()? {
-                            o.value.auth_url = v;
-                        }
-                    } else if fold_eq(&k, "CurrentTailnet") {
-                        if let Some(v) = map.next_value::<Option<TailnetWire>>()? {
-                            o.value.has_tailnet = true;
-                            if let Some(x) = v.name {
-                                o.value.tailnet_name = x;
-                            }
-                            if let Some(x) = v.magic {
-                                o.value.tailnet_magic_dns = x;
-                            }
-                        }
-                    } else if fold_eq(&k, "Self") {
-                        if let Some(v) = map.next_value::<Option<PeerWire>>()? {
-                            let p = o.value.self_peer.get_or_insert_with(NativePeer::default);
-                            merge_peer(p, v);
-                        }
-                    } else if fold_eq(&k, "Peer") {
-                        if let Some(entries)=map.next_value::<Option<std::collections::BTreeMap<String,Option<PeerWire>>>>()?{for (key,v) in entries{let decoded=v.map(NativePeer::from).unwrap_or_default();match peer_keys.iter().position(|old|old==&key){Some(i)=>o.value.peers[i]=decoded,None=>{peer_keys.push(key);o.value.peers.push(decoded);}}}}
-                    } else if fold_eq(&k, "Health") {
-                        if let Some(v) = map.next_value::<Option<GoStringList>>()? {
-                            o.value.health_count = v.0.len();
-                        }
-                    } else {
-                        map.next_value::<de::IgnoredAny>()?;
-                    }
-                }
-                if !o.exact_backend
-                    || (o.exact_key_seen && !o.exact_key)
-                    || (o.folded_key_seen && !o.exact_key_seen)
-                {
-                    return Err(de::Error::custom(
-                        "required exact native status field missing",
-                    ));
-                }
+                while status_next(&mut map, &mut o, &mut peer_keys)? {}
+                check_status_required(&o)?;
                 Ok(o)
             }
         }
@@ -391,6 +474,77 @@ pub struct NativePrefs {
     pub exit_node_ip: String,
     pub allow_lan: bool,
     pub advertise_routes: Option<Vec<String>>,
+}
+
+/// Bind one exact-tracked preference scalar; true when `k` matched.
+fn bind_pref_head<'de, A>(o: &mut NativePrefsWire, map: &mut A, k: &str) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if fold_eq(k, "WantRunning") {
+        let v: Option<bool> = map.next_value()?;
+        if k == "WantRunning" {
+            o.required[0] = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.want_running = v;
+        }
+    } else if fold_eq(k, "ExitNodeID") {
+        let v: Option<String> = map.next_value()?;
+        if k == "ExitNodeID" {
+            o.required[1] = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.exit_node_id = v;
+        }
+    } else if fold_eq(k, "ExitNodeIP") {
+        let v: Option<String> = map.next_value()?;
+        if k == "ExitNodeIP" {
+            o.required[2] = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.exit_node_ip = v;
+        }
+    } else {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Bind one LAN/routes preference field; unknown keys are ignored.
+fn bind_pref_tail<'de, A>(o: &mut NativePrefsWire, map: &mut A, k: &str) -> Result<(), A::Error>
+where
+    A: MapAccess<'de>,
+{
+    if fold_eq(k, "ExitNodeAllowLANAccess") {
+        let v: Option<bool> = map.next_value()?;
+        if k == "ExitNodeAllowLANAccess" {
+            o.required[3] = v.is_some();
+        }
+        if let Some(v) = v {
+            o.value.allow_lan = v;
+        }
+    } else if fold_eq(k, "AdvertiseRoutes") {
+        let v: Option<GoStringList> = map.next_value()?;
+        if k == "AdvertiseRoutes" {
+            o.required[4] = true;
+        }
+        o.value.advertise_routes = v.map(|x| x.0);
+    } else {
+        map.next_value::<de::IgnoredAny>()?;
+    }
+    Ok(())
+}
+
+/// Reject preference documents missing an exact required field.
+fn check_prefs_required<E>(o: &NativePrefsWire) -> Result<(), E>
+where
+    E: de::Error,
+{
+    if !o.required.iter().all(|v| *v) {
+        return Err(E::custom("missing required exact native preference field"));
+    }
+    Ok(())
 }
 
 #[derive(Default)]
@@ -415,53 +569,11 @@ impl<'de> Deserialize<'de> for NativePrefsWire {
             {
                 let mut o = NativePrefsWire::default();
                 while let Some(k) = map.next_key::<String>()? {
-                    if fold_eq(&k, "WantRunning") {
-                        let v: Option<bool> = map.next_value()?;
-                        if k == "WantRunning" {
-                            o.required[0] = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.want_running = v;
-                        }
-                    } else if fold_eq(&k, "ExitNodeID") {
-                        let v: Option<String> = map.next_value()?;
-                        if k == "ExitNodeID" {
-                            o.required[1] = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.exit_node_id = v;
-                        }
-                    } else if fold_eq(&k, "ExitNodeIP") {
-                        let v: Option<String> = map.next_value()?;
-                        if k == "ExitNodeIP" {
-                            o.required[2] = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.exit_node_ip = v;
-                        }
-                    } else if fold_eq(&k, "ExitNodeAllowLANAccess") {
-                        let v: Option<bool> = map.next_value()?;
-                        if k == "ExitNodeAllowLANAccess" {
-                            o.required[3] = v.is_some();
-                        }
-                        if let Some(v) = v {
-                            o.value.allow_lan = v;
-                        }
-                    } else if fold_eq(&k, "AdvertiseRoutes") {
-                        let v: Option<GoStringList> = map.next_value()?;
-                        if k == "AdvertiseRoutes" {
-                            o.required[4] = true;
-                        }
-                        o.value.advertise_routes = v.map(|x| x.0);
-                    } else {
-                        map.next_value::<de::IgnoredAny>()?;
+                    if !bind_pref_head(&mut o, &mut map, &k)? {
+                        bind_pref_tail(&mut o, &mut map, &k)?;
                     }
                 }
-                if !o.required.iter().all(|v| *v) {
-                    return Err(de::Error::custom(
-                        "missing required exact native preference field",
-                    ));
-                }
+                check_prefs_required(&o)?;
                 Ok(o)
             }
         }
@@ -712,6 +824,87 @@ pub fn decode_up_notifications(data: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// Skip inter-value ASCII whitespace.
+fn skip_split_gap(bytes: &[u8], i: &mut usize) {
+    while *i < bytes.len() && bytes[*i].is_ascii_whitespace() {
+        *i += 1;
+    }
+}
+
+/// Consume one balanced bracket extent with string/escape awareness.
+fn scan_split_bracketed(bytes: &[u8], i: &mut usize) -> Result<(), String> {
+    let open = bytes[*i];
+    let close = if open == b'{' { b'}' } else { b']' };
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escape = false;
+    while *i < bytes.len() {
+        let c = bytes[*i];
+        if in_string {
+            if escape {
+                escape = false;
+            } else if c == b'\\' {
+                escape = true;
+            } else if c == b'"' {
+                in_string = false;
+            }
+        } else if c == b'"' {
+            in_string = true;
+        } else if c == open {
+            depth += 1;
+        } else if c == close {
+            depth -= 1;
+            if depth == 0 {
+                *i += 1;
+                break;
+            }
+        }
+        *i += 1;
+    }
+    if depth != 0 || in_string {
+        return Err(wire::err_unconfirmed());
+    }
+    Ok(())
+}
+
+/// Consume one quoted string value; the quote must close.
+fn scan_split_quoted(bytes: &[u8], i: &mut usize) -> Result<(), String> {
+    *i += 1;
+    let mut escape = false;
+    let mut closed = false;
+    while *i < bytes.len() {
+        let c = bytes[*i];
+        if escape {
+            escape = false;
+        } else if c == b'\\' {
+            escape = true;
+        } else if c == b'"' {
+            closed = true;
+            *i += 1;
+            break;
+        }
+        *i += 1;
+    }
+    if !closed {
+        return Err(wire::err_unconfirmed());
+    }
+    Ok(())
+}
+
+/// Consume one bare literal; structural bytes and empty takes are errors.
+fn scan_split_bare(bytes: &[u8], i: &mut usize, start: usize) -> Result<(), String> {
+    while *i < bytes.len() && !bytes[*i].is_ascii_whitespace() {
+        if matches!(bytes[*i], b'{' | b'}' | b'[' | b']' | b'"' | b',') {
+            break;
+        }
+        *i += 1;
+    }
+    if *i == start {
+        return Err(wire::err_unconfirmed());
+    }
+    Ok(())
+}
+
 /// Split consecutive whitespace-separated JSON values (Go `json.Decoder`
 /// streaming). Trailing garbage is an error; empty input yields nothing.
 fn split_json_values(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
@@ -720,79 +913,15 @@ fn split_json_values(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < bytes.len() {
-        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
-            i += 1;
-        }
+        skip_split_gap(bytes, &mut i);
         if i >= bytes.len() {
             break;
         }
         let start = i;
         match bytes[i] {
-            b'{' | b'[' => {
-                let open = bytes[i];
-                let close = if open == b'{' { b'}' } else { b']' };
-                let mut depth = 0;
-                let mut in_string = false;
-                let mut escape = false;
-                while i < bytes.len() {
-                    let c = bytes[i];
-                    if in_string {
-                        if escape {
-                            escape = false;
-                        } else if c == b'\\' {
-                            escape = true;
-                        } else if c == b'"' {
-                            in_string = false;
-                        }
-                    } else if c == b'"' {
-                        in_string = true;
-                    } else if c == open {
-                        depth += 1;
-                    } else if c == close {
-                        depth -= 1;
-                        if depth == 0 {
-                            i += 1;
-                            break;
-                        }
-                    }
-                    i += 1;
-                }
-                if depth != 0 || in_string {
-                    return Err(wire::err_unconfirmed());
-                }
-            }
-            b'"' => {
-                i += 1;
-                let mut escape = false;
-                let mut closed = false;
-                while i < bytes.len() {
-                    let c = bytes[i];
-                    if escape {
-                        escape = false;
-                    } else if c == b'\\' {
-                        escape = true;
-                    } else if c == b'"' {
-                        closed = true;
-                        i += 1;
-                        break;
-                    }
-                    i += 1;
-                }
-                if !closed {
-                    return Err(wire::err_unconfirmed());
-                }
-            }
-            _ => {
-                while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
-                    if matches!(bytes[i], b'{' | b'}' | b'[' | b']' | b'"' | b',') {
-                        break;
-                    }
-                    i += 1;
-                }
-                if i == start {
-                    return Err(wire::err_unconfirmed());
-                }
-            }
+            b'{' | b'[' => scan_split_bracketed(bytes, &mut i)?,
+            b'"' => scan_split_quoted(bytes, &mut i)?,
+            _ => scan_split_bare(bytes, &mut i, start)?,
         }
         out.push(bytes[start..i].to_vec());
     }

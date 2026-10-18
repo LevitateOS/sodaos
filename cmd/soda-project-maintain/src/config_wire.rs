@@ -33,23 +33,16 @@ impl<'de> Deserialize<'de> for Config {
             {
                 let mut config = Config::default();
                 while let Some(key) = map.next_key::<String>()? {
-                    match host_field_slot(&key) {
-                        Some(0) => set_string::<A>(&mut map, &mut config.muse_sha256)?,
-                        Some(1) => set_string::<A>(&mut map, &mut config.muse_version)?,
-                        Some(2) => set_string::<A>(&mut map, &mut config.muse_socket)?,
-                        Some(3) => set_string::<A>(&mut map, &mut config.identity_socket)?,
-                        Some(4) => set_string::<A>(&mut map, &mut config.codex_harness)?,
-                        Some(5) => set_string::<A>(&mut map, &mut config.codex_harness_sha256)?,
-                        Some(6) => set_string::<A>(&mut map, &mut config.codex_harness_version)?,
-                        Some(7) => set_string::<A>(&mut map, &mut config.muse_harness)?,
-                        Some(8) => set_string::<A>(&mut map, &mut config.muse_harness_sha256)?,
-                        Some(9) => set_string::<A>(&mut map, &mut config.muse_harness_version)?,
-                        Some(10) => set_string::<A>(&mut map, &mut config.image)?,
-                        Some(11) => set_string::<A>(&mut map, &mut config.network)?,
-                        Some(12) => set_string::<A>(&mut map, &mut config.subnet)?,
-                        Some(13) => set_string::<A>(&mut map, &mut config.bridge)?,
-                        _ => return Err(de::Error::unknown_field(&key, HOST_FIELDS)),
+                    let Some(slot) = host_field_slot(&key) else {
+                        return Err(de::Error::unknown_field(&key, HOST_FIELDS));
+                    };
+                    if set_early_field(&mut map, &mut config, slot)? {
+                        continue;
                     }
+                    if set_late_field(&mut map, &mut config, slot)? {
+                        continue;
+                    }
+                    return Err(de::Error::unknown_field(&key, HOST_FIELDS));
                 }
                 Ok(config)
             }
@@ -93,6 +86,42 @@ const HOST_FIELDS: &[&str] = &[
     "bridge",
 ];
 
+fn set_early_field<'de, A>(map: &mut A, config: &mut Config, slot: usize) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let target = match slot {
+        0 => &mut config.muse_sha256,
+        1 => &mut config.muse_version,
+        2 => &mut config.muse_socket,
+        3 => &mut config.identity_socket,
+        4 => &mut config.codex_harness,
+        5 => &mut config.codex_harness_sha256,
+        6 => &mut config.codex_harness_version,
+        _ => return Ok(false),
+    };
+    set_string(map, target)?;
+    Ok(true)
+}
+
+fn set_late_field<'de, A>(map: &mut A, config: &mut Config, slot: usize) -> Result<bool, A::Error>
+where
+    A: MapAccess<'de>,
+{
+    let target = match slot {
+        7 => &mut config.muse_harness,
+        8 => &mut config.muse_harness_sha256,
+        9 => &mut config.muse_harness_version,
+        10 => &mut config.image,
+        11 => &mut config.network,
+        12 => &mut config.subnet,
+        13 => &mut config.bridge,
+        _ => return Ok(false),
+    };
+    set_string(map, target)?;
+    Ok(true)
+}
+
 fn host_field_slot(key: &str) -> Option<usize> {
     if let Some(i) = HOST_FIELDS.iter().position(|field| *field == key) {
         return Some(i);
@@ -123,26 +152,33 @@ pub(crate) fn go_quoted(s: &str) -> String {
             '\u{0b}' => out.push_str("\\v"),
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
-            c if (c as u32) < 0x80 => {
-                if c.is_ascii_graphic() || c == ' ' {
-                    out.push(c);
-                } else {
-                    out.push_str(&format!("\\x{:02x}", c as u32));
-                }
-            }
-            c if c.is_control() || (c.is_whitespace() && c != ' ') || is_go_nonprint(c) => {
-                let n = c as u32;
-                if n <= 0xffff {
-                    out.push_str(&format!("\\u{n:04x}"));
-                } else {
-                    out.push_str(&format!("\\U{n:08x}"));
-                }
-            }
-            c => out.push(c),
+            c if (c as u32) < 0x80 => push_go_ascii(&mut out, c),
+            c => push_go_unicode(&mut out, c),
         }
     }
     out.push('"');
     out
+}
+
+fn push_go_ascii(out: &mut String, c: char) {
+    if c.is_ascii_graphic() || c == ' ' {
+        out.push(c);
+    } else {
+        out.push_str(&format!("\\x{:02x}", c as u32));
+    }
+}
+
+fn push_go_unicode(out: &mut String, c: char) {
+    if c.is_control() || (c.is_whitespace() && c != ' ') || is_go_nonprint(c) {
+        let n = c as u32;
+        if n <= 0xffff {
+            out.push_str(&format!("\\u{n:04x}"));
+        } else {
+            out.push_str(&format!("\\U{n:08x}"));
+        }
+    } else {
+        out.push(c);
+    }
 }
 
 fn is_go_nonprint(c: char) -> bool {

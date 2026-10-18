@@ -6,6 +6,67 @@ use crate::secrets::provision_postgres_secrets;
 use crate::setup::setup;
 use crate::system::{euid, POSTGRES_SECRET_DIR};
 
+fn enrollment_conflicts(opts: &SetupOpts) -> bool {
+    (opts.maintenance && opts.factory_enrollment_file.is_empty())
+        || (!opts.factory_enrollment_file.is_empty()
+            && (opts.provision_db_only
+                || !opts.forgejo_url.is_empty()
+                || opts.forgejo_internal_url != "http://127.0.0.1:3000"
+                || !opts.token_file.is_empty()
+                || opts.out != "/etc/soda/dashboard.json"))
+}
+
+fn run_provision_db_only() -> i32 {
+    match provision_postgres_secrets(Path::new(POSTGRES_SECRET_DIR)) {
+        Ok((_, dsn_path)) => {
+            println!("Database credentials ready: {}", dsn_path.display());
+            0
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
+    }
+}
+
+fn run_factory_enrollment(opts: &SetupOpts) -> i32 {
+    let manifest = match read_manifest(Path::new(&opts.factory_enrollment_file)) {
+        Ok(manifest) => manifest,
+        Err(err) => {
+            eprintln!("{err}");
+            return 1;
+        }
+    };
+    match apply_factory_enrollment(manifest, opts.maintenance) {
+        Ok(report) => {
+            println!("Factory callback and identity configuration installed; native operation bindings and intake-hook fields verified ({} bindings already present, {} added); identity sockets and services restarted.", report.already_present, report.added);
+            0
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
+    }
+}
+
+fn run_setup(opts: &SetupOpts, out: &mut dyn Write) -> i32 {
+    match setup(
+        &opts.forgejo_url,
+        &opts.forgejo_internal_url,
+        &opts.token_file,
+        Path::new(&opts.out),
+        Path::new(POSTGRES_SECRET_DIR),
+        out,
+    ) {
+        Ok(()) => 0,
+        Err(err) => {
+            let _ = out.flush();
+            eprintln!("{err}");
+            1
+        }
+    }
+}
+
 pub(crate) fn run() -> i32 {
     if euid() != 0 {
         eprintln!("run through the operator's native root access");
@@ -17,63 +78,17 @@ pub(crate) fn run() -> i32 {
         Err(ParseOutcome::Help) => return 0,
         Err(ParseOutcome::Error) => return 2,
     };
-    if (opts.maintenance && opts.factory_enrollment_file.is_empty())
-        || (!opts.factory_enrollment_file.is_empty()
-            && (opts.provision_db_only
-                || !opts.forgejo_url.is_empty()
-                || opts.forgejo_internal_url != "http://127.0.0.1:3000"
-                || !opts.token_file.is_empty()
-                || opts.out != "/etc/soda/dashboard.json"))
-    {
+    if enrollment_conflicts(&opts) {
         eprintln!("factory enrollment flags cannot be combined with initial setup options");
         return 2;
     }
     let mut out = io::stdout();
     if opts.provision_db_only {
-        match provision_postgres_secrets(Path::new(POSTGRES_SECRET_DIR)) {
-            Ok((_, dsn_path)) => {
-                println!("Database credentials ready: {}", dsn_path.display());
-                0
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                1
-            }
-        }
+        run_provision_db_only()
     } else if !opts.factory_enrollment_file.is_empty() {
-        let manifest = match read_manifest(Path::new(&opts.factory_enrollment_file)) {
-            Ok(manifest) => manifest,
-            Err(err) => {
-                eprintln!("{err}");
-                return 1;
-            }
-        };
-        match apply_factory_enrollment(manifest, opts.maintenance) {
-            Ok(report) => {
-                println!("Factory callback and identity configuration installed; native operation bindings and intake-hook fields verified ({} bindings already present, {} added); identity sockets and services restarted.", report.already_present, report.added);
-                0
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                1
-            }
-        }
+        run_factory_enrollment(&opts)
     } else {
-        match setup(
-            &opts.forgejo_url,
-            &opts.forgejo_internal_url,
-            &opts.token_file,
-            Path::new(&opts.out),
-            Path::new(POSTGRES_SECRET_DIR),
-            &mut out,
-        ) {
-            Ok(()) => 0,
-            Err(err) => {
-                let _ = out.flush();
-                eprintln!("{err}");
-                1
-            }
-        }
+        run_setup(&opts, &mut out)
     }
 }
 
@@ -137,6 +152,65 @@ fn looks_like_flag(arg: &str) -> bool {
     arg.len() > 1 && arg.starts_with('-')
 }
 
+fn take_flag_value(
+    name: &str,
+    inline: Option<&str>,
+    args: &[String],
+    i: &mut usize,
+) -> Result<String, ParseOutcome> {
+    match inline {
+        Some(v) => Ok(v.to_string()),
+        None => {
+            *i += 1;
+            if *i >= args.len() {
+                let msg = format!("flag needs an argument: -{name}");
+                eprintln!("{msg}");
+                print_setup_usage();
+                return Err(ParseOutcome::Error);
+            }
+            Ok(args[*i].clone())
+        }
+    }
+}
+
+fn apply_flag(
+    opts: &mut SetupOpts,
+    name: &str,
+    inline: Option<&str>,
+    args: &[String],
+    i: &mut usize,
+) -> Result<(), ParseOutcome> {
+    match name {
+        "provision-db-only" => {
+            opts.provision_db_only = parse_bool_flag(name, inline, args, i)?;
+        }
+        "maintenance" => {
+            opts.maintenance = parse_bool_flag(name, inline, args, i)?;
+        }
+        "forgejo-url"
+        | "forgejo-internal-url"
+        | "token-file"
+        | "out"
+        | "factory-enrollment-file" => {
+            let value = take_flag_value(name, inline, args, i)?;
+            match name {
+                "forgejo-url" => opts.forgejo_url = value,
+                "forgejo-internal-url" => opts.forgejo_internal_url = value,
+                "token-file" => opts.token_file = value,
+                "factory-enrollment-file" => opts.factory_enrollment_file = value,
+                _ => opts.out = value,
+            }
+        }
+        _ => {
+            let msg = format!("flag provided but not defined: -{name}");
+            eprintln!("{msg}");
+            print_setup_usage();
+            return Err(ParseOutcome::Error);
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn parse_args(args: &[String]) -> Result<SetupOpts, ParseOutcome> {
     let mut opts = SetupOpts {
         forgejo_url: String::new(),
@@ -167,46 +241,7 @@ pub(crate) fn parse_args(args: &[String]) -> Result<SetupOpts, ParseOutcome> {
             print_setup_usage();
             return Err(ParseOutcome::Help);
         }
-        match name {
-            "provision-db-only" => {
-                opts.provision_db_only = parse_bool_flag(name, inline, args, &mut i)?;
-            }
-            "maintenance" => {
-                opts.maintenance = parse_bool_flag(name, inline, args, &mut i)?;
-            }
-            "forgejo-url"
-            | "forgejo-internal-url"
-            | "token-file"
-            | "out"
-            | "factory-enrollment-file" => {
-                let value = match inline {
-                    Some(v) => v.to_string(),
-                    None => {
-                        i += 1;
-                        if i >= args.len() {
-                            let msg = format!("flag needs an argument: -{name}");
-                            eprintln!("{msg}");
-                            print_setup_usage();
-                            return Err(ParseOutcome::Error);
-                        }
-                        args[i].clone()
-                    }
-                };
-                match name {
-                    "forgejo-url" => opts.forgejo_url = value,
-                    "forgejo-internal-url" => opts.forgejo_internal_url = value,
-                    "token-file" => opts.token_file = value,
-                    "factory-enrollment-file" => opts.factory_enrollment_file = value,
-                    _ => opts.out = value,
-                }
-            }
-            _ => {
-                let msg = format!("flag provided but not defined: -{name}");
-                eprintln!("{msg}");
-                print_setup_usage();
-                return Err(ParseOutcome::Error);
-            }
-        }
+        apply_flag(&mut opts, name, inline, args, &mut i)?;
         i += 1;
     }
     Ok(opts)

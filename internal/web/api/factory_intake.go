@@ -171,6 +171,49 @@ type intakeCommentEvent struct {
 // and their code-write authority at event build time; the coordinator
 // re-verifies the creator against authoritative provenance before any
 // adoption.
+func fillIssueCreation(hint *control.IntakeHint, payload intakeIssueEvent) bool {
+	if payload.Sender == nil || payload.Sender.ID <= 0 {
+		return false
+	}
+	hint.Created = true
+	hint.Creator = payload.Sender.ID
+	if payload.Repository.Permissions != nil {
+		hint.CreatorWrite = payload.Repository.Permissions.Push || payload.Repository.Permissions.Admin
+	}
+	if issue := payload.Issue; issue != nil && issue.ID > 0 && issue.User != nil && issue.User.ID == hint.Creator {
+		hint.NativeIssueID = issue.ID
+		created, err := time.Parse(time.RFC3339, issue.CreatedAt)
+		if err == nil && created.Unix() > 0 && issue.Title != nil && issue.Body != nil && payload.Repository.Permissions != nil {
+			hint.CreatedUnix = created.Unix()
+			title, body := sha256.Sum256([]byte(*issue.Title)), sha256.Sum256([]byte(*issue.Body))
+			hint.TitleDigest, hint.ContentDigest = hex.EncodeToString(title[:]), hex.EncodeToString(body[:])
+			hint.CreationVerified = true
+		}
+	}
+	return true
+}
+
+func parseIssueHint(delivery string, body []byte) (control.IntakeHint, bool) {
+	var hint control.IntakeHint
+	var payload intakeIssueEvent
+	if json.Unmarshal(body, &payload) != nil || payload.Repository == nil {
+		return hint, false
+	}
+	if payload.Index <= 0 || payload.Repository.ID <= 0 {
+		return hint, false
+	}
+	if payload.Issue != nil && payload.Issue.Index != payload.Index {
+		return hint, false
+	}
+	hint = control.IntakeHint{
+		Delivery: delivery, Repository: payload.Repository.ID, Issue: payload.Index,
+	}
+	if payload.Action == "opened" && !fillIssueCreation(&hint, payload) {
+		return control.IntakeHint{}, false
+	}
+	return hint, true
+}
+
 func parseIntakeHint(w http.ResponseWriter, event, delivery string, body []byte) (control.IntakeHint, bool, bool) {
 	bad := func() (control.IntakeHint, bool, bool) {
 		auth.JSONError(w, http.StatusBadRequest, "invalid_hint", "Native delivery does not name a factory issue.")
@@ -181,38 +224,9 @@ func parseIntakeHint(w http.ResponseWriter, event, delivery string, body []byte)
 	}
 	switch event {
 	case "issues":
-		var payload intakeIssueEvent
-		if json.Unmarshal(body, &payload) != nil || payload.Repository == nil {
+		hint, ok := parseIssueHint(delivery, body)
+		if !ok {
 			return bad()
-		}
-		if payload.Index <= 0 || payload.Repository.ID <= 0 {
-			return bad()
-		}
-		if payload.Issue != nil && payload.Issue.Index != payload.Index {
-			return bad()
-		}
-		hint := control.IntakeHint{
-			Delivery: delivery, Repository: payload.Repository.ID, Issue: payload.Index,
-		}
-		if payload.Action == "opened" {
-			if payload.Sender == nil || payload.Sender.ID <= 0 {
-				return bad()
-			}
-			hint.Created = true
-			hint.Creator = payload.Sender.ID
-			if payload.Repository.Permissions != nil {
-				hint.CreatorWrite = payload.Repository.Permissions.Push || payload.Repository.Permissions.Admin
-			}
-			if issue := payload.Issue; issue != nil && issue.ID > 0 && issue.User != nil && issue.User.ID == hint.Creator {
-				hint.NativeIssueID = issue.ID
-				created, err := time.Parse(time.RFC3339, issue.CreatedAt)
-				if err == nil && created.Unix() > 0 && issue.Title != nil && issue.Body != nil && payload.Repository.Permissions != nil {
-					hint.CreatedUnix = created.Unix()
-					title, body := sha256.Sum256([]byte(*issue.Title)), sha256.Sum256([]byte(*issue.Body))
-					hint.TitleDigest, hint.ContentDigest = hex.EncodeToString(title[:]), hex.EncodeToString(body[:])
-					hint.CreationVerified = true
-				}
-			}
 		}
 		return hint, false, true
 	case "issue_comment":

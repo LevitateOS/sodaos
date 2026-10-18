@@ -8,17 +8,26 @@ pub struct Console {
     tty: File,
 }
 
-/// Length of one Go `unicode.IsSpace` rune opening the byte string, or
-/// zero. Only exact UTF-8 sequences match; invalid bytes stop the trim,
-/// exactly like Go decoding `RuneError` (never space).
-fn go_space_len(prefix: &[u8]) -> usize {
-    if prefix.is_empty() {
-        return 0;
-    }
+/// One-byte Go `unicode.IsSpace` opener, or `None`.
+fn go_space_ascii(prefix: &[u8]) -> Option<usize> {
     match prefix[0] {
-        b'\t' | b'\n' | 0x0b | 0x0c | b'\r' | b' ' => return 1,
-        0xc2 if prefix.len() >= 2 && (prefix[1] == 0x85 || prefix[1] == 0xa0) => return 2,
-        0xe1 if prefix.len() >= 3 && prefix[1] == 0x9a && prefix[2] == 0x80 => return 3, // U+1680
+        b'\t' | b'\n' | 0x0b | 0x0c | b'\r' | b' ' => Some(1),
+        _ => None,
+    }
+}
+
+/// Two-byte Go space opener (U+0085, U+00A0), or `None`.
+fn go_space_two(prefix: &[u8]) -> Option<usize> {
+    match prefix[0] {
+        0xc2 if prefix.len() >= 2 && (prefix[1] == 0x85 || prefix[1] == 0xa0) => Some(2),
+        _ => None,
+    }
+}
+
+/// Three-byte Go space opener under a `0xe2` lead (U+2000..U+200A,
+/// U+2028, U+2029, U+202F, U+205F), or `None`.
+fn go_space_e2(prefix: &[u8]) -> Option<usize> {
+    match prefix[0] {
         0xe2 if prefix.len() >= 3
             && prefix[1] == 0x80
             && (prefix[2] <= 0x8a
@@ -26,13 +35,35 @@ fn go_space_len(prefix: &[u8]) -> usize {
                 || prefix[2] == 0xa9
                 || prefix[2] == 0xaf) =>
         {
-            return 3; // U+2000..U+200A, U+2028, U+2029, U+202F
+            Some(3) // U+2000..U+200A, U+2028, U+2029, U+202F
         }
-        0xe2 if prefix.len() >= 3 && prefix[1] == 0x81 && prefix[2] == 0x9f => return 3, // U+205F
-        0xe3 if prefix.len() >= 3 && prefix[1] == 0x80 && prefix[2] == 0x80 => return 3, // U+3000
-        _ => {}
+        0xe2 if prefix.len() >= 3 && prefix[1] == 0x81 && prefix[2] == 0x9f => Some(3), // U+205F
+        _ => None,
     }
-    0
+}
+
+/// Three-byte Go space opener (U+1680, U+2000..U+200A, U+2028, U+2029,
+/// U+202F, U+205F, U+3000), or `None`.
+fn go_space_three(prefix: &[u8]) -> Option<usize> {
+    match prefix[0] {
+        0xe1 if prefix.len() >= 3 && prefix[1] == 0x9a && prefix[2] == 0x80 => Some(3), // U+1680
+        0xe2 => go_space_e2(prefix),
+        0xe3 if prefix.len() >= 3 && prefix[1] == 0x80 && prefix[2] == 0x80 => Some(3), // U+3000
+        _ => None,
+    }
+}
+
+/// Length of one Go `unicode.IsSpace` rune opening the byte string, or
+/// zero. Only exact UTF-8 sequences match; invalid bytes stop the trim,
+/// exactly like Go decoding `RuneError` (never space).
+fn go_space_len(prefix: &[u8]) -> usize {
+    if prefix.is_empty() {
+        return 0;
+    }
+    go_space_ascii(prefix)
+        .or_else(|| go_space_two(prefix))
+        .or_else(|| go_space_three(prefix))
+        .unwrap_or(0)
 }
 
 fn trim_space_bytes(data: &[u8]) -> &[u8] {

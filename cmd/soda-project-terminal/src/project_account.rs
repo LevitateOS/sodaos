@@ -666,13 +666,10 @@ fn lookup_home(login: &str, config: &Config) -> Option<String> {
     }
 }
 
-/// Provision (or confirm) one project-local account. The `keys` directory
-/// fd -- and with it the lock -- is held for the whole body, exactly like
-/// the Python `try/finally`.
-pub fn provision(config: &Config, request: &Request) -> Result<Response, String> {
-    if config.require_root && unsafe { libc::geteuid() } != 0 {
-        return Err("project-local root required".to_string());
-    }
+/// Admit the managed directories: open the `keys` directory without
+/// following links, confirm root ownership and safe modes under lock, then
+/// confirm neither managed directory drifted while locking.
+fn admit_managed_dirs(config: &Config) -> Result<File, String> {
     let keys_fd = open_nofollow(&config.keys, libc::O_RDONLY | libc::O_DIRECTORY, 0)
         .map_err(|err| format!("open managed key directory failed: {err}"))?;
     let locked = keys_fd
@@ -700,9 +697,15 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
     if (locked.dev(), locked.ino()) != (current.dev(), current.ino()) {
         return Err("managed key directory changed".to_string());
     }
+    Ok(keys_fd)
+}
+
+/// Resolve the account home: create the native account plus its identity
+/// marker when absent, or confirm the existing marker binds this identity.
+fn resolve_account_home(config: &Config, request: &Request) -> Result<String, String> {
     let marker = config.accounts.join(&request.login);
     let expected = request.identity.to_string();
-    let home = match lookup_home(&request.login, config) {
+    match lookup_home(&request.login, config) {
         None => {
             if lexists(&marker) || lexists(&config.keys.join(&request.login)) {
                 return Err("unassociated account files already exist".to_string());
@@ -712,7 +715,7 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
             let home = lookup_home(&request.login, config)
                 .ok_or_else(|| "native account missing after useradd".to_string())?;
             create_file(marker.as_path(), expected.as_bytes(), 0o600, config)?;
-            home
+            Ok(home)
         }
         Some(home) => {
             match owned_contents(marker.as_path(), 64, config.expect_uid) {
@@ -724,9 +727,14 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
                 }
                 Err(_) => return Err("account marker unreadable".to_string()),
             }
-            home
+            Ok(home)
         }
-    };
+    }
+}
+
+/// Sync the account key file: create it when missing, accept identical
+/// contents, and refuse anything else without explicit maintenance.
+fn sync_account_keys(config: &Config, request: &Request) -> Result<(), String> {
     let keyfile = config.keys.join(&request.login);
     let mut desired = Vec::new();
     for key in &request.keys {
@@ -736,14 +744,18 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
     match owned_contents(keyfile.as_path(), 65536, config.expect_uid) {
         Err(ReadError::Missing) => {
             create_file(keyfile.as_path(), &desired, 0o644, config)?;
+            Ok(())
         }
-        Ok(existing) if existing == desired => {}
-        Ok(_) => {
-            return Err("existing key file differs; explicit key maintenance required".to_string());
-        }
-        Err(ReadError::Refused) => return Err("unsafe account metadata".to_string()),
+        Ok(existing) if existing == desired => Ok(()),
+        Ok(_) => Err("existing key file differs; explicit key maintenance required".to_string()),
+        Err(ReadError::Refused) => Err("unsafe account metadata".to_string()),
     }
-    let shared = Path::new(&home).join("shared");
+}
+
+/// Finish provisioning: link the shared directory, grant the wheel group
+/// for administrators, and confirm the provisioned identity.
+fn finish_provision(config: &Config, request: &Request, home: &str) -> Result<Response, String> {
+    let shared = Path::new(home).join("shared");
     if !lexists(&shared) {
         std::os::unix::fs::symlink("/srv/project/shared", &shared)
             .map_err(|err| format!("shared link failed: {err}"))?;
@@ -756,6 +768,19 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
         login: request.login.clone(),
         identity: request.identity,
     })
+}
+
+/// Provision (or confirm) one project-local account. The `keys` directory
+/// fd -- and with it the lock -- is held for the whole body, exactly like
+/// the Python `try/finally`.
+pub fn provision(config: &Config, request: &Request) -> Result<Response, String> {
+    if config.require_root && unsafe { libc::geteuid() } != 0 {
+        return Err("project-local root required".to_string());
+    }
+    let _keys_fd = admit_managed_dirs(config)?;
+    let home = resolve_account_home(config, request)?;
+    sync_account_keys(config, request)?;
+    finish_provision(config, request, &home)
 }
 
 #[cfg(test)]

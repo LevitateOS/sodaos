@@ -86,8 +86,7 @@ fn unknown_field(entries: &RawObject, allowed: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
-/// Load and validate the release pin (`loadMuseRelease`).
-fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), String> {
+fn read_manifest_root(manifest: &str, arch: &str) -> Result<Box<RawValue>, String> {
     soda_build_tools::reader::oci_architecture(arch).map_err(|e| e.to_string())?;
     let raw = std::fs::read(manifest).map_err(|e| e.to_string())?;
     let capped = if raw.len() > MANIFEST_LIMIT {
@@ -102,11 +101,28 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
     if root.get().as_bytes()[0] != b'{' {
         return Err("invalid Muse manifest: expected an object".to_string());
     }
-    let value: RawObject = serde_json::from_str(root.get())
-        .map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
-    unknown_field(&value, &["version", "artifacts"])?;
-    let version = manifest_string(last(&value, "version"), "version")?;
-    let artifacts = match last(&value, "artifacts") {
+    Ok(root)
+}
+
+fn decode_artifact(raw: &RawValue) -> Result<MuseArtifact, String> {
+    let entry: RawObject = serde_json::from_str(raw.get())
+        .map_err(|_| "invalid Muse manifest: artifact must be an object".to_string())?;
+    unknown_field(&entry, &["file", "sha256", "size"])?;
+    let file = manifest_string(last(&entry, "file"), "file")?;
+    let sha256 = manifest_string(last(&entry, "sha256"), "sha256")?;
+    let size = match last(&entry, "size") {
+        None => 0,
+        Some(value) if value.get() == "null" => 0,
+        Some(number) => number
+            .get()
+            .parse::<i64>()
+            .map_err(|_| "invalid Muse manifest: size must be an integer".to_string())?,
+    };
+    Ok(MuseArtifact { file, sha256, size })
+}
+
+fn select_artifact(value: &RawObject, arch: &str) -> Result<MuseArtifact, String> {
+    let artifacts = match last(value, "artifacts") {
         None => None,
         Some(value) if value.get() == "null" => None,
         Some(raw) => Some(
@@ -115,30 +131,25 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
         ),
     };
     let selected = artifacts.as_ref().and_then(|a| last(a, arch));
-    let artifact = match selected {
-        None => return Err("invalid Muse release pin".to_string()),
-        Some(raw) if raw.get() == "null" => MuseArtifact {
+    match selected {
+        None => Err("invalid Muse release pin".to_string()),
+        Some(raw) if raw.get() == "null" => Ok(MuseArtifact {
             file: String::new(),
             sha256: String::new(),
             size: 0,
-        },
-        Some(raw) => {
-            let entry: RawObject = serde_json::from_str(raw.get())
-                .map_err(|_| "invalid Muse manifest: artifact must be an object".to_string())?;
-            unknown_field(&entry, &["file", "sha256", "size"])?;
-            let file = manifest_string(last(&entry, "file"), "file")?;
-            let sha256 = manifest_string(last(&entry, "sha256"), "sha256")?;
-            let size = match last(&entry, "size") {
-                None => 0,
-                Some(value) if value.get() == "null" => 0,
-                Some(number) => number
-                    .get()
-                    .parse::<i64>()
-                    .map_err(|_| "invalid Muse manifest: size must be an integer".to_string())?,
-            };
-            MuseArtifact { file, sha256, size }
-        }
-    };
+        }),
+        Some(raw) => decode_artifact(raw),
+    }
+}
+
+/// Load and validate the release pin (`loadMuseRelease`).
+fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), String> {
+    let root = read_manifest_root(manifest, arch)?;
+    let value: RawObject = serde_json::from_str(root.get())
+        .map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
+    unknown_field(&value, &["version", "artifacts"])?;
+    let version = manifest_string(last(&value, "version"), "version")?;
+    let artifact = select_artifact(&value, arch)?;
     if !valid_muse_artifact(&version, arch, &artifact) {
         return Err("invalid Muse release pin".to_string());
     }

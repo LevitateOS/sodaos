@@ -28,6 +28,26 @@ func (s *Store) MergedPreparationSource(ctx context.Context, repository int64, p
 	return mergedPreparationSource(publicationData, mergeData, runData, repository, projectID, target, tip)
 }
 
+func admitMergedSource(m factory.Merge, p factory.Publication, repository int64, projectID, target, tip string) error {
+	if m.Validate() != nil || m.Stage != factory.MergeMerged ||
+		m.PublicationID != p.ID || m.AssignmentID != p.AssignmentID || m.ProjectID != projectID ||
+		m.Repository != repository || m.BaseRef != target || m.MergedCommit != tip {
+		return ErrCandidatePreparationConflict
+	}
+	return nil
+}
+
+func admitMergedPublication(p factory.Publication, run factory.Run, repository int64, projectID, tip string) error {
+	if p.Validate() != nil || p.ProjectID != projectID ||
+		p.Repository != repository || p.Candidate != tip || p.Role != project.RoleCoder {
+		return ErrCandidatePreparationConflict
+	}
+	if run.Validate() != nil || run.ID != p.Run || run.ProjectID != projectID || run.Role != project.RoleCoder || !run.Reconciled || run.Outcome != factory.Succeeded {
+		return ErrCandidatePreparationConflict
+	}
+	return nil
+}
+
 func mergedPreparationSource(publicationData, mergeData, runData []byte, repository int64, projectID, target, tip string) (project.FactoryExport, error) {
 	var p factory.Publication
 	var m factory.Merge
@@ -41,11 +61,11 @@ func mergedPreparationSource(publicationData, mergeData, runData []byte, reposit
 	if err := json.Unmarshal(runData, &run); err != nil {
 		return project.FactoryExport{}, err
 	}
-	if p.Validate() != nil || m.Validate() != nil || run.Validate() != nil || m.Stage != factory.MergeMerged ||
-		m.PublicationID != p.ID || m.AssignmentID != p.AssignmentID || m.ProjectID != projectID || p.ProjectID != projectID ||
-		m.Repository != repository || p.Repository != repository || m.BaseRef != target || m.MergedCommit != tip || p.Candidate != tip ||
-		p.Role != project.RoleCoder || run.ID != p.Run || run.ProjectID != projectID || run.Role != project.RoleCoder || !run.Reconciled || run.Outcome != factory.Succeeded {
-		return project.FactoryExport{}, ErrCandidatePreparationConflict
+	if err := admitMergedSource(m, p, repository, projectID, target, tip); err != nil {
+		return project.FactoryExport{}, err
+	}
+	if err := admitMergedPublication(p, run, repository, projectID, tip); err != nil {
+		return project.FactoryExport{}, err
 	}
 	return project.FactoryExport{Project: projectID, ID: p.Run, Role: project.RoleCoder, Preparation: p.Preparation, Candidate: tip}, nil
 }

@@ -45,29 +45,33 @@ func correctionPlanWaitReason(err error) (string, bool) {
 // bound — is a visible planning blocker, never a guessed plan. A typed
 // current verdict supplies the finding keys the plan answers; legacy
 // string verdicts carry no stable keys and block as well.
-func deriveCorrectionPlan(acceptance factory.Acceptance, investigation factory.InvestigationPlan, attemptRoot, head, base, preparation, cycleID, findingDigest string, findingKeys []string, policyChecks []string) (*factory.InvestigationPlan, error) {
+func checkCorrectionPlanAdmission(attemptRoot, head, base, preparation, cycleID, findingDigest string, acceptance factory.Acceptance, investigation factory.InvestigationPlan, policyChecks []string) error {
 	if !factory.ValidID(attemptRoot) || !factory.ValidCommit(head) || !factory.ValidCommit(base) ||
 		!factory.ValidID(cycleID) || !factory.ValidDigest(findingDigest) || !factory.ValidPreparationRef(preparation) {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "correction lacks its exact cycle identity"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "correction lacks its exact cycle identity"}
 	}
 	if strings.TrimSpace(acceptance.ID) == "" {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "correction lacks its accepted issue"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "correction lacks its accepted issue"}
 	}
 	if err := investigation.Validate(); err != nil {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan is not admitted"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan is not admitted"}
 	}
 	if err := investigation.Executable(); err != nil {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan is not executable"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan is not executable"}
 	}
 	if investigation.AttemptRoot != attemptRoot {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan belongs to another attempt"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan belongs to another attempt"}
 	}
 	if len(investigation.Checks) == 0 {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan carries no checks"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "recorded investigation plan carries no checks"}
 	}
 	if len(policyChecks) == 0 {
-		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "accepted policy carries no required checks"}
+		return &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "accepted policy carries no required checks"}
 	}
+	return nil
+}
+
+func deriveCorrectionOwnership(investigation factory.InvestigationPlan) ([]string, error) {
 	owned := map[string]bool{}
 	for _, task := range investigation.Tasks {
 		for _, path := range task.OwnedPaths {
@@ -82,6 +86,10 @@ func deriveCorrectionPlan(acceptance factory.Acceptance, investigation factory.I
 	if len(ownership) > factory.MaxTaskOwnership {
 		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "derived correction ownership exceeds its bound"}
 	}
+	return ownership, nil
+}
+
+func dedupeCorrectionFindingKeys(findingKeys []string) []string {
 	seen := map[string]bool{}
 	keys := make([]string, 0, len(findingKeys))
 	for _, key := range findingKeys {
@@ -91,6 +99,18 @@ func deriveCorrectionPlan(acceptance factory.Acceptance, investigation factory.I
 		seen[key] = true
 		keys = append(keys, key)
 	}
+	return keys
+}
+
+func deriveCorrectionPlan(acceptance factory.Acceptance, investigation factory.InvestigationPlan, attemptRoot, head, base, preparation, cycleID, findingDigest string, findingKeys []string, policyChecks []string) (*factory.InvestigationPlan, error) {
+	if err := checkCorrectionPlanAdmission(attemptRoot, head, base, preparation, cycleID, findingDigest, acceptance, investigation, policyChecks); err != nil {
+		return nil, err
+	}
+	ownership, err := deriveCorrectionOwnership(investigation)
+	if err != nil {
+		return nil, err
+	}
+	keys := dedupeCorrectionFindingKeys(findingKeys)
 	checkIDs := make([]string, 0, len(investigation.Checks))
 	checks := make([]factory.CheckSpec, 0, len(investigation.Checks))
 	for _, check := range investigation.Checks {

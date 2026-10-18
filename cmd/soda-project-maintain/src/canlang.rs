@@ -36,10 +36,8 @@ fn trusted(name: &str, limit: u64) -> Result<std::fs::File, String> {
     Ok(file)
 }
 
-pub(crate) fn run(args: &[String]) -> Result<(), String> {
-    if args.len() != 2 || args[0] != "--project" || !soda_host::domain::valid_id(&args[1]) {
-        return Err("canlang maintenance accepts --project ID".into());
-    }
+/// Load the admitted release manifest and check its pinned identity.
+fn load_release() -> Result<Release, String> {
     let mut bytes = Vec::new();
     trusted("release.json", 4096)?
         .take(4097)
@@ -57,6 +55,11 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     {
         return Err("invalid Canlang maintenance identity".into());
     }
+    Ok(release)
+}
+
+/// Open the admitted archive and verify its checksum.
+fn open_tool(release: &Release) -> Result<Tool, String> {
     let archive = trusted(&release.archive_filename, 1_000_000_000)?;
     // The existing checksum reader uses pread and retains the streaming offset.
     let tool = Tool {
@@ -71,9 +74,11 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
         return Err("Canlang archive unavailable".into());
     }
     crate::filesystem::verify_native(&tool, &release.sha256)?;
-    let deadline = Instant::now() + Duration::from_secs(120);
-    let target = wait_project(&args[1], deadline)?;
-    confirm_project(&target, deadline)?;
+    Ok(tool)
+}
+
+/// Make the staging directory inside the project and check its spelling.
+fn make_staging(target: &crate::project::Observation, deadline: Instant) -> Result<String, String> {
     let output = podman(
         &[
             "exec",
@@ -97,12 +102,23 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     {
         return Err("invalid Canlang staging path".into());
     }
+    Ok(staging)
+}
+
+/// Stream the archive in, then run the maintenance script on the staging dir.
+fn run_maintain(
+    target: &crate::project::Observation,
+    tool: &Tool,
+    staging: &str,
+    release: &Release,
+    deadline: Instant,
+) -> Result<(), String> {
     podman_streamed(
         vec![("archive.tar.gz".into(), tool.fd, tool.size)],
         &["cp", "-", &format!("{}:{staging}", target.id)],
         deadline,
     )?;
-    confirm_project(&target, deadline)?;
+    confirm_project(target, deadline)?;
     podman(
         &[
             "exec",
@@ -113,10 +129,24 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
             "-ceu",
             SCRIPT,
             "canlang-maintain",
-            &staging,
+            staging,
             &release.sha256,
         ],
         deadline,
     )?;
+    Ok(())
+}
+
+pub(crate) fn run(args: &[String]) -> Result<(), String> {
+    if args.len() != 2 || args[0] != "--project" || !soda_host::domain::valid_id(&args[1]) {
+        return Err("canlang maintenance accepts --project ID".into());
+    }
+    let release = load_release()?;
+    let tool = open_tool(&release)?;
+    let deadline = Instant::now() + Duration::from_secs(120);
+    let target = wait_project(&args[1], deadline)?;
+    confirm_project(&target, deadline)?;
+    let staging = make_staging(&target, deadline)?;
+    run_maintain(&target, &tool, &staging, &release, deadline)?;
     Ok(())
 }

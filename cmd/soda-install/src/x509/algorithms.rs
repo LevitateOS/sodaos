@@ -62,6 +62,66 @@ impl PublicKeyAlgorithm {
     }
 }
 
+/// Admitted RSASSA-PSS parameters: MGF1 with the hash as its own
+/// digest, ASN.1 NULL (or absent) hash/MGF parameters, and trailer `BC`.
+fn pss_admitted(pss: &rsa::pkcs1::RsaPssParams) -> bool {
+    let hash_params_ok = pss
+        .hash
+        .parameters
+        .is_none_or(|p| p == x509_cert::der::asn1::AnyRef::NULL);
+    let mgf_params_ok = pss.mask_gen.parameters.is_some_and(|algorithm| {
+        algorithm
+            .parameters
+            .is_none_or(|p| p == x509_cert::der::asn1::AnyRef::NULL)
+    });
+    pss.mask_gen.oid.to_string() == "1.2.840.113549.1.1.8"
+        && pss.mask_gen.parameters.map(|algorithm| algorithm.oid) == Some(pss.hash.oid)
+        && hash_params_ok
+        && mgf_params_ok
+        && pss.trailer_field == rsa::pkcs1::TrailerField::BC
+}
+
+/// RSASSA-PSS hash selection: the digest OID plus its matching salt length.
+fn pss_signature_algorithm(pss: &rsa::pkcs1::RsaPssParams) -> SignatureAlgorithm {
+    if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.1" && pss.salt_len == 32 {
+        SignatureAlgorithm::Sha256Pss
+    } else if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.2" && pss.salt_len == 48 {
+        SignatureAlgorithm::Sha384Pss
+    } else if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.3" && pss.salt_len == 64 {
+        SignatureAlgorithm::Sha512Pss
+    } else {
+        SignatureAlgorithm::Unknown
+    }
+}
+
+/// PKCS#1 v1.5 RSA digests: NULL (or absent) parameters required.
+fn pkcs1_v15_signature(oid: &str, parameters_absent_or_null: bool) -> Option<SignatureAlgorithm> {
+    match oid {
+        "1.2.840.113549.1.1.4" if parameters_absent_or_null => Some(SignatureAlgorithm::Md5Rsa),
+        "1.2.840.113549.1.1.5" | "1.3.14.3.2.29" if parameters_absent_or_null => {
+            Some(SignatureAlgorithm::Sha1Rsa)
+        }
+        "1.2.840.113549.1.1.11" if parameters_absent_or_null => Some(SignatureAlgorithm::Sha256Rsa),
+        "1.2.840.113549.1.1.12" if parameters_absent_or_null => Some(SignatureAlgorithm::Sha384Rsa),
+        "1.2.840.113549.1.1.13" if parameters_absent_or_null => Some(SignatureAlgorithm::Sha512Rsa),
+        _ => None,
+    }
+}
+
+/// DSA, ECDSA and Ed25519 digests: parameters must be absent.
+fn dsa_ecdsa_signature(oid: &str, parameters_absent: bool) -> SignatureAlgorithm {
+    match oid {
+        "1.2.840.10040.4.3" if parameters_absent => SignatureAlgorithm::DsaSha1,
+        "2.16.840.1.101.3.4.3.2" if parameters_absent => SignatureAlgorithm::DsaSha256,
+        "1.2.840.10045.4.1" if parameters_absent => SignatureAlgorithm::EcdsaSha1,
+        "1.2.840.10045.4.3.2" if parameters_absent => SignatureAlgorithm::EcdsaSha256,
+        "1.2.840.10045.4.3.3" if parameters_absent => SignatureAlgorithm::EcdsaSha384,
+        "1.2.840.10045.4.3.4" if parameters_absent => SignatureAlgorithm::EcdsaSha512,
+        "1.3.101.112" if parameters_absent => SignatureAlgorithm::Ed25519,
+        _ => SignatureAlgorithm::Unknown,
+    }
+}
+
 pub(super) fn signature_algorithm(
     algorithm: &x509_cert::spki::AlgorithmIdentifierOwned,
 ) -> SignatureAlgorithm {
@@ -82,48 +142,13 @@ pub(super) fn signature_algorithm(
         let Ok(pss) = rsa::pkcs1::RsaPssParams::from_der(&encoded) else {
             return SignatureAlgorithm::Unknown;
         };
-        let hash_params_ok = pss
-            .hash
-            .parameters
-            .is_none_or(|p| p == x509_cert::der::asn1::AnyRef::NULL);
-        let mgf_params_ok = pss.mask_gen.parameters.is_some_and(|algorithm| {
-            algorithm
-                .parameters
-                .is_none_or(|p| p == x509_cert::der::asn1::AnyRef::NULL)
-        });
-        if pss.mask_gen.oid.to_string() != "1.2.840.113549.1.1.8"
-            || pss.mask_gen.parameters.map(|algorithm| algorithm.oid) != Some(pss.hash.oid)
-            || !hash_params_ok
-            || !mgf_params_ok
-            || pss.trailer_field != rsa::pkcs1::TrailerField::BC
-        {
+        if !pss_admitted(&pss) {
             return SignatureAlgorithm::Unknown;
         }
-        return if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.1" && pss.salt_len == 32 {
-            SignatureAlgorithm::Sha256Pss
-        } else if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.2" && pss.salt_len == 48 {
-            SignatureAlgorithm::Sha384Pss
-        } else if pss.hash.oid.to_string() == "2.16.840.1.101.3.4.2.3" && pss.salt_len == 64 {
-            SignatureAlgorithm::Sha512Pss
-        } else {
-            SignatureAlgorithm::Unknown
-        };
+        return pss_signature_algorithm(&pss);
     }
-    match oid.as_str() {
-        "1.2.840.113549.1.1.4" if parameters_absent_or_null => SignatureAlgorithm::Md5Rsa,
-        "1.2.840.113549.1.1.5" | "1.3.14.3.2.29" if parameters_absent_or_null => {
-            SignatureAlgorithm::Sha1Rsa
-        }
-        "1.2.840.113549.1.1.11" if parameters_absent_or_null => SignatureAlgorithm::Sha256Rsa,
-        "1.2.840.113549.1.1.12" if parameters_absent_or_null => SignatureAlgorithm::Sha384Rsa,
-        "1.2.840.113549.1.1.13" if parameters_absent_or_null => SignatureAlgorithm::Sha512Rsa,
-        "1.2.840.10040.4.3" if parameters_absent => SignatureAlgorithm::DsaSha1,
-        "2.16.840.1.101.3.4.3.2" if parameters_absent => SignatureAlgorithm::DsaSha256,
-        "1.2.840.10045.4.1" if parameters_absent => SignatureAlgorithm::EcdsaSha1,
-        "1.2.840.10045.4.3.2" if parameters_absent => SignatureAlgorithm::EcdsaSha256,
-        "1.2.840.10045.4.3.3" if parameters_absent => SignatureAlgorithm::EcdsaSha384,
-        "1.2.840.10045.4.3.4" if parameters_absent => SignatureAlgorithm::EcdsaSha512,
-        "1.3.101.112" if parameters_absent => SignatureAlgorithm::Ed25519,
-        _ => SignatureAlgorithm::Unknown,
+    match pkcs1_v15_signature(oid.as_str(), parameters_absent_or_null) {
+        Some(algorithm) => algorithm,
+        None => dsa_ecdsa_signature(oid.as_str(), parameters_absent),
     }
 }

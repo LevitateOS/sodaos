@@ -57,6 +57,60 @@ pub(crate) fn exit_ok(status: i32) -> bool {
     libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
 }
 
+/// Fork the `stat` child: it dups the pipe to stdout and execs, never
+/// returning; the parent gets the pid.
+fn fork_stat_child(
+    program: &std::ffi::CString,
+    args: &[std::ffi::CString],
+    fd: i32,
+    write_fd: libc::c_int,
+) -> Result<libc::pid_t, String> {
+    let pid = unsafe { libc::fork() };
+    if pid < 0 {
+        return Err(io::Error::last_os_error().to_string());
+    }
+    if pid == 0 {
+        unsafe {
+            let null_read = libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY);
+            let null_write = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY);
+            if null_read < 0 || null_write < 0 {
+                libc::_exit(127);
+            }
+            // Admit only this fd through exec; everything else is CLOEXEC.
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            if flags < 0 || libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) != 0 {
+                libc::_exit(127);
+            }
+            libc::dup2(null_read, 0);
+            libc::dup2(write_fd, 1);
+            libc::dup2(null_write, 2);
+            let mut pointers: Vec<*const libc::c_char> = args.iter().map(|a| a.as_ptr()).collect();
+            pointers.push(std::ptr::null());
+            libc::execv(program.as_ptr(), pointers.as_ptr());
+            libc::_exit(127);
+        }
+    }
+    Ok(pid)
+}
+
+/// Drain one nonblocking pipe burst into `stdout`.
+fn drain_stat_pipe(read_fd: libc::c_int, stdout: &mut Vec<u8>, chunk: &mut [u8; 1024]) {
+    loop {
+        let got = unsafe {
+            libc::read(
+                read_fd,
+                chunk.as_mut_ptr() as *mut libc::c_void,
+                chunk.len(),
+            )
+        };
+        if got > 0 {
+            stdout.extend_from_slice(&chunk[..got as usize]);
+        } else {
+            break;
+        }
+    }
+}
+
 /// Run `stat -f -c %T` against a held fd (the `pass_fds` equivalent: the
 /// CLOEXEC bit is cleared on that fd alone in the child).
 pub(crate) fn run_stat_fs(fd: i32) -> Result<Vec<u8>, String> {
@@ -80,35 +134,16 @@ pub(crate) fn run_stat_fs(fd: i32) -> Result<Vec<u8>, String> {
         }
         return Err(io::Error::last_os_error().to_string());
     }
-    let pid = unsafe { libc::fork() };
-    if pid < 0 {
-        unsafe {
-            libc::close(pipe[0]);
-            libc::close(pipe[1]);
-        }
-        return Err(io::Error::last_os_error().to_string());
-    }
-    if pid == 0 {
-        unsafe {
-            let null_read = libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY);
-            let null_write = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY);
-            if null_read < 0 || null_write < 0 {
-                libc::_exit(127);
+    let pid = match fork_stat_child(&program, &args, fd, pipe[1]) {
+        Ok(pid) => pid,
+        Err(err) => {
+            unsafe {
+                libc::close(pipe[0]);
+                libc::close(pipe[1]);
             }
-            // Admit only this fd through exec; everything else is CLOEXEC.
-            let flags = libc::fcntl(fd, libc::F_GETFD);
-            if flags < 0 || libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) != 0 {
-                libc::_exit(127);
-            }
-            libc::dup2(null_read, 0);
-            libc::dup2(pipe[1], 1);
-            libc::dup2(null_write, 2);
-            let mut pointers: Vec<*const libc::c_char> = args.iter().map(|a| a.as_ptr()).collect();
-            pointers.push(std::ptr::null());
-            libc::execv(program.as_ptr(), pointers.as_ptr());
-            libc::_exit(127);
+            return Err(err);
         }
-    }
+    };
     unsafe {
         libc::close(pipe[1]);
     }
@@ -117,36 +152,10 @@ pub(crate) fn run_stat_fs(fd: i32) -> Result<Vec<u8>, String> {
     let deadline = sys::monotonic() + 2.0;
     let mut status = 0;
     loop {
-        loop {
-            let got = unsafe {
-                libc::read(
-                    pipe[0],
-                    chunk.as_mut_ptr() as *mut libc::c_void,
-                    chunk.len(),
-                )
-            };
-            if got > 0 {
-                stdout.extend_from_slice(&chunk[..got as usize]);
-            } else {
-                break;
-            }
-        }
+        drain_stat_pipe(pipe[0], &mut stdout, &mut chunk);
         let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
         if waited == pid {
-            loop {
-                let got = unsafe {
-                    libc::read(
-                        pipe[0],
-                        chunk.as_mut_ptr() as *mut libc::c_void,
-                        chunk.len(),
-                    )
-                };
-                if got > 0 {
-                    stdout.extend_from_slice(&chunk[..got as usize]);
-                } else {
-                    break;
-                }
-            }
+            drain_stat_pipe(pipe[0], &mut stdout, &mut chunk);
             break;
         }
         if waited < 0 && io::Error::last_os_error().raw_os_error() != Some(libc::EINTR) {

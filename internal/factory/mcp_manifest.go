@@ -79,22 +79,50 @@ type VerificationManifestProposal struct {
 // no duplicate/unknown/missing outcome, approved catalog IDs,
 // parameter bounds, and artifact outputs plus fixture requirements
 // present on every check.
-func ValidateManifestProposal(proposal VerificationManifestProposal, catalog ApprovedCatalog) error {
+func validateManifestOutcomes(proposal VerificationManifestProposal) (map[string]bool, error) {
 	if len(proposal.Outcomes) == 0 {
-		return errors.New("manifest proposal names no outcome")
+		return nil, errors.New("manifest proposal names no outcome")
 	}
 	if len(proposal.Outcomes) > MCPMaxManifestOutcomes {
-		return errors.New("manifest proposal exceeds outcome bound")
+		return nil, errors.New("manifest proposal exceeds outcome bound")
 	}
 	accepted := make(map[string]bool, len(proposal.Outcomes))
 	for _, outcome := range proposal.Outcomes {
 		if outcome == "" || len(outcome) > MCPMaxRefChars {
-			return errors.New("invalid manifest outcome reference")
+			return nil, errors.New("invalid manifest outcome reference")
 		}
 		if accepted[outcome] {
-			return errors.New("duplicate manifest outcome")
+			return nil, errors.New("duplicate manifest outcome")
 		}
 		accepted[outcome] = true
+	}
+	return accepted, nil
+}
+
+func validateManifestCheck(check *ManifestCheckRef) error {
+	if len(check.Artifacts) == 0 {
+		return errors.New("manifest check names no artifact output")
+	}
+	if len(check.Artifacts) > MCPMaxManifestArtifacts {
+		return errors.New("manifest check exceeds artifact bound")
+	}
+	for _, artifact := range check.Artifacts {
+		if artifact == "" || len(artifact) > MCPMaxRefChars {
+			return errors.New("invalid manifest artifact reference")
+		}
+	}
+	for _, fixture := range check.Fixtures {
+		if fixture == "" || len(fixture) > MCPMaxRefChars {
+			return errors.New("invalid manifest fixture requirement")
+		}
+	}
+	return nil
+}
+
+func ValidateManifestProposal(proposal VerificationManifestProposal, catalog ApprovedCatalog) error {
+	accepted, err := validateManifestOutcomes(proposal)
+	if err != nil {
+		return err
 	}
 	if len(proposal.Checks) == 0 {
 		return errors.New("manifest proposal names no check")
@@ -115,21 +143,8 @@ func ValidateManifestProposal(proposal VerificationManifestProposal, catalog App
 		if err := validateCatalogRef(check.CatalogID, check.Params, catalog); err != nil {
 			return err
 		}
-		if len(check.Artifacts) == 0 {
-			return errors.New("manifest check names no artifact output")
-		}
-		if len(check.Artifacts) > MCPMaxManifestArtifacts {
-			return errors.New("manifest check exceeds artifact bound")
-		}
-		for _, artifact := range check.Artifacts {
-			if artifact == "" || len(artifact) > MCPMaxRefChars {
-				return errors.New("invalid manifest artifact reference")
-			}
-		}
-		for _, fixture := range check.Fixtures {
-			if fixture == "" || len(fixture) > MCPMaxRefChars {
-				return errors.New("invalid manifest fixture requirement")
-			}
+		if err := validateManifestCheck(check); err != nil {
+			return err
 		}
 	}
 	for outcome := range accepted {
