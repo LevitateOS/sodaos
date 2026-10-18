@@ -25,15 +25,20 @@ type FeedPageView struct {
 }
 
 // ServeSubscribedFeed serves one authorized combined feed window: the
-// store window filtered through a per-entry visibility recheck. The
+// query narrowed to the subscription intersection, then the store
+// window filtered through a per-entry visibility recheck. The
 // visibility check runs on every serve — including after revocation,
 // account changes or a subscription change — and subscription
 // membership never grants access on its own.
-func ServeSubscribedFeed(ctx context.Context, reader FeedReader, visible func(factory.FeedEntry) bool, query factory.FeedQuery) (FeedPageView, error) {
+func ServeSubscribedFeed(ctx context.Context, reader FeedReader, visible func(factory.FeedEntry) bool, query factory.FeedQuery, sub factory.FeedSubscription) (FeedPageView, error) {
 	var empty FeedPageView
 	if reader == nil || visible == nil {
 		return empty, errFeedUnavailable
 	}
+	if err := sub.Validate(); err != nil {
+		return empty, err
+	}
+	query = factory.ApplyFeedSubscription(query, sub)
 	if err := query.Validate(); err != nil {
 		return empty, err
 	}

@@ -33,7 +33,8 @@ func TestServeSubscribedFeedRechecksVisibility(t *testing.T) {
 	// Revoked access to repository 9 filters its entry without leaking
 	// counts: the window carries no totals, only members.
 	visible := func(entry factory.FeedEntry) bool { return entry.Repository == 7 }
-	view, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10})
+	sub := factory.FeedSubscription{Subscriber: "reader-1", Repositories: []int64{7, 9}, Revision: 1}
+	view, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, sub)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,14 +44,20 @@ func TestServeSubscribedFeedRechecksVisibility(t *testing.T) {
 	if !view.Truncated || view.Next != factory.FormatFeedCursor(7) {
 		t.Fatalf("resume lost: %+v", view)
 	}
-	if _, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Limit: 10}); err == nil {
+	// A subscription that drops every repository refuses honestly
+	// instead of widening to the query scope.
+	unsubscribed := factory.FeedSubscription{Subscriber: "reader-1", Repositories: []int64{11}, Revision: 1}
+	if _, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, unsubscribed); err == nil {
+		t.Fatal("empty intersection served")
+	}
+	if _, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Limit: 10}, sub); err == nil {
 		t.Fatal("unscoped query served")
 	}
-	if _, err := ServeSubscribedFeed(ctx, nil, visible, factory.FeedQuery{Repositories: []int64{7}, Limit: 10}); err == nil {
+	if _, err := ServeSubscribedFeed(ctx, nil, visible, factory.FeedQuery{Repositories: []int64{7}, Limit: 10}, sub); err == nil {
 		t.Fatal("nil reader served")
 	}
 	broken := &fakeFeedReader{err: errors.New("store down")}
-	if _, err := ServeSubscribedFeed(ctx, broken, visible, factory.FeedQuery{Repositories: []int64{7}, Limit: 10}); err == nil {
+	if _, err := ServeSubscribedFeed(ctx, broken, visible, factory.FeedQuery{Repositories: []int64{7}, Limit: 10}, sub); err == nil {
 		t.Fatal("store failure swallowed")
 	}
 }
