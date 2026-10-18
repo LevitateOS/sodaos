@@ -439,3 +439,78 @@ func TestSettledDecomposeRefusesWrongOperation(t *testing.T) {
 		t.Fatalf("wrong-operation refusal reported: %+v", finished.Result)
 	}
 }
+
+// TestRecoveryRefusesMissingStagedInput adopts the independent
+// review-028 probe: recovery finishing through finishFromRun refuses a
+// shape-valid semantic answer with no recorded staged input, exactly
+// like normal settlement.
+func TestRecoveryRefusesMissingStagedInput(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	coord := &Coordinator{Store: db, Host: fx.host}
+	now := time.Now().UTC().Truncate(time.Second)
+	const intentID, revisionID = "d777777777777777777777777", "d888888888888888888888888"
+	a, run := settleIntentPacketWithPrompt(t, ctx, db, fx, coord, intentID, revisionID, factory.Succeeded, now, false)
+	if err := recordConfirmedUsage(ctx, db, a, run, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := finishFromRun(ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.Assignment(ctx, a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != factory.NeedsHuman || got.Result == nil || got.Result.Reported {
+		reported := got.Result != nil && got.Result.Reported
+		t.Fatalf("recovery bypassed missing-input refusal: outcome=%s reported=%v", got.Outcome, reported)
+	}
+}
+
+// TestRecoverySettlesStagedIntentAnswer proves the recovery path keeps
+// settling a valid staged semantic answer: the same staged prompt,
+// bound ideas and covering tasks report through finishFromRun with the
+// typed result bound to the assignment's exact intent and revision.
+func TestRecoverySettlesStagedIntentAnswer(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	policy, err := db.RepositoryPolicy(ctx, fx.repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.IntentMinutes = 45
+	if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+	coord := &Coordinator{Store: db, Host: fx.host}
+	now := time.Now().UTC().Truncate(time.Second)
+	const intentID, revisionID = "d777777777777777777777777", "d888888888888888888888888"
+	a, run := settleIntentPacket(t, ctx, db, fx, coord, intentID, revisionID, factory.Succeeded, now)
+	if err := recordConfirmedUsage(ctx, db, a, run, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := finishFromRun(ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.Assignment(ctx, a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != factory.Succeeded || got.Result == nil || !got.Result.Reported {
+		t.Fatalf("staged recovery answer unsettled: %+v", got)
+	}
+	decomposition := got.Result.PhaseResult.Output.Decomposition
+	if decomposition == nil || decomposition.Intent != intentID || decomposition.Revision != revisionID ||
+		len(decomposition.Candidates) != 1 {
+		t.Fatalf("recovery result not bound: %+v", got.Result)
+	}
+}

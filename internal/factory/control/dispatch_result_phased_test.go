@@ -84,15 +84,42 @@ func phasedCorrection(t *testing.T) *factory.PhaseOutput {
 
 // phaseTestIntentAssignment builds one valid intent-subject decompose
 // assignment: intent subjects enter only through decompose, carry no issue
-// authority and keep their own attempt root.
+// authority and keep their own attempt root. The prompt stages the real
+// recorded planning input the shared finish joint settles against, so a
+// reported answer without staged input refuses here exactly like it
+// does on the serving and recovery paths.
 func phaseTestIntentAssignment(t *testing.T) factory.Assignment {
 	t.Helper()
 	a := phaseTestAssignment(t, project.ExecutionDecompose, project.RoleCoder, false)
+	head := factory.IntentRevision{
+		ID: phasedDecisionID(11), Intent: phasedDecisionID(10), Owner: 7,
+		Objective: "Request entry", State: "draft",
+		MaxIssues: 10, CreatedUnix: 1700000000,
+		Ideas: []factory.ProductIdea{
+			{ID: phasedDecisionID(4), Description: "Capture requests", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+		},
+	}
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatalf("planning content invalid: %v", err)
+	}
+	prompt, err := StageIntentPlanningPrompt(head, factory.SemanticPlannerInput{
+		Operation: factory.IntentPlanningPropose, Head: head, Content: content,
+		Alternatives: factory.DescribeAlternatives(head.Objective),
+		Inspected: []factory.InspectedSource{
+			{Path: "internal/factory/intent.go", Commit: phaseTestCommit(), Evidence: "phased fixture investigation"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("planning prompt invalid: %v", err)
+	}
+	sum := sha256.Sum256(prompt)
+	a.Prompt, a.PromptSHA = prompt, hex.EncodeToString(sum[:])
 	a.Subject = factory.ExecutionSubject{
 		Kind: factory.SubjectIntent,
 		Intent: &factory.IntentSubject{
 			IntentID: phasedDecisionID(10), RevisionID: phasedDecisionID(11),
-			ScopeDigest: phaseTestSHA("intent-scope"), OwnerID: 7,
+			ScopeDigest: head.Digest(), OwnerID: 7,
 		},
 	}
 	a.Issue, a.Acceptance = 0, ""

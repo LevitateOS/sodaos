@@ -129,6 +129,14 @@ func finishAssignmentFromRun(a factory.Assignment, run factory.Run, output strin
 	a.Stage, a.Outcome, a.Reason = factory.AssignmentFinished, outcome, reason
 	a.FinishedUnix = now.Unix()
 	a.Result = &result
+	// Every reported decompose answer settles against its assignment's
+	// recorded staged input on this one joint, which normal settlement
+	// and recovery share: neither path keeps a semantic bypass.
+	if result.Reported && a.Phase == project.ExecutionDecompose && a.Subject.Intent != nil {
+		if settled, valid := settleDecomposeSemantic(a, now); !valid {
+			a.Outcome, a.Reason, a.Result = settled.Outcome, settled.Reason, settled.Result
+		}
+	}
 	if err := a.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
@@ -431,9 +439,9 @@ func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, outp
 // Anything failing the semantic contract converts to needs-human with
 // no report, mirroring the derive path's refusal shape. Usage and
 // consumption already recorded stay untouched.
-func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (factory.Assignment, bool) {
+func settleDecomposeSemantic(a factory.Assignment, now time.Time) (factory.Assignment, bool) {
 	assess := func(detail string) (factory.Assignment, bool) {
-		converted := finished
+		converted := a
 		converted.Outcome, converted.Reason = factory.NeedsHuman, factory.AssignReasonNoReport
 		blocked := synthesizePhased(a, "blocked", detail, now.Unix())
 		converted.Result = &blocked
@@ -451,8 +459,8 @@ func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (fac
 		in.Head.Intent != subject.IntentID || in.Head.Owner != subject.OwnerID {
 		return assess("staged input answers another funded operation")
 	}
-	if finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output == nil ||
-		finished.Result.PhaseResult.Output.Decomposition == nil {
+	if a.Result == nil || a.Result.PhaseResult == nil || a.Result.PhaseResult.Output == nil ||
+		a.Result.PhaseResult.Output.Decomposition == nil {
 		return assess("staged answer carries no decomposition")
 	}
 	for _, ref := range in.Inspected {
@@ -460,10 +468,10 @@ func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (fac
 			return assess("staged answer inspects another source commit")
 		}
 	}
-	if err := AdmitIntentBoundResult(a.Subject, a.Phase, in, *finished.Result.PhaseResult.Output.Decomposition); err != nil {
+	if err := AdmitIntentBoundResult(a.Subject, a.Phase, in, *a.Result.PhaseResult.Output.Decomposition); err != nil {
 		return assess(err.Error())
 	}
-	return finished, true
+	return a, true
 }
 
 // synthesizePhased binds one supervisor-derived result to a phased
@@ -524,16 +532,6 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 	finished, err := finishAssignmentFromRun(a, run, output, now)
 	if err != nil {
 		return factory.Assignment{}, false
-	}
-	// A reported decompose answer additionally settles against its
-	// assignment's recorded staged input. Answers that fail the
-	// semantic contract convert to needs-human without touching the
-	// recorded usage and consumption, exactly like any other blocked
-	// result on this path.
-	if finished.Result != nil && finished.Result.Reported && a.Phase == project.ExecutionDecompose && a.Subject.Intent != nil {
-		if converted, valid := settleDecomposeSemantic(a, finished, now); !valid {
-			finished = converted
-		}
 	}
 	finished, err = settleRepairChain(ctx, db, finished, now)
 	if err != nil {
