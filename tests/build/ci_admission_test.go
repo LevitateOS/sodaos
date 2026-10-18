@@ -34,7 +34,7 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 	env = SetEnv(env, "REUSED_CHECKS", "false")
 	env = SetEnv(env, "GATE_STARTED_AT", fmt.Sprint(time.Now().Unix()))
 	for job, key := range map[string]string{
-		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT",
+		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT", "complexity": "COMPLEXITY_RESULT",
 	} {
 		Require(t, slices.Contains(gate.Needs, job), "CI does not require %s", job)
 		_, exists := workflow.Jobs[job]
@@ -55,13 +55,13 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 		Check(t, run(SetEnv(append([]string(nil), env...), "REUSED_CHECKS", reused)).Code != 0, "CI admitted invalid reuse decision")
 	}
 	reused := SetEnv(append([]string(nil), env...), "REUSED_CHECKS", "true")
-	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
+	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT", "COMPLEXITY_RESULT"} {
 		reused = SetEnv(reused, key, "skipped")
 	}
 	Require(t, run(reused).Code == 0, "verified reuse should admit deliberately skipped source jobs")
 	Require(t, run(SetEnv(append([]string(nil), reused...), "REUSE_RESULT", "failure")).Code != 0, "failed reuse cannot authorize CI")
 	Require(t, run(SetEnv(append([]string(nil), reused...), "REUSED_CHECKS", "false")).Code != 0, "unverified skipped jobs cannot authorize CI")
-	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
+	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT", "COMPLEXITY_RESULT"} {
 		for _, result := range []string{"failure", "cancelled", "skipped", ""} {
 			t.Run(key+"/"+result, func(t *testing.T) {
 				Check(t, run(SetEnv(env, key, result)).Code != 0, "CI admitted %s=%q", key, result)
