@@ -544,13 +544,7 @@ pub(super) fn write_checksums(manifest: &Manifest, directory: &Path) -> Result<(
         .map_err(|_| failure("cannot write checksums"))
 }
 
-pub(super) fn admit_build(
-    directory: &Path,
-    payload: &crate::payload::Payload,
-    candidate: &crate::model::Candidate,
-    distribution: Distribution,
-    tag: &str,
-) -> Result<(), Error> {
+fn admit_producer_result(directory: &Path) -> Result<Vec<u8>, Error> {
     let evidence = directory.join("../evidence");
     let bytes = crate::document::read_file(
         evidence
@@ -566,13 +560,19 @@ pub(super) fn admit_build(
             "successful controller completion for the unchanged producer result required",
         ));
     }
-    let result: soda_build_tools::reader::build::BuildResult = crate::json_serde::strict(&bytes)?;
-    let (selected, completed) = match distribution {
-        Distribution::Appliance => ("appliance", "media"),
-        Distribution::Docker => ("docker", "docker"),
-        Distribution::All => ("all", "all"),
-    };
-    let actual = inspect(&directory.join("candidate.json"), "candidate.json")?;
+    Ok(bytes)
+}
+
+fn validate_result_agreement(
+    result: &soda_build_tools::reader::build::BuildResult,
+    selected: &str,
+    completed: &str,
+    payload: &crate::payload::Payload,
+    candidate: &crate::model::Candidate,
+    actual: &Asset,
+    distribution: Distribution,
+    tag: &str,
+) -> Result<(), Error> {
     if result.purpose != "production"
         || result.requested_target != "release"
         || result.completed_target != completed
@@ -593,6 +593,33 @@ pub(super) fn admit_build(
         ));
     }
     Ok(())
+}
+
+pub(super) fn admit_build(
+    directory: &Path,
+    payload: &crate::payload::Payload,
+    candidate: &crate::model::Candidate,
+    distribution: Distribution,
+    tag: &str,
+) -> Result<(), Error> {
+    let bytes = admit_producer_result(directory)?;
+    let result: soda_build_tools::reader::build::BuildResult = crate::json_serde::strict(&bytes)?;
+    let (selected, completed) = match distribution {
+        Distribution::Appliance => ("appliance", "media"),
+        Distribution::Docker => ("docker", "docker"),
+        Distribution::All => ("all", "all"),
+    };
+    let actual = inspect(&directory.join("candidate.json"), "candidate.json")?;
+    validate_result_agreement(
+        &result,
+        selected,
+        completed,
+        payload,
+        candidate,
+        &actual,
+        distribution,
+        tag,
+    )
 }
 
 fn admit_media(

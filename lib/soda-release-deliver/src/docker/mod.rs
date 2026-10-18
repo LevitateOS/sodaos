@@ -186,6 +186,42 @@ fn check_content(
     Ok(())
 }
 
+fn read_rpm_inventory(root: &Root) -> Result<Vec<u8>, Error> {
+    let packages = read_at(root, PACKAGES_PATH, 1 << 20)?;
+    let text = std::str::from_utf8(&packages)
+        .map_err(|_| Error::msg("Docker RPM inventory must be UTF-8"))?;
+    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+    if lines.is_empty() {
+        return Err(Error::msg("Docker RPM inventory required"));
+    }
+    soda_build_tools::reader::rpm::valid_rpm_inventory(&lines)
+        .map_err(|error| Error::msg(error.0))?;
+    Ok(packages)
+}
+
+fn admit_source_host(
+    root: &Root,
+    p: &Payload,
+    c: &Candidate,
+    inputs: &BTreeMap<String, Vec<u8>>,
+) -> Result<(), Error> {
+    if read_at(root, COMPOSE_PATH, 1 << 20)? != inputs["system/docker/compose.yaml"] {
+        return Err(Error::msg("Docker Compose differs from archived source"));
+    }
+    if file_identity(root, "host.oci")?.sha256 != c.host_archive_sha256 {
+        return Err(Error::msg(
+            "Docker source host archive differs from candidate",
+        ));
+    }
+    let host = inspect(root, "host.oci", &p.revision, &[])?;
+    if host.image != c.host {
+        return Err(Error::msg(
+            "Docker source host identity differs from candidate",
+        ));
+    }
+    Ok(())
+}
+
 fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerMetadata, Error> {
     if !crate::model::docker::valid_docker_tag(&request.release_tag)
         || request.distribution == Distribution::Appliance
@@ -197,29 +233,8 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
     let (p, c, _) = load_admitted_candidate(candidate)?;
     crate::prepare::verify_candidate_images(&root, candidate, &p, &c)?;
     let inputs = check_sources(&root, &p, &c)?;
-    let packages = read_at(&root, PACKAGES_PATH, 1 << 20)?;
-    let text = std::str::from_utf8(&packages)
-        .map_err(|_| Error::msg("Docker RPM inventory must be UTF-8"))?;
-    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
-    if lines.is_empty() {
-        return Err(Error::msg("Docker RPM inventory required"));
-    }
-    soda_build_tools::reader::rpm::valid_rpm_inventory(&lines)
-        .map_err(|error| Error::msg(error.0))?;
-    if read_at(&root, COMPOSE_PATH, 1 << 20)? != inputs["system/docker/compose.yaml"] {
-        return Err(Error::msg("Docker Compose differs from archived source"));
-    }
-    if file_identity(&root, "host.oci")?.sha256 != c.host_archive_sha256 {
-        return Err(Error::msg(
-            "Docker source host archive differs from candidate",
-        ));
-    }
-    let host = inspect(&root, "host.oci", &p.revision, &[])?;
-    if host.image != c.host {
-        return Err(Error::msg(
-            "Docker source host identity differs from candidate",
-        ));
-    }
+    let packages = read_rpm_inventory(&root)?;
+    admit_source_host(&root, &p, &c, &inputs)?;
     let expected = runtime_content(&p, &c, &inputs, &packages)?;
     let paths = expected.keys().cloned().collect::<Vec<_>>();
     let (mut file, _) = open_layout_entry(&root, IMAGE_PATH)?;
