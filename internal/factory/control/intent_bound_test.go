@@ -204,3 +204,58 @@ func TestStageIntentBoundLaunchPinsDecomposeWithoutManifest(t *testing.T) {
 		t.Fatal("invalid launch identities staged for the host path")
 	}
 }
+
+// TestStageIntentPlanningPromptPreservesCompleteInput proves the staged
+// prompt carries the complete bounded typed input, not just the digest:
+// a reviewed correction and a declined meaning absent from the
+// objective, the authored alternatives for both operations, and the
+// inspected sources all reach the host bytes.
+func TestStageIntentPlanningPromptPreservesCompleteInput(t *testing.T) {
+	head := factory.IntentRevision{
+		ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 7,
+		Objective: "Decide vacation requests with manager review", State: "draft",
+		MaxIssues: 10, CreatedUnix: 1792064400,
+		Ideas: []factory.ProductIdea{
+			{ID: "d333333333333333333333333", Description: "Capture leave requests", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+			{ID: "d444444444444444444444444", Description: "Sync to the legacy tracker", Consequence: "Legacy stays current", Decision: "edit", Correction: "Sync only on explicit manager request", Source: "requested", Provenance: "human", Actor: 7},
+			{ID: "d555555555555555555555555", Description: "Delete requests automatically", Consequence: "Old requests vanish", Decision: "decline", Source: "requested", Provenance: "human", Actor: 7},
+		},
+	}
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := factory.DescribeAlternatives(head.Objective)
+	inspected := []factory.InspectedSource{
+		{Path: "internal/factory/intent.go", Commit: strings.Repeat("c", 40), Evidence: "Draft head carries attributed effective scope with no tasks yet"},
+	}
+	for _, op := range []string{factory.IntentPlanningPropose, factory.IntentPlanningOptions} {
+		in := factory.SemanticPlannerInput{
+			Operation: op, Head: head, Content: content,
+			Alternatives: set, Inspected: inspected,
+		}
+		prompt, err := StageIntentPlanningPrompt(head, in)
+		if err != nil {
+			t.Fatalf("%s: %v", op, err)
+		}
+		if !set.Supported {
+			t.Fatalf("objective unsupported by authored alternatives: %q", head.Objective)
+		}
+		text := string(prompt)
+		for _, want := range []string{
+			"Sync only on explicit manager request",
+			"Delete requests automatically",
+			"Old requests vanish",
+			set.Pattern,
+			"single_person",
+			"Shared review workflow",
+			"internal/factory/intent.go",
+			head.Digest(),
+			op,
+		} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("%s prompt drops %q", op, want)
+			}
+		}
+	}
+}

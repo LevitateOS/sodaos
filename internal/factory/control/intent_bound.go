@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -62,12 +63,16 @@ func AdmitIntentBoundResult(subject factory.ExecutionSubject, phase string, in f
 }
 
 // StageIntentPlanningPrompt renders the caller-staged prompt for one
-// admitted intent-bound decompose run from its exact planning input:
-// the operation, the head digest the subject binds, the accepted
-// objective and the inspected sources, closed by the decompose report
-// contract. The prompt carries evidence references, never credentials,
-// and stays within the factory prompt bound; anything larger refuses
-// instead of truncating requirements.
+// admitted intent-bound decompose run from its complete planning input:
+// the operation, the head digest the subject binds, and the full typed
+// input — composed content with corrections and declined meanings,
+// alternatives, effective scope and inspected sources — closed by the
+// decompose report contract. A digest alone cannot communicate reviewed
+// corrections or rejected behavior absent from the objective, so the
+// prompt preserves the exact input serialization; the prompt carries
+// evidence references, never credentials, and stays within the factory
+// prompt bound. Anything larger refuses instead of truncating
+// requirements.
 func StageIntentPlanningPrompt(head factory.IntentRevision, in factory.SemanticPlannerInput) ([]byte, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -75,20 +80,18 @@ func StageIntentPlanningPrompt(head factory.IntentRevision, in factory.SemanticP
 	if in.Head.Digest() != head.Digest() {
 		return nil, errors.New("planning prompt answers another head")
 	}
+	encoded, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
 	var b strings.Builder
 	b.WriteString("## Intent planning\n\n")
 	b.WriteString("Operation: " + in.Operation + "\n")
 	b.WriteString("Intent: " + head.Intent + "\n")
 	b.WriteString("Revision: " + head.ID + "\n")
 	b.WriteString("Head digest: " + head.Digest() + "\n")
-	b.WriteString("Objective:\n" + head.Objective + "\n")
-	b.WriteString("\n## Inspected sources\n\n")
-	for _, ref := range in.Inspected {
-		b.WriteString("- " + ref.Path + " @ " + ref.Commit + "\n")
-		if ref.Evidence != "" {
-			b.WriteString("  " + promptFenceGuard.Replace(ref.Evidence) + "\n")
-		}
-	}
+	b.WriteString("\n## Admitted planning input\n\n")
+	b.WriteString(promptFenceGuard.Replace(string(encoded)) + "\n")
 	b.WriteString(phasedReportContract(project.ExecutionDecompose))
 	prompt := []byte(promptFenceGuard.Replace(b.String()))
 	if len(prompt) == 0 || len(prompt) > project.MaxFactoryPrompt {

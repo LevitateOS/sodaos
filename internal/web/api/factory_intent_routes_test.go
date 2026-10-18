@@ -20,6 +20,7 @@ func TestIntentRoutesUseOnlyAdmittedProductMethods(t *testing.T) {
 		{"GET", "/factory/intents/d111111111111111111111111", true},
 		{"POST", "/factory/intents/d111111111111111111111111/explore", true},
 		{"POST", "/factory/intents/d111111111111111111111111/generate", true},
+		{"POST", "/factory/intents/d111111111111111111111111/plan", true},
 		{"GET", "/factory/intents/d111111111111111111111111/generation", true},
 		{"GET", "/factory/intents/d111111111111111111111111/history", true},
 		{"POST", "/factory/intents/d111111111111111111111111/history", false},

@@ -183,7 +183,7 @@ func extensionProductRoute(r *http.Request) bool {
 		if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
 			return r.Method == http.MethodGet
 		}
-		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "explore" || parts[3] == "generate") {
+		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "explore" || parts[3] == "generate" || parts[3] == "plan") {
 			return r.Method == http.MethodPost
 		}
 		return extensionFactoryRoute(parts, r.Method)
