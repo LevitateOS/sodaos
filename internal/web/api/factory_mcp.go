@@ -532,64 +532,96 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 // summary (context) and the live capability plus recorded receipt
 // state (status). Reading never launches work and records no row.
 func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+	read, err := s.loadReadContext(ctx, tool, args)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer read.release()
+	attemptEligible, lineageEligible := factory.BundleEligibility(read.assignment, read.parentLoaded)
+	foregrounded := s.foregroundReadBundle(ctx, read, attemptEligible, lineageEligible)
+	return mcpJSONResult(buildReadBody(read, attemptEligible, lineageEligible, foregrounded))
+}
+
+// readContext binds one admitted read to its terminal, count and
+// assignment lineage.
+type readContext struct {
+	capability   factory.MCPCapability
+	release      func()
+	terminal     factory.MCPReceipt
+	frozen       bool
+	count        int
+	assignment   factory.Assignment
+	parent       factory.Assignment
+	parentLoaded bool
+}
+
+// loadReadContext admits one read and loads its terminal, submission
+// count and assignment lineage. A missing assignment refuses instead
+// of serving context without its assignment.
+func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*readContext, error) {
 	capability, release, err := s.admitCall(ctx, tool, args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	defer release()
-	terminal, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, capability.AssignmentID)
-	if err != nil {
-		return nil, nil, err
+	read := &readContext{capability: capability, release: release}
+	if read.terminal, read.frozen, err = s.deps.Submissions.TerminalMCPProposal(ctx, capability.AssignmentID); err != nil {
+		return nil, err
 	}
-	count, err := s.deps.Submissions.MCPSubmissionCount(ctx, capability.AssignmentID)
-	if err != nil {
-		return nil, nil, err
+	if read.count, err = s.deps.Submissions.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil {
+		return nil, err
 	}
 	// Current-context projection reads the recorded assignment behind
 	// the capability: prompt digest, exact source/preparation and, once
 	// set, outcome/reason. Prompt bytes and actor identity never enter
 	// the projection. Own-attempt run identities join the attempt
 	// bundle and the linked parent outcome joins the lineage bundle;
-	// both stay within the admitted local lineage. A missing
-	// assignment refuses instead of serving context without its
-	// assignment.
-	assignment, err := s.deps.Assignments.Assignment(ctx, capability.AssignmentID)
+	// both stay within the admitted local lineage.
+	if read.assignment, err = s.deps.Assignments.Assignment(ctx, capability.AssignmentID); err != nil {
+		return nil, err
+	}
+	if read.assignment.ParentAssignment != "" {
+		if loaded, err := s.deps.Assignments.Assignment(ctx, read.assignment.ParentAssignment); err == nil {
+			read.parent, read.parentLoaded = loaded, true
+		}
+	}
+	return read, nil
+}
+
+// foregroundReadBundle narrows the served sections to a recorded
+// preparation-time bundle selection; the lookup never consults, so
+// reads still spend nothing. A missing, mismatched or no-longer-
+// eligible receipt falls back to the widest eligible bundle.
+func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *readContext, attemptEligible, lineageEligible bool) string {
+	if s.deps.PriorityJudgments == nil {
+		return ""
+	}
+	fingerprint, err := control.ContextBundleFingerprint(read.capability, read.assignment, attemptEligible, lineageEligible)
 	if err != nil {
-		return nil, nil, err
+		return ""
 	}
-	var parent factory.Assignment
-	parentLoaded := false
-	if assignment.ParentAssignment != "" {
-		if loaded, err := s.deps.Assignments.Assignment(ctx, assignment.ParentAssignment); err == nil {
-			parent, parentLoaded = loaded, true
+	receipt, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, fingerprint)
+	if err != nil || receipt.Purpose != factory.JudgmentContextBundle || receipt.Outcome != "context-bundle" {
+		return ""
+	}
+	switch receipt.Selected {
+	case factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold:
+		return receipt.Selected
+	case factory.ContextBundleAttempt:
+		if attemptEligible {
+			return receipt.Selected
+		}
+	case factory.ContextBundleLineage:
+		if lineageEligible {
+			return receipt.Selected
 		}
 	}
-	attemptEligible, lineageEligible := factory.BundleEligibility(assignment, parentLoaded)
-	// A recorded preparation-time selection foregrounds its bundle by
-	// narrowing the served sections to it; the lookup never consults,
-	// so reads still spend nothing. A missing, mismatched or
-	// no-longer-eligible receipt falls back to the widest eligible
-	// bundle.
-	foregrounded := ""
-	if s.deps.PriorityJudgments != nil {
-		if fingerprint, ferr := control.ContextBundleFingerprint(capability, assignment, attemptEligible, lineageEligible); ferr == nil {
-			if receipt, rerr := s.deps.PriorityJudgments.PriorityJudgment(ctx, fingerprint); rerr == nil &&
-				receipt.Purpose == factory.JudgmentContextBundle && receipt.Outcome == "context-bundle" {
-				switch receipt.Selected {
-				case factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold:
-					foregrounded = receipt.Selected
-				case factory.ContextBundleAttempt:
-					if attemptEligible {
-						foregrounded = receipt.Selected
-					}
-				case factory.ContextBundleLineage:
-					if lineageEligible {
-						foregrounded = receipt.Selected
-					}
-				}
-			}
-		}
-	}
+	return ""
+}
+
+// buildReadBody renders one read's projection with its eligible
+// attempt and lineage sections.
+func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, foregrounded string) map[string]any {
+	capability, assignment := read.capability, read.assignment
 	serveAttempt := attemptEligible && (foregrounded == "" || foregrounded == factory.ContextBundleAttempt || foregrounded == factory.ContextBundleLineage)
 	serveLineage := lineageEligible && (foregrounded == "" || foregrounded == factory.ContextBundleLineage)
 	bundle := factory.ContextBundleCurrent
@@ -605,8 +637,8 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 		"generation":    capability.Generation,
 		"capability":    capability.State,
 		"deadline":      capability.DeadlineUnix,
-		"submissions":   count,
-		"terminal":      frozen,
+		"submissions":   read.count,
+		"terminal":      read.frozen,
 		"route":         FactoryMCPRoute,
 		"limits":        map[string]any{"page_bytes": factory.MCPMaxPageBytes, "page_refs": factory.MCPMaxPageRefs, "result_bytes": factory.MCPMaxResultPayloadBytes},
 		"source_digest": capability.SourceDigest,
@@ -618,11 +650,11 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	}
 	if serveLineage {
 		lineage := map[string]any{"parent_assignment": assignment.ParentAssignment}
-		if parent.Outcome != "" {
-			lineage["parent_outcome"] = string(parent.Outcome)
+		if read.parent.Outcome != "" {
+			lineage["parent_outcome"] = string(read.parent.Outcome)
 		}
-		if parent.Reason != "" {
-			lineage["parent_reason"] = parent.Reason
+		if read.parent.Reason != "" {
+			lineage["parent_reason"] = read.parent.Reason
 		}
 		body["lineage"] = lineage
 		bundle = factory.ContextBundleLineage
@@ -630,9 +662,9 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 		body["lineage_incomplete"] = true
 	}
 	body["bundle"] = bundle
-	if frozen {
-		body["terminal_submission"] = terminal.SubmissionID
-		body["terminal_state"] = terminal.State
+	if read.frozen {
+		body["terminal_submission"] = read.terminal.SubmissionID
+		body["terminal_state"] = read.terminal.State
 	}
 	if assignment.Outcome != "" {
 		body["outcome"] = string(assignment.Outcome)
@@ -640,7 +672,7 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	if assignment.Reason != "" {
 		body["reason"] = assignment.Reason
 	}
-	return mcpJSONResult(body)
+	return body
 }
 
 // serveEvidence reports incomplete evidence honestly: bounded pages

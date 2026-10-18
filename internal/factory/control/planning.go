@@ -69,33 +69,11 @@ func (c *Coordinator) PlanningPass(ctx context.Context) error {
 }
 
 func (c *Coordinator) planningInput(ctx context.Context, control factory.IssueControl) (factory.PlanningInput, error) {
-	control, err := c.refreshReadiness(ctx, control)
+	control, status, evidence, err := c.admitPlanningReadiness(ctx, control)
 	if err != nil {
 		return factory.PlanningInput{}, err
 	}
-	if !factory.ReadyToPlan(control) {
-		return factory.PlanningInput{}, ErrIneffectiveAuthority
-	}
-	status, evidence, err := c.acceptanceStatus(ctx, control.Repository, strconv.FormatInt(control.Issue, 10))
-	if err != nil {
-		return factory.PlanningInput{}, err
-	}
-	if !status.Valid || status.Acceptance == nil || evidence.Issue.Closed {
-		return factory.PlanningInput{}, ErrIneffectiveAuthority
-	}
-	deps := c.dispatchDeps()
-	authority, err := deps.Authority(ctx, control.Repository)
-	if err != nil {
-		return factory.PlanningInput{}, err
-	}
-	if !authority.Effective {
-		return factory.PlanningInput{}, ErrIneffectiveAuthority
-	}
-	p, err := c.Store.ProjectByRepository(ctx, control.Repository)
-	if err != nil {
-		return factory.PlanningInput{}, err
-	}
-	policy, err := c.Store.RepositoryPolicy(ctx, control.Repository)
+	deps, authority, p, policy, err := c.admitPlanningAuthority(ctx, control, status)
 	if err != nil {
 		return factory.PlanningInput{}, err
 	}
@@ -123,6 +101,52 @@ func (c *Coordinator) planningInput(ctx context.Context, control factory.IssueCo
 	}
 	plan.gateRev = gate
 	return factory.PlanningInput{Candidate: priorityCandidate(plan), Missing: control.Blockers}, nil
+}
+
+// admitPlanningReadiness refreshes readiness behind one planning input
+// with its accepted evidence.
+func (c *Coordinator) admitPlanningReadiness(ctx context.Context, control factory.IssueControl) (factory.IssueControl, AcceptanceValidity, AcceptanceEvidence, error) {
+	var emptyStatus AcceptanceValidity
+	var emptyEvidence AcceptanceEvidence
+	control, err := c.refreshReadiness(ctx, control)
+	if err != nil {
+		return control, emptyStatus, emptyEvidence, err
+	}
+	if !factory.ReadyToPlan(control) {
+		return control, emptyStatus, emptyEvidence, ErrIneffectiveAuthority
+	}
+	status, evidence, err := c.acceptanceStatus(ctx, control.Repository, strconv.FormatInt(control.Issue, 10))
+	if err != nil {
+		return control, emptyStatus, emptyEvidence, err
+	}
+	if !status.Valid || status.Acceptance == nil || evidence.Issue.Closed {
+		return control, emptyStatus, emptyEvidence, ErrIneffectiveAuthority
+	}
+	return control, status, evidence, nil
+}
+
+// admitPlanningAuthority resolves dispatch authority, project and
+// policy behind one planning input.
+func (c *Coordinator) admitPlanningAuthority(ctx context.Context, control factory.IssueControl, status AcceptanceValidity) (DispatchDeps, factory.EffectiveAuthority, store.Project, factory.RepositoryPolicy, error) {
+	var noProject store.Project
+	var noPolicy factory.RepositoryPolicy
+	deps := c.dispatchDeps()
+	authority, err := deps.Authority(ctx, control.Repository)
+	if err != nil {
+		return deps, factory.EffectiveAuthority{}, noProject, noPolicy, err
+	}
+	if !authority.Effective {
+		return deps, factory.EffectiveAuthority{}, noProject, noPolicy, ErrIneffectiveAuthority
+	}
+	p, err := c.Store.ProjectByRepository(ctx, control.Repository)
+	if err != nil {
+		return deps, factory.EffectiveAuthority{}, noProject, noPolicy, err
+	}
+	policy, err := c.Store.RepositoryPolicy(ctx, control.Repository)
+	if err != nil {
+		return deps, factory.EffectiveAuthority{}, noProject, noPolicy, err
+	}
+	return deps, authority, p, policy, nil
 }
 
 const planningRubric = "Choose a bounded implementation approach using only accepted objective, approved preparation and observed prerequisite facts. Pending outputs and source-dependent interfaces remain provisional. Prefer useful work on stable acceptance scope when dependencies do not determine the entire approach; otherwise wait for concrete outputs. For executable scope, prefer direct small changes when evidence supports simplicity; use incremental acceptance work for multiple independent outcomes and prerequisite-first work when existing dependency outputs define interfaces. Do not invent estimates, expand scope, request additional access or authorize execution."

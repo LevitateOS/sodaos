@@ -16,45 +16,16 @@ import (
 func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID string) (factory.RetryDecision, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
-	run, err := c.Store.FactoryRun(bounded, runID)
-	if err != nil {
-		return factory.RetryDecision{}, ErrNotFound
-	}
-	if !run.Reconciled {
-		return factory.RetryDecision{}, ErrPendingRuns{Runs: []string{runID}}
-	}
-	p, err := c.Store.Project(bounded, run.ProjectID)
-	if err != nil {
-		return factory.RetryDecision{}, ErrNotFound
-	}
-	effective, err := c.EffectiveAuthority(bounded, p.RepositoryID)
+	run, err := c.admitRetryRun(bounded, runID)
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	if !effective.Effective && !onlyDispatchClosed(effective) {
-		return factory.RetryDecision{}, ErrIneffectiveAuthority
-	}
-	payload, err := json.Marshal(map[string]string{"prior_run": runID, "prior_outcome": string(run.Outcome)})
+	cmd, err := buildRetryCommand(commandID, principal, run)
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	target := "run/" + runID
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandRetry, Target: target, Principal: principal,
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandRetry, target, string(payload)),
-	}
-	if err = cmd.Validate(); err != nil {
-		return factory.RetryDecision{}, err
-	}
-	prior, err := c.Store.FactoryCommand(bounded, cmd.ID)
-	if err == nil {
-		if prior.Digest != cmd.Digest {
-			return factory.RetryDecision{}, store.ErrCommandConflict
-		}
-		return replayRetry(prior)
-	}
-	if !errors.Is(err, store.ErrNotFound) {
-		return factory.RetryDecision{}, err
+	if prior, done, err := c.replayRetryCommand(bounded, cmd); done || err != nil {
+		return prior, err
 	}
 	decision := factory.RetryDecision{
 		Prior: runID, CommandID: cmd.ID, Queued: true,
@@ -63,33 +34,9 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err = decision.Validate(); err != nil {
 		return factory.RetryDecision{}, err
 	}
-	view, err := c.Store.FactoryRunView(bounded, run.ID)
+	head, view, err := c.admitRetryOwnership(bounded, run)
 	if err != nil {
-		return factory.RetryDecision{}, retryOwnershipError(err)
-	}
-	if view.RunID != run.ID || view.Repository <= 0 || view.Issue <= 0 {
-		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
-	}
-	assignment, err := c.Store.Assignment(bounded, view.Attempt)
-	if err != nil {
-		return factory.RetryDecision{}, retryOwnershipError(err)
-	}
-	if assignment.Run != run.ID || assignment.AttemptRoot == "" {
-		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
-	}
-	owner, err := c.Store.LatestIssueAssignment(bounded, view.Repository, view.Issue)
-	if err != nil {
-		return factory.RetryDecision{}, retryOwnershipError(err)
-	}
-	if owner.AttemptRoot != assignment.AttemptRoot || assignment.PublicationAssignment != owner.ID {
-		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
-	}
-	head, err := c.Store.AcceptanceHead(bounded, view.Repository, view.Issue)
-	if err != nil {
-		return factory.RetryDecision{}, retryOwnershipError(err)
-	}
-	if owner.Acceptance != head || assignment.Acceptance != head {
-		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
+		return factory.RetryDecision{}, err
 	}
 	stored, created, err := c.Store.RecordExplicitRetryCommand(bounded, cmd, decision, view.Repository, view.Issue, head, time.Now())
 	if err != nil {
@@ -99,6 +46,102 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 		return replayRetry(stored)
 	}
 	return decision, nil
+}
+
+// admitRetryRun binds one retry request to its reconciled prior run
+// with effective authority.
+func (c *Coordinator) admitRetryRun(ctx context.Context, runID string) (factory.Run, error) {
+	var empty factory.Run
+	run, err := c.Store.FactoryRun(ctx, runID)
+	if err != nil {
+		return empty, ErrNotFound
+	}
+	if !run.Reconciled {
+		return empty, ErrPendingRuns{Runs: []string{runID}}
+	}
+	p, err := c.Store.Project(ctx, run.ProjectID)
+	if err != nil {
+		return empty, ErrNotFound
+	}
+	effective, err := c.EffectiveAuthority(ctx, p.RepositoryID)
+	if err != nil {
+		return empty, err
+	}
+	if !effective.Effective && !onlyDispatchClosed(effective) {
+		return empty, ErrIneffectiveAuthority
+	}
+	return run, nil
+}
+
+// buildRetryCommand builds the validated retry command behind one
+// prior run.
+func buildRetryCommand(commandID, principal string, run factory.Run) (factory.Command, error) {
+	var empty factory.Command
+	payload, err := json.Marshal(map[string]string{"prior_run": run.ID, "prior_outcome": string(run.Outcome)})
+	if err != nil {
+		return empty, err
+	}
+	target := "run/" + run.ID
+	cmd := factory.Command{
+		ID: commandID, Type: factory.CommandRetry, Target: target, Principal: principal,
+		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandRetry, target, string(payload)),
+	}
+	if err = cmd.Validate(); err != nil {
+		return empty, err
+	}
+	return cmd, nil
+}
+
+// replayRetryCommand replays one already-recorded retry command,
+// reporting done when the outcome stands.
+func (c *Coordinator) replayRetryCommand(ctx context.Context, cmd factory.Command) (factory.RetryDecision, bool, error) {
+	prior, err := c.Store.FactoryCommand(ctx, cmd.ID)
+	if err == nil {
+		if prior.Digest != cmd.Digest {
+			return factory.RetryDecision{}, true, store.ErrCommandConflict
+		}
+		decision, err := replayRetry(prior)
+		return decision, true, err
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return factory.RetryDecision{}, true, err
+	}
+	return factory.RetryDecision{}, false, nil
+}
+
+// admitRetryOwnership binds one retry to the owning attempt's current
+// acceptance head, returning the head with its run view.
+func (c *Coordinator) admitRetryOwnership(ctx context.Context, run factory.Run) (string, factory.RunView, error) {
+	var empty factory.RunView
+	view, err := c.Store.FactoryRunView(ctx, run.ID)
+	if err != nil {
+		return "", empty, retryOwnershipError(err)
+	}
+	if view.RunID != run.ID || view.Repository <= 0 || view.Issue <= 0 {
+		return "", empty, store.ErrExplicitRetryIneligible
+	}
+	assignment, err := c.Store.Assignment(ctx, view.Attempt)
+	if err != nil {
+		return "", empty, retryOwnershipError(err)
+	}
+	if assignment.Run != run.ID || assignment.AttemptRoot == "" {
+		return "", empty, store.ErrExplicitRetryIneligible
+	}
+	owner, err := c.Store.LatestIssueAssignment(ctx, view.Repository, view.Issue)
+	if err != nil {
+		return "", empty, retryOwnershipError(err)
+	}
+	if owner.AttemptRoot != assignment.AttemptRoot || assignment.PublicationAssignment != owner.ID {
+		return "", empty, store.ErrExplicitRetryIneligible
+	}
+	head, err := c.Store.AcceptanceHead(ctx, view.Repository, view.Issue)
+	if err != nil {
+		return "", empty, retryOwnershipError(err)
+	}
+	if owner.Acceptance != head || assignment.Acceptance != head {
+		return "", empty, store.ErrExplicitRetryIneligible
+	}
+	return head, view, nil
 }
 
 // Missing ownership is a domain refusal. An unavailable database or malformed

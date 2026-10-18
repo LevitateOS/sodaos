@@ -206,51 +206,76 @@ func deriveAttemptResult(a factory.Assignment, run factory.Run, output, summary 
 // never names a publishable candidate. Reviewer runs report the same v2
 // contract with the typed review verdict; only pre-phase reviewer runs
 // keep the legacy review fence.
+// refusePhasedAttempt maps one invalid phased run to a synthesized
+// blocked result.
+func refusePhasedAttempt(a factory.Assignment, recordedUnix int64, detail string) (factory.AssignmentResult, factory.Outcome, string) {
+	phased := synthesizePhased(a, "blocked", detail, recordedUnix)
+	return phased, factory.NeedsHuman, factory.AssignReasonNoReport
+}
+
 func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
-	refuse := func(detail string) (factory.AssignmentResult, factory.Outcome, string) {
-		phased := synthesizePhased(a, "blocked", detail, recordedUnix)
-		return phased, factory.NeedsHuman, factory.AssignReasonNoReport
-	}
 	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
-		return refuse("settled run does not match its assignment")
+		return refusePhasedAttempt(a, recordedUnix, "settled run does not match its assignment")
 	}
 	if !factory.ValidPhaseRole(a.Phase, a.Role) {
-		return refuse("assignment role does not match its execution phase")
+		return refusePhasedAttempt(a, recordedUnix, "assignment role does not match its execution phase")
 	}
 	// A non-successful settled run never reports: the supervisor maps the
 	// observed outcome, and only a successful run may carry a v2 payload.
-	switch run.Outcome {
-	case factory.Succeeded:
-	case factory.Cancelled:
-		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
-		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
-		return failed, factory.Failed, factory.AssignReasonRunFailed
+	if result, outcome, reason, done := mapPhasedRunOutcome(a, run, summary, recordedUnix); done {
+		return result, outcome, reason
 	}
 	if a.Role == project.RoleReviewer {
-		if a.Phase == project.ExecutionVerify {
-			return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
-		}
-		if a.Phase != "" {
-			return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
-		}
-		if report, ok := factory.ParseReviewReport(output); ok {
-			return factory.AssignmentResult{
-				AssignmentID: a.ID, RunID: a.Run, Status: "completed",
-				Summary: report.Summary, Candidate: run.InputSHA,
-				Findings: []string{}, Review: &report, Reported: true, RecordedUnix: recordedUnix,
-			}, factory.Succeeded, factory.AssignReasonReported
-		}
-		return refuse("review completed without a parseable report")
+		return reportPhasedReviewerResult(a, run, output, summary, recordedUnix)
 	}
 	parsed, ok := factory.ParsePhaseResult(output)
 	if !ok {
-		return refuse("run completed without a parseable phase result")
+		return refusePhasedAttempt(a, recordedUnix, "run completed without a parseable phase result")
 	}
 	if err := parsed.BindAssignment(a); err != nil {
-		return refuse("phase result does not match its assignment phase")
+		return refusePhasedAttempt(a, recordedUnix, "phase result does not match its assignment phase")
 	}
+	return buildPhasedCoderResult(a, parsed, recordedUnix)
+}
+
+// mapPhasedRunOutcome maps one non-successful settled run to its
+// recorded result, reporting done when the outcome already settles it.
+func mapPhasedRunOutcome(a factory.Assignment, run factory.Run, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string, bool) {
+	var empty factory.AssignmentResult
+	switch run.Outcome {
+	case factory.Succeeded:
+		return empty, "", "", false
+	case factory.Cancelled:
+		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
+		return cancelled, factory.Cancelled, factory.AssignReasonCancelled, true
+	default:
+		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
+		return failed, factory.Failed, factory.AssignReasonRunFailed, true
+	}
+}
+
+// reportPhasedReviewerResult maps one settled reviewer run to its
+// recorded result under the phased contract.
+func reportPhasedReviewerResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+	if a.Phase == project.ExecutionVerify {
+		return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
+	}
+	if a.Phase != "" {
+		return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
+	}
+	if report, ok := factory.ParseReviewReport(output); ok {
+		return factory.AssignmentResult{
+			AssignmentID: a.ID, RunID: a.Run, Status: "completed",
+			Summary: report.Summary, Candidate: run.InputSHA,
+			Findings: []string{}, Review: &report, Reported: true, RecordedUnix: recordedUnix,
+		}, factory.Succeeded, factory.AssignReasonReported
+	}
+	return refusePhasedAttempt(a, recordedUnix, "review completed without a parseable report")
+}
+
+// buildPhasedCoderResult builds one successful coder run's recorded
+// result from its bound phase result.
+func buildPhasedCoderResult(a factory.Assignment, parsed factory.PhaseResult, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
 	result := factory.AssignmentResult{
 		AssignmentID: a.ID, RunID: a.Run, Phase: a.Phase, PhaseResult: &parsed,
 		Summary: parsed.Summary, Findings: []string{},
@@ -278,14 +303,14 @@ func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, su
 		result.Status = "cancelled"
 		return result, factory.Cancelled, factory.AssignReasonCancelled
 	default:
-		return refuse("phase result carries an unknown status")
+		return refusePhasedAttempt(a, recordedUnix, "phase result carries an unknown status")
 	}
 	if err := result.ValidateForAssignment(a.Role, a.SourceCommit); err != nil {
-		return refuse("phase result does not match its assignment role")
+		return refusePhasedAttempt(a, recordedUnix, "phase result does not match its assignment role")
 	}
 	if result.PhaseResult != nil {
 		if err := result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
-			return refuse("phased result does not bind its assignment phase")
+			return refusePhasedAttempt(a, recordedUnix, "phased result does not bind its assignment phase")
 		}
 	}
 	outcome := factory.Outcome(factory.Succeeded)
