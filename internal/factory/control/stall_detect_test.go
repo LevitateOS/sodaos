@@ -477,6 +477,62 @@ func TestPendingPrereqNeedsItsOwnEndpointHead(t *testing.T) {
 	}
 }
 
+// TestMixedPrereqsPreserveMissingProducer proves the producer map
+// downgrades only: one issue whose pending blockers mix a missing
+// endpoint with a viable one still claims missing-producer stall,
+// regardless of blocker order. A later viable endpoint must not
+// clear an earlier missing producer.
+func TestMixedPrereqsPreserveMissingProducer(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const repo = 43
+	endpoint := factory.Acceptance{
+		ID: decisionForTest("mixed-viable"), Repository: repo, IssueIndex: "96",
+		Approver: 7, NativeRev: 41,
+		TitleDigest: stallDigest("title"), ContentDigest: stallDigest("body"),
+		TitleOccurrence: "1",
+	}
+	if err := db.AdmitAcceptanceDecision(ctx, endpoint); err != nil {
+		t.Fatalf("admit viable endpoint decision: %v", err)
+	}
+	missingFirst := stallControl(repo, 1, factory.ReadinessBlocked, factory.BlockerCodePending,
+		stallBlocker(factory.BlockerCodePending, repo, 97),
+		stallBlocker(factory.BlockerCodePending, repo, 96))
+	if _, _, err := db.RecordIssueAssessment(ctx, missingFirst, time.Now()); err != nil {
+		t.Fatalf("seed missing-first control: %v", err)
+	}
+	missingLast := stallControl(repo, 2, factory.ReadinessBlocked, factory.BlockerCodePending,
+		stallBlocker(factory.BlockerCodePending, repo, 96),
+		stallBlocker(factory.BlockerCodePending, repo, 97))
+	if _, _, err := db.RecordIssueAssessment(ctx, missingLast, time.Now()); err != nil {
+		t.Fatalf("seed missing-last control: %v", err)
+	}
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 3})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(classified.Repositories) != 1 {
+		t.Fatalf("repositories=%+v, want the seeded repository", classified.Repositories)
+	}
+	result := classified.Repositories[0]
+	if result.Kind != StallRepositoryStall || result.Event == nil {
+		t.Fatalf("repo=%+v, want stall: one missing endpoint must survive a viable sibling", result)
+	}
+	if result.Event.Reason != factory.StallReasonMissingProducer {
+		t.Fatalf("reason=%q, want the missing-producer episode", result.Event.Reason)
+	}
+	byIssue := map[int64]StallComponentDecision{}
+	for _, decision := range result.Decisions {
+		byIssue[decision.Issue] = decision
+	}
+	for _, issue := range []int64{1, 2} {
+		if got := byIssue[issue]; !got.Investigate {
+			t.Fatalf("mixed issue %d=%+v, want the stall in both orders", issue, got)
+		}
+	}
+}
+
 func decisionForTest(tag string) string {
 	sum := sha256.Sum256([]byte("stall-decision\x00" + tag))
 	return "d" + hex.EncodeToString(sum[:])[:24]

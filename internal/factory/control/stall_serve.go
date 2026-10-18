@@ -1,0 +1,60 @@
+package control
+
+import (
+	"context"
+	"time"
+)
+
+// stallEpisodeActiveMinutes bounds one admitted cycle-1 investigator
+// run: D15 allows at most 30 active minutes per automatic cycle, with
+// the tighter remaining grant limits prevailing inside admission.
+const stallEpisodeActiveMinutes = 30
+
+// ServeStallRound runs D15 detection inside the existing progress
+// pass after a dispatch pass selected no work. A pass that launched
+// anything skips detection entirely: ready work resumes selection
+// and ordinary waits never call an investigator. Detection spends
+// nothing itself; every bound episode persists as a durable
+// observation, and only an investigate result admits one bounded
+// cycle-1 charge through the explicit repair-grant joint. Any store
+// failure fails the round closed instead of spending blind.
+func (c *Coordinator) ServeStallRound(ctx context.Context, report DispatchReport) (StallClassification, error) {
+	if c.Store == nil || len(report.Launched) > 0 {
+		return StallClassification{}, nil
+	}
+	generation, err := c.Store.StallRoundGeneration(ctx)
+	if err != nil {
+		return StallClassification{}, err
+	}
+	standing, err := c.Store.StandingStallEvents(ctx)
+	if err != nil {
+		return StallClassification{}, err
+	}
+	prior := make(map[string]string, len(standing))
+	for _, entry := range standing {
+		prior[entry.EventID] = entry.Digest
+	}
+	classified, err := c.DetectRepairStalls(ctx, StallDetectDeps{
+		Store: c.Store, Generation: generation,
+		DispatchWaits: report.Waits, PriorEvents: prior,
+	})
+	if err != nil {
+		return StallClassification{}, err
+	}
+	now := time.Now()
+	for _, result := range classified.Repositories {
+		if result.Event == nil {
+			continue
+		}
+		if _, err := c.Store.SaveStallEvent(ctx, *result.Event); err != nil {
+			return StallClassification{}, err
+		}
+		if !result.Investigate {
+			continue
+		}
+		if _, err := AdmitStallEpisodeRun(ctx, c.Store, result, generation, stallEpisodeActiveMinutes, now); err != nil {
+			return StallClassification{}, err
+		}
+	}
+	return classified, nil
+}

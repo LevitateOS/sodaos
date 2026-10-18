@@ -157,7 +157,14 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// with completion wiring, never with an unqualified capture.
 	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
 	_ = c.DriveCompletions(ctx, deps)
-	c.Dispatch(ctx)
+	// D15 stall detection (R36) runs inside this same progress pass,
+	// after observation, reconciliation and dispatch: a pass that
+	// selected no work classifies the sealed inventory and admits at
+	// most one bounded episode per stalled repository. Best effort
+	// like the completion drive; a failed round keeps attention
+	// instead of spending.
+	report := c.Dispatch(ctx)
+	_, _ = c.ServeStallRound(ctx, report)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}

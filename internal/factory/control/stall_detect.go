@@ -375,6 +375,10 @@ type StallDetectDeps struct {
 	CIPending         map[string]bool
 	Paused            map[string]bool
 	ProductChoiceOpen map[string]bool
+	// PriorEvents carries standing stall event IDs with the
+	// inventory digest they bound; the serving round feeds back
+	// the store's latest observation per repository.
+	PriorEvents map[string]string
 }
 
 // DetectRepairStalls runs the D15 detector over the sealed store
@@ -398,7 +402,7 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 		Generation: deps.Generation, Complete: complete,
 		SourceCommit: deps.SourceCommit, PreparationDigest: deps.PreparationDigest,
 		Cycles: map[string]string{}, Producers: map[string]bool{},
-		PriorEvents: map[string]string{},
+		PriorEvents: deps.PriorEvents,
 	}
 	fingerprint := sha256.New()
 	seenRepo := map[int64]bool{}
@@ -449,7 +453,12 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 				if err != nil {
 					return StallClassification{}, err
 				}
-				in.Producers[key] = tracked
+				// Downgrade only: one missing prerequisite
+				// endpoint marks the issue missing-producer, and
+				// a later viable blocker must not clear it.
+				if !tracked {
+					in.Producers[key] = false
+				}
 			}
 		}
 		in.Issues = append(in.Issues, issue)
