@@ -14,6 +14,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -206,11 +207,31 @@ func catalogText(t *testing.T, res *mcp.CallToolResult) string {
 	return text.Text
 }
 
-// catalogPayload returns a caller payload with the scope digest a
-// correct caller binds: the admitted capability's current scope
-// digest, never the payload hash.
-func catalogPayload(args map[string]any) (map[string]any, string) {
-	return args, fakeCatalogCapability().ScopeDigest()
+// catalogPayload returns a caller payload bound to the actually
+// admitted fixture capability: the caller passes the scope digest
+// the server served for that capability, never a recomputed one.
+// Recomputing from a fresh fakeCatalogCapability re-reads the wall
+// clock, and ScopeDigest includes DeadlineUnix, so crossing a second
+// between the fixture admission and the request produces a false
+// stale-input refusal.
+func catalogPayload(args map[string]any, scopeDigest string) (map[string]any, string) {
+	return args, scopeDigest
+}
+
+// catalogScopeDigest reads the scope digest the server actually
+// admitted: factory.context serves the recorded capability's current
+// scope digest in its body.
+func catalogScopeDigest(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+	var body map[string]any
+	if err := json.Unmarshal([]byte(catalogText(t, res)), &body); err != nil {
+		t.Fatalf("context body is not JSON: %v", err)
+	}
+	digest, _ := body["scope_digest"].(string)
+	if len(digest) != 64 {
+		t.Fatalf("context body carries no admitted scope digest: %q", body)
+	}
+	return digest
 }
 
 // TestFactoryCatalogTransportPerHarness proves T47/T48/T51 through
@@ -252,6 +273,11 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	if body := catalogText(t, res); !strings.Contains(body, strings.Repeat("b", 32)) || !strings.Contains(body, "builder") {
 		t.Fatalf("context body %q lacks assignment/profile", body)
 	}
+	// Bind every later mutation to the actually admitted fixture
+	// capability's scope digest. Recomputing a fresh fixture digest
+	// here would re-read the wall clock across a possible second
+	// boundary and refuse as stale.
+	admittedDigest := catalogScopeDigest(t, res)
 	res, err = catalogCall(t, ctx, session, "factory.status", reads)
 	if err != nil {
 		t.Fatalf("status read: %v", err)
@@ -283,7 +309,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	// Cross-profile direct call refuses: builder cannot finish reviews.
 	reviewPayload, reviewDigest := catalogPayload(map[string]any{
 		"conclusion": "clear", "coverage": "full", "evidence_refs": []any{"r1"},
-	})
+	}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.finish_review", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("1", 32),
 		"expected_input_digest": reviewDigest, "payload": reviewPayload,
@@ -292,7 +318,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	}
 
 	// Immutable mutation: record, replay, conflict, recovery.
-	implPayload, implDigest := catalogPayload(map[string]any{"candidate": "cand-1"})
+	implPayload, implDigest := catalogPayload(map[string]any{"candidate": "cand-1"}, admittedDigest)
 	finishID := strings.Repeat("2", 32)
 	finish := map[string]any{
 		"capability_id": capability, "submission_id": finishID,
@@ -312,7 +338,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	if catalogText(t, replay) != catalogText(t, first) {
 		t.Fatal("replay receipt differs from recorded receipt")
 	}
-	clashPayload, clashDigest := catalogPayload(map[string]any{"unchanged": true})
+	clashPayload, clashDigest := catalogPayload(map[string]any{"unchanged": true}, admittedDigest)
 	clash := map[string]any{
 		"capability_id": capability, "submission_id": finishID,
 		"expected_input_digest": clashDigest, "payload": clashPayload,
@@ -337,7 +363,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 
 	// Terminal freeze: a second terminal identity and post-terminal
 	// output both refuse.
-	otherPayload, otherDigest := catalogPayload(map[string]any{"candidate": "cand-2"})
+	otherPayload, otherDigest := catalogPayload(map[string]any{"candidate": "cand-2"}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.finish_implementation", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("4", 32),
 		"expected_input_digest": otherDigest, "payload": otherPayload,
@@ -347,7 +373,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	outputPayload, outputDigest := catalogPayload(map[string]any{
 		"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
 		"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
-	})
+	}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.submit_task_output", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("5", 32),
 		"expected_input_digest": outputDigest, "payload": outputPayload,
@@ -368,7 +394,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 				"artifacts": []any{"log"},
 			}},
 		},
-	})
+	}, admittedDigest)
 	product := map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("6", 32),
 		"expected_input_digest": proposalDigest, "payload": proposalPayload,
@@ -377,6 +403,51 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	// profile first. The catalog-gate leg runs in-process below.
 	if res, err := catalogCall(t, ctx, session, "factory.finish_product_plan", product); !catalogRefused(res, err) {
 		t.Fatal("cross-profile product plan admitted")
+	}
+}
+
+// TestFactoryCatalogClockBoundaryDigest pins the R47 fixture repair
+// without a flaky sleep: a one-second deadline tick — the recompute
+// a clock-boundary crossing would produce — changes ScopeDigest, so
+// a request built from the recomputed digest refuses as stale, while
+// the actually admitted digest records. Intentional stale-input
+// refusal behavior is unchanged.
+func TestFactoryCatalogClockBoundaryDigest(t *testing.T) {
+	sink := newFakeCatalogSink()
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	ctx := context.Background()
+	admitted := sink.capability.ScopeDigest()
+	ticked := sink.capability
+	ticked.DeadlineUnix++
+	if recomputed := ticked.ScopeDigest(); recomputed == admitted {
+		t.Fatal("deadline tick keeps scope digest: clock boundary untested")
+	} else {
+		payload := map[string]any{
+			"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
+			"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
+		}
+		stale := mcpCallArgs{
+			CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
+			ExpectedInputDigest: recomputed, Payload: payload,
+		}
+		if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, stale); err == nil {
+			t.Fatal("recomputed clock-boundary digest admitted")
+		} else if !strings.Contains(err.Error(), "stale") {
+			t.Fatalf("clock-boundary refusal %q does not name stale inputs", err)
+		}
+	}
+	fresh := mcpCallArgs{
+		CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
+		ExpectedInputDigest: admitted, Payload: map[string]any{
+			"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
+			"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
+		},
+	}
+	if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, fresh); err != nil {
+		t.Fatalf("admitted scope digest refused: %v", err)
 	}
 }
 

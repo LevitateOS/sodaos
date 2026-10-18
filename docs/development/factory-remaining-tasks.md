@@ -92,6 +92,7 @@ by another successful publication cycle taking 201 seconds. This is concrete
 avoidable repeat work, not a measured failure rate. The bounded fixture repair
 comes before larger integration; it does not require finishing R47, repairing
 every Deep-CI failure or changing production admission.
+**Fixture criterion closed:** `catalogPayload` now binds the scope digest served by the actually admitted fixture capability, and the new deterministic regression pins the one-second-tick mismatch with intentional stale-input refusal unchanged. Composed R47 qualification remains open.
 
 | Priority / existing outcomes, each counted once | Next sequence or branch | Effort saved, prerequisites and risk |
 | --- | --- | --- |
