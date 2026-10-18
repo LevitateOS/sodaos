@@ -413,19 +413,21 @@ impl BlobSource {
     }
 }
 
-pub(super) fn read_oci_blob<R: Read>(
-    entries: &mut BTreeMap<String, Blob>,
-    name: &str,
-    length: i64,
-    mut reader: R,
-    source: BlobSource,
-    json_bytes: &mut i64,
-) -> Result<(), Error> {
+fn check_blob_length(length: i64) -> Result<(), Error> {
     if length < 0 || length == i64::MAX {
         return Err(Error::msg("invalid OCI blob size"));
     }
+    Ok(())
+}
+
+fn pump_blob_bytes<R: Read>(
+    reader: &mut R,
+    length: i64,
+    retain_candidate: bool,
+    source: &BlobSource,
+    name: &str,
+) -> Result<(Vec<u8>, Sha256), Error> {
     const CHUNK_BYTES: usize = 64 * 1024;
-    let retain_candidate = length <= (4 << 20);
     let mut data = if retain_candidate {
         Vec::with_capacity(length as usize)
     } else {
@@ -452,6 +454,14 @@ pub(super) fn read_oci_blob<R: Read>(
         }
         remaining -= read as u64;
     }
+    Ok((data, hasher))
+}
+
+fn ensure_blob_at_end<R: Read>(
+    reader: &mut R,
+    source: &BlobSource,
+    name: &str,
+) -> Result<(), Error> {
     let mut extra = [0u8; 1];
     loop {
         match reader.read(&mut extra) {
@@ -461,10 +471,25 @@ pub(super) fn read_oci_blob<R: Read>(
             Ok(_) => return Err(Error::msg("OCI blob size changed")),
         }
     }
-    let sum = format!("{:x}", hasher.finalize());
+    Ok(())
+}
+
+fn verify_blob_digest(name: &str, sum: &str) -> Result<(), Error> {
     if name.starts_with("blobs/") && *name != format!("blobs/sha256/{sum}") {
         return Err(Error::msg("OCI blob checksum mismatch"));
     }
+    Ok(())
+}
+
+fn store_blob_body(
+    entries: &mut BTreeMap<String, Blob>,
+    name: &str,
+    sum: String,
+    length: i64,
+    data: Vec<u8>,
+    retain_candidate: bool,
+    json_bytes: &mut i64,
+) -> Result<(), Error> {
     let body = if retain_candidate && is_json(&data) {
         Some(data)
     } else {
@@ -483,6 +508,31 @@ pub(super) fn read_oci_blob<R: Read>(
         },
     );
     Ok(())
+}
+
+pub(super) fn read_oci_blob<R: Read>(
+    entries: &mut BTreeMap<String, Blob>,
+    name: &str,
+    length: i64,
+    mut reader: R,
+    source: BlobSource,
+    json_bytes: &mut i64,
+) -> Result<(), Error> {
+    check_blob_length(length)?;
+    let retain_candidate = length <= (4 << 20);
+    let (data, hasher) = pump_blob_bytes(&mut reader, length, retain_candidate, &source, name)?;
+    ensure_blob_at_end(&mut reader, &source, name)?;
+    let sum = format!("{:x}", hasher.finalize());
+    verify_blob_digest(name, &sum)?;
+    store_blob_body(
+        entries,
+        name,
+        sum,
+        length,
+        data,
+        retain_candidate,
+        json_bytes,
+    )
 }
 pub(super) fn fetch_oci_blob(
     entries: &BTreeMap<String, Blob>,
@@ -665,6 +715,57 @@ mod streaming_tests {
             Error::msg("OCI JSON metadata limit exceeded")
         );
         assert!(!entries.contains_key("cache-overflow"));
+    }
+
+    #[test]
+    fn blob_length_and_digest_precedence_keeps_accounting() {
+        for length in [-1, i64::MAX] {
+            let mut entries = BTreeMap::new();
+            let mut json_bytes = 0;
+            assert_eq!(
+                read_oci_blob(
+                    &mut entries,
+                    "test-entry",
+                    length,
+                    Cursor::new(b"{}"),
+                    BlobSource::Layout,
+                    &mut json_bytes,
+                )
+                .unwrap_err(),
+                Error::msg("invalid OCI blob size")
+            );
+            assert!(entries.is_empty());
+            assert_eq!(json_bytes, 0);
+        }
+        let content = b"{}";
+        let digest = format!("{:x}", Sha256::digest(content));
+        let mut entries = BTreeMap::new();
+        let mut json_bytes = 0;
+        assert_eq!(
+            read_oci_blob(
+                &mut entries,
+                "blobs/sha256/0000000000000000000000000000000000000000000000000000000000000000",
+                content.len() as i64,
+                Cursor::new(content),
+                BlobSource::Layout,
+                &mut json_bytes,
+            )
+            .unwrap_err(),
+            Error::msg("OCI blob checksum mismatch")
+        );
+        assert!(entries.is_empty());
+        assert_eq!(json_bytes, 0);
+        read_oci_blob(
+            &mut entries,
+            &format!("blobs/sha256/{digest}"),
+            content.len() as i64,
+            Cursor::new(content),
+            BlobSource::Layout,
+            &mut json_bytes,
+        )
+        .unwrap();
+        assert_eq!(json_bytes, content.len() as i64);
+        assert_eq!(entries.len(), 1);
     }
 }
 
