@@ -126,41 +126,6 @@ func ParseStagedPlanningInput(prompt []byte) (in factory.SemanticPlannerInput, s
 	return in, true, nil
 }
 
-// AssessStagedDecomposition validates one reported decomposition
-// against its assignment's recorded staged input: the input answers
-// the funded operation triple, and the answer's tasks resolve to the
-// recorded head's ideas when the head carries any. Idea-less drafts
-// skip coverage: there is nothing to resolve. Shape and identity
-// already hold from parse and subject binding; this adds the semantic
-// input contract without calling any provider.
-func AssessStagedDecomposition(in factory.SemanticPlannerInput, subject factory.IntentSubject, decomposition *factory.ScopedDecomposition) error {
-	if err := in.Validate(); err != nil {
-		return err
-	}
-	if in.Head.Digest() != subject.ScopeDigest || in.Head.ID != subject.RevisionID ||
-		in.Head.Intent != subject.IntentID || in.Head.Owner != subject.OwnerID {
-		return errors.New("staged input answers another funded operation")
-	}
-	if decomposition == nil {
-		return errors.New("staged answer carries no decomposition")
-	}
-	if len(in.Head.Ideas) == 0 {
-		return nil
-	}
-	known := map[string]bool{}
-	for _, idea := range in.Head.Ideas {
-		known[idea.ID] = true
-	}
-	for _, task := range decomposition.Tasks {
-		for _, id := range task.IdeaIDs {
-			if !known[id] {
-				return errors.New("staged answer binds an unrecorded idea")
-			}
-		}
-	}
-	return nil
-}
-
 // IntentBoundLaunchInput carries the dispatch-verified identities one
 // admitted intent-bound decompose run launches under. Every identity was
 // verified at admission; this joint only binds them to the existing host

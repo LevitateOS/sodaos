@@ -420,13 +420,17 @@ func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, outp
 	return result, outcome, reason
 }
 
-// settleDecomposeSemantic validates one reported decompose result
+// settleDecomposeSemantic settles one reported decompose result
 // against its assignment's recorded staged input. A missing or corrupt
 // recorded input refuses the semantic result: there is no legacy
-// compatibility path around the staged contract. Anything failing the
-// semantic contract converts to needs-human with no report, mirroring
-// the derive path's refusal shape. Usage and consumption already
-// recorded stay untouched.
+// compatibility path around the staged contract. The staged input must
+// answer the funded subject triple, every inspected source must still
+// be the admitted source commit, and the original answer must assess
+// through AdmitIntentBoundResult — revision/operation binding plus full
+// candidate coverage and graph validation, or attention-only admission.
+// Anything failing the semantic contract converts to needs-human with
+// no report, mirroring the derive path's refusal shape. Usage and
+// consumption already recorded stay untouched.
 func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (factory.Assignment, bool) {
 	assess := func(detail string) (factory.Assignment, bool) {
 		converted := finished
@@ -442,12 +446,21 @@ func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (fac
 	if err != nil || !staged {
 		return assess("staged planning input is missing or corrupt")
 	}
+	subject := a.Subject.Intent
+	if subject == nil || in.Head.Digest() != subject.ScopeDigest || in.Head.ID != subject.RevisionID ||
+		in.Head.Intent != subject.IntentID || in.Head.Owner != subject.OwnerID {
+		return assess("staged input answers another funded operation")
+	}
 	if finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output == nil ||
 		finished.Result.PhaseResult.Output.Decomposition == nil {
 		return assess("staged answer carries no decomposition")
 	}
-	decomposition := finished.Result.PhaseResult.Output.Decomposition
-	if err := AssessStagedDecomposition(in, *a.Subject.Intent, decomposition); err != nil {
+	for _, ref := range in.Inspected {
+		if ref.Commit != a.SourceCommit {
+			return assess("staged answer inspects another source commit")
+		}
+	}
+	if err := AdmitIntentBoundResult(a.Subject, a.Phase, in, *finished.Result.PhaseResult.Output.Decomposition); err != nil {
 		return assess(err.Error())
 	}
 	return finished, true

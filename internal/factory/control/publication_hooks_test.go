@@ -513,7 +513,7 @@ func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 
 	// Reconcile still retires and records a real outstanding run.
 	run := recordRun(t, fx.coord, nil)
-	host := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, candidate: strings.Repeat("2", 40)}
+	host := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, db: fx.db, candidate: strings.Repeat("2", 40)}
 	fx.coord.Host = host
 	closed := 0
 	fx.coord.Broker = &stubBroker{

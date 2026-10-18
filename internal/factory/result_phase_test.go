@@ -17,13 +17,15 @@ func implementReceipt() *PhaseOutput {
 func scopedChoiceID(n int) string { return fmt.Sprintf("d%024x", 0xd000+n) }
 
 func decomposeOutput() *PhaseOutput {
-	return &PhaseOutput{Decomposition: &ScopedDecomposition{
-		Intent: scopedChoiceID(1), Revision: scopedChoiceID(2), Selected: "keep",
-		Tasks: []IntentTask{{
-			Key: scopedChoiceID(3), Objective: "Request entry",
-			Outcomes: []string{"Capture requests"}, IdeaIDs: []string{scopedChoiceID(4)},
+	return &PhaseOutput{Decomposition: &SemanticPlannerOutput{
+		Intent: scopedChoiceID(1), Revision: scopedChoiceID(2), Operation: IntentPlanningPropose,
+		Candidates: []SemanticCandidate{{
+			Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+			Tasks: []IntentTask{{
+				Key: scopedChoiceID(3), Objective: "Request entry",
+				Outcomes: []string{"Capture requests"}, IdeaIDs: []string{scopedChoiceID(4)},
+			}},
 		}},
-		Advice: []string{strings.Repeat("a", 64)},
 	}}
 }
 

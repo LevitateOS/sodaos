@@ -129,22 +129,24 @@ func insertIntentFinishRunRow(t *testing.T, ctx context.Context, db *Store, a fa
 func intentTerminalResult(t *testing.T, a factory.Assignment, now time.Time) factory.AssignmentResult {
 	t.Helper()
 	subject := *a.Subject.Intent
-	decomposition := factory.ScopedDecomposition{
-		Intent: subject.IntentID, Revision: subject.RevisionID, Selected: "keep",
-		Tasks: []factory.IntentTask{{
-			Key: "d333333333333333333333333", Objective: "Plan the recorded draft",
-			Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d444444444444444444444444"},
+	answer := factory.SemanticPlannerOutput{
+		Intent: subject.IntentID, Revision: subject.RevisionID, Operation: factory.IntentPlanningPropose,
+		Candidates: []factory.SemanticCandidate{{
+			Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+			Tasks: []factory.IntentTask{{
+				Key: "d333333333333333333333333", Objective: "Plan the recorded draft",
+				Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d444444444444444444444444"},
+			}},
 		}},
-		Advice: []string{strings.Repeat("a", 64)},
 	}
-	if err := decomposition.Validate(); err != nil {
+	if err := answer.Validate(); err != nil {
 		t.Fatalf("terminal decomposition invalid: %v", err)
 	}
 	phased := factory.PhaseResult{
 		Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "intent terminal accounting probe",
 		Version: factory.PhaseResultVersion,
-		Output:  &factory.PhaseOutput{Decomposition: &decomposition},
+		Output:  &factory.PhaseOutput{Decomposition: &answer},
 	}
 	if err := phased.Validate(); err != nil {
 		t.Fatalf("terminal phased result invalid: %v", err)

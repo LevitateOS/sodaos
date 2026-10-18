@@ -374,6 +374,9 @@ func intentPlanHead(now time.Time) factory.IntentRevision {
 		ID: "d888888888888888888888888", Intent: "d777777777777777777777777", Owner: 7, Repository: 7,
 		Objective: "plan the recorded draft", State: "draft",
 		MaxIssues: 10, CreatedUnix: now.Unix(),
+		Ideas: []factory.ProductIdea{
+			{ID: "d333333333333333333333333", Description: "Capture leave requests", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+		},
 	}
 }
 
@@ -570,13 +573,15 @@ func TestSettledDecomposeRefusesUnrecordedIdeaBinding(t *testing.T) {
 	stranger := fencedResult(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "single choice ready",
-		Output: &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
-			Intent: head.Intent, Revision: head.ID, Selected: "keep",
-			Tasks: []factory.IntentTask{{
-				Key: "d999999999999999999999999", Objective: "Decide the rollout order",
-				Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
+			Intent: head.Intent, Revision: head.ID, Operation: factory.IntentPlanningPropose,
+			Candidates: []factory.SemanticCandidate{{
+				Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+				Tasks: []factory.IntentTask{{
+					Key: "d999999999999999999999999", Objective: "Decide the rollout order",
+					Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+				}},
 			}},
-			Advice: []string{"keep the single choice"},
 		}},
 	})
 	finished, ok := AccountSettledRun(ctx, db, run, stranger, time.Now())

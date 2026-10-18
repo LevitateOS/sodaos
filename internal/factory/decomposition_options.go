@@ -281,9 +281,9 @@ const IntentPlanningOptions = "decomposition_options"
 // tasks with a rationale. Candidates carry decision-ID task keys only;
 // native issue IDs are never chosen by the planner.
 type SemanticCandidate struct {
-	Key       string
-	Rationale string
-	Tasks     []IntentTask
+	Key       string       `json:"key"`
+	Rationale string       `json:"rationale"`
+	Tasks     []IntentTask `json:"tasks"`
 }
 
 // SemanticPlannerInput binds one semantic planning run to its exact inputs:
@@ -304,11 +304,11 @@ type SemanticPlannerInput struct {
 // no candidates. Attention records the product decision the planner needs;
 // it never triggers another batch automatically.
 type SemanticPlannerOutput struct {
-	Intent     string
-	Revision   string
-	Operation  string
-	Candidates []SemanticCandidate
-	Attention  string
+	Intent     string              `json:"intent"`
+	Revision   string              `json:"revision"`
+	Operation  string              `json:"operation"`
+	Candidates []SemanticCandidate `json:"candidates,omitempty"`
+	Attention  string              `json:"attention,omitempty"`
 }
 
 // Validate checks the planner input shape and bindings without running any

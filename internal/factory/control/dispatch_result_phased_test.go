@@ -32,13 +32,15 @@ func phasedFinding(n int, actionable bool) factory.Finding {
 }
 
 func phasedDecomposition() *factory.PhaseOutput {
-	return &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
-		Intent: phasedDecisionID(10), Revision: phasedDecisionID(11), Selected: "keep",
-		Tasks: []factory.IntentTask{{
-			Key: phasedDecisionID(3), Objective: "Request entry",
-			Outcomes: []string{"Capture requests"}, IdeaIDs: []string{phasedDecisionID(4)},
+	return &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
+		Intent: phasedDecisionID(10), Revision: phasedDecisionID(11), Operation: factory.IntentPlanningPropose,
+		Candidates: []factory.SemanticCandidate{{
+			Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+			Tasks: []factory.IntentTask{{
+				Key: phasedDecisionID(3), Objective: "Request entry",
+				Outcomes: []string{"Capture requests"}, IdeaIDs: []string{phasedDecisionID(4)},
+			}},
 		}},
-		Advice: []string{strings.Repeat("a", 64)},
 	}}
 }
 
@@ -143,13 +145,15 @@ func TestDerivePhasedDecomposeRefusesForeignRevision(t *testing.T) {
 	foreign := fencedResult(t, factory.PhaseResult{
 		Version: 2, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "single choice ready",
-		Output: &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
-			Intent: phasedDecisionID(10), Revision: phasedDecisionID(12), Selected: "keep",
-			Tasks: []factory.IntentTask{{
-				Key: "d999999999999999999999999", Objective: "Decide the rollout order",
-				Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
+			Intent: phasedDecisionID(10), Revision: phasedDecisionID(12), Operation: factory.IntentPlanningPropose,
+			Candidates: []factory.SemanticCandidate{{
+				Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+				Tasks: []factory.IntentTask{{
+					Key: "d999999999999999999999999", Objective: "Decide the rollout order",
+					Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+				}},
 			}},
-			Advice: []string{"keep the single choice"},
 		}},
 	})
 	result, outcome, reason := deriveAttemptResult(a, run, foreign, "", 1700000100)

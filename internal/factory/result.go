@@ -75,7 +75,7 @@ type PhaseOutput struct {
 	Plan           *InvestigationPlan     `json:"plan,omitempty"`
 	Implementation *ImplementationReceipt `json:"implementation,omitempty"`
 	Reassessment   *ReassessmentReport    `json:"reassessment,omitempty"`
-	Decomposition  *ScopedDecomposition   `json:"decomposition,omitempty"`
+	Decomposition  *SemanticPlannerOutput `json:"decomposition,omitempty"`
 	Review         *ReviewCycleReport     `json:"review,omitempty"`
 	Clear          *ClearReviewReport     `json:"clear,omitempty"`
 	Correction     *CorrectionReport      `json:"correction,omitempty"`
@@ -174,13 +174,44 @@ func (o PhaseOutput) validate(phase, status string) error {
 		}
 		return nil
 	case project.ExecutionDecompose:
-		if o.Decomposition == nil || !o.nilTypedOutputExceptDecomposition() {
+		if !o.nilTypedOutputExceptDecomposition() {
 			return errors.New("cross-phase result payload refused")
 		}
-		if status != "completed" {
-			return errors.New("non-completed decomposition carries no payload")
+		// The decompose payload is the planner's original semantic
+		// answer: completed answers carry one to three candidates and
+		// no attention, blocked answers carry attention with no
+		// candidates, and failed/cancelled answers carry no payload.
+		// The chosen-graph type stays downstream with R13 adoption and
+		// never substitutes for this answer.
+		switch status {
+		case "completed":
+			if o.Decomposition == nil {
+				return errors.New("completed decomposition lacks its planner output")
+			}
+			if err := o.Decomposition.Validate(); err != nil {
+				return err
+			}
+			if o.Decomposition.Attention != "" || len(o.Decomposition.Candidates) == 0 {
+				return errors.New("completed decomposition carries its candidates, never attention")
+			}
+			return nil
+		case "blocked":
+			if o.Decomposition == nil {
+				return nil
+			}
+			if err := o.Decomposition.Validate(); err != nil {
+				return err
+			}
+			if len(o.Decomposition.Candidates) != 0 || o.Decomposition.Attention == "" {
+				return errors.New("blocked decomposition carries only attention")
+			}
+			return nil
+		default:
+			if o.Decomposition != nil {
+				return errors.New("non-completed decomposition carries no payload")
+			}
+			return nil
 		}
-		return o.Decomposition.Validate()
 	case project.ExecutionReview:
 		if !o.nilTypedOutputExceptReview() {
 			return errors.New("cross-phase result payload refused")
