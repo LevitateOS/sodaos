@@ -66,7 +66,7 @@ reuse valid evidence, and add a regression only for a real behavior/failure seam
 No per-task evidence packet, new queue, mandatory model trial or review-of-review.
 
 Release ordering includes the shared Canlang path: P14 → P15/P16 → P25 →
-P26 → P27/P28 and P29 → **R54 source freeze → R51 candidate → P30 installed
+P26 → P27/P28 and P29 → **R54 source freeze → R51 candidate/public unqualified stage → P30 installed
 journey → R52/P31/G4 → R53 → R55/P32**. R49's development assembly can use
 qualified components before R51. R54 must not wait for P30/G4, and P27/P28
 producer/source admission must not wait for the matching-release Create/boot
@@ -100,7 +100,7 @@ every Deep-CI failure or changing production admission.
 | 3 — R12–R20, R32, R33, R35, R42, R43 (14) | R12/R13 and R14 → R15 → R16 → R17 → R18, then R20/R19; attach R33 output and R35 settlement. Pull R32 persisted communication and R42 query preparation forward; R43 consumes their actual records. | Connecting the existing task journal through `ImportTaskEvents` to Store/checkpoints removes manual result stitching. Reuse one authorized read/comment path for roles and screens. Preserve the combined subscribed newest-first feed and user comments → linked plans/issues/results. Full native acceptance waits for actual consumers. |
 | 4 — R21–R29, R34, R36–R41 (16) | Review/correction/checks → merge → dependency release → reassessment/adoption, then stall/delivery verification and recovery. R36's ready slice can start after R10/R14 outputs; formal finish controls join their existing effect owners. | Reduce manual reconciliation on each finding, merge, stall and retry. `ValidateReassessmentAdoption` needs its production caller, not another validator. Authority, spending and crash custody make this higher-risk composition; reuse accepted mechanisms and prove changed joins. |
 | 5 — R45, R46, R50; Canlang P15, P16, P25, P26, P27/P28, P29 (9) | Ready R50 can proceed independently. R03/R06/R44 release R45 → R46. Consume P14 → P15/P16 → P25 → P26 → P27/P28 and P29. Share an applicable private-client fixture with P22. | Establish reusable component/tool/image identities and procedures before candidate assembly, avoiding builds that merely discover storage/offline/lifetime assumptions. Native cutover is substantial work. Retain scoped RCX/Miniflare evidence without treating it as replacement proof; remote access holds only its cases. |
-| 6 — R48, R49, R54, R51, R52, R53, R55; Canlang P30 (8) | R48 cases as role consumers become ready; complete R47 composition/R49 journey. Then R54 freeze → R51 candidate → P30/R52 installed journey → R53 public bytes → R55. | Group bounded provider trials by actual configuration; reuse component proof and one matching candidate to avoid duplicate build/install/capture loops. Real qualification and external authority remain required. P31/G4 aliases R52; P32 aliases R55. |
+| 6 — R48, R49, R54, R51, R52, R53, R55; Canlang P30 (8) | R48 cases as role consumers become ready; complete R47 composition/R49 journey. Then R54 freeze → R51 candidate/unqualified public stage → P30/R52 installed journey → R53 promotion/public readback → R55. | Group bounded provider trials by actual configuration; reuse component proof and one matching candidate to avoid duplicate build/install/capture loops. Real qualification and external authority remain required. P31/G4 aliases R52; P32 aliases R55. |
 | 7 — Canlang P08, P10, P22 (3) | Obtain the selected R2/provider contract or actual client/route/trust input when its dependent scope needs it; promote the available concrete slice. | Resolve actual waits without speculative adapters/substitute clients. P22 gates claimed remote access; P08/P10 do not become universal first-app release gates. |
 | 8 — BROAD-COMPLEXITY-037, Filetree R02 (2) | Take a cohesive simplification or missing duty map when it materially eases the next selected change; otherwise follow the branches above. | Comprehension benefits are plausible, not measured throughput gains. No whole-tree refactor/audit first; keep the 58-function residual and historical coverage gap explicit. |
 
@@ -111,6 +111,39 @@ missing caller/read/activation joins, savings are engineering hypotheses.
 Provider availability and first native storage/harness results may change the
 cheapest next branch. Optional L16/CA/structural proposals stay outside the 67;
 this ranking neither adopts them nor reopens accepted components.
+
+## Coverage reconciliation at a01b40ee
+
+This finite check reused the requirement aliases, accepted source records and
+current defining callers. It found **five incomplete existing criterion groups,
+not five new outcomes**. The 67 parents, priority bands and accepted component
+scopes remain unchanged. Their recipes now name the concrete missing consumer
+proof or ordering correction:
+
+| Confirmed gap in the task criteria | Existing owner and finite correction |
+| --- | --- |
+| Public staging was implicit, making Docker qualification appear to precede the public bytes it must consume. | **R51 → R52 → R53**: frozen unqualified public stage and anonymous identity readback → actual public installer/same-image persistence receipt → unchanged promotion and correct target recommendations. [Recipe and existing release contract](factory-remaining-tasks/06-candidate-release-closure.md#r51). |
+| The complete journey began at an already reviewed/repository-bound draft, leaving the accepted pre-repository user entry implicit. | **R12/R43/R49**: preserve private exploration and saved review; bind a correction and effective revision through association/explicit creation into real Generate/native work. Viewing cannot provision or spend; bounded explicit exploration remains allowed. [Entry criterion](factory-remaining-tasks/02-prompt-to-pr.md#r12), [composed journey](factory-remaining-tasks/05-experience-and-development.md#r49). |
+| New feed work named workflow producers but did not explicitly preserve the existing confirmed-activity/preferences consumer. | **R42/R43**, consuming R13/R19/R26/R27: retain three actual lifecycle summaries, owner-only revisioned display choices, confirmed original closure and unchanged authority/history. [Source-backed criterion](factory-remaining-tasks/05-experience-and-development.md#r42). |
+| Comment persistence and origin links did not fully specify the accepted request-to-effect recovery cases. | **R32**, consuming R12/R13/R15 with R31/R42/R43 readback: bind exact discussion/request identity; edited/deleted/inaccessible input, unavailable consumers and lost committed-effect replies yield honest state without duplicate plan/issue/spend. [Recovery criterion](factory-remaining-tasks/04-controls-repair-verification.md#r32). |
+| Generic provider/grant qualification omitted explicit per-provider custody and subscription-only launch boundaries. | **R44/R48**, with R41 interruption and R52 installed consumers: distinguish Codex's exclusive stream from Muse's concurrent immutable leases, unknown retirement, revocation scope and no billing/account/auth fallback on actual admitted pins. [Defining owners and acceptance](factory-remaining-tasks/05-experience-and-development.md#r44). |
+
+The remaining inspected joins retain existing owners: native authority →
+conditional Forgejo effects under R03–R05/R19–R29; task/role/control →
+checkpoint/settlement under R07–R11/R15–R18/R30–R41; Project/helper/network →
+component/install/recovery under R06/R44–R46/R50–R53; and Canlang producer →
+retained-data/lifecycle → installed app under the existing P recipes and shared
+R52/P31/G4, R55/P32 aliases. These are coverage mappings, not fresh acceptance.
+
+Subscription defaults, reply/edit ordering, comment routing and concrete Ralph
+asset/character choices remain decisions inside R32/R42/R43, with the combined
+newest-first subscribed feed and comment-to-linked-work capability adopted.
+P08/P10 provider selection and P22 real-client input remain scoped holds.
+Outbound notifications, broad provider parity, automatic backups and optional
+library/structural changes remain proposals; no new universal gate follows.
+No whole-source/body audit, native run or renewed qualification was performed.
+Historical coverage drift remains Filetree R02, and runtime/provider/installed
+evidence gaps remain open even where this check found an adequate task criterion.
 
 ## Historical planning inputs and preserved evidence
 
@@ -189,9 +222,9 @@ R01 input/freeze and R02 focused Fountain CI repair (`56a1c17bb0`) are accepted 
 | [R48](factory-remaining-tasks/05-experience-and-development.md#r48) | Dependency held; External + engineering; unassigned (A) | Exact harness/provider transport and first-response semantic trials. | R12, R13, R16, R22, R24, R29, R32, R33, R34, R35, R40, R41. | Funded real Codex/Muse cases meet identity, prompt/result/usage and ambiguity/clean/correction contracts. |
 | [R49](factory-remaining-tasks/05-experience-and-development.md#r49) | Dependency held; unassigned (Coordinator) | Complete real development factory plus persisted role feed question/reply/finding/result journey. | R39, R40, R43, R44, R45, R47, R48. | Prompt through native overlap/checkpoints/review/merge/reassessment/Test Pilot and intervention passes with bounded usage and human preservation. |
 | [R50](factory-remaining-tasks/06-candidate-release-closure.md#r50) | Ready slice; External + engineering; unassigned (C) | Native protected admission/finalization boundary; 88a2ce7b/f188e13b serving proof and 73fe175b tag repair accepted. | R01. | Real protected valid/forged/failure/cancel/recovery evidence qualifies the mechanism before candidate production. |
-| [R51](factory-remaining-tasks/06-candidate-release-closure.md#r51) | Dependency held; unassigned (C) | Coherent current x86_64 candidate after source freeze and real immutable component availability. | R02, R43, R45, R49, R50, R54; Canlang P27/P28 qualified producer outputs. | Source/pins/packages/images/attribution/media are attributable and native-checkable; no guessed public inputs. |
+| [R51](factory-remaining-tasks/06-candidate-release-closure.md#r51) | Dependency held; unassigned (C) | Coherent current x86_64 candidate after source freeze and real immutable component availability. | R02, R43, R45, R49, R50, R54; Canlang P27/P28 qualified producer outputs. | Source/pins/packages/images/attribution/media are attributable; the unqualified public stage and anonymous readback precede R52 without moving recommendations. |
 | [R52](factory-remaining-tasks/06-candidate-release-closure.md#r52) | Dependency held; unassigned (Coordinator) | Exact candidate fresh ISO/Docker, supported upgrade, recovery and installed journey. | R51, R49; Canlang P30 supplies shared G4 evidence. | Installed byte/mode/source identities and every required preserved-data/support case match qualified inputs. |
-| [R53](factory-remaining-tasks/06-candidate-release-closure.md#r53) | Dependency held; unassigned (Coordinator) | Concrete immutable public release and actual downloaded-byte qualification. | R52. | Human authorizes the prepared batch; protected published digests/downloads equal the qualified candidate. |
+| [R53](factory-remaining-tasks/06-candidate-release-closure.md#r53) | Dependency held; unassigned (Coordinator) | Promote the staged immutable qualified release and verify actual public bytes/recommendations. | R52. | Human authorizes the prepared batch; protected published digests/downloads equal the qualified candidate. |
 | [R54](factory-remaining-tasks/06-candidate-release-closure.md#r54) | Dependency held; unassigned (Coordinator) | One-current-path source/caller/selector/docs/license/pin cutover before candidate freeze. Cleanup shutdown does not close product cutover. | R41, R43, R45, R49, R50; Canlang P27/P28 producer schema and P29 shipping procedures. | All shipping changes precede R51; obsolete paths are evidenced and human work/qualification resources preserved. |
 | [R55](factory-remaining-tasks/06-candidate-release-closure.md#r55) | Dependency held; unassigned (Codex) | Independent acceptance of complete mapped factory scope; stopping execution does not accept unfinished backlog. | R46, R47, R48, R49, R50, R51, R52, R53, R54. | Production callers and decisive evidence satisfy all original outcomes/refinements/profiles/controls and concrete external cases. |
 
