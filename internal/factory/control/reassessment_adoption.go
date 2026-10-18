@@ -213,6 +213,38 @@ func preflightReassessmentIntent(
 	report factory.ReassessmentReport,
 ) (ReassessmentIntentPacket, error) {
 	var empty ReassessmentIntentPacket
+	prior, err := admitReassessmentPrior(change, priors)
+	if err != nil {
+		return empty, err
+	}
+	priorTasks, proposedTasks, err := admitReassessmentScope(change, prior, authority)
+	if err != nil {
+		return empty, err
+	}
+	if err := checkReassessmentCoverage(change, report.Coverage, authority); err != nil {
+		return empty, err
+	}
+	changedKeys, _ := diffReassessmentTasks(priorTasks, proposedTasks)
+	affected, err := transitivelyAffectedTasks(proposedTasks, changedKeys, prior)
+	if err != nil {
+		return empty, err
+	}
+	if err := checkReassessmentProtected(prior, priorTasks, proposedTasks, affected); err != nil {
+		return empty, err
+	}
+	packet, err := buildReassessmentPacket(change, prior, priorTasks, proposedTasks, changedKeys, affected)
+	if err != nil {
+		return empty, err
+	}
+	return packet, nil
+}
+
+// admitReassessmentPrior binds one reassessment change to its known prior.
+func admitReassessmentPrior(
+	change factory.ReassessmentIntentChange,
+	priors map[string]ReassessmentPrior,
+) (ReassessmentPrior, error) {
+	var empty ReassessmentPrior
 	prior, ok := priors[change.IntentID]
 	if !ok {
 		return empty, errors.New("reassessment change names an unknown intent")
@@ -223,9 +255,19 @@ func preflightReassessmentIntent(
 	if change.ScopeDigest != prior.Revision.Digest() {
 		return empty, errors.New("reassessment scope digest does not match its accepted revision")
 	}
+	return prior, nil
+}
+
+// admitReassessmentScope binds one reassessment change's tasks to the
+// effective accepted scope and issue bound.
+func admitReassessmentScope(
+	change factory.ReassessmentIntentChange,
+	prior ReassessmentPrior,
+	authority ReassessmentAuthority,
+) (map[string]factory.IntentTask, map[string]factory.IntentTask, error) {
 	effective := authority.EffectiveIdeas[change.IntentID]
 	if effective == nil {
-		return empty, errors.New("reassessment intent lacks its effective accepted scope")
+		return nil, nil, errors.New("reassessment intent lacks its effective accepted scope")
 	}
 	priorTasks := make(map[string]factory.IntentTask, len(prior.Revision.Tasks))
 	for _, task := range prior.Revision.Tasks {
@@ -236,24 +278,26 @@ func preflightReassessmentIntent(
 		proposedTasks[task.Key] = task
 		for _, id := range task.IdeaIDs {
 			if !effective[id] {
-				return empty, errors.New("reassessment task leaves its accepted scope")
+				return nil, nil, errors.New("reassessment task leaves its accepted scope")
 			}
 		}
 	}
 	if len(change.Tasks) > prior.Revision.MaxIssues || prior.Revision.MaxIssues < 1 {
-		return empty, errors.New("reassessment graph exceeds its accepted issue bound")
+		return nil, nil, errors.New("reassessment graph exceeds its accepted issue bound")
 	}
-	if err := checkReassessmentCoverage(change, report.Coverage, authority); err != nil {
-		return empty, err
-	}
-	changedKeys, _ := diffReassessmentTasks(priorTasks, proposedTasks)
-	affected, err := transitivelyAffectedTasks(proposedTasks, changedKeys, prior)
-	if err != nil {
-		return empty, err
-	}
+	return priorTasks, proposedTasks, nil
+}
+
+// checkReassessmentProtected requires protected routes, prerequisite
+// routes and work to stay untouched behind one reassessment.
+func checkReassessmentProtected(
+	prior ReassessmentPrior,
+	priorTasks, proposedTasks map[string]factory.IntentTask,
+	affected map[string]bool,
+) error {
 	for key := range affected {
 		if prior.Protected[key] {
-			return empty, errors.New("reassessment changes a protected route")
+			return errors.New("reassessment changes a protected route")
 		}
 	}
 	for key, task := range proposedTasks {
@@ -262,17 +306,11 @@ func preflightReassessmentIntent(
 		}
 		for _, dep := range task.DependsOn {
 			if affected[dep] {
-				return empty, errors.New("reassessment changes a protected prerequisite route")
+				return errors.New("reassessment changes a protected prerequisite route")
 			}
 		}
-		pinned := prior.PrereqAcceptance[key]
-		if len(pinned) != len(task.DependsOn) {
-			return empty, errors.New("protected task lacks its pinned prerequisite route")
-		}
-		for _, dep := range task.DependsOn {
-			if _, ok := pinned[dep]; !ok {
-				return empty, errors.New("protected prerequisite route changed")
-			}
+		if err := checkPinnedPrereqRoute(prior, key, task); err != nil {
+			return err
 		}
 	}
 	for key, task := range proposedTasks {
@@ -281,17 +319,28 @@ func preflightReassessmentIntent(
 		}
 		priorTask, ok := priorTasks[key]
 		if !ok || !equalIntentTasks(priorTask, task) {
-			return empty, errors.New("reassessment edits protected work")
+			return errors.New("reassessment edits protected work")
 		}
 		if _, ok := prior.Bindings[key]; !ok {
-			return empty, errors.New("protected task lacks its frozen binding")
+			return errors.New("protected task lacks its frozen binding")
 		}
 	}
-	packet, err := buildReassessmentPacket(change, prior, priorTasks, proposedTasks, changedKeys, affected)
-	if err != nil {
-		return empty, err
+	return nil
+}
+
+// checkPinnedPrereqRoute requires one protected task's pinned
+// prerequisite route behind one reassessment.
+func checkPinnedPrereqRoute(prior ReassessmentPrior, key string, task factory.IntentTask) error {
+	pinned := prior.PrereqAcceptance[key]
+	if len(pinned) != len(task.DependsOn) {
+		return errors.New("protected task lacks its pinned prerequisite route")
 	}
-	return packet, nil
+	for _, dep := range task.DependsOn {
+		if _, ok := pinned[dep]; !ok {
+			return errors.New("protected prerequisite route changed")
+		}
+	}
+	return nil
 }
 
 // checkReassessmentCoverage requires every affected effective idea to be
@@ -480,6 +529,49 @@ func buildReassessmentPacket(
 			rebound[key] = true
 		}
 	}
+	planReassessmentWrites(&payload, prior, priorTasks, proposedTasks, proposedRev, changed, affected, &packet)
+	if err := planReassessmentEdges(&payload, prior, priorTasks, proposedTasks); err != nil {
+		return ReassessmentIntentPacket{}, err
+	}
+	if err := checkReassessmentEdges(payload, protectedIssues); err != nil {
+		return ReassessmentIntentPacket{}, err
+	}
+	_, retired := diffReassessmentTasks(priorTasks, proposedTasks)
+	packet.RetiredKeys = retired
+	for key := range rebound {
+		packet.ReboundKeys = append(packet.ReboundKeys, key)
+	}
+	sort.Strings(packet.ReboundKeys)
+	sort.Slice(packet.CopiedBindings, func(i, j int) bool {
+		return packet.CopiedBindings[i].TaskKey < packet.CopiedBindings[j].TaskKey
+	})
+	if len(payload.Creates)+len(payload.Edits)+len(payload.Dependencies) == 0 {
+		packet.NoEffect = true
+		packet.PacketDigest = packetDigest(nil)
+		return packet, nil
+	}
+	if err := sdk.ValidateIssueGraphPayload(payload); err != nil {
+		return ReassessmentIntentPacket{}, errors.New("reassessment packet exceeds its native bound")
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil || len(encoded) > sdk.MaxIssueGraphPayloadBytes {
+		return ReassessmentIntentPacket{}, errors.New("reassessment packet exceeds its native bound")
+	}
+	packet.Payload = payload
+	packet.PacketDigest = packetDigest(encoded)
+	return packet, nil
+}
+
+// planReassessmentWrites plans created and edited issues behind one
+// reassessment, copying untouched bindings.
+func planReassessmentWrites(
+	payload *sdk.IssueGraphPayload,
+	prior ReassessmentPrior,
+	priorTasks, proposedTasks map[string]factory.IntentTask,
+	proposedRev factory.IntentRevision,
+	changed, affected map[string]bool,
+	packet *ReassessmentIntentPacket,
+) {
 	for key, task := range proposedTasks {
 		binding, bound := prior.Bindings[key]
 		priorTask, known := priorTasks[key]
@@ -506,6 +598,15 @@ func buildReassessmentPacket(
 			packet.CopiedBindings = append(packet.CopiedBindings, binding)
 		}
 	}
+}
+
+// planReassessmentEdges plans added and removed dependencies behind
+// one reassessment.
+func planReassessmentEdges(
+	payload *sdk.IssueGraphPayload,
+	prior ReassessmentPrior,
+	priorTasks, proposedTasks map[string]factory.IntentTask,
+) error {
 	for key, task := range proposedTasks {
 		priorTask, known := priorTasks[key]
 		priorEdges := make(map[string]bool)
@@ -520,7 +621,7 @@ func buildReassessmentPacket(
 			}
 			depRef, ok := reassessmentEdgeRef(dep, prior.Bindings, proposedTasks)
 			if !ok {
-				return ReassessmentIntentPacket{}, errors.New("reassessment dependency names an unmapped task")
+				return errors.New("reassessment dependency names an unmapped task")
 			}
 			payload.Dependencies = append(payload.Dependencies, sdk.IssueGraphDependency{Issue: taskRef(task.Key, prior.Bindings), Prerequisite: depRef})
 		}
@@ -539,40 +640,23 @@ func buildReassessmentPacket(
 			}
 		}
 	}
+	return nil
+}
+
+// checkReassessmentEdges requires removals through bound issues only
+// and no dependency change touching a protected issue.
+func checkReassessmentEdges(payload sdk.IssueGraphPayload, protectedIssues map[int64]bool) error {
 	for _, edge := range payload.Dependencies {
 		if edge.Remove && (edge.Issue.Key != "" || edge.Prerequisite.Key != "") {
-			return ReassessmentIntentPacket{}, errors.New("reassessment removes an edge through a new key")
+			return errors.New("reassessment removes an edge through a new key")
 		}
 		for _, ref := range []sdk.IssueGraphRef{edge.Issue, edge.Prerequisite} {
 			if ref.IssueID > 0 && protectedIssues[ref.IssueID] {
-				return ReassessmentIntentPacket{}, errors.New("reassessment changes a protected outgoing edge")
+				return errors.New("reassessment changes a protected outgoing edge")
 			}
 		}
 	}
-	_, retired := diffReassessmentTasks(priorTasks, proposedTasks)
-	packet.RetiredKeys = retired
-	for key := range rebound {
-		packet.ReboundKeys = append(packet.ReboundKeys, key)
-	}
-	sort.Strings(packet.ReboundKeys)
-	sort.Slice(packet.CopiedBindings, func(i, j int) bool {
-		return packet.CopiedBindings[i].TaskKey < packet.CopiedBindings[j].TaskKey
-	})
-	if len(payload.Creates)+len(payload.Edits)+len(payload.Dependencies) == 0 {
-		packet.NoEffect = true
-		packet.PacketDigest = packetDigest(nil)
-		return packet, nil
-	}
-	if err := sdk.ValidateIssueGraphPayload(payload); err != nil {
-		return ReassessmentIntentPacket{}, errors.New("reassessment packet exceeds its native bound")
-	}
-	encoded, err := json.Marshal(payload)
-	if err != nil || len(encoded) > sdk.MaxIssueGraphPayloadBytes {
-		return ReassessmentIntentPacket{}, errors.New("reassessment packet exceeds its native bound")
-	}
-	packet.Payload = payload
-	packet.PacketDigest = packetDigest(encoded)
-	return packet, nil
+	return nil
 }
 
 // reassessmentEdgeRef maps one task key to its native edge reference: the
