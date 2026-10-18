@@ -7,16 +7,18 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	sdk "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 // q05KeepChooser is the declared test-local decomposition judgment: the
-// accepted task decomposition stands as authored. No live model call.
+// recorded "keep" candidate stands. No live model call.
 type q05KeepChooser struct{}
 
 func (q05KeepChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
@@ -31,20 +33,12 @@ func (q05KeepChooser) Select(_ context.Context, _ any, _ string, choices map[str
 	return factory.PriorityAnswer{Selected: "keep", Confidence: 0.9, Probabilities: probabilities, Model: "q05-declared"}, nil
 }
 
-// q05ReviewChooser is the declared test-local decomposition refusal: the
-// reviewed decomposition needs reconsideration. No live model call.
-type q05ReviewChooser struct{}
+// q05RefusingChooser fails any judgment call: a passing run behind it
+// proves the serving path refused before any funded comparison.
+type q05RefusingChooser struct{}
 
-func (q05ReviewChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
-	probabilities := map[string]float64{}
-	for id := range choices {
-		probabilities[id] = 0
-	}
-	if _, ok := choices["review"]; !ok {
-		return factory.PriorityAnswer{}, errors.New("review is not an option")
-	}
-	probabilities["review"] = 1
-	return factory.PriorityAnswer{Selected: "review", Confidence: 0.9, Probabilities: probabilities, Model: "q05-declared"}, nil
+func (q05RefusingChooser) Select(_ context.Context, _ any, _ string, _ map[string]any) (factory.PriorityAnswer, error) {
+	return factory.PriorityAnswer{}, errors.New("refused path must not evaluate a comparison")
 }
 
 // q05Graph is a test-local control.IssueGraphExecutor that returns declared
@@ -116,7 +110,7 @@ func (f *q05Graph) ReadGeneratedIssue(_ context.Context, _ int64, index int64, a
 
 // ReadAcceptanceEvidence brackets the same echoed native facts for the
 // admission path: the submitted title/body digests at the owner revision
-// with an empty edge set (the accepted task has no dependencies).
+// with an empty edge set (the accepted tasks have no dependencies).
 func (f *q05Graph) ReadAcceptanceEvidence(_ context.Context, _ string, issue string, _ []string) (control.AcceptanceEvidence, error) {
 	for i, create := range f.creates {
 		if strconv.FormatInt(int64(5+i), 10) != issue {
@@ -134,91 +128,134 @@ func (f *q05Graph) ReadAcceptanceEvidence(_ context.Context, _ string, issue str
 	return control.AcceptanceEvidence{}, errors.New("unknown generated issue")
 }
 
-// TestAcceptGenerateCommitmentBridge executes the changed native/API
-// commitment seam through the real mux: exact U accepted nextRevision
-// body (predecessor, repository "7", decided ideas, authored tasks) ->
-// session/repository-owner guard -> accepted 201 -> generate POST ->
-// real Coordinator.GenerateAcceptedIntent with declared executor facts
-// -> durable completed generation read back over HTTP. Declared
-// external judgments: q05KeepChooser (keep/0.9) for the decomposition
-// triplet; declared native facts from the fake executor echoing exact
-// submitted payloads. No live model call; the stub never touches the
-// real writer (native goldens cover that half separately).
-func TestAcceptGenerateCommitmentBridge(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
+const (
+	generateIntentID = "d222222222222222222222222"
+	generateDraftID  = "d111111111111111111111111"
+	generateIdeaA    = "d555555555555555555555555"
+	generateIdeaB    = "d666666666666666666666666"
+	generateTaskA    = "d700000000000000000000001"
+	generateTaskB    = "d700000000000000000000002"
+	generateTaskC    = "d700000000000000000000003"
+	generateAuthored = "d444444444444444444444444"
+)
+
+// generateOptionsDraft is the decomposition-options-suitable draft: the
+// supported leave-workflow objective with attributed effective scope.
+func generateOptionsDraft() string {
+	return `{"id":"` + generateDraftID + `","intent":"` + generateIntentID + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + generateIdeaA + `","description":"Capture leave requests","consequence":"Requests can be recorded",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"},` +
+		`{"id":"` + generateIdeaB + `","description":"Managers review requests","consequence":"Decisions are visible",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
+		`"effective_outcomes":["` + generateIdeaA + `","` + generateIdeaB + `"],` +
+		`"state":"draft","max_issues":10,"planning_calls":12}`
+}
+
+// generateAcceptedBody carries the reviewed draft as predecessor and
+// preserves its substantive scope exactly; only the authored task
+// differs from any planner candidate.
+func generateAcceptedBody(id string) string {
+	return `{"id":"` + id + `","intent":"` + generateIntentID + `","predecessor":"` + generateDraftID + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + generateIdeaA + `","description":"Capture leave requests","consequence":"Requests can be recorded",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"},` +
+		`{"id":"` + generateIdeaB + `","description":"Managers review requests","consequence":"Decisions are visible",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
+		`"effective_outcomes":["` + generateIdeaA + `","` + generateIdeaB + `"],` +
+		`"tasks":[{"key":"` + generateAuthored + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + generateIdeaA + `"]}],` +
+		`"state":"accepted","max_issues":10,"planning_calls":12}`
+}
+
+// generateAnswer fences one decomposition_options answer for the saved
+// draft head: the covering "keep" candidate plus "split" when requested.
+func generateAnswer(t *testing.T, operation string, keys ...string) string {
+	t.Helper()
+	tasks := []factory.IntentTask{
+		{Key: generateTaskA, Objective: "Capture leave requests", Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{generateIdeaA}},
+		{Key: generateTaskB, Objective: "Managers review requests", Outcomes: []string{"Decisions are visible"}, IdeaIDs: []string{generateIdeaB}},
+	}
+	out := factory.SemanticPlannerOutput{Intent: generateIntentID, Revision: generateDraftID, Operation: operation}
+	for _, key := range keys {
+		candidate := tasks
+		if key == "split" {
+			candidate = []factory.IntentTask{{
+				Key: generateTaskC, Objective: "Decide vacation requests with manager review",
+				Outcomes: []string{"Requests can be recorded", "Decisions are visible"}, IdeaIDs: []string{generateIdeaA, generateIdeaB},
+			}}
+		}
+		out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: candidate})
+	}
+	data, err := json.Marshal(factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "recorded choice ready", Output: &factory.PhaseOutput{Decomposition: &out},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "work log\n```result-json\n" + string(data) + "\n```\ntrailer\n"
+}
+
+// recordGeneratePlan saves the options draft, funds the repository,
+// plans the requested operation through the real mux, settles the
+// fenced answer and accepts the scope-preserving successor,
+// returning the accepted revision ID.
+func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(method, path, body string) (int, []byte), operation, acceptID string, keys ...string) string {
+	t.Helper()
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", generateOptionsDraft()); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	seedPlanFunding(t, ctx, s)
+	product.Coordinator = &control.Coordinator{Store: s, Host: &planStubHost{}, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/plan", `{"revision":"`+generateDraftID+`","operation":"`+operation+`"}`)
+	if code != http.StatusCreated {
+		t.Fatalf("plan status=%d body=%s", code, body)
+	}
+	var launched struct {
+		RunID string `json:"run_id"`
+	}
+	if err := json.Unmarshal(body, &launched); err != nil {
+		t.Fatal(err)
+	}
+	settlePlanRun(t, ctx, s, launched.RunID, generateAnswer(t, operation, keys...))
+	if code, body := call(http.MethodPost, "/api/factory/intents", generateAcceptedBody(acceptID)); code != http.StatusCreated {
+		t.Fatalf("accept status=%d body=%s", code, body)
+	}
+	return acceptID
+}
+
+// wireGenerateCoordinator swaps the planning consumer for the native
+// serving tail: the declared graph executor with the given judgment,
+// reusing the same ephemeral store.
+func wireGenerateCoordinator(product *API, s *store.Store, t *testing.T, chooser control.ProductJudgment) *q05Graph {
 	fake := &q05Graph{t: t, store: s, rev: 7}
 	product.Coordinator = &control.Coordinator{
 		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
-		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: q05KeepChooser{}},
+		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: chooser},
 	}
-
-	const draftID = "d111111111111111111111111"
-	const intentID = "d222222222222222222222222"
-	const ideaID = "d333333333333333333333333"
-	const taskKey = "d444444444444444444444444"
-	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","repository":"0","objective":"Time-off requests my manager can approve",` +
-		`"ideas":[],"tasks":[],"state":"draft","max_issues":20,"planning_calls":8}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
-		t.Fatalf("draft save status=%d body=%s", code, body)
-	}
-	uShape := `{"id":"d555555555555555555555555","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", uShape); code != http.StatusCreated {
-		t.Fatalf("allowance status=%d body=%s", code, body)
-	}
-	accepted := func(id, predecessor, repository string) string {
-		return `{"id":"` + id + `","intent":"` + intentID + `","predecessor":"` + predecessor + `","repository":"` + repository + `",` +
-			`"objective":"Time-off requests my manager can approve",` +
-			`"ideas":[{"id":"` + ideaID + `","description":"Track leave requests","consequence":"Managers review requests",` +
-			`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
-			`"tasks":[{"key":"` + taskKey + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + ideaID + `"]}],` +
-			`"state":"accepted","max_issues":20,"planning_calls":8}`
-	}
-	// Stale CAS refusal: valid shape, wrong predecessor. No head move.
-	const staleID = "d666666666666666666666666"
-	if code, body := call(http.MethodPost, "/api/factory/intents", accepted("d777777777777777777777777", staleID, "7")); code != http.StatusPreconditionFailed || errorCode(body) != "stale_revision" {
-		t.Fatalf("stale accept status=%d body=%s", code, body)
-	}
-	// Invisible-repository guard refusal on a second intent. No generation.
-	const intent2 = "d888888888888888888888888"
-	const draft2ID = "d999999999999999999999999"
-	const accept2ID = "daaaaaaaaaaaaaaaaaaaaaaaaa"
-	draft2 := `{"id":"` + draft2ID + `","intent":"` + intent2 + `","repository":"0","objective":"Second request",` +
-		`"ideas":[],"tasks":[],"state":"draft","max_issues":20,"planning_calls":8}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", draft2); code != http.StatusCreated {
-		t.Fatalf("draft2 save status=%d body=%s", code, body)
-	}
-	accept2 := `{"id":"` + accept2ID + `","intent":"` + intent2 + `","predecessor":"` + draft2ID + `","repository":"99",` +
-		`"objective":"Second request",` +
-		`"ideas":[{"id":"` + ideaID + `","description":"Track leave requests","consequence":"Managers review requests",` +
-		`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
-		`"tasks":[{"key":"` + taskKey + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + ideaID + `"]}],` +
-		`"state":"accepted","max_issues":20,"planning_calls":8}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", accept2); code != http.StatusNotFound || errorCode(body) != "not_found" {
-		t.Fatalf("invisible-repo accept status=%d body=%s", code, body)
-	}
-	if code, body := call(http.MethodGet, "/api/factory/intents/"+intent2+"/generation", ""); code != http.StatusOK {
-		t.Fatalf("intent2 generation status=%d", code)
-	} else {
-		var pending map[string]string
-		if err := json.Unmarshal(body, &pending); err != nil || pending["state"] != "pending" {
-			t.Fatalf("intent2 generation body=%s", body)
-		}
-	}
-	// Successful accept on the first intent.
-	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
-	code, body := call(http.MethodPost, "/api/factory/intents", accepted(acceptID, draftID, "7"))
-	if code != http.StatusCreated {
-		t.Fatalf("accept status=%d body=%s", code, body)
-	}
-	var saved factory.IntentRevision
-	if err := json.Unmarshal(body, &saved); err != nil {
+	if err := s.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: generateIntentID, Owner: 1, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if saved.ID != acceptID || saved.State != "accepted" || saved.Owner != 1 || saved.Repository != 7 || saved.Predecessor != draftID {
-		t.Fatalf("accepted scope id=%s state=%s owner=%d repo=%d pred=%s", saved.ID, saved.State, saved.Owner, saved.Repository, saved.Predecessor)
-	}
-	// Generate through the handler into the real coordinator.
-	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/generate", `{}`)
+	return fake
+}
+
+// TestAcceptGenerateCommitmentBridge executes the recorded-plan serving
+// seam through the real mux: options-suitable draft -> funded plan ->
+// settled single-candidate answer -> scope-preserving accept ->
+// generate POST resolves the recorded choice with zero comparative
+// calls and adopts exactly the planner graph, never the authored task.
+// Repeat generate reuses the durable operation with no second graph.
+// Declared external judgments: none consulted (single candidate needs
+// no comparison). Declared native facts from the fake executor echoing
+// exact submitted payloads. No live model call.
+func TestAcceptGenerateCommitmentBridge(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
+	recordGeneratePlan(t, product, s, call, "decomposition_options", acceptID, "keep")
+	fake := wireGenerateCoordinator(product, s, t, q05KeepChooser{})
+
+	code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`)
 	if code != http.StatusOK {
 		t.Fatalf("generate status=%d body=%s", code, body)
 	}
@@ -226,27 +263,34 @@ func TestAcceptGenerateCommitmentBridge(t *testing.T) {
 	if err := json.Unmarshal(body, &gen); err != nil {
 		t.Fatal(err)
 	}
-	if gen.State != "completed" || gen.RevisionID != acceptID || gen.IntentID != intentID || gen.OperationID != "intent-"+acceptID {
+	if gen.State != "completed" || gen.RevisionID != acceptID || gen.IntentID != generateIntentID || gen.OperationID != "intent-"+acceptID {
 		t.Fatalf("generation state=%s rev=%s op=%s", gen.State, gen.RevisionID, gen.OperationID)
 	}
 	if len(gen.Delivered) != 0 {
 		t.Fatalf("delivered=%d", len(gen.Delivered))
 	}
+	var submitted []string
+	for _, task := range gen.SubmittedTasks {
+		submitted = append(submitted, task.Key)
+	}
+	if len(submitted) != 2 || submitted[0] != generateTaskA || submitted[1] != generateTaskB {
+		t.Fatalf("submitted=%v want recorded planner tasks", submitted)
+	}
 	bindings, err := s.IntentTaskBindings(context.Background(), acceptID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(bindings) != 1 || bindings[0].TaskKey != taskKey || bindings[0].IssueID != 100 || bindings[0].IssueIndex != 5 || bindings[0].ContentVersion != 1 {
+	if len(bindings) != 2 || bindings[0].TaskKey != generateTaskA || bindings[1].TaskKey != generateTaskB {
 		t.Fatalf("bindings=%+v", bindings)
 	}
 	var receipt sdk.IssueGraphReceipt
 	if err := json.Unmarshal(gen.Receipt, &receipt); err != nil {
 		t.Fatal(err)
 	}
-	if receipt.ActorID != 21 || receipt.RepositoryID != 7 || len(receipt.Issues) != 1 || receipt.Issues[0].Key != taskKey {
+	if receipt.ActorID != 21 || receipt.RepositoryID != 7 || len(receipt.Issues) != 2 {
 		t.Fatalf("receipt=%+v", receipt)
 	}
-	if fake.submits != 1 || len(fake.creates) != 1 || fake.creates[0].Key != taskKey {
+	if fake.submits != 1 || len(fake.creates) != 2 {
 		t.Fatalf("submits=%d creates=%+v", fake.submits, fake.creates)
 	}
 	if len(fake.checks) == 0 {
@@ -257,16 +301,7 @@ func TestAcceptGenerateCommitmentBridge(t *testing.T) {
 			t.Fatalf("owner check=%v", check)
 		}
 	}
-	// Read-back and repeat: same operation, no second graph.
-	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/generation", ""); code != http.StatusOK {
-		t.Fatalf("generation read status=%d", code)
-	} else {
-		var reread factory.IntentGeneration
-		if err := json.Unmarshal(body, &reread); err != nil || reread.OperationID != gen.OperationID || reread.State != "completed" {
-			t.Fatalf("generation reread body=%s", body)
-		}
-	}
-	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/generate", `{}`); code != http.StatusOK {
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`); code != http.StatusOK {
 		t.Fatalf("repeat generate status=%d body=%s", code, body)
 	}
 	if fake.submits != 1 {
@@ -274,63 +309,114 @@ func TestAcceptGenerateCommitmentBridge(t *testing.T) {
 	}
 }
 
-// TestGenerateDecompositionRefusalNeedsReview proves a deliberate
-// decomposition refusal reports 409 intent_review_required (never a
-// storage 503): the accepted direction is saved, but the proposed work
-// needs reconsideration before native work can be created. No graph is
-// submitted and the accepted head is retained.
-func TestGenerateDecompositionRefusalNeedsReview(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
-	fake := &q05Graph{t: t, store: s, rev: 7}
-	product.Coordinator = &control.Coordinator{
-		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
-		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: q05ReviewChooser{}},
-	}
+// TestGenerateRecordedMultiChoiceAdoptsFundedPick proves the recorded
+// multi-candidate answer resolves through exactly one funded comparative
+// choice over HTTP: the declared keeper selects "keep" and only its
+// tasks submit. No live model call.
+func TestGenerateRecordedMultiChoiceAdoptsFundedPick(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
+	recordGeneratePlan(t, product, s, call, "decomposition_options", acceptID, "keep", "split")
+	fake := wireGenerateCoordinator(product, s, t, q05KeepChooser{})
 
-	const draftID = "d111111111111111111111111"
-	const intentID = "d222222222222222222222222"
-	const ideaID = "d333333333333333333333333"
-	const taskKey = "d444444444444444444444444"
-	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","repository":"0","objective":"Time-off requests my manager can approve",` +
-		`"ideas":[],"tasks":[],"state":"draft","max_issues":20,"planning_calls":8}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+	code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`)
+	if code != http.StatusOK {
+		t.Fatalf("generate status=%d body=%s", code, body)
+	}
+	var gen factory.IntentGeneration
+	if err := json.Unmarshal(body, &gen); err != nil {
+		t.Fatal(err)
+	}
+	if gen.State != "completed" {
+		t.Fatalf("generation state=%s", gen.State)
+	}
+	var submitted []string
+	for _, task := range gen.SubmittedTasks {
+		submitted = append(submitted, task.Key)
+	}
+	if len(submitted) != 2 || submitted[0] != generateTaskA || submitted[1] != generateTaskB {
+		t.Fatalf("submitted=%v want funded keep tasks", submitted)
+	}
+	if fake.submits != 1 {
+		t.Fatalf("submits=%d", fake.submits)
+	}
+}
+
+// TestGenerateRecordedChoiceRefusals proves every non-choice Generate
+// refuses through the real mux before any funded comparison or native
+// effect: drafts report intent_not_accepted, accepted directions with
+// no recorded plan or with a propose_intent recording report
+// planning_choice_unavailable (even the refusing chooser never fires),
+// and an accepted head in an invisible repository reports not_found.
+func TestGenerateRecordedChoiceRefusals(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	ctx := context.Background()
+
+	if code, body := call(http.MethodPost, "/api/factory/intents", generateOptionsDraft()); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	uShape := `{"id":"d555555555555555555555555","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", uShape); code != http.StatusCreated {
-		t.Fatalf("allowance status=%d body=%s", code, body)
+	fake := wireGenerateCoordinator(product, s, t, q05RefusingChooser{})
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`); code != http.StatusConflict || errorCode(body) != "intent_not_accepted" {
+		t.Fatalf("draft generate status=%d body=%s", code, body)
 	}
+
 	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
-	accepted := `{"id":"` + acceptID + `","intent":"` + intentID + `","predecessor":"` + draftID + `","repository":"7",` +
-		`"objective":"Time-off requests my manager can approve",` +
-		`"ideas":[{"id":"` + ideaID + `","description":"Track leave requests","consequence":"Managers review requests",` +
-		`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
-		`"tasks":[{"key":"` + taskKey + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + ideaID + `"]}],` +
-		`"state":"accepted","max_issues":20,"planning_calls":8}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", accepted); code != http.StatusCreated {
+	if code, body := call(http.MethodPost, "/api/factory/intents", generateAcceptedBody(acceptID)); code != http.StatusCreated {
 		t.Fatalf("accept status=%d body=%s", code, body)
 	}
-	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/generate", `{}`)
-	if code != http.StatusConflict || errorCode(body) != "intent_review_required" {
-		t.Fatalf("refused generate status=%d body=%s", code, body)
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`); code != http.StatusConflict || errorCode(body) != "planning_choice_unavailable" {
+		t.Fatalf("plan-less generate status=%d body=%s", code, body)
 	}
 	if fake.submits != 0 {
-		t.Fatalf("refused decomposition submitted a graph: %d", fake.submits)
+		t.Fatalf("plan-less generate submitted a graph: %d", fake.submits)
 	}
-	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID, ""); code != http.StatusOK {
-		t.Fatalf("intent read status=%d", code)
-	} else {
-		var head factory.IntentRevision
-		if err := json.Unmarshal(body, &head); err != nil || head.ID != acceptID || head.State != "accepted" {
-			t.Fatalf("accepted head moved body=%s", body)
-		}
+
+	const intent2 = "d888888888888888888888888"
+	idea := func(id, desc, consequence string) factory.ProductIdea {
+		return factory.ProductIdea{ID: id, Description: desc, Consequence: consequence, Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}
 	}
-	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/generation", ""); code != http.StatusOK {
-		t.Fatalf("generation read status=%d", code)
-	} else {
-		var pending map[string]string
-		if err := json.Unmarshal(body, &pending); err != nil || pending["state"] != "pending" {
-			t.Fatalf("generation body=%s", body)
-		}
+	draft2 := factory.IntentRevision{
+		ID: "d999999999999999999999999", Intent: intent2, Owner: 1, Repository: 99,
+		Objective:         "Build a leave approval workflow so managers can review time-off requests",
+		State:             "draft",
+		MaxIssues:         10,
+		PlanningCalls:     12,
+		CreatedUnix:       time.Now().Unix(),
+		EffectiveOutcomes: []string{generateIdeaA, generateIdeaB},
+		Ideas:             []factory.ProductIdea{idea(generateIdeaA, "Capture leave requests", "Requests can be recorded"), idea(generateIdeaB, "Managers review requests", "Decisions are visible")},
+	}
+	if err := s.SaveIntentRevision(ctx, draft2); err != nil {
+		t.Fatal(err)
+	}
+	accept2 := draft2
+	accept2.ID, accept2.Predecessor, accept2.State = "daaaaaaaaaaaaaaaaaaaaaaaa", draft2.ID, "accepted"
+	accept2.Tasks = []factory.IntentTask{{
+		Key: generateAuthored, Objective: "Build the leave tracker",
+		Outcomes: []string{"Requests list"}, IdeaIDs: []string{generateIdeaA},
+	}}
+	if err := s.SaveIntentRevision(ctx, accept2); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+intent2+"/generate", `{}`); code != http.StatusNotFound || errorCode(body) != "not_found" {
+		t.Fatalf("hidden-repo generate status=%d body=%s", code, body)
+	}
+	if fake.submits != 0 {
+		t.Fatalf("hidden-repo generate submitted a graph: %d", fake.submits)
+	}
+}
+
+// TestGenerateProposeRecordingRefusesWithoutComparison proves a recorded
+// propose_intent run never feeds the decomposition connector: the
+// operation gate refuses before the funded comparison, so even a
+// multi-candidate propose answer with a refusing chooser reports
+// planning_choice_unavailable with no graph submitted.
+func TestGenerateProposeRecordingRefusesWithoutComparison(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
+	recordGeneratePlan(t, product, s, call, "propose_intent", acceptID, "keep", "split")
+	wireGenerateCoordinator(product, s, t, q05RefusingChooser{})
+
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`); code != http.StatusConflict || errorCode(body) != "planning_choice_unavailable" {
+		t.Fatalf("propose generate status=%d body=%s", code, body)
 	}
 }

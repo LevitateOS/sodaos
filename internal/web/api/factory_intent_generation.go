@@ -30,13 +30,32 @@ func (s *API) apiIntentGenerate(w http.ResponseWriter, r *http.Request, v store.
 		auth.JSONError(w, 503, "native_graph_unavailable", "Native issue creation needs an enrolled graph actor.")
 		return
 	}
-	if _, err = s.Coordinator.GenerateAcceptedIntent(r.Context(), intent.Intent, v.User.ID); err != nil {
-		factoryCommandError(w, err)
+	// Generate consumes the original completed semantic result behind
+	// this acceptance through the bound recorded-plan connector: the
+	// recorded decomposition_options run its exact reviewed draft
+	// settled, with source, preparation and head currency proven again
+	// after the funded comparison and before native effects. A
+	// still-running plan or a volatile preparation waits truthfully; a
+	// missing, failed or stale plan and an attention answer refuse
+	// before any funded choice or native observation. An accepted
+	// direction with no recorded plan revises the direction and plans
+	// it; no template graph is manufactured.
+	generation, wait, err := s.Coordinator.GenerateAcceptedIntentFromRecordedPlan(r.Context(), intent.Intent, v.User.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, control.ErrPlanChoiceAttention):
+			auth.JSONError(w, 409, "planning_attention", err.Error())
+		case errors.Is(err, control.ErrPlanChoiceStale):
+			auth.JSONError(w, 412, "stale_planning_choice", err.Error())
+		case errors.Is(err, control.ErrPlanChoiceStore):
+			factoryCommandError(w, err)
+		default:
+			auth.JSONError(w, 409, "planning_choice_unavailable", err.Error())
+		}
 		return
 	}
-	generation, err := s.Store.IntentGeneration(r.Context(), intent.ID)
-	if err != nil {
-		factoryCommandError(w, err)
+	if wait != nil {
+		auth.JSONResponse(w, 202, map[string]any{"launched": false, "waits": []control.DispatchWait{*wait}})
 		return
 	}
 	auth.JSONResponse(w, 200, generation)

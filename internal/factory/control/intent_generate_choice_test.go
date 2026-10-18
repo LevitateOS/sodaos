@@ -340,6 +340,10 @@ func TestGenerateDraftPlanAcceptAdoptRoute(t *testing.T) {
 		}
 	}
 	draft := choiceDraftHead(t, r, authored.Predecessor)
+	// The accepted successor preserves the reviewed substantive scope;
+	// only its authored tasks differ, proving adoption follows the
+	// planner graph rather than the authored one.
+	authored.Objective = draft.Objective
 	c, f, never := choiceFixtureChain(t, draft, authored)
 	in := choicePlannerInput(t, draft)
 	out := choicePlannerOutput(draft, "cand-a")

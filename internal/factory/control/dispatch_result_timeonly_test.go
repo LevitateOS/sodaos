@@ -280,6 +280,14 @@ func semanticTwoScopeHead(repo int64) factory.IntentRevision {
 // returning the serving accounting result.
 func settlePlanAnswer(t *testing.T, ctx context.Context, db *store.Store, fx dispatchFixture, head factory.IntentRevision, answer string) (factory.Assignment, bool) {
 	t.Helper()
+	return settlePlanAnswerWithOperation(t, ctx, db, fx, head, factory.IntentPlanningPropose, answer)
+}
+
+// launchPlanRun records the head and launches one bound plan run for the
+// given operation through the production connector, returning the still
+// open run for the caller to settle or leave pending.
+func launchPlanRun(t *testing.T, ctx context.Context, db *store.Store, fx dispatchFixture, head factory.IntentRevision, operation string) factory.Run {
+	t.Helper()
 	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
 	if err := db.SaveIntentRevision(ctx, head); err != nil {
 		t.Fatalf("intent revision not recorded: %v", err)
@@ -289,7 +297,7 @@ func settlePlanAnswer(t *testing.T, ctx context.Context, db *store.Store, fx dis
 		t.Fatalf("proposal content: %v", err)
 	}
 	in := factory.SemanticPlannerInput{
-		Operation: factory.IntentPlanningPropose, Head: head, Content: content,
+		Operation: operation, Head: head, Content: content,
 		Alternatives: factory.DescribeAlternatives(head.Objective),
 		Inspected: []factory.InspectedSource{
 			{Path: "internal/factory/intent.go", Commit: strings.Repeat("c", 40), Evidence: "recorded investigation"},
@@ -298,7 +306,7 @@ func settlePlanAnswer(t *testing.T, ctx context.Context, db *store.Store, fx dis
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
 	var observed bool
 	timeOnlyOrderHost(fx, &observed, func(context.Context, project.FactoryLaunch) {})
-	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, operation, in, strings.Repeat("c", 40), "")
 	if len(report.Errors) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("plan route report: %+v", report)
 	}
@@ -306,6 +314,15 @@ func settlePlanAnswer(t *testing.T, ctx context.Context, db *store.Store, fx dis
 	if err != nil {
 		t.Fatal(err)
 	}
+	return run
+}
+
+// settlePlanAnswerWithOperation launches one bound plan run for the given
+// operation through the production connector and settles it with the
+// given fenced answer, returning the serving accounting result.
+func settlePlanAnswerWithOperation(t *testing.T, ctx context.Context, db *store.Store, fx dispatchFixture, head factory.IntentRevision, operation, answer string) (factory.Assignment, bool) {
+	t.Helper()
+	run := launchPlanRun(t, ctx, db, fx, head, operation)
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
