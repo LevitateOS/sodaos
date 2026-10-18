@@ -25,29 +25,38 @@ func (s *Store) FactoryAuthorityInput(ctx context.Context, repository int64) (fa
 	return factoryAuthorityInput(ctx, s.db, repository)
 }
 
-func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository int64) (factory.AuthorityInput, error) {
-	var in factory.AuthorityInput
+// loadAuthorityGrantRows loads the policy, operator and appliance
+// capacity grants behind one authority evaluation, tolerating absent
+// rows.
+func loadAuthorityGrantRows(ctx context.Context, q grantCommandSQL, repository int64, in *factory.AuthorityInput) error {
 	var policy factory.RepositoryPolicy
 	if err := loadGrantQuery(ctx, q, "factory_policies", "repository", repository, &policy); err == nil {
 		in.Policy = &policy
 	} else if !errors.Is(err, ErrNotFound) {
-		return in, err
+		return err
 	}
 	var operator factory.OperatorGrant
 	if err := loadGrantQuery(ctx, q, "factory_operator_grants", "repository", repository, &operator); err == nil {
 		in.Operator = &operator
 	} else if !errors.Is(err, ErrNotFound) {
-		return in, err
+		return err
 	}
 	var capacity factory.Capacity
 	if err := loadGrantQuery(ctx, q, "factory_capacity", "id", 1, &capacity); err == nil {
 		in.Appliance = &capacity
 	} else if !errors.Is(err, ErrNotFound) {
-		return in, err
+		return err
 	}
+	return nil
+}
+
+// pickAuthoritySponsorship selects the active sponsorship behind one
+// authority evaluation with its validated usage budget, falling back
+// to the first recorded sponsorship.
+func pickAuthoritySponsorship(ctx context.Context, q grantCommandSQL, repository int64, in *factory.AuthorityInput) error {
 	sponsorships, err := sponsorshipsQuery(ctx, q, repository)
 	if err != nil {
-		return in, err
+		return err
 	}
 	for i := range sponsorships {
 		if sponsorships[i].Active {
@@ -62,25 +71,32 @@ func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository in
 		var budget factory.ConnectionUsageBudget
 		if err = loadGrantQuery(ctx, q, "factory_connection_usage_budgets", "connection", in.Sponsorship.Connection, &budget); err == nil {
 			if budget.Connection != in.Sponsorship.Connection {
-				return in, errors.New("connection usage budget key mismatch")
+				return errors.New("connection usage budget key mismatch")
 			}
 			if err = budget.Validate(); err != nil {
-				return in, err
+				return err
 			}
 			in.ConnectionUsageBudget = &budget
 		} else if !errors.Is(err, ErrNotFound) {
-			return in, err
+			return err
 		}
 	}
+	return nil
+}
+
+// loadAuthorityProjectReadiness resolves project existence, the
+// maintenance hold and coder/reviewer preparation readiness behind
+// one authority evaluation.
+func loadAuthorityProjectReadiness(ctx context.Context, q grantCommandSQL, repository int64, in *factory.AuthorityInput) error {
 	var environment project.EnvironmentGrant
-	if err = loadGrantQuery(ctx, q, "project_environment_grants", "repository", repository, &environment); err == nil {
+	if err := loadGrantQuery(ctx, q, "project_environment_grants", "repository", repository, &environment); err == nil {
 		in.Environment = &environment
 	} else if !errors.Is(err, ErrNotFound) {
-		return in, err
+		return err
 	}
 	projectRecord, err := scanProject(q.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE repository_id=$1`, repository))
 	if err != nil && !errors.Is(err, ErrNotFound) {
-		return in, err
+		return err
 	}
 	if err == nil {
 		in.ProjectExists = true
@@ -88,49 +104,71 @@ func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository in
 		var holdData []byte
 		err = q.QueryRowContext(ctx, `SELECT data FROM project_maintenance WHERE project_id=$1`, projectRecord.ID).Scan(&holdData)
 		if err != nil && !errors.Is(err, ErrNotFound) {
-			return in, err
+			return err
 		}
 		if err == nil {
 			var hold project.MaintenanceHold
 			if err = json.Unmarshal(holdData, &hold); err != nil {
-				return in, err
+				return err
 			}
 			if hold.Hold {
 				maintenanceHeld = true
 			}
 		}
 		if !maintenanceHeld {
-			rows, queryErr := q.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 ORDER BY id LIMIT 129`, projectRecord.ID)
-			if queryErr != nil {
-				return in, queryErr
+			if err = scanReadyPreparations(ctx, q, projectRecord.ID, in); err != nil {
+				return err
 			}
-			ready := map[string]bool{}
-			for rows.Next() {
-				var data []byte
-				var preparation project.StoredPreparation
-				if err = rows.Scan(&data); err != nil {
-					_ = rows.Close()
-					return in, err
-				}
-				if err = json.Unmarshal(data, &preparation); err != nil {
-					_ = rows.Close()
-					return in, err
-				}
-				if preparation.State.Ready {
-					ready[preparation.Preparation.Role] = true
-				}
-			}
-			if err = rows.Err(); err != nil {
-				_ = rows.Close()
-				return in, err
-			}
-			if err = rows.Close(); err != nil {
-				return in, err
-			}
-			in.PreparationReady = ready[project.RoleCoder] && ready[project.RoleReviewer]
 		}
 	}
+	return nil
+}
 
+// scanReadyPreparations marks coder/reviewer preparation readiness
+// from recorded preparations.
+func scanReadyPreparations(ctx context.Context, q grantCommandSQL, projectID string, in *factory.AuthorityInput) error {
+	rows, err := q.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 ORDER BY id LIMIT 129`, projectID)
+	if err != nil {
+		return err
+	}
+	ready := map[string]bool{}
+	for rows.Next() {
+		var data []byte
+		var preparation project.StoredPreparation
+		if err = rows.Scan(&data); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err = json.Unmarshal(data, &preparation); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if preparation.State.Ready {
+			ready[preparation.Preparation.Role] = true
+		}
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err = rows.Close(); err != nil {
+		return err
+	}
+	in.PreparationReady = ready[project.RoleCoder] && ready[project.RoleReviewer]
+	return nil
+}
+
+func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository int64) (factory.AuthorityInput, error) {
+	var in factory.AuthorityInput
+	if err := loadAuthorityGrantRows(ctx, q, repository, &in); err != nil {
+		return in, err
+	}
+	if err := pickAuthoritySponsorship(ctx, q, repository, &in); err != nil {
+		return in, err
+	}
+	if err := loadAuthorityProjectReadiness(ctx, q, repository, &in); err != nil {
+		return in, err
+	}
 	open, _, _, err := dispatchStateQuery(ctx, q, repository)
 	if err != nil {
 		return in, err
@@ -163,6 +201,129 @@ func (s *Store) ApplyEnvironmentGrantCommand(ctx context.Context, cmd factory.Co
 	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
 }
 
+// grantCommandResolution binds one grant change to its command
+// target, scope, revision, withdrawal cause and validator.
+type grantCommandResolution struct {
+	target     string
+	connection string
+	repository int64
+	revision   int64
+	withdraw   bool
+	cause      string
+	validate   func() error
+}
+
+// resolveGrantCommandTarget maps one grant change to its command
+// target and withdrawal terms.
+func resolveGrantCommandTarget(change any) (grantCommandResolution, error) {
+	var resolved grantCommandResolution
+	switch g := change.(type) {
+	case factory.RepositoryPolicy:
+		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("policy", g.Repository), g.Repository, g.Revision
+		resolved.withdraw, resolved.cause = !g.Enabled || g.Paused, "policy_disabled"
+		if g.Paused {
+			resolved.cause = "policy_paused"
+		}
+		resolved.validate = g.Validate
+	case factory.Capacity:
+		resolved.target, resolved.revision, resolved.validate = "capacity", g.Revision, g.Validate
+	case factory.ConnectionUsageBudget:
+		resolved.connection, resolved.revision, resolved.validate = g.Connection, g.Revision, g.Validate
+		resolved.target = grantCommandConnectionBudgetTarget(g.Connection)
+	case factory.OperatorGrant:
+		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("operator-grant", g.Repository), g.Repository, g.Revision
+		resolved.withdraw, resolved.cause, resolved.validate = !g.Active, "operator_grant_withdrawn", g.Validate
+	case factory.Sponsorship:
+		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("sponsorship/"+g.Connection, g.Repository), g.Repository, g.Revision
+		resolved.cause, resolved.validate = "sponsorship_withdrawn", g.Validate
+	case project.EnvironmentGrant:
+		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("environment-grant", g.Repository), g.Repository, g.Revision
+		resolved.withdraw, resolved.cause, resolved.validate = !g.Active, "environment_grant_withdrawn", g.Validate
+	default:
+		return resolved, errors.New("unsupported factory grant command")
+	}
+	return resolved, nil
+}
+
+// grantCommandExpectedType names the command type one grant change
+// requires.
+func grantCommandExpectedType(change any) string {
+	switch change.(type) {
+	case factory.RepositoryPolicy:
+		return factory.CommandPolicy
+	case factory.Capacity:
+		return factory.CommandCapacity
+	case factory.ConnectionUsageBudget:
+		return factory.CommandConnectionUsageBudget
+	case factory.OperatorGrant:
+		return factory.CommandOperatorGrant
+	case factory.Sponsorship:
+		return factory.CommandSponsorship
+	case project.EnvironmentGrant:
+		return factory.CommandEnvironmentGrant
+	}
+	return ""
+}
+
+// lockGrantScopeTx locks the repository gate or the appliance
+// capacity row behind one grant command, matching dispatch lock
+// order.
+func lockGrantScopeTx(ctx context.Context, tx *sql.Tx, repository int64, connection string) error {
+	if repository > 0 {
+		_, _, _, err := ensureDispatchGateTx(ctx, tx, repository)
+		return err
+	}
+	if connection == "" {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO factory_capacity(id,revision,data) VALUES(1,0,'{}'::jsonb) ON CONFLICT(id) DO NOTHING`); err != nil {
+			return err
+		}
+		var locked int64
+		return tx.QueryRowContext(ctx, `SELECT revision FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&locked)
+	}
+	return nil
+}
+
+// refreshSponsorshipWithdrawTx clears a sponsorship withdrawal when
+// another active connection remains in the repository.
+func refreshSponsorshipWithdrawTx(ctx context.Context, tx *sql.Tx, change any, withdraw bool) (bool, error) {
+	sp, ok := change.(factory.Sponsorship)
+	if !ok || sp.Active {
+		return withdraw, nil
+	}
+	var active bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_sponsorships
+		WHERE repository=$1 AND connection<>$2 AND COALESCE((data->>'active')::boolean,FALSE))`, sp.Repository, sp.Connection).Scan(&active); err != nil {
+		return withdraw, err
+	}
+	return !active, nil
+}
+
+// settleGrantWithdrawalTx folds dispatch, publication and merge
+// withdrawals into one grant receipt.
+func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, withdraw bool, cause, principal string, receipt *factory.GrantReceipt) error {
+	if repository <= 0 {
+		return nil
+	}
+	if withdraw {
+		withdrawal, err := withdrawDispatchTx(ctx, tx, repository, cause, principal)
+		if err != nil {
+			return err
+		}
+		receipt.Captured = withdrawal.Captured
+		if receipt.Captured == nil {
+			receipt.Captured = []string{}
+		}
+	}
+	var err error
+	if receipt.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
+		return err
+	}
+	if receipt.MergesPending, err = requestMergeWithdrawalsTx(ctx, tx, repository); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Store) applyFactoryGrantCommand(ctx context.Context, cmd factory.Command, change any, now time.Time) (factory.Command, bool, error) {
 	if err := cmd.Validate(); err != nil {
 		return factory.Command{}, false, err
@@ -174,77 +335,23 @@ func (s *Store) applyFactoryGrantCommand(ctx context.Context, cmd factory.Comman
 	if string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
 		return factory.Command{}, false, ErrCommandConflict
 	}
-	target := ""
-	connection := ""
-	repository := int64(0)
-	revision := int64(0)
-	withdraw := false
-	cause := ""
-	var validate func() error
-	switch g := change.(type) {
-	case factory.RepositoryPolicy:
-		target, repository, revision = grantCommandTarget("policy", g.Repository), g.Repository, g.Revision
-		withdraw, cause = !g.Enabled || g.Paused, "policy_disabled"
-		if g.Paused {
-			cause = "policy_paused"
-		}
-		validate = g.Validate
-	case factory.Capacity:
-		target, revision, validate = "capacity", g.Revision, g.Validate
-	case factory.ConnectionUsageBudget:
-		connection, revision, validate = g.Connection, g.Revision, g.Validate
-		target = grantCommandConnectionBudgetTarget(g.Connection)
-	case factory.OperatorGrant:
-		target, repository, revision = grantCommandTarget("operator-grant", g.Repository), g.Repository, g.Revision
-		withdraw, cause, validate = !g.Active, "operator_grant_withdrawn", g.Validate
-	case factory.Sponsorship:
-		target, repository, revision = grantCommandTarget("sponsorship/"+g.Connection, g.Repository), g.Repository, g.Revision
-		cause, validate = "sponsorship_withdrawn", g.Validate
-	case project.EnvironmentGrant:
-		target, repository, revision = grantCommandTarget("environment-grant", g.Repository), g.Repository, g.Revision
-		withdraw, cause, validate = !g.Active, "environment_grant_withdrawn", g.Validate
-	default:
-		return factory.Command{}, false, errors.New("unsupported factory grant command")
-	}
-	if err = validate(); err != nil {
+	resolved, err := resolveGrantCommandTarget(change)
+	if err != nil {
 		return factory.Command{}, false, err
 	}
-	expectedType := ""
-	switch change.(type) {
-	case factory.RepositoryPolicy:
-		expectedType = factory.CommandPolicy
-	case factory.Capacity:
-		expectedType = factory.CommandCapacity
-	case factory.ConnectionUsageBudget:
-		expectedType = factory.CommandConnectionUsageBudget
-	case factory.OperatorGrant:
-		expectedType = factory.CommandOperatorGrant
-	case factory.Sponsorship:
-		expectedType = factory.CommandSponsorship
-	case project.EnvironmentGrant:
-		expectedType = factory.CommandEnvironmentGrant
+	if err = resolved.validate(); err != nil {
+		return factory.Command{}, false, err
 	}
-	if cmd.Type != expectedType || cmd.Target != target || revision < 0 {
+	if cmd.Type != grantCommandExpectedType(change) || cmd.Target != resolved.target || resolved.revision < 0 {
 		return factory.Command{}, false, errors.New("grant command does not match its target")
 	}
-
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.Command{}, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if repository > 0 {
-		if _, _, _, err = ensureDispatchGateTx(ctx, tx, repository); err != nil {
-			return factory.Command{}, false, err
-		}
-	} else if connection == "" {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO factory_capacity(id,revision,data) VALUES(1,0,'{}'::jsonb) ON CONFLICT(id) DO NOTHING`); err != nil {
-			return factory.Command{}, false, err
-		}
-		var locked int64
-		if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&locked); err != nil {
-			return factory.Command{}, false, err
-		}
+	if err = lockGrantScopeTx(ctx, tx, resolved.repository, resolved.connection); err != nil {
+		return factory.Command{}, false, err
 	}
 	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
 	if err != nil || !created {
@@ -253,33 +360,20 @@ func (s *Store) applyFactoryGrantCommand(ctx context.Context, cmd factory.Comman
 	if err = saveFactoryGrantChangeTx(ctx, tx, change); err != nil {
 		return factory.Command{}, false, err
 	}
-	if sp, ok := change.(factory.Sponsorship); ok && !sp.Active {
-		var active bool
-		if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_sponsorships
-			WHERE repository=$1 AND connection<>$2 AND COALESCE((data->>'active')::boolean,FALSE))`, sp.Repository, sp.Connection).Scan(&active); err != nil {
-			return factory.Command{}, false, err
-		}
-		withdraw = !active
+	withdraw, err := refreshSponsorshipWithdrawTx(ctx, tx, change, resolved.withdraw)
+	if err != nil {
+		return factory.Command{}, false, err
 	}
-	receipt := factory.GrantReceipt{CommandID: cmd.ID, Revision: revision + 1, Withdrawn: withdraw}
-	if repository > 0 {
-		if withdraw {
-			withdrawal, withdrawErr := withdrawDispatchTx(ctx, tx, repository, cause, cmd.Principal)
-			if withdrawErr != nil {
-				return factory.Command{}, false, withdrawErr
-			}
-			receipt.Captured = withdrawal.Captured
-			if receipt.Captured == nil {
-				receipt.Captured = []string{}
-			}
-		}
-		if receipt.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
-			return factory.Command{}, false, err
-		}
-		if receipt.MergesPending, err = requestMergeWithdrawalsTx(ctx, tx, repository); err != nil {
-			return factory.Command{}, false, err
-		}
+	receipt := factory.GrantReceipt{CommandID: cmd.ID, Revision: resolved.revision + 1, Withdrawn: withdraw}
+	if err = settleGrantWithdrawalTx(ctx, tx, resolved.repository, withdraw, resolved.cause, cmd.Principal, &receipt); err != nil {
+		return factory.Command{}, false, err
 	}
+	return finishGrantReceiptTx(ctx, tx, cmd, now, stored, resolved.repository, &receipt)
+}
+
+// finishGrantReceiptTx evaluates authority for one settled grant
+// receipt, records its outcome and commits the command.
+func finishGrantReceiptTx(ctx context.Context, tx *sql.Tx, cmd factory.Command, now time.Time, stored factory.Command, repository int64, receipt *factory.GrantReceipt) (factory.Command, bool, error) {
 	input, err := factoryAuthorityInput(ctx, tx, repository)
 	if err != nil {
 		return factory.Command{}, false, err

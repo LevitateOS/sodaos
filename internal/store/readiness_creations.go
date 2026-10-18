@@ -24,10 +24,8 @@ func (s *Store) EnqueueReadinessCreation(ctx context.Context, work ReadinessWork
 }
 
 func enqueueReadinessCreationTx(ctx context.Context, tx *sql.Tx, work ReadinessWork) error {
-	if work.CreatorID <= 0 || work.Delivery == "" || work.NativeIssueID < 0 || work.CreatedUnix < 0 ||
-		!creationDigest(work.TitleDigest) || !creationDigest(work.ContentDigest) ||
-		(work.CreationVerified && (work.NativeIssueID == 0 || work.CreatedUnix == 0 || work.TitleDigest == "" || work.ContentDigest == "")) {
-		return errors.New("invalid readiness creation")
+	if err := admitReadinessCreation(work); err != nil {
+		return err
 	}
 	if err := enqueueReadinessWorkTx(ctx, tx, work.ID, work.Delivery, work.Root); err != nil {
 		return err
@@ -36,6 +34,31 @@ func enqueueReadinessCreationTx(ctx context.Context, tx *sql.Tx, work ReadinessW
 	if err != nil {
 		return err
 	}
+	if err := checkSavedCreationConflict(saved, work); err != nil {
+		return err
+	}
+	if !saved.CreationVerified {
+		if err := fillUnverifiedCreationTx(ctx, tx, saved, &work); err != nil {
+			return err
+		}
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET retry_at=$2 WHERE id=$1 AND retry_at>$2`, work.ID, time.Now())
+	return err
+}
+
+// admitReadinessCreation refuses malformed readiness creations.
+func admitReadinessCreation(work ReadinessWork) error {
+	if work.CreatorID <= 0 || work.Delivery == "" || work.NativeIssueID < 0 || work.CreatedUnix < 0 ||
+		!creationDigest(work.TitleDigest) || !creationDigest(work.ContentDigest) ||
+		(work.CreationVerified && (work.NativeIssueID == 0 || work.CreatedUnix == 0 || work.TitleDigest == "" || work.ContentDigest == "")) {
+		return errors.New("invalid readiness creation")
+	}
+	return nil
+}
+
+// checkSavedCreationConflict refuses creations that contradict the
+// recorded creator, native issue, timestamps, digests or write.
+func checkSavedCreationConflict(saved, work ReadinessWork) error {
 	if saved.CreatorID != 0 && (saved.CreatorID != work.CreatorID ||
 		(saved.NativeIssueID != 0 && work.NativeIssueID != 0 && saved.NativeIssueID != work.NativeIssueID) ||
 		(saved.CreatedUnix != 0 && work.CreatedUnix != 0 && saved.CreatedUnix != work.CreatedUnix) ||
@@ -44,25 +67,26 @@ func enqueueReadinessCreationTx(ctx context.Context, tx *sql.Tx, work ReadinessW
 		(saved.CreationVerified && work.CreationVerified && saved.CreatorWrite != work.CreatorWrite)) {
 		return ErrCommandConflict
 	}
-	if !saved.CreationVerified {
-		if work.NativeIssueID == 0 {
-			work.NativeIssueID = saved.NativeIssueID
-		}
-		if work.CreatedUnix == 0 {
-			work.CreatedUnix = saved.CreatedUnix
-		}
-		if work.TitleDigest == "" {
-			work.TitleDigest = saved.TitleDigest
-		}
-		if work.ContentDigest == "" {
-			work.ContentDigest = saved.ContentDigest
-		}
-		if _, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET creation_verified=$2,creator_id=$3,creator_write=$4,native_issue_id=$5,created_unix=$6,title_digest=$7,content_digest=$8 WHERE id=$1`,
-			work.ID, work.CreationVerified, work.CreatorID, work.CreatorWrite, work.NativeIssueID, work.CreatedUnix, work.TitleDigest, work.ContentDigest); err != nil {
-			return err
-		}
+	return nil
+}
+
+// fillUnverifiedCreationTx carries recorded creation facts forward
+// into one unverified creation work item.
+func fillUnverifiedCreationTx(ctx context.Context, tx *sql.Tx, saved ReadinessWork, work *ReadinessWork) error {
+	if work.NativeIssueID == 0 {
+		work.NativeIssueID = saved.NativeIssueID
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET retry_at=$2 WHERE id=$1 AND retry_at>$2`, work.ID, time.Now())
+	if work.CreatedUnix == 0 {
+		work.CreatedUnix = saved.CreatedUnix
+	}
+	if work.TitleDigest == "" {
+		work.TitleDigest = saved.TitleDigest
+	}
+	if work.ContentDigest == "" {
+		work.ContentDigest = saved.ContentDigest
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET creation_verified=$2,creator_id=$3,creator_write=$4,native_issue_id=$5,created_unix=$6,title_digest=$7,content_digest=$8 WHERE id=$1`,
+		work.ID, work.CreationVerified, work.CreatorID, work.CreatorWrite, work.NativeIssueID, work.CreatedUnix, work.TitleDigest, work.ContentDigest)
 	return err
 }
 

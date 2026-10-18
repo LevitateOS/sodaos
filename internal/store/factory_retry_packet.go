@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,19 +20,141 @@ import (
 // first packet at this revision records. Admission limits and fresh authority
 // are rechecked inside the same transaction, so a retry never spends room a
 // concurrent admission consumed.
-func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, expected factory.IssueControl, authority factory.AuthorityRef, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
+// admitRetryPacket refuses retry packets with invalid runs, mismatched
+// views or non-fresh runs before any transaction opens.
+func admitRetryPacket(a factory.Assignment, run factory.Run, view factory.RunView) error {
 	if err := run.Validate(); err != nil {
-		return factory.Assignment{}, err
+		return err
 	}
 	if err := view.Validate(); err != nil {
-		return factory.Assignment{}, err
+		return err
 	}
 	if run.ID == "" || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit ||
 		view.RunID != run.ID || view.Repository != a.Repository || view.Issue != a.Issue || view.Attempt != a.ID {
-		return factory.Assignment{}, errors.New("retry packet view does not match its attempt")
+		return errors.New("retry packet view does not match its attempt")
 	}
 	if run.Outcome != "" || run.Reconciled {
-		return factory.Assignment{}, errors.New("retry packet carries a fresh run")
+		return errors.New("retry packet carries a fresh run")
+	}
+	return nil
+}
+
+// checkLockedRetryAssignment refuses retries against stale, moved or
+// no-longer-assignable attempts, including reused run identities.
+func checkLockedRetryAssignment(current, a factory.Assignment, run factory.Run) error {
+	if current.Revision != a.Revision {
+		return ErrStaleRevision
+	}
+	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection || current.ActorID != a.ActorID ||
+		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
+		run.Harness != current.Harness || run.Model != current.Model {
+		return ErrStaleRevision
+	}
+	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
+		return ErrStaleRevision
+	}
+	if current.Stage != factory.AssignmentAssigned || current.Attempts >= factory.MaxDispatchAttempts {
+		return ErrAssignmentActive
+	}
+	for _, seen := range current.RunHistory {
+		if seen == run.ID {
+			return errors.New("dispatch attempt reuses a run identity")
+		}
+	}
+	return nil
+}
+
+// checkLockedPreviousRun refuses retries when the previous run's
+// admission policy changed under the attempt.
+func checkLockedPreviousRun(previous factory.Run, current factory.Assignment, grants admissionGrants) error {
+	if previous.Admission == nil || previous.Admission.Policy.TargetBranch != grants.policy.TargetBranch ||
+		!slices.Equal(previous.Admission.Policy.Checks, grants.policy.Checks) ||
+		previous.Admission.Policy.Roles[current.Role] != grants.policy.Roles[current.Role] ||
+		previous.Admission.Profile != *grants.environment.Profile {
+		return ErrAdmissionChanged
+	}
+	return nil
+}
+
+// admitLockedPreviousRunTx locks the previous run row, refuses changed
+// admission policy and binds fresh authority to the retry run.
+func admitLockedPreviousRunTx(ctx context.Context, tx *sql.Tx, current factory.Assignment, grants admissionGrants, authority factory.AuthorityRef, run *factory.Run) error {
+	var previousData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 FOR UPDATE`, current.Run).Scan(&previousData); err != nil {
+		return err
+	}
+	var previous factory.Run
+	if err := json.Unmarshal(previousData, &previous); err != nil {
+		return err
+	}
+	if err := checkLockedPreviousRun(previous, current, grants); err != nil {
+		return err
+	}
+	run.Admission = &factory.RunAdmission{Authority: authority, Policy: grants.policy, Profile: *grants.environment.Profile}
+	return run.Validate()
+}
+
+// persistRetryAttemptTx writes the next attempt, its run row and its
+// run view in lock order.
+func persistRetryAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, next factory.Assignment, run factory.Run, view factory.RunView) error {
+	data, err := json.Marshal(next)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE factory_assignments SET run=$1,revision=$2,data=$3 WHERE id=$4 AND stage='assigned'`,
+		next.Run, next.Revision, string(data), a.ID); err != nil {
+		return err
+	}
+	rundata, err := json.Marshal(run)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,TRUE,FALSE,$2)`, run.ID, string(rundata)); err != nil {
+		return fmt.Errorf("retry packet failed: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
+		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
+		return fmt.Errorf("retry packet failed: %w", err)
+	}
+	return nil
+}
+
+// reholdReservationForRetryTx re-holds the released reservation behind
+// one retry. A held reservation continues; anything else refuses.
+func reholdReservationForRetryTx(ctx context.Context, tx *sql.Tx, assignmentID string, planned int) error {
+	var reservation factory.Reservation
+	var rdata []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1 FOR UPDATE`, assignmentID).Scan(&rdata); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(rdata, &reservation); err != nil {
+		return err
+	}
+	switch reservation.State {
+	case factory.ReservationReleased:
+		reservation.State, reservation.PlannedMinutes = factory.ReservationHeld, planned
+		reservation.Revision++
+		if err := reservation.Validate(); err != nil {
+			return err
+		}
+		rehold, err := json.Marshal(reservation)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE factory_reservations SET state='held',data=$1 WHERE assignment=$2 AND state='released'`,
+			string(rehold), assignmentID); err != nil {
+			return fmt.Errorf("retry packet failed: %w", err)
+		}
+	case factory.ReservationHeld:
+	default:
+		return errors.New("reservation behind a retry is not held")
+	}
+	return nil
+}
+
+func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, expected factory.IssueControl, authority factory.AuthorityRef, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
+	if err := admitRetryPacket(a, run, view); err != nil {
+		return factory.Assignment{}, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -60,19 +183,8 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err = json.Unmarshal(raw, &current); err != nil {
 		return factory.Assignment{}, err
 	}
-	if current.Revision != a.Revision {
-		return factory.Assignment{}, ErrStaleRevision
-	}
-	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection || current.ActorID != a.ActorID ||
-		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
-		run.Harness != current.Harness || run.Model != current.Model {
-		return factory.Assignment{}, ErrStaleRevision
-	}
-	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
-		return factory.Assignment{}, ErrStaleRevision
-	}
-	if current.Stage != factory.AssignmentAssigned || current.Attempts >= factory.MaxDispatchAttempts {
-		return factory.Assignment{}, ErrAssignmentActive
+	if err = checkLockedRetryAssignment(current, a, run); err != nil {
+		return factory.Assignment{}, err
 	}
 	if err = validateAttemptPacketTx(ctx, tx, current, false); err != nil {
 		return factory.Assignment{}, err
@@ -84,28 +196,8 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err = checkAssignmentAuthorityTx(ctx, tx, authority, current, grants); err != nil {
 		return factory.Assignment{}, err
 	}
-	var previousData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 FOR UPDATE`, current.Run).Scan(&previousData); err != nil {
+	if err = admitLockedPreviousRunTx(ctx, tx, current, grants, authority, &run); err != nil {
 		return factory.Assignment{}, err
-	}
-	var previous factory.Run
-	if err = json.Unmarshal(previousData, &previous); err != nil {
-		return factory.Assignment{}, err
-	}
-	if previous.Admission == nil || previous.Admission.Policy.TargetBranch != grants.policy.TargetBranch ||
-		!slices.Equal(previous.Admission.Policy.Checks, grants.policy.Checks) ||
-		previous.Admission.Policy.Roles[current.Role] != grants.policy.Roles[current.Role] ||
-		previous.Admission.Profile != *grants.environment.Profile {
-		return factory.Assignment{}, ErrAdmissionChanged
-	}
-	run.Admission = &factory.RunAdmission{Authority: authority, Policy: grants.policy, Profile: *grants.environment.Profile}
-	if err = run.Validate(); err != nil {
-		return factory.Assignment{}, err
-	}
-	for _, seen := range current.RunHistory {
-		if seen == run.ID {
-			return factory.Assignment{}, errors.New("dispatch attempt reuses a run identity")
-		}
 	}
 	next := current
 	next.Attempts++
@@ -115,51 +207,11 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err = next.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
-	data, err := json.Marshal(next)
-	if err != nil {
+	if err = persistRetryAttemptTx(ctx, tx, a, next, run, view); err != nil {
 		return factory.Assignment{}, err
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_assignments SET run=$1,revision=$2,data=$3 WHERE id=$4 AND stage='assigned'`,
-		next.Run, next.Revision, string(data), a.ID); err != nil {
+	if err = reholdReservationForRetryTx(ctx, tx, a.ID, planned); err != nil {
 		return factory.Assignment{}, err
-	}
-	rundata, err := json.Marshal(run)
-	if err != nil {
-		return factory.Assignment{}, err
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,TRUE,FALSE,$2)`, run.ID, string(rundata)); err != nil {
-		return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
-		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
-		return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
-	}
-	var reservation factory.Reservation
-	var rdata []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1 FOR UPDATE`, a.ID).Scan(&rdata); err != nil {
-		return factory.Assignment{}, err
-	}
-	if err = json.Unmarshal(rdata, &reservation); err != nil {
-		return factory.Assignment{}, err
-	}
-	switch reservation.State {
-	case factory.ReservationReleased:
-		reservation.State, reservation.PlannedMinutes = factory.ReservationHeld, planned
-		reservation.Revision++
-		if err = reservation.Validate(); err != nil {
-			return factory.Assignment{}, err
-		}
-		rehold, err := json.Marshal(reservation)
-		if err != nil {
-			return factory.Assignment{}, err
-		}
-		if _, err = tx.ExecContext(ctx, `UPDATE factory_reservations SET state='held',data=$1 WHERE assignment=$2 AND state='released'`,
-			string(rehold), a.ID); err != nil {
-			return factory.Assignment{}, fmt.Errorf("retry packet failed: %w", err)
-		}
-	case factory.ReservationHeld:
-	default:
-		return factory.Assignment{}, errors.New("reservation behind a retry is not held")
 	}
 	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, current.AttemptRoot, nil, run.Deadline, time.Now()); err != nil {
 		return factory.Assignment{}, err

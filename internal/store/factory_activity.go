@@ -108,92 +108,153 @@ func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path s
 		out.Items = append(out.Items, factory.ActivityItem{ID: id, Kind: kind, Issue: strconv.FormatInt(issue, 10), PR: p, CreatedUnix: t, Summary: summary, URL: url})
 	}
 	if settings.IssueCreated {
-		before := len(out.Items)
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM (SELECT DISTINCT ON (t.data->>'issue_id') t.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_generations g ON g.revision=t.revision WHERE r.data->>'repository'=$1 AND g.data->>'state'='completed' ORDER BY t.data->>'issue_id',t.revision) facts ORDER BY COALESCE((data->>'created_unix')::bigint,0) DESC,data->>'issue_id' LIMIT 61`, strconv.FormatInt(repository, 10))
-		if e != nil {
-			return out, e
+		if err := s.scanCreatedIssues(ctx, repository, &out, add); err != nil {
+			return out, err
 		}
-		scanned := 0
-		for rows.Next() {
-			scanned++
-			var raw []byte
-			if e = rows.Scan(&raw); e != nil {
-				break
-			}
-			var b factory.IntentTaskBinding
-			if e = json.Unmarshal(raw, &b); e != nil {
-				break
-			}
-			if b.IssueID > 0 && b.AcceptanceID != "" {
-				add(fmt.Sprintf("issue:%d", b.IssueID), "issue_created", b.IssueIndex, 0, b.CreatedUnix, fmt.Sprintf("Issue #%d created from accepted product intent.", b.IssueIndex))
-			}
-		}
-		e = errors.Join(e, rows.Err(), rows.Close())
-		if e != nil {
-			return out, e
-		}
-		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
 	if settings.PRCreated {
-		before := len(out.Items)
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_publications WHERE repository=$1 AND stage='published' ORDER BY seq DESC LIMIT 61`, repository)
-		if e != nil {
-			return out, e
+		if err := s.scanCreatedPRs(ctx, repository, &out, add); err != nil {
+			return out, err
 		}
-		seen := map[int64]bool{}
-		scanned := 0
-		for rows.Next() {
-			scanned++
-			var raw []byte
-			if e = rows.Scan(&raw); e != nil {
-				break
-			}
-			var p factory.Publication
-			if e = json.Unmarshal(raw, &p); e != nil {
-				break
-			}
-			if p.Outcome != factory.Succeeded || p.Reason != factory.PublishReasonLinked || p.FinishedUnix <= 0 || p.Publish.Effect != factory.OpEffectCommitted || p.Publish.Completion != factory.OpCompletionComplete || p.Repository != repository || p.Stage != factory.PublicationPublished || p.PRCreate.Effect != factory.OpEffectCommitted || p.PRCreate.Completion != factory.OpCompletionComplete || p.PRCreate.PRNumber != p.PRNumber || p.PRCreate.PRID != p.PRID || p.PRID <= 0 || p.PRNumber <= 0 || seen[p.PRID] {
-				continue
-			}
-			seen[p.PRID] = true
-			add(fmt.Sprintf("pr:%d", p.PRID), "pr_created", p.Issue, p.PRNumber, p.FinishedUnix, fmt.Sprintf("Pull request #%d created for issue #%d.", p.PRNumber, p.Issue))
-		}
-		e = errors.Join(e, rows.Err(), rows.Close())
-		if e != nil {
-			return out, e
-		}
-		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
 	if settings.VerifiedMerge {
-		before := len(out.Items)
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_merges WHERE repository=$1 AND stage='merged' ORDER BY seq DESC LIMIT 61`, repository)
-		if e != nil {
-			return out, e
+		if err := s.scanVerifiedMerges(ctx, repository, &out, add); err != nil {
+			return out, err
 		}
-		scanned := 0
-		for rows.Next() {
-			scanned++
-			var raw []byte
-			if e = rows.Scan(&raw); e != nil {
-				break
-			}
-			var m factory.Merge
-			if e = json.Unmarshal(raw, &m); e != nil {
-				break
-			}
-			occ, e2 := strconv.ParseInt(m.OriginalClosingOccurrence, 10, 64)
-			if m.ID == "" || m.Outcome != factory.Succeeded || m.Reason != factory.MergeReasonMerged || m.FinishedUnix <= 0 || m.ClosedUnix <= 0 || m.Operation.IssueID != m.IssueID || m.IssueID <= 0 || m.Repository != repository || m.Stage != factory.MergeMerged || m.Operation.Effect != factory.OpEffectCommitted || m.Operation.Completion != factory.OpCompletionComplete || m.Operation.PRNumber != m.PRNumber || m.Operation.PRID != m.PRID || m.Operation.MergedCommit != m.MergedCommit || m.MergedCommit == "" || m.MergedCommit != m.HeadOID || m.PRID <= 0 || m.PRNumber <= 0 || m.OriginalClosedUnix <= 0 || m.MergedUnix <= 0 || e2 != nil || occ <= 0 {
-				continue
-			}
-			add("merge:"+m.ID, "verified_merge", m.Issue, m.PRNumber, m.FinishedUnix, fmt.Sprintf("Pull request #%d merged; original issue #%d closure confirmed.", m.PRNumber, m.Issue))
-		}
-		e = errors.Join(e, rows.Err(), rows.Close())
-		if e != nil {
-			return out, e
-		}
-		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
 	bounded, dropped := boundActivityFeed(out.Items)
 	out.Items, out.Truncated = bounded, out.Truncated || dropped
 	return out, nil
+}
+
+// scanCreatedIssues appends completed accepted-intent issues to one
+// activity feed.
+func (s *Store) scanCreatedIssues(ctx context.Context, repository int64, out *factory.RepositoryActivity, add func(id, kind string, issue, pr, t int64, summary string)) error {
+	before := len(out.Items)
+	rows, e := s.db.QueryContext(ctx, `SELECT data FROM (SELECT DISTINCT ON (t.data->>'issue_id') t.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_generations g ON g.revision=t.revision WHERE r.data->>'repository'=$1 AND g.data->>'state'='completed' ORDER BY t.data->>'issue_id',t.revision) facts ORDER BY COALESCE((data->>'created_unix')::bigint,0) DESC,data->>'issue_id' LIMIT 61`, strconv.FormatInt(repository, 10))
+	if e != nil {
+		return e
+	}
+	scanned := 0
+	for rows.Next() {
+		scanned++
+		var raw []byte
+		if e = rows.Scan(&raw); e != nil {
+			break
+		}
+		var b factory.IntentTaskBinding
+		if e = json.Unmarshal(raw, &b); e != nil {
+			break
+		}
+		if b.IssueID > 0 && b.AcceptanceID != "" {
+			add(fmt.Sprintf("issue:%d", b.IssueID), "issue_created", b.IssueIndex, 0, b.CreatedUnix, fmt.Sprintf("Issue #%d created from accepted product intent.", b.IssueIndex))
+		}
+	}
+	if e = errors.Join(e, rows.Err(), rows.Close()); e != nil {
+		return e
+	}
+	out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
+	return nil
+}
+
+// scanCreatedPRs appends linked published pull requests to one
+// activity feed, deduplicated by native PR identity.
+func (s *Store) scanCreatedPRs(ctx context.Context, repository int64, out *factory.RepositoryActivity, add func(id, kind string, issue, pr, t int64, summary string)) error {
+	before := len(out.Items)
+	rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_publications WHERE repository=$1 AND stage='published' ORDER BY seq DESC LIMIT 61`, repository)
+	if e != nil {
+		return e
+	}
+	seen := map[int64]bool{}
+	scanned := 0
+	for rows.Next() {
+		scanned++
+		var raw []byte
+		if e = rows.Scan(&raw); e != nil {
+			break
+		}
+		var p factory.Publication
+		if e = json.Unmarshal(raw, &p); e != nil {
+			break
+		}
+		if !publishedPRAdmitted(p, repository) || seen[p.PRID] {
+			continue
+		}
+		seen[p.PRID] = true
+		add(fmt.Sprintf("pr:%d", p.PRID), "pr_created", p.Issue, p.PRNumber, p.FinishedUnix, fmt.Sprintf("Pull request #%d created for issue #%d.", p.PRNumber, p.Issue))
+	}
+	if e = errors.Join(e, rows.Err(), rows.Close()); e != nil {
+		return e
+	}
+	out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
+	return nil
+}
+
+// publishedPRAdmitted reports whether one publication row is a linked
+// published pull request in scope.
+func publishedPRAdmitted(p factory.Publication, repository int64) bool {
+	return p.Outcome == factory.Succeeded && p.Reason == factory.PublishReasonLinked && p.FinishedUnix > 0 &&
+		p.Publish.Effect == factory.OpEffectCommitted && p.Publish.Completion == factory.OpCompletionComplete &&
+		p.Repository == repository && p.Stage == factory.PublicationPublished &&
+		p.PRCreate.Effect == factory.OpEffectCommitted && p.PRCreate.Completion == factory.OpCompletionComplete &&
+		p.PRCreate.PRNumber == p.PRNumber && p.PRCreate.PRID == p.PRID && p.PRID > 0 && p.PRNumber > 0
+}
+
+// scanVerifiedMerges appends verified merged pull requests to one
+// activity feed.
+func (s *Store) scanVerifiedMerges(ctx context.Context, repository int64, out *factory.RepositoryActivity, add func(id, kind string, issue, pr, t int64, summary string)) error {
+	before := len(out.Items)
+	rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_merges WHERE repository=$1 AND stage='merged' ORDER BY seq DESC LIMIT 61`, repository)
+	if e != nil {
+		return e
+	}
+	scanned := 0
+	for rows.Next() {
+		scanned++
+		var raw []byte
+		if e = rows.Scan(&raw); e != nil {
+			break
+		}
+		var m factory.Merge
+		if e = json.Unmarshal(raw, &m); e != nil {
+			break
+		}
+		if !verifiedMergeAdmitted(m, repository) {
+			continue
+		}
+		add("merge:"+m.ID, "verified_merge", m.Issue, m.PRNumber, m.FinishedUnix, fmt.Sprintf("Pull request #%d merged; original issue #%d closure confirmed.", m.PRNumber, m.Issue))
+	}
+	if e = errors.Join(e, rows.Err(), rows.Close()); e != nil {
+		return e
+	}
+	out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
+	return nil
+}
+
+// verifiedMergeAdmitted reports whether one merge row is a verified
+// merged pull request in scope with confirmed original closure.
+func verifiedMergeAdmitted(m factory.Merge, repository int64) bool {
+	return mergeCompletionAdmitted(m) && mergeClosureAdmitted(m) && mergeLinkageAdmitted(m, repository)
+}
+
+// mergeCompletionAdmitted reports whether one merge row carries a
+// successful merged completion.
+func mergeCompletionAdmitted(m factory.Merge) bool {
+	return m.ID != "" && m.Outcome == factory.Succeeded && m.Reason == factory.MergeReasonMerged && m.FinishedUnix > 0 && m.ClosedUnix > 0
+}
+
+// mergeClosureAdmitted reports whether one merge row carries a valid
+// original closing occurrence.
+func mergeClosureAdmitted(m factory.Merge) bool {
+	occ, err := strconv.ParseInt(m.OriginalClosingOccurrence, 10, 64)
+	return err == nil && occ > 0
+}
+
+// mergeLinkageAdmitted reports whether one merge row links its
+// operation, repository, pull request and commits in scope.
+func mergeLinkageAdmitted(m factory.Merge, repository int64) bool {
+	return m.Operation.IssueID == m.IssueID && m.IssueID > 0 && m.Repository == repository && m.Stage == factory.MergeMerged &&
+		m.Operation.Effect == factory.OpEffectCommitted && m.Operation.Completion == factory.OpCompletionComplete &&
+		m.Operation.PRNumber == m.PRNumber && m.Operation.PRID == m.PRID && m.MergedCommit != "" && m.MergedCommit == m.HeadOID &&
+		m.PRID > 0 && m.PRNumber > 0 && m.OriginalClosedUnix > 0 && m.MergedUnix > 0
 }
