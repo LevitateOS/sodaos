@@ -54,9 +54,13 @@ pub(crate) fn run_group_observed(
         // failed persistence fences recovery through the acquired custody
         // left on disk; the child itself is never dropped live and unowned.
         // The shared settle path bounds the cleanup: no unbounded wait on
-        // the running child, and the original hook error still surfaces.
-        let _ = settle_owned_child(&mut child, Some(group), deadline);
-        return Err(hook);
+        // the running child. Cleanup uncertainty surfaces distinctly
+        // while staying an error; otherwise the original hook failure
+        // is preserved as failure, never success.
+        match settle_owned_child(&mut child, Some(group), deadline) {
+            Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+            _ => return Err(hook),
+        }
     }
     wait_output_owned(child, deadline, Some(group))
 }
@@ -98,18 +102,32 @@ fn wait_exit_unreaped(pid: u32) -> Result<Option<bool>, String> {
     }
 }
 
+/// Distinct uncertain-cleanup error: owned execution ended or timed out
+/// but cleanup confirmation is missing. It fences like any failure and
+/// never releases custody as success; the caller's durable record keeps
+/// the operation fenced for attention or retry.
+pub(crate) const UNCERTAIN_CLEANUP: &str = "project maintenance command cleanup uncertain";
+
 /// settle_owned_child ends one owned execution after a terminal event
-/// (hook, setup, output, timeout or observation failure): it signals the
-/// owned group while the unreaped leader anchor pins the group id, kills
-/// the leader, observes the exit with `WNOWAIT` until the caller deadline,
-/// then reaps exactly once. The anchor is established first: a reaped or
-/// otherwise lost anchor fences with an error and no signal, since the
-/// numeric id may already be reused. Signals are requests, never proof:
-/// only the observed exit followed by the single reap confirms cleanup.
-/// Cleanup unconfirmed within the existing bound fences with an error;
-/// the caller's durable record keeps custody, and no deadline is
-/// extended here. A `child.wait()` on a possibly running child never
-/// happens: the reap runs only after the exit is observed.
+/// (hook, setup, output, timeout or observation failure): it snapshots
+/// owned descendants before any signal, signals the owned group while
+/// the unreaped leader anchor pins the group id, kills the leader,
+/// observes the exit with `WNOWAIT` until the caller deadline, confirms
+/// descendant retirement with the owned retirement logic while the
+/// anchor is still held, then reaps exactly once. The anchor is
+/// established first: a reaped or otherwise lost anchor fences with an
+/// error and no signal, since the numeric id may already be reused.
+/// Signals are requests, never proof: only the observed exit plus
+/// descendant retirement confirmed inside the existing bound followed
+/// by the single reap confirms cleanup. Members alive in the snapshot
+/// with the bound already spent, or retirement the bound outlives, are
+/// uncertain cleanup rather than confirmed cleanup, and report the
+/// distinct uncertain error; every other outcome keeps the plain
+/// operation failure the existing timeout contract pins. The caller's
+/// durable record keeps custody on every uncertain or error path, and
+/// no deadline is extended here. A `child.wait()` on a possibly running
+/// child never happens: the reap runs only after the exit is observed,
+/// with no further signals after it.
 fn settle_owned_child(
     child: &mut std::process::Child,
     group: Option<i32>,
@@ -118,6 +136,15 @@ fn settle_owned_child(
     let failed = String::from("project maintenance command failed");
     if wait_exit_unreaped(child.id()).is_err() {
         return Err(failed);
+    }
+    // Snapshot owned descendants before any signal: observing them
+    // after signaling would only ever observe the signals' own effect,
+    // which proves nothing about retirement.
+    let mut descendants = false;
+    if let Some(group) = group {
+        if group > 1 {
+            descendants = group_executing_members(group).is_ok_and(|members| !members.is_empty());
+        }
     }
     if let Some(group) = group {
         if group > 1 {
@@ -130,6 +157,12 @@ fn settle_owned_child(
             Ok(Some(_)) => break,
             Ok(None) => {
                 if Instant::now() >= deadline {
+                    // Bound spent with the leader still running:
+                    // descendants alive in the pre-signal snapshot can
+                    // never be confirmed inside it.
+                    if descendants {
+                        return Err(String::from(UNCERTAIN_CLEANUP));
+                    }
                     return Err(failed);
                 }
                 std::thread::sleep(Duration::from_millis(5));
@@ -137,7 +170,25 @@ fn settle_owned_child(
             Err(_) => return Err(failed),
         }
     }
-    child.wait().map(|_| ()).map_err(|_| failed)
+    // The leader exit is observed: confirm descendant retirement with
+    // the owned retirement logic while the unreaped anchor still pins
+    // the group id. Either way the observed-exited child is reaped
+    // next so the anchor is never dropped.
+    let bound_spent = Instant::now() >= deadline;
+    let mut retired = true;
+    if let Some(group) = group {
+        if group > 1 {
+            retired = retire_group(group, deadline).is_ok();
+        }
+    }
+    let reaped = child.wait().map(|_| ()).map_err(|_| failed.clone());
+    if reaped.is_err() {
+        return Err(failed);
+    }
+    if !retired || (bound_spent && descendants) {
+        return Err(String::from(UNCERTAIN_CLEANUP));
+    }
+    Ok(())
 }
 
 /// group_executing_members lists one process group's still-executing
@@ -372,8 +423,10 @@ fn wait_output_owned(
         if flags < 0
             || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
         {
-            let _ = settle_owned_child(&mut child, group, deadline);
-            return Err(failed);
+            match settle_owned_child(&mut child, group, deadline) {
+                Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+                _ => return Err(failed),
+            }
         }
     }
     let mut out = Vec::new();
@@ -383,8 +436,10 @@ fn wait_output_owned(
     loop {
         let now = Instant::now();
         if now >= deadline {
-            let _ = settle_owned_child(&mut child, group, deadline);
-            return Err(failed);
+            match settle_owned_child(&mut child, group, deadline) {
+                Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+                _ => return Err(failed),
+            }
         }
         if !exited {
             match wait_exit_unreaped(child.id()) {
@@ -393,10 +448,10 @@ fn wait_output_owned(
                     exited_at = Some(now);
                 }
                 Ok(None) => {}
-                Err(_) => {
-                    let _ = settle_owned_child(&mut child, group, deadline);
-                    return Err(failed);
-                }
+                Err(_) => match settle_owned_child(&mut child, group, deadline) {
+                    Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+                    _ => return Err(failed),
+                },
             }
         }
         let mut eof = stdout.is_none();
@@ -410,17 +465,19 @@ fn wait_output_owned(
                 Ok(n) => {
                     const OUTPUT_LIMIT: usize = 8 << 20;
                     if out.len().saturating_add(n) > OUTPUT_LIMIT {
-                        let _ = settle_owned_child(&mut child, group, deadline);
-                        return Err(failed);
+                        match settle_owned_child(&mut child, group, deadline) {
+                            Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+                            _ => return Err(failed),
+                        }
                     }
                     out.extend_from_slice(&buf[..n]);
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(_) => {
-                    let _ = settle_owned_child(&mut child, group, deadline);
-                    return Err(failed);
-                }
+                Err(_) => match settle_owned_child(&mut child, group, deadline) {
+                    Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
+                    _ => return Err(failed),
+                },
             }
         }
         if close_stdout {
@@ -702,14 +759,24 @@ mod acquisition_cancellation_tests {
     #[test]
     fn run_group_observed_reports_surviving_descendant_and_reaps_leader() {
         // The leader exits at once while a descendant holds stdout: the
-        // caller deadline fires first, the error surfaces, the leader is
-        // reaped, and the signaled descendant cannot still execute.
+        // caller deadline fires first, the error surfaces, and the leader
+        // is reaped. Cleanup afterwards is bounded observation only: the
+        // test never signals the reaped leader's numeric group, since its
+        // anchor is lost. The descendant carries its own recorded
+        // identity for that observation.
         use std::sync::{Arc, Mutex};
         let seen = Arc::new(Mutex::new(0));
         let probe = seen.clone();
+        let dir = crate::test_support::TestDir::make("importer-survivor");
+        let path = dir.path("child.pid");
         assert!(run_group_observed(
             "/bin/sh",
-            &["-c", "sleep 30 &"],
+            &[
+                "-c",
+                "sleep 30 & child=$!; printf '%s' \"$child\" > \"$1\"",
+                "probe",
+                &path
+            ],
             Instant::now() + Duration::from_secs(1),
             |pgid| {
                 *probe.lock().unwrap() = pgid;
@@ -720,7 +787,63 @@ mod acquisition_cancellation_tests {
         let pgid = *seen.lock().unwrap();
         assert!(pgid > 1);
         assert!(fs::read_to_string(format!("/proc/{pgid}/stat")).is_err());
-        assert!(retire_group(pgid, Instant::now() + Duration::from_secs(5)).is_ok());
+        let pid = fs::read_to_string(path).unwrap();
+        let stop = Instant::now() + Duration::from_secs(5);
+        loop {
+            match fs::read_to_string(format!("/proc/{pid}/stat")) {
+                Err(_) => break,
+                Ok(state) => {
+                    let live = !state.rsplit_once(") ").unwrap().1.starts_with('Z');
+                    if !live {
+                        break;
+                    }
+                    assert!(Instant::now() < stop, "descendant still executing");
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unconfirmed_retirement_surfaces_uncertain_cleanup() {
+        // The leader exits at once with a live descendant and the bound
+        // is spent when cleanup runs: retirement cannot confirm inside
+        // it, so the distinct uncertain error surfaces instead of the
+        // plain failure. Custody stays fenced either way. The descendant
+        // carries its own recorded identity for bounded observation;
+        // the test signals nothing after the anchor is lost.
+        let dir = crate::test_support::TestDir::make("importer-uncertain");
+        let path = dir.path("child.pid");
+        assert_eq!(
+            run_group_observed(
+                "/bin/sh",
+                &[
+                    "-c",
+                    "sleep 30 & child=$!; printf '%s' \"$child\" > \"$1\"",
+                    "probe",
+                    &path
+                ],
+                Instant::now() + Duration::from_millis(200),
+                |_| Ok(())
+            )
+            .unwrap_err(),
+            UNCERTAIN_CLEANUP
+        );
+        let pid = fs::read_to_string(path).unwrap();
+        let stop = Instant::now() + Duration::from_secs(5);
+        loop {
+            match fs::read_to_string(format!("/proc/{pid}/stat")) {
+                Err(_) => break,
+                Ok(state) => {
+                    let live = !state.rsplit_once(") ").unwrap().1.starts_with('Z');
+                    if !live {
+                        break;
+                    }
+                    assert!(Instant::now() < stop, "descendant still executing");
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        }
     }
 
     #[test]
