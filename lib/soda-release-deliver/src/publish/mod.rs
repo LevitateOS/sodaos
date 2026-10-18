@@ -591,10 +591,31 @@ pub fn promote(
     if directory.join("promotion-started.json").exists() {
         return Err(Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"));
     }
+    let (summaries, downloaded_iso) = collect_promotion_evidence(directory, &manifest, auth)?;
+    let (ci_run, current, assets) = admit_release_for_promotion(gh, &manifest, directory)?;
+    verify_promotion_inputs(
+        gh,
+        registry,
+        directory,
+        &manifest,
+        &current,
+        &downloaded_iso,
+        ci_run,
+    )?;
+    record_promotion_outcome(
+        gh, registry, directory, &manifest, &summaries, ci_run, auth, &assets, &current,
+    )
+}
+
+fn collect_promotion_evidence(
+    directory: &Path,
+    manifest: &Manifest,
+    auth: Option<&Path>,
+) -> Result<(serde_json::Map<String, serde_json::Value>, Option<PathBuf>), Error> {
     let mut summaries = serde_json::Map::new();
     let mut downloaded_iso = None;
     if manifest.has_appliance() {
-        let (receipt, downloaded) = appliance_evidence(directory, &manifest)?;
+        let (receipt, downloaded) = appliance_evidence(directory, manifest)?;
         summaries.insert(
             "appliance".into(),
             serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
@@ -602,7 +623,7 @@ pub fn promote(
         downloaded_iso = Some(downloaded);
     }
     if manifest.docker.is_some() {
-        let receipt = qualification::verify(&manifest, directory)?;
+        let receipt = qualification::verify(manifest, directory)?;
         summaries.insert(
             "docker".into(),
             serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
@@ -615,18 +636,38 @@ pub fn promote(
             return Err(Error::msg("restricted registry auth file required"));
         }
     }
-    check_tag(gh, &manifest, false)?;
-    let ci_run = check_ci(gh, &manifest)?;
+    Ok((summaries, downloaded_iso))
+}
+
+fn admit_release_for_promotion(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    directory: &Path,
+) -> Result<(u64, Release, Vec<Asset>), Error> {
+    check_tag(gh, manifest, false)?;
+    let ci_run = check_ci(gh, manifest)?;
     let current = release(gh, &manifest.tag)?;
     if current.draft || !current.prerelease || !current.immutable {
         return Err(Error::msg(
             "only the exact immutable prerelease can be promoted",
         ));
     }
-    let assets = inventory(&manifest, directory)?;
-    check_inventory(&current, &manifest, &assets)?;
+    let assets = inventory(manifest, directory)?;
+    check_inventory(&current, manifest, &assets)?;
     verify_release(gh, &manifest.tag)?;
-    if let Some(downloaded) = &downloaded_iso {
+    Ok((ci_run, current, assets))
+}
+
+fn verify_promotion_inputs(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    manifest: &Manifest,
+    current: &Release,
+    downloaded_iso: &Option<PathBuf>,
+    ci_run: u64,
+) -> Result<(), Error> {
+    if let Some(downloaded) = downloaded_iso {
         command(
             gh,
             &[
@@ -641,7 +682,7 @@ pub fn promote(
     }
     if let Some(metadata) = &manifest.docker {
         qualification::validate_publication_time(
-            &manifest,
+            manifest,
             directory,
             &qualification::evidence(directory)?,
             current
@@ -651,14 +692,18 @@ pub fn promote(
         )?;
         registry::observe_public(registry, metadata, ci_run)?;
     }
-    components::observe_public(registry, directory, &manifest)?;
-    let prior_appliance_latest = if !manifest.has_appliance() {
-        latest_release(gh)?.map(|release| release.id)
-    } else {
-        None
-    };
+    components::observe_public(registry, directory, manifest)?;
+    Ok(())
+}
+
+fn render_promotion_notes(
+    directory: &Path,
+    manifest: &Manifest,
+    summaries: &serde_json::Map<String, serde_json::Value>,
+    ci_run: u64,
+) -> Result<(PathBuf, String), Error> {
     let notes = directory.join("qualified-release-notes.md");
-    let summary = serde_json::to_string_pretty(&summaries).map_err(|_| Error::refused())?;
+    let summary = serde_json::to_string_pretty(summaries).map_err(|_| Error::refused())?;
     let docker_qualification = manifest
         .docker
         .as_ref()
@@ -670,21 +715,23 @@ pub fn promote(
         })
         .unwrap_or_default();
     std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n{docker_qualification}\n\x60\x60\x60json\n{summary}\n\x60\x60\x60\n", manifest.notes)).map_err(|_| Error::refused())?;
-    crate::buildx::write_new(directory.join("promotion-started.json").to_str().ok_or_else(Error::refused)?, summary.as_bytes(), 0o600)
-        .map_err(|_| Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"))?;
-    if let Some(metadata) = &manifest.docker {
-        registry::promote_digest(registry, metadata, auth.ok_or_else(Error::refused)?, directory)
-            .map_err(|_| Error::msg("Docker recommendation may have changed; inspect partial promotion with status before any further mutation"))?;
-    }
-    command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
-        .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
+    Ok((notes, summary))
+}
+
+fn check_promoted_release(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    current: &Release,
+    assets: &[Asset],
+    prior_appliance_latest: Option<u64>,
+) -> Result<(), Error> {
     let after = release(gh, &manifest.tag)?;
     if after.id != current.id || after.draft || after.prerelease || !after.immutable {
         return Err(Error::msg(
             "qualified release state differs; inspect partial promotion",
         ));
     }
-    check_inventory(&after, &manifest, &assets)?;
+    check_inventory(&after, manifest, assets)?;
     if manifest.has_appliance() {
         let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
         if latest.id != current.id {
@@ -695,6 +742,35 @@ pub fn promote(
     } else if latest_release(gh)?.map(|release| release.id) != prior_appliance_latest {
         return Err(Error::msg("Docker promotion changed the appliance latest pointer; inspect partial promotion without rollback"));
     }
+    Ok(())
+}
+
+fn record_promotion_outcome(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    manifest: &Manifest,
+    summaries: &serde_json::Map<String, serde_json::Value>,
+    ci_run: u64,
+    auth: Option<&Path>,
+    assets: &[Asset],
+    current: &Release,
+) -> Result<(), Error> {
+    let prior_appliance_latest = if !manifest.has_appliance() {
+        latest_release(gh)?.map(|release| release.id)
+    } else {
+        None
+    };
+    let (notes, summary) = render_promotion_notes(directory, manifest, summaries, ci_run)?;
+    crate::buildx::write_new(directory.join("promotion-started.json").to_str().ok_or_else(Error::refused)?, summary.as_bytes(), 0o600)
+        .map_err(|_| Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"))?;
+    if let Some(metadata) = &manifest.docker {
+        registry::promote_digest(registry, metadata, auth.ok_or_else(Error::refused)?, directory)
+            .map_err(|_| Error::msg("Docker recommendation may have changed; inspect partial promotion with status before any further mutation"))?;
+    }
+    command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
+        .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
+    check_promoted_release(gh, manifest, current, assets, prior_appliance_latest)?;
     crate::buildx::write_new(
         directory
             .join("promotion-complete.json")
@@ -839,8 +915,6 @@ fn next_action(
     directory: &Path,
 ) -> &'static str {
     let partial = recommendation.0;
-    let github_latest = recommendation.1.as_deref();
-    let docker_latest = recommendation.2.as_deref();
     let promotion_complete = recommendation.3;
     if partial {
         "inspect partial promotion"
