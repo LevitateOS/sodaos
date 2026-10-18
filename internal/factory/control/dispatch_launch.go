@@ -292,7 +292,7 @@ func reportPacketRefusal(ctx context.Context, deps DispatchDeps, occupancy *pass
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
-	report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch packet unrecorded"})
+	report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch packet unrecorded: " + packetErr.Error()})
 }
 
 // retryAttempt relaunches one released assignment after re-checking
