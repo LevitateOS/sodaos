@@ -225,8 +225,11 @@ missed durable work with duplicate wakeups, unprivileged offline production
 images, graceful/abrupt shutdown, local Caddy HTTPS and stopped fresh restore.
 Bounded real D1 exhaustion rejected writes visibly, refused startup and recovered
 prior acknowledged data after space was freed.
-The [implementation plan](../development/canlang-soda-os-implementation-plan.md#current-execution-evidence)
-owns exact receipts, commands, task status and remaining qualification gates.
+The [runtime evidence and contract](../development/canlang-soda-os-implementation-plan/production-workerd.md#source-baseline-scope-and-evidence)
+retains scoped runtime receipts and technical contracts. The
+[canonical Canlang recipes](../development/factory-remaining-tasks.md#canlang-execution-recipes)
+own remaining steps; [testing](../development/testing.md#canlang-qualification-boundaries)
+owns G1–G4 qualification.
 
 Required R2, arbitrary DO namespaces, KV, service bindings, named queues,
 Analytics Engine, Workflows, AI, Vectorize, remote provider secrets and migrations

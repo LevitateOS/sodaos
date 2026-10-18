@@ -76,7 +76,7 @@ component integration is introduced.
 
 **Executable remainder:** First select a concrete Ralph avatar/question/comment flow and suitable framework-independent assets with provenance, then design it in the existing Lit Work/Spaces owners (`sodaspaces-factory-work-journey-view.ts`, `sodaspaces-workspace.ts`). Project-only feed composition is superseded: the main view combines subscribed projects/feeds, newest posts on top. After R32/R42 supply actual records, implement subscriptions, persisted comment/reply composition, source discussion links and visible agent plan/issue outcomes. Then cover seven-role workflow cards and native joins. Use focused browser tests for reading position, drafts, keyboard/focus, account switch, late updates and pagination, plus changed native entry/terminal lifetime assertions. R03 gates native acceptance; no React integration, copied mock-only feed or reopening all NFX work.
 
-**Principal source owners:** [frontend/spaces/soda-extension.ts](../../../frontend/spaces/soda-extension.ts), [frontend/spaces/sodaspaces-terminal-attachment.ts](../../../frontend/spaces/sodaspaces-terminal-attachment.ts), [docs/development/native-frontend-correction-tasks.md](../../../docs/development/native-frontend-correction-tasks.md).
+**Principal source owners:** [frontend/spaces/soda-extension.ts](../../../frontend/spaces/soda-extension.ts), [frontend/spaces/sodaspaces-terminal-attachment.ts](../../../frontend/spaces/sodaspaces-terminal-attachment.ts), [Native frontend acceptance](../testing.md#native-frontend-composition).
 
 **Additional runtime/qualification gates:** [R03](01-boundaries.md#r03). Source-only work cannot release these gates.
 

@@ -112,7 +112,6 @@ Generated TypeScript distributions, worker bundles, the native exec-guard binary
     │           └── canlang.rs
     ├── docs/
     │   ├── development/
-    │   │   ├── canlang-soda-os-implementation-plan.md
     │   │   └── canlang-soda-os-implementation-plan/
     │   │       ├── production-workerd.md
     │   │       └── proposed-tree.md

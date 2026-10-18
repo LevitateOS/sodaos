@@ -52,8 +52,8 @@ Source: `bc28a07c38567f0f8b0ae7939aedb7b4d6f86e4d`, tree
 source remains `0b0734398f0350d75cc6fdb4dc8129251d8ab308`; the 12 already dirty
 guidance files and 39 dependency inputs retain their recorded bytes. This is a
 source-only audit, with no builds, tests, dependency resolution, network, database,
-provider, VM or installed operations. Existing [tasks](implementation-tasks.md)
-and [lanes](implementation-lanes.md) remain the execution plan.
+provider, VM or installed operations. Existing [tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md)
+and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain the execution plan.
 
 Discovery selected **111 build/configuration/service/payload/check paths**, not
 111 fresh body reviews. Three Luna medium primaries traced native, release and

@@ -3,8 +3,8 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
-Pending work follows [library-adoption findings](../library-adoption.md#finding-allocation)
-and their [execution packets](../library-adoption.md#execution-packets). The
+Pending work follows [library-adoption findings](../library-adoption.md#library-contracts)
+and their [execution packets](../library-adoption.md#library-contracts). The
 historical source spans below remain evidence; completed structural extractions
 remain completed. Replace each selected generic engine at its actual caller
 boundary, retaining Soda admission, descriptor custody and operation ordering.

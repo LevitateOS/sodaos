@@ -37,7 +37,7 @@ true: the right authority, one source of truth, explicit resource ownership,
 bounded work and observable completion. It does not mean replacing native
 libraries or already-correct code. Group verdicts are scoped source assessments;
 uncertain native behavior remains a verification task. The selected first changes
-and their checks are in the [implementation tasks](../implementation-tasks.md#first-principles-implementation-2026-10-13).
+and their checks are in the [implementation tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#first-principles-implementation-2026-10-13).
 
 Keep the completion dimensions separate:
 
@@ -100,9 +100,7 @@ record path to the proposed tree and appropriate documentation coverage. The for
 now exist and their completion/evidence limits are linked in the
 [review index](../reviews/README.md).
 
-The [assignment map](../review-assignments.md#one-primary-per-slice) gives every
-slice one primary and a different worker to challenge consequential conclusions.
-Its [collaboration rules](../review-assignments.md#shared-boundary-exchanges)
-require affected owners to exchange evidence and preserve unresolved boundaries.
-The coordinator owns shared coverage and tree updates; assignment is not audit
-execution or product decision authority.
+The [guidance register](../review-assignments.md#guidance-conflicts-and-controlling-decisions)
+preserves controlling owner decisions. These slice maps retain historical review
+coverage, not worker assignments. The [remaining outcomes](../../factory-remaining-tasks.md)
+own current missing coverage and execution.

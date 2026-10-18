@@ -13,7 +13,7 @@ terminal element/renderer/socket guarantee remains binding. Ordinary document
 replacement cannot preserve those browser objects, so Fountain needs a proved
 native persistent lifecycle. Reconnection is not an approved substitute and
 consumers must not build adapters for missing native capabilities. The
-[correction plan](../development/factory-implementation-plan.md#native-frontend-responsibility-and-correction)
+[correction plan](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md#native-frontend-responsibility-and-correction)
 now makes this platform/consumer split explicit. Another incomplete wrapper would
 repeat the failure.
 

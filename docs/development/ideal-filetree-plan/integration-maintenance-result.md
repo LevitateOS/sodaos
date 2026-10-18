@@ -21,7 +21,7 @@ question still match. Fresh decisive caller reads and independent Luna medium
 challenges checked consequential recommendations. The coordinator owns this
 synthesis; Luna low checks bookkeeping. No source changes, builds, tests,
 dependency resolution, network, database, provider, VM or installed operations
-occurred. [Tasks](implementation-tasks.md) and [lanes](implementation-lanes.md)
+occurred. [Tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md)
 remain the execution plan; no full desired-tree regeneration is selected.
 
 ## What is counted and what a recommendation means

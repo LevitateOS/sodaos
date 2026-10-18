@@ -17,13 +17,12 @@ source reviews; it does not retain obsolete implementations in the target.
 
 ## Current library adoption and retained adapters
 
-The [library adoption allocation](../library-adoption.md#finding-allocation)
+The [library adoption allocation](../library-adoption.md#library-contracts)
 supersedes pending extraction of the generic engines identified below. Existing
 completed concern modules remain useful locations for Soda adapters; historical
 source ranges and test maps remain provenance, not instructions to preserve an
 engine or every Go/Python parser quirk. The
-[execution packets](../library-adoption.md#execution-packets) own sequencing and
-physical writers; [readiness gates](../library-adoption.md#readiness-gates) own the
+[library contracts](../library-adoption.md#library-contracts) own retained boundary rules; [readiness gates](../library-adoption.md#readiness-gates) own the
 small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |

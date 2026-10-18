@@ -63,8 +63,8 @@ nested workloads, funded Factory, shutdown or persistent-state recreation.
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
-Pending work follows [library-adoption findings](../library-adoption.md#finding-allocation)
-and their [execution packets](../library-adoption.md#execution-packets). Historical
+Pending work follows [library-adoption findings](../library-adoption.md#library-contracts)
+and their [execution packets](../library-adoption.md#library-contracts). Historical
 source spans and completed C08/C09 structural work remain evidence, not new
 extraction tasks. Replace selected generic engines through the existing release
 owners; retain admission, descriptor custody, authenticated raw bytes,

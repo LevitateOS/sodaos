@@ -15,7 +15,7 @@ dirty guidance files and 39 dependency inputs retain their recorded bytes.
 This refines [workflow requirements](workflow-requirements.md),
 [observations](observation-reliability.md), [representations](data-representations.md)
 and [dependency/architecture cost](dependency-and-architecture-cost.md).
-The [tasks](implementation-tasks.md) and [lanes](implementation-lanes.md) remain
+The [tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain
 the execution plan. No application/test/fixture/dependency edits, executed tests,
 builds, database, provider, VM, network or installed operations occurred here.
 

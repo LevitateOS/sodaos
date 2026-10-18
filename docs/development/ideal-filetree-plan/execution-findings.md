@@ -1,14 +1,12 @@
-# Finding allocation within the existing execution plan
+# Scoped source findings and retained evidence
 
 ## Wind-down disposition — 18 October 2026
 
-This allocation is retained evidence, not an active queue. The [single remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) owns unmet parents and shared consumers. Later completion receipts in this file and implementation-tasks.md supersede earlier open wording: CON-M01/02 source/cutoff and bounded A07.V scope, SIMP-FD-1, CUST-C-BUTANE-CLEANUP-1, formatter/adapter/dependency cuts are not reopened. Broader native/installed/provider acceptance remains separately mapped. Optional CA narrowing/L16/parked structural proposals remain deferred; current retained algorithms and implementations stand. No reviewer or implementation assignment remains live.
+This allocation is retained evidence, not an active queue. The [single remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) owns unmet parents and shared consumers. Later completion receipts in this file and Git supersede earlier open wording: CON-M01/02 source/cutoff and bounded A07.V scope, SIMP-FD-1, CUST-C-BUTANE-CLEANUP-1, formatter/adapter/dependency cuts are not reopened. Broader native/installed/provider acceptance remains separately mapped. Optional CA narrowing/L16/parked structural proposals remain deferred; current retained algorithms and implementations stand. No reviewer or implementation assignment remains live.
 
-This is the detailed subtask allocation for the existing
-[task list](implementation-tasks.md) and [lanes](implementation-lanes.md), not a
-second queue. Each row has one accountable finding owner; cross-owner files use
-the explicit physical handoffs below. Parent packets retain their completed
-M/C/V receipts. New follow-ups never reopen those receipts or claim native proof.
+This file preserves scoped source findings, boundary details and exact receipts.
+Current next steps belong only to the canonical catalog; old rank/owner labels
+below describe the historical investigation and do not assign a worker.
 
 Reconciled at `04286c48cf06943c03b9d59a53a2e9c91ecc9de5`, tree
 `6a1238924212a64ebffff47cbd440ea589fa1184`, application source `0b073439`.
@@ -17,31 +15,6 @@ canonical dispositions plus CA-ALGORITHM-PROFILE-1. All 76 are allocated below;
 aliases are not extra findings. Existing 80-slice corrections and Q1–Q9 remain
 in their parent task/review records, including findings outside this recent
 challenge. No source implementation, build, test or native operation ran here.
-
-## Selection order and writer rules
-
-1. Repair observation failures, authority/custody, cancellation and resource
-   admission. Fix the tooling used to judge a later change before relying on it.
-2. Settle expensive integration mismatches with a bounded caller/upstream proof:
-   operation identity, merge reachability, producer profiles and ownership. A
-   failed proof holds that dependent replacement, not independent work.
-3. Transfer settled callers and remove their last obsolete machinery. Preserve
-   actual producer contracts and necessary policy; do not build more wrappers.
-
-These priorities choose among ready tasks. A held correctness specification
-does not block a disjoint settled cut. Same-file corrections precede or share
-that file's simplification; do not run both writers concurrently. Rank 1 uses
-Luna medium for transactions, secrecy, cancellation and custody; Luna low handles
-settled settings/error joins. Rank 2 uses medium for decisions/proofs; rank 3
-uses low after admission is settled. Each coherent packet gets one independent
-review at the corresponding level. Coordinator alone integrates manifests,
-locks, shared roots, payload/compile selectors and expensive checks.
-
-Current paths below are defining surfaces, with existing caller/test descendants
-in the linked owning audits. Targets remain those same owners unless a row
-explicitly removes a bridge. Dispatch reserves the complete literal file list,
-including module roots and fixtures. No global extraction barrier or new package
-is selected. B supplies canonical schema changes and A the broker mirror, together.
 
 ## Implemented source follow-ups (2026-10-08)
 
@@ -293,24 +266,6 @@ policy; none creates an implementation task simply for existing. The 11 simplify
 rows map to the exact cuts above and CLI03; libc/rustix and PEM rows share cuts.
 Optional L16 remains C-owned/deferred after L16.G and demonstrated value.
 A34/C41 stay preserved optional seams; B27 is integrated and never replayed.
-
-## Supersession and finish
-
-Pending custom hash/curve/encoding/JSON/SSH/CA/PG/HTTP/WS/archive/CLI engine
-decompositions in A03/A04/A07/C01/C02/C03/C05/C07/C10/C11 are explicitly
-superseded by completed L02–L14 and these caller-policy cuts. Pending historical
-unsigned byte-golden equivalence in C09/C10/C11 is superseded by actual consumer,
-semantic and current deterministic-output checks. Required source bytes and
-fingerprints are preserved. No completed move or test receipt is erased.
-
-R02.inventory is complete at the current responsibility snapshot, with authored
-documentation deltas counted separately. Keep selective current caller/owner
-updates with each integration. Full R02.targets desired-tree/decomposition
-regeneration waits for the replacement boundaries to settle; R02.joins and R04
-retain actual target/shipping/installed scope. Missing one parser, provider or
-native profile holds only its dependent action. This reconciliation completes
-planning allocation and independent scope challenge, not code corrections or
-qualification. Implementation still requires the matching scoped instruction.
 
 ## A08 browser verification (complete at browser scope)
 

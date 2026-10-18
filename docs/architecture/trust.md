@@ -307,6 +307,16 @@ mutations are enabled; this document does not assume it is already available.
 
 ### Conditional native mutations
 
+The isolated Soda service retains its own UID 2000, database, configuration and
+host/identity access; Fountain runs as UID 1000. The extension's dedicated private
+IPC bridge carries host-validated live scoped admission, not authority inferred
+from actor headers or socket access. Do not expose broad `/run/soda`, database,
+grant-key, host-helper or Podman access to the extension. Browser cookies and raw
+native session IDs stay in the host. Session streaming is enabled only for a
+provider whose actual release/revocation races are proved; memory/file evidence
+does not qualify another provider. No parallel credential/session database is
+introduced to evade these boundaries.
+
 Use separately authorized, repository-scoped native service principals for
 unattended collaboration. An ordinary native actor credential is not an
 authentication hack, but its repository scope alone does not encode a current

@@ -9,7 +9,6 @@ designed.
 This is the durable design record of the owner's discussion on 18 October 2026.
 It owns the feed and Ralph integration direction and the open presentation choices.
 The [product contract](../product/overview.md),
-[workflow design](../development/factory-workflow-plan.md),
 [workflow contracts](../development/factory-workflow-contracts.md),
 [factory interfaces](../architecture/factory-interfaces.md) and
 [trust model](../architecture/trust.md) continue to own execution behavior and

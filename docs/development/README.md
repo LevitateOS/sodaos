@@ -1,6 +1,6 @@
 # Development
 
-Execution is stopped after the 18 October 2026 wind-down. [Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) is the single current roadmap/backlog; detailed plans retain requirements and scoped evidence. Reading a plan does not dispatch it.
+Execution is stopped after the 18 October 2026 wind-down. [Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) is the single current roadmap/backlog; contract and evidence owners retain distinct technical detail. Reading a plan does not dispatch it.
 
 How to work on the Soda OS repository itself.
 
@@ -25,15 +25,14 @@ How to work on the Soda OS repository itself.
 Product and security boundaries remain in [Architecture](../architecture/overview.md).
 Do not treat package paths as the product vocabulary.
 
-## Ideal file tree planning
+## Source ownership and desired tree
 
-The [ideal file tree plan](ideal-filetree-plan/ideal-filetree-plan.md) is the living proposal for the
-whole repository, including Go/Rust package ownership, oversized files and port
-choices. Implementation is deferred until time is available. After every merge,
-follow its [maintenance workflow](ideal-filetree-plan/maintenance.md#keeping-the-plan-current-after-every-merge)
-to reconcile the target tree with the merged source, even when the delta requires
-no structural changes. Keep the same plan current rather than create successor
-plans or begin the refactor as part of routine upkeep.
+The [source ownership index](ideal-filetree-plan/ideal-filetree-plan.md) owns
+language, package, placement and desired-tree contracts. Update changed
+responsibilities through its [maintenance guidance](ideal-filetree-plan/maintenance.md).
+Historical inventories and body reviews keep their exact pins; Filetree R02 in
+the remaining-outcome catalog owns the incomplete coverage. No unchanged-plan
+audit or restructuring is dispatched by documentation upkeep.
 
 ## Build, test and release
 
@@ -44,72 +43,30 @@ plans or begin the refactor as part of routine upkeep.
 | Running the release pipeline | [Release workflow](release.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
-## Factory implementation planning
+## Remaining implementation and qualification
 
-The [remaining-work catalog](factory-remaining-tasks.md) is the current consolidated
-execution order for the existing factory run: 55 outcomes cover the original
-baseline, all three refinements and applicable native/installed/release work.
-It defines dependencies, acceptance and three lanes; the existing run's central
-checklist alone records live progress and writer leases.
+The [remaining-outcome catalog](factory-remaining-tasks.md) is the single execution
+entrypoint: 53 Factory, 12 Canlang and 2 maintenance outcomes remain, with all
+shared criteria counted once. Its six task packets and Canlang recipes supply
+concrete source starts, prerequisite outputs, next slices and acceptance.
+Implementation remains stopped until instructed.
 
-The [workflow design](factory-workflow-plan.md) and
-[frozen contracts and tests](factory-workflow-contracts.md) retain the original
-requirements, schemas, algorithms, limits, recovery and native failure rules.
-The [original factory plan](factory-implementation-plan.md) retains broader
-appliance and end-to-end UX acceptance. Their old task IDs remain requirement
-references, rather than separate queues. Preserve completed source and scoped
-evidence; a planning document alone does not authorize execution or publication.
-
-The [factory implementation plan](factory-implementation-plan.md) records the
-current source baseline, owning contracts, exclusions and
-[requirement deliverables](factory-implementation-plan.md#deliverable-map).
-The [source change inventory](factory-implementation-plan.md#source-change-inventory)
-locates coordinated code, caller, configuration and fixture changes. The
-[factory interfaces](../architecture/factory-interfaces.md) specify target APIs,
-records, transitions and process bindings. The
-[dependency graph](factory-implementation-plan.md#dependency-graph) separates
-parallel work from integration that requires demonstrated native capabilities;
-the [early milestones](factory-implementation-plan.md#early-integration-milestones)
-bound implementation/proof, pass scope and failure reconsideration for the uncertain
-native integrations. The [implementation tasks](factory-implementation-plan.md#reviewable-implementation-tasks)
-assign concrete outcomes, owners, prerequisites, changes, checks and completion
-conditions. The [six implementation lanes](factory-implementation-plan.md#implementation-lanes)
-show ordering and parallel branches while preserving all cross-lane dependencies.
-The [concurrency controls](factory-implementation-plan.md#worker-allocation-and-concurrency)
-limit implementation to three workers, initially FT02/ST01/FT01, with reassignment
-and shared-resource coordination in the canonical Soda checkout.
-Their [execution assignments](factory-implementation-plan.md#execution-assignments)
-record lanes, accountable owner roles and shared-resource constraints, separating
-[can start from proven for consumers](factory-implementation-plan.md#start-readiness-and-consumer-proof)
-without changing those task definitions. The
-[execution-list validation](factory-implementation-plan.md#execution-list-validation)
-records complete task coverage, acyclic dependencies, conflict ownership and intact
-production-build prerequisites. The
-[integration and qualification sequence](factory-implementation-plan.md#integration-cutover-and-qualification)
-joins those outputs, replaces old callers and schedules feature availability,
-the real factory demonstration and native qualification after their prerequisites.
-The plan has been independently reviewed for requirement coverage, boundaries,
-dependencies and cost. Its [execution readiness](factory-implementation-plan.md#execution-readiness)
-records that major decisions are settled and assigns remaining implementation risks
-to their proof tasks; implementation and native evidence remain outstanding.
-The [goal completion contract](factory-implementation-plan.md#implementation-goal-completion)
-requires all 32 tasks and their proofs, the composed demonstration and native
-x86_64 candidate qualification before the implementation goal is complete. The
-[earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
-and unfinished delivery work for reconciliation, not a competing execution queue.
-Plans are removed after completion and absorption into the owning guides.
+The [workflow contracts](factory-workflow-contracts.md) own schemas, algorithms,
+limits and decisive cases; [factory interfaces](../architecture/factory-interfaces.md)
+own component APIs and records. Product, trust and [feed design](../design/factory-feed-and-ralph-integration.md)
+own their respective behavior, authority and presentation decisions. Old parallel
+plans and run schedules were absorbed and removed; Git retains their history.
 
 ## Canlang application integration
 
-The [Canlang and Soda OS implementation plan](canlang-soda-os-implementation-plan.md)
-covers the adopted private application target, Rocky development and production
-environments, [runtime requirements](canlang-soda-os-implementation-plan.md#runtime-and-environment-requirements),
-[code ownership and placement](canlang-soda-os-implementation-plan.md#code-ownership-and-placement),
-local service inventory, recovery, proof gates and remaining ordered tasks.
-The [application guide](../guides/canlang-applications.md) owns developer/operator
-procedures. Native runtime and installed tools have local evidence; appliance and
-release qualification remain separate. Local implementation does not authorize
-publication or deployment to an existing appliance.
+The [production runtime contract](canlang-soda-os-implementation-plan/production-workerd.md)
+owns target/provider, storage, process-lifetime and image contracts and technical
+substeps. Its [source allocation](canlang-soda-os-implementation-plan/proposed-tree.md)
+distinguishes existing producers from proposed leaves. The
+[application guide](../guides/canlang-applications.md) owns developer/operator
+procedures; [testing](testing.md#canlang-qualification-boundaries) owns G1–G4
+evidence distinctions. Historical runtime acceptance does not prove direct workerd
+or the composed installed release; P32/R55 stays open after document absorption.
 
 ## Permissions
 

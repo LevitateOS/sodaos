@@ -86,6 +86,21 @@ implementation sequence. Existing interface behavior remains in the references.
   patches of native Forgejo behavior superseded by Fountain's generic extension
   contract. Keep Soda's own extension assets and supported branding.
 
+## Extension expansion boundaries
+
+Additional extension features need an actual caller: SSE needs incremental flush,
+cancellation and session-release proof; another session provider needs its own
+revocation/race proof; native mutations need bounded authorized operations around
+the existing service. A new veto belongs at the common native policy seam with
+all callers covered. Durable events need a demonstrated committed-delivery
+obligation and transactionally coupled delivery; observations cannot veto writes.
+A presentation slot needs a retained customization that requires it. These are
+conditional extensions, not hidden requirements for the current delivery.
+
+Marketplace/downloaders, untrusted-code sandboxing, arbitrary Go interception,
+hot reload, a general compatibility layer and rewriting the whole Forgejo UI
+are excluded. Preserve intentional all-page Soda design within the native host.
+
 ## Deferred
 
 1. **Private toolchain and service branches** — temporary personal branches of shared

@@ -1,7 +1,7 @@
 # Adapter challenges against selected upstream APIs
 
-This chapter refines the existing [tasks](../implementation-tasks.md),
-[lanes](../implementation-lanes.md) and [adoption packets](../library-adoption.md).
+This chapter refines the existing [tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md),
+[lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) and [adoption packets](../library-adoption.md).
 It selects concrete simplifications and records where a caller or upstream
 contract must change first. Completed adoption and correctness repairs keep
 their recorded status. A retained responsibility does not require retaining its

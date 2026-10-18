@@ -1,18 +1,11 @@
-# Factory workflow: frozen implementation contracts
+# Factory workflow contracts and decisive tests
 
-Design decision owner: **Codex coordinator**, 2026-10-16. Status: design frozen;
-implementation and native qualification remain pending. This is the implementation
-contract and decisive test list for the [workflow plan](factory-workflow-plan.md),
-not a description of already shipped interfaces. It will be absorbed into the
-owning guides when implementation finishes.
-
-Spark implements these decisions. It may choose local variable names, organize
-small private helpers within the named owners, and correct mechanical compilation
-errors. It must return evidence to Codex before changing an authority boundary,
-record/wire contract, state transition, algorithm, limit, dependency, package
-owner, native primitive or required check. A failed proof is a blocked assumption,
-not permission to substitute an architecture. No design choice below is deferred
-to an implementation worker.
+This document owns D01–D17 schemas, algorithms, limits, authority/recovery rules
+and T01–T64 decisive cases. It specifies required behavior; implemented and
+qualified scopes are recorded in the [remaining-outcome catalog](factory-remaining-tasks.md).
+Use its executable recipes and existing source instead of treating these original
+contracts as a new schedule. Resolve failed native assumptions at their actual
+boundary; source acceptance is not native or release qualification.
 
 ## D01 — Execution subjects, authority and admission
 

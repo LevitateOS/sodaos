@@ -354,6 +354,77 @@ claim the finished factory from source checks, the narrow
 [synthetic experiment](../research/factory-capability-map.md#focused-native-findings),
 or Jev agreement. Do not build the release merely to approve architecture prose.
 
+## Release component regression boundaries
+
+The accepted RCX/RCX-2 source repairs retain these failure criteria. Exercise the
+changed join with the existing component driver; do not replay an obsolete task
+schedule. Current uncovered native consumers belong to Factory R03–R06/R45/R46/
+R50–R53 in the [remaining-outcome catalog](factory-remaining-tasks.md).
+
+| Existing repair | Boundary that must remain true |
+| --- | --- |
+| FX01 activation | Register backend cleanup before final activation; failed readiness keeps ordinary HTTP closed, cleanup reachable and stale tokens fenced. |
+| FX02/FX05 offline disable and survivors | A fresh manager and missing receipts cannot lose custody of surviving effects. Distinguish two Project incarnations, preserve current identities, retire only obsolete owned effects and avoid optional acquisition while disabling. |
+| FX03 native daemon | A task-owned tailscaled failure, systemd recreation and live-daemon recovery preserve lifetime ownership. Maintenance exclusivity excludes Start/Ensure as well as another maintainer. |
+| FX04 package recovery | Interrupted package swaps recover offline from validated retained bytes during startup. |
+| FX06 current intent | After a completed release, changed administrator intent reconciles current readiness without rewriting rollback evidence. |
+| FX07 component relationships | Missing catalog/controller references refuse rather than guessing ownership. |
+| FX08 acquisition | Deadlines and cancellation retain their actual failure cause through acquisition and cleanup. |
+
+Current packaged enabled/disabled restart, failed cleanup and survivor cases are
+native component evidence. The earlier Soda `730fc205` / Fountain `a4fd2221`
+development results keep their exact scope. R51 still needs actual immutable
+inputs; R52 qualifies the installed candidate and R53 its public download bytes.
+
+## Native frontend composition
+
+The completed NFX source/browser/installed work remains accepted at its recorded
+scope. R03/R43/R52/R54 own changed authority, new feed composition and the exact
+new candidate. Preserve these criteria when touching their boundary:
+
+- Both entry orders across global/repository pages, panel views and new/saved
+  routes preserve exact URL, query, fragment, Back/Forward and reload behavior.
+  Use canonical host types/helpers and version refusal, with an independent
+  generic consumer proving one workspace; no iframe, copied DOM or inferred host DOM.
+- Native controls and every feature class use the native handler and appropriate
+  global/page lifetime, teardown and async fencing. Stale configuration cannot
+  resurrect a retired view. Suspension, revalidation, expiry, logout, account or
+  permission changes hide private cached state and revoke affected streams.
+- Ordinary navigation preserves the actual terminal element, xterm and socket.
+  Reload creates a fresh browser instance bound to the exact locator, account,
+  Project and process incarnation/PID start identity. Browser retirement is not
+  End of the human process. An absent renderer cannot satisfy positive acceptance.
+- Saved reviews render their stored presentation; missing historical material is
+  reported honestly. GET/render does not call a model or search global receipts.
+- Geometry, focus, keyboard, zoom, compact/light/dark presentation, emitted colors,
+  fonts and asset attribution remain correct; the native host owns host geometry.
+  Preserve intentional all-page design coverage (GUIDANCE-08).
+- Installed bytes/schema and retained-data checks bind actual identities. Earlier
+  frontend installation proof does not qualify a different complete release.
+
+The [Spaces UX](../design/spaces-ux.md) and [feed design](../design/factory-feed-and-ralph-integration.md)
+own the intended presentation; these are regression boundaries, not a second backlog.
+
+## Canlang qualification boundaries
+
+The [canonical Canlang recipes](factory-remaining-tasks.md#canlang-execution-recipes)
+own remaining work; the [runtime contract](canlang-soda-os-implementation-plan/production-workerd.md)
+owns provider/process/image details. Keep these evidence layers distinct:
+
+| Gate | Required evidence | Failure disposition |
+| --- | --- | --- |
+| G1 native boundary | Exact locked binaries on native Rocky/Podman; the real compiled app reaches D1 and a callable interface. | Resolve CPU/library/bundle/storage/lifetime incompatibility before orchestration. Historical Miniflare G1 does not qualify direct workerd. |
+| G2 complete runtime | Two users, team access, browser/auth/MCP, allowed and denied mutations, Files and durable scheduled work; concurrency and acknowledged state across abrupt restart/replacement. | Repair the specific provider/runtime boundary. A container start is insufficient; use explicit DO/named-queue fixtures when claimed. |
+| G3 operations | Production independent of Project stop, host reboot, actual claimed private access, complete stopped backup/fresh restore and failed-upgrade writer fencing. | Keep the particular lifecycle/client criterion open; local ingress is not physical LAN/Tailnet proof. |
+| G4 installed release | Exact packaged tools, runtime and app in R51's candidate, with P30's complete UI/API/native journey. | R52/P31 remains unqualified until actual installed observations pass; development artifacts may diagnose without becoming release proof. |
+
+Historical compiled-app, domain/UI, Miniflare/native image, offline tools and
+component results retain their scopes. They neither reopen accepted work nor
+prove the replacement runtime or composed current release. No broad release build
+is needed to answer G1/G2. P32/R55 remains open after the duplicate parent plan's
+removal: closure requires G4 and reconciliation of the qualified release's actual
+contracts, procedures and attribution. R54 freezes shipping documentation earlier.
+
 ## Evidence rules
 
 - Distinguish authored checks, local tests, native builds and installed evidence.

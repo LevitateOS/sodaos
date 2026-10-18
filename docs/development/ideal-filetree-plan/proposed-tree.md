@@ -111,7 +111,7 @@ emulated SSH; installed personal-Git qualification remains C11.V/R04.
 Unresolved behavioral corrections and installed qualification retain their
 existing tasks. Mapping every current leaf does not qualify its behavior.
 Earlier counts and source review pins remain historical; the
-[library chapter](library-adoption.md#execution-packets) retains the completed
+[library chapter](library-adoption.md#library-contracts) retains the completed
 replacement scopes and their evidence limits.
 
 The [workflow requirements map](workflow-requirements.md) is an H06 audit
@@ -133,9 +133,9 @@ document allocated below. The current [library caller maps](library-integrations
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
-The [native frontend correction task list](../native-frontend-correction-tasks.md)
-is an H06 documentation-upkeep addition to the desired tree. Its task/lane scope
-does not refresh the historical source inventory, structural or review counts.
+The former frontend task list is absorbed into [native frontend acceptance](../testing.md#native-frontend-composition)
+and the canonical outcomes. Removed planning leaves are excluded below; historical
+source inventory, structural and review counts retain their recorded pins.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
@@ -1077,9 +1077,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── execution-findings.md
 │   │   │   ├── file-and-process-custody.md
 │   │   │   ├── ideal-filetree-plan.md
-│   │   │   ├── fountain-soda-correctness-tasks.md
-│   │   │   ├── implementation-lanes.md
-│   │   │   ├── implementation-tasks.md
 │   │   │   ├── independent-conclusions.md
 │   │   │   ├── integration-maintenance-result.md
 │   │   │   ├── integration.md
@@ -1098,11 +1095,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── workflow-requirements.md
 │   │   │   └── workflow-traces.md
 │   │   ├── README.md
-│   │   ├── canlang-soda-os-implementation-plan.md
 │   │   ├── cockpit.md
-│   │   ├── factory-implementation-plan.md
-│   │   ├── native-frontend-correction-tasks.md
-│   │   ├── forgejo-extensions-plan.md
 │   │   ├── go-packages.md
 │   │   ├── go.md
 │   │   ├── lit.md

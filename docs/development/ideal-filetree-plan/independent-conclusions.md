@@ -12,7 +12,7 @@ source remains `0b0734398f0350d75cc6fdb4dc8129251d8ab308`. The 12 already dirty
 guidance documents and 39 dependency inputs retain their recorded bytes. This
 is documentation upkeep, with no application edits, builds, tests, dependency
 resolution, network, database, provider, VM or installed operations.
-[Tasks](implementation-tasks.md) and [lanes](implementation-lanes.md) remain
+[Tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain
 the execution plan. This chapter refines evidence and prerequisites rather than
 replacing that plan or regenerating the desired tree.
 

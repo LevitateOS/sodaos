@@ -6,7 +6,7 @@ L11/N13 delegates valid evidence URL interpretation to url setters, omits malfor
 source reviews; it does not retain obsolete implementations in the target.
 
 Pending generic-engine splits below yield to the existing packets' scoped
-[library adoption](../library-adoption.md#execution-packets). Completed moves,
+[library adoption](../library-adoption.md#library-contracts). Completed moves,
 historical source counts and domain/support owners remain recorded. Prioritize
 the named correctness repairs and dependency admission before adoption; use
 existing focused checks rather than another qualification framework.
@@ -219,7 +219,7 @@ N14 repairs the retained std/serde QMP request-ID exchange in
 buffered event processing and every read/write. Event storms and trickling
 peers cannot extend that deadline. This and the Phase::child repair precede
 bounded readiness/shutdown claims; no new QMP runtime is selected. The
-[L01 packet](../library-adoption.md#execution-packets) owns the acceptance scope.
+[L01 packet](../library-adoption.md#library-contracts) owns the acceptance scope.
 
 - `tools/acceptance/src/vm/mod.rs`
 - `tools/acceptance/src/vm/config.rs`

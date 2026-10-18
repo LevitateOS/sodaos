@@ -3,7 +3,7 @@
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
-[Library adoption](../library-adoption.md#finding-allocation) supersedes only
+[Library adoption](../library-adoption.md#library-contracts) supersedes only
 pending generic-engine preservation. Retain the Go domain/Store/API/client
 owners and completed concern splits below. SQL01 completed in `d12bf6d3`, removing
 PostgreSQL placeholder translation; JSON02 and the transport findings consolidate

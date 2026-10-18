@@ -13,7 +13,7 @@ source remains `0b0734398f0350d75cc6fdb4dc8129251d8ab308`; the 12 pre-existing
 dirty guidance files and 39 dependency inputs retain their recorded bytes.
 This extends [workflow tracing](workflow-traces.md), [authority/state review](authority-and-state.md),
 [resource bounds](resource-bounds.md) and [concurrency custody](concurrency-and-termination.md).
-The [existing tasks](implementation-tasks.md) and [lanes](implementation-lanes.md)
+The [existing tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md)
 remain the execution plan; these packets refine their defining owners.
 
 Discovery found 313 custody-selector files and 1,141 hits across application,

@@ -43,7 +43,7 @@ This choice follows the actual startup/store wiring in
 [`host` lease delivery](../../internal/host/identity.go), and the current
 [backend image](../../system/containers/dashboard/Containerfile). Three fresh Jev
 consultations supported backend placement and host delivery; that advice does
-not prove either implementation. The [planning evidence](../development/factory-implementation-plan.md#interface-definition)
+not prove either implementation. The [planning evidence](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md#interface-definition)
 records their scope and source revisions.
 
 ## Factory MCP role interface
@@ -61,7 +61,7 @@ no new per-comment approval and does not automatically dispatch work. Trigger an
 subscription details remain the finite choices in the owning design.
 
 This is a target interface, pending the native proofs and production tasks in the
-[workflow plan](../development/factory-workflow-plan.md#fw-refine-003-dependency-ordered-tasks).
+[workflow contracts](../development/factory-workflow-contracts.md).
 One Go MCP implementation runs in the existing `soda-dashboard` process on a
 dedicated private Unix HTTP listener. A fixed `soda-project-terminal factory-mcp`
 Rust relay presents native stdio MCP to each admitted CLI. Mount only a dedicated

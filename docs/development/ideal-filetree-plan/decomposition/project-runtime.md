@@ -15,13 +15,13 @@ source reviews; it does not retain obsolete implementations in the target.
 
 ## Current library adoption and retained guest policy
 
-The [library adoption allocation](../library-adoption.md#finding-allocation)
+The [library adoption allocation](../library-adoption.md#library-contracts)
 supersedes pending generic-engine extraction in the historical reviews below.
 Keep completed guest modules, helper binaries and concern-specific custody
 boundaries; reduce generic code through library adoption within those owners.
-The [execution packets](../library-adoption.md#execution-packets) and
-[readiness gates](../library-adoption.md#readiness-gates) own scheduling and
-acceptance, with one physical writer for shared guest files.
+The [library contracts](../library-adoption.md#library-contracts) and
+[readiness gates](../library-adoption.md#readiness-gates) preserve acceptance.
+Current execution belongs to the [remaining outcomes](../../factory-remaining-tasks.md).
 
 | Finding and existing surface | Current target responsibility |
 | --- | --- |

@@ -65,8 +65,8 @@ for the three additions, without endorsing a broader architecture revision.
 
 [Concern inspection](../../decomposition/release-production.md#current-docker-release-concerns-2026-10-16),
 [slices](../../slices/release-and-installation.md#current-docker-release-model-2026-10-16),
-[tasks](../../implementation-tasks.md#current-docker-release-handoff-2026-10-16)
-and [lanes](../../implementation-lanes.md#current-docker-release-handoff-2026-10-16)
+[tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#current-docker-release-handoff-2026-10-16)
+and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md#current-docker-release-handoff-2026-10-16)
 retain public-image/runtime/Projects/nested-container/Factory/persistence proof
 as separate gates. No install, build, VM, publication or qualification ran in this
 planning refresh.
@@ -187,5 +187,5 @@ This refresh performs source/duty and concern inspection only. It does not issue
 new runtime/publication evidence or advance an old test receipt to the merged
 revision. See [size concerns](../../decomposition/release-production.md#current-docker-release-concerns-2026-10-16),
 [release slices](../../slices/release-and-installation.md#current-docker-release-model-2026-10-16),
-[tasks](../../implementation-tasks.md#current-docker-release-handoff-2026-10-16)
-and [schedule](../../implementation-lanes.md#current-docker-release-handoff-2026-10-16).
+[tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#current-docker-release-handoff-2026-10-16)
+and [schedule](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md#current-docker-release-handoff-2026-10-16).

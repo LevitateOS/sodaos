@@ -1,5 +1,12 @@
 # Coverage index
 
+Documentation consolidation on 18 October removed ten overlapping planning/status
+files and trimmed duplicate scheduling/chronology from retained owners. Current
+requirements and all 67 unmet outcomes remain in the [canonical catalog](../../factory-remaining-tasks.md)
+and its linked contracts. Historical inventory rows and source/body/native pins
+below remain exact snapshots; deleted-document citations use Git history. This
+document-only delta neither regenerates those inventories nor closes Filetree R02.
+
 ## Executable residual — Filetree R02
 
 Ready for scoped documentation work. Start from the actual pinned inventories/maps
@@ -54,7 +61,7 @@ review and native qualification pins are unchanged; this is not all-HEAD coverag
 
 ## Fountain LTS delta (2026-10-13)
 
-Scoped inputs are recorded in the [plan](../ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13).
+Scoped inputs are recorded in the [historical plan](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13).
 Soda PR #44's release-input change modifies sixteen existing paths; six existing
 plan files carry H06 documentation upkeep. No paths are added or deleted. These
 selectors supplement the older inventories/maps without replacing their pins:
@@ -481,4 +488,4 @@ settled replacement boundaries. No implementation or qualification is performed.
 - [Current responsibility maps](maps/README.md)
 - [Stable slice catalog](../slices/README.md)
 - [Baseline and historical review scope](../review-baseline.md)
-- [Existing tasks](../implementation-tasks.md) and [lane schedule](../implementation-lanes.md)
+- [Existing tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and [lane schedule](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md)

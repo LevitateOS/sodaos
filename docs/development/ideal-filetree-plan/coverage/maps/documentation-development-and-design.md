@@ -80,7 +80,7 @@ Current artifact role, concrete consumer/provenance and established contract own
 
 <a id="coverage-efbd1d6069f6"></a>
 
-## [docs/development/factory-implementation-plan.md](../../../../../docs/development/factory-implementation-plan.md)
+## [docs/development/factory-implementation-plan.md](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md)
 
 Current artifact role, concrete consumer/provenance and established contract owner inspected
 
@@ -90,7 +90,7 @@ Current artifact role, concrete consumer/provenance and established contract own
 
 <a id="coverage-9099dafd08cd"></a>
 
-## [docs/development/forgejo-extensions-plan.md](../../../../../docs/development/forgejo-extensions-plan.md)
+## [docs/development/forgejo-extensions-plan.md](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/forgejo-extensions-plan.md)
 
 Current artifact role, concrete consumer/provenance and established contract owner inspected
 

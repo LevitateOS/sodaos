@@ -73,7 +73,7 @@ Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, 
 
 The selective library-adoption reconciliation uses source
 `72e4bb9015b6d6a622b45638104c74851a137473`. The
-[library chapter](library-adoption.md#finding-allocation) overrides pending
+[library chapter](library-adoption.md#library-contracts) overrides pending
 generic-engine allocation directions selected there, while completed structural
 work stays complete at its recorded scope. Historical counts and source spans
 below are not refreshed by this change. Package boundaries continue to describe
@@ -276,9 +276,9 @@ have no pending structural split.
 
 ### Selected engine and adapter ownership
 
-The [packet definitions](library-adoption.md#execution-packets) supply exact
-callers, selected libraries, prerequisites and acceptance. Physical writers stay
-in the lane schedule; this table describes remaining responsibilities.
+The [packet definitions](library-adoption.md#library-contracts) supply exact
+callers, selected libraries, prerequisites and acceptance. Current execution belongs to the remaining-outcome catalog;
+this table describes retained responsibilities.
 
 | Selected machinery | Remaining application owner and adapter duty |
 | --- | --- |

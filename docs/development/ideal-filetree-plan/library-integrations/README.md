@@ -3,8 +3,8 @@
 This is the current caller map for the library-adoption audit. It records the
 selected dependency, the upstream capability actually used, the application
 surface that remains, its production consumers and its test support. It makes
-moved machinery visible alongside deleted engines. The existing [task list](../implementation-tasks.md),
-[lane schedule](../implementation-lanes.md) and [adoption chapter](../library-adoption.md)
+moved machinery visible alongside deleted engines. The existing [task list](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md),
+[lane schedule](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) and [adoption chapter](../library-adoption.md)
 remain the execution plan.
 
 The [concurrency and termination audit](../concurrency-and-termination.md) at

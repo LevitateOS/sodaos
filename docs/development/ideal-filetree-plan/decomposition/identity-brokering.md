@@ -5,7 +5,7 @@ L11 replaces wire_time calendar code with the shared strict `lib/wire-time` adap
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 
-The [library-adoption allocation](../library-adoption.md#finding-allocation)
+The [library-adoption allocation](../library-adoption.md#library-contracts)
 supersedes pending generic-engine preservation and extraction below. Historical
 source sizes, line allocations and completed moves remain evidence; they are
 not requirements to keep the extracted engines. Follow the existing packet

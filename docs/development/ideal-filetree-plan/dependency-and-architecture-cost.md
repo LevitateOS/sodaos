@@ -14,8 +14,8 @@ source remains `0b0734398f0350d75cc6fdb4dc8129251d8ab308`; the 12 pre-existing
 dirty guidance files and 39 dependency inputs retain their recorded bytes.
 This extends the [caller map](library-integrations/README.md),
 [adapter challenge](library-integrations/adapter-challenges.md) and
-[representation review](data-representations.md). The [tasks](implementation-tasks.md)
-and [lanes](implementation-lanes.md) remain the execution plan; completed adoption,
+[representation review](data-representations.md). The [tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md)
+and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain the execution plan; completed adoption,
 unresolved correctness and parked restructuring retain their separate statuses.
 
 Three Luna medium primaries and independent cross-challenges inspected manifests,

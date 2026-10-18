@@ -55,12 +55,10 @@ command workflow. Spaces connects repository environments with human and factory
 | Document | Owns |
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
-| [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Living restructuring proposal and post-merge maintenance |
+| [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Source ownership, desired tree and pinned coverage references |
 | [Remaining factory work](development/factory-remaining-tasks.md) | Single remaining-outcome record after wind-down: accepted scope, unmet deliverables, owners, holds and finite release conditions |
-| [Factory implementation plan](development/factory-implementation-plan.md) | Original source, appliance and end-to-end UX requirements; execution is consolidated in Remaining factory work |
-| [Factory workflow design](development/factory-workflow-plan.md) | Workflow design, native proof requirements and original FW packet references; execution is consolidated in Remaining factory work |
-| [Native frontend correction tasks](development/native-frontend-correction-tasks.md) | Fountain/Soda correction tasks, parallel lanes, physical writers, partial handoffs and installed acceptance |
-| [Canlang and Soda OS implementation plan](development/canlang-soda-os-implementation-plan.md) | Current local evidence, dependency gates and remaining implementation/qualification tasks |
+| [Workflow contracts](development/factory-workflow-contracts.md) | D01–D17 schemas, algorithms, authority/recovery limits and decisive tests |
+| [Canlang runtime contract](development/canlang-soda-os-implementation-plan/production-workerd.md) | Proposed provider, storage, process and packaging contracts with technical substeps |
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |

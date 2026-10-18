@@ -14,8 +14,8 @@ application source remains `0b0734398f0350d75cc6fdb4dc8129251d8ab308`.
 The 12 pre-existing dirty guidance files and 39 dependency inputs retain their
 recorded bytes. This extends [observation reliability](observation-reliability.md),
 [representation review](data-representations.md), [concurrency custody](concurrency-and-termination.md)
-and [authority/state tracing](authority-and-state.md). The [existing tasks](implementation-tasks.md)
-and [lanes](implementation-lanes.md) remain the execution plan.
+and [authority/state tracing](authority-and-state.md). The [existing tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md)
+and [lanes](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain the execution plan.
 
 This is source inspection and documentation. No tests, builds, database/provider/VM,
 network or native qualification ran. Findings establish missing application bounds,

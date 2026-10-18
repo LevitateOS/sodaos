@@ -11,8 +11,8 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
 | `appliance/licenses/forgejo-LICENSE` | 674 | `system/licenses/forgejo-LICENSE` |
 | `assets/branding/cockpit/provenance/LICENSES.txt` | 510 | `assets/branding/cockpit/provenance/LICENSES.txt` |
 | `docs/architecture/trust.md` | 956 | `docs/architecture/trust.md` |
-| `docs/development/factory-implementation-plan.md` | 1353 | `docs/development/factory-implementation-plan.md` |
-| `docs/development/forgejo-extensions-plan.md` | 1029 | `docs/development/forgejo-extensions-plan.md` |
+| Historical Factory plan (removed) | 1353 at the recorded baseline | Requirements now owned by `docs/development/factory-remaining-tasks.md` and linked contracts |
+| Historical extension plan (removed) | 1029 at the recorded baseline | Authority in `docs/architecture/trust.md`; scope in `docs/product/scope.md`; remaining outcomes in the canonical catalog |
 | `docs/development/ideal-filetree-plan.md` | 5020 at the structural baseline | `docs/development/ideal-filetree-plan/` (one living plan, split into the index and owned topic files) |
 | `docs/development/native-support.md` | 475 | `docs/development/native-support.md` |
 | `docs/product/overview.md` | 546 | `docs/product/overview.md` |
@@ -79,9 +79,9 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
 
 ## Review and implementation boundary
 
-The [implementation task list](implementation-tasks.md) covers all 80 slices
+The [implementation task list](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) covers all 80 slices
 through 27 primary packets and a shared extraction packet. Its
-[parallel schedule](implementation-lanes.md) gives three workers and the
+[parallel schedule](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) gives three workers and the
 coordinator exclusive shared-file handoffs, dependency order and progressively
 larger verification. These are deferred execution instructions under later
 matching authorization, not a source change or new runtime proof.

@@ -1,13 +1,103 @@
-# Production workerd replacement: investigation and implementation plan
+# Production workerd contract and integration recipes
 
 **Execution stopped at wind-down.** This remains proposed replacement scope, not an implemented runtime. Parent P IDs and their unmet deliverables/prerequisites/acceptance are consolidated in [Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped); substeps below refine those same outcomes and do not authorize dispatch.
 
-Investigated 18 October 2026. This is the runtime-replacement chapter of the
-[existing Canlang/Soda plan](../canlang-soda-os-implementation-plan.md), not a
-second application-platform project. It specifies proposed implementation;
-no runtime code, deployment, build or behavioral test was performed in this
-investigation. The parent plan's historical Miniflare results retain their
-original scope and do not qualify this replacement.
+Investigated 18 October 2026. This document owns the proposed runtime/provider,
+process-lifetime and packaging contracts and their technical substeps. It does
+not own a second queue. Historical Miniflare results retain their original scope
+and do not qualify the replacement. Operator procedures live in the
+[application guide](../../guides/canlang-applications.md).
+
+## Application decisions and service boundary
+
+| Decision | Current owner decision | Required by |
+| --- | --- | --- |
+| Production ownership | Appliance-managed application, independent of its Project | P01 and P20 |
+| Production runtime replacement | Proposed direct-workerd/provider closure from the 18 October investigation; historical Miniflare implementation retained as baseline until qualified cutover | P14–P16 and affected P25–P29 |
+| Artifact packaging | Admitted generic runtime base plus exact app image | P01 and P02 |
+| Required service set | D1/auth/MCP/browser plus files and durable scheduled work for the first complete app; other requirements explicit | P01 and P04 |
+| App owner and identity | Explicit Canlang owner bootstrap; no automatic Forgejo principal substitution | P01 and P07 |
+| Private endpoint and TLS | Separate app hostnames, existing Caddy internal/supplied TLS; operator DNS/client trust, real LAN/Tailnet qualification open | P01 and P22 |
+| Maintenance and recovery targets | Explicit stopped backups adopted; automatic frequency, tolerated data loss and recovery objectives unset | P01 and P25 |
+| Retained Project tooling | Explicit maintenance in the same root, never installation on Open | P18 and P28 |
+| Optional remote providers | Required providers without qualified adapters are rejected; eventual Cloudflare breadth remains unresolved | Future provider work |
+
+First-app choices are settled by the owner's replies. No additional approval is
+required for authorized local work. Eventual service coverage, automatic backup
+policy and recovery objectives remain choices for their dependent future scope.
+Native appliance and installed release qualification are evidence gaps, not
+unanswered requests to adopt the first-app proposals.
+
+## Runtime and environment requirements
+
+The requested outcome is one Canlang application model targeting workerd, usable
+on Cloudflare Workers, in a Soda development environment, and in a self-hosted
+container on CoreOS. Each environment must supply the application's declared
+runtime capabilities and service bindings. The owner's phrase "all the cloudflare
+services" leaves the intended breadth unresolved. A defined supported subset is
+the adopted first-app scope, without limiting eventual coverage. Unsupported
+required services are explicitly rejected by the target. These
+are acceptance requirements for implementation and qualification. The
+production scope and operating choices under [application decisions](#application-decisions-and-service-boundary)
+and [remaining choices](#application-decisions-and-service-boundary)
+remain proposals where explicitly marked.
+
+| Environment | Execution and services | Packaging and lifetime |
+| --- | --- | --- |
+| Cloudflare deployment | Compiled Worker on Cloudflare; declared bindings connect to managed resources. | Preserve Canlang's Cloudflare deployment target and compatibility configuration. |
+| Soda development | Actual local workerd with Miniflare supplying supported local bindings; separately declared remote bindings where supported. | Extend the existing Rocky Project OS with Canlang tools and a working preview/test command. Development state belongs to the Project. |
+| Soda production | workerd with implementations qualified for the application's required bindings. | Adopted separate Rocky runtime base and app image, supervised by host Podman/systemd; production data and lifetime are independent of the Project. |
+
+CoreOS supplies the host kernel and container infrastructure. Rocky supplies
+container userspace. A runtime base may bundle local providers or connect to
+separately operated services; a binding's availability and behavior matter more
+than whether its provider runs in the same container.
+
+| ID | Requirement | Acceptance and existing task owners |
+| --- | --- | --- |
+| R01 | **One application contract across targets.** Reuse Canlang's emitted application, deployment descriptor and portable worker bundle. Target adapters supply configuration and providers without changing application semantics. | The same compiled application can be packaged for Cloudflare and Soda without target-specific application source edits, provided its requirements are supported by both. Validate the claimed common subset on both targets. P04, P14, P17. |
+| R02 | **Declare and check capabilities.** Reuse the existing Canlang compatibility descriptor for required capabilities, bindings, secrets and schedules. Describe each environment's actual provider support in machine-readable form. | Build/preflight explains unsupported requirements; installation/activation refuses them before application effects. Diagnostics name the requirement and target. A configuration declaration or success stub is not proof of a provider. P04, P12, P13. |
+| R03 | **Record execution compatibility.** Pin workerd, Node, Canlang producer and provider versions; development also pins Miniflare. Preserve the application's compatibility date and flags separately from provider settings. Cloudflare manages its own runtime binary. | Production uses the separately inventoried direct-workerd closure proposed in the replacement chapter; its native G1 evidence is required. Development retains its own Miniflare closure. Node owns host tooling while workerd executes the application. P02, P03, P14. |
+| R04 | **Ship a complete developer environment.** Package the compiler, matching platform tools, runtime dependencies and local providers in the existing Project OS. | A fresh Project can compile, start an HTTP preview and run actual application examples without a Canlang source checkout or startup dependency downloads. Preview data persists across preview restart; test fixtures are isolated. Existing Projects use explicit same-root maintenance. P05, P17, P18. |
+| R05 | **Define production execution separately.** Specify the runtime entrypoint, permissions, app payload, providers, storage and credentials independently of development. Distinct final images and appliance-managed lifetime are adopted. | The app starts from installed artifacts without building or downloading dependencies and does not acquire developer privileges, homes, engine access or credentials. It must remain available when its Project stops. P16, P21, P26. |
+| R06 | **Separate and preserve state.** Give development, tests and production distinct writable storage and resource identities. Follow [application recovery procedures](../../guides/canlang-applications.md) for production data. | Acknowledged database/file/work state survives the promised restart and replacement operations. Missing required storage refuses startup instead of silently becoming ephemeral. Backup/restore and migration behavior pass G2/G3. P09, P11, P15, P25, P26. |
+| R07 | **Make external dependencies explicit.** Local and remote providers are deliberate target configuration with scoped credentials and declared network requirements. | Local preview does not silently access production resources. An offline profile rejects remote-only requirements. Development remote-binding support alone does not qualify a self-hosted production adapter. P04, P12, P14. |
+| R08 | **Qualify each claimed service.** Use the [provider inventory](#provider-support-boundaries) as the initial candidate inventory, then prove only the subset the selected app needs. | D1 is the initial database; Files uses the qualified native SQLite DO adapter, not R2. Other bindings are conditional. Durable named queues need durable delivery evidence. Local simulations are not Cloudflare-equivalent production guarantees merely because API calls succeed. P01, P03, P11, P12, P15. |
+
+These requirements refine the existing tasks below rather than create a second
+execution queue. The first implementation proof is a compiled app, one callable
+HTTP path and persistent D1 on native Rocky; extend it with the selected app's
+files and durable work before adding appliance administration or release builds.
+
+
+## Provider support boundaries
+
+The first app uses D1/auth/MCP/browser, native SQLite DO-backed Files and durable
+scheduled work. R2 is a separately selected P08 adapter, not the accepted native
+Files provider. Preserve one compiled application contract across Cloudflare and
+Soda for their qualified common subset. Build, installation and activation consume
+the machine-readable provider inventory and reject unsupported requirements before
+effects; no provider declaration or success stub establishes support.
+
+D1 needs real atomic batch rollback, revision fences and replay; DOs need stable
+namespace identity, transactions, restart routing and alarms. Named queues require
+durable delivery: the historical in-memory Miniflare broker is insufficient.
+KV needs a deliberate resource mapping or refusal; caches remain reconstructible.
+Service bindings admit declared destinations only. Analytics requires a real bounded
+sink or refusal, never the no-op plugin as audit/business storage. Workflows,
+Workers AI, Vectorize, email and payments need their own qualified adapters and
+explicit scoped network/credential dependencies. Offline profiles reject remote-only
+requirements; simulations do not establish managed Cloudflare guarantees.
+
+Use native x86_64 Rocky on the actual CPU; the image cannot supply absent CPU
+instructions. Keep production app data on the admitted /home filesystem, one writer
+per storage identity, separate from preview/test data. Start/Stop preserves data;
+opening a view does not deploy. Upgrade preflights compatibility, fences the old
+writer and checks readiness before ingress. Image rollback does not reverse data
+migration. Stopped complete-tree backups include WAL/alarm metadata; restore into
+a fresh identity and state any loss of writes after the backup. Automatic backup
+frequency/RPO/RTO remain unset. Never inherit Forgejo cookies or broker credentials;
+app-owner bootstrap and private-client routing/TLS proof remain distinct boundaries.
 
 ## Recommendation and bounded outcome
 
@@ -52,7 +142,7 @@ This is not a fresh whole-repository semantic audit. The defining source map
 below specifies the inspected scope; unrelated compiler, UI, business engines,
 other release roles and other repositories retain their existing owners.
 
-Relevant dirty Soda preimages were read without modification:
+The 18 October investigation read these then-dirty Soda preimages:
 
 | Path | SHA-256 of inspected working file |
 | --- | --- |
@@ -62,9 +152,9 @@ Relevant dirty Soda preimages were read without modification:
 | `tools/release-assets/src/fetch/canlang.rs` | `0c17bc8af89bc18ac0a1654c6dcdce52f90cacd781b03978faf86ce07853f0f9` |
 | `lib/release-inputs/src/payload.rs` | `224fbdea7f9dc3aa56dae7f08316a543619aaea8bbb8fd9c92b4ae86b9886e83` |
 
-Refresh these files and coordinate with their existing writers before
-implementation. They are not clean-HEAD evidence or permission to overwrite
-work. The parent plan was clean before this planning edit.
+These hashes preserve the investigation inputs, not current dirty-file or writer
+status. Start future implementation from the actual current source and preserve
+any unrelated edits; these historical observations are not overwrite authority.
 
 The local retained results were inspected at
 `.artifacts/canlang-soda-full-v4-20261014/{results,recovery-results}.json`,

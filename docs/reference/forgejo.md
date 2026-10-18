@@ -58,7 +58,7 @@ Soda owner. The current host frames ordinary native browsing and copies Workspac
 content from fetched documents; installed review found navigation, initialization
 and composition failures. This is the implementation being corrected, not proof
 that the native frontend contract is satisfied. The correction is specified in
-[native frontend responsibility and correction](../development/factory-implementation-plan.md#native-frontend-responsibility-and-correction).
+[native frontend responsibility and correction](../development/testing.md#native-frontend-composition).
 
 Fountain owns native shell/navigation, page configuration and native feature
 initialization/teardown, generic contribution placement, connected mount lifetime,

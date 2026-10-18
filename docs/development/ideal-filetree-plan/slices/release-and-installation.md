@@ -20,7 +20,7 @@ Compose and digest → public streamed qualification and complete native observa
 → qualification → unchanged-digest promotion/marker → normal public-path rerun.
 No build, install, publication, ARM support or native qualification is performed
 by this plan refresh. Exact new leaves and deferred gates are allocated in the
-[current tasks](../implementation-tasks.md#current-docker-release-handoff-2026-10-16).
+[current tasks](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#current-docker-release-handoff-2026-10-16).
 
 The [15.0.10 LTS input handoff](../coverage/README.md#fountain-lts-delta-2026-10-13)
 retains D02/D03's existing exact-source/toolchain and packaging owners. Source

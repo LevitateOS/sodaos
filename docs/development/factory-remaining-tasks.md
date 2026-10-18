@@ -11,11 +11,10 @@ This document owns remaining outcomes, dependencies and acceptance. The existing
 [central checklist](../../.artifacts/muse-factory-workflow/checklist.md) is the
 closed run's evidence and former lease record, not another active queue. All
 implementation assignments are released; A/B/C below identify former responsibility
-lanes, not active workers. The [workflow design](factory-workflow-plan.md),
-[frozen contracts and decisive cases](factory-workflow-contracts.md),
-[original baseline](factory-implementation-plan.md), [testing owner](testing.md),
-[product](../product/overview.md) and [trust model](../architecture/trust.md)
-remain requirement authorities. Old packet IDs are references, not assignments.
+lanes, not active workers. The [workflow contracts and decisive cases](factory-workflow-contracts.md),
+[testing owner](testing.md), [product](../product/overview.md) and
+[trust model](../architecture/trust.md) own durable requirements. Old packet IDs
+remain aliases in this catalog; their obsolete schedules are preserved in Git.
 
 The executable second pass below is based on source `2d576eeb` (18 October 2026).
 Each existing task card now gives a concrete starting point, ordered remainder,
@@ -74,6 +73,13 @@ producer/source admission must not wait for the matching-release Create/boot
 check it supplies; that installed subcriterion is consumed at P30/R52.
 
 ## Historical planning inputs and preserved evidence
+
+The former Factory baseline/workflow/experience, extension, RCX, frontend,
+Canlang parent and filetree task/lane/correctness schedules were absorbed into
+this catalog and their existing contract owners. Their pre-consolidation text is
+available in [Git at 83cf27a3](https://github.com/LevitateOS/sodaos/tree/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development).
+Deleting those duplicate records changes no acceptance or outcome count.
+
 
 Original planning inputs: Soda `ddd6251bef5bb7e0dba02b269e7e419dcffce5f9` (origin `603f9c23ee548b001ddf4857a6395efca21da005`) and Fountain `c8fea1d293366b457df7608c6f3b9293d0810110` (published source). The owner-requested Soda snapshot `d308e8e9edabb6dba55692eb9250069d04170eb6` now preserves the formerly dirty identity/tooling work, task documents and reservation extraction. Committing those inputs does not qualify them or transfer writer ownership. Current Fountain cleanup changes and its retained stash remain preserved.
 
@@ -179,18 +185,117 @@ Canlang P IDs are namespaced below to avoid confusing them with factory R IDs. H
 | --- | --- | --- | --- | --- |
 | [BROAD-COMPLEXITY-037 / complexity policy](complexity.md) | Ready slice; unassigned | Residual 58 Go functions above 20; max 94 in BuildDispatchPrompt. Rust/TypeScript have zero above 20. | Retain non-increasing baseline/exceptions and actual behavior; same-file custody before any future edit. | Cohesive simplification plus affected checks meets <=20 or a narrow justified cap; no baseline regeneration. |
 | [Filetree R02 / source coverage](ideal-filetree-plan/coverage/README.md) | Ready slice; unassigned | Accumulated source-to-duty/desired-tree coverage beyond retained scoped pins. | Historical components-v4 and pre-730fc205 drift remains explicitly unreconciled; current batch is mapped in the living plan. | Every affected leaf/changed duty has one current owner/destination and large-file concern; historical body/native pins stay distinct. |
-| [Canlang P08](canlang-soda-os-implementation-plan.md#complete-canlang-runtime-joins) | Decision held; product/runtime owner input | Asynchronous R2-compatible blob seam. Native SQLite Files acceptance remains retained. | P04/P06 contracts; R2/provider scope selection. | Actual async local/R2 adapters preserve finalized integrity and explicit failures; no R2 claim from native chunks. |
-| [Canlang P09](canlang-soda-os-implementation-plan.md#complete-canlang-runtime-joins) | Ready slice; unassigned producer owner | Full retention/cleanup and interrupted-upload operational proof. | Existing authenticated native routes, 10 MiB/lost-ack proofs; P08 only for R2 claims. | Real interrupted uploads recover or fail visibly and retained file authorization/bytes survive replacement. |
-| [Canlang P10](canlang-soda-os-implementation-plan.md#complete-canlang-runtime-joins) | Decision held; product/provider owner input | External provider dispatch, uncertain outcomes and reconciliation. | Selected provider contract/credential input and finite authorization; accepted internal durable occurrence/replay remains closed. | Actual provider effects/retries/unknown outcomes preserve stable identities without duplicate work or credential leaks. |
+| [Canlang P08](#canlang-p08) | Decision held; product/runtime owner input | Asynchronous R2-compatible blob seam. Native SQLite Files acceptance remains retained. | P04/P06 contracts; R2/provider scope selection. | Actual async local/R2 adapters preserve finalized integrity and explicit failures; no R2 claim from native chunks. |
+| [Canlang P09](#canlang-p09) | Ready slice; unassigned producer owner | Full retention/cleanup and interrupted-upload operational proof. | Existing authenticated native routes, 10 MiB/lost-ack proofs; P08 only for R2 claims. | Real interrupted uploads recover or fail visibly and retained file authorization/bytes survive replacement. |
+| [Canlang P10](#canlang-p10) | Decision held; product/provider owner input | External provider dispatch, uncertain outcomes and reconciliation. | Selected provider contract/credential input and finite authorization; accepted internal durable occurrence/replay remains closed. | Actual provider effects/retries/unknown outcomes preserve stable identities without duplicate work or credential leaks. |
 | [Canlang P14 / P14.1–P14.4](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Ready slice; unassigned producer owner | Direct-workerd native storage/exec-guard, D1 provider, configuration/transport/lifetime and production CLI. | P14.1 actual native decision gate first; P14.2 and P14.3 outputs feed P14.4. | Pinned real D1/DO/alarm writes survive kill, atomic failure and parent death; exclusive writer and actual app/CLI contracts pass. |
 | [Canlang P15 / P15.1](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Replacement runtime G1/G2 acceptance. | P14.2–P14.4; retain historical Miniflare first-app results. | Actual browser/MCP/Files/work, full/missing/read-only storage, concurrency/restart and provider matrix pass on exact new runtime. |
 | [Canlang P16 / P16.1–P16.2](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Production-only offline archive and image closure. | P14.1 graph contract, P14.4 runtime and P15 evidence; P16.1 precedes P16.2. | Exact binary/exec guard/licenses and app run offline as constrained UID with no Miniflare/dev closure; data/lifetime preserved. |
-| [Canlang P22](canlang-soda-os-implementation-plan.md#add-soda-application-administration-and-recovery) | External input held; human client/trust input | Physical LAN/Tailnet routing and client trust rollout. | P01/P21; retained local/CoreOS Caddy HTTPS proof stays accepted. | A real selected private client reaches the exact app with separate app/admin origins and valid trust. |
+| [Canlang P22](#canlang-p22) | External input held; human client/trust input | Physical LAN/Tailnet routing and client trust rollout. | P01/P21; retained local/CoreOS Caddy HTTPS proof stays accepted. | A real selected private client reaches the exact app with separate app/admin origins and valid trust. |
 | [Canlang P25 / P25.1](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Replacement retained-data cutover and fresh restore under the accepted explicit-stopped-backup policy. Automatic backup/RPO/RTO choices are optional proposals below, not prerequisites for this proof. | P15.1/P16.2; snapshot a stopped baseline into a disposable clone, never overwrite newer data. | Identical app retains identity/D1/Files/work/WAL/alarm metadata through new runtime and restore; second writer excluded. |
 | [Canlang P26 / P26.1](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Replacement native G3 operational lifecycle/upgrade recovery. | P25.1; P22 holds only the physical/private-client cases. | Host/Caddy/browser/MCP survives Project stop, reboot, same-bundle replacement and restore; incompatible changed-artifact migration stays refused until proved. |
 | [Canlang P27 / P27.1; P28](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Refresh runtime/tools admission, attribution, Node pins and matching-release Project Create/boot. | P26.1 accepted producer, archive/image schema and real availability; shares factory R51 candidate. | Exact checksum/image/tool labels agree, mismatch refuses and old admitted generation remains operable. Candidate outcome counted under R51. |
-| [Canlang P29](canlang-soda-os-implementation-plan.md#integrate-release-delivery-and-demonstrate-the-full-journey) | Dependency held; unassigned | Update existing procedures for replacement measured behavior. | P22/P25/P26; current historical operator guide remains accepted for its actual runtime. | Compile/deploy/access/secret/maintenance/backup/restore procedures match real replacement operations and capability limits. |
-| [Canlang P30](canlang-soda-os-implementation-plan.md#integrate-release-delivery-and-demonstrate-the-full-journey) | Dependency held; unassigned | Integrated two-user installed UI/API/runtime journey. | P27/P28 producer outputs, P29 and R51 matching candidate; reuse G3 components without claiming composed proof. | Project compile, exact deploy, two-user browser/MCP, Project independence, reboot/work/replacement/fresh restore pass on current bytes. |
+| [Canlang P29](#canlang-p29) | Dependency held; unassigned | Update existing procedures for replacement measured behavior. | P22/P25/P26; current historical operator guide remains accepted for its actual runtime. | Compile/deploy/access/secret/maintenance/backup/restore procedures match real replacement operations and capability limits. |
+| [Canlang P30](#canlang-p30) | Dependency held; unassigned | Integrated two-user installed UI/API/runtime journey. | P27/P28 producer outputs, P29 and R51 matching candidate; reuse G3 components without claiming composed proof. | Project compile, exact deploy, two-user browser/MCP, Project independence, reboot/work/replacement/fresh restore pass on current bytes. |
+
+### Canlang execution recipes
+
+These recipes own the next steps for the 12 counted Canlang rows and the shared
+P31/G4 and P32 aliases. P27/P28 remain one outcome. The [runtime contract and
+substeps](canlang-soda-os-implementation-plan/production-workerd.md) own provider,
+process and image details; the [application guide](../guides/canlang-applications.md)
+owns operator procedures. Historical Miniflare acceptance does not qualify direct
+workerd. Deleting duplicated planning documents does not satisfy P31/G4 or P32/R55.
+
+<a id="canlang-p08"></a>
+
+#### Canlang P08 — Define and implement the asynchronous blob seam
+
+**Executable remainder:** Decision held: the product/runtime owner must select the R2-compatible API subset and target (including credentials, integrity/finalization, deletion and uncertain-write behavior). Start in Canlang `packages/files/src/ports.ts`, `upload/`, `finalize/` and `host/sqlite-core.ts`; preserve `createDurableSqliteFileStore` for the accepted native target. After selection, introduce the async seam with its real local adapter/callers, then the selected R2 adapter. Qualification requires delayed/rejected/unknown writes, digest/finalization replay and deletion against that actual provider. P09's native lifecycle is independent; broad Cloudflare service parity is not this slice.
+
+<a id="canlang-p09"></a>
+
+#### Canlang P09 — Connect authenticated file routes and lifecycle
+
+**Executable remainder:** Ready native-target slice: start at Canlang `packages/files/src/retention/index.ts::{runRetentionBatch,createFinalizedFileCleanup}`, `upload/`, `finalize/` and `host/durable-sqlite.ts`. Use existing authenticated compiled-app routes to interrupt upload before and after finalization, resume or report a durable failure, expire unfinalized data and prove bounded cleanup never removes a retained/authorized object. Release lifecycle results to P15; extend the existing durable-files/native driver rather than rebuilding routes. Check exact bytes/authorization after restart and replacement. P08 gates only the future async/R2 variant; replacement-runtime repetition is limited to its changed provider join.
+
+<a id="canlang-p10"></a>
+
+#### Canlang P10 — Connect durable work and external provider dispatch
+
+**Executable remainder:** Decision held: the product/provider owner selects one real external effect, provider endpoint/API contract, least-privilege credential reference, finite trial budget and supported lookup/idempotency/reconciliation behavior. Start in Canlang `packages/work/src/{dispatch,recovery,receipt}` and `packages/services/src` at the selected adapter; existing internal occurrences remain accepted. Then join durable claim → external dispatch → recorded response/unknown outcome → reconciliation without blind duplicate effects. Exercise lost acknowledgement, retry, cancellation and restart with that actual provider. If the API offers no recoverable identity, name the manual/uncertain outcome instead of promising exactly-once remote execution; unsupported capabilities continue to refuse.
+
+<a id="canlang-p14"></a>
+
+#### Canlang P14 — Implement the Canlang Soda target assembler and launcher
+
+**Executable remainder:** Ready assumption-proof slice; follow P14.1–P14.4 in the replacement chapter. Existing Canlang `soda-run.ts::{acquireWriter,provisionSodaStorage,startSodaRuntime}` and `soda-lifetime.ts::superviseWorkerd` retain the current ownership; proposed direct-runtime files are not existing implementations. First prove actual pinned D1/DO/alarm storage and inherited lock/parent-death behavior in the smallest disposable native fixture. Only that observed result releases P14.2 provider and P14.3 process/transport work, then P14.4 CLI/Identity administration. Failure returns the specific storage/lifetime assumption for engineering resolution; do not proceed to image/orchestration construction or relabel historical Miniflare G1 as replacement proof.
+
+<a id="canlang-p15"></a>
+
+#### Canlang P15 — Qualify the complete runtime on native Rocky
+
+**Executable remainder:** Dependency held on P14's provider/configuration/production CLI outputs. Extend Canlang's existing `verify-native-runtime.mjs` and `verify-soda-host.mjs` against the original compiled app: first real two-user browser/MCP and guarded D1 writes, then Files/work and storage/lifetime failures. Include P09's missing lifecycle cases; P08/P10 are required only for claims about those selected providers, not the adopted first-app subset. Release exact direct-runtime G1/G2 behavior and supported/rejected inventory to P25. Preserve historical application semantics; partial provider evidence or a process kill is not full image, power-loss or installed proof.
+
+<a id="canlang-p16"></a>
+
+#### Canlang P16 — Finalize the application image
+
+**Executable remainder:** Use P16.1/P16.2 as two slices. Canlang's pack-tools/installed producer owns the production-only archive after P14.4; Soda's `system/containers/canlang/{Containerfile,Application.Containerfile}` and `verify-runtime-image.mjs` consume it. Stage the prebuilt exec guard, direct binary and host modules with complete checksums/licenses and verified native ABI; then exercise offline commands in the constrained runtime/app images. Release immutable archive/image contracts and actual bytes to P25/P27/P28. P15 and image tests can progress independently after the runtime exists, but both must pass before retained-data acceptance. Missing development imports, startup downloads, wrong executable mode or mismatched app/runtime identity fail visibly.
+
+<a id="canlang-p22"></a>
+
+#### Canlang P22 — Implement and prove private application ingress
+
+**Executable remainder:** External-input held: the human/operator selects an actual LAN or Tailnet client, authorized route/enrollment and concrete DNS/TLS trust installation. Start at Soda `lib/host/src/application/ingress.rs` and `system/containers/canlang/verify-ingress.mjs`; share applicable network setup with Factory R46. From that client, prove exact private app hostname, valid trust, authenticated app access and denied cross-app/admin authority, then disabled/revoked route behavior. Record only the claimed access modes. Existing local/CoreOS Caddy proof stays accepted; no public domain, purchased Tailnet or new proxy architecture is required for local mode.
+
+<a id="canlang-p25"></a>
+
+#### Canlang P25 — Implement stopped backup and fresh-volume restore
+
+**Executable remainder:** Consume P15.1 native runtime and P16.2 image bytes. Start at Soda `lib/host/src/application/snapshot.rs`, `lib/host/src/bin/soda-canlang-storage.rs` and Canlang's existing recovery driver. Snapshot the stopped historical runtime into a disposable clone, reopen with the identical bundle under direct workerd, mutate/restart and restore into another fresh identity. Compare D1/Identity/session/grant/File/work facts, WAL/alarm metadata and acknowledged writes; prove second-writer refusal through shutdown. Release a measured supported data-cutover/restore contract to P26. Do not overwrite newer data, silently migrate a changed artifact or make unset automatic-backup/RPO/RTO policy a prerequisite.
+
+<a id="canlang-p26"></a>
+
+#### Canlang P26 — Qualify native lifecycle and upgrade recovery before release integration
+
+**Executable remainder:** Consume P25's supported retained-data contract and the exact P16 runtime/tools fixture. Use Soda `lib/host/src/application/runtime.rs::operate`, ingress and vendor unit with the existing G3 component driver. Prove start/stop and stopped intent across reboot, Project-stop independence, same-bundle replacement, mismatch refusal before effects, and fresh restore with actual browser/MCP/Files/work. Local component work can proceed before P22's physical-client input; full claimed remote-access acceptance waits for that specific result. Release qualified component producers to P27/P28/P29. Changed-artifact migrations remain rejected; image rollback is not database rollback.
+
+<a id="canlang-p27"></a>
+
+#### Canlang P27 — Integrate runtime images into Soda release delivery
+
+**Executable remainder:** Shared P27/P28 outcome: first consume P26's component-qualified producer/schema in Soda's existing Canlang fetch/admission, `system/project/canlang-release.json`, maintenance pin and release image/inventory readers. Update exact archive/runtime/tools/Node identities and attribution together; prove mismatch refusal and old admitted generation inspection/start/stop. Release producer/source admission to R54/R51. Then use R51's matching candidate for P28 fresh Project Create/boot/compiler/preview/examples/LSP and retained same-root maintenance during P30/R52. This second subcriterion cannot be a prerequisite to building its own candidate. Existing seven-role delivery code and accepted offline tooling are retained.
+
+<a id="canlang-p28"></a>
+
+#### Canlang P28 — Integrate Project tool assets into release staging
+
+**Executable remainder:** Shares the single P27/P28 outcome and its executable sequence above. Start at `system/project/Containerfile`, `cmd/soda-project-maintain/src/canlang.rs` and the admitted tool archive readers. Preserve the development Miniflare closure while production consumes its separate direct-workerd subtree. Fresh matching-release Project Create/boot and retained explicit same-root refresh must consume the same qualified tool identities, reject active/mismatched maintenance and preserve preview data. Reuse compiler/example/LSP source and offline-image results; prove only the changed installed consumer at P30/R52, without a second candidate or counted outcome.
+
+<a id="canlang-p29"></a>
+
+#### Canlang P29 — Write the operator and developer procedures
+
+**Executable remainder:** Consume P22's actual access limits, P25 restore procedure and P26 measured component behavior. Update existing `docs/guides/canlang-applications.md` and affected development/release references for compile/preview, bootstrap, explicit deploy/access, supported secrets, maintenance, stopped backup/restore and same-bundle upgrade/refusal. Compare each changed instruction with its existing executable owner and result; do not invent a new runbook or automatic recovery promise. Release shipping instructions to R54 before R51. P30 can append measured installed evidence without changing product bytes; missing client proof is documented as held, not advertised as working.
+
+<a id="canlang-p30"></a>
+
+#### Canlang P30 — Demonstrate the integrated small-team journey
+
+**Executable remainder:** Consume P27/P28 producer admission, P29 procedures and R51's single matching candidate; coordinate its installed fixture with R52. Use the existing Spaces application controls (`frontend/spaces/sodaspaces-applications.ts`), authorized application API and host runtime, not direct native commands alone. Compile in a fresh Project, explicitly deploy the exact bundle, use two users/browser/MCP, stop the Project, reboot, run missed work, replace and restore fresh data. Include P28's matching Create/boot tools and P22's claimed client access. Release actual UI/API/native observations to R52/P31/G4; failed driver runs remain nonqualifying and unchanged candidate bytes can be reused.
+
+<a id="canlang-p31"></a>
+
+#### Canlang P31 — Qualify the native Soda release candidate
+
+**Executable remainder:** Shared alias of Factory R52: consume P30 observations and bind them to R51 candidate image/tool/app identities in the existing native qualification owner. It is one installed release qualification, not a second candidate or a blanket rerun of G1–G3.
+
+<a id="canlang-p32"></a>
+
+#### Canlang P32 — Absorb completed planning into canonical owners
+
+**Executable remainder:** Shared alias of Factory R55 after P31/G4. Reconcile durable measured contracts, procedures and licensing against the qualified release, then close the remaining outcome once. R54 owns the earlier shipping-source freeze. The redundant parent plan has been absorbed during documentation consolidation; that removal neither accepts G4 nor completes P32/R55.
 
 ### Requirement aliases and shared consumers — not additional outcomes
 
@@ -198,19 +303,19 @@ These are the remaining criteria of their existing parents, with one counted out
 
 | Existing plan / IDs | Counted owner / exact remaining boundary | Prerequisite / finite release condition |
 | --- | --- | --- |
-| [Canlang P31 / G4](canlang-soda-os-implementation-plan.md#integrate-release-delivery-and-demonstrate-the-full-journey) | **R52**, consuming Canlang P30: exact installed native candidate tools/runtime/app qualification | P30 and R51's matching candidate; G4 must bind the actual packaged identities and complete installed application evidence. Not another candidate-production outcome. |
-| [Canlang P32](canlang-soda-os-implementation-plan.md#integrate-release-delivery-and-demonstrate-the-full-journey) | **R55** final closure, with **R54** owning pre-candidate shipping contracts | P31/G4 accepted; transfer remaining durable decisions/procedures/attribution once, then remove the completed temporary plan. Do not remove it during the earlier R54 source freeze or infer G4 from a merge. |
-| [Factory baseline FT/ST/RT/UX/FX and original D01–D26](factory-implementation-plan.md) | **R03–R55** via the retained 365-row primary-owner crosswalk | Reuse accepted source/fixture/installed scopes. Exact current native/installed/release gaps must satisfy their linked row; a historical whole-plan completion demand adds no job. |
-| [FW01–FW50 / D01–D17 / P1–P9 / T01–T64](factory-workflow-plan.md), [frozen contracts](factory-workflow-contracts.md) | **R03–R55**; seven profiles/fourteen controls are consumers of **R07–R09/R16–R18/R30–R41/R48** | The retained dependency graph and actual needed outputs apply. Close each authenticated producer/effect/readback and native refusal case at its real evidence layer; do not count controls again. |
-| [Experience direction](factory-experience-plan.md) and [role/verb feed design](../design/factory-feed-and-ralph-integration.md) | **R12/R13/R30/R32/R42/R43/R49** | Accepted intent/Generate source remains closed. Combined subscribed activity, newest-first posts and user comments usable for linked plans/issues are adopted. Subscription defaults/trigger details, MCP representation and artwork remain choices within these outcomes; actual producer-to-browser/effect acceptance closes them. |
-| [Fountain extension transition](forgejo-extensions-plan.md) | **R03–R05/R43/R45/R51/R52/R54** | Current exact SDK/native authority, composition and candidate evidence; preserve completed native replacement and avoid restoring obsolete OAuth/shell paths. |
-| [RCX / RCX-2 FX01–FX08 and G1–G4](rcx2-correction-plan.md) | **R03–R06/R45/R46/R50–R53** | Eight source repairs accepted; close only the uncovered real native/component/public-byte criteria. Required immutable inputs precede R51; qualified unchanged product publication follows R52. |
-| [NFX 57-task correction](native-frontend-correction-tasks.md) / FX09 | **R03/R43/R52/R54** | Later natural-link/history/terminal/installed receipts supersede older remainder snapshots. Prove changed native joins/new feed and exact new candidate; no replay of all 57 tasks. |
-| [Fountain/Soda 19-task correctness continuation](ideal-filetree-plan/fountain-soda-correctness-tasks.md) | **V03 → R44/R48/R49**; other 18 tasks retain their accepted scopes | Human/provider completes normal managed Muse device-account approval. TestOnly account fixtures do not close this boundary; normal exact custody/admission/return evidence does. |
-| [Filetree A01–A08 / I/P/S slices](ideal-filetree-plan/implementation-tasks.md#a--projects-identity-and-spaces) | **R06–R09/R41/R44/R48/R49/R52** | Only remaining native custody/isolation, Project/provider/human and installed cases. Accepted M/C/V, CON-M01/02 cutoff, SIMP-FD-1 and source adapters stay closed; real corresponding witnesses release the mapped consumer. |
-| [Filetree B01–B08 / F/G slices](ideal-filetree-plan/implementation-tasks.md#b--factory-and-forgejo) | **R03–R05/R10–R43/R47–R49/R52**, according to the existing requirement's domain | Current authority/accounting/dispatch/native effects and browser composition criteria are the existing factory rows. Source receipts do not close those parents; aliasing does not reopen source cuts. |
-| [Filetree C01–C11 / N/O/D/H slices](ideal-filetree-plan/implementation-tasks.md#c--platform-release-and-verification) | **R06/R44–R46/R50–R54**; CI evidence under **R47** | Current importer, kernel/openat2, native provider/IPC/network/component/media/installed evidence. Preserve accepted parser/OCI/Butane/observer/media/notice scopes; exact required runtime and candidate evidence closes the residual. |
-| [Filetree Q1–Q9](ideal-filetree-plan/implementation-tasks.md#gates-and-readiness) | Q1/Q2/Q3 → **R41/R44/R48/R52**; Q5 → **R03–R05/R19–R28**; Q6/Q7 → **R45/R50–R53**; Q8 → **R11/R19–R29/R37/R41**; Q9 → **R44/R45/R52** | Existing resolved source/profile decisions remain settled. Only their actual current producer/native/installed boundary is required; Q4 optional policies are proposals below. No whole-packet or old design-decision gate is added. |
+| [Canlang P31 / G4](#canlang-p31) | **R52**, consuming Canlang P30: exact installed native candidate tools/runtime/app qualification | P30 and R51's matching candidate; G4 must bind the actual packaged identities and complete installed application evidence. Not another candidate-production outcome. |
+| [Canlang P32](#canlang-p32) | **R55** final closure, with **R54** owning pre-candidate shipping contracts | P31/G4 accepted; reconcile remaining measured contracts/procedures/attribution against the qualified release. Earlier absorption of the redundant parent plan does not complete this outcome or infer G4 from a merge. |
+| [Factory baseline FT/ST/RT/UX/FX and original D01–D26](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md) | **R03–R55** via the retained 365-row primary-owner crosswalk | Reuse accepted source/fixture/installed scopes. Exact current native/installed/release gaps must satisfy their linked row; a historical whole-plan completion demand adds no job. |
+| [FW01–FW50 / D01–D17 / P1–P9 / T01–T64](factory-workflow-contracts.md), [frozen contracts](factory-workflow-contracts.md) | **R03–R55**; seven profiles/fourteen controls are consumers of **R07–R09/R16–R18/R30–R41/R48** | The retained dependency graph and actual needed outputs apply. Close each authenticated producer/effect/readback and native refusal case at its real evidence layer; do not count controls again. |
+| [Experience direction](../design/factory-feed-and-ralph-integration.md) and [role/verb feed design](../design/factory-feed-and-ralph-integration.md) | **R12/R13/R30/R32/R42/R43/R49** | Accepted intent/Generate source remains closed. Combined subscribed activity, newest-first posts and user comments usable for linked plans/issues are adopted. Subscription defaults/trigger details, MCP representation and artwork remain choices within these outcomes; actual producer-to-browser/effect acceptance closes them. |
+| [Fountain extension transition](../architecture/trust.md#fountain-consumption-boundary) | **R03–R05/R43/R45/R51/R52/R54** | Current exact SDK/native authority, composition and candidate evidence; preserve completed native replacement and avoid restoring obsolete OAuth/shell paths. |
+| [RCX / RCX-2 FX01–FX08 and G1–G4](testing.md#release-component-regression-boundaries) | **R03–R06/R45/R46/R50–R53** | Eight source repairs accepted; close only the uncovered real native/component/public-byte criteria. Required immutable inputs precede R51; qualified unchanged product publication follows R52. |
+| [NFX 57-task correction](testing.md#native-frontend-composition) / FX09 | **R03/R43/R52/R54** | Later natural-link/history/terminal/installed receipts supersede older remainder snapshots. Prove changed native joins/new feed and exact new candidate; no replay of all 57 tasks. |
+| [Fountain/Soda 19-task correctness continuation](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/fountain-soda-correctness-tasks.md) | **V03 → R44/R48/R49**; other 18 tasks retain their accepted scopes | Human/provider completes normal managed Muse device-account approval. TestOnly account fixtures do not close this boundary; normal exact custody/admission/return evidence does. |
+| [Filetree A01–A08 / I/P/S slices](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#a--projects-identity-and-spaces) | **R06–R09/R41/R44/R48/R49/R52** | Only remaining native custody/isolation, Project/provider/human and installed cases. Accepted M/C/V, CON-M01/02 cutoff, SIMP-FD-1 and source adapters stay closed; real corresponding witnesses release the mapped consumer. |
+| [Filetree B01–B08 / F/G slices](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#b--factory-and-forgejo) | **R03–R05/R10–R43/R47–R49/R52**, according to the existing requirement's domain | Current authority/accounting/dispatch/native effects and browser composition criteria are the existing factory rows. Source receipts do not close those parents; aliasing does not reopen source cuts. |
+| [Filetree C01–C11 / N/O/D/H slices](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#c--platform-release-and-verification) | **R06/R44–R46/R50–R54**; CI evidence under **R47** | Current importer, kernel/openat2, native provider/IPC/network/component/media/installed evidence. Preserve accepted parser/OCI/Butane/observer/media/notice scopes; exact required runtime and candidate evidence closes the residual. |
+| [Filetree Q1–Q9](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#gates-and-readiness) | Q1/Q2/Q3 → **R41/R44/R48/R52**; Q5 → **R03–R05/R19–R28**; Q6/Q7 → **R45/R50–R53**; Q8 → **R11/R19–R29/R37/R41**; Q9 → **R44/R45/R52** | Existing resolved source/profile decisions remain settled. Only their actual current producer/native/installed boundary is required; Q4 optional policies are proposals below. No whole-packet or old design-decision gate is added. |
 | [Library L00–L18 and post-adoption findings](ideal-filetree-plan/library-adoption.md) | Retained completed source scopes; residual **R44/R45/R46/R48/R52**, plus **Filetree R02** for coverage | Exact shipped curl/Bash/Podman/kernel, TLS/provider, generator/service and native caller identities must be observed where required. L16.G is complete; optional L16 conversion and CA narrowing are proposals below. No new library-adoption or generic-engine split queue. |
 | [Deep regression CI and composed evidence](testing.md) | **R47** | The recorded 39139499605 source-grep/CLI/navigation/PG/fixture residuals need specific triage and affected proof. Required publication CI passed at 476742e0; that does not erase Deep CI gaps or turn them into another cleanup gate. |
 | [Filetree inventory/body/desired-tree drift](ideal-filetree-plan/coverage/README.md) and chapter-local coverage holds | **Filetree R02** | One source-to-duty/desired-tree coverage outcome absorbs these consumers. Preserve earlier structural/body/native pins; update only real missing coverage and do not claim full review from path counts. |
@@ -222,8 +327,8 @@ These are the remaining criteria of their existing parents, with one counted out
 | --- | --- | --- |
 | [L16 / RED01 optional matcher](ideal-filetree-plan/library-adoption.md) | Unassigned; demonstrated value and explicit adoption selection | Keep current matcher and accepted L16.G bounds; select a bounded conversion only if its construction/streaming and caller criteria justify it, otherwise remain deferred. |
 | [CA-ALGORITHM-PROFILE-1](ideal-filetree-plan/execution-findings.md) | Unassigned; optional narrowing needs an actual selected producer profile | Existing RSA/named-curve ECDSA/Ed25519/SHA-2 policy stands. Retain original DER/TBS/CA-use rules; actual selected-producer proof is required before narrowing. |
-| [A34/C41/browser seams and Q4 optional creation/selection/history policy](ideal-filetree-plan/implementation-tasks.md#gates-and-readiness) | Unassigned; explicit scope selection and demonstrated current need | Park optional structural seams and P01/N05 creation intent, N04/N06 selection/retry and I10 history-retention choices. Retain established native policy; no source/port assignment arises from historical parked proposals. |
-| [Canlang automatic backup/RPO/RTO targets and eventual wider service breadth](canlang-soda-os-implementation-plan.md#adopted-decisions-and-remaining-choices) | Human policy choice, unassigned implementation | Existing explicit stopped backup and first-app supported/rejected matrix remain adopted. Set frequency/loss/recovery and additional provider requirements concretely before creating implementation scope; these choices do not hold accepted first-app behavior or P25's stopped-restore proof. |
+| [A34/C41/browser seams and Q4 optional creation/selection/history policy](#optional-proposals-and-unresolved-policy-choices--excluded-from-the-67) | Unassigned; explicit scope selection and demonstrated current need | Park optional structural seams and P01/N05 creation intent, N04/N06 selection/retry and I10 history-retention choices. Retain established native policy; no source/port assignment arises from historical parked proposals. |
+| [Canlang automatic backup/RPO/RTO targets and eventual wider service breadth](#optional-proposals-and-unresolved-policy-choices--excluded-from-the-67) | Human policy choice, unassigned implementation | Existing explicit stopped backup and first-app supported/rejected matrix remain adopted. Set frequency/loss/recovery and additional provider requirements concretely before creating implementation scope; these choices do not hold accepted first-app behavior or P25's stopped-restore proof. |
 
 ### Superseded schedules and accepted work
 

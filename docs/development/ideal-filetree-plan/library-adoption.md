@@ -1,17 +1,11 @@
-# Library adoption within the existing implementation plan
+# Library boundary contracts and adoption evidence
 
 ## Consolidated disposition
 
 This chapter is a retained contract/evidence owner. Completed library/caller source cuts are not remaining tasks. The [canonical remaining outcomes and aliases](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) own shipped/native/provider/installed consumers and the single Filetree R02 coverage remainder; optional L16 and CA-profile choices are separately excluded proposals. Old pending generic-engine/decomposition and lane prose below must not become a second adoption queue.
 
-The selected priority is to repair concrete correctness defects and replace
-handwritten generic infrastructure before further decomposition of that
-infrastructure. The [task list](implementation-tasks.md) and
-[lane schedule](implementation-lanes.md) retain historical responsibility; the canonical catalog's executable slices now govern remaining work. This chapter
-defines their library-adoption packets; it is not another queue or architecture.
-The [current task status](implementation-tasks.md#selected-library-adoption-subpackets)
-records L00 initial preparation, L01–L15 and L18 complete at their documented
-source scopes. L10 source scope is complete: N3 uses ureq for setup,
+L00 preparation, L01–L15 and L18 retain their completed source scopes.
+L10 source scope is complete: N3 uses ureq for setup,
 while N4 retains curl through the owned Executor. N4's shipped-image/RPM, TLS
 and provider qualification remains open under R04. Optional L16 adoption is
 deferred; L16.G aggregate input collection is complete in `7334f36b`.
@@ -29,7 +23,7 @@ No new adoption pass or replacement execution queue is created.
 
 Initial planning reconciliation used source `72e4bb9015b6d6a622b45638104c74851a137473`
 and SDK `86a70e1155f1036fdcd38f2af49d4ca6defa8280`; later source completions
-and the distinct R03.L verification scope are recorded in the task list. The
+and distinct R03.L verification scope remain historical receipts. The
 completed
 [investigation](../../research/library-reuse-investigation.md) and
 [coverage ledger](../../research/library-reuse-coverage.md) are non-normative
@@ -45,38 +39,12 @@ Go/Rust owners, provider-specific contracts, PostgreSQL, full Forgejo design and
 existing processes. No sidecars, language ports or compatibility facades follow
 from these packets.
 
-## Execution packets
+## Library contracts
 
-L identifiers are subpackets of the existing A/B/C tasks. Each has one lead;
-physical writers remain the exclusive owners in the lane schedule. A lead sends
-cross-owner changes through named handoffs rather than editing another owner's
-files. The coordinator owns manifests/locks and integration. The
-[task list](implementation-tasks.md#selected-library-adoption-subpackets) owns
-current packet state; the table below summarizes completed source scopes and
-remaining gates. Source completion does not close wider M/C/V or installed
-qualification duties.
-
-| Packet | Lead | Existing task joins | Sequence and required output |
-| --- | --- | --- | --- |
-| L00 Admission and boundary preparation | Coordinator | R00/R01, C01/C02/C08 | Initial preparation complete before L02; retain admission per new dependency/contract |
-| L01 Deadline and evidence repair | C | C11.C/V | Complete through `4c87f5e9`; existing small lifecycle/evidence owners preserved |
-| L02 Trust-key and signature repair | C | C07/C10 | Complete in `743dde17` after L00; existing curve/DER libraries and raw-byte contracts preserved |
-| L03 Hash, curve and randomness owners | A | A03/A05/A06, C10/C11 | Complete: RNG01 in `a84447ff`; CF-01 and CF-02 in `52eee7ee` |
-| L04 JSON and Base64 profiles | C | C01, A05/A07, C09/C10/C11 | Complete: caller profiles verified; every selected engine and shared dependency retired, ending in `229e9cce` |
-| L05 SSH formats | A | A01/A07, C07 | Complete in `7b42671d` after required L03/L04 profiles; dependency selection in `22496cb3` |
-| L06 Local CA parsing | C | C05/C07 | Complete in `7d063f15` after L02/relevant L04 profile and Caddy-root admission; no L05 dependency |
-| L07 Native SQL parameters | B | C02, B01 | Complete in `d12bf6d3`; preceded L08 cutover |
-| L08 PostgreSQL driver | A | A05, C02, B01 schema join | Complete in `6b18ee1b` after L07 and L00 driver deadline/transaction fit |
-| L09 Unix HTTP and WebSocket engines | A | C02/C03, A07, C08 fixture join | Complete through `21387814` after L00 transport/upgrade proofs and required serialization profiles |
-| L10 External HTTP adapters | C | C05, C03 | N3 setup HTTPS complete in `719d1137`; N4 retains curl through the owned Executor at source scope, with R04 shipping/provider qualification open |
-| L11 URL, IP and time adapters | A | C03/C05, A05/A07, C11 | Complete through `380914ed` with caller-specific admission |
-| L12 File, FD and process ownership | C | C01/C05/C06/C07/C08/C11, A07 | Complete through `c5cca5e7`; same-FD bounds and rooted custody preceded temporary convenience |
-| L13 Archive and release formats | C | A04, C08/C09/C10 | Complete through `46d5c4cd`; trailer/budget repairs preceded format transfers |
-| L14 CLI and target discovery | C | C05/C08/C09/C11 | Complete through `c82125ee` after CLI/metadata profile and dependency admission |
-| L15 SDK input admission | B | B06, C01 | Complete at `c92db11c14` in the exact sibling checkout; retain meaningful per-dial credential transport |
-| L16 Evidence matching | C | C11 | Consideration complete; optional adoption deferred. L16.G aggregate secret collection is complete in `7334f36b`; preserve completed L01/L12 repairs |
-| L17 Configuration evidence | C | C05/C09 | Owner-selected fixed appliance directory replaces host INI parsing; source/native-provider/staging checks complete; CFG02 retained independently and R04 installed qualification remains separate |
-| L18 Dead machinery removal | C | C05/C11, A/B handoffs | Complete in `eaed66a9`: N11/TMP02/DEAD01 retired after current reference and retained-duty checks |
+L00–L18 preserve the specific profiles, bounds, failure behavior and scoped
+adoption receipts. They are reference contracts, not worker assignments or a
+second queue. Unmet native consumers and optional choices belong to the
+[remaining-outcome catalog](../factory-remaining-tasks.md).
 
 ### L00 Admission and boundary preparation
 
@@ -1178,68 +1146,6 @@ to maintain custom chunk decoding is superseded by the complete-driver direction
 in L09; its replacement still has framing/bounds acceptance. Readiness here is
 a planning disposition, not implementation or operational authorization.
 
-## Finding allocation
-
-Every investigation finding has one primary packet/lead below. A phased finding
-does not create a second owner. Linked research supplies defining files, complete
-caller/profile tables and evidence limits; packet scope includes those tables.
-
-| Finding | Disposition | Primary packet | Lead |
-| --- | --- | --- | --- |
-| [N1](../../research/library-reuse-investigation.md#n1) | REPLACE | L09 | A |
-| [N2](../../research/library-reuse-investigation.md#n2) | REPLACE | L09 | A |
-| [N3](../../research/library-reuse-investigation.md#n3) | REPLACE | L10 | C |
-| [N4](../../research/library-reuse-investigation.md#n4) | HOLD: resolver-inclusive cancellation / Executor fit | L10 | C |
-| [N5](../../research/library-reuse-investigation.md#n5) | REPLACE | L09 | A |
-| [N6](../../research/library-reuse-investigation.md#n6) | REPLACE | L09 | A |
-| [N7](../../research/library-reuse-investigation.md#n7) | REPLACE | L11 | A |
-| [N8](../../research/library-reuse-investigation.md#n8) | REPLACE | L11 | A |
-| [N9](../../research/library-reuse-investigation.md#n9) | REPLACE | L11 | A |
-| [N10](../../research/library-reuse-investigation.md#n10) | CONSOLIDATE | L12 | C |
-| [N11](../../research/library-reuse-investigation.md#n11) | DELETE complete | L18 `eaed66a9`; actual Muse retained | C |
-| [N12](../../research/library-reuse-investigation.md#n12) | RETAIN | L11 retained | A |
-| [N13](../../research/library-reuse-investigation.md#n13) | REPLACE | L01 repair complete; L11 parser adoption | C |
-| [N14](../../research/library-reuse-investigation.md#n14) | RETAIN | L01 | C |
-| [CF-01](../../research/library-reuse-investigation.md#cf-01) | REPLACE | L03 | A |
-| [CF-02](../../research/library-reuse-investigation.md#cf-02) | REPLACE | L03 | A |
-| [CF-03](../../research/library-reuse-investigation.md#cf-03) | REPLACE | L05 | A |
-| [CF-04](../../research/library-reuse-investigation.md#cf-04) | REPLACE | L04 | C |
-| [CF-05](../../research/library-reuse-investigation.md#cf-05) | REPLACE | L02 | C |
-| [CF-06](../../research/library-reuse-investigation.md#cf-06) | REPLACE | L02 | C |
-| [CF-07](../../research/library-reuse-investigation.md#cf-07) | REPLACE | L13 | C |
-| [CF-08](../../research/library-reuse-investigation.md#cf-08) | CONSOLIDATE | L13 | C |
-| [CF-09](../../research/library-reuse-investigation.md#cf-09) | CONSOLIDATE | L13 | C |
-| [PG01](../../research/library-reuse-investigation.md#pg01) | REPLACE | L08 | A |
-| [SQL01](../../research/library-reuse-investigation.md#sql01) | DELETE | L07 | B |
-| [JSON01](../../research/library-reuse-investigation.md#json01) | REPLACE | L04 | C |
-| [JSON02](../../research/library-reuse-investigation.md#json02) | RETAIN | L04 retained | C |
-| [RNG01](../../research/library-reuse-investigation.md#rng01) | REPLACE | L03 | A |
-| [TMP01](../../research/library-reuse-investigation.md#tmp01) | REPLACE | L12 | C |
-| [TMP02](../../research/library-reuse-investigation.md#tmp02) | DELETE complete | L18 `eaed66a9`; original-inode scrub retained | C |
-| [FS01](../../research/library-reuse-investigation.md#fs01) | CONSOLIDATE | L12 | C |
-| [PATH01](../../research/library-reuse-investigation.md#path01) | DELETE | L12 | C |
-| [PROC01](../../research/library-reuse-investigation.md#proc01) | CONSOLIDATE | L12 | C |
-| [FFI01](../../research/library-reuse-investigation.md#ffi01) | REPLACE | L12 | C |
-| [FMT01](../../research/library-reuse-investigation.md#fmt01) | DELETE | L14 | C |
-| [CLI01](../../research/library-reuse-investigation.md#cli01) | RETAIN | L14 retained | C |
-| [WALK01](../../research/library-reuse-investigation.md#walk01) | REPLACE | L12 | C |
-| [CFG01](../../research/library-reuse-investigation.md#cfg01) | Complete source scope: owner-selected fixed directory; configurable parser replacement superseded | L17 shared startup/recovery declaration and focused proofs; installed qualification remains R04 | C |
-| [SQLITE01](../../research/library-reuse-investigation.md#sqlite01) | RETAIN | Existing Store/probe duties retained | B |
-| [RED01](../../research/library-reuse-investigation.md#red01) | REPAIR complete in L01; matcher DEFER | L16 consideration complete; L16.G collection bound complete; optional cutover deferred | C |
-| [CLI03](../../research/library-reuse-investigation.md#cli03) | REPLACE | L14 | C |
-| [REL01](../../research/library-reuse-investigation.md#rel01) | REPLACE | L13 | C |
-| [REL02](../../research/library-reuse-investigation.md#rel02) | CONSOLIDATE | L13 | C |
-| [REL03](../../research/library-reuse-investigation.md#rel03) | CONSOLIDATE | L13 | C |
-| [CLI02](../../research/library-reuse-investigation.md#cli02) | REPLACE | L14 | C |
-| [XML01](../../research/library-reuse-investigation.md#xml01) | REPLACE | L13 | C |
-| [CFG02](../../research/library-reuse-investigation.md#cfg02) | RETAIN | L17 retained | C |
-| [PROC02](../../research/library-reuse-investigation.md#proc02) | CONSOLIDATE | L12 | C |
-| [SDK01](../../research/library-reuse-investigation.md#sdk01) | CONSOLIDATE complete | L15 at Fountain `c92db11c14` | B |
-| [X50901](../../research/library-reuse-investigation.md#x50901) | REPLACE | L06 | C |
-| [KEEP01](../../research/library-reuse-investigation.md#keep01) | RETAIN | Existing package duties retained | Coordinator |
-| [SYS01](../../research/library-reuse-investigation.md#sys01) | REPLACE | L14 | C |
-| [DEAD01](../../research/library-reuse-investigation.md#dead01) | DELETE complete | L18 `eaed66a9`; no replacement fixture | C |
-
 ## Parked checkpoints
 
 Luna low reassessed the exclusive checkpoint deltas against canonical
@@ -1274,18 +1180,3 @@ is a diff against the then-current defining adapters; its acceptance is retained
 caller/custody behavior and the relevant existing tests, with no old engine
 restoration. Full source-to-slice recount and installed qualification remain
 separate R02/R04 work.
-
-## Completion of a selected change
-
-R00 selects one bounded owner change with its exact files, recipients and gates.
-R01 integrates callers, dependency/bin selections and deletion coherently. Keep
-adoption/correctness separate from unrelated M folder moves, and keep performed
-V/native evidence separate from completed structural work. Independent challenge
-must check retained limits/authority/lifecycle and the removed implementation.
-Affected checks/builds include the actual shipping entrypoint and offline graph;
-reserve broader native/release operations for ready integrated subjects.
-
-After integration, update these packets and affected ownership/decomposition/tree
-entries in place through maintenance. Historical counts remain historical until
-their full reconciliation. No packet closes merely because a queue empties or
-old equivalence tests pass.

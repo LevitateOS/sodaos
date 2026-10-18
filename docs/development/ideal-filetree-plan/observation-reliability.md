@@ -29,7 +29,7 @@ while preserving completed capture and same-descriptor repairs.
 | Contracts | [Native support](../native-support.md), especially the evidence record, command/VM deadlines and producer versus qualification distinctions; [workflow requirements](workflow-requirements.md); [review guidance](review-assignments.md#guidance-conflicts-and-controlling-decisions) |
 | Mutable guidance | The 12 pre-existing dirty plan/review inputs and 39 dependency inputs retain their baseline bytes; working hashes are in the ignored audit receipt |
 | Review method | Three Luna medium primaries, cross-challenges and coordinator caller tracing; source and authored tests inspected; no tests, builds, VM, database or provider operations executed |
-| Reuse | [L01](library-adoption.md#l01-deadline-and-evidence-repair), [L12](library-adoption.md#l12-file-fd-and-process-ownership), [B03.C](implementation-tasks.md#b03-dispatch-and-intervention), [L16.G](library-adoption.md#l16-evidence-matching), [H06-F1](reviews/H06.md) and their stated earlier receipts |
+| Reuse | [L01](library-adoption.md#l01-deadline-and-evidence-repair), [L12](library-adoption.md#l12-file-fd-and-process-ownership), [B03.C](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#b03-dispatch-and-intervention), [L16.G](library-adoption.md#l16-evidence-matching), [H06-F1](reviews/H06.md) and their stated earlier receipts |
 
 Matching source, contract and review question permits the bounded reuse below.
 A completed historical test run is not a new execution receipt. The 80-slice

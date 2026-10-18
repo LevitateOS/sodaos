@@ -13,8 +13,8 @@ verification entries against the [library-adoption chapter](../library-adoption.
 Their historical observed sizes/spans remain evidence, while explicitly
 superseded pending engine splits no longer prescribe implementation. Remaining
 domain/policy seams and library adapters are the target; completed moves stay
-complete. The [task list](../implementation-tasks.md) and
-[lane schedule](../implementation-lanes.md) remain the only dispatch queue.
+complete. The [task list](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md) and
+[lane schedule](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-lanes.md) remain the only dispatch queue.
 A complete decomposition/tree inventory refresh waits for implemented boundaries.
 
 ## Detailed decomposition
