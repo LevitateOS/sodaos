@@ -52,6 +52,30 @@ func IntentGraphPayload(r factory.IntentRevision) (sdk.IssueGraphPayload, error)
 
 func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 	var b strings.Builder
+	writeTaskBodyHead(&b, r, t)
+	selected := map[string]bool{}
+	for _, id := range t.IdeaIDs {
+		selected[id] = true
+	}
+	effective := map[string]bool{}
+	for _, id := range r.EffectiveOutcomes {
+		effective[id] = true
+	}
+	for _, idea := range r.Ideas {
+		label, ok := admitTaskBodyIdea(idea, selected, effective)
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(&b, "\n%s (%s):\n", label, idea.ID)
+		writeTaskIdeaContent(&b, r, t, idea)
+	}
+	writeTaskBodyTail(&b, r, t)
+	return b.String()
+}
+
+// writeTaskBodyHead renders the accepted objective, task objective
+// and acceptance outcomes behind one task body.
+func writeTaskBodyHead(b *strings.Builder, r factory.IntentRevision, t factory.IntentTask) {
 	b.WriteString("Accepted product objective:\n")
 	b.WriteString(r.Objective)
 	if t.Objective != r.Objective {
@@ -64,74 +88,80 @@ func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 		b.WriteString(outcome)
 		b.WriteByte('\n')
 	}
-	selected := map[string]bool{}
-	for _, id := range t.IdeaIDs {
-		selected[id] = true
+}
+
+// admitTaskBodyIdea reports whether one reviewed idea shapes the task
+// body with its display label.
+func admitTaskBodyIdea(idea factory.ProductIdea, selected, effective map[string]bool) (string, bool) {
+	if !selected[idea.ID] && !idea.Assumption {
+		return "", false
 	}
-	effective := map[string]bool{}
-	for _, id := range r.EffectiveOutcomes {
-		effective[id] = true
+	if len(effective) > 0 && !effective[idea.ID] {
+		return "", false
 	}
-	for _, idea := range r.Ideas {
-		if !selected[idea.ID] && !idea.Assumption {
-			continue
-		}
-		if len(effective) > 0 && !effective[idea.ID] {
-			continue
-		}
-		if idea.Decision != "accept" && idea.Decision != "edit" {
-			continue
-		}
-		label := "Accepted product choice"
-		if idea.Assumption {
-			label = "Accepted assumption"
-		}
-		if idea.Source != "" || idea.Provenance != "" {
-			provenance := idea.Source
-			if idea.Provenance != "" {
-				if provenance != "" {
-					provenance += ", "
-				}
-				provenance += idea.Provenance
-			}
+	if idea.Decision != "accept" && idea.Decision != "edit" {
+		return "", false
+	}
+	label := "Accepted product choice"
+	if idea.Assumption {
+		label = "Accepted assumption"
+	}
+	if idea.Source != "" || idea.Provenance != "" {
+		provenance := idea.Source
+		if idea.Provenance != "" {
 			if provenance != "" {
-				label += " (" + provenance + ")"
+				provenance += ", "
 			}
+			provenance += idea.Provenance
 		}
-		fmt.Fprintf(&b, "\n%s (%s):\n", label, idea.ID)
-		if idea.Decision == "edit" {
-			if idea.Description != r.Objective && idea.Description != t.Objective {
-				fmt.Fprintf(&b, "Reviewed proposal: %s\n", idea.Description)
-			}
-			if idea.Correction != r.Objective && idea.Correction != t.Objective {
-				fmt.Fprintf(&b, "Accepted correction: %s\n", idea.Correction)
-			} else {
-				if idea.Correction == r.Objective {
-					b.WriteString("Accepted correction: the accepted product objective stated above\n")
-				} else {
-					b.WriteString("Accepted correction: the task objective stated above\n")
-				}
-			}
-		} else if idea.Description != r.Objective && idea.Description != t.Objective {
-			b.WriteString(idea.Description)
-			b.WriteByte('\n')
-		} else {
-			if idea.Description == r.Objective {
-				b.WriteString("The accepted product objective stated above\n")
-			} else {
-				b.WriteString("The task objective stated above\n")
-			}
-		}
-		fmt.Fprintf(&b, "Consequence: %s\n", idea.Consequence)
-		if idea.Evidence != "" {
-			fmt.Fprintf(&b, "Evidence: %s\n", idea.Evidence)
+		if provenance != "" {
+			label += " (" + provenance + ")"
 		}
 	}
-	fmt.Fprintf(&b, "\nAccepted product intent: %s\nAccepted revision: %s\nIntent digest: %s\nTask: %s\n", r.Intent, r.ID, r.Digest(), t.Key)
+	return label, true
+}
+
+// writeTaskIdeaContent renders one admitted idea's reviewed proposal
+// or description with its consequence and evidence.
+func writeTaskIdeaContent(b *strings.Builder, r factory.IntentRevision, t factory.IntentTask, idea factory.ProductIdea) {
+	if idea.Decision == "edit" {
+		if idea.Description != r.Objective && idea.Description != t.Objective {
+			fmt.Fprintf(b, "Reviewed proposal: %s\n", idea.Description)
+		}
+		writeTaskIdeaCorrection(b, r, t, idea)
+	} else if idea.Description != r.Objective && idea.Description != t.Objective {
+		b.WriteString(idea.Description)
+		b.WriteByte('\n')
+	} else if idea.Description == r.Objective {
+		b.WriteString("The accepted product objective stated above\n")
+	} else {
+		b.WriteString("The task objective stated above\n")
+	}
+	fmt.Fprintf(b, "Consequence: %s\n", idea.Consequence)
+	if idea.Evidence != "" {
+		fmt.Fprintf(b, "Evidence: %s\n", idea.Evidence)
+	}
+}
+
+// writeTaskIdeaCorrection renders one edited idea's accepted
+// correction, naming a repeated objective by reference.
+func writeTaskIdeaCorrection(b *strings.Builder, r factory.IntentRevision, t factory.IntentTask, idea factory.ProductIdea) {
+	if idea.Correction != r.Objective && idea.Correction != t.Objective {
+		fmt.Fprintf(b, "Accepted correction: %s\n", idea.Correction)
+	} else if idea.Correction == r.Objective {
+		b.WriteString("Accepted correction: the accepted product objective stated above\n")
+	} else {
+		b.WriteString("Accepted correction: the task objective stated above\n")
+	}
+}
+
+// writeTaskBodyTail renders the intent identity and task digest
+// behind one task body.
+func writeTaskBodyTail(b *strings.Builder, r factory.IntentRevision, t factory.IntentTask) {
+	fmt.Fprintf(b, "\nAccepted product intent: %s\nAccepted revision: %s\nIntent digest: %s\nTask: %s\n", r.Intent, r.ID, r.Digest(), t.Key)
 	raw, _ := json.Marshal(t)
 	digest := sha256.Sum256(raw)
-	fmt.Fprintf(&b, "Task digest: %s\nProduct choices: %s\n", hex.EncodeToString(digest[:]), strings.Join(t.IdeaIDs, ", "))
-	return b.String()
+	fmt.Fprintf(b, "Task digest: %s\nProduct choices: %s\n", hex.EncodeToString(digest[:]), strings.Join(t.IdeaIDs, ", "))
 }
 
 func generatedDecisionID(prefix, revision, key string) string {
@@ -190,72 +220,12 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 	if err != nil {
 		return factory.IntentGeneration{}, err
 	}
-	g, err := c.Store.IntentGeneration(ctx, r.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		g, err = c.beginChosenIntentGeneration(ctx, r, revision, chosen)
-	}
-	if err != nil {
+	g, done, err := c.loadAcceptedGeneration(ctx, r, revision, chosen)
+	if done || err != nil {
 		return g, err
 	}
-	if err = checkGenerationIdentity(r, g, c.GraphActorID); err != nil {
+	if g, err = c.submitAcceptedGeneration(ctx, r, g, validate); err != nil {
 		return g, err
-	}
-	if settled, done, serr := settledGenerationResult(g); done {
-		return settled, serr
-	}
-	if g.State == "pending" {
-		lookup, e := c.Graph.LookupGraph(ctx, g, r.Repository)
-		if e != nil {
-			return g, e
-		}
-		var record sdk.OperationRecord
-		if lookup.Record != nil {
-			record = *lookup.Record
-		} else {
-			if lookup.Status != sdk.BackgroundOutcomeNotObserved {
-				return g, errors.New("native graph outcome is unknown")
-			}
-			if err = c.currentAcceptedIntent(ctx, r); err != nil {
-				g, _ = c.cancelIntentGeneration(ctx, g)
-				return g, err
-			}
-			observed, e := c.Graph.CheckIntentOwner(ctx, r.Repository, r.Owner, g.ActorID)
-			if e != nil {
-				g, _ = c.cancelIntentGeneration(ctx, g)
-				return g, e
-			}
-			if observed != g.NativeRev {
-				g, _ = c.cancelIntentGeneration(ctx, g)
-				return g, errors.New("accepted graph native observation is stale")
-			}
-			if g.NotAfter <= time.Now().Unix() {
-				g, _ = c.cancelIntentGeneration(ctx, g)
-				return g, errors.New("accepted graph operation expired before submission")
-			}
-			if g, err = c.revalidateGenerationBeforeSubmit(ctx, g, validate); err != nil {
-				return g, err
-			}
-			record, err = c.Graph.SubmitGraph(ctx, g, r.Repository)
-			if err != nil {
-				return g, err
-			}
-		}
-		switch record.EffectState {
-		case sdk.EffectCommitted:
-			g.State = "committed"
-			g.Receipt = record.Receipt
-		case sdk.EffectNotCommitted:
-			g.State = "refused"
-			g.Receipt = record.Receipt
-		default:
-			return g, errors.New("native graph effect is unresolved")
-		}
-		if err = c.Store.RecordIntentGeneration(ctx, g); err != nil {
-			return g, err
-		}
-		if g.State == "refused" {
-			return g, errors.New("native graph mutation refused: " + record.ReasonCode)
-		}
 	}
 	if g, err = c.revalidateGenerationBeforeAdopt(ctx, g, validate); err != nil {
 		return g, err
@@ -273,6 +243,91 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 		return g, err
 	}
 	return g, nil
+}
+
+// loadAcceptedGeneration loads or begins the generation behind one
+// accepted intent, replaying terminal states without native contact.
+func (c *Coordinator) loadAcceptedGeneration(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan) (factory.IntentGeneration, bool, error) {
+	g, err := c.Store.IntentGeneration(ctx, r.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		g, err = c.beginChosenIntentGeneration(ctx, r, revision, chosen)
+	}
+	if err != nil {
+		return g, false, err
+	}
+	if err = checkGenerationIdentity(r, g, c.GraphActorID); err != nil {
+		return g, false, err
+	}
+	if settled, done, serr := settledGenerationResult(g); done {
+		return settled, true, serr
+	}
+	return g, false, nil
+}
+
+// submitAcceptedGeneration submits one pending generation's native
+// operation and records its settled receipt.
+func (c *Coordinator) submitAcceptedGeneration(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration, validate generationPlanValidator) (factory.IntentGeneration, error) {
+	if g.State != "pending" {
+		return g, nil
+	}
+	lookup, err := c.Graph.LookupGraph(ctx, g, r.Repository)
+	if err != nil {
+		return g, err
+	}
+	var record sdk.OperationRecord
+	if lookup.Record != nil {
+		record = *lookup.Record
+	} else if record, g, err = c.submitUnobservedGeneration(ctx, r, g, validate, lookup); err != nil {
+		return g, err
+	}
+	switch record.EffectState {
+	case sdk.EffectCommitted:
+		g.State = "committed"
+		g.Receipt = record.Receipt
+	case sdk.EffectNotCommitted:
+		g.State = "refused"
+		g.Receipt = record.Receipt
+	default:
+		return g, errors.New("native graph effect is unresolved")
+	}
+	if err = c.Store.RecordIntentGeneration(ctx, g); err != nil {
+		return g, err
+	}
+	if g.State == "refused" {
+		return g, errors.New("native graph mutation refused: " + record.ReasonCode)
+	}
+	return g, nil
+}
+
+// submitUnobservedGeneration proves the accepted head is still fresh
+// before submitting one unobserved generation operation.
+func (c *Coordinator) submitUnobservedGeneration(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration, validate generationPlanValidator, lookup sdk.OperationLookup) (sdk.OperationRecord, factory.IntentGeneration, error) {
+	var record sdk.OperationRecord
+	if lookup.Status != sdk.BackgroundOutcomeNotObserved {
+		return record, g, errors.New("native graph outcome is unknown")
+	}
+	if err := c.currentAcceptedIntent(ctx, r); err != nil {
+		g, _ = c.cancelIntentGeneration(ctx, g)
+		return record, g, err
+	}
+	observed, err := c.Graph.CheckIntentOwner(ctx, r.Repository, r.Owner, g.ActorID)
+	if err != nil {
+		g, _ = c.cancelIntentGeneration(ctx, g)
+		return record, g, err
+	}
+	if observed != g.NativeRev {
+		g, _ = c.cancelIntentGeneration(ctx, g)
+		return record, g, errors.New("accepted graph native observation is stale")
+	}
+	if g.NotAfter <= time.Now().Unix() {
+		g, _ = c.cancelIntentGeneration(ctx, g)
+		return record, g, errors.New("accepted graph operation expired before submission")
+	}
+	if g, err = c.revalidateGenerationBeforeSubmit(ctx, g, validate); err != nil {
+		return record, g, err
+	}
+	record, err = c.Graph.SubmitGraph(ctx, g, r.Repository)
+	return record, g, err
 }
 
 // beginChosenIntentGeneration persists the exact chosen graph before any native send.
@@ -379,205 +434,318 @@ func (c *Coordinator) currentAcceptedIntent(ctx context.Context, r factory.Inten
 	return nil
 }
 
-func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration, validate generationPlanValidator) error {
-	var receipt sdk.IssueGraphReceipt
-	if json.Unmarshal(g.Receipt, &receipt) != nil || receipt.ActorID != g.ActorID || receipt.RepositoryID != r.Repository {
-		return errors.New("native graph receipt does not bind submitted tasks")
-	}
-	if len(g.SubmittedTasks) == 0 {
-		return errors.New("generation predates submitted-task records")
-	}
-	scoped := r
-	scoped.Tasks = g.SubmittedTasks
-	if err := scoped.Validate(); err != nil {
-		return errors.New("submitted graph exceeds accepted scope")
-	}
-	issues, err := intentReceiptIssues(g.SubmittedTasks, g, receipt)
-	if err != nil {
-		return err
-	}
-	// Delivered natives are immutable history: verify them against the
-	// previous acceptance pins, never the new scoped body.
-	var prevWork *factory.IntentRevision
-	priorTasks := map[string]factory.IntentTask{}
-	var priorBindings []factory.IntentTaskBinding
-	if len(g.Delivered) > 0 {
-		if err := c.currentAcceptedIntent(ctx, r); err != nil {
-			return err
-		}
-		history, err := c.Store.IntentHistory(ctx, r.Intent, r.Owner, 2)
-		if err != nil {
-			return err
-		}
-		if len(history) < 2 || history[0].ID != r.ID || history[1].ID != r.Predecessor {
-			return errors.New("previous revision is unavailable")
-		}
-		priorGeneration, err := c.Store.IntentGeneration(ctx, history[1].ID)
-		if err != nil {
-			return err
-		}
-		if len(priorGeneration.SubmittedTasks) == 0 {
-			return errors.New("previous generation predates submitted-task records")
-		}
-		pw := history[1]
-		pw.Tasks = priorGeneration.SubmittedTasks
-		prevWork = &pw
-		for _, task := range pw.Tasks {
-			priorTasks[task.Key] = task
-		}
-		for key := range g.Delivered {
-			if _, ok := priorTasks[key]; !ok {
-				return errors.New("delivered history unexpectedly mutated")
-			}
-		}
-		priorBindings, err = c.Store.IntentTaskBindings(ctx, history[1].ID)
-		if err != nil {
-			return err
-		}
-	}
-	tasks := map[string]factory.IntentTask{}
-	for _, task := range g.SubmittedTasks {
-		tasks[task.Key] = task
-		if issues[task.Key].IssueID == 0 {
-			return errors.New("native graph receipt missing submitted task")
-		}
-	}
-	adopted := map[string]factory.IntentTaskBinding{}
-	existing, err := c.Store.IntentTaskBindings(ctx, r.ID)
-	if err != nil {
-		return err
-	}
-	for _, b := range existing {
-		decision, e := c.Store.AcceptanceDecision(ctx, b.AcceptanceID)
-		if e == nil {
-			entry := issues[b.TaskKey]
-			if decision.ID != generatedDecisionID("acceptance", r.ID, b.TaskKey) || decision.Approver != r.Owner || decision.Repository != r.Repository || decision.IssueIndex != strconv.FormatInt(entry.IssueIndex, 10) || b.IssueID != entry.IssueID {
-				return store.ErrCommandConflict
-			}
-			adopted[b.TaskKey] = b
-		} else if !errors.Is(e, store.ErrNotFound) {
-			return e
-		}
-	}
-	active := map[string]bool{}
-	var adopt func(string) error
-	adopt = func(key string) error {
-		if _, ok := adopted[key]; ok {
-			return nil
-		}
-		if active[key] {
-			return errors.New("cyclic accepted graph")
-		}
-		active[key] = true
-		task := tasks[key]
-		for _, dep := range task.DependsOn {
-			if err := adopt(dep); err != nil {
-				return err
-			}
-		}
-		if err := c.currentAcceptedIntent(ctx, r); err != nil {
-			return err
-		}
-		ownerRev, err := c.Graph.CheckIntentOwner(ctx, r.Repository, r.Owner, g.ActorID)
-		if err != nil {
-			return err
-		}
-		entry := issues[key]
-		native, nativeRev, err := c.Graph.ReadGeneratedIssue(ctx, r.Repository, entry.IssueIndex, g.ActorID)
-		if err != nil {
-			return err
-		}
-		if nativeRev != ownerRev {
-			return refuseAcceptance(RefusalStaleEvidence)
-		}
-		issue := native.Issue
-		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(g.ActorID, 10) {
-			return refuseAcceptance(RefusalObjectiveChanged)
-		}
-		// Delivered records adopt without mutation: the native stays closed
-		// with its pinned content while bindings and acceptances chain on.
-		// A reopened or rewritten record refuses rather than rebinding
-		// history it no longer matches.
-		if ref, delivered := g.Delivered[key]; delivered {
-			if entry.IssueID != ref.IssueID || entry.IssueIndex != ref.IssueIndex || entry.ContentVersion != ref.ContentVersion {
-				return errors.New("delivered history unexpectedly mutated")
-			}
-			if !issue.IsClosed {
-				return refuseAcceptance(RefusalObjectiveChanged)
-			}
-			stable, err := c.deliveredStable(ctx, priorBindings, priorTasks[key], entry, issue, *prevWork)
-			if err != nil {
-				return err
-			}
-			if !stable {
-				return refuseAcceptance(RefusalObjectiveChanged)
-			}
-		} else if issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(scoped, task) || issue.ContentVersion != entry.ContentVersion {
-			return refuseAcceptance(RefusalObjectiveChanged)
-		}
-		if native.Dependencies == nil || !native.Dependencies.Complete || native.Dependencies.IssueID != issue.ID || len(native.Dependencies.Items) != len(task.DependsOn) {
-			return refuseAcceptance(RefusalEdgeChanged)
-		}
-		expected := map[string]factory.IntentTaskBinding{}
-		for _, dep := range task.DependsOn {
-			b := adopted[dep]
-			expected[strconv.FormatInt(b.IssueID, 10)] = b
-		}
-		decision := factory.Acceptance{ID: generatedDecisionID("acceptance", r.ID, key), Repository: r.Repository, IssueIndex: issue.Index, Approver: r.Owner, NativeRev: nativeRev, TitleDigest: issue.TitleDigest, TitleOccurrence: generatedTitleOccurrence(issue), ContentDigest: issue.ContentDigest, ContentVersion: issue.ContentVersion}
-		head, headErr := c.Store.AcceptanceHead(ctx, r.Repository, entry.IssueIndex)
-		if headErr == nil && head != decision.ID {
-			decision.Predecessor = head
-		} else if headErr != nil && !errors.Is(headErr, store.ErrNotFound) {
-			return headErr
-		}
-		for _, edge := range native.Dependencies.Items {
-			binding, ok := expected[edge.DependencyID]
-			if !ok || !edge.Visible || !edge.Complete {
-				return refuseAcceptance(RefusalEdgeChanged)
-			}
-			delete(expected, edge.DependencyID)
-			decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{Occurrence: edge.OccurrenceID, DependsOn: edge.DependencyID, EndpointRepo: r.Repository, EndpointIssue: binding.IssueIndex, PrereqAcceptance: binding.AcceptanceID, Outcome: factory.PrereqCode})
-		}
-		if len(expected) > 0 {
-			return refuseAcceptance(RefusalEdgeChanged)
-		}
-		// Interrupted adoption may have recorded acceptance before its binding.
-		// Reuse only that exact deterministic decision, never a similar issue.
-		createdUnix := issue.CreatedUnix
-		if createdUnix <= 0 {
-			createdUnix = issue.Provenance.CreatedUnix
-		}
-		binding := factory.IntentTaskBinding{RevisionID: r.ID, TaskKey: key, IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion, AcceptanceID: decision.ID, CreatedUnix: createdUnix}
-		// Persist authority provenance before acceptance can make the issue
-		// eligible to any independently running coordinator pass.
-		if err = c.bindValidatedGenerationTask(ctx, g, binding, validate); err != nil {
-			return err
-		}
+// intentAdoption carries the shared state behind one accepted
+// intent-graph adoption so each duty reads through one small check.
+type intentAdoption struct {
+	c             *Coordinator
+	ctx           context.Context
+	r             factory.IntentRevision
+	g             factory.IntentGeneration
+	validate      generationPlanValidator
+	scoped        factory.IntentRevision
+	issues        map[string]sdk.IssueGraphIssueReceipt
+	tasks         map[string]factory.IntentTask
+	adopted       map[string]factory.IntentTaskBinding
+	active        map[string]bool
+	prevWork      *factory.IntentRevision
+	priorTasks    map[string]factory.IntentTask
+	priorBindings []factory.IntentTaskBinding
+}
 
-		old, e := c.Store.AcceptanceDecision(ctx, decision.ID)
-		if errors.Is(e, store.ErrNotFound) {
-			_, e = c.AdmitAcceptance(ctx, generatedDecisionID("command", r.ID, key), "accepted-intent:"+r.ID, decision)
-		} else if e == nil {
-			if old.Approver != decision.Approver || old.Repository != decision.Repository || old.IssueIndex != decision.IssueIndex || old.TitleDigest != decision.TitleDigest || old.ContentDigest != decision.ContentDigest {
-				return store.ErrCommandConflict
-			}
-			if e = c.verifyAcceptance(ctx, old, AcceptanceEvidence{Revision: old.NativeRev, Issue: AcceptanceIssueView{Index: issue.Index, Visible: true, TitleDigest: issue.TitleDigest, TitleOccurrence: generatedTitleOccurrence(issue), ContentDigest: issue.ContentDigest, ContentVer: issue.ContentVersion}, Dependencies: generatedEdges(native.Dependencies)}); e != nil {
-				return e
-			}
-		}
-		if e != nil {
-			return e
-		}
-		adopted[key] = binding
-		active[key] = false
-		return nil
+// adoptEvidence binds one submitted task to its native observation.
+type adoptEvidence struct {
+	task     factory.IntentTask
+	entry    sdk.IssueGraphIssueReceipt
+	ownerRev int64
+	native   sdk.NativeSnapshot
+	issue    *sdk.SnapshotIssue
+}
+
+func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration, validate generationPlanValidator) error {
+	a := &intentAdoption{c: c, ctx: ctx, r: r, g: g, validate: validate,
+		tasks: map[string]factory.IntentTask{}, adopted: map[string]factory.IntentTaskBinding{}, active: map[string]bool{}}
+	if err := a.admitReceipt(); err != nil {
+		return err
+	}
+	if err := a.loadDeliveredPins(); err != nil {
+		return err
+	}
+	if err := a.adoptExistingBindings(); err != nil {
+		return err
 	}
 	for _, task := range g.SubmittedTasks {
-		if err := adopt(task.Key); err != nil {
+		if err := a.adoptTask(task.Key); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// admitReceipt binds the native graph receipt to the submitted tasks
+// and validates the scoped graph.
+func (a *intentAdoption) admitReceipt() error {
+	var receipt sdk.IssueGraphReceipt
+	if json.Unmarshal(a.g.Receipt, &receipt) != nil || receipt.ActorID != a.g.ActorID || receipt.RepositoryID != a.r.Repository {
+		return errors.New("native graph receipt does not bind submitted tasks")
+	}
+	if len(a.g.SubmittedTasks) == 0 {
+		return errors.New("generation predates submitted-task records")
+	}
+	a.scoped = a.r
+	a.scoped.Tasks = a.g.SubmittedTasks
+	if err := a.scoped.Validate(); err != nil {
+		return errors.New("submitted graph exceeds accepted scope")
+	}
+	issues, err := intentReceiptIssues(a.g.SubmittedTasks, a.g, receipt)
+	if err != nil {
+		return err
+	}
+	a.issues = issues
+	for _, task := range a.g.SubmittedTasks {
+		a.tasks[task.Key] = task
+		if a.issues[task.Key].IssueID == 0 {
+			return errors.New("native graph receipt missing submitted task")
+		}
+	}
+	return nil
+}
+
+// loadDeliveredPins resolves the previous acceptance pins behind
+// delivered records, which verify against immutable history rather
+// than the new scoped body.
+func (a *intentAdoption) loadDeliveredPins() error {
+	if len(a.g.Delivered) == 0 {
+		return nil
+	}
+	if err := a.c.currentAcceptedIntent(a.ctx, a.r); err != nil {
+		return err
+	}
+	history, err := a.c.Store.IntentHistory(a.ctx, a.r.Intent, a.r.Owner, 2)
+	if err != nil {
+		return err
+	}
+	if len(history) < 2 || history[0].ID != a.r.ID || history[1].ID != a.r.Predecessor {
+		return errors.New("previous revision is unavailable")
+	}
+	priorGeneration, err := a.c.Store.IntentGeneration(a.ctx, history[1].ID)
+	if err != nil {
+		return err
+	}
+	if len(priorGeneration.SubmittedTasks) == 0 {
+		return errors.New("previous generation predates submitted-task records")
+	}
+	pw := history[1]
+	pw.Tasks = priorGeneration.SubmittedTasks
+	a.prevWork = &pw
+	a.priorTasks = map[string]factory.IntentTask{}
+	for _, task := range pw.Tasks {
+		a.priorTasks[task.Key] = task
+	}
+	for key := range a.g.Delivered {
+		if _, ok := a.priorTasks[key]; !ok {
+			return errors.New("delivered history unexpectedly mutated")
+		}
+	}
+	priorBindings, err := a.c.Store.IntentTaskBindings(a.ctx, history[1].ID)
+	if err != nil {
+		return err
+	}
+	a.priorBindings = priorBindings
+	return nil
+}
+
+// adoptExistingBindings reuses bindings whose recorded acceptance
+// still matches the deterministic decision for this revision.
+func (a *intentAdoption) adoptExistingBindings() error {
+	existing, err := a.c.Store.IntentTaskBindings(a.ctx, a.r.ID)
+	if err != nil {
+		return err
+	}
+	for _, b := range existing {
+		decision, e := a.c.Store.AcceptanceDecision(a.ctx, b.AcceptanceID)
+		if e == nil {
+			if !adoptionBindingMatches(a.r, b, decision, a.issues[b.TaskKey]) {
+				return store.ErrCommandConflict
+			}
+			a.adopted[b.TaskKey] = b
+		} else if !errors.Is(e, store.ErrNotFound) {
+			return e
+		}
+	}
+	return nil
+}
+
+// adoptionBindingMatches reports whether one recorded binding still
+// matches the deterministic acceptance decision for this revision.
+func adoptionBindingMatches(r factory.IntentRevision, b factory.IntentTaskBinding, decision factory.Acceptance, entry sdk.IssueGraphIssueReceipt) bool {
+	return decision.ID == generatedDecisionID("acceptance", r.ID, b.TaskKey) && decision.Approver == r.Owner && decision.Repository == r.Repository && decision.IssueIndex == strconv.FormatInt(entry.IssueIndex, 10) && b.IssueID == entry.IssueID
+}
+
+// adoptTask adopts one submitted task after its dependencies, reading
+// native evidence, matching it, then persisting the binding.
+func (a *intentAdoption) adoptTask(key string) error {
+	if _, ok := a.adopted[key]; ok {
+		return nil
+	}
+	if a.active[key] {
+		return errors.New("cyclic accepted graph")
+	}
+	a.active[key] = true
+	task := a.tasks[key]
+	for _, dep := range task.DependsOn {
+		if err := a.adoptTask(dep); err != nil {
+			return err
+		}
+	}
+	evidence, err := a.readAdoptEvidence(task)
+	if err != nil {
+		return err
+	}
+	if err := a.checkAdoptedIssue(evidence); err != nil {
+		return err
+	}
+	decision, err := a.matchAdoptedEdges(evidence)
+	if err != nil {
+		return err
+	}
+	return a.persistAdoptedTask(evidence, decision)
+}
+
+// readAdoptEvidence reads one submitted task's native observation at
+// the owner's revision.
+func (a *intentAdoption) readAdoptEvidence(task factory.IntentTask) (adoptEvidence, error) {
+	var evidence adoptEvidence
+	if err := a.c.currentAcceptedIntent(a.ctx, a.r); err != nil {
+		return evidence, err
+	}
+	ownerRev, err := a.c.Graph.CheckIntentOwner(a.ctx, a.r.Repository, a.r.Owner, a.g.ActorID)
+	if err != nil {
+		return evidence, err
+	}
+	entry := a.issues[task.Key]
+	native, nativeRev, err := a.c.Graph.ReadGeneratedIssue(a.ctx, a.r.Repository, entry.IssueIndex, a.g.ActorID)
+	if err != nil {
+		return evidence, err
+	}
+	if nativeRev != ownerRev {
+		return evidence, refuseAcceptance(RefusalStaleEvidence)
+	}
+	return adoptEvidence{task: task, entry: entry, ownerRev: nativeRev, native: native, issue: native.Issue}, nil
+}
+
+// checkAdoptedIssue matches one native observation against its
+// identity and accepted content.
+func (a *intentAdoption) checkAdoptedIssue(evidence adoptEvidence) error {
+	issue, entry := evidence.issue, evidence.entry
+	if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(a.g.ActorID, 10) {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	// Delivered records adopt without mutation: the native stays closed
+	// with its pinned content while bindings and acceptances chain on.
+	// A reopened or rewritten record refuses rather than rebinding
+	// history it no longer matches.
+	if ref, delivered := a.g.Delivered[evidence.task.Key]; delivered {
+		return a.checkDeliveredRecord(evidence, ref)
+	}
+	if issue.Title != intentTaskTitle(evidence.task) || issue.Content != intentTaskBody(a.scoped, evidence.task) || issue.ContentVersion != entry.ContentVersion {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	return nil
+}
+
+// checkDeliveredRecord verifies one delivered record against its
+// pinned history and closed native state.
+func (a *intentAdoption) checkDeliveredRecord(evidence adoptEvidence, ref factory.DeliveredIssue) error {
+	entry, issue := evidence.entry, evidence.issue
+	if entry.IssueID != ref.IssueID || entry.IssueIndex != ref.IssueIndex || entry.ContentVersion != ref.ContentVersion {
+		return errors.New("delivered history unexpectedly mutated")
+	}
+	if !issue.IsClosed {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	stable, err := a.c.deliveredStable(a.ctx, a.priorBindings, a.priorTasks[evidence.task.Key], entry, issue, *a.prevWork)
+	if err != nil {
+		return err
+	}
+	if !stable {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	return nil
+}
+
+// matchAdoptedEdges matches native dependencies against adopted
+// bindings and builds the deterministic acceptance decision.
+func (a *intentAdoption) matchAdoptedEdges(evidence adoptEvidence) (factory.Acceptance, error) {
+	var decision factory.Acceptance
+	task, native, issue := evidence.task, evidence.native, evidence.issue
+	if native.Dependencies == nil || !native.Dependencies.Complete || native.Dependencies.IssueID != issue.ID || len(native.Dependencies.Items) != len(task.DependsOn) {
+		return decision, refuseAcceptance(RefusalEdgeChanged)
+	}
+	expected := map[string]factory.IntentTaskBinding{}
+	for _, dep := range task.DependsOn {
+		b := a.adopted[dep]
+		expected[strconv.FormatInt(b.IssueID, 10)] = b
+	}
+	decision = factory.Acceptance{ID: generatedDecisionID("acceptance", a.r.ID, task.Key), Repository: a.r.Repository, IssueIndex: issue.Index, Approver: a.r.Owner, NativeRev: evidence.ownerRev, TitleDigest: issue.TitleDigest, TitleOccurrence: generatedTitleOccurrence(issue), ContentDigest: issue.ContentDigest, ContentVersion: issue.ContentVersion}
+	head, headErr := a.c.Store.AcceptanceHead(a.ctx, a.r.Repository, evidence.entry.IssueIndex)
+	if headErr == nil && head != decision.ID {
+		decision.Predecessor = head
+	} else if headErr != nil && !errors.Is(headErr, store.ErrNotFound) {
+		return decision, headErr
+	}
+	for _, edge := range native.Dependencies.Items {
+		binding, ok := expected[edge.DependencyID]
+		if !ok || !edge.Visible || !edge.Complete {
+			return decision, refuseAcceptance(RefusalEdgeChanged)
+		}
+		delete(expected, edge.DependencyID)
+		decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{Occurrence: edge.OccurrenceID, DependsOn: edge.DependencyID, EndpointRepo: a.r.Repository, EndpointIssue: binding.IssueIndex, PrereqAcceptance: binding.AcceptanceID, Outcome: factory.PrereqCode})
+	}
+	if len(expected) > 0 {
+		return decision, refuseAcceptance(RefusalEdgeChanged)
+	}
+	return decision, nil
+}
+
+// persistAdoptedTask records one matched task's binding and
+// acceptance, reusing an interrupted run's exact decision.
+func (a *intentAdoption) persistAdoptedTask(evidence adoptEvidence, decision factory.Acceptance) error {
+	issue := evidence.issue
+	// Persist authority provenance before acceptance can make the issue
+	// eligible to any independently running coordinator pass.
+	createdUnix := issue.CreatedUnix
+	if createdUnix <= 0 {
+		createdUnix = issue.Provenance.CreatedUnix
+	}
+	binding := factory.IntentTaskBinding{RevisionID: a.r.ID, TaskKey: evidence.task.Key, IssueID: evidence.entry.IssueID, IssueIndex: evidence.entry.IssueIndex, ContentVersion: evidence.entry.ContentVersion, AcceptanceID: decision.ID, CreatedUnix: createdUnix}
+	if err := a.c.bindValidatedGenerationTask(a.ctx, a.g, binding, a.validate); err != nil {
+		return err
+	}
+	// Interrupted adoption may have recorded acceptance before its binding.
+	// Reuse only that exact deterministic decision, never a similar issue.
+	old, e := a.c.Store.AcceptanceDecision(a.ctx, decision.ID)
+	if errors.Is(e, store.ErrNotFound) {
+		_, e = a.c.AdmitAcceptance(a.ctx, generatedDecisionID("command", a.r.ID, evidence.task.Key), "accepted-intent:"+a.r.ID, decision)
+	} else if e == nil {
+		if !adoptionDecisionMatches(old, decision) {
+			return store.ErrCommandConflict
+		}
+		if e = a.c.verifyAcceptance(a.ctx, old, AcceptanceEvidence{Revision: old.NativeRev, Issue: AcceptanceIssueView{Index: issue.Index, Visible: true, TitleDigest: issue.TitleDigest, TitleOccurrence: generatedTitleOccurrence(issue), ContentDigest: issue.ContentDigest, ContentVer: issue.ContentVersion}, Dependencies: generatedEdges(evidence.native.Dependencies)}); e != nil {
+			return e
+		}
+	}
+	if e != nil {
+		return e
+	}
+	a.adopted[evidence.task.Key] = binding
+	a.active[evidence.task.Key] = false
+	return nil
+}
+
+// adoptionDecisionMatches reports whether one recorded acceptance is
+// the exact deterministic decision behind this adoption.
+func adoptionDecisionMatches(old, decision factory.Acceptance) bool {
+	return old.Approver == decision.Approver && old.Repository == decision.Repository && old.IssueIndex == decision.IssueIndex && old.TitleDigest == decision.TitleDigest && old.ContentDigest == decision.ContentDigest
 }
 
 // bindValidatedGenerationTask checks the planning evidence after native reads,
