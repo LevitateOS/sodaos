@@ -64,6 +64,7 @@ type fakeCatalogSink struct {
 	submissions map[string]fakeCatalogRecord
 	assignments map[string]factory.Assignment
 	receipts    map[string]factory.PriorityReceipt
+	runs        map[string]factory.Run
 }
 
 func newFakeCatalogSink() *fakeCatalogSink {
@@ -72,6 +73,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
 		receipts:    map[string]factory.PriorityReceipt{},
+		runs:        map[string]factory.Run{},
 		assignments: map[string]factory.Assignment{
 			capability.AssignmentID: {
 				ID: capability.AssignmentID, Phase: string(factory.MCPPhaseOf(capability.Profile)),
@@ -80,6 +82,16 @@ func newFakeCatalogSink() *fakeCatalogSink {
 			},
 		},
 	}
+}
+
+func (f *fakeCatalogSink) FactoryRun(_ context.Context, id string) (factory.Run, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	run, ok := f.runs[id]
+	if !ok {
+		return factory.Run{}, store.ErrNotFound
+	}
+	return run, nil
 }
 
 func (f *fakeCatalogSink) PriorityJudgment(_ context.Context, snapshot string) (factory.PriorityReceipt, error) {
@@ -902,6 +914,118 @@ func TestFactoryCatalogContextIgnoresUnknownSelection(t *testing.T) {
 	}
 	if body["bundle"] != factory.ContextBundleAttempt {
 		t.Fatalf("bundle=%v, want attempt", body["bundle"])
+	}
+}
+
+// serveEvidenceBody serves factory.evidence through the actual
+// handler with the sink wired as every source.
+func serveEvidenceBody(t *testing.T, sink *fakeCatalogSink) map[string]any {
+	t.Helper()
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink, Runs: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	res, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	})
+	if err != nil {
+		t.Fatalf("evidence refused: %v", err)
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("evidence content is %T, not text", res.Content[0])
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+		t.Fatalf("evidence body is not JSON: %v", err)
+	}
+	return body
+}
+
+// TestFactoryCatalogEvidenceServesRunProjections proves the R31
+// bounded evidence projection: own-attempt runs serve as opaque
+// identities with role and outcome only, while evidence stays
+// honestly incomplete pending plan/review/inventory pages.
+func TestFactoryCatalogEvidenceServesRunProjections(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1", "run-2"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	sink.runs["run-1"] = factory.Run{ID: "run-1", Role: "coder", Outcome: factory.Succeeded, Summary: "must never surface", Model: "must never surface"}
+	sink.runs["run-2"] = factory.Run{ID: "run-2", Role: "reviewer"}
+	body := serveEvidenceBody(t, sink)
+	runs, ok := body["runs"].([]any)
+	if !ok || len(runs) != 2 {
+		t.Fatalf("runs=%v", body["runs"])
+	}
+	first, ok := runs[0].(map[string]any)
+	if !ok || first["id"] != "run-1" || first["role"] != "coder" || first["outcome"] != string(factory.Succeeded) {
+		t.Fatalf("first run=%v", runs[0])
+	}
+	if len(first) != 3 {
+		t.Fatalf("run projects %d keys, want only id/role/outcome: %v", len(first), first)
+	}
+	serialized, _ := json.Marshal(body)
+	for _, leaked := range []string{"must never surface"} {
+		if strings.Contains(string(serialized), leaked) {
+			t.Fatalf("evidence leaks run content: %s", serialized)
+		}
+	}
+	if complete, _ := body["complete"].(bool); complete {
+		t.Fatalf("evidence claims completeness: %s", serialized)
+	}
+	if reason, _ := body["reason"].(string); reason == "" {
+		t.Fatalf("incomplete evidence names no reason: %s", serialized)
+	}
+	if body["assignment"] != sink.capability.AssignmentID {
+		t.Fatalf("evidence unscoped: %v", body["assignment"])
+	}
+}
+
+// TestFactoryCatalogEvidenceTruncatesLongHistory proves the page-ref
+// bound: history beyond MCPMaxPageRefs marks runs_truncated instead
+// of growing the page.
+func TestFactoryCatalogEvidenceTruncatesLongHistory(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	for i := 0; i < factory.MCPMaxPageRefs+2; i++ {
+		id := strings.Repeat("r", 31) + string(rune('a'+i))
+		stored.RunHistory = append(stored.RunHistory, id)
+		sink.runs[id] = factory.Run{ID: id, Role: "coder"}
+	}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	body := serveEvidenceBody(t, sink)
+	runs, ok := body["runs"].([]any)
+	if !ok || len(runs) != factory.MCPMaxPageRefs {
+		t.Fatalf("runs=%d, want bound %d", len(runs), factory.MCPMaxPageRefs)
+	}
+	if body["runs_truncated"] != true {
+		t.Fatalf("missing runs_truncated marker: %v", body)
+	}
+}
+
+// TestFactoryCatalogEvidenceRefusesUnresolvableRun proves a recorded
+// run without its row refuses rather than silently dropping it, and a
+// missing assignment refuses instead of serving unscoped rows.
+func TestFactoryCatalogEvidenceRefusesUnresolvableRun(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"ghost-run"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink, Runs: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	if _, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	}); err == nil {
+		t.Fatal("unresolvable recorded run admitted")
+	}
+	delete(sink.assignments, sink.capability.AssignmentID)
+	if _, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	}); err == nil {
+		t.Fatal("evidence without its assignment admitted")
 	}
 }
 

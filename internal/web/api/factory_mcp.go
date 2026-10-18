@@ -73,6 +73,13 @@ type FactoryMCPPriorityJudgmentSource interface {
 	PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error)
 }
 
+// FactoryMCPRunSource loads recorded run rows behind an assignment
+// for bounded evidence projection. *store.Store implements it;
+// tests stub it.
+type FactoryMCPRunSource interface {
+	FactoryRun(ctx context.Context, id string) (factory.Run, error)
+}
+
 // FactoryMCPDeps wires the catalog server. Observed supplies the
 // host-observed run state from outside SQL; nil keeps the recorded
 // binding only (FW39 plugs host observation here). Catalog backs
@@ -83,6 +90,7 @@ type FactoryMCPDeps struct {
 	Submissions       FactoryMCPSubmissionSink
 	Assignments       FactoryMCPAssignmentSource
 	PriorityJudgments FactoryMCPPriorityJudgmentSource
+	Runs              FactoryMCPRunSource
 	Observed          func(capability factory.MCPCapability) (control.MCPRunObservation, error)
 	Catalog           factory.ApprovedCatalog
 	Now               func() time.Time
@@ -644,11 +652,49 @@ func (s *factoryCatalogServer) serveEvidence(ctx context.Context, args mcpCallAr
 		return nil, nil, err
 	}
 	defer release()
-	_ = capability
-	return mcpJSONResult(map[string]any{
-		"complete": false,
-		"reason":   "evidence pages over run/plan/review/inventory records arrive with FW40",
-	})
+	// Bounded run projection over the recorded assignment's own
+	// attempt: opaque run identities with role and outcome only —
+	// never summaries, admissions, identity bindings or prompt-derived
+	// content. A missing assignment refuses instead of serving
+	// unscoped rows, and an unresolvable recorded run refuses rather
+	// than silently dropping it. Plan/review/inventory pages plus
+	// pagination arrive with FW40, so evidence stays honestly
+	// incomplete.
+	assignment, err := s.deps.Assignments.Assignment(ctx, capability.AssignmentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	history := assignment.RunHistory
+	truncated := false
+	if len(history) > factory.MCPMaxPageRefs {
+		history = history[:factory.MCPMaxPageRefs]
+		truncated = true
+	}
+	runs := make([]any, 0, len(history))
+	for _, id := range history {
+		if s.deps.Runs == nil {
+			return nil, nil, errors.New("evidence run source unwired")
+		}
+		run, err := s.deps.Runs.FactoryRun(ctx, id)
+		if err != nil {
+			return nil, nil, err
+		}
+		projected := map[string]any{"id": run.ID, "role": run.Role}
+		if run.Outcome != "" {
+			projected["outcome"] = string(run.Outcome)
+		}
+		runs = append(runs, projected)
+	}
+	body := map[string]any{
+		"assignment": capability.AssignmentID,
+		"runs":       runs,
+		"complete":   false,
+		"reason":     "plan/review/inventory pages plus pagination arrive with FW40",
+	}
+	if truncated {
+		body["runs_truncated"] = true
+	}
+	return mcpJSONResult(body)
 }
 
 // serveReceipt recovers the durable receipt for one submission: the
@@ -741,3 +787,4 @@ var _ FactoryMCPCapabilitySource = (*store.Store)(nil)
 var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
 var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
 var _ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)
+var _ FactoryMCPRunSource = (*store.Store)(nil)
