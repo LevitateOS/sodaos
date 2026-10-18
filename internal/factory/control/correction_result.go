@@ -85,107 +85,166 @@ func (b *CorrectionBlock) Error() string { return "correction needs intervention
 // the required outcome. Unchanged code cannot claim a code fix.
 func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
 	var empty CorrectionAdmission
-	if err := cycle.Validate(); err != nil {
+	if err := admitCorrectionIdentity(cycle, runID, newCandidate, report); err != nil {
 		return empty, err
+	}
+	byKey := make(map[string]factory.Finding, len(report.Findings))
+	for _, finding := range report.Findings {
+		byKey[finding.Key] = finding
+	}
+	evidenceByKey, err := indexCorrectionEvidence(evidence)
+	if err != nil {
+		return empty, err
+	}
+	admission := CorrectionAdmission{
+		CycleID: cycle.ID, RunID: runID,
+		SetDigest: report.SetDigest, NewCandidate: newCandidate,
+	}
+	if err := foldCorrectionDispositions(cycle, newCandidate, report, byKey, evidenceByKey, checks, &admission); err != nil {
+		return empty, err
+	}
+	if err := checkCorrectionEvidenceCoverage(report, byKey, evidenceByKey); err != nil {
+		return empty, err
+	}
+	if err := checkCorrectionChecks(checks, newCandidate, cycle); err != nil {
+		return empty, err
+	}
+	return admission, nil
+}
+
+// admitCorrectionIdentity binds one correction report to its cycle,
+// run, candidate and finding set.
+func admitCorrectionIdentity(cycle factory.ReviewCycle, runID, newCandidate string, report factory.CorrectionReport) error {
+	if err := cycle.Validate(); err != nil {
+		return err
 	}
 	if !factory.ValidID(runID) {
-		return empty, errors.New("invalid correction run")
+		return errors.New("invalid correction run")
 	}
 	if !factory.ValidCommit(newCandidate) {
-		return empty, errors.New("correction lacks its exact candidate")
+		return errors.New("correction lacks its exact candidate")
 	}
 	if err := report.Validate(); err != nil {
-		return empty, err
+		return err
 	}
 	// The retained candidate binds the report's own nomination: the
 	// settlement-mapped candidate and the corrector's nominated tree must
 	// be the same commit, so a mismatched wiring refuses instead of
 	// advancing a tree the report never accounted.
 	if report.NewCandidate != newCandidate {
-		return empty, errors.New("correction nomination differs from its recorded candidate")
+		return errors.New("correction nomination differs from its recorded candidate")
 	}
 	if report.SetDigest != cycle.FindingDigest {
-		return empty, errors.New("correction dispositions answer a changed finding set")
+		return errors.New("correction dispositions answer a changed finding set")
 	}
-	byKey := make(map[string]factory.Finding, len(report.Findings))
-	for _, finding := range report.Findings {
-		byKey[finding.Key] = finding
-	}
+	return nil
+}
+
+// indexCorrectionEvidence indexes fix evidence by finding key,
+// refusing invalid or duplicate entries.
+func indexCorrectionEvidence(evidence []factory.CorrectionFixEvidence) (map[string]factory.CorrectionFixEvidence, error) {
 	evidenceByKey := make(map[string]factory.CorrectionFixEvidence, len(evidence))
 	for _, entry := range evidence {
 		if err := entry.Validate(); err != nil {
-			return empty, err
+			return nil, err
 		}
 		if _, dup := evidenceByKey[entry.Key]; dup {
-			return empty, errors.New("correction fix evidence repeats its key")
+			return nil, errors.New("correction fix evidence repeats its key")
 		}
 		evidenceByKey[entry.Key] = entry
 	}
-	admission := CorrectionAdmission{
-		CycleID: cycle.ID, RunID: runID,
-		SetDigest: report.SetDigest, NewCandidate: newCandidate,
-	}
+	return evidenceByKey, nil
+}
+
+// foldCorrectionDispositions folds one report's dispositions into its admission.
+func foldCorrectionDispositions(cycle factory.ReviewCycle, newCandidate string, report factory.CorrectionReport, byKey map[string]factory.Finding, evidenceByKey map[string]factory.CorrectionFixEvidence, checks *factory.CheckAssessment, admission *CorrectionAdmission) error {
 	for _, disposition := range report.Dispositions {
 		finding := byKey[disposition.Key]
 		entry, hasEvidence := evidenceByKey[disposition.Key]
 		switch disposition.Disposition {
 		case factory.DispositionDisputed:
-			return empty, &CorrectionBlock{Reason: "disputed finding " + disposition.Key}
+			return &CorrectionBlock{Reason: "disputed finding " + disposition.Key}
 		case factory.DispositionFixed:
-			if finding.FixKind == factory.FindingFixCode && newCandidate == cycle.Head {
-				return empty, errors.New("unchanged code cannot fix a code defect")
-			}
-			if !hasEvidence {
-				if finding.FixKind == factory.FindingFixCode || newCandidate != cycle.Head {
-					return empty, errors.New("fixed finding lacks its changed paths and commits")
-				}
-			} else if len(entry.ChangedPaths) == 0 && len(entry.Commits) == 0 {
-				return empty, errors.New("fixed finding lacks its changed paths and commits")
-			}
-			if newCandidate == cycle.Head {
-				if checks == nil || checks.Verdict != factory.CheckPass || checks.HeadOID != newCandidate {
-					return empty, errors.New("same-head fix lacks new passing checks on its exact head")
-				}
+			if err := checkFixedDisposition(cycle, newCandidate, finding, entry, hasEvidence, checks); err != nil {
+				return err
 			}
 			admission.Fixed = append(admission.Fixed, disposition.Key)
 		case factory.DispositionUnresolved:
 			if hasEvidence {
-				return empty, errors.New("unresolved finding carries fix evidence")
+				return errors.New("unresolved finding carries fix evidence")
 			}
 			admission.Unresolved = append(admission.Unresolved, disposition.Key)
 		case factory.DispositionDeclinedOptional:
 			if hasEvidence {
-				return empty, errors.New("declined optional finding carries fix evidence")
+				return errors.New("declined optional finding carries fix evidence")
 			}
 			admission.DeclinedOptional = append(admission.DeclinedOptional, disposition.Key)
 		default:
-			return empty, errors.New("invalid correction disposition")
+			return errors.New("invalid correction disposition")
 		}
 	}
+	return nil
+}
+
+// checkFixedDisposition requires changed paths and commits behind one
+// fixed finding, with new passing checks on a same-head fix.
+func checkFixedDisposition(cycle factory.ReviewCycle, newCandidate string, finding factory.Finding, entry factory.CorrectionFixEvidence, hasEvidence bool, checks *factory.CheckAssessment) error {
+	if finding.FixKind == factory.FindingFixCode && newCandidate == cycle.Head {
+		return errors.New("unchanged code cannot fix a code defect")
+	}
+	if !hasEvidence {
+		if finding.FixKind == factory.FindingFixCode || newCandidate != cycle.Head {
+			return errors.New("fixed finding lacks its changed paths and commits")
+		}
+	} else if len(entry.ChangedPaths) == 0 && len(entry.Commits) == 0 {
+		return errors.New("fixed finding lacks its changed paths and commits")
+	}
+	if newCandidate == cycle.Head {
+		if checks == nil || checks.Verdict != factory.CheckPass || checks.HeadOID != newCandidate {
+			return errors.New("same-head fix lacks new passing checks on its exact head")
+		}
+	}
+	return nil
+}
+
+// checkCorrectionEvidenceCoverage requires every evidence entry to
+// answer a known fixed finding.
+func checkCorrectionEvidenceCoverage(report factory.CorrectionReport, byKey map[string]factory.Finding, evidenceByKey map[string]factory.CorrectionFixEvidence) error {
 	for key := range evidenceByKey {
 		if _, ok := byKey[key]; !ok {
-			return empty, errors.New("correction fix evidence answers an unknown finding")
+			return errors.New("correction fix evidence answers an unknown finding")
 		}
-		fixed := false
-		for _, disposition := range report.Dispositions {
-			if disposition.Key == key && disposition.Disposition == factory.DispositionFixed {
-				fixed = true
-				break
-			}
-		}
-		if !fixed {
-			return empty, errors.New("correction fix evidence answers an unfixed finding")
+		if !evidenceFixesFinding(report, key) {
+			return errors.New("correction fix evidence answers an unfixed finding")
 		}
 	}
-	if checks != nil {
-		if err := checks.Validate(); err != nil {
-			return empty, errors.New("correction check evidence is malformed")
-		}
-		if checks.HeadOID != newCandidate && checks.HeadOID != cycle.Head {
-			return empty, errors.New("correction check evidence binds another head")
+	return nil
+}
+
+// evidenceFixesFinding reports whether one evidence key answers a
+// fixed disposition.
+func evidenceFixesFinding(report factory.CorrectionReport, key string) bool {
+	for _, disposition := range report.Dispositions {
+		if disposition.Key == key && disposition.Disposition == factory.DispositionFixed {
+			return true
 		}
 	}
-	return admission, nil
+	return false
+}
+
+// checkCorrectionChecks binds check evidence to the admitted or
+// cycle head.
+func checkCorrectionChecks(checks *factory.CheckAssessment, newCandidate string, cycle factory.ReviewCycle) error {
+	if checks == nil {
+		return nil
+	}
+	if err := checks.Validate(); err != nil {
+		return errors.New("correction check evidence is malformed")
+	}
+	if checks.HeadOID != newCandidate && checks.HeadOID != cycle.Head {
+		return errors.New("correction check evidence binds another head")
+	}
+	return nil
 }
 
 // admitFirstCorrectionReport binds a first correction report to the
