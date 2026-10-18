@@ -81,3 +81,78 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 		t.Fatalf("round=%+v, want no detection when the pass launched work", skipped)
 	}
 }
+
+// TestServeStallRoundGenerationReuseAndIsolation proves the R36 serving
+// joints across rounds and repositories on the real store path: the
+// detection generation reuses until verified delivery advances it, and a
+// stalled repository's bound episode and single charge never leak into a
+// sibling repository that still holds ready work.
+func TestServeStallRoundGenerationReuseAndIsolation(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const stalled, ready = 61, 62
+	grantID := "d1000000000000000000000000000061"
+	grant := factory.RepairGrant{
+		ID: grantID, Repository: stalled, Sponsor: 7, Revision: 0,
+		InvestigatorRuns: 4, ProposalJudgments: 4, ActiveMinutes: 120,
+		Active: true, CreatedUnix: 1000,
+	}
+	raw, err := json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := factory.Command{
+		ID: grantID, Type: factory.CommandRepairGrant, Target: factory.RepairTarget(stalled),
+		Principal: "soda-tester", Payload: string(raw),
+	}
+	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
+	if _, created, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, time.Now().UTC()); err != nil || !created {
+		t.Fatalf("apply grant: created=%v err=%v", created, err)
+	}
+	stallSeedControl(t, db, stalled, 1, factory.ReadinessBlocked,
+		factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+	stallSeedControl(t, db, ready, 1, factory.ReadinessQueued, factory.ReasonEligible)
+
+	byRepo := func(round StallClassification) map[int64]StallRepositoryResult {
+		out := map[int64]StallRepositoryResult{}
+		for _, result := range round.Repositories {
+			out[result.Repository] = result
+		}
+		return out
+	}
+	for round := 1; round <= 2; round++ {
+		served, err := coord.ServeStallRound(ctx, DispatchReport{})
+		if err != nil {
+			t.Fatalf("round %d: %v", round, err)
+		}
+		if served.Generation != 0 {
+			t.Fatalf("round %d generation = %d, want reused 0", round, served.Generation)
+		}
+		repos := byRepo(served)
+		stalledResult, ok := repos[stalled]
+		if !ok || stalledResult.Kind != StallRepositoryStall || !stalledResult.Investigate || stalledResult.Event == nil {
+			t.Fatalf("round %d stalled=%+v, want one bound episode", round, stalledResult)
+		}
+		readyResult, ok := repos[ready]
+		if !ok || readyResult.Kind != StallRepositoryReady || readyResult.Investigate || readyResult.Event != nil {
+			t.Fatalf("round %d ready=%+v, want resumed selection without an episode", round, readyResult)
+		}
+		if charges, err := db.RepairCharges(ctx, stalled); err != nil || len(charges) != 1 {
+			t.Fatalf("round %d stall charges=%d err=%v, want exactly one", round, len(charges), err)
+		}
+		if charges, err := db.RepairCharges(ctx, ready); err != nil || len(charges) != 0 {
+			t.Fatalf("round %d ready charges=%d err=%v, want none", round, len(charges), err)
+		}
+	}
+	standing, err := db.StandingStallEvents(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry, ok := standing[stalled]; !ok || entry.Generation != 0 {
+		t.Fatalf("standing=%+v, want the stalled generation-0 observation", standing)
+	}
+	if _, ok := standing[ready]; ok {
+		t.Fatalf("standing=%+v, want no observation for the ready repository", standing)
+	}
+}
