@@ -169,7 +169,15 @@ impl Manifest {
             .ok_or_else(|| failure("required release asset missing"))
     }
     pub(super) fn validate(&self) -> Result<(), Error> {
-        let mut names = std::collections::BTreeSet::new();
+        let has_upgrade = self.validate_manifest_header()?;
+        self.validate_asset_inventory()?;
+        self.validate_appliance_binding(has_upgrade)?;
+        self.validate_docker_binding()?;
+        self.validate_required_assets()?;
+        Ok(())
+    }
+
+    fn validate_manifest_header(&self) -> Result<bool, Error> {
         let has_upgrade = self
             .assets
             .iter()
@@ -188,6 +196,11 @@ impl Manifest {
         {
             return Err(failure("release manifest refused"));
         }
+        Ok(has_upgrade)
+    }
+
+    fn validate_asset_inventory(&self) -> Result<(), Error> {
+        let mut names = std::collections::BTreeSet::new();
         for a in &self.assets {
             if !basename(&a.name)
                 || !names.insert(&a.name)
@@ -198,6 +211,10 @@ impl Manifest {
                 return Err(failure("release asset inventory refused"));
             }
         }
+        Ok(())
+    }
+
+    fn validate_appliance_binding(&self, has_upgrade: bool) -> Result<(), Error> {
         if self.has_appliance() {
             if self.iso != ISO_NAME {
                 return Err(failure("installer asset required"));
@@ -211,6 +228,10 @@ impl Manifest {
         } else if !self.iso.is_empty() || !self.rootfs.is_empty() || has_upgrade {
             return Err(failure("Docker-only release cannot carry appliance assets"));
         }
+        Ok(())
+    }
+
+    fn validate_docker_binding(&self) -> Result<(), Error> {
         if self.docker.is_some() != (self.distribution != Distribution::Appliance) {
             return Err(failure("selected Docker binding required"));
         }
@@ -244,6 +265,10 @@ impl Manifest {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn validate_required_assets(&self) -> Result<(), Error> {
         for name in package_names(&self.tag) {
             self.asset(&name)?;
         }
