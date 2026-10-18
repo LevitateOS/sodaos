@@ -11,7 +11,7 @@
 
 **Deliver:** Review exact current preimages, patches and meaningful proposed checks. Accept useful slices or return precise defects. Reconcile orphan49, writer/resource custody and the protected dirty paths. Freeze exact files, shared contracts and next evidence for the first assignments.
 
-**Accept only when:** Every retained draft has an explicit disposition and owner; no unreviewed patch is called integrated. Current identities, commands, source hashes and exclusive writers are recorded. Further design work is limited to an identified unresolved seam.
+**Accept only when:** Every retained draft has an explicit disposition and owner; no unreviewed patch is called integrated. Current identities, commands, source hashes and exclusive writers are recorded. Bind the actual executor and next file/resource lease: the human's direct Codex handoff permits that owner without waiting for an absent Muse coordinator. A Muse assignment still requires its supported continuation and actual receipt. Further design work is limited to an identified unresolved seam.
 
 **Principal source owners:** [internal/store/factory_intents.go](../../../internal/store/factory_intents.go), [internal/factory/control](../../../internal/factory/control), [cmd/soda-project-maintain/src/command.rs](../../../cmd/soda-project-maintain/src/command.rs).
 
@@ -71,7 +71,7 @@
 
 **Principal source owners:** `Fountain:sdk`, [internal/forgejo](../../../internal/forgejo), [internal/factory/control/intent_generation.go](../../../internal/factory/control/intent_generation.go).
 
-**Additional runtime/qualification gates:** [R03](01-boundaries.md#r03). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R03](01-boundaries.md#r03), [R04](01-boundaries.md#r04). Source-only work cannot release these gates.
 
 <a id="r06"></a>
 ## R06 — Repair durable importer acquisition and process retirement
@@ -115,11 +115,13 @@
 <a id="r09"></a>
 ## R09 — Prove supported instruction placement and private MCP transport
 
-**Work:** Native proof. **Owner lane:** A. **Accepted inputs:** [R07](01-boundaries.md#r07).
+**Work:** Native proof. **Owner lane:** A. **Accepted inputs:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08).
 
 **Current:** Relay/profile staging exists; one Go SDK binary under two harness names did not qualify either real CLI integration.
 
 **Deliver:** Use supported trusted configuration/instruction channels for exact Codex and Muse pins, preserving base instructions. Prove actual CLI-to-stdio-relay-to-private-socket-to-controller discovery, admitted read/finish and receipt recovery.
+
+**Dependency boundary:** Instruction/configuration inspection can proceed alongside R08. Actual private transport proof uses R08's accepted peer and OS boundary. This proves the supported transport against a bounded fixture; production MCP authority and lifecycle are composed in R30, so R09 does not depend on the later R30 acceptance.
 
 **Accept only when:** Each admitted harness has real configuration/request-role evidence, fixed mounts and authority binding. Unsupported profiles stay unavailable. No public HTTP fallback, user-prompt authority substitute, copied provider secrets or claim based only on --help.
 

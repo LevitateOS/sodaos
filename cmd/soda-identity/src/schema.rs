@@ -461,7 +461,9 @@ mod tests {
     fn go_statements(schema_src: &str, owners: &[(&str, &str)]) -> Vec<String> {
         let start_marker = "var schemaStatements = []string{";
         let end_marker = "\n}\n\n// SchemaVersion";
-        let start = schema_src.find(start_marker).expect("schemaStatements missing")
+        let start = schema_src
+            .find(start_marker)
+            .expect("schemaStatements missing")
             + start_marker.len();
         let end = schema_src[start..]
             .find(end_marker)
@@ -496,7 +498,9 @@ mod tests {
     fn go_queries(schema_src: &str) -> Vec<String> {
         let start_marker = "for _, query := range []string{";
         let end_marker = "} {\n\t\trows, err";
-        let start = schema_src.find(start_marker).expect("verify query block missing")
+        let start = schema_src
+            .find(start_marker)
+            .expect("verify query block missing")
             + start_marker.len();
         let end = schema_src[start..]
             .find(end_marker)

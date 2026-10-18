@@ -15,12 +15,12 @@
 
 **Principal source owners:** [internal/factory/control/publication.go](../../../internal/factory/control/publication.go), [internal/factory/control/review_cycle.go](../../../internal/factory/control/review_cycle.go), [internal/factory/control/checks_pass.go](../../../internal/factory/control/checks_pass.go), [internal/factory/control/merge_authorization.go](../../../internal/factory/control/merge_authorization.go).
 
-**Additional runtime/qualification gates:** [R05](01-boundaries.md#r05). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R05](01-boundaries.md#r05), [R17](02-prompt-to-pr.md#r17). Source-only work cannot release these gates.
 
 <a id="r21"></a>
 ## R21 — Sponsor bounded merge-in correction when the base advances
 
-**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R20](03-review-merge-reassessment.md#r20), [R15](02-prompt-to-pr.md#r15).
+**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R19](02-prompt-to-pr.md#r19), [R20](03-review-merge-reassessment.md#r20), [R15](02-prompt-to-pr.md#r15).
 
 **Current:** Holding a base-ahead candidate exists as a draft; holding is not an actual correction sponsor.
 
@@ -71,6 +71,8 @@
 
 **Deliver:** Produce durable explicit complete-clear acceptance with zero delivery calls, or a finite funded Jev routing/acceptance from complete current evidence. Connect both to the same authorization flow and bounded review/correction accounting.
 
+**Dependency boundary:** Recording complete review/delivery acceptance can proceed while native CI is pending. R26 joins that acceptance with R25's exact checks and the remaining current authority gates before any new merge operation; acceptance alone does not grant merge authority.
+
 **Accept only when:** Real serving callers reach AdmitClearReview/AdmitJevAcceptance and AuthorizeMerge. DeliveryCalls=0 permits valid clean acceptance. Uncertainty waits; optional/disputed/repetitive feedback cannot buy endless reviews; all unchanged-head and cumulative limits survive restart.
 
 **Principal source owners:** [internal/factory/control/delivery_acceptance.go](../../../internal/factory/control/delivery_acceptance.go), [internal/factory/control/merge_authorization.go](../../../internal/factory/control/merge_authorization.go), [internal/factory/control/review_cycle.go](../../../internal/factory/control/review_cycle.go).
@@ -93,7 +95,7 @@
 <a id="r26"></a>
 ## R26 — Gate every merge path with current acceptance and authorization
 
-**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R20](03-review-merge-reassessment.md#r20), [R24](03-review-merge-reassessment.md#r24), [R25](03-review-merge-reassessment.md#r25).
+**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R20](03-review-merge-reassessment.md#r20), [R21](03-review-merge-reassessment.md#r21), [R24](03-review-merge-reassessment.md#r24), [R25](03-review-merge-reassessment.md#r25).
 
 **Current:** Merge primitives/generations/recovery exist; the real acceptance producer and all current consumers remain incomplete.
 

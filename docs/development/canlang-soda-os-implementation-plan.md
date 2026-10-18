@@ -1,16 +1,32 @@
 # Canlang and Soda OS implementation plan
 
-**Implementation in progress · owner decisions and native evidence updated 14 October 2026**
+**Runtime replacement planned 18 October 2026 · historical native evidence from 14 October 2026**
+
+The [production workerd investigation and implementation chapter](canlang-soda-os-implementation-plan/production-workerd.md)
+now owns the proposed replacement of Miniflare in production. It recommends
+direct pinned workerd, a maintained D1 provider, the existing Files actor and
+Soda lifecycle, with an explicitly separate production dependency closure.
+The current request authorizes investigation and planning; this update does
+not implement or deploy the replacement. Native storage, parent-death/writer
+ownership and retained-data compatibility are first implementation gates.
+
+Completed results below describe the historical Miniflare implementation.
+P14–P16 and the affected P25–P29 portions are reopened for the replacement;
+their existing evidence is preserved. The chapter decomposes those same task
+IDs and feeds the already-open P30/P31/G4. It does not create a second task queue
+or reopen unrelated application semantics and administration.
 
 Canlang applications should be developed in Soda OS Project OS and deployed to a separate Rocky Linux application container for a small team on one private appliance. The application runs on Cloudflare's open source **workerd** runtime, with local implementations of the services its compiled artifact requires. Soda OS supplies deployment administration, private access, supervision and recovery; Canlang retains ownership of application semantics, identity, storage and background work.
 
 This is feasible within that bounded scope. Packaging workerd is the easy part. The substantial work is completing Canlang's existing runtime joins and proving that local service implementations preserve acknowledged writes, file lifecycle, work delivery and migration rules. A container cannot package Cloudflare's entire managed platform or automatically inherit its production guarantees.
 
-The owner authorized local implementation and verification. Appliance-managed
+The earlier implementation used appliance-managed
 lifetime, separate Rocky runtime/app images, the pinned Miniflare/workerd launcher,
-app-local owner bootstrap and explicit stopped backups are adopted. First-app
+app-local owner bootstrap and explicit stopped backups. First-app
 scope is D1, accounts/browser/MCP, persistent files and durable scheduled work,
 with separate private app hostnames and the existing local/supplied TLS policy.
+The new production-runtime recommendation is defined by the linked chapter;
+these historical implementation choices are not evidence for its new runtime.
 Automatic backup frequency and recovery objectives remain unset. Publication and
 deployment to an existing appliance are outside this task.
 
@@ -181,7 +197,7 @@ than whether its provider runs in the same container.
 | --- | --- | --- |
 | R01 | **One application contract across targets.** Reuse Canlang's emitted application, deployment descriptor and portable worker bundle. Target adapters supply configuration and providers without changing application semantics. | The same compiled application can be packaged for Cloudflare and Soda without target-specific application source edits, provided its requirements are supported by both. Validate the claimed common subset on both targets. P04, P14, P17. |
 | R02 | **Declare and check capabilities.** Reuse the existing Canlang compatibility descriptor for required capabilities, bindings, secrets and schedules. Describe each environment's actual provider support in machine-readable form. | Build/preflight explains unsupported requirements; installation/activation refuses them before application effects. Diagnostics name the requirement and target. A configuration declaration or success stub is not proof of a provider. P04, P12, P13. |
-| R03 | **Record execution compatibility.** Pin installed workerd, Miniflare, Node and Canlang producer versions; preserve the application's compatibility date and flags on every target. Cloudflare manages its own runtime binary. | Development and Soda production use the qualified versions and settings recorded in their manifests. Native Rocky execution passes G1; Node may launch Miniflare but does not replace workerd as the application's execution engine. P02, P03, P14. |
+| R03 | **Record execution compatibility.** Pin workerd, Node, Canlang producer and provider versions; development also pins Miniflare. Preserve the application's compatibility date and flags separately from provider settings. Cloudflare manages its own runtime binary. | Production uses the separately inventoried direct-workerd closure proposed in the replacement chapter; its native G1 evidence is required. Development retains its own Miniflare closure. Node owns host tooling while workerd executes the application. P02, P03, P14. |
 | R04 | **Ship a complete developer environment.** Package the compiler, matching platform tools, runtime dependencies and local providers in the existing Project OS. | A fresh Project can compile, start an HTTP preview and run actual application examples without a Canlang source checkout or startup dependency downloads. Preview data persists across preview restart; test fixtures are isolated. Existing Projects use explicit same-root maintenance. P05, P17, P18. |
 | R05 | **Define production execution separately.** Specify the runtime entrypoint, permissions, app payload, providers, storage and credentials independently of development. Distinct final images and appliance-managed lifetime are adopted. | The app starts from installed artifacts without building or downloading dependencies and does not acquire developer privileges, homes, engine access or credentials. It must remain available when its Project stops. P16, P21, P26. |
 | R06 | **Separate and preserve state.** Give development, tests and production distinct writable storage and resource identities. Follow [Persistence and operations](#persistence-and-operations) for production data. | Acknowledged database/file/work state survives the promised restart and replacement operations. Missing required storage refuses startup instead of silently becoming ephemeral. Backup/restore and migration behavior pass G2/G3. P09, P11, P15, P25, P26. |
@@ -208,7 +224,7 @@ admitted Canlang/workerd tools. Separate production recipes live under
 | Local preview and test execution | Canlang `packages/cloudflare/src/dev/local-run.ts` and `packages/cloudflare/src/cli/platform.ts` | Complete the existing local runner/CLI using shared assembly; Soda only installs and invokes the tools. |
 | Self-hosted target and provider configuration | Proposed focused modules alongside Canlang's existing `packages/cloudflare/src/deploy/` code, P14 | Own binding construction, persistence configuration and runtime launch in Canlang. Freeze exact module names during P04; keep the Cloudflare target intact. |
 | Rocky developer image | [system/project/Containerfile](../../system/project/Containerfile), [rootfs](../../system/project/rootfs/) and [public tool acquisition](../../tools/release-assets/src/fetch/) | Add verified installed compiler/platform/runtime assets and explicit maintenance support. |
-| Rocky production runtime image | `system/containers/canlang/Containerfile` and its image assets, P16 | Package the qualified Canlang launcher/providers with Rocky userspace and dedicated app data mounts. Full dependency closure ships; further package minimization is deferred. |
+| Rocky production runtime image | `system/containers/canlang/Containerfile` and its image assets, P16 | Package only the separately qualified production subtree with Rocky userspace and dedicated app data mounts; preserve direct runtime, provider and license inventory. The Project retains the development closure. |
 | Appliance lifecycle and service units | [lib/host/src/](../../lib/host/src/) and [system/host/services/](../../system/host/services/), P21 | Add dedicated application operations using existing Rust host ownership and systemd/Podman. Project preview remains inside the Project boundary. |
 | App administration and API | Proposed Go application domain under `internal/`, existing [store](../../internal/store/) and [web API](../../internal/web/api/), P20/P23 | Own app/deployment metadata and authorization, while Canlang owns application behavior and data semantics. Exact new package allocation remains P20 work. |
 | Release image and tool delivery | [production_images.rs](../../lib/soda-release-build/src/production_images.rs), [production_inputs.rs](../../lib/soda-release-build/src/production_inputs.rs), [production_assets.rs](../../lib/soda-release-build/src/production_assets.rs), [tools/release-assets/](../../tools/release-assets/) | Integrate qualified image inputs and public tools through existing release owners after runtime proof. |
@@ -279,7 +295,14 @@ Soda evidence: [Project OS image](https://github.com/levitateos/sodaos/blob/9a8d
 
 workerd supports self-hosting, but its standard Linux binary needs glibc 2.35 or later and specific CPU features. Rocky 10 raises the x86 baseline to x86-64-v3. The actual appliance CPU, final image libraries and selected binary must pass the first native proof; a compatible container cannot supply missing CPU instructions. workerd also cautions that its standalone isolate sandbox does not reproduce Cloudflare's complete protection against malicious code. [workerd requirements](https://github.com/cloudflare/workerd#running-workerd), [Rocky 10 architecture requirements](https://docs.rockylinux.org/latest/releases/release_notes/10_0/).
 
-The initial runtime candidate must retain Canlang's locked Miniflare `4.20260730.0` and workerd `1.20260730.1`, with Node 22 or later and the selected compatibility date/flags recorded separately. Miniflare is documented as a development and testing tool. Using it for production would be a maintained Canlang/Soda profile with its own durability and lifecycle evidence. [Canlang lock](https://github.com/veighnsche/canlang/blob/96cf12f5509f96286f171a13e5a1e372f857959f/bun.lock), [pinned Node requirement](https://github.com/cloudflare/workers-sdk/blob/miniflare%404.20260730.0/packages/miniflare/package.json), [Miniflare purpose](https://developers.cloudflare.com/workers/testing/miniflare/).
+The historical candidate used Miniflare `4.20260730.0` and workerd
+`1.20260730.1`. The replacement starts with the same workerd binary to isolate
+the orchestration/provider change, with the currently admitted Node `24.22.0`
+and separate application/provider compatibility settings. Miniflare remains a
+development/testing dependency. The [replacement investigation](canlang-soda-os-implementation-plan/production-workerd.md)
+records exact upstream commits, native storage caveats and production gates.
+The service table below remains feasibility context, not a production claim for
+every Miniflare plugin. [Miniflare purpose](https://developers.cloudflare.com/workers/testing/miniflare/).
 
 | Capability | Local feasibility and requirement |
 | --- | --- |
@@ -304,8 +327,8 @@ The supported capability matrix must be machine-readable and consumed by build, 
 
 | Option | Benefit | Cost and decision |
 | --- | --- | --- |
-| Embedded pinned Miniflare and workerd | Reuses Canlang's current package, local providers and bundle assembly. Lowest cost path to native evidence. | Recommended first candidate, conditional on production proof. Add a dedicated launcher and persistent configuration; disable development interfaces. |
-| Direct workerd with local provider workers | Explicit runtime configuration and fewer development orchestration assumptions. | Keep as an alternative if a demonstrated Miniflare limitation blocks the required app. D1/R2 providers and protocols still need ownership; direct workerd does not remove storage-format concerns. |
+| Embedded pinned Miniflare and workerd | Reuses the current package, local providers and bundle assembly; supplied the recorded first native evidence. | Historical baseline. Superseded as the recommended production architecture by the 18 October investigation. Retain for development/testing. |
+| Direct workerd with local provider workers | Explicit runtime configuration and a separate production dependency closure. | Recommended replacement candidate: built-in D1 client plus maintained backend and existing Files actor. Native storage, lifetime and retained-data gates remain open; see the linked chapter for exact ownership/tasks. |
 | Local execution with remote Cloudflare bindings | Retains selected managed services. | Optional future mode with explicit internet, credentials, latency and outage behavior. Development remote-binding support does not establish a production adapter contract. |
 | Reimplement every Cloudflare service | Potentially broad compatibility. | Reject for this scope. It creates a platform maintenance project before the first local application is proven. |
 
@@ -350,7 +373,13 @@ by the existence of a Rocky developer image.
 
 Place persistent application state on the explicitly admitted roomy `/home` filesystem. The small root disk is excluded. A stable app data identity owns database files, object metadata/blobs, Durable Object state and durable work records. Bind names and storage identities survive image replacement. Only one runtime may write a given data directory.
 
-For pinned Miniflare v4, configure and verify `defaultPersistRoot` or the selected `d1Persist`, `r2Persist`, `kvPersist` and `durableObjectsPersist` options. Do not rely on temporary defaults or copy persistence option names from a later major version. A missing, read-only or full required mount must fail visibly rather than fall back to ephemeral storage. [Pinned Miniflare API](https://github.com/cloudflare/workers-sdk/blob/miniflare%404.20260730.0/packages/miniflare/README.md).
+The historical runtime uses pinned Miniflare persistence options. The direct
+replacement must preserve the actual D1/actor disk roots, namespace keys,
+object-ID inputs and auxiliary alarm/WAL metadata listed in the
+[storage contract](canlang-soda-os-implementation-plan/production-workerd.md#files-scheduling-and-storage-identity).
+A missing, read-only or full required mount must fail visibly rather than fall
+back to ephemeral storage. Reopening a stopped copy of retained baseline data
+is required before claiming runtime-only replacement compatibility.
 
 Systemd owns boot and restart supervision; Soda records requested operations and observes the actual container generation and health. Opening a browser view does not start or deploy an app. Start and Stop retain its data. Replacement and activation are explicit operations; deleting data is a separate action with its own authority.
 
@@ -379,6 +408,8 @@ Use an explicitly configured private endpoint and TLS policy. The existing Caddy
 The first qualification app should exercise two users, team access, a state mutation, a denied mutation, a file upload/download, and durable scheduled work with a declared test provider. Include explicit DO or named-queue fixtures when those capabilities are claimed. No broad release build is needed to answer G1 or G2.
 
 ## Ordered implementation tasks
+
+Reopened runtime tasks use the [replacement substeps](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies). Their result paragraphs below record the historical implementation; direct-workerd acceptance remains open. Completed app/domain/UI work retains its evidence.
 
 Items are authorized for local implementation in dependency order. Dependencies
 identify demonstrated outcomes, not merely started work. Older source gap claims
@@ -441,17 +472,17 @@ ownership queues, not a requirement for simultaneous workers.
 
   **Current result:** Actual D1/provider/work inventory, producer compatibility, inactive mutation/MCP-grant refusal and exclusive writer admission are wired. Semantic migrations/changed artifact activation are refused pending qualification.
 
-- [x] **P14 Implement the Canlang Soda target assembler and launcher** — Lane D, depends on P13 and P05. Add narrowly scoped target modules and expose common bundle operations. Construct actual bindings, persistent paths and server-only provider inputs with explicit outbound destinations; start/stop with health and admission shutdown. Completion: one installed target serves the exact artifact without source siblings; configured provider calls use injected credentials without placing them in app artifacts.
+- [ ] **P14 Implement the Canlang Soda target assembler and launcher** — Lane D, depends on P13 and P05. Add narrowly scoped target modules and expose common bundle operations. Construct actual bindings, persistent paths and server-only provider inputs with explicit outbound destinations; start/stop with health and admission shutdown. Completion: one installed target serves the exact artifact without source siblings; configured provider calls use injected credentials without placing them in app artifacts.
 
   **Current result:** Installed can-soda assembles the portable bundle and launches actual workerd with explicit storage, owner, origin, limits and supervised shutdown. No configured external provider call is supported.
 
-- [x] **P15 Qualify the complete runtime on native Rocky** — Lane D, depends on P07, P09, P11, P12, P13 and P14. Exercise browser/MCP, concurrent writes, files/work, abrupt restart/replacement and missing/full/read-only mounts. Check real installed provider inventory, inactive grant/mutation refusal and active admission through P13's gates. Completion: G2 and a precise supported-service matrix; failures return to their owner tasks.
+- [ ] **P15 Qualify the complete runtime on native Rocky** — Lane D, depends on P07, P09, P11, P12, P13 and P14. Exercise browser/MCP, concurrent writes, files/work, abrupt restart/replacement and missing/full/read-only mounts. Check real installed provider inventory, inactive grant/mutation refusal and active admission through P13's gates. Completion: G2 and a precise supported-service matrix; failures return to their owner tasks.
 
   **Current result:** Selected first-app G2 passed across native/process/Rocky replacement and P16 abrupt termination. Missing/read-only required storage refuses. Actual bounded-filesystem D1 exhaustion returned a visible failed mutation, rejected startup, and recovered the prior acknowledged record with failed write absent; the same valid input succeeded after freeing space. Wider Files/provider failure modes and external providers are not claimed by this first-app proof.
 
 ### Package distinct development and production environments
 
-- [x] **P16 Finalize the application image** — Lane D, depends on P15. Proposed owner: `system/containers/canlang/`. Prebuild locked dependencies and app packaging, use an unprivileged account, bounded writable paths/resources, direct runtime startup and correct signals. Completion: offline startup, production-only endpoints, stable data identity and no development privilege/credential inheritance. Trim packages after these checks pass.
+- [ ] **P16 Finalize the application image** — Lane D, depends on P15. Proposed owner: `system/containers/canlang/`. Prebuild locked dependencies and app packaging, use an unprivileged account, bounded writable paths/resources, direct runtime startup and correct signals. Completion: offline startup, production-only endpoints, stable data identity and no development privilege/credential inheritance. Trim packages after these checks pass.
 
   **Current result:** Separate immutable runtime/app recipes qualified offline as UID10000, read-only root and constrained resources; exact bytes survive SIGTERM/SIGKILL replacement with data/session/File/work persistence. Dormant authoring JS remains within the full library closure; further minimization is deferred.
 
@@ -489,25 +520,25 @@ ownership queues, not a requirement for simultaneous workers.
 
   **Current result:** Existing Spaces controls and uncertainty/confirmation behavior passed real Chromium component tests. Full installed administration journey remains open.
 
-- [x] **P25 Implement stopped backup and fresh-volume restore** — Lane F Rust, depends on P16 and P21. Reuse existing native tooling owners and keep state on `/home`. Completion: a consistent full manifest/database/blob/work backup restores into a separate data identity, verifies application records/checksums and never overwrites later protected writes implicitly. Record RPO, restore procedure and recovery time from the actual proof.
+- [ ] **P25 Implement stopped backup and fresh-volume restore** — Lane F Rust, depends on P16 and P21. Reuse existing native tooling owners and keep state on `/home`. Completion: a consistent full manifest/database/blob/work backup restores into a separate data identity, verifies application records/checksums and never overwrites later protected writes implicitly. Record RPO, restore procedure and recovery time from the actual proof.
 
   **Current result:** Actual stopped full-tree backup/checksum and fresh-directory restore, followed by real app login/record/File read and duplicate-work check, passed. Targets remain unset; timings are fixture measurements, not guarantees.
 
-- [x] **P26 Qualify native lifecycle and upgrade recovery before release integration** — Lanes A and D with the integration owner, depends on P13, P16, P21, P22 and P25. Prove Project-stop independence, host reboot, private access, backup/restore and migration/readiness/ingress switching against exact versions. Completion: G3 before release staging, including successful and failed upgrades; incompatible old writers cannot return and image rollback cannot stand in for database rollback.
+- [ ] **P26 Qualify native lifecycle and upgrade recovery before release integration** — Lanes A and D with the integration owner, depends on P13, P16, P21, P22 and P25. Prove Project-stop independence, host reboot, private access, backup/restore and migration/readiness/ingress switching against exact versions. Completion: G3 before release staging, including successful and failed upgrades; incompatible old writers cannot return and image rollback cannot stand in for database rollback.
 
   **Current result:** G3 component gate passed: actual host reboots, Project-stop independence, private-host trusted HTTPS, same-artifact image replacement, stale/mismatched runtime admission refusal before effects, stopped backup/fresh restore and real workerd reopen. Full matching-source release and physical LAN/Tailnet clients remain G4/ingress qualification. Only same-artifact/bundle image replacement is supported; migrations/semantic upgrades reject before effects. This bounded evidence permits P27 source integration.
 
 ### Integrate release delivery and demonstrate the full journey
 
-- [x] **P27 Integrate runtime images into Soda release delivery** — Lane G, depends on P16 and P26. Current build owners include `production_images.rs`, `production_inputs.rs` and `production_assets.rs`; update image/media models, payload validation/import and installed bindings coherently. Completion: admitted image digests and attribution ship through the native candidate, with offline availability and no app rebuild during appliance activation.
+- [ ] **P27 Integrate runtime images into Soda release delivery** — Lane G, depends on P16 and P26. Current build owners include `production_images.rs`, `production_inputs.rs` and `production_assets.rs`; update image/media models, payload validation/import and installed bindings coherently. Completion: admitted image digests and attribution ship through the native candidate, with offline availability and no app rebuild during appliance activation.
 
   **Current result:** Source integration complete after G3 component evidence. Existing seven-role build/export/payload/media/installer/offline-import/maintenance owners and content attribution checks passed focused tests. Actual qualified runtime OCI export/readback passed. Selected release runtime/tool pins reject mismatch before effects in the fresh CoreOS VM. Full matching-source candidate execution remains P31/G4; the component export is not relabeled a full candidate.
 
-- [x] **P28 Integrate Project tool assets into release staging** — Lane G, depends on P18 and P19. Use the existing `tools/release-assets/` and native tool producers with verified compiler/platform/editor assets. Completion: fresh and explicitly maintained Project environments consume matching installed releases, checksums and licenses.
+- [ ] **P28 Integrate Project tool assets into release staging** — Lane G, depends on P18 and P19. Use the existing `tools/release-assets/` and native tool producers with verified compiler/platform/editor assets. Completion: fresh and explicitly maintained Project environments consume matching installed releases, checksums and licenses.
 
   **Current result:** Public archive admission, immutable git-snapshot checksum handoff, Project staging and host maintenance archive/lock delivery implemented and source-tested. Genuine retained Project compilation, protected preview persistence, isolated examples, active maintenance refusal and stopped same-root refresh passed in CoreOS. The complete fresh current Project image passed the same offline workflow and LSP; matching-release appliance Create/boot remains G4.
 
-- [x] **P29 Write the operator and developer procedures** — Lane G, depends on P22, P23, P24, P25 and P26. Proposed guide: `docs/guides/canlang-applications.md`; update existing Project/development references. Completion: compile, preview, owner bootstrap, deploy, access, secrets, maintenance, backup, restore and upgrade procedures match real behavior and state capability limits.
+- [ ] **P29 Write the operator and developer procedures** — Lane G, depends on P22, P23, P24, P25 and P26. Proposed guide: `docs/guides/canlang-applications.md`; update existing Project/development references. Completion: compile, preview, owner bootstrap, deploy, access, secrets, maintenance, backup, restore and upgrade procedures match real behavior and state capability limits.
 
   **Current result:** Current developer/operator procedures written in the canonical application guide and owning Project/release references, with explicit capability limits. Actual native CoreOS component procedures passed; full installed administration remains G4.
 
@@ -585,6 +616,7 @@ Refresh the source baseline and task placements before execution if either repos
 | Decision | Current owner decision | Required by |
 | --- | --- | --- |
 | Production ownership | Appliance-managed application, independent of its Project | P01 and P20 |
+| Production runtime replacement | Proposed direct-workerd/provider closure from the 18 October investigation; historical Miniflare implementation retained as baseline until qualified cutover | P14–P16 and affected P25–P29 |
 | Artifact packaging | Admitted generic runtime base plus exact app image | P01 and P02 |
 | Required service set | D1/auth/MCP/browser plus files and durable scheduled work for the first complete app; other requirements explicit | P01 and P04 |
 | App owner and identity | Explicit Canlang owner bootstrap; no automatic Forgejo principal substitution | P01 and P07 |

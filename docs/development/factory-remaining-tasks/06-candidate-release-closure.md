@@ -5,24 +5,30 @@
 <a id="r50"></a>
 ## R50 — Finish protected release-evidence admission and finalization
 
-**Work:** Implement and prove. **Owner lane:** C. **Accepted inputs:** [R45](05-experience-and-development.md#r45), [R49](05-experience-and-development.md#r49).
+**Work:** Implement and prove. **Owner lane:** C. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
 **Current:** Original RT01 protected admission/finalization remains an explicit acceptance obligation; source or fixture success is not releasable evidence.
 
-**Deliver:** Close actual protected admission/controller/finalization joins using the existing candidate pipeline. Bind source/artifact/media/architecture/fixture identity and qualified upgrade-source observations before allowing existing finalization.
+**Deliver:** Close the protected admission/controller/finalization mechanism in the existing candidate pipeline. Prove its exact identity, failure and recovery rules with the smallest isolated development inputs. A qualified existing upgrade source must be bound when selected; an unavailable future source remains a precise external case.
 
-**Accept only when:** Failed/cancelled/incomplete/mismatched/forged evidence refuses; valid protected evidence reaches finalization without rebuilding tested bytes. Development fixtures never authorize production release. Do not replace guards with optimistic acceptance or unreleased compatibility branches.
+**Accept only when:** Focused valid/failed/cancelled/incomplete/mismatched/forged cases and the native protected boundary prove the executable mechanism, including preservation and recovery. Valid development evidence exercises finalization without rebuilding those tested bytes, while remaining non-qualifying for production release. As original RT01 requires, this proof precedes candidate production and does not depend on R49 or the future R51/R52 candidate. Actual shipping-byte observations are collected in R52 and consumed by R53; this task does not assert them in advance. Do not replace guards with optimistic acceptance or unreleased compatibility branches.
+
+**Milestones:** First implement and narrowly prove admission/finalization here; after R51/R52, exercise that accepted mechanism with the real candidate under R53. These are different evidence layers, with no dependency from this prerequisite back to its future candidate.
 
 **Principal source owners:** [lib/soda-release-tools](../../../lib/soda-release-tools), [tools/release-assets](../../../tools/release-assets), [docs/development/native-support.md](../../../docs/development/native-support.md), [docs/development/release.md](../../../docs/development/release.md).
 
 <a id="r51"></a>
 ## R51 — Produce one coherent current x86_64 candidate
 
-**Work:** Candidate production. **Owner lane:** C. **Accepted inputs:** [R02](01-boundaries.md#r02), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R50](06-candidate-release-closure.md#r50).
+**Work:** Candidate production. **Owner lane:** C. **Accepted inputs:** [R02](01-boundaries.md#r02), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R49](05-experience-and-development.md#r49), [R50](06-candidate-release-closure.md#r50), [R54](06-candidate-release-closure.md#r54).
 
 **Current:** Current source publication does not refresh packaged/installed pins or produce a complete attributable appliance.
 
 **Deliver:** Use existing production/staging tools for exact Fountain/SDK/package/backend/host/Project OS/source/component identities, notices and media. Reuse unchanged outputs by real inputs and update pins only as a coherent reviewed set.
+
+**Input gate before building:** Resolve the existing candidate pipeline's immutable Fountain release manifest/image/archive and every required component by real URL, digest and source identity. A source push is insufficient. If an input is unavailable, prepare its component release through its owning pipeline and obtain any required publication authorization for that concrete input batch before this build. Keep the missing input explicit; do not wait until R53 to discover it or invent a URL. R53 publishes the finished product after candidate qualification.
+
+**Source freeze:** R49 supplies the complete development proof; R54 closes source/caller/selector/docs changes before these bytes are produced. Any later source, pin, asset or package change returns to this candidate boundary and invalidates affected R52/R53 receipts.
 
 **Accept only when:** The complete stage is attributable and native-checkable for x86_64; unsupported architectures refuse before fetching inputs. No obsolete alternate build engine, guessed component/public URL or hidden mismatch between local SDK replacement and packaged source pin. Candidate production is not installed qualification.
 
@@ -48,7 +54,7 @@
 
 **Current:** Fountain source push is complete; no current public component/media release qualification is established.
 
-**Deliver:** Prepare the exact immutable component/package/image/archive/media/metadata release batch. Obtain the required explicit publication authorization when the batch is concrete, then use the documented release path and qualify actual public downloads.
+**Deliver:** Prepare the exact immutable finished-product package/image/archive/media/metadata batch, referencing the already resolved input components from R51. Consume R52's protected exact-candidate evidence through the R50 mechanism, obtain the required explicit publication authorization when the batch is concrete, then use the documented release path and qualify actual public downloads. Component inputs needed to build the candidate cannot be postponed to this final publication step.
 
 **Accept only when:** Published URLs/digests/provenance and downloaded/installable bytes match the already qualified candidate. No force/settings/protection bypass or inferred deployment permission. This task list and the earlier origin-push instruction do not themselves authorize product release/deployment.
 
@@ -57,13 +63,13 @@
 <a id="r54"></a>
 ## R54 — Finish one-current-path cutover, docs and safe resource accounting
 
-**Work:** Cutover and documentation. **Owner lane:** Coordinator. **Accepted inputs:** [R41](04-controls-repair-verification.md#r41), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R50](06-candidate-release-closure.md#r50), [R51](06-candidate-release-closure.md#r51).
+**Work:** Cutover and documentation. **Owner lane:** Coordinator. **Accepted inputs:** [R41](04-controls-repair-verification.md#r41), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R49](05-experience-and-development.md#r49), [R50](06-candidate-release-closure.md#r50).
 
 **Current:** Current implementation owners exist; full removal/caller/documentation/installed-selector closure is not independently accepted.
 
-**Deliver:** Remove evidenced obsolete runner/transport/result/format paths and their actual callers/tests/assets/selectors with each replacement. Reconcile product/architecture/reference/operator/handbook truths, licensing and final pins. Account for exact task-owned resources after custody release.
+**Deliver:** Remove evidenced obsolete runner/transport/result/format paths and their actual callers/tests/assets/selectors with each replacement, then close source/staging/support/documentation gaps before R51 freezes candidate bytes. Reconcile product/architecture/reference/operator/handbook truths, licensing and final pins. Release disposable development resources only after their custody has ended; keep candidate qualification fixtures available through R52/R53 and account for their final release in R55.
 
-**Accept only when:** No parallel legacy reader/engine or misleading existing-interface/public-readiness claim remains. Native Actions and human work are preserved, no broad prune occurs, and resources with unknown ownership remain explicit. Completed planning material is absorbed only after its requirements/evidence are carried forward.
+**Accept only when:** No parallel legacy reader/engine or misleading existing-interface/public-readiness claim remains, and all shipping source/selector changes are complete before candidate production. Native Actions and human work are preserved, no broad prune occurs, and resources with unknown ownership remain explicit. Publication receipts and actual URLs can be recorded under R53 after qualification without changing tested product bytes; any byte-changing correction requires a new R51 candidate. Completed planning material is absorbed only after its requirements/evidence are carried forward.
 
 **Principal source owners:** [docs/README.md](../../../docs/README.md), [docs/development/factory-implementation-plan.md](../../../docs/development/factory-implementation-plan.md), [docs/development/factory-workflow-plan.md](../../../docs/development/factory-workflow-plan.md), [docs/reference](../../../docs/reference), [docs/public](../../../docs/public).
 

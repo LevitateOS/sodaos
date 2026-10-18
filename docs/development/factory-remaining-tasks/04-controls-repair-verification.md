@@ -11,6 +11,12 @@
 
 **Deliver:** Connect one server and fixed relay to exact role/subject/repository/revision/run/incarnation authority, trusted startup, reconnect/stop and receipt lifecycle. Activate only after the native boundaries actually pass.
 
+**Ralph absorption addition:** Extend this same MCP authority to R32's typed role
+communication. Derive author, role, run, assignment and subject from admission;
+apply lifetime, replay, revocation and cross-scope refusal to communication as
+well as formal results. Keep the existing Factory server/relay and profiles.
+Native child/lane presentation does not grant the parent's mutation capability.
+
 **Accept only when:** Cross-scope/expired/revoked/forbidden calls refuse server-side. Replay returns the same receipt, conflict refuses, restart/rebind cannot renew authority. No secrets in prompts/argv/logs or broad operator/extension socket exposure.
 
 **Principal source owners:** [cmd/soda-dashboard/factory_mcp.go](../../../cmd/soda-dashboard/factory_mcp.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/mcp_admission.go](../../../internal/factory/control/mcp_admission.go), [internal/store/factory_mcp_capability.go](../../../internal/store/factory_mcp_capability.go), [lib/host/src/terminal/factory/mcp_relay.rs](../../../lib/host/src/terminal/factory/mcp_relay.rs).
@@ -37,6 +43,28 @@
 
 **Deliver:** Bind product-plan and issue-plan prompts/results to current common dispatch, semantic graph/manifest proposal adoption and immutable executable plans, with explicit product attention and observed terminal settlement.
 
+**Ralph absorption addition:** Own the common typed communication producer for
+all seven admitted roles: **ask, flag, learned, suggest, partial, blocked, stuck
+and done**, following the
+[verb blueprint](../../design/factory-feed-and-ralph-integration.md#adopted-verb-vocabulary).
+Resolve the exact tool representation/schemas within Soda's existing MCP system,
+reuse Ralph's useful structured payloads, and persist attributable submissions
+and revisions through the existing domain/Store owners. Link canonical findings,
+plans and evidence instead of creating duplicate truth. Done uses each role's
+existing finish control; R33/R34/R40 retain ownership of their role-specific
+downstream effects. Partial progress is nonterminal unless the role explicitly
+finishes incomplete through R35. Ask/reply and suggest follow existing product
+review/adoption authority; blocked/stuck are reports for deterministic assessment,
+not caller-authorized readiness transitions. R42 consumes these records.
+
+**Additional acceptance:** Exercise each verb with actual persisted readback and
+the admitted role/run binding. Forged authors, wrong scope, changed-content
+replay, expired/revoked capabilities and terminal-afterlife mutation refuse.
+Question/answer, partial progress, known blocker and diagnosis-needed reports
+remain distinct; no communication grants approval, resets allowances or turns an
+agent's done report into verified completion. Update affected prompt/tool
+contracts and consumers together when the extension representation is selected.
+
 **Accept only when:** Real handler→controller→Store→permitted native effect→readback cases pass for both controls and all refusals. No-repository drafts launch nothing, model output grants no approval, and accepted finish cannot advance while the process remains uncertain.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/intent_generation.go](../../../internal/factory/control/intent_generation.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
@@ -57,7 +85,7 @@
 <a id="r34"></a>
 ## R34 — Connect Inspector and Fixer finish controls to native review/correction
 
-**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R24](03-review-merge-reassessment.md#r24).
+**Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R24](03-review-merge-reassessment.md#r24), [R33](04-controls-repair-verification.md#r33).
 
 **Current:** Profiles and finish proposal receipts exist; full permitted native effects and downstream acceptance are unqualified.
 
@@ -70,7 +98,7 @@
 <a id="r35"></a>
 ## R35 — Finish incomplete, handoff and terminal settlement semantics
 
-**Work:** Implement and integrate. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31).
+**Work:** Implement and integrate. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R11](02-prompt-to-pr.md#r11).
 
 **Current:** Control/proposal scaffolding exists; terminal versus nonterminal lifecycle composition remains open.
 
@@ -111,7 +139,7 @@
 <a id="r38"></a>
 ## R38 — Implement trusted Test Pilot manifests and artifact verification
 
-**Work:** Implement and prove. **Owner lane:** A. **Accepted inputs:** [R10](01-boundaries.md#r10), [R18](02-prompt-to-pr.md#r18), [R27](03-review-merge-reassessment.md#r27).
+**Work:** Implement and prove. **Owner lane:** A. **Accepted inputs:** [R10](01-boundaries.md#r10), [R13](02-prompt-to-pr.md#r13), [R18](02-prompt-to-pr.md#r18), [R27](03-review-merge-reassessment.md#r27).
 
 **Current:** Profile/control scaffolding exists; manifest adoption, fixed trusted host-check production and exact-artifact verification remain missing or unqualified.
 
@@ -121,7 +149,7 @@
 
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs).
 
-**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R30](04-controls-repair-verification.md#r30). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R30](04-controls-repair-verification.md#r30), [R44](05-experience-and-development.md#r44), [R45](05-experience-and-development.md#r45). Source-only work cannot release these gates.
 
 <a id="r39"></a>
 ## R39 — Make app completion and delivery repair truthful and bounded
@@ -152,7 +180,7 @@
 <a id="r41"></a>
 ## R41 — Qualify intervention, withdrawal and interrupted-work recovery
 
-**Work:** Integrate and qualify. **Owner lane:** A. **Accepted inputs:** [R06](01-boundaries.md#r06), [R11](02-prompt-to-pr.md#r11), [R16](02-prompt-to-pr.md#r16), [R26](03-review-merge-reassessment.md#r26), [R30](04-controls-repair-verification.md#r30), [R35](04-controls-repair-verification.md#r35).
+**Work:** Integrate and qualify. **Owner lane:** A. **Accepted inputs:** [R06](01-boundaries.md#r06), [R11](02-prompt-to-pr.md#r11), [R16](02-prompt-to-pr.md#r16), [R26](03-review-merge-reassessment.md#r26), [R30](04-controls-repair-verification.md#r30), [R35](04-controls-repair-verification.md#r35), [R44](05-experience-and-development.md#r44).
 
 **Current:** Cancellation, reconciliation and retained-effect mechanisms exist; full current composition is unaccepted.
 

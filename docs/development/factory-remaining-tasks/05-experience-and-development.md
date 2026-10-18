@@ -11,11 +11,28 @@
 
 **Deliver:** Extend the one existing read model for actual phases, plans/tasks/lanes/checkpoints, review/acceptance costs, blocked owner, reassessment/stall/repair and exact app verification. Use producer-owned records and native links.
 
+**Ralph absorption addition:** Present R32's communication and the actual
+procedure as durable role-authored feed history. Keep author/role/run/assignment,
+communication verb, recorded time/revision, linked issue/PR/plan/finding and
+reported versus confirmed outcome distinct. Retain post revisions and related
+question/reply history with stable identities, bounded ordered paging and honest
+missing/truncated/stale state. Reuse canonical evidence owners and existing
+visibility/authority checks; history must survive reload and service restart.
+Exact storage/post schema follows the
+[feed design](../../design/factory-feed-and-ralph-integration.md), not an invented
+second task database.
+
+**Additional acceptance:** All eight verbs and their role-specific formal
+results have real producer-to-store-to-API coverage. Reads spend nothing and do
+not mutate the workflow. Cross-account/repository isolation, ordering/revision
+consistency and missing evidence are tested; a request, report or accepted
+submission is never mislabeled as an observed downstream effect.
+
 **Accept only when:** Read routes are bounded, authorized, secret-free and spend nothing; submitted/pending is not verified success. Each new producer supplies persisted data and integration tests; no fixture-only DTO or parallel dashboard.
 
 **Principal source owners:** [internal/store/factory_journey_readback.go](../../../internal/store/factory_journey_readback.go), [internal/web/api/factory_journey_readback.go](../../../internal/web/api/factory_journey_readback.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go).
 
-**Additional runtime/qualification gates:** [R13](02-prompt-to-pr.md#r13), [R17](02-prompt-to-pr.md#r17), [R24](03-review-merge-reassessment.md#r24), [R28](03-review-merge-reassessment.md#r28), [R29](03-review-merge-reassessment.md#r29), [R31](04-controls-repair-verification.md#r31), [R36](04-controls-repair-verification.md#r36), [R37](04-controls-repair-verification.md#r37), [R39](04-controls-repair-verification.md#r39), [R40](04-controls-repair-verification.md#r40). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R13](02-prompt-to-pr.md#r13), [R17](02-prompt-to-pr.md#r17), [R24](03-review-merge-reassessment.md#r24), [R28](03-review-merge-reassessment.md#r28), [R29](03-review-merge-reassessment.md#r29), [R31](04-controls-repair-verification.md#r31), [R32](04-controls-repair-verification.md#r32), [R33](04-controls-repair-verification.md#r33), [R34](04-controls-repair-verification.md#r34), [R35](04-controls-repair-verification.md#r35), [R36](04-controls-repair-verification.md#r36), [R37](04-controls-repair-verification.md#r37), [R39](04-controls-repair-verification.md#r39), [R40](04-controls-repair-verification.md#r40). Source-only work cannot release these gates.
 
 <a id="r43"></a>
 ## R43 — Complete Work/Spaces and current native frontend composition
@@ -26,6 +43,33 @@
 
 **Deliver:** Render actual producer/read-model states, links, actionable waits and admitted intervention in existing Work/Spaces. Reuse native ownership/lifecycle/navigation/terminal work and requalify changed joins, geometry, accessibility, assets and attribution.
 
+**Ralph absorption addition:** Absorb Ralph's useful capabilities and interaction
+behavior into a fresh Lit/TypeScript interface in this same Work/Spaces experience.
+The owner explicitly excluded React integration; Ralph's existing appearance
+does not constrain Soda's design. Reuse suitable framework-independent code and
+assets individually. First map
+the complete intended procedure to role, permitted MCP action, feed component,
+evidence condition and concrete reuse source. Use one actual avatar/typed
+question/reply/history flow to define the new Lit components, their Soda
+appearance and host/resource lifetime behavior. Preserve the seven established personas as
+primary authors; select character/artwork assignments explicitly, with technical
+specialties as a separate possible dimension. Include structured components for
+direction, dependencies, investigation, task lanes/checkpoints, review/correction,
+JEV decisions, waits, reassessment/repair and exact app verification. Reuse
+Ralph's question, finding, knowledge, proposal and progress presentations and the
+marketing film's artifact patterns where they fit real recorded work. Keep one
+persistent Workspace owner and the existing terminal/resource lifetimes.
+
+**Additional acceptance:** Real persisted role/verb entries, questions/replies,
+evidence links and result confirmations work through both native entry orders,
+navigation/reload/account changes and narrow/wide light/dark views. New updates
+preserve reading position, expanded entries and drafts. Review/fix/merge and app
+verification remain distinguishable. Required keyboard/focus behavior,
+accessibility and any reused asset attribution survive integration. The source
+reuse map accounts for retained independent code/assets, behavior implemented
+in fresh Lit components and demonstrated new work. No React runtime or React
+component integration is introduced.
+
 **Accept only when:** Real persisted API-to-browser journeys pass both native entry orders, page/panel/history/reload/account changes and mandatory terminal/renderer/socket assertions. No injected links, absent-renderer success or reopening all 57 NFX tasks as new implementation.
 
 **Principal source owners:** [frontend/spaces/soda-extension.ts](../../../frontend/spaces/soda-extension.ts), [frontend/spaces/sodaspaces-terminal-attachment.ts](../../../frontend/spaces/sodaspaces-terminal-attachment.ts), [docs/development/native-frontend-correction-tasks.md](../../../docs/development/native-frontend-correction-tasks.md).
@@ -35,13 +79,13 @@
 <a id="r44"></a>
 ## R44 — Requalify retained Project, provider, human and operator foundations
 
-**Work:** Qualify and repair demonstrated gaps. **Owner lane:** A. **Accepted inputs:** [R03](01-boundaries.md#r03), [R10](01-boundaries.md#r10), [R41](04-controls-repair-verification.md#r41).
+**Work:** Qualify and repair demonstrated gaps. **Owner lane:** A. **Accepted inputs:** [R03](01-boundaries.md#r03), [R10](01-boundaries.md#r10).
 
 **Current:** Persistent Projects/accounts, approved preparation, broker/provider configuration and human/operator access are implemented with earlier evidence.
 
-**Deliver:** Bind current Project preparation, protected service identities/Unix mappings, broker custody, provider grants and human SSH/terminal/operator journeys to the new execution loop. Inspect and repair demonstrated joins only.
+**Deliver:** Qualify current Project preparation, protected service identities/Unix mappings, broker custody, provider grants and human SSH/terminal/operator foundations before live factory dispatch. Inspect and repair demonstrated joins only. R41 later composes factory-specific intervention with these accepted foundations.
 
-**Accept only when:** Required setup is approved and inspectable; wrong peer/account/repository/grant and rotated credentials refuse. Background authority survives browser logout, human work survives factory intervention, and native/operator identities remain separate. Do not overwrite the protected identity/tooling WIP.
+**Accept only when:** Required setup is approved and inspectable; wrong peer/account/repository/grant and rotated credentials refuse. Background authority survives browser logout, native/operator identities remain separate, and existing human services remain usable. The new factory intervention/retirement interaction is accepted under R41 and the complete installed journey under R49; it is not a prerequisite for establishing this foundation. Preserve retained identity/tooling work and its current input bindings.
 
 **Principal source owners:** [internal/project](../../../internal/project), [lib/host/src/project](../../../lib/host/src/project), [cmd/soda-identity](../../../cmd/soda-identity), [docs/guides/develop.md](../../../docs/guides/develop.md), [docs/reference/credentials.md](../../../docs/reference/credentials.md).
 
@@ -103,6 +147,14 @@
 **Work:** Installed development qualification. **Owner lane:** Coordinator. **Accepted inputs:** [R39](04-controls-repair-verification.md#r39), [R40](04-controls-repair-verification.md#r40), [R43](05-experience-and-development.md#r43), [R44](05-experience-and-development.md#r44), [R45](05-experience-and-development.md#r45), [R47](05-experience-and-development.md#r47), [R48](05-experience-and-development.md#r48).
 
 **Current:** No current accepted prompt-to-native-tasks-to-merge/reassessment-to-app-verification installed journey exists.
+
+**Ralph absorption addition:** Include the role-authored feed in this same
+installed journey: follow actual issue/task/PR/review/correction/reassessment and
+application-verification records, ask and answer a consequential question through
+its authorized route, inspect progress and a finding, and distinguish a role's
+done/result submission from Factory confirmation. Observe the agreed component
+reuse and real persisted updates; illustrative movie data cannot stand in for
+this acceptance. Retain the existing R49 inputs and installed proof boundaries.
 
 **Deliver:** On one owned supported development assembly, run real prompt→semantic graph→selection→investigation/plan→native overlap/checkpoints→PR→review/correction→CI→merge/original closure→dependent→reassessment→Test Pilot, with actual Work/Spaces and human intervention.
 

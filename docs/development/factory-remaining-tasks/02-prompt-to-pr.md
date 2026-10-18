@@ -13,9 +13,11 @@
 
 **Accept only when:** Concurrent admission/replay produces one run/charge or no rows. Failed/interrupted provider work stays charged; retries cannot refill consumption. Provider calls happen outside short database transactions. Settlement and release are atomic and replay-safe; no nested self-committing reservation or separate intent engine.
 
+**Dependency boundary:** R10 releases the exact typed contract before transaction changes. Real PostgreSQL admission/rollback work can proceed before native activation; R44's current Project/provider custody is required before a live launch.
+
 **Principal source owners:** [internal/store/factory_dispatch_packet.go](../../../internal/store/factory_dispatch_packet.go), [internal/store/factory_grants.go](../../../internal/store/factory_grants.go), [internal/store/factory_intents.go](../../../internal/store/factory_intents.go), [internal/factory/control/dispatch_launch.go](../../../internal/factory/control/dispatch_launch.go), [internal/factory/control/dispatch_result.go](../../../internal/factory/control/dispatch_result.go).
 
-**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R44](05-experience-and-development.md#r44), [R30](04-controls-repair-verification.md#r30). Source-only work cannot release these gates.
 
 <a id="r12"></a>
 ## R12 — Connect the real semantic Product Lead planner
@@ -28,9 +30,11 @@
 
 **Accept only when:** A repository-bound reviewed draft can plan without a fake issue or pre-accepted task graph; an unassociated draft launches nothing. Wrong owner/source/phase/grant refuses before effects. Actual broad roots/joins, tiny cohesive work and consequential ambiguity are exercised; no template substitution.
 
+**Dependency boundary:** Consume R44's approved preparation and provider authority for live planning. R12 implements the shared planner/result consumer; R32 later composes its MCP finish controls and R48 qualifies actual provider first responses. Those later composition tasks cannot be counted as already complete here.
+
 **Principal source owners:** [internal/factory/control/intent_bound.go](../../../internal/factory/control/intent_bound.go), [internal/factory/control/intent_planning.go](../../../internal/factory/control/intent_planning.go), [internal/web/api/factory_intent_generation.go](../../../internal/web/api/factory_intent_generation.go), [internal/factory/decomposition_options.go](../../../internal/factory/decomposition_options.go).
 
-**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R44](05-experience-and-development.md#r44), [R30](04-controls-repair-verification.md#r30). Source-only work cannot release these gates.
 
 <a id="r13"></a>
 ## R13 — Adopt one chosen semantic graph with exact scope and provenance
@@ -45,7 +49,7 @@
 
 **Principal source owners:** [internal/factory/control/intent_generation.go](../../../internal/factory/control/intent_generation.go), [internal/factory/control/intent_planning.go](../../../internal/factory/control/intent_planning.go), [internal/store/factory_intent_generation.go](../../../internal/store/factory_intent_generation.go).
 
-**Additional runtime/qualification gates:** [R05](01-boundaries.md#r05). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R04](01-boundaries.md#r04), [R05](01-boundaries.md#r05). Source-only work cannot release these gates.
 
 <a id="r14"></a>
 ## R14 — Finish current large-inventory selection and readiness qualification
@@ -75,7 +79,7 @@
 
 **Principal source owners:** [internal/factory/control/planning.go](../../../internal/factory/control/planning.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go), [internal/factory/control/dispatch_launch.go](../../../internal/factory/control/dispatch_launch.go).
 
-**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09). Source-only work cannot release these gates.
+**Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R44](05-experience-and-development.md#r44). Source-only work cannot release these gates.
 
 <a id="r16"></a>
 ## R16 — Connect real native task scheduling and dependency release
@@ -101,6 +105,8 @@
 
 **Accept only when:** Real checkpoint production calls the Store consumer. Dirty sentinel, wrong ancestry, mutated checks, forged journal and wrong invocation refuse. Crash before/after CAS recovers only the prepared commit; dependent tasks consume a trusted receipt, never a synthetic acknowledgment.
 
+**Dependency boundary:** Establish the trusted host-observation/check/CAS/Store path here, using R30's authority for native qualification. R33 connects agent proposals to that existing owner; R17 must not require an R33 completion receipt to implement its own prerequisite, or duplicate the checkpoint engine.
+
 **Principal source owners:** [lib/host/src/factory/task_events.rs](../../../lib/host/src/factory/task_events.rs), [lib/host/src/factory/candidate.rs](../../../lib/host/src/factory/candidate.rs), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
 
 **Additional runtime/qualification gates:** [R30](04-controls-repair-verification.md#r30). Source-only work cannot release these gates.
@@ -121,7 +127,7 @@
 <a id="r19"></a>
 ## R19 — Complete one attributable PR and publication recovery journey
 
-**Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R18](02-prompt-to-pr.md#r18).
+**Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R18](02-prompt-to-pr.md#r18), [R20](03-review-merge-reassessment.md#r20).
 
 **Current:** Conditional ref publication, PR creation and recovery primitives are real code.
 
