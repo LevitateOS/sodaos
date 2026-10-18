@@ -94,30 +94,44 @@ func TestForgejoPayloadExactSourcesTemplateClosureAndNotices(t *testing.T) {
 	Check(t, present, "en-US locale missing")
 }
 
-func extensionPages(t *testing.T) []any {
+func extensionPages(t *testing.T, manifest string) []any {
 	t.Helper()
-	raw, ok := ReadJSON(t, "system/containers/extension/extension.json").(map[string]any)
-	Require(t, ok, "extension.json is not an object")
+	raw, ok := ReadJSON(t, manifest).(map[string]any)
+	Require(t, ok, "%s is not an object", manifest)
 	pages, ok := raw["pages"].([]any)
-	Require(t, ok, "extension pages is not a list")
+	Require(t, ok, "%s pages is not a list", manifest)
 	return pages
 }
 
+// The required soda package carries only the spaces page; the tailnet
+// page lives in the separately activatable optional package under its
+// admin-gated declaration, never in the core manifest.
 func TestForgejoPayloadExtensionPagesDeclaredInNativePackage(t *testing.T) {
 	ids := map[string]bool{}
-	for _, entry := range extensionPages(t) {
+	for _, entry := range extensionPages(t, "system/containers/extension/extension.json") {
 		ids[entry.(map[string]any)["id"].(string)] = true
 	}
-	Check(t, len(ids) == 2 && ids["spaces"] && ids["tailnet"], "page ids = %v", ids)
+	Check(t, len(ids) == 1 && ids["spaces"], "core page ids = %v", ids)
+	optional := map[string]any{}
+	for _, entry := range extensionPages(t, "system/containers/extension/tailnet-package/extension.json") {
+		page := entry.(map[string]any)
+		optional[page["id"].(string)] = page
+	}
+	tailnet, ok := optional["tailnet"].(map[string]any)
+	Require(t, ok && len(optional) == 1, "optional pages = %v", optional)
+	Check(t, tailnet["scope"] == "admin" && tailnet["route"] == "", "optional tailnet page = %v", tailnet)
+	if _, gated := tailnet["permission"]; !gated {
+		t.Fatalf("optional tailnet page carries no permission gate: %v", tailnet)
+	}
 }
 
 func TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute(t *testing.T) {
 	declared := map[string]bool{}
-	for _, entry := range extensionPages(t) {
+	for _, entry := range extensionPages(t, "system/containers/extension/tailnet-package/extension.json") {
 		page := entry.(map[string]any)
-		if page["id"] == "tailnet" && page["scope"] == "global" && page["route"] == "tailnet" {
+		if page["id"] == "tailnet" && page["scope"] == "admin" && page["route"] == "" {
 			_, hasPermission := page["permission"]
-			declared["tailnet"] = !hasPermission
+			declared["tailnet"] = hasPermission
 		}
 	}
 	Check(t, len(declared) == 1 && declared["tailnet"], "tailnet page declaration = %v", declared)

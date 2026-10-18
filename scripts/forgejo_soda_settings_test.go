@@ -7,10 +7,15 @@ import (
 )
 
 func TestSodaNavigationComesFromForgejoExtensionManifest(t *testing.T) {
-	manifestBytes, err := os.ReadFile("../system/containers/extension/extension.json")
-	if err != nil {
-		t.Fatal(err)
+	readManifest := func(rel string) []byte {
+		t.Helper()
+		manifestBytes, err := os.ReadFile(rel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return manifestBytes
 	}
+	manifestBytes := readManifest("../system/containers/extension/extension.json")
 	var manifest struct {
 		Pages []struct {
 			ID         string `json:"id"`
@@ -38,8 +43,27 @@ func TestSodaNavigationComesFromForgejoExtensionManifest(t *testing.T) {
 	if _, retired := pages["runners"]; retired {
 		t.Fatalf("retired runners page still declared: %+v", pages)
 	}
-	if pages["spaces"].scope != "global" || pages["tailnet"].scope != "global" || pages["tailnet"].permission != "" {
-		t.Fatalf("unexpected extension page declarations: %+v", pages)
+	if pages["spaces"].scope != "global" {
+		t.Fatalf("unexpected core page declarations: %+v", pages)
+	}
+	if _, present := pages["tailnet"]; present {
+		t.Fatalf("tailnet page rides the required manifest: %+v", pages)
+	}
+	// The tailnet page is contributed only by the separately activatable
+	// optional package, under its admin-gated declaration.
+	var optional struct {
+		Pages []struct {
+			ID         string `json:"id"`
+			Scope      string `json:"scope"`
+			Route      string `json:"route"`
+			Permission string `json:"permission"`
+		} `json:"pages"`
+	}
+	if err := json.Unmarshal(readManifest("../system/containers/extension/tailnet-package/extension.json"), &optional); err != nil {
+		t.Fatal(err)
+	}
+	if len(optional.Pages) != 1 || optional.Pages[0].ID != "tailnet" || optional.Pages[0].Scope != "admin" || optional.Pages[0].Route != "" || optional.Pages[0].Permission == "" {
+		t.Fatalf("unexpected optional tailnet page: %+v", optional.Pages)
 	}
 	workspacePanel := false
 	for _, panel := range manifest.Panels {
