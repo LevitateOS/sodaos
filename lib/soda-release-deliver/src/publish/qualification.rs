@@ -211,6 +211,126 @@ impl DockerQualification {
         Ok(())
     }
 }
+fn validate_collected_downloads(evidence: &Path, manifest: &Manifest) -> Result<(), Error> {
+    for name in DOWNLOADS {
+        if &assets::inspect(&evidence.join("downloads").join(name), name)?
+            != manifest.asset(name)?
+        {
+            return Err(Error::msg("downloaded qualification bytes changed"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_observation_outcome(
+    observation: &soda_acceptance::report::Observation,
+    manifest: &Manifest,
+    native: &NativeDocker,
+) -> Result<(), Error> {
+    if observation.outcome != "completed"
+        || observation.execution != "completed"
+        || observation.evidence != "completed"
+        || observation.exit_code != Some(0)
+        || observation.tool_dirty
+        || !crate::buildx::is_revision(&observation.tool_revision)
+        || observation.requested_revision != manifest.soda_revision
+        || observation.requested_architecture != "x86_64"
+        || !soda_acceptance::report::valid_owner(&observation.owner)
+        || observation.target != native.target
+        || observation.client_platform != "linux/amd64"
+        || observation.action != "exec"
+        || observation
+            .invocation
+            .as_ref()
+            .is_none_or(|args| args.is_empty() || args[0].is_empty())
+        || observation.files.as_ref().is_none_or(BTreeMap::is_empty)
+    {
+        return Err(refused());
+    }
+    Ok(())
+}
+
+fn check_observation_time(
+    observation: &soda_acceptance::report::Observation,
+    now: i128,
+    previous_finish: &mut Option<i128>,
+) -> Result<(), Error> {
+    let started = soda_wire_time::parse_nanos(&observation.started).ok_or_else(refused)?;
+    let finished = soda_wire_time::parse_nanos(&observation.finished).ok_or_else(refused)?;
+    if started >= finished || finished > now || previous_finish.is_some_and(|time| started < time) {
+        return Err(Error::msg("native qualification observations must be finalized in installation, browser/Project, factory and persistence order"));
+    }
+    *previous_finish = Some(finished);
+    Ok(())
+}
+
+fn validate_observation_downloads(
+    observation: &soda_acceptance::report::Observation,
+    manifest: &Manifest,
+) -> Result<(), Error> {
+    for name in DOWNLOADS {
+        let expected = &manifest.asset(name)?.sha256;
+        if !observation.artifacts.as_ref().is_some_and(|artifacts| {
+            artifacts.iter().any(|(path, hash)| {
+                Path::new(path).file_name().and_then(|value| value.to_str()) == Some(name)
+                    && hash == expected
+            })
+        }) {
+            return Err(refused());
+        }
+    }
+    Ok(())
+}
+
+fn validate_observation_evidence(
+    kind: &str,
+    evidence: &Path,
+    observation: &soda_acceptance::report::Observation,
+    factory: &NativeFactory,
+    native: &NativeDocker,
+) -> Result<(), Error> {
+    if matches!(kind, "installation" | "factory" | "persistence") {
+        let bytes = crate::document::read_file(
+            evidence
+                .join(format!("{kind}/native.json"))
+                .to_str()
+                .ok_or_else(refused)?,
+            1 << 20,
+        )?;
+        if observation
+            .files
+            .as_ref()
+            .and_then(|files| files.get("native.json"))
+            != Some(&crate::hash_bytes(&bytes)[7..].to_owned())
+        {
+            return Err(refused());
+        }
+    }
+    if kind == "factory"
+        && !observation.files.as_ref().is_some_and(|files| {
+            files.iter().any(|(path, hash)| {
+                path != "native.json" && hash == &factory.provider_execution_sha256
+            })
+        })
+    {
+        return Err(Error::msg(
+            "factory execution digest must identify retained execution evidence",
+        ));
+    }
+    if kind == "installation"
+        && !observation.files.as_ref().is_some_and(|files| {
+            files.iter().any(|(path, hash)| {
+                path != "native.json" && hash == &native.installer_execution_sha256
+            })
+        })
+    {
+        return Err(Error::msg(
+            "installer execution digest must identify retained execution evidence",
+        ));
+    }
+    Ok(())
+}
+
 fn collect(
     manifest: &Manifest,
     release: &Path,
@@ -224,13 +344,7 @@ fn collect(
     let persistence: NativePersistence =
         crate::json_serde::strict(&read_at(&root, "persistence/native.json", 1 << 20)?)
             .map_err(|_| refused())?;
-    for name in DOWNLOADS {
-        if &assets::inspect(&evidence.join("downloads").join(name), name)?
-            != manifest.asset(name)?
-        {
-            return Err(Error::msg("downloaded qualification bytes changed"));
-        }
-    }
+    validate_collected_downloads(evidence, manifest)?;
     let mut observations = BTreeMap::new();
     let mut previous_finish = None;
     let now = std::time::SystemTime::now()
@@ -245,85 +359,10 @@ fn collect(
         let (observation, hash) =
             soda_acceptance::report::read_observation(file.to_str().ok_or_else(refused)?)
                 .map_err(|_| refused())?;
-        if observation.outcome != "completed"
-            || observation.execution != "completed"
-            || observation.evidence != "completed"
-            || observation.exit_code != Some(0)
-            || observation.tool_dirty
-            || !crate::buildx::is_revision(&observation.tool_revision)
-            || observation.requested_revision != manifest.soda_revision
-            || observation.requested_architecture != "x86_64"
-            || !soda_acceptance::report::valid_owner(&observation.owner)
-            || observation.target != native.target
-            || observation.client_platform != "linux/amd64"
-            || observation.action != "exec"
-            || observation
-                .invocation
-                .as_ref()
-                .is_none_or(|args| args.is_empty() || args[0].is_empty())
-            || observation.files.as_ref().is_none_or(BTreeMap::is_empty)
-        {
-            return Err(refused());
-        }
-        let started = soda_wire_time::parse_nanos(&observation.started).ok_or_else(refused)?;
-        let finished = soda_wire_time::parse_nanos(&observation.finished).ok_or_else(refused)?;
-        if started >= finished
-            || finished > now
-            || previous_finish.is_some_and(|time| started < time)
-        {
-            return Err(Error::msg("native qualification observations must be finalized in installation, browser/Project, factory and persistence order"));
-        }
-        previous_finish = Some(finished);
-        for name in DOWNLOADS {
-            let expected = &manifest.asset(name)?.sha256;
-            if !observation.artifacts.as_ref().is_some_and(|artifacts| {
-                artifacts.iter().any(|(path, hash)| {
-                    Path::new(path).file_name().and_then(|value| value.to_str()) == Some(name)
-                        && hash == expected
-                })
-            }) {
-                return Err(refused());
-            }
-        }
-        if matches!(kind, "installation" | "factory" | "persistence") {
-            let bytes = crate::document::read_file(
-                evidence
-                    .join(format!("{kind}/native.json"))
-                    .to_str()
-                    .ok_or_else(refused)?,
-                1 << 20,
-            )?;
-            if observation
-                .files
-                .as_ref()
-                .and_then(|files| files.get("native.json"))
-                != Some(&crate::hash_bytes(&bytes)[7..].to_owned())
-            {
-                return Err(refused());
-            }
-        }
-        if kind == "factory"
-            && !observation.files.as_ref().is_some_and(|files| {
-                files.iter().any(|(path, hash)| {
-                    path != "native.json" && hash == &factory.provider_execution_sha256
-                })
-            })
-        {
-            return Err(Error::msg(
-                "factory execution digest must identify retained execution evidence",
-            ));
-        }
-        if kind == "installation"
-            && !observation.files.as_ref().is_some_and(|files| {
-                files.iter().any(|(path, hash)| {
-                    path != "native.json" && hash == &native.installer_execution_sha256
-                })
-            })
-        {
-            return Err(Error::msg(
-                "installer execution digest must identify retained execution evidence",
-            ));
-        }
+        validate_observation_outcome(&observation, manifest, &native)?;
+        check_observation_time(&observation, now, &mut previous_finish)?;
+        validate_observation_downloads(&observation, manifest)?;
+        validate_observation_evidence(kind, evidence, &observation, &factory, &native)?;
         observations.insert(
             kind.into(),
             FileIdentity {
