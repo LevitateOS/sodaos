@@ -184,17 +184,10 @@ pub fn compile_rust_tools(
     Ok(())
 }
 
-pub fn compile_shipping_tools(
+fn admit_shipping_targets(
     production: &dyn Production,
     snapshot: &str,
-    context_dir: &str,
-    artifacts: &str,
-    revision: &str,
-    arch: &str,
 ) -> Result<sys::ShippingInventory, Error> {
-    // Prepare no longer stages anything under usr/libexec/soda (the last
-    // shell tool compiled out), so create it explicitly for the compilers.
-    fs::create_dir_all(sys::join(&[context_dir, "rootfs/usr/libexec/soda"]))?;
     let manifest = sys::join(&[snapshot, "Cargo.toml"]);
     let metadata = production.capture(
         snapshot,
@@ -230,6 +223,21 @@ pub fn compile_shipping_tools(
     for (member, bin, _) in RUST_TOOLS {
         inventory.require_bin(member, bin)?;
     }
+    Ok(inventory)
+}
+
+pub fn compile_shipping_tools(
+    production: &dyn Production,
+    snapshot: &str,
+    context_dir: &str,
+    artifacts: &str,
+    revision: &str,
+    arch: &str,
+) -> Result<sys::ShippingInventory, Error> {
+    // Prepare no longer stages anything under usr/libexec/soda (the last
+    // shell tool compiled out), so create it explicitly for the compilers.
+    fs::create_dir_all(sys::join(&[context_dir, "rootfs/usr/libexec/soda"]))?;
+    let inventory = admit_shipping_targets(production, snapshot)?;
     compile_soda_commands(production, snapshot, context_dir, &inventory)?;
     compile_rust_tools(production, context_dir, &inventory)?;
     let tools = sys::join(&[artifacts, "tools"]);

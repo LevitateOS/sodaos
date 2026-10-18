@@ -261,8 +261,8 @@ fn check_entry_path(path: &str, top_level_dot: bool) -> Result<(), Error> {
 
 /// Seal sorted package entries using the upstream USTAR writer. Header path
 /// limits and prefix encoding are checked by tar, never silently truncated.
-pub fn seal_package(files: &[(String, u32, Vec<u8>)], timestamp: u64) -> Result<Vec<u8>, Error> {
-    if files.is_empty() || files.len() > MAX_ARCHIVE_ENTRIES || timestamp == 0 {
+fn check_package_entries(files: &[(String, u32, Vec<u8>)]) -> Result<BTreeSet<String>, Error> {
+    if files.is_empty() || files.len() > MAX_ARCHIVE_ENTRIES {
         return Err(Error::msg("invalid package entries or timestamp"));
     }
     let mut dirs = BTreeSet::new();
@@ -294,41 +294,57 @@ pub fn seal_package(files: &[(String, u32, Vec<u8>)], timestamp: u64) -> Result<
     if dirs.iter().any(|dir| names.contains(dir.as_str())) {
         return Err(Error::msg("package file conflicts with directory"));
     }
+    Ok(dirs)
+}
+
+fn append_package_entry(
+    archive: &mut tar::Builder<flate2::write::GzEncoder<Vec<u8>>>,
+    timestamp: u64,
+    path: &str,
+    mode: u32,
+    data: &[u8],
+    directory: bool,
+) -> Result<(), Error> {
+    let mut header = tar::Header::new_ustar();
+    header
+        .set_path(path)
+        .map_err(|e| Error::msg(e.to_string()))?;
+    header.set_entry_type(if directory {
+        tar::EntryType::Directory
+    } else {
+        tar::EntryType::Regular
+    });
+    header.set_mode(if directory {
+        0o755
+    } else if mode & 0o111 != 0 {
+        0o755
+    } else {
+        0o644
+    });
+    header.set_uid(0);
+    header.set_gid(0);
+    header.set_mtime(timestamp);
+    header.set_size(data.len() as u64);
+    header.set_cksum();
+    archive
+        .append(&header, data)
+        .map_err(|e| Error::msg(e.to_string()))
+}
+
+pub fn seal_package(files: &[(String, u32, Vec<u8>)], timestamp: u64) -> Result<Vec<u8>, Error> {
+    if files.is_empty() || files.len() > MAX_ARCHIVE_ENTRIES || timestamp == 0 {
+        return Err(Error::msg("invalid package entries or timestamp"));
+    }
+    let dirs = check_package_entries(files)?;
     let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(1));
     let mut archive = tar::Builder::new(encoder);
-    let mut append = |path: &str, mode: u32, data: &[u8], directory: bool| -> Result<(), Error> {
-        let mut header = tar::Header::new_ustar();
-        header
-            .set_path(path)
-            .map_err(|e| Error::msg(e.to_string()))?;
-        header.set_entry_type(if directory {
-            tar::EntryType::Directory
-        } else {
-            tar::EntryType::Regular
-        });
-        header.set_mode(if directory {
-            0o755
-        } else if mode & 0o111 != 0 {
-            0o755
-        } else {
-            0o644
-        });
-        header.set_uid(0);
-        header.set_gid(0);
-        header.set_mtime(timestamp);
-        header.set_size(data.len() as u64);
-        header.set_cksum();
-        archive
-            .append(&header, data)
-            .map_err(|e| Error::msg(e.to_string()))
-    };
     for dir in &dirs {
-        append(dir, 0o755, &[], true)?;
+        append_package_entry(&mut archive, timestamp, dir, 0o755, &[], true)?;
     }
     let mut sorted: Vec<_> = files.iter().collect();
     sorted.sort_by(|a, b| a.0.cmp(&b.0));
     for (path, mode, data) in sorted {
-        append(path, *mode, data, false)?;
+        append_package_entry(&mut archive, timestamp, path, *mode, data, false)?;
     }
     let encoder = archive
         .into_inner()
@@ -401,15 +417,11 @@ pub fn stage_tailnet_package(
     )
 }
 
-fn stage_package(
+fn admit_package_manifest(
     package_id: &str,
     source: &str,
-    context: &str,
-    native: &str,
-    out: &str,
-    timestamp: u64,
     release_tag: &str,
-) -> Result<StagedPackage, Error> {
+) -> Result<(String, PackageManifest, Vec<u8>), Error> {
     let relative = match package_id {
         "soda" => "system/containers/extension",
         "tailnet" => TAILNET_PACKAGE_SOURCE,
@@ -436,6 +448,20 @@ fn stage_package(
             "soda package capabilities differ from the approved catalog",
         ));
     }
+    Ok((origin, manifest, manifest_bytes))
+}
+
+fn stage_package(
+    package_id: &str,
+    source: &str,
+    context: &str,
+    native: &str,
+    out: &str,
+    timestamp: u64,
+    release_tag: &str,
+) -> Result<StagedPackage, Error> {
+    let (origin, manifest, manifest_bytes) =
+        admit_package_manifest(package_id, source, release_tag)?;
     let backend = sys::join(&[context, "rootfs/usr/libexec/soda/soda-extension"]);
     let backend_meta = fs::symlink_metadata(&backend)?;
     if !backend_meta.file_type().is_file() {

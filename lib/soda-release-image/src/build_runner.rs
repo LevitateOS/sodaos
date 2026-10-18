@@ -191,15 +191,22 @@ pub fn run_build_command(
     run_build_command_with_budget(cancel, log, output, dir, name, args, budget)
 }
 
-fn run_build_command_with_budget(
-    cancel: &Cancel,
+fn spawn_budgeted_command(
     log: &mut dyn Write,
-    mut output: Option<&mut dyn Write>,
     dir: &str,
     name: &str,
     args: &[String],
     budget: Option<std::time::Duration>,
-) -> Result<String, Error> {
+) -> Result<
+    (
+        ChildGuard,
+        Option<std::process::ChildStdout>,
+        Option<std::process::ChildStderr>,
+        String,
+        Option<std::time::Instant>,
+    ),
+    Error,
+> {
     let operation_deadline = budget.map(|duration| std::time::Instant::now() + duration);
     let base = sys::base_name(name);
     let mut command = std::process::Command::new(name);
@@ -215,63 +222,107 @@ fn run_build_command_with_budget(
     writeln!(log, "\nCOMMAND {base}").map_err(Error::from)?;
     let child = command.spawn().map_err(|e| Error::msg(e.to_string()))?;
     let mut child = ChildGuard(child);
-    const CAPTURE_LIMIT: usize = 16 * 1024 * 1024;
-    const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
-    let mut stdout = child.stdout.take();
-    let mut stderr = child.stderr.take();
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
     set_nonblocking(stdout.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))?;
     set_nonblocking(stderr.as_ref().map(std::os::fd::AsRawFd::as_raw_fd))?;
+    Ok((child, stdout, stderr, base, operation_deadline))
+}
+
+fn poll_budgeted_child(
+    cancel: &Cancel,
+    child: &mut ChildGuard,
+    operation_deadline: Option<std::time::Instant>,
+    status: &mut Option<std::process::ExitStatus>,
+    drain_deadline: &mut Option<std::time::Instant>,
+    timed_out: &mut bool,
+) -> Result<(), Error> {
+    const DRAIN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+    if !*timed_out
+        && status.is_none()
+        && operation_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline)
+    {
+        *timed_out = true;
+        let _ = child.kill();
+        *status = child.wait().ok();
+        *drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
+    }
+    if cancel.is_cancelled() && status.is_none() {
+        let _ = child.kill();
+        *status = child.wait().ok();
+        *drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
+    }
+    if status.is_none() {
+        if let Some(child_status) = child.try_wait().map_err(|e| Error::msg(e.to_string()))? {
+            *status = Some(child_status);
+            *drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
+        }
+    }
+    Ok(())
+}
+
+fn drain_build_pipes(
+    log: &mut dyn Write,
+    output: &mut Option<&mut dyn Write>,
+    stdout: &mut Option<std::process::ChildStdout>,
+    stderr: &mut Option<std::process::ChildStderr>,
+    captured: &mut Vec<u8>,
+    base: &str,
+) -> Result<bool, Error> {
+    const CAPTURE_LIMIT: usize = 16 * 1024 * 1024;
+    let mut progressed = false;
+    match read_available(stdout)? {
+        PipeRead::Data(bytes) => {
+            progressed = true;
+            if let Some(out) = output.as_deref_mut() {
+                log.write_all(&bytes).map_err(Error::from)?;
+                out.write_all(&bytes).map_err(Error::from)?;
+            } else if captured.len().saturating_add(bytes.len()) <= CAPTURE_LIMIT {
+                captured.extend_from_slice(&bytes);
+            } else {
+                return Err(Error::msg(format!(
+                    "{base} failed; capture exceeded {CAPTURE_LIMIT} bytes"
+                )));
+            }
+        }
+        PipeRead::Eof => progressed = true,
+        PipeRead::Pending => {}
+    }
+    match read_available(stderr)? {
+        PipeRead::Data(bytes) => {
+            progressed = true;
+            log.write_all(&bytes).map_err(Error::from)?;
+        }
+        PipeRead::Eof => progressed = true,
+        PipeRead::Pending => {}
+    }
+    Ok(progressed)
+}
+
+fn drain_budgeted_command(
+    cancel: &Cancel,
+    log: &mut dyn Write,
+    output: &mut Option<&mut dyn Write>,
+    child: &mut ChildGuard,
+    stdout: &mut Option<std::process::ChildStdout>,
+    stderr: &mut Option<std::process::ChildStderr>,
+    base: &str,
+    operation_deadline: Option<std::time::Instant>,
+) -> Result<(Option<std::process::ExitStatus>, Vec<u8>, bool), Error> {
     let mut captured = Vec::new();
     let mut status = None;
     let mut drain_deadline = None;
     let mut timed_out = false;
     while status.is_none() || stdout.is_some() || stderr.is_some() {
-        if !timed_out
-            && status.is_none()
-            && operation_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline)
-        {
-            timed_out = true;
-            let _ = child.kill();
-            status = child.wait().ok();
-            drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
-        }
-        if cancel.is_cancelled() && status.is_none() {
-            let _ = child.kill();
-            status = child.wait().ok();
-            drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
-        }
-        if status.is_none() {
-            if let Some(child_status) = child.try_wait().map_err(|e| Error::msg(e.to_string()))? {
-                status = Some(child_status);
-                drain_deadline = Some(std::time::Instant::now() + DRAIN_GRACE);
-            }
-        }
-        let mut progressed = false;
-        match read_available(&mut stdout)? {
-            PipeRead::Data(bytes) => {
-                progressed = true;
-                if let Some(out) = output.as_deref_mut() {
-                    log.write_all(&bytes).map_err(Error::from)?;
-                    out.write_all(&bytes).map_err(Error::from)?;
-                } else if captured.len().saturating_add(bytes.len()) <= CAPTURE_LIMIT {
-                    captured.extend_from_slice(&bytes);
-                } else {
-                    return Err(Error::msg(format!(
-                        "{base} failed; capture exceeded {CAPTURE_LIMIT} bytes"
-                    )));
-                }
-            }
-            PipeRead::Eof => progressed = true,
-            PipeRead::Pending => {}
-        }
-        match read_available(&mut stderr)? {
-            PipeRead::Data(bytes) => {
-                progressed = true;
-                log.write_all(&bytes).map_err(Error::from)?;
-            }
-            PipeRead::Eof => progressed = true,
-            PipeRead::Pending => {}
-        }
+        poll_budgeted_child(
+            cancel,
+            child,
+            operation_deadline,
+            &mut status,
+            &mut drain_deadline,
+            &mut timed_out,
+        )?;
+        let progressed = drain_build_pipes(log, output, stdout, stderr, &mut captured, base)?;
         if drain_deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline)
             && (stdout.is_some() || stderr.is_some())
         {
@@ -287,9 +338,19 @@ fn run_build_command_with_budget(
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
     }
+    Ok((status, captured, timed_out))
+}
+
+fn map_budgeted_exit(
+    cancel: &Cancel,
+    base: &str,
+    status: Option<std::process::ExitStatus>,
+    captured: &[u8],
+    timed_out: bool,
+) -> Result<String, Error> {
     let status =
         status.ok_or_else(|| Error::msg(format!("{base} failed; child status unavailable")))?;
-    let text = String::from_utf8_lossy(&captured).into_owned();
+    let text = String::from_utf8_lossy(captured).into_owned();
     if timed_out {
         return Err(Error::msg(format!(
             "{base} failed; retain attempt and inspect build.log: operation deadline exceeded"
@@ -310,6 +371,30 @@ fn run_build_command_with_budget(
         )));
     }
     Ok(text.trim().to_string())
+}
+
+fn run_build_command_with_budget(
+    cancel: &Cancel,
+    log: &mut dyn Write,
+    mut output: Option<&mut dyn Write>,
+    dir: &str,
+    name: &str,
+    args: &[String],
+    budget: Option<std::time::Duration>,
+) -> Result<String, Error> {
+    let (mut child, mut stdout, mut stderr, base, operation_deadline) =
+        spawn_budgeted_command(log, dir, name, args, budget)?;
+    let (status, captured, timed_out) = drain_budgeted_command(
+        cancel,
+        log,
+        &mut output,
+        &mut child,
+        &mut stdout,
+        &mut stderr,
+        &base,
+        operation_deadline,
+    )?;
+    map_budgeted_exit(cancel, &base, status, &captured, timed_out)
 }
 
 fn bounded_operation_deadline(base: &str, args: &[String]) -> Option<std::time::Duration> {

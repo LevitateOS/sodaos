@@ -63,7 +63,7 @@ impl Request {
     /// `ValidateTarget` rejects implicit partial production and irrelevant
     /// media inputs. MediaAuthority is admitted separately inside the
     /// isolated media worker.
-    pub fn validate_target(&self) -> std::result::Result<(), Error> {
+    fn validate_development_pairing(&self) -> std::result::Result<(), Error> {
         if !self.upgrade_from.is_empty() {
             soda_build_tools::project_support::validate_upgrade_sources(
                 &[self.upgrade_from.clone()],
@@ -95,6 +95,10 @@ impl Request {
         } else if self.distribution() == "all" && self.target.is_empty() {
             // Production all keeps its same-tag GitHub URL restriction below.
         }
+        Ok(())
+    }
+
+    fn validate_docker_rootfs(&self) -> std::result::Result<(), Error> {
         if self.wants_docker() {
             // Production all binds the public same-tag rootfs URL. The
             // development combined target instead uses an explicit reachable
@@ -111,6 +115,12 @@ impl Request {
                 ));
             }
         }
+        Ok(())
+    }
+
+    pub fn validate_target(&self) -> std::result::Result<(), Error> {
+        self.validate_development_pairing()?;
+        self.validate_docker_rootfs()?;
         self.validate_media_inputs()?;
         if !soda_build_tools::payload::valid_release_tag(&self.release_tag) {
             return Err(Error::msg(

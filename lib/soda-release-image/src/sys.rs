@@ -410,33 +410,7 @@ pub fn parse_shipping_inventory(snapshot: &str, json: &str) -> Result<ShippingIn
         {
             return Err(Error::msg("invalid Cargo package identity"));
         }
-        let path = fs::canonicalize(&package.manifest_path)
-            .map_err(|_| Error::msg("invalid Cargo package manifest"))?;
-        if !path.starts_with(&root)
-            || !path.is_file()
-            || path.file_name().and_then(|name| name.to_str()) != Some("Cargo.toml")
-            || !manifests.insert(path.clone())
-        {
-            return Err(Error::msg("Cargo package manifest outside workspace"));
-        }
-        let default_features = active_default_features(&package.features);
-        let mut bins = BTreeMap::new();
-        for target in package.targets {
-            if !target.kind.iter().any(|kind| kind == "bin") {
-                continue;
-            }
-            let required: BTreeSet<String> = target.required_features.into_iter().collect();
-            if bins.insert(target.name, required).is_some() {
-                return Err(Error::msg("duplicate Cargo binary target"));
-            }
-        }
-        packages.push(ShippingPackage {
-            id: package.id,
-            name: package.name,
-            manifest_path: path,
-            bins,
-            default_features,
-        });
+        packages.push(admit_workspace_package(&root, &mut manifests, package)?);
     }
     if found_ids.len() != workspace_ids.len() {
         return Err(Error::msg("Cargo metadata omitted workspace package"));
@@ -445,6 +419,40 @@ pub fn parse_shipping_inventory(snapshot: &str, json: &str) -> Result<ShippingIn
         workspace_root: root,
         packages,
         commands: Vec::new(),
+    })
+}
+
+fn admit_workspace_package(
+    root: &std::path::Path,
+    manifests: &mut BTreeSet<std::path::PathBuf>,
+    package: CargoPackageMetadata,
+) -> Result<ShippingPackage, Error> {
+    let path = fs::canonicalize(&package.manifest_path)
+        .map_err(|_| Error::msg("invalid Cargo package manifest"))?;
+    if !path.starts_with(root)
+        || !path.is_file()
+        || path.file_name().and_then(|name| name.to_str()) != Some("Cargo.toml")
+        || !manifests.insert(path.clone())
+    {
+        return Err(Error::msg("Cargo package manifest outside workspace"));
+    }
+    let default_features = active_default_features(&package.features);
+    let mut bins = BTreeMap::new();
+    for target in package.targets {
+        if !target.kind.iter().any(|kind| kind == "bin") {
+            continue;
+        }
+        let required: BTreeSet<String> = target.required_features.into_iter().collect();
+        if bins.insert(target.name, required).is_some() {
+            return Err(Error::msg("duplicate Cargo binary target"));
+        }
+    }
+    Ok(ShippingPackage {
+        id: package.id,
+        name: package.name,
+        manifest_path: path,
+        bins,
+        default_features,
     })
 }
 
