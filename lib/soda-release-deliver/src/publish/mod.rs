@@ -305,12 +305,11 @@ fn appliance_evidence(
 
 /// Upload a complete draft, verify its inventory, and expose it as an unqualified
 /// immutable prerelease. Existing releases are never adopted or overwritten.
-fn stage_github(
+fn admit_staging_release(
     gh: &dyn GitHub,
     manifest: &Manifest,
     directory: &Path,
-    before_release: impl FnOnce(u64) -> Result<(), Error>,
-) -> Result<(), Error> {
+) -> Result<(Vec<Asset>, u64), Error> {
     manifest.validate()?;
     let assets = inventory(manifest, directory)?;
     let ci_run = check_ci(gh, manifest)?;
@@ -334,7 +333,16 @@ fn stage_github(
         Err(e) => return Err(e),
     }
     check_tag(gh, manifest, true)?;
-    before_release(ci_run)?;
+    Ok((assets, ci_run))
+}
+
+fn publish_candidate_release(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    directory: &Path,
+    ci_run: u64,
+    assets: &[Asset],
+) -> Result<(), Error> {
     let notes_path = directory.join("release-notes.md");
     std::fs::write(
         &notes_path,
@@ -367,7 +375,7 @@ fn stage_github(
         "--repo".to_owned(),
         REPOSITORY.to_owned(),
     ];
-    for a in &assets {
+    for a in assets {
         upload.push(
             directory
                 .join(&a.name)
@@ -377,13 +385,21 @@ fn stage_github(
         );
     }
     gh.run(&upload)?;
+    Ok(())
+}
+
+fn finalize_candidate_release(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    assets: &[Asset],
+) -> Result<(), Error> {
     let before = release(gh, &manifest.tag)?;
     if !before.draft || !before.prerelease {
         return Err(Error::msg(
             "candidate release is not the expected draft prerelease",
         ));
     }
-    check_inventory(&before, manifest, &assets)?;
+    check_inventory(&before, manifest, assets)?;
     command(
         gh,
         &[
@@ -404,8 +420,20 @@ fn stage_github(
             "candidate publication is not an immutable prerelease",
         ));
     }
-    check_inventory(&after, manifest, &assets)?;
+    check_inventory(&after, manifest, assets)?;
     verify_release(gh, &manifest.tag)
+}
+
+fn stage_github(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    directory: &Path,
+    before_release: impl FnOnce(u64) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let (assets, ci_run) = admit_staging_release(gh, manifest, directory)?;
+    before_release(ci_run)?;
+    publish_candidate_release(gh, manifest, directory, ci_run, &assets)?;
+    finalize_candidate_release(gh, manifest, &assets)
 }
 
 fn record_appliance_outcome(
