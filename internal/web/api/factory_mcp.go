@@ -530,13 +530,25 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	}
 	// Current-context projection reads the recorded assignment behind
 	// the capability: prompt digest, exact source/preparation and, once
-	// set, outcome/reason. Prompt bytes, run history and actor identity
-	// never enter the projection. A missing assignment refuses instead
-	// of serving context without its assignment.
+	// set, outcome/reason. Prompt bytes and actor identity never enter
+	// the projection. Own-attempt run identities join the attempt
+	// bundle and the linked parent outcome joins the lineage bundle;
+	// both stay within the admitted local lineage. A missing
+	// assignment refuses instead of serving context without its
+	// assignment.
 	assignment, err := s.deps.Assignments.Assignment(ctx, capability.AssignmentID)
 	if err != nil {
 		return nil, nil, err
 	}
+	var parent factory.Assignment
+	parentLoaded := false
+	if assignment.ParentAssignment != "" {
+		if loaded, err := s.deps.Assignments.Assignment(ctx, assignment.ParentAssignment); err == nil {
+			parent, parentLoaded = loaded, true
+		}
+	}
+	attemptEligible, lineageEligible := factory.BundleEligibility(assignment, parentLoaded)
+	bundle := factory.ContextBundleCurrent
 	body := map[string]any{
 		"assignment":    capability.AssignmentID,
 		"prompt_sha":    assignment.PromptSHA,
@@ -556,6 +568,24 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 		"source_digest": capability.SourceDigest,
 		"scope_digest":  capability.ScopeDigest(),
 	}
+	if attemptEligible {
+		body["attempt"] = map[string]any{"run_history": factory.AttemptContinuity(assignment)}
+		bundle = factory.ContextBundleAttempt
+	}
+	if lineageEligible {
+		lineage := map[string]any{"parent_assignment": assignment.ParentAssignment}
+		if parent.Outcome != "" {
+			lineage["parent_outcome"] = string(parent.Outcome)
+		}
+		if parent.Reason != "" {
+			lineage["parent_reason"] = parent.Reason
+		}
+		body["lineage"] = lineage
+		bundle = factory.ContextBundleLineage
+	} else if assignment.ParentAssignment != "" {
+		body["lineage_incomplete"] = true
+	}
+	body["bundle"] = bundle
 	if frozen {
 		body["terminal_submission"] = terminal.SubmissionID
 		body["terminal_state"] = terminal.State

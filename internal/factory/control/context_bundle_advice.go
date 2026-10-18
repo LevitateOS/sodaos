@@ -60,18 +60,17 @@ func contextBundleStateFor(capability factory.MCPCapability, assignment factory.
 }
 
 // SelectContextBundle consults funded Jev for one capability's context
-// bundle and applies the answer. Only a confident eligible selection
-// serves its bundle; low confidence, malformed or unavailable answers
-// hold snapshot_hold with attention, and an exhausted ceiling holds
-// unfunded without charge. History content joins enable attempt and
-// lineage eligibility in a later slice; this slice always offers
-// current plus snapshot_hold.
-func (c *Coordinator) SelectContextBundle(ctx context.Context, capability factory.MCPCapability, assignment factory.Assignment, reserve func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
+// bundle and applies the answer. Eligibility is code-enforced from
+// joined bundle content: only bundles with backing records are
+// offered, and only a confident eligible selection serves; low
+// confidence, malformed or unavailable answers hold snapshot_hold with
+// attention, and an exhausted ceiling holds unfunded without charge.
+func (c *Coordinator) SelectContextBundle(ctx context.Context, capability factory.MCPCapability, assignment factory.Assignment, attemptEligible, lineageEligible bool, reserve func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose:  factory.JudgmentContextBundle,
 		State:    contextBundleStateFor(capability, assignment),
 		Question: contextBundleRubric,
-		Options:  contextBundleOptions(false, false),
+		Options:  contextBundleOptions(attemptEligible, lineageEligible),
 		Outcome:  "context-bundle",
 		Reserve:  reserve,
 	})
@@ -80,6 +79,8 @@ func (c *Coordinator) SelectContextBundle(ctx context.Context, capability factor
 	}
 	bundle, reason = factory.ApplyContextBundleAnswer(answer, map[string]bool{
 		factory.ContextBundleCurrent:      true,
+		factory.ContextBundleAttempt:      attemptEligible,
+		factory.ContextBundleLineage:      lineageEligible,
 		factory.ContextBundleSnapshotHold: true,
 	})
 	return bundle, reason, nil

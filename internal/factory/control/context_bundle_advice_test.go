@@ -14,6 +14,7 @@ type bundleChooser struct {
 	confidence float64
 	calls      int
 	fail       bool
+	force      bool
 }
 
 func (f *bundleChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
@@ -22,7 +23,7 @@ func (f *bundleChooser) Select(_ context.Context, _ any, _ string, choices map[s
 		return factory.PriorityAnswer{}, errors.New("consultation down")
 	}
 	selected := f.selected
-	if _, ok := choices[selected]; !ok {
+	if _, ok := choices[selected]; !ok && !f.force {
 		selected = factory.ContextBundleSnapshotHold
 	}
 	share := (1 + f.confidence) / 2
@@ -59,13 +60,24 @@ func TestSelectContextBundleServesConfidentCurrent(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.9}
 	c, capability, assignment := contextBundleFixture(t, chooser)
 	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, onceReserve(&spent))
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
 	if err != nil || bundle != factory.ContextBundleCurrent || reason != "" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
-	again, _, err := c.SelectContextBundle(context.Background(), capability, assignment, onceReserve(&spent))
+	again, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
 	if err != nil || again != factory.ContextBundleCurrent || chooser.calls != 1 {
 		t.Fatalf("reuse bundle=%q calls=%d err=%v", again, chooser.calls, err)
+	}
+}
+
+func TestSelectContextBundleServesConfidentAttempt(t *testing.T) {
+	chooser := &bundleChooser{selected: factory.ContextBundleAttempt, confidence: 0.9}
+	c, capability, assignment := contextBundleFixture(t, chooser)
+	assignment.RunHistory = []string{"run-1", "run-2"}
+	spent := map[string]bool{}
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, onceReserve(&spent))
+	if err != nil || bundle != factory.ContextBundleAttempt || reason != "" {
+		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
 }
 
@@ -73,18 +85,18 @@ func TestSelectContextBundleHoldsLowConfidence(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.2}
 	c, capability, assignment := contextBundleFixture(t, chooser)
 	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, onceReserve(&spent))
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
 	if err != nil || bundle != factory.ContextBundleSnapshotHold || reason != factory.ContextBundleHoldLowConfidence {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
 }
 
-func TestSelectContextBundleHoldsIneligibleLineage(t *testing.T) {
-	chooser := &bundleChooser{selected: factory.ContextBundleLineage, confidence: 0.95}
+func TestSelectContextBundleHoldsUnofferedLineage(t *testing.T) {
+	chooser := &bundleChooser{selected: factory.ContextBundleLineage, confidence: 0.95, force: true}
 	c, capability, assignment := contextBundleFixture(t, chooser)
 	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, onceReserve(&spent))
-	if err != nil || bundle != factory.ContextBundleSnapshotHold || reason != factory.ContextBundleHoldIneligible {
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, onceReserve(&spent))
+	if err == nil || bundle != factory.ContextBundleSnapshotHold || reason != "unavailable" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
 }
@@ -93,7 +105,7 @@ func TestSelectContextBundleHoldsWhenChooserDown(t *testing.T) {
 	chooser := &bundleChooser{fail: true}
 	c, capability, assignment := contextBundleFixture(t, chooser)
 	spent := map[string]bool{}
-	bundle, _, err := c.SelectContextBundle(context.Background(), capability, assignment, onceReserve(&spent))
+	bundle, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
 	if bundle != factory.ContextBundleSnapshotHold || err == nil {
 		t.Fatalf("bundle=%q err=%v", bundle, err)
 	}
@@ -103,7 +115,7 @@ func TestSelectContextBundleExhaustedHoldsUnfunded(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.9}
 	c, capability, assignment := contextBundleFixture(t, chooser)
 	refuse := func(context.Context, string) (bool, error) { return false, nil }
-	if _, _, err := c.SelectContextBundle(context.Background(), capability, assignment, refuse); err == nil {
+	if _, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, refuse); err == nil {
 		t.Fatal("exhausted funding served a bundle")
 	}
 	if chooser.calls != 0 {

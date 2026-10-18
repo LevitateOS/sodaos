@@ -632,6 +632,131 @@ func TestFactoryCatalogContextProjectsAssignmentCurrent(t *testing.T) {
 	}
 }
 
+// TestFactoryCatalogContextServesAttemptBundle proves the R31 attempt
+// bundle through the actual handler: own-attempt run identities join
+// as opaque IDs inside the attempt section, the bundle names attempt,
+// and prompt bytes stay out of the projection.
+func TestFactoryCatalogContextServesAttemptBundle(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1", "run-2"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	})
+	if err != nil {
+		t.Fatalf("context refused: %v", err)
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("context content is %T, not text", res.Content[0])
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+		t.Fatalf("context body is not JSON: %v", err)
+	}
+	attempt, ok := body["attempt"].(map[string]any)
+	if !ok {
+		t.Fatalf("attempt section missing: %v", body)
+	}
+	runs, ok := attempt["run_history"].([]any)
+	if !ok || len(runs) != 2 || runs[0] != "run-1" || runs[1] != "run-2" {
+		t.Fatalf("attempt run_history=%v", attempt["run_history"])
+	}
+	if body["bundle"] != factory.ContextBundleAttempt {
+		t.Fatalf("bundle=%v, want attempt", body["bundle"])
+	}
+	for _, absent := range []string{"prompt", "run_history", "actor_id"} {
+		if _, ok := body[absent]; ok {
+			t.Fatalf("top level carries %q", absent)
+		}
+	}
+}
+
+// TestFactoryCatalogContextServesLineageBundle proves the R31 lineage
+// bundle through the actual handler: the linked parent's outcome and
+// reason join the lineage section, and the bundle names lineage.
+func TestFactoryCatalogContextServesLineageBundle(t *testing.T) {
+	sink := newFakeCatalogSink()
+	parentID := factory.NewID()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.ParentAssignment = parentID
+	sink.assignments[sink.capability.AssignmentID] = stored
+	sink.assignments[parentID] = factory.Assignment{
+		ID: parentID, Outcome: factory.Succeeded, Reason: "parent settled",
+	}
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	})
+	if err != nil {
+		t.Fatalf("context refused: %v", err)
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("context content is %T, not text", res.Content[0])
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+		t.Fatalf("context body is not JSON: %v", err)
+	}
+	lineage, ok := body["lineage"].(map[string]any)
+	if !ok {
+		t.Fatalf("lineage section missing: %v", body)
+	}
+	if lineage["parent_assignment"] != parentID || lineage["parent_outcome"] != string(factory.Succeeded) || lineage["parent_reason"] != "parent settled" {
+		t.Fatalf("lineage=%v", lineage)
+	}
+	if body["bundle"] != factory.ContextBundleLineage {
+		t.Fatalf("bundle=%v, want lineage", body["bundle"])
+	}
+}
+
+// TestFactoryCatalogContextMarksIncompleteLineage proves a linked but
+// unloadable parent stays honest: the read still succeeds on current
+// content with lineage_incomplete set, never a lineage section that
+// claims parent facts.
+func TestFactoryCatalogContextMarksIncompleteLineage(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.ParentAssignment = factory.NewID()
+	sink.assignments[sink.capability.AssignmentID] = stored
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	})
+	if err != nil {
+		t.Fatalf("context refused: %v", err)
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("context content is %T, not text", res.Content[0])
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+		t.Fatalf("context body is not JSON: %v", err)
+	}
+	if _, ok := body["lineage"]; ok {
+		t.Fatalf("unloadable parent served lineage: %v", body["lineage"])
+	}
+	if body["lineage_incomplete"] != true {
+		t.Fatalf("missing lineage_incomplete marker: %v", body)
+	}
+	if body["bundle"] != factory.ContextBundleCurrent {
+		t.Fatalf("bundle=%v, want current", body["bundle"])
+	}
+}
+
 // TestFactoryCatalogManifestGate proves the D16 release leg: a plan
 // carrying a manifest proposal validates against the catalog, and a
 // missing catalog names the unwired gate instead of inventing
