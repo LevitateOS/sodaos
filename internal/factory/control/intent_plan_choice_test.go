@@ -402,7 +402,7 @@ func TestRecordedPlanSourceChangesBeforeNativeSubmit(t *testing.T) {
 // through recovery with its durable original binding stamped: the
 // resumed submission validates the same recorded assignment and
 // completes exactly once.
-func TestRecoverIntentGraphsBindsLegacyPendingPlan(t *testing.T) {
+func TestRecoverIntentGraphsPreservesOriginalPendingPlan(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
@@ -426,13 +426,11 @@ func TestRecoverIntentGraphsBindsLegacyPendingPlan(t *testing.T) {
 	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
 	c := choicePlanCoordinator(t, db, fx, stub)
 	c.Graph, c.GraphActorID, c.AcceptanceReads = inner, 91, inner
-	out := choicePlannerOutput(draft, "cand-a")
-	legacy := ChosenIntentPlan{Intent: choicePlanIDs.intent, Revision: choicePlanIDs.draft, Operation: factory.IntentPlanningOptions, Key: "cand-a", Tasks: out.Candidates[0].Tasks}
-	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, choicePlanIDs.intent, 7, legacy); err == nil {
-		t.Fatal("frozen submit admitted the legacy operation")
+	if _, _, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7); err == nil {
+		t.Fatal("expected transient native failure")
 	}
 	frozen, err := db.IntentGeneration(ctx, accepted.ID)
-	if err != nil || frozen.State != "pending" || frozen.PlanAssignment != "" {
+	if err != nil || frozen.State != "pending" || frozen.PlanAssignment == "" {
 		t.Fatalf("legacy row not frozen pending and unbound: %+v %v", frozen, err)
 	}
 	if err := c.RecoverIntentGraphs(ctx); err != nil {
@@ -481,12 +479,9 @@ func TestRecoverIntentGraphsRefusesUnboundPlanlessLegacy(t *testing.T) {
 	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
 	c := choicePlanCoordinator(t, db, fx, stub)
 	c.Graph, c.GraphActorID, c.AcceptanceReads = inner, 91, inner
-	legacy := ChosenIntentPlan{Intent: choicePlanIDs.intent, Revision: choicePlanIDs.draft, Operation: factory.IntentPlanningOptions, Key: "keep", Tasks: accepted.Tasks}
-	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, choicePlanIDs.intent, 7, legacy); err == nil {
-		t.Fatal("frozen submit admitted the plan-less operation")
-	}
-	if err := c.RecoverIntentGraphs(ctx); err == nil || !strings.Contains(err.Error(), "no recorded decomposition plan") {
-		t.Fatalf("plan-less legacy must refuse with its remedy: %v", err)
+	seedUnboundGeneration(t, c, accepted)
+	if err := c.RecoverIntentGraphs(ctx); err == nil || !strings.Contains(err.Error(), "no recorded plan binding") {
+		t.Fatalf("unbound operation must refuse: %v", err)
 	}
 	if inner.submissions != 0 {
 		t.Fatalf("plan-less legacy submitted %d native operations", inner.submissions)

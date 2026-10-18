@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -45,15 +46,18 @@ func (c *Coordinator) GenerateAcceptedIntentFromRecordedPlan(ctx context.Context
 	if r.State != "accepted" {
 		return empty, nil, errors.New("planned choice serves the accepted direction")
 	}
+	if _, err := c.Store.IntentGeneration(ctx, r.ID); err == nil {
+		g, err := c.GenerateAcceptedIntent(ctx, intentID, owner)
+		return g, nil, err
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return empty, nil, err
+	}
 	chosen, wait, err := c.ResolveAcceptedPlanChoice(ctx, owner, r)
 	if err != nil || wait != nil {
 		return empty, wait, err
 	}
 	g, err := c.GenerateAcceptedIntentFromChoice(ctx, intentID, owner, chosen)
-	if err != nil {
-		return empty, nil, err
-	}
-	return g, nil, nil
+	return g, nil, err
 }
 
 // ResolveAcceptedPlanChoice binds the current accepted head back to its
@@ -306,8 +310,7 @@ func (c *Coordinator) recheckPlanChoiceAfterComparison(ctx context.Context, r fa
 // preparation/source/head currency. Pure reads; no comparative choice
 // is funded and no provider is called, so submission and adoption can
 // re-prove the binding after slow external reads. Generations without
-// a stamped binding predate this contract and fail closed here;
-// callers bind them before resuming.
+// a stamped binding fail closed; provenance cannot be attached later.
 func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.IntentGeneration) (*DispatchWait, error) {
 	if g.PlanAssignment == "" {
 		return nil, errors.New("generation carries no recorded plan binding")
@@ -330,15 +333,21 @@ func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.I
 	if err != nil {
 		return nil, fmt.Errorf("%w: accepted head unreadable", ErrPlanChoiceStore)
 	}
+	if r.ID != g.RevisionID || r.Intent != g.IntentID || r.Digest() != g.IntentDigest || r.State != "accepted" {
+		return nil, fmt.Errorf("%w: generation answers another accepted direction", ErrPlanChoiceStale)
+	}
 	in, err := bindRecordedPlanInput(a, subj.OwnerID, r)
 	if err != nil {
 		return nil, err
+	}
+	if in.Operation != factory.IntentPlanningOptions {
+		return nil, errors.New("generation requires a decomposition choice")
 	}
 	out, wait, err := settlePlanChoiceStatus(a)
 	if err != nil || wait != nil {
 		return wait, err
 	}
-	if err := bindRecordedScopeCoverage(r, out); err != nil {
+	if err := bindGenerationTasks(r, g, out); err != nil {
 		return nil, err
 	}
 	if wait, err := c.recheckPlanChoiceSource(ctx, r, a, in); err != nil || wait != nil {
@@ -348,4 +357,17 @@ func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.I
 		return nil, fmt.Errorf("%w: accepted direction changed", ErrPlanChoiceStale)
 	}
 	return nil, nil
+}
+
+// bindGenerationTasks proves the immutable submitted graph is one of the
+// recorded candidates and remains inside the accepted scope.
+func bindGenerationTasks(r factory.IntentRevision, g factory.IntentGeneration, out *factory.SemanticPlannerOutput) error {
+	matched := false
+	for _, candidate := range out.Candidates {
+		matched = matched || reflect.DeepEqual(candidate.Tasks, g.SubmittedTasks)
+	}
+	if !matched {
+		return errors.New("submitted tasks do not match the recorded plan")
+	}
+	return bindRecordedScopeCoverage(r, out)
 }

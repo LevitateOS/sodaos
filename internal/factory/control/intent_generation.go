@@ -142,22 +142,10 @@ func generatedDecisionID(prefix, revision, key string) string {
 	return "d" + hex.EncodeToString(sum[:12])
 }
 
-// GenerateAcceptedIntent writes only work bound to the current human-accepted
-// direction. It persists the immutable operation before sending and adopts
-// children only from its attributable receipt and exact current native evidence.
+// GenerateAcceptedIntent resumes an existing operation under its original plan
+// binding. Creation belongs to GenerateAcceptedIntentFromRecordedPlan.
 func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID string, owner int64) (factory.IntentGeneration, error) {
-	return c.generateAcceptedIntent(ctx, intentID, owner, nil)
-}
-
-// boundChoiceAssignment carries the recorded planning assignment a
-// resolved choice was decided from into the generated operation.
-// Hand-built pre-binding choices stamp empty and keep their existing
-// submission path; the serving connector always resolves first.
-func boundChoiceAssignment(chosen *ChosenIntentPlan) string {
-	if chosen == nil {
-		return ""
-	}
-	return chosen.Attempt
+	return c.generateAcceptedIntent(ctx, intentID, owner, nil, c.validateGenerationBinding)
 }
 
 // GenerateAcceptedIntentFromChoice writes only work bound to the current
@@ -174,39 +162,18 @@ func (c *Coordinator) GenerateAcceptedIntentFromChoice(ctx context.Context, inte
 	if chosen.Intent != intentID {
 		return factory.IntentGeneration{}, errors.New("chosen planner candidate binds another intent")
 	}
-	if chosen.Attempt != "" {
-		if err := c.stampGenerationBinding(ctx, intentID, owner, chosen.Attempt); err != nil {
-			return factory.IntentGeneration{}, err
-		}
+	if chosen.Attempt == "" {
+		return factory.IntentGeneration{}, errors.New("chosen candidate carries no recorded plan binding")
 	}
-	return c.generateAcceptedIntent(ctx, intentID, owner, &chosen)
+	return c.generateAcceptedIntent(ctx, intentID, owner, &chosen, c.validateGenerationBinding)
 }
 
-// stampGenerationBinding carries a resolved choice's recorded plan onto
-// an existing unstamped operation so a resumed submission and adoption
-// validate the durable original binding. Missing rows stamp at Begin
-// and already-stamped rows keep their original binding; a record
-// failure fails closed before any native effect.
-func (c *Coordinator) stampGenerationBinding(ctx context.Context, intentID string, owner int64, attempt string) error {
-	r, err := c.Store.IntentRevision(ctx, intentID, owner)
-	if err != nil {
-		return err
-	}
-	g, err := c.Store.IntentGeneration(ctx, r.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if g.PlanAssignment != "" {
-		return nil
-	}
-	g.PlanAssignment = attempt
-	return c.Store.RecordIntentGeneration(ctx, g)
-}
+// generationPlanValidator is the planning boundary used by graph mechanics.
+// Production callers always supply validateGenerationBinding; mechanics tests
+// supply an explicit planning stub independently of the native graph stub.
+type generationPlanValidator func(context.Context, factory.IntentGeneration) (*DispatchWait, error)
 
-func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID string, owner int64, chosen *ChosenIntentPlan) (factory.IntentGeneration, error) {
+func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID string, owner int64, chosen *ChosenIntentPlan, validate generationPlanValidator) (factory.IntentGeneration, error) {
 	ctx, unlock := c.progressPass(ctx)
 	defer unlock()
 	if c.Store == nil || c.Graph == nil || c.GraphActorID <= 0 {
@@ -225,41 +192,9 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		payload, reused, submitted, delivered, e := c.prepareIntentGraphWithChoice(ctx, r, revision, chosen)
-		if e != nil {
-			return factory.IntentGeneration{}, e
-		}
-		fresh, e := c.Graph.CheckIntentOwner(ctx, r.Repository, r.Owner, c.GraphActorID)
-		if e != nil {
-			return factory.IntentGeneration{}, e
-		}
-		if len(payload.Edits) > 0 && fresh != revision {
-			return factory.IntentGeneration{}, refuseAcceptance(RefusalStaleEvidence)
-		}
-		revision = fresh
-		if e = c.currentAcceptedIntent(ctx, r); e != nil {
-			return factory.IntentGeneration{}, e
-		}
-		raw, e := json.Marshal(payload)
-		if e != nil {
-			return factory.IntentGeneration{}, e
-		}
-		g = factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, Delivered: delivered, IntentDigest: r.Digest(), State: "pending", PlanAssignment: boundChoiceAssignment(chosen)}
-		if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
-			// Concurrent callers must converge on the winner's exact native
-			// revision and deadline rather than invent a second operation.
-			_, e := c.Store.IntentGeneration(ctx, r.ID)
-			if e != nil {
-				return g, err
-			}
-		}
-		// Read the database's exact JSON representation before submitting.
-		// PostgreSQL JSONB normalizes object whitespace and key order.
-		g, err = c.Store.IntentGeneration(ctx, r.ID)
-		if err != nil {
-			return g, err
-		}
-	} else if err != nil {
+		g, err = c.beginChosenIntentGeneration(ctx, r, revision, chosen)
+	}
+	if err != nil {
 		return g, err
 	}
 	if err = checkGenerationIdentity(r, g, c.GraphActorID); err != nil {
@@ -297,7 +232,7 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 				g, _ = c.cancelIntentGeneration(ctx, g)
 				return g, errors.New("accepted graph operation expired before submission")
 			}
-			if g, err = c.revalidateGenerationBeforeSubmit(ctx, g); err != nil {
+			if g, err = c.revalidateGenerationBeforeSubmit(ctx, g, validate); err != nil {
 				return g, err
 			}
 			record, err = c.Graph.SubmitGraph(ctx, g, r.Repository)
@@ -322,10 +257,10 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 			return g, errors.New("native graph mutation refused: " + record.ReasonCode)
 		}
 	}
-	if g, err = c.revalidateGenerationBeforeAdopt(ctx, g); err != nil {
+	if g, err = c.revalidateGenerationBeforeAdopt(ctx, g, validate); err != nil {
 		return g, err
 	}
-	if err = c.adoptIntentGraph(ctx, r, g); err != nil {
+	if err = c.adoptIntentGraph(ctx, r, g, validate); err != nil {
 		return g, err
 	}
 	// Optional lifecycle effect: new-issue label/assignee. Never gates
@@ -338,6 +273,42 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 		return g, err
 	}
 	return g, nil
+}
+
+// beginChosenIntentGeneration persists the exact chosen graph before any native send.
+func (c *Coordinator) beginChosenIntentGeneration(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan) (factory.IntentGeneration, error) {
+	if chosen == nil || chosen.Attempt == "" {
+		return factory.IntentGeneration{}, errors.New("a recorded plan is required to create native work")
+	}
+	payload, reused, submitted, delivered, e := c.prepareIntentGraphWithChoice(ctx, r, revision, chosen)
+	if e != nil {
+		return factory.IntentGeneration{}, e
+	}
+	fresh, e := c.Graph.CheckIntentOwner(ctx, r.Repository, r.Owner, c.GraphActorID)
+	if e != nil {
+		return factory.IntentGeneration{}, e
+	}
+	if len(payload.Edits) > 0 && fresh != revision {
+		return factory.IntentGeneration{}, refuseAcceptance(RefusalStaleEvidence)
+	}
+	revision = fresh
+	if e = c.currentAcceptedIntent(ctx, r); e != nil {
+		return factory.IntentGeneration{}, e
+	}
+	raw, e := json.Marshal(payload)
+	if e != nil {
+		return factory.IntentGeneration{}, e
+	}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, Delivered: delivered, IntentDigest: r.Digest(), State: "pending", PlanAssignment: chosen.Attempt}
+	if err := c.Store.BeginIntentGeneration(ctx, g); err != nil {
+		// Concurrent callers must converge on the winner's exact native
+		// revision and deadline rather than invent a second operation.
+		_, e := c.Store.IntentGeneration(ctx, r.ID)
+		if e != nil {
+			return g, err
+		}
+	}
+	return c.Store.IntentGeneration(ctx, r.ID)
 }
 
 // checkGenerationIdentity proves a loaded operation still answers the
@@ -365,14 +336,13 @@ func settledGenerationResult(g factory.IntentGeneration) (factory.IntentGenerati
 // revalidateGenerationBeforeSubmit proves a stamped recorded plan after
 // the pre-submit reads and immediately before native submission. Stale
 // bindings cancel the pending operation and refuse; volatile bindings
-// leave it pending with a retryable error. Unstamped pre-binding rows
-// keep their existing submission path.
-func (c *Coordinator) revalidateGenerationBeforeSubmit(ctx context.Context, g factory.IntentGeneration) (factory.IntentGeneration, error) {
-	if g.PlanAssignment == "" {
-		return g, nil
-	}
-	wait, verr := c.validateGenerationBinding(ctx, g)
+// leave it pending with a retryable error. Missing bindings refuse.
+func (c *Coordinator) revalidateGenerationBeforeSubmit(ctx context.Context, g factory.IntentGeneration, validate generationPlanValidator) (factory.IntentGeneration, error) {
+	wait, verr := validate(ctx, g)
 	if verr != nil {
+		if errors.Is(verr, ErrPlanChoiceStore) {
+			return g, verr
+		}
 		cancelled, _ := c.cancelIntentGeneration(ctx, g)
 		return cancelled, verr
 	}
@@ -386,12 +356,9 @@ func (c *Coordinator) revalidateGenerationBeforeSubmit(ctx context.Context, g fa
 // the native effect settles and immediately before local adoption.
 // Stale bindings return the durable committed receipt without
 // completing, so retries neither duplicate native effects nor report
-// them absent. Unstamped pre-binding rows keep their existing path.
-func (c *Coordinator) revalidateGenerationBeforeAdopt(ctx context.Context, g factory.IntentGeneration) (factory.IntentGeneration, error) {
-	if g.PlanAssignment == "" {
-		return g, nil
-	}
-	wait, verr := c.validateGenerationBinding(ctx, g)
+// them absent. Missing bindings refuse.
+func (c *Coordinator) revalidateGenerationBeforeAdopt(ctx context.Context, g factory.IntentGeneration, validate generationPlanValidator) (factory.IntentGeneration, error) {
+	wait, verr := validate(ctx, g)
 	if verr != nil {
 		return g, verr
 	}
@@ -412,7 +379,7 @@ func (c *Coordinator) currentAcceptedIntent(ctx context.Context, r factory.Inten
 	return nil
 }
 
-func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration) error {
+func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration, validate generationPlanValidator) error {
 	var receipt sdk.IssueGraphReceipt
 	if json.Unmarshal(g.Receipt, &receipt) != nil || receipt.ActorID != g.ActorID || receipt.RepositoryID != r.Repository {
 		return errors.New("native graph receipt does not bind submitted tasks")
@@ -583,7 +550,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		binding := factory.IntentTaskBinding{RevisionID: r.ID, TaskKey: key, IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion, AcceptanceID: decision.ID, CreatedUnix: createdUnix}
 		// Persist authority provenance before acceptance can make the issue
 		// eligible to any independently running coordinator pass.
-		if err = c.Store.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		if err = c.bindValidatedGenerationTask(ctx, g, binding, validate); err != nil {
 			return err
 		}
 
@@ -611,6 +578,15 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		}
 	}
 	return nil
+}
+
+// bindValidatedGenerationTask checks the planning evidence after native reads,
+// immediately before the generated issue receives local authority provenance.
+func (c *Coordinator) bindValidatedGenerationTask(ctx context.Context, g factory.IntentGeneration, binding factory.IntentTaskBinding, validate generationPlanValidator) error {
+	if _, err := c.revalidateGenerationBeforeAdopt(ctx, g, validate); err != nil {
+		return err
+	}
+	return c.Store.BindIntentTaskAcceptance(ctx, binding)
 }
 
 func generatedEdges(page *sdk.SnapshotDependencyPage) []AcceptanceEdge {

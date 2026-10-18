@@ -130,7 +130,7 @@ func TestLifecycleCallbackGeneration(t *testing.T) {
 	if _, err := c.Store.SaveConfig(ctx, cfg); err != nil {
 		t.Fatalf("config: %v", err)
 	}
-	g, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	g, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner)
 	if err != nil {
 		t.Fatalf("generation: %v", err)
 	}

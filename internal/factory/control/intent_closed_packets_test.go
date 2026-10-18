@@ -78,7 +78,7 @@ func closeNativeIssues(f *generatedGraphFixture, bindings []factory.IntentTaskBi
 func TestGeneratedGraphFixtureRefusesClosedEditAtomically(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err != nil {
 		t.Fatal(err)
 	}
 	bindings, err := c.Store.IntentTaskBindings(ctx, r.ID)
@@ -119,7 +119,7 @@ func TestGeneratedGraphFixtureRefusesClosedEditAtomically(t *testing.T) {
 func TestIntentGraphDeltaRefusesTamperedClosedHistory(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err != nil {
 		t.Fatal(err)
 	}
 	bindings, err := c.Store.IntentTaskBindings(ctx, r.ID)
@@ -138,7 +138,7 @@ func TestIntentGraphDeltaRefusesTamperedClosedHistory(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(ctx, next); err != nil {
 		t.Fatal(err)
 	}
-	_, err = c.GenerateAcceptedIntent(ctx, next.Intent, next.Owner)
+	_, err = generateGraphMechanics(t, c, ctx, next.Intent, next.Owner)
 	refusal := &AcceptanceRefusal{}
 	if !errors.As(err, &refusal) || refusal.Reason != RefusalObjectiveChanged {
 		t.Fatalf("tampered closed history did not refuse: %v", err)
@@ -262,7 +262,7 @@ func TestIntentGraphClosedHistoryWirePackets(t *testing.T) {
 		packets = append(packets, p)
 		return nil
 	}
-	if _, err := c.GenerateAcceptedIntent(ctx, first.Intent, first.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, first.Intent, first.Owner); err != nil {
 		t.Fatal(err)
 	}
 	b1, err := c.Store.IntentTaskBindings(ctx, first.ID)
@@ -274,7 +274,7 @@ func TestIntentGraphClosedHistoryWirePackets(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(ctx, changed); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.GenerateAcceptedIntent(ctx, changed.Intent, changed.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, changed.Intent, changed.Owner); err != nil {
 		t.Fatal(err)
 	}
 	b2, err := c.Store.IntentTaskBindings(ctx, changed.ID)
@@ -286,7 +286,7 @@ func TestIntentGraphClosedHistoryWirePackets(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(ctx, third); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.GenerateAcceptedIntent(ctx, third.Intent, third.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, third.Intent, third.Owner); err != nil {
 		t.Fatal(err)
 	}
 	if len(packets) != 3 {

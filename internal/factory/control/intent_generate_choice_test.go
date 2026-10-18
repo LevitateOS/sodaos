@@ -100,7 +100,7 @@ func submittedKeys(tasks []factory.IntentTask) []string {
 func TestGenerateFromChoiceAdoptsBroadJoinExactly(t *testing.T) {
 	r := broadJoinAcceptedRevision()
 	c, f, never := choiceFixture(t, r)
-	g, err := c.GenerateAcceptedIntentFromChoice(context.Background(), r.Intent, r.Owner, chosenFor(r))
+	g, err := generateChoiceMechanics(t, c, context.Background(), r.Intent, r.Owner, chosenFor(r))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestGenerateFromChoiceAdoptsTinyGraphExactly(t *testing.T) {
 	}
 	c, _, never := choiceFixture(t, single)
 	chosen := chosenFor(single)
-	g, err := c.GenerateAcceptedIntentFromChoice(context.Background(), single.Intent, single.Owner, chosen)
+	g, err := generateChoiceMechanics(t, c, context.Background(), single.Intent, single.Owner, chosen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,14 +159,14 @@ func TestGenerateFromChoiceAdoptsTinyGraphExactly(t *testing.T) {
 // graph for the same accepted direction.
 func TestGenerateChoiceMatchesAdvisedServingGraph(t *testing.T) {
 	c, _, r := acceptedGenerationFixture(t)
-	advised, err := c.GenerateAcceptedIntent(context.Background(), r.Intent, r.Owner)
+	advised, err := generateGraphMechanics(t, c, context.Background(), r.Intent, r.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
 	other, _, _ := acceptedGenerationFixture(t)
 	never := &refusingDecompositionChooser{}
 	other.Planning = &PlanningJudgments{Journal: other.Store, Funding: other.Store, Chooser: never}
-	chosen, err := other.GenerateAcceptedIntentFromChoice(context.Background(), r.Intent, r.Owner, chosenFor(r))
+	chosen, err := generateChoiceMechanics(t, other, context.Background(), r.Intent, r.Owner, chosenFor(r))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestGenerateDraftPlanAcceptAdoptRoute(t *testing.T) {
 	if chosen.Revision != draft.ID {
 		t.Fatalf("choice does not bind the reviewed draft: %+v", chosen)
 	}
-	g, err := c.GenerateAcceptedIntentFromChoice(context.Background(), authored.Intent, authored.Owner, chosen)
+	g, err := generateChoiceMechanics(t, c, context.Background(), authored.Intent, authored.Owner, chosen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestGenerateFromChoiceRefusesBeforeObservation(t *testing.T) {
 		bad := good
 		bad.Tasks = append([]factory.IntentTask(nil), good.Tasks...)
 		mutate(&bad)
-		if _, err := c.GenerateAcceptedIntentFromChoice(context.Background(), r.Intent, r.Owner, bad); err == nil {
+		if _, err := generateChoiceMechanics(t, c, context.Background(), r.Intent, r.Owner, bad); err == nil {
 			t.Fatalf("%s admitted", name)
 		}
 	}

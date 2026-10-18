@@ -222,7 +222,7 @@ func TestIntentGraphPayloadBindsProductDirection(t *testing.T) {
 func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	g, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	g, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,14 +247,14 @@ func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 	if len(decisions[2].Prerequisites) != 1 || decisions[2].Prerequisites[0].PrereqAcceptance != decisions[1].ID {
 		t.Fatal("native dependency did not bind prerequisite acceptance")
 	}
-	if _, err = c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+	if _, err = generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err != nil {
 		t.Fatal(err)
 	}
 	if f.submissions != 1 {
 		t.Fatal("replay created another graph")
 	}
 	f.owner = false
-	if _, err = c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err == nil {
+	if _, err = generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err == nil {
 		t.Fatal("revoked owner retained generation authority")
 	}
 }
@@ -266,22 +266,9 @@ func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 func TestServingRecoveryRefusesPlanlessPendingGraph(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	failed := false
-	f.beforeSubmit = func(factory.IntentGeneration) error {
-		if !failed {
-			failed = true
-			return errors.New("transient native failure")
-		}
-		return nil
-	}
-	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, r.Intent, r.Owner, chosenFor(r)); err == nil {
-		t.Fatal("frozen submit admitted the plan-less operation")
-	}
-	f.beforeSubmit = nil
-	if err := c.RecoverIntentGraphs(ctx); err == nil ||
-		(!strings.Contains(err.Error(), "no recorded decomposition plan") &&
-			!strings.Contains(err.Error(), "no reviewed draft plan")) {
-		t.Fatalf("plan-less legacy must refuse with its remedy: %v", err)
+	seedUnboundGeneration(t, c, r)
+	if err := c.RecoverIntentGraphs(ctx); err == nil || !strings.Contains(err.Error(), "no recorded plan binding") {
+		t.Fatalf("unbound pending operation must refuse: %v", err)
 	}
 	if f.submissions != 0 {
 		t.Fatalf("plan-less legacy submitted %d native operations", f.submissions)
@@ -300,14 +287,14 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(p)
-	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending"}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending", PlanAssignment: "mechanics-fixture:" + r.ID}
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = f.SubmitGraph(ctx, g, r.Repository); err != nil {
 		t.Fatal(err)
 	}
-	recovered, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	recovered, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +315,7 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 			t.Fatalf("old child authority survived correction: %v %v %v", current, generated, e)
 		}
 	}
-	if _, err = c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err == nil {
+	if _, err = generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err == nil {
 		t.Fatal("draft correction generated")
 	}
 	_ = store.ErrStaleRevision
@@ -337,7 +324,7 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 func TestIntentGraphReviewedSplitAndConsolidationPreserveNativeHistory(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err != nil {
 		t.Fatal(err)
 	}
 	original, _ := c.Store.IntentTaskBindings(ctx, r.ID)
@@ -355,7 +342,7 @@ func TestIntentGraphReviewedSplitAndConsolidationPreserveNativeHistory(t *testin
 	if err := c.Store.SaveIntentRevision(ctx, revised); err != nil {
 		t.Fatal(err)
 	}
-	split, err := c.GenerateAcceptedIntent(ctx, revised.Intent, revised.Owner)
+	split, err := generateGraphMechanics(t, c, ctx, revised.Intent, revised.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +370,7 @@ func TestIntentGraphReviewedSplitAndConsolidationPreserveNativeHistory(t *testin
 	if err = c.Store.SaveIntentRevision(ctx, consolidated); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.GenerateAcceptedIntent(ctx, consolidated.Intent, consolidated.Owner); err != nil {
+	if _, err = generateGraphMechanics(t, c, ctx, consolidated.Intent, consolidated.Owner); err != nil {
 		t.Fatal(err)
 	}
 	retired := f.issues[splitByKey[revised.Tasks[2].Key].IssueIndex].Issue
@@ -423,7 +410,7 @@ func TestIntentGraphStaleDurablePacketCancelsBeforeNativeEffects(t *testing.T) {
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
-	_, err = c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	_, err = generateGraphMechanics(t, c, ctx, r.Intent, r.Owner)
 	if err == nil {
 		t.Fatal("stale native revision was submitted")
 	}
@@ -535,7 +522,7 @@ func TestIntentGraphSubmitsSelectedDecomposition(t *testing.T) {
 		t.Fatal("no split candidate to select")
 	}
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: recomposeGenerationChooser{}}
-	g, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	g, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -607,7 +594,7 @@ func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 		packets = append(packets, p)
 		return nil
 	}
-	if _, err := c.GenerateAcceptedIntent(ctx, first.Intent, first.Owner); err != nil {
+	if _, err := generateGraphMechanics(t, c, ctx, first.Intent, first.Owner); err != nil {
 		t.Fatal(err)
 	}
 	oldBindings, err := c.Store.IntentTaskBindings(ctx, first.ID)
@@ -638,7 +625,7 @@ func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(ctx, changed); err != nil {
 		t.Fatal(err)
 	}
-	g, err := c.GenerateAcceptedIntent(ctx, changed.Intent, changed.Owner)
+	g, err := generateGraphMechanics(t, c, ctx, changed.Intent, changed.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -729,7 +716,7 @@ func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(ctx, third); err != nil {
 		t.Fatal(err)
 	}
-	g3, err := c.GenerateAcceptedIntent(ctx, third.Intent, third.Owner)
+	g3, err := generateGraphMechanics(t, c, ctx, third.Intent, third.Owner)
 	if err != nil {
 		t.Fatal(err)
 	}

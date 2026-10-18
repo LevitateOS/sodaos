@@ -131,20 +131,9 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 	if err != nil {
 		return err
 	}
-	// A stamped recorded-plan binding is immutable: only the first
-	// stamp on a pre-binding row may set it, so the durable original
-	// binding can never be re-pointed after submission begins.
-	if old.PlanAssignment != "" && g.PlanAssignment != old.PlanAssignment {
-		return ErrCommandConflict
-	}
 	compare := g
 	compare.State = old.State
 	compare.Receipt = old.Receipt
-	// The recorded-plan binding is provenance metadata, not operation
-	// content: recovery and serving resume may stamp an unstamped
-	// pre-binding row once, while the CAS on the old document still
-	// serializes concurrent writers.
-	compare.PlanAssignment = old.PlanAssignment
 	a, err := json.Marshal(compare)
 	if err != nil {
 		return err

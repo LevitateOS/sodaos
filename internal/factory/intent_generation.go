@@ -38,9 +38,8 @@ type IntentGeneration struct {
 	Receipt        json.RawMessage           `json:"receipt,omitempty"`
 	State          string                    `json:"state"`
 	// PlanAssignment is the recorded planning assignment this operation
-	// was resolved from. Empty on pre-binding rows; the serving
-	// connector always stamps it, and submission/adoption validate the
-	// stamped row against current scope, preparation and source.
+	// was resolved from. It is immutable from creation; submission and
+	// adoption refuse missing or stale provenance.
 	PlanAssignment string `json:"plan_assignment,omitempty"`
 }
 type IntentTaskBinding struct {

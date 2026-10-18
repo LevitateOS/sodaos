@@ -42,7 +42,8 @@ func checkJoinSubmit(t *testing.T, work factory.LifecycleWork, event, kind strin
 
 func checkJoinVisible(t *testing.T, ctx context.Context, db interface {
 	ListActions(context.Context, int64, int64, string, int) ([]factory.LifecycleAction, error)
-}, repo, workIndex int64, event string, target int64) {
+}, repo, workIndex int64, event string, target int64,
+) {
 	t.Helper()
 	visible, err := db.ListActions(ctx, repo, workIndex, event, 64)
 	if err != nil || len(visible) != 1 {
@@ -75,7 +76,7 @@ func TestLifecycleEnvelopeJoin(t *testing.T) {
 		if _, err := c.Store.SaveConfig(ctx, cfg); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+		if _, err := generateGraphMechanics(t, c, ctx, r.Intent, r.Owner); err != nil {
 			t.Fatal(err)
 		}
 		if len(ex.submits) != 2 {
