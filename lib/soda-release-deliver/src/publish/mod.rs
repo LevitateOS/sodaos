@@ -408,6 +408,34 @@ fn stage_github(
     verify_release(gh, &manifest.tag)
 }
 
+fn record_appliance_outcome(
+    gh: &dyn GitHub,
+    directory: &Path,
+    tag: &str,
+    downloaded_iso: std::path::PathBuf,
+    receipt: &Qualification,
+) -> Result<(), Error> {
+    command(
+        gh,
+        &[
+            "release",
+            "verify-asset",
+            tag,
+            downloaded_iso.to_str().ok_or_else(Error::refused)?,
+            "--repo",
+            REPOSITORY,
+        ],
+    )?;
+    let bytes = serde_json::to_vec(&ApplianceEvidence {
+        downloaded: downloaded_iso,
+    })
+    .map_err(|_| Error::refused())?;
+    record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
+    let bytes = serde_json::to_vec_pretty(receipt).map_err(|_| Error::refused())?;
+    record_verified(&directory.join("appliance-qualification.json"), &bytes)?;
+    Ok(())
+}
+
 /// Promote only the unchanged immutable candidate after exact install/boot smoke
 /// checks and verification of the ISO actually downloaded from GitHub.
 pub fn qualify_appliance(
@@ -450,24 +478,7 @@ pub fn qualify_appliance(
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
     verify_release(gh, &manifest.tag)?;
-    command(
-        gh,
-        &[
-            "release",
-            "verify-asset",
-            &manifest.tag,
-            downloaded_iso.to_str().ok_or_else(Error::refused)?,
-            "--repo",
-            REPOSITORY,
-        ],
-    )?;
-    let bytes = serde_json::to_vec(&ApplianceEvidence {
-        downloaded: downloaded_iso,
-    })
-    .map_err(|_| Error::refused())?;
-    record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
-    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
-    record_verified(&directory.join("appliance-qualification.json"), &bytes)?;
+    record_appliance_outcome(gh, directory, &manifest.tag, downloaded_iso, &receipt)?;
     Ok(())
 }
 
@@ -872,6 +883,33 @@ pub fn preflight(
     Ok(())
 }
 
+fn verify_downloaded_assets(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    evidence: &Path,
+) -> Result<(), Error> {
+    for name in qualification::DOWNLOADS {
+        let downloaded = evidence.join("downloads").join(name);
+        if &inspect(&downloaded, name)? != manifest.asset(name)? {
+            return Err(Error::msg(
+                "downloaded installation bytes differ from staged release",
+            ));
+        }
+        command(
+            gh,
+            &[
+                "release",
+                "verify-asset",
+                &manifest.tag,
+                downloaded.to_str().ok_or_else(Error::refused)?,
+                "--repo",
+                REPOSITORY,
+            ],
+        )?;
+    }
+    Ok(())
+}
+
 pub fn qualify_docker(
     gh: &dyn GitHub,
     registry: &dyn registry::Registry,
@@ -903,25 +941,7 @@ pub fn qualify_docker(
         manifest.docker.as_ref().ok_or_else(Error::refused)?,
         ci,
     )?;
-    for name in qualification::DOWNLOADS {
-        let downloaded = evidence.join("downloads").join(name);
-        if &inspect(&downloaded, name)? != manifest.asset(name)? {
-            return Err(Error::msg(
-                "downloaded installation bytes differ from staged release",
-            ));
-        }
-        command(
-            gh,
-            &[
-                "release",
-                "verify-asset",
-                &manifest.tag,
-                downloaded.to_str().ok_or_else(Error::refused)?,
-                "--repo",
-                REPOSITORY,
-            ],
-        )?;
-    }
+    verify_downloaded_assets(gh, manifest, evidence)?;
     if directory.join("docker-qualification.json").exists() {
         qualification::verify(manifest, directory)?;
     } else {
