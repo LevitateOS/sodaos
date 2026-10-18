@@ -451,6 +451,102 @@ func TestFactoryCatalogClockBoundaryDigest(t *testing.T) {
 	}
 }
 
+// TestFactoryCatalogReadsSpendNothingAndDiscloseNothing proves the R31
+// read contract through the actual handlers: context, status, evidence
+// and receipt record no submission rows, unknown capabilities refuse on
+// every read, receipts never cross assignments, and evidence stays
+// honestly incomplete instead of an empty success.
+func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
+	sink := newFakeCatalogSink()
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	ctx := context.Background()
+	admitted := sink.capability.ScopeDigest()
+	reads := func(tool factory.MCPTool, capabilityID, submissionID string) mcpCallArgs {
+		return mcpCallArgs{CapabilityID: capabilityID, SubmissionID: submissionID, ExpectedInputDigest: admitted}
+	}
+	count := func() int {
+		n, err := sink.MCPSubmissionCount(ctx, sink.capability.AssignmentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	for _, tool := range []factory.MCPTool{factory.MCPToolContext, factory.MCPToolStatus, factory.MCPToolEvidence} {
+		res, _, err := server.serve(ctx, tool, reads(tool, sink.capability.ID, ""))
+		if err != nil {
+			t.Fatalf("%s read refused: %v", tool, err)
+		}
+		if tool == factory.MCPToolEvidence {
+			var body map[string]any
+			text, ok := res.Content[0].(*mcp.TextContent)
+			if !ok {
+				t.Fatalf("evidence content is %T, not text", res.Content[0])
+			}
+			if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+				t.Fatalf("evidence body is not JSON: %v", err)
+			}
+			if complete, _ := body["complete"].(bool); complete {
+				t.Fatalf("evidence claims completeness: %q", text.Text)
+			}
+			if reason, _ := body["reason"].(string); reason == "" {
+				t.Fatalf("incomplete evidence names no reason: %q", text.Text)
+			}
+		}
+	}
+	if _, _, err := server.serve(ctx, factory.MCPToolReceipt, reads(factory.MCPToolReceipt, sink.capability.ID, factory.NewID())); err == nil {
+		t.Fatal("unknown receipt admitted")
+	} else if !strings.Contains(err.Error(), "receipt not found") {
+		t.Fatalf("unknown receipt refusal %q discloses", err)
+	}
+	if count() != 0 {
+		t.Fatalf("reads recorded %d submissions", count())
+	}
+	unknown := strings.Repeat("f", 32)
+	for _, tool := range []factory.MCPTool{factory.MCPToolContext, factory.MCPToolStatus, factory.MCPToolEvidence, factory.MCPToolReceipt} {
+		if _, _, err := server.serve(ctx, tool, reads(tool, unknown, factory.NewID())); err == nil {
+			t.Fatalf("%s read admitted an unknown capability", tool)
+		}
+	}
+	if count() != 0 {
+		t.Fatalf("refused reads recorded %d submissions", count())
+	}
+	submissionID := factory.NewID()
+	mutPayload, mutDigest := catalogPayload(map[string]any{
+		"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
+		"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
+	}, admitted)
+	if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, mcpCallArgs{
+		CapabilityID: sink.capability.ID, SubmissionID: submissionID,
+		ExpectedInputDigest: mutDigest, Payload: mutPayload,
+	}); err != nil {
+		t.Fatalf("recording mutation refused: %v", err)
+	}
+	if _, _, err := server.serve(ctx, factory.MCPToolReceipt, reads(factory.MCPToolReceipt, sink.capability.ID, submissionID)); err != nil {
+		t.Fatalf("own receipt refused: %v", err)
+	}
+	other := newFakeCatalogSink()
+	other.capability.ID = strings.Repeat("c", 32)
+	other.capability.AssignmentID = strings.Repeat("e", 32)
+	otherServer := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: other, Submissions: other},
+		limiter: newMCPRateLimiter(),
+	}
+	otherDigest := other.capability.ScopeDigest()
+	if _, _, err := otherServer.serve(ctx, factory.MCPToolReceipt, mcpCallArgs{
+		CapabilityID: other.capability.ID, SubmissionID: submissionID, ExpectedInputDigest: otherDigest,
+	}); err == nil {
+		t.Fatal("receipt crossed assignments")
+	} else if !strings.Contains(err.Error(), "receipt not found") {
+		t.Fatalf("cross-assignment refusal %q discloses", err)
+	}
+	if count() != 1 {
+		t.Fatalf("recorded %d submissions, want exactly the mutation", count())
+	}
+}
+
 // TestFactoryCatalogManifestGate proves the D16 release leg: a plan
 // carrying a manifest proposal validates against the catalog, and a
 // missing catalog names the unwired gate instead of inventing
