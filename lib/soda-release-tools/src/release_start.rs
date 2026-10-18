@@ -123,9 +123,10 @@ fn workflow_output(source: &Path, out: &Path) -> Result<(), String> {
 }
 fn packaging_args(selected: Distribution, tag: &str) -> Vec<String> {
     let mut args = Vec::new();
-    if selected != Distribution::Appliance {
-        args.extend(["--release-tag".into(), tag.into()]);
-    }
+    // Every distribution carries the explicit release tag: the image
+    // producer requires a Payload-v4 tag even for appliance builds, whose
+    // rootfs URL already embeds the same tag.
+    args.extend(["--release-tag".into(), tag.into()]);
     if selected != Distribution::Docker {
         args.extend([
             "--rootfs-base-url".into(),
@@ -444,6 +445,7 @@ mod tests {
             let flags = crate::build_cli::parse_build_flags(&args).unwrap();
             let request = crate::pipeline::image_request(&flags.request);
             request.validate_target().unwrap();
+            assert_eq!(request.release_tag, "v1.2.3");
             assert_eq!(request.wants_docker(), selected != Distribution::Appliance);
             assert_eq!(request.wants_media(), selected != Distribution::Docker);
         }
