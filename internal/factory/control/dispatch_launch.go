@@ -301,123 +301,27 @@ func reportPacketRefusal(ctx context.Context, deps DispatchDeps, occupancy *pass
 // Limit and preparation waits defer quietly: the fresh visit already
 // reports the issue as assigned.
 func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, report *DispatchReport) {
-	occupancy, err := snapshotOccupancy(ctx, deps.Store)
-	if err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "capacity accounting unavailable"})
-		return
-	}
-	control, err := deps.Store.IssueControl(ctx, a.Repository, a.Issue)
-	if err != nil {
-		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness is unavailable"})
-		return
-	}
-	// An advanced implementation child rebinds against its finished
-	// investigation parent: there is no publication yet, so the published
-	// parent checks below do not apply.
-	if a.Phase == project.ExecutionImplement && a.ParentAssignment != "" && a.PublicationAssignment != a.ID {
-		retryPhasedChild(ctx, deps, &occupancy, control, a, report)
-		return
-	}
-	// A phased publication child (review or correction) rebinds against
-	// its publication owner and, for corrections, its current reviewer:
-	// the recorded prompt bytes stay immutable and the correction
-	// manifest restages from the derived singleton plan. A relaunch never
-	// recharges: the review round and correction cycle were consumed by
-	// the immutable assignment identity at first launch.
-	if (a.Phase == project.ExecutionReview || a.Phase == project.ExecutionCorrect) &&
-		a.ParentAssignment != "" && a.PublicationAssignment != a.ID &&
-		a.Subject.Kind == factory.SubjectIssue {
-		retryPhasedPublicationChild(ctx, deps, &occupancy, control, a, report)
+	occupancy, control, ok := admitRetryAttempt(ctx, deps, a, report)
+	if !ok {
 		return
 	}
 	child := a.PublicationAssignment != a.ID
 	publicationTarget := ""
 	if child {
-		publication, publicationErr := deps.Store.PublicationByAssignment(ctx, a.PublicationAssignment)
-		if publicationErr != nil {
-			if errors.Is(publicationErr, store.ErrNotFound) {
-				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
-				return
-			}
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "published parent unreadable"})
-			return
-		}
-		if publication.Stage != factory.PublicationPublished || publication.WithdrawRequested || publication.Candidate != a.SourceCommit ||
-			publication.Acceptance != a.Acceptance || publication.Repository != a.Repository || publication.Issue != a.Issue ||
-			publication.AssignmentID != a.PublicationAssignment {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
-			return
-		}
-		publicationTarget = publication.TargetBranch
-		if a.Role != project.RoleCoder && a.Role != project.RoleReviewer {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "child role no longer holds", report)
+		var parentOK bool
+		if publicationTarget, parentOK = checkPublishedParent(ctx, deps, a, report); !parentOK {
 			return
 		}
 	}
-	role, exactPreparation := project.RoleCoder, ""
-	if child {
-		role, exactPreparation = a.Role, a.Preparation
-	}
-	lineage := attemptLineage{}
-	if a.Phase != "" {
-		lineage = attemptLineage{phase: a.Phase, parent: a.ParentAssignment}
-	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child, "", lineage)
-	if failed != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
-		return
-	}
-	if wait != nil {
-		switch wait.Reason {
-		case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
-		case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
-		}
+	plan, ok := planRetryAttempt(ctx, deps, &occupancy, control, a, child, report)
+	if !ok {
 		return
 	}
 	if child {
-		selection := plan.policy.Roles[a.Role]
-		if plan.attemptRoot != a.AttemptRoot ||
-			plan.sponsorship.Connection != a.Connection || selection.Model != a.Model ||
-			a.Harness != plan.pin.Harness+"-"+plan.pin.Version || a.HarnessVers != plan.pin.Version ||
-			plan.prep.Preparation.ID != a.Preparation || plan.policy.TargetBranch != publicationTarget {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child profile or authority changed", report)
+		if !checkRetryChildPlan(ctx, deps, a, plan, publicationTarget, report) {
 			return
 		}
-		previousRun, runErr := deps.Store.FactoryRun(ctx, a.Run)
-		if runErr != nil {
-			if errors.Is(runErr, store.ErrNotFound) {
-				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
-				return
-			}
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prior child run unreadable"})
-			return
-		}
-		if previousRun.Admission == nil {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
-			return
-		}
-		environment, envErr := deps.Store.EnvironmentGrant(ctx, a.Repository)
-		if envErr != nil {
-			if errors.Is(envErr, store.ErrNotFound) {
-				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
-				return
-			}
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "environment profile unreadable"})
-			return
-		}
-		previous := previousRun.Admission
-		oldSelection, hadOldSelection := previous.Policy.Roles[a.Role]
-		if !environment.Active || environment.Profile == nil {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
-			return
-		}
-		if !hadOldSelection ||
-			previous.Policy.TargetBranch != plan.policy.TargetBranch ||
-			!slices.Equal(previous.Policy.Checks, plan.policy.Checks) ||
-			oldSelection != selection || previous.Profile != *environment.Profile {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child launch profile changed", report)
+		if !checkRetryChildRun(ctx, deps, a, plan, report) {
 			return
 		}
 	} else if !bytes.Equal(plan.prompt, a.Prompt) {
@@ -425,25 +329,8 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		return
 	}
 	runID := factory.NewID()
-	now := time.Now()
-	run := factory.Run{
-		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
-		Started: now, Deadline: plan.deadline,
-		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
-	}
-	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
-	if err != nil {
-		if errors.Is(err, store.ErrDispatchControlStale) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
-			return
-		}
-		// A limit refusal defers quietly: the fresh visit already
-		// reports the issue as assigned, and a later pass retries.
-		if admissionWait(err) != nil {
-			return
-		}
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
+	next, run, ok := recordRetryRun(ctx, deps, a, plan, runID, report)
+	if !ok {
 		return
 	}
 	launch := project.FactoryLaunch{
@@ -458,11 +345,206 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		},
 		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 	}
+	validateRetryLaunch(ctx, deps, a, next, run, launch, false, report)
+}
+
+// routeAttemptWait finishes one planned attempt on terminal waits,
+// reporting false when the outcome already landed in the report.
+func routeAttemptWait(ctx context.Context, deps DispatchDeps, a factory.Assignment, wait *planWait, report *DispatchReport) bool {
+	if wait == nil {
+		return true
+	}
+	switch wait.Reason {
+	case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
+	case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
+	}
+	return false
+}
+
+// recordRetryRun records one retry packet behind a planned attempt
+// with a fresh run identity.
+func recordRetryRun(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, runID string, report *DispatchReport) (factory.Assignment, factory.Run, bool) {
+	var none factory.Assignment
+	now := time.Now()
+	run := factory.Run{
+		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
+		Started: now, Deadline: plan.deadline,
+		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
+	}
+	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
+	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
+	if err != nil {
+		if errors.Is(err, store.ErrDispatchControlStale) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
+			return none, factory.Run{}, false
+		}
+		// A limit refusal defers quietly: the fresh visit already
+		// reports the issue as assigned, and a later pass retries.
+		if admissionWait(err) != nil {
+			return none, factory.Run{}, false
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
+		return none, factory.Run{}, false
+	}
+	return next, run, true
+}
+
+// validateRetryLaunch validates one retry launch, verifying the
+// staged manifest for manifest-bound phases before tailing it.
+func validateRetryLaunch(ctx context.Context, deps DispatchDeps, a, next factory.Assignment, run factory.Run, launch project.FactoryLaunch, verifyManifest bool, report *DispatchReport) {
 	if err := launch.Validate(); err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
 		return
 	}
+	if verifyManifest {
+		if err := verifyStagedManifest(launch); err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
+			return
+		}
+	}
 	launchTail(ctx, deps, next, run, launch, report)
+}
+
+// admitRetryAttempt snapshots capacity and readiness behind one retry,
+// routing phased children to their lineage-bound relaunches.
+func admitRetryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, report *DispatchReport) (passOccupancy, factory.IssueControl, bool) {
+	var none passOccupancy
+	var noControl factory.IssueControl
+	occupancy, err := snapshotOccupancy(ctx, deps.Store)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "capacity accounting unavailable"})
+		return none, noControl, false
+	}
+	control, err := deps.Store.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness is unavailable"})
+		return none, noControl, false
+	}
+	// An advanced implementation child rebinds against its finished
+	// investigation parent: there is no publication yet, so the published
+	// parent checks below do not apply.
+	if a.Phase == project.ExecutionImplement && a.ParentAssignment != "" && a.PublicationAssignment != a.ID {
+		retryPhasedChild(ctx, deps, &occupancy, control, a, report)
+		return none, noControl, false
+	}
+	// A phased publication child (review or correction) rebinds against
+	// its publication owner and, for corrections, its current reviewer:
+	// the recorded prompt bytes stay immutable and the correction
+	// manifest restages from the derived singleton plan. A relaunch never
+	// recharges: the review round and correction cycle were consumed by
+	// the immutable assignment identity at first launch.
+	if (a.Phase == project.ExecutionReview || a.Phase == project.ExecutionCorrect) &&
+		a.ParentAssignment != "" && a.PublicationAssignment != a.ID &&
+		a.Subject.Kind == factory.SubjectIssue {
+		retryPhasedPublicationChild(ctx, deps, &occupancy, control, a, report)
+		return none, noControl, false
+	}
+	return occupancy, control, true
+}
+
+// checkPublishedParent requires the published parent behind one
+// publication child retry with its recorded branch.
+func checkPublishedParent(ctx context.Context, deps DispatchDeps, a factory.Assignment, report *DispatchReport) (string, bool) {
+	publication, err := deps.Store.PublicationByAssignment(ctx, a.PublicationAssignment)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
+			return "", false
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "published parent unreadable"})
+		return "", false
+	}
+	if publication.Stage != factory.PublicationPublished || publication.WithdrawRequested || publication.Candidate != a.SourceCommit ||
+		publication.Acceptance != a.Acceptance || publication.Repository != a.Repository || publication.Issue != a.Issue ||
+		publication.AssignmentID != a.PublicationAssignment {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
+		return "", false
+	}
+	if a.Role != project.RoleCoder && a.Role != project.RoleReviewer {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "child role no longer holds", report)
+		return "", false
+	}
+	return publication.TargetBranch, true
+}
+
+// planRetryAttempt plans one retry under its recorded role, routing
+// terminal waits to the report.
+func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, a factory.Assignment, child bool, report *DispatchReport) (*attemptPlan, bool) {
+	role, exactPreparation := project.RoleCoder, ""
+	if child {
+		role, exactPreparation = a.Role, a.Preparation
+	}
+	lineage := attemptLineage{}
+	if a.Phase != "" {
+		lineage = attemptLineage{phase: a.Phase, parent: a.ParentAssignment}
+	}
+	plan, wait, failed := planAttemptForRole(ctx, deps, occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child, "", lineage)
+	if failed != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
+		return nil, false
+	}
+	if !routeAttemptWait(ctx, deps, a, wait, report) {
+		return nil, false
+	}
+	return plan, true
+}
+
+// checkRetryChildPlan requires the recorded child profile and
+// authority behind one publication child retry.
+func checkRetryChildPlan(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, publicationTarget string, report *DispatchReport) bool {
+	selection := plan.policy.Roles[a.Role]
+	if plan.attemptRoot != a.AttemptRoot ||
+		plan.sponsorship.Connection != a.Connection || selection.Model != a.Model ||
+		a.Harness != plan.pin.Harness+"-"+plan.pin.Version || a.HarnessVers != plan.pin.Version ||
+		plan.prep.Preparation.ID != a.Preparation || plan.policy.TargetBranch != publicationTarget {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child profile or authority changed", report)
+		return false
+	}
+	return true
+}
+
+// checkRetryChildRun requires the prior child run and environment
+// profile behind one publication child retry.
+func checkRetryChildRun(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, report *DispatchReport) bool {
+	previousRun, err := deps.Store.FactoryRun(ctx, a.Run)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
+			return false
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prior child run unreadable"})
+		return false
+	}
+	if previousRun.Admission == nil {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
+		return false
+	}
+	environment, err := deps.Store.EnvironmentGrant(ctx, a.Repository)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
+			return false
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "environment profile unreadable"})
+		return false
+	}
+	previous := previousRun.Admission
+	oldSelection, hadOldSelection := previous.Policy.Roles[a.Role]
+	selection := plan.policy.Roles[a.Role]
+	if !environment.Active || environment.Profile == nil {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
+		return false
+	}
+	if !hadOldSelection ||
+		previous.Policy.TargetBranch != plan.policy.TargetBranch ||
+		!slices.Equal(previous.Policy.Checks, plan.policy.Checks) ||
+		oldSelection != selection || previous.Profile != *environment.Profile {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child launch profile changed", report)
+		return false
+	}
+	return true
 }
 
 // retryPhasedChild relaunches one interrupted advanced implementation
@@ -483,17 +565,10 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
 	}
-	if wait != nil {
-		switch wait.Reason {
-		case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
-		case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
-		}
+	if !routeAttemptWait(ctx, deps, a, wait, report) {
 		return
 	}
 	runID := factory.NewID()
-	now := time.Now()
 	// The recorded prompt bytes are immutable, so the staged envelope is
 	// remarshaled from the recorded plan with this retry's fresh run
 	// identity, deadline and current limits: its digest still binds the
@@ -504,24 +579,8 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
 		return
 	}
-	run := factory.Run{
-		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
-		Started: now, Deadline: plan.deadline,
-		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
-	}
-	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
-	if err != nil {
-		if errors.Is(err, store.ErrDispatchControlStale) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
-			return
-		}
-		// A limit refusal defers quietly: the fresh visit already
-		// reports the issue as assigned, and a later pass retries.
-		if admissionWait(err) != nil {
-			return
-		}
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
+	next, run, ok := recordRetryRun(ctx, deps, a, plan, runID, report)
+	if !ok {
 		return
 	}
 	launch := project.FactoryLaunch{
@@ -538,15 +597,7 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 		ExecutionManifest: manifest,
 	}
-	if err := launch.Validate(); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
-		return
-	}
-	if err := verifyStagedManifest(launch); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
-		return
-	}
-	launchTail(ctx, deps, next, run, launch, report)
+	validateRetryLaunch(ctx, deps, a, next, run, launch, true, report)
 }
 
 // validImplementLineage verifies one implementation child still binds its
@@ -554,18 +605,37 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 // executable plan, sharing subject, root, publication slot, preparation and
 // source. Anything else supersedes the child instead of executing it.
 func validImplementLineage(a, parent factory.Assignment) bool {
-	if parent.Validate() != nil || parent.ID != a.ParentAssignment ||
-		parent.Phase != project.ExecutionInvestigate || parent.Stage != factory.AssignmentFinished ||
-		parent.Outcome != factory.Succeeded || parent.Reason != factory.AssignReasonReported ||
-		parent.Result == nil || parent.Result.PhaseResult == nil {
+	if !validImplementParent(a, parent) {
 		return false
 	}
+	if !validInvestigatePlan(parent) {
+		return false
+	}
+	return implementScopeMatches(a, parent)
+}
+
+// validImplementParent verifies one implementation child's parent is
+// a finished reported investigation owning the child's parent slot.
+func validImplementParent(a, parent factory.Assignment) bool {
+	return parent.Validate() == nil && parent.ID == a.ParentAssignment &&
+		parent.Phase == project.ExecutionInvestigate && parent.Stage == factory.AssignmentFinished &&
+		parent.Outcome == factory.Succeeded && parent.Reason == factory.AssignReasonReported &&
+		parent.Result != nil && parent.Result.PhaseResult != nil
+}
+
+// validInvestigatePlan verifies one investigation parent carries a
+// completed executable plan.
+func validInvestigatePlan(parent factory.Assignment) bool {
 	phased := parent.Result.PhaseResult
-	if phased.Phase != project.ExecutionInvestigate || phased.Status != "completed" ||
-		phased.Output == nil || phased.Output.Plan == nil ||
-		phased.Output.Plan.Validate() != nil || phased.Output.Plan.Executable() != nil {
-		return false
-	}
+	return phased.Phase == project.ExecutionInvestigate && phased.Status == "completed" &&
+		phased.Output != nil && phased.Output.Plan != nil &&
+		phased.Output.Plan.Validate() == nil && phased.Output.Plan.Executable() == nil
+}
+
+// implementScopeMatches verifies one implementation child shares its
+// subject, root, publication slot, preparation and source with its
+// investigation parent.
+func implementScopeMatches(a, parent factory.Assignment) bool {
 	return a.Role == project.RoleCoder && a.Repository == parent.Repository && a.Issue == parent.Issue &&
 		a.Acceptance == parent.Acceptance && a.AttemptRoot == parent.AttemptRoot &&
 		a.PublicationAssignment == parent.PublicationAssignment && a.Preparation == parent.Preparation &&
@@ -689,29 +759,54 @@ func validCorrectLineage(a, owner, reviewer factory.Assignment) bool {
 	if !validPublicationChildOwner(a, owner) {
 		return false
 	}
-	if reviewer.Validate() != nil || reviewer.ID != a.ParentAssignment ||
-		reviewer.Role != project.RoleReviewer || reviewer.Phase != project.ExecutionReview ||
-		reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded ||
-		reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+	if !validCorrectReviewer(a, reviewer) {
 		return false
 	}
+	if !validCorrectVerdict(a, reviewer) {
+		return false
+	}
+	return correctScopeMatches(a, owner, reviewer)
+}
+
+// validCorrectReviewer verifies the reviewer behind one corrector
+// child: a finished reported review owning the child's parent slot.
+func validCorrectReviewer(a, reviewer factory.Assignment) bool {
+	return reviewer.Validate() == nil && reviewer.ID == a.ParentAssignment &&
+		reviewer.Role == project.RoleReviewer && reviewer.Phase == project.ExecutionReview &&
+		reviewer.Stage == factory.AssignmentFinished && reviewer.Outcome == factory.Succeeded &&
+		reviewer.Result != nil && reviewer.Result.Reported && reviewer.Result.Status == "completed"
+}
+
+// validCorrectVerdict verifies one corrector's review verdict carries
+// exactly one decision on this head.
+func validCorrectVerdict(a, reviewer factory.Assignment) bool {
 	verdict := reviewer.Result.PhaseResult
 	if verdict == nil || verdict.Phase != project.ExecutionReview || verdict.Output == nil ||
 		(verdict.Output.Review == nil) == (verdict.Output.Clear == nil) {
 		return false
 	}
-	if verdict.Output.Clear != nil && verdict.Output.Clear.Head != a.SourceCommit {
-		return false
-	}
+	return verdict.Output.Clear == nil || verdict.Output.Clear.Head == a.SourceCommit
+}
+
+// correctScopeMatches verifies one corrector child shares its scope,
+// root, acceptance, candidate and subject with its owner and reviewer
+// while holding the owner's coder preparation.
+func correctScopeMatches(a, owner, reviewer factory.Assignment) bool {
 	return a.Role == project.RoleCoder && a.Phase == project.ExecutionCorrect &&
 		reviewer.Repository == a.Repository && reviewer.Issue == a.Issue &&
 		reviewer.ProjectID == a.ProjectID && reviewer.Acceptance == a.Acceptance &&
 		reviewer.AttemptRoot == a.AttemptRoot &&
 		reviewer.PublicationAssignment == a.PublicationAssignment &&
 		reviewer.SourceCommit == a.SourceCommit &&
-		a.Subject.Kind == factory.SubjectIssue && a.Subject.Issue != nil &&
-		a.Subject.Issue.Issue == a.Issue && a.Subject.Issue.Acceptance == a.Acceptance &&
+		correctSubjectMatches(a) &&
 		a.Preparation == owner.Preparation && a.Preparation != reviewer.Preparation
+}
+
+// correctSubjectMatches verifies one corrector child targets its own
+// accepted issue subject.
+func correctSubjectMatches(a factory.Assignment) bool {
+	return a.Subject.Kind == factory.SubjectIssue && a.Subject.Issue != nil &&
+		a.Subject.Issue.Issue == a.Issue && a.Subject.Issue.Acceptance == a.Acceptance
 }
 
 // newestCommittedCorrectionRunID returns the run behind the newest committed
@@ -738,111 +833,33 @@ func newestCommittedCorrectionRunID(p factory.Publication, head, base string) (s
 // the retry's fresh run identity. Anything the lineage no longer binds
 // supersedes the child instead of executing it.
 func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, a factory.Assignment, report *DispatchReport) {
-	owner, err := deps.Store.Assignment(ctx, a.PublicationAssignment)
-	if err != nil || !validPublicationChildOwner(a, owner) {
-		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "publication owner no longer holds", report)
+	owner, p, ok := loadPhasedPublicationRetry(ctx, deps, a, report)
+	if !ok {
 		return
 	}
-	p, err := deps.Store.PublicationByAssignment(ctx, owner.ID)
-	if err != nil || p.Stage != factory.PublicationPublished || p.WithdrawRequested ||
-		p.Repository != a.Repository || p.Issue != a.Issue || p.Acceptance != a.Acceptance ||
-		p.Candidate != a.SourceCommit {
-		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published candidate no longer holds", report)
+	lineage, ok := resolvePhasedRetryLineage(ctx, deps, a, owner, p, report)
+	if !ok {
 		return
-	}
-	var lineage attemptLineage
-	if a.Phase == project.ExecutionReview {
-		if !validReviewLineage(a, owner) {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "reviewer lineage no longer holds", report)
-			return
-		}
-		lineage = attemptLineage{phase: a.Phase, parent: owner.ID}
-	} else {
-		reviewer, err := deps.Store.Assignment(ctx, a.ParentAssignment)
-		if err != nil || !validCorrectLineage(a, owner, reviewer) {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "corrector lineage no longer holds", report)
-			return
-		}
-		current, ok := newestCommittedCorrectionRunID(p, a.SourceCommit, p.PRCreate.BaseOID)
-		if !ok || current != reviewer.Run {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers a superseded review", report)
-			return
-		}
-		lineage = attemptLineage{phase: a.Phase, parent: reviewer.ID}
 	}
 	plan, wait, failed := planAttemptForRole(ctx, deps, occupancy, a.Repository, a.Issue, a.Acceptance, control, false, a.Role, a.Preparation, true, "", lineage)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
 	}
-	if wait != nil {
-		switch wait.Reason {
-		case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
-		case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
-		}
+	if !routeAttemptWait(ctx, deps, a, wait, report) {
 		return
 	}
 	runID := factory.NewID()
-	now := time.Now()
 	var manifest []byte
 	manifestDigest := ""
 	if a.Phase == project.ExecutionCorrect {
-		var cycle factory.ReviewCycle
-		found := false
-		for _, recorded := range p.ReviewCycles {
-			if recorded.CorrectionAssignment == a.ID {
-				cycle, found = recorded, true
-				break
-			}
-		}
-		if !found {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers an unrecorded cycle", report)
+		var manifestOK bool
+		if manifest, manifestDigest, manifestOK = stageCorrectionRetryManifest(ctx, deps, plan, a, owner, p, runID, report); !manifestOK {
 			return
 		}
-		if owner.Phase != project.ExecutionInvestigate || owner.Result == nil || owner.Result.PhaseResult == nil ||
-			owner.Result.PhaseResult.Output == nil || owner.Result.PhaseResult.Output.Plan == nil {
-			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded investigation plan is unavailable", report)
-			return
-		}
-		derived, derivationErr := deriveCorrectionPlan(plan.acceptance, *owner.Result.PhaseResult.Output.Plan,
-			owner.AttemptRoot, a.SourceCommit, p.PRCreate.BaseOID, owner.Preparation,
-			cycle.ID, cycle.FindingDigest, nil, plan.policy.Checks)
-		if derivationErr != nil {
-			if reason, blocked := correctionPlanWaitReason(derivationErr); blocked {
-				report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: reason, Detail: "recorded investigation plan is unavailable"})
-				return
-			}
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
-			return
-		}
-		selection := plan.policy.Roles[a.Role]
-		staged, err := stageExecutionManifest(derived, runID, plan.deadline, selection.Profile, project.ExecutionCorrect, 0)
-		if err != nil {
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
-			return
-		}
-		manifest, manifestDigest = staged, project.ExecutionManifestDigest(staged)
 	}
-	run := factory.Run{
-		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
-		Started: now, Deadline: plan.deadline,
-		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
-	}
-	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
-	if err != nil {
-		if errors.Is(err, store.ErrDispatchControlStale) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
-			return
-		}
-		// A limit refusal defers quietly: the fresh visit already
-		// reports the issue as assigned, and a later pass retries.
-		if admissionWait(err) != nil {
-			return
-		}
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
+	next, run, ok := recordRetryRun(ctx, deps, a, plan, runID, report)
+	if !ok {
 		return
 	}
 	launch := project.FactoryLaunch{
@@ -859,15 +876,89 @@ func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupan
 		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 		ExecutionManifest: manifest,
 	}
-	if err := launch.Validate(); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
-		return
+	validateRetryLaunch(ctx, deps, a, next, run, launch, a.Phase == project.ExecutionCorrect, report)
+}
+
+// loadPhasedPublicationRetry loads the publication owner and its
+// published candidate behind one phased publication child retry.
+func loadPhasedPublicationRetry(ctx context.Context, deps DispatchDeps, a factory.Assignment, report *DispatchReport) (factory.Assignment, factory.Publication, bool) {
+	var none factory.Assignment
+	var noPublication factory.Publication
+	owner, err := deps.Store.Assignment(ctx, a.PublicationAssignment)
+	if err != nil || !validPublicationChildOwner(a, owner) {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "publication owner no longer holds", report)
+		return none, noPublication, false
 	}
-	if a.Phase == project.ExecutionCorrect {
-		if err := verifyStagedManifest(launch); err != nil {
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
-			return
+	p, err := deps.Store.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || p.Stage != factory.PublicationPublished || p.WithdrawRequested ||
+		p.Repository != a.Repository || p.Issue != a.Issue || p.Acceptance != a.Acceptance ||
+		p.Candidate != a.SourceCommit {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published candidate no longer holds", report)
+		return none, noPublication, false
+	}
+	return owner, p, true
+}
+
+// resolvePhasedRetryLineage binds one phased publication child retry
+// to its reviewer or corrector lineage.
+func resolvePhasedRetryLineage(ctx context.Context, deps DispatchDeps, a, owner factory.Assignment, p factory.Publication, report *DispatchReport) (attemptLineage, bool) {
+	var none attemptLineage
+	if a.Phase == project.ExecutionReview {
+		if !validReviewLineage(a, owner) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "reviewer lineage no longer holds", report)
+			return none, false
+		}
+		return attemptLineage{phase: a.Phase, parent: owner.ID}, true
+	}
+	reviewer, err := deps.Store.Assignment(ctx, a.ParentAssignment)
+	if err != nil || !validCorrectLineage(a, owner, reviewer) {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "corrector lineage no longer holds", report)
+		return none, false
+	}
+	current, ok := newestCommittedCorrectionRunID(p, a.SourceCommit, p.PRCreate.BaseOID)
+	if !ok || current != reviewer.Run {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers a superseded review", report)
+		return none, false
+	}
+	return attemptLineage{phase: a.Phase, parent: reviewer.ID}, true
+}
+
+// stageCorrectionRetryManifest restages the derived singleton plan
+// behind one corrector retry with its fresh run identity.
+func stageCorrectionRetryManifest(ctx context.Context, deps DispatchDeps, plan *attemptPlan, a, owner factory.Assignment, p factory.Publication, runID string, report *DispatchReport) ([]byte, string, bool) {
+	var cycle factory.ReviewCycle
+	found := false
+	for _, recorded := range p.ReviewCycles {
+		if recorded.CorrectionAssignment == a.ID {
+			cycle, found = recorded, true
+			break
 		}
 	}
-	launchTail(ctx, deps, next, run, launch, report)
+	if !found {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers an unrecorded cycle", report)
+		return nil, "", false
+	}
+	if owner.Phase != project.ExecutionInvestigate || owner.Result == nil || owner.Result.PhaseResult == nil ||
+		owner.Result.PhaseResult.Output == nil || owner.Result.PhaseResult.Output.Plan == nil {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded investigation plan is unavailable", report)
+		return nil, "", false
+	}
+	derived, err := deriveCorrectionPlan(plan.acceptance, *owner.Result.PhaseResult.Output.Plan,
+		owner.AttemptRoot, a.SourceCommit, p.PRCreate.BaseOID, owner.Preparation,
+		cycle.ID, cycle.FindingDigest, nil, plan.policy.Checks)
+	if err != nil {
+		if reason, blocked := correctionPlanWaitReason(err); blocked {
+			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: reason, Detail: "recorded investigation plan is unavailable"})
+			return nil, "", false
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
+		return nil, "", false
+	}
+	selection := plan.policy.Roles[a.Role]
+	staged, err := stageExecutionManifest(derived, runID, plan.deadline, selection.Profile, project.ExecutionCorrect, 0)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
+		return nil, "", false
+	}
+	return staged, project.ExecutionManifestDigest(staged), true
 }
