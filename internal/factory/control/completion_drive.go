@@ -303,118 +303,161 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 // releases a fresh continue decision. A recorded reassess decision
 // rests: the sole run admission is FW32's joint.
 func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDeps, record store.ReassessmentRecord, report *CompletionDriveReport) {
-	cycleID := record.Cycle.CycleID
-	attend := func(reason string) {
-		if err := record.Cycle.AdvanceTo(factory.ReassessmentAttention); err != nil {
-			report.Held = append(report.Held, cycleID+":attention_refused")
-			return
-		}
-		record.WaitReason = reason
-		next := record.Cycle
-		next.State = factory.ReassessmentAttention
-		record.Cycle = next
-		if err := c.Store.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, record); err != nil {
-			if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
-				return
-			}
-		}
-		report.Held = append(report.Held, cycleID+":"+reason)
-	}
-	if record.Cycle.Decision == factory.ReassessmentOptionReassess {
-		report.AwaitingCoder = append(report.AwaitingCoder, cycleID)
+	d := &decidingDrive{c: c, ctx: ctx, deps: deps, record: record, report: report, cycleID: record.Cycle.CycleID}
+	d.drive()
+}
+
+// decidingDrive carries the shared state behind one deciding drive
+// so each duty reads through one small check.
+type decidingDrive struct {
+	c      *Coordinator
+	ctx    context.Context
+	deps   CompletionDriveDeps
+	record store.ReassessmentRecord
+	report *CompletionDriveReport
+	cycleID string
+}
+
+// attend holds one deciding cycle for explicit attention under its reason.
+func (d *decidingDrive) attend(reason string) {
+	if err := d.record.Cycle.AdvanceTo(factory.ReassessmentAttention); err != nil {
+		d.report.Held = append(d.report.Held, d.cycleID+":attention_refused")
 		return
 	}
-	if record.Cycle.Decision == "" {
-		if c.Planning == nil || c.Planning.Chooser == nil {
-			record.WaitReason = HoldCompletionWiring
-			if err := c.Store.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, record); err == nil {
-				report.Held = append(report.Held, cycleID+":"+HoldCompletionWiring)
-			}
+	d.record.WaitReason = reason
+	next := d.record.Cycle
+	next.State = factory.ReassessmentAttention
+	d.record.Cycle = next
+	if err := d.c.Store.CasReassessmentRecord(d.ctx, d.cycleID, factory.ReassessmentDeciding, d.record); err != nil {
+		if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
 			return
 		}
-		state, err := DecisionStateFromRecord(record)
-		if err != nil {
-			if errors.Is(err, errReassessmentDecisionOversize) {
-				attend("decision_evidence_oversize")
-				return
-			}
-			attend("decision_evidence_missing")
-			return
-		}
-		decided, err := c.DecideReassessment(ctx, record, state)
-		if err != nil {
-			if errors.Is(err, errReassessmentDeferred) {
-				report.Held = append(report.Held, cycleID+":decision_in_flight")
-				return
-			}
-			if errors.Is(err, errReassessmentExhausted) {
-				attend("funding_exhausted")
-				return
-			}
-			if decided.WaitReason != "" {
-				record = decided
-				attend(decided.WaitReason)
-				return
-			}
-			report.Held = append(report.Held, cycleID+":decision_deferred")
-			return
-		}
-		if decided.Cycle.Decision == factory.ReassessmentOptionReassess {
-			if err := c.Store.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, decided); err != nil {
-				if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
-					return
-				}
-				report.Held = append(report.Held, cycleID+":decision_hold_unrecorded")
-				return
-			}
-			report.Decided = append(report.Decided, cycleID)
-			report.AwaitingCoder = append(report.AwaitingCoder, cycleID)
-			return
-		}
-		record = decided
 	}
-	// The funding reservation appends its paid call to the row in its
-	// own transaction after this drive's read: refresh the deciding
-	// record so the release and defer CASs below preserve the actual
-	// decided record+ledger and sealed bindings, never a stale
-	// pre-decision copy. Only the decided option rides forward; the
-	// fresh row (with the paid ledger call) wins outright. A failed
-	// reread or a row that left deciding holds the release: never
-	// persist a stale ledger over a failed refresh, and never
-	// override a conflicting already-recorded option.
-	decidedOption := record.Cycle.Decision
-	live, err := c.Store.ReassessmentRecord(ctx, cycleID)
-	if err != nil {
-		report.Held = append(report.Held, cycleID+":release_deferred")
+	d.report.Held = append(d.report.Held, d.cycleID+":"+reason)
+}
+
+func (d *decidingDrive) drive() {
+	if d.record.Cycle.Decision == factory.ReassessmentOptionReassess {
+		d.report.AwaitingCoder = append(d.report.AwaitingCoder, d.cycleID)
 		return
 	}
-	if live.Cycle.CycleID != cycleID || live.Cycle.State != factory.ReassessmentDeciding {
-		report.Held = append(report.Held, cycleID+":release_deferred")
-		return
+	if d.record.Cycle.Decision == "" {
+		if d.decideFreshOption() {
+			return
+		}
 	}
-	if live.Cycle.Decision != "" && live.Cycle.Decision != decidedOption {
-		// Never CAS the stale in-memory record over a live conflicting
-		// option+ledger: hold without mutation; the next drive handles
-		// the recorded decision.
-		report.Held = append(report.Held, cycleID+":release_deferred")
+	if d.refreshDecidedRecord() {
 		return
-	}
-	record = live
-	if record.Cycle.Decision == "" {
-		record.Cycle.Decision = decidedOption
 	}
 	// A continue decision releases only after freshness, recheck and
 	// snapshot invalidation. Any failure before the release CAS defers
 	// (the recorded decision stands; the next drive retries without
 	// charging again). Material drift holds with attention.
-	if record.Cycle.Decision != factory.ReassessmentOptionContinue {
-		attend("decision_not_actionable")
+	if d.record.Cycle.Decision != factory.ReassessmentOptionContinue {
+		d.attend("decision_not_actionable")
 		return
 	}
-	if deps.Enumerator == nil || deps.CaptureLocal == nil {
-		attend("freshness_unavailable")
+	if d.deps.Enumerator == nil || d.deps.CaptureLocal == nil {
+		d.attend("freshness_unavailable")
 		return
 	}
+	d.releaseFreshInventory()
+}
+
+// decideFreshOption decides one undecided cycle, reporting true when
+// the outcome already landed in the report.
+func (d *decidingDrive) decideFreshOption() bool {
+	if d.c.Planning == nil || d.c.Planning.Chooser == nil {
+		d.record.WaitReason = HoldCompletionWiring
+		if err := d.c.Store.CasReassessmentRecord(d.ctx, d.cycleID, factory.ReassessmentDeciding, d.record); err == nil {
+			d.report.Held = append(d.report.Held, d.cycleID+":"+HoldCompletionWiring)
+		}
+		return true
+	}
+	state, err := DecisionStateFromRecord(d.record)
+	if err != nil {
+		if errors.Is(err, errReassessmentDecisionOversize) {
+			d.attend("decision_evidence_oversize")
+			return true
+		}
+		d.attend("decision_evidence_missing")
+		return true
+	}
+	decided, err := d.c.DecideReassessment(d.ctx, d.record, state)
+	if err != nil {
+		return d.routeDecisionError(decided, err)
+	}
+	if decided.Cycle.Decision == factory.ReassessmentOptionReassess {
+		if err := d.c.Store.CasReassessmentRecord(d.ctx, d.cycleID, factory.ReassessmentDeciding, decided); err != nil {
+			if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
+				return true
+			}
+			d.report.Held = append(d.report.Held, d.cycleID+":decision_hold_unrecorded")
+			return true
+		}
+		d.report.Decided = append(d.report.Decided, d.cycleID)
+		d.report.AwaitingCoder = append(d.report.AwaitingCoder, d.cycleID)
+		return true
+	}
+	d.record = decided
+	return false
+}
+
+// routeDecisionError holds one failed decision by its failure,
+// reporting true always since the outcome lands in the report.
+func (d *decidingDrive) routeDecisionError(decided store.ReassessmentRecord, err error) bool {
+	if errors.Is(err, errReassessmentDeferred) {
+		d.report.Held = append(d.report.Held, d.cycleID+":decision_in_flight")
+		return true
+	}
+	if errors.Is(err, errReassessmentExhausted) {
+		d.attend("funding_exhausted")
+		return true
+	}
+	if decided.WaitReason != "" {
+		d.record = decided
+		d.attend(decided.WaitReason)
+		return true
+	}
+	d.report.Held = append(d.report.Held, d.cycleID+":decision_deferred")
+	return true
+}
+
+// refreshDecidedRecord refreshes the deciding record so the release
+// and defer CASs preserve the actual decided record+ledger and sealed
+// bindings, never a stale pre-decision copy. Only the decided option
+// rides forward; the fresh row (with the paid ledger call) wins
+// outright. A failed reread or a row that left deciding holds the
+// release: never persist a stale ledger over a failed refresh, and
+// never override a conflicting already-recorded option.
+func (d *decidingDrive) refreshDecidedRecord() bool {
+	decidedOption := d.record.Cycle.Decision
+	live, err := d.c.Store.ReassessmentRecord(d.ctx, d.cycleID)
+	if err != nil {
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
+		return true
+	}
+	if live.Cycle.CycleID != d.cycleID || live.Cycle.State != factory.ReassessmentDeciding {
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
+		return true
+	}
+	if live.Cycle.Decision != "" && live.Cycle.Decision != decidedOption {
+		// Never CAS the stale in-memory record over a live conflicting
+		// option+ledger: hold without mutation; the next drive handles
+		// the recorded decision.
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
+		return true
+	}
+	d.record = live
+	if d.record.Cycle.Decision == "" {
+		d.record.Cycle.Decision = decidedOption
+	}
+	return false
+}
+
+// releaseFreshInventory re-observes the material inventory and
+// releases one continued cycle when fresh.
+func (d *decidingDrive) releaseFreshInventory() {
 	// The release re-observes the material inventory through the
 	// SAME-RR bracket at a stable native revision, resuming the
 	// persisted fresh prefix across pass limits: native edits and
@@ -425,82 +468,86 @@ func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDep
 	// replaced here — only the deciding prefix persists, without a
 	// new spend or decision when continue is already recorded.
 	var saved *InventoryCollector
-	if len(record.CollectorProgress) > 0 {
+	if len(d.record.CollectorProgress) > 0 {
 		var loaded InventoryCollector
-		if err := json.Unmarshal(record.CollectorProgress, &loaded); err == nil {
+		if err := json.Unmarshal(d.record.CollectorProgress, &loaded); err == nil {
 			saved = &loaded
 		}
 	}
-	out := bracketMaterialCollect(ctx, deps, record.Cycle.Repository, record.Cycle.Generation, saved)
+	out := bracketMaterialCollect(d.ctx, d.deps, d.record.Cycle.Repository, d.record.Cycle.Generation, saved)
 	if out.hold != "" {
-		// A busy or shifting native state, a moved local capture,
-		// or an exhausted quota defers the release with the fresh
-		// prefix (or its honest reset on a real revision move)
-		// persisted through the deciding CAS: the recorded
-		// continue decision — with its ledger — stands and the next
-		// drive resumes without charging again. Material or
-		// structural drift holds with attention for explicit Retry.
-		// A quota refusal defers with durable progress, never
-		// attention.
-		deferRelease := func() {
-			record.CollectorProgress = nil
-			if out.progress != nil {
-				if raw, err := json.Marshal(out.progress); err == nil {
-					record.CollectorProgress = raw
-				}
-			}
-			if err := c.Store.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, record); err != nil {
-				if !errors.Is(err, store.ErrStaleRevision) && !errors.Is(err, store.ErrNotFound) {
-					report.Held = append(report.Held, cycleID+":release_hold_unrecorded")
-					return
-				}
-			}
-			report.Held = append(report.Held, cycleID+":release_deferred")
-		}
-		switch out.hold {
-		case HoldInventoryRevision, HoldInventoryInProgress, HoldInventoryMaterial,
-			ErrReadinessPassPending.Error(), context.Canceled.Error(), context.DeadlineExceeded.Error():
-			deferRelease()
-			return
-		case HoldCompletionWiring, HoldInventoryUnavailable:
-			attend("freshness_unavailable")
-			return
-		default:
-			attend(out.hold)
-			return
-		}
+		d.routeCollectHold(out)
+		return
 	}
 	fresh := out.sealed
-	sealed := freshnessFromBindings(record.Local, record.InventoryDigest)
+	sealed := freshnessFromBindings(d.record.Local, d.record.InventoryDigest)
 	if err := CheckCompletionFreshness(sealed, freshnessFromBindings(fresh.Local, fresh.Digest)); err != nil {
-		attend(err.Error())
+		d.attend(err.Error())
 		return
 	}
-	if err := c.Store.DeletePriorityScan(ctx); err != nil {
-		report.Held = append(report.Held, cycleID+":release_deferred")
+	if err := d.c.Store.DeletePriorityScan(d.ctx); err != nil {
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
 		return
 	}
-	if err := c.Store.EnqueueReadinessRootEvent(ctx, record.Cycle.Repository, record.Issue); err != nil {
-		report.Held = append(report.Held, cycleID+":release_deferred")
+	if err := d.c.Store.EnqueueReadinessRootEvent(d.ctx, d.record.Cycle.Repository, d.record.Issue); err != nil {
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
 		return
 	}
-	if err := record.Cycle.AdvanceTo(factory.ReassessmentReleased); err != nil {
-		report.Held = append(report.Held, cycleID+":release_refused")
+	if err := d.record.Cycle.AdvanceTo(factory.ReassessmentReleased); err != nil {
+		d.report.Held = append(d.report.Held, d.cycleID+":release_refused")
 		return
 	}
-	next := record.Cycle
+	next := d.record.Cycle
 	next.State = factory.ReassessmentReleased
-	record.Cycle = next
-	record.WaitReason = ""
-	record.CollectorProgress = nil
-	if err := c.Store.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, record); err != nil {
+	d.record.Cycle = next
+	d.record.WaitReason = ""
+	d.record.CollectorProgress = nil
+	if err := d.c.Store.CasReassessmentRecord(d.ctx, d.cycleID, factory.ReassessmentDeciding, d.record); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
 			return
 		}
-		report.Held = append(report.Held, cycleID+":release_deferred")
+		d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
 		return
 	}
-	report.Released = append(report.Released, cycleID)
+	d.report.Released = append(d.report.Released, d.cycleID)
+}
+
+// routeCollectHold defers or attends one held material collection.
+// A busy or shifting native state, a moved local capture, or an
+// exhausted quota defers the release with the fresh prefix (or its
+// honest reset on a real revision move) persisted through the deciding
+// CAS: the recorded continue decision — with its ledger — stands and
+// the next drive resumes without charging again. Material or structural
+// drift holds with attention for explicit Retry. A quota refusal defers
+// with durable progress, never attention.
+func (d *decidingDrive) routeCollectHold(out bracketResult) {
+	switch out.hold {
+	case HoldInventoryRevision, HoldInventoryInProgress, HoldInventoryMaterial,
+		ErrReadinessPassPending.Error(), context.Canceled.Error(), context.DeadlineExceeded.Error():
+		d.deferRelease(out)
+	case HoldCompletionWiring, HoldInventoryUnavailable:
+		d.attend("freshness_unavailable")
+	default:
+		d.attend(out.hold)
+	}
+}
+
+// deferRelease persists the fresh prefix through the deciding CAS
+// and defers one collected-but-unreleased cycle.
+func (d *decidingDrive) deferRelease(out bracketResult) {
+	d.record.CollectorProgress = nil
+	if out.progress != nil {
+		if raw, err := json.Marshal(out.progress); err == nil {
+			d.record.CollectorProgress = raw
+		}
+	}
+	if err := d.c.Store.CasReassessmentRecord(d.ctx, d.cycleID, factory.ReassessmentDeciding, d.record); err != nil {
+		if !errors.Is(err, store.ErrStaleRevision) && !errors.Is(err, store.ErrNotFound) {
+			d.report.Held = append(d.report.Held, d.cycleID+":release_hold_unrecorded")
+			return
+		}
+	}
+	d.report.Held = append(d.report.Held, d.cycleID+":release_deferred")
 }
 
 // StartCompletionRetry opens the one successor cycle for an attention
