@@ -61,13 +61,32 @@ type fakeCatalogSink struct {
 	mu          sync.Mutex
 	capability  factory.MCPCapability
 	submissions map[string]fakeCatalogRecord
+	assignments map[string]factory.Assignment
 }
 
 func newFakeCatalogSink() *fakeCatalogSink {
+	capability := fakeCatalogCapability()
 	return &fakeCatalogSink{
-		capability:  fakeCatalogCapability(),
+		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
+		assignments: map[string]factory.Assignment{
+			capability.AssignmentID: {
+				ID: capability.AssignmentID, Phase: string(factory.MCPPhaseOf(capability.Profile)),
+				SourceCommit: strings.Repeat("c", 40), Preparation: "prep-1",
+				PromptSHA: strings.Repeat("d", 64),
+			},
+		},
 	}
+}
+
+func (f *fakeCatalogSink) Assignment(_ context.Context, id string) (factory.Assignment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	assignment, ok := f.assignments[id]
+	if !ok {
+		return factory.Assignment{}, store.ErrNotFound
+	}
+	return assignment, nil
 }
 
 func (f *fakeCatalogSink) GetMCPCapability(_ context.Context, id string) (factory.MCPCapability, error) {
@@ -162,7 +181,7 @@ func TestFactoryCatalogServerProcess(t *testing.T) {
 		return
 	}
 	sink := newFakeCatalogSink()
-	server := newFactoryCatalogServer(FactoryMCPDeps{Capabilities: sink, Submissions: sink})
+	server := newFactoryCatalogServer(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink})
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		t.Logf("catalog helper server exited: %v", err)
 	}
@@ -415,7 +434,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 func TestFactoryCatalogClockBoundaryDigest(t *testing.T) {
 	sink := newFakeCatalogSink()
 	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink},
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
 		limiter: newMCPRateLimiter(),
 	}
 	ctx := context.Background()
@@ -459,7 +478,7 @@ func TestFactoryCatalogClockBoundaryDigest(t *testing.T) {
 func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 	sink := newFakeCatalogSink()
 	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink},
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
 		limiter: newMCPRateLimiter(),
 	}
 	ctx := context.Background()
@@ -530,8 +549,12 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 	other := newFakeCatalogSink()
 	other.capability.ID = strings.Repeat("c", 32)
 	other.capability.AssignmentID = strings.Repeat("e", 32)
+	otherAssignment := other.assignments[sink.capability.AssignmentID]
+	otherAssignment.ID = other.capability.AssignmentID
+	delete(other.assignments, sink.capability.AssignmentID)
+	other.assignments[other.capability.AssignmentID] = otherAssignment
 	otherServer := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: other, Submissions: other},
+		deps:    FactoryMCPDeps{Capabilities: other, Submissions: other, Assignments: other},
 		limiter: newMCPRateLimiter(),
 	}
 	otherDigest := other.capability.ScopeDigest()
@@ -547,6 +570,68 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 	}
 }
 
+// TestFactoryCatalogContextProjectsAssignmentCurrent proves the R31
+// current-context projection through the actual handler: context serves
+// the recorded assignment's prompt digest, exact source/preparation
+// and, once set, outcome/reason — never prompt bytes, run history or
+// actor identity. A capability without its assignment refuses instead
+// of serving context without it.
+func TestFactoryCatalogContextProjectsAssignmentCurrent(t *testing.T) {
+	sink := newFakeCatalogSink()
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	ctx := context.Background()
+	admitted := sink.capability.ScopeDigest()
+	contextBody := func() map[string]any {
+		t.Helper()
+		res, _, err := server.serve(ctx, factory.MCPToolContext, mcpCallArgs{
+			CapabilityID: sink.capability.ID, ExpectedInputDigest: admitted,
+		})
+		if err != nil {
+			t.Fatalf("context refused: %v", err)
+		}
+		text, ok := res.Content[0].(*mcp.TextContent)
+		if !ok {
+			t.Fatalf("context content is %T, not text", res.Content[0])
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+			t.Fatalf("context body is not JSON: %v", err)
+		}
+		return body
+	}
+	body := contextBody()
+	for key, want := range map[string]string{
+		"prompt_sha":    strings.Repeat("d", 64),
+		"source_commit": strings.Repeat("c", 40),
+		"preparation":   "prep-1",
+	} {
+		if body[key] != want {
+			t.Fatalf("context %s = %v, want %s", key, body[key], want)
+		}
+	}
+	for _, absent := range []string{"outcome", "reason", "prompt", "run_history", "actor_id"} {
+		if _, ok := body[absent]; ok {
+			t.Fatalf("unset context carries %q: %v", absent, body[absent])
+		}
+	}
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.Outcome, stored.Reason = factory.Succeeded, "settled"
+	sink.assignments[sink.capability.AssignmentID] = stored
+	body = contextBody()
+	if body["outcome"] != string(factory.Succeeded) || body["reason"] != "settled" {
+		t.Fatalf("settled context lacks outcome/reason: %v", body)
+	}
+	delete(sink.assignments, sink.capability.AssignmentID)
+	if _, _, err := server.serve(ctx, factory.MCPToolContext, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: admitted,
+	}); err == nil {
+		t.Fatal("context without its assignment admitted")
+	}
+}
+
 // TestFactoryCatalogManifestGate proves the D16 release leg: a plan
 // carrying a manifest proposal validates against the catalog, and a
 // missing catalog names the unwired gate instead of inventing
@@ -555,7 +640,7 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	sink := newFakeCatalogSink()
 	sink.capability.Profile = factory.MCPProfileProductLead
 	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink},
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
 		limiter: newMCPRateLimiter(),
 	}
 	ctx := context.Background()
@@ -625,7 +710,7 @@ func TestFactoryCatalogRateLimit(t *testing.T) {
 // GET returns 405 with no SSE stream, and browser Origin refuses.
 func TestFactoryCatalogHTTPRoute(t *testing.T) {
 	sink := newFakeCatalogSink()
-	srv := httptest.NewServer(factoryCatalogMux(newFactoryCatalogServer(FactoryMCPDeps{Capabilities: sink, Submissions: sink})))
+	srv := httptest.NewServer(factoryCatalogMux(newFactoryCatalogServer(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink})))
 	defer srv.Close()
 
 	if res, err := http.Get(srv.URL + FactoryMCPRoute); err != nil {

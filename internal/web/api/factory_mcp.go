@@ -58,6 +58,13 @@ type FactoryMCPSubmissionSink interface {
 	MCPSubmissionCount(ctx context.Context, assignmentID string) (int, error)
 }
 
+// FactoryMCPAssignmentSource loads the recorded assignment behind a
+// capability for current-context projection. *store.Store implements
+// it; tests stub it.
+type FactoryMCPAssignmentSource interface {
+	Assignment(ctx context.Context, id string) (factory.Assignment, error)
+}
+
 // FactoryMCPDeps wires the catalog server. Observed supplies the
 // host-observed run state from outside SQL; nil keeps the recorded
 // binding only (FW39 plugs host observation here). Catalog backs
@@ -66,6 +73,7 @@ type FactoryMCPSubmissionSink interface {
 type FactoryMCPDeps struct {
 	Capabilities FactoryMCPCapabilitySource
 	Submissions  FactoryMCPSubmissionSink
+	Assignments  FactoryMCPAssignmentSource
 	Observed     func(capability factory.MCPCapability) (control.MCPRunObservation, error)
 	Catalog      factory.ApprovedCatalog
 	Now          func() time.Time
@@ -520,8 +528,20 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	if err != nil {
 		return nil, nil, err
 	}
+	// Current-context projection reads the recorded assignment behind
+	// the capability: prompt digest, exact source/preparation and, once
+	// set, outcome/reason. Prompt bytes, run history and actor identity
+	// never enter the projection. A missing assignment refuses instead
+	// of serving context without its assignment.
+	assignment, err := s.deps.Assignments.Assignment(ctx, capability.AssignmentID)
+	if err != nil {
+		return nil, nil, err
+	}
 	body := map[string]any{
 		"assignment":    capability.AssignmentID,
+		"prompt_sha":    assignment.PromptSHA,
+		"source_commit": assignment.SourceCommit,
+		"preparation":   assignment.Preparation,
 		"profile":       string(capability.Profile),
 		"phase":         factory.MCPPhaseOf(capability.Profile),
 		"subject":       capability.Subject,
@@ -539,6 +559,12 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	if frozen {
 		body["terminal_submission"] = terminal.SubmissionID
 		body["terminal_state"] = terminal.State
+	}
+	if assignment.Outcome != "" {
+		body["outcome"] = string(assignment.Outcome)
+	}
+	if assignment.Reason != "" {
+		body["reason"] = assignment.Reason
 	}
 	return mcpJSONResult(body)
 }
@@ -641,8 +667,10 @@ func (s *API) FactoryMCPHandler() http.Handler {
 	return factoryCatalogMux(newFactoryCatalogServer(FactoryMCPDeps{
 		Capabilities: s.Store,
 		Submissions:  s.Store,
+		Assignments:  s.Store,
 	}))
 }
 
 var _ FactoryMCPCapabilitySource = (*store.Store)(nil)
 var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
+var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
