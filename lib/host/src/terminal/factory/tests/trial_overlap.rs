@@ -222,11 +222,28 @@ fn run_trial(h: &TrialHarness, scratch: &std::path::Path) -> Result<String, Stri
     ))
 }
 
+/// Remove trial scratch, retrying while a lingering child still writes its
+/// bootstrap cache. The staged credential copy lives here, so leftover
+/// scratch is a loud failure, never a silent `let _`.
+fn remove_scratch(scratch: &std::path::Path) {
+    let limit = Instant::now() + Duration::from_secs(120);
+    loop {
+        let _ = std::fs::remove_dir_all(scratch);
+        if std::fs::symlink_metadata(scratch).is_err() {
+            return;
+        }
+        if Instant::now() >= limit {
+            panic!("trial scratch remains: {}", scratch.display());
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    }
+}
+
 fn drive(h: &TrialHarness, tag: &str) {
     let home = std::env::var("HOME").expect("HOME");
     let scratch = trial_dir(&home, tag);
     let result = run_trial(h, &scratch);
-    let _ = std::fs::remove_dir_all(&scratch);
+    remove_scratch(&scratch);
     let evidence = result.expect("trial failed");
     println!("R07-{}-TRIAL {evidence}", h.name.to_uppercase());
 }
@@ -376,7 +393,7 @@ fn trial_codex_dependent_successor() {
     let home = std::env::var("HOME").expect("HOME");
     let scratch = trial_dir(&home, "successor");
     let result = run_successor_trial(&scratch);
-    let _ = std::fs::remove_dir_all(&scratch);
+    remove_scratch(&scratch);
     let evidence = result.expect("trial failed");
     println!("R07-CODEX-SUCCESSOR {evidence}");
 }
@@ -460,7 +477,7 @@ fn trial_codex_abandoned_child_completes() {
     let home = std::env::var("HOME").expect("HOME");
     let scratch = trial_dir(&home, "abandon");
     let result = run_abandon_trial(&scratch);
-    let _ = std::fs::remove_dir_all(&scratch);
+    remove_scratch(&scratch);
     let evidence = result.expect("trial failed");
     println!("R07-CODEX-ABANDON {evidence}");
 }
