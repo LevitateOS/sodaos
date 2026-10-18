@@ -37,7 +37,7 @@
       "exit": 1,
       "name": "soda-image-import",
       "package": "./cmd/soda-image-import",
-      "stderr_exact": "root and no arguments required\n"
+      "stderr_exact": "root required\n"
     },
     {
       "argv": [],

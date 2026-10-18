@@ -33,7 +33,7 @@ func TestPostgresUnitTopology(t *testing.T) {
 	requireContains(t, body,
 		"Image=docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
 		"ContainerName=soda-postgres",
-		"Pull=missing",
+		"Pull=never",
 		"Network=soda.network",
 		"Volume=/var/lib/soda/postgres:/var/lib/postgresql/data:Z",
 		"Volume=/run/soda/postgres:/var/run/postgresql:z",
@@ -61,8 +61,8 @@ func TestPostgresUnitTopology(t *testing.T) {
 func TestForgejoUnitPostgresWiring(t *testing.T) {
 	body := readRuntimeFile(t, "system/host/services/forgejo.container")
 	requireContains(t, body,
-		"Requires=soda-postgres-init.service",
-		"After=soda-postgres-init.service",
+		"Requires=soda-image-import.service soda-postgres-init.service",
+		"After=soda-image-import.service soda-postgres-init.service",
 		"Network=soda.network",
 		"Volume=/etc/soda/postgres/forgejo.passwd:/etc/forgejo/db_passwd:ro,Z",
 		"Environment=FORGEJO__database__DB_TYPE=postgres",
@@ -86,8 +86,8 @@ func TestPostgresProvisionUnitWiring(t *testing.T) {
 	)
 	database := readRuntimeFile(t, "system/host/services/soda-postgres.container")
 	requireContains(t, database,
-		"Requires=soda-pg-provision.service",
-		"After=soda-pg-provision.service",
+		"Requires=soda-image-import.service soda-pg-provision.service",
+		"After=soda-image-import.service soda-pg-provision.service",
 	)
 	prepare := readRuntimeFile(t, "lib/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare, `"soda-pg-provision.service"`)
@@ -104,8 +104,8 @@ func TestDashboardUnitDatabaseWiring(t *testing.T) {
 func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 	init := readRuntimeFile(t, "system/host/services/soda-postgres-init.service")
 	requireContains(t, init,
-		"Requires=soda-postgres.service",
-		"After=soda-postgres.service",
+		"Requires=soda-image-import.service soda-postgres.service",
+		"After=soda-image-import.service soda-postgres.service",
 		"Before=forgejo.service",
 		"Type=oneshot",
 		"ExecStart=/usr/bin/soda-pg-init-roles",
