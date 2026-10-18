@@ -126,7 +126,24 @@ func stallIssueKey(repository, issue int64) string {
 // prerequisite is never removed merely because it blocks selection.
 func classifyStallIssue(in StallInventoryIssue, cycles map[string]string, producers map[string]bool) StallComponentDecision {
 	decision := StallComponentDecision{Repository: in.Repository, Issue: in.Issue}
-	key := stallIssueKey(in.Repository, in.Issue)
+	if classifyStallSignal(in, &decision) {
+		return decision
+	}
+	if classifyStallDispatchWait(in, &decision) {
+		return decision
+	}
+	if classifyStallBlocker(in, &decision) {
+		return decision
+	}
+	classifyStallDependency(in, stallIssueKey(in.Repository, in.Issue), cycles, producers, &decision)
+	return decision
+}
+
+// classifyStallSignal classifies explicit per-issue signals first:
+// live execution, CI, pause and open product choice are ordinary
+// observed waits even when the recorded verdict still reads queued.
+// Pending completion gates behind the repository fence.
+func classifyStallSignal(in StallInventoryIssue, decision *StallComponentDecision) bool {
 	// Explicit per-issue signals first: live execution, CI, pause and
 	// open product choice are ordinary observed waits even when the
 	// recorded verdict still reads queued.
@@ -134,119 +151,131 @@ func classifyStallIssue(in StallInventoryIssue, cycles map[string]string, produc
 	case in.ActiveRun || in.Control.Readiness == factory.ReadinessActive:
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitActiveWork, true
 		decision.WaitOwner, decision.WaitEvent = "executor", "run settlement"
-		return decision
+		return true
 	case in.CIPending:
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitCIChecks, true
 		decision.WaitOwner, decision.WaitEvent = "checks", "required check completion"
-		return decision
+		return true
 	case in.Paused:
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitExplicitPause, true
 		decision.WaitOwner, decision.WaitEvent = "maintainer", "explicit resume"
-		return decision
+		return true
 	case in.ProductChoiceOpen:
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitProductChoice, true
 		decision.WaitOwner, decision.WaitEvent = "product", "accepted product direction"
-		return decision
+		return true
 	}
-	// Pending completion gates behind the repository fence.
 	if in.Fenced {
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitPendingCompletion, true
 		decision.WaitOwner, decision.WaitEvent = "completion", "reassessment release"
-		return decision
+		return true
 	}
-	// Dispatch wait reasons map to the named taxonomy; unlisted
-	// reasons stay ordinary observed waits that equally never call
-	// an investigator.
-	if in.DispatchWait != "" {
-		decision.Kind = StallComponentWait
-		switch in.DispatchWait {
-		case WaitCapacity, WaitRepository:
-			decision.WaitKind, decision.Named = factory.StallWaitCapacity, true
-			decision.WaitOwner, decision.WaitEvent = "capacity", "execution slot"
-		case WaitSponsorship, WaitAllowance, WaitSponsorshipRole:
-			decision.WaitKind, decision.Named = factory.StallWaitQuota, true
-			decision.WaitOwner, decision.WaitEvent = "sponsor", "allowance grant"
-		case WaitPreparation:
-			decision.WaitKind, decision.Named = factory.StallWaitPreparation, true
-			decision.WaitOwner, decision.WaitEvent = "preparation", "approved preparation"
-		case WaitAuthority:
-			decision.WaitKind, decision.Named = factory.StallWaitPermissions, true
-			decision.WaitOwner, decision.WaitEvent = "authority", "restored authorization"
-		case WaitDispatchClosed:
-			decision.WaitKind, decision.Named = factory.StallWaitExplicitPause, true
-			decision.WaitOwner, decision.WaitEvent = "maintainer", "dispatch reopen"
-		case WaitReassessmentPending:
-			decision.WaitKind, decision.Named = factory.StallWaitPendingCompletion, true
-			decision.WaitOwner, decision.WaitEvent = "completion", "reassessment release"
-		case WaitAssigned, WaitInputsBusy:
-			decision.WaitKind, decision.Named = factory.StallWaitActiveWork, true
-			decision.WaitOwner, decision.WaitEvent = "executor", "run settlement"
-		default:
-			decision.WaitKind = in.DispatchWait
-			decision.WaitOwner, decision.WaitEvent = "dispatch", "later pass"
+	return false
+}
+
+// classifyStallDispatchWait maps dispatch wait reasons to the named
+// taxonomy; unlisted reasons stay ordinary observed waits that equally
+// never call an investigator.
+func classifyStallDispatchWait(in StallInventoryIssue, decision *StallComponentDecision) bool {
+	if in.DispatchWait == "" {
+		// Eligible queued work with no wait resumes normal selection.
+		if in.Control.Readiness == factory.ReadinessQueued {
+			decision.Kind = StallComponentReady
+			return true
 		}
-		return decision
+		return false
 	}
-	// Eligible queued work with no wait resumes normal selection.
-	if in.Control.Readiness == factory.ReadinessQueued && in.DispatchWait == "" {
-		decision.Kind = StallComponentReady
-		return decision
+	decision.Kind = StallComponentWait
+	switch in.DispatchWait {
+	case WaitCapacity, WaitRepository:
+		decision.WaitKind, decision.Named = factory.StallWaitCapacity, true
+		decision.WaitOwner, decision.WaitEvent = "capacity", "execution slot"
+	case WaitSponsorship, WaitAllowance, WaitSponsorshipRole:
+		decision.WaitKind, decision.Named = factory.StallWaitQuota, true
+		decision.WaitOwner, decision.WaitEvent = "sponsor", "allowance grant"
+	case WaitPreparation:
+		decision.WaitKind, decision.Named = factory.StallWaitPreparation, true
+		decision.WaitOwner, decision.WaitEvent = "preparation", "approved preparation"
+	case WaitAuthority:
+		decision.WaitKind, decision.Named = factory.StallWaitPermissions, true
+		decision.WaitOwner, decision.WaitEvent = "authority", "restored authorization"
+	case WaitDispatchClosed:
+		decision.WaitKind, decision.Named = factory.StallWaitExplicitPause, true
+		decision.WaitOwner, decision.WaitEvent = "maintainer", "dispatch reopen"
+	case WaitReassessmentPending:
+		decision.WaitKind, decision.Named = factory.StallWaitPendingCompletion, true
+		decision.WaitOwner, decision.WaitEvent = "completion", "reassessment release"
+	case WaitAssigned, WaitInputsBusy:
+		decision.WaitKind, decision.Named = factory.StallWaitActiveWork, true
+		decision.WaitOwner, decision.WaitEvent = "executor", "run settlement"
+	default:
+		decision.WaitKind = in.DispatchWait
+		decision.WaitOwner, decision.WaitEvent = "dispatch", "later pass"
 	}
-	// Readiness blockers without a dispatch wait classify next.
+	return true
+}
+
+// classifyStallBlocker classifies readiness blockers without a
+// dispatch wait.
+func classifyStallBlocker(in StallInventoryIssue, decision *StallComponentDecision) bool {
 	for _, blocker := range in.Control.Blockers {
 		decision.Kind = StallComponentWait
 		switch blocker.Code {
 		case factory.BlockerAuthorityMissing:
 			decision.WaitKind, decision.Named = factory.StallWaitPermissions, true
 			decision.WaitOwner, decision.WaitEvent = "authority", "restored authorization"
-			return decision
+			return true
 		case factory.BlockerAcceptanceMissing, factory.BlockerAcceptanceInvalid:
 			decision.WaitKind, decision.Named = factory.StallWaitProductChoice, true
 			decision.WaitOwner, decision.WaitEvent = "product", "adopted requirements"
-			return decision
+			return true
 		case factory.BlockerIssueInaccessible, factory.BlockerEndpointHidden:
 			decision.Kind, decision.WaitKind = StallComponentAttention, ""
 			decision.WaitOwner, decision.WaitEvent = "visibility", "readable evidence"
-			return decision
+			return true
 		case factory.BlockerEvidenceIncomplete:
 			decision.Kind = StallComponentAttention
 			decision.WaitOwner, decision.WaitEvent = "scope", "narrower evidence"
-			return decision
+			return true
 		}
 	}
-	// Dependency components: an established cycle, a pending
-	// prerequisite with no viable producer, or unexplained no-ready.
+	return false
+}
+
+// classifyStallDependency classifies dependency components: an
+// established cycle, a pending prerequisite with no viable producer,
+// or unexplained no-ready.
+func classifyStallDependency(in StallInventoryIssue, key string, cycles map[string]string, producers map[string]bool, decision *StallComponentDecision) {
 	if _, ok := cycles[key]; ok || hasCycleBlocker(in.Control) {
 		decision.Kind, decision.Reason, decision.Investigate = StallComponentStall, factory.StallReasonCycle, true
-		return decision
+		return
 	}
 	if prereq, pending := pendingPrereq(in.Control); pending {
 		if !producers[key] {
 			decision.Kind, decision.Reason, decision.Investigate = StallComponentStall, factory.StallReasonMissingProducer, true
 			decision.WaitOwner, decision.WaitEvent = "dependency", "viable outcome producer"
 			_ = prereq
-			return decision
+			return
 		}
 		decision.Kind, decision.WaitKind, decision.Named = StallComponentWait, factory.StallWaitActiveWork, true
 		decision.WaitOwner, decision.WaitEvent = "prerequisite", "endpoint delivery"
-		return decision
+		return
 	}
 	if in.Control.Readiness == factory.ReadinessBlocked || in.Control.Readiness == factory.ReadinessNotAuthorized {
 		decision.Kind, decision.Reason, decision.Investigate = StallComponentStall, factory.StallReasonUnexplainedNoReady, true
-		return decision
+		return
 	}
 	if in.Control.Readiness == factory.ReadinessCompleted {
 		decision.Kind = StallComponentReady
-		return decision
+		return
 	}
 	if in.AllowanceClosed {
 		decision.Kind, decision.WaitKind = StallComponentWait, factory.StallWaitQuota
 		decision.Named = true
 		decision.WaitOwner, decision.WaitEvent = "maintainer", "explicit retry"
-		return decision
+		return
 	}
 	decision.Kind = StallComponentAttention
-	return decision
 }
 
 // hasCycleBlocker reports an assessment-established dependency cycle.

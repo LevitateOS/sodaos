@@ -16,6 +16,30 @@ func readAttemptInputs(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 	if deps.Reads == nil {
 		return waitFor(WaitInputsUnavailable, "accepted-input reads are not wired"), nil
 	}
+	inputs, failure := fetchAttemptInputs(ctx, deps, plan, repository, issue)
+	if failure != nil {
+		return nil, failure
+	}
+	if wait := checkAttemptIssueState(inputs); wait != nil {
+		return wait, nil
+	}
+	if wait := checkAttemptInputDigests(plan, inputs); wait != nil {
+		return wait, nil
+	}
+	if wait := checkAttemptComments(plan, inputs); wait != nil {
+		return wait, nil
+	}
+	if inputs.TipRef != plan.policy.TargetBranch || !factory.ValidCommit(inputs.Tip) {
+		return waitFor(WaitSource, "target branch tip is unavailable"), nil
+	}
+	plan.inputs = inputs
+	return nil, nil
+}
+
+// fetchAttemptInputs reads the accepted objective, every selected
+// comment revision and the target tip through the protected path.
+func fetchAttemptInputs(ctx context.Context, deps DispatchDeps, plan *attemptPlan, repository, issue int64) (DispatchInputs, *planWait) {
+	var none DispatchInputs
 	seen := make(map[string]bool)
 	var commentIDs []string
 	for _, section := range [][]factory.SelectedSource{plan.acceptance.Sources, plan.acceptance.Resolutions} {
@@ -30,60 +54,78 @@ func readAttemptInputs(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 		strconv.FormatInt(repository, 10), strconv.FormatInt(issue, 10),
 		commentIDs, plan.policy.TargetBranch)
 	if err != nil {
-		var refusal *AcceptanceRefusal
-		if errors.As(err, &refusal) {
-			switch refusal.Reason {
-			case RefusalNativeBusy:
-				return waitFor(WaitInputsBusy, "native writers are busy"), nil
-			case RefusalStaleEvidence:
-				return waitFor(WaitInputsStale, "native state changed during the read"), nil
-			case RefusalIncompleteEvidence:
-				return waitFor(WaitInputsIncomplete, "native evidence is incomplete"), nil
-			case RefusalSnapshotUnavailable:
-				return waitFor(WaitInputsUnavailable, "native evidence is unavailable"), nil
-			case RefusalIssueHidden:
-				return waitFor(WaitInputsHidden, "the bound actor cannot see the issue"), nil
-			}
-		}
-		return nil, waitFor(DispatchErrHost, "accepted-input read failed")
+		return none, routeAttemptInputError(err)
 	}
+	return inputs, nil
+}
+
+// routeAttemptInputError maps one input read failure to its wait or
+// host failure.
+func routeAttemptInputError(err error) *planWait {
+	var refusal *AcceptanceRefusal
+	if errors.As(err, &refusal) {
+		switch refusal.Reason {
+		case RefusalNativeBusy:
+			return waitFor(WaitInputsBusy, "native writers are busy")
+		case RefusalStaleEvidence:
+			return waitFor(WaitInputsStale, "native state changed during the read")
+		case RefusalIncompleteEvidence:
+			return waitFor(WaitInputsIncomplete, "native evidence is incomplete")
+		case RefusalSnapshotUnavailable:
+			return waitFor(WaitInputsUnavailable, "native evidence is unavailable")
+		case RefusalIssueHidden:
+			return waitFor(WaitInputsHidden, "the bound actor cannot see the issue")
+		}
+	}
+	return waitFor(DispatchErrHost, "accepted-input read failed")
+}
+
+// checkAttemptIssueState requires a visible open unlocked issue.
+func checkAttemptIssueState(inputs DispatchInputs) *planWait {
 	if !inputs.Issue.Visible {
-		return waitFor(WaitInputsHidden, "the bound actor cannot see the issue"), nil
+		return waitFor(WaitInputsHidden, "the bound actor cannot see the issue")
 	}
 	if inputs.Issue.IsPull {
-		return waitFor(WaitInputsChanged, "target is not an issue"), nil
+		return waitFor(WaitInputsChanged, "target is not an issue")
 	}
 	if inputs.Issue.Closed {
-		return waitFor(WaitIssueClosed, "issue is closed"), nil
+		return waitFor(WaitIssueClosed, "issue is closed")
 	}
 	if inputs.Issue.Locked {
-		return waitFor(WaitIssueLocked, "issue is locked"), nil
+		return waitFor(WaitIssueLocked, "issue is locked")
 	}
+	return nil
+}
+
+// checkAttemptInputDigests verifies every digest against the
+// acceptance head.
+func checkAttemptInputDigests(plan *attemptPlan, inputs DispatchInputs) *planWait {
 	decision := plan.acceptance
 	if !factory.ValidTitleOccurrence(inputs.Issue.TitleOccurrence) {
-		return waitFor(WaitInputsIncomplete, "native title history is incomplete"), nil
+		return waitFor(WaitInputsIncomplete, "native title history is incomplete")
 	}
 	if inputs.Issue.TitleDigest != decision.TitleDigest || inputs.Issue.TitleOccurrence != decision.TitleOccurrence || inputs.Issue.ContentDigest != decision.ContentDigest ||
 		inputs.Issue.ContentVer != decision.ContentVersion || inputs.Revision < 1 {
-		return waitFor(WaitInputsChanged, "accepted objective changed"), nil
+		return waitFor(WaitInputsChanged, "accepted objective changed")
 	}
+	return nil
+}
+
+// checkAttemptComments verifies every selected comment revision.
+func checkAttemptComments(plan *attemptPlan, inputs DispatchInputs) *planWait {
 	byID := make(map[string]DispatchComment, len(inputs.Comments))
 	for _, comment := range inputs.Comments {
 		byID[comment.ID] = comment
 	}
-	for _, section := range [][]factory.SelectedSource{decision.Sources, decision.Resolutions} {
+	for _, section := range [][]factory.SelectedSource{plan.acceptance.Sources, plan.acceptance.Resolutions} {
 		for _, source := range section {
 			got, ok := byID[source.ID]
 			if !ok || !got.Visible || got.Digest != source.Digest || got.ContentVer != source.ContentVersion {
-				return waitFor(WaitInputsChanged, "selected comment "+source.ID+" changed"), nil
+				return waitFor(WaitInputsChanged, "selected comment "+source.ID+" changed")
 			}
 		}
 	}
-	if inputs.TipRef != plan.policy.TargetBranch || !factory.ValidCommit(inputs.Tip) {
-		return waitFor(WaitSource, "target branch tip is unavailable"), nil
-	}
-	plan.inputs = inputs
-	return nil, nil
+	return nil
 }
 
 func promptSections(selected []factory.SelectedSource, comments []DispatchComment) []factory.PromptSource {
