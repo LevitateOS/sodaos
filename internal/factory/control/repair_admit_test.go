@@ -41,11 +41,9 @@ func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 
 	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
 		factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
-	watermark, err := db.CompletionWatermark(ctx, repo)
-	if err != nil || watermark != 0 {
-		t.Fatalf("fresh watermark=%d err=%v, want zero verified deliveries", watermark, err)
-	}
-	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: watermark})
+	// Fresh ephemeral store: zero verified deliveries, so the round
+	// binds generation zero and the matching episode admits.
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 0})
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -58,13 +56,18 @@ func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	spent, err := AdmitStallEpisodeRun(ctx, db, result, 30, now)
+	spent, err := AdmitStallEpisodeRun(ctx, db, result, 0, 30, now)
 	if err != nil || !spent {
 		t.Fatalf("first admission: spent=%v err=%v", spent, err)
 	}
-	again, err := AdmitStallEpisodeRun(ctx, db, result, 30, now)
+	again, err := AdmitStallEpisodeRun(ctx, db, result, 0, 30, now)
 	if err != nil || again {
 		t.Fatalf("episode replay: spent=%v err=%v", again, err)
+	}
+	// The same episode against a newer round generation is stale and
+	// must redetect, never spend: generation matching is exact.
+	if spent, err := AdmitStallEpisodeRun(ctx, db, result, 1, 30, now); err == nil || spent {
+		t.Fatalf("stale episode: spent=%v err=%v, want a redetect refusal", spent, err)
 	}
 	charges, err := db.RepairCharges(ctx, repo)
 	if err != nil || len(charges) != 1 {
@@ -89,7 +92,7 @@ func TestAdmitStallEpisodeRunRefusesWithoutStall(t *testing.T) {
 		{Repository: 21, Kind: StallRepositoryVerify},
 		{Repository: 21, Kind: StallRepositoryStall, Investigate: false, Event: &factory.StallEvent{}},
 	} {
-		if spent, err := AdmitStallEpisodeRun(ctx, db, result, 30, now); err != nil || spent {
+		if spent, err := AdmitStallEpisodeRun(ctx, db, result, 0, 30, now); err != nil || spent {
 			t.Fatalf("kind %q: spent=%v err=%v", result.Kind, spent, err)
 		}
 	}
@@ -97,7 +100,7 @@ func TestAdmitStallEpisodeRunRefusesWithoutStall(t *testing.T) {
 		Repository: 21, Kind: StallRepositoryStall, Investigate: true,
 		Event: &factory.StallEvent{ID: "bad", EpisodeID: "worse"},
 	}
-	if _, err := AdmitStallEpisodeRun(ctx, db, broken, 30, now); err == nil {
+	if _, err := AdmitStallEpisodeRun(ctx, db, broken, 0, 30, now); err == nil {
 		t.Fatal("invalid bound episode admitted without an error")
 	}
 }
@@ -117,7 +120,7 @@ func TestAdmitStallEpisodeRunRefusesFutureGeneration(t *testing.T) {
 			Reason: factory.StallReasonCycle, State: factory.StallObserved,
 		},
 	}
-	if spent, err := AdmitStallEpisodeRun(ctx, db, ahead, 30, time.Now().UTC()); err == nil || spent {
+	if spent, err := AdmitStallEpisodeRun(ctx, db, ahead, 0, 30, time.Now().UTC()); err == nil || spent {
 		t.Fatalf("future episode: spent=%v err=%v, want a redetect refusal", spent, err)
 	}
 }

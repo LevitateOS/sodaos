@@ -244,20 +244,6 @@ func (s *Store) CompletionPending(ctx context.Context, repository int64) ([]int6
 	return pending, nil
 }
 
-// CompletionWatermark returns the latest verified-delivery generation
-// for one repository, or zero when nothing completed yet. Stall
-// episodes bind this watermark as their progress generation: it
-// advances only on verified delivery, never on edits, retries or
-// declarations, so a charge admitted against an older watermark is a
-// stale episode and must be redetected, never spent.
-func (s *Store) CompletionWatermark(ctx context.Context, repository int64) (int64, error) {
-	var watermark int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(generation),0) FROM factory_completions WHERE repository=$1`, repository).Scan(&watermark); err != nil {
-		return 0, err
-	}
-	return watermark, nil
-}
-
 // PendingReassessmentCycles lists every unresolved cycle for one
 // repository in generation order so the completion driver processes
 // the oldest event first. Released and superseded cycles are history,
