@@ -20,15 +20,15 @@ func TestComplexityToolsFilesPassAsShipping(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			result := runGate(t, path)
 			Require(t, result.Code == 0, "gate failed: %s", result.Stdout+result.Stderr)
-			Check(t, strings.Contains(result.Stdout, "below 10"), "stdout=%q", result.Stdout)
+			Check(t, strings.Contains(result.Stdout, "Complexity gate passed"), "stdout=%q", result.Stdout)
 		})
 	}
 }
 
 func TestComplexityScriptsStillOutOfScope(t *testing.T) {
-	result := runGate(t, "scripts/fake.go")
+	result := runGate(t, "scripts/pg_runtime_test.go")
 	Require(t, result.Code == 0, "gate failed: %s", result.Stdout+result.Stderr)
-	Check(t, strings.Contains(result.Stdout, "no shipping Go files"), "stdout=%q", result.Stdout)
+	Check(t, strings.Contains(result.Stdout, "go: 0 functions"), "stdout=%q", result.Stdout)
 }
 
 func TestComplexityMissingSelectedInputFails(t *testing.T) {
@@ -43,14 +43,14 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 		code                 string
 		wantError            string
 	}{
-		{name: "parse failure", stderr: "gocyclo: fixture.go:1:1: expected package, found EOF\n", code: "1", wantError: "analysis did not complete"},
-		{name: "missing path warning", stderr: "gocyclo: could not get file info for path fixture.go: stat fixture.go: no such file or directory\n", code: "0", wantError: "unexpected output"},
-		{name: "valid violation", stdout: "10 package function fixture.go:1:1\n", code: "1"},
+		{name: "parse failure", stderr: "gocyclo: fixture.go:1:1: expected package, found EOF\n", code: "1", wantError: "expected package, found EOF"},
+		{name: "missing path warning", stdout: "gocyclo: could not get file info for path fixture.go: stat fixture.go: no such file or directory\n", code: "0", wantError: "Complexity gate passed"},
+		{name: "valid violation", stdout: `[{"path":"fixture.go","name":"fixture","line":1,"score":25}]`, code: "0", wantError: "fixture complexity 25"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			fakeGo := filepath.Join(dir, "go")
-			script := "#!/bin/sh\n[ \"$2\" != -n ] || exit 0\nprintf '%s' " + shellQuote(tc.stdout) + "\nprintf '%s' " + shellQuote(tc.stderr) + " >&2\nexit " + tc.code + "\n"
+			script := "#!/bin/sh\nprintf '%s' " + shellQuote(tc.stdout) + "\nprintf '%s' " + shellQuote(tc.stderr) + " >&2\nexit " + tc.code + "\n"
 			if err := os.WriteFile(fakeGo, []byte(script), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -58,7 +58,10 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 			result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 120 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"), "internal/factory/control/operator.go")
 			if tc.name == "valid violation" {
 				Require(t, result.Code != 0, "valid violation passed")
-				Check(t, strings.Contains(result.Stdout, "10 package function"), "stdout=%q", result.Stdout)
+				Check(t, strings.Contains(result.Stderr, tc.wantError), "stderr=%q", result.Stderr)
+			} else if tc.name == "missing path warning" {
+				Require(t, result.Code != 0, "analyzer failure passed: %s", result.Stdout+result.Stderr)
+				Check(t, !strings.Contains(result.Stdout, tc.wantError), "stdout=%q", result.Stdout)
 			} else {
 				Require(t, result.Code != 0, "analyzer failure passed: %s", result.Stdout+result.Stderr)
 				Check(t, strings.Contains(result.Stderr, tc.wantError), "stderr=%q", result.Stderr)
@@ -71,19 +74,16 @@ func TestComplexityToolDownloadDiagnosticsAreNotFindings(t *testing.T) {
 	dir := t.TempDir()
 	fakeGo := filepath.Join(dir, "go")
 	script := "#!/bin/sh\n" +
-		"if [ \"$2\" = -n ]; then\n" +
-		"  printf 'go: downloading github.com/fzipp/gocyclo v0.6.0\\n' >&2\n" +
-		"  touch " + shellQuote(filepath.Join(dir, "prepared")) + "\n" +
-		"else\n" +
-		"  test -f " + shellQuote(filepath.Join(dir, "prepared")) + " || exit 1\n" +
-		"fi\n"
+		"printf 'go: downloading github.com/fzipp/gocyclo v0.6.0\\n' >&2\n" +
+		"printf '[]'\n" +
+		"exit 0\n"
 	if err := os.WriteFile(fakeGo, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	env := SetEnv(os.Environ(), "PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"), "internal/factory/control/operator.go")
 	Require(t, result.Code == 0, "download diagnostic failed gate: %s", result.Stdout+result.Stderr)
-	Check(t, strings.Contains(result.Stdout, "below 10"), "stdout=%q", result.Stdout)
+	Check(t, strings.Contains(result.Stdout, "Complexity gate passed"), "stdout=%q", result.Stdout)
 	Check(t, strings.Contains(result.Stderr, "go: downloading"), "download diagnostic lost: %q", result.Stderr)
 }
 
@@ -93,15 +93,15 @@ func TestComplexityDefaultDiscoveryFailureFailsClosed(t *testing.T) {
 	if err := os.MkdirAll(fakeBin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	fakeFind := filepath.Join(fakeBin, "find")
-	if err := os.WriteFile(fakeFind, []byte("#!/bin/sh\nexit 23\n"), 0o700); err != nil {
+	fakeGit := filepath.Join(fakeBin, "git")
+	if err := os.WriteFile(fakeGit, []byte("#!/bin/sh\nif [ \"$1\" = rev-parse ]; then exec command -p git \"$@\"; fi\necho 'discovery unavailable' >&2\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	env := SetEnv(os.Environ(), "PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	env = SetEnv(env, "TMPDIR", dir)
 	result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 120 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"))
 	Require(t, result.Code != 0, "default discovery failure passed: %s", result.Stdout+result.Stderr)
-	Check(t, strings.Contains(result.Stderr, "could not discover Go files"), "stderr=%q", result.Stderr)
+	Check(t, strings.Contains(result.Stderr, "discovery unavailable"), "stderr=%q", result.Stderr)
 }
 
 func shellQuote(s string) string {
@@ -109,65 +109,72 @@ func shellQuote(s string) string {
 }
 
 func TestComplexityPrecommitRoutesStagedToolsFiles(t *testing.T) {
-	var prodline string
-	for _, line := range strings.Split(ReadFile(t, ".githooks/pre-commit"), "\n") {
-		if strings.HasPrefix(line, "prodgofiles=") {
-			prodline = line
-			break
-		}
-	}
-	Require(t, prodline != "", "prodgofiles line not found")
-	Check(t, strings.Contains(prodline, "tools"), "prodgofiles=%q", prodline)
+	hook := ReadFile(t, ".githooks/pre-commit")
+	Check(t, strings.Contains(hook, "scripts/check-complexity.sh --staged"), "pre-commit complexity gate=%q", hook)
 }
 
 func TestTSComplexityGatePreservesAnalyzerFailureAndPaths(t *testing.T) {
+	writeTSFixture := func(t *testing.T, dir, name, body string) string {
+		t.Helper()
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return abs
+	}
+	dir := t.TempDir()
+	// Absolute fixture paths: the gate resolves inputs against the
+	// repository root, so fixtures must exist on disk.
+	violation := writeTSFixture(t, dir, "violation file.ts",
+		"export function big(a: number): number {\n\tlet x = 0;\n"+strings.Repeat("\tif (a) x++;\n", 21)+"\treturn x;\n}\n")
+	broken := writeTSFixture(t, dir, "broken file.ts", "const x = ;\n")
+	cleanFile := writeTSFixture(t, dir, "clean file.ts", "export function tiny(a: number): number {\n\treturn a;\n}\n")
+	emptyBin := filepath.Join(dir, "emptybin")
+	if err := os.MkdirAll(emptyBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "node_modules/.bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gate := filepath.Join(RepoRoot, "scripts/check-ts-complexity.sh")
 	for _, tc := range []struct {
-		name, output, diagnostic, status string
-		defaultFiles, wantPass           bool
+		name       string
+		args       []string
+		wantPass   bool
+		wantStderr string
 	}{
-		{name: "clean", status: "0", wantPass: true},
-		{name: "complexity violation", output: "frontend/space name.ts:1:1: error eslint(complexity): Maximum allowed is 9.\n", status: "1"},
-		{name: "parser failure", output: "frontend/space name.ts:1:1: error: Expected expression\n", status: "1"},
-		{name: "operational failure", diagnostic: "oxlint unavailable\n", status: "2"},
-		{name: "default spaced paths", status: "0", wantPass: true, defaultFiles: true},
+		{name: "clean", args: []string{gate, cleanFile}, wantPass: true},
+		{name: "complexity violation", args: []string{gate, violation}, wantStderr: "complexity 22"},
+		{name: "parser failure", args: []string{gate, broken}, wantStderr: broken},
+		{name: "operational failure", args: []string{gate, cleanFile}, wantStderr: "bun unavailable"},
+		{name: "default spaced paths", args: []string{gate}, wantPass: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			for _, path := range []string{"scripts", "node_modules/.bin"} {
-				if err := os.MkdirAll(filepath.Join(dir, path), 0o755); err != nil {
-					t.Fatal(err)
-				}
-			}
-			gate := filepath.Join(dir, "scripts/check-ts-complexity.sh")
-			if err := os.WriteFile(gate, []byte(ReadFile(t, "scripts/check-ts-complexity.sh")), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			tool := "#!/bin/sh\n" +
-				"[ \"$#\" -eq 4 ] && [ \"$1\" = -A ] && [ \"$2\" = correctness ] && [ \"$3\" = --format=agent ] && [ \"$4\" = 'frontend/space name.ts' ] || { echo 'wrong profile or paths' >&2; exit 2; }\n" +
-				"printf '%s' " + shellQuote(tc.output) + "\nprintf '%s' " + shellQuote(tc.diagnostic) + " >&2\nexit " + tc.status + "\n"
-			bin := filepath.Join(dir, "node_modules/.bin")
-			if err := os.WriteFile(filepath.Join(bin, "oxlint"), []byte(tool), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			args := []string{gate, "frontend/space name.ts", "scripts/out-of-scope.ts", "frontend/fixtures/ignored.ts"}
 			env := os.Environ()
-			if tc.defaultFiles {
-				fakeGit := "#!/bin/sh\n[ \"$1\" = ls-files ] && [ \"$2\" = -z ] || exit 2\nprintf 'frontend/space name.ts\\0scripts/out-of-scope.ts\\0frontend/fixtures/ignored.ts\\0'\n"
+			if tc.name == "default spaced paths" {
+				fakeGit := "#!/bin/sh\nif [ \"$1\" = rev-parse ]; then exec command -p git \"$@\"; fi\nif [ \"$1\" = show ]; then printf ''\nelse printf 'frontend/space name.ts\\0scripts/out-of-scope.ts\\0frontend/fixtures/ignored.ts\\0'\nfi\n"
 				if err := os.WriteFile(filepath.Join(bin, "git"), []byte(fakeGit), 0o700); err != nil {
 					t.Fatal(err)
 				}
 				env = SetEnv(env, "PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-				args = []string{gate}
 			}
-			result := Run(t, RunOpt{Cwd: dir, Env: env, Timeout: 10 * time.Second}, "/bin/bash", args...)
-			if (result.Code == 0) != tc.wantPass || strings.Contains(result.Stderr, "wrong profile or paths") {
+			if tc.name == "operational failure" {
+				if err := os.WriteFile(filepath.Join(emptyBin, "bun"), []byte("#!/bin/sh\necho 'bun unavailable' >&2\nexit 2\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				env = SetEnv(env, "PATH", emptyBin+string(os.PathListSeparator)+"/usr/bin:/bin")
+			}
+			result := Run(t, RunOpt{Cwd: dir, Env: env, Timeout: 60 * time.Second}, "/bin/bash", tc.args...)
+			if (result.Code == 0) != tc.wantPass {
 				t.Fatalf("gate status=%d stdout=%q stderr=%q", result.Code, result.Stdout, result.Stderr)
 			}
-			if tc.diagnostic != "" && !strings.Contains(result.Stderr, strings.TrimSpace(tc.diagnostic)) {
+			if tc.wantStderr != "" && !strings.Contains(result.Stderr, tc.wantStderr) {
 				t.Fatalf("analyzer diagnostic lost: %q", result.Stderr)
-			}
-			if tc.output != "" && !strings.Contains(result.Stdout, strings.TrimSpace(tc.output)) {
-				t.Fatalf("analyzer output lost: %q", result.Stdout)
 			}
 		})
 	}

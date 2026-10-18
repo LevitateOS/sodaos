@@ -10,8 +10,10 @@ export function command(argv: string[], input?: string): string {
     stderr: 'pipe',
     env: process.env,
   });
+  const errText = result.stderr.toString();
+  if (errText) process.stderr.write(errText);
   if (result.exitCode !== 0)
-    throw new Error(`${argv.join(' ')}: ${result.stderr.toString() || result.stdout.toString()}`);
+    throw new Error(`${argv.join(' ')}: ${errText || result.stdout.toString()}`);
   return result.stdout.toString();
 }
 function git(...args: string[]) {
@@ -178,7 +180,13 @@ function main() {
     if (!staged && !all) paths.push(...git('ls-files', '--others', '--exclude-standard', '-z').split('\0'));
   }
   paths = [...new Set(paths)].filter((p) => language(p) && (!lang || language(p) === lang));
-  if (!staged) paths = paths.filter((p) => existsSync(p));
+  if (!staged) {
+    if (positionals.length) {
+      const missing = paths.find((p) => !existsSync(p));
+      if (missing !== undefined) throw new Error(`Complexity gate failed: selected input is missing: ${missing}`);
+    }
+    paths = paths.filter((p) => existsSync(p));
+  }
   const rows = measure(sources(paths, staged ? '' : undefined));
   summary(rows);
   if (report) return;
