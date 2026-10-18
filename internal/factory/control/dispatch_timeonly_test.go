@@ -366,3 +366,121 @@ func TestDispatchTimeOnlyRootLaunchesReassessment(t *testing.T) {
 		t.Fatal("host double never ran")
 	}
 }
+
+// intentPlanHead returns a repository-bound draft head owned by the
+// fixture operator for the R12 connector proof.
+func intentPlanHead(now time.Time) factory.IntentRevision {
+	return factory.IntentRevision{
+		ID: "d888888888888888888888888", Intent: "d777777777777777777777777", Owner: 7, Repository: 7,
+		Objective: "plan the recorded draft", State: "draft",
+		MaxIssues: 10, CreatedUnix: now.Unix(),
+	}
+}
+
+// intentPlanInput stages the admitted planning input for the head:
+// the requested operation with its inspected source investigation.
+func intentPlanInput(t *testing.T, head factory.IntentRevision, op string) factory.SemanticPlannerInput {
+	t.Helper()
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatalf("proposal content: %v", err)
+	}
+	return factory.SemanticPlannerInput{
+		Operation:    op,
+		Head:         head,
+		Content:      content,
+		Alternatives: factory.DescribeAlternatives(head.Objective),
+		Inspected: []factory.InspectedSource{
+			{Path: "internal/factory/intent.go", Commit: strings.Repeat("c", 40), Evidence: "Draft head carries attributed effective scope with no tasks yet"},
+		},
+	}
+}
+
+// TestDispatchIntentPlanConnectsHeadToBoundResult proves the R12 source
+// connection on real PostgreSQL: the connector admits the reviewed
+// repository-bound head for the requested operation, stages the bounded
+// prompt and launches through the shared route with a bounded host
+// double; the host's answer settles through AccountSettledRun into the
+// typed result bound to the assignment's exact intent and revision,
+// while an answer for another revision refuses without a report.
+func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	head := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatal(err)
+	}
+	in := intentPlanInput(t, head, factory.IntentPlanningPropose)
+	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
+	var observed bool
+	timeOnlyOrderHost(fx, &observed, func(ctx context.Context, in project.FactoryLaunch) {
+		a, err := db.AssignmentByRun(ctx, in.Run.ID)
+		if err != nil || a.Phase != project.ExecutionDecompose || a.Subject.Intent == nil || a.Subject.Intent.ScopeDigest != head.Digest() {
+			t.Fatalf("host call precedes its bound admission: assignment=%+v err=%v", a, err)
+		}
+		if !strings.Contains(string(a.Prompt), head.Digest()) {
+			t.Fatal("staged prompt does not carry the bound head digest")
+		}
+	})
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
+		t.Fatalf("plan route report: %+v", report)
+	}
+	if !observed {
+		t.Fatal("host double never ran")
+	}
+	run, err := db.FactoryRun(ctx, report.Launched[0].RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	finished, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now())
+	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
+		t.Fatalf("bound answer unsettled: %+v %v", finished, ok)
+	}
+	decomposition := finished.Result.PhaseResult.Output.Decomposition
+	if decomposition == nil || decomposition.Intent != head.Intent || decomposition.Revision != head.ID {
+		t.Fatalf("typed result not bound to its inputs: %+v", finished.Result)
+	}
+	if again, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now()); ok || again.Stage != "" {
+		t.Fatalf("second accounting = %+v %v", again, ok)
+	}
+}
+
+// TestDispatchIntentPlanRefusesUnreviewedHead proves the connector's
+// guards: an unassociated draft launches nothing, and a wrong owner
+// cannot read another owner's head.
+func TestDispatchIntentPlanRefusesUnreviewedHead(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	loose := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+	loose.Repository = 0
+	if err := db.SaveIntentRevision(ctx, loose); err != nil {
+		t.Fatal(err)
+	}
+	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
+	in := intentPlanInput(t, loose, factory.IntentPlanningPropose)
+	unassociated := coord.DispatchIntentPlan(ctx, loose.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	if len(unassociated.Errors) == 0 || len(unassociated.Launched) != 0 {
+		t.Fatalf("unassociated draft launched: %+v", unassociated)
+	}
+	head := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+	head.ID, head.Intent = "d777777777777777777777777", "d666666666666666666666666"
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatal(err)
+	}
+	foreign := coord.DispatchIntentPlan(ctx, head.Intent, 9, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	if len(foreign.Errors) == 0 || len(foreign.Launched) != 0 {
+		t.Fatalf("wrong owner launched: %+v", foreign)
+	}
+	if len(fx.host.launches) != 0 {
+		t.Fatalf("guarded connector reached the host: %d", len(fx.host.launches))
+	}
+}

@@ -31,6 +31,51 @@ import (
 // No factory_issue_controls row exists for issue zero, so the packet's
 // NativeRev self-check travels on a zero control value carrying only
 // the repository, the zero issue and the root's native revision.
+// DispatchIntentPlan connects one reviewed repository-bound intent head
+// to its decompose run through the shared admission and launch: it loads
+// the owner's current head, admits the requested planning operation for
+// the exact input, stages the bounded prompt and launches through
+// DispatchTimeOnlyRoot, whose packet authoritatively owns funding,
+// cancellation and replay. Unassociated drafts launch nothing, and a
+// wrong owner, phase, grant or staged input refuses before any effect.
+// Provider calls and native activation stay outside: the enrolled host
+// account answers the staged prompt, and settlement persists the typed
+// result through the existing phased path.
+func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, owner int64, operation string, in factory.SemanticPlannerInput, source string) DispatchReport {
+	var report DispatchReport
+	head, err := c.Store.IntentRevision(ctx, intentID, owner)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "intent head unreadable"})
+		return report
+	}
+	subject := factory.ExecutionSubject{
+		Kind:   factory.SubjectIntent,
+		Intent: &factory.IntentSubject{IntentID: intentID, RevisionID: head.ID, ScopeDigest: head.Digest(), OwnerID: owner},
+	}
+	if err := subject.Validate(); err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "intent subject invalid"})
+		return report
+	}
+	// The packet authoritatively funds or refuses; the pre-check only
+	// binds the operation to the exact head and input.
+	if err := AdmitIntentBoundLaunch(subject, project.ExecutionDecompose, project.RoleCoder, operation, head, true, in); err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: err.Error()})
+		return report
+	}
+	prompt, err := StageIntentPlanningPrompt(head, in)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: err.Error()})
+		return report
+	}
+	occupancy, err := snapshotOccupancy(ctx, c.Store)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "occupancy unreadable"})
+		return report
+	}
+	DispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, head.Repository, subject, source, prompt, &report)
+	return report
+}
+
 // Native revisions name the sealed native bracket for reassess roots
 // and the lowest valid value for intent roots, which have no native
 // observation: the sealed record and the head revision are their

@@ -352,10 +352,11 @@ func (r PhaseResult) Validate() error {
 // BindAssignment verifies the result against its recorded assignment: phase
 // equality binds phase and subject lineage, since the assignment already
 // binds role, subject and run. Pre-phase assignments cannot bind v2 results.
-// Repair and verify results additionally bind their subject kind and, for
-// completed runs, the report's subject, cycle and inventory identities.
-// A stall repair additionally runs the assignment's own head: a report
-// for another commit never binds. The six older phases keep their
+// Decompose, repair and verify results additionally bind their subject kind
+// and, for completed runs, the report's subject, cycle and inventory
+// identities. A decompose report answers its assignment's exact intent and
+// revision; a stall repair additionally runs the assignment's own head: a
+// report for another commit never binds. The five older phases keep their
 // historic phase-only binding.
 func (r PhaseResult) BindAssignment(a Assignment) error {
 	if err := r.Validate(); err != nil {
@@ -368,6 +369,20 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 		return errors.New("phase result does not match its assignment phase")
 	}
 	switch r.Phase {
+	case project.ExecutionDecompose:
+		if a.Subject.Kind != SubjectIntent || a.Subject.Intent == nil {
+			return errors.New("decomposition result needs its intent subject")
+		}
+		if err := a.Subject.Validate(); err != nil {
+			return err
+		}
+		if r.Status == "completed" {
+			if r.Output == nil || r.Output.Decomposition == nil ||
+				r.Output.Decomposition.Intent != a.Subject.Intent.IntentID ||
+				r.Output.Decomposition.Revision != a.Subject.Intent.RevisionID {
+				return errors.New("decomposition report does not match its assigned intent")
+			}
+		}
 	case project.ExecutionRepair:
 		if a.Subject.Kind != SubjectStall && a.Subject.Kind != SubjectDeliveryRepair {
 			return errors.New("repair result does not match its repair subject")

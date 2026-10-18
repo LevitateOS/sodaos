@@ -644,6 +644,10 @@ func phasedReportContract(phase string) string {
 		b.WriteString(`{"version":2,"phase":"investigate","status":"completed|blocked|failed|cancelled","summary":"...","output":{"plan":{...}}}` + "\n")
 		b.WriteString("```\n\n")
 		b.WriteString("Report \"completed\" only with the executable investigation plan in \"output.plan\". Planning carries no candidate: never name a commit, open a PR or publish. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
+	} else if phase == project.ExecutionDecompose {
+		b.WriteString(`{"version":2,"phase":"decompose","status":"completed|blocked|failed|cancelled","summary":"...","output":{"decomposition":{"intent":"<decision-id>","revision":"<decision-id>","selected":"<candidate key>","tasks":[...],"advice":[...]}}}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("Report \"completed\" only with the single selected decomposition in \"output.decomposition\" answering this run's exact intent and revision. Planning carries no candidate: never name a commit, open a PR or publish. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
 	} else {
 		b.WriteString(`{"version":2,"phase":"implement","status":"completed|blocked|failed|cancelled","summary":"...","output":{"implementation":{"candidate":"<40-hex commit or empty>"}}}` + "\n")
 		b.WriteString("```\n\n")

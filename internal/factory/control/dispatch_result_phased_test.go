@@ -33,7 +33,7 @@ func phasedFinding(n int, actionable bool) factory.Finding {
 
 func phasedDecomposition() *factory.PhaseOutput {
 	return &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
-		Intent: phasedDecisionID(1), Revision: phasedDecisionID(2), Selected: "keep",
+		Intent: phasedDecisionID(10), Revision: phasedDecisionID(11), Selected: "keep",
 		Tasks: []factory.IntentTask{{
 			Key: phasedDecisionID(3), Objective: "Request entry",
 			Outcomes: []string{"Capture requests"}, IdeaIDs: []string{phasedDecisionID(4)},
@@ -132,6 +132,32 @@ func TestDerivePhasedDecomposeCompleted(t *testing.T) {
 	}
 	if err := finished.Validate(); err != nil {
 		t.Fatalf("finished intent assignment refused: %v", err)
+	}
+}
+
+// A decomposition answering another revision never binds: the typed
+// result must answer its assignment's exact intent and revision.
+func TestDerivePhasedDecomposeRefusesForeignRevision(t *testing.T) {
+	a := phaseTestIntentAssignment(t)
+	run := phaseTestRun(a, factory.Succeeded)
+	foreign := fencedResult(t, factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "single choice ready",
+		Output: &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
+			Intent: phasedDecisionID(10), Revision: phasedDecisionID(12), Selected: "keep",
+			Tasks: []factory.IntentTask{{
+				Key: "d999999999999999999999999", Objective: "Decide the rollout order",
+				Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+			}},
+			Advice: []string{"keep the single choice"},
+		}},
+	})
+	result, outcome, reason := deriveAttemptResult(a, run, foreign, "", 1700000100)
+	if outcome != factory.NeedsHuman || reason != factory.AssignReasonNoReport {
+		t.Fatalf("foreign outcome = %v/%v", outcome, reason)
+	}
+	if result.Reported {
+		t.Fatalf("foreign decomposition reported: %+v", result)
 	}
 }
 

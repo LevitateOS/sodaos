@@ -2,6 +2,7 @@ package control
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -58,6 +59,42 @@ func AdmitIntentBoundResult(subject factory.ExecutionSubject, phase string, in f
 		return errors.New("semantic output does not bind its planning input")
 	}
 	return factory.AssessSemanticOutput(in, out)
+}
+
+// StageIntentPlanningPrompt renders the caller-staged prompt for one
+// admitted intent-bound decompose run from its exact planning input:
+// the operation, the head digest the subject binds, the accepted
+// objective and the inspected sources, closed by the decompose report
+// contract. The prompt carries evidence references, never credentials,
+// and stays within the factory prompt bound; anything larger refuses
+// instead of truncating requirements.
+func StageIntentPlanningPrompt(head factory.IntentRevision, in factory.SemanticPlannerInput) ([]byte, error) {
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	if in.Head.Digest() != head.Digest() {
+		return nil, errors.New("planning prompt answers another head")
+	}
+	var b strings.Builder
+	b.WriteString("## Intent planning\n\n")
+	b.WriteString("Operation: " + in.Operation + "\n")
+	b.WriteString("Intent: " + head.Intent + "\n")
+	b.WriteString("Revision: " + head.ID + "\n")
+	b.WriteString("Head digest: " + head.Digest() + "\n")
+	b.WriteString("Objective:\n" + head.Objective + "\n")
+	b.WriteString("\n## Inspected sources\n\n")
+	for _, ref := range in.Inspected {
+		b.WriteString("- " + ref.Path + " @ " + ref.Commit + "\n")
+		if ref.Evidence != "" {
+			b.WriteString("  " + promptFenceGuard.Replace(ref.Evidence) + "\n")
+		}
+	}
+	b.WriteString(phasedReportContract(project.ExecutionDecompose))
+	prompt := []byte(promptFenceGuard.Replace(b.String()))
+	if len(prompt) == 0 || len(prompt) > project.MaxFactoryPrompt {
+		return nil, errors.New("staged intent prompt is empty or over its bound")
+	}
+	return prompt, nil
 }
 
 // IntentBoundLaunchInput carries the dispatch-verified identities one
