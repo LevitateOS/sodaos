@@ -56,6 +56,21 @@ func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
+	// An otherwise valid episode from another repository must not spend
+	// this repository's grant, even when its generation matches.
+	foreign := result
+	foreignEvent := *result.Event
+	foreignEvent.Repository = repo + 1
+	foreign.Event = &foreignEvent
+	if err := foreignEvent.Validate(); err != nil {
+		t.Fatalf("foreign episode fixture must remain valid: %v", err)
+	}
+	if spent, err := AdmitStallEpisodeRun(ctx, db, foreign, 0, 30, now); err == nil || spent {
+		t.Fatalf("foreign repository episode: spent=%v err=%v, want refusal", spent, err)
+	}
+	if charges, err := db.RepairCharges(ctx, repo); err != nil || len(charges) != 0 {
+		t.Fatalf("foreign episode charged target grant: charges=%d err=%v", len(charges), err)
+	}
 	spent, err := AdmitStallEpisodeRun(ctx, db, result, 0, 30, now)
 	if err != nil || !spent {
 		t.Fatalf("first admission: spent=%v err=%v", spent, err)

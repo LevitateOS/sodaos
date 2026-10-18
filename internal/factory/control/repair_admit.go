@@ -38,6 +38,9 @@ func AdmitStallEpisodeRun(ctx context.Context, db *store.Store, result StallRepo
 	if err := event.Validate(); err != nil {
 		return false, errors.New("stall result carries an invalid bound episode")
 	}
+	if event.Repository != result.Repository {
+		return false, errors.New("stall episode belongs to another repository")
+	}
 	if event.ProgressGeneration != generation {
 		return false, errors.New("stall episode no longer matches its detection round: redetect before spending")
 	}
