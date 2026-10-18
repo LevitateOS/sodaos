@@ -55,106 +55,144 @@ func AdmitClearReview(in ClearAdmissionInput) (factory.Publication, factory.Deli
 	if err := in.Cycle.Validate(); err != nil {
 		return published, empty, err
 	}
-	var recorded factory.ReviewCycle
-	found := false
-	for _, cycle := range published.ReviewCycles {
-		if cycle.ID == in.Cycle.ID {
-			recorded, found = cycle, true
-			break
-		}
-	}
-	if !found {
+	if !recordedClearCycle(published, in.Cycle) {
 		return published, empty, errors.New("clear review consumes an unrecorded cycle")
 	}
-	// The recorded row binds every immutable cycle field not just its
-	// ID: a same-ID substituted cycle with another head, base, digest,
-	// round, phase, trigger or assignment takes no admission.
-	if recorded.PublicationID != published.ID ||
-		recorded.AttemptRoot != in.Cycle.AttemptRoot ||
-		recorded.Round != in.Cycle.Round ||
-		recorded.Phase != in.Cycle.Phase ||
-		recorded.Head != in.Cycle.Head ||
-		recorded.BaseOID != in.Cycle.BaseOID ||
-		recorded.FindingDigest != in.Cycle.FindingDigest ||
-		recorded.ReviewerAssignment != in.Cycle.ReviewerAssignment ||
-		recorded.CorrectionAssignment != in.Cycle.CorrectionAssignment ||
-		recorded.TriggerDecision != in.Cycle.TriggerDecision ||
-		recorded.TriggerReason != in.Cycle.TriggerReason {
+	if !recordedClearCycleMatches(published, in.Cycle) {
 		return published, empty, errors.New("clear review consumes a substituted cycle")
 	}
-	reviewer := in.Reviewer
-	if err := reviewer.Validate(); err != nil {
+	report, err := checkClearReviewer(published, in)
+	if err != nil {
 		return published, empty, err
 	}
+	content, coverage, err := checkClearCoverage(in, report)
+	if err != nil {
+		return published, empty, err
+	}
+	return finishClearAcceptance(published, in, content, coverage)
+}
+
+// recordedClearCycle reports whether one cycle is recorded on its publication.
+func recordedClearCycle(published factory.Publication, cycle factory.ReviewCycle) bool {
+	for _, recorded := range published.ReviewCycles {
+		if recorded.ID == cycle.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// recordedClearCycleMatches reports whether the recorded row binds
+// every immutable cycle field, not just its ID: a same-ID substituted
+// cycle with another head, base, digest, round, phase, trigger or
+// assignment takes no admission.
+func recordedClearCycleMatches(published factory.Publication, cycle factory.ReviewCycle) bool {
+	for _, recorded := range published.ReviewCycles {
+		if recorded.ID != cycle.ID {
+			continue
+		}
+		return recorded.PublicationID == published.ID &&
+			recorded.AttemptRoot == cycle.AttemptRoot &&
+			recorded.Round == cycle.Round &&
+			recorded.Phase == cycle.Phase &&
+			recorded.Head == cycle.Head &&
+			recorded.BaseOID == cycle.BaseOID &&
+			recorded.FindingDigest == cycle.FindingDigest &&
+			recorded.ReviewerAssignment == cycle.ReviewerAssignment &&
+			recorded.CorrectionAssignment == cycle.CorrectionAssignment &&
+			recorded.TriggerDecision == cycle.TriggerDecision &&
+			recorded.TriggerReason == cycle.TriggerReason
+	}
+	return false
+}
+
+// checkClearReviewer requires the cycle's independent phased reviewer
+// with its recorded typed verdict, returning the verdict.
+func checkClearReviewer(published factory.Publication, in ClearAdmissionInput) (factory.ClearReviewReport, error) {
+	var empty factory.ClearReviewReport
+	reviewer := in.Reviewer
+	if err := reviewer.Validate(); err != nil {
+		return empty, err
+	}
 	if reviewer.ID != in.Cycle.ReviewerAssignment {
-		return published, empty, errors.New("clear review needs its independent reviewer assignment")
+		return empty, errors.New("clear review needs its independent reviewer assignment")
 	}
 	// The reviewer belongs to this publication's lineage: its owner
 	// assignment and attempt root must match the recorded publication
 	// and cycle, so a foreign attempt's reviewer takes no admission.
 	if reviewer.PublicationAssignment != published.AssignmentID {
-		return published, empty, errors.New("clear review needs its publication reviewer")
+		return empty, errors.New("clear review needs its publication reviewer")
 	}
 	if reviewer.AttemptRoot != in.Cycle.AttemptRoot {
-		return published, empty, errors.New("clear review needs its attempt reviewer")
+		return empty, errors.New("clear review needs its attempt reviewer")
 	}
 	if reviewer.Role != project.RoleReviewer || reviewer.Phase != project.ExecutionReview {
-		return published, empty, errors.New("clear review needs its phased reviewer assignment")
+		return empty, errors.New("clear review needs its phased reviewer assignment")
 	}
 	if reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded {
-		return published, empty, errors.New("clear review needs its finished reviewer")
+		return empty, errors.New("clear review needs its finished reviewer")
 	}
 	if reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
-		return published, empty, errors.New("clear review needs its reported reviewer result")
+		return empty, errors.New("clear review needs its reported reviewer result")
 	}
 	if reviewer.Result.PhaseResult == nil || reviewer.Result.PhaseResult.Output == nil ||
 		reviewer.Result.PhaseResult.Output.Clear == nil {
-		return published, empty, errors.New("clear review needs its recorded typed verdict")
+		return empty, errors.New("clear review needs its recorded typed verdict")
 	}
-	report := *reviewer.Result.PhaseResult.Output.Clear
 	if in.Cycle.CorrectionAssignment != "" && in.Cycle.CorrectionAssignment == reviewer.ID {
-		return published, empty, errors.New("reviewer and corrector sessions must stay distinct")
+		return empty, errors.New("reviewer and corrector sessions must stay distinct")
 	}
+	return *reviewer.Result.PhaseResult.Output.Clear, nil
+}
+
+// checkClearCoverage binds one clear verdict to the canonical carried
+// set, returning its content and coverage digests.
+func checkClearCoverage(in ClearAdmissionInput, report factory.ClearReviewReport) (string, string, error) {
 	if err := report.Validate(in.Carried); err != nil {
-		return published, empty, err
+		return "", "", err
 	}
 	if report.CycleID != in.Cycle.ID {
-		return published, empty, errors.New("clear review answers another cycle")
+		return "", "", errors.New("clear review answers another cycle")
 	}
 	content, err := factory.FindingContentDigest(in.Carried)
 	if err != nil {
-		return published, empty, err
+		return "", "", err
 	}
 	coverage, err := factory.ClearCoverageDigest(in.Cycle.Head, in.Cycle.BaseOID, content)
 	if err != nil {
-		return published, empty, err
+		return "", "", err
 	}
 	if report.CoverageDigest != coverage {
-		return published, empty, errors.New("clear review coverage answers another input")
+		return "", "", errors.New("clear review coverage answers another input")
 	}
 	if report.Head != in.Cycle.Head || report.BaseOID != in.Cycle.BaseOID {
-		return published, empty, errors.New("clear review answers a superseded tuple")
+		return "", "", errors.New("clear review answers a superseded tuple")
 	}
+	return content, coverage, nil
+}
+
+// finishClearAcceptance binds one verified clear verdict to its tuple
+// and journals it on the publication.
+func finishClearAcceptance(published factory.Publication, in ClearAdmissionInput, content, coverage string) (factory.Publication, factory.DeliveryAcceptance, error) {
+	var empty factory.DeliveryAcceptance
 	if in.Cycle.Head != published.Candidate || in.Cycle.BaseOID != published.PRCreate.BaseOID {
 		return published, empty, errors.New("clear review answers a superseded tuple")
 	}
-	if reviewer.SourceCommit != in.Cycle.Head {
+	if in.Reviewer.SourceCommit != in.Cycle.Head {
 		return published, empty, errors.New("reviewer finished on another candidate")
 	}
 	if !factory.ValidDigest(in.ScopeDigest) || !factory.ValidDigest(in.CheckDigest) {
 		return published, empty, errors.New("clear review lacks its bound evidence digests")
 	}
-	tuple := factory.CandidateTuple{Head: in.Cycle.Head, Base: in.Cycle.BaseOID, DiffBase: in.DiffBase}
-	if published.Tuple != nil && published.Tuple.Head == in.Cycle.Head && published.Tuple.Base == in.Cycle.BaseOID {
-		tuple = *published.Tuple
-	} else if err := tuple.Validate(); err != nil {
+	tuple, err := deliveryAcceptanceTuple(published, in.Cycle.Head, in.Cycle.BaseOID, in.DiffBase)
+	if err != nil {
 		return published, empty, err
 	}
 	acceptance := factory.DeliveryAcceptance{
 		Tuple: tuple, ID: factory.DeliveryAcceptanceID(published.ID, in.Cycle.AttemptRoot, in.Cycle.Round, factory.AcceptanceCleanReview),
 		PublicationID: published.ID, AttemptRoot: in.Cycle.AttemptRoot,
 		ScopeDigest: in.ScopeDigest, FindingDigest: content, CoverageDigest: coverage, CheckDigest: in.CheckDigest,
-		PolicyRevision: in.PolicyRevision, OriginReceipt: reviewer.ID,
+		PolicyRevision: in.PolicyRevision, OriginReceipt: in.Reviewer.ID,
 		Kind: factory.AcceptanceCleanReview, Round: in.Cycle.Round,
 	}
 	if err := acceptance.Validate(); err != nil {
@@ -164,6 +202,19 @@ func AdmitClearReview(in ClearAdmissionInput) (factory.Publication, factory.Deli
 		return published, empty, err
 	}
 	return published, acceptance, nil
+}
+
+// deliveryAcceptanceTuple reuses the publication's recorded tuple on
+// the same head and base, else validates a fresh one.
+func deliveryAcceptanceTuple(published factory.Publication, head, base, diffBase string) (factory.CandidateTuple, error) {
+	tuple := factory.CandidateTuple{Head: head, Base: base, DiffBase: diffBase}
+	if published.Tuple != nil && published.Tuple.Head == head && published.Tuple.Base == base {
+		return *published.Tuple, nil
+	}
+	if err := tuple.Validate(); err != nil {
+		return factory.CandidateTuple{}, err
+	}
+	return tuple, nil
 }
 
 // JevAdmissionInput is the controller's complete funded-decision input:
@@ -218,51 +269,17 @@ func AdmitJevAcceptance(in JevAdmissionInput) (factory.Publication, factory.Deli
 	if err := in.Cycle.Validate(); err != nil {
 		return published, empty, err
 	}
-	recorded := false
-	for _, cycle := range published.ReviewCycles {
-		if cycle.ID == in.Cycle.ID {
-			recorded = true
-			break
-		}
-	}
-	if !recorded || in.Cycle.PublicationID != published.ID {
+	if !recordedClearCycle(published, in.Cycle) || in.Cycle.PublicationID != published.ID {
 		return published, empty, errors.New("funded decision consumes an unrecorded cycle")
 	}
 	if in.Cycle.Head != published.Candidate || in.Cycle.BaseOID != published.PRCreate.BaseOID {
 		return published, empty, errors.New("funded decision answers a superseded tuple")
 	}
-	if err := in.FingerprintInput.Validate(); err != nil {
+	if err := checkJevFingerprint(published, in); err != nil {
 		return published, empty, err
 	}
-	bound, err := factory.DeliveryFingerprint(in.FingerprintInput)
-	if err != nil {
+	if err := checkJevDecision(in); err != nil {
 		return published, empty, err
-	}
-	if !factory.ValidDigest(in.Fingerprint) || bound != in.Fingerprint {
-		return published, empty, errors.New("funded decision evidence differs from its fingerprint")
-	}
-	if in.FingerprintInput.PublicationID != published.ID || in.FingerprintInput.AttemptRoot != in.Cycle.AttemptRoot ||
-		in.FingerprintInput.Round != in.Cycle.Round || in.FingerprintInput.Head != in.Cycle.Head ||
-		in.FingerprintInput.Base != in.Cycle.BaseOID {
-		return published, empty, errors.New("funded decision judged another round")
-	}
-	if err := in.Decision.Validate(); err != nil {
-		return published, empty, err
-	}
-	if in.Decision.Answer.Fingerprint != in.Fingerprint || in.Decision.Answer.Model != in.FingerprintInput.Model {
-		return published, empty, errors.New("funded decision judged different evidence")
-	}
-	if in.Decision.Effective != factory.DeliveryEffectiveReady {
-		return published, empty, errors.New("only a ready funded decision creates acceptance")
-	}
-	if !factory.ValidID(in.DecisionID) {
-		return published, empty, errors.New("funded acceptance lacks its funded call identity")
-	}
-	if !factory.ValidID(in.Cycle.ReviewerAssignment) {
-		return published, empty, errors.New("funded acceptance lacks its independent reviewer run")
-	}
-	if in.Cycle.CorrectionAssignment != "" && in.Cycle.CorrectionAssignment == in.Cycle.ReviewerAssignment {
-		return published, empty, errors.New("reviewer and corrector sessions must stay distinct")
 	}
 	content, err := factory.FindingContentDigest(in.Carried)
 	if err != nil {
@@ -275,10 +292,8 @@ func AdmitJevAcceptance(in JevAdmissionInput) (factory.Publication, factory.Deli
 	if !factory.ValidDigest(in.ScopeDigest) || !factory.ValidDigest(in.CheckDigest) {
 		return published, empty, errors.New("funded acceptance lacks its bound evidence digests")
 	}
-	tuple := factory.CandidateTuple{Head: in.Cycle.Head, Base: in.Cycle.BaseOID, DiffBase: in.DiffBase}
-	if published.Tuple != nil && published.Tuple.Head == in.Cycle.Head && published.Tuple.Base == in.Cycle.BaseOID {
-		tuple = *published.Tuple
-	} else if err := tuple.Validate(); err != nil {
+	tuple, err := deliveryAcceptanceTuple(published, in.Cycle.Head, in.Cycle.BaseOID, in.DiffBase)
+	if err != nil {
 		return published, empty, err
 	}
 	acceptance := factory.DeliveryAcceptance{
@@ -296,6 +311,51 @@ func AdmitJevAcceptance(in JevAdmissionInput) (factory.Publication, factory.Deli
 		return published, empty, err
 	}
 	return published, acceptance, nil
+}
+
+// checkJevFingerprint binds the funded decision's fingerprint to its
+// recomputed evidence over this publication, round, head and base.
+func checkJevFingerprint(published factory.Publication, in JevAdmissionInput) error {
+	if err := in.FingerprintInput.Validate(); err != nil {
+		return err
+	}
+	bound, err := factory.DeliveryFingerprint(in.FingerprintInput)
+	if err != nil {
+		return err
+	}
+	if !factory.ValidDigest(in.Fingerprint) || bound != in.Fingerprint {
+		return errors.New("funded decision evidence differs from its fingerprint")
+	}
+	if in.FingerprintInput.PublicationID != published.ID || in.FingerprintInput.AttemptRoot != in.Cycle.AttemptRoot ||
+		in.FingerprintInput.Round != in.Cycle.Round || in.FingerprintInput.Head != in.Cycle.Head ||
+		in.FingerprintInput.Base != in.Cycle.BaseOID {
+		return errors.New("funded decision judged another round")
+	}
+	return nil
+}
+
+// checkJevDecision requires a ready funded decision with its funded
+// call identity behind the cycle's independent reviewer run.
+func checkJevDecision(in JevAdmissionInput) error {
+	if err := in.Decision.Validate(); err != nil {
+		return err
+	}
+	if in.Decision.Answer.Fingerprint != in.Fingerprint || in.Decision.Answer.Model != in.FingerprintInput.Model {
+		return errors.New("funded decision judged different evidence")
+	}
+	if in.Decision.Effective != factory.DeliveryEffectiveReady {
+		return errors.New("only a ready funded decision creates acceptance")
+	}
+	if !factory.ValidID(in.DecisionID) {
+		return errors.New("funded acceptance lacks its funded call identity")
+	}
+	if !factory.ValidID(in.Cycle.ReviewerAssignment) {
+		return errors.New("funded acceptance lacks its independent reviewer run")
+	}
+	if in.Cycle.CorrectionAssignment != "" && in.Cycle.CorrectionAssignment == in.Cycle.ReviewerAssignment {
+		return errors.New("reviewer and corrector sessions must stay distinct")
+	}
+	return nil
 }
 
 // appendDeliveryAcceptance records one admitted acceptance as the
