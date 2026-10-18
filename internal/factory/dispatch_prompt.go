@@ -97,88 +97,234 @@ func fenceCollision(text string) string {
 // verified accepted inputs. The shape is fixed: locator and exact
 // references, the accepted objective, accepted sources and resolutions,
 // then the result contract. Prompts that exceed the transport bound
-// refuse; truncation would silently change the requirements.
+// refuse; truncation would silently change the requirements. Admission
+// runs through one small check per duty in refusal order; rendering
+// writes one section per helper in field order.
 func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	if err := admitPromptText(in); err != nil {
 		return nil, err
 	}
-	if in.Repository <= 0 || in.Issue <= 0 || in.NativeRev < 1 {
-		return nil, errors.New("invalid dispatch prompt scope")
+	if err := admitPromptScope(in); err != nil {
+		return nil, err
 	}
-	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
-		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect {
-		return nil, errors.New("invalid dispatch prompt phase")
+	if err := admitPromptPhase(in); err != nil {
+		return nil, err
 	}
-	if in.Phase != "" && in.ImplementationPlan != nil {
-		return nil, errors.New("phased prompt carries a generic plan")
+	if err := admitPromptPlanBindings(in); err != nil {
+		return nil, err
 	}
-	if in.Phase == project.ExecutionInvestigate {
-		if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil ||
-			in.TypedReview != nil || in.TypedClear != nil {
-			return nil, errors.New("investigation opens no child evidence")
-		}
-		for _, digest := range in.PlanPrerequisites {
-			if !ValidDigest(digest) {
-				return nil, errors.New("investigation prerequisite binding is not a digest")
-			}
-		}
-	} else if len(in.PlanPrerequisites) != 0 {
-		return nil, errors.New("prerequisite bindings ride the investigation only")
-	}
-	if !project.ValidDecisionID(in.AcceptanceID) || !ValidCommit(in.SourceCommit) || in.TargetBranch == "" {
-		return nil, errors.New("invalid dispatch prompt references")
-	}
-	if in.Title == "" || in.AttemptLimits.Validate() != nil || in.ApplianceConcurrent < 1 || in.RepositoryConcurrent < 1 || in.SponsorshipConcurrent < 1 || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
-		return nil, errors.New("dispatch prompt needs selected controller inputs")
-	}
-	if in.ApprovedBase == "" && in.PublicationAssignment == "" {
-		in.ApprovedBase = in.SourceCommit
+	if err := admitPromptReferences(&in); err != nil {
+		return nil, err
 	}
 	if err := validatePromptStage(in); err != nil {
 		return nil, err
 	}
-	if in.RepositoryContext != nil {
-		context := in.RepositoryContext
-		expectedSource := in.SourceCommit
-		expectedDiffBase := in.ApprovedBase
-		if in.Role == project.RoleCoder {
-			expectedSource = in.ApprovedBase
-		}
-		if in.PublicationAssignment != "" {
-			expectedDiffBase = in.BaseCommit
-		}
-		if context.ValidateContent(in.Role) != nil || context.Project != in.Project ||
-			context.ID != in.Preparation || context.SourceCommit != expectedSource ||
-			context.Candidate != in.SourceCommit || context.ApprovedBase != in.ApprovedBase ||
-			context.DiffBase != expectedDiffBase {
-			return nil, errors.New("bounded repository context does not match the prompt scope")
-		}
+	if err := admitPromptContext(in); err != nil {
+		return nil, err
 	}
-	if len(in.Prerequisites) > 0 {
-		if in.Control.Validate() != nil || in.Control.Readiness != ReadinessQueued || in.Control.Repository != in.Repository || in.Control.Issue != in.Issue || in.Control.Acceptance != in.AcceptanceID || in.Control.NativeRev != in.NativeRev || len(in.Control.EndpointHeads) != len(in.Prerequisites) {
-			return nil, fmt.Errorf("%w: readiness identity mismatch", ErrPromptPrerequisiteEvidence)
-		}
-		for _, prerequisite := range in.Prerequisites {
-			if prerequisite.Validate() != nil {
-				return nil, fmt.Errorf("%w: invalid accepted prerequisite", ErrPromptPrerequisiteEvidence)
-			}
-			head, ok := in.Control.EndpointHeads[prerequisite.Occurrence]
-			if !ok || (prerequisite.Outcome == PrereqCode && head != prerequisite.PrereqAcceptance) ||
-				(prerequisite.Outcome == PrereqResult && !satisfiedResultOccurrence(in.Control, prerequisite.Occurrence)) {
-				return nil, fmt.Errorf("%w: incomplete outcome evidence", ErrPromptPrerequisiteEvidence)
-			}
-		}
-		for occurrence := range in.Control.Satisfied {
-			found := false
-			for _, prerequisite := range in.Prerequisites {
-				found = found || prerequisite.Occurrence == occurrence && prerequisite.Outcome == PrereqResult
-			}
-			if !found {
-				return nil, fmt.Errorf("%w: unaccepted result occurrence", ErrPromptPrerequisiteEvidence)
-			}
-		}
+	if err := admitPromptPrerequisites(in); err != nil {
+		return nil, err
 	}
 	var b strings.Builder
+	writePromptHeader(&b, in)
+	writePromptPolicy(&b, in)
+	writePromptObjective(&b, in)
+	if err := admitImplementationPlan(in); err != nil {
+		return nil, err
+	}
+	writePromptPlan(&b, in)
+	writePromptPrerequisites(&b, in.Prerequisites, in.Control)
+	writePromptSection(&b, "Accepted resolutions", in.Resolutions)
+	if in.RepositoryContext != nil {
+		writeRepositoryContext(&b, *in.RepositoryContext)
+	}
+	writePromptStage(&b, in)
+	writePromptReport(&b, in)
+	b.WriteString("Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
+	prompt := []byte(b.String())
+	if len(prompt) > project.MaxFactoryPrompt {
+		return nil, errors.New("dispatch prompt exceeds the transport bound")
+	}
+	if !utf8.Valid(prompt) {
+		return nil, errors.New("dispatch prompt is not valid text")
+	}
+	return prompt, nil
+}
+
+// admitPromptScope refuses prompts outside the admitted repository,
+// issue and native revision.
+func admitPromptScope(in PromptInputs) error {
+	if in.Repository <= 0 || in.Issue <= 0 || in.NativeRev < 1 {
+		return errors.New("invalid dispatch prompt scope")
+	}
+	return nil
+}
+
+// admitPromptPhase refuses unknown phases and generic plans on phased
+// prompts: one prompt answers one evidence source.
+func admitPromptPhase(in PromptInputs) error {
+	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
+		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect {
+		return errors.New("invalid dispatch prompt phase")
+	}
+	if in.Phase != "" && in.ImplementationPlan != nil {
+		return errors.New("phased prompt carries a generic plan")
+	}
+	return nil
+}
+
+// admitPromptPlanBindings refuses investigation prompts carrying child
+// evidence and non-investigation prompts carrying prerequisite
+// bindings; every binding digest must verify.
+func admitPromptPlanBindings(in PromptInputs) error {
+	if in.Phase == project.ExecutionInvestigate {
+		if err := admitInvestigationOpensNoChildEvidence(in); err != nil {
+			return err
+		}
+		for _, digest := range in.PlanPrerequisites {
+			if err := admitPlanPrerequisiteDigest(digest); err != nil {
+				return err
+			}
+		}
+	} else if len(in.PlanPrerequisites) != 0 {
+		return errors.New("prerequisite bindings ride the investigation only")
+	}
+	return nil
+}
+
+// admitInvestigationOpensNoChildEvidence refuses investigation prompts
+// carrying evidence only a child run may produce.
+func admitInvestigationOpensNoChildEvidence(in PromptInputs) error {
+	if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil ||
+		in.TypedReview != nil || in.TypedClear != nil {
+		return errors.New("investigation opens no child evidence")
+	}
+	return nil
+}
+
+// admitPlanPrerequisiteDigest refuses one malformed prerequisite
+// binding digest.
+func admitPlanPrerequisiteDigest(digest string) error {
+	if !ValidDigest(digest) {
+		return errors.New("investigation prerequisite binding is not a digest")
+	}
+	return nil
+}
+
+// admitPromptReferences refuses prompts with bad acceptance, commit,
+// branch, controller or limit references. An empty approved base
+// defaults to the source commit before stage validation.
+func admitPromptReferences(in *PromptInputs) error {
+	if !project.ValidDecisionID(in.AcceptanceID) || !ValidCommit(in.SourceCommit) || in.TargetBranch == "" {
+		return errors.New("invalid dispatch prompt references")
+	}
+	if err := admitPromptControllerInputs(*in); err != nil {
+		return err
+	}
+	if in.ApprovedBase == "" && in.PublicationAssignment == "" {
+		in.ApprovedBase = in.SourceCommit
+	}
+	return nil
+}
+
+// admitPromptControllerInputs refuses prompts missing selected
+// controller inputs: title, valid limits, positive concurrency,
+// required checks and provider connection.
+func admitPromptControllerInputs(in PromptInputs) error {
+	if in.Title == "" || in.AttemptLimits.Validate() != nil || in.ApplianceConcurrent < 1 || in.RepositoryConcurrent < 1 || in.SponsorshipConcurrent < 1 || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
+		return errors.New("dispatch prompt needs selected controller inputs")
+	}
+	return nil
+}
+
+// admitPromptContext refuses prompts whose bounded repository context
+// does not match the prompt scope.
+func admitPromptContext(in PromptInputs) error {
+	if in.RepositoryContext == nil {
+		return nil
+	}
+	context := in.RepositoryContext
+	expectedSource := in.SourceCommit
+	expectedDiffBase := in.ApprovedBase
+	if in.Role == project.RoleCoder {
+		expectedSource = in.ApprovedBase
+	}
+	if in.PublicationAssignment != "" {
+		expectedDiffBase = in.BaseCommit
+	}
+	if !promptContextMatchesScope(context, in, expectedSource, expectedDiffBase) {
+		return errors.New("bounded repository context does not match the prompt scope")
+	}
+	return nil
+}
+
+// promptContextMatchesScope reports whether one bounded repository
+// context carries exactly the prompt scope.
+func promptContextMatchesScope(context *project.FactoryPreparationContext, in PromptInputs, expectedSource, expectedDiffBase string) bool {
+	return context.ValidateContent(in.Role) == nil && context.Project == in.Project &&
+		context.ID == in.Preparation && context.SourceCommit == expectedSource &&
+		context.Candidate == in.SourceCommit && context.ApprovedBase == in.ApprovedBase &&
+		context.DiffBase == expectedDiffBase
+}
+
+// admitPromptPrerequisites refuses prompts whose accepted dependency
+// evidence is missing, stale or uncovered, preserving refusal order:
+// readiness identity, per-prerequisite evidence, then result coverage.
+func admitPromptPrerequisites(in PromptInputs) error {
+	if len(in.Prerequisites) == 0 {
+		return nil
+	}
+	if err := admitReadinessIdentity(in); err != nil {
+		return err
+	}
+	for _, prerequisite := range in.Prerequisites {
+		if err := admitOnePrerequisite(in.Control, prerequisite); err != nil {
+			return err
+		}
+	}
+	return admitResultCoverage(in)
+}
+
+// admitReadinessIdentity refuses queued-readiness mismatches behind
+// accepted prerequisites.
+func admitReadinessIdentity(in PromptInputs) error {
+	if in.Control.Validate() != nil || in.Control.Readiness != ReadinessQueued || in.Control.Repository != in.Repository || in.Control.Issue != in.Issue || in.Control.Acceptance != in.AcceptanceID || in.Control.NativeRev != in.NativeRev || len(in.Control.EndpointHeads) != len(in.Prerequisites) {
+		return fmt.Errorf("%w: readiness identity mismatch", ErrPromptPrerequisiteEvidence)
+	}
+	return nil
+}
+
+// admitOnePrerequisite refuses one invalid accepted prerequisite or
+// one without complete outcome evidence.
+func admitOnePrerequisite(control IssueControl, prerequisite AcceptedPrerequisite) error {
+	if prerequisite.Validate() != nil {
+		return fmt.Errorf("%w: invalid accepted prerequisite", ErrPromptPrerequisiteEvidence)
+	}
+	head, ok := control.EndpointHeads[prerequisite.Occurrence]
+	if !ok || (prerequisite.Outcome == PrereqCode && head != prerequisite.PrereqAcceptance) ||
+		(prerequisite.Outcome == PrereqResult && !satisfiedResultOccurrence(control, prerequisite.Occurrence)) {
+		return fmt.Errorf("%w: incomplete outcome evidence", ErrPromptPrerequisiteEvidence)
+	}
+	return nil
+}
+
+// admitResultCoverage refuses accepted result occurrences no
+// prerequisite covers.
+func admitResultCoverage(in PromptInputs) error {
+	for occurrence := range in.Control.Satisfied {
+		found := false
+		for _, prerequisite := range in.Prerequisites {
+			found = found || prerequisite.Occurrence == occurrence && prerequisite.Outcome == PrereqResult
+		}
+		if !found {
+			return fmt.Errorf("%w: unaccepted result occurrence", ErrPromptPrerequisiteEvidence)
+		}
+	}
+	return nil
+}
+
+// writePromptHeader renders the locator and exact references block.
+func writePromptHeader(b *strings.Builder, in PromptInputs) {
 	stage := promptStage(in)
 	if in.Phase == project.ExecutionInvestigate {
 		stage = "investigation"
@@ -198,6 +344,11 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	b.WriteString("Preparation requirements: " + in.RequirementsID + " approval: " + in.ApprovalID + "\n")
 	b.WriteString("Role: " + in.Role + " Harness: " + in.Harness + " Model: " + in.Model + "\n")
 	b.WriteString("Provider connection: " + strconv.Quote(in.ProviderConnection) + "\n")
+}
+
+// writePromptPolicy renders the controller policy block with the
+// role-specific task directive.
+func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Controller policy\n\n")
 	if in.Role == project.RoleReviewer {
 		b.WriteString("Permitted actions: inspect the exact candidate and its diff against the verified base in the separate prepared reviewer checkout; run relevant checks; report concrete findings. Do not modify or publish the candidate, merge pull requests, change grants, select another provider or model, or expose credentials. The coding conversation and its claimed approval are not review evidence.\n")
@@ -222,36 +373,55 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	}
 	b.WriteString("Only the accepted objective, sources and resolutions authorize changes; ")
 	b.WriteString("unselected discussion does not.\n")
+}
+
+// writePromptObjective renders the objective block with its sources.
+func writePromptObjective(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Objective\n\n")
 	b.WriteString(fenceCollision(in.Title) + "\n\n")
 	if in.Body != "" {
 		b.WriteString(fenceCollision(in.Body) + "\n")
 	}
-	writePromptSection(&b, "Accepted sources", in.Sources)
+	writePromptSection(b, "Accepted sources", in.Sources)
 	if in.Phase == project.ExecutionInvestigate {
-		writePromptInvestigation(&b, in)
+		writePromptInvestigation(b, in)
 	}
-	if in.ImplementationPlan != nil && in.Phase == "" {
-		plan := in.ImplementationPlan
-		if plan.Validate() != nil || plan.Provisional || plan.Outcome != "planned" || plan.Input.Candidate.Control.Acceptance != in.AcceptanceID || plan.Input.Candidate.Source != in.SourceCommit || plan.Input.Candidate.Control.Repository != in.Repository || plan.Input.Candidate.Control.Issue != in.Issue {
-			return nil, errors.New("implementation plan does not match dispatch")
-		}
-		b.WriteString("\n## Implementation approach\n\n")
-		b.WriteString("Recorded plan: " + plan.Snapshot + " strategy: " + plan.Strategy + ". The accepted requirements and controller policy remain authoritative.\n")
-		for _, step := range plan.Steps {
-			b.WriteString("- " + fenceCollision(step) + "\n")
-		}
+}
+
+// admitImplementationPlan refuses recorded plans that do not match
+// the dispatch they ride.
+func admitImplementationPlan(in PromptInputs) error {
+	plan := in.ImplementationPlan
+	if plan == nil || in.Phase != "" {
+		return nil
 	}
-	writePromptPrerequisites(&b, in.Prerequisites, in.Control)
-	writePromptSection(&b, "Accepted resolutions", in.Resolutions)
-	if in.RepositoryContext != nil {
-		writeRepositoryContext(&b, *in.RepositoryContext)
+	if plan.Validate() != nil || plan.Provisional || plan.Outcome != "planned" || plan.Input.Candidate.Control.Acceptance != in.AcceptanceID || plan.Input.Candidate.Source != in.SourceCommit || plan.Input.Candidate.Control.Repository != in.Repository || plan.Input.Candidate.Control.Issue != in.Issue {
+		return errors.New("implementation plan does not match dispatch")
 	}
-	writePromptStage(&b, in)
+	return nil
+}
+
+// writePromptPlan renders the recorded implementation approach. The
+// plan was admitted before this call; rendering never revalidates.
+func writePromptPlan(b *strings.Builder, in PromptInputs) {
+	plan := in.ImplementationPlan
+	if plan == nil || in.Phase != "" {
+		return
+	}
+	b.WriteString("\n## Implementation approach\n\n")
+	b.WriteString("Recorded plan: " + plan.Snapshot + " strategy: " + plan.Strategy + ". The accepted requirements and controller policy remain authoritative.\n")
+	for _, step := range plan.Steps {
+		b.WriteString("- " + fenceCollision(step) + "\n")
+	}
+}
+
+// writePromptReport renders the role-specific report contract and the
+// completion reminder.
+func writePromptReport(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Report\n\n")
 	if in.Role == project.RoleReviewer {
 		if in.TypedReview != nil || in.TypedClear != nil {
-			writePromptTypedReviewContract(&b, in)
+			writePromptTypedReviewContract(b, in)
 		} else {
 			b.WriteString("Close your work with exactly one fenced block:\n\n")
 			b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
@@ -286,15 +456,6 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	} else {
 		b.WriteString("Report \"completed\" only with the exact commit your change produced. ")
 	}
-	b.WriteString("Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
-	prompt := []byte(b.String())
-	if len(prompt) > project.MaxFactoryPrompt {
-		return nil, errors.New("dispatch prompt exceeds the transport bound")
-	}
-	if !utf8.Valid(prompt) {
-		return nil, errors.New("dispatch prompt is not valid text")
-	}
-	return prompt, nil
 }
 
 func writeRepositoryContext(b *strings.Builder, context project.FactoryPreparationContext) {

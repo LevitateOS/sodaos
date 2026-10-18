@@ -6,6 +6,8 @@ One scan of source `51ba6d2f` with the existing pinned analyzers found **58 Go f
 
 Completed complexity batches, including `6bf6cecf` and subsequent focused repairs, are retained. The residual BROAD-COMPLEXITY-037 outcome is unassigned in the [canonical remaining record](factory-remaining-tasks.md#other-distinct-outcomes-and-shared-consumers). Execution is stopped; this measurement does not schedule another refactor.
 
+Completed slices: `BuildDispatchPrompt` split 94→13 (spine only; all helpers ≤10), byte-identical output proven by the existing prompt suite (`internal/factory` PASS). Remaining identities stay in `current-report.txt`; all 58 retain the single outcome until each is ≤20 or excepted.
+
 Go, Rust and TypeScript share this policy: **prefer cyclomatic complexity ≤10;
 normal maximum 20**. Above 20, a function needs a narrow, specific justification
 and an explicit score cap (for example, an exhaustive protocol dispatcher whose
