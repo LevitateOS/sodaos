@@ -413,7 +413,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	repositoryContext, contextErr := readRepositoryContext(ctx, deps.Host, plan, plan.prep.Preparation, role,
 		plan.prep.Preparation.SourceCommit, plan.prep.Preparation.SourceCommit, plan.inputs.Tip, true)
 	if contextErr != nil {
-		return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed")
+		return waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
 	}
 	var implementationPlan *factory.PlanningRecord
 	// FW12 joint: the generic planning record stages only on the
@@ -424,11 +424,11 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	if plan.phase == "" && plan.advancePlan == nil && deps.PlanRecord != nil {
 		record, recordErr := deps.PlanRecord(ctx, repository, issue)
 		if recordErr != nil {
-			return nil, waitFor("plan_not_current", "implementation approach is unavailable")
+			return waitFor("plan_not_current", "implementation approach is unavailable"), nil
 		}
 		if record.Snapshot != "" {
 			if record.Provisional || record.Outcome != "planned" {
-				return nil, waitFor("plan_not_current", "implementation approach is provisional or waiting")
+				return waitFor("plan_not_current", "implementation approach is provisional or waiting"), nil
 			}
 			implementationPlan = &record
 		}
@@ -441,7 +441,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	if plan.phase == project.ExecutionInvestigate {
 		bindings, bindingsErr := livePlanBindings(plan.acceptance, plan.control, plan.inputs.Tip, plan.prep.Preparation.ID)
 		if bindingsErr != nil {
-			return nil, waitFor(WaitInputsChanged, "investigation prerequisite bindings are incomplete")
+			return waitFor(WaitInputsChanged, "investigation prerequisite bindings are incomplete"), nil
 		}
 		planPrerequisites = bindings.Prerequisites
 	}
@@ -468,9 +468,9 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	})
 	if err != nil {
 		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
-			return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes")
+			return waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
 		}
-		return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound")
+		return waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
 	}
 	// Phased attempts report through the strict v2 phase contract,
 	// not the legacy harness shape: replace the trailing legacy
@@ -481,7 +481,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	if plan.phase != "" {
 		prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
 		if err != nil {
-			return nil, waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound")
+			return waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound"), nil
 		}
 	}
 	plan.prompt = prompt

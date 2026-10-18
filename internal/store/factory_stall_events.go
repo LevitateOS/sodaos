@@ -22,18 +22,9 @@ const (
 	TableFactoryStallEvents = "factory_stall_events"
 )
 
-// FactoryStallEventsDDL creates the bound-observation table. The
-// (repository, generation, fingerprint) primary key replays a
-// redetected round to the identical row; episode identity stays
-// (repository, generation) by construction of the stored event.
-const FactoryStallEventsDDL = `CREATE TABLE factory_stall_events(
-seq BIGSERIAL UNIQUE NOT NULL,
-repository BIGINT NOT NULL CHECK(repository>0), generation BIGINT NOT NULL CHECK(generation>=0),
-event TEXT NOT NULL CHECK(event ~ '^[a-f0-9]{32}$'),
-episode TEXT NOT NULL CHECK(episode ~ '^[a-f0-9]{32}$'),
-fingerprint TEXT NOT NULL CHECK(fingerprint ~ '^[a-f0-9]{64}$'),
-data JSONB NOT NULL,
-PRIMARY KEY(repository,generation,fingerprint))`
+// FactoryStallEventsDDL lives in factory_completions.go beside the
+// other D15/D13 owner DDLs: the Rust drift test resolves the bare
+// schemaStatements identifier only across its registered Go owners.
 
 // StandingStallEvent is the latest bound observation for one repository:
 // the generation its next detection round must reuse until verified

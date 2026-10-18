@@ -43,6 +43,22 @@ event TEXT NOT NULL CHECK(event ~ '^[a-f0-9]{32}$'),
 state TEXT NOT NULL, data JSONB NOT NULL,
 FOREIGN KEY(repository,generation) REFERENCES factory_completions(repository,generation))`
 
+// FactoryStallEventsDDL creates the bound-observation table. The
+// (repository, generation, fingerprint) primary key replays a
+// redetected round to the identical row; episode identity stays
+// (repository, generation) by construction of the stored event. The
+// seq column records true observation order for the standing query;
+// R37 advances progress on verified delivery rather than reading
+// recency into a content hash.
+const FactoryStallEventsDDL = `CREATE TABLE factory_stall_events(
+seq BIGSERIAL UNIQUE NOT NULL,
+repository BIGINT NOT NULL CHECK(repository>0), generation BIGINT NOT NULL CHECK(generation>=0),
+event TEXT NOT NULL CHECK(event ~ '^[a-f0-9]{32}$'),
+episode TEXT NOT NULL CHECK(episode ~ '^[a-f0-9]{32}$'),
+fingerprint TEXT NOT NULL CHECK(fingerprint ~ '^[a-f0-9]{64}$'),
+data JSONB NOT NULL,
+PRIMARY KEY(repository,generation,fingerprint))`
+
 // FactoryCompletionTriggers freezes recorded history: completion events
 // never change, and cycle rows are never deleted. FW31 owns the
 // reassessment state guard; no trigger here invents it.
