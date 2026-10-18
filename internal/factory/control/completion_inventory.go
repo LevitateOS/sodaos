@@ -214,6 +214,7 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 	if enum == nil {
 		return nil, c, errors.New(HoldInventoryUnavailable)
 	}
+	g := &inventoryGather{ctx: ctx, enum: enum, repository: repository, generation: generation, local: local, budget: readinessBudgetFrom(ctx), next: *c}
 	// The collector prepays its TWO revision observations (opening +
 	// confirming) upfront against the existing budget before any
 	// native read. The outer bracket's own 2-reservation in
@@ -223,185 +224,249 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 	// collecting with the incoming prefix/cursor untouched and zero
 	// native spend. A nil budget (store-free fixtures) carries no
 	// charge and keeps existing test behavior.
-	budget := readinessBudgetFrom(ctx)
-	confirmReserved := false
-	if budget != nil {
-		if !budget.reserveNativeRPC(2) {
+	if g.budget != nil {
+		if !g.budget.reserveNativeRPC(2) {
 			return nil, c, errors.New(HoldInventoryInProgress)
 		}
 		// TWO upfront units dedicated to the opening observation
 		// and the eventual confirmation. Every extra restart or
 		// re-bracket observation reserves its OWN unit before the
 		// call and never consumes the held confirmation.
-		confirmReserved = true
-	}
-	// observeRestart reserves its own unit before every call: restart
-	// re-brackets never spend the held confirmation. A refused
-	// reservation holds collecting with the current prefix/cursor
-	// preserved: no partial seal, no decision or provider charge.
-	observeRestart := func() (int64, bool, error) {
-		if budget != nil {
-			if !budget.reserveNativeRPC(1) {
-				return 0, false, errors.New(HoldInventoryInProgress)
-			}
-		}
-		return enum.ObserveRevision(ctx)
-	}
-	// observeConfirm spends the held confirmation once; past it,
-	// every further confirmation reserves anew before the call.
-	observeConfirm := func() (int64, bool, error) {
-		if budget != nil {
-			if confirmReserved {
-				confirmReserved = false
-			} else if !budget.reserveNativeRPC(1) {
-				return 0, false, errors.New(HoldInventoryInProgress)
-			}
-		}
-		return enum.ObserveRevision(ctx)
+		g.confirmReserved = true
 	}
 	// The opening observation spends its dedicated upfront unit.
-	revision, idle, err := enum.ObserveRevision(ctx)
-	if err != nil {
-		return nil, c, errors.New(HoldInventoryRevision)
-	}
-	if !idle {
-		return nil, c, errors.New(HoldInventoryRevision)
-	}
-	if c.Revision != 0 && c.Revision != revision {
-		if c.Restarts >= maxCollectorRestarts {
-			return nil, c, errors.New(HoldInventoryRevision)
-		}
-		c = &InventoryCollector{Revision: revision, Restarts: c.Restarts + 1}
-	}
-	if c.Revision == 0 {
-		c = &InventoryCollector{Revision: revision, Local: local, Restarts: c.Restarts}
-	}
-	next := *c
-	next.Local = local
-	evidence := 0
-	for _, issue := range next.Issues {
-		evidence += len(issue.Data)
+	if out, err := g.openCollector(); err != nil {
+		return nil, out, err
 	}
 	for pages := 0; pages < maxCompletionInventoryPages; pages++ {
-		if err := ctx.Err(); err != nil {
-			return nil, &next, err
-		}
-		page, err := enum.EnumerateIssues(ctx, repository, next.Cursor)
-		if err != nil {
-			// A quota refusal names the collecting hold with the
-			// current prefix/cursor preserved for resume; the
-			// producer names exact holds visibly: oversize,
-			// malformed and unstable evidence keep their reason
-			// instead of collapsing into unavailable.
-			if errors.Is(err, ErrReadinessPassPending) {
-				return nil, &next, errors.New(HoldInventoryInProgress)
-			}
-			switch err.Error() {
-			case HoldInventoryOversize, HoldInventoryPage, HoldInventoryRevision:
-				return nil, &next, err
-			default:
-				return nil, &next, errors.New(HoldInventoryUnavailable)
-			}
-		}
-		if page.Revision != revision || !page.Idle {
-			if next.Restarts >= maxCollectorRestarts {
-				return nil, &next, errors.New(HoldInventoryRevision)
-			}
-			// Re-bracket before restarting: the saved cursor belongs
-			// to the moved revision and resuming it could omit the
-			// concurrent insertion. The re-bracket reserves its own
-			// unit and never spends the held confirmation; a refused
-			// reservation holds with the advanced cursor, which
-			// actually resumes.
-			fresh, idle, err := observeRestart()
-			if err != nil {
-				if err.Error() == HoldInventoryInProgress {
-					return nil, &next, err
-				}
-				return nil, &next, errors.New(HoldInventoryRevision)
-			}
-			if !idle {
-				return nil, &next, errors.New(HoldInventoryRevision)
-			}
-			revision = fresh
-			next = InventoryCollector{Revision: revision, Local: local, Restarts: next.Restarts + 1}
-			evidence = 0
-			continue
-		}
-		if err := checkInventoryPage(page, next.Cursor, len(next.Issues), evidence); err != nil {
-			return nil, &next, err
-		}
-		next.Running = foldInventoryPage(next.Running, repository, generation, page.Issues)
-		next.Issues = append(next.Issues, page.Issues...)
-		for _, issue := range page.Issues {
-			evidence += len(issue.Data)
-		}
-		// The cursor advances with the folded prefix, so any hold
-		// below carries actually-resumable progress: resuming never
-		// re-appends the already-folded final page.
-		next.Cursor = page.NextCursor
-		if page.Complete {
-			confirmed, idle, err := observeConfirm()
-			// A complete prefix is never held for resume: resuming
-			// it would re-append the final page. Non-seal exits
-			// below restart or reset honestly instead.
-			if err != nil && err.Error() == HoldInventoryInProgress {
-				return nil, &InventoryCollector{Revision: revision, Local: local, Restarts: next.Restarts + 1}, err
-			}
-			if err != nil || !idle || confirmed != revision {
-				if next.Restarts >= maxCollectorRestarts {
-					return nil, &next, errors.New(HoldInventoryRevision)
-				}
-				// The held confirmation is spent (or the call
-				// failed). Reserve its replacement BEFORE fetching
-				// another page; without it, return a valid reset
-				// hold — a moved revision invalidates the old-rev
-				// prefix — rather than an unconfirmable prefix.
-				fresh := revision
-				if err == nil && idle && confirmed != 0 && confirmed != revision {
-					fresh = confirmed
-				}
-				if budget != nil && !budget.reserveNativeRPC(1) {
-					return nil, &InventoryCollector{Revision: fresh, Local: local, Restarts: next.Restarts + 1}, errors.New(HoldInventoryInProgress)
-				}
-				confirmReserved = true
-				revision = fresh
-				next = InventoryCollector{Revision: fresh, Local: local, Restarts: next.Restarts + 1}
-				evidence = 0
-				continue
-			}
-			indexes := make([]int64, 0, len(next.Issues))
-			for _, issue := range next.Issues {
-				indexes = append(indexes, issue.Index)
-			}
-			sort.Slice(indexes, func(i, j int) bool { return indexes[i] < indexes[j] })
-			// The seal parses every payload into its substance: a
-			// non-canonical body refuses the seal instead of
-			// persisting bytes the decision cannot assess.
-			byIndex := make(map[int64]factory.CompletionIssueEvidence, len(next.Issues))
-			for _, issue := range next.Issues {
-				body, err := factory.ParseCompletionIssueEvidence(issue.Data)
-				if err != nil {
-					return nil, &next, errors.New(HoldInventoryPage)
-				}
-				if body.Index != issue.Index {
-					return nil, &next, errors.New(HoldInventoryPage)
-				}
-				byIndex[issue.Index] = body
-			}
-			bodies := make([]factory.CompletionIssueEvidence, 0, len(indexes))
-			for _, index := range indexes {
-				bodies = append(bodies, byIndex[index])
-			}
-			// The seal supersedes progress: resuming from a sealed
-			// collector would re-observe a closed evidence set.
-			return &SealedInventory{
-				Local: next.Local, Indexes: indexes, Bodies: bodies,
-				Digest:     sealInventoryDigest(repository, generation, revision, next.Running, indexes),
-				Repository: repository, Generation: generation, Revision: revision,
-				Issues: len(next.Issues), Evidence: evidence,
-			}, nil, nil
+		sealed, out, done, err := g.collectPage()
+		if done {
+			return sealed, out, err
 		}
 	}
-	return nil, &next, errors.New(HoldInventoryInProgress)
+	return nil, g.progress(), errors.New(HoldInventoryInProgress)
+}
+
+// inventoryGather carries the shared state behind one inventory
+// collection so each duty reads through one small check.
+type inventoryGather struct {
+	ctx             context.Context
+	enum            CompletionIssueEnumerator
+	repository      int64
+	generation      int64
+	local           factory.CompletionLocal
+	budget          *readinessPass
+	confirmReserved bool
+	revision        int64
+	next            InventoryCollector
+	evidence        int
+}
+
+// progress reports the current resumable collector prefix.
+func (g *inventoryGather) progress() *InventoryCollector {
+	out := g.next
+	return &out
+}
+
+// observeRestart reserves its own unit before every call: restart
+// re-brackets never spend the held confirmation. A refused
+// reservation holds collecting with the current prefix/cursor
+// preserved: no partial seal, no decision or provider charge.
+func (g *inventoryGather) observeRestart() (int64, bool, error) {
+	if g.budget != nil {
+		if !g.budget.reserveNativeRPC(1) {
+			return 0, false, errors.New(HoldInventoryInProgress)
+		}
+	}
+	return g.enum.ObserveRevision(g.ctx)
+}
+
+// observeConfirm spends the held confirmation once; past it, every
+// further confirmation reserves anew before the call.
+func (g *inventoryGather) observeConfirm() (int64, bool, error) {
+	if g.budget != nil {
+		if g.confirmReserved {
+			g.confirmReserved = false
+		} else if !g.budget.reserveNativeRPC(1) {
+			return 0, false, errors.New(HoldInventoryInProgress)
+		}
+	}
+	return g.enum.ObserveRevision(g.ctx)
+}
+
+// openCollector takes the opening observation and binds the working
+// collector, resetting or restarting on a moved revision.
+func (g *inventoryGather) openCollector() (*InventoryCollector, error) {
+	revision, idle, err := g.enum.ObserveRevision(g.ctx)
+	if err != nil {
+		return g.progress(), errors.New(HoldInventoryRevision)
+	}
+	if !idle {
+		return g.progress(), errors.New(HoldInventoryRevision)
+	}
+	if g.next.Revision != 0 && g.next.Revision != revision {
+		if g.next.Restarts >= maxCollectorRestarts {
+			return g.progress(), errors.New(HoldInventoryRevision)
+		}
+		g.next = InventoryCollector{Revision: revision, Restarts: g.next.Restarts + 1}
+	}
+	if g.next.Revision == 0 {
+		g.next = InventoryCollector{Revision: revision, Local: g.local, Restarts: g.next.Restarts}
+	}
+	g.next.Local = g.local
+	for _, issue := range g.next.Issues {
+		g.evidence += len(issue.Data)
+	}
+	g.revision = revision
+	return nil, nil
+}
+
+// collectPage collects one enumerated page, reporting done when the
+// collection sealed, held or errored.
+func (g *inventoryGather) collectPage() (*SealedInventory, *InventoryCollector, bool, error) {
+	if err := g.ctx.Err(); err != nil {
+		return nil, g.progress(), true, err
+	}
+	page, err := g.enum.EnumerateIssues(g.ctx, g.repository, g.next.Cursor)
+	if err != nil {
+		return nil, g.progress(), true, routeInventoryPageError(err)
+	}
+	if page.Revision != g.revision || !page.Idle {
+		return g.rebridgeRevision()
+	}
+	if err := checkInventoryPage(page, g.next.Cursor, len(g.next.Issues), g.evidence); err != nil {
+		return nil, g.progress(), true, err
+	}
+	g.next.Running = foldInventoryPage(g.next.Running, g.repository, g.generation, page.Issues)
+	g.next.Issues = append(g.next.Issues, page.Issues...)
+	for _, issue := range page.Issues {
+		g.evidence += len(issue.Data)
+	}
+	// The cursor advances with the folded prefix, so any hold
+	// below carries actually-resumable progress: resuming never
+	// re-appends the already-folded final page.
+	g.next.Cursor = page.NextCursor
+	if !page.Complete {
+		return nil, nil, false, nil
+	}
+	return g.confirmSeal()
+}
+
+// routeInventoryPageError names one enumeration failure's collecting
+// hold with the current prefix/cursor preserved for resume; the
+// producer names exact holds visibly: oversize, malformed and unstable
+// evidence keep their reason instead of collapsing into unavailable.
+func routeInventoryPageError(err error) error {
+	if errors.Is(err, ErrReadinessPassPending) {
+		return errors.New(HoldInventoryInProgress)
+	}
+	switch err.Error() {
+	case HoldInventoryOversize, HoldInventoryPage, HoldInventoryRevision:
+		return err
+	default:
+		return errors.New(HoldInventoryUnavailable)
+	}
+}
+
+// rebridgeRevision re-brackets and restarts one collection whose page
+// revision moved, holding when restarts or reservations run out.
+func (g *inventoryGather) rebridgeRevision() (*SealedInventory, *InventoryCollector, bool, error) {
+	if g.next.Restarts >= maxCollectorRestarts {
+		return nil, g.progress(), true, errors.New(HoldInventoryRevision)
+	}
+	// Re-bracket before restarting: the saved cursor belongs
+	// to the moved revision and resuming it could omit the
+	// concurrent insertion. The re-bracket reserves its own
+	// unit and never spends the held confirmation; a refused
+	// reservation holds with the advanced cursor, which
+	// actually resumes.
+	fresh, idle, err := g.observeRestart()
+	if err != nil {
+		if err.Error() == HoldInventoryInProgress {
+			return nil, g.progress(), true, err
+		}
+		return nil, g.progress(), true, errors.New(HoldInventoryRevision)
+	}
+	if !idle {
+		return nil, g.progress(), true, errors.New(HoldInventoryRevision)
+	}
+	g.revision = fresh
+	g.next = InventoryCollector{Revision: fresh, Local: g.local, Restarts: g.next.Restarts + 1}
+	g.evidence = 0
+	return nil, nil, false, nil
+}
+
+// confirmSeal confirms one complete prefix and seals it, restarting
+// or resetting honestly when confirmation fails.
+func (g *inventoryGather) confirmSeal() (*SealedInventory, *InventoryCollector, bool, error) {
+	confirmed, idle, err := g.observeConfirm()
+	// A complete prefix is never held for resume: resuming
+	// it would re-append the final page. Non-seal exits
+	// below restart or reset honestly instead.
+	if err != nil && err.Error() == HoldInventoryInProgress {
+		return nil, &InventoryCollector{Revision: g.revision, Local: g.local, Restarts: g.next.Restarts + 1}, true, err
+	}
+	if err != nil || !idle || confirmed != g.revision {
+		return g.resetUnconfirmed(confirmed, idle, err)
+	}
+	return g.sealInventory()
+}
+
+// resetUnconfirmed restarts one unconfirmed prefix, reserving the
+// replacement confirmation before fetching another page.
+func (g *inventoryGather) resetUnconfirmed(confirmed int64, idle bool, err error) (*SealedInventory, *InventoryCollector, bool, error) {
+	if g.next.Restarts >= maxCollectorRestarts {
+		return nil, g.progress(), true, errors.New(HoldInventoryRevision)
+	}
+	// The held confirmation is spent (or the call
+	// failed). Reserve its replacement BEFORE fetching
+	// another page; without it, return a valid reset
+	// hold — a moved revision invalidates the old-rev
+	// prefix — rather than an unconfirmable prefix.
+	fresh := g.revision
+	if err == nil && idle && confirmed != 0 && confirmed != g.revision {
+		fresh = confirmed
+	}
+	if g.budget != nil && !g.budget.reserveNativeRPC(1) {
+		return nil, &InventoryCollector{Revision: fresh, Local: g.local, Restarts: g.next.Restarts + 1}, true, errors.New(HoldInventoryInProgress)
+	}
+	g.confirmReserved = true
+	g.revision = fresh
+	g.next = InventoryCollector{Revision: fresh, Local: g.local, Restarts: g.next.Restarts + 1}
+	g.evidence = 0
+	return nil, nil, false, nil
+}
+
+// sealInventory parses and seals one confirmed prefix into its
+// substance: a non-canonical body refuses the seal instead of
+// persisting bytes the decision cannot assess.
+func (g *inventoryGather) sealInventory() (*SealedInventory, *InventoryCollector, bool, error) {
+	indexes := make([]int64, 0, len(g.next.Issues))
+	for _, issue := range g.next.Issues {
+		indexes = append(indexes, issue.Index)
+	}
+	sort.Slice(indexes, func(i, j int) bool { return indexes[i] < indexes[j] })
+	byIndex := make(map[int64]factory.CompletionIssueEvidence, len(g.next.Issues))
+	for _, issue := range g.next.Issues {
+		body, err := factory.ParseCompletionIssueEvidence(issue.Data)
+		if err != nil {
+			return nil, g.progress(), true, errors.New(HoldInventoryPage)
+		}
+		if body.Index != issue.Index {
+			return nil, g.progress(), true, errors.New(HoldInventoryPage)
+		}
+		byIndex[issue.Index] = body
+	}
+	bodies := make([]factory.CompletionIssueEvidence, 0, len(indexes))
+	for _, index := range indexes {
+		bodies = append(bodies, byIndex[index])
+	}
+	// The seal supersedes progress: resuming from a sealed
+	// collector would re-observe a closed evidence set.
+	return &SealedInventory{
+		Local: g.next.Local, Indexes: indexes, Bodies: bodies,
+		Digest:     sealInventoryDigest(g.repository, g.generation, g.revision, g.next.Running, indexes),
+		Repository: g.repository, Generation: g.generation, Revision: g.revision,
+		Issues: len(g.next.Issues), Evidence: g.evidence,
+	}, nil, true, nil
 }
