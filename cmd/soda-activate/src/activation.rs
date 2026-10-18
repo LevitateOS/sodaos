@@ -11,12 +11,17 @@ use crate::system::{runtime, usage, ActivateError, Paths, Sys};
 
 const MAX_DASHBOARD_BYTES: usize = 64 * 1024;
 
-pub(crate) fn activate(
+struct ActivationInputs {
+    address: IpAddr,
+    forgejo_url: String,
+    soda_gid: u32,
+}
+
+fn admit_activation_flags(
     args: &CliArgs,
     paths: &Paths,
     sys: &mut dyn Sys,
-    stdout: &mut dyn Write,
-) -> Result<(), ActivateError> {
+) -> Result<IpAddr, ActivateError> {
     if sys.euid() != 0 {
         return Err(usage("native host operator/root required"));
     }
@@ -40,13 +45,16 @@ pub(crate) fn activate(
             "select an explicit private address, not loopback or a public administration exposure",
         ));
     }
-    let root = &paths.root;
-    if root.join("activated").exists() {
+    if paths.root.join("activated").exists() {
         return Err(usage(
             "already activated; use explicit native configuration maintenance instead of blind reactivation",
         ));
     }
-    let dashboard_path = root.join("dashboard.json");
+    Ok(address)
+}
+
+fn read_dashboard_config(paths: &Paths) -> Result<serde_json::Value, ActivateError> {
+    let dashboard_path = paths.root.join("dashboard.json");
     let dashboard_file = fs::File::open(&dashboard_path)
         .map_err(|e| runtime(format!("cannot read dashboard.json: {e}")))?;
     let mut raw = Vec::with_capacity(MAX_DASHBOARD_BYTES + 1);
@@ -57,11 +65,33 @@ pub(crate) fn activate(
     if raw.len() > MAX_DASHBOARD_BYTES {
         return Err(runtime("dashboard.json exceeds size limit"));
     }
-    let value: serde_json::Value =
-        serde_json::from_slice(&raw).map_err(|_| runtime("dashboard.json is not valid JSON"))?;
+    serde_json::from_slice(&raw).map_err(|_| runtime("dashboard.json is not valid JSON"))
+}
+
+fn admit_activation_inputs(
+    args: &CliArgs,
+    paths: &Paths,
+    sys: &mut dyn Sys,
+) -> Result<ActivationInputs, ActivateError> {
+    let address = admit_activation_flags(args, paths, sys)?;
+    let value = read_dashboard_config(paths)?;
     let cfg = value
         .as_object()
         .ok_or_else(|| runtime("dashboard configuration must be a JSON object"))?;
+    let (forgejo_url, soda_gid) = admit_dashboard_identity(cfg, args, &address, sys)?;
+    Ok(ActivationInputs {
+        address,
+        forgejo_url,
+        soda_gid,
+    })
+}
+
+fn admit_dashboard_identity(
+    cfg: &serde_json::Map<String, serde_json::Value>,
+    args: &CliArgs,
+    address: &IpAddr,
+    sys: &mut dyn Sys,
+) -> Result<(String, u32), ActivateError> {
     if cfg.contains_key("public_url") {
         return Err(usage(
             "legacy separate-origin configuration; use rehearsed configuration maintenance",
@@ -74,10 +104,11 @@ pub(crate) fn activate(
     let forgejo_url = cfg
         .get("forgejo_url")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| runtime("dashboard forgejo_url must be a string"))?;
-    check_browser_origin(forgejo_url)?;
+        .ok_or_else(|| runtime("dashboard forgejo_url must be a string"))?
+        .to_string();
+    check_browser_origin(&forgejo_url)?;
     if args.local_tls {
-        let origin = origin_host_port(forgejo_url)?;
+        let origin = origin_host_port(&forgejo_url)?;
         if origin.hostname != address.to_string()
             || (origin.port_present && origin.port != Some(443))
         {
@@ -117,6 +148,23 @@ pub(crate) fn activate(
     if soda_uid != 2000 || soda_gid != 2000 {
         return Err(usage("unexpected native soda service identity"));
     }
+    Ok((forgejo_url, soda_gid))
+}
+
+fn secure_activation_root(
+    paths: &Paths,
+    sys: &mut dyn Sys,
+    soda_gid: u32,
+) -> Result<(), ActivateError> {
+    secure_activation_credentials(&paths.root, sys, soda_gid)?;
+    secure_extension_root(paths, sys)
+}
+
+fn secure_activation_credentials(
+    root: &Path,
+    sys: &mut dyn Sys,
+    soda_gid: u32,
+) -> Result<(), ActivateError> {
     // Mutations below run only after every validation above passed.
     fs::set_permissions(root, fs::Permissions::from_mode(0o750))
         .map_err(|e| runtime(e.to_string()))?;
@@ -124,7 +172,7 @@ pub(crate) fn activate(
         .map_err(|e| runtime(e.to_string()))?;
     for name in ["dashboard.json"] {
         let path = root.join(name);
-        if path.parent() != Some(root.as_path()) || is_symlink(&path) {
+        if path.parent() != Some(root) || is_symlink(&path) {
             return Err(usage(
                 "credentials must be regular operator-created files under /etc/soda",
             ));
@@ -134,6 +182,11 @@ pub(crate) fn activate(
         fs::set_permissions(&path, fs::Permissions::from_mode(0o640))
             .map_err(|e| runtime(e.to_string()))?;
     }
+    Ok(())
+}
+
+fn secure_extension_root(paths: &Paths, sys: &mut dyn Sys) -> Result<(), ActivateError> {
+    let root = &paths.root;
     // Prepare the generic Fountain extension data root. Package data is host-owned.
     let extension_root = paths.var_lib.join("forgejo/gitea/extensions");
     for path in [
@@ -170,6 +223,18 @@ pub(crate) fn activate(
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
         Err(e) => return Err(runtime(e.to_string())),
     }
+    Ok(())
+}
+
+fn write_activation_inputs(
+    args: &CliArgs,
+    paths: &Paths,
+    inputs: &ActivationInputs,
+) -> Result<(), ActivateError> {
+    let root = &paths.root;
+    let address = &inputs.address;
+    let forgejo_url = &inputs.forgejo_url;
+    let tls = root.join("tls");
     if !args.local_tls {
         for (source, dest) in [
             (&args.certificate, "cert.pem"),
@@ -211,6 +276,10 @@ pub(crate) fn activate(
         .mode(0o600)
         .open(root.join("activated"))
         .map_err(|e| runtime(e.to_string()))?;
+    Ok(())
+}
+
+fn start_activation_services(sys: &mut dyn Sys) -> Result<(), ActivateError> {
     run_checked(sys, &["systemctl", "daemon-reload"])?;
     // No enable: Quadlet-generated units refuse it. Boot-time binding lives in
     // soda-console.service; activation only (re)starts the configured listeners.
@@ -247,6 +316,19 @@ pub(crate) fn activate(
             pending[0]
         )));
     }
+    Ok(())
+}
+
+pub(crate) fn activate(
+    args: &CliArgs,
+    paths: &Paths,
+    sys: &mut dyn Sys,
+    stdout: &mut dyn Write,
+) -> Result<(), ActivateError> {
+    let inputs = admit_activation_inputs(args, paths, sys)?;
+    secure_activation_root(paths, sys, inputs.soda_gid)?;
+    write_activation_inputs(args, paths, &inputs)?;
+    start_activation_services(sys)?;
     let _ = writeln!(
         stdout,
         "Activation requested. Services report active; perform the later login/SSH validation before trusting browser setup."
