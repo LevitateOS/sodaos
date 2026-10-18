@@ -148,6 +148,41 @@ func lockReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, reposit
 	return allowance, nil
 }
 
+// refuseDuplicateReassessmentAttemptTx enforces the one-funding rule for
+// a completion operation across roots inside the packet transaction. The
+// reassess guard already holds the reassessment cycle row lock, so
+// concurrent same-cycle admissions serialize before this check. A prior
+// allowance for the identical completion subject on another root refuses
+// instead of refilling: an active prior reports the concurrent admission,
+// any settled prior keeps its consumption and requires an explicit
+// maintainer Retry. Same-root replay stays idempotent in the caller; a
+// new cycle admits below.
+func refuseDuplicateReassessmentAttemptTx(ctx context.Context, tx *sql.Tx, repository int64, root string, subject factory.CompletionSubject) error {
+	rows, err := tx.QueryContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment<>$2`, repository, root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return err
+		}
+		var prior factory.AttemptAllowance
+		if err := json.Unmarshal(raw, &prior); err != nil {
+			return err
+		}
+		if prior.Completion == nil || *prior.Completion != subject {
+			continue
+		}
+		if prior.Active {
+			return ErrAssignmentActive
+		}
+		return factory.ErrAttemptClosed
+	}
+	return rows.Err()
+}
+
 // insertReassessmentAttemptAllowanceTx records the time-only allowance for
 // one completion reassessment root. The exact root assignment row must
 // already be recorded and must match the passed assignment on every scope
@@ -199,6 +234,14 @@ func insertReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a fac
 		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	// Cross-root operation binding (R11 retry contract): the same
+	// completion operation funds exactly once across roots. See
+	// refuseDuplicateIntentAttemptTx for the active/settled refusal
+	// contract; the reassess guard's cycle-row lock serializes
+	// concurrent admissions here.
+	if err := refuseDuplicateReassessmentAttemptTx(ctx, tx, a.Repository, a.ID, subject); err != nil {
 		return err
 	}
 	allowance := factory.AttemptAllowance{

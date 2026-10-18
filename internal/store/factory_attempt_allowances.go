@@ -808,6 +808,76 @@ func sameIntentRootScope(stored, next factory.Assignment) bool {
 	return *stored.Subject.Intent == *next.Subject.Intent
 }
 
+// refuseDuplicateIntentAttemptTx enforces the one-funding rule for an
+// intent operation across roots inside the packet transaction. It locks
+// the intent head row so concurrent same-intent admissions serialize,
+// then binds every other recorded root allowance with the same intent
+// scope to its root assignment: an identical intent/revision/owner
+// triple on another root refuses instead of refilling. An active prior
+// reports the concurrent admission; any settled prior keeps its
+// consumption and requires an explicit maintainer Retry. A new revision
+// admits: its triple differs.
+func refuseDuplicateIntentAttemptTx(ctx context.Context, tx *sql.Tx, repository int64, root string, intent *factory.IntentSubject) error {
+	var head string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, intent.IntentID).Scan(&head); err != nil {
+		// No head row means the caller bypassed the decompose guard
+		// (direct test construction): the cross-root binding is
+		// defined over guarded admissions, so there is nothing to
+		// bind and the insert keeps its existing behavior.
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT root_assignment, data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment<>$2`, repository, root)
+	if err != nil {
+		return err
+	}
+	type priorAllowance struct {
+		root      string
+		allowance factory.AttemptAllowance
+	}
+	var priors []priorAllowance
+	for rows.Next() {
+		var prior priorAllowance
+		var raw []byte
+		if err := rows.Scan(&prior.root, &raw); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err := json.Unmarshal(raw, &prior.allowance); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		priors = append(priors, prior)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	// Drain the row set before any follow-up query: the packet
+	// transaction holds one connection, which stays busy until the
+	// rows close.
+	_ = rows.Close()
+	for _, prior := range priors {
+		if prior.allowance.Intent == nil || prior.allowance.Intent.IntentID != intent.IntentID || prior.allowance.Intent.OwnerID != intent.OwnerID {
+			continue
+		}
+		priorAssignment, err := loadAttemptRootAssignmentTx(ctx, tx, prior.root, false)
+		if err != nil {
+			return err
+		}
+		if priorAssignment.Subject.Intent == nil || *priorAssignment.Subject.Intent != *intent {
+			continue
+		}
+		if prior.allowance.Active {
+			return ErrAssignmentActive
+		}
+		return factory.ErrAttemptClosed
+	}
+	return nil
+}
+
 // insertIntentAttemptAllowanceTx records the time-only allowance for one
 // intent decompose root. The exact root assignment row must already be
 // recorded and must match the passed assignment on every scope field;
@@ -859,6 +929,18 @@ func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.A
 		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	// Cross-root operation binding (R11 retry contract): the same intent
+	// operation funds exactly once across roots. A prior allowance for the
+	// identical intent/revision/owner triple on another root refuses
+	// instead of refilling: an active prior means a concurrent attempt is
+	// still running (ErrAssignmentActive, surfaced as a wait), a settled
+	// prior keeps its consumption (factory.ErrAttemptClosed, surfaced as
+	// the explicit-Retry wait). Same-root replay stays idempotent above;
+	// a new revision admits below. The intent head row locks first so
+	// concurrent same-intent admissions serialize on one row.
+	if err := refuseDuplicateIntentAttemptTx(ctx, tx, a.Repository, a.ID, a.Subject.Intent); err != nil {
 		return err
 	}
 	allowance := factory.AttemptAllowance{

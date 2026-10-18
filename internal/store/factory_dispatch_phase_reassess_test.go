@@ -373,3 +373,104 @@ func TestReassessConcurrentRootsSingleCharge(t *testing.T) {
 		t.Fatalf("first root allowance disturbed: %+v", allowance)
 	}
 }
+
+// TestReassessmentSettledSubjectCannotRefill (real pg) proves failed
+// completion work stays charged: after the first root reconciles failed,
+// consumes its reservation and finishes failed, the same completion
+// subject as a distinct root refuses with the settled-attempt error
+// instead of funding a fresh allowance. Recorded consumption stands.
+func TestReassessmentSettledSubjectCannotRefill(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	eventID, cycleID, merged := reassessCycleFixture(t, db)
+	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first reassessment root refused: %v", err)
+	}
+	ended := time.Now().UTC().Truncate(time.Second)
+	finishedRun := run
+	finishedRun.Outcome, finishedRun.Reconciled, finishedRun.Summary = factory.Failed, true, "run failed"
+	if err := db.SaveFactoryRun(ctx, finishedRun); err != nil {
+		t.Fatalf("failed run not reconciled: %v", err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: a.Run, Minutes: 1, Repository: 7, Connection: "conn", StartedAt: ended.Add(-time.Minute), EndedAt: ended}); err != nil {
+		t.Fatalf("failed run usage not recorded: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, r.AssignmentID); err != nil {
+		t.Fatalf("failed root reservation not consumed: %v", err)
+	}
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, a, ended, factory.Failed, factory.AssignReasonRunFailed)); err != nil {
+		t.Fatalf("failed root not finished: %v", err)
+	}
+	prior, err := db.ReassessmentAttemptAllowance(ctx, 7, *a.Subject.Completion, a.ID)
+	if err != nil {
+		t.Fatalf("failed root lost its allowance: %v", err)
+	}
+	if prior.Active || !prior.Closed {
+		t.Fatalf("failed completion allowance still open: %+v", prior)
+	}
+	d2, a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID, cycleID, merged)
+	err = db.RecordDispatchPacket(ctx, d2, reassessTestControl(a2), a2, r2, run2, view2)
+	if !errors.Is(err, factory.ErrAttemptClosed) {
+		t.Fatalf("failed completion replay did not report the settled attempt: %v", err)
+	}
+	assertDispatchPacketAbsent(t, db, a2)
+	settled, err := db.ReassessmentAttemptAllowance(ctx, 7, *a.Subject.Completion, a.ID)
+	if err != nil {
+		t.Fatalf("settled root lost its allowance: %v", err)
+	}
+	if settled.Active || !settled.Closed || settled.Limits.ActiveMinutes != factory.DefaultReassessmentMinutes {
+		t.Fatalf("settled completion allowance disturbed: %+v", settled)
+	}
+}
+
+// TestReassessmentNewCycleFundsNextAttempt (real pg) proves the
+// legitimate next completion attempt still admits: after the first root
+// settles failed, a newly staged cycle carries a new completion subject,
+// and a fresh root bound to it funds its own allowance while the settled
+// prior cycle stays charged.
+func TestReassessmentNewCycleFundsNextAttempt(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	eventID, cycleID, merged := reassessCycleFixture(t, db)
+	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first reassessment root refused: %v", err)
+	}
+	ended := time.Now().UTC().Truncate(time.Second)
+	finishedRun := run
+	finishedRun.Outcome, finishedRun.Reconciled, finishedRun.Summary = factory.Failed, true, "run failed"
+	if err := db.SaveFactoryRun(ctx, finishedRun); err != nil {
+		t.Fatalf("failed run not reconciled: %v", err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: a.Run, Minutes: 1, Repository: 7, Connection: "conn", StartedAt: ended.Add(-time.Minute), EndedAt: ended}); err != nil {
+		t.Fatalf("failed run usage not recorded: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, r.AssignmentID); err != nil {
+		t.Fatalf("failed root reservation not consumed: %v", err)
+	}
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, a, ended, factory.Failed, factory.AssignReasonRunFailed)); err != nil {
+		t.Fatalf("failed root not finished: %v", err)
+	}
+	eventID2, cycleID2, merged2 := reassessCycleFixture(t, db)
+	d2, a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID2, cycleID2, merged2)
+	if err := db.RecordDispatchPacket(ctx, d2, reassessTestControl(a2), a2, r2, run2, view2); err != nil {
+		t.Fatalf("next cycle root refused: %v", err)
+	}
+	funded, err := db.ReassessmentAttemptAllowance(ctx, 7, *a2.Subject.Completion, a2.ID)
+	if err != nil {
+		t.Fatalf("next cycle allowance not funded: %v", err)
+	}
+	if !funded.Active || funded.Limits.ActiveMinutes != factory.DefaultReassessmentMinutes {
+		t.Fatalf("next cycle allowance not funded: %+v", funded)
+	}
+	prior, err := db.ReassessmentAttemptAllowance(ctx, 7, *a.Subject.Completion, a.ID)
+	if err != nil {
+		t.Fatalf("prior cycle lost its allowance: %v", err)
+	}
+	if prior.Active || !prior.Closed || prior.Limits.ActiveMinutes != factory.DefaultReassessmentMinutes {
+		t.Fatalf("prior cycle allowance disturbed: %+v", prior)
+	}
+}

@@ -178,3 +178,134 @@ func TestDecomposeRootReplayWritesNoRows(t *testing.T) {
 		t.Fatalf("replay left %d assignment rows, want exactly one", count)
 	}
 }
+
+// TestIntentDistinctRootCannotRefillSameRevision (real pg) proves the R11
+// one-funding rule across roots: a second distinct root for the same
+// intent/revision/owner triple refuses with the concurrent-admission
+// error while the first root is still active, funds nothing, and leaves
+// the first root allowance intact. Identity binds the replay, not
+// incidental repository capacity.
+func TestIntentDistinctRootCannotRefillSameRevision(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
+	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
+	first := time.Now().UTC().Truncate(time.Second)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first intent root refused: %v", err)
+	}
+	second := time.Now().UTC().Truncate(time.Second)
+	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	if !errors.Is(err, ErrAssignmentActive) {
+		t.Fatalf("second distinct root did not report the concurrent admission: %v", err)
+	}
+	assertDispatchPacketAbsent(t, db, a2)
+	prior := readIntentAllowance(t, db, a.ID)
+	if !prior.Active || prior.Limits.ActiveMinutes != 30 {
+		t.Fatalf("first intent allowance disturbed: %+v", prior)
+	}
+}
+
+// TestIntentFailedRootCannotRefillSameRevision (real pg) proves failed
+// work stays charged: after the first root reconciles failed, records
+// usage, consumes its reservation and finishes failed, the same
+// intent/revision/owner triple as a distinct root refuses with the
+// settled-attempt error instead of funding a fresh allowance. Recorded
+// consumption stands; no refund or reset path runs.
+func TestIntentFailedRootCannotRefillSameRevision(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
+	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
+	first := time.Now().UTC().Truncate(time.Second)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first intent root refused: %v", err)
+	}
+	ended := time.Now().UTC().Truncate(time.Second)
+	finishedRun := run
+	finishedRun.Outcome, finishedRun.Reconciled, finishedRun.Summary = factory.Failed, true, "run failed"
+	if err := db.SaveFactoryRun(ctx, finishedRun); err != nil {
+		t.Fatalf("failed run not reconciled: %v", err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: a.Run, Minutes: 1, Repository: 7, Connection: "conn", StartedAt: ended.Add(-time.Minute), EndedAt: ended}); err != nil {
+		t.Fatalf("failed run usage not recorded: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, r.AssignmentID); err != nil {
+		t.Fatalf("failed root reservation not consumed: %v", err)
+	}
+	if err := db.FinishAssignment(ctx, finishIntentRoot(t, a, ended, factory.Failed, factory.AssignReasonRunFailed)); err != nil {
+		t.Fatalf("failed root not finished: %v", err)
+	}
+	prior := readIntentAllowance(t, db, a.ID)
+	if prior.Active || !prior.Closed {
+		t.Fatalf("failed intent allowance still open: %+v", prior)
+	}
+	second := time.Now().UTC().Truncate(time.Second)
+	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	if !errors.Is(err, factory.ErrAttemptClosed) {
+		t.Fatalf("failed intent replay did not report the settled attempt: %v", err)
+	}
+	assertDispatchPacketAbsent(t, db, a2)
+	settled := readIntentAllowance(t, db, a.ID)
+	if settled.Active || !settled.Closed || settled.Limits.ActiveMinutes != 30 {
+		t.Fatalf("settled intent allowance disturbed: %+v", settled)
+	}
+}
+
+// TestIntentNewRevisionFundsNextAttempt (real pg) proves the legitimate
+// next attempt still admits: after the first root settles failed, the
+// intent owner publishing a new revision advances the head, and a fresh
+// root bound to the new revision funds its own allowance while the
+// settled prior revision stays charged.
+func TestIntentNewRevisionFundsNextAttempt(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
+	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
+	first := time.Now().UTC().Truncate(time.Second)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first intent root refused: %v", err)
+	}
+	ended := time.Now().UTC().Truncate(time.Second)
+	finishedRun := run
+	finishedRun.Outcome, finishedRun.Reconciled, finishedRun.Summary = factory.Failed, true, "run failed"
+	if err := db.SaveFactoryRun(ctx, finishedRun); err != nil {
+		t.Fatalf("failed run not reconciled: %v", err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: a.Run, Minutes: 1, Repository: 7, Connection: "conn", StartedAt: ended.Add(-time.Minute), EndedAt: ended}); err != nil {
+		t.Fatalf("failed run usage not recorded: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, r.AssignmentID); err != nil {
+		t.Fatalf("failed root reservation not consumed: %v", err)
+	}
+	if err := db.FinishAssignment(ctx, finishIntentRoot(t, a, ended, factory.Failed, factory.AssignReasonRunFailed)); err != nil {
+		t.Fatalf("failed root not finished: %v", err)
+	}
+	nextRevision := "d" + strings.Repeat("c", 24)
+	next := factory.IntentRevision{
+		ID: nextRevision, Intent: intentID, Owner: 7, Repository: 7, Predecessor: revisionID,
+		Objective: "plan the recorded draft", State: "draft",
+		MaxIssues: 10, CreatedUnix: time.Now().UTC().Truncate(time.Second).Unix(),
+	}
+	if err := db.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatalf("next intent revision not recorded: %v", err)
+	}
+	second := time.Now().UTC().Truncate(time.Second)
+	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, nextRevision, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2); err != nil {
+		t.Fatalf("next revision root refused: %v", err)
+	}
+	funded := readIntentAllowance(t, db, a2.ID)
+	if !funded.Active || funded.Limits.ActiveMinutes != 30 {
+		t.Fatalf("next revision allowance not funded: %+v", funded)
+	}
+	prior := readIntentAllowance(t, db, a.ID)
+	if prior.Active || !prior.Closed || prior.Limits.ActiveMinutes != 30 {
+		t.Fatalf("prior revision allowance disturbed: %+v", prior)
+	}
+}
