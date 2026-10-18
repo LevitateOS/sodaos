@@ -138,6 +138,10 @@ type ChosenIntentPlan struct {
 	Operation string
 	Key       string
 	Tasks     []factory.IntentTask
+	// Attempt is the recorded planning assignment the choice was
+	// resolved from. Empty on hand-built choices; ResolveAcceptedPlanChoice
+	// always stamps it, and generation binds it to the operation.
+	Attempt string
 }
 
 // ChooseSingleCandidate reduces one planner answer to its single adopted

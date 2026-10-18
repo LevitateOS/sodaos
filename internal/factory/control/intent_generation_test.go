@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -260,19 +259,36 @@ func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 	}
 }
 
-func TestIntentGraphServingOwnerRecoversDurableAcceptedDirection(t *testing.T) {
+// Serving recovery no longer mints template graphs: a pre-binding
+// pending operation with no recorded plan behind its accepted head
+// refuses terminally with zero native submissions instead of
+// auto-creating on start.
+func TestServingRecoveryRefusesPlanlessPendingGraph(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	if err := c.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
-		t.Fatal(err)
+	failed := false
+	f.beforeSubmit = func(factory.IntentGeneration) error {
+		if !failed {
+			failed = true
+			return errors.New("transient native failure")
+		}
+		return nil
 	}
-	t.Cleanup(func() { _ = c.Close() })
+	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, r.Intent, r.Owner, chosenFor(r)); err == nil {
+		t.Fatal("frozen submit admitted the plan-less operation")
+	}
+	f.beforeSubmit = nil
+	if err := c.RecoverIntentGraphs(ctx); err == nil ||
+		(!strings.Contains(err.Error(), "no recorded decomposition plan") &&
+			!strings.Contains(err.Error(), "no reviewed draft plan")) {
+		t.Fatalf("plan-less legacy must refuse with its remedy: %v", err)
+	}
+	if f.submissions != 0 {
+		t.Fatalf("plan-less legacy submitted %d native operations", f.submissions)
+	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
-	if err != nil || g.State != "completed" {
-		t.Fatalf("accepted graph not recovered by serving owner: %v %v", g.State, err)
-	}
-	if f.submissions != 1 {
-		t.Fatal("serving recovery did not send exactly one graph")
+	if err != nil || g.State != "refused" {
+		t.Fatalf("plan-less row=%+v err=%v want terminal refusal", g, err)
 	}
 }
 

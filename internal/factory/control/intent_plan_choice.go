@@ -108,6 +108,7 @@ func (c *Coordinator) ResolveAcceptedPlanChoice(ctx context.Context, owner int64
 	if err != nil {
 		return empty, nil, err
 	}
+	chosen.Attempt = a.ID
 	if wait, err := c.recheckPlanChoiceAfterComparison(ctx, r, a, in); err != nil || wait != nil {
 		return empty, wait, err
 	}
@@ -294,6 +295,57 @@ func (c *Coordinator) recheckPlanChoiceAfterComparison(ctx context.Context, r fa
 	}
 	if err := c.currentAcceptedIntent(ctx, r); err != nil {
 		return nil, fmt.Errorf("%w: accepted direction changed during choice", ErrPlanChoiceStale)
+	}
+	return nil, nil
+}
+
+// validateGenerationBinding proves a generated operation's stamped
+// recorded plan still answers the current direction: the exact trusted
+// assignment row, its staged input against the current head, the
+// accepted scope freeze, per-candidate coverage, and exact
+// preparation/source/head currency. Pure reads; no comparative choice
+// is funded and no provider is called, so submission and adoption can
+// re-prove the binding after slow external reads. Generations without
+// a stamped binding predate this contract and fail closed here;
+// callers bind them before resuming.
+func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.IntentGeneration) (*DispatchWait, error) {
+	if g.PlanAssignment == "" {
+		return nil, errors.New("generation carries no recorded plan binding")
+	}
+	a, err := c.Store.Assignment(ctx, g.PlanAssignment)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: recorded plan is unavailable", ErrPlanChoiceStale)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: recorded plan unreadable", ErrPlanChoiceStore)
+	}
+	subj := a.Subject.Intent
+	if subj == nil || subj.OwnerID <= 0 {
+		return nil, errors.New("recorded plan answers another owner")
+	}
+	r, err := c.Store.IntentRevision(ctx, subj.IntentID, subj.OwnerID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: accepted direction is unavailable", ErrPlanChoiceStale)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: accepted head unreadable", ErrPlanChoiceStore)
+	}
+	in, err := bindRecordedPlanInput(a, subj.OwnerID, r)
+	if err != nil {
+		return nil, err
+	}
+	out, wait, err := settlePlanChoiceStatus(a)
+	if err != nil || wait != nil {
+		return wait, err
+	}
+	if err := bindRecordedScopeCoverage(r, out); err != nil {
+		return nil, err
+	}
+	if wait, err := c.recheckPlanChoiceSource(ctx, r, a, in); err != nil || wait != nil {
+		return wait, err
+	}
+	if err := c.currentAcceptedIntent(ctx, r); err != nil {
+		return nil, fmt.Errorf("%w: accepted direction changed", ErrPlanChoiceStale)
 	}
 	return nil, nil
 }

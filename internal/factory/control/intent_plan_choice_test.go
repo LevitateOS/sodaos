@@ -326,6 +326,177 @@ func rotateChoicePlanSource(t *testing.T, ctx context.Context, db *store.Store, 
 	}
 }
 
+// rotatingGraphFixture rotates the recorded source once during the first
+// external ownership read, proving late source movement between choice
+// resolution and native submission refuses before any native effect.
+type rotatingGraphFixture struct {
+	inner   *generatedGraphFixture
+	rotated bool
+	rotate  func()
+}
+
+func (f *rotatingGraphFixture) CheckIntentOwner(ctx context.Context, repo, owner, actor int64) (int64, error) {
+	if !f.rotated {
+		f.rotated = true
+		f.rotate()
+	}
+	return f.inner.CheckIntentOwner(ctx, repo, owner, actor)
+}
+
+func (f *rotatingGraphFixture) SubmitGraph(ctx context.Context, g factory.IntentGeneration, repo int64) (sdk.OperationRecord, error) {
+	return f.inner.SubmitGraph(ctx, g, repo)
+}
+
+func (f *rotatingGraphFixture) LookupGraph(ctx context.Context, g factory.IntentGeneration, repo int64) (sdk.OperationLookup, error) {
+	return f.inner.LookupGraph(ctx, g, repo)
+}
+
+func (f *rotatingGraphFixture) CancelGraph(ctx context.Context, id string) (sdk.OperationRecord, error) {
+	return f.inner.CancelGraph(ctx, id)
+}
+
+func (f *rotatingGraphFixture) ReadGeneratedIssue(ctx context.Context, repo, index, actor int64) (sdk.NativeSnapshot, int64, error) {
+	return f.inner.ReadGeneratedIssue(ctx, repo, index, actor)
+}
+
+func (f *rotatingGraphFixture) ReadAcceptanceEvidence(ctx context.Context, revision, issue string, edges []string) (AcceptanceEvidence, error) {
+	return f.inner.ReadAcceptanceEvidence(ctx, revision, issue, edges)
+}
+
+// A source rotation landing during the first external ownership read —
+// after choice resolution but before native submission — refuses as
+// stale with zero native submissions: the pre-submit boundary
+// re-proves the stamped binding after the slow external reads.
+func TestRecordedPlanSourceChangesBeforeNativeSubmit(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := choicePlanDraft(fx.repo)
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
+		t.Fatal("recorded plan did not settle")
+	}
+	accepted := choicePlanAccepted(t, fx.repo)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	inner := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	graph := &rotatingGraphFixture{inner: inner, rotate: func() {
+		rotateChoicePlanSource(t, ctx, db, fx, strings.Repeat("d", 40))
+	}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = graph, 91, graph
+	_, _, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7)
+	if err == nil || (!strings.Contains(err.Error(), "source") && !strings.Contains(err.Error(), "preparation")) {
+		t.Fatalf("late source movement must refuse as stale: %v", err)
+	}
+	if inner.submissions != 0 {
+		t.Fatalf("late source movement submitted %d native operations", inner.submissions)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("late source movement funded %d comparative calls", stub.calls)
+	}
+}
+
+// A pre-binding pending operation behind a recorded plan resumes
+// through recovery with its durable original binding stamped: the
+// resumed submission validates the same recorded assignment and
+// completes exactly once.
+func TestRecoverIntentGraphsBindsLegacyPendingPlan(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := choicePlanDraft(fx.repo)
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
+		t.Fatal("recorded plan did not settle")
+	}
+	accepted := choicePlanAccepted(t, fx.repo)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	inner := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	submitted := false
+	inner.beforeSubmit = func(factory.IntentGeneration) error {
+		if !submitted {
+			submitted = true
+			return errors.New("transient native failure")
+		}
+		return nil
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	c.Graph, c.GraphActorID, c.AcceptanceReads = inner, 91, inner
+	out := choicePlannerOutput(draft, "cand-a")
+	legacy := ChosenIntentPlan{Intent: choicePlanIDs.intent, Revision: choicePlanIDs.draft, Operation: factory.IntentPlanningOptions, Key: "cand-a", Tasks: out.Candidates[0].Tasks}
+	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, choicePlanIDs.intent, 7, legacy); err == nil {
+		t.Fatal("frozen submit admitted the legacy operation")
+	}
+	frozen, err := db.IntentGeneration(ctx, accepted.ID)
+	if err != nil || frozen.State != "pending" || frozen.PlanAssignment != "" {
+		t.Fatalf("legacy row not frozen pending and unbound: %+v %v", frozen, err)
+	}
+	if err := c.RecoverIntentGraphs(ctx); err != nil {
+		t.Fatalf("recovery bind failed: %v", err)
+	}
+	resumed, err := db.IntentGeneration(ctx, accepted.ID)
+	if err != nil || resumed.State != "completed" {
+		t.Fatalf("resumed=%+v err=%v", resumed, err)
+	}
+	attempt, err := db.IntentPlanAttempt(ctx, choicePlanIDs.intent, choicePlanIDs.draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumed.PlanAssignment != attempt.ID {
+		t.Fatalf("resumed binding=%q want recorded attempt %q", resumed.PlanAssignment, attempt.ID)
+	}
+	if inner.submissions != 1 {
+		t.Fatalf("resumed submissions=%d want exactly one native effect", inner.submissions)
+	}
+}
+
+// A pre-binding pending operation with no recorded plan behind its
+// accepted head refuses through recovery instead of submitting: the
+// unprovable operation is cancelled and reported, never observed.
+func TestRecoverIntentGraphsRefusesUnboundPlanlessLegacy(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := choicePlanDraft(fx.repo)
+	if err := db.SaveIntentRevision(ctx, draft); err != nil {
+		t.Fatal(err)
+	}
+	accepted := choicePlanAccepted(t, fx.repo)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	inner := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	submitted := false
+	inner.beforeSubmit = func(factory.IntentGeneration) error {
+		if !submitted {
+			submitted = true
+			return errors.New("transient native failure")
+		}
+		return nil
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	c.Graph, c.GraphActorID, c.AcceptanceReads = inner, 91, inner
+	legacy := ChosenIntentPlan{Intent: choicePlanIDs.intent, Revision: choicePlanIDs.draft, Operation: factory.IntentPlanningOptions, Key: "keep", Tasks: accepted.Tasks}
+	if _, err := c.GenerateAcceptedIntentFromChoice(ctx, choicePlanIDs.intent, 7, legacy); err == nil {
+		t.Fatal("frozen submit admitted the plan-less operation")
+	}
+	if err := c.RecoverIntentGraphs(ctx); err == nil || !strings.Contains(err.Error(), "no recorded decomposition plan") {
+		t.Fatalf("plan-less legacy must refuse with its remedy: %v", err)
+	}
+	if inner.submissions != 0 {
+		t.Fatalf("plan-less legacy submitted %d native operations", inner.submissions)
+	}
+	refused, err := db.IntentGeneration(ctx, accepted.ID)
+	if err != nil || refused.State != "refused" {
+		t.Fatalf("plan-less row=%+v err=%v want terminal refusal", refused, err)
+	}
+}
+
 // Resolve through generate adopts exactly the recorded single-candidate
 // graph with no comparative call: the bound connector runs the full
 // serving tail behind the resolved choice.
