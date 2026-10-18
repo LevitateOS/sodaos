@@ -468,6 +468,26 @@ fn run_abandon_trial(scratch: &std::path::Path) -> Result<String, String> {
         }
         std::thread::sleep(Duration::from_millis(200));
     }
+    // Wait for write-silence before cleanup: a live orphan recreates
+    // removed cache paths, so removal under a writing child never holds.
+    let mut last_len = std::fs::metadata(&log).map(|m| m.len()).unwrap_or(0);
+    let mut stable_since = Instant::now();
+    let stable_limit = Instant::now() + Duration::from_secs(300);
+    loop {
+        std::thread::sleep(Duration::from_secs(5));
+        let len = std::fs::metadata(&log).map(|m| m.len()).unwrap_or(0);
+        if len == last_len {
+            if stable_since.elapsed() >= Duration::from_secs(30) {
+                break;
+            }
+        } else {
+            last_len = len;
+            stable_since = Instant::now();
+        }
+        if Instant::now() >= stable_limit {
+            return Err("abandoned child kept writing past the bound".to_string());
+        }
+    }
     Ok(format!("bin={bin} abandoned={} output=ABEACONA retire=never-issued", &id[..8]))
 }
 
@@ -478,6 +498,129 @@ fn trial_codex_abandoned_child_completes() {
     let scratch = trial_dir(&home, "abandon");
     let result = run_abandon_trial(&scratch);
     remove_scratch(&scratch);
+    std::thread::sleep(Duration::from_secs(10));
+    if std::fs::symlink_metadata(&scratch).is_ok() {
+        panic!("trial scratch resurrected after removal: {}", scratch.display());
+    }
     let evidence = result.expect("trial failed");
     println!("R07-CODEX-ABANDON {evidence}");
+}
+
+/// Mixed overlap through the real [`TaskRunner`]: a quick task settles,
+/// its dependent starts while an unrelated long task still runs, and the
+/// journal keeps every receipt ordered. This is the R07 acceptance clause
+/// the sequential successor trial does not cover.
+fn run_mixed_trial(scratch: &std::path::Path) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|_| "HOME is not set".to_string())?;
+    let auth_src = PathBuf::from(format!("{home}/{}", CODEX.auth_rel));
+    if !auth_src.is_file() {
+        return Err(format!("trial precondition: ~/{0} is absent", CODEX.auth_rel));
+    }
+    let bin = resolve_bin(&CODEX)?;
+    std::fs::create_dir_all(scratch).map_err(|e| e.to_string())?;
+    std::fs::set_permissions(scratch, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| e.to_string())?;
+    let custody = scratch.join("custody");
+    let auth_bytes = std::fs::read(&auth_src).map_err(|e| e.to_string())?;
+    write_private(&custody.join(CODEX.auth_rel), &auth_bytes)?;
+    let jobs = scratch.join("jobs");
+    std::fs::create_dir_all(&jobs).map_err(|e| e.to_string())?;
+    let jobs_str = jobs.to_string_lossy().into_owned();
+
+    let run = format!("{:032x}", nanos_now());
+    let plan = format!("{:064x}", nanos_now());
+    let profile = ChildProfile {
+        effort: "low".to_string(),
+        contributor: false,
+        role: ROLE_CODER.to_string(),
+        account_home: custody.to_string_lossy().into_owned(),
+    };
+    let mut runner =
+        TaskRunner::open(&run, "r07trial", &plan, FACTORY_HARNESS_CODEX, &profile, 2, scratch)?;
+    let deadline = Instant::now() + Duration::from_secs(900);
+    let prompt = |word: &str| {
+        if word == "ESSAY" {
+            "Write a 400-word essay about lighthouses. Reply with only the essay.".to_string()
+        } else {
+            format!("Reply with exactly the single word {word} and nothing else.")
+        }
+    };
+    let spec = |task: &str, word: &str| ChildSpec {
+        task_key: task.to_string(),
+        argv: vec![
+            bin.clone(),
+            "exec".to_string(),
+            "-s".to_string(),
+            "read-only".to_string(),
+            "--ephemeral".to_string(),
+            "-C".to_string(),
+            jobs_str.clone(),
+            "--skip-git-repo-check".to_string(),
+            prompt(word),
+        ],
+        workdir: jobs.clone(),
+    };
+    let settle = |runner: &mut TaskRunner, task: &str, marker: &str| -> Result<(), String> {
+        let code = runner.join_task(task, Duration::from_secs(600))?;
+        let tail = runner.observe_task(task)?.output_tail;
+        let text = String::from_utf8_lossy(&tail).into_owned();
+        if code != 0 || !text.to_lowercase().contains(marker) {
+            return Err(format!("{task} failed: exit={code} tail_len={}", text.len()));
+        }
+        let digest = output_digest(&tail);
+        if runner.report_task(task, &digest)? != 0 {
+            return Err(format!("{task} reported nonzero"));
+        }
+        runner.complete_task(task, None, None)?;
+        Ok(())
+    };
+
+    runner.start_task(&spec("quick-a", "QBEACON"), deadline)?;
+    runner.start_task(&spec("long-b", "ESSAY"), deadline)?;
+    settle(&mut runner, "quick-a", "qbeacon")?;
+    runner.start_task(&spec("dep-d", "DBEACON"), deadline)?;
+    let overlap_limit = Instant::now() + Duration::from_secs(180);
+    loop {
+        let b = runner.observe_task("long-b")?;
+        let d = runner.observe_task("dep-d")?;
+        if b.alive && d.alive {
+            break;
+        }
+        if Instant::now() >= overlap_limit {
+            return Err("dependent never ran while unrelated work continued".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    settle(&mut runner, "long-b", "light")?;
+    settle(&mut runner, "dep-d", "dbeacon")?;
+    let journal = runner.journal_snapshot();
+    let committed = journal
+        .iter()
+        .find(|e| e.event_type == TASK_EVENT_TASK_COMMITTED && e.task_key == "quick-a")
+        .map(|e| e.sequence)
+        .ok_or("missing quick-a committed receipt")?;
+    let intent = journal
+        .iter()
+        .find(|e| e.event_type == TASK_EVENT_CHILD_START_INTENT && e.task_key == "dep-d")
+        .map(|e| e.sequence)
+        .ok_or("missing dep-d start intent")?;
+    if !(committed < intent) {
+        return Err(format!("dependent started before receipt: {committed} !< {intent}"));
+    }
+    let report = runner.stop("dep-d", "trial complete")?;
+    if !report.uncertain.is_empty() {
+        return Err(format!("uncertain remainder: {:?}", report.uncertain));
+    }
+    Ok(format!("mixed_overlap=observed committed_seq={committed} intent_seq={intent}"))
+}
+
+#[test]
+#[ignore = "spends real provider budget; run explicitly for a bounded R07 trial"]
+fn trial_codex_mixed_overlap() {
+    let home = std::env::var("HOME").expect("HOME");
+    let scratch = trial_dir(&home, "mixed");
+    let result = run_mixed_trial(&scratch);
+    remove_scratch(&scratch);
+    let evidence = result.expect("trial failed");
+    println!("R07-CODEX-MIXED {evidence}");
 }
