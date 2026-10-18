@@ -43,6 +43,18 @@ func (c *Coordinator) readAcceptanceEvidence(ctx context.Context, decision facto
 // A stale screen, hidden source or changed revision refuses instead of
 // silently accepting newer material.
 func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acceptance, evidence AcceptanceEvidence) error {
+	if err := checkAcceptanceIssue(decision, evidence); err != nil {
+		return err
+	}
+	if err := checkAcceptanceSources(decision, evidence); err != nil {
+		return err
+	}
+	return c.checkAcceptancePrereqs(ctx, decision, evidence)
+}
+
+// checkAcceptanceIssue compares one decision's issue identity against
+// its bracketed evidence.
+func checkAcceptanceIssue(decision factory.Acceptance, evidence AcceptanceEvidence) error {
 	if evidence.Revision < 1 || decision.NativeRev != evidence.Revision {
 		return refuseAcceptance(RefusalStaleEvidence)
 	}
@@ -59,6 +71,12 @@ func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acc
 	if issue.TitleDigest != decision.TitleDigest || issue.TitleOccurrence != decision.TitleOccurrence || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
 		return refuseAcceptance(RefusalObjectiveChanged)
 	}
+	return nil
+}
+
+// checkAcceptanceSources compares one decision's selected sources
+// against their bracketed comments.
+func checkAcceptanceSources(decision factory.Acceptance, evidence AcceptanceEvidence) error {
 	comments := make(map[string]AcceptanceComment, len(evidence.Comments))
 	for _, comment := range evidence.Comments {
 		comments[comment.ID] = comment
@@ -77,6 +95,12 @@ func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acc
 			}
 		}
 	}
+	return nil
+}
+
+// checkAcceptancePrereqs compares one decision's prerequisites against
+// their bracketed edges with live acceptance heads.
+func (c *Coordinator) checkAcceptancePrereqs(ctx context.Context, decision factory.Acceptance, evidence AcceptanceEvidence) error {
 	edges := make(map[string]AcceptanceEdge, len(evidence.Dependencies))
 	for _, edge := range evidence.Dependencies {
 		if !edge.Visible {
@@ -93,20 +117,29 @@ func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acc
 			return refuseAcceptance(RefusalEdgeChanged)
 		}
 		if prereq.Outcome == factory.PrereqCode {
-			if _, err := c.Store.AcceptanceDecision(ctx, prereq.PrereqAcceptance); err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return refuseAcceptance(RefusalPrereqUnknown)
-				}
+			if err := c.checkPrereqAcceptance(ctx, prereq); err != nil {
 				return err
 			}
-			head, err := c.Store.AcceptanceHead(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
-			if err != nil || head != prereq.PrereqAcceptance {
-				if err != nil && !errors.Is(err, store.ErrNotFound) {
-					return err
-				}
-				return refuseAcceptance(RefusalPrereqStale)
-			}
 		}
+	}
+	return nil
+}
+
+// checkPrereqAcceptance requires one code prerequisite's recorded
+// acceptance to still head its endpoint.
+func (c *Coordinator) checkPrereqAcceptance(ctx context.Context, prereq factory.AcceptedPrerequisite) error {
+	if _, err := c.Store.AcceptanceDecision(ctx, prereq.PrereqAcceptance); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return refuseAcceptance(RefusalPrereqUnknown)
+		}
+		return err
+	}
+	head, err := c.Store.AcceptanceHead(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
+	if err != nil || head != prereq.PrereqAcceptance {
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+		return refuseAcceptance(RefusalPrereqStale)
 	}
 	return nil
 }
