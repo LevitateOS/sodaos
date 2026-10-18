@@ -589,6 +589,9 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 		if adopted.ReviewerID != op.Work.ActorID || adopted.Event != op.Work.Event || adopted.HeadOID != op.Work.HeadOID {
 			return empty, errors.New("review receipt differs from its recorded work")
 		}
+		if err := c.recordReviewCandidateTuple(ctx, p, adopted); err != nil {
+			return empty, err
+		}
 		return adopted, nil
 	}
 	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.Work == nil {
@@ -687,7 +690,47 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if outcome.Completion != factory.OpCompletionComplete || adopted.ReviewerID != w.ActorID || adopted.Event != w.Event || adopted.HeadOID != w.HeadOID {
 		return empty, errors.New("review submission incomplete")
 	}
+	if err := c.recordReviewCandidateTuple(ctx, p, adopted); err != nil {
+		return empty, err
+	}
 	return adopted, nil
+}
+
+// recordReviewCandidateTuple persists the first honestly observed
+// merge-base for the publication's current candidate (R20): the
+// review receipt natively observed head, base and their merge-base at
+// submission, so the candidate tuple seeds exactly those values at
+// revision zero and advances under CAS when a later review observes a
+// new base. An unobserved merge-base seeds nothing: existing flows
+// keep working and no value is invented. A moved base or a superseded
+// head also seeds nothing here: base advances own their bounded
+// correction flow (R21), and this joint never rewrites acceptance or
+// persists a stale snapshot. An unchanged triple writes nothing:
+// snapshots never churn.
+func (c *Coordinator) recordReviewCandidateTuple(ctx context.Context, p factory.Publication, adopted factory.ReviewOutcome) error {
+	if !factory.ValidCommit(adopted.HeadOID) || !factory.ValidCommit(adopted.BaseOID) || !factory.ValidCommit(adopted.MergeBaseOID) {
+		return nil
+	}
+	if adopted.HeadOID != p.Candidate || adopted.BaseOID != p.PRCreate.BaseOID {
+		return nil
+	}
+	if p.Tuple != nil && p.Tuple.Head == adopted.HeadOID && p.Tuple.Base == adopted.BaseOID && p.Tuple.DiffBase == adopted.MergeBaseOID {
+		return nil
+	}
+	tuple := factory.CandidateTuple{Head: adopted.HeadOID, Base: adopted.BaseOID, DiffBase: adopted.MergeBaseOID}
+	if p.Tuple != nil {
+		advanced, err := p.Tuple.Advance(p.Tuple.Revision, tuple.Head, tuple.Base, tuple.DiffBase)
+		if err != nil {
+			return err
+		}
+		tuple = advanced
+	}
+	if err := tuple.Validate(); err != nil {
+		return err
+	}
+	p.Tuple = &tuple
+	p.Revision++
+	return c.Store.UpdatePublication(ctx, p)
 }
 
 func sameReviewOperationOutcome(a, b factory.OperationOutcome) bool {
