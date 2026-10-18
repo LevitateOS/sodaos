@@ -111,10 +111,23 @@ impl Qualification {
 
 impl NativeEvidence {
     fn validate(&self, kind: &str, receipt: &Qualification) -> Result<(), Error> {
-        if self.format != 1
-            || self.kind != kind
-            || self.native_architecture != "x86_64"
-            || self.source_release != receipt.source_release
+        self.validate_receipt_identity(kind)?;
+        self.validate_receipt_binding(receipt)?;
+        self.validate_deployment_admission()?;
+        self.validate_protected_observations()?;
+        self.validate_kind_specific(kind)?;
+        Ok(())
+    }
+
+    fn validate_receipt_identity(&self, kind: &str) -> Result<(), Error> {
+        if self.format != 1 || self.kind != kind || self.native_architecture != "x86_64" {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_receipt_binding(&self, receipt: &Qualification) -> Result<(), Error> {
+        if self.source_release != receipt.source_release
             || self.source_support_sha256 != receipt.source_support_sha256
             || self.target_payload_sha256 != receipt.target_payload_sha256
             || self.target_host_manifest != receipt.target_host_manifest
@@ -122,20 +135,41 @@ impl NativeEvidence {
             || self.target_project_image != receipt.target_project_image
             || self.target_deployment_commit != receipt.target_deployment_commit
             || self.rootfs_sha256 != receipt.rootfs_sha256
-            || !is_digest(&self.source_deployment)
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_deployment_admission(&self) -> Result<(), Error> {
+        if !is_digest(&self.source_deployment)
             || self.source_deployment == self.target_deployment_commit
             || self.observed_deployment != self.target_deployment_commit
             || self.staged_deployment != self.target_deployment_commit
             || !self.staged_finalization_locked
             || self.admission != "closed_until_verified"
-            || !is_digest(&self.container_before)
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_protected_observations(&self) -> Result<(), Error> {
+        if !is_digest(&self.container_before)
             || self.container_before != self.container_after
             || !is_digest(&self.protected_state_before_sha256)
             || self.protected_state_before_sha256 != self.protected_state_after_sha256
             || self.observed_support_sha256 != self.target_support_sha256
             || self.project_state_before != self.project_state_after
             || !matches!(self.project_state_before.as_str(), "running" | "stopped")
-            || (kind == "stopped_project" && self.project_state_before != "stopped")
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_kind_specific(&self, kind: &str) -> Result<(), Error> {
+        if (kind == "stopped_project" && self.project_state_before != "stopped")
             || (kind == "interrupted_recovery"
                 && self.interruption_checkpoint != "support_verified_host_locked")
         {

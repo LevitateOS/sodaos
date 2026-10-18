@@ -68,6 +68,13 @@ pub struct DockerMetadata {
 
 impl DockerMetadata {
     pub fn validate(&self) -> Result<(), Error> {
+        self.validate_release_identity()?;
+        self.validate_candidate_binding()?;
+        self.validate_image_binding()?;
+        Ok(())
+    }
+
+    fn validate_release_identity(&self) -> Result<(), Error> {
         if self.format != 1
             || self.distribution == Distribution::Appliance
             || self.architecture != "x86_64"
@@ -78,6 +85,10 @@ impl DockerMetadata {
         {
             return Err(Error::msg("invalid Docker release identity"));
         }
+        Ok(())
+    }
+
+    fn validate_candidate_binding(&self) -> Result<(), Error> {
         for hash in [
             &self.candidate_sha256,
             &self.payload_sha256,
@@ -97,6 +108,10 @@ impl DockerMetadata {
         ] {
             file.validate()?;
         }
+        Ok(())
+    }
+
+    fn validate_image_binding(&self) -> Result<(), Error> {
         let base_digest = fedora_digest(&self.fedora_base)?;
         if !is_digest_ref(&self.host_manifest)
             || !is_digest_ref(&self.image.manifest)
