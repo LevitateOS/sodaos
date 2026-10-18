@@ -46,6 +46,7 @@ export interface IntentView {
   planNotice: string;
   setPlanOperation(value: string): void;
   planWork(): void;
+  refreshPlanStatus(): void;
   set(
     field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
     value: string
@@ -441,6 +442,7 @@ function planSection(view: IntentView) {
     >
     <div class="actions">
       <button class="primary" @click=${view.planWork} ?disabled=${view.busy || view.blocked}>Plan work</button>
+      <button @click=${view.refreshPlanStatus} ?disabled=${view.busy || view.blocked}>Refresh status</button>
     </div>
     ${view.planNotice ? html`<p>${view.planNotice}</p>` : ''} ${view.plan ? html`<p>${planText(view.plan)}</p>` : ''}
   </section>`;

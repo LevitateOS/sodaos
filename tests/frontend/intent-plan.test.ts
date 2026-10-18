@@ -1,6 +1,11 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {intentPlanLaunch, intentPlanStatus, planActionBody} from '../../frontend/spaces/sodaspaces-intent-response';
+import {
+  intentPlanLaunch,
+  intentPlanStatus,
+  planActionBody,
+  runPlanWork,
+} from '../../frontend/spaces/sodaspaces-intent-response';
 
 const launch = {
   assignment_id: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
@@ -26,6 +31,74 @@ test('plan action posts revision and operation only', () => {
   });
   assert.throws(() => planActionBody('d9999', 'propose_intent'));
   assert.throws(() => planActionBody('d888888888888888888888888', 'nope'));
+});
+
+test('plan work renders the wait without launch or refetch', async () => {
+  let fetched = false;
+  const outcome = await runPlanWork(
+    async () => ({
+      launched: false,
+      waits: [{reason: 'preparation', detail: 'no ready role preparation matches the current decisions'}],
+    }),
+    async () => {
+      fetched = true;
+      return {};
+    },
+    'd888888888888888888888888'
+  );
+  assert.equal(outcome.status, undefined);
+  assert.ok(outcome.notice.includes('Planning is waiting'));
+  assert.ok(outcome.notice.includes('no ready role preparation matches the current decisions'));
+  assert.ok(outcome.notice.includes('No work was started'));
+  assert.equal(fetched, false);
+});
+
+test('plan work launches then reports pending through stub transport', async () => {
+  const outcome = await runPlanWork(
+    async () => launch,
+    async () => ({
+      revision: 'd888888888888888888888888',
+      state: 'pending',
+      assignment_id: launch.assignment_id,
+      run_id: launch.run_id,
+    }),
+    'd888888888888888888888888'
+  );
+  assert.equal(outcome.status?.state, 'pending');
+  assert.equal(outcome.status?.run, launch.run_id);
+  assert.ok(outcome.notice.includes('Planning is running'));
+});
+
+test('plan work reports completed candidates', async () => {
+  const outcome = await runPlanWork(
+    async () => launch,
+    async () => ({
+      revision: 'd888888888888888888888888',
+      state: 'completed',
+      summary: 'two views ready',
+      candidates: 2,
+    }),
+    'd888888888888888888888888'
+  );
+  assert.equal(outcome.status?.state, 'completed');
+  assert.equal(outcome.status?.candidates, 2);
+});
+
+test('plan work refuses substituted revisions', async () => {
+  await assert.rejects(
+    runPlanWork(
+      async () => ({...launch, revision_id: 'd999999999999999999999999'}),
+      async () => ({revision: 'd888888888888888888888888', state: 'none'}),
+      'd888888888888888888888888'
+    )
+  );
+  await assert.rejects(
+    runPlanWork(
+      async () => launch,
+      async () => ({revision: 'd999999999999999999999999', state: 'pending'}),
+      'd888888888888888888888888'
+    )
+  );
 });
 
 test('plan launch rejects substituted identities', () => {

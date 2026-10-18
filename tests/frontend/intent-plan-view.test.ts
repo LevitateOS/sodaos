@@ -90,12 +90,14 @@ function viewWith(plan: IntentPlanStatus | undefined, planNotice = '', operation
     createDepartment: noop,
     setPlanOperation: noop,
     planWork: noop,
+    refreshPlanStatus: noop,
   };
 }
 
 test('draft review renders the plan action with operation choices', () => {
   const text = textOf(reviewIntent(viewWith(undefined)));
   assert.ok(text.includes('Plan work'));
+  assert.ok(text.includes('Refresh status'));
   assert.ok(text.includes('Review baseline'));
   assert.ok(text.includes('Candidate issue graphs'));
   assert.ok(!text.includes('Planning is running'));

@@ -601,6 +601,41 @@ export function planActionBody(revision: string, operation: string): Record<stri
   check(decisionID(revision) && (operation === 'propose_intent' || operation === 'decomposition_options'));
   return {revision, operation};
 }
+export interface IntentPlanWait {
+  launched: false;
+  waits: {reason: string; detail: string}[];
+}
+const planWait = (value: unknown): value is IntentPlanWait => {
+  if (!value || typeof value !== 'object') return false;
+  const raw = value as Record<string, unknown>;
+  return raw.launched === false && Array.isArray(raw.waits);
+};
+export function planWaitNotice(value: unknown): string {
+  const raw = object(value);
+  const waits = Array.isArray(raw.waits) ? raw.waits : [];
+  const first =
+    waits.length > 0 && waits[0] && typeof waits[0] === 'object' ? (waits[0] as Record<string, unknown>) : {};
+  const detail =
+    typeof first.detail === 'string' && first.detail ? first.detail : 'the required preparation is not ready';
+  return `Planning is waiting: ${detail} No work was started.`;
+}
+export interface PlanWorkOutcome {
+  notice: string;
+  status?: IntentPlanStatus;
+}
+export async function runPlanWork(
+  postPlan: () => Promise<unknown>,
+  fetchPlan: () => Promise<unknown>,
+  revision: string
+): Promise<PlanWorkOutcome> {
+  const posted = await postPlan();
+  if (planWait(posted)) return {notice: planWaitNotice(posted)};
+  const launched = intentPlanLaunch(posted);
+  check(launched.revision === revision);
+  const status = intentPlanStatus(await fetchPlan());
+  check(status.revision === revision);
+  return {notice: 'Planning is running. The status below follows the run.', status};
+}
 export interface IntentPlanLaunch {
   assignment: string;
   run: string;

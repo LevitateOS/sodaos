@@ -54,12 +54,15 @@ func chunkApprovedSelections(paths []string) ([][]string, error) {
 	var chunks [][]string
 	var current []string
 	for _, path := range paths {
-		if len(expandContextSelection(append(append([]string(nil), current...), path))) > project.MaxFactoryContextPaths {
-			if len(current) == 0 {
+		grown := append(append([]string(nil), current...), path)
+		if len(expandContextSelection(grown)) > project.MaxFactoryContextPaths {
+			if len(current) > 0 {
+				chunks = append(chunks, current)
+				current = nil
+			}
+			if len(expandContextSelection([]string{path})) > project.MaxFactoryContextPaths {
 				return nil, errors.New("approved source selection exceeds its context bound")
 			}
-			chunks = append(chunks, current)
-			current = nil
 		}
 		current = append(current, path)
 	}

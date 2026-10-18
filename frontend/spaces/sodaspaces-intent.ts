@@ -8,10 +8,10 @@ import {
   exploration as parseExploration,
   intentGeneration,
   intentList,
-  intentPlanLaunch,
   intentPlanStatus,
   intentRevision,
   planActionBody,
+  runPlanWork,
   newDecisionID,
   planningAllowance,
   savedReviewRead,
@@ -63,6 +63,7 @@ export class SodaIntent extends LitElement {
     planOperation: {state: true},
     plan: {state: true},
     planNotice: {state: true},
+    planIntent: {state: true},
   };
   static styles = css`
     :host {
@@ -205,6 +206,7 @@ export class SodaIntent extends LitElement {
   declare planOperation: string;
   declare plan: IntentPlanStatus | undefined;
   declare planNotice: string;
+  declare planIntent: string;
   private operation: AbortController | undefined;
   private resumeController: AbortController | undefined;
   private restoredReview: RestoredReviewIdentity | undefined;
@@ -244,6 +246,7 @@ export class SodaIntent extends LitElement {
     this.planOperation = 'propose_intent';
     this.plan = undefined;
     this.planNotice = '';
+    this.planIntent = '';
   }
   protected willUpdate(changed: PropertyValues<this>) {
     if (changed.has('actor')) {
@@ -263,6 +266,12 @@ export class SodaIntent extends LitElement {
     if (changed.has('active') || changed.has('blocked') || (changed.has('busy') && !this.busy)) this.activate();
     if (this.resumeReady(changed)) this.resume();
     if (this.generationReady(changed)) this.fetchGeneration();
+    if (this.planReady(changed)) this.fetchPlanStatus();
+  }
+  private planReady(changed: PropertyValues<this>) {
+    return (
+      changed.has('revision') || changed.has('api') || changed.has('active') || (changed.has('busy') && !this.busy)
+    );
   }
   private generationReady(changed: PropertyValues<this>) {
     return (
@@ -771,6 +780,7 @@ export class SodaIntent extends LitElement {
       this.generationIntent = '';
       this.plan = undefined;
       this.planNotice = '';
+      this.planIntent = '';
       this.dirty = false;
       this.changeOpen = false;
       this.changeText = '';
@@ -795,31 +805,61 @@ export class SodaIntent extends LitElement {
       this.generationNotice = generationFailure(error);
     }
   }
-  private async refreshPlan(intent: string, signal: AbortSignal) {
-    try {
-      this.plan = intentPlanStatus(await this.call('/api/factory/intents/' + intent + '/plan', undefined, signal));
-      this.planNotice = '';
-    } catch {
-      if (!signal.aborted) this.planNotice = 'Planning status could not be loaded. Your direction is saved; try again.';
-    }
-  }
   private planWork = () => {
     const revision = this.revision;
     if (!revision || revision.state !== 'draft') return;
     const operation = this.planOperation === 'decomposition_options' ? 'decomposition_options' : 'propose_intent';
+    const intent = revision.intent;
+    const id = revision.id;
     void this.perform(async (signal) => {
-      const launched = intentPlanLaunch(
-        await this.call(
-          '/api/factory/intents/' + revision.intent + '/plan',
-          planActionBody(revision.id, operation),
-          signal
-        )
+      const outcome = await runPlanWork(
+        () => this.call('/api/factory/intents/' + intent + '/plan', planActionBody(id, operation), signal),
+        () => this.call('/api/factory/intents/' + intent + '/plan', undefined, signal),
+        id
       );
-      check(launched.revision === revision.id);
-      this.planNotice = 'Planning is running. The status below follows the run.';
-      if (!signal.aborted) await this.refreshPlan(revision.intent, signal);
+      this.planNotice = outcome.notice;
+      if (outcome.status !== undefined) {
+        this.plan = outcome.status;
+        this.planIntent = id;
+      }
     }, 'Starting planning…');
   };
+  private refreshPlanStatus = () => {
+    this.planIntent = '';
+    this.fetchPlanStatus(true);
+  };
+  private planAdmitted(revision: IntentRevision, refresh: boolean): boolean {
+    if (!this.api || !this.active || this.blocked) return false;
+    if (!refresh && this.planIntent === revision.id) return false;
+    return true;
+  }
+  private fetchPlanStatus(refresh = false) {
+    const revision = this.revision;
+    if (!revision || revision.state !== 'draft' || revision.repository === '0' || !this.planAdmitted(revision, refresh))
+      return;
+    if (refresh) this.planNotice = '';
+    void this.loadPlanStatus(revision);
+  }
+  private loadPlanStatus(revision: IntentRevision) {
+    const id = revision.id;
+    void this.perform(async (signal) => {
+      try {
+        const status = intentPlanStatus(
+          await this.call('/api/factory/intents/' + revision.intent + '/plan', undefined, signal)
+        );
+        if (status.revision !== id) throw Error('Mismatched plan status');
+        if (this.revision?.id !== id || signal.aborted) return;
+        this.plan = status;
+        this.planIntent = id;
+        this.planNotice = '';
+      } catch {
+        if (!signal.aborted) {
+          this.planIntent = id;
+          this.planNotice = 'Planning status could not be loaded. Your direction is saved; try again.';
+        }
+      }
+    }, 'Loading planning status…');
+  }
   private continue = () => {
     const revision = this.revision;
     if (!revision || !reviewReady(this.view())) return;
@@ -1052,6 +1092,7 @@ export class SodaIntent extends LitElement {
         this.planOperation = value;
       },
       planWork: this.planWork,
+      refreshPlanStatus: this.refreshPlanStatus,
     };
   }
   private reviewing() {

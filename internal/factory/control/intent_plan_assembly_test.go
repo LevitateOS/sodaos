@@ -131,6 +131,22 @@ func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
 	}
 }
 
+// TestChunkApprovedSelectionsRejectsDeepPathAfterFlush proves the
+// per-chunk closure bound holds past a flush: a deep path following a
+// valid short path waits instead of violating its own read bound.
+func TestChunkApprovedSelectionsRejectsDeepPathAfterFlush(t *testing.T) {
+	if _, err := chunkApprovedSelections([]string{"a.go", "d1/d2/d3/d4/d5/d6/d7/d8/d9/d10/d11/f.go"}); err == nil {
+		t.Fatal("deep path after flush kept its chunk")
+	}
+	chunks, err := chunkApprovedSelections([]string{"a.go", "d1/d2/f.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("short paths split: %v", chunks)
+	}
+}
+
 // TestAssembleIntentPlanningInputRefusesConflictingRepeat proves a
 // repeated approved file with contradictory bytes refuses instead of
 // assembling evidence from an inconsistent read.

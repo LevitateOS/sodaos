@@ -122,6 +122,23 @@ func (h *publicationDispatchHost) FactoryExport(ctx context.Context, in project.
 	return h.exporter.FactoryExport(ctx, in)
 }
 
+// standaloneStopHost confirms the stop of one recorded standalone run
+// without manufacturing phased output: production settles the confirmed
+// retirement and ignores the missing-assignment accounting result. All
+// other stops delegate to the publication host, preserving the
+// unconfirmed-stop behavior for runs the host cannot observe.
+type standaloneStopHost struct {
+	*publicationDispatchHost
+	runID string
+}
+
+func (h *standaloneStopHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
+	if in.ID == h.runID {
+		return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Retirement: "confirmed"}, nil
+	}
+	return h.publicationDispatchHost.FactoryStop(ctx, in)
+}
+
 func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing.T) {
 	ctx := context.Background()
 	fx := publishSeed(t)
@@ -511,10 +528,14 @@ func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 	publicationExec := fx.exec
 	publicationSubmits, publicationCreates, publicationPushes := len(publicationExec.submits), len(publicationExec.creates), len(publicationExec.pushes)
 
-	// Reconcile still retires and records a real outstanding run.
+	// Reconcile still retires and records a real outstanding run. The
+	// standalone run carries no assignment: production settles the
+	// confirmed retirement and ignores the missing-assignment
+	// accounting result, so the stopping host confirms this exact run
+	// without manufacturing phased output.
 	run := recordRun(t, fx.coord, nil)
 	host := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, db: fx.db, candidate: strings.Repeat("2", 40)}
-	fx.coord.Host = host
+	fx.coord.Host = &standaloneStopHost{publicationDispatchHost: host, runID: run.ID}
 	closed := 0
 	fx.coord.Broker = &stubBroker{
 		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
