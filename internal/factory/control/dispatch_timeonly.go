@@ -96,170 +96,265 @@ func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *pas
 	// Truncated to the second like every packet caller: the funding
 	// check compares the deadline against a Unix-second horizon, so a
 	// sub-second skew on exact-horizon funding would refuse.
-	now := time.Now().UTC().Truncate(time.Second)
+	t := &timeOnlyLaunch{ctx: ctx, deps: deps, occupancy: occupancy, repository: repository,
+		subject: subject, source: source, prompt: prompt, preparationID: preparationID,
+		report: report, now: time.Now().UTC().Truncate(time.Second)}
+	t.drive()
+}
+
+// timeOnlyLaunch carries the shared state behind one time-only root
+// dispatch so each duty reads through one small check.
+type timeOnlyLaunch struct {
+	ctx           context.Context
+	deps          DispatchDeps
+	occupancy     *passOccupancy
+	repository    int64
+	subject       factory.ExecutionSubject
+	source        string
+	prompt        []byte
+	preparationID string
+	report        *DispatchReport
+	now           time.Time
+	phase         string
+	plan          *attemptPlan
+	projectID     string
+	selection     factory.RoleSelection
+}
+
+func (t *timeOnlyLaunch) drive() {
+	phase, ok := t.admitSubject()
+	if !ok {
+		return
+	}
+	t.phase = phase
+	t.plan = &attemptPlan{subject: t.subject, phase: phase, freshAttempt: true}
+	if !t.loadGrants() {
+		return
+	}
+	if !t.selectSponsorship() {
+		return
+	}
+	if !t.checkLimits() {
+		return
+	}
+	if !t.selectPreparation() {
+		return
+	}
+	if !t.checkHarness() {
+		return
+	}
+	t.submitPacket()
+}
+
+// admitSubject binds one time-only subject to its execution phase
+// with its prompt and source commit.
+func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 	phase := ""
-	switch subject.Kind {
+	switch t.subject.Kind {
 	case factory.SubjectIntent:
 		phase = project.ExecutionDecompose
-		if subject.Intent == nil {
-			report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "intent root lacks its intent subject"})
-			return
+		if t.subject.Intent == nil {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "intent root lacks its intent subject"})
+			return "", false
 		}
 	case factory.SubjectCompletion:
 		phase = project.ExecutionReassess
-		if subject.Completion == nil {
-			report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "reassessment root lacks its completion subject"})
-			return
+		if t.subject.Completion == nil {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "reassessment root lacks its completion subject"})
+			return "", false
 		}
 	default:
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "time-only dispatch needs its intent or completion subject"})
-		return
+		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only dispatch needs its intent or completion subject"})
+		return "", false
 	}
-	if !factory.ValidPhaseRole(phase, project.RoleCoder) || !factory.SubjectKindAllowed(subject.Kind, phase) {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "time-only root does not match its execution phase"})
-		return
+	if !factory.ValidPhaseRole(phase, project.RoleCoder) || !factory.SubjectKindAllowed(t.subject.Kind, phase) {
+		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root does not match its execution phase"})
+		return "", false
 	}
-	if len(prompt) == 0 || len(prompt) > project.MaxFactoryPrompt {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitPrompt, Detail: "time-only prompt is empty or over its bound"})
-		return
+	if len(t.prompt) == 0 || len(t.prompt) > project.MaxFactoryPrompt {
+		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitPrompt, Detail: "time-only prompt is empty or over its bound"})
+		return "", false
 	}
-	if !factory.ValidCommit(source) {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "time-only root lacks its source commit"})
-		return
+	if !factory.ValidCommit(t.source) {
+		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root lacks its source commit"})
+		return "", false
 	}
-	plan := &attemptPlan{subject: subject, phase: phase, freshAttempt: true}
-	effective, err := deps.Authority(ctx, repository)
+	return phase, true
+}
+
+// loadGrants loads authority, project, policy and the coder role
+// selection behind one time-only root.
+func (t *timeOnlyLaunch) loadGrants() bool {
+	effective, err := t.deps.Authority(t.ctx, t.repository)
 	if err != nil || !effective.Effective {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitAuthority, Detail: "authority ineffective for time-only dispatch"})
-		return
+		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitAuthority, Detail: "authority ineffective for time-only dispatch"})
+		return false
 	}
 	if !effective.DispatchOpen {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitDispatchClosed, Detail: "dispatch closed for time-only dispatch"})
-		return
+		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitDispatchClosed, Detail: "dispatch closed for time-only dispatch"})
+		return false
 	}
-	plan.effective = effective
-	proj, err := deps.Store.ProjectByRepository(ctx, repository)
+	t.plan.effective = effective
+	proj, err := t.deps.Store.ProjectByRepository(t.ctx, t.repository)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitAuthority, Detail: "project changed during time-only dispatch"})
+			t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitAuthority, Detail: "project changed during time-only dispatch"})
 		} else {
-			report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "project unreadable"})
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "project unreadable"})
 		}
-		return
+		return false
 	}
-	projectID := proj.ID
-	plan.projectID = projectID
-	policy, err := deps.Store.RepositoryPolicy(ctx, repository)
+	t.projectID = proj.ID
+	t.plan.projectID = proj.ID
+	policy, err := t.deps.Store.RepositoryPolicy(t.ctx, t.repository)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitAuthority, Detail: "policy changed during time-only dispatch"})
+			t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitAuthority, Detail: "policy changed during time-only dispatch"})
 		} else {
-			report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "policy unreadable"})
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "policy unreadable"})
 		}
-		return
+		return false
 	}
-	plan.policy = policy
+	t.plan.policy = policy
 	selection, ok := policy.Roles[project.RoleCoder]
 	if !ok {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitSponsorshipRole, Detail: "policy has no coder role selection"})
-		return
+		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitSponsorshipRole, Detail: "policy has no coder role selection"})
+		return false
 	}
-	sponsorship, wait, failure := selectSponsorship(ctx, deps, repository, effective, project.RoleCoder)
+	t.selection = selection
+	return true
+}
+
+// selectSponsorship selects the sponsorship behind one time-only root.
+func (t *timeOnlyLaunch) selectSponsorship() bool {
+	sponsorship, wait, failure := selectSponsorship(t.ctx, t.deps, t.repository, t.plan.effective, project.RoleCoder)
 	if failure != nil {
-		report.Errors = append(report.Errors, timeOnlyFailure(repository, failure))
-		return
+		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, failure))
+		return false
 	}
 	if wait != nil {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, wait))
-		return
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, wait))
+		return false
 	}
-	if sponsorship.ProjectID != projectID {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, waitFor(WaitAuthority, "sponsorship changed during time-only dispatch")))
-		return
+	if sponsorship.ProjectID != t.projectID {
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, waitFor(WaitAuthority, "sponsorship changed during time-only dispatch")))
+		return false
 	}
-	plan.sponsorship = sponsorship
-	if first, second := checkLimits(ctx, deps, occupancy, plan); second != nil {
-		report.Errors = append(report.Errors, timeOnlyFailure(repository, second))
-		return
+	t.plan.sponsorship = sponsorship
+	return true
+}
+
+// checkLimits checks attempt limits behind one time-only root.
+func (t *timeOnlyLaunch) checkLimits() bool {
+	if first, second := checkLimits(t.ctx, t.deps, t.occupancy, t.plan); second != nil {
+		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, second))
+		return false
 	} else if first != nil {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, first))
-		return
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, first))
+		return false
 	}
-	if first, second := selectPreparationFor(ctx, deps, plan, project.RoleCoder, preparationID); second != nil {
-		report.Errors = append(report.Errors, timeOnlyFailure(repository, second))
-		return
+	return true
+}
+
+// selectPreparation selects the preparation behind one time-only root.
+func (t *timeOnlyLaunch) selectPreparation() bool {
+	if first, second := selectPreparationFor(t.ctx, t.deps, t.plan, project.RoleCoder, t.preparationID); second != nil {
+		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, second))
+		return false
 	} else if first != nil {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, first))
-		return
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, first))
+		return false
 	}
-	if wait := checkHarnessFor(ctx, deps, plan, project.RoleCoder); wait != nil {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, wait))
-		return
+	return true
+}
+
+// checkHarness checks the harness behind one time-only root.
+func (t *timeOnlyLaunch) checkHarness() bool {
+	if wait := checkHarnessFor(t.ctx, t.deps, t.plan, project.RoleCoder); wait != nil {
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, wait))
+		return false
 	}
-	open, gateRev, _, err := deps.Store.DispatchState(ctx, repository)
+	return true
+}
+
+// submitPacket gates, scopes, records and launches one time-only root.
+func (t *timeOnlyLaunch) submitPacket() {
+	open, gateRev, _, err := t.deps.Store.DispatchState(t.ctx, t.repository)
 	if err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "dispatch state unreadable"})
+		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "dispatch state unreadable"})
 		return
 	}
 	if !open {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Reason: WaitDispatchClosed, Detail: "dispatch closed for time-only dispatch"})
+		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitDispatchClosed, Detail: "dispatch closed for time-only dispatch"})
 		return
 	}
-	plan.gateRev = gateRev
-	nativeRev, minutes, wait, failure := timeOnlyScope(ctx, deps, repository, subject)
+	t.plan.gateRev = gateRev
+	nativeRev, minutes, wait, failure := timeOnlyScope(t.ctx, t.deps, t.repository, t.subject)
 	if failure != nil {
-		report.Errors = append(report.Errors, timeOnlyFailure(repository, failure))
+		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, failure))
 		return
 	}
 	if wait != nil {
-		report.Waits = append(report.Waits, timeOnlyWait(repository, wait))
+		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, wait))
 		return
 	}
-	deadline := plan.deadline
-	if horizon := now.Add(time.Duration(minutes) * time.Minute); horizon.Before(deadline) {
+	deadline := t.plan.deadline
+	if horizon := t.now.Add(time.Duration(minutes) * time.Minute); horizon.Before(deadline) {
 		deadline = horizon
 	}
-	promptSum := sha256.Sum256(prompt)
+	assignment, run, ok := t.buildAssignment(nativeRev, deadline)
+	if !ok {
+		return
+	}
+	registration := factory.DispatchRegistration{ID: assignment.ID, Repository: t.repository, Authority: assignment.Authority}
+	reservation := factory.Reservation{AssignmentID: assignment.ID, Repository: t.repository, Connection: t.plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: t.plan.planned}
+	view := factory.RunView{RunID: run.ID, Repository: t.repository, Issue: 0, Attempt: assignment.ID}
+	t.plan.control = factory.IssueControl{Repository: t.repository, Issue: 0, NativeRev: nativeRev}
+	t.plan.prompt, t.plan.promptSHA = t.prompt, assignment.PromptSHA
+	t.plan.preparationOwner = t.plan.prep.Preparation.ID
+	if err := t.deps.Store.RecordDispatchPacket(t.ctx, registration, t.plan.control, assignment, reservation, run, view); err != nil {
+		reportPacketRefusal(t.ctx, t.deps, t.occupancy, t.repository, 0, err, t.report)
+		return
+	}
+	t.occupancy.hold(reservation)
+	launch, failure := stageTimeOnlyLaunch(t.plan, t.selection.Model, assignment, run, deadline)
+	if failure != nil {
+		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, failure))
+		return
+	}
+	launchTail(t.ctx, t.deps, assignment, run, launch, t.report)
+}
+
+// buildAssignment builds the validated assignment and run behind one
+// time-only root.
+func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (factory.Assignment, factory.Run, bool) {
+	var none factory.Assignment
+	var noRun factory.Run
+	promptSum := sha256.Sum256(t.prompt)
 	assignmentID, runID := factory.NewID(), factory.NewID()
 	assignment := factory.Assignment{
-		Authority: effective.Authority,
+		Authority: t.plan.effective.Authority,
 		ID:        assignmentID, AttemptRoot: assignmentID, PublicationAssignment: "", ParentAssignment: "",
-		Subject: subject, Phase: phase,
-		ProjectID: projectID, ActorID: sponsorship.ActorID, Role: project.RoleCoder,
-		Repository: repository, Issue: 0, NativeRev: nativeRev, Acceptance: "", Preparation: plan.prep.Preparation.ID,
-		Harness: plan.pin.Harness + "-" + plan.pin.Version, HarnessVers: plan.pin.Version, Model: selection.Model,
-		Connection: sponsorship.Connection, SourceCommit: source,
-		Prompt: prompt, PromptSHA: hex.EncodeToString(promptSum[:]),
+		Subject: t.subject, Phase: t.phase,
+		ProjectID: t.projectID, ActorID: t.plan.sponsorship.ActorID, Role: project.RoleCoder,
+		Repository: t.repository, Issue: 0, NativeRev: nativeRev, Acceptance: "", Preparation: t.plan.prep.Preparation.ID,
+		Harness: t.plan.pin.Harness + "-" + t.plan.pin.Version, HarnessVers: t.plan.pin.Version, Model: t.selection.Model,
+		Connection: t.plan.sponsorship.Connection, SourceCommit: t.source,
+		Prompt: t.prompt, PromptSHA: hex.EncodeToString(promptSum[:]),
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
-		Attempts: 1, CreatedUnix: now.Unix(),
+		Attempts: 1, CreatedUnix: t.now.Unix(),
 	}
-	assignment.Authority.RequirementsID, assignment.Authority.ApprovalID = plan.requirement, plan.approval
+	assignment.Authority.RequirementsID, assignment.Authority.ApprovalID = t.plan.requirement, t.plan.approval
 	if err := assignment.Validate(); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Reason: DispatchErrStore, Detail: "time-only root invalid: " + err.Error()})
-		return
+		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root invalid: " + err.Error()})
+		return none, noRun, false
 	}
-	registration := factory.DispatchRegistration{ID: assignment.ID, Repository: repository, Authority: assignment.Authority}
-	reservation := factory.Reservation{AssignmentID: assignment.ID, Repository: repository, Connection: sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: plan.planned}
 	run := factory.Run{
-		ID: runID, ProjectID: projectID, Role: project.RoleCoder, InputSHA: source,
-		Started: now, Deadline: deadline,
-		Image: "sha256:" + plan.pin.SHA256, Harness: selection.Harness + "-" + selection.HarnessVers, Model: selection.Model,
+		ID: runID, ProjectID: t.projectID, Role: project.RoleCoder, InputSHA: t.source,
+		Started: t.now, Deadline: deadline,
+		Image: "sha256:" + t.plan.pin.SHA256, Harness: t.selection.Harness + "-" + t.selection.HarnessVers, Model: t.selection.Model,
 	}
-	view := factory.RunView{RunID: runID, Repository: repository, Issue: 0, Attempt: assignment.ID}
-	plan.control = factory.IssueControl{Repository: repository, Issue: 0, NativeRev: nativeRev}
-	plan.prompt, plan.promptSHA = prompt, assignment.PromptSHA
-	plan.preparationOwner = plan.prep.Preparation.ID
-	if err := deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view); err != nil {
-		reportPacketRefusal(ctx, deps, occupancy, repository, 0, err, report)
-		return
-	}
-	occupancy.hold(reservation)
-	launch, failure := stageTimeOnlyLaunch(plan, selection.Model, assignment, run, deadline)
-	if failure != nil {
-		report.Errors = append(report.Errors, timeOnlyFailure(repository, failure))
-		return
-	}
-	launchTail(ctx, deps, assignment, run, launch, report)
+	return assignment, run, true
 }
 
 // timeOnlyWait and timeOnlyFailure carry shared planning checks into

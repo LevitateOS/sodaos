@@ -44,52 +44,93 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 	if deps == nil || deps.Journal == nil {
 		return "", ErrPriorityUnavailable
 	}
-	snapshot, err := factory.PrioritySnapshot(candidates)
-	if err != nil {
+	t := &priorityTournament{ctx: ctx, deps: deps, candidates: candidates, now: now}
+	selected, replayed, err := t.admitTournament()
+	if err != nil || replayed {
+		return selected, err
+	}
+	if err := t.reserveTournamentCalls(); err != nil {
 		return "", err
 	}
-	oldest := candidates[0]
-	for _, c := range candidates {
+	return t.runTournament()
+}
+
+// priorityTournament carries the shared state behind one priority
+// tournament so each duty reads through one small check.
+type priorityTournament struct {
+	ctx        context.Context
+	deps       *PriorityJudgments
+	candidates []factory.PriorityCandidate
+	now        time.Time
+	snapshot   string
+	oldest     factory.PriorityCandidate
+	receipt    factory.PriorityReceipt
+	fairness   bool
+}
+
+// admitTournament snapshots the candidates and replays an unchanged
+// recorded selection, reporting replayed when the outcome stands.
+func (t *priorityTournament) admitTournament() (string, bool, error) {
+	snapshot, err := factory.PrioritySnapshot(t.candidates)
+	if err != nil {
+		return "", false, err
+	}
+	oldest := t.candidates[0]
+	for _, c := range t.candidates {
 		if c.Control.FirstSeenUnix < oldest.Control.FirstSeenUnix {
 			oldest = c
 		}
 	}
-	age := deps.StarvationAge
+	age := t.deps.StarvationAge
 	if age <= 0 {
 		age = 24 * time.Hour
 	}
-	receipt := factory.PriorityReceipt{Snapshot: snapshot, Purpose: factory.JudgmentNextWork, Candidates: candidates, CreatedUnix: now.Unix(), Calls: []factory.PriorityCall{}}
-	fairness := oldest.Control.FirstSeenUnix > 0 && now.Sub(time.Unix(oldest.Control.FirstSeenUnix, 0)) >= age
-	previous, readErr := deps.Journal.PriorityJudgment(ctx, snapshot)
+	t.snapshot = snapshot
+	t.oldest = oldest
+	t.receipt = factory.PriorityReceipt{Snapshot: snapshot, Purpose: factory.JudgmentNextWork, Candidates: t.candidates, CreatedUnix: t.now.Unix(), Calls: []factory.PriorityCall{}}
+	t.fairness = oldest.Control.FirstSeenUnix > 0 && t.now.Sub(time.Unix(oldest.Control.FirstSeenUnix, 0)) >= age
+	previous, readErr := t.deps.Journal.PriorityJudgment(t.ctx, snapshot)
 	if readErr != nil && !errors.Is(readErr, store.ErrNotFound) {
-		return "", readErr
+		return "", false, readErr
 	}
 	if readErr == nil && (previous.Outcome == "selected" || previous.Outcome == "fairness") {
-		for _, candidate := range candidates {
+		for _, candidate := range t.candidates {
 			if candidate.ID == previous.Selected {
-				if fairness {
-					return oldest.ID, nil
+				if t.fairness {
+					return oldest.ID, true, nil
 				}
-				return previous.Selected, nil
+				return previous.Selected, true, nil
 			}
 		}
 	}
-	maxCalls := deps.MaxCalls
+	return "", false, nil
+}
+
+// reserveTournamentCalls reserves the required consultation calls up
+// front; an oversized set is refused, never truncated.
+func (t *priorityTournament) reserveTournamentCalls() error {
+	maxCalls := t.deps.MaxCalls
 	if maxCalls <= 0 {
 		maxCalls = 16
 	}
-	required := priorityCallCount(len(candidates))
-	if required > maxCalls || deps.Chooser == nil {
-		return "", ErrPriorityUnavailable
+	required := priorityCallCount(len(t.candidates))
+	if required > maxCalls || t.deps.Chooser == nil {
+		return ErrPriorityUnavailable
 	}
-	reserved, err := deps.Journal.ReservePriorityJudgment(ctx, snapshot, required)
+	reserved, err := t.deps.Journal.ReservePriorityJudgment(t.ctx, t.snapshot, required)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if !reserved {
-		return "", ErrPriorityUnavailable
+		return ErrPriorityUnavailable
 	}
-	remaining := candidates
+	return nil
+}
+
+// runTournament judges groups of at most 255 alternatives until one
+// final choice remains, recording the receipt behind it.
+func (t *priorityTournament) runTournament() (string, error) {
+	remaining := t.candidates
 	for len(remaining) > 1 {
 		var winners []factory.PriorityCandidate
 		for offset := 0; offset < len(remaining); offset += 255 {
@@ -102,43 +143,54 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 				winners = append(winners, group[0])
 				continue
 			}
-			request := factory.PriorityRequest{Snapshot: snapshot, Candidates: group, Rubric: factory.PriorityRubric}
-			bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
-			answer, callErr := deps.Chooser.Choose(bounded, request)
-			cancel()
-			if callErr == nil {
-				callErr = answer.Validate(request)
+			winner, err := t.judgePriorityGroup(group)
+			if err != nil {
+				return "", err
 			}
-			call := factory.PriorityCall{Request: request, Answer: answer}
-			if callErr != nil {
-				call.Failure = "consultation_failed"
-				receipt.Calls = append(receipt.Calls, call)
-				receipt.Outcome = "unavailable"
-				return "", errors.Join(ErrPriorityUnavailable, deps.Journal.RecordPriorityJudgment(ctx, receipt))
-			}
-			receipt.Calls = append(receipt.Calls, call)
-			chosen := group[0]
-			for _, c := range group {
-				if answer.Confidence < 0.5 {
-					if c.Control.FirstSeenUnix < chosen.Control.FirstSeenUnix {
-						chosen = c
-					}
-				} else if c.ID == answer.Selected {
-					chosen = c
-				}
-			}
-			winners = append(winners, chosen)
+			winners = append(winners, winner)
 		}
 		remaining = winners
 	}
-	receipt.Selected, receipt.Outcome = remaining[0].ID, "selected"
-	if fairness {
-		receipt.Selected, receipt.Outcome = oldest.ID, "fairness"
+	t.receipt.Selected, t.receipt.Outcome = remaining[0].ID, "selected"
+	if t.fairness {
+		t.receipt.Selected, t.receipt.Outcome = t.oldest.ID, "fairness"
 	}
-	if err := deps.Journal.RecordPriorityJudgment(ctx, receipt); err != nil {
+	if err := t.deps.Journal.RecordPriorityJudgment(t.ctx, t.receipt); err != nil {
 		return "", err
 	}
-	return receipt.Selected, nil
+	return t.receipt.Selected, nil
+}
+
+// judgePriorityGroup judges one group, falling back to oldest on
+// uncertain preference.
+func (t *priorityTournament) judgePriorityGroup(group []factory.PriorityCandidate) (factory.PriorityCandidate, error) {
+	var none factory.PriorityCandidate
+	request := factory.PriorityRequest{Snapshot: t.snapshot, Candidates: group, Rubric: factory.PriorityRubric}
+	bounded, cancel := context.WithTimeout(t.ctx, 30*time.Second)
+	answer, callErr := t.deps.Chooser.Choose(bounded, request)
+	cancel()
+	if callErr == nil {
+		callErr = answer.Validate(request)
+	}
+	call := factory.PriorityCall{Request: request, Answer: answer}
+	if callErr != nil {
+		call.Failure = "consultation_failed"
+		t.receipt.Calls = append(t.receipt.Calls, call)
+		t.receipt.Outcome = "unavailable"
+		return none, errors.Join(ErrPriorityUnavailable, t.deps.Journal.RecordPriorityJudgment(t.ctx, t.receipt))
+	}
+	t.receipt.Calls = append(t.receipt.Calls, call)
+	chosen := group[0]
+	for _, c := range group {
+		if answer.Confidence < 0.5 {
+			if c.Control.FirstSeenUnix < chosen.Control.FirstSeenUnix {
+				chosen = c
+			}
+		} else if c.ID == answer.Selected {
+			chosen = c
+		}
+	}
+	return chosen, nil
 }
 
 func priorityCallCount(count int) int {

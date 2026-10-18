@@ -128,37 +128,60 @@ func CheckMergeJudgmentReady(in MergeJudgmentGateInput) error {
 	if err := in.Native.Validate(); err != nil {
 		return err
 	}
-	// Eligible merge: a published, linked PR on a fresh exact candidate.
+	base, err := checkJudgmentPublication(in)
+	if err != nil {
+		return err
+	}
+	if err := checkJudgmentAdmission(in); err != nil {
+		return err
+	}
+	if err := checkJudgmentCycle(in, base); err != nil {
+		return err
+	}
+	if err := checkJudgmentResolutions(in); err != nil {
+		return err
+	}
+	return checkJudgmentNative(in)
+}
+
+// checkJudgmentPublication requires an eligible merge: a published,
+// linked PR on a fresh exact candidate, returning its verified base.
+func checkJudgmentPublication(in MergeJudgmentGateInput) (string, error) {
 	switch in.Publication.Stage {
 	case factory.PublicationPublished:
 	case factory.PublicationWithdrawn, factory.PublicationFailed, factory.PublicationFenced:
-		return &factory.PublicationRefusal{Reason: "publication_" + in.Publication.Stage}
+		return "", &factory.PublicationRefusal{Reason: "publication_" + in.Publication.Stage}
 	default:
-		return &factory.PublicationWait{Reason: "publication_not_published"}
+		return "", &factory.PublicationWait{Reason: "publication_not_published"}
 	}
 	if in.Publication.PRNumber <= 0 || in.Publication.PRID <= 0 {
-		return &factory.PublicationRefusal{Reason: "invalid_work"}
-	}
-	if !factory.ValidCommit(in.Publication.Candidate) || !factory.ValidCommit(mergeGateBase(in.Publication)) ||
-		in.Publication.Candidate == mergeGateBase(in.Publication) {
-		return &factory.PublicationRefusal{Reason: "invalid_work"}
-	}
-	if in.Generation.PublicationID != in.Publication.ID {
-		return &factory.PublicationRefusal{Reason: "invalid_work"}
+		return "", &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
 	base := mergeGateBase(in.Publication)
+	if !factory.ValidCommit(in.Publication.Candidate) || !factory.ValidCommit(base) ||
+		in.Publication.Candidate == base {
+		return "", &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if in.Generation.PublicationID != in.Publication.ID {
+		return "", &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
 	if in.Generation.Head != in.Publication.Candidate {
-		return &factory.PublicationRefusal{Reason: "superseded_head"}
+		return "", &factory.PublicationRefusal{Reason: "superseded_head"}
 	}
 	if in.Generation.Base != base {
-		return &factory.PublicationRefusal{Reason: "superseded_base"}
+		return "", &factory.PublicationRefusal{Reason: "superseded_base"}
 	}
 	if !factory.ValidDigest(in.Generation.Fingerprint) {
-		return &factory.PublicationRefusal{Reason: "invalid_work"}
+		return "", &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
-	// Applicable fix present: the admission answers this cycle's exact
-	// finding set on the current head. Unresolved findings wait for
-	// correction; a superseded correction refuses without spending.
+	return base, nil
+}
+
+// checkJudgmentAdmission requires the applicable fix: the admission
+// answers this cycle's exact finding set on the current head.
+// Unresolved findings wait for correction; a superseded correction
+// refuses without spending.
+func checkJudgmentAdmission(in MergeJudgmentGateInput) error {
 	if in.Admission.CycleID == "" || in.Admission.CycleID != in.Cycle.ID {
 		return &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
@@ -171,9 +194,14 @@ func CheckMergeJudgmentReady(in MergeJudgmentGateInput) error {
 	if len(in.Admission.Unresolved) > 0 {
 		return &factory.PublicationWait{Reason: "correction_pending"}
 	}
-	// Fresh re-review: the recorded cycle binds this publication, head,
-	// base and finding set. A cycle for another head waits for its fresh
-	// reviewer; a digest mismatch refuses as stale evidence.
+	return nil
+}
+
+// checkJudgmentCycle requires a fresh re-review: the recorded cycle
+// binds this publication, head, base and finding set. A cycle for
+// another head waits for its fresh reviewer; a digest mismatch refuses
+// as stale evidence.
+func checkJudgmentCycle(in MergeJudgmentGateInput, base string) error {
 	if in.Cycle.PublicationID != in.Publication.ID {
 		return &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
@@ -183,10 +211,15 @@ func CheckMergeJudgmentReady(in MergeJudgmentGateInput) error {
 	if in.Cycle.FindingDigest != in.Admission.SetDigest {
 		return &factory.PublicationRefusal{Reason: "judgment_stale"}
 	}
-	// Accepted resolution: the opaque judgment binding must still match
-	// the admitted set, and every accepted fix must read back confirmed.
-	// Unconfirmed fixes wait; without a binding nothing resolves however
-	// complete the native state looks.
+	return nil
+}
+
+// checkJudgmentResolutions requires the accepted resolution: the
+// opaque judgment binding must still match the admitted set, and every
+// accepted fix must read back confirmed. Unconfirmed fixes wait;
+// without a binding nothing resolves however complete the native
+// state looks.
+func checkJudgmentResolutions(in MergeJudgmentGateInput) error {
 	if err := in.Acceptance.Validate(in.Admission.SetDigest); err != nil {
 		return &factory.PublicationRefusal{Reason: "judgment_stale"}
 	}
@@ -197,10 +230,15 @@ func CheckMergeJudgmentReady(in MergeJudgmentGateInput) error {
 	if len(outcome.Waits) > 0 {
 		return &factory.PublicationWait{Reason: "resolution_pending"}
 	}
-	// Mergeable + reviewable re-evaluated: fresh native tips must still
-	// match the generation; hidden or incomplete evidence blocks without
-	// spending. A blocking independent review waits for its correction;
-	// revoked or protected merges refuse before any funded call.
+	return nil
+}
+
+// checkJudgmentNative requires the re-evaluated mergeable +
+// reviewable expression: fresh native tips still match the generation;
+// hidden or incomplete evidence blocks without spending. A blocking
+// independent review waits for its correction; revoked or protected
+// merges refuse before any funded call.
+func checkJudgmentNative(in MergeJudgmentGateInput) error {
 	if !in.Native.Visible || !in.Native.Complete {
 		return &factory.PublicationWait{Reason: "merge_evidence_unavailable"}
 	}
