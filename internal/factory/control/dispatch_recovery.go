@@ -309,7 +309,11 @@ func finishTerminal(ctx context.Context, deps DispatchDeps, a factory.Assignment
 	if outcome == factory.Cancelled {
 		status = "cancelled"
 	}
-	result := factory.ResultSynthesized(current.ID, current.Run, status, summary, now.Unix())
+	// Phased assignments keep their bound typed result on terminal
+	// finishes, exactly as run-derived terminal states do; pre-phase
+	// assignments keep the legacy phaseless shape through the
+	// synthesizePhased fallback.
+	result := synthesizePhased(current, status, summary, now.Unix())
 	current.Stage, current.Outcome, current.Reason = factory.AssignmentFinished, outcome, reason
 	current.FinishedUnix = now.Unix()
 	current.Result = &result
