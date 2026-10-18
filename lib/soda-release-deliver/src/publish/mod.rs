@@ -706,42 +706,30 @@ pub fn promote(
     Ok(())
 }
 
-pub fn status(
-    gh: &dyn GitHub,
-    registry: &dyn registry::Registry,
+fn classify_publication(
+    remote: &Result<Release, Error>,
+    manifest: &Manifest,
     directory: &Path,
-) -> Result<serde_json::Value, Error> {
-    let manifest = assets::load(directory)?;
-    let ci = check_ci(gh, &manifest);
-    let remote = release(gh, &manifest.tag);
-    let docker = manifest.docker.as_ref().map(|metadata| {
-        registry::observe_public(registry, metadata, ci.as_ref().copied().unwrap_or(0))
-    });
-    let mut blockers = Vec::new();
-    let components = components::observe_public(registry, directory, &manifest);
-    if let Err(error) = &components {
-        blockers.push(error.0.clone());
-    }
-    if let Err(error) = &ci {
-        blockers.push(error.0.clone());
-    }
+    gh: &dyn GitHub,
+    blockers: &mut Vec<String>,
+) -> Result<&'static str, Error> {
     let publication = match remote {
         Ok(ref remote) if remote.draft => {
             blockers
                 .push("partial staging: inspect the existing draft before further mutation".into());
-            if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_err() {
+            if check_inventory(remote, manifest, &inventory(manifest, directory)?).is_err() {
                 blockers.push("draft release inventory is incomplete or differs".into());
             }
             "draft"
         }
         Ok(ref remote)
-            if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_ok() =>
+            if check_inventory(remote, manifest, &inventory(manifest, directory)?).is_ok() =>
         {
             if !remote.immutable {
                 blockers.push("remote release is not immutable".into());
                 "mismatched"
             } else if let Err(error) =
-                check_tag(gh, &manifest, false).and_then(|_| verify_release(gh, &manifest.tag))
+                check_tag(gh, manifest, false).and_then(|_| verify_release(gh, &manifest.tag))
             {
                 blockers.push(error.0);
                 "unverified"
@@ -761,20 +749,25 @@ pub fn status(
             "unavailable"
         }
     };
-    let docker_available = !matches!(docker, Some(Err(_)));
-    if let Some(Err(error)) = &docker {
-        blockers.push(error.0.clone());
-    }
-    let appliance = !manifest.has_appliance() || appliance_evidence(directory, &manifest).is_ok();
+    Ok(publication)
+}
+
+fn validate_qualifications(
+    manifest: &Manifest,
+    directory: &Path,
+    remote: &Result<Release, Error>,
+    blockers: &mut Vec<String>,
+) -> Result<(bool, bool), Error> {
+    let appliance = !manifest.has_appliance() || appliance_evidence(directory, manifest).is_ok();
     let docker_qualified = manifest.docker.is_none()
         || (|| -> Result<(), Error> {
-            qualification::verify(&manifest, directory)?;
+            qualification::verify(manifest, directory)?;
             let published = remote.as_ref().map_err(|_| Error::refused())?;
             if published.draft || !published.immutable {
                 return Err(Error::refused());
             }
             qualification::validate_publication_time(
-                &manifest,
+                manifest,
                 directory,
                 &qualification::evidence(directory)?,
                 published
@@ -790,6 +783,16 @@ pub fn status(
     if !docker_qualified {
         blockers.push("Docker qualification missing or invalid".into());
     }
+    Ok((appliance, docker_qualified))
+}
+
+fn observe_recommendation(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    manifest: &Manifest,
+    blockers: &mut Vec<String>,
+) -> (bool, Option<String>, Option<String>, bool) {
     let partial = directory.join("promotion-started.json").exists()
         && !directory.join("promotion-complete.json").exists();
     if partial {
@@ -822,9 +825,26 @@ pub fn status(
     {
         blockers.push("Docker recommendation no longer matches this release".into());
     }
-    let next = if partial {
+    (partial, github_latest, docker_latest, promotion_complete)
+}
+
+fn next_action(
+    recommendation: &(bool, Option<String>, Option<String>, bool),
+    ci_ok: bool,
+    publication: &str,
+    docker_available: bool,
+    components_ok: bool,
+    appliance: bool,
+    docker_qualified: bool,
+    directory: &Path,
+) -> &'static str {
+    let partial = recommendation.0;
+    let github_latest = recommendation.1.as_deref();
+    let docker_latest = recommendation.2.as_deref();
+    let promotion_complete = recommendation.3;
+    if partial {
         "inspect partial promotion"
-    } else if ci.is_err() {
+    } else if !ci_ok {
         "obtain successful exact-source main CI"
     } else if publication == "mismatched" {
         "inspect immutable remote inventory"
@@ -846,13 +866,53 @@ pub fn status(
         "stage"
     } else if !docker_available {
         "inspect public Docker image"
-    } else if components.is_err() {
+    } else if !components_ok {
         "inspect public component images"
     } else if !appliance || !docker_qualified {
         "qualify"
     } else {
         "promote"
-    };
+    }
+}
+
+pub fn status(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+) -> Result<serde_json::Value, Error> {
+    let manifest = assets::load(directory)?;
+    let ci = check_ci(gh, &manifest);
+    let remote = release(gh, &manifest.tag);
+    let docker = manifest.docker.as_ref().map(|metadata| {
+        registry::observe_public(registry, metadata, ci.as_ref().copied().unwrap_or(0))
+    });
+    let mut blockers = Vec::new();
+    let components = components::observe_public(registry, directory, &manifest);
+    if let Err(error) = &components {
+        blockers.push(error.0.clone());
+    }
+    if let Err(error) = &ci {
+        blockers.push(error.0.clone());
+    }
+    let publication = classify_publication(&remote, &manifest, directory, gh, &mut blockers)?;
+    let docker_available = !matches!(docker, Some(Err(_)));
+    if let Some(Err(error)) = &docker {
+        blockers.push(error.0.clone());
+    }
+    let (appliance, docker_qualified) =
+        validate_qualifications(&manifest, directory, &remote, &mut blockers)?;
+    let recommendation = observe_recommendation(gh, registry, directory, &manifest, &mut blockers);
+    let (_, github_latest, docker_latest, promotion_complete) = &recommendation;
+    let next = next_action(
+        &recommendation,
+        ci.is_ok(),
+        publication,
+        docker_available,
+        components.is_ok(),
+        appliance,
+        docker_qualified,
+        directory,
+    );
     Ok(
         serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
     )
