@@ -38,6 +38,8 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Read-contract status:** zero spending, unknown-capability refusal on all four reads, cross-assignment receipt non-disclosure and honest-incomplete evidence are proven through the actual handlers. Context now projects the recorded assignment behind the capability (prompt digest, exact source/preparation, outcome/reason once set; never prompt bytes, history or actor) and refuses without its assignment. Wider projections over plan/run/review/inventory rows plus pagination inputs stay open: ref/cursor are absent from the current schema by the FW40 boundary.
 
+**Context-scope direction (A+B with Jev selection):** context serves current rows plus paged history. History scope is local lineage by default — own attempt, parents, prior attempts on the same task, carried findings — because full history is unbounded and risks exposing unsubscribed private work; anything wider goes through explicit authorized pages. At the context point, code builds fixed context bundles and Jev Choice-selects among them (same pattern as the existing priority judgments: server-only secret file, funded consultation first, low confidence or unavailable holds with attention, never an inferred bundle). Build slice: fixed bundles, one Choice question, funded once per capability with deterministic fallback to current-only.
+
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control](../../../internal/factory/control), [internal/store/factory_mcp_submission.go](../../../internal/store/factory_mcp_submission.go).
 
 <a id="r32"></a>
