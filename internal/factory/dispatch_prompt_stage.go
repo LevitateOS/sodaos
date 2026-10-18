@@ -19,6 +19,27 @@ func promptStage(in PromptInputs) string {
 }
 
 func validatePromptStage(in PromptInputs) error {
+	if err := validatePromptRole(in); err != nil {
+		return err
+	}
+	if in.PublicationAssignment == "" {
+		return nil
+	}
+	if !ValidID(in.PublicationAssignment) || !ValidCommit(in.BaseCommit) {
+		return errors.New("child prompt needs its publication and verified base")
+	}
+	if err := validatePromptReviewEvidence(in); err != nil {
+		return err
+	}
+	if err := validatePromptCheckEvidence(in); err != nil {
+		return err
+	}
+	return validateCorrectionPrompt(in)
+}
+
+// validatePromptRole admits the prompt role with its base, requiring
+// initial coding prompts to carry no child evidence.
+func validatePromptRole(in PromptInputs) error {
 	if (in.Role != project.RoleCoder && in.Role != project.RoleReviewer) || !ValidCommit(in.ApprovedBase) {
 		return errors.New("invalid prompt role or approved base")
 	}
@@ -27,15 +48,17 @@ func validatePromptStage(in PromptInputs) error {
 			in.TypedReview != nil || in.TypedClear != nil {
 			return errors.New("initial coding prompt carries child evidence")
 		}
-		return nil
 	}
-	if !ValidID(in.PublicationAssignment) || !ValidCommit(in.BaseCommit) {
-		return errors.New("child prompt needs its publication and verified base")
-	}
-	// Fresh independent reviews carry no prior verdict (caller passes nil);
-	// same-head re-reviews carry the full outstanding review/check evidence
-	// as carried input to independently assess, never to rubber-stamp.
-	// Distinct reviewer/corrector sessions are retained by the dispatcher.
+	return nil
+}
+
+// validatePromptReviewEvidence admits the carried review evidence:
+// at most one source, with a single valid typed verdict.
+// Fresh independent reviews carry no prior verdict (caller passes nil);
+// same-head re-reviews carry the full outstanding review/check evidence
+// as carried input to independently assess, never to rubber-stamp.
+// Distinct reviewer/corrector sessions are retained by the dispatcher.
+func validatePromptReviewEvidence(in PromptInputs) error {
 	if in.Review != nil && in.Review.Validate() != nil {
 		return errors.New("invalid correction review evidence")
 	}
@@ -47,41 +70,50 @@ func validatePromptStage(in PromptInputs) error {
 			return errors.New("dispatch prompt carries no single typed verdict")
 		}
 		if in.TypedReview != nil {
-			if err := validateReviewShape(in.TypedReview); err != nil {
-				return err
-			}
-		} else if err := validateClearShape(in.TypedClear); err != nil {
-			return err
+			return validateReviewShape(in.TypedReview)
 		}
+		return validateClearShape(in.TypedClear)
 	}
+	return nil
+}
+
+// validatePromptCheckEvidence binds the check assessment to its exact
+// candidate and required checks.
+func validatePromptCheckEvidence(in PromptInputs) error {
 	if a := in.CheckAssessment; a != nil {
 		if a.Validate() != nil || a.Repository != in.Repository || a.HeadOID != in.SourceCommit || a.BaseOID != in.PRBase ||
 			a.BaseRef != in.TargetBranch || a.ChecksDigest != ChecksDigest(in.RequiredChecks) {
 			return errors.New("prompt check evidence does not match its exact candidate and checks")
 		}
 	}
-	if in.Role == project.RoleCoder {
-		if in.CheckAssessment == nil ||
-			(in.CheckAssessment.Verdict != CheckPass && in.CheckAssessment.Verdict != CheckFailed) {
+	return nil
+}
+
+// validateCorrectionPrompt admits one correction prompt's consolidated
+// review and failed-check evidence. Legacy corrections carry the string
+// verdict; typed corrections carry the findings verdict (always
+// blocking) or the explicit clear beside failing checks (fix the
+// checks). Anything else is not a correction.
+func validateCorrectionPrompt(in PromptInputs) error {
+	if in.Role != project.RoleCoder {
+		return nil
+	}
+	if in.CheckAssessment == nil ||
+		(in.CheckAssessment.Verdict != CheckPass && in.CheckAssessment.Verdict != CheckFailed) {
+		return errors.New("correction needs consolidated current review and failed-check evidence")
+	}
+	switch {
+	case in.Review != nil:
+		if in.Review.Verdict != "request-changes" && in.CheckAssessment.Verdict != CheckFailed {
 			return errors.New("correction needs consolidated current review and failed-check evidence")
 		}
-		// Legacy corrections carry the string verdict; typed corrections
-		// carry the findings verdict (always blocking) or the explicit
-		// clear beside failing checks (fix the checks). Anything else is
-		// not a correction.
-		switch {
-		case in.Review != nil:
-			if in.Review.Verdict != "request-changes" && in.CheckAssessment.Verdict != CheckFailed {
-				return errors.New("correction needs consolidated current review and failed-check evidence")
-			}
-		case in.TypedReview != nil:
-		case in.TypedClear != nil:
-			if in.CheckAssessment.Verdict != CheckFailed {
-				return errors.New("correction needs consolidated current review and failed-check evidence")
-			}
-		default:
+	case in.TypedReview != nil:
+	case in.TypedClear != nil:
+		if in.CheckAssessment.Verdict != CheckFailed {
 			return errors.New("correction needs consolidated current review and failed-check evidence")
 		}
+	default:
+		return errors.New("correction needs consolidated current review and failed-check evidence")
 	}
 	return nil
 }
@@ -173,97 +205,144 @@ func writePromptTypedVerdict(b *strings.Builder, in PromptInputs) {
 // Admit aggregate text before joining, quoting or copying it into the prompt.
 // The final encoded prompt must also fit the existing transport cap.
 func admitPromptText(in PromptInputs) error {
-	remaining := project.MaxFactoryPrompt
-	add := func(text string, overhead int) bool {
-		if len(text) > remaining || overhead > remaining-len(text) {
-			return false
-		}
-		remaining -= len(text) + overhead
-		return true
+	budget := &promptTextBudget{remaining: project.MaxFactoryPrompt}
+	if err := budget.admitFields(in); err != nil {
+		return err
 	}
-	tooLarge := errors.New("dispatch prompt input exceeds the transport bound")
-	for _, text := range []string{
+	if err := budget.admitSources(in); err != nil {
+		return err
+	}
+	if err := budget.admitChecks(in); err != nil {
+		return err
+	}
+	if err := budget.admitReview(in); err != nil {
+		return err
+	}
+	if err := budget.admitTypedReview(in); err != nil {
+		return err
+	}
+	if err := budget.admitTypedClear(in); err != nil {
+		return err
+	}
+	return budget.admitCheckAssessment(in)
+}
+
+// promptTextBudget spends one transport bound across prompt input texts.
+type promptTextBudget struct {
+	remaining int
+}
+
+// add charges one text with its quoting overhead, refusing when the
+// bound is exceeded.
+func (b *promptTextBudget) add(text string, overhead int) bool {
+	if len(text) > b.remaining || overhead > b.remaining-len(text) {
+		return false
+	}
+	b.remaining -= len(text) + overhead
+	return true
+}
+
+// admit charges a batch of texts with one shared overhead.
+func (b *promptTextBudget) admit(texts []string, overhead int) error {
+	for _, text := range texts {
+		if !b.add(text, overhead) {
+			return errors.New("dispatch prompt input exceeds the transport bound")
+		}
+	}
+	return nil
+}
+
+// admitFields charges the scalar prompt input fields.
+func (b *promptTextBudget) admitFields(in PromptInputs) error {
+	return b.admit([]string{
 		in.Title, in.Body, in.AcceptanceID, in.TargetBranch, in.SourceCommit,
 		in.ApprovedBase, in.BaseCommit, in.PublicationAssignment, in.Preparation, in.RequirementsID,
 		in.ApprovalID, in.Harness, in.Model, in.Role, in.ProviderConnection,
-	} {
-		if !add(text, 0) {
-			return tooLarge
-		}
-	}
+	}, 0)
+}
+
+// admitSources charges prompt sources and resolutions.
+func (b *promptTextBudget) admitSources(in PromptInputs) error {
 	for _, sources := range [][]PromptSource{in.Sources, in.Resolutions} {
 		for _, source := range sources {
-			if !add(source.ID, 32) || !add(source.Content, 0) {
-				return tooLarge
+			if !b.add(source.ID, 32) || !b.add(source.Content, 0) {
+				return errors.New("dispatch prompt input exceeds the transport bound")
 			}
 		}
 	}
+	return nil
+}
+
+// admitChecks charges required checks and prerequisites.
+func (b *promptTextBudget) admitChecks(in PromptInputs) error {
 	for _, check := range in.RequiredChecks {
-		if !add(check, 2) {
-			return tooLarge
+		if !b.add(check, 2) {
+			return errors.New("dispatch prompt input exceeds the transport bound")
 		}
 	}
 	for _, p := range in.Prerequisites {
-		for _, text := range []string{p.Occurrence, p.DependsOn, p.Outcome, in.Control.EndpointHeads[p.Occurrence], in.Control.Fingerprint, in.Control.Satisfied[p.Occurrence].Acceptance} {
-			if !add(text, 32) {
-				return tooLarge
-			}
+		if err := b.admit([]string{p.Occurrence, p.DependsOn, p.Outcome, in.Control.EndpointHeads[p.Occurrence], in.Control.Fingerprint, in.Control.Satisfied[p.Occurrence].Acceptance}, 32); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+// admitReview charges the carried legacy review evidence.
+func (b *promptTextBudget) admitReview(in PromptInputs) error {
 	if r := in.Review; r != nil {
-		for _, text := range []string{r.Verdict, r.Summary, r.Body} {
-			if !add(text, 32) {
-				return tooLarge
-			}
+		if err := b.admit([]string{r.Verdict, r.Summary, r.Body}, 32); err != nil {
+			return err
 		}
-		for _, text := range r.Findings {
-			if !add(text, 4) {
-				return tooLarge
-			}
-		}
+		return b.admit(r.Findings, 4)
 	}
+	return nil
+}
+
+// admitTypedReview charges the carried typed findings verdict.
+func (b *promptTextBudget) admitTypedReview(in PromptInputs) error {
 	if r := in.TypedReview; r != nil {
-		if !add(r.CycleID, 32) {
-			return tooLarge
+		if !b.add(r.CycleID, 32) {
+			return errors.New("dispatch prompt input exceeds the transport bound")
 		}
 		for _, finding := range r.NewFindings {
-			for _, text := range []string{finding.Key, finding.Severity, finding.FixKind, finding.Defect, finding.Evidence, finding.RequiredOutcome} {
-				if !add(text, 4) {
-					return tooLarge
-				}
+			if err := b.admit([]string{finding.Key, finding.Severity, finding.FixKind, finding.Defect, finding.Evidence, finding.RequiredOutcome}, 4); err != nil {
+				return err
 			}
 		}
 		for _, assessment := range r.Assessments {
-			for _, text := range []string{assessment.Key, assessment.Status, assessment.Evidence} {
-				if !add(text, 4) {
-					return tooLarge
-				}
+			if err := b.admit([]string{assessment.Key, assessment.Status, assessment.Evidence}, 4); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+// admitTypedClear charges the carried explicit clear verdict.
+func (b *promptTextBudget) admitTypedClear(in PromptInputs) error {
 	if c := in.TypedClear; c != nil {
-		for _, text := range []string{c.CycleID, c.Conclusion, c.Head, c.BaseOID, c.CoverageDigest} {
-			if !add(text, 32) {
-				return tooLarge
-			}
+		if err := b.admit([]string{c.CycleID, c.Conclusion, c.Head, c.BaseOID, c.CoverageDigest}, 32); err != nil {
+			return err
 		}
 		for _, assessment := range c.Assessments {
-			for _, text := range []string{assessment.Key, assessment.Status, assessment.Evidence} {
-				if !add(text, 4) {
-					return tooLarge
-				}
+			if err := b.admit([]string{assessment.Key, assessment.Status, assessment.Evidence}, 4); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+// admitCheckAssessment charges the recorded check evidence.
+func (b *promptTextBudget) admitCheckAssessment(in PromptInputs) error {
 	if a := in.CheckAssessment; a != nil {
-		for _, text := range []string{a.HeadOID, a.BaseOID, a.Verdict, a.Reason} {
-			if !add(text, 32) {
-				return tooLarge
-			}
+		if err := b.admit([]string{a.HeadOID, a.BaseOID, a.Verdict, a.Reason}, 32); err != nil {
+			return err
 		}
 		for _, result := range a.Results {
-			if !add(result.Context, 32) || !add(result.State, 8) {
-				return tooLarge
+			if !b.add(result.Context, 32) || !b.add(result.State, 8) {
+				return errors.New("dispatch prompt input exceeds the transport bound")
 			}
 		}
 	}
