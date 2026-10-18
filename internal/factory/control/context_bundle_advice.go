@@ -59,6 +59,22 @@ func contextBundleStateFor(capability factory.MCPCapability, assignment factory.
 	}
 }
 
+// ContextBundleFingerprint recomputes the exact selection fingerprint
+// for the same inputs, so a read handler can look up the recorded
+// selection receipt without consulting. It shares the state, rubric
+// and option builders with SelectContextBundle: equal inputs always
+// name the same receipt.
+func ContextBundleFingerprint(capability factory.MCPCapability, assignment factory.Assignment, attemptEligible, lineageEligible bool) (string, error) {
+	_, fingerprint, err := buildPurposeRequest(PurposeAdvice{
+		Purpose:  factory.JudgmentContextBundle,
+		State:    contextBundleStateFor(capability, assignment),
+		Question: contextBundleRubric,
+		Options:  contextBundleOptions(attemptEligible, lineageEligible),
+		Outcome:  "context-bundle",
+	})
+	return fingerprint, err
+}
+
 // SelectContextBundle consults funded Jev for one capability's context
 // bundle and applies the answer. Eligibility is code-enforced from
 // joined bundle content: only bundles with backing records are

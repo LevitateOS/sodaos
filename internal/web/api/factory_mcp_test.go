@@ -28,6 +28,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -62,6 +63,7 @@ type fakeCatalogSink struct {
 	capability  factory.MCPCapability
 	submissions map[string]fakeCatalogRecord
 	assignments map[string]factory.Assignment
+	receipts    map[string]factory.PriorityReceipt
 }
 
 func newFakeCatalogSink() *fakeCatalogSink {
@@ -69,6 +71,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 	return &fakeCatalogSink{
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
+		receipts:    map[string]factory.PriorityReceipt{},
 		assignments: map[string]factory.Assignment{
 			capability.AssignmentID: {
 				ID: capability.AssignmentID, Phase: string(factory.MCPPhaseOf(capability.Profile)),
@@ -77,6 +80,16 @@ func newFakeCatalogSink() *fakeCatalogSink {
 			},
 		},
 	}
+}
+
+func (f *fakeCatalogSink) PriorityJudgment(_ context.Context, snapshot string) (factory.PriorityReceipt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	receipt, ok := f.receipts[snapshot]
+	if !ok {
+		return factory.PriorityReceipt{}, store.ErrNotFound
+	}
+	return receipt, nil
 }
 
 func (f *fakeCatalogSink) Assignment(_ context.Context, id string) (factory.Assignment, error) {
@@ -754,6 +767,141 @@ func TestFactoryCatalogContextMarksIncompleteLineage(t *testing.T) {
 	}
 	if body["bundle"] != factory.ContextBundleCurrent {
 		t.Fatalf("bundle=%v, want current", body["bundle"])
+	}
+}
+
+// serveContextBody serves factory.context through the actual handler
+// with the sink wired as every source, including selection receipts.
+func serveContextBody(t *testing.T, sink *fakeCatalogSink) map[string]any {
+	t.Helper()
+	server := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink},
+		limiter: newMCPRateLimiter(),
+	}
+	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
+		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
+	})
+	if err != nil {
+		t.Fatalf("context refused: %v", err)
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("context content is %T, not text", res.Content[0])
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(text.Text), &body); err != nil {
+		t.Fatalf("context body is not JSON: %v", err)
+	}
+	return body
+}
+
+func storeSelectionReceipt(t *testing.T, sink *fakeCatalogSink, assignment factory.Assignment, attemptEligible, lineageEligible bool, selected string) {
+	t.Helper()
+	fingerprint, err := control.ContextBundleFingerprint(sink.capability, assignment, attemptEligible, lineageEligible)
+	if err != nil {
+		t.Fatalf("selection fingerprint: %v", err)
+	}
+	sink.receipts[fingerprint] = factory.PriorityReceipt{
+		Snapshot: fingerprint, Purpose: factory.JudgmentContextBundle,
+		Outcome: "context-bundle", Selected: selected,
+	}
+}
+
+// TestFactoryCatalogContextForegroundsRecordedCurrent proves a
+// preparation-time selection narrows the served sections to the
+// selected bundle without spending: attempt content exists, but the
+// recorded current selection serves current-only.
+func TestFactoryCatalogContextForegroundsRecordedCurrent(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	storeSelectionReceipt(t, sink, stored, true, false, factory.ContextBundleCurrent)
+	body := serveContextBody(t, sink)
+	if _, ok := body["attempt"]; ok {
+		t.Fatalf("foregrounded current serves attempt: %v", body["attempt"])
+	}
+	if body["bundle"] != factory.ContextBundleCurrent {
+		t.Fatalf("bundle=%v, want current", body["bundle"])
+	}
+}
+
+// TestFactoryCatalogContextForegroundsRecordedHold proves a
+// snapshot_hold selection serves the deterministic current-only
+// fallback.
+func TestFactoryCatalogContextForegroundsRecordedHold(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	storeSelectionReceipt(t, sink, stored, true, false, factory.ContextBundleSnapshotHold)
+	body := serveContextBody(t, sink)
+	if _, ok := body["attempt"]; ok {
+		t.Fatalf("hold serves attempt: %v", body["attempt"])
+	}
+	if body["bundle"] != factory.ContextBundleCurrent {
+		t.Fatalf("bundle=%v, want current", body["bundle"])
+	}
+}
+
+// TestFactoryCatalogContextForegroundsRecordedLineage proves a
+// lineage selection serves the lineage section it chose.
+func TestFactoryCatalogContextForegroundsRecordedLineage(t *testing.T) {
+	sink := newFakeCatalogSink()
+	parentID := factory.NewID()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.ParentAssignment = parentID
+	sink.assignments[sink.capability.AssignmentID] = stored
+	sink.assignments[parentID] = factory.Assignment{ID: parentID, Outcome: factory.Succeeded}
+	storeSelectionReceipt(t, sink, stored, false, true, factory.ContextBundleLineage)
+	body := serveContextBody(t, sink)
+	if _, ok := body["lineage"]; !ok {
+		t.Fatalf("foregrounded lineage misses section: %v", body)
+	}
+	if body["bundle"] != factory.ContextBundleLineage {
+		t.Fatalf("bundle=%v, want lineage", body["bundle"])
+	}
+}
+
+// TestFactoryCatalogContextIgnoresForeignReceipt proves a receipt
+// recorded for another purpose never foregrounds context: the widest
+// eligible bundle serves instead.
+func TestFactoryCatalogContextIgnoresForeignReceipt(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	fingerprint, err := control.ContextBundleFingerprint(sink.capability, stored, true, false)
+	if err != nil {
+		t.Fatalf("selection fingerprint: %v", err)
+	}
+	sink.receipts[fingerprint] = factory.PriorityReceipt{
+		Snapshot: fingerprint, Purpose: factory.JudgmentConsolidation,
+		Outcome: "consolidation", Selected: "a",
+	}
+	body := serveContextBody(t, sink)
+	if _, ok := body["attempt"]; !ok {
+		t.Fatalf("foreign receipt narrowed context: %v", body)
+	}
+	if body["bundle"] != factory.ContextBundleAttempt {
+		t.Fatalf("bundle=%v, want attempt", body["bundle"])
+	}
+}
+
+// TestFactoryCatalogContextIgnoresUnknownSelection proves an
+// unrecognized selected bundle never foregrounds context.
+func TestFactoryCatalogContextIgnoresUnknownSelection(t *testing.T) {
+	sink := newFakeCatalogSink()
+	stored := sink.assignments[sink.capability.AssignmentID]
+	stored.RunHistory = []string{"run-1"}
+	sink.assignments[sink.capability.AssignmentID] = stored
+	storeSelectionReceipt(t, sink, stored, true, false, "invented")
+	body := serveContextBody(t, sink)
+	if _, ok := body["attempt"]; !ok {
+		t.Fatalf("unknown selection narrowed context: %v", body)
+	}
+	if body["bundle"] != factory.ContextBundleAttempt {
+		t.Fatalf("bundle=%v, want attempt", body["bundle"])
 	}
 }
 

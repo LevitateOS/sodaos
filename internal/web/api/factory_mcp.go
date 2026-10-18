@@ -65,18 +65,27 @@ type FactoryMCPAssignmentSource interface {
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
 }
 
+// FactoryMCPPriorityJudgmentSource reads recorded selection receipts
+// so context foregrounds a preparation-time bundle choice without
+// consulting on reads. *store.Store implements it; nil names no
+// recorded selection, and tests stub it.
+type FactoryMCPPriorityJudgmentSource interface {
+	PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error)
+}
+
 // FactoryMCPDeps wires the catalog server. Observed supplies the
 // host-observed run state from outside SQL; nil keeps the recorded
 // binding only (FW39 plugs host observation here). Catalog backs
 // D16 proposal validation; nil names the unwired catalog honestly
 // (FW40 wires the approved check catalog).
 type FactoryMCPDeps struct {
-	Capabilities FactoryMCPCapabilitySource
-	Submissions  FactoryMCPSubmissionSink
-	Assignments  FactoryMCPAssignmentSource
-	Observed     func(capability factory.MCPCapability) (control.MCPRunObservation, error)
-	Catalog      factory.ApprovedCatalog
-	Now          func() time.Time
+	Capabilities      FactoryMCPCapabilitySource
+	Submissions       FactoryMCPSubmissionSink
+	Assignments       FactoryMCPAssignmentSource
+	PriorityJudgments FactoryMCPPriorityJudgmentSource
+	Observed          func(capability factory.MCPCapability) (control.MCPRunObservation, error)
+	Catalog           factory.ApprovedCatalog
+	Now               func() time.Time
 }
 
 // mcpCallArgs is the uniform tool envelope. Mutations require
@@ -548,6 +557,33 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 		}
 	}
 	attemptEligible, lineageEligible := factory.BundleEligibility(assignment, parentLoaded)
+	// A recorded preparation-time selection foregrounds its bundle by
+	// narrowing the served sections to it; the lookup never consults,
+	// so reads still spend nothing. A missing, mismatched or
+	// no-longer-eligible receipt falls back to the widest eligible
+	// bundle.
+	foregrounded := ""
+	if s.deps.PriorityJudgments != nil {
+		if fingerprint, ferr := control.ContextBundleFingerprint(capability, assignment, attemptEligible, lineageEligible); ferr == nil {
+			if receipt, rerr := s.deps.PriorityJudgments.PriorityJudgment(ctx, fingerprint); rerr == nil &&
+				receipt.Purpose == factory.JudgmentContextBundle && receipt.Outcome == "context-bundle" {
+				switch receipt.Selected {
+				case factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold:
+					foregrounded = receipt.Selected
+				case factory.ContextBundleAttempt:
+					if attemptEligible {
+						foregrounded = receipt.Selected
+					}
+				case factory.ContextBundleLineage:
+					if lineageEligible {
+						foregrounded = receipt.Selected
+					}
+				}
+			}
+		}
+	}
+	serveAttempt := attemptEligible && (foregrounded == "" || foregrounded == factory.ContextBundleAttempt || foregrounded == factory.ContextBundleLineage)
+	serveLineage := lineageEligible && (foregrounded == "" || foregrounded == factory.ContextBundleLineage)
 	bundle := factory.ContextBundleCurrent
 	body := map[string]any{
 		"assignment":    capability.AssignmentID,
@@ -568,11 +604,11 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 		"source_digest": capability.SourceDigest,
 		"scope_digest":  capability.ScopeDigest(),
 	}
-	if attemptEligible {
+	if serveAttempt {
 		body["attempt"] = map[string]any{"run_history": factory.AttemptContinuity(assignment)}
 		bundle = factory.ContextBundleAttempt
 	}
-	if lineageEligible {
+	if serveLineage {
 		lineage := map[string]any{"parent_assignment": assignment.ParentAssignment}
 		if parent.Outcome != "" {
 			lineage["parent_outcome"] = string(parent.Outcome)
@@ -704,3 +740,4 @@ func (s *API) FactoryMCPHandler() http.Handler {
 var _ FactoryMCPCapabilitySource = (*store.Store)(nil)
 var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
 var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
+var _ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)

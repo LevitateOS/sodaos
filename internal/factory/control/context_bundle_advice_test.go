@@ -123,6 +123,23 @@ func TestSelectContextBundleExhaustedHoldsUnfunded(t *testing.T) {
 	}
 }
 
+func TestContextBundleFingerprintBindsEligibility(t *testing.T) {
+	capability := testMCPCapability()
+	assignment := factory.Assignment{ID: capability.AssignmentID}
+	first, err := ContextBundleFingerprint(capability, assignment, true, false)
+	if err != nil || first == "" {
+		t.Fatalf("fingerprint=%q err=%v", first, err)
+	}
+	again, err := ContextBundleFingerprint(capability, assignment, true, false)
+	if err != nil || again != first {
+		t.Fatalf("redundant fingerprint=%q err=%v", again, err)
+	}
+	narrower, err := ContextBundleFingerprint(capability, assignment, false, false)
+	if err != nil || narrower == first {
+		t.Fatalf("eligibility-blind fingerprint=%q err=%v", narrower, err)
+	}
+}
+
 func TestContextBundleOptionsOfferCurrentAndHold(t *testing.T) {
 	options := contextBundleOptions(false, false)
 	if len(options) != 2 {
