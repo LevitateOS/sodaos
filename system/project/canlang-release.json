@@ -1,7 +1,7 @@
 {
   "sourceRevision": "2f3adfea7a7e8275500ebc1c7f37522e10cab1b0",
   "archiveFilename": "canlang-tools-linux-x86_64.tar.gz",
-  "sha256": "76b7e3db5bd38201af878061bc234e54978c7a63ed3c823c2dfe458ac380c25a",
+  "sha256": "aa33db44a9f38342fbf5fe7a77ad113da0e21bc99e90a2304be8fe2d9927608f",
   "versions": {
     "compiler": "can 0.1.1 (commit 04f93345f; language 1.0; schema 1)",
     "node": "v24.22.0",
