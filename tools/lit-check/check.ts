@@ -53,7 +53,13 @@ function analyze(files: string[]): LitDiagnostic[] {
     ts.version,
     'Analyzer bare compiler import must resolve to its own classic compiler'
   );
-  context.updateConfig(makeConfig({strict: true, cwd: root, rules: {'no-unknown-event': 'error'}}));
+  context.updateConfig(makeConfig({
+    strict: true,
+    cwd: root,
+    rules: {'no-unknown-event': 'error'},
+    // The analyzer's built-in HTML data omits the native details toggle event.
+    customHtmlData: {version: 1.1, tags: [{name: 'details', attributes: [{name: 'ontoggle'}]}]},
+  }));
   const analyzer = new LitAnalyzer(context),
     diagnostics: LitDiagnostic[] = [];
   for (const file of files) {

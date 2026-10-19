@@ -574,7 +574,7 @@ test('comment source carry, existing-work link and durable pending reads', () =>
   const linkingOutcome = describeCommentOutcome(linking, repo);
   assert.equal(linkingOutcome.tone, 'progress');
   assert.equal(linkingOutcome.retryable, true);
-  assert.match(linkingOutcome.text, /persisted selected-issue link appears here/);
+  assert.match(linkingOutcome.text, /Finding the issue/);
   const linked = parseCommentPipelineState({...base, effect: 'verified', existing_issue: 9});
   assert.equal(commentUnsettled(linked), false);
   const linkedOutcome = describeCommentOutcome(linked, repo);

@@ -324,7 +324,6 @@ export function describeCommentOutcome(
     linkIssue > 0 && repository.path !== undefined
       ? nativeIssueLink(repository.path, String(linkIssue))
       : undefined;
-  const linked = issueLink ? ` Linked issue: ${issueLink}.` : linkIssue > 0 ? ` Linked issue #${linkIssue}.` : '';
   const sourceText = commentSourceText(state);
   const outcome = (text: string, tone: CommentOutcomeTone, retryable: boolean): CommentOutcomeModel => ({
     commentId: state.commentId,
@@ -349,7 +348,7 @@ export function describeCommentOutcome(
   }
   if (state.judgment === 'pending')
     return outcome(
-      'Saved. Assessment pending: the route appears here once the judgment lands. Reading it again changes nothing.',
+      'Saved. JEV is assessing your comment.',
       'progress',
       true
     );
@@ -360,22 +359,22 @@ export function describeCommentOutcome(
       true
     );
   if (state.route === 'discussion')
-    return outcome('Kept as discussion: no issue is ever created from this comment.', 'settled', false);
+    return outcome('Kept as discussion.', 'settled', false);
   if (state.route === 'clarify')
     return outcome('Waiting on clarification from the author before any further routing.', 'progress', false);
   if (state.route === 'existing_work') {
     if (state.effect === 'applied' || state.effect === 'verified')
-      return outcome(`Feedback added to issue #${selectedExisting}.${linked}`, 'settled', false);
+      return outcome(`Feedback added to issue #${selectedExisting}.`, 'settled', false);
     if (selectedExisting <= 0 && state.effect === 'pending')
       return outcome(
-        'Routed to already tracked work. The persisted selected-issue link appears here once it lands; checking progress reads stored state only.',
+        'Finding the issue for this feedback.',
         'progress',
         true
       );
     return outcome(
       selectedExisting > 0
-        ? `Linked to already tracked work — persisted selected issue #${selectedExisting}; the accepted plan is never silently rewritten.${linked}`
-        : 'Routed to already tracked work, but no selected issue is recorded yet; nothing is linked until that link is persisted.',
+        ? `Linked to issue #${selectedExisting}. Feedback delivery is not confirmed.`
+        : 'The issue for this feedback has not been confirmed.',
       selectedExisting > 0 ? 'settled' : 'progress',
       selectedExisting <= 0
     );
@@ -399,7 +398,7 @@ export function describeCommentOutcome(
       false
     );
   return outcome(
-    `Issue created through the validated native route.${linked} Normal Factory pickup applies; creation grants no implementation authority.`,
+    `Issue #${state.issue} created.`,
     'settled',
     false
   );
@@ -496,8 +495,7 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
         </p>
         ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
         ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}</button>` : ''}
-        ${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}
-        <details><summary>Processing details</summary><ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
+        <details><summary>Processing details</summary>${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}<ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
           ${outcome.stages.map((stage) => html`<li><strong>${stage.label}</strong> — ${stage.state}</li>`)}
         </ol></details>
       </div>`

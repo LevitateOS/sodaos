@@ -734,6 +734,7 @@ func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJud
 	}
 	input, err := collectCommentJudgeInput(ctx, st, detail)
 	if err != nil {
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "The original request context could not be read. Refresh the project and retry assessment.")
 		return false, noteCommentFailure(ctx, st, pipe, true)
 	}
 	if preparer, ok := judge.(interface {
@@ -747,6 +748,7 @@ func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJud
 	}
 	judgment, receipt, err := judge.JudgeComment(ctx, input, snapshot)
 	if err != nil {
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "JEV could not assess this request. Check the System One connection and retry assessment.")
 		return false, noteCommentFailure(ctx, st, pipe, true)
 	}
 	switch judgment.Route {

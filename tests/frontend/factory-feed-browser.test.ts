@@ -124,25 +124,26 @@ test('Combined feed reads newest-first with separate enriched posts and live com
   await refresh(page);
   await page.evaluate(() => { window.drawerFixture.mountFeed(); });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
   // Separate posts with the outside-card author context and stored text.
   await feed.getByText('Recorded work').first().waitFor();
   await feed.getByText('Ada').first().waitFor();
   await feed.getByText('Product Lead').first().waitFor();
-  await feed.getByText('assessing').first().waitFor();
+  await feed.getByText('Assessing').first().waitFor();
   await feed.getByText('Should the demo cover substitute approvers?').waitFor();
   // Cursor history: older entries append behind the confirmed page.
   await feed.getByRole('button', {name: 'Load older entries'}).click();
   await feed.getByRole('button', {name: 'Back to latest'}).waitFor();
   // Drafts survive refreshes with reading position intact.
   const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
+  await draft.evaluate(el => { const details = el.closest('details'); if (details) details.open = true; });
   await draft.fill('half-written reply');
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   await feed.getByText('Feed refreshed; no new posts.').waitFor();
   assert.equal(await draft.inputValue(), 'half-written reply');
   // Submit persists through the real intake shape and exposes progress.
   await feed.locator(`[data-comment-submit="record:${recordId}"]`).click();
-  await feed.getByText('Reply saved. Assessment, authoring and creation progress appear beside it.').waitFor();
+  await feed.getByText('Comment saved.').waitFor();
   const posted = await page.evaluate(() => {
     const drawer = window.drawerFixture as unknown as {calls: {url: string; method: string; body?: string}[]};
     return drawer.calls
@@ -166,7 +167,8 @@ test('Combined feed reads newest-first with separate enriched posts and live com
   const issueLink = feed.getByRole('link', {name: 'Open linked issue'});
   await issueLink.waitFor();
   assert.equal(await issueLink.getAttribute('href'), '/soda-tester/demo/issues/12');
-  // The resolved source snapshot shows on the comment outcome.
+  await feed.locator('.soda-feed-outcome details').evaluateAll(nodes => nodes.forEach(node => (node as HTMLDetailsElement).open=true));
+  // Source details stay available on demand.
   await feed.getByText(/About recorded work aaaaaaaaaaaa… · issue #3/).waitFor();
   await feed.locator('.soda-feed-outcome-source').getByText(/Built the form service\./).waitFor();
 });
@@ -308,7 +310,7 @@ test('Factory-loop families render their own sections and failures stay in front
   await refresh(page);
   await page.evaluate(() => { window.drawerFixture.mountFeed(); });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
   for (const family of [
     'integration',
     'verification',
@@ -467,7 +469,7 @@ test('Designed blocks render recorded segments; durable continuation lands witho
   await refresh(page);
   await page.evaluate(() => { window.drawerFixture.mountFeed(); });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
   // Designed Builder component: brief + check table + candidate rows.
   const work = feed.locator('[data-feed-family="work"]');
   await work.getByText('Form and permission service ready.').waitFor();
@@ -486,14 +488,15 @@ test('Designed blocks render recorded segments; durable continuation lands witho
   // Submit once; the durable continuation result must appear on feed
   // refresh (known-pending re-read) with no second POST.
   const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
+  await draft.evaluate(el => { const details = el.closest('details'); if (details) details.open = true; });
   await draft.fill('Please add substitute approvers.');
   await feed.locator(`[data-comment-submit="record:${recordId}"]`).click();
-  await feed.getByText(/Saved\. Assessment pending/).waitFor();
+  await feed.getByText(/Saved\. JEV is assessing/).waitFor();
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   const linked = feed.getByRole('link', {name: 'Open linked issue'});
   await linked.waitFor();
   assert.equal(await linked.getAttribute('href'), '/soda-tester/demo/issues/9');
-  await feed.getByText(/persisted selected issue #9/).waitFor();
+  await feed.getByText(/Feedback added to issue #9/).waitFor();
   const durable = await page.evaluate(
     () => (window as unknown as {feedDurableState?: {reads: number; posts: number}}).feedDurableState
   );
@@ -516,10 +519,12 @@ test('a project comment works before the first worker post', async (t) => {
     window.drawerFixture.mountFeed();
   }, {commentId});
   const feed=page.locator('soda-factory-feed');
-  await feed.getByText('No feed entries in scope yet.').waitFor();
+  await feed.getByText('No activity yet.').waitFor();
   await feed.getByLabel('Project comment',{exact:true}).fill('Thanks for the update.');
   await feed.getByRole('button',{name:'Post comment',exact:true}).click();
-  await feed.getByText('Kept as discussion: no issue is ever created from this comment.').waitFor();
+  await feed.getByText('Kept as discussion.').waitFor();
+  assert.equal(await feed.getByLabel('Project comment',{exact:true}).inputValue(), '');
+  assert(await feed.getByRole('button',{name:'Post comment',exact:true}).isDisabled());
   const posts=await page.evaluate(()=>window.drawerFixture.calls.filter(c=>c.url.endsWith('/api/factory/feed/comments')&&c.method==='POST').map(c=>JSON.parse(c.body??'{}')));
   assert.equal(posts.length,1);
   assert.equal(posts[0].repository,7);
