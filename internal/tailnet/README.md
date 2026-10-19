@@ -19,4 +19,3 @@ guidance through the existing host settings client. The
 [networking guide](../../docs/architecture/networking.md) owns endpoint and
 reachability rules.
 
-Run `go test ./internal/tailnet` for the domain and wire checks.

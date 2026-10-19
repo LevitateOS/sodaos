@@ -127,7 +127,7 @@ absolute, mode-0700 output directory. Run the first-use light/dark cases in
 new directory, viewport PNG and a receipt explicitly labelled **synthetic API and
 transport, no native Forgejo HTML/authentication or project proof**. The helper
 requires the loopback component marker and refuses native navigation/password
-controls. It does not relax `captureNativePage` or create a login shortcut.
+controls. It does not relax native-page capture rules or create a login shortcut.
 
 ## Conditions
 

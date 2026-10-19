@@ -138,8 +138,6 @@ internal/web/integration_helpers_test.go
 internal/web/postgres_fixture_test.go
 internal/web/spaces_inventory_test.go
 internal/web/test_helpers_test.go
-scripts/forgejo_form_layout_test.go
-scripts/forgejo_template_fixture_test.go
 scripts/integration_helpers_test.go
 scripts/pg_backup_test.go
 tests/build/avatar_integration_test.go

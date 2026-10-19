@@ -46,7 +46,7 @@ and copied into new native bundles; this is not broader distribution clearance.
   deleting a notice or assuming permission. The predecessor remains unchanged.
 
 Spaces uses two unmodified Primer Octicons 19.14.0 SVGs, matching the icon package
-selected by Forgejo 15.0.9. Their [source and MIT notice](../../assets/branding/icons/octicons/README.md)
+selected by Forgejo 15.0 LTS. Their [source and MIT notice](../../assets/branding/icons/octicons/README.md)
 are staged with the icons; this does not add a JS package dependency or change
 Forgejo's own licensing obligations.
 
@@ -84,7 +84,7 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   branding attribution. HTMX and its matching license are removed from current
   source together; historical bundles/evidence still need their original notices.
 
-The full Forgejo presentation inventory includes the selected 15.0.9 GPL text
+The full Forgejo presentation inventory includes the selected 15.0 LTS GPL text
 (`system/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
 family licenses, and the locked source metadata for the complete merged English
 catalog. Fountain's exact source input is retained separately by the candidate
@@ -119,7 +119,7 @@ notices, not complete binary/runtime license closure or deployment.
 
 ## Upgrade research is not a deployment selection
 
-Fountain currently derives from Forgejo 15.0.9. The prior v15/v16 comparison and
+Fountain currently derives from Forgejo 15.0.10. The prior v15/v16 comparison and
 release-note review remain historical evidence, not selection of another release.
 Assess maintenance and security releases on the maintained 15.0 LTS line and update
 the source and runtime base together through the release workflow. A major upgrade

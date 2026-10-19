@@ -47,8 +47,8 @@ Spaces.
 | Soda Forgejo extension | Native browser pages, persistent workspace panel and narrowly scoped calls into the Soda service |
 | Soda Go service (`web`, `web/api`, `web/auth`) | Environment/project APIs, membership and operator policy, terminal streams and runner/Tailnet operations |
 | Factory control (`factory/control`) | Readiness and execution coordination, verification and merge eligibility, execution records, limits and cancellation |
-| Factory workspace and publisher (`host/workspace`, `host/publish`) | Assigned execution resources and permitted native publication; run authority remains distinct from Project membership |
-| Identity Broker (`identity/control`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
+| Factory publisher (`forgejo/publish`) | Permitted native publication; run authority remains distinct from Project membership |
+| Identity Broker (`cmd/soda-identity`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
 | Project OS | Human and factory role accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
@@ -185,4 +185,4 @@ operator command's fresh workspaces follow its documented disposable lifecycle.
 - Requirement-to-source assessment: [Factory capability map](../research/factory-capability-map.md)
 - Appliance topology: `system/host/services/`
 - Project images and units: `system/project/`
-- Entrypoints: `cmd/soda-dashboard`, `rust/soda-host`, `rust/soda-factory`
+- Entrypoints: `cmd/soda-dashboard`, `lib/host` (`soda-host`), `cmd/soda-factory`

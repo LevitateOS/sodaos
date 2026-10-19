@@ -15,6 +15,12 @@ Do not infer installed support from a source file or an authored test.
 
 ## Evidence scope
 
+> Snapshot notice: this map predates the October tree reorganizations
+> (Rust `rust/` → `lib/`+`cmd/`+`tools/`, `internal/host/` flattening,
+> Go `release/`/`installer/` retirement, `appliance/` → `frontend/`+`cmd/`).
+> Source links in the tables below may have moved; the dated evidence
+> sections retain their stated scope.
+
 Inspected on September 30, 2026:
 
 - SodaOS source at `6955952b31489f9e315ed7c63019bd69731e4bd4`.

@@ -29,8 +29,7 @@
     "build:forgejo": "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out .artifacts/browser-terminal/vendor && bun scripts/build-forgejo.ts",
     "build:preview": "bun scripts/build-forgejo-preview.ts",
     "dev:spaces": "bun run build:forgejo && bun scripts/preview-spaces.ts",
-    "check:complexity": "bash scripts/check-complexity.sh",
-    "test:complexity": "bun test tools/source-complexity/check.test.ts"
+    "check:complexity": "bash scripts/check-complexity.sh"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

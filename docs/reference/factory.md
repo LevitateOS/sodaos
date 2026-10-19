@@ -108,7 +108,7 @@ preparation uses the same child custody without a candidate deadline.
 ## Retained publication validation
 
 Candidate publication is a separately persisted conditional operation built
-on the retained publisher validation. `host/publish` still imports a bounded
+on the retained publisher validation. `forgejo/publish` still imports a bounded
 bundle into a fresh bare repository, disables hooks and inherited Git
 configuration, checks ancestry against the admitted input, rejects changes
 under `.forgejo/` or `.github/workflows/`, and rejects known before/after

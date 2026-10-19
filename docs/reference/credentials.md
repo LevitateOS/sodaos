@@ -209,7 +209,7 @@ and service. `soda-setup` does not invent a Codex account, choose an external pa
 or overwrite an existing broker key. Starting a native service or installing a
 release remains subject to the normal installation guide.
 
-Source owners: `identity` records, `identity/control` custody, provider-specific
+Source owners: `identity` records, `cmd/soda-identity` custody, provider-specific
 protocol packages, `identity/client` private transport, `store` encrypted rows,
 `web/api` native extension authority, and native terminal executors for attestation
 and complete execution termination.

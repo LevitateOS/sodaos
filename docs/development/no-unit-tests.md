@@ -86,7 +86,9 @@ every push, next to the other negative gates.
 # Fails on (1) Rust test attributes or test-only modules under src/,
 # (2) Go *_test.go files outside tools/unitban/allow-go.txt,
 # (3) TS *.test.ts files outside tools/unitban/allow-ts.txt,
-# (4) any *.test.js/*.test.mjs/*.test.jsx/*.spec.* files (zero exist).
+# (4) any *.test.js/*.test.mjs/*.test.jsx/*.spec.* files outside docs/examples/
+# (docs/examples/ holds user-walkthrough fixtures executed in the reader's own
+# disposable repo; they are content, not repo suites).
 # New unit tests are banned by AGENTS.md. If a flagged file is genuinely
 # integration/e2e tier (real PostgreSQL, real browser, real subprocesses),
 # extend the matching allowlist and say why in the change.
@@ -138,7 +140,7 @@ if [ -n "$tsfiles" ]; then
 fi
 
 # --- Zero-tolerance test filename shapes ---
-hits=$(git ls-files '*.test.js' '*.test.mjs' '*.test.jsx' '*.spec.ts' '*.spec.tsx' '*.spec.js' '*.spec.jsx' || true)
+hits=$(git ls-files '*.test.js' '*.test.mjs' '*.test.jsx' '*.spec.ts' '*.spec.tsx' '*.spec.js' '*.spec.jsx' | grep -v '^docs/examples/' || true)
 if [ -n "$hits" ]; then
   printf 'banned test filename shapes (unit tests are banned):\n%s\n' "$hits"
   fail=1
