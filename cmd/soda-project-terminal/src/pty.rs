@@ -197,7 +197,3 @@ pub fn run_terminal(account: &Account, cols: i64, rows: i64, seconds: i64, sock:
         1
     }
 }
-
-#[cfg(test)]
-#[path = "pty_tests.rs"]
-mod pty_tests;

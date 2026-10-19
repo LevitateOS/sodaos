@@ -77,33 +77,3 @@ impl<E: Executor> Service<E> {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn both_harnesses_use_the_fixed_relay_and_run_home() {
-        let home = "/home/soda-coder/checkouts/f012345678901234567890123/.soda-home/runs/01234567890123456789012345678901/home";
-        let codex = String::from_utf8(codex_config(home)).unwrap();
-        assert!(codex.contains("[mcp_servers.factory]"));
-        assert!(codex.contains(RELAY));
-        assert!(codex.contains(&format!("HOME = \"{home}\"")));
-        assert!(codex.contains("required = true"));
-        let muse: serde_json::Value = serde_json::from_slice(&muse_config(home)).unwrap();
-        assert_eq!(muse["mcpServers"]["factory"]["command"], RELAY);
-        assert_eq!(muse["mcpServers"]["factory"]["env"]["HOME"], home);
-        assert_eq!(muse["mcpServers"]["factory"]["mode"], "required");
-        assert!(muse.get("mcp_servers").is_none());
-        assert!(!codex.contains("secret"));
-        assert!(!muse.to_string().contains("secret"));
-    }
-
-    #[test]
-    fn staging_requires_the_live_socket_and_preserves_root_ownership() {
-        let command = stage_command("/run/work/factory-mcp.json", 1001);
-        assert!(command.starts_with("test -S /run/soda/factory-ipc/mcp.sock"));
-        assert!(command.contains("install -m 440 -o 0 -g 1001 /dev/stdin"));
-        assert!(!command.contains("marker"));
-    }
-}

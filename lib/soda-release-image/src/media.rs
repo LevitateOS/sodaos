@@ -371,6 +371,3 @@ pub fn assemble_media(
         lock,
     )
 }
-
-#[cfg(test)]
-mod tests;

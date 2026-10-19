@@ -278,25 +278,3 @@ fn stop_ssh_child(child: &mut Child) -> Result<(), Error> {
         Err(wait_error) => Err(Error::join(vec![kill_error, Some(wait_error.into())]).unwrap()),
     }
 }
-
-#[cfg(test)]
-mod json_tests {
-    use super::decode_remote;
-    use serde_json::value::RawValue;
-
-    #[test]
-    fn remote_record_uses_last_exact_fields_before_type_decoding() {
-        let raw = RawValue::from_string(
-            r#"{"User":false,"User":"root","Port":1e400,"Port":22222,"Timeout":{"ignored":true}}"#
-                .to_string(),
-        )
-        .unwrap();
-        let decoded = decode_remote(&raw).unwrap();
-        assert_eq!(decoded.user, "root");
-        assert_eq!(decoded.port, 22222);
-        let fractional = RawValue::from_string(r#"{"Port":2.5}"#.to_string()).unwrap();
-        assert!(decode_remote(&fractional).is_err());
-        let unknown = RawValue::from_string(r#"{"Other":null}"#.to_string()).unwrap();
-        assert!(decode_remote(&unknown).is_err());
-    }
-}

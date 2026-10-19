@@ -322,7 +322,9 @@ impl FactoryRun {
         if self.execution_phase == EXECUTION_VERIFY && self.role != preparation::ROLE_REVIEWER {
             return Err("verify run requires the reviewer role".to_string());
         }
-        if self.execution_phase == EXECUTION_MAINTAIN_LIBRARY && self.role != preparation::ROLE_REVIEWER {
+        if self.execution_phase == EXECUTION_MAINTAIN_LIBRARY
+            && self.role != preparation::ROLE_REVIEWER
+        {
             return Err("library maintenance run requires the reviewer role".to_string());
         }
         Ok(())

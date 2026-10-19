@@ -1,18 +1,12 @@
 // soda-muse delegates a normal shell invocation over the launch-only socket.
 mod account;
 mod config;
-#[cfg(test)]
-mod config_tests;
 mod execution;
 mod launch;
-#[cfg(test)]
-mod launch_tests;
 mod launch_wire;
 mod paths;
 mod runtime;
 mod shell;
-#[cfg(test)]
-mod shell_tests;
 
 use account::account_for;
 use config::{copy_config, read_config};

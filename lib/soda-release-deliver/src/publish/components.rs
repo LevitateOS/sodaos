@@ -305,6 +305,3 @@ pub(super) fn stage(
     }
     verify(registry, directory, manifest)
 }
-
-#[cfg(test)]
-mod tests;

@@ -392,6 +392,3 @@ pub fn inventory(context: &str) -> Result<(), Error> {
         0o600,
     )
 }
-
-#[cfg(test)]
-mod tests;

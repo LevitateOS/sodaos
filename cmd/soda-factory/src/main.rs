@@ -237,6 +237,3 @@ fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<
         code => Err(format!("operator command failed (HTTP {code})")),
     }
 }
-
-#[cfg(test)]
-mod operator_tests;

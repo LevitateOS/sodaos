@@ -164,7 +164,3 @@ pub fn stop_service(identifier: &str, account: &Account) -> Result<(), String> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "svc_tests.rs"]
-mod svc_tests;

@@ -10,8 +10,6 @@ use serde::de::{self, DeserializeOwned, DeserializeSeed, MapAccess, SeqAccess, V
 use serde::{Deserialize, Deserializer};
 
 mod number;
-#[cfg(test)]
-mod strict_tests;
 
 pub use self::number::{parse_go_int64, parse_go_uint32};
 

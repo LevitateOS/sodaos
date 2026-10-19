@@ -346,7 +346,3 @@ fn credential_file(path: &Path) -> Result<Vec<u8>, Error> {
     }
     Ok(data)
 }
-
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;

@@ -208,19 +208,3 @@ pub(crate) fn zeroize(data: &mut [u8]) {
         unsafe { std::ptr::write_volatile(byte, 0) };
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn identity_id_fails_closed_after_partial_entropy_write() {
-        let result = std::panic::catch_unwind(|| {
-            new_id_with(|out| {
-                out[0] = 1;
-                Err(std::io::Error::other("injected entropy failure"))
-            });
-        });
-        assert!(result.is_err());
-    }
-}

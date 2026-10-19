@@ -24,9 +24,10 @@ Forgejo's theme entries import the palette alongside their native base theme.
 Cockpit's frontend entry imports the palette and its PatternFly adapter; the
 native branding entry imports installed copies of those same sources.
 
-Vite bundles CSS for the four Soda pages. Existing RPM staging copies the same
-palette into each application's own public assets. Independent build outputs are
-intentional; never maintain a second source copy or fetch CSS from another service.
+`scripts/build-soda-extension.ts` bundles the palette into the extension
+packages alongside each application's own public assets. Independent build
+outputs are intentional; never maintain a second source copy or fetch CSS
+from another service.
 There is no npm package, generator, runtime theme service, or extra build tool.
 
 When changing colors, run the palette contrast and packaging tests, then render

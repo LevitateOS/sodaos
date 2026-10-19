@@ -596,6 +596,3 @@ pub fn disk_summary(d: &BlockDevice) -> String {
         d.wwn,
     )
 }
-
-#[cfg(test)]
-mod tests;

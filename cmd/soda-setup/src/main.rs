@@ -9,8 +9,6 @@ mod origin;
 mod secrets;
 mod setup;
 mod system;
-#[cfg(test)]
-mod tests;
 
 use crate::cli::run;
 

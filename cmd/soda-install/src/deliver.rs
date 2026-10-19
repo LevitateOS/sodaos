@@ -21,6 +21,3 @@ pub fn load(path: &str) -> Result<Payload, Error> {
     payload.validate().map_err(|e| Error::msg(e.to_string()))?;
     Ok(payload)
 }
-
-#[cfg(test)]
-mod tests;

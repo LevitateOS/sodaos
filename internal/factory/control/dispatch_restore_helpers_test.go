@@ -1,0 +1,465 @@
+package control
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	sdk "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+// Helpers for the restored dispatch/settlement integration tests. These
+// seed through the real store on the disposable PostgreSQL fixture; the
+// only doubles are external-system boundaries (Forgejo check observation).
+
+type fakeCheckObserver struct {
+	observe func(factory.CheckTarget) (factory.ObservedChecks, error)
+
+	targets []factory.CheckTarget
+	actors  []int64
+}
+
+func (f *fakeCheckObserver) ObserveChecks(ctx context.Context, target factory.CheckTarget, actorID int64) (factory.ObservedChecks, error) {
+	f.targets = append(f.targets, target)
+	f.actors = append(f.actors, actorID)
+	return f.observe(target)
+}
+
+func happyCheckObserver() *fakeCheckObserver {
+	return &fakeCheckObserver{
+		observe: func(target factory.CheckTarget) (factory.ObservedChecks, error) {
+			return factory.ObservedChecks{
+				Checks:           []factory.ObservedCheck{{Context: "ci", State: factory.CheckStateSuccess}},
+				NativeRev:        9,
+				ObservedContexts: 1,
+				HeadTip:          target.HeadOID,
+				BaseTip:          target.BaseOID,
+				Complete:         true,
+			}, nil
+		},
+	}
+}
+
+// checkSeed finishes a reported assignment through publication on real PG
+// and returns the published publication.
+func checkSeed(t *testing.T, issue int64) (*publishFixture, factory.Publication) {
+	t.Helper()
+	fx := publishSeed(t)
+	a := fx.finishReported(t, issue)
+	fx.wire(happyPublisher())
+	fx.pass(t)
+	p, err := fx.db.PublicationByAssignment(context.Background(), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Stage != factory.PublicationPublished {
+		t.Fatalf("check seed publication not published: %+v", p)
+	}
+	return fx, p
+}
+
+// correctionRun settles one coder child result carrying the given candidate.
+func correctionRun(t *testing.T, fx *publishFixture, a factory.Assignment, candidate string) factory.Run {
+	t.Helper()
+	publication := fx.publication(t, a)
+	_, run := fx.childRun(t, a, publication, project.RoleCoder, publication.Candidate, a.Preparation, true)
+	accountChildResult(t, fx, run, correctionOutput(candidate))
+	return run
+}
+
+func correctionOutput(candidate string) string {
+	return "fixed the finding\n```" + factory.ResultFence + "\n{\"status\":\"completed\",\"summary\":\"fixed\",\"candidate\":\"" + candidate + "\",\"review_passed\":false,\"findings\":[]}\n```\n"
+}
+
+// phaseTestRun builds a run record bound to the given assignment.
+func phaseTestRun(a factory.Assignment, outcome factory.Outcome) factory.Run {
+	return factory.Run{
+		ID: a.Run, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
+		Started: time.Unix(1700000000, 0), Deadline: time.Unix(1700003600, 0),
+		Image: "img", Harness: a.Harness, Model: a.Model, Outcome: outcome,
+	}
+}
+
+// Intent-graph doubles extracted for restored integration tests.
+
+type generatedGraphFixture struct {
+	mu           sync.Mutex
+	revision     int64
+	actor        int64
+	owner        bool
+	records      map[string]sdk.OperationRecord
+	issues       map[int64]sdk.NativeSnapshot
+	submissions  int
+	beforeSubmit func(factory.IntentGeneration) error
+}
+
+func (f *generatedGraphFixture) CheckIntentOwner(context.Context, int64, int64, int64) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.owner {
+		return 0, errors.New("owner revoked")
+	}
+	return f.revision, nil
+}
+
+func (f *generatedGraphFixture) SubmitGraph(ctx context.Context, g factory.IntentGeneration, repo int64) (sdk.OperationRecord, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.beforeSubmit != nil {
+		if err := f.beforeSubmit(g); err != nil {
+			return sdk.OperationRecord{}, err
+		}
+	}
+	if old, ok := f.records[g.OperationID]; ok {
+		return old, nil
+	}
+	var p sdk.IssueGraphPayload
+	if err := json.Unmarshal(g.Payload, &p); err != nil {
+		return sdk.OperationRecord{}, err
+	}
+	if err := sdk.ValidateIssueGraphPayload(p); err != nil {
+		return sdk.OperationRecord{}, err
+	}
+	// Mirror the native writer: every edit anchor is validated before
+	// anything is created, so a refused packet commits nothing.
+	for _, edit := range p.Edits {
+		issue := f.issues[edit.IssueID-100].Issue
+		if issue == nil || issue.IsClosed || issue.Title != edit.ExpectedTitle || issue.Content != edit.ExpectedBody || issue.ContentVersion != edit.ExpectedContentVersion {
+			return sdk.OperationRecord{}, errors.New("invalid operation intent")
+		}
+	}
+	f.submissions++
+	f.revision++
+	receipt := sdk.IssueGraphReceipt{ActorID: g.ActorID, RepositoryID: repo}
+	ids := map[string]int64{}
+	for _, c := range p.Creates {
+		index := int64(len(f.issues) + 1)
+		id := index + 100
+		ids[c.Key] = id
+		issue := &sdk.SnapshotIssue{ID: strconv.FormatInt(id, 10), Index: strconv.FormatInt(index, 10), Title: c.Title, Content: c.Body, TitleDigest: forgejo.ContentDigest(c.Title), ContentDigest: forgejo.ContentDigest(c.Body), Visible: true, Complete: true, Provenance: sdk.SnapshotCreationProvenance{PosterID: strconv.FormatInt(g.ActorID, 10)}}
+		f.issues[index] = sdk.NativeSnapshot{RepositoryID: strconv.FormatInt(repo, 10), Issue: issue, Dependencies: &sdk.SnapshotDependencyPage{IssueID: issue.ID, Complete: true, Items: []sdk.SnapshotDependency{}}}
+		receipt.Issues = append(receipt.Issues, sdk.IssueGraphIssueReceipt{Key: c.Key, IssueID: id, IssueIndex: index})
+	}
+
+	for _, edit := range p.Edits {
+		index := edit.IssueID - 100
+		snapshot := f.issues[index]
+		issue := snapshot.Issue
+		// Mirror the native writer guard: closed issues refuse edits
+		// atomically, exactly like a title/body/version mismatch.
+		if issue == nil || issue.IsClosed || issue.Title != edit.ExpectedTitle || issue.Content != edit.ExpectedBody || issue.ContentVersion != edit.ExpectedContentVersion {
+			return sdk.OperationRecord{}, errors.New("invalid operation intent")
+		}
+		if issue.Title != edit.Title {
+			issue.Lifecycle = append(issue.Lifecycle, sdk.SnapshotLifecycleEvent{OccurrenceID: strconv.FormatInt(1000+f.revision, 10), Kind: "retitled", OldTitle: issue.Title, NewTitle: edit.Title})
+		}
+		issue.Title = edit.Title
+		issue.TitleDigest = forgejo.ContentDigest(edit.Title)
+		if issue.Content != edit.Body {
+			issue.Content = edit.Body
+			issue.ContentDigest = forgejo.ContentDigest(edit.Body)
+			issue.ContentVersion++
+		}
+		receipt.Issues = append(receipt.Issues, sdk.IssueGraphIssueReceipt{IssueID: edit.IssueID, IssueIndex: index, ContentVersion: issue.ContentVersion})
+	}
+	resolve := func(r sdk.IssueGraphRef) int64 {
+		if r.IssueID > 0 {
+			return r.IssueID
+		}
+		return ids[r.Key]
+	}
+	for i, e := range p.Dependencies {
+		id, dep := resolve(e.Issue), resolve(e.Prerequisite)
+		snapshot := f.issues[id-100]
+		if e.Remove {
+			kept := []sdk.SnapshotDependency{}
+			for _, old := range snapshot.Dependencies.Items {
+				if old.DependencyID != strconv.FormatInt(dep, 10) {
+					kept = append(kept, old)
+				}
+			}
+			snapshot.Dependencies.Items = kept
+		} else {
+			snapshot.Dependencies.Items = append(snapshot.Dependencies.Items, sdk.SnapshotDependency{OccurrenceID: strconv.Itoa(i + 700 + int(f.revision)*100), IssueID: strconv.FormatInt(id, 10), DependencyID: strconv.FormatInt(dep, 10), Visible: true, Complete: true})
+		}
+		snapshot.Dependencies.Total = len(snapshot.Dependencies.Items)
+		f.issues[id-100] = snapshot
+		receipt.Dependencies = append(receipt.Dependencies, sdk.IssueGraphDependencyReceipt{IssueID: id, PrerequisiteID: dep, Removed: e.Remove})
+	}
+	raw, _ := json.Marshal(receipt)
+	record := sdk.OperationRecord{OperationID: g.OperationID, ActorID: strconv.FormatInt(g.ActorID, 10), RepositoryID: strconv.FormatInt(repo, 10), Kind: sdk.OperationKindIssueGraph, Outcome: sdk.EffectCommitted, EffectState: sdk.EffectCommitted, CompletionState: sdk.CompletionComplete, Receipt: raw}
+	f.records[g.OperationID] = record
+	return record, nil
+}
+
+func (f *generatedGraphFixture) LookupGraph(_ context.Context, g factory.IntentGeneration, _ int64) (sdk.OperationLookup, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r, ok := f.records[g.OperationID]
+	if !ok {
+		return sdk.OperationLookup{OperationID: g.OperationID, Status: sdk.BackgroundOutcomeNotObserved}, nil
+	}
+	return sdk.OperationLookup{OperationID: g.OperationID, Status: r.EffectState, Record: &r}, nil
+}
+
+func (f *generatedGraphFixture) CancelGraph(_ context.Context, id string) (sdk.OperationRecord, error) {
+	return sdk.OperationRecord{OperationID: id, EffectState: sdk.EffectNotCommitted, CancellationStatus: sdk.CancellationCancelled}, nil
+}
+
+func (f *generatedGraphFixture) ReadGeneratedIssue(_ context.Context, _, index, _ int64) (sdk.NativeSnapshot, int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, ok := f.issues[index]
+	if !ok {
+		return sdk.NativeSnapshot{}, 0, errors.New("missing issue")
+	}
+	return s, f.revision, nil
+}
+
+func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, index string, _ []string) (AcceptanceEvidence, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n, _ := strconv.ParseInt(index, 10, 64)
+	s := f.issues[n]
+	if s.Issue == nil {
+		return AcceptanceEvidence{}, errors.New("missing issue")
+	}
+	i := s.Issue
+	return AcceptanceEvidence{Revision: f.revision, Issue: AcceptanceIssueView{ID: i.ID, Index: i.Index, TitleDigest: i.TitleDigest, ContentDigest: i.ContentDigest, ContentVer: i.ContentVersion, TitleOccurrence: generatedTitleOccurrence(i), Visible: true, PosterID: i.Provenance.PosterID}, Dependencies: generatedEdges(s.Dependencies)}, nil
+}
+
+func broadJoinAcceptedRevision() factory.IntentRevision {
+	idea := func(id, desc, consequence string) factory.ProductIdea {
+		return factory.ProductIdea{ID: id, Description: desc, Consequence: consequence, Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+	}
+	return factory.IntentRevision{
+		ID: "d333333333333333333333333", Intent: "d444444444444444444444444",
+		Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted",
+		MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{
+			idea("d555555555555555555555555", "Capture leave requests", "Requests can be recorded"),
+			idea("d666666666666666666666666", "Managers review requests", "Decisions are visible"),
+		},
+		Tasks: []factory.IntentTask{
+			{Key: choiceTaskKey(1), Objective: "Capture leave requests", Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{"d555555555555555555555555"}},
+			{Key: choiceTaskKey(2), Objective: "Validate leave requests", Outcomes: []string{"Invalid requests are rejected"}, IdeaIDs: []string{"d555555555555555555555555"}},
+			{Key: choiceTaskKey(3), Objective: "Notify managers", Outcomes: []string{"Managers see pending reviews"}, IdeaIDs: []string{"d666666666666666666666666"}},
+			{Key: choiceTaskKey(4), Objective: "Manager decision", Outcomes: []string{"Decisions are visible"}, IdeaIDs: []string{"d555555555555555555555555", "d666666666666666666666666"}, DependsOn: []string{choiceTaskKey(1), choiceTaskKey(2), choiceTaskKey(3)}},
+		},
+	}
+}
+
+func chosenFor(r factory.IntentRevision) ChosenIntentPlan {
+	return ChosenIntentPlan{
+		Intent: r.Intent, Revision: r.ID, Operation: factory.IntentPlanningOptions,
+		Key: "candidate-one", Tasks: append([]factory.IntentTask(nil), r.Tasks...),
+	}
+}
+
+func submittedKeys(tasks []factory.IntentTask) []string {
+	keys := make([]string, 0, len(tasks))
+	for _, task := range tasks {
+		keys = append(keys, task.Key)
+	}
+	return keys
+}
+
+// The choice path adopts broad roots with a join exactly: every chosen key
+// is submitted, every payload create names a chosen key, and no serving
+// judgment evaluates.
+// candidateChoiceStub is the deterministic stand-in for the funded
+// candidate choice: it selects one planner alternative with an explicit
+// confidence, counting calls so tests prove reservation caching (replays
+// spend nothing further).
+type candidateChoiceStub struct {
+	selected   string
+	confidence float64
+	calls      int
+	err        error
+}
+
+func (s *candidateChoiceStub) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	s.calls++
+	if s.err != nil {
+		return factory.PriorityAnswer{}, s.err
+	}
+	selected := s.selected
+	if _, ok := choices[selected]; !ok {
+		selected = "cand-a"
+	}
+	share := (1 + s.confidence) / 2
+	answer := factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: s.confidence, Probabilities: map[string]float64{}}
+	for id := range choices {
+		answer.Probabilities[id] = (1 - share) / float64(len(choices)-1)
+	}
+	answer.Probabilities[selected] = share
+	return answer, nil
+}
+
+// choiceDraftHead builds the reviewed draft behind an accepted revision:
+// same intent and choices, draft state, no tasks yet.
+func choicePlannerOutput(draft factory.IntentRevision, keys ...string) factory.SemanticPlannerOutput {
+	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
+	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions}
+	for _, key := range keys {
+		out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
+	}
+	return out
+}
+
+// stubSettleStore doubles the terminal-settlement store boundary.
+type stubSettleStore struct {
+	assignment   factory.Assignment
+	assignmentOK bool
+	assignmentEr error
+	submission   factory.MCPSubmission
+	terminalOK   bool
+	terminalErr  error
+	receiptState string
+	advanceErr   error
+	advances     int
+	lastReceipt  factory.MCPReceipt
+	finishErr    error
+	finished     []factory.Assignment
+	byRun        map[string]factory.Assignment
+}
+
+// AssignmentByRun serves the repair-chain joint: no recorded failed
+// verification exists behind a stub run unless a test records one.
+func (s *stubSettleStore) AssignmentByRun(_ context.Context, runID string) (factory.Assignment, error) {
+	if s.byRun != nil {
+		if a, ok := s.byRun[runID]; ok {
+			return a, nil
+		}
+	}
+	return factory.Assignment{}, store.ErrNotFound
+}
+
+func (s *stubSettleStore) Assignment(context.Context, string) (factory.Assignment, error) {
+	if s.assignmentEr != nil {
+		return factory.Assignment{}, s.assignmentEr
+	}
+	if !s.assignmentOK {
+		return factory.Assignment{}, store.ErrNotFound
+	}
+	return s.assignment, nil
+}
+
+func (s *stubSettleStore) TerminalMCPSubmission(context.Context, string) (factory.MCPSubmission, bool, error) {
+	if s.terminalErr != nil {
+		return factory.MCPSubmission{}, false, s.terminalErr
+	}
+	return s.submission, s.terminalOK, nil
+}
+
+func (s *stubSettleStore) TerminalMCPProposal(context.Context, string) (factory.MCPReceipt, bool, error) {
+	if !s.terminalOK {
+		return factory.MCPReceipt{}, false, nil
+	}
+	return factory.MCPReceipt{
+		SubmissionID: s.submission.SubmissionID, Tool: s.submission.Tool,
+		State: s.receiptState, InputDigest: s.submission.PayloadHash,
+	}, true, nil
+}
+
+func (s *stubSettleStore) AdvanceMCPReceipt(_ context.Context, _, _ string, expectedState string, receipt factory.MCPReceipt) error {
+	if s.advanceErr != nil {
+		return s.advanceErr
+	}
+	if s.receiptState != expectedState {
+		return store.ErrStaleRevision
+	}
+	s.receiptState = receipt.State
+	s.lastReceipt = receipt
+	s.advances++
+	return nil
+}
+
+func (s *stubSettleStore) FinishAssignment(_ context.Context, a factory.Assignment) error {
+	if s.finishErr != nil {
+		return s.finishErr
+	}
+	s.finished = append(s.finished, a)
+	return nil
+}
+
+func settleStub(assigned factory.Assignment, tool factory.MCPTool, fields map[string]string) *stubSettleStore {
+	raw, _ := json.Marshal(fields)
+	submission := factory.MCPSubmission{
+		AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
+		ExpectedInputDigest: strings.Repeat("e", 64),
+		PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
+	}
+	return &stubSettleStore{
+		assignment: assigned, assignmentOK: true,
+		submission: submission, terminalOK: true,
+		receiptState: factory.MCPReceiptRecorded,
+	}
+}
+
+func fw40Stub(t *testing.T, assigned factory.Assignment, tool factory.MCPTool, payload map[string]any) *stubSettleStore {
+	t.Helper()
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &stubSettleStore{
+		assignment: assigned, assignmentOK: true,
+		submission: factory.MCPSubmission{
+			AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
+			ExpectedInputDigest: strings.Repeat("e", 64),
+			PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
+		},
+		terminalOK: true, receiptState: factory.MCPReceiptRecorded,
+	}
+}
+
+func fw40Settle(t *testing.T, stub *stubSettleStore, id string) bool {
+	t.Helper()
+	settled, err := SettleMCPTerminalProposal(context.Background(), stub, id, time.Unix(1700000200, 0))
+	if err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+	return settled
+}
+
+func fw40Finished(t *testing.T, stub *stubSettleStore) factory.Assignment {
+	t.Helper()
+	if len(stub.finished) != 1 {
+		t.Fatalf("finished %d assignments, want 1", len(stub.finished))
+	}
+	finished := stub.finished[0]
+	if err := finished.Validate(); err != nil {
+		t.Fatalf("finished assignment invalid: %v", err)
+	}
+	if stub.lastReceipt.State != factory.MCPReceiptAccepted {
+		t.Fatalf("receipt state %q, want accepted", stub.lastReceipt.State)
+	}
+	return finished
+}
+
+func choiceTaskKey(n int) string { return fmt.Sprintf("d%024x", 0xc000+n) }
+
+func settleStubs(host *stubHost, broker *stubBroker) {
+	host.stop = func(in project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stopped", LeaseID: "lease-" + in.ID, Generation: 3, CredentialReturned: true}, nil
+	}
+	broker.close = func(string, string) error { return nil }
+	broker.get = func(kind, id string) (identity.Execution, error) {
+		return identity.Execution{
+			Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal, Digest: "digest", LeaseID: "lease-" + id,
+			Binding: &identity.Binding{Kind: identity.Factory, ID: id, Generation: 3},
+		}, nil
+	}
+}

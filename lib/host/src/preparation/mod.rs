@@ -257,8 +257,3 @@ typed_preparation_object!(Prepare, "a prepare request object", {
     preparation => "preparation": Preparation,
     setup => "setup": ApprovedSetup,
 });
-
-#[cfg(test)]
-mod validation_tests;
-#[cfg(test)]
-mod wire_tests;

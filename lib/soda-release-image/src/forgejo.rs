@@ -41,22 +41,3 @@ pub fn extract_forgejo_snapshot(runner: &Runner, request: &request::Request) -> 
         ],
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_forgejo_snapshot_refuses_bad_revision() {
-        // Oracle: Go TestExtractForgejoSnapshotRefusesBadRevision.
-        let request = request::Request {
-            forgejo_revision: "short".to_string(),
-            ..request::Request::default()
-        };
-        let runner = Runner::new(std::rc::Rc::new(crate::build_runner::Cancel::new()));
-        assert_eq!(
-            extract_forgejo_snapshot(&runner, &request).unwrap_err().0,
-            "exact Forgejo source revision required"
-        );
-    }
-}

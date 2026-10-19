@@ -50,8 +50,7 @@ independently gated and are not enabled by the aggregate.
 
 Focused source checks include `bun run test:frontend` for component behavior,
 `bun run test:forgejo` for Forgejo branding and presentation, and
-`bun run test:lit` for emitted Lit, workspace and terminal behavior. The current extension
-package graph is checked by `scripts/build-soda-extension.test.ts`; the persistent
+`bun run test:lit` for emitted Lit, workspace and terminal behavior. The persistent
 panel fixture checks terminal continuity while native pages navigate. Choose the
 smallest affected check. Native installed journeys and their evidence rules belong
 in [Testing](testing.md).
@@ -151,8 +150,7 @@ JavaScript must not be tracked beside TypeScript.
 
 Forgejo branding modules use the presentation epoch from `custom/header.tmpl`
 (`soda-presentation-revision`) for relative external imports, including Lit.
-`lit-build.test.ts` checks that emitted Forgejo imports resolve within the public
-payload. The native extension host owns package loading and its asset lifecycle;
+The native extension host owns package loading and its asset lifecycle;
 Forgejo's branding cache epoch does not version extension package modules.
 
 Run `bun run build:forgejo` before serving a local preview, and resolve payload

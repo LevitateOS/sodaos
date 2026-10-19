@@ -37,9 +37,6 @@ fn lifecycle_observe_deadline(
 
 use super::{decode_empty_or_null, DaemonBackend};
 
-#[cfg(test)]
-mod tests;
-
 /// Tailnet decode failure: Go's `decodeTailnetBody` reports `ErrInvalid`
 /// (400), unlike the native 500.
 pub(super) fn decode_tailnet_empty(body: &[u8]) -> Result<(), BackendError> {

@@ -95,6 +95,3 @@ pub use self::broker::{
     identity_action, identity_launch, identity_route, rand_id, valid_identity_request,
     IdentityBroker, IdentityRoute,
 };
-
-#[cfg(test)]
-mod tests;

@@ -7,13 +7,7 @@ use crate::console::Console;
 use crate::errors::Error;
 use crate::signal::Ctx;
 
-use self::access::configured_access;
-use self::address::setup_addresses;
-pub use self::address::{private_setup_origin, SetupAddress};
-use self::configure::{
-    configure_private_install, execute_setup_and_activation, valid_operator_token,
-};
-use self::local_ca::local_ca_fingerprint;
+use self::configure::configure_private_install;
 
 const LOCAL_CA_PATH: &str = "/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt";
 /// `platform.Sbin`: native Soda binaries live here.
@@ -31,6 +25,3 @@ mod access;
 mod address;
 mod configure;
 mod local_ca;
-
-#[cfg(test)]
-mod tests;

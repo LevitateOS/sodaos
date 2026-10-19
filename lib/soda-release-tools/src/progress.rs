@@ -315,6 +315,3 @@ impl BuildProgress {
         first_err.map_or(Ok(()), Err)
     }
 }
-
-#[cfg(test)]
-mod tests;

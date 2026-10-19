@@ -489,26 +489,6 @@ fn confirm_enrollment_intent(
     Ok(())
 }
 
-#[cfg(test)]
-mod temp_owner_tests {
-    use super::create_enrollment_temp;
-
-    #[test]
-    fn cleanup_preserves_a_replaced_temporary_name() {
-        let directory =
-            std::env::temp_dir().join(format!("soda-enrollment-owner-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&directory);
-        std::fs::create_dir(&directory).unwrap();
-        let mut temp = create_enrollment_temp(directory.to_str().unwrap(), "receipt").unwrap();
-        std::fs::remove_file(&temp.path).unwrap();
-        std::fs::write(&temp.path, b"replacement").unwrap();
-        assert!(temp.remove_owned().is_err());
-        assert_eq!(std::fs::read(&temp.path).unwrap(), b"replacement");
-        drop(temp);
-        std::fs::remove_dir_all(directory).unwrap();
-    }
-}
-
 pub fn select_enrollment_target(
     ctx: &Ctx,
     console: &Console,

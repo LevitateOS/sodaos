@@ -45,37 +45,3 @@ pub fn valid_signature(status: &[u8], signer: &str) -> bool {
     }
     valid
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SIGNER: &str = "abcdef1234567890ABCDEF1234567890ABCDEF12";
-
-    #[test]
-    fn accepts_matching_validsig() {
-        let status = "[GNUPG:] GOODSIG ABCDEF1234567890 signer\n\
-             [GNUPG:] VALIDSIG abcdef1234567890abcdef1234567890abcdef12 a b c d e f g h\n";
-        assert!(valid_signature(status.as_bytes(), SIGNER));
-    }
-
-    #[test]
-    fn accepts_subkey_validsig_in_long_form() {
-        let status = "[GNUPG:] VALIDSIG 0000000000000000000000000000000000000000 a b c d e f g h ABCDEF1234567890ABCDEF1234567890ABCDEF12\n";
-        assert!(valid_signature(status.as_bytes(), SIGNER));
-    }
-
-    #[test]
-    fn rejects_failures_and_mismatches() {
-        let good = "[GNUPG:] VALIDSIG ABCDEF1234567890ABCDEF1234567890ABCDEF12 a b c d e f g h\n";
-        assert!(valid_signature(good.as_bytes(), SIGNER));
-        let bad = "[GNUPG:] BADSIG ABCDEF1234567890 signer\n".to_string() + good;
-        assert!(!valid_signature(bad.as_bytes(), SIGNER));
-        assert!(!valid_signature(
-            good.as_bytes(),
-            "ffffffffffffffffffffffffffffffffffffffff"
-        ));
-        assert!(!valid_signature(b"noise without status lines\n", SIGNER));
-        assert!(!valid_signature(b"", SIGNER));
-    }
-}

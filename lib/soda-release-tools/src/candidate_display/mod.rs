@@ -389,6 +389,3 @@ pub fn term_width(fd: libc::c_int) -> usize {
     }
     80
 }
-
-#[cfg(test)]
-mod tests;

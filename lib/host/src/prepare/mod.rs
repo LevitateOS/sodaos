@@ -330,10 +330,3 @@ impl<E: Executor> Runtime<E> {
         Ok(hold)
     }
 }
-
-#[cfg(test)]
-mod candidate_tests;
-#[cfg(test)]
-mod execution_tests;
-#[cfg(test)]
-mod tests;

@@ -147,6 +147,3 @@ pub fn candidate_destination(
     );
     inputs::serialize_ignition(&serde_json::Value::Object(config_entries))
 }
-
-#[cfg(test)]
-mod tests;

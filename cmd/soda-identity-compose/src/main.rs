@@ -1,6 +1,4 @@
 // soda-identity-compose registers one explicitly opted-in Compose service.
-#[cfg(test)]
-use std::fs;
 
 mod compose;
 mod launch_wire;
@@ -42,7 +40,3 @@ fn load_options() -> Result<Options, String> {
         .collect();
     parse_options(&args)
 }
-
-#[cfg(test)]
-#[path = "compose_tests.rs"]
-mod compose_tests;

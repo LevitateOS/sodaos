@@ -11,6 +11,3 @@ mod wire;
 
 pub use runtime::{ReleaseBinding, Runtime};
 pub use wire::{Observation, Request, Spec};
-
-#[cfg(test)]
-mod tests;

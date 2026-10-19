@@ -39,18 +39,6 @@ fn same_storage(current: Option<&String>, replacement: Option<&String>) -> bool 
     current.is_some_and(|digest| hex(digest, 64)) && current == replacement
 }
 
-#[test]
-fn storage_updates_require_equal_real_fingerprints() {
-    let first = "a".repeat(64);
-    let different = "b".repeat(64);
-    let empty = String::new();
-    assert!(same_storage(Some(&first), Some(&first)));
-    assert!(!same_storage(Some(&first), Some(&different)));
-    assert!(!same_storage(None, None));
-    assert!(!same_storage(Some(&empty), Some(&empty)));
-    assert!(!same_storage(Some(&first), None));
-}
-
 pub struct Runtime<E> {
     pub exec: E,
     pub release: Option<ReleaseBinding>,

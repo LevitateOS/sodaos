@@ -70,4 +70,4 @@ authority, root custody and key permissions are described in
 
 - Setup procedure: [Operator setup](../guides/operator-setup.md)
 - Credential maintenance: [Credentials](credentials.md)
-- Platform installed-path consts: `internal/platform`
+- Platform installed-path consts: per-binary build configuration (no shared package)

@@ -19,10 +19,12 @@ Cross-compilation or emulation is not native proof. Native validation follows th
 
 Use the installed tools and choose checks for the changed behavior. Tool version
 numbers are not admission criteria. Ordinary source checks work in a dirty
-checkout and require no release preparation or provider enrollment. Examples:
+checkout and require no release preparation or provider enrollment. Unit
+tests are forbidden by [policy](no-unit-tests.md); only integration and
+end-to-end suites run. Examples:
 
 ```sh
-go test ./internal/project ./internal/web/...
+go test ./internal/store ./internal/web/...
 bun run typecheck
 bun run test:frontend
 bun run check:source
@@ -59,10 +61,10 @@ exempts source. Compiler/download caches do not replace `go test -count=1`.
 
 | Push lane | Blocking scope |
 | --- | --- |
-| Go | Parallel core, Store and Web suites: Go command/internal/tool packages except native factory-control, identity-client and installed-probe integrations; focused CI/source-driver contracts, module integrity, SQL locality, no-npm and no-Python guards. All three jobs must pass. |
+| Go | Parallel core, Store and Web suites: Go command/internal/tool packages except native factory-control, identity-client and installed-probe integrations; focused CI/source-driver contracts, module integrity, SQL locality, no-npm, no-Python and unit-test-ban guards. All three jobs must pass. |
 | PostgreSQL | Every Go job receives PostgreSQL 17 and a required restricted fixture password file; Store/Web tests execute against real disposable databases. |
 | Browser source | Full strict TypeScript/Lit analysis and fixtures; native form, personal/repository settings and presentation-inventory source contracts. |
-| Rust | Wire-time, Unix HTTP, release-input foundation and release-delivery library tests with the committed lock. |
+| Rust | Wire-time, Unix HTTP, release-input foundation and release-delivery libraries with the committed lock (`cargo test --lib` runs clean with no unit-test targets by policy). |
 | Packaging | Checksum-pinned Hadolint, Compose deployment and readiness contracts. |
 
 The protected main branch still requires `CI` from GitHub Actions, an up-to-date

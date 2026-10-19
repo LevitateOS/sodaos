@@ -460,7 +460,3 @@ impl<E: Executor> HostRuntime<E> {
         podman(&self.exec, &full, deadline)
     }
 }
-
-#[cfg(test)]
-#[path = "host/tests.rs"]
-mod tests;

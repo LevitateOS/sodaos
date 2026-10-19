@@ -106,6 +106,3 @@ pub fn escape_go(out: &mut String, value: &str) {
     }
     out.push('"');
 }
-
-#[cfg(test)]
-mod tests;

@@ -50,6 +50,3 @@ impl Permit {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests;

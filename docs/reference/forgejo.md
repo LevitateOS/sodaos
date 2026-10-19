@@ -54,10 +54,11 @@ before the trailing menu items overflow. Project selection uses the observed
 native repository ID, never its display name.
 
 Global and repository Workspace use shared native templates and one retained
-Soda owner. The current host frames ordinary native browsing and copies Workspace
-content from fetched documents; installed review found navigation, initialization
-and composition failures. This is the implementation being corrected, not proof
-that the native frontend contract is satisfied. The correction is specified in
+Soda owner. The pre-correction host framed ordinary native browsing and copied
+Workspace content from fetched documents; installed review found navigation,
+initialization and composition failures. That implementation was replaced by
+the completed native correction; it is not proof that the native frontend
+contract is satisfied. The standing regression boundary is specified in
 [native frontend responsibility and correction](../development/testing.md#native-frontend-composition).
 
 Fountain owns native shell/navigation, page configuration and native feature
@@ -139,7 +140,7 @@ Brand assets: [Branding](../design/branding.md).
 
 - Fountain host and standalone SDK: the separate canonical Fountain repository
 - Soda extension package: `system/containers/extension/` and its backend entry point
-- Templates/assets: `appliance/forgejo/`
+- Templates/assets: `frontend/forgejo/`
 - Extension browser sources: `frontend/spaces/`,
   `frontend/tailnet/`; packaged by `scripts/build-soda-extension.ts`
 - Presentation checks: `scripts/*forgejo*`, `tests/forgejo/`

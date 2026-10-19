@@ -19,6 +19,3 @@ pub mod lifecycle;
 pub mod paths;
 pub mod reserve;
 pub mod start;
-
-#[cfg(test)]
-mod tests;

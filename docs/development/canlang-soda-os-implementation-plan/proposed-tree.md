@@ -124,7 +124,6 @@ Generated TypeScript distributions, worker bundles, the native exec-guard binary
     │   │       │   ├── ingress.rs
     │   │       │   ├── runtime.rs
     │   │       │   ├── snapshot.rs
-    │   │       │   ├── tests.rs
     │   │       │   └── wire.rs
     │   │       └── bin/
     │   │           └── soda-canlang-storage.rs

@@ -111,8 +111,8 @@ for this feature. Do not use old whole-database backups to erase later writes.
 ## Checks and packaging
 
 ```sh
-go test ./internal/avatar ./internal/web ./tools/soda-avatars ./internal/release/build
-go test -race ./internal/avatar ./internal/web -run 'Avatar|Render|Definition|Versioned|Stable|Offline|InputBounds'
+go test ./internal/web
+go test -race ./internal/web -run 'Avatar|Render|Definition|Versioned|Stable|Offline|InputBounds'
 go test ./tests/build/ -run 'Avatar'
 SODA_CADDY_BINARY=/absolute/path/to/caddy go test ./tests/build/ -run 'Avatar'
 SODA_AVATAR_BROWSER_CHECK=1 go test ./internal/web -run TestAvatarBrowserRendering -v

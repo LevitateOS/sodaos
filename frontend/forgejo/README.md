@@ -55,15 +55,10 @@ CSS and artwork changes need a browser refresh; template changes need:
 docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
-The [native Soda page host](../../docs/reference/forgejo.md)
-has an opt-in browser check against this exact local preview:
-`SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts`.
-Prepare the matching canonical public payload first; missing server assets fail
-the check. It uses the authorized screenshot profile plus a separate normal
-fixture-account login/logout, reads the ignored fixture credential internally and
-removes only its unique test-owned public probe module. It does not change account
-settings, notifications, repositories or Soda state. The xterm probe is browser-local,
-not native terminal/process evidence. Native login return is required for reliable
+The [native Soda page host](../../docs/reference/forgejo.md) is covered by the
+live `tests/forgejo` browser suites against a prepared local preview. Prepare
+the matching canonical public payload first; missing server assets fail
+the checks. Native login return is required for reliable
 entry from an expired/remembered session; raw root queries alone can lose that return.
 
 The stylesheets use `AssetUrlPrefix` through the template and relative CSS imports.
@@ -197,8 +192,7 @@ Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme 
 and authenticated account setting remain authoritative for native pages. The
 button never submits an account preference or changes authentication cookies.
 Its accessible label describes the next action; a focus ring appears for keyboard
-use although the resting button has no border. Tests: `bun run build:forgejo && bun test
-tests/forgejo/login-theme.test.ts` from the repository root.
+use although the resting button has no border.
 
 ## Public homepage
 
@@ -221,7 +215,7 @@ The login illustration is unchanged.
 
 ## Translation scaffold
 
-[i18n/](i18n/README.md) reserves Soda-only locale additions. Native build now verifies
+The `locales/` directory ([README](locales/README.md)) reserves Soda-only locale additions. Native build now verifies
 the complete 15.0.10 English catalog using `locale.lock.json`, merges only that
 namespace and stages the full replacement. Translation of the remaining custom
 copy remains future work; this is not evidence of a new installed catalog.
@@ -359,8 +353,8 @@ reviews, assignments, labels, milestone/task progress, multilingual/long titles 
 a real one-file merge conflict. Local browser confirmed 8 open / 2 closed requests
 and the native waiting-review/approval/change-request/conflict summaries. Native API
 confirmed draft=true for #9 and mergeable=false for #14. No application rules or
-existing non-fixture repositories changed. The ignored one-shot execution record is
-`.artifacts/local-forgejo/seed-pull-fixtures.py` (not safe to blindly rerun).
+existing non-fixture repositories changed. The one-shot seeding was a local
+uncommitted record (not safe to blindly rerun).
 
 ### Global Milestones overview
 
@@ -380,7 +374,7 @@ illustration now replaces the reused checklist image. Prompt and provenance:
 added ten milestones and thirty linked issues within the existing three local
 fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50/75/100%
 progress examples, overdue/upcoming/no-deadline states and empty milestone content.
-The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
+The one-shot seeding was a local uncommitted record;
 do not blindly rerun it. No non-fixture repository writes or deployment.
 
 ### Notifications
@@ -440,8 +434,8 @@ navbar toggle. Repository context uses `.Repository`, organization context uses
 toggle. Stock 15.0.9 constructs that Link
 from `AppSubURL` plus the escaped URL path (without query state). Prohibited login
 retains `PageIsSignIn`, so its override supplies the body toggle, just as login does.
-Account themes remain native. Source parity hashes for the adapted wrappers and
-focused component/render tests live under `scripts/forgejo_*_test.go`.
+Account themes remain native. Source parity hashes for the adapted wrappers
+live in the test-only `tests/forgejo/presentation/inventory.json`.
 
 The expanded baseline is mounted in the existing isolated local preview. Audit
 changes from another worktree can be reviewed using the documented `--local-css`
@@ -499,22 +493,18 @@ the narrow main-content form adapter; compact row/search/modal forms are exclude
 Sign-in retains its native partial with a bounded form adapter. Do not replace
 these with selectors matching every descendant form or segment on a page.
 
-`tests/forgejo/presentation/inventory.json` accounts for all 229 overrides and
+`tests/forgejo/presentation/inventory.json` accounts for all 264 overrides and
 records local and embedded-15.0.9 callers, compositions, roles and required
 states. It is test-only, not routing configuration. Role-only source hashes
-complement the existing exact upstream-body tests; they do not constitute visual
-verification. The reference gallery renders production intro/empty partials,
-the actual stylesheet registry and minimal native markup fixtures into ignored
-`.artifacts/forgejo-presentation/`:
+complement the live `tests/forgejo` browser suites; they do not constitute visual
+verification. Run the presentation suites with:
 
 ```sh
-SODA_FORGEJO_GALLERY=1 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
-  go test -mod=readonly ./scripts -run TestForgejoPresentationGallery -count=1
 SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 \
   bun run test:forgejo
 ```
 
-Gallery evidence remains separate from native route evidence and does not prove
+Component evidence remains separate from native route evidence and does not prove
 permissions, providers, form submissions, editor plugins or unavailable admin,
 organization and setup states.
 
@@ -587,8 +577,8 @@ remain required. The gallery uses production navigation and the actual CSS
 registry with minimal native form, preference, security and inventory fixtures.
 It is component evidence, not native-route acceptance.
 
-See `i18n/README.md` for complete English catalog generation and the scoped local
-activation. Generated catalogs, gallery and screenshots stay in ignored
+See [locales/README.md](locales/README.md) for complete English catalog generation and the scoped local
+activation. Generated catalogs and screenshots stay in ignored
 `.artifacts/`. No appliance staging or deployment is part of this redesign.
 
 
@@ -726,12 +716,12 @@ submitted, credentials generated or repository state changed by the enhancement.
 conditions and script hooks for the 22 settings leaves and four unit partials.
 The Go navigation test compares all 256 feature/permission combinations with the
 exact native navbar. Non-opted organization/administrator shared-partial bodies
-retain explicit native-parity checks. The test-only inventory covers 235
+retain explicit native-parity checks. The test-only inventory covers 264
 production overrides/helpers and both local and native callers.
 
 The separate `repository-settings-{light,dark}.html` gallery uses the production
 registry, native SVG assets and the runner editor with minimal native form/inventory
-fixtures. `repository-settings-browser.test.ts` checks seven widths including
+fixtures. Browser coverage checks seven widths including
 900/899px, no-JavaScript fallback, focus, long labels, gutters, file input and
 table containment. Gallery output and component captures are ignored artifacts,
 not native repository screenshots. Native owner-only, provider, credential,
@@ -813,15 +803,15 @@ destination or installed page.
   `repository-actions.ts`, `repository-switcher.ts` and `personal-settings.ts`
   register the page leaves from the shared footer; their connection/disconnection
   hooks own re-entry and cleanup. `notification-preview.ts` and `login-theme.ts`
-  retain document-owned inbox-preview and guest-theme behavior. The focused
-  `branding-lifecycle.test.ts` covers connection, retirement and fresh entry of
-  the leaves; source and fixture checks remain separate from installed controls.
+  retain document-owned inbox-preview and guest-theme behavior. Connection,
+  retirement and fresh entry of the leaves are covered by the live browser
+  suites; source and fixture checks remain separate from installed controls.
 - **Approved extension tabs.** The branded repository header renders non-admin
   repository tabs; `repo/settings/navbar` renders admin extension tabs and
   `user/settings/navbar` renders user extension tabs. Native current-page and
   visibility conditions remain. The global account and admin navbars stay
-  Fountain-owned. `scripts/forgejo_branding_composition_test.go` renders these
-  source joins, including both current-page choices and the native-history guard.
+  Fountain-owned. These source joins cover both current-page choices and the
+  native-history guard.
 - **H04 and Tailnet boundary.** Product handlers remain centrally protected in
   `internal/web/api/extension_native.go`. Bridge admission, the configured-operator
   authorizer and per-path product policy remain separate checks. Tailnet now

@@ -16,6 +16,7 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 ## Check that it works
 
 - Run the smallest useful local check of the changed behavior. Once it works, move on. Add tests when they help catch a concrete failure, not to mirror the implementation or satisfy a ritual.
+- Unit testing is bureaucracy: never add unit tests. No new `*_test.go` or `*.test.ts` files, no `#[test]`/`#[cfg(test)]` in Rust `src/`, nothing the Go analyzer, TS guard, or Rust build ban flags. Verify through integration and end-to-end tests against real systems, and extend the `tools/unitban/` allowlists only for those. Why: `docs/development/why-no-unit-tests.md`.
 - Do not verify the verification, review reviews, rerun passing checks without a relevant change, or demand proof beyond the requested working behavior.
 - Fix the actual failure and retest the affected behavior. Preserve unrelated passing results; do not restart the whole process.
 - Local success is enough for local implementation. When the owner asks for a VM, installed app or deployment, check that actual path rather than substituting source tests or mock output.

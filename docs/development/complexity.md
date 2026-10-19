@@ -18,5 +18,4 @@ TypeScript uses its existing parser. Reports cover authored production source;
 tests, generated files, dependencies and upstream copies are excluded. Scores
 are navigation hints, not proof of correctness or a reason to block working code.
 The helper only reports measurements. It has no baselines, exception records or
-score-based refusal mode. Parser tests remain available through
-`bun run test:complexity`.
+score-based refusal mode.

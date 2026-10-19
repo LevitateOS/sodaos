@@ -60,8 +60,7 @@ OS boundaries use Go file selection, never scattered `runtime.GOOS` checks:
 
 `process.go` + `process_linux.go` + `process_other.go`
 
-The shared contract lives in the neutral file. Build-tag variants that
-select packaging contracts (`platform`'s `legacy.go`/`vendor.go`)
+The shared contract lives in the neutral file; build-tag variants
 follow the same rule.
 
 ## Tests mirror production
@@ -72,13 +71,12 @@ test file itself is hard to navigate. Shared package-local test
 infrastructure lives in `test_helpers_test.go`, never in a vague
 `behavior_test.go` / `everything_test.go` / `misc_test.go`. Exceptions with
 honest names are allowed: `boundaries_test.go` for architecture-boundary
-tests, and one package-contract test (e.g. `installer_test.go`) when it
+tests, and one package-contract test (e.g. `store_test.go`) when it
 genuinely covers the package's combined surface. Facade integration tests
 (e.g. `web/*_test.go` exercising the server) stay with the facade and
 reference the owning packages (`api.*`, `auth.*`) directly — forwarding
-aliases between internal packages are banned and `internal/archcheck`
-fails if `web/aliases.go` returns. Terminal wire types live in `host`
-itself (the `host/terminal` executor was cut over to the Rust
+aliases between internal packages are banned. Terminal wire types live in
+`host` itself (privileged execution moved to the Rust
 `soda-host` daemon) so transport never imports an executor.
 
 ## Interfaces and errors
@@ -94,38 +92,38 @@ in-tree `errors.Is` caller. Libraries never log; long-lived processes use
 ## Package boundaries
 
 Top-level `internal/` names are major Soda concepts (`project`, `host`,
-`web`, `release`, `tailnet`, `runners`, `store`, `forgejo`, `installer`,
+`web`, `tailnet`, `store`, `forgejo`, `factory`, `identity`,
 plus small primitives). Subpackages express genuine subordinate
 boundaries only: HTTP transport under `web/`
-(`web/api`, `web/auth`), release construction under `release/`
-(`release/build`, `release/image`,
-`release/deliver`). Privilege execution moved out of `host/`
-subpackages into the Rust `soda-host` daemon; only the `host/publish`
-helper remains without a Rust replacement. No `internal/models`, `internal/services`,
+(`web/api`, `web/auth`), factory supervision under `factory/`
+(`factory/control`), conditional publication under `forgejo/`
+(`forgejo/publish`) and the broker client under `identity/`
+(`identity/client`). Release construction, installation and privileged
+execution live in Rust (`lib/`, `cmd/`), not in `internal/`.
+No `internal/models`, `internal/services`,
 `internal/utils` or other horizontal dumping grounds; no micro-packages;
-no splitting `tailnet` / `runners` / `store`; no resurrecting retired
+no splitting `tailnet` / `store`; no resurrecting retired
 top-level paths (`internal/projectos`, `internal/linuxhost`,
 `internal/installlayout`, `internal/webapp`, `internal/webauth`,
 `internal/nativebuild`, `internal/nativequalification`,
 `internal/nativefinalization`, `internal/releasedelivery`,
 `internal/appliancerelease`, `internal/hostproject`,
-`internal/hostterminal`, `internal/hosttailnet`). Package declarations
-match directory leaves; colliding domain twins are resolved with import
-aliases (`domain`, `projectexec`, `tailnetexec`), not concatenated
-package names.
+`internal/hostterminal`, `internal/hosttailnet`,
+`internal/release`, `internal/installer`, `internal/runners`).
+Package declarations match directory leaves.
 
 Dependencies run one way, from orchestration toward capabilities:
 
 ```text
 binaries (cmd/, tools/)
   ↓
-transport (web, host daemon mux)
+transport (web, host Unix clients)
   ↓
-domain orchestration and policy (project, tailnet, runners, store, web/api)
+domain orchestration and policy (project, tailnet, store, web/api)
   ↓
-privileged execution and release construction (host/*, installer, release/*)
+privileged execution and release construction (Rust: lib/host, lib/soda-release-*, cmd/*)
   ↓
-external adapters and primitives (forgejo, filelock, strictjson, platform)
+external adapters and primitives (forgejo, forgejo/publish, filelock, strictjson)
 ```
 
 Domain types are defined once in the owning package and referenced
@@ -138,8 +136,6 @@ validation logic anywhere else is a smell.
 Moving files inside a package is cheap; moving symbols between packages
 changes architecture — do it only when ownership is clearly wrong, keep
 the new ownership explainable in one sentence, and avoid cycles.
-`internal/archcheck` mechanically enforces the retired names and the
-banned edges above.
 
 ## When NOT to create a file
 

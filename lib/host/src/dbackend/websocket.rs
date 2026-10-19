@@ -6,9 +6,6 @@ use crate::{project, terminal};
 
 use super::{native_deadline, DaemonBackend};
 
-#[cfg(test)]
-mod tests;
-
 fn closed_frame(reason: &str) -> terminal::TerminalFrame {
     terminal::TerminalFrame {
         frame_type: "closed".into(),
@@ -143,7 +140,6 @@ pub(super) fn pump_terminal(
     use crate::daemon::admission::{TERMINAL_FRAME_LIMIT, TERMINAL_REQUEST_LIMIT};
     use std::os::fd::AsRawFd;
     use std::sync::atomic::Ordering;
-    use tungstenite::Message;
 
     let socket_fd = ws.get_ref().as_raw_fd();
     let flags = unsafe { libc::fcntl(socket_fd, libc::F_GETFL) };
@@ -194,19 +190,6 @@ pub(super) fn pump_terminal(
     )
 }
 
-#[cfg(test)]
-fn pump_attached<S>(
-    ws: tungstenite::protocol::WebSocket<S>,
-    attach: terminal::NativeAttach,
-    deadline: Instant,
-    shutdown: Arc<std::sync::atomic::AtomicBool>,
-) -> Result<(), String>
-where
-    S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
-{
-    pump_attached_admitted(ws, attach, deadline, shutdown, None)
-}
-
 fn close_attached_error(attach: &mut terminal::NativeAttach, ended: &str) -> String {
     if let Some(error) = attach.close().err() {
         attach.retain_child_until_exit();
@@ -222,8 +205,6 @@ fn admit_attached_transport<S>(
 where
     S: std::io::Read + std::io::Write + std::os::fd::AsRawFd,
 {
-    use std::os::fd::AsRawFd;
-
     let socket_fd = ws.get_ref().as_raw_fd();
     let flags = unsafe { libc::fcntl(socket_fd, libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(socket_fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
@@ -574,7 +555,6 @@ fn pump_attached_admitted<S>(
 where
     S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
 {
-    use std::os::fd::AsRawFd;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
 

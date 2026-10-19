@@ -93,36 +93,6 @@ fn merge_policy_preserves_arbitrary_object_order_and_number_tokens() {
     assert!(custom.find("\"second\": -0").unwrap() < custom.find("\"first\": 1e400").unwrap());
 }
 
-/// Canonicalize a JSON DOM by sorting every object level.
-fn dom_sort(value: JsonValue) -> JsonValue {
-    match value {
-        JsonValue::Object(entries) => {
-            JsonValue::Object(entries.into_iter().map(|(k, v)| (k, dom_sort(v))).collect())
-        }
-        JsonValue::Array(items) => JsonValue::Array(items.into_iter().map(dom_sort).collect()),
-        scalar => scalar,
-    }
-}
-
-fn json_escape(s: &str) -> String {
-    let mut out = String::from("\"");
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
-fn hex_sha256(data: &[u8]) -> String {
-    soda_release_deliver::hash_bytes(data)
-        .trim_start_matches("sha256:")
-        .to_string()
-}
-
 fn temp_dir(prefix: &str) -> String {
     let dir = std::env::temp_dir().join(format!(
         "{prefix}-{}-{}",
@@ -134,11 +104,4 @@ fn temp_dir(prefix: &str) -> String {
     ));
     std::fs::create_dir_all(&dir).unwrap();
     dir.to_string_lossy().into_owned()
-}
-
-fn private_dir(prefix: &str) -> String {
-    let dir = temp_dir(prefix);
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
-    dir
 }

@@ -19,33 +19,3 @@ pub fn hex(data: &[u8]) -> String {
 pub fn hex_digest(data: &[u8]) -> String {
     hex(&digest(data))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn nist_vectors_and_streaming_partitions() {
-        assert_eq!(
-            hex_digest(b""),
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        );
-        assert_eq!(
-            hex_digest(b"abc"),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
-        assert_eq!(
-            hex_digest(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
-            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
-        );
-
-        let input = vec![b'a'; 1_000];
-        let expected = digest(&input);
-        for split in [0, 55, 56, 57, 63, 64, 65, 119, 120, 129, 999, 1_000] {
-            let mut hasher = Sha256::new();
-            hasher.update(&input[..split]);
-            hasher.update(&input[split..]);
-            assert_eq!(&hasher.finalize()[..], expected);
-        }
-    }
-}

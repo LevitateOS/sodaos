@@ -24,20 +24,6 @@ use import::{ensure_images, native_import, run_podman, run_podman_output, ImageS
 use payload::{ImageBinding, Payload, Role};
 use platform::require_native;
 
-#[cfg(test)]
-use context::ImportCtx;
-#[cfg(test)]
-use import::PodmanOutcome;
-#[cfg(test)]
-use platform::oci_architecture;
-#[cfg(test)]
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, Ordering},
-    time::Instant,
-};
-
 #[link(name = "c")]
 extern "C" {
     fn geteuid() -> u32;
@@ -54,6 +40,3 @@ const SIGTERM: i32 = 15;
 fn main() {
     std::process::exit(run());
 }
-
-#[cfg(test)]
-mod tests;

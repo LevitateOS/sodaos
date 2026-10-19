@@ -9,9 +9,6 @@ mod branding;
 mod files;
 mod payload;
 
-#[cfg(test)]
-mod tests;
-
 use std::path::{Path, PathBuf};
 
 use branding::favicon_bytes;

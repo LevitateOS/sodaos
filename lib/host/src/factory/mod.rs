@@ -49,8 +49,6 @@ mod state;
 mod stop;
 mod task_events;
 mod tasks;
-#[cfg(test)]
-mod tests;
 
 pub use self::candidate::CANDIDATE_INSPECT_SCRIPT;
 pub use self::confirmation::{

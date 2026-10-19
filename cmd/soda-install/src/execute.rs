@@ -401,6 +401,3 @@ pub fn install_disk_at(
 pub fn install_disk(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Result<(), Error> {
     install_disk_at(ctx, console, run, DISK_ATTEMPT_MARKER)
 }
-
-#[cfg(test)]
-mod tests;

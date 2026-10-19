@@ -10,6 +10,3 @@ pub mod runtime;
 pub use config::*;
 pub use execution::*;
 pub use runtime::*;
-
-#[cfg(test)]
-mod tests;

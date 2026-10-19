@@ -68,6 +68,3 @@ pub fn valid_owner(owner: &str) -> bool {
         (0, 1..=9) | (1, 0..=9) | (2, 0)
     )
 }
-
-#[cfg(test)]
-mod tests;

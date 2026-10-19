@@ -152,7 +152,6 @@ replacement, live in [go.mod](go.mod).
 | [Forgejo extension](cmd/soda-extension/README.md) | Run the native Forgejo extension bridge. |
 | [Tailnet command](cmd/soda-tailnet/README.md) | Inspect Tailnet status and operator guidance. |
 | [Installed acceptance](internal/acceptance/README.md) | Invoke scoped native client probes. |
-| [Architecture checks](internal/archcheck/README.md) | Check Go package dependency boundaries. |
 | [Avatar renderer](internal/avatar/README.md) | Render deterministic robot SVGs. |
 | [Configuration](internal/config/README.md) | Load and validate dashboard/operator configuration. |
 | [Factory records](internal/factory/README.md) | Use canonical factory records and validation. |

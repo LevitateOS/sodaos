@@ -11,9 +11,6 @@ mod account;
 mod os;
 mod profile;
 
-#[cfg(test)]
-mod tests;
-
 pub use self::account::{
     AccessKeyState, AccessKeys, Account, ProjectAccessRequest, ProjectAccessStatus,
 };

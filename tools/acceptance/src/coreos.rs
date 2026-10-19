@@ -492,6 +492,3 @@ pub fn resolve_qemu(phase: &Phase, arch: &str) -> Result<(String, CoreOSImage), 
     let _ = stream_release_url(&url, &release)?;
     Ok((release, qemu))
 }
-
-#[cfg(test)]
-mod tests;

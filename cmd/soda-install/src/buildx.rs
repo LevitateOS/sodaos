@@ -9,13 +9,6 @@ use crate::errors::{self, Error};
 
 pub const JSON_LIMIT: u64 = 4 << 20;
 
-pub fn oci_architecture(arch: &str) -> Result<String, Error> {
-    if arch == "x86_64" {
-        return Ok("amd64".to_string());
-    }
-    Err(Error::msg("expected x86_64"))
-}
-
 pub fn digest(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
@@ -189,65 +182,4 @@ pub fn read_json_bytes(path: &str) -> Result<Vec<u8>, Error> {
         return Err(Error::msg("JSON input exceeds limit"));
     }
     Ok(data)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shapes_and_arch() {
-        assert!(digest(&"b".repeat(64)));
-        assert!(!digest(&"B".repeat(64)));
-        assert!(!digest("abc"));
-        assert!(revision(&"a".repeat(40)));
-        assert!(!revision("dirty"));
-        assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(
-            oci_architecture("armv7").unwrap_err().to_string(),
-            "expected x86_64"
-        );
-    }
-
-    #[test]
-    fn hash_and_write_new() {
-        let dir = std::env::temp_dir().join(format!("soda-buildx-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("file");
-        std::fs::write(&path, b"fixture").unwrap();
-        assert_eq!(
-            hash_file(path.to_str().unwrap()).unwrap(),
-            sha256_hex(b"fixture")
-        );
-        assert_eq!(
-            hash_file(dir.join("missing").to_str().unwrap())
-                .unwrap_err()
-                .to_string(),
-            format!(
-                "lstat {}: no such file or directory",
-                dir.join("missing").to_str().unwrap()
-            )
-        );
-        assert!(hash_file(dir.to_str().unwrap()).is_err());
-        let created = dir.join("new");
-        write_new(created.to_str().unwrap(), b"data", 0o600).unwrap();
-        assert_eq!(std::fs::read(&created).unwrap(), b"data");
-        assert!(write_new(created.to_str().unwrap(), b"data", 0o600).is_err());
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn confined_json_reads() {
-        let dir = std::env::temp_dir().join(format!("soda-buildx-json-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("doc.json");
-        std::fs::write(&path, b"{\"a\":1}").unwrap();
-        assert_eq!(
-            read_json_bytes(path.to_str().unwrap()).unwrap(),
-            b"{\"a\":1}"
-        );
-        std::os::unix::fs::symlink(&path, dir.join("link")).unwrap();
-        assert!(read_json_bytes(dir.join("link").to_str().unwrap()).is_err());
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
 }

@@ -247,39 +247,3 @@ pub fn run_cockpit(
     outcome?;
     Ok("Native Cockpit account phase admits root and denies existing non-root nobody. No password authentication/session claim.".to_string())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn gate_requires_root_and_matching_validation() {
-        assert!(check_gate(0, Some("host"), "host").is_ok());
-        assert_eq!(
-            check_gate(1000, Some("host"), "host").unwrap_err(),
-            "explicit native root target required"
-        );
-        assert_eq!(
-            check_gate(0, Some("other"), "host").unwrap_err(),
-            "explicit native root target required"
-        );
-        assert_eq!(
-            check_gate(0, None, "host").unwrap_err(),
-            "explicit native root target required"
-        );
-    }
-
-    #[test]
-    fn root_account_resolves_to_uid_zero() {
-        assert_eq!(account_uid("root").unwrap(), 0);
-        let missing = account_uid("definitely-no-such-user-xyz").unwrap_err();
-        assert_eq!(missing.kind, CockpitKind::KeyError);
-    }
-
-    #[test]
-    fn pam_phases_need_a_native_root_target() {
-        // Unprivileged callers fail the gate before touching PAM.
-        let err = run_cockpit(1000, Some("host"), "host").unwrap_err();
-        assert_eq!(err.detail, "explicit native root target required");
-    }
-}

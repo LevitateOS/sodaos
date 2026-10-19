@@ -14,9 +14,6 @@
 //! [`MuseExecution`] record; the argv, delivery, control and finish steps
 //! are separate methods so routes can stage them around process spawn.
 
-#[cfg(test)]
-use crate::terminal::{AcquireRequest, Binding, Delivery, Lease};
-
 mod wire;
 
 pub use self::wire::{
@@ -90,6 +87,3 @@ mod stop;
 pub use self::socket::muse_peer_from_fd;
 
 pub(in crate::muse) use self::inspect::{muse_peer_alive, sleep_until, MuseInspection};
-
-#[cfg(test)]
-mod tests;

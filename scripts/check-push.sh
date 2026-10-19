@@ -21,6 +21,8 @@ case $1 in
         bash scripts/check-sql-locality.sh
         bash scripts/check-no-npm.sh
         bash scripts/check-no-python.sh
+        bash scripts/check-no-unit-tests.sh
+        bash scripts/check-go-unitban.sh
         ;;
       store) go test -count=1 ./internal/store ;;
       web) go test -count=1 ./internal/web/... ;;
@@ -28,10 +30,8 @@ case $1 in
     ;;
   browser)
     bun run typecheck
-    bun test tests/forgejo/presentation/form-source.test.ts \
-      tests/forgejo/presentation/settings-source.test.ts \
-      tests/forgejo/presentation/repository-settings-source.test.ts \
-      tests/forgejo/presentation/inventory.test.ts
+    # Unit source-contract tests were removed; browser suites run in deep CI
+    # where Playwright Chromium is installed (see check:source browser).
     ;;
   rust)
     cargo test --locked -p soda-wire-time -p soda-unix-http -p soda-build-tools -p soda-release-deliver --lib

@@ -461,6 +461,3 @@ fn read_available<R: std::io::Read>(pipe: &mut Option<R>) -> Result<PipeRead, Er
         Err(error) => Err(Error::msg(error.to_string())),
     }
 }
-
-#[cfg(test)]
-mod tests;

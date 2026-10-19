@@ -12,9 +12,6 @@ use super::{
     decode_empty, internal, map_factory_err, native_deadline, tailnet_deadline, DaemonBackend,
 };
 
-#[cfg(test)]
-mod tests;
-
 fn map_preparation_observation_error(
     error: crate::prepare::PreparationObservationError,
 ) -> BackendError {

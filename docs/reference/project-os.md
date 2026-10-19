@@ -3,8 +3,8 @@
 Project OS is the userspace foundation for persistent human projects: native
 accounts, shared tools, lasting roots, access and nested workloads. It supports
 development and intervention. The existing [factory operator runtime](factory.md)
-uses separate disposable workspaces. The target places human and factory execution
-in the same persistent container under the
+runs supervised Project CLI operations with per-run credentials. The target places
+human and factory execution in the same persistent container under the
 [Project model](../product/projects.md#environment-relationships); the baseline
 interfaces below do not establish that factory integration is implemented.
 

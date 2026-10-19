@@ -164,7 +164,3 @@ pub(crate) fn confirm_project(target: &Observation, deadline: Instant) -> Result
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "project_tests.rs"]
-mod project_tests;

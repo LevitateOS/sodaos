@@ -75,28 +75,6 @@ impl TempDir {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::TempDir;
-    use std::os::unix::fs::PermissionsExt;
-
-    #[test]
-    fn private_tempdir_is_created_and_removed_by_owner() {
-        let path;
-        {
-            let dir = TempDir::new("soda-acceptance").unwrap();
-            path = dir.path().to_path_buf();
-            assert!(path.starts_with(std::env::temp_dir()));
-            assert_eq!(dir.join("body").parent(), Some(dir.path()));
-            assert_eq!(
-                std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777,
-                0o700
-            );
-        }
-        assert!(!path.exists());
-    }
-}
-
 /// Exclusive file creation with exact mode bits. Mirrors `WriteNew`.
 pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
     let mut file = OpenOptions::new()

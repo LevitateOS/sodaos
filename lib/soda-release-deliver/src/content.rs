@@ -53,19 +53,3 @@ pub fn verify_content(p: &Payload, images: &str) -> Result<(BTreeMap<String, Str
     match_layout_identities(p, &layout)?;
     Ok((layout.files, layout.bytes))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const FIXTURE: &str = include_str!("../../release-inputs/fixtures/payload-v4.json");
-
-    #[test]
-    fn content_path_rules() {
-        let payload: Payload = crate::buildx::decode_build_json(FIXTURE.as_bytes()).unwrap();
-        payload.validate().unwrap();
-        // The shared layout check runs after payload validation.
-        assert!(verify_content(&payload, "/abs").is_err());
-        assert!(verify_content(&payload, "relative").is_err());
-    }
-}

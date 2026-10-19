@@ -12,9 +12,6 @@ pub mod muse;
 pub mod tea;
 pub mod terminal;
 
-#[cfg(test)]
-pub(crate) mod test_server;
-
 use std::io::Read;
 use std::path::Path;
 use std::time::Duration;

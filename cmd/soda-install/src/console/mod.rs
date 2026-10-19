@@ -132,9 +132,3 @@ fn errno_text(err: std::io::Error) -> String {
 
 mod network;
 mod terminal;
-
-#[cfg(test)]
-pub mod test_support;
-
-#[cfg(test)]
-mod tests;

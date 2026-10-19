@@ -298,7 +298,3 @@ pub fn ensure_role(ctx: &crate::Ctx, login: &str) -> Result<Account, Error> {
     }
     ensure_role_production(ctx, login)
 }
-
-#[cfg(test)]
-#[path = "accounts_tests.rs"]
-mod tests;

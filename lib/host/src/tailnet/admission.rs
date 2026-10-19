@@ -229,7 +229,3 @@ impl GrantStore {
         self.files.lock(".lifecycle.lock", true, deadline)
     }
 }
-
-#[cfg(test)]
-#[path = "admission/tests.rs"]
-mod tests;

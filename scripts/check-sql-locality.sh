@@ -15,7 +15,6 @@ while IFS= read -r -d '' file; do
     # tests/installed/workload-access.py). It never touches product Store or
     # database/sql; these exact exclusions keep the product gate intact.
     ./internal/acceptance/workload_access.go) continue ;;
-    ./internal/acceptance/workload_access_test.go) continue ;;
     # This test-only seed writes dependency edges directly into an external
     # staged Forgejo SQLite fixture because it has no REST writer. The
     # production Store remains PostgreSQL-only (COST-GO-SQLITE-FIXTURE-1).
@@ -23,14 +22,13 @@ while IFS= read -r -d '' file; do
     # Existing adversarial integration fixtures, individually documented in
     # docs/development/go.md. Never exempt a production file or all tests.
     # Force consumed clocks without waiting for real attempt deadlines.
-    ./internal/factory/control/merge_effect_test.go) continue ;;
     ./internal/factory/control/dispatch_expiry_test.go) continue ;;
-    ./internal/factory/control/progress_test.go) continue ;;
     # Expire private admission receipts and simulate an unavailable table.
     ./internal/factory/control/dispatch_preparation_test.go) continue ;;
     ./internal/factory/control/dispatch_source_preparation_test.go) continue ;;
-    # Isolate bounded traversal from admission headers; inspect saved cursors.
+    # Isolate bounded traversal from admission headers.
     ./internal/factory/control/traversal_test.go) continue ;;
+    # Isolate bounded traversal from admission headers; inspect saved cursors.
     ./internal/factory/control/readiness_sweep_test.go) continue ;;
     # Remove emitted admission headers to isolate priority traversal, fresh
     # members and cursor bounds; same traversal-test reason as above.
@@ -38,9 +36,6 @@ while IFS= read -r -d '' file; do
     # Seed and corrupt attributable assignment/run/view history to challenge
     # carried-finding retirement; validating writers gain no corruption hook.
     ./internal/factory/control/review_carried_history_test.go) continue ;;
-    # Test-owned SQLite emulates external native issue truth and the revision
-    # bracket through the real adapter; not product Store or native proof.
-    ./internal/web/api/factory_completion_serving_test.go) continue ;;
     # Seed completion/reassessment prefixes and observe budget/cursor rollback
     # with scripted native RPC evidence; not a full native producer.
     ./internal/web/api/factory_completion_budget_test.go) continue ;;

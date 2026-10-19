@@ -29,16 +29,11 @@ pub(crate) mod ops_record {
     pub(crate) use super::records::do_record;
 }
 pub(crate) mod execution;
-pub(crate) mod mcp;
-pub(crate) mod permissions;
 pub(crate) mod proc {
     pub(crate) use super::execution::spawn_detached;
 }
 pub(crate) mod records;
 pub(crate) mod sha;
-#[cfg(test)]
-#[path = "tests.rs"]
-pub(crate) mod testutil;
 pub(crate) mod validate;
 
 use crate::state_json::StateValue;

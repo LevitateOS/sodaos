@@ -146,51 +146,6 @@ pub(super) fn run_piped_stdin(prog: &str, args: &[&str], input: &[u8]) -> Result
     run_with_io(prog, args, true, false, Some(input), None)
 }
 
-/// `pipe2` mirrors `first | second` under `pipefail`: the exit status is
-/// the last non-zero status by pipeline position.
-pub(super) fn pipe2(first: (&str, &[&str]), second: (&str, &[&str])) -> (i32, Vec<u8>) {
-    flush_stdout();
-    let mut first_cmd = Command::new(first.0);
-    first_cmd.args(first.1).stdout(Stdio::piped());
-    let mut first_child = match first_cmd.spawn() {
-        Ok(child) => child,
-        Err(err) => {
-            let (msg, code) = spawn_diag(&err);
-            eprintln!("{FAIL_PREFIX}: {}: {msg}", first.0);
-            // The second stage still runs on empty input; its output is
-            // discarded and the pipeline reports the first failure.
-            let _ = capture(second.0, second.1, false);
-            return (code, Vec::new());
-        }
-    };
-    let mut second_cmd = Command::new(second.0);
-    second_cmd.args(second.1).stdout(Stdio::piped());
-    if let Some(stdout) = first_child.stdout.take() {
-        second_cmd.stdin(stdout);
-    }
-    let mut second_child = match second_cmd.spawn() {
-        Ok(child) => child,
-        Err(err) => {
-            let (msg, code) = spawn_diag(&err);
-            eprintln!("{FAIL_PREFIX}: {}: {msg}", second.0);
-            let _ = first_child.wait();
-            return (code, Vec::new());
-        }
-    };
-    let mut out = Vec::new();
-    if let Some(mut reader) = second_child.stdout.take() {
-        let _ = reader.read_to_end(&mut out);
-    }
-    let first_code = first_child.wait().map(status_code).unwrap_or(1);
-    let second_code = second_child.wait().map(status_code).unwrap_or(1);
-    let code = if second_code != 0 {
-        second_code
-    } else {
-        first_code
-    };
-    (code, out)
-}
-
 /// `ls_nonempty` mirrors `[ -n "$(ls -A dir 2>/dev/null)" ]`, including the
 /// empty treatment when `ls` itself cannot run.
 pub(super) fn ls_nonempty(path: &str) -> bool {

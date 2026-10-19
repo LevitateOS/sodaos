@@ -246,56 +246,6 @@ pub(crate) fn reap_failed_child(
 }
 
 impl NativeAttach {
-    #[cfg(test)]
-    pub(crate) fn from_child_for_test(
-        mut child: std::process::Child,
-        shutdown: Arc<AtomicBool>,
-    ) -> Result<Self, String> {
-        use std::os::fd::FromRawFd;
-        let stdin = match child.stdin.take() {
-            Some(stdin) => stdin,
-            None => return Err(reap_failed_child(child, "test stdin unavailable", shutdown)),
-        };
-        let stdout = match child.stdout.take() {
-            Some(stdout) => stdout,
-            None => {
-                drop(stdin);
-                return Err(reap_failed_child(
-                    child,
-                    "test stdout unavailable",
-                    shutdown,
-                ));
-            }
-        };
-        let stdin_fd = stdin.as_raw_fd();
-        let stdout_fd = stdout.as_raw_fd();
-        std::mem::forget(stdin);
-        std::mem::forget(stdout);
-        let stdin = unsafe { File::from_raw_fd(stdin_fd) };
-        let stdout = unsafe { File::from_raw_fd(stdout_fd) };
-        let flags = unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_GETFL) };
-        if flags < 0
-            || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
-                < 0
-        {
-            drop(stdin);
-            drop(stdout);
-            return Err(reap_failed_child(
-                child,
-                "test terminal input unavailable",
-                shutdown,
-            ));
-        }
-        Ok(NativeAttach {
-            child: Some(child),
-            stdin: Some(stdin),
-            reader: Some(BufReader::new(stdout)),
-            closed: false,
-            close_failure: None,
-            shutdown,
-        })
-    }
-
     /// `AttachNative`: start the fixed podman/agent attachment bridge.
     pub fn attach(
         container: &str,

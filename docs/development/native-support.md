@@ -4,7 +4,7 @@ Outside build, transport, VM and evidence tools for Soda development. They suppl
 artifacts and observations; they do not redefine product API, Project OS or Spaces
 contracts.
 
-Permissions follow [AGENTS.md](../../AGENTS.md#scope-and-protection).
+Permissions follow [AGENTS.md](../../AGENTS.md#respect-the-workspace-and-actual-boundaries).
 This document is not an execution grant.
 
 Release model: [Release architecture](../architecture/release.md).
@@ -28,9 +28,9 @@ Reuse and licensing are recorded in [native support notices](../research/notices
 ## Effects and permissions
 
 This section owns command effects, not an approval queue. Apply the
-[execution policy](../../AGENTS.md#scope-and-protection) and the applicable grants:
-[release commissioning](../../AGENTS.md#scope-and-protection) or
-[development targets](../../AGENTS.md#scope-and-protection). Already-approved
+[execution policy](../../AGENTS.md#respect-the-workspace-and-actual-boundaries) and the applicable grants:
+[release commissioning](../../AGENTS.md#respect-the-workspace-and-actual-boundaries) or
+[development targets](../../AGENTS.md#respect-the-workspace-and-actual-boundaries). Already-approved
 local work does not need a new grant per command.
 
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
@@ -535,10 +535,10 @@ that record's own write, close and leak checks succeed.
 
 Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Product observations retain their original owner labels (including historical U08/U20), not an independent support certification. No sibling/media/product qualification gate is introduced.
 
-Authored coverage lives in `internal/acceptance/*_test.go`, `internal/release/build/*_test.go`,
-`tests/build/test_native_support.py` and production/packaging/browser tests. Execution
-is revision-scoped in the evidence record. Native builds/checks/VM/provider work still need
-applicable action/target permission.
+Authored coverage lives in `tests/build` packaging/source checks,
+`tests/installed` acceptance journeys and production/packaging/browser tests.
+Execution is revision-scoped in the evidence record. Native builds/checks/VM/provider
+work still need applicable action/target permission.
 
 <a id="remaining-validation"></a>
 

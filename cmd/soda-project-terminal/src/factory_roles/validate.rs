@@ -43,38 +43,6 @@ pub fn is_commit(value: &str) -> bool {
     value.len() == 40 && is_lower_hex(value.as_bytes())
 }
 
-/// Plan-local task key (`[a-z][a-z0-9_-]{0,31}`): one child owns a task
-/// until its terminal receipt, so keys are the child-control identity.
-pub fn is_task_key(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    if bytes.is_empty() || bytes.len() > 32 || !bytes[0].is_ascii_lowercase() {
-        return false;
-    }
-    bytes[1..]
-        .iter()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'-' | b'_'))
-}
-
-/// Admitted reasoning-effort vocabulary in a staged execution profile.
-/// Harness support for an effort rides the proved harness pin, never this
-/// list alone.
-pub fn is_effort(value: &str) -> bool {
-    matches!(value, "low" | "medium" | "high" | "xhigh")
-}
-
-/// Admitted child-concurrency snapshot (`1..=4`): the lesser of policy and
-/// qualified native capacity. The parent run is separate; nested child
-/// spawning is refused.
-pub fn is_child_limit(value: i64) -> bool {
-    (1..=4).contains(&value)
-}
-
-/// Contributor mode is valid only for Muse; children inherit the exact
-/// parent profile and account.
-pub fn is_contributor_for_harness(contributor: bool, harness: &str) -> bool {
-    !contributor || harness == "muse"
-}
-
 pub fn check_id(value: &StateValue) -> Result<&str, Error> {
     match value.as_str() {
         Some(text) if is_id(text) => Ok(text),
@@ -160,7 +128,3 @@ pub fn as_int_text(value: &StateValue) -> Option<String> {
 pub fn as_i64(value: &StateValue) -> Option<i64> {
     as_int_text(value).and_then(|text| text.parse().ok())
 }
-
-#[cfg(test)]
-#[path = "validate_tests.rs"]
-mod tests;

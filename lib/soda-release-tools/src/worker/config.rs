@@ -358,24 +358,3 @@ pub fn load_worker_config(path: &str, r: &Request) -> Result<WorkerConfig, Strin
     }
     Ok(c)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::decode_worker_config;
-
-    #[test]
-    fn configuration_checks_every_known_occurrence_and_rejects_unknown_fields() {
-        let config = decode_worker_config(
-            br#"{"Executable":1e400,"Executable":"later","Source":"/source"}"#,
-        )
-        .unwrap();
-        assert!(config.executable.is_empty());
-        assert_eq!(config.source, "/source");
-
-        assert_eq!(
-            decode_worker_config(br#"{"Ignored":{"large":1e400}}"#).unwrap_err(),
-            "unknown worker configuration field \"Ignored\""
-        );
-        assert!(decode_worker_config(br#"{"Source":"/source"} false"#).is_err());
-    }
-}

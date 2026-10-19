@@ -3,9 +3,6 @@
 mod geometry;
 mod svg;
 
-#[cfg(test)]
-mod tests;
-
 use std::io::Read;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;

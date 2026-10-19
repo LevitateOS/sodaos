@@ -2,10 +2,12 @@
 
 Navigate as **package + concern file**. A package owns one job you can say in
 one sentence. `internal/` is a shallow domain hierarchy: top-level names are
-major Soda concepts (`project`, `host`, `web`, `release`, `tailnet`,
-`store`, `forgejo`, `installer`); subpackages are genuine
-subordinate boundaries (`host/project`, `web/api`, `release/deliver`).
-Appliance entrypoints live in `cmd/`; support tools live in `tools/`. This
+major Soda concepts (`project`, `host`, `web`, `tailnet`,
+`store`, `forgejo`, `factory`, `identity`); subpackages are genuine
+subordinate boundaries (`web/api`, `forgejo/publish`, `identity/client`,
+`factory/control`). Release construction, installation and privileged
+execution live in Rust (`lib/`, `cmd/`). Appliance entrypoints live in
+`cmd/`; support tools live in `tools/`. This
 guide owns Go package placement and house style. Product/security boundaries
 remain in [architecture](../architecture/overview.md).
 
@@ -15,25 +17,24 @@ remain in [architecture](../architecture/overview.md).
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
 | Admitted application artifact/image/data references, administrator grant and native observations | `application` — pure wire/domain records; Canlang owns semantics and bindings |
-| Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `rust/soda-factory` is a thin client of its private operator endpoint |
+| Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `cmd/soda-factory` is a thin client of its private operator endpoint |
 | Run identity, outcome, display bindings and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
-| Serialized provider custody and enrollment | `rust/soda-identity` wires private service/runtime; `identity` keeps domain records |
-| Muse native device enrollment and immutable CLI credentials | `rust/identity-providers` (muse) — installed upstream CLI; no Meta refresh service |
-| Codex app-server protocol | `rust/identity-providers` (codex) — verified CLI protocol and private credential files |
+| Serialized provider custody and enrollment | `cmd/soda-identity` wires private service/runtime; `identity` keeps domain records |
+| Muse native device enrollment and immutable CLI credentials | `cmd/soda-identity` providers (muse) — installed upstream CLI; no Meta refresh service |
+| Codex app-server protocol | `cmd/soda-identity` providers (codex) — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | Native extension identity / profile / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, factory views, terminal, lifecycle, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
-| Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
-| Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
-| Privileged terminal attach | `host/terminal` (package `terminal`) |
-| Narrow factory Git publication validation | `host/publish` (unprivileged; validates verified candidate bundles, executes persisted conditional branch/PR operations) |
-| Supervised factory run orchestration | `host/project` factory runs (durable receipts; uses `host/terminal` + broker handshake) |
-| Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
-| Install phase on Linux | `installer/<phase>_linux.go` |
-| Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
-| Release build primitives / image assembly / delivery | `release/build`, `release/image`, `release/deliver` |
+| Unix client for the privileged host daemon | `host` (`client.go`, `terminal_client.go`, `factory_client.go`; decode straight into `project` types — no translators) |
+| Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `lib/host` (Rust; executes on admitted requests) — Go `host` only calls it |
+| Privileged terminal attach | `lib/host` terminal lifecycle (Rust); Go `host/terminal_client.go` calls it |
+| Narrow factory Git publication validation | `forgejo/publish` (unprivileged; validates verified candidate bundles, executes persisted conditional branch/PR operations) |
+| Supervised factory run orchestration | `factory/control` run supervisor (durable receipts; typed `host` clients + broker handshake) |
+| Tailnet companion container runtime | `lib/host` tailnet lifecycle (Rust); Go `host/tailnet.go` calls it |
+| Install phase on Linux | `cmd/soda-install` (Rust) |
+| Release build primitives / image assembly / delivery | `lib/soda-release-build`, `lib/soda-release-image`, `lib/soda-release-deliver` (Rust) |
 | Domain policy / Forgejo client / PostgreSQL store | `tailnet` / `forgejo` / `store` |
 
 Keep files cohesive. Split by responsibility when it improves the change; line
@@ -41,14 +42,13 @@ counts alone do not justify refactoring or block working code.
 
 `cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
 for process startup only). The `soda-host` daemon is the Rust
-`rust/soda-host` binary; `host` keeps the Go Unix client surface plus
-the persistent development executors (until their own cutovers).
+`lib/host` binary; `host` keeps the Go Unix client surface.
 `web.Server` constructs `auth`/`api` and the
-`factory/control` coordinator. `rust/soda-factory` is a thin Unix client of the
+`factory/control` coordinator. `cmd/soda-factory` is a thin Unix client of the
 coordinator's private operator endpoint and keeps no database. Do not add
 forwarding packages or compatibility shims for moved code. The host
-Client may re-export `host/terminal` wire types so `web` never imports
-the privileged terminal executor directly.
+client types live in `host` itself so `web` never imports
+the privileged executor directly.
 
 ## Placement decision tree
 
@@ -56,26 +56,24 @@ the privileged terminal executor directly.
 2. Project identity / lifecycle / key / OS types or validation → `project`
    (one canonical definition referenced by HTTP, host, executors and store —
    never a parallel DTO)
-3. Build / image / deliver → the matching `release/` subpackage —
-   never `web`/`host`
+3. Build / image / deliver → the matching `lib/soda-release-*` Rust
+   crate — never `web`/`host`
 4. Outside VM/evidence checks → `acceptance` (release support harness)
 5. Tiny reusable primitive → its own small package (`strictjson`, `filelock`, …)
 6. External product HTTP client → `forgejo`
 7. Domain policy / wire types (no session, no root socket) → domain package
-8. Privileged project / terminal / companion → `host/project` /
-   `host/terminal` / `host/tailnet` (wire through thin `host.Daemon`)
+8. Privileged project / terminal / companion → `lib/host` (Rust);
+   Go callers wire through the thin `host` Unix clients
 9. Native browser authority → `web/auth`; product HTTP → `web/api` (wire through
    thin `web.Server`)
 10. Still ambiguous → rules in the domain package; HTTP admits and calls;
     privileged packages execute and confirm. Do not invent a fourth package.
 
 **Naming.** Package declaration matches the directory leaf
-(`host/project` → `package project`). When an executor imports its domain
-twin (`project`, `tailnet`), alias the domain import inside the executor
-and alias the executor import at the facade (`projectexec`,
-`tailnetexec`) — do not invent concatenated package names. Filename =
+(`web/api` → `package api`). Filename =
 concrete product concern (`lifecycle.go`, `enrollment.go`,
-`control.go`). Ban new `helpers.go`, `utils.go`, or vague
+`control.go`). Package names stay leaf-simple; do not invent
+concatenated package names. Ban new `helpers.go`, `utils.go`, or vague
 `management.go`. Matching concern names across layers (`terminal.go`,
 `lifecycle.go`) are intentional. Never resurrect a retired
 top-level package path (`internal/projectos`, `internal/linuxhost`,
@@ -83,37 +81,30 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 `internal/nativebuild`, `internal/nativequalification`,
 `internal/nativefinalization`, `internal/releasedelivery`,
 `internal/appliancerelease`, `internal/hostproject`,
-`internal/hostterminal`, `internal/hosttailnet`) —
-`internal/archcheck` fails the build if they return.
+`internal/hostterminal`, `internal/hosttailnet`,
+`internal/release`, `internal/installer`, `internal/runners`).
 
 ## Ownership map
 
 | Package | Owns | Does not own | Look here first |
 | --- | --- | --- | --- |
-| `acceptance` | Outside support VM/evidence checks | Product HTTP, PostgreSQL store, install UX | `tools/soda-acceptance` |
-| `archcheck` | Package-topology boundary tests | Product behavior | `arch_test.go` |
+| `acceptance` | Outside support VM/evidence checks | Product HTTP, PostgreSQL store, install UX | `tools/acceptance` |
 | `application` | Exact admitted application references, administrator grant, replacement and observation validation | Canlang descriptor/provider semantics, runtime, HTTP, SQL | `reference.go`, `administration.go` |
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, PostgreSQL store | `types.go`, `run.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
-| `rust/soda-identity` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
-| `rust/identity-providers` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
-| `rust/identity-providers` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
+| `cmd/soda-identity` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
+| `cmd/soda-identity` providers | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | `providers/muse` |
+| `cmd/soda-identity` providers | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | `providers/codex` |
 | `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
-| `host` | Unix client + thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go`, `project.go` |
-| `host/project` | Privileged project env execution | HTTP admission, Tailnet policy, terminal attach | `create.go`, `lifecycle.go` |
-| `host/terminal` | Privileged terminal attach | Project create | `service.go`, `types.go` |
-| `host/tailnet` | Companion container runtime | Tailnet policy (`tailnet`) | `companion.go`, `runtime.go` |
-| `installer` | Console-to-CoreOS install adapter | Host daemon, PostgreSQL store | phase `*_linux.go` files |
-| `platform` | Build-time installed path consts | Scratch `/run` paths | `legacy.go` / `vendor.go` |
+| `host` | Unix clients for the privileged host daemon | Project/terminal/companion execution guts | `client.go`, `terminal_client.go`, `factory_client.go` |
+| `lib/host` (Rust) | Privileged project/terminal/companion execution | HTTP admission, Tailnet policy | `src/` concern modules |
+| `cmd/soda-install` (Rust) | Console-to-CoreOS install adapter | Host daemon, PostgreSQL store | concern files |
 | `project` | Canonical project domain: profile, lifecycle/key/OS types, validation | I/O, HTTP, privileged execution | `types.go`, `profile.go`, `project.go` |
-| `release` | Release-construction overview only | Any build/publish logic | `doc.go` |
-| `release/build` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
-| `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
-| `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
+| `lib/soda-release-*` (Rust) | Release build primitives, image assembly, delivery | Qualify/sign/install UX | per-crate concern files |
 | `store` | PostgreSQL schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
@@ -150,7 +141,7 @@ no transport, runtime, provider configuration or database dependencies.
 
 The [target factory interfaces](../architecture/factory-interfaces.md) reuse these
 owners. The tables above describe existing placement; apply the following narrow
-dependency changes with the implementation and its `internal/archcheck` update,
+dependency changes with the implementation,
 not as an invitation to reorganize `internal/`:
 
 - `factory` owns policy, acceptance, assessment, command, attempt, assignment,
@@ -158,23 +149,22 @@ not as an invitation to reorganize `internal/`:
   rather than inventing a second Project DTO. `project` owns preparation and
   checkout/lifecycle records. `store` is still the only SQL owner.
 - `factory/control` is the run supervisor: it composes `store`, narrow
-  `host.Client`/`identity/client` interfaces and canonical Project records; it
-  must not import privileged `host/project` or `host/terminal` execution.
-  `host/workspace` is removed with its architecture-test entries.
+  typed `host` client/`identity/client` interfaces and canonical Project
+  records; privileged execution lives in the Rust host, not in Go.
 - `web` wires the coordinator and its explicit lifecycle. `web/api` admits calls
   into `factory/control`; it still cannot call native executor packages directly.
-  `cmd/soda-dashboard` continues to enter through `web`. `rust/soda-factory`
+  `cmd/soda-dashboard` continues to enter through `web`. `cmd/soda-factory`
   controls address the coordinator's private operator endpoint, not a second
   local controller/database.
-- `host` supplies typed client methods and thin admission/routing. Fixed Project
-  preparation/launch orchestration belongs in `host/project`, using
-  `host/terminal` for managed execution and the private identity client for the
-  broker handshake. Preserve that existing permitted sibling direction. Native
-  receipts are protected mechanical files; neither executor imports `store` or
-  decides factory policy. Canonical factory/Project/identity request records cross
-  the facade directly, without forwarding DTO packages.
+- `host` supplies typed Unix-client methods for the Rust host daemon. Fixed
+  Project preparation/launch orchestration executes in `lib/host`, using
+  managed terminal execution and the private identity client for the
+  broker handshake. Native receipts are protected mechanical files; neither
+  executor imports `store` or decides factory policy. Canonical
+  factory/Project/identity request records cross the facade directly,
+  without forwarding DTO packages.
 - `identity` owns acquisition identity, lease and process-binding types;
-  `rust/soda-identity` enforces execution uniqueness and credential custody over
+  `cmd/soda-identity` enforces execution uniqueness and credential custody over
   its private store. Broker runtime adapters use the fixed host process
   contract instead of disposable-container or hard-coded worker assumptions.
 
@@ -186,16 +176,16 @@ API is required by this placement.
 
 | Concern | Meaning / policy | Privileged execute | HTTP |
 | --- | --- | --- | --- |
-| Project | `project` (types + validation) | `host/project` | `web/api` (+ thin `host` daemon routes) |
-| Tailnet | `tailnet` | `host/tailnet` | `web/api` (+ thin `host` daemon routes) |
-| Terminal | access/lifetime in `web/api` + store | `host/terminal` | `web/api` |
+| Project | `project` (types + validation) | `lib/host` (Rust; Go `host` calls it) | `web/api` |
+| Tailnet | `tailnet` | `lib/host` (Rust; Go `host` calls it) | `web/api` |
+| Terminal | access/lifetime in `web/api` + store | `lib/host` (Rust; Go `host` calls it) | `web/api` |
 
 ## Release debug map
 
 | Symptom | Open first | Then |
 | --- | --- | --- |
 | Image/candidate will not build | `lib/soda-release-build`, `lib/soda-release-tools` (`soda-build`) | `lib/soda-release-image` |
-| Media/assemble wrong | `lib/soda-release-image` | `installer` phases |
+| Media/assemble wrong | `lib/soda-release-image` | `cmd/soda-install` |
 | Sign/publish | `lib/soda-release-deliver` | explicit grant (no operator CLI) |
 
 
@@ -262,35 +252,24 @@ test databases; production SQL and new test files remain subject to the gate.
 When changing these fixtures, use existing Store methods where they express the
 same scenario. Do not add a production SQL escape hatch just to seed a test.
 
-| Existing fixture under `internal/factory/control/` | Required direct database state |
+| Existing fixture | Required direct database state |
 | --- | --- |
-| `merge_effect_test.go` | Exhaust an active attempt before checking uncertain and committed native merge effects |
-| `dispatch_expiry_test.go` | Exhaust recorded roots before dispatch closure and explicit retry |
-| `progress_test.go` | Exhaust a live coordinator's root before its automatic wake |
-| `dispatch_preparation_test.go` | Consume an attempt, expire admission receipts, and temporarily hide a policy table to exercise operational failure |
-| `dispatch_source_preparation_test.go` | Expire a ready source receipt during admission and confirm that no admission rows remain |
-| `traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
-| `readiness_sweep_test.go` | Isolate the cycle bound and inspect durable cursor state across acceptance changes |
-| `staged_seed_test.go` | Seed an external Forgejo SQLite fixture whose dependency edges have no REST writer |
+| `internal/factory/control/dispatch_expiry_test.go` | Exhaust recorded roots before dispatch closure and explicit retry |
+| `internal/factory/control/dispatch_preparation_test.go` | Consume an attempt, expire admission receipts, and temporarily hide a policy table to exercise operational failure |
+| `internal/factory/control/dispatch_source_preparation_test.go` | Expire a ready source receipt during admission and confirm that no admission rows remain |
+| `internal/factory/control/traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
+| `internal/factory/control/readiness_sweep_test.go` | Isolate the cycle bound and inspect durable cursor state across acceptance changes |
+| `internal/factory/control/staged_seed_test.go` | Seed an external Forgejo SQLite fixture whose dependency edges have no REST writer |
 | `internal/factory/control/serving_priority_starvation_test.go` | Remove emitted admission headers to isolate priority traversal, fresh members and cursor bounds |
 | `internal/factory/control/review_carried_history_test.go` | Seed and corrupt attributable assignment/run/view history to challenge carried-finding retirement |
-| `internal/web/api/factory_completion_serving_test.go` | Test-owned SQLite emulating external native issue truth and revision bracket through the real adapter |
 | `internal/web/api/factory_completion_budget_test.go` | Seed completion/reassessment prefixes and observe budget/cursor rollback with scripted native RPC evidence |
 | `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
 | `internal/factory/control/mcp_settle_pg_test.go` | Seed a persisted review assignment to isolate terminal receipt settlement from admission and dispatch |
 | `internal/web/api/factory_feed_route_test.go` | Seed finished assignment history to check feed enrichment without recreating a full execution lifecycle |
 
-The separate `internal/acceptance/workload_access.go` and its matching test also
-have exact exemptions: their `psql` statements target disposable workload
+The separate `internal/acceptance/workload_access.go` also
+has an exact exemption: its `psql` statements target disposable workload
 databases, not the product Store.
-
-`internal/archcheck` fails when a retired package name returns, when
-`web/aliases.go` is recreated, or when production code crosses a banned
-ownership edge (transport reaching executors or release, release reaching
-transport or the daemon, executors reaching up or out, leaves reaching up,
-the dashboard binary reaching the daemon directly). Run it with
-`go test ./internal/archcheck/`; keep its rules in sync with the tables
-above whenever ownership genuinely moves.
 
 ## Function complexity
 

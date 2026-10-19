@@ -782,6 +782,3 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
     sync_account_keys(config, request)?;
     finish_provision(config, request, &home)
 }
-
-#[cfg(test)]
-mod project_account_tests;

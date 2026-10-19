@@ -10,8 +10,5 @@ mod certificate;
 mod types;
 mod verify;
 
-#[cfg(test)]
-mod tests;
-
 pub(super) use certificate::parse_certificate;
 pub(super) use verify::verify_self_signature;

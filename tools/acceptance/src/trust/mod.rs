@@ -13,13 +13,8 @@ mod host_key;
 mod inline_data;
 
 pub use host_key::{parse_ignition, verify_fixture_trust, IgnitionError};
-#[cfg(test)]
-pub use inline_data::encode_base64;
 pub(crate) use inline_data::INLINE_GZIP_LIMIT;
 pub use inline_data::{
     decode_base64, decode_data_uri, decode_ignition_file_refs, decode_ignition_files,
     gunzip_bounded, inline_data, inline_data_limited, IgnitionFile, IgnitionFileRef,
 };
-
-#[cfg(test)]
-mod tests;

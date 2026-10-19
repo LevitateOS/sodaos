@@ -70,6 +70,8 @@ command workflow. Spaces connects repository environments with human and factory
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |
 | [Lit](development/lit.md) | Spaces Lit components |
 | [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
+| [Banning unit tests](development/no-unit-tests.md) | Removing unit tests and enforcing the ban per language |
+| [Why unit tests are forbidden](development/why-no-unit-tests.md) | The six reasons behind the unit-test ban |
 | [Native support tools](development/native-support.md) | Build/support tool effects |
 | [Front-end VM update](development/frontend-vm-update.md) | Shipping front-end changes to the retained local development VM |
 | [Release workflow](development/release.md) | Running the release pipeline |
@@ -89,7 +91,6 @@ command workflow. Spaces connects repository environments with human and factory
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |
 | [Factory capability map](research/factory-capability-map.md) | Source assessment of target requirements, existing capabilities, gaps and Soda/Fountain/upstream ownership |
 | [Library boundaries](development/library-boundaries.md) | Existing library callers and retained technical constraints |
-| [Fountain frontend investigation](research/fountain-frontend-integration-investigation.md) | Native shell ownership, installed frontend failures, terminal lifetime constraints and correction boundaries |
 | [Licensing](research/licensing.md) | License and attribution notes |
 | [Predecessor reuse](research/predecessor-reuse.md) | Selected reuse attribution |
 

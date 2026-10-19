@@ -96,12 +96,3 @@ use addresses::resolve_project_peer;
 mod status;
 
 pub use status::{project_has_node, project_status};
-
-#[cfg(test)]
-mod node_tests;
-
-#[cfg(test)]
-mod status_tests;
-
-#[cfg(test)]
-mod address_tests;

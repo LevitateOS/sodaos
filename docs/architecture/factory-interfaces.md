@@ -29,7 +29,7 @@ persists only protected mechanical preparation/start/stop receipts, not factory
 policy or a competing run ledger. Fountain retains its own native records and
 operation ledger. No transaction spans these services.
 
-The backend retains the unprivileged `host/publish` executor, adds Git to its
+The backend retains the unprivileged `forgejo/publish` executor, adds Git to its
 image and uses a private publication directory under its existing writable data
 root. Native actor secret files and background service admission stay outside
 Projects. Existing read-only root, dropped capabilities and private socket

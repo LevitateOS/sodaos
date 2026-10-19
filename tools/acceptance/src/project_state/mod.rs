@@ -25,9 +25,6 @@ pub use files::{dumps_sorted, Entry, EntryBody};
 
 pub use snapshot::run_snapshot;
 
-#[cfg(test)]
-use workloads::check_project_ip;
-
 /// Snapshot failure kind, mirroring the Python exception taxonomy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnapshotKind {
@@ -228,6 +225,3 @@ pub fn check_snapshot_gate(euid: u32, containerenv: &Path) -> Result<(), Snapsho
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

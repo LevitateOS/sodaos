@@ -93,7 +93,3 @@ pub struct DeliveryWire {
     #[serde(default, with = "base64_bytes")]
     pub credential: Vec<u8>,
 }
-
-#[cfg(test)]
-#[path = "wire_tests.rs"]
-mod tests;

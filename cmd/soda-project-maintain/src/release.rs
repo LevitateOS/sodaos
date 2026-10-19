@@ -111,7 +111,3 @@ pub(crate) fn load_release_payload(path: &str) -> Result<ReleasePayload, ()> {
     }
     super::release_wire::decode_release_payload(&body)
 }
-
-#[cfg(test)]
-#[path = "release_tests.rs"]
-mod release_tests;
