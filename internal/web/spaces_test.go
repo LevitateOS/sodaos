@@ -64,32 +64,6 @@ func spacesFixture(t *testing.T, member bool) (*Server, *atomic.Int32, *atomic.I
 	return s, callbackCalls, nativeCalls
 }
 
-func spacesCallback(status int, calls *atomic.Int32) func(extensions.CallbackRequest) extensions.CallbackResponse {
-	return func(in extensions.CallbackRequest) extensions.CallbackResponse {
-		calls.Add(1)
-		if in.Operation != extensions.OperationRepository {
-			return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
-		}
-		switch status {
-		case http.StatusForbidden:
-			return extensions.CallbackResponse{ErrorCode: "forbidden"}
-		case http.StatusNotFound:
-			return extensions.CallbackResponse{ErrorCode: "not_found"}
-		case http.StatusServiceUnavailable:
-			return extensions.CallbackResponse{ErrorCode: "unavailable"}
-		default:
-			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "repo", Permission: "write"}}
-		}
-	}
-}
-
-func spacesAPI(t *testing.T, s *Server, path string, callback func(extensions.CallbackRequest) extensions.CallbackResponse) *httptest.ResponseRecorder {
-	t.Helper()
-	w := httptest.NewRecorder()
-	nativeAPIServeWithCallback(t, s, w, apiTestRequest(http.MethodGet, path, "", "alice"), callback)
-	return w
-}
-
 func readSpaces(t *testing.T, s *Server, callback func(extensions.CallbackRequest) extensions.CallbackResponse) api.SpacesView {
 	t.Helper()
 	w := spacesAPI(t, s, "/api/spaces", callback)

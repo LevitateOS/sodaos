@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,7 +14,9 @@ import (
 	sdk "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // Helpers for the restored dispatch/settlement integration tests. These
@@ -86,6 +90,7 @@ func phaseTestRun(a factory.Assignment, outcome factory.Outcome) factory.Run {
 		Image: "img", Harness: a.Harness, Model: a.Model, Outcome: outcome,
 	}
 }
+
 // Intent-graph doubles extracted for restored integration tests.
 
 type generatedGraphFixture struct {
@@ -234,7 +239,6 @@ func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, ind
 	return AcceptanceEvidence{Revision: f.revision, Issue: AcceptanceIssueView{ID: i.ID, Index: i.Index, TitleDigest: i.TitleDigest, ContentDigest: i.ContentDigest, ContentVer: i.ContentVersion, TitleOccurrence: generatedTitleOccurrence(i), Visible: true, PosterID: i.Provenance.PosterID}, Dependencies: generatedEdges(s.Dependencies)}, nil
 }
 
-
 func broadJoinAcceptedRevision() factory.IntentRevision {
 	idea := func(id, desc, consequence string) factory.ProductIdea {
 		return factory.ProductIdea{ID: id, Description: desc, Consequence: consequence, Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
@@ -312,4 +316,150 @@ func choicePlannerOutput(draft factory.IntentRevision, keys ...string) factory.S
 		out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
 	}
 	return out
+}
+
+// stubSettleStore doubles the terminal-settlement store boundary.
+type stubSettleStore struct {
+	assignment   factory.Assignment
+	assignmentOK bool
+	assignmentEr error
+	submission   factory.MCPSubmission
+	terminalOK   bool
+	terminalErr  error
+	receiptState string
+	advanceErr   error
+	advances     int
+	lastReceipt  factory.MCPReceipt
+	finishErr    error
+	finished     []factory.Assignment
+	byRun        map[string]factory.Assignment
+}
+
+// AssignmentByRun serves the repair-chain joint: no recorded failed
+// verification exists behind a stub run unless a test records one.
+func (s *stubSettleStore) AssignmentByRun(_ context.Context, runID string) (factory.Assignment, error) {
+	if s.byRun != nil {
+		if a, ok := s.byRun[runID]; ok {
+			return a, nil
+		}
+	}
+	return factory.Assignment{}, store.ErrNotFound
+}
+
+func (s *stubSettleStore) Assignment(context.Context, string) (factory.Assignment, error) {
+	if s.assignmentEr != nil {
+		return factory.Assignment{}, s.assignmentEr
+	}
+	if !s.assignmentOK {
+		return factory.Assignment{}, store.ErrNotFound
+	}
+	return s.assignment, nil
+}
+
+func (s *stubSettleStore) TerminalMCPSubmission(context.Context, string) (factory.MCPSubmission, bool, error) {
+	if s.terminalErr != nil {
+		return factory.MCPSubmission{}, false, s.terminalErr
+	}
+	return s.submission, s.terminalOK, nil
+}
+
+func (s *stubSettleStore) TerminalMCPProposal(context.Context, string) (factory.MCPReceipt, bool, error) {
+	if !s.terminalOK {
+		return factory.MCPReceipt{}, false, nil
+	}
+	return factory.MCPReceipt{
+		SubmissionID: s.submission.SubmissionID, Tool: s.submission.Tool,
+		State: s.receiptState, InputDigest: s.submission.PayloadHash,
+	}, true, nil
+}
+
+func (s *stubSettleStore) AdvanceMCPReceipt(_ context.Context, _, _ string, expectedState string, receipt factory.MCPReceipt) error {
+	if s.advanceErr != nil {
+		return s.advanceErr
+	}
+	if s.receiptState != expectedState {
+		return store.ErrStaleRevision
+	}
+	s.receiptState = receipt.State
+	s.lastReceipt = receipt
+	s.advances++
+	return nil
+}
+
+func (s *stubSettleStore) FinishAssignment(_ context.Context, a factory.Assignment) error {
+	if s.finishErr != nil {
+		return s.finishErr
+	}
+	s.finished = append(s.finished, a)
+	return nil
+}
+
+func settleStub(assigned factory.Assignment, tool factory.MCPTool, fields map[string]string) *stubSettleStore {
+	raw, _ := json.Marshal(fields)
+	submission := factory.MCPSubmission{
+		AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
+		ExpectedInputDigest: strings.Repeat("e", 64),
+		PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
+	}
+	return &stubSettleStore{
+		assignment: assigned, assignmentOK: true,
+		submission: submission, terminalOK: true,
+		receiptState: factory.MCPReceiptRecorded,
+	}
+}
+
+func fw40Stub(t *testing.T, assigned factory.Assignment, tool factory.MCPTool, payload map[string]any) *stubSettleStore {
+	t.Helper()
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &stubSettleStore{
+		assignment: assigned, assignmentOK: true,
+		submission: factory.MCPSubmission{
+			AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
+			ExpectedInputDigest: strings.Repeat("e", 64),
+			PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
+		},
+		terminalOK: true, receiptState: factory.MCPReceiptRecorded,
+	}
+}
+
+func fw40Settle(t *testing.T, stub *stubSettleStore, id string) bool {
+	t.Helper()
+	settled, err := SettleMCPTerminalProposal(context.Background(), stub, id, time.Unix(1700000200, 0))
+	if err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+	return settled
+}
+
+func fw40Finished(t *testing.T, stub *stubSettleStore) factory.Assignment {
+	t.Helper()
+	if len(stub.finished) != 1 {
+		t.Fatalf("finished %d assignments, want 1", len(stub.finished))
+	}
+	finished := stub.finished[0]
+	if err := finished.Validate(); err != nil {
+		t.Fatalf("finished assignment invalid: %v", err)
+	}
+	if stub.lastReceipt.State != factory.MCPReceiptAccepted {
+		t.Fatalf("receipt state %q, want accepted", stub.lastReceipt.State)
+	}
+	return finished
+}
+
+func choiceTaskKey(n int) string { return fmt.Sprintf("d%024x", 0xc000+n) }
+
+func settleStubs(host *stubHost, broker *stubBroker) {
+	host.stop = func(in project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stopped", LeaseID: "lease-" + in.ID, Generation: 3, CredentialReturned: true}, nil
+	}
+	broker.close = func(string, string) error { return nil }
+	broker.get = func(kind, id string) (identity.Execution, error) {
+		return identity.Execution{
+			Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal, Digest: "digest", LeaseID: "lease-" + id,
+			Binding: &identity.Binding{Kind: identity.Factory, ID: id, Generation: 3},
+		}, nil
+	}
 }

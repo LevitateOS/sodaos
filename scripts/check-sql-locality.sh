@@ -23,8 +23,16 @@ while IFS= read -r -d '' file; do
     # docs/development/go.md. Never exempt a production file or all tests.
     # Force consumed clocks without waiting for real attempt deadlines.
     ./internal/factory/control/dispatch_expiry_test.go) continue ;;
+    # Expire private admission receipts and simulate an unavailable table.
+    ./internal/factory/control/dispatch_preparation_test.go) continue ;;
+    ./internal/factory/control/dispatch_source_preparation_test.go) continue ;;
+    # Isolate bounded traversal from admission headers.
+    ./internal/factory/control/traversal_test.go) continue ;;
     # Isolate bounded traversal from admission headers; inspect saved cursors.
     ./internal/factory/control/readiness_sweep_test.go) continue ;;
+    # Remove emitted admission headers to isolate priority traversal, fresh
+    # members and cursor bounds; same traversal-test reason as above.
+    ./internal/factory/control/serving_priority_starvation_test.go) continue ;;
     # Seed and corrupt attributable assignment/run/view history to challenge
     # carried-finding retirement; validating writers gain no corruption hook.
     ./internal/factory/control/review_carried_history_test.go) continue ;;

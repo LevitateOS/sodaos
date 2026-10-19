@@ -13,17 +13,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type workerMCPTransport struct {
-	id, secret string
-}
-
-func (t workerMCPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r = r.Clone(r.Context())
-	r.Header.Set("X-Soda-Factory-Capability", t.id)
-	r.Header.Set("Authorization", "Bearer "+t.secret)
-	return http.DefaultTransport.RoundTrip(r)
-}
-
 func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	ctx := context.Background()
 	sink := newFakeCatalogSink()

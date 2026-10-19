@@ -255,8 +255,12 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | Existing fixture | Required direct database state |
 | --- | --- |
 | `internal/factory/control/dispatch_expiry_test.go` | Exhaust recorded roots before dispatch closure and explicit retry |
+| `internal/factory/control/dispatch_preparation_test.go` | Consume an attempt, expire admission receipts, and temporarily hide a policy table to exercise operational failure |
+| `internal/factory/control/dispatch_source_preparation_test.go` | Expire a ready source receipt during admission and confirm that no admission rows remain |
+| `internal/factory/control/traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
 | `internal/factory/control/readiness_sweep_test.go` | Isolate the cycle bound and inspect durable cursor state across acceptance changes |
 | `internal/factory/control/staged_seed_test.go` | Seed an external Forgejo SQLite fixture whose dependency edges have no REST writer |
+| `internal/factory/control/serving_priority_starvation_test.go` | Remove emitted admission headers to isolate priority traversal, fresh members and cursor bounds |
 | `internal/factory/control/review_carried_history_test.go` | Seed and corrupt attributable assignment/run/view history to challenge carried-finding retirement |
 | `internal/web/api/factory_completion_budget_test.go` | Seed completion/reassessment prefixes and observe budget/cursor rollback with scripted native RPC evidence |
 | `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
