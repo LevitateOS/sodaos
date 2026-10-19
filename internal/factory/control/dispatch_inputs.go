@@ -18,7 +18,12 @@ func readAttemptInputs(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 	}
 	inputs, failure := fetchAttemptInputs(ctx, deps, plan, repository, issue)
 	if failure != nil {
-		return nil, failure
+		// Refusals are waits in the first slot; only a host
+		// failure is a hard error in the second slot.
+		if failure.Reason == DispatchErrHost {
+			return nil, failure
+		}
+		return failure, nil
 	}
 	if wait := checkAttemptIssueState(inputs); wait != nil {
 		return wait, nil
