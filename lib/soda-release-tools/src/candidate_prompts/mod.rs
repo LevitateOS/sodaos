@@ -110,6 +110,14 @@ impl<'a> Prompter<'a> {
         Ok(())
     }
 
+    fn edit_forgejo_source(&mut self, o: &mut Options) -> Result<(), String> {
+        o.forgejo_source = self.ask_absolute(
+            "Canonical Fountain checkout (pinned SDK source)",
+            &o.forgejo_source.clone(),
+        )?;
+        Ok(())
+    }
+
     fn edit_repo_prefix(&mut self, o: &mut Options) -> Result<(), String> {
         o.repo_prefix = self.ask_non_empty(
             "Image repository prefix (intent only; no publication)",
@@ -278,6 +286,7 @@ impl<'a> Prompter<'a> {
                 )?;
                 Ok(())
             }
+            (7, false) | (9, true) => self.edit_forgejo_source(o),
             _ => Ok(()),
         }
     }
@@ -301,6 +310,7 @@ fn overview_rows(o: &Options) -> Vec<(String, String, Option<String>)> {
     rows.push(("repo prefix".to_owned(), o.repo_prefix.clone(), None));
     rows.push(("release tag".to_owned(), o.release_tag.clone(), None));
     rows.push(("package URL".to_owned(), o.package_base_url.clone(), None));
+    rows.push(("forgejo src".to_owned(), o.forgejo_source.clone(), None));
     rows
 }
 
@@ -347,6 +357,9 @@ fn default_overview(o: &mut Options, suggest: &dyn Fn() -> String, exists: &dyn 
         exists,
         STANDARD_WORKER_CONFIG_PATHS,
     );
+    if o.forgejo_source.is_empty() {
+        o.forgejo_source = sibling_forgejo_source();
+    }
 }
 
 /// Real-terminal overview entry used by the binary.

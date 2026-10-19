@@ -23,8 +23,8 @@ fn build_help_is_generated_and_safe() {
 fn docker_inputs_are_admitted_before_worker_dispatch() {
     let scratch = TempDir::new("docker-build-admission");
     for (args, expected) in [
-        (vec!["--distribution", "docker"], "Docker packaging requires an explicit version --release-tag"),
-        (vec!["--distribution", "docker", "--release-tag", "latest"], "Docker packaging requires an explicit version --release-tag"),
+        (vec!["--distribution", "docker"], "Payload v4 requires an explicit version --release-tag"),
+        (vec!["--distribution", "docker", "--release-tag", "latest"], "Payload v4 requires an explicit version --release-tag"),
         (vec!["--distribution", "docker", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://example.invalid"], "candidate target refuses media-only inputs"),
         (vec!["--development", "--target", "docker"], "development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"),
         // The combined development target pairs only with the all
@@ -98,7 +98,13 @@ fn build_admission_matrix_preserves_release_boundaries() {
             "root-owned --worker-config required; media authority belongs to the isolated worker\n",
         ),
         (
-            vec!["--development", "--target", "candidate"],
+            vec![
+                "--development",
+                "--target",
+                "candidate",
+                "--release-tag",
+                "v9.9.9-dev",
+            ],
             "root-owned --worker-config required; media authority belongs to the isolated worker\n",
         ),
         (
@@ -185,6 +191,8 @@ fn build_dispatch_refuses_nested_checkout_before_privileged_work() {
             "--development",
             "--target",
             "candidate",
+            "--release-tag",
+            "v9.9.9-dev",
             "--arch",
             "x86_64",
             "--out",

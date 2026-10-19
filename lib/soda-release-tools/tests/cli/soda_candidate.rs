@@ -10,6 +10,7 @@ fn candidate_help_is_generated_and_safe() {
         "--mode",
         "--controller",
         "--worker-config",
+        "--forgejo-source",
         "--non-interactive",
     ] {
         assert!(out.contains(flag), "help omitted {flag}: {out}");
@@ -84,6 +85,10 @@ fn candidate_validation_preserves_admission_boundaries() {
             "media",
             "--rootfs-base-url",
             "http://fixture:8080",
+            "--forgejo-source",
+            "/canonical/forgejo-ext",
+            "--release-tag",
+            "v0.0.0-dev",
         ]
         .into_iter()
         .map(str::to_owned)
@@ -127,6 +132,8 @@ fn candidate_validation_preserves_admission_boundaries() {
             "candidate",
             "--rootfs-base-url",
             "http://fixture:8080",
+            "--forgejo-source",
+            "/canonical/forgejo-ext",
         ],
     );
     assert_eq!(code, 1);
@@ -147,8 +154,71 @@ fn candidate_validation_preserves_admission_boundaries() {
             &out,
             "--mode",
             "media",
+            "--forgejo-source",
+            "/canonical/forgejo-ext",
         ],
     );
     assert_eq!(code, 1);
     assert_eq!(err, "soda-candidate: media requires the rootfs base URL\n");
+}
+
+#[test]
+fn candidate_forgejo_source_is_required_and_checked() {
+    use std::process::Command;
+    let scratch = TempDir::new("cand-forgejo");
+    let out = scratch.path.join("fresh").to_string_lossy().into_owned();
+    let answered = |extra: &[&str]| -> Vec<String> {
+        let mut args = vec![
+            "--non-interactive",
+            "--controller",
+            "/admitted/soda-build",
+            "--worker-config",
+            "/restricted/worker.json",
+            "--arch",
+            "x86_64",
+            "--out",
+            &out,
+            "--mode",
+            "candidate",
+            "--release-tag",
+            "v0.0.0-dev",
+        ];
+        args.extend_from_slice(extra);
+        args.into_iter().map(str::to_owned).collect()
+    };
+    // Missing and relative checkouts are refused before preflight.
+    for extra in [vec![], vec!["--forgejo-source", "relative/forgejo-ext"]] {
+        let (code, _, err) = run(&candidate_bin(), &scratch.path, &answered(&extra));
+        assert_eq!(code, 1, "{extra:?}");
+        assert_eq!(
+            err, "soda-candidate: absolute Forgejo checkout path required\n",
+            "{extra:?}"
+        );
+    }
+    // A fake checkout root proves the canonical-checkout preflight:
+    // go.mod plus a clean tree gets past every earlier refusal, then the
+    // Forgejo root check (not sudo dispatch) stops the run.
+    let root = TempDir::new("cand-root");
+    std::fs::write(root.path.join("go.mod"), "module example.test\n").unwrap();
+    for step in [
+        vec!["init", "-q"],
+        vec!["add", "go.mod"],
+        vec!["commit", "-qm", "fixture"],
+    ] {
+        let status = Command::new("git")
+            .current_dir(&root.path)
+            .args(["-c", "user.name=test", "-c", "user.email=test@test"])
+            .args(&step)
+            .status()
+            .expect("git fixture");
+        assert!(status.success(), "{step:?}");
+    }
+    let not_checkout = TempDir::new("cand-notforgejo");
+    let (code, _, err) = run(
+        &candidate_bin(),
+        &root.path,
+        &answered(&["--forgejo-source", &not_checkout.path.to_string_lossy()]),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(err, "soda-candidate: canonical Forgejo checkout required\n");
 }

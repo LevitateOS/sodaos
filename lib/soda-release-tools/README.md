@@ -42,10 +42,10 @@ For media, use the same `soda-build` invocation with `--target media` and
 `--rootfs-base-url http://FIXTURE_ADDRESS:PORT`; optional
 `--media-compression fast` applies only to development media.
 
-The `soda-candidate` wrapper offers prompts and `candidate`/`media` modes, but
-its controller invocation omits the required `--forgejo-source` input. Builds
-through that wrapper fail source admission; use `soda-build` directly as shown
-above. See the
+The `soda-candidate` wrapper offers prompts and `candidate`/`media` modes,
+including the required `--forgejo-source` input: it suggests the sibling
+`forgejo-ext` checkout when one is present, asks otherwise, and forwards the
+answer to the controller. Flags only pre-seed answers. See the
 [candidate operator guide](../../docs/guides/soda-candidate.md) and native support
 guide for rootfs pickup and fixture authority. Builds write artifacts and logs
 and execute native tools. Development output is never a qualified release.

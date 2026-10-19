@@ -45,6 +45,22 @@ pub(crate) fn file_exists(path: &str) -> bool {
     std::fs::metadata(path).is_ok()
 }
 
+/// Conventional sibling Fountain checkout beside this repository.
+/// Only suggested when it already looks like a canonical checkout.
+pub fn sibling_forgejo_source() -> String {
+    let mut base = std::env::current_dir().unwrap_or_default();
+    if !base.pop() {
+        return String::new();
+    }
+    base.push("forgejo-ext");
+    match std::fs::metadata(base.join(".git")) {
+        Ok(st) if st.file_type().is_dir() && base.is_absolute() => {
+            base.to_string_lossy().into_owned()
+        }
+        _ => String::new(),
+    }
+}
+
 pub fn suggest_out() -> String {
     let cwd = std::env::current_dir()
         .map(|p| p.to_string_lossy().into_owned())
@@ -90,5 +106,7 @@ pub fn controller_args(o: &Options) -> Vec<String> {
         args.push("--rootfs-base-url".to_owned());
         args.push(o.rootfs_url.clone());
     }
+    args.push("--forgejo-source".to_owned());
+    args.push(o.forgejo_source.clone());
     args
 }

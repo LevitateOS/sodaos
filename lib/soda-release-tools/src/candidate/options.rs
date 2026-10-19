@@ -18,6 +18,7 @@ pub struct Options {
     pub repo_prefix: String,
     pub release_tag: String,
     pub package_base_url: String,
+    pub forgejo_source: String,
     pub non_interactive: bool,
 }
 
@@ -54,6 +55,10 @@ fn command() -> ClapCommand {
         .arg(value(
             "package-base-url",
             "HTTPS development package fixture base (otherwise public release assets)",
+        ))
+        .arg(value(
+            "forgejo-source",
+            "canonical Fountain checkout supplying the pinned local SDK (asked when empty)",
         ))
         .arg(value("media-compression", "fast: development media only"))
         .arg(value(
@@ -140,6 +145,10 @@ pub fn parse_options(args: &[String]) -> Result<Options, String> {
             .get_one::<String>("package-base-url")
             .cloned()
             .unwrap_or_default(),
+        forgejo_source: matches
+            .get_one::<String>("forgejo-source")
+            .cloned()
+            .unwrap_or_default(),
         controller: matches
             .get_one::<String>("controller")
             .cloned()
@@ -202,6 +211,9 @@ fn validate_common_paths(o: &Options) -> Result<(), String> {
     }
     if o.out.is_empty() || !o.out.starts_with('/') {
         return Err("absolute --out required".to_owned());
+    }
+    if o.forgejo_source.is_empty() || !o.forgejo_source.starts_with('/') {
+        return Err("absolute Forgejo checkout path required".to_owned());
     }
     let leaf = o.out.rsplit('/').next().unwrap_or_default();
     if !valid_out_leaf(leaf) {
@@ -322,7 +334,8 @@ pub fn preflight(o: &Options) -> Result<(), String> {
         return Err(format!("arch {} is not this native {native} host", o.arch));
     }
     check_clean_tree()?;
-    check_fresh_out(&o.out)
+    check_fresh_out(&o.out)?;
+    crate::build_cli::validate_forgejo_checkout_root(&o.forgejo_source)
 }
 
 pub fn monotonic_ns() -> Result<i64, String> {

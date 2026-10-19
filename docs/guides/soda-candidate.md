@@ -27,15 +27,17 @@ Fixture scope only: it never creates qualification or signing configs.
 Manual equivalent of each step is printed by the script as it goes.
 
 One overview screen shows every choice (mode, output with freshness status,
-controller, worker config and fixture URL). Type a field
+controller, worker config, fixture URL and Fountain checkout). Type a field
 number to edit it, `go` to start, `quit` to abort. Nothing runs before an
-explicit start. Flags only pre-seed answers:
+explicit start. The Fountain checkout defaults to the sibling `forgejo-ext`
+checkout when one is present. Flags only pre-seed answers:
 
 ```sh
 soda-candidate --mode media --rootfs-base-url http://FIXTURE:PORT
 soda-candidate --non-interactive --mode candidate \
   --controller /ADMITTED/soda-build \
   --worker-config /RESTRICTED/worker.json \
+  --forgejo-source /CANONICAL/FORGEJO-CHECKOUT \
   --out /OUTPUT_PARENT/UNIQUE
 ```
 
