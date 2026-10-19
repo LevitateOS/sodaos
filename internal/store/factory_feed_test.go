@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -138,5 +139,183 @@ func TestFeedSubscriptionRestartPersistence(t *testing.T) {
 	stored, revision, err := second.FeedSubscription(ctx, "reader-9")
 	if err != nil || revision != 1 || len(stored.Repositories) != 2 {
 		t.Fatalf("restarted subscription = %+v %d %v", stored, revision, err)
+	}
+}
+
+func TestSubscribedFeedMilestonesRecordTheirOwnOrder(t *testing.T) {
+	ctx := context.Background()
+	s, dsn := postgresFixture(t, nil)
+	raw := journeySQL(t, dsn)
+	acceptance := "d" + strings.Repeat("a", 24)
+
+	older := journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true)
+	insertJourneyAssignment(t, raw, older, factory.AssignmentFinished, 1)
+	impl := journeyAssignment(strings.Repeat("2", 32), strings.Repeat("2", 32), acceptance, 7, 3, true)
+	impl.CreatedUnix = 1700000100
+	insertJourneyAssignment(t, raw, impl, factory.AssignmentFinished, 1)
+	newer := journeyAssignment(strings.Repeat("3", 32), strings.Repeat("3", 32), acceptance, 7, 4, true)
+	insertJourneyAssignment(t, raw, newer, factory.AssignmentFinished, 1)
+
+	publication := strings.Repeat("9", 32)
+	mergedCommit := strings.Repeat("e", 40)
+	if _, err := raw.Exec(`INSERT INTO factory_publications(assignment,repository,issue,run,stage,revision,data)
+		VALUES($1,7,3,'run','published',1,$2)`, impl.ID, `{"id":"`+publication+`"}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_merges(publication,repository,issue,pr,stage,revision,data)
+		VALUES($1,7,3,42,'merged',1,$2)`, publication,
+		`{"merged_commit":"`+mergedCommit+`","merged_unix":1700002000,"finished_unix":1700002000}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data)
+		VALUES(7,1,$1,$2,'occ-1',$3)`, strings.Repeat("e", 32), publication,
+		`{"issue":"3","merged_commit":"`+mergedCommit+`"}`); err != nil {
+		t.Fatal(err)
+	}
+
+	insertJudgment := func(snapshot string, receipt any) {
+		t.Helper()
+		data, err := json.Marshal(receipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := raw.Exec(`INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`,
+			snapshot, string(data)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	deliverySnap := strings.Repeat("ab", 32)
+	insertJudgment(deliverySnap, factory.DeliveryReceipt{
+		Kind: factory.DeliveryReceiptKind, Fingerprint: deliverySnap, CreatedUnix: 1700001500,
+		Input: factory.DeliveryFingerprintInput{PublicationID: publication},
+		Decision: factory.DeliveryDecision{Effective: factory.DeliveryEffectiveReady, Answer: factory.DeliveryAnswer{
+			Selected: factory.DeliveryReadyToMerge, Probability: 0.9, Confidence: 0.8, Model: "jev",
+			Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1}}},
+	})
+	prioritySnap := strings.Repeat("cd", 32)
+	insertJudgment(prioritySnap, factory.PriorityReceipt{
+		Snapshot: prioritySnap, Selected: "cand-a", Outcome: "selected", CreatedUnix: 1700000050,
+		Candidates: []factory.PriorityCandidate{
+			{ID: "cand-a", Objective: "ship it", Control: factory.IssueControl{Repository: 7, Issue: 3}},
+			{ID: "cand-b", Objective: "later", Control: factory.IssueControl{Repository: 7, Issue: 4}},
+		},
+		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{Selected: "cand-a", Confidence: 0.7, Model: "jev",
+			Probabilities: map[string]float64{"cand-a": 0.6, "cand-b": 0.4}}}},
+	})
+	// A selection is visible even before dispatch; non-issue judgments
+	// do not acquire a repository scope from their option labels.
+	insertJudgment(strings.Repeat("ef", 32), factory.PriorityReceipt{
+		Snapshot: strings.Repeat("ef", 32), Selected: "cand-x", CreatedUnix: 1700000050,
+		Candidates: []factory.PriorityCandidate{{ID: "cand-x", Control: factory.IssueControl{Repository: 7, Issue: 99}}},
+	})
+	insertJudgment(strings.Repeat("fe", 32), factory.PriorityReceipt{
+		Snapshot: strings.Repeat("fe", 32), Selected: "new_issue", CreatedUnix: 1700000050,
+		Candidates: []factory.PriorityCandidate{{ID: "new_issue"}},
+	})
+
+	page, _, truncated, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if truncated || len(page) != 8 {
+		t.Fatalf("milestone window = %d entries truncated=%v: %+v", len(page), truncated, page)
+	}
+	wantOrder := []struct{ id, activity string }{
+		{strings.Repeat("ef", 32), factory.FeedActivityJudgment},
+		{prioritySnap, factory.FeedActivityJudgment},
+		{deliverySnap, factory.FeedActivityJudgment},
+		{strings.Repeat("e", 32), factory.FeedActivityCompleted},
+		{publication, factory.FeedActivityMerged},
+		{newer.ID, ""},
+		{impl.ID, ""},
+		{older.ID, ""},
+	}
+	for i, want := range wantOrder {
+		if page[i].ID != want.id || page[i].Activity != want.activity {
+			t.Fatalf("entry %d = %s/%q, want %s/%q (window %+v)", i, page[i].ID, page[i].Activity, want.id, want.activity, page)
+		}
+		if want.activity != "" && i != 0 && page[i].Assignment != impl.ID {
+			t.Fatalf("milestone %d assignment = %q", i, page[i].Assignment)
+		}
+	}
+	for i := 1; i < len(page); i++ {
+		if page[i-1].Seq <= page[i].Seq {
+			t.Fatalf("non-chronological keys: %+v", page)
+		}
+	}
+	if page[0].Assignment != "" {
+		t.Fatal("undispatched selection has a fabricated assignment")
+	}
+
+	// Page through late milestones without losing or duplicating entries.
+	var paged []factory.FeedEntry
+	cursor := ""
+	for {
+		part, next, more, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 2, Cursor: cursor})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(part) > 2 {
+			t.Fatal("page exceeded requested bound")
+		}
+		paged = append(paged, part...)
+		if !more {
+			break
+		}
+		cursor = next
+	}
+	if len(paged) != len(page) {
+		t.Fatalf("paging lost entries: %d != %d", len(paged), len(page))
+	}
+	for i := range page {
+		if paged[i] != page[i] {
+			t.Fatalf("page %d changed identity/order", i)
+		}
+	}
+
+	// Recording another assignment then confirming the older publication
+	// must put its merge on top. Rewriting the same milestone is a replay.
+	if _, err := raw.Exec("UPDATE factory_merges SET data=data WHERE publication=$1", publication); err != nil {
+		t.Fatal(err)
+	}
+	refresh, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range page {
+		if refresh[i] != page[i] {
+			t.Fatal("milestone replay changed order")
+		}
+	}
+
+	details, err := s.FeedMilestoneDetails(ctx, page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := details[publication]
+	if merged.Actor != "factory" || merged.Author != "Factory" || merged.At != 1700002000 ||
+		merged.Ref != mergedCommit || merged.PR != 42 || merged.Payload == nil ||
+		merged.Payload.Merge == nil || merged.Payload.Merge.MergedCommit != mergedCommit {
+		t.Fatalf("merge detail: %+v", merged)
+	}
+	completed := details[strings.Repeat("e", 32)]
+	if completed.Actor != "factory" || completed.Status != "completed" || completed.Issue != 3 ||
+		completed.Payload == nil || completed.Payload.Completion == nil ||
+		completed.Payload.Completion.Publication != publication {
+		t.Fatalf("completion detail: %+v", completed)
+	}
+	delivery := details[deliverySnap]
+	if delivery.Actor != "jev" || delivery.Author != "JEV" || delivery.Issue != 3 ||
+		delivery.Payload == nil || delivery.Payload.Judgment == nil ||
+		delivery.Payload.Judgment.Kind != "delivery" ||
+		delivery.Payload.Judgment.Effective != factory.DeliveryEffectiveReady {
+		t.Fatalf("delivery judgment detail: %+v", delivery)
+	}
+	priority := details[prioritySnap]
+	if priority.Actor != "jev" || priority.Issue != 3 || priority.Payload == nil ||
+		priority.Payload.Judgment == nil || priority.Payload.Judgment.Kind != "priority" ||
+		priority.Payload.Judgment.Selected != "cand-a" || priority.Payload.Judgment.CandidatesTotal != 2 ||
+		priority.Payload.Judgment.Candidates[0].Objective != "ship it" {
+		t.Fatalf("priority judgment detail: %+v", priority)
 	}
 }

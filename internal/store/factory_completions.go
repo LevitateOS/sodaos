@@ -23,6 +23,7 @@ const (
 // (repository, generation) primary key orders events per repository for
 // the pending-event fence; data carries the factory.CompletionEvent.
 const FactoryCompletionsDDL = `CREATE TABLE factory_completions(
+feed_seq BIGINT NOT NULL UNIQUE DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')),
 repository BIGINT NOT NULL CHECK(repository>0), generation BIGINT NOT NULL CHECK(generation>=1),
 event TEXT NOT NULL CHECK(event ~ '^[a-f0-9]{32}$'),
 publication TEXT NOT NULL CHECK(publication ~ '^[a-f0-9]{32}$'),

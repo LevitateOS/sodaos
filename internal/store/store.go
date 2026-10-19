@@ -25,9 +25,8 @@ var ErrCommandConflict = errors.New("command identity reused for different conte
 var ErrLastKeyConfirmationRequired = errors.New("final saved key removal requires confirmation")
 
 type Store struct {
-	PriorityCallBudget int
-	db                 *sql.DB
-	grants             *grantCipher
+	db     *sql.DB
+	grants *grantCipher
 }
 type User struct {
 	ID          int64

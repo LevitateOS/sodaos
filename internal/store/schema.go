@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 59
+const schemaFormatVersion = 61
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -18,7 +18,7 @@ var schemaStatements = []string{
 	`CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_feed_subscriptions(subscriber TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>0), data JSONB NOT NULL)`,
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(59)`,
+	`INSERT INTO schema_version(version) VALUES(61)`,
 	`CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))`,
 	`CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))`,
 	`ALTER TABLE applications ADD FOREIGN KEY(id,revision) REFERENCES application_revisions(application_id,revision) DEFERRABLE INITIALLY DEFERRED`,
@@ -27,7 +27,7 @@ var schemaStatements = []string{
 	`CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_judgment_budget(id INTEGER PRIMARY KEY CHECK(id=1), spent INTEGER NOT NULL CHECK(spent>=0))`,
 	`INSERT INTO factory_judgment_budget(id,spent) VALUES(1,0)`,
-	`CREATE TABLE factory_priority_judgments(snapshot TEXT PRIMARY KEY, max_calls INTEGER NOT NULL CHECK(max_calls BETWEEN 0 AND 16), data JSONB)`,
+	`CREATE TABLE factory_priority_judgments(feed_seq BIGINT UNIQUE, snapshot TEXT PRIMARY KEY, max_calls INTEGER NOT NULL CHECK(max_calls BETWEEN 0 AND 16), data JSONB)`,
 	`CREATE TABLE factory_planning(repository BIGINT NOT NULL, issue BIGINT NOT NULL, snapshot TEXT NOT NULL, data JSONB NOT NULL, PRIMARY KEY(repository,issue))`,
 	`CREATE TABLE factory_plan_revisions(attempt_root TEXT NOT NULL CHECK(attempt_root ~ '^[a-f0-9]{32}$'), plan_id TEXT NOT NULL CHECK(plan_id ~ '^[a-f0-9]{32}$'), generation BIGINT NOT NULL CHECK(generation>=0), digest TEXT NOT NULL CHECK(digest ~ '^[a-f0-9]{64}$'), data JSONB NOT NULL, PRIMARY KEY(attempt_root,plan_id))`,
 	`CREATE TABLE factory_plan_heads(attempt_root TEXT PRIMARY KEY CHECK(attempt_root ~ '^[a-f0-9]{32}$'), plan_id TEXT NOT NULL CHECK(plan_id ~ '^[a-f0-9]{32}$'), generation BIGINT NOT NULL CHECK(generation>=0))`,
@@ -77,6 +77,9 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 	`CREATE UNIQUE INDEX factory_unfinished_completion_assignment ON factory_assignments(repository,(data->'subject'->'completion'->>'completion_id'),(data->'subject'->'completion'->>'cycle_id')) WHERE stage='assigned' AND issue=0`,
 	`CREATE INDEX factory_assignments_issue_history ON factory_assignments(repository,issue,seq DESC)`,
 	`CREATE INDEX factory_finished_children ON factory_assignments(seq) WHERE stage='finished' AND data->>'publication_assignment'<>id`,
+	`CREATE TABLE factory_feed_comments(seq BIGINT NOT NULL DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')), id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'), repository BIGINT NOT NULL CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>=0), author TEXT NOT NULL CHECK(octet_length(author) BETWEEN 1 AND 160), body TEXT NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4096), idempotency TEXT NOT NULL CHECK(octet_length(idempotency) BETWEEN 1 AND 64), data JSONB NOT NULL, UNIQUE(repository,author,idempotency))`,
+	`CREATE INDEX factory_feed_comments_repository ON factory_feed_comments(repository,seq DESC)`,
+	`CREATE TABLE factory_feed_comment_requests(comment TEXT PRIMARY KEY REFERENCES factory_feed_comments(id), revision BIGINT NOT NULL CHECK(revision>=0), intake TEXT NOT NULL, judgment TEXT NOT NULL, route TEXT NOT NULL DEFAULT '', draft TEXT NOT NULL, effect TEXT NOT NULL, issue BIGINT NOT NULL DEFAULT 0 CHECK(issue>=0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_reservations(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data JSONB NOT NULL)`,
 	`CREATE INDEX factory_reservations_connection_state ON factory_reservations(connection,state)`,
 	`CREATE TABLE factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ NOT NULL CHECK(ended_at>=started_at), data JSONB NOT NULL)`,
@@ -88,7 +91,7 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE intake_deliveries(delivery TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), kind TEXT NOT NULL, received_at INTEGER NOT NULL)`,
 	`CREATE TABLE factory_publications(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_check_assessments(repository INTEGER NOT NULL CHECK(repository>0), pr INTEGER NOT NULL CHECK(pr>0), revision INTEGER NOT NULL, data JSONB NOT NULL, PRIMARY KEY(repository,pr))`,
-	`CREATE TABLE factory_merges(seq BIGINT GENERATED ALWAYS AS IDENTITY, publication TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), pr INTEGER NOT NULL CHECK(pr>0), stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)`,
+	`CREATE TABLE factory_merges(feed_seq BIGINT UNIQUE, seq BIGINT GENERATED ALWAYS AS IDENTITY, publication TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), pr INTEGER NOT NULL CHECK(pr>0), stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)`,
 	`CREATE TABLE factory_readiness_budget(id INTEGER PRIMARY KEY CHECK(id=1), generation BIGINT NOT NULL CHECK(generation>=1), next_turn BIGINT NOT NULL CHECK(next_turn>=1))`,
 	`INSERT INTO factory_readiness_budget(id,generation,next_turn) VALUES(1,1,1)`,
 	`CREATE TABLE factory_readiness_sources(
@@ -119,6 +122,24 @@ subject TEXT NOT NULL, repository BIGINT NOT NULL CHECK(repository>0), issue BIG
 candidate JSONB, exclusion TEXT, fingerprint TEXT NOT NULL DEFAULT '',
 PRIMARY KEY(scan,subject))`,
 	FactoryCompletionsDDL,
+	`CREATE FUNCTION soda_feed_merge_order() RETURNS trigger LANGUAGE plpgsql AS $$
+	BEGIN
+		IF NEW.stage='merged' AND NEW.feed_seq IS NULL THEN
+			NEW.feed_seq := nextval(pg_get_serial_sequence('factory_assignments','seq'));
+		END IF;
+		RETURN NEW;
+	END $$`,
+	`CREATE TRIGGER factory_merge_feed_order BEFORE INSERT OR UPDATE ON factory_merges
+	FOR EACH ROW EXECUTE FUNCTION soda_feed_merge_order()`,
+	`CREATE FUNCTION soda_feed_judgment_order() RETURNS trigger LANGUAGE plpgsql AS $$
+	BEGIN
+		IF NEW.data IS NOT NULL AND NEW.feed_seq IS NULL THEN
+			NEW.feed_seq := nextval(pg_get_serial_sequence('factory_assignments','seq'));
+		END IF;
+		RETURN NEW;
+	END $$`,
+	`CREATE TRIGGER factory_judgment_feed_order BEFORE INSERT OR UPDATE ON factory_priority_judgments
+	FOR EACH ROW EXECUTE FUNCTION soda_feed_judgment_order()`,
 	FactoryReassessmentsDDL,
 	FactoryStallEventsDDL,
 	FactoryMCPCapabilitiesDDL,
@@ -284,6 +305,9 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT application_id,revision,spec FROM application_revisions LIMIT 0`,
 		`SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0`,
 		`SELECT subscriber,revision,data FROM factory_feed_subscriptions LIMIT 0`,
+		`SELECT feed_seq,snapshot,max_calls,data FROM factory_priority_judgments LIMIT 0`,
+		`SELECT seq,id,repository,revision,author,body,idempotency,data FROM factory_feed_comments LIMIT 0`,
+		`SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts,data FROM factory_feed_comment_requests LIMIT 0`,
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0`,
@@ -322,8 +346,8 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT project_id,decision FROM project_approval_heads LIMIT 0`,
 		`SELECT seq,run,repository,issue,attempt FROM factory_run_views LIMIT 0`,
 		`SELECT seq,assignment,repository,issue,run,stage,revision,data FROM factory_publications LIMIT 0`,
-		`SELECT seq,publication,repository,issue,pr,stage,revision,data FROM factory_merges LIMIT 0`,
-		`SELECT repository,generation,event,publication,occurrence,data FROM factory_completions LIMIT 0`,
+		`SELECT feed_seq,seq,publication,repository,issue,pr,stage,revision,data FROM factory_merges LIMIT 0`,
+		`SELECT feed_seq,repository,generation,event,publication,occurrence,data FROM factory_completions LIMIT 0`,
 		`SELECT cycle,repository,generation,event,state,data FROM factory_reassessments LIMIT 0`,
 		`SELECT id,generation,next_turn FROM factory_readiness_budget LIMIT 0`,
 		`SELECT id,delivery,repository,issue,creation_verified,creator_id,creator_write,native_issue_id,created_unix,title_digest,content_digest,generation,turn,retry_at,attempts FROM factory_readiness_sources LIMIT 0`,
