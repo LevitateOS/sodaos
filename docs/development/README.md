@@ -34,6 +34,8 @@ language, packages and placement. Update guidance affected by the current change
 | Task | Document |
 | --- | --- |
 | Native validation journeys | [Testing](testing.md) |
+| Banning unit tests per language | [Banning unit tests](no-unit-tests.md) |
+| Why unit tests are forbidden | [Why unit tests are forbidden](why-no-unit-tests.md) |
 | Support tool effects and candidates | [Native support](native-support.md) |
 | Running the release pipeline | [Release workflow](release.md) |
 | Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |

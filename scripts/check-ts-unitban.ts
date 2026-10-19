@@ -166,7 +166,7 @@ async function main(): Promise<void> {
   }
   if (findings.length > 0) {
     for (const f of findings) console.log(`${f.path}:${f.line}: [${f.rule}] ${f.text}`);
-    console.log(`ts-unitban failed: ${findings.length} finding(s). Unit tests are banned (AGENTS.md).`);
+    console.log(`ts-unitban failed: ${findings.length} finding(s). Unit tests are banned (AGENTS.md); see docs/development/why-no-unit-tests.md.`);
     process.exit(1);
   }
   console.log(`ts-unitban passed: no test-runner usage outside ${allow.size} allowlisted files.`);

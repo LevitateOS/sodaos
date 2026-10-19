@@ -59,7 +59,7 @@ fn deny_unit_tests() {
     unitban_visit(std::path::Path::new("src"), false, &mut bad);
     assert!(
         bad.is_empty(),
-        "unit tests are banned (AGENTS.md); integration tests live in tests/:\n{}",
+        "unit tests are banned (AGENTS.md; why: docs/development/why-no-unit-tests.md); integration tests live in tests/:\n{}",
         bad.join("\n")
     );
 }

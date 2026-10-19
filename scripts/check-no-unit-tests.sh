@@ -68,7 +68,7 @@ stale=$(comm -13 <(git ls-files '*.ts' | sort) <(grep -vE '^\s*(#|$)' tools/unit
 [ -n "$stale" ] && printf 'warning: stale TS allowlist entries (file deleted, list not pruned):\n%s\n' "$stale" >&2
 
 if [ "$fail" -ne 0 ]; then
-  printf 'no-unit-tests gate failed.\n'
+  printf 'no-unit-tests gate failed. Unit tests are forbidden: see docs/development/why-no-unit-tests.md.\n'
   exit 1
 fi
 printf 'no-unit-tests gate passed: integration and e2e tests only.\n'

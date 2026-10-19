@@ -97,7 +97,7 @@ func run(pass *analysis.Pass) (any, error) {
 				(testName.MatchString(name) && testingParam(pass, fn, "T")) ||
 				(fuzzName.MatchString(name) && testingParam(pass, fn, "F"))
 			if banned {
-				pass.Reportf(fn.Pos(), "unit tests are banned (AGENTS.md): %s; integration tests live in allowlisted files (tools/unitban/allow-go.txt)", name)
+				pass.Reportf(fn.Pos(), "unit tests are banned (AGENTS.md): %s; see docs/development/why-no-unit-tests.md; integration tests live in allowlisted files (tools/unitban/allow-go.txt)", name)
 			}
 		}
 	}
