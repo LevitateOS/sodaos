@@ -161,5 +161,5 @@ func (s *API) performApplicationOperation(w http.ResponseWriter, r *http.Request
 	}
 	record.Application = request.Application
 	record.Observation = &result
-	auth.JSONResponse(w, 200, appView(record, s.applicationOperator(v)))
+	auth.JSONResponse(w, 200, s.applicationView(r,v,record,s.applicationOperator(v)))
 }

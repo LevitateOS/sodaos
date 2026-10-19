@@ -24,6 +24,7 @@ export interface ApplicationObservation {
   origin: string;
 }
 export interface ApplicationRecord {
+  project?: {repository: string; name: string; path: string};
   application: ApplicationSpec;
   administrator_id: string;
   observation: ApplicationObservation | null;
@@ -119,13 +120,20 @@ function observation(value: unknown, application: ApplicationSpec): ApplicationO
 export function applicationResponse(value: unknown, expected?: ApplicationSpec): ApplicationRecord {
   const v = object(value),
     application = spec(v.application);
-  check(Object.keys(v).length === 4 && id(v.administrator_id) && typeof v.operator === 'boolean');
+  check((Object.keys(v).length === 4 || Object.keys(v).length === 5) && id(v.administrator_id) && typeof v.operator === 'boolean');
+  let project: ApplicationRecord['project'];
+  if (v.project !== undefined) {
+    const p = object(v.project);
+    check(id(p.repository) && typeof p.name === 'string' && typeof p.path === 'string' && p.path === '/' + p.name && !/[?#\\\s]/.test(p.path));
+    project = {repository: p.repository, name: p.name, path: p.path};
+  }
   if (expected) check(JSON.stringify(application) === JSON.stringify(expected));
   return {
     application,
     administrator_id: v.administrator_id,
     operator: v.operator,
     observation: observation(v.observation, application),
+    ...(project ? {project} : {}),
   };
 }
 export function applicationsResponse(value: unknown): {applications: ApplicationRecord[]; complete: boolean} {

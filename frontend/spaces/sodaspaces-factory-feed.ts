@@ -25,7 +25,12 @@ import type {
   FeedEntryKind,
   FeedSubscriptionView,
 } from './sodaspaces-factory-feed-response.js';
-import {describeCommentOutcome, describeFeedPost, renderDiscussion, renderFeedPost} from './sodaspaces-factory-feed-view.js';
+import {
+  describeCommentOutcome,
+  describeFeedPost,
+  renderDiscussion,
+  renderFeedPost,
+} from './sodaspaces-factory-feed-view.js';
 import type {CommentOutcomeModel, PostBodyState} from './sodaspaces-factory-feed-view.js';
 
 export interface FactoryFeedContext {
@@ -168,7 +173,13 @@ export class SodaFactoryFeed extends LitElement {
   }
 
   set context(context: FactoryFeedContext | undefined) {
-    if (context?.transport === this.current?.transport && context?.repository === this.current?.repository && context?.account === this.current?.account && context?.global === this.current?.global) return;
+    if (
+      context?.transport === this.current?.transport &&
+      context?.repository === this.current?.repository &&
+      context?.account === this.current?.account &&
+      context?.global === this.current?.global
+    )
+      return;
     clearInterval(this.refreshTimer);
     this.reading = false;
     this.current = context;
@@ -224,7 +235,12 @@ export class SodaFactoryFeed extends LitElement {
     try {
       const subscription = context.global
         ? parseFeedSubscriptionView(await readJSON(context.transport, 'factory/feed/subscription'))
-        : {subscriber: context.account ?? context.transport.generation, revision: 0, repositories: [Number(context.repository)], kinds: []} as FeedSubscriptionView;
+        : ({
+            subscriber: context.account ?? context.transport.generation,
+            revision: 0,
+            repositories: [Number(context.repository)],
+            kinds: [],
+          } as FeedSubscriptionView);
       if (serial !== this.serial) return;
       this.view = {...this.view, subscription};
       const labels = await this.resolveLabels(context, subscription);
@@ -263,11 +279,14 @@ export class SodaFactoryFeed extends LitElement {
         let after = '';
         const seen = new Set<string>();
         do {
-          const page = object(await readJSON(context.transport, 'spaces' + (after ? '?after=' + encodeURIComponent(after) : '')));
+          const page = object(
+            await readJSON(context.transport, 'spaces' + (after ? '?after=' + encodeURIComponent(after) : ''))
+          );
           check(Array.isArray(page.items));
           for (const item of page.items) {
             const environment = object(object(item).environment);
-            if (typeof environment.repository === 'string') addKnown(Number(environment.repository_id), environment.repository);
+            if (typeof environment.repository === 'string')
+              addKnown(Number(environment.repository_id), environment.repository);
           }
           const next = typeof page.next_after === 'string' ? page.next_after : '';
           if (!next || seen.has(next)) return {refs, listedAll: page.complete === true};
@@ -312,19 +331,23 @@ export class SodaFactoryFeed extends LitElement {
     }
     this.reading = true;
     this.view = {...this.view, busy: true};
-    const anchor = Array.from(this.querySelectorAll<HTMLElement>('.soda-feed-post')).find(el => el.getBoundingClientRect().bottom > 0);
+    const anchor = Array.from(this.querySelectorAll<HTMLElement>('.soda-feed-post')).find(
+      (el) => el.getBoundingClientRect().bottom > 0
+    );
     const anchorTop = anchor?.getBoundingClientRect().top;
     try {
       const page = parseFeedPageView(
         await readJSON(
           context.transport,
-          feedQueryString({repositories: scope, kinds: this.view.filterKinds, limit: feedPageSize, cursor: ''}) + (context.global ? '' : '&scope=project')
+          feedQueryString({repositories: scope, kinds: this.view.filterKinds, limit: feedPageSize, cursor: ''}) +
+            (context.global ? '' : '&scope=project')
         )
       );
       if (serial !== this.serial) return;
       const refs = new Map(this.view.labels.refs);
       for (const entry of page.entries) {
-        if (entry.project && nativePath('/' + entry.project)) refs.set(entry.repository, {path: '/' + entry.project, label: entry.project});
+        if (entry.project && nativePath('/' + entry.project))
+          refs.set(entry.repository, {path: '/' + entry.project, label: entry.project});
       }
       const fresh = page.entries.filter(
         (entry) => !this.view.entries.some((known) => known.kind === entry.kind && known.id === entry.id)
@@ -467,7 +490,10 @@ export class SodaFactoryFeed extends LitElement {
   private onDraft = (event: Event) => {
     const area = event.target;
     if (!(area instanceof HTMLTextAreaElement)) return;
-    if (area.hasAttribute('data-revision-body') && this.revising) { this.revising.body = area.value; return; }
+    if (area.hasAttribute('data-revision-body') && this.revising) {
+      this.revising.body = area.value;
+      return;
+    }
     const key = area.dataset.feedDraft;
     if (!key) return;
     this.drafts.set(key, area.value.slice(0, 4000));
@@ -476,7 +502,8 @@ export class SodaFactoryFeed extends LitElement {
     // put. The submit button's disabled state still tracks the draft,
     // toggled directly so typing alone can enable submission.
     const submit = this.querySelector(`[data-comment-submit="${CSS.escape(key)}"]`);
-    if (submit instanceof HTMLButtonElement) submit.disabled = area.value.trim() === '' || this.view.commentBusy.includes(key);
+    if (submit instanceof HTMLButtonElement)
+      submit.disabled = area.value.trim() === '' || this.view.commentBusy.includes(key);
   };
 
   private draftFor(key: string): string {
@@ -581,10 +608,18 @@ export class SodaFactoryFeed extends LitElement {
     const pendingKey = `soda-feed-pending:v1:${this.storageKey(key)}`;
     try {
       const saved = this.pendingPosts.get(pendingKey) ?? JSON.parse(localStorage.getItem(pendingKey) ?? 'null');
-      if (saved && saved.repository === repository && typeof saved.body === 'string' && saved.idempotency_key === post.idempotency_key) post = saved;
+      if (
+        saved &&
+        saved.repository === repository &&
+        typeof saved.body === 'string' &&
+        saved.idempotency_key === post.idempotency_key
+      )
+        post = saved;
       this.pendingPosts.set(pendingKey, post);
       localStorage.setItem(pendingKey, JSON.stringify(post));
-    } catch { this.pendingPosts.set(pendingKey, post); }
+    } catch {
+      this.pendingPosts.set(pendingKey, post);
+    }
     const serial = this.serial;
     this.view = {...this.view, commentBusy: [...this.view.commentBusy, key]};
     try {
@@ -605,7 +640,11 @@ export class SodaFactoryFeed extends LitElement {
       writeIntake(this.storageKey(key), records);
       this.rotateDraftKey(key);
       this.pendingPosts.delete(pendingKey);
-      try { localStorage.removeItem(pendingKey); } catch { /* Memory state remains current. */ }
+      try {
+        localStorage.removeItem(pendingKey);
+      } catch {
+        /* Memory state remains current. */
+      }
       if (this.draftFor(key) === post.body) {
         this.drafts.set(key, '');
         writeDraft(this.storageKey(key), '');
@@ -615,7 +654,9 @@ export class SodaFactoryFeed extends LitElement {
       this.view = {
         ...this.view,
         commentBusy: busy,
-        message: this.draftFor(key) ? 'Previous comment saved. Your newer edits are kept, ready to send.' : 'Comment saved.',
+        message: this.draftFor(key)
+          ? 'Previous comment saved. Your newer edits are kept, ready to send.'
+          : 'Comment saved.',
       };
       if (commentUnsettled(state)) this.pollOutcome(key, state.commentId, serial);
       await this.readLatest(false);
@@ -790,19 +831,37 @@ export class SodaFactoryFeed extends LitElement {
     const revise = target.closest<HTMLElement>('[data-comment-revise]');
     if (revise?.dataset.commentRevise && this.current) {
       const serial = this.serial;
-      void readJSON(this.current.transport, `factory/feed/comments/${revise.dataset.commentRevise}`).then(value => {
-        if (serial !== this.serial) return;
-        const data = object(value);
-        if (data.can_retry !== true) return;
-        this.revising = {id: String(data.comment_id), revision: Number(data.revision), body: String(data.body)};
-        if (data.route === 'clarify') this.revising = {...this.revising, original: String(data.body), body: '', question: typeof data.detail === 'string' ? data.detail : 'What should change, and where should it apply?'};
-        this.requestUpdate();
-        void this.updateComplete.then(() => this.querySelector<HTMLElement>('[data-revision-body]')?.focus());
-      }).catch(() => { this.view = {...this.view, message: 'Could not load this request. Refresh and try again.'}; });
+      void readJSON(this.current.transport, `factory/feed/comments/${revise.dataset.commentRevise}`)
+        .then((value) => {
+          if (serial !== this.serial) return;
+          const data = object(value);
+          if (data.can_retry !== true) return;
+          this.revising = {id: String(data.comment_id), revision: Number(data.revision), body: String(data.body)};
+          if (data.route === 'clarify')
+            this.revising = {
+              ...this.revising,
+              original: String(data.body),
+              body: '',
+              question:
+                typeof data.detail === 'string' ? data.detail : 'What should change, and where should it apply?',
+            };
+          this.requestUpdate();
+          void this.updateComplete.then(() => this.querySelector<HTMLElement>('[data-revision-body]')?.focus());
+        })
+        .catch(() => {
+          this.view = {...this.view, message: 'Could not load this request. Refresh and try again.'};
+        });
       return;
     }
-    if (target.closest('[data-revision-cancel]')) { this.revising = undefined; this.requestUpdate(); return; }
-    if (target.closest('[data-revision-submit]')) { void this.reviseComment(); return; }
+    if (target.closest('[data-revision-cancel]')) {
+      this.revising = undefined;
+      this.requestUpdate();
+      return;
+    }
+    if (target.closest('[data-revision-submit]')) {
+      void this.reviseComment();
+      return;
+    }
     const submit = target.closest('[data-comment-submit]');
     if (submit instanceof HTMLElement && submit.dataset.commentSubmit) {
       void this.submitComment(submit.dataset.commentSubmit);
@@ -817,34 +876,67 @@ export class SodaFactoryFeed extends LitElement {
   };
 
   private async reviseComment() {
-    const edit = this.revising, context = this.current, serial = this.serial;
+    const edit = this.revising,
+      context = this.current,
+      serial = this.serial;
     if (!edit || !context || this.view.busy || !edit.body.trim()) return;
     this.view = {...this.view, busy: true};
     try {
       const response = await context.transport.request(`factory/feed/comments/${edit.id}/retry`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({expected_revision: edit.revision, body: edit.original === undefined ? edit.body : edit.original + '\n\nClarification: ' + edit.body}), signal: AbortSignal.timeout(15000),
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          expected_revision: edit.revision,
+          body: edit.original === undefined ? edit.body : edit.original + '\n\nClarification: ' + edit.body,
+        }),
+        signal: AbortSignal.timeout(15000),
       });
       const value = await readSodaJSON(response);
-      if (!response.ok) throw Error((value as {error?: {message?: string}})?.error?.message ?? 'Could not update this request.');
+      if (!response.ok)
+        throw Error((value as {error?: {message?: string}})?.error?.message ?? 'Could not update this request.');
       if (serial !== this.serial) return;
       this.revising = undefined;
       this.view = {...this.view, busy: false, message: 'Request updated. Processing will continue here.'};
       await this.readLatest(false);
     } catch (error) {
-      if (serial === this.serial) this.view = {...this.view, busy: false, message: error instanceof Error ? error.message : 'Could not update this request. Your edits are kept.'};
+      if (serial === this.serial)
+        this.view = {
+          ...this.view,
+          busy: false,
+          message: error instanceof Error ? error.message : 'Could not update this request. Your edits are kept.',
+        };
     }
   }
 
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
     return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
-      <header class="soda-feed-toolbar"><h2>${this.current?.global ? 'Following' : 'Activity'}</h2>
-      <button type="button" class="ui button" ?disabled=${this.view.busy} @click=${() => void this.readLatest(true)}>Refresh feed</button></header>
+      <header class="soda-feed-toolbar">
+        <h2>${this.current?.global ? 'Following' : 'Activity'}</h2>
+        <button type="button" class="ui button" ?disabled=${this.view.busy} @click=${() => void this.readLatest(true)}>
+          Refresh feed
+        </button>
+      </header>
       <p data-feed-message aria-live="polite">${this.view.message}</p>
-      ${this.revising ? html`<section class="soda-feed-revision" aria-label="Revise request">
-        ${this.revising.original ? html`<p class="soda-feed-body-text">${this.revising.original}</p>` : ''}
-        <label>${this.revising.question ?? 'Update your request'}<textarea data-revision-body rows="5" maxlength="4000" .value=${this.revising.body}></textarea></label><p>Submitting reassesses this request and may start work using the project’s existing allowance.</p><button type="button" data-revision-submit ?disabled=${this.view.busy}>${this.revising.question ? 'Submit answer' : 'Submit updated request'}</button><button type="button" data-revision-cancel>Cancel</button></section>` : ''}
+      ${
+        this.revising
+          ? html`<section class="soda-feed-revision" aria-label="Revise request">
+              ${this.revising.original ? html`<p class="soda-feed-body-text">${this.revising.original}</p>` : ''}
+              <label
+                >${this.revising.question ?? 'Update your request'}<textarea
+                  data-revision-body
+                  rows="5"
+                  maxlength="4000"
+                  .value=${this.revising.body}
+                ></textarea>
+              </label>
+              <p>Submitting reassesses this request and may start work using the project’s existing allowance.</p>
+              <button type="button" data-revision-submit ?disabled=${this.view.busy}>
+                ${this.revising.question ? 'Submit answer' : 'Submit updated request'}</button
+              ><button type="button" data-revision-cancel>Cancel</button>
+            </section>`
+          : ''
+      }
       ${confirmed ? html`<p class="soda-feed-updated">Updated <time datetime=${confirmed.iso}>${confirmed.text}</time></p>` : ''}
       ${
         this.view.pagedBack
@@ -867,11 +959,15 @@ export class SodaFactoryFeed extends LitElement {
       describeCommentOutcome(state, {id: repository, path: ref?.path, label: ref?.label ?? 'This project'})
     );
     return renderDiscussion({
-      key, draft: this.draftFor(key),
-      label: 'Project comment', submitLabel: 'Post comment',
+      key,
+      draft: this.draftFor(key),
+      label: 'Project comment',
+      submitLabel: 'Post comment',
       submitAvailable: this.draftFor(key).trim() !== '' && !this.view.commentBusy.includes(key),
-      outcomes, discussionLink: undefined,
-      intakeText: 'Ask a question or request a change. JEV connects your comment to existing work or asks the Product Lead to create new work.',
+      outcomes,
+      discussionLink: undefined,
+      intakeText:
+        'Ask a question or request a change. JEV connects your comment to existing work or asks the Product Lead to create new work.',
     });
   }
 
@@ -905,8 +1001,12 @@ export class SodaFactoryFeed extends LitElement {
         <legend>Show</legend>
         <select name="kind" aria-label="Activity type" ?disabled=${this.view.busy}>
           <option value="all" .selected=${subscription.kinds.length !== 1}>All activity</option>
-          <option value="record" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'record'}>Worker activity</option>
-          <option value="post" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'post'}>Comments</option>
+          <option value="record" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'record'}>
+            Worker activity
+          </option>
+          <option value="post" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'post'}>
+            Comments
+          </option>
         </select>
       </fieldset>
       <button class="ui button" type="submit" ?disabled=${this.view.busy}>Save feed subscription</button>
@@ -933,7 +1033,16 @@ export class SodaFactoryFeed extends LitElement {
             const body: PostBodyState | undefined =
               entry.kind === 'post' ? (this.view.bodies.get(entry.id) ?? {state: 'loading'}) : undefined;
             const post = describeFeedPost(entry, repository, this.draftFor(key), outcomes, body, false);
-            return renderFeedPost(post, this.renderReplies(entry));
+            return renderFeedPost(
+              {
+                ...post,
+                discussion: {
+                  ...post.discussion,
+                  submitAvailable: post.discussion.submitAvailable && !this.view.commentBusy.includes(key),
+                },
+              },
+              this.renderReplies(entry)
+            );
           }
         )}
       </div>
@@ -953,44 +1062,99 @@ export class SodaFactoryFeed extends LitElement {
   }
 
   private async loadReplies(entry: FeedEntry, older = false) {
-    const context = this.current, source = commentSourceForEntry(entry), serial = this.serial;
+    const context = this.current,
+      source = commentSourceForEntry(entry),
+      serial = this.serial;
     if (!context || !source) return;
-    const key = this.entryKeyFor(entry), previous = this.threads.get(key);
+    const key = this.entryKeyFor(entry),
+      previous = this.threads.get(key);
     if (previous?.busy) return;
-    this.threads.set(key, {...previous, items: previous?.items ?? [], next: previous?.next ?? 0, busy: true, message: ''});
+    this.threads.set(key, {
+      ...previous,
+      items: previous?.items ?? [],
+      next: previous?.next ?? 0,
+      busy: true,
+      message: '',
+    });
     this.requestUpdate();
     try {
-      const query = new URLSearchParams({repository: String(entry.repository), source_kind: source.kind, source_id: source.id});
+      const query = new URLSearchParams({
+        repository: String(entry.repository),
+        source_kind: source.kind,
+        source_id: source.id,
+      });
       if (older && previous?.next) query.set('before', String(previous.next));
       const result = object(await readJSON(context.transport, 'factory/feed/replies?' + query));
       check(Array.isArray(result.items));
       const items = result.items.map(parseCommentDetail);
-      check(typeof result.next_before === 'number' && Number.isSafeInteger(result.next_before) && result.next_before >= 0);
+      check(
+        typeof result.next_before === 'number' && Number.isSafeInteger(result.next_before) && result.next_before >= 0
+      );
       if (serial !== this.serial) return;
-      this.threads.set(key, {items: older ? [...(previous?.items ?? []), ...items] : items, next: result.next_before, busy: false, message: ''});
+      this.threads.set(key, {
+        items: older ? [...(previous?.items ?? []), ...items] : items,
+        next: result.next_before,
+        busy: false,
+        message: '',
+      });
     } catch {
       if (serial !== this.serial) return;
-      this.threads.set(key, {items: previous?.items ?? [], next: previous?.next ?? 0, busy: false, message: 'Replies could not be loaded. Try Refresh replies.'});
+      this.threads.set(key, {
+        items: previous?.items ?? [],
+        next: previous?.next ?? 0,
+        busy: false,
+        message: 'Replies could not be loaded. Try Refresh replies.',
+      });
     }
     this.requestUpdate();
   }
 
   private renderReplies(entry: FeedEntry) {
     if (!commentSourceForEntry(entry)) return html``;
-    const key = this.entryKeyFor(entry), thread = this.threads.get(key);
+    const key = this.entryKeyFor(entry),
+      thread = this.threads.get(key);
     const ref = this.view.labels.refs.get(entry.repository);
-    return html`<details class="soda-feed-thread" @toggle=${(event: Event) => {
-      if ((event.currentTarget as HTMLDetailsElement).open && !this.threads.has(key)) void this.loadReplies(entry);
-    }}><summary>View replies</summary>
-      ${thread ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry)}>Refresh replies</button>
-        <p role="status">${thread.busy ? 'Loading replies…' : thread.message || (thread.items.length ? '' : 'No replies yet.')}</p>
-        ${thread.items.map(reply => html`<article class="soda-feed-thread-reply">
-          <p><strong>${reply.authorName || 'Comment'}</strong> · ${new Date(reply.at * 1000).toLocaleString()}</p>
-          <p class="soda-feed-body-text">${reply.body}</p>
-          ${renderDiscussion({key: 'post:' + reply.pipeline.commentId, draft: '', submitAvailable: false, showComposer: false, intakeText: '', discussionLink: undefined,
-            outcomes: [describeCommentOutcome(reply.pipeline, {id: entry.repository, path: ref?.path, label: ref?.label ?? 'This project'})]})}
-        </article>`)}
-        ${thread.next ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry, true)}>Older replies</button>` : ''}` : 'Loading replies…'}
+    return html`<details
+      class="soda-feed-thread"
+      @toggle=${(event: Event) => {
+        if ((event.currentTarget as HTMLDetailsElement).open && !this.threads.has(key)) void this.loadReplies(entry);
+      }}
+    >
+      <summary>View replies</summary>
+      ${
+        thread
+          ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry)}>
+                Refresh replies
+              </button>
+              <p role="status">
+                ${thread.busy ? 'Loading replies…' : thread.message || (thread.items.length ? '' : 'No replies yet.')}
+              </p>
+              ${thread.items.map(
+                (reply) => html`<article class="soda-feed-thread-reply">
+                  <p>
+                    <strong>${reply.authorName || 'Comment'}</strong> · ${new Date(reply.at * 1000).toLocaleString()}
+                  </p>
+                  <p class="soda-feed-body-text">${reply.body}</p>
+                  ${renderDiscussion({
+                    key: 'post:' + reply.pipeline.commentId,
+                    draft: '',
+                    submitAvailable: false,
+                    showComposer: false,
+                    intakeText: '',
+                    discussionLink: undefined,
+                    outcomes: [
+                      describeCommentOutcome(reply.pipeline, {
+                        id: entry.repository,
+                        path: ref?.path,
+                        label: ref?.label ?? 'This project',
+                      }),
+                    ],
+                  })}
+                </article>`
+              )}
+              ${thread.next ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry, true)}>Older replies</button>` : ''}`
+          : 'Loading replies…'
+      }
     </details>`;
   }
 }

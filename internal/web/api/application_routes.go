@@ -12,5 +12,5 @@ func extensionApplicationRoute(parts []string, method string) bool {
 	if len(parts) == 2 {
 		return method == http.MethodGet
 	}
-	return len(parts) == 3 && parts[2] == "actions" && method == http.MethodPost
+	return len(parts) == 3 && (parts[2] == "actions" || parts[2] == "project") && method == http.MethodPost
 }

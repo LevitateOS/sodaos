@@ -84,7 +84,9 @@ export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryR
     key: feedEntryKey(entry),
     avatarInitial: name.slice(0, 1).toUpperCase(),
     name,
-    role: roleLabel(entry.actor && !/^\d+$/.test(entry.actor) ? entry.actor : undefined) ?? (recorded ? 'Factory' : 'Comment'),
+    role:
+      roleLabel(entry.actor && !/^\d+$/.test(entry.actor) ? entry.actor : undefined) ??
+      (recorded ? 'Factory' : 'Comment'),
     project: entry.project ?? repository.label,
     timeText: entry.at ? formatStamp(entry.at) : `recorded order #${entry.seq}, newest first`,
     statusText: readableStatus(entry),
@@ -253,7 +255,14 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
     {label: 'Comment saved', state: state.intake === 'recorded' ? 'done' : state.intake},
     {
       label: 'JEV assessment',
-      state: state.judgment === 'pending' ? (commentAttemptsExhausted(state) ? 'stopped — attempts exhausted' : 'pending') : state.judgment === 'failed' ? 'failed' : 'done',
+      state:
+        state.judgment === 'pending'
+          ? commentAttemptsExhausted(state)
+            ? 'stopped — attempts exhausted'
+            : 'pending'
+          : state.judgment === 'failed'
+            ? 'failed'
+            : 'done',
     },
   ];
   if (state.judgment === 'pending' || state.judgment === 'failed') return stages;
@@ -271,13 +280,22 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
   if (state.route === 'new_issue') {
     stages.push({
       label: 'Product Lead issue draft',
-      state: state.draft === 'pending' ? (commentAttemptsExhausted(state) ? 'stopped — attempts exhausted' : 'pending') : state.draft === 'invalid' ? 'invalid' : 'done',
+      state:
+        state.draft === 'pending'
+          ? commentAttemptsExhausted(state)
+            ? 'stopped — attempts exhausted'
+            : 'pending'
+          : state.draft === 'invalid'
+            ? 'invalid'
+            : 'done',
     });
     stages.push({
       label: 'Native issue creation',
       state:
         state.effect === 'pending'
-          ? (state.draft === 'pending' && commentAttemptsExhausted(state) ? 'not started' : 'pending')
+          ? state.draft === 'pending' && commentAttemptsExhausted(state)
+            ? 'not started'
+            : 'pending'
           : state.effect === 'failed'
             ? 'failed'
             : state.effect === 'blocked'
@@ -291,7 +309,15 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
       label: 'Persisted selected-issue link',
       state: selected > 0 ? `done — issue #${selected}` : state.effect === 'pending' ? 'pending' : 'not recorded',
     });
-    stages.push({label: 'Issue discussion feedback', state: state.effect === 'applied' || state.effect === 'verified' ? 'delivered' : commentAttemptsExhausted(state) ? 'stopped — retry needed' : 'delivery not confirmed'});
+    stages.push({
+      label: 'Issue discussion feedback',
+      state:
+        state.effect === 'applied' || state.effect === 'verified'
+          ? 'delivered'
+          : commentAttemptsExhausted(state)
+            ? 'stopped — retry needed'
+            : 'delivery not confirmed',
+    });
   }
   return stages;
 }
@@ -299,9 +325,7 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
 export function commentSourceText(state: CommentPipelineState): string {
   const source = state.source;
   if (source === undefined) return '';
-  const parts = [
-    `About ${source.kind === 'record' ? 'recorded work' : 'a discussion post'} ${shortFeedID(source.id)}`,
-  ];
+  const parts = [`About ${source.kind === 'record' ? 'recorded work' : 'a discussion post'} ${shortFeedID(source.id)}`];
   if (source.issue) parts.push(`issue #${source.issue}`);
   if (source.pr) parts.push(`pull request #${source.pr}`);
   if (source.ref) parts.push(`candidate ${source.ref}`);
@@ -321,9 +345,7 @@ export function describeCommentOutcome(
   const selectedExisting = state.existingIssue > 0 ? state.existingIssue : state.issue;
   const linkIssue = state.route === 'existing_work' ? selectedExisting : state.issue;
   const issueLink =
-    linkIssue > 0 && repository.path !== undefined
-      ? nativeIssueLink(repository.path, String(linkIssue))
-      : undefined;
+    linkIssue > 0 && repository.path !== undefined ? nativeIssueLink(repository.path, String(linkIssue)) : undefined;
   const sourceText = commentSourceText(state);
   const outcome = (text: string, tone: CommentOutcomeTone, retryable: boolean): CommentOutcomeModel => ({
     commentId: state.commentId,
@@ -340,37 +362,39 @@ export function describeCommentOutcome(
   });
   if (commentAttemptsExhausted(state)) {
     if (state.judgment === 'pending' || state.judgment === 'failed')
-      return outcome('Assessment stopped after its bounded failed attempts. Further assessment needs an explicit retry.', 'failed', false);
+      return outcome(
+        'Assessment stopped after its bounded failed attempts. Further assessment needs an explicit retry.',
+        'failed',
+        false
+      );
     if (state.route === 'new_issue' && state.draft === 'pending')
-      return outcome('Issue authoring stopped after its bounded failed attempts. No issue draft was accepted.', 'failed', false);
+      return outcome(
+        'Issue authoring stopped after its bounded failed attempts. No issue draft was accepted.',
+        'failed',
+        false
+      );
     if (state.route === 'new_issue' && (state.effect === 'pending' || state.effect === 'failed'))
-      return outcome('Native issue creation is unconfirmed after its bounded attempts. Inspect the original operation before retrying.', 'failed', false);
+      return outcome(
+        'Native issue creation is unconfirmed after its bounded attempts. Inspect the original operation before retrying.',
+        'failed',
+        false
+      );
   }
-  if (state.judgment === 'pending')
-    return outcome(
-      'Saved. JEV is assessing your comment.',
-      'progress',
-      true
-    );
+  if (state.judgment === 'pending') return outcome('Saved. JEV is assessing your comment.', 'progress', true);
   if (state.judgment === 'failed')
     return outcome(
       'Assessment failed after its bounded attempts. Retrying recovers the original instead of duplicating it.',
       'failed',
       true
     );
-  if (state.route === 'discussion')
-    return outcome('Kept as discussion.', 'settled', false);
+  if (state.route === 'discussion') return outcome('Kept as discussion.', 'settled', false);
   if (state.route === 'clarify')
     return outcome('Waiting on clarification from the author before any further routing.', 'progress', false);
   if (state.route === 'existing_work') {
     if (state.effect === 'applied' || state.effect === 'verified')
       return outcome(`Feedback added to issue #${selectedExisting}.`, 'settled', false);
     if (selectedExisting <= 0 && state.effect === 'pending')
-      return outcome(
-        'Finding the issue for this feedback.',
-        'progress',
-        true
-      );
+      return outcome('Finding the issue for this feedback.', 'progress', true);
     return outcome(
       selectedExisting > 0
         ? `Linked to issue #${selectedExisting}. Feedback delivery is not confirmed.`
@@ -397,11 +421,7 @@ export function describeCommentOutcome(
       'failed',
       false
     );
-  return outcome(
-    `Issue #${state.issue} created.`,
-    'settled',
-    false
-  );
+  return outcome(`Issue #${state.issue} created.`, 'settled', false);
 }
 
 export interface DiscussionModel {
@@ -434,7 +454,8 @@ export function describeDiscussion(
     outcomes,
     intakeText:
       'Submitting asks JEV to route this comment; a selected new request reaches Product Lead authoring and validated native creation. Acknowledgements stay discussion-only.',
-    discussionLink: repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
+    discussionLink:
+      repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
   };
 }
 
@@ -495,27 +516,41 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
         </p>
         ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
         ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}</button>` : ''}
-        <details><summary>Processing details</summary>${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}<ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
-          ${outcome.stages.map((stage) => html`<li><strong>${stage.label}</strong> — ${stage.state}</li>`)}
-        </ol></details>
+        <details>
+          <summary>Processing details</summary>
+          ${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}
+          <ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
+            ${outcome.stages.map((stage) => html`<li><strong>${stage.label}</strong> — ${stage.state}</li>`)}
+          </ol>
+        </details>
       </div>`
     )}
-    ${model.showComposer === false ? '' : html`<label
-      >${model.label ?? 'Reply draft'}
-      <textarea name="reply" data-feed-draft=${model.key} rows="3" maxlength="4000" .value=${live(model.draft)}></textarea>
-    </label>
-    <p>
-      <button
-        type="button"
-        class="ui button"
-        data-comment-submit=${model.key}
-        ?disabled=${!model.submitAvailable}
-        title="Submit persists the comment and starts its JEV assessment."
-      >
-        ${model.submitLabel ?? 'Submit reply'}
-      </button>
-      ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
-    </p>`}
+    ${
+      model.showComposer === false
+        ? ''
+        : html`<label
+              >${model.label ?? 'Reply draft'}
+              <textarea
+                name="reply"
+                data-feed-draft=${model.key}
+                rows="3"
+                maxlength="4000"
+                .value=${live(model.draft)}
+              ></textarea>
+            </label>
+            <p>
+              <button
+                type="button"
+                class="ui button"
+                data-comment-submit=${model.key}
+                .disabled=${live(!model.submitAvailable)}
+                title="Submit persists the comment and starts its JEV assessment."
+              >
+                ${model.submitLabel ?? 'Submit reply'}
+              </button>
+              ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
+            </p>`
+    }
   </section>`;
 }
 
@@ -566,14 +601,20 @@ export function renderFeedPost(model: FeedPostModel, replies: TemplateResult | s
       : model.family.family === 'fallback'
         ? html`${renderFeedFamily(model.family)} ${renderWorkEvidence(model.work)}`
         : renderFeedFamily(model.family);
-  return html`<article class="soda-feed-post" id=${'feed-' + model.header.key.replace(':', '-')} data-status=${model.family.statusClass}>
+  return html`<article
+    class="soda-feed-post"
+    id=${'feed-' + model.header.key.replace(':', '-')}
+    data-status=${model.family.statusClass}
+  >
     ${renderPostHeader(model.header)}
     <div class="soda-feed-card">
       ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
       ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}
-      ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''}
-      ${replies}
-      <details class="soda-feed-replies"><summary>Reply</summary>${renderDiscussion({...model.discussion, outcomes: []})}</details>
+      ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''} ${replies}
+      <details class="soda-feed-replies">
+        <summary>Reply</summary>
+        ${renderDiscussion({...model.discussion, outcomes: []})}
+      </details>
     </div>
   </article>`;
 }

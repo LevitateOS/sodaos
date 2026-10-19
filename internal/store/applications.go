@@ -74,6 +74,25 @@ func (s *Store) Application(ctx context.Context, id string, actorID int64) (appl
 	return scanApplication(s.db.QueryRowContext(ctx, applicationRecordSQL, id, actorID))
 }
 
+func (s *Store) ApplicationProject(ctx context.Context,id string) (int64,error) {
+	var repository int64
+	err:=s.db.QueryRowContext(ctx,`SELECT repository FROM application_projects WHERE application_id=$1`,id).Scan(&repository)
+	if errors.Is(err,sql.ErrNoRows){return 0,nil}
+	return repository,err
+}
+
+func (s *Store) SetApplicationProject(ctx context.Context,id string,administrator,repository int64) error {
+	if repository<=0{return errors.New("application needs its source repository")}
+	result,err:=s.db.ExecContext(ctx,`INSERT INTO application_projects(application_id,repository)
+		SELECT id,$3 FROM applications WHERE id=$1 AND administrator_id=$2
+		ON CONFLICT(application_id) DO UPDATE SET repository=EXCLUDED.repository`,id,administrator,repository)
+	if err!=nil{return err}
+	count,err:=result.RowsAffected()
+	if err!=nil{return err}
+	if count!=1{return ErrNotFound}
+	return nil
+}
+
 // ApplicationRevision retains exact prior bytes references for recovery. A
 // desired replacement does not erase the image/configuration that preceded it.
 func (s *Store) ApplicationRevision(ctx context.Context, id string, actorID, revision int64) (application.Spec, error) {

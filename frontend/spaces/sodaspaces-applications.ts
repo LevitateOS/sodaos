@@ -3,6 +3,7 @@ import type {PropertyValues} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {applicationResponse, applicationsResponse} from './sodaspaces-application-response.js';
 import type {ApplicationRecord} from './sodaspaces-application-response.js';
+import {check, object, id} from './sodaspaces-api.js';
 
 export type ApplicationRequest = (
   path: string,
@@ -17,6 +18,8 @@ export class SodaApplications extends LitElement {
     request: {attribute: false},
     active: {type: Boolean},
     expanded: {type: Boolean},
+    repository: {type: String},
+    projects: {state: true},
     sessionKey: {attribute: false},
     records: {state: true},
     notice: {state: true},
@@ -27,6 +30,8 @@ export class SodaApplications extends LitElement {
   declare request: ApplicationRequest | undefined;
   declare active: boolean;
   declare expanded: boolean;
+  declare repository: string;
+  private projects: {repository: string; name: string}[] = [];
   declare sessionKey: string;
   declare private records: ApplicationRecord[];
   declare private notice: string;
@@ -40,6 +45,7 @@ export class SodaApplications extends LitElement {
     this.request = undefined;
     this.active = false;
     this.expanded = false;
+    this.repository = '';
     this.sessionKey = '';
     this.records = [];
     this.notice = '';
@@ -62,6 +68,7 @@ export class SodaApplications extends LitElement {
     this.controller?.abort();
     this.records = [];
     this.confirmations = new Set();
+    this.projects = [];
     this.notice = '';
     this.busy = false;
   }
@@ -161,6 +168,13 @@ export class SodaApplications extends LitElement {
     return html`<li>
       <strong>${record.application.name}</strong> · Last observed: ${this.status(record)}
       <p>${record.application.origin}</p>
+      ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : html`<p>No project linked.</p>`}
+      <details @toggle=${(event: Event) => { if ((event.currentTarget as HTMLDetailsElement).open && !this.projects.length) void this.loadProjects(); }}><summary>${record.project ? 'Change project' : 'Link to a project'}</summary>
+        <label>Project<select aria-label=${'Project for ' + record.application.name} ?disabled=${this.blocked()} @change=${(event: Event) => {
+          const select = event.target;
+          if (select instanceof HTMLSelectElement && select.value) void this.linkProject(record, select.value);
+        }}><option value="">Choose a project</option>${this.projects.map(project => html`<option value=${project.repository} .selected=${project.repository === record.project?.repository}>${project.name}</option>`)}</select></label>
+      </details>
       ${this.openApplication(record)}
       ${record.operator && record.observation && !record.observation.container ? html`<button type="button" class="ui button" ?disabled=${this.blocked()} @click=${() => void this.act(record, 'install')}>Install ${record.application.name}</button>` : ''}
       <button
@@ -210,6 +224,31 @@ export class SodaApplications extends LitElement {
   private openApplication(record: ApplicationRecord) {
     return html`<a href=${record.application.origin} target="_blank" rel="noopener noreferrer">Open application ↗</a>`;
   }
+  private loadProjects() {
+    return this.run(async (request, signal) => {
+      const projects: {repository: string; name: string}[] = [];
+      let after = '';
+      do {
+        const page = object(await request('/api/spaces' + (after ? '?after=' + encodeURIComponent(after) : ''), undefined, signal));
+        check(Array.isArray(page.items));
+        for (const item of page.items) {
+          const environment = object(object(item).environment);
+          check(id(environment.repository_id) && typeof environment.repository === 'string');
+          projects.push({repository: environment.repository_id, name: environment.repository});
+        }
+        const next = typeof page.next_after === 'string' ? page.next_after : '';
+        if (next === after) break;
+        after = next;
+      } while (after);
+      return projects;
+    }, projects => { this.projects = projects; }, () => { this.notice = 'Could not load projects. Reopen the project selector to retry.'; });
+  }
+  private linkProject(record: ApplicationRecord, repository: string) {
+    return this.run(async (request, signal) => applicationResponse(await request('/api/applications/' + record.application.id + '/project', {repository}, signal), record.application), result => {
+      this.records = this.records.map(row => row.application.id === record.application.id ? result : row);
+      this.notice = 'Project linked.';
+    }, () => { this.notice = 'Could not link the project. Refresh and try again.'; });
+  }
   protected render() {
     return html`<details class="soda-applications" ?open=${this.expanded} aria-busy=${this.busy ? 'true' : 'false'} @toggle=${(event: Event) => {
       if ((event.currentTarget as HTMLDetailsElement).open && !this.records.length && !this.busy) void this.refresh();
@@ -227,7 +266,7 @@ export class SodaApplications extends LitElement {
       ${!this.complete ? html`<p>Some application details could not be loaded. Refresh to try again.</p>` : ''}
       <ul>
         ${repeat(
-          this.records,
+          this.repository ? this.records.filter(record => record.project?.repository === this.repository) : this.records,
           (record) => record.application.id,
           (record) => this.row(record)
         )}

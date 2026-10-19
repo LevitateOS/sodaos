@@ -17,6 +17,17 @@ type applicationView struct {
 	AdministratorID string                   `json:"administrator_id"`
 	Observation     *application.Observation `json:"observation"`
 	Operator        bool                     `json:"operator"`
+	Project *applicationProjectView `json:"project,omitempty"`
+}
+
+type applicationProjectView struct { Repository string `json:"repository"`; Name string `json:"name"`; Path string `json:"path"` }
+
+func (s *API) applicationView(r *http.Request,v store.Session,record application.Record,operator bool) applicationView {
+	view:=appView(record,operator)
+	if repository,err:=s.Store.ApplicationProject(r.Context(),record.Application.ID);err==nil && repository>0 {
+		if access,err:=s.visibleRepository(r,v,repository);err==nil {view.Project=&applicationProjectView{Repository:strconv.FormatInt(repository,10),Name:access.repository.FullName,Path:"/"+access.repository.FullName}}
+	}
+	return view
 }
 
 func appView(r application.Record, operator bool) applicationView {
@@ -98,7 +109,7 @@ func (s *API) apiApplications(w http.ResponseWriter, r *http.Request, v store.Se
 	complete := true
 	views := make([]applicationView, 0, len(records))
 	for _, record := range records {
-		views = append(views, appView(record, operator))
+		views = append(views, s.applicationView(r,v,record,operator))
 	}
 	auth.JSONResponse(w, 200, struct {
 		Applications []applicationView `json:"applications"`
@@ -114,12 +125,25 @@ func (s *API) apiApplication(w http.ResponseWriter, r *http.Request, v store.Ses
 	if !ok || !s.checkLifecycleSession(w, r, v) {
 		return
 	}
-	auth.JSONResponse(w, 200, appView(record, s.applicationOperator(v)))
+	auth.JSONResponse(w, 200, s.applicationView(r,v,record,s.applicationOperator(v)))
 }
 
 type applicationRegistration struct {
 	Application     application.Spec `json:"application"`
 	AdministratorID int64            `json:"administrator_id"`
+}
+
+func (s *API) apiApplicationProject(w http.ResponseWriter,r *http.Request,v store.Session) {
+	record,ok:=s.loadApplication(w,r,v)
+	if !ok{return}
+	var input struct {Repository string `json:"repository"`}
+	if !auth.DecodeAPIObject(w,r,&input){return}
+	repository,ok:=auth.PositiveID(input.Repository)
+	if !ok {auth.JSONError(w,400,"invalid_repository","Choose a project.");return}
+	if _,err:=s.visibleRepository(r,v,repository);err!=nil {auth.JSONError(w,404,"repository_not_found","Project is not visible.");return}
+	if !s.checkLifecycleSession(w,r,v){return}
+	if err:=s.Store.SetApplicationProject(r.Context(),record.Application.ID,record.AdministratorID,repository);err!=nil {auth.JSONError(w,503,"store_unavailable","Could not link the application to this project.");return}
+	auth.JSONResponse(w,200,s.applicationView(r,v,record,s.applicationOperator(v)))
 }
 
 func (s *API) apiApplicationRegister(w http.ResponseWriter, r *http.Request, v store.Session) {
