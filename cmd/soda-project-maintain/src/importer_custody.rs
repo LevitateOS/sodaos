@@ -471,6 +471,48 @@ mod custody_tests {
     }
 
     #[test]
+    fn leader_gone_with_live_descendant_fences_recovery() {
+        // The post-crash shape: the importer leader is dead but a
+        // descendant still executes in the bound group. Recovery must
+        // fence with the gone leader named, never retire over the
+        // surviving member and never signal anyone.
+        let dir = crate::test_support::TestDir::make("custody-gone-leader");
+        let directory = &dir.0;
+        let pid_path = dir.path("child.pid");
+        acquire(directory, &digest(), &argv(), owner()).unwrap();
+        let mut leader = spawn_group(&format!(
+            "sleep 30 & child=$!; printf '%s' \"$child\" > \"{pid_path}\"; wait"
+        ));
+        let pgid = leader.id() as i32;
+        launched(directory, &digest(), &argv(), pgid, owner()).unwrap();
+        let descendant = descendant_pid(&pid_path);
+        assert!(alive(&descendant));
+        // Crash only the leader; the descendant keeps the group alive.
+        leader.kill().unwrap();
+        leader.wait().unwrap();
+        assert!(alive(&descendant), "descendant died with its leader");
+        let err =
+            reconcile(directory, owner(), Instant::now() + Duration::from_secs(30)).unwrap_err();
+        assert!(
+            err.contains(&format!("leader {pgid} gone")),
+            "fence names no gone leader: {err}"
+        );
+        assert!(err.contains(&descendant), "fence names no members: {err}");
+        assert_eq!(state_of(directory), LAUNCHED);
+        assert!(alive(&descendant), "fenced recovery signaled a survivor");
+        // Test cleanup only: the reaped leader cannot anchor the group,
+        // so retire the orphaned descendant and observe it gone.
+        unsafe {
+            libc::killpg(pgid, libc::SIGKILL);
+        }
+        let stop = Instant::now() + Duration::from_secs(5);
+        while alive(&descendant) {
+            assert!(Instant::now() < stop, "descendant still executing");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
     fn rebooted_custody_retires_without_signaling() {
         // A reboot since binding proves no bound process can still
         // execute, so recovery retires even with a live same-numbered
