@@ -142,6 +142,15 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 			c.settleRun(ctx, run)
 		}
 	}
+	// Recorded MCP terminals settle after run settlement and before
+	// dispatch, so receipts behind run-finished assignments advance in
+	// this pass and fresh typed finishes can advance downstream.
+	_ = c.settleMCPTerminals(ctx)
+	// Durable comment requests advance with the service, one bounded
+	// page per pass, independently of any browser request.
+	if c.CommentDrive != nil {
+		c.CommentDrive(ctx)
+	}
 	c.observeStandingPreparations(ctx, standingPreparationCursor)
 	_ = c.RecoverIntentGraphs(ctx)
 	_ = c.recoverCreations(ctx)

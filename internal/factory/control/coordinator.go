@@ -96,16 +96,23 @@ type Coordinator struct {
 	// local store capture.
 	CompletionEnumerator   CompletionIssueEnumerator
 	CompletionLocalCapture func(ctx context.Context, repository int64) (factory.CompletionLocal, error)
-	planningQueue          DispatchQueueCursor
-	queue                  DispatchQueueCursor
-	lock                   *os.File
-	requestGate            sync.RWMutex
-	cascadeMu              sync.Mutex
-	closing                atomic.Bool
-	ownerMu                sync.Mutex
-	progressMu             sync.Mutex
-	progressCancel         context.CancelFunc
-	progressDone           chan struct{}
+	// CommentDrive advances durable feed-comment pipelines at Start and
+	// on each progress pass. The API layer owns the collaborators
+	// behind it (the judge, drafter and native creator live there);
+	// the coordinator owns only the service lifetime that drives them,
+	// so comment completion never depends on a browser request. Nil
+	// holds pending comment requests in their stored state.
+	CommentDrive   func(ctx context.Context)
+	planningQueue  DispatchQueueCursor
+	queue          DispatchQueueCursor
+	lock           *os.File
+	requestGate    sync.RWMutex
+	cascadeMu      sync.Mutex
+	closing        atomic.Bool
+	ownerMu        sync.Mutex
+	progressMu     sync.Mutex
+	progressCancel context.CancelFunc
+	progressDone   chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
 	// progressMu protects the fair retained-creation repository cursor.
@@ -169,6 +176,16 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if err = c.settleAbandonedCommands(ctx, settle); err != nil {
 		c.requestGate.RUnlock()
 		return errors.Join(err, c.Close())
+	}
+	// Recorded MCP terminals settle before publication so a crash
+	// between FinishAssignment and its receipt CAS recovers here and
+	// fresh typed finishes can publish in this same startup pass.
+	_ = c.settleMCPTerminals(ctx)
+	// Stored comment requests resume service-side at startup: a
+	// restart picks up the same durable rows instead of waiting for a
+	// browser to re-drive them.
+	if c.CommentDrive != nil {
+		c.CommentDrive(ctx)
 	}
 	if c.Publication != nil {
 		c.PublishPass(ctx)

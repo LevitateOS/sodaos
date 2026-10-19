@@ -287,6 +287,12 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	// local bookkeeping only; automatic publication/review/correction happens
 	// at the existing Start and Dispatch advancement boundaries.
 	_, _ = AccountSettledRun(ctx, c.Store, run, state.Output, time.Now())
+	// A recorded MCP terminal behind this run advances promptly now
+	// that run-output accounting finished its assignment; the progress
+	// drive remains the recovery path for replays and crashes.
+	if settled, err := c.Store.AssignmentByRun(ctx, run.ID); err == nil {
+		_, _ = SettleMCPTerminalProposal(ctx, c.Store, settled.ID, time.Now())
+	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt
 }

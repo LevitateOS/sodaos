@@ -3,7 +3,10 @@ use super::super::codex::tests::{
     reserve_harness, FakeExec, CID, COMMIT, IID, PID, PIN, PREP, RID, ROLE,
 };
 use super::super::lifecycle::factory_retire;
-use super::super::native::{factory_unit_name, factory_user_bus, reserve_run_argv, shell_quote};
+use super::super::native::{
+    factory_systemctl_argv, factory_systemd_run_argv, factory_unit_name, factory_user_bus,
+    reserve_run_argv, shell_quote,
+};
 use super::super::output::{MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW};
 use super::super::run::{FactoryRun, FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT, MAX_REASSESS_PROMPT};
 use super::super::tcodex::{factory_codex_binding, reserve_exec_argv, start_gate_script};
@@ -11,6 +14,43 @@ use super::super::tcodex::{factory_codex_binding, reserve_exec_argv, start_gate_
 use crate::terminal::{self, Delivery, Lease, KIND_FACTORY};
 use crate::terminal::{ERR_DENIED, ERR_STALE, ERR_UNCERTAIN};
 use std::time::{Duration, Instant};
+
+#[test]
+fn manager_scope_matches_host_identity_without_root_login_dependency() {
+    assert_eq!(
+        factory_systemd_run_argv(0, &["--unit=probe", "/usr/bin/true"]),
+        [
+            "/usr/bin/systemd-run",
+            "--system",
+            "--unit=probe",
+            "/usr/bin/true"
+        ]
+    );
+    assert_eq!(
+        factory_systemctl_argv(0, &["stop", "probe.service"]),
+        ["/usr/bin/systemctl", "--system", "stop", "probe.service"]
+    );
+    assert_eq!(
+        factory_systemd_run_argv(1000, &["--unit=probe", "/usr/bin/true"]),
+        [
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
+            "/usr/bin/systemd-run",
+            "--user",
+            "--unit=probe",
+            "/usr/bin/true"
+        ]
+    );
+    assert_eq!(
+        factory_systemctl_argv(1000, &["stop", "probe.service"]),
+        [
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
+            "/usr/bin/systemctl",
+            "--user",
+            "stop",
+            "probe.service"
+        ]
+    );
+}
 
 #[test]
 fn reserve_success_argv_sequence() {
@@ -53,13 +93,16 @@ fn reserve_success_argv_sequence() {
     let calls = svc.exec.calls();
     assert_eq!(calls.len(), 9);
     // systemd-run argv is byte-exact: header + podman payload.
-    let bus = factory_user_bus(euid());
-    let mut want_run = vec![
-        "/usr/bin/env".to_string(),
-        bus,
-        "/usr/bin/systemd-run".to_string(),
-        "--user".to_string(),
-    ];
+    let mut want_run = vec!["/usr/bin/env".to_string()];
+    if euid() == 0 {
+        want_run.extend(["/usr/bin/systemd-run".to_string(), "--system".to_string()]);
+    } else {
+        want_run.extend([
+            factory_user_bus(euid()),
+            "/usr/bin/systemd-run".to_string(),
+            "--user".to_string(),
+        ]);
+    }
     want_run.extend(reserve_run_argv(&unit, 600));
     want_run.extend(reserve_exec_argv(CID, &run, &p, guest));
     let got_run: Vec<String> = std::iter::once(calls[7].1.clone())
@@ -79,16 +122,18 @@ fn reserve_success_argv_sequence() {
         calls[3].2[5]
     );
     // Attestation show pins the unit.
-    assert_eq!(
-        calls[8].2[..4],
-        [
+    let prefix = if euid() == 0 {
+        vec!["/usr/bin/systemctl".to_string(), "--system".to_string()]
+    } else {
+        vec![
             factory_user_bus(euid()),
             "/usr/bin/systemctl".to_string(),
             "--user".to_string(),
-            "show".to_string()
         ]
-    );
-    assert_eq!(calls[8].2[5], unit);
+    };
+    assert_eq!(calls[8].2[..prefix.len()], prefix);
+    assert_eq!(calls[8].2[prefix.len()], "show");
+    assert_eq!(calls[8].2[prefix.len() + 2], unit);
 }
 
 #[test]

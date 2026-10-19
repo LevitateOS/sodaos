@@ -92,7 +92,14 @@ func checkRepairChain(failed factory.Assignment, runID string, subject factory.D
 // path persists instead of it. A load failure returns retryable
 // without persisting anything: an unprovable chain is not a disproven
 // one, and recovery replays it.
-func settleRepairChain(ctx context.Context, db *store.Store, finished factory.Assignment, now time.Time) (factory.Assignment, error) {
+// repairChainStore is the narrow failed-verification lookup
+// settleRepairChain binds against. *store.Store implements it; the
+// MCP settler's stub stores do too.
+type repairChainStore interface {
+	AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error)
+}
+
+func settleRepairChain(ctx context.Context, db repairChainStore, finished factory.Assignment, now time.Time) (factory.Assignment, error) {
 	subject, ok := repairChainSubject(finished)
 	if !ok {
 		return finished, nil

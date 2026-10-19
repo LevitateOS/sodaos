@@ -660,3 +660,47 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		}
 	})
 }
+
+// TestTerminalMCPSubmissionRead proves the FW40 settlement read
+// against real PostgreSQL (SODA_PG_*; skips without it): the
+// recorded terminal submission round-trips its immutable payload
+// bytes beside a non-terminal row, and an assignment with no
+// terminal reports false.
+func TestTerminalMCPSubmissionRead(t *testing.T) {
+	db, _ := postgresFixture(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	for _, stmt := range []string{
+		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
+		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
+		FactoryMCPAssignmentGuardDDL,
+	} {
+		if _, err := db.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
+			t.Fatalf("MCP DDL: %v", err)
+		}
+	}
+	active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+	traffic := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
+	if _, err := db.RecordMCPSubmission(ctx, traffic, testMCPRecordedReceipt(traffic)); err != nil {
+		t.Fatalf("record task output: %v", err)
+	}
+	if _, ok, err := db.TerminalMCPSubmission(ctx, active.AssignmentID); err != nil || ok {
+		t.Fatalf("terminal = %v, err = %v, want no terminal yet", ok, err)
+	}
+	payload := []byte(`{"task_id":"t-1","manifest_digest":"` + strings.Repeat("b", 64) + `","output_digest":"` + strings.Repeat("c", 64) + `","evidence_refs":"r"}`)
+	terminal := testMCPSubmissionRow(active, factory.MCPToolFinishImplement, payload)
+	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
+		t.Fatalf("record terminal: %v", err)
+	}
+	got, ok, err := db.TerminalMCPSubmission(ctx, active.AssignmentID)
+	if err != nil || !ok {
+		t.Fatalf("terminal = %v, err = %v, want the recorded proposal", ok, err)
+	}
+	if got.SubmissionID != terminal.SubmissionID || got.Tool != factory.MCPToolFinishImplement ||
+		string(got.Payload) != string(payload) || got.PayloadHash != factory.MCPInputDigest(payload) {
+		t.Fatalf("terminal mismatch: %+v", got)
+	}
+	if _, ok, err := db.TerminalMCPSubmission(ctx, factory.NewID()); err != nil || ok {
+		t.Fatalf("unknown assignment terminal = %v, err = %v, want false", ok, err)
+	}
+}

@@ -333,6 +333,55 @@ func terminalMCPProposalTx(ctx context.Context, tx *sql.Tx, assignmentID string)
 	return factory.MCPReceipt{}, false, nil
 }
 
+// TerminalMCPSubmission returns the assignment's recorded terminal
+// submission with its immutable payload bytes, or false when none is
+// recorded yet. FW40 settlement consumers read the typed worker
+// report through this owner; the bytes stay immutable and receipt
+// state still moves only through AdvanceMCPReceipt.
+func (s *Store) TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error) {
+	var submission, tool, inputDigest, payloadHash string
+	var payload []byte
+	rows, err := s.db.QueryContext(ctx, `SELECT submission,tool,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1`, assignmentID)
+	if err != nil {
+		return factory.MCPSubmission{}, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var rowSubmission, rowTool, rowInput, rowHash string
+		var rowPayload []byte
+		if err = rows.Scan(&rowSubmission, &rowTool, &rowInput, &rowHash, &rowPayload); err != nil {
+			return factory.MCPSubmission{}, false, err
+		}
+		if !factory.MCPIsTerminal(factory.MCPTool(rowTool)) {
+			continue
+		}
+		submission, tool, inputDigest, payloadHash, payload = rowSubmission, rowTool, rowInput, rowHash, rowPayload
+		break
+	}
+	if err = rows.Err(); err != nil {
+		return factory.MCPSubmission{}, false, err
+	}
+	if submission == "" {
+		return factory.MCPSubmission{}, false, nil
+	}
+	// The row carries no capability binding (admission checked it
+	// before insert and persistence rechecked it inside the insert
+	// transaction), so full submission validation cannot apply here:
+	// check the identities, the tool and the payload binding the
+	// settler consumes.
+	if !factory.ValidID(submission) || !factory.MCPToolKnown(factory.MCPTool(tool)) ||
+		!factory.ValidDigest(inputDigest) || !factory.ValidDigest(payloadHash) ||
+		len(payload) == 0 || factory.MCPInputDigest(payload) != payloadHash {
+		return factory.MCPSubmission{}, false, errors.New("recorded terminal submission fails its payload binding")
+	}
+	out := factory.MCPSubmission{
+		AssignmentID: assignmentID, SubmissionID: submission,
+		Tool: factory.MCPTool(tool), ExpectedInputDigest: inputDigest,
+		PayloadHash: payloadHash, Payload: payload,
+	}
+	return out, true, rows.Close()
+}
+
 // MCPHandoffCount counts recorded handoff submissions for one
 // assignment so admission reserves terminal capacity.
 func (s *Store) MCPHandoffCount(ctx context.Context, assignmentID string) (int, error) {

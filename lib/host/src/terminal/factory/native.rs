@@ -40,8 +40,14 @@ fn current_euid() -> u32 {
     unsafe { libc::geteuid() }
 }
 
-/// Full `env ... systemctl --user` argv.
+/// Root daemons use the system manager; non-root hosts use their user manager.
+/// A root user manager can disappear when the last login session ends.
 pub fn factory_systemctl_argv(euid: u32, args: &[&str]) -> Vec<String> {
+    if euid == 0 {
+        let mut argv = vec!["/usr/bin/systemctl".to_string(), "--system".to_string()];
+        argv.extend(args.iter().map(|s| s.to_string()));
+        return argv;
+    }
     let mut argv = vec![
         factory_user_bus(euid),
         "/usr/bin/systemctl".to_string(),
@@ -51,8 +57,13 @@ pub fn factory_systemctl_argv(euid: u32, args: &[&str]) -> Vec<String> {
     argv
 }
 
-/// Full `env ... systemd-run --user` argv.
+/// Use the same manager for launch, attestation and retirement.
 pub fn factory_systemd_run_argv(euid: u32, args: &[&str]) -> Vec<String> {
+    if euid == 0 {
+        let mut argv = vec!["/usr/bin/systemd-run".to_string(), "--system".to_string()];
+        argv.extend(args.iter().map(|s| s.to_string()));
+        return argv;
+    }
     let mut argv = vec![
         factory_user_bus(euid),
         "/usr/bin/systemd-run".to_string(),
