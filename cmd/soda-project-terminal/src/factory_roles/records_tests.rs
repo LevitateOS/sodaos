@@ -73,7 +73,7 @@ fn verified_matrix() {
 }
 
 #[test]
-fn record_reports_waiting_and_locks_evidence() {
+fn record_refreshes_waiting_prerequisites_and_locks_ready_evidence() {
     let scratch = Scratch::fresh();
     let (git, _) = scratch.git_script("git-ok", 0);
     let ctx = scratch.ctx(&git);
@@ -83,8 +83,12 @@ fn record_reports_waiting_and_locks_evidence() {
     assert_eq!(result.get("waiting").and_then(|v| v.as_bool()), Some(true));
     let ready = do_record(&ctx, &record_value(PID2, "", None));
     assert_fail(ready, "unknown preparation identity");
-    // Identical repeat is accepted; changed evidence conflicts.
+    // A prerequisite repair refreshes the same unstarted identity.
     assert!(do_record(&ctx, &record_value(PID, "node22", None)).is_ok());
+    assert!(do_record(&ctx, &record_value(PID, "other-tool", None)).is_ok());
+    assert!(do_record(&ctx, &record_value(PID, "", None)).is_ok());
+    assert!(start_prestate(&ctx, &ctx.preparations.join(PID)).is_ok());
+    // Once all tools are admitted, changed evidence conflicts.
     assert_fail(
         do_record(&ctx, &record_value(PID, "other-tool", None)),
         "preparation already carries different tool evidence",
@@ -105,6 +109,25 @@ fn record_reports_waiting_and_locks_evidence() {
     assert_fail(
         do_record(&ctx, &op_value("record", Some(PID))),
         "unsupported record request",
+    );
+}
+
+#[test]
+fn record_cannot_refresh_evidence_after_launch() {
+    let scratch = Scratch::fresh();
+    let (git, _) = scratch.git_script("git-ok", 0);
+    let ctx = scratch.ctx(&git);
+    crate::ops_approve::do_approve(&ctx, &approve_default(PID)).unwrap();
+    do_record(&ctx, &record_value(PID, "node", None)).unwrap();
+    crate::fsx::write_new(
+        &ctx.preparations.join(PID).join("started.json"),
+        b"{}",
+        0o644,
+    )
+    .unwrap();
+    assert_fail(
+        do_record(&ctx, &record_value(PID, "", None)),
+        "preparation already carries different tool evidence",
     );
 }
 

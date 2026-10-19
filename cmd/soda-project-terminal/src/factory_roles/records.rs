@@ -9,7 +9,8 @@ use crate::ops_approve::ReqFields;
 use crate::ops_inspect;
 use crate::state_json::StateValue;
 use crate::validate;
-use std::os::unix::fs::MetadataExt;
+use std::io::Write;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::Path;
 
 pub const MAX_TOOLS: usize = 8;
@@ -110,7 +111,26 @@ pub fn do_record(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Erro
             let saved = fsx::read_json(ctx, &target, 65536)?;
             let fresh = StateValue::parse(&payload).expect("emitted JSON parses");
             if !emit::json_equal(&saved, &fresh) {
-                return fail("preparation already carries different tool evidence");
+                // A waiting preparation has not launched. Its prerequisite
+                // observation must be refreshed when the host retries after
+                // installing a missing tool. The dispatcher holds the state
+                // lock, and prep_dir/read_json checked privileged ownership.
+                let waiting = saved
+                    .get("missing")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|missing| !missing.is_empty());
+                if !waiting || fsx::lexists(&directory.join("started.json")) {
+                    return fail("preparation already carries different tool evidence");
+                }
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .custom_flags(libc::O_NOFOLLOW)
+                    .open(&target)
+                    .map_err(Error::classify)?;
+                file.write_all(payload.as_bytes())
+                    .map_err(|err| Error::io("write", &err))?;
+                file.sync_all().map_err(|err| Error::io("fsync", &err))?;
             }
         }
         Err(err) => return Err(err),
