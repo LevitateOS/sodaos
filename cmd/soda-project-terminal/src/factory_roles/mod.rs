@@ -29,8 +29,6 @@ pub(crate) mod ops_record {
     pub(crate) use super::records::do_record;
 }
 pub(crate) mod execution;
-pub(crate) mod mcp;
-pub(crate) mod permissions;
 pub(crate) mod proc {
     pub(crate) use super::execution::spawn_detached;
 }

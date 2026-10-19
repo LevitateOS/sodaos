@@ -9,13 +9,6 @@ use crate::errors::{self, Error};
 
 pub const JSON_LIMIT: u64 = 4 << 20;
 
-pub fn oci_architecture(arch: &str) -> Result<String, Error> {
-    if arch == "x86_64" {
-        return Ok("amd64".to_string());
-    }
-    Err(Error::msg("expected x86_64"))
-}
-
 pub fn digest(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
