@@ -161,6 +161,15 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		method, path string
 		allowed      bool
 	}{
+		{http.MethodGet, "/factory/feed", true},
+		{http.MethodGet, "/factory/feed?repositories=7&limit=20&cursor=v1:42", true},
+		{http.MethodGet, "/factory/feed/subscription", true},
+		{http.MethodPut, "/factory/feed/subscription", true},
+		{http.MethodPost, "/factory/feed/comments", true},
+		{http.MethodGet, "/factory/feed/comments/comment-1", true},
+		{http.MethodDelete, "/factory/feed/comments/comment-1", false},
+		{http.MethodPost, "/factory/feed", false},
+		{http.MethodGet, "/factory/feed/unknown", false},
 		{http.MethodGet, "/applications", true},
 		{http.MethodPost, "/applications", true},
 		{http.MethodGet, "/applications/a111111111111111111111111", true},

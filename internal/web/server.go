@@ -56,6 +56,10 @@ func New(c config.Config, db *store.Store) *Server {
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
+	// Durable comment continuation rides the coordinator lifetime:
+	// stored comment requests advance at Start and on progress passes
+	// without any browser request driving them.
+	s.Coordinator.CommentDrive = s.API.DrivePendingComments
 	// Manager control uses the pinned service callback, without a factory
 	// actor credential or background admission. Ordinary appliance activation
 	// must support optional extensions before any factory actor is configured.
@@ -64,10 +68,7 @@ func New(c config.Config, db *store.Store) *Server {
 	if filepath.IsAbs(callback) && err == nil {
 		s.API.ExtensionManager = forgejo.NewServiceBackground(callback, uint32(peer), "")
 	}
-	if db != nil {
-		db.PriorityCallBudget = c.FactoryJudgmentCallBudget
-	}
-	if c.TypeSafeAPIKeyFile != "" && c.FactoryJudgmentCallBudget > 0 {
+	if c.TypeSafeAPIKeyFile != "" {
 		s.Coordinator.Planning = &control.PlanningJudgments{Journal: db, Funding: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}}
 	}
 	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: 16}

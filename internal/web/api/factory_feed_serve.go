@@ -37,10 +37,21 @@ func ServeSubscribedFeed(ctx context.Context, reader FeedReader, visible func(fa
 	if reader == nil || visible == nil {
 		return empty, errFeedUnavailable
 	}
+	if err := query.Validate(); err != nil {
+		return empty, err
+	}
+	// A new reader has no saved subscription yet. This is an empty
+	// feed, not a database outage or permission to read every project.
+	if sub.Subscriber != "" && sub.Revision == 0 && len(sub.Repositories) == 0 && len(sub.Kinds) == 0 {
+		return FeedPageView{Entries: []factory.FeedEntry{}}, nil
+	}
 	if err := sub.Validate(); err != nil {
 		return empty, err
 	}
 	query = factory.ApplyFeedSubscription(query, sub)
+	if len(query.Repositories) == 0 {
+		return FeedPageView{Entries: []factory.FeedEntry{}}, nil
+	}
 	if err := query.Validate(); err != nil {
 		return empty, err
 	}

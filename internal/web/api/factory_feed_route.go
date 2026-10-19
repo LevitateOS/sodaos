@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,14 +68,80 @@ func (s *API) apiFactoryFeed(w http.ResponseWriter, r *http.Request, v store.Ses
 		auth.JSONError(w, 503, "store_unavailable", "Could not read feed subscription.")
 		return
 	}
+	projects := make(map[int64]string)
 	visible := func(entry factory.FeedEntry) bool {
-		_, err := s.visibleRepository(r, v, entry.Repository)
-		return err == nil
+		access, err := s.visibleRepository(r, v, entry.Repository)
+		if err != nil {
+			return false
+		}
+		projects[entry.Repository] = access.repository.FullName
+		return true
 	}
 	view, err := ServeSubscribedFeed(r.Context(), s.Store, visible, query, sub)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read combined feed.")
 		return
 	}
+	enrichFeedPosts(r.Context(), s.Store, projects, view.Entries)
+	enrichFeedRecords(r.Context(), s.Store, projects, view.Entries)
 	auth.JSONResponse(w, 200, view)
+}
+
+// enrichFeedRecords fills the server-derived record enrichment on one
+// served window: assignment records from the canonical assignment
+// owner (phase profile and persona, typed result payload) and
+// Factory/Jev milestone entries from their merge, completion and
+// judgment owners. Project fills from the visibility recheck even
+// when detail lookup is unavailable; every other field stays empty
+// rather than guessed.
+func enrichFeedRecords(ctx context.Context, st *store.Store, projects map[int64]string, entries []factory.FeedEntry) {
+	var ids []string
+	var milestones []factory.FeedEntry
+	for i, entry := range entries {
+		if entry.Kind != factory.FeedKindRecord {
+			continue
+		}
+		entries[i].Project = projects[entry.Repository]
+		if entry.Activity == "" {
+			ids = append(ids, entry.ID)
+		} else {
+			milestones = append(milestones, entry)
+		}
+	}
+	if st == nil {
+		return
+	}
+	details := make(map[string]store.FeedRecordDetail)
+	if len(ids) > 0 {
+		if found, err := st.FeedRecordDetails(ctx, ids); err == nil {
+			for id, detail := range found {
+				details[id] = detail
+			}
+		}
+	}
+	if len(milestones) > 0 {
+		if found, err := st.FeedMilestoneDetails(ctx, milestones); err == nil {
+			for id, detail := range found {
+				details[id] = detail
+			}
+		}
+	}
+	for i, entry := range entries {
+		if entry.Kind != factory.FeedKindRecord {
+			continue
+		}
+		detail, ok := details[entry.ID]
+		if !ok {
+			continue
+		}
+		entries[i].Actor = detail.Actor
+		entries[i].Author = detail.Author
+		entries[i].At = detail.At
+		entries[i].Status = detail.Status
+		entries[i].Issue = detail.Issue
+		entries[i].PR = detail.PR
+		entries[i].Ref = detail.Ref
+		entries[i].Summary = detail.Summary
+		entries[i].Payload = detail.Payload
+	}
 }

@@ -224,6 +224,8 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/factory/feed", protect(s.apiFactoryFeed, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodGet))
 	mux.HandleFunc("PUT /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodPut))
+	mux.HandleFunc("POST /api/factory/feed/comments", protect(s.apiFactoryFeedComment, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/feed/comments/{id}", protect(s.apiFactoryFeedCommentOne, http.MethodGet))
 	mux.HandleFunc("GET /api/spaces", protect(s.apiSpaces, http.MethodGet))
 	mux.HandleFunc("GET /api/environments", protect(s.apiEnvironments, http.MethodGet))
 	mux.HandleFunc("POST /api/environments", protect(s.apiEnvironments, http.MethodPost))

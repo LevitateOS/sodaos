@@ -44,11 +44,14 @@ func TestServeSubscribedFeedRechecksVisibility(t *testing.T) {
 	if !view.Truncated || view.Next != factory.FormatFeedCursor(7) {
 		t.Fatalf("resume lost: %+v", view)
 	}
-	// A subscription that drops every repository refuses honestly
-	// instead of widening to the query scope.
+	// No matching subscriptions returns an empty feed without widening
+	// to the query scope or misreporting a database failure.
 	unsubscribed := factory.FeedSubscription{Subscriber: "reader-1", Repositories: []int64{11}, Revision: 1}
-	if _, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, unsubscribed); err == nil {
-		t.Fatal("empty intersection served")
+	if view, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, unsubscribed); err != nil || len(view.Entries) != 0 || view.Next != "" {
+		t.Fatalf("empty intersection = %+v, %v", view, err)
+	}
+	if view, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Repositories: []int64{7}, Limit: 10}, factory.FeedSubscription{Subscriber: "reader-1"}); err != nil || view.Entries == nil || len(view.Entries) != 0 {
+		t.Fatalf("first-use feed = %+v, %v", view, err)
 	}
 	if _, err := ServeSubscribedFeed(ctx, reader, visible, factory.FeedQuery{Limit: 10}, sub); err == nil {
 		t.Fatal("unscoped query served")

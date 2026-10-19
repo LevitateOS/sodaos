@@ -144,7 +144,7 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed":
 		return true
 	default:
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
@@ -302,6 +302,18 @@ func extensionRepositoryFactoryItem(parts []string, method string) bool {
 }
 
 func extensionFactoryRoute(parts []string, method string) bool {
+	if len(parts) >= 2 && parts[1] == "feed" {
+		switch len(parts) {
+		case 2:
+			return method == http.MethodGet
+		case 3:
+			return parts[2] == "subscription" && (method == http.MethodGet || method == http.MethodPut) ||
+				parts[2] == "comments" && method == http.MethodPost
+		case 4:
+			return parts[2] == "comments" && extensionProductID(parts[3]) && method == http.MethodGet
+		}
+		return false
+	}
 	switch len(parts) {
 	case 2:
 		return parts[1] == "capacity" && method == http.MethodPut
