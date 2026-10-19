@@ -900,7 +900,7 @@ test('provider budget and sponsorship use observed connection and grant records 
   const payload = JSON.parse(sponsor.body || '{}') as Record<string, unknown>;
   assert.equal(payload.grant_id, 'grant-observed');
   assert.equal(payload.generation, 7);
-  assert.deepEqual(payload.roles, ['coder']);
+  assert.deepEqual(payload.roles, ['soda-coder']);
   assert.equal(writesSent.filter((call) => call.url.includes('/factory/sponsorships/')).length, 1);
 });
 

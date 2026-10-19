@@ -11,6 +11,7 @@ import type {
 } from './sodaspaces-factory-access-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import './sodaspaces-factory-work.js';
+import './soda-providers.js';
 
 type FactoryContext = {
   transport: PreparedExtensionMount;
@@ -833,7 +834,7 @@ export class SodaFactorySettings extends LitElement {
     const roles = ['coder', 'reviewer'].filter((role) => {
       const element = form.elements.namedItem(role);
       return element instanceof HTMLInputElement && element.checked;
-    });
+    }).map((role) => `soda-${role}`);
     await this.request(
       `/api/repositories/${context.repository}/factory/sponsorships/${encodeURIComponent(connection)}`,
       'PUT',
@@ -966,7 +967,7 @@ export class SodaFactorySettings extends LitElement {
     const context = this.contextValue;
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
-    return html`${this.renderSummary(status)}
+    return html`<soda-providers .transport=${this.activeValue ? context.transport : undefined}></soda-providers>${this.renderSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       <soda-factory-optional-effects .context=${this.effectsContext()}></soda-factory-optional-effects>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
