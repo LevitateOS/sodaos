@@ -289,7 +289,7 @@ must record the actual profile tested.
 Implementation uses **one native agent coordinator with native task children
 inside one admitted Project run**. Correction uses one parent and no children. No replacement headless-process pool,
 worktrees, extra broker leases or second execution service. P1 must prove a
-supported control/event route for the exact pinned CLI; otherwise stop dependent
+supported control/event route for the installed CLI; otherwise stop dependent
 work and return the failed assumption to Codex. Spark must not design a fallback.
 
 Stage an immutable execution manifest with the existing launch: exact serialized
@@ -725,7 +725,7 @@ state; logs supply detail. No screenshot log relay, new timer or scheduler.
 
 | Gate | Required fact | Failed gate response |
 | --- | --- | --- |
-| P1 | Exact pinned CLI exposes supported native child start/observe/result/cancel and actual overlap; children inherit profile/custody and terminate with parent; live host-mediated checkpoint/acknowledgment and stop ordering work. | Preserve version, command, events and failure. Mark affected harness profile unqualified and stop FW11/FW13/FW14 consumers as applicable. No process-pool, extra lease, silent serial fallback or undocumented CLI command. Codex must revise a failed design assumption. |
+| P1 | Installed CLI exposes supported native child start/observe/result/cancel and actual overlap; children inherit profile/custody and terminate with parent; live host-mediated checkpoint/acknowledgment and stop ordering work. | Preserve the command, events and actual failure. Mark affected harness profile unqualified and stop FW11/FW13/FW14 consumers as applicable. No process-pool, extra lease, silent serial fallback or undocumented CLI command. Codex must revise a failed design assumption. |
 | P2 | Conditional native code comments/receipts remain atomic; root identity and full snapshot match native UI; policy evaluator supports trustworthy actor-bound read. | Stop affected native/Soda delivery consumers. No ordinary API bypass, guessed blocker or parallel thread database. Return exact failing transaction/fixture to Codex. |
 | P3 | Existing production bounds reproduce or disprove large-inventory starvation. | If reproduced, implement D02 cursor algorithm. If disproved by the real path, retain regression evidence and ask Codex to remove the unnecessary fix; do not invent another optimization. |
 | P5 | Full actor-bound open-issue enumeration covers later pages; generic graph packets preserve frozen records/edges, refuse stale/oversized work atomically and replay the exact receipt. | Prove the narrow enumeration extension and existing graph boundary in FW29 before FW31/FW32 consumers. No ready-only inventory, ordinary API mutation bypass, guessed acceptance regeneration or silently chunked graph. Return failed native evidence to Codex. |
@@ -788,7 +788,7 @@ native or funded evidence are separate from deterministic adapter tests.
 
 Use existing source/package checks for changed owners and native x86_64 fixtures
 for real boundaries. Real-provider semantic evidence must be labeled separately
-from canned responses. Record exact versions/profiles, commands, assertions and
+from canned responses. Record exercised profiles, commands, assertions and
 receipts. Stop broadening checks once the affected contract is established.
 
 Native journeys may use deterministic judgment adapters to force both transition
@@ -1138,12 +1138,11 @@ an eighth agent profile. Product defaults and the implementation crew's Spark
 Use native CLI MCP **stdio**, connected to a fixed Rust
 `soda-project-terminal factory-mcp` relay. The relay forwards bounded messages to
 `/mcp` on a dedicated Factory-only Unix HTTP listener in the existing
-`soda-dashboard` process. Use the upstream Go MCP SDK, pinning the released version
-and module checksum proven by P6. The relay translates transport and adds run
-authorization; all workflow policy, persistence and tool implementation stay in
-Go. It is not a second MCP server implementation. Disable sampling, elicitation,
-server-provided prompts and arbitrary upstream routing; this server exposes tools.
-Support request/response tool traffic, not unsolicited server execution.
+`soda-dashboard` process. Use the upstream Go MCP SDK and verify its actual
+transport behavior with focused tests. The relay translates transport and adds
+run authorization; workflow policy, persistence and tool implementation stay in
+Go. Disable sampling, elicitation, server-provided prompts and arbitrary upstream
+routing. Support request/response tool traffic, not unsolicited server execution.
 
 The [MCP transport contract](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 and [official Go SDK](https://github.com/modelcontextprotocol/go-sdk) supply the
@@ -1595,7 +1594,7 @@ qualification. P6–P9 precede their dependent broad changes and full builds.
 
 | Gate | Required native evidence | Failure consequence |
 | --- | --- | --- |
-| P6 MCP transport/profile | Each admitted pinned Codex/Muse harness: supported trusted stdio configuration and instruction channel, fixed relay/socket mount, initialize/discovery, allowed read, typed finish, lost-response receipt and forbidden-tool refusal. Record actual model/reasoning/Contributor settings. | Unsupported exact harness/profile stays unavailable; return command/version/log to Codex. No public HTTP or user-prompt authority substitute. |
+| P6 MCP transport/profile | Each admitted installed Codex/Muse harness: supported trusted stdio configuration and instruction channel, fixed relay/socket mount, initialize/discovery, allowed read, typed finish, lost-response receipt and forbidden-tool refusal. Record actual model/reasoning/Contributor settings. | Unsupported exact harness/profile stays unavailable; report the failing command and behavior. No public HTTP or user-prompt authority substitute. |
 | P7 Identity/permissions | Native child cannot read/use parent's Factory credential or invoke parent completion; readonly roles cannot change source; Builder shell cannot change Git metadata/config/journal; permitted scratch/checks work; cancellation revokes calls. | Stop dependent role/worker integration. Same UID, hidden tools and token mode alone are not proof. |
 | P8 Real checkpoint composition | One parent, real native A/B overlap, A output → trusted Rust checks/Git CAS/receipt → C starts while B remains active; singleton Fixer output uses same executor with no child/handoff; stop/restart races preserve evidence. | Separate CLI processes or synthetic checkpoint acknowledgments cannot pass. Keep existing D05 contract until corrected native evidence or Codex design revision. |
 | P9 Integrated verification fixture | Approved check/journey manifest runs on exact integrated source and disposable fixture, retains trusted artifact/check evidence, fails on missing coverage/stale input and respects readonly profile. | Missing approved fixture/artifact capability leaves Test Pilot qualification open; no assertion from an agent transcript alone. |

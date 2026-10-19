@@ -766,7 +766,6 @@ fn prepare_skips_start_when_blocked() {
         Err("exit status 1".to_string()),
         Ok(b"".to_vec()),
         Ok(b"/usr/bin/git\n".to_vec()),   // command -v git
-        Ok(b"git version 2\n".to_vec()),  // git --version
         Err("exit status 1".to_string()), // command -v go missing
         Ok(b"{}".to_vec()),               // record
         Ok(observation("approved", "soda-coder", false, false)),
@@ -782,15 +781,14 @@ fn prepare_skips_start_when_blocked() {
     let state = rt.prepare(&input, deadline()).unwrap();
     assert_eq!(state.phase, "approved");
     let calls = mock.calls.borrow();
-    assert_eq!(calls.len(), 22);
+    assert_eq!(calls.len(), 21);
     assert!(!calls
         .iter()
         .any(|c| String::from_utf8_lossy(&c.0).contains("\"op\":\"start\"")));
     // The missing marker names go.
-    assert!(String::from_utf8_lossy(&calls[20].0).contains("\"missing\":\"go\""));
-    assert!(String::from_utf8_lossy(&calls[20].0).contains(
-        "\"tools\":[{\"name\":\"git\",\"path\":\"/usr/bin/git\",\"version\":\"git version 2\"}]"
-    ));
+    assert!(String::from_utf8_lossy(&calls[19].0).contains("\"missing\":\"go\""));
+    assert!(String::from_utf8_lossy(&calls[19].0)
+        .contains("\"tools\":[{\"name\":\"git\",\"path\":\"/usr/bin/git\",\"version\":\"\"}]"));
 }
 
 #[test]

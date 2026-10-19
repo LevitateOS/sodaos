@@ -6,7 +6,6 @@ use std::os::unix::io::RawFd;
 use std::path::Path;
 
 use super::sha256::{hex_encode, Sha256};
-use super::MUSE_VERSION;
 use sha2::Digest;
 
 pub(crate) fn go_base(path: &str) -> &str {
@@ -67,12 +66,7 @@ impl Drop for Tool {
     }
 }
 
-pub(crate) fn load_tools(dir: &str, digest: &str, version: &str) -> Result<Vec<Tool>, String> {
-    if version != MUSE_VERSION {
-        return Err(String::from(
-            "muse maintenance version differs from pinned release",
-        ));
-    }
+pub(crate) fn load_tools(dir: &str, digest: &str) -> Result<Vec<Tool>, String> {
     let mut tools = Vec::new();
     for name in ["muse", "soda-identity-compose", "muse-native"] {
         tools.push(open_tool(dir, name)?);

@@ -66,7 +66,7 @@ cargo run --locked -p soda-release-assets --bin soda-stage-canlang -- \
   --out "$PWD/.artifacts/native/x86_64/project-tools"
 ```
 
-Admission checks the archive checksum against Soda's lock, pinned versions,
+Admission checks the archive checksum against Soda's lock,
 the `canlang.tools.v1` producer identity, required commands and native binaries.
 It rejects traversal, duplicate paths, links, special files, oversized inputs
 and an occupied `OUT/canlang`. It does not remove or replace existing staged

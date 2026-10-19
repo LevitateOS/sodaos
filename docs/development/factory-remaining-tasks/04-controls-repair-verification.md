@@ -7,7 +7,7 @@
 
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Qualify live MCP authority/lifecycle, including role communication. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Qualify live MCP authority/lifecycle, including role communication. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect one server and fixed relay to exact role/subject/repository/revision/run/incarnation authority, trusted startup, reconnect/stop and receipt lifecycle. Activate only after the native boundaries actually pass.
 
@@ -28,7 +28,7 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30).
 
-**Current (wind-down):** Complete four canonical bounded read controls and live readback. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Complete four canonical bounded read controls and live readback. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Complete factory.context, factory.evidence, factory.status and factory.receipt using bounded current canonical evidence, complete pagination, honest incompleteness and exact receipt recovery.
 
@@ -61,7 +61,7 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R12](02-prompt-to-pr.md#r12), [R13](02-prompt-to-pr.md#r13), [R15](02-prompt-to-pr.md#r15).
 
-**Current (wind-down):** Planning finish consumers and typed ask/flag/learned/suggest/partial/blocked/stuck/done records. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Planning finish consumers and typed ask/flag/learned/suggest/partial/blocked/stuck/done records. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind product-plan and issue-plan prompts/results to current common dispatch, semantic graph/manifest proposal adoption and immutable executable plans, with explicit product attention and observed terminal settlement.
 
@@ -100,7 +100,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R16](02-prompt-to-pr.md#r16), [R17](02-prompt-to-pr.md#r17), [R18](02-prompt-to-pr.md#r18).
 
-**Current (wind-down):** Builder output/finish to trusted checkpoint and singleton Fixer reuse. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Builder output/finish to trusted checkpoint and singleton Fixer reuse. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Wire factory.submit_task_output and factory.finish_implementation through actual native observation, trusted checks/Git CAS/receipt and the common plan completion owner. Reuse the executor for singleton Fixer output.
 
@@ -115,7 +115,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R24](03-review-merge-reassessment.md#r24), [R33](04-controls-repair-verification.md#r33).
 
-**Current (wind-down):** Inspector/Fixer finish to actual review/correction effects. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Inspector/Fixer finish to actual review/correction effects. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Apply exact independent role prompts, canonical review coverage/dispositions and singleton Fixer output to factory.finish_review and factory.finish_correction. Use conditional native review/comment/resolution owners.
 
@@ -130,7 +130,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R11](02-prompt-to-pr.md#r11).
 
-**Current (wind-down):** Incomplete/handoff/terminal settlement composition. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Incomplete/handoff/terminal settlement composition. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Wire factory.finish_incomplete and factory.request_handoff to the exact blocked owner/approved DAG successor and common stop/settlement path. Preserve pre-start hold/FactoryStart, receipt recovery and terminal capacity.
 
@@ -145,7 +145,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R14](02-prompt-to-pr.md#r14), [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Preserve the accepted serving detector, complete component inventory and bound episode/fence; finish progress-generation and downstream consumers. Separate active work, CI, quota, preparation, permission, pause and product attention from cycles/missing producers/unexplained no-ready work.
 
@@ -162,7 +162,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R36](04-controls-repair-verification.md#r36), [R29](03-review-merge-reassessment.md#r29), [R11](02-prompt-to-pr.md#r11).
 
-**Current (wind-down):** Strategist proposal/Jev choice and later repair-cycle adoption; cycle-1 episode/charge joint accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Strategist proposal/Jev choice and later repair-cycle adoption; cycle-1 episode/charge joint accepted. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Admit one bound repair episode under explicit sponsor and stable intent/repository/global accounting. Consume a checked Strategist proposal and finite Jev choice, then reuse protected serial graph adoption and fresh readback.
 
@@ -179,7 +179,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and prove. **Owner lane:** A. **Accepted inputs:** [R10](01-boundaries.md#r10), [R13](02-prompt-to-pr.md#r13), [R18](02-prompt-to-pr.md#r18), [R27](03-review-merge-reassessment.md#r27).
 
-**Current (wind-down):** Trusted Test Pilot manifest adoption and exact integrated-artifact checks. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Trusted Test Pilot manifest adoption and exact integrated-artifact checks. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind approved manifest/outcome coverage to accepted intent version and integrated tree/artifact/fixture. Launch Test Pilot under the readonly profile and existing bounded host operations, retaining trusted check and cleanup receipts.
 
@@ -196,7 +196,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R38](04-controls-repair-verification.md#r38), [R13](02-prompt-to-pr.md#r13), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37).
 
-**Current (wind-down):** Verified app completion and bounded delivery-repair chain. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Verified app completion and bounded delivery-repair chain. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Complete an intent only from all accepted delivered outcomes plus its exact verification receipts. Route real verification failure through the distinct bounded delivery-repair cause, stable intent ledger and protected graph owner.
 
@@ -211,7 +211,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37), [R38](04-controls-repair-verification.md#r38), [R39](04-controls-repair-verification.md#r39).
 
-**Current (wind-down):** Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect typed role prompts/results and observed retirement to the reassessment/repair and exact-artifact verification/app completion owners. Finish the seven-profile instruction/context matrix.
 
@@ -226,7 +226,7 @@ contracts and consumers together when the extension representation is selected.
 
 **Work:** Integrate and qualify. **Owner lane:** A. **Accepted inputs:** [R06](01-boundaries.md#r06), [R11](02-prompt-to-pr.md#r11), [R16](02-prompt-to-pr.md#r16), [R26](03-review-merge-reassessment.md#r26), [R30](04-controls-repair-verification.md#r30), [R35](04-controls-repair-verification.md#r35), [R44](05-experience-and-development.md#r44).
 
-**Current (wind-down):** Composed intervention/withdrawal/crash recovery. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Composed intervention/withdrawal/crash recovery. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Compose pause/cancel/resume/Retry/takeover with exact native tasks, outstanding operations, MCP capability withdrawal and credential/resource return. Preserve finite consumption and human work.
 

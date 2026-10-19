@@ -215,7 +215,7 @@ func selectPreparationFor(ctx context.Context, deps DispatchDeps, plan *attemptP
 }
 
 // checkHarnessFor requires the staged pin to match the selected role's
-// policy family and version, with valid content and a pinned image.
+// policy family, with verified content and image identity.
 func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string) *planWait {
 	selection := plan.policy.Roles[role]
 	if selection.Harness == "" || selection.HarnessVers == "" || selection.Model == "" {
@@ -228,8 +228,8 @@ func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, 
 	if err := pin.Validate(); err != nil {
 		return waitFor(WaitHarness, "staged harness is not pinned")
 	}
-	if pin.Harness != selection.Harness || pin.Version != selection.HarnessVers {
-		return waitFor(WaitHarness, "policy selects harness "+selection.Harness+" version "+selection.HarnessVers)
+	if pin.Harness != selection.Harness {
+		return waitFor(WaitHarness, "policy selects harness "+selection.Harness)
 	}
 	plan.pin = pin
 	return nil

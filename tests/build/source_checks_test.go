@@ -11,7 +11,7 @@ import (
 )
 
 // fakeTool is the PATH-tool double: POSIX shell that logs its invocation
-// as one JSON object per line, fakes `go version` from go.mod, and fails
+// as one JSON object per line and fails
 // the FAIL_COMMAND with 7. Argument JSON-escaping covers backslash,
 // double-quote and newline; nothing else in the fixture needs escapes.
 const fakeTool = `name=$(basename "$0")
@@ -21,10 +21,6 @@ for a in "$@"; do
 	json="$json,\"$e\""
 done
 printf '{"command": [%s], "cwd": "%s", "env": {"GOWORK": "%s", "GOFLAGS": "%s", "CGO_ENABLED": "%s", "GOTOOLCHAIN": "%s"}}\n' "$json" "$(pwd -P)" "$GOWORK" "$GOFLAGS" "$CGO_ENABLED" "$GOTOOLCHAIN" >> "$COMMAND_LOG"
-if [ "$name $*" = "go version" ]; then
-	pin=$(sed -n 's/^go //p' go.mod | head -1)
-	echo "go version go$pin fixture/fixture"
-fi
 if [ "$name $*" = "$FAIL_COMMAND" ]; then exit 7; fi
 `
 
@@ -37,7 +33,6 @@ func gateStub(gate string) string {
 }
 
 var expectedSourceCommands = [][]string{
-	{"go", "version"},
 	{"go", "mod", "verify"},
 	{"go", "test", "-mod=readonly", "./..."},
 	{"bash", "scripts/check-sql-locality.sh"},
@@ -149,8 +144,8 @@ func TestSourceCommandsWorkWithoutAStageOrGitCheckout(t *testing.T) {
 	}{
 		{"default", nil, expectedSourceCommands},
 		{"all", []string{"all"}, expectedSourceCommands},
-		{"go", []string{"go"}, expectedSourceCommands[:6]},
-		{"browser", []string{"browser"}, expectedSourceCommands[6:]},
+		{"go", []string{"go"}, expectedSourceCommands[:5]},
+		{"browser", []string{"browser"}, expectedSourceCommands[5:]},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := newSourceFixture(t)
@@ -176,9 +171,9 @@ func TestSourceFailuresContinueIndependentSuites(t *testing.T) {
 	for _, suite := range []string{"all", "go", "browser"} {
 		commands := expectedSourceCommands
 		if suite == "go" {
-			commands = commands[:6]
+			commands = commands[:5]
 		} else if suite == "browser" {
-			commands = commands[6:]
+			commands = commands[5:]
 		}
 		for index, command := range commands {
 			fail := strings.Join(command, " ")
@@ -187,15 +182,13 @@ func TestSourceFailuresContinueIndependentSuites(t *testing.T) {
 				result := fixture.run(t, fail, suite)
 				Check(t, result.Code == 7, "exit = %d", result.Code)
 				want := commands
-				// Compiler/dependency admission stops execution; a failed browser
-				// build prevents only its dependent prepared suites.
-				admission := fail == "go version" || fail == "go mod verify"
-				if admission || fail == "bun run build:forgejo" {
+				// A failed browser build prevents only its dependent prepared suites.
+				if fail == "bun run build:forgejo" {
 					want = commands[:index+1]
 				}
 				Check(t, equalCommands(commandNames(fixture.commands(t)), want),
 					"commands = %v", commandNames(fixture.commands(t)))
-				Check(t, strings.Contains(result.Stdout, "Local source checks executed") != admission, "stdout=%q", result.Stdout)
+				Check(t, strings.Contains(result.Stdout, "Local source checks executed"), "stdout=%q", result.Stdout)
 			})
 		}
 	}
@@ -218,7 +211,6 @@ func TestSourceNativeGateStillSurroundsSharedSourceChecks(t *testing.T) {
 	before, after := parts[0], parts[1]
 	for _, want := range []string{
 		`$(uname -s) == Linux && $(uname -m) == "$arch"`,
-		"Pinned native source-check tools required",
 		"Check requires a clean exact-revision checkout",
 		"soda-build candidate artifacts directory required (payload.json, candidate.json, host.oci)",
 		"cargo run --locked -p soda-release-tools",

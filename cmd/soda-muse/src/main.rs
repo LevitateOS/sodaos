@@ -57,6 +57,13 @@ fn native_action(args: &[String]) -> Option<(i32, Option<String>)> {
         return None;
     }
     match args[0].as_str() {
+        "--soda-check" => {
+            if args.len() != 1 {
+                return Some((1, Some("runtime check takes no arguments".to_string())));
+            }
+            let err = check_runtime().err();
+            Some((i32::from(err.is_some()), err))
+        }
         "--soda-copy-config" => {
             if args.len() != 3 {
                 return Some((1, Some(String::from("config source and view required"))));
@@ -76,14 +83,13 @@ fn native_action(args: &[String]) -> Option<(i32, Option<String>)> {
 
 fn metadata_action(args: &[String]) -> Option<(i32, Option<String>)> {
     match args[0].as_str() {
-        "--soda-check" | "--soda-read-config" | "--soda-account" => {}
+        "--soda-read-config" | "--soda-account" => {}
         _ => return None,
     }
     if args.len() != 2 {
         return Some((1, Some(String::from("one metadata input required"))));
     }
     let err = match args[0].as_str() {
-        "--soda-check" => check_runtime(&args[1]).err(),
         "--soda-read-config" => read_config(&args[1]).err(),
         _ => account_for(&args[1]).err(),
     };

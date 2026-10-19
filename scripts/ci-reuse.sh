@@ -4,8 +4,6 @@
 set -euo pipefail
 attempt=${GITHUB_RUN_ATTEMPT:-1}
 [[ $attempt =~ ^[1-9][0-9]*$ ]]
-started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$attempt" --jq .run_started_at)
-printf 'started_at=%s\n' "$(date --date="$started" +%s)" >> "$GITHUB_OUTPUT"
 reused=false
 if [[ ${GITHUB_EVENT_NAME:-} == push && ${GITHUB_REF:-} == refs/heads/main && ${GITHUB_RUN_ATTEMPT:-} == 1 && ${GITHUB_SHA:-} =~ ^[0-9a-f]{40}$ ]]; then
   tag="ci/soda-main-$GITHUB_SHA"

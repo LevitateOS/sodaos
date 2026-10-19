@@ -77,8 +77,8 @@ routing are separate configuration.
 | Development | [Development](docs/development/README.md), [Go](docs/development/go.md), [Local testing](docs/guides/local-testing.md), [AGENTS.md](AGENTS.md) |
 
 Supported platform scope belongs to [Release architecture](docs/architecture/release.md#architectures).
-Builds, installation, provider mutations and destructive cleanup need applicable
-approval. Preserve credentials, project state, backups and failed evidence.
+Build and test within the current task. Installation, provider mutations and
+destructive cleanup follow the user’s existing authorization. Preserve credentials, project state, backups and failed evidence.
 
 ## Rust package guides
 

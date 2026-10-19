@@ -1,13 +1,12 @@
-// Codex pinned configuration and admission gates, folded from identity-providers (A06.M).
+// Codex executable integrity and enrollment configuration.
 use super::super::sha256;
-use super::super::{run_capture, Error};
-use super::{Provider, VERSION};
+use super::super::Error;
 use serde::Deserialize;
 use std::path::Path;
-use std::time::Duration;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub binary: String,
+    #[serde(default)]
     pub version: String,
     pub sha256: String,
     pub root: String,
@@ -40,10 +39,9 @@ pub(super) fn filter_env(vars: impl Iterator<Item = (String, String)>, root: &st
 pub(super) fn validate_config(c: &Config) -> Result<(), Error> {
     if !Path::new(&c.binary).is_absolute()
         || !Path::new(&c.root).is_absolute()
-        || c.version != VERSION
         || c.sha256.len() != 64
     {
-        return Err(Error::denied("invalid pinned Codex configuration"));
+        return Err(Error::denied("invalid Codex configuration"));
     }
     Ok(())
 }
@@ -52,21 +50,6 @@ pub(super) fn check_binary(c: &Config) -> Result<(), Error> {
     let data = std::fs::read(&c.binary)?;
     if sha256::hex(&sha256::digest(&data)) != c.sha256 {
         return Err(Error::denied("codex digest mismatch"));
-    }
-    Ok(())
-}
-
-pub(super) fn check_version(p: &Provider) -> Result<(), Error> {
-    let out = run_capture(
-        &p.config.binary,
-        &["--version"],
-        &environment(&p.config.root),
-        None,
-        Duration::from_secs(10),
-    )
-    .map_err(|_| Error::denied("codex version mismatch"))?;
-    if out.trim() != format!("codex-cli {}", p.config.version) {
-        return Err(Error::denied("codex version mismatch"));
     }
     Ok(())
 }

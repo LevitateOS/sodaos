@@ -72,7 +72,18 @@ fn overlap_record_release_and_stop() {
     let dir = scratch("overlap");
     let mut runner = runner(&dir, 3);
     let slow = spec(&dir, "slow-lane", &["/bin/sleep", "5"]);
-    let fast = spec(&dir, "fast-lane", &["/bin/echo", "fast-output"]);
+    let release = dir.join("release-fast");
+    let fast = spec(
+        &dir,
+        "fast-lane",
+        &[
+            "/bin/sh",
+            "-c",
+            "until [ -e \"$1\" ]; do sleep 0.01; done; printf fast-output",
+            "fast-lane",
+            release.to_str().unwrap(),
+        ],
+    );
     let slow_child = runner.start_task(&slow, deadline()).unwrap();
     let fast_child = runner.start_task(&fast, deadline()).unwrap();
     assert_ne!(slow_child, fast_child);
@@ -95,6 +106,7 @@ fn overlap_record_release_and_stop() {
     assert_eq!(journal[1].child_id, slow_child);
     // Fast completes with its output digest while slow stays active; the
     // dependent releases immediately with no unrelated-lane barrier.
+    std::fs::write(&release, b"ready").unwrap();
     assert_eq!(
         runner
             .join_task("fast-lane", Duration::from_secs(10))

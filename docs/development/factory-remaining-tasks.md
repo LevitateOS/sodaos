@@ -1,8 +1,8 @@
 # Remaining factory work
 
 This is the canonical remaining-outcome record, reconciled for the human-directed
-wind-down on 18 October 2026 at source `51ba6d2f`. Implementation and supervision
-are stopped. This record does not dispatch work. It replaces the execution order
+wind-down on 18 October 2026 at source `51ba6d2f`. That run is closed; the user’s
+current request governs new work. This record does not dispatch work. It replaces the execution order
 in older FW/FT/ST/RT/UX/RCX packets while preserving their requirements and accepted work.
 
 **55 factory IDs: R01/R02 accepted at their defined scope; 53 retain unmet parent criteria. The complete factory is not ready.** Source acceptance is preserved separately from native, installed and release acceptance. The remaining-outcome tables below own current status; historical snapshots are supporting evidence.
@@ -19,7 +19,7 @@ remain aliases in this catalog; their obsolete schedules are preserved in Git.
 The executable second pass below is based on source `2d576eeb` (18 October 2026).
 Each existing task card now gives a concrete starting point, ordered remainder,
 prerequisite output and proportionate proof. These are instructions for future
-authorized execution; no source implementation, native run or cleanup is reopened.
+authorized execution. Historical closure does not block a new authorized task.
 
 ## How to execute the remaining work
 
@@ -144,7 +144,7 @@ library/structural changes remain proposals; no new universal gate follows.
 No whole-source/body audit, native run or renewed qualification was performed.
 Runtime, provider and installed behavior still need the checks required by their tasks.
 
-## Consolidated remaining outcomes — execution stopped
+## Consolidated remaining outcomes
 
 All implementation owners are **unassigned** after release. Former lane labels below preserve responsibility, not an assignment. **Ready slice** means the first useful step described above is available after a new instruction; it is not full acceptance or dispatch. **Dependency held** names missing upstream outputs; the external-input list further scopes native/provider/publication holds. Design proposals and deferred restructuring are separated after the factory rows. Dependencies require the needed output, not complete acceptance of every parent plan.
 
@@ -158,7 +158,7 @@ R01 input/freeze and R02 focused Fountain CI repair (`56a1c17bb0`) are accepted 
 | [R06](factory-remaining-tasks/01-boundaries.md#r06) | Ready slice; unassigned (A) | Native post-crash importer/descendant retirement; 7be597d7 source/cleanup accepted. | R01. | Leader exit, surviving descendant, timeout and lost-identity witnesses retain custody until retirement. |
 | [R07](factory-remaining-tasks/01-boundaries.md#r07) | Ready slice; unassigned (A) | Install admitted harness pins and align proof tools; obtain finite funded overlap trial. Pin ruling already settled: use admitted pins first. | R01. | Both actual harnesses prove child overlap/control/cancel/parent-death retirement with exact identity and usage. |
 | [R08](factory-remaining-tasks/01-boundaries.md#r08) | Dependency held; unassigned (A) | Native parent attenuation and OS-enforced role isolation. | R07. | Actual forbidden shell reads/writes and parent-only calls refuse; allowed role work succeeds. |
-| [R09](factory-remaining-tasks/01-boundaries.md#r09) | Dependency held; unassigned (A) | Real pinned CLI instruction/configuration and private MCP transport proof. | R07, R08. | Both CLIs reach the fixed relay/controller with authenticated request roles and recovery. |
+| [R09](factory-remaining-tasks/01-boundaries.md#r09) | Dependency held; unassigned (A) | Installed CLI instruction/configuration and private MCP transport proof. | R07, R08. | Both CLIs reach the fixed relay/controller with authenticated request roles and recovery. |
 | [R10](factory-remaining-tasks/01-boundaries.md#r10) | Ready slice; unassigned (B) | Finish trusted ingress/consumer and D15/D16 subject wiring; accepted parity and terminal transport slices stay closed. | R01. | Full phase/role/subject/result refusal matrix plus real Store and native consumers pass. |
 | [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | Ready slice; unassigned (B) | Live/native dispatch and atomic settlement qualification; source/common-boundary acceptance retained. | R01, R10; native: R07, R08, R09, R44, R30. | One run/charge under racing/replayed admission; failed work stays charged and retirement releases once. |
 | [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12) | Dependency held; unassigned (B) | Real semantic provider qualification; server inputs, plan/Generate UI through cf5887a0 accepted. | R10, R11; native: R07, R08, R09, R44, R30. | Associated draft produces exact bounded semantic results; unassociated/stale/unauthorized inputs launch nothing. |
@@ -230,7 +230,7 @@ Canlang P IDs are namespaced below to avoid confusing them with factory R IDs. H
 | [Canlang P08](#canlang-p08) | Decision held; product/runtime owner input | Asynchronous R2-compatible blob seam. Native SQLite Files acceptance remains retained. | P04/P06 contracts; R2/provider scope selection. | Actual async local/R2 adapters preserve finalized integrity and explicit failures; no R2 claim from native chunks. |
 | [Canlang P09](#canlang-p09) | Ready slice; unassigned producer owner | Full retention/cleanup and interrupted-upload operational proof. | Existing authenticated native routes, 10 MiB/lost-ack proofs; P08 only for R2 claims. | Real interrupted uploads recover or fail visibly and retained file authorization/bytes survive replacement. |
 | [Canlang P10](#canlang-p10) | Decision held; product/provider owner input | External provider dispatch, uncertain outcomes and reconciliation. | Selected provider contract/credential input and finite authorization; accepted internal durable occurrence/replay remains closed. | Actual provider effects/retries/unknown outcomes preserve stable identities without duplicate work or credential leaks. |
-| [Canlang P14 / P14.1–P14.4](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Ready slice; unassigned producer owner | Direct-workerd native storage/exec-guard, D1 provider, configuration/transport/lifetime and production CLI. | P14.1 actual native decision gate first; P14.2 and P14.3 outputs feed P14.4. | Pinned real D1/DO/alarm writes survive kill, atomic failure and parent death; exclusive writer and actual app/CLI contracts pass. |
+| [Canlang P14 / P14.1–P14.4](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Ready slice; unassigned producer owner | Direct-workerd native storage/exec-guard, D1 provider, configuration/transport/lifetime and production CLI. | P14.1 actual native decision gate first; P14.2 and P14.3 outputs feed P14.4. | Real D1/DO/alarm writes survive kill, atomic failure and parent death; exclusive writer and actual app/CLI contracts pass. |
 | [Canlang P15 / P15.1](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Replacement runtime G1/G2 acceptance. | P14.2–P14.4; retain historical Miniflare first-app results. | Actual browser/MCP/Files/work, full/missing/read-only storage, concurrency/restart and provider matrix pass on exact new runtime. |
 | [Canlang P16 / P16.1–P16.2](canlang-soda-os-implementation-plan/production-workerd.md#implementation-packets-and-dependencies) | Dependency held; unassigned | Production-only offline archive and image closure. | P14.1 graph contract, P14.4 runtime and P15 evidence; P16.1 precedes P16.2. | Exact binary/exec guard/licenses and app run offline as constrained UID with no Miniflare/dev closure; data/lifetime preserved. |
 | [Canlang P22](#canlang-p22) | External input held; human client/trust input | Physical LAN/Tailnet routing and client trust rollout. | P01/P21; retained local/CoreOS Caddy HTTPS proof stays accepted. | A real selected private client reaches the exact app with separate app/admin origins and valid trust. |
@@ -271,7 +271,7 @@ workerd. Deleting duplicated planning documents does not satisfy P31/G4 or P32/R
 
 #### Canlang P14 — Implement the Canlang Soda target assembler and launcher
 
-**Executable remainder:** Ready assumption-proof slice; follow P14.1–P14.4 in the replacement chapter. Existing Canlang `soda-run.ts::{acquireWriter,provisionSodaStorage,startSodaRuntime}` and `soda-lifetime.ts::superviseWorkerd` retain the current ownership; proposed direct-runtime files are not existing implementations. First prove actual pinned D1/DO/alarm storage and inherited lock/parent-death behavior in the smallest disposable native fixture. Only that observed result releases P14.2 provider and P14.3 process/transport work, then P14.4 CLI/Identity administration. Failure returns the specific storage/lifetime assumption for engineering resolution; do not proceed to image/orchestration construction or relabel historical Miniflare G1 as replacement proof.
+**Executable remainder:** Ready assumption-proof slice; follow P14.1–P14.4 in the replacement chapter. Existing Canlang `soda-run.ts::{acquireWriter,provisionSodaStorage,startSodaRuntime}` and `soda-lifetime.ts::superviseWorkerd` retain the current ownership; proposed direct-runtime files are not existing implementations. First prove actual D1/DO/alarm storage and inherited lock/parent-death behavior in the smallest disposable native fixture. Only that observed result releases P14.2 provider and P14.3 process/transport work, then P14.4 CLI/Identity administration. Failure returns the specific storage/lifetime assumption for engineering resolution; do not proceed to image/orchestration construction or relabel historical Miniflare G1 as replacement proof.
 
 <a id="canlang-p15"></a>
 
@@ -427,7 +427,7 @@ This retained dependency graph is not an active schedule. **Read both dependency
 | 1 | [R01](factory-remaining-tasks/01-boundaries.md#r01) — Accept the retained inputs and freeze the first work packets | none | none | Coordinator |
 | 2 | [R02](factory-remaining-tasks/01-boundaries.md#r02) — Repair the Fountain CI cleanup failure | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | C |
 | 2 | [R06](factory-remaining-tasks/01-boundaries.md#r06) — Repair durable importer acquisition and process retirement | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | A |
-| 2 | [R07](factory-remaining-tasks/01-boundaries.md#r07) — Prove supported native worker control on the pinned harnesses | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | A |
+| 2 | [R07](factory-remaining-tasks/01-boundaries.md#r07) — Prove supported native worker control on the installed harnesses | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | A |
 | 2 | [R10](factory-remaining-tasks/01-boundaries.md#r10) — Complete current phase, subject and result parity | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | B |
 | 2 | [R50](factory-remaining-tasks/06-candidate-release-closure.md#r50) — Finish protected release-evidence admission and finalization | [R01](factory-remaining-tasks/01-boundaries.md#r01) | none | C |
 | 3 | [R03](factory-remaining-tasks/01-boundaries.md#r03) — Qualify the current extension, SDK and background-authentication boundary | [R01](factory-remaining-tasks/01-boundaries.md#r01) | [R02](factory-remaining-tasks/01-boundaries.md#r02) | C |

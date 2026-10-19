@@ -114,12 +114,17 @@ func (fx *st15Fixture) setupHostStack() error {
 		return err
 	}
 	// The staged guest is the static muse binary itself, resolved the
-	// way the launcher does (never the auto-updating shell wrapper).
-	installed, err := os.ReadFile("/home/vince/.local/bin/.muse-version")
-	if err != nil {
-		return err
+	// way the launcher does. SODA_ST15_MUSE_BINARY can select the native
+	// executable when PATH exposes only a launcher wrapper. The fixture
+	// labels those bytes by digest rather than querying a version banner.
+	museBin := os.Getenv("SODA_ST15_MUSE_BINARY")
+	if museBin == "" {
+		var err error
+		museBin, err = exec.LookPath("muse")
+		if err != nil {
+			return err
+		}
 	}
-	museBin := filepath.Join("/home/vince/.local/bin", "muse-bin-"+strings.TrimSpace(string(installed)))
 	muse, err := os.ReadFile(museBin)
 	if err != nil {
 		return err
@@ -128,16 +133,8 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err = os.WriteFile(stagedBin, muse, 0o755); err != nil {
 		return err
 	}
-	versionOut, err := exec.CommandContext(fx.ctx, stagedBin, "--version").CombinedOutput()
-	if err != nil {
-		return err
-	}
-	fields := strings.Fields(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(versionOut)), "Muse Code ")))
-	if len(fields) == 0 {
-		return fmt.Errorf("muse version unparseable: %q", strings.TrimSpace(string(versionOut)))
-	}
-	fx.versions = fields[0]
 	fx.harnessSHA = st15SHA256(muse)
+	fx.versions = "build-" + fx.harnessSHA[:16]
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err

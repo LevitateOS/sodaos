@@ -41,7 +41,7 @@ func newPreparationSourceTest(t *testing.T) *preparationSourceTest {
 		server: s, commit: strings.Repeat("a", 40), writable: true, admin: true, state: map[string]project.PrepareState{}, writerResults: map[string]bool{},
 		files: map[string][]byte{
 			"setup.sh":  []byte("#!/bin/sh\nexit 0\n"),
-			"check.sh":  []byte("#!/bin/sh\ngit --version\n"),
+			"check.sh":  []byte("#!/bin/sh\ngit rev-parse --is-inside-work-tree\n"),
 			"README.md": []byte("reviewed source input\n"),
 		},
 	}

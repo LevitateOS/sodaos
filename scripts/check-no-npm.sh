@@ -1,6 +1,6 @@
 #!/bin/bash
 # No-npm gate: the npm CLI is banned from this repository. Bun v1.4.2
-# (pinned via package.json packageManager) is the only JS toolchain;
+# is the project JS toolchain;
 # install scripts are already disabled via trustedDependencies: [].
 # This gate refuses npm lockfiles/configs and npm/npx invocations in
 # tracked source. Mentions of the npm *registry* as a package host

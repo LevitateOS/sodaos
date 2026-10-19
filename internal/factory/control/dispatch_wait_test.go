@@ -121,7 +121,7 @@ func TestDispatchWaitReasons(t *testing.T) {
 		"harness mismatch": {
 			mutate: func(fx *dispatchFixture, db *store.Store) {
 				fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
-					return project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: "9.9.9", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+					return project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "different-label", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
 				}
 			},
 			reason: WaitHarness,
@@ -254,7 +254,7 @@ func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
 		return pin, nil
 	}}
 	plan := &attemptPlan{policy: factory.RepositoryPolicy{AttemptLimits: factory.DefaultAttemptLimits(), Roles: map[string]factory.RoleSelection{
-		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "muse-spark-1.3"},
+		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "different-label", Model: "muse-spark-1.3"},
 		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "codex-model"},
 	}}}
 	if wait := checkHarnessFor(context.Background(), DispatchDeps{Host: fx.host}, plan, project.RoleCoder); wait != nil {
@@ -268,13 +268,13 @@ func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
 	}
 }
 
-func TestCheckHarnessRejectsFamilyAndVersionMismatch(t *testing.T) {
+func TestCheckHarnessRejectsWrongFamilyAndInvalidContent(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		pin  project.FactoryHarnessPin
 	}{
 		{name: "wrong family", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: "1.4.0", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
-		{name: "wrong version", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "9.9.9", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
+		{name: "missing digest", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "different-label", Image: "sha256:" + strings.Repeat("b", 64)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fx := dispatchFixture{host: &fakeDispatchHost{harness: func(string) (project.FactoryHarnessPin, error) { return tc.pin, nil }}}

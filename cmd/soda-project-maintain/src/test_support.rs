@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use super::archive::emit_archive;
 use super::interface::FdGuard;
 use super::stage::INSTALL_SCRIPT;
-pub(crate) use super::MUSE_VERSION;
 
 static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 

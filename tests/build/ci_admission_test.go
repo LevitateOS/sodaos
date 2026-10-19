@@ -2,7 +2,6 @@ package build
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -32,9 +31,8 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 	env := os.Environ()
 	env = SetEnv(env, "REUSE_RESULT", "success")
 	env = SetEnv(env, "REUSED_CHECKS", "false")
-	env = SetEnv(env, "GATE_STARTED_AT", fmt.Sprint(time.Now().Unix()))
 	for job, key := range map[string]string{
-		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT", "complexity": "COMPLEXITY_RESULT",
+		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT",
 	} {
 		Require(t, slices.Contains(gate.Needs, job), "CI does not require %s", job)
 		_, exists := workflow.Jobs[job]
@@ -48,20 +46,17 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 		return Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", "-eu", "-c", gate.Steps[0].Run)
 	}
 	Require(t, run(env).Code == 0, "successful source jobs should pass CI")
-	for _, started := range []string{fmt.Sprint(time.Now().Unix() - 300), fmt.Sprint(time.Now().Unix() + 60), "", "invalid"} {
-		Check(t, run(SetEnv(append([]string(nil), env...), "GATE_STARTED_AT", started)).Code != 0, "CI admitted expired/invalid time %q", started)
-	}
 	for _, reused := range []string{"", "invalid"} {
 		Check(t, run(SetEnv(append([]string(nil), env...), "REUSED_CHECKS", reused)).Code != 0, "CI admitted invalid reuse decision")
 	}
 	reused := SetEnv(append([]string(nil), env...), "REUSED_CHECKS", "true")
-	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT", "COMPLEXITY_RESULT"} {
+	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
 		reused = SetEnv(reused, key, "skipped")
 	}
 	Require(t, run(reused).Code == 0, "verified reuse should admit deliberately skipped source jobs")
 	Require(t, run(SetEnv(append([]string(nil), reused...), "REUSE_RESULT", "failure")).Code != 0, "failed reuse cannot authorize CI")
 	Require(t, run(SetEnv(append([]string(nil), reused...), "REUSED_CHECKS", "false")).Code != 0, "unverified skipped jobs cannot authorize CI")
-	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT", "COMPLEXITY_RESULT"} {
+	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
 		for _, result := range []string{"failure", "cancelled", "skipped", ""} {
 			t.Run(key+"/"+result, func(t *testing.T) {
 				Check(t, run(SetEnv(env, key, result)).Code != 0, "CI admitted %s=%q", key, result)
@@ -119,7 +114,7 @@ func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 				result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", "scripts/ci-reuse.sh")
 				Require(t, result.Code == 0, "reuse decision failed: %s", result.Stderr)
 				got, err := os.ReadFile(output)
-				Require(t, err == nil && strings.HasPrefix(string(got), "started_at=") && strings.HasSuffix(string(got), "\nreused="+expected+"\n"), "unexpected reuse result: %s", got)
+				Require(t, err == nil && string(got) == "reused="+expected+"\n", "unexpected reuse result: %s", got)
 			}
 			expected := "false"
 			if tc.name == "passed" {

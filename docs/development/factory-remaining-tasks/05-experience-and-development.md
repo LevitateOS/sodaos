@@ -7,7 +7,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** C. **Accepted inputs:** [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Extend canonical read model with workflow producers and persisted role/verb feed. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Extend canonical read model with workflow producers and persisted role/verb feed. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Extend the one existing read model for actual phases, plans/tasks/lanes/checkpoints, review/acceptance costs, blocked owner, reassessment/stall/repair and exact app verification. Use producer-owned records and native links.
 
@@ -43,7 +43,7 @@ submission is never mislabeled as an observed downstream effect.
 
 **Work:** Implement and qualify. **Owner lane:** C. **Accepted inputs:** [R42](05-experience-and-development.md#r42).
 
-**Current (wind-down):** Fresh Lit Work/Spaces feed and changed native joins; reuse suitable independent Ralph code/assets, seven roles and stable reading/drafts. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Fresh Lit Work/Spaces feed and changed native joins; reuse suitable independent Ralph code/assets, seven roles and stable reading/drafts. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Render actual producer/read-model states, links, actionable waits and admitted intervention in existing Work/Spaces. Reuse native ownership/lifecycle/navigation/terminal work and requalify changed joins, geometry, accessibility, assets and attribution.
 
@@ -87,7 +87,7 @@ component integration is introduced.
 
 **Work:** Qualify and repair demonstrated gaps. **Owner lane:** A. **Accepted inputs:** [R03](01-boundaries.md#r03), [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Current Project preparation/provider/broker/human/operator qualification. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Current Project preparation/provider/broker/human/operator qualification. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Qualify current Project preparation, protected service identities/Unix mappings, broker custody, provider grants and human SSH/terminal/operator foundations before live factory dispatch. Inspect and repair demonstrated joins only. R41 later composes factory-specific intervention with these accepted foundations.
 
@@ -114,7 +114,7 @@ proof to actual shipped identities where required.
 
 **Work:** Qualify and repair demonstrated gaps. **Owner lane:** C. **Accepted inputs:** [R03](01-boundaries.md#r03), [R06](01-boundaries.md#r06), [R44](05-experience-and-development.md#r44).
 
-**Current (wind-down):** Current component/package/controller/maintenance qualification; scoped RCX development acceptance retained. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Current component/package/controller/maintenance qualification; scoped RCX development acceptance retained. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind Payload v4, seven separate required image roles, including canlang-runtime, thin host/outer Docker, host-only compression/official-image compatibility, Fountain-owned lifecycle/durable intent and Soda package/controller declarations. Verify protected locks, startup ordering, closed admission, offline preparation and enabled-only maintenance.
 
@@ -141,7 +141,7 @@ aliases of existing gates, not extra prerequisite projects.
 
 **Work:** Qualify; named external cases. **Owner lane:** C. **Accepted inputs:** [R45](05-experience-and-development.md#r45).
 
-**Current (wind-down):** Current optional Tailnet/network qualification; actual external enrollment/routes remain separate. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Current optional Tailnet/network qualification; actual external enrollment/routes remain separate. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Verify default absence, administrator-enabled optional content, required Soda controller, full stop when disabled and current LAN/private-origin/HTTPS behavior. Exercise actual enrollment/routes only with the specifically authorized provider input.
 
@@ -158,7 +158,7 @@ aliases of existing gates, not extra prerequisite projects.
 
 **Work:** Integration qualification. **Owner lane:** Coordinator. **Accepted inputs:** [R11](02-prompt-to-pr.md#r11), [R13](02-prompt-to-pr.md#r13), [R17](02-prompt-to-pr.md#r17), [R20](03-review-merge-reassessment.md#r20), [R23](03-review-merge-reassessment.md#r23), [R26](03-review-merge-reassessment.md#r26), [R29](03-review-merge-reassessment.md#r29), [R32](04-controls-repair-verification.md#r32), [R33](04-controls-repair-verification.md#r33), [R34](04-controls-repair-verification.md#r34), [R35](04-controls-repair-verification.md#r35), [R37](04-controls-repair-verification.md#r37), [R39](04-controls-repair-verification.md#r39), [R40](04-controls-repair-verification.md#r40), [R41](04-controls-repair-verification.md#r41), [R42](05-experience-and-development.md#r42).
 
-**Current (wind-down):** Current composed API/Start/MCP/PostgreSQL serving and race acceptance. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Current composed API/Start/MCP/PostgreSQL serving and race acceptance. The catalog owns the remaining prerequisites and release condition.
 
 **Additional scoped CI finding:** [Required CI 39150705999](https://github.com/LevitateOS/sodaos/actions/runs/39150705999) failed `TestFactoryCatalogTransportPerHarness` with a stale admitted-input digest at documentation-only `5ebd1a91`; other required child jobs passed. In `internal/web/api/factory_mcp_test.go`, the sink and `catalogPayload` independently call `fakeCatalogCapability`, whose deadline uses `time.Now().Add(time.Hour).Unix()`. `ScopeDigest` includes that deadline, so crossing a second changes the request digest. The next focused repair should derive requests from the actually admitted fixture capability, preserving intentional stale-input refusal tests; prove the transport across that clock boundary. This is an existing R47 fixture criterion, not a new outcome or evidence that serving admission should be weakened. A later green run does not establish that the timing flaw was repaired.
 
@@ -180,7 +180,7 @@ aliases of existing gates, not extra prerequisite projects.
 
 **Work:** Native/provider qualification. **Owner lane:** A. **Accepted inputs:** [R12](02-prompt-to-pr.md#r12), [R13](02-prompt-to-pr.md#r13), [R16](02-prompt-to-pr.md#r16), [R22](03-review-merge-reassessment.md#r22), [R24](03-review-merge-reassessment.md#r24), [R29](03-review-merge-reassessment.md#r29), [R32](04-controls-repair-verification.md#r32), [R33](04-controls-repair-verification.md#r33), [R34](04-controls-repair-verification.md#r34), [R35](04-controls-repair-verification.md#r35), [R40](04-controls-repair-verification.md#r40), [R41](04-controls-repair-verification.md#r41).
 
-**Current (wind-down):** Exact harness/provider transport and first-response semantic trials. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Exact harness/provider transport and first-response semantic trials. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use retained drivers and bounded authorized accounts/fixtures to exercise actual Codex and Muse transport/role/native behavior and first-response semantic cases for decomposition, delivery decisions, reassessment and repair.
 
@@ -195,7 +195,7 @@ aliases of existing gates, not extra prerequisite projects.
 
 **Work:** Installed development qualification. **Owner lane:** Coordinator. **Accepted inputs:** [R39](04-controls-repair-verification.md#r39), [R40](04-controls-repair-verification.md#r40), [R43](05-experience-and-development.md#r43), [R44](05-experience-and-development.md#r44), [R45](05-experience-and-development.md#r45), [R47](05-experience-and-development.md#r47), [R48](05-experience-and-development.md#r48).
 
-**Current (wind-down):** Complete real development factory plus persisted role feed question/reply/finding/result journey. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Complete real development factory plus persisted role feed question/reply/finding/result journey. The catalog owns the remaining prerequisites and release condition.
 
 **Ralph absorption addition:** Include the role-authored feed in this same
 installed journey: follow actual issue/task/PR/review/correction/reassessment and

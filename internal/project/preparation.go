@@ -341,7 +341,7 @@ func PreparationInputsDigestOf(setupFiles []string, sourceInputs map[string]stri
 }
 
 // ResolvedTool is one required tool resolved to an exact installed path and
-// observed version in the controlled administrative context.
+// optional historical display label; preparation does not query version banners.
 type ResolvedTool struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`

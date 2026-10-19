@@ -126,7 +126,9 @@ reconnection. Local project files survive authentication failures.
 
 ### Muse subscription custody
 
-Muse uses the pinned upstream CLI `1.4.0-R4161.1` and its native device login.
+Muse uses the installed upstream CLI and its native device login. Executable
+integrity and the actual enrollment protocol are checked; version strings are
+not compatibility gates.
 Meta attaches subscription billing to the CLI credential produced during onboarding;
 Soda never creates an additional API key. The native OAuth record includes the CLI
 key as well as an access token. A manually supplied key is not accepted as Muse
@@ -139,7 +141,7 @@ leases; withdrawing a grant retires only its executions. Unconfirmed termination
 blocks admission. Restart reconciliation must confirm retirement before reuse.
 
 Concurrent and fresh-container credential reuse are supported by native evidence
-for this pinned release. Automatic token refresh is unverified. If Muse rejects
+for the tested CLI behavior. Automatic token refresh is unverified. If Muse rejects
 its credential, the connection requires device reconnection; Soda does not provide
 an undocumented Meta refresh service or switch to pay-as-you-go billing. The native
 file backend uses `TBH_CREDENTIAL_BACKEND=file`; it is verified for the selected

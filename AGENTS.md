@@ -9,32 +9,42 @@ Challenge weak assumptions with concrete reasons; state uncertainty honestly.
 These rules govern Codex and Muse and override conflicting procedural guidance.
 Preserve correctness, permissions, evaluation order, atomicity and failure/recovery behavior.
 
+- Development speed is the priority. SodaOS has zero users. Implement the smallest
+  useful change, run the smallest check that establishes it works, and keep moving.
+  Every procedural step must help deliver the current task or prevent a concrete
+  failure; skip steps that merely satisfy process. Do not add reproducibility,
+  release-process or compatibility work for hypothetical future users. Stale plans
+  and procedural docs must not block authorized implementation or testing.
 - Own the full authorized outcome. No repeated approvals, narrow batch gates or idle
   stops while unblocked work remains. Review asynchronously; continue independent work.
+- Never look at the version number. If you have to look at a version number, you are
+  already harming the project. Do not inspect, compare, pin or gate work on tool or
+  dependency version numbers. Test the installed tool's required behavior directly;
+  resolve actual failures and update stale guidance from observed behavior. A version
+  mismatch must never block testing, force a downgrade or invalidate working evidence.
 - Reuse valid evidence. No duplicate checks, reviews of reviews or reopened criteria
   without relevant changes, actual failures or a specific unresolved risk.
 - No extra plans, evidence/status files, bookkeeping commits or measurement frameworks
-  without concrete need. Keep one canonical execution record per scope; count shared
-  outcomes once. Report meaningful changes concisely.
-- Limit routine coordination to five minutes per transition, then continue independent
-  work if a conflict remains. This does not limit necessary engineering or safety work.
-- Every blocker names the missing prerequisite, owner, release condition and affected
-  work. Resolve authorized setup yourself; generic “operator-owned” is insufficient.
-- Distinguish requested, sent, acknowledged, executing and verified. Separate partial
-  work, source checks and full acceptance. Never infer execution from dispatch or invent
-  completion percentages. Save coherent completed work at safe boundaries.
-
+  without concrete need. Update an existing record when useful; ordinary work does not
+  require an execution record. Report meaningful changes concisely.
 - Keep process artifacts out of the repository, including ignored directories:
   no JEV requests/responses/receipts, consultation transcripts, review ledgers,
   audit inventories or execution-status reports. Summarize useful conclusions in
   chat; record only resulting technical decisions in the existing owning docs.
   If a tool needs temporary consultation files, use scratch outside the checkout
   under `/home` and remove them when finished.
+- Coordinate actual overlaps briefly and continue independent work. Do not turn
+  coordination into a timed ceremony or a prerequisite for unrelated changes.
+- Resolve authorized setup yourself. If genuinely blocked, explain the concrete obstacle
+  and what is needed to proceed; continue everything that does not depend on it.
+- Distinguish requested, sent, acknowledged, executing and verified. Separate partial
+  work, source checks and full acceptance. Never infer execution from dispatch or invent
+  completion percentages. Save coherent completed work at safe boundaries.
 
 ## Scope and protection
 
 - Work in the canonical `~/Projects/sodaos` checkout; no worktrees unless requested.
-  Inspect changes and active writers first. Preserve unrelated work; coordinate actual
+  Inspect changes in files you will touch. Preserve unrelated work; coordinate actual
   overlaps without stopping independent work. Leave the predecessor/Updates platform alone.
 - Implementation includes matching code, tests, docs and operational configuration.
   Installation/deployment requests include necessary builds, transfers, scoped restarts
@@ -59,43 +69,47 @@ Preserve correctness, permissions, evaluation order, atomicity and failure/recov
 - This is unreleased software: maintain one current implementation. Replace obsolete
   formats, callers and fixtures together; no compatibility layers or migrations unless
   explicitly required. Removals should reduce code, not add replacement scaffolding.
-- Solve demonstrated needs with mature upstream implementations. Verify the selected
-  version and actual caller before adding adapters or claiming limitations. Avoid
+- Solve demonstrated needs with mature upstream implementations. Verify actual behavior
+  and the actual caller before adding adapters or claiming limitations. Avoid
   speculative recovery systems, harnesses and abstractions.
-- Token and build budgets matter. Resolve critical native assumptions before building
-  orchestration. Choose the cheapest sufficient investigation/check; stop once the
-  criterion is established and move on. Failed assumptions require reassessment.
+- Token and build budgets matter. Test a critical assumption before investing in work
+  that depends on it. Choose the cheapest sufficient check and move on once it answers
+  the question. A failed assumption changes the affected approach, not the whole plan.
 - Preserve [language/package ownership](docs/development/ideal-filetree-plan/package-ownership.md)
   and [owner language decisions](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy):
   network servers use Go, system/privileged applications Rust, no authored Python programs.
-  Planned cutovers are not completed cutovers or permission to port. Resolve conflicts
-  through the [guidance register](docs/development/ideal-filetree-plan/review-assignments.md#guidance-conflicts-and-controlling-decisions).
+  Planned cutovers are not completed cutovers or permission to port. Resolve routine
+  implementation choices directly from the owner's instructions and existing code;
+  no register entry or separate approval is needed.
 - Preserve dependency direction and canonical definitions. No retired packages, forwarding
-  packages, duplicate domain DTOs or forbidden cross-boundary imports. Resolve new
-  ownership before changing it; update affected guidance and architecture assertions together.
-- Follow [complexity policy](docs/development/complexity.md): prefer ≤10, normal maximum 20;
-  exceptions need a narrow cap or existing non-increasing baseline. Exclude tests/generated
-  code; do not split merely to game scores. Use pinned toolchains/locks; avoid incidental upgrades.
+  packages, duplicate domain DTOs or forbidden cross-boundary imports. Put new code in
+  the appropriate existing package; update guidance or architecture assertions only
+  when the change actually affects them.
+- Keep code cohesive and readable. Use [complexity reports](docs/development/complexity.md)
+  when they help a concrete refactor; scores do not block work or require exception
+  paperwork. Avoid unrelated dependency changes.
 
 ## Verification and documentation
 
 Test changed behavior, demonstrated failures and relevant permission/destructive boundaries
 with existing focused checks. Keep callers, browser assets and staging connected. Required
 combined/final acceptance addresses genuine remaining criteria, not ritual reruns.
-Development probes may reuse failed-release artifacts but cannot qualify that release.
+Reuse artifacts and passing checks when they still test the relevant behavior. A failed
+run requires fixing and retesting the actual failure, not discarding unrelated evidence.
+Claim release qualification only when its relevant checks pass.
 Do not rebuild shipping bytes for driver-only debugging without a concrete need.
 SodaOS targets native x86_64; cross-compilation/emulation is not native or installed proof.
 
-Use [docs/README.md](docs/README.md) to find the owning guide; read relevant sections only.
-Keep one owner per requirement, link rather than duplicate, and update affected plan facts
-when responsibilities, paths, dependencies or status change. No unchanged-plan audit.
-Product docs are not status trackers; completed plans are absorbed and removed.
+Consult [docs/README.md](docs/README.md) when you need to locate guidance; read only what
+helps the task. Correct docs made misleading by your change and link rather than
+duplicate. Do not turn implementation into a plan audit, status reconciliation or
+documentation cleanup unless requested or necessary to complete the task.
 
 Use [testing](docs/development/testing.md), [native support](docs/development/native-support.md)
 and [installation](docs/guides/installation.md) for execution commands and effects;
 [Go](docs/development/go.md), [TypeScript](docs/development/typescript.md) and
-`internal/archcheck` for language/boundary checks. Read the relevant operational guide
-before provisioning, activation, VM or installed checks; these can change real state.
+`internal/archcheck` for language/boundary checks. Before changing real state, understand
+the affected resources and recovery path; consult the operational guide where needed.
 
 Only when explicitly requested, consult Jev/SystemOne with complete supplied context:
 it cannot research. Make three fresh, semantically equivalent consultations with rewritten

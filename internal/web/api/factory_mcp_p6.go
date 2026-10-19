@@ -23,22 +23,9 @@ import (
 // choose no socket, URL or listener; the relay forwards here.
 const FactoryMCPRoute = "/mcp"
 
-// PinnedMCPSDKVersion is the released SDK proven by P6. The pin itself
-// lives in go.mod/go.sum; this constant keeps the proof legible.
-const PinnedMCPSDKVersion = "v1.8.0"
-
-// p6AdmittedHarness mirrors the Rust relay pins: only the exact
-// admitted harness versions qualify. Anything else stays unavailable;
-// callers get the refusal, never a substitute transport.
-func p6AdmittedHarness(harness, vers string) bool {
-	switch harness {
-	case "muse":
-		return vers == "1.4.9" || vers == "1.4.9-R6297.1"
-	case "codex":
-		return vers == "0.161.0"
-	default:
-		return false
-	}
+// p6AdmittedHarness selects a supported interface, without version admission.
+func p6AdmittedHarness(harness string) bool {
+	return harness == "muse" || harness == "codex"
 }
 
 // p6Receipt is the durable terminal receipt for one typed finish.
@@ -71,12 +58,12 @@ func isHex32(s string) bool {
 
 type p6ContextArgs struct {
 	Harness string `json:"harness"`
-	Vers    string `json:"vers"`
+	Vers    string `json:"vers,omitempty"`
 }
 
 type p6FinishArgs struct {
 	Harness      string `json:"harness"`
-	Vers         string `json:"vers"`
+	Vers         string `json:"vers,omitempty"`
 	SubmissionID string `json:"submission_id"`
 	Outcome      string `json:"outcome"`
 }
@@ -94,7 +81,7 @@ func newFactoryMCPServer(store *p6Store) *mcp.Server {
 		Name:        "factory.context",
 		Description: "P6 allowed read: immutable assignment summary",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args p6ContextArgs) (*mcp.CallToolResult, any, error) {
-		if !p6AdmittedHarness(args.Harness, args.Vers) {
+		if !p6AdmittedHarness(args.Harness) {
 			return nil, nil, fmt.Errorf("unsupported factory harness")
 		}
 		return &mcp.CallToolResult{Content: []mcp.Content{
@@ -105,7 +92,7 @@ func newFactoryMCPServer(store *p6Store) *mcp.Server {
 		Name:        "factory.finish",
 		Description: "P6 typed finish: exactly-once terminal receipt",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args p6FinishArgs) (*mcp.CallToolResult, any, error) {
-		if !p6AdmittedHarness(args.Harness, args.Vers) {
+		if !p6AdmittedHarness(args.Harness) {
 			return nil, nil, fmt.Errorf("unsupported factory harness")
 		}
 		if !isHex32(args.SubmissionID) {

@@ -5,7 +5,7 @@ convenience documentation for retained lab state, not product acceptance and not
 permission grant.
 
 Destructive cleanup, provider registration and fixture replacement need explicit
-task approval. See [AGENTS.md](../../AGENTS.md#permissions-and-preservation).
+task approval. See [AGENTS.md](../../AGENTS.md#scope-and-protection).
 
 ## Typical access patterns
 

@@ -44,7 +44,7 @@ through Soda.
 
 ## Service helper modes
 
-The same binary provides fixed helper modes used by Soda: `--soda-check VERSION`,
+The same binary provides fixed helper modes used by Soda: `--soda-check`,
 `--soda-read-config PATH`, `--soda-copy-config SOURCE DESTINATION`,
 `--soda-account IDENTITY`, and `--soda-exec ROOT CWD [ARGS...]`. These support
 runtime checks, private config views, account lookup and native execution; normal

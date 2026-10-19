@@ -1,10 +1,10 @@
-// Pinned native Muse subscription enrollment, mirroring
-// internal/identity/muse: config validation, digest and version checks,
+// Native Muse subscription enrollment:
+// config validation and executable integrity,
 // the `login` device-code session and the auth.json custody checks.
 
 use super::sha256;
 use super::types::{self, Connection, Enrollment};
-use super::{enrollment_tempdir, private_tmpfs, run_capture, Error};
+use super::{enrollment_tempdir, private_tmpfs, Error};
 use serde::Deserialize;
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
@@ -16,12 +16,12 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 pub const VERSION: &str = "1.4.0-R4161.1";
-const VERSION_LINE: &str = "Muse Code 1.4.0 (1.4.0-R4161.1)";
 const DEVICE_PREFIX: &[u8] = b"https://auth.meta.com/oauth/device/?code=";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub binary: String,
+    #[serde(default)]
     pub version: String,
     pub sha256: String,
     pub root: String,
@@ -35,7 +35,6 @@ impl Provider {
     pub fn new(config: Config) -> Result<Provider, Error> {
         validate_config(&config)?;
         check_binary(&config)?;
-        check_version(&config)?;
         Ok(Provider { config })
     }
 
@@ -263,10 +262,9 @@ fn environment(root: &str) -> Vec<String> {
 fn validate_config(c: &Config) -> Result<(), Error> {
     if !Path::new(&c.binary).is_absolute()
         || !Path::new(&c.root).is_absolute()
-        || c.version != VERSION
         || c.sha256.len() != 64
     {
-        return Err(Error::denied("invalid pinned Muse configuration"));
+        return Err(Error::denied("invalid Muse configuration"));
     }
     let info = std::fs::symlink_metadata(&c.root)
         .map_err(|_| Error::denied("muse enrollment root must be private"))?;
@@ -281,21 +279,6 @@ fn check_binary(c: &Config) -> Result<(), Error> {
     let sum = sha256::digest_reader(&mut f)?;
     if sha256::hex(&sum) != c.sha256 {
         return Err(Error::denied("muse digest mismatch"));
-    }
-    Ok(())
-}
-
-fn check_version(c: &Config) -> Result<(), Error> {
-    let out = run_capture(
-        &c.binary,
-        &["--version"],
-        &environment(&c.root),
-        None,
-        Duration::from_secs(10),
-    )
-    .map_err(|_| Error::denied("muse version mismatch"))?;
-    if out.trim() != VERSION_LINE {
-        return Err(Error::denied("muse version mismatch"));
     }
     Ok(())
 }

@@ -48,7 +48,7 @@ developers, not prerequisites for installing a downloaded release.
 ## Prepare the builder
 
 Use a native `x86_64` builder under the
-[platform scope](../architecture/release.md#architectures). Install the pinned Go,
+[platform scope](../architecture/release.md#architectures). Install the installed Go,
 Rust and Bun toolchains and native Podman. From the repository root:
 
 ```sh

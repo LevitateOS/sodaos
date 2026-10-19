@@ -8,7 +8,8 @@ use crate::factory::*;
 #[test]
 fn launch_success_drives_to_completed() {
     let (dir, factory, _exec, term, broker) = wired_factory("launch-ok");
-    let req = sample_launch();
+    let mut req = sample_launch();
+    req.run.harness_vers = "different-build-label".to_string();
     script_success(&term, &broker, &req.run, 0, "all done");
     let state = factory.launch(&req, deadline()).unwrap();
     assert_eq!(state.id, req.run.id);

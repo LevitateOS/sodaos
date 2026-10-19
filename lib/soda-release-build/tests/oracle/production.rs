@@ -99,9 +99,6 @@ fn oracle_production_sequence() {
         if name == "git" {
             return Ok("1735689600".into());
         }
-        if name == "bun" {
-            return Ok("1.4.2".to_string());
-        }
         if args
             .get(4)
             .is_some_and(|format| format.contains("architecture"))

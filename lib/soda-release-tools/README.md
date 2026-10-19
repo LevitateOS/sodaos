@@ -15,7 +15,7 @@ archives and retrieving verified upstream CoreOS inputs. This package supplies
 | `soda-release` | Stage immutable GitHub release assets and promote them after the native install smoke. |
 
 Use `--help` on any binary to see its flags. Builds require native Linux
-`x86_64`, clean committed Soda and Fountain checkouts, pinned toolchains and an
+`x86_64`, clean committed Soda and Fountain checkouts, installed toolchains and an
 operator-admitted controller with restricted worker configuration. Start in the
 Soda checkout root. Follow the
 [native support guide](../../docs/development/native-support.md#local-host-content-image-candidate)

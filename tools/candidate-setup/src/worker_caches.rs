@@ -11,25 +11,18 @@ pub(super) struct WorkerCaches {
 }
 
 /// Warm the Go module cache and the full module set.
-fn warm_go_caches(
-    storage: &Storage,
-    pinned: &str,
-    go_mod: &str,
-    go_build_cache: &str,
-) -> Result<(), Exit> {
-    let toolchain = format!("go{pinned}");
+fn warm_go_caches(storage: &Storage, go_mod: &str, go_build_cache: &str) -> Result<(), Exit> {
     let pinned_go_bin = format!("{PINNED_GO}/bin/go");
     let home_env = format!("HOME={}", storage.home);
     let modcache_env = format!("GOMODCACHE={go_mod}");
     let gocache_env = format!("GOCACHE={go_build_cache}");
-    let toolchain_env = format!("GOTOOLCHAIN={toolchain}");
     let warm_env = [
         home_env.as_str(),
         "GOPROXY=https://proxy.golang.org,direct",
         "GOSUMDB=sum.golang.org",
         modcache_env.as_str(),
         gocache_env.as_str(),
-        toolchain_env.as_str(),
+        "GOTOOLCHAIN=local",
         "GOFLAGS=-mod=readonly",
         "CGO_ENABLED=0",
     ];
@@ -183,7 +176,6 @@ fn warm_bun_cache(storage: &Storage, owned: &str, bun_final: &str, tmpw: &str) -
 /// Warm compiler dependencies before the isolated worker runs offline.
 pub(super) fn warm_worker_caches(
     storage: &Storage,
-    pinned: &str,
     owned: &str,
     bun_final: &str,
     rust_bin: &str,
@@ -205,7 +197,7 @@ pub(super) fn warm_worker_caches(
         ],
     )?;
     run("sudo", &["chown", "-R", owned, &cargo_home, &cargo_target])?;
-    warm_go_caches(storage, pinned, &go_mod, &go_build_cache)?;
+    warm_go_caches(storage, &go_mod, &go_build_cache)?;
     warm_cargo_cache(storage, rust_bin, &cargo_home, &cargo_target)?;
     lock_go_offline(storage)?;
     let bun_template = format!("{}/setup-bun.XXXXXXXX", storage.scratch);

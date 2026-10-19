@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 
-use super::process::{capture, git_tree_clean, id_un, pipe2, run_stdout_null, Captured};
+use super::process::{capture, git_tree_clean, id_un, Captured};
 use super::storage::{refuse_active_build, Storage};
 use super::{
     command_v, current_pwd, env_or, flock, is_dir, is_file, stripped, stripped_string, AUTHORITY,
@@ -9,7 +9,7 @@ use super::{
 };
 use super::{fail, Exit};
 
-/// Admitted setup inputs: environment, native toolchain pins and the
+/// Admitted setup inputs: environment, installed toolchains and the
 /// held setup lease. Later stages borrow or destructure exactly these.
 pub(super) struct Preflight {
     pub(super) prefix: String,
@@ -21,9 +21,7 @@ pub(super) struct Preflight {
     pub(super) pwd: String,
     pub(super) output_parent: String,
     pub(super) worker_json_path: String,
-    pub(super) pinned: String,
-    pub(super) pinned_goroot: String,
-    pub(super) want: String,
+    pub(super) go_root: String,
 }
 
 /// `bridge_ip` mirrors the `ip ... | awk ... | cut ... | head -1` pickup:
@@ -128,7 +126,7 @@ fn admitted_host() -> Result<(), Exit> {
     for tool in ["go", "bun", "podman", "skopeo", "flock"] {
         if command_v(tool).is_none() {
             return fail(format!(
-                "pinned go, bun, podman, skopeo and flock required (missing {tool})"
+                "go, bun, podman, skopeo and flock required (missing {tool})"
             ));
         }
     }
@@ -142,7 +140,7 @@ fn admitted_host() -> Result<(), Exit> {
     Ok(())
 }
 
-fn admitted_toolchain() -> Result<(String, String, String), Exit> {
+fn admitted_toolchain() -> Result<String, Exit> {
     // D01-F3: only a successful empty status proves clean.
     let dirty = !git_tree_clean(&capture(
         "git",
@@ -152,19 +150,8 @@ fn admitted_toolchain() -> Result<(String, String, String), Exit> {
     if dirty {
         return fail("commit or stash tracked changes first; the controller refuses dirty source");
     }
-    let (pin_code, pin_out) = pipe2(("grep", &["^go ", "go.mod"]), ("awk", &["{print $2}"]));
-    if pin_code != 0 {
-        return Err(Exit::Propagate(pin_code));
-    }
-    let pinned = stripped_string(&pin_out);
-    if pinned.is_empty() {
-        return fail("go.mod pins no Go version");
-    }
-    env::set_var("GOTOOLCHAIN", format!("go{pinned}"));
-    if run_stdout_null("go", &["version"]).is_err() {
-        return fail(format!("cannot fetch Go {pinned}"));
-    }
-    let pinned_goroot = match capture("go", &["env", "GOROOT"], false) {
+    env::set_var("GOTOOLCHAIN", "local");
+    let go_root = match capture("go", &["env", "GOROOT"], false) {
         Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
         Captured::Done(code, out) => {
             if code != 0 {
@@ -173,8 +160,7 @@ fn admitted_toolchain() -> Result<(String, String, String), Exit> {
             stripped_string(&out)
         }
     };
-    let want = format!("go version go{pinned} linux/amd64");
-    Ok((pinned, pinned_goroot, want))
+    Ok(go_root)
 }
 
 fn held_lease() -> Result<(), Exit> {
@@ -222,7 +208,7 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     }
     admitted_checkout(&forgejo_source)?;
     admitted_host()?;
-    let (pinned, pinned_goroot, want) = admitted_toolchain()?;
+    let go_root = admitted_toolchain()?;
     held_lease()?;
     Ok(Preflight {
         prefix,
@@ -234,8 +220,6 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
         pwd,
         output_parent,
         worker_json_path,
-        pinned,
-        pinned_goroot,
-        want,
+        go_root,
     })
 }

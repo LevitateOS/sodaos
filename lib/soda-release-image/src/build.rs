@@ -28,7 +28,6 @@ pub use crate::build_context::{
 /// Pinned Go toolchain (`go1.26.7`): the controller shells to it for Soda
 /// command compilation, and `GOTOOLCHAIN` forces the same version for every
 /// child `go` invocation.
-pub const PINNED_GO_VERSION: &str = "go1.26.7";
 
 /// Computed production inputs (`build.Production` fields set by `runBuild`).
 #[derive(Debug, Clone, Default)]

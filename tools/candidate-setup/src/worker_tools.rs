@@ -55,7 +55,7 @@ fn install_rust_sysroot(rust_sysroot: &str, rust_new: &str) -> Result<(), Exit> 
             "-u",
             WORKER_USER,
             &format!("{rust_new}/bin/rustc"),
-            "--version",
+            "--help",
         ],
     )
     .is_err()
@@ -65,7 +65,7 @@ fn install_rust_sysroot(rust_sysroot: &str, rust_new: &str) -> Result<(), Exit> 
                 "-u",
                 WORKER_USER,
                 &format!("{rust_new}/bin/cargo"),
-                "--version",
+                "--help",
             ],
         )
         .is_err()
@@ -76,18 +76,6 @@ fn install_rust_sysroot(rust_sysroot: &str, rust_new: &str) -> Result<(), Exit> 
 }
 
 fn stage_rust_toolchain(rust_final: &str, rust_new: &str) -> Result<String, Exit> {
-    let active_toolchain = match capture("rustup", &["show", "active-toolchain"], false) {
-        Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
-        Captured::Done(code, out) if code == 0 => stripped_string(&out),
-        Captured::Done(_, _) => return fail("repository-selected stable Rust toolchain required"),
-    };
-    if !active_toolchain
-        .split_whitespace()
-        .next()
-        .is_some_and(|name| name == "stable" || name.starts_with("stable-"))
-    {
-        return fail("repository-selected stable Rust toolchain required");
-    }
     let rust_sysroot = match capture("rustc", &["--print", "sysroot"], false) {
         Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
         Captured::Done(code, out) if code == 0 => stripped_string(&out),
@@ -102,27 +90,21 @@ fn stage_rust_toolchain(rust_final: &str, rust_new: &str) -> Result<String, Exit
     Ok(format!("{rust_final}/bin"))
 }
 
-fn stage_go_bun(
-    pinned_goroot: &str,
-    pinned: &str,
-    want: &str,
-    pinned_new: &str,
-    bun_new: &str,
-) -> Result<(), Exit> {
+fn stage_go_bun(go_root: &str, pinned_new: &str, bun_new: &str) -> Result<(), Exit> {
     run("sudo", &["rm", "-rf", pinned_new, bun_new])?;
-    run("sudo", &["cp", "-a", pinned_goroot, pinned_new])?;
+    run("sudo", &["cp", "-a", go_root, pinned_new])?;
     let staged_go = format!("{pinned_new}/bin/go");
-    let staged_ok = match capture(&staged_go, &["version"], false) {
+    let staged_ok = match capture(&staged_go, &["env", "GOROOT"], false) {
         Captured::SpawnFailed(_) => false,
-        Captured::Done(_, out) => stripped(&out) == want.as_bytes(),
+        Captured::Done(code, _) => code == 0,
     };
     if !staged_ok {
-        return fail(format!("staged Go is not {pinned}; refusing to publish it"));
+        return fail("staged Go is not runnable");
     }
     let bun_path = command_v("bun").map(|p| p.to_string_lossy().into_owned());
     let bun_src = bun_path.as_deref().unwrap_or("");
     run("sudo", &["install", "-m", "0755", bun_src, bun_new])?;
-    if run_stdout_null("sudo", &["-u", WORKER_USER, bun_new, "--version"]).is_err() {
+    if run_stdout_null("sudo", &["-u", WORKER_USER, bun_new, "--help"]).is_err() {
         return fail("staged bun is not worker-runnable; refusing to publish it");
     }
     Ok(())
@@ -208,13 +190,7 @@ fn publish_staged_tools(
     Ok(bun_final)
 }
 
-fn verify_worker_tools(
-    storage: &Storage,
-    pinned: &str,
-    want: &str,
-    rust_final: &str,
-    bun_final: &str,
-) -> Result<(), Exit> {
+fn verify_worker_tools(storage: &Storage, rust_final: &str, bun_final: &str) -> Result<(), Exit> {
     println!("-- verify tools as the worker user");
     let verify_ok = match capture(
         "sudo",
@@ -225,17 +201,16 @@ fn verify_worker_tools(
             "GOTOOLCHAIN=local",
             &format!("HOME={}", storage.home),
             &format!("{PINNED_GO}/bin/go"),
-            "version",
+            "env",
+            "GOROOT",
         ],
         false,
     ) {
         Captured::SpawnFailed(_) => false,
-        Captured::Done(_, out) => stripped(&out) == want.as_bytes(),
+        Captured::Done(code, _) => code == 0,
     };
     if !verify_ok {
-        return fail(format!(
-            "provisioned Go is not {pinned} or not worker-runnable"
-        ));
+        return fail("provisioned Go is not worker-runnable");
     }
     if run(
         "sudo",
@@ -251,7 +226,7 @@ fn verify_worker_tools(
     {
         return fail("provisioned GOROOT sources are not worker-readable");
     }
-    if run_stdout_null("sudo", &["-u", WORKER_USER, bun_final, "--version"]).is_err() {
+    if run_stdout_null("sudo", &["-u", WORKER_USER, bun_final, "--help"]).is_err() {
         return fail("provisioned bun is not worker-runnable");
     }
     let rust_sysroot_ok = match capture(
@@ -278,9 +253,7 @@ fn verify_worker_tools(
 pub(super) fn provision_worker_tools(
     output_parent: &str,
     storage: &Storage,
-    pinned: &str,
-    pinned_goroot: &str,
-    want: &str,
+    go_root: &str,
 ) -> Result<WorkerTools, Exit> {
     println!("-- worker directories");
     let tools_bin = format!("{TOOLS}/bin");
@@ -309,7 +282,7 @@ pub(super) fn provision_worker_tools(
     let rust_bin = stage_rust_toolchain(&rust_final, &rust_new)?;
     let pinned_new = format!("{PINNED_GO}.new");
     let bun_new = format!("{tools_bin}/bun.new");
-    stage_go_bun(pinned_goroot, pinned, want, &pinned_new, &bun_new)?;
+    stage_go_bun(go_root, &pinned_new, &bun_new)?;
     let bun_final = publish_staged_tools(
         output_parent,
         storage,
@@ -319,7 +292,7 @@ pub(super) fn provision_worker_tools(
         &pinned_new,
         &bun_new,
     )?;
-    verify_worker_tools(storage, pinned, want, &rust_final, &bun_final)?;
+    verify_worker_tools(storage, &rust_final, &bun_final)?;
     let owned = format!("{WORKER_USER}:{WORKER_USER}");
     Ok(WorkerTools {
         rust_bin,

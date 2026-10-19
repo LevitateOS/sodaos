@@ -199,11 +199,6 @@ fn invalid_pins_are_refused_without_fetch() {
         format!(
             r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{good_sha}","size":0}}}}}}"#
         ),
-        // Bad version.
-        format!(
-            r#"{{"version":"1.2","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{good_sha}","size":{}}}}}}}"#,
-            payload.len()
-        ),
         // Missing architecture.
         format!(
             r#"{{"version":"{VERSION}","artifacts":{{"aarch64":{{"file":"{FILE}","sha256":"{good_sha}","size":{}}}}}}}"#,

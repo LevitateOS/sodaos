@@ -69,15 +69,15 @@ jobs:
           ref: ${{ steps.fountain.outputs.revision }}
           path: forgejo-ext
           persist-credentials: false
-      - name: Set up Go from go.mod
+      - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: sodaos/go.mod
+          go-version: stable
           cache-dependency-path: sodaos/go.sum
-      - name: Set up Bun from package.json
+      - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version-file: sodaos/package.json
+          bun-version: latest
       - name: Set up the repository-selected Rust toolchain
         run: rustup toolchain install --profile minimal --no-self-update
       - name: Cache locked Cargo downloads
@@ -128,10 +128,10 @@ jobs:
           ref: ${{ steps.fountain.outputs.revision }}
           path: forgejo-ext
           persist-credentials: false
-      - name: Set up Bun from package.json
+      - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version-file: sodaos/package.json
+          bun-version: latest
       - name: Set up the repository-selected Rust toolchain
         run: rustup toolchain install --profile minimal --no-self-update
       - name: Cache locked Cargo downloads
@@ -193,15 +193,15 @@ jobs:
           ref: ${{ steps.fountain.outputs.revision }}
           path: forgejo-ext
           persist-credentials: false
-      - name: Set up Go from go.mod
+      - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: sodaos/go.mod
+          go-version: stable
           cache: false
-      - name: Set up Bun from package.json
+      - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version-file: sodaos/package.json
+          bun-version: latest
       - name: Set up the repository-selected Rust toolchain
         run: rustup toolchain install --profile minimal --no-self-update
       - name: Cache locked Cargo downloads

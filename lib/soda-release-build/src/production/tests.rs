@@ -93,9 +93,6 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
         if name == "git" {
             return Ok("1735689600".into());
         }
-        if name == "bun" {
-            return Ok("1.4.2".to_string());
-        }
         assert_eq!(name, "podman");
         assert_eq!(args[0], "--remote=false");
         if args
@@ -393,7 +390,13 @@ fn oracle_production_refusals() {
         let (mut prod, _calls, _root) = production_fixture();
         match mode {
             "bun" => {
-                prod.capture = Some(Box::new(|_, _, _| Ok("different".to_string())));
+                prod.execute = Some(Box::new(|_, name, _| {
+                    if name == "bun" {
+                        Err(Error::msg("dependency installation failed"))
+                    } else {
+                        Ok(())
+                    }
+                }));
                 assert!(prod.dependencies().is_err(), "{mode}");
                 continue;
             }

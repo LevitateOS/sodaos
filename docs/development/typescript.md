@@ -1,7 +1,6 @@
 # Bun and TypeScript development
 
-Run dependency commands from the repository root using the Bun version pinned in
-`package.json`. The root package owns shared script/test tooling and the single
+Run dependency commands from the repository root using the installed Bun. The root package owns shared script/test tooling and the single
 `bun.lock`; `tools/lit-check/` is the remaining workspace. Declare dependencies
 where they are used, not through another package's transitive installation.
 Cockpit's custom workspace, React/PatternFly/Zustand and Vite build are retired;
@@ -9,7 +8,7 @@ stock Cockpit branding uses canonical assets without a frontend application.
 
 ```sh
 bun install --frozen-lockfile
-bun run check:source # Go + TypeScript/Lit + local browser + Python
+bun run check:source # Go + TypeScript/Lit + local browser
 bun run typecheck
 bun run test
 bun run build
@@ -30,21 +29,21 @@ For Spaces visual development without a VM, use the
 ## Local source checks
 
 `bun run check:source` shares the existing Go module verification/tests, complete
-TypeScript/Lit checks, `bun run test` and Python `tests/build` suite. It works in a
+TypeScript/Lit checks and prepared browser suites. It works in a
 dirty source checkout without native images or a sealed deployment stage. Native
 `check-native.sh` calls this same command **between** its exact-revision/artifact
 checks, then runs packaging checks against the selected stage. Its matching-native
-Linux, pinned-tool and clean-checkout requirements remain unchanged.
+Linux and candidate/source identity checks apply only to candidate verification.
 
-Prerequisites: an installed Go toolchain satisfying `go.mod`, pinned Bun and the
-resolved frozen-lock workspace dependencies, Python 3, Bash, OpenSSL and Playwright's
+Prerequisites: installed Go, Bun and Rust tools, resolved workspace dependencies,
+Bash, OpenSSL and Playwright's
 compatible Chromium plus its sandbox/runtime libraries. Source checks use
 `GOTOOLCHAIN=local`, `GOWORK=off`, read-only module metadata and `CGO_ENABLED=0`; they
 may download modules into Go caches and fetch missing locked terminal distributions,
 but do not install workspace dependencies, download Go toolchains, load images or
 install an appliance. They write emitted assets,
 retained synthetic HTML fixtures and ordinary test-local temporary files. Existing
-optional Python checks still report skips: xorriso enables the synthetic ISO test;
+optional integration checks report skips when prerequisites are absent: xorriso enables the synthetic ISO test;
 `SODA_CADDY_BINARY` selects the separate real loopback Caddy integration. Do not set
 installed/provider/native-origin flags for ordinary source checks: those remain
 independently gated and are not enabled by the aggregate.
@@ -77,24 +76,18 @@ Bun and remain strictly typed; they do not introduce a Node process requirement.
 
 ## Formatting, linting, and complexity
 
-Pinned `oxfmt` (0.68.0) and `oxlint` (1.81.0) in the root lock are the TypeScript
-Oxc analogue of gofumpt and of staticcheck plus gocyclo. They share one parser
-family. They do not replace `bun run typecheck` (Oxc has no typechecker we will
-use in place of TypeScript 7). Do not add Prettier, ESLint, or Biome on top.
-Whole-tree scripts live beside the Go gates; the pre-commit hook is
-staged-only so an existing backlog cannot block unrelated commits. Go quality-gate
-ownership and the Go threshold remain in [the Go ownership guide](go.md).
+Use the installed `oxfmt` and `oxlint` tools for formatting and correctness
+checks on affected TypeScript files. They complement `bun run typecheck`.
+Avoid adding competing formatter/linter stacks.
 
 | Command | Scope |
 | --- | --- |
-| `bash scripts/check-oxfmt.sh` (`bun run check:oxfmt`) | Zero-tolerance format on the given `.ts`/`.tsx` paths, or every tracked TypeScript file. Fix with `bunx oxfmt --write <files>`. |
-| `bash scripts/check-oxlint.sh` (`bun run check:oxlint`) | Correctness lint (oxlint `correctness`, `--format=agent`, without duplicating `tsc`). Complexity is excluded here. |
-| `bash scripts/check-ts-complexity.sh` (`bun run check:ts-complexity`) | Authored production TypeScript, including tooling. Shared [complexity policy](complexity.md): preferred ≤10, normal maximum 20; existing excess cannot increase, narrow capped exceptions require justification. |
+| `bash scripts/check-oxfmt.sh FILE...` | Check formatting on selected files. |
+| `bash scripts/check-oxlint.sh FILE...` | Check selected files for correctness issues. |
+| `bash scripts/check-ts-complexity.sh FILE...` | Optional [complexity report](complexity.md); no score gate or exception paperwork. |
 
-`.githooks/pre-commit` checks complexity from the actual staged Go/Rust/TypeScript
-content once. Formatting also applies to tests; complexity excludes tests and
-generated/dependency code. The shared gate owns complexity; oxlint does not impose
-a competing threshold.
+The commit hook checks whitespace, credential exposure and language ownership.
+It does not repeat formatting, package analysis or behavioral suites.
 
 ## Compiler boundaries
 

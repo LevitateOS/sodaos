@@ -36,7 +36,7 @@ func standingFixture(t *testing.T) (*Coordinator, project.Prepare, *standingHost
 	host := &standingHost{}
 	c := &Coordinator{Store: db, Host: host}
 	grantProject(t, c, "p"+strings.Repeat("a", 24))
-	files := map[string][]byte{"setup.sh": []byte("#!/bin/sh\nexit 0\n"), "check.sh": []byte("#!/bin/sh\ngit --version\n")}
+	files := map[string][]byte{"setup.sh": []byte("#!/bin/sh\nexit 0\n"), "check.sh": []byte("#!/bin/sh\ngit rev-parse --is-inside-work-tree\n")}
 	selected := map[string]string{"setup.sh": strings.Repeat("c", 64)}
 	requirement := project.RequirementDecision{
 		ID: "d" + strings.Repeat("1", 24), Project: "p" + strings.Repeat("a", 24), Approver: 7,

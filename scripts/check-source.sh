@@ -18,13 +18,8 @@ check() {
 # Independent suites report their failures in the same run. Prepared browser
 # checks still require a successful asset build and every failure stays nonzero.
 if [[ "$suite" != browser ]]; then
-  # Linux-only tests require the exact go.mod toolchain. Admission failures
-  # stop before running the Go suite; the browser suite needs no Go compiler.
-  pinned="$(grep '^go ' go.mod | awk '{print $2}')"
-  [[ -n "$pinned" ]] || { echo 'go.mod pins no Go version' >&2; exit 1; }
-  got_version="$(go version)" || exit $?
-  [[ "$got_version" == "go version go$pinned "* ]] || { echo "pinned Go $pinned required" >&2; exit 1; }
-  go mod verify
+  # Let compilation and tests establish whether the installed compiler works.
+  check go mod verify
   check go test -mod=readonly ./...
   check bash scripts/check-sql-locality.sh
   check bash scripts/check-no-npm.sh

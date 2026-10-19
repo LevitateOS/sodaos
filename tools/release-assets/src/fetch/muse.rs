@@ -150,7 +150,7 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
     unknown_field(&value, &["version", "artifacts"])?;
     let version = manifest_string(last(&value, "version"), "version")?;
     let artifact = select_artifact(&value, arch)?;
-    if !valid_muse_artifact(&version, arch, &artifact) {
+    if !valid_muse_artifact(arch, &artifact) {
         return Err("invalid Muse release pin".to_string());
     }
     Ok((version, artifact))

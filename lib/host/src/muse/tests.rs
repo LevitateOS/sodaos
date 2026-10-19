@@ -1772,8 +1772,7 @@ fn verify_guest_binary_flows() {
         calls[2].2[4..],
         [
             "/usr/local/bin/muse".to_string(),
-            "--soda-check".to_string(),
-            "1.0".to_string()
+            "--soda-check".to_string()
         ]
     );
     // Unpinned digest denies before any exec.
@@ -1805,21 +1804,19 @@ fn verify_guest_binary_flows() {
         rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    // Empty version denies after the header check.
+    // A missing version label does not block a runnable, verified binary.
     let rt = MuseRuntime::new(
         FakeExec::new(vec![
             ok(&format!("{PIN}  /usr/local/libexec/soda/muse\n")),
             Ok(header),
+            ok(""),
         ]),
         FakeHooks::new(),
         String::new(),
         PIN.to_string(),
     );
-    assert_eq!(
-        rt.verify_guest_binary(CID, "", deadline()).unwrap_err(),
-        terminal::ERR_DENIED
-    );
-    // Version-handshake failure propagates raw.
+    rt.verify_guest_binary(CID, "", deadline()).unwrap();
+    // Command-availability failure propagates raw.
     let rt = runtime(FakeExec::new(vec![
         ok(&format!("{PIN}  /usr/local/libexec/soda/muse\n")),
         Ok(elf_header(machine)),

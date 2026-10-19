@@ -15,7 +15,7 @@ Have a running dashboard backend configured with its private operator Unix
 socket and an admitted peer UID. Supply the socket explicitly with `--socket`;
 filesystem access alone does not establish endpoint authorization.
 
-For a source checkout, build from the repository root with the pinned toolchain:
+For a source checkout, build from the repository root with the installed toolchain:
 
 ```sh
 cargo build --locked -p soda-factory

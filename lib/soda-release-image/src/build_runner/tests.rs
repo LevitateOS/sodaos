@@ -116,7 +116,7 @@ fn oracle_build_command_capture_environment_and_failure() {
     std::env::remove_var("SODA_SECRET_TOKEN");
     assert!(out.contains("token="));
     assert!(!out.contains("must-not-leak"));
-    assert!(out.contains(&format!("toolchain={PINNED_GO_VERSION}")));
+    assert!(out.contains("toolchain=local"));
     // Failures name the tool and point at the build log.
     let mut log: Vec<u8> = Vec::new();
     let err = run_build_command(

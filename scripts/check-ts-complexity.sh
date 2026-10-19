@@ -1,5 +1,5 @@
 #!/bin/bash
-# TypeScript view of the shared changed-function complexity policy.
+# TypeScript view of the advisory changed-function complexity report.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-exec bun tools/source-complexity/check.ts --language typescript "$@"
+exec bun tools/source-complexity/check.ts --report --language typescript "$@"

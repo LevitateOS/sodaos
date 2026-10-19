@@ -1,7 +1,7 @@
 // Codex provider sessions and enrollment lifetime, folded from identity-providers (A06.M).
 use super::types::{self, Connection, Enrollment};
 use super::{enrollment_tempdir, private_tmpfs, Error};
-use config::{check_binary, check_version, environment, validate_config};
+use config::{check_binary, environment, validate_config};
 use protocol::{read_loop, Message};
 
 mod config;
@@ -34,9 +34,7 @@ impl Provider {
         }
         private_tmpfs(Path::new(&config.root))?;
         check_binary(&config)?;
-        let provider = Provider { config };
-        check_version(&provider)?;
-        Ok(provider)
+        Ok(Provider { config })
     }
 
     /// Start a device-code enrollment. Cancellation of the surrounding

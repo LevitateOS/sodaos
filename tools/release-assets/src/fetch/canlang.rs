@@ -12,17 +12,8 @@ pub struct Release {
     pub source_revision: String,
     pub archive_filename: String,
     pub sha256: String,
-    pub versions: Versions,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Versions {
-    pub compiler: String,
-    pub node: String,
-    pub bun: String,
-    pub miniflare: String,
-    pub workerd: String,
+    #[serde(rename = "versions", default)]
+    pub _versions: serde_json::Value,
 }
 
 fn load_release(manifest: &Path) -> Result<Release, String> {
@@ -39,11 +30,6 @@ fn check_release_identity(release: &Release, archive: &Path) -> Result<(), Strin
         || !valid_hex(&release.sha256, 64)
         || Path::new(&release.archive_filename).components().count() != 1
         || archive.file_name().and_then(|s| s.to_str()) != Some(&release.archive_filename)
-        || !release.versions.compiler.starts_with("can 0.1.1 ")
-        || release.versions.node != "v24.22.0"
-        || release.versions.bun != "1.4.2"
-        || release.versions.miniflare != "4.20260730.0"
-        || release.versions.workerd != "1.20260730.1"
     {
         return Err("invalid Canlang release identity".into());
     }

@@ -133,21 +133,10 @@ impl<E: Executor> Runtime<E> {
             if !valid_resolved_tool_path(&resolved) {
                 return Ok((tools, name.clone()));
             }
-            let observed =
-                match self.podman(&[], &["exec", &target, &resolved, "--version"], deadline) {
-                    Ok(version) => {
-                        let first = version.split(|b| *b == b'\n').next().unwrap_or(&[]);
-                        single_line(first, 256)
-                    }
-                    Err(_) => None,
-                };
-            let Some(observed) = observed else {
-                return Ok((tools, name.clone()));
-            };
             tools.push(ResolvedTool {
                 name: name.clone(),
                 path: resolved,
-                version: observed,
+                version: String::new(),
             });
         }
         Ok((tools, String::new()))

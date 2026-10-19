@@ -36,13 +36,14 @@ fn config_validation_matches_go() {
         root: "/enrollment-root".to_string(),
     };
     validate_config(&good).unwrap();
+    validate_config(&Config {
+        version: "any-build".to_string(),
+        ..good.clone()
+    })
+    .unwrap();
     for bad in [
         Config {
             binary: "relative".to_string(),
-            ..good.clone()
-        },
-        Config {
-            version: "other".to_string(),
             ..good.clone()
         },
         Config {
@@ -56,7 +57,7 @@ fn config_validation_matches_go() {
     ] {
         assert_eq!(
             validate_config(&bad).unwrap_err().to_string(),
-            "invalid pinned Codex configuration"
+            "invalid Codex configuration"
         );
     }
 }

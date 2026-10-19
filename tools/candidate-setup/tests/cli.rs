@@ -147,7 +147,7 @@ fn reports_missing_tool() {
     assert!(out.stdout.is_empty());
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
-        "setup-soda-candidate: pinned go, bun, podman, skopeo and flock required (missing go)\n"
+        "setup-soda-candidate: go, bun, podman, skopeo and flock required (missing go)\n"
     );
 }
 

@@ -1,28 +1,7 @@
-// P6/T47 SDK protocol proof plus pinned-CLI support boundary (FW33,
-// corrected lane-b19 per CHECKUP-012 R1).
-//
-// What this file proves:
-//   - SDK protocol: the pinned Go MCP SDK server speaks initialize,
-//     discovery, allowed read, typed finish, exact-replay identity,
-//     conflict refusal and receipt recovery over a real native child
-//     on stdio, plus the fixed HTTP route shape (POST initializes as
-//     JSON, GET is 405 with no SSE). The stdio child is the Go SDK
-//     itself, NOT a harness CLI: harness/version strings below are
-//     admission DATA exercised against p6AdmittedHarness, never
-//     invocations of the real muse/codex binaries.
-//   - CLI boundary: the pinned muse/codex binaries are driven for what
-//     is natively provable without provider credentials — exact version
-//     pins, the muse OAuth-only MCP surface, codex stdio registration,
-//     and a muse echo-provider run proving the staged prompt file
-//     reaches the harness as the USER prompt while the relay-shaped
-//     command spawns.
-// What this file does NOT prove (unsupported boundary; exact
-// commands/versions/logs live in
-// evidence/lane-b19-r1/commands.log): a headless agentic tool-call
-// loop driven BY a harness THROUGH the fixed relay, private socket and
-// Project namespace. Without provider credentials `muse exec` exits
-// missing-meta-credentials and `codex exec` fails 401 against its API;
-// that loop stays unavailable and unclaimed.
+// MCP protocol and installed-CLI interface tests. The SDK fixture proves
+// transport, discovery, finish/replay and refusal behavior. CLI checks use
+// disposable configuration and Muse’s local echo provider; no paid provider
+// calls or version-banner admission are involved.
 
 package api
 
@@ -183,19 +162,16 @@ func TestFactoryMCPSDKProtocolProof(t *testing.T) {
 	}
 }
 
-// TestFactoryMCPUnsupportedHarness pins the unavailable set without a
-// child: anything outside the exact admitted harness versions refuses.
+// TestFactoryMCPUnsupportedHarness checks interface families without version admission.
 func TestFactoryMCPUnsupportedHarness(t *testing.T) {
-	for _, h := range [][2]string{
-		{"muse", "1.4.2"},
-		{"muse", "9.9.9"},
-		{"codex", "0.160.0"},
-		{"codex", "0.162.0"},
-		{"shell", "1.4.9"},
-		{"muse", ""},
-	} {
-		if p6AdmittedHarness(h[0], h[1]) {
-			t.Fatalf("%s@%s: unsupported harness admitted", h[0], h[1])
+	for _, harness := range []string{"muse", "codex"} {
+		if !p6AdmittedHarness(harness) {
+			t.Fatalf("%s: supported interface refused", harness)
+		}
+	}
+	for _, harness := range []string{"shell", ""} {
+		if p6AdmittedHarness(harness) {
+			t.Fatalf("%s: unsupported interface admitted", harness)
 		}
 	}
 }
@@ -287,28 +263,15 @@ func r1Scratch(t *testing.T) string {
 func TestFactoryMCPCLIBoundaries(t *testing.T) {
 	museBin, err := exec.LookPath("muse")
 	if err != nil {
-		t.Skip("muse CLI absent: no pinned-CLI boundary to prove")
+		t.Skip("muse CLI absent: no installed CLI to exercise")
 	}
 	codexBin, err := exec.LookPath("codex")
 	if err != nil {
-		t.Skip("codex CLI absent: no pinned-CLI boundary to prove")
+		t.Skip("codex CLI absent: no installed CLI to exercise")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 	scratch := r1Scratch(t)
-
-	if out := r1Run(t, ctx, scratch, os.Environ(), museBin, "--version"); !strings.Contains(out, "1.4.9") {
-		t.Fatalf("muse --version = %q, want pinned 1.4.9", out)
-	}
-	if out := r1Run(t, ctx, scratch, os.Environ(), codexBin, "--version"); !strings.Contains(out, "0.161.0") {
-		t.Fatalf("codex --version = %q, want pinned 0.161.0", out)
-	}
-
-	// Muse MCP surface: OAuth login/out over streamable-HTTP entries
-	// only — no stdio attach flag.
-	if out := r1Run(t, ctx, scratch, os.Environ(), museBin, "mcp", "--help"); !strings.Contains(out, "streamable-HTTP entry under mcpServers") {
-		t.Fatalf("muse mcp --help = %q, want the streamable-HTTP-only surface", out)
-	}
 
 	// Codex stdio registration against a disposable CODEX_HOME: the
 	// recorded entry keeps the fixed relay command shape.

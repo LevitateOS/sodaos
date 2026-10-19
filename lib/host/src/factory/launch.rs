@@ -28,7 +28,6 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             .harness_pin(&req.run.harness)
             .map_err(FactoryError::msg)?;
         if pin.harness != req.run.harness
-            || pin.version != req.run.harness_vers
             || pin.sha256.is_empty()
             || req.harness_sha256 != pin.sha256
         {

@@ -97,7 +97,7 @@ sudo /usr/libexec/soda/soda-project-maintain \
 This command accepts only `--project ID`; it has no `--check`, `--tools`,
 `--config`, development override or download path. It verifies the root-owned
 lock and archive, neither group/world writable, in `/usr/share/soda/canlang-tools` against the
-selected source revision, pinned runtime versions and archive SHA256. Their
+selected source revision and archive SHA256. Their
 release input owner is
 [`soda-stage-canlang`](../../tools/release-assets/README.md#admit-offline-canlang-tools).
 

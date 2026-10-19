@@ -70,8 +70,8 @@ fn native_dispatch_errors_match_go() {
         Some((1, Some(String::from("execution root and cwd required"))))
     );
     assert_eq!(
-        native_action(&v(&["--soda-check"])),
-        Some((1, Some(String::from("one metadata input required"))))
+        native_action(&v(&["--soda-check", "unused"])),
+        Some((1, Some(String::from("runtime check takes no arguments"))))
     );
     assert_eq!(native_action(&[]), None);
     assert_eq!(native_action(&v(&["--version"])), None);

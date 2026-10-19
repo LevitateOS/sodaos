@@ -2,7 +2,7 @@
 # staticcheck gate for Go code. Analyzes the linux build (GOOS=linux): several
 # installer paths are linux-only and drop out under darwin, which buries real
 # findings under false undefined-symbol errors. Test files are included; use
-# the pre-commit hook for staged-only scope. No installation or provider setup.
+# explicit package paths to keep checks focused. No installation or provider setup.
 #
 # The tool binary is built for the host first: GOOS=linux must apply to the
 # ANALYSIS, not to the tool build, or the built binary cannot execute here.

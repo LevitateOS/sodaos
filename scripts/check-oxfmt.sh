@@ -1,8 +1,7 @@
 #!/bin/bash
 # Oxfmt gate for TypeScript: zero-tolerance formatting. Accepts file paths;
 # defaults to every tracked .ts/.tsx file. Semantics-preserving; fix with
-# `bunx oxfmt --write` on the listed files. The pre-commit hook checks staged
-# files only so the current whole-tree format backlog does not block unrelated
+# `bunx oxfmt --write` on the listed files. Pass selected files for focused checks.
 # commits.
 set -euo pipefail
 cd "$(dirname "$0")/.."

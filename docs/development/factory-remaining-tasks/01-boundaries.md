@@ -33,7 +33,7 @@
 
 **Work:** Qualify and repair gaps. **Owner lane:** C. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Native extension/SDK/background authority qualification; source and 29 real-PG cases accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Native extension/SDK/background authority qualification; source and 29 real-PG cases accepted. Historical run closed; current user instructions govern execution. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind the actual SDK, host, Soda package and consumer revisions. Reuse valid independent-consumer/lifecycle/authentication evidence, then close changed install/replace/enable/disable, required-package, peer/installation/actor/token-generation and isolation cases.
 
@@ -50,7 +50,7 @@
 
 **Work:** Qualify and repair gaps. **Owner lane:** C. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Complete native writer-domain and four conditional-operation recovery witnesses. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Complete native writer-domain and four conditional-operation recovery witnesses. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Check current participating ref/repository, authority, issue/review and Actions writers, callbacks and deferred completion against the existing reservation owner. Reuse earlier valid proofs; repair only uncovered callers. Cover all four conditional kinds and exact offline recovery.
 
@@ -67,9 +67,9 @@
 
 **Work:** Qualify and repair gaps. **Owner lane:** C. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Qualify native paged snapshots/graphs; source collectors, brackets and validation accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Qualify native paged snapshots/graphs; source collectors, brackets and validation accepted. The catalog owns the remaining prerequisites and release condition.
 
-**Deliver:** Prove exact native versions/provenance, hidden and later-page evidence, atomic revision bracketing, complete issue/comment/review/check inventories and bounded conditional graph edit/create/dependency packets.
+**Deliver:** Prove native behavior and provenance, hidden and later-page evidence, atomic revision bracketing, complete issue/comment/review/check inventories and bounded conditional graph edit/create/dependency packets.
 
 **Accept only when:** Edits/reverts, delete/recreate, hidden records and concurrent insertion cannot become false current evidence. Full paged conversations and graph receipts replay exactly; stale, oversized or protected edits refuse before partial effects.
 
@@ -84,7 +84,7 @@
 
 **Work:** Implement and prove. **Owner lane:** A. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Native post-crash importer/descendant retirement; 7be597d7 source/cleanup accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Native post-crash importer/descendant retirement; 7be597d7 source/cleanup accepted. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Qualify the accepted acquisition-custody implementation through post-crash native consumers. Preserve read-only preview, exact invocation identity, pinned signal authority and fenced uncertain prefixes. Recover/rollback/boot/retry must consume the same custody state.
 
@@ -95,11 +95,11 @@
 **Principal source owners:** [cmd/soda-project-maintain/src/command.rs](../../../cmd/soda-project-maintain/src/command.rs), [cmd/soda-project-maintain/src/release_extensions.rs](../../../cmd/soda-project-maintain/src/release_extensions.rs), [cmd/soda-project-maintain/src/release_operation.rs](../../../cmd/soda-project-maintain/src/release_operation.rs), [lib/host/src/project/admission.rs](../../../lib/host/src/project/admission.rs).
 
 <a id="r07"></a>
-## R07 — Prove supported native worker control on the pinned harnesses
+## R07 — Prove supported native worker control on the installed harnesses
 
 **Work:** Native proof. **Owner lane:** A. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Install admitted harness pins and align proof tools; obtain finite funded overlap trial. Pin ruling already settled: use admitted pins first. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Install admitted harness pins and align proof tools; obtain finite funded overlap trial. Pin ruling already settled: use admitted pins first. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Exercise supported child start/observe/result/cancel and real overlap on each admitted exact harness. Bind model/account/reasoning/Contributor, capacity, deadline, parent identity and terminal observations. Resolve unsupported behavior with a concrete Codex decision.
 
@@ -116,7 +116,7 @@
 
 **Work:** Native proof. **Owner lane:** A. **Accepted inputs:** [R07](01-boundaries.md#r07).
 
-**Current (wind-down):** Native parent attenuation and OS-enforced role isolation. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Native parent attenuation and OS-enforced role isolation. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Authenticate actual native request peers and attenuate parent authority to children. Protect credentials, journal, Git/config and authoritative source with real OS boundaries; permit only each role's intended edits, checks and scratch.
 
@@ -133,7 +133,7 @@
 
 **Work:** Native proof. **Owner lane:** A. **Accepted inputs:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08).
 
-**Current (wind-down):** Real pinned CLI instruction/configuration and private MCP transport proof. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Installed CLI instruction/configuration and private MCP transport proof. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use supported trusted configuration/instruction channels for exact Codex and Muse pins, preserving base instructions. Prove actual CLI-to-stdio-relay-to-private-socket-to-controller discovery, admitted read/finish and receipt recovery.
 
@@ -150,7 +150,7 @@
 
 **Work:** Audit and integrate. **Owner lane:** B. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Finish trusted ingress/consumer and D15/D16 subject wiring; accepted parity and terminal transport slices stay closed. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Finish trusted ingress/consumer and D15/D16 subject wiring; accepted parity and terminal transport slices stay closed. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Trace every admitted phase through Go controller/Store, actual Rust host, CLI result ingress and settlement. Finish missing typed payloads/consumers together, retaining phase bounds and existing owner policy.
 

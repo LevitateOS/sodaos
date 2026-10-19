@@ -35,7 +35,6 @@ use options::{parse, Options};
 use project::wait_project;
 use stage::{ensure_system_bus, stage_tools};
 
-const MUSE_VERSION: &str = "1.4.0-R4161.1";
 const RELEASE_PATH: &str = "/usr/share/soda/release.json";
 
 fn main() {
@@ -92,7 +91,7 @@ fn is_lower_hex(b: u8) -> bool {
 
 fn maintain(o: &Options, c: &Config) -> Result<(), String> {
     // Tool closes its own fd on drop, mirroring deferred closeTools.
-    let sources = load_tools(&o.tools, &c.muse_sha256, &c.muse_version)?;
+    let sources = load_tools(&o.tools, &c.muse_sha256)?;
     let deadline = Instant::now() + Duration::from_secs(120);
     let target = wait_project(&o.project, deadline)?;
     if !o.bind_only {

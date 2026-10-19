@@ -6,7 +6,6 @@ use std::io::Write;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::build::PINNED_GO_VERSION;
 use crate::error::{join_close, Error};
 use crate::recall;
 use crate::sys;
@@ -172,7 +171,7 @@ pub fn build_environment_pairs() -> Vec<(String, String)> {
     }
     // A -trimpath controller can have no embedded GOROOT. Use Go's pinned
     // upstream toolchain selection, not a relative bin/go or the ambient version.
-    env.push(("GOTOOLCHAIN".to_string(), PINNED_GO_VERSION.to_string()));
+    env.push(("GOTOOLCHAIN".to_string(), "local".to_string()));
     env.push(("GOWORK".to_string(), "off".to_string()));
     env.push(("GOFLAGS".to_string(), "-mod=readonly".to_string()));
     env.push(("CGO_ENABLED".to_string(), "0".to_string()));

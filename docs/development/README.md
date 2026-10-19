@@ -1,15 +1,15 @@
 # Development
 
-Execution is stopped after the 18 October 2026 wind-down. [Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) is the single current roadmap/backlog; contract and evidence owners retain distinct technical detail. Reading a plan does not dispatch it.
+[Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes) is the current backlog. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 
 ## Setup
 
-1. Use the pinned Go, Bun and Python versions from manifests/locks.
+1. Use the installed Go, Rust and Bun tools. Let builds and tests establish compatibility.
 2. From the repository root: `bun install --frozen-lockfile`.
 3. Run focused checks for the code you change; see the command table in
-   [AGENTS.md](../../AGENTS.md#commands).
+   [Testing](testing.md#source-checks).
 
 ## Where code belongs
 
@@ -45,7 +45,7 @@ The [remaining-outcome catalog](factory-remaining-tasks.md) is the single execut
 entrypoint: 53 Factory and 12 Canlang outcomes remain, with all
 shared criteria counted once. Its six task packets and Canlang recipes supply
 concrete source starts, prerequisite outputs, next slices and acceptance.
-Implementation remains stopped until instructed.
+Take the smallest useful slice covered by the current request.
 
 The [workflow contracts](factory-workflow-contracts.md) own schemas, algorithms,
 limits and decisive cases; [factory interfaces](../architecture/factory-interfaces.md)
@@ -67,5 +67,5 @@ or the composed installed release; P32/R55 stays open after document absorption.
 ## Permissions
 
 Destructive host operations, provider mutations, publication and fixture cleanup
-require explicit task approval. Documentation is not a grant. Prefer asking over
-inferring permission from historical handoff text.
+follow the current task’s authorization. Reuse authorization already given; ask
+only when an action falls outside it. Documentation itself grants no permission.

@@ -1,6 +1,6 @@
 use crate::options::default_tools;
 use crate::sha256::{hex_encode, Sha256};
-use crate::test_support::{hex_string, is_root, TestDir, MUSE_VERSION};
+use crate::test_support::{hex_string, is_root, TestDir};
 use sha2::Digest;
 use std::ffi::CString;
 use std::fs;
@@ -111,14 +111,5 @@ fn tool_source_and_digest_admission() {
     } else {
         assert!(open_tool(&dir.dir_str(), "muse-native").is_err());
     }
-    // The version gate fires before any tool opens.
-    assert_eq!(
-        load_tools(
-            "definitely-missing",
-            &hex_string('0', 64),
-            &format!("{MUSE_VERSION}-other")
-        )
-        .unwrap_err(),
-        "muse maintenance version differs from pinned release"
-    );
+    assert!(load_tools("definitely-missing", &hex_string('0', 64)).is_err());
 }

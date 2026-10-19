@@ -17,13 +17,11 @@ Cross-compilation or emulation is not native proof. Native validation follows th
 
 ## Source checks
 
-Run Go checks with the pinned toolchain first on `PATH`. It provides the
-`go.mod`-pinned Go from `/usr/local/lib/soda/pinned-go/bin`; anything else
-is refused by `scripts/check-source.sh`. Choose checks for the change. Common
-entry points are listed in [AGENTS.md](../../AGENTS.md#commands). Examples:
+Use the installed tools and choose checks for the changed behavior. Tool version
+numbers are not admission criteria. Ordinary source checks work in a dirty
+checkout and require no release preparation or provider enrollment. Examples:
 
 ```sh
-export PATH=/usr/local/lib/soda/pinned-go/bin:$PATH
 go test ./internal/project ./internal/web/...
 bun run typecheck
 bun run test:frontend
@@ -53,8 +51,8 @@ If a timeout interrupts publication, inspect origin before retrying. Never move
 a qualification tag to different bytes or bypass protection after a failure.
 
 The required `CI` aggregate rejects missing, failed, cancelled or unexpected
-skipped jobs, invalid reuse decisions, and qualification ages of 300 seconds or
-more. Each check job has a four-minute limit. Queue delays do not qualify a commit.
+skipped jobs and invalid reuse decisions. Passing checks do not expire because
+of queue delays or elapsed time. Each check job retains its execution timeout.
 Main admission reuses only its identical full SHA's latest successful push-tag
 run of this workflow; tag runs, PRs and reruns execute fresh checks. No path filter
 exempts source. Compiler/download caches do not replace `go test -count=1`.
@@ -164,7 +162,7 @@ merely to exhaust timers or simulate duplicate events.
 | Spaces and human access | Authorized viewers see actual factory output with correct issue/run identity; input and human-terminal End cannot control it. Navigation, splits, hide/show and closing/reopening views preserve the execution binding. Session/permission loss disconnects views and cached pages cannot reveal another actor's private state. Human Join, member-only terminals/End, explicit-key SSH/SCP/SFTP and ordinary Git remain usable. | Actual factory and human browser journeys through the native host, including forged input/control requests and access loss. Mocked components and native tmux attachment alone do not pass. |
 | Intervention and persistence | Block/pause/cancel stop affected agents, preserve work and deny further writes. Cancellation survives issue reopening and new events; only an authorized explicit retry can create another attempt. Takeover follows confirmed stop and credential return/revocation into a member-owned checkout. Project Stop holds admission; Start preserves roots without restoring old runs/leases or independent grants. Controller interruption never silently resumes or duplicates work; failed cleanup remains distinct from outcome. | Coordinated native pause/resume, cancel, takeover, Stop/Start and interruption checks with dirty work and service data present; inspect remaining allowances, process identities and lifecycle authority refusals. |
 | Retained appliance support | LAN routes and service endpoints work without purchased-domain or Tailnet prerequisites; optional Tailnet preserves operator/opt-in policy. Private HTTPS/native origin, bootstrap/helper bounds, stock Cockpit, branding/attribution and separately managed native CI remain usable. Local runner creation remains deferred. | Reuse applicable existing operator, connectivity, human-development and UI checks; verify changed installed paths without building parallel support services. |
-| Delivery and preservation | Exact selected source/runtime versions qualify on native x86_64. Installation/update/recovery preserve protected existing state. Obsolete auth/factory callers and fixtures are replaced together; no parallel legacy runtime is needed. | Existing [release qualification](release.md) and [native support](native-support.md) evidence for the shipping candidate. Cross-compilation or emulation does not qualify the native candidate. |
+| Delivery and preservation | The selected candidate is exercised on native x86_64. Installation/update/recovery preserve protected existing state. Obsolete auth/factory callers and fixtures are replaced together; no parallel legacy runtime is needed. | Existing [release qualification](release.md) and [native support](native-support.md) evidence for the shipping candidate. Cross-compilation or emulation does not qualify the native candidate. |
 
 Every advertised coding/review harness must pass its actual launch, result,
 credential and stop contract. Do not infer primary Muse factory support from
@@ -183,7 +181,7 @@ provisioning harness:
 - Show absent-Project creation and retained-Project reuse, bounded non-login role
   provisioning, missing shared prerequisites reported without launching an agent,
   native administrator preparation, and automatic role-private setup afterwards.
-  Confirm actual tool versions and a working build/test from both coder and fresh
+  Confirm a working build/test from both coder and fresh
   reviewer checkouts; exercise an ordinary candidate dependency lockfile change.
 - Demonstrate that repository mise hooks, changed setup/service definitions and
   referenced input edits cannot execute as root or silently change approved tool
@@ -338,7 +336,7 @@ also requires focused native checks:
 
 ### Recording completion
 
-Retain a scoped receipt with exact source/image/CLI versions and native architecture;
+Retain a scoped receipt with the exercised source/image behavior and native architecture;
 issue, PR, repository, Project, attempt/run and native process identities; accepted
 input and policy revisions; reviewed head/base and check results; confirmed native
 merge/issue outcome; usage and cleanup outcome. Use non-secret credential/lease

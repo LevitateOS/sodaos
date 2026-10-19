@@ -130,7 +130,7 @@ func (fx *st15Fixture) prepareRoles() error {
 		id := "f" + st15RandHex(12)
 		files := map[string][]byte{
 			"setup.sh": []byte("#!/bin/sh\n# ST15 fixture: the journey base needs no build.\nexit 0\n"),
-			"check.sh": []byte("#!/bin/sh\n/usr/bin/git --version\n/usr/bin/python3 --version\n"),
+			"check.sh": []byte("#!/bin/sh\n/usr/bin/git rev-parse --is-inside-work-tree\ntest -x /usr/bin/python3\n"),
 		}
 		prep := project.Preparation{
 			ID: id, Project: fx.projectID, Role: role,

@@ -2,19 +2,14 @@
 //! lane-b19 per CHECKUP-012 R1).
 //!
 //! Fixed stdio relay, private IPC directory/socket and untrusted
-//! user-prompt delivery shapes for the exact admitted pinned
+//! user-prompt delivery shapes for the supported
 //! harnesses. The relay translates transport and adds run
 //! authorization; workflow policy stays in Go. No TCP/public listener,
 //! no caller-chosen socket, URL, repository, executable or listener.
-//! There is no trusted high-priority instruction channel on the pinned
+//! There is no trusted high-priority instruction channel on these
 //! harnesses (see below): staged prompts are user instructions.
 
 use super::run::{FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE};
-
-/// Admitted pinned harness versions proven by P6 native evidence.
-pub const PINNED_MUSE_HARNESS: &str = "1.4.9";
-/// Admitted pinned harness versions proven by P6 native evidence.
-pub const PINNED_CODEX_HARNESS: &str = "0.161.0";
 
 /// Fixed relay subcommand: `soda-project-terminal factory-mcp`.
 /// Callers supply no executable, socket, URL or extra arguments.
@@ -34,7 +29,7 @@ pub const MAX_INSTRUCTION: usize = 16 * 1024;
 
 /// Untrusted user-prompt delivery shape per admitted harness family.
 ///
-/// Both pinned harnesses accept the staged role prompt only as USER
+/// Both harnesses accept the staged role prompt only as USER
 /// instructions: `muse exec --prompt-file <PATH>` reads the prompt
 /// from a file, and `codex exec - <prompt` reads initial instructions
 /// from stdin (piped stdin is appended as a `<stdin>` block). D14
@@ -89,19 +84,11 @@ pub enum PerRunInstructionRoute {
     MuseDeveloperPrompt,
 }
 
-/// Per-run instruction route for the exact harness/version, or `None`
-/// when the exact harness/version/profile stays unavailable. Mirrors
-/// [`stdio_config`] admission: only pinned harnesses carry a route.
-pub fn instruction_route(harness: &str, harness_vers: &str) -> Option<PerRunInstructionRoute> {
-    match (harness, harness_vers) {
-        (h, v)
-            if h == FACTORY_HARNESS_MUSE && (v == PINNED_MUSE_HARNESS || v == "1.4.9-R6297.1") =>
-        {
-            Some(PerRunInstructionRoute::MuseDeveloperPrompt)
-        }
-        (h, v) if h == FACTORY_HARNESS_CODEX && v == PINNED_CODEX_HARNESS => {
-            Some(PerRunInstructionRoute::CodexDeveloperInstructions)
-        }
+/// Per-run instruction route selected by the harness interface.
+pub fn instruction_route(harness: &str) -> Option<PerRunInstructionRoute> {
+    match harness {
+        FACTORY_HARNESS_MUSE => Some(PerRunInstructionRoute::MuseDeveloperPrompt),
+        FACTORY_HARNESS_CODEX => Some(PerRunInstructionRoute::CodexDeveloperInstructions),
         _ => None,
     }
 }
@@ -203,33 +190,22 @@ pub fn instruction_argv(route: PerRunInstructionRoute, text: &str) -> Result<[St
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StdioConfig {
     pub harness: &'static str,
-    pub harness_vers: &'static str,
     pub relay_argv: [&'static str; 2],
     pub prompt: UserPromptDelivery,
 }
 
-/// Supported fixed stdio configuration, or `None` when the exact
-/// harness/version/profile stays unavailable.
-pub fn stdio_config(harness: &str, harness_vers: &str) -> Option<StdioConfig> {
-    match (harness, harness_vers) {
-        (h, v)
-            if h == FACTORY_HARNESS_MUSE && (v == PINNED_MUSE_HARNESS || v == "1.4.9-R6297.1") =>
-        {
-            Some(StdioConfig {
-                harness: FACTORY_HARNESS_MUSE,
-                harness_vers: PINNED_MUSE_HARNESS,
-                relay_argv: ["soda-project-terminal", FACTORY_MCP_RELAY],
-                prompt: UserPromptDelivery::PromptFile,
-            })
-        }
-        (h, v) if h == FACTORY_HARNESS_CODEX && v == PINNED_CODEX_HARNESS => Some(StdioConfig {
-            harness: FACTORY_HARNESS_CODEX,
-            harness_vers: PINNED_CODEX_HARNESS,
-            relay_argv: ["soda-project-terminal", FACTORY_MCP_RELAY],
-            prompt: UserPromptDelivery::StdinPrompt,
-        }),
-        _ => None,
-    }
+/// Supported fixed stdio configuration for each harness interface.
+pub fn stdio_config(harness: &str) -> Option<StdioConfig> {
+    let (harness, prompt) = match harness {
+        FACTORY_HARNESS_MUSE => (FACTORY_HARNESS_MUSE, UserPromptDelivery::PromptFile),
+        FACTORY_HARNESS_CODEX => (FACTORY_HARNESS_CODEX, UserPromptDelivery::StdinPrompt),
+        _ => return None,
+    };
+    Some(StdioConfig {
+        harness,
+        relay_argv: ["soda-project-terminal", FACTORY_MCP_RELAY],
+        prompt,
+    })
 }
 
 /// Fixed relay stdout contract: stdout carries MCP messages only;
@@ -248,13 +224,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn admits_exact_pinned_harnesses() {
-        let muse = stdio_config("muse", "1.4.9").expect("pinned muse admitted");
+    fn config_uses_harness_interfaces() {
+        let muse = stdio_config("muse").expect("muse supported");
         assert_eq!(muse.relay_argv, ["soda-project-terminal", "factory-mcp"]);
         assert_eq!(muse.prompt, UserPromptDelivery::PromptFile);
-        let muse_build = stdio_config("muse", "1.4.9-R6297.1").expect("muse build admitted");
-        assert_eq!(muse_build.prompt, UserPromptDelivery::PromptFile);
-        let codex = stdio_config("codex", "0.161.0").expect("pinned codex admitted");
+        let codex = stdio_config("codex").expect("codex supported");
         assert_eq!(codex.relay_argv, ["soda-project-terminal", "factory-mcp"]);
         assert_eq!(codex.prompt, UserPromptDelivery::StdinPrompt);
     }
@@ -268,36 +242,17 @@ mod tests {
     }
 
     #[test]
-    fn instruction_routes_match_stdio_admission() {
-        // Config shape: only the exact pinned harness/versions carry a
-        // per-run instruction route, mirroring stdio_config.
-        use PerRunInstructionRoute::*;
+    fn instruction_routes_match_stdio_interfaces() {
         assert_eq!(
-            instruction_route("muse", "1.4.9"),
-            Some(MuseDeveloperPrompt)
+            instruction_route("muse"),
+            Some(PerRunInstructionRoute::MuseDeveloperPrompt)
         );
         assert_eq!(
-            instruction_route("muse", "1.4.9-R6297.1"),
-            Some(MuseDeveloperPrompt)
+            instruction_route("codex"),
+            Some(PerRunInstructionRoute::CodexDeveloperInstructions)
         );
-        assert_eq!(
-            instruction_route("codex", "0.161.0"),
-            Some(CodexDeveloperInstructions)
-        );
-        for (harness, vers) in [
-            ("muse", "1.4.2"),
-            ("muse", "9.9.9"),
-            ("codex", "0.160.0"),
-            ("codex", "0.162.0"),
-            ("shell", "1.4.9"),
-            ("muse", ""),
-            ("", "0.161.0"),
-        ] {
-            assert!(
-                instruction_route(harness, vers).is_none(),
-                "{harness} {vers}: unpinned harness carries a route"
-            );
-        }
+        assert!(instruction_route("shell").is_none());
+        assert!(instruction_route("").is_none());
     }
 
     #[test]
@@ -427,28 +382,17 @@ mod tests {
         // nothing about staged prompt delivery — prompt-file/stdin
         // content is still delivered as the user prompt, and the relay
         // still claims no trusted channel for those shapes.
-        let muse = stdio_config("muse", "1.4.9").expect("pinned muse admitted");
+        let muse = stdio_config("muse").expect("muse supported");
         assert_eq!(muse.prompt, UserPromptDelivery::PromptFile);
-        let codex = stdio_config("codex", "0.161.0").expect("pinned codex admitted");
+        let codex = stdio_config("codex").expect("codex supported");
         assert_eq!(codex.prompt, UserPromptDelivery::StdinPrompt);
         assert_eq!(TRUSTED_INSTRUCTION_CHANNEL, None);
     }
 
     #[test]
     fn unsupported_harness_stays_unavailable() {
-        for (harness, vers) in [
-            ("muse", "1.4.2"),
-            ("muse", "9.9.9"),
-            ("codex", "0.160.0"),
-            ("codex", "0.162.0"),
-            ("shell", "1.4.9"),
-            ("muse", ""),
-            ("", "0.161.0"),
-        ] {
-            assert!(
-                stdio_config(harness, vers).is_none(),
-                "{harness} {vers}: unsupported harness admitted"
-            );
+        for harness in ["shell", ""] {
+            assert!(stdio_config(harness).is_none());
         }
     }
 

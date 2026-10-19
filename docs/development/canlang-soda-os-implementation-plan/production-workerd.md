@@ -1,6 +1,6 @@
 # Production workerd contract and integration recipes
 
-**Execution stopped at wind-down.** This remains proposed replacement scope, not an implemented runtime. Parent P IDs and their unmet deliverables/prerequisites/acceptance are consolidated in [Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped); substeps below refine those same outcomes and do not authorize dispatch.
+This describes a proposed runtime replacement. [Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes) tracks the unfinished work; the owner's current request determines what to implement.
 
 Investigated 18 October 2026. This document owns the proposed runtime/provider,
 process-lifetime and packaging contracts and their technical substeps. It does
@@ -101,7 +101,7 @@ app-owner bootstrap and private-client routing/TLS proof remain distinct boundar
 
 ## Recommendation and bounded outcome
 
-Use the pinned **workerd directly**, its built-in D1 client binding, a small
+Use **workerd directly**, its built-in D1 client binding, a small
 Canlang-owned D1 backend adapted from the pinned upstream implementation, and
 the existing SQLite Durable Object application actor. Keep Node for Canlang's
 existing command and HTTP gateway responsibilities. Remove Miniflare from

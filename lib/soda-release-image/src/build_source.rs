@@ -1,7 +1,6 @@
 //! Build input admission: clean-source, revision, compiler, and output checks.
 use std::fs;
 
-use crate::build::PINNED_GO_VERSION;
 use crate::build_runner::Runner;
 use crate::error::Error;
 use crate::model;
@@ -86,16 +85,6 @@ pub fn verify_committed_revision(
     Ok(revision)
 }
 
-pub fn verify_compiler(source: &str, runner: &Runner) -> Result<(), Error> {
-    let version = runner.capture(source, "go", &["env".to_string(), "GOVERSION".to_string()])?;
-    if version != PINNED_GO_VERSION {
-        return Err(Error::msg(format!(
-            "pinned Go {PINNED_GO_VERSION} compiler unavailable"
-        )));
-    }
-    Ok(())
-}
-
 pub fn admit_build_output(
     out: &str,
     source: &str,
@@ -121,7 +110,6 @@ pub fn admit_build_inputs(request: &request::Request, runner: &Runner) -> Result
         return Err(Error::msg("explicit intended repository prefix required"));
     }
     let source = verify_checkout_source(&request.source, runner)?;
-    verify_compiler(&source, runner)?;
     let revision = verify_committed_revision(&source, &request.revision, runner)?;
     let fork = verify_checkout_source(&request.forgejo_source, runner)
         .map_err(|e| Error::msg(format!("forgejo source: {}", e.0)))?;

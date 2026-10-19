@@ -18,7 +18,8 @@ struct Release {
     source_revision: String,
     archive_filename: String,
     sha256: String,
-    versions: serde_json::Value,
+    #[serde(rename = "versions", default)]
+    _versions: serde_json::Value,
 }
 
 fn trusted(name: &str, limit: u64) -> Result<std::fs::File, String> {
@@ -48,10 +49,6 @@ fn load_release() -> Result<Release, String> {
     if !crate::release::is_hex_string(&release.sha256, 64)
         || !crate::release::is_hex_string(&release.source_revision, 40)
         || release.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
-        || release.versions["node"] != "v24.21.0"
-        || release.versions["bun"] != "1.4.2"
-        || release.versions["miniflare"] != "4.20260730.0"
-        || release.versions["workerd"] != "1.20260730.1"
     {
         return Err("invalid Canlang maintenance identity".into());
     }

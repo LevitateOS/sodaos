@@ -19,7 +19,7 @@ remain in [architecture](../architecture/overview.md).
 | Run identity, outcome, display bindings and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `rust/soda-identity` wires private service/runtime; `identity` keeps domain records |
-| Muse native device enrollment and immutable CLI credentials | `rust/identity-providers` (muse) — pinned upstream CLI; no Meta refresh service |
+| Muse native device enrollment and immutable CLI credentials | `rust/identity-providers` (muse) — installed upstream CLI; no Meta refresh service |
 | Codex app-server protocol | `rust/identity-providers` (codex) — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | Native extension identity / profile / me keys | `web/auth` |
@@ -36,8 +36,8 @@ remain in [architecture](../architecture/overview.md).
 | Release build primitives / image assembly / delivery | `release/build`, `release/image`, `release/deliver` |
 | Domain policy / Forgejo client / PostgreSQL store | `tailnet` / `forgejo` / `store` |
 
-Hard size rule: prefer production files under 400 LOC; do not grow a production
-`.go` file past 500 LOC—split by noun or phase instead.
+Keep files cohesive. Split by responsibility when it improves the change; line
+counts alone do not justify refactoring or block working code.
 
 `cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
 for process startup only). The `soda-host` daemon is the Rust
@@ -292,7 +292,6 @@ above whenever ownership genuinely moves.
 
 ## Function complexity
 
-Use the [shared complexity policy](complexity.md): preferred ≤10, normal maximum
-20, with existing excess baselined and non-increasing. Specific capped exceptions
-need justification. `bash scripts/check-complexity.sh --language go` checks changed
-production Go functions; tests and generated/dependency sources are excluded.
+Use [complexity reports](complexity.md) when they help a concrete refactor.
+`bash scripts/check-complexity.sh --language go` reports changed production
+functions. Scores and file lengths do not block commits or require exceptions.

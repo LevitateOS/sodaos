@@ -6,7 +6,7 @@ use std::io;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-pub(crate) fn check_runtime(version: &str) -> Result<(), String> {
+pub(crate) fn check_runtime() -> Result<(), String> {
     let private = make_private_dir("soda-muse-check-")?;
     struct Cleanup(String);
     impl Drop for Cleanup {
@@ -15,16 +15,13 @@ pub(crate) fn check_runtime(version: &str) -> Result<(), String> {
         }
     }
     let _cleanup = Cleanup(private.clone());
-    let output = run_pristine(
+    run_pristine(
         MUSE_NATIVE,
-        &["--version".to_string()],
+        &["exec".to_string(), "--help".to_string()],
         &private,
         Duration::from_secs(5),
     )
     .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
-    if output.trim() != format!("Muse Code 1.4.0 ({version})") {
-        return Err(format!("muse version differs from pinned {version}"));
-    }
     Ok(())
 }
 

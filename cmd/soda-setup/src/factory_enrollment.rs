@@ -222,26 +222,16 @@ fn absolute(value: &str) -> bool {
     Path::new(value).is_absolute() && !value.as_bytes().contains(&0)
 }
 
-fn check_provider_pin(
-    name: &str,
-    provider: &ProviderSettings,
-    expected: &str,
-) -> Result<(), String> {
-    if [
-        &provider.binary,
-        &provider.version,
-        &provider.sha256,
-        &provider.root,
-    ]
-    .iter()
-    .any(|value| value.is_empty())
+fn check_provider_config(name: &str, provider: &ProviderSettings) -> Result<(), String> {
+    if [&provider.binary, &provider.sha256, &provider.root]
+        .iter()
+        .any(|value| value.is_empty())
         || !absolute(&provider.binary)
         || !absolute(&provider.root)
-        || provider.version != expected
         || provider.sha256.len() != 64
         || !provider.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
     {
-        return Err(format!("{name} provider pin is incomplete or unsupported"));
+        return Err(format!("{name} provider configuration is incomplete"));
     }
     Ok(())
 }
@@ -315,20 +305,14 @@ fn validate_provider_root(
 fn validate_provider(
     name: &str,
     provider: &ProviderSettings,
-    expected: &str,
     owner: u32,
     group: u32,
 ) -> Result<(), String> {
-    let values = [
-        &provider.binary,
-        &provider.version,
-        &provider.sha256,
-        &provider.root,
-    ];
+    let values = [&provider.binary, &provider.sha256, &provider.root];
     if values.iter().all(|value| value.is_empty()) {
         return Ok(());
     }
-    check_provider_pin(name, provider, expected)?;
+    check_provider_config(name, provider)?;
     validate_provider_binary(name, provider, owner, group)?;
     validate_provider_root(name, provider, owner, group)
 }
@@ -449,14 +433,12 @@ fn validate_target_and_identity(
     validate_provider(
         "Codex",
         &manifest.identity.codex,
-        "0.153.4",
         policy.identity_uid,
         policy.identity_gid,
     )?;
     validate_provider(
         "Muse",
         &manifest.identity.muse,
-        "1.4.0-R4161.1",
         policy.identity_uid,
         policy.identity_gid,
     )
@@ -2173,7 +2155,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_pin_checks_binary_digest_and_supported_version() {
+    fn provider_checks_integrity_without_version_admission() {
         let root = temp_root("provider-pin");
         let binary = root.join("provider");
         let provider_root = root.join("provider-root");
@@ -2194,13 +2176,13 @@ mod tests {
             root: provider_root.display().to_string(),
         };
         let group = fs::metadata(&provider_root).unwrap().gid();
-        validate_provider("Codex", &pin, "0.153.4", owner, group).unwrap();
+        validate_provider("Codex", &pin, owner, group).unwrap();
         let mut wrong = pin.clone();
         wrong.sha256 = "0".repeat(64);
-        assert!(validate_provider("Codex", &wrong, "0.153.4", owner, group).is_err());
+        assert!(validate_provider("Codex", &wrong, owner, group).is_err());
         wrong = pin;
-        wrong.version = "another-version".to_string();
-        assert!(validate_provider("Codex", &wrong, "0.153.4", owner, group).is_err());
+        wrong.version = "another-build".to_string();
+        validate_provider("Codex", &wrong, owner, group).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

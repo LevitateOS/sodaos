@@ -6,8 +6,6 @@ cd "$(dirname "$0")/.."
 export GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0 GOTOOLCHAIN=local GOOS=linux
 case $1 in
   core|store|web)
-    pinned=$(sed -n 's/^go //p' go.mod)
-    [[ $(go version) == "go version go$pinned linux/amd64" ]]
     : "${SODA_PG_HOST:?Disposable PostgreSQL is required}"
     : "${SODA_PG_PORT:?Disposable PostgreSQL is required}"
     [[ -s ${SODA_PG_SUPER_PASSWORD_FILE:?Restricted PostgreSQL password file is required} ]]
@@ -29,7 +27,6 @@ case $1 in
     esac
     ;;
   browser)
-    [[ $(bun --version) == $(bun -p "require('./package.json').packageManager.split('@')[1]") ]]
     bun run typecheck
     bun test tests/forgejo/presentation/form-source.test.ts \
       tests/forgejo/presentation/settings-source.test.ts \

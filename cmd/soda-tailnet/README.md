@@ -15,7 +15,7 @@ On an installed host:
 /usr/bin/soda-tailnet
 ```
 
-From a source checkout with the pinned Go toolchain:
+From a source checkout with the installed Go toolchain:
 
 ```sh
 go run ./cmd/soda-tailnet

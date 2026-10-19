@@ -91,26 +91,20 @@ fn config_validation_matches_go() {
         bad.binary = "relative/muse".to_string();
         assert_eq!(
             validate_config(&bad).unwrap_err().to_string(),
-            "invalid pinned Muse configuration"
-        );
-        bad = good.clone();
-        bad.version = "other".to_string();
-        assert_eq!(
-            validate_config(&bad).unwrap_err().to_string(),
-            "invalid pinned Muse configuration"
+            "invalid Muse configuration"
         );
         bad = good.clone();
         bad.sha256 = "short".to_string();
         assert_eq!(
             validate_config(&bad).unwrap_err().to_string(),
-            "invalid pinned Muse configuration"
+            "invalid Muse configuration"
         );
     }
     let mut bad = good.clone();
     bad.root = "relative/root".to_string();
     assert_eq!(
         validate_config(&bad).unwrap_err().to_string(),
-        "invalid pinned Muse configuration"
+        "invalid Muse configuration"
     );
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_eq!(
@@ -120,7 +114,7 @@ fn config_validation_matches_go() {
 }
 
 #[test]
-fn binary_digest_checked_before_version() {
+fn binary_digest_is_checked() {
     let dir = TestDir::new();
     let binary = dir.path().join("muse-fixture");
     std::fs::write(&binary, b"fixture-bytes").unwrap();
@@ -139,26 +133,6 @@ fn binary_digest_checked_before_version() {
     assert_eq!(
         check_binary(&bad).unwrap_err().to_string(),
         "muse digest mismatch"
-    );
-}
-
-#[test]
-fn version_line_must_match_exactly() {
-    let dir = TestDir::new();
-    let binary = dir.path().join("muse-fixture");
-    std::fs::write(&binary, format!("#!/bin/sh\necho '{VERSION_LINE}'\n")).unwrap();
-    std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let config = Config {
-        binary: binary.to_string_lossy().into_owned(),
-        version: VERSION.to_string(),
-        sha256: "c".repeat(64),
-        root: dir.path().to_string_lossy().into_owned(),
-    };
-    check_version(&config).unwrap();
-    std::fs::write(&binary, "#!/bin/sh\necho 'Muse Code 9.9.9 (other)'\n").unwrap();
-    assert_eq!(
-        check_version(&config).unwrap_err().to_string(),
-        "muse version mismatch"
     );
 }
 

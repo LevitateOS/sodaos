@@ -1,9 +1,8 @@
 #!/bin/bash
 # errcheck gate for unchecked errors. Analyzes the linux build (GOOS=linux)
 # like staticcheck so installer packages are real. Accepts package paths;
-# defaults to ./internal/... ./cmd/... ./tools/.... The pre-commit hook is
-# staged-package-only so the whole-tree backlog does not block unrelated
-# commits.
+# defaults to ./internal/... ./cmd/... ./tools/.... Use explicit package paths
+# for focused local checks.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0 GOTOOLCHAIN=local

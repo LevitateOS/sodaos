@@ -16,14 +16,6 @@ pub const IPC_DIR_NAME: &str = "factory-ipc";
 /// Fixed socket name inside the IPC directory.
 pub const SOCKET_NAME: &str = "mcp.sock";
 
-/// Admitted pinned harness versions proven by P6 native evidence.
-pub fn is_pinned_harness(harness: &str, harness_vers: &str) -> bool {
-    matches!(
-        (harness, harness_vers),
-        ("muse", "1.4.9" | "1.4.9-R6297.1") | ("codex", "0.161.0")
-    )
-}
-
 /// Per-run developer-instruction text bound (16 KiB, D14): the same
 /// bound as staged user-prompt bytes. Anything larger refuses rather
 /// than truncates.
@@ -55,12 +47,8 @@ pub enum PerRunInstructionRoute {
     MuseDeveloperPrompt,
 }
 
-/// Per-run instruction route for the exact harness/version, or `None`
-/// for anything unpinned. Mirrors [`is_pinned_harness`].
-pub fn instruction_route(harness: &str, harness_vers: &str) -> Option<PerRunInstructionRoute> {
-    if !is_pinned_harness(harness, harness_vers) {
-        return None;
-    }
+/// Per-run instruction route selected by the harness interface.
+pub fn instruction_route(harness: &str) -> Option<PerRunInstructionRoute> {
     match harness {
         "muse" => Some(PerRunInstructionRoute::MuseDeveloperPrompt),
         "codex" => Some(PerRunInstructionRoute::CodexDeveloperInstructions),
@@ -218,48 +206,24 @@ mod tests {
     }
 
     #[test]
-    fn pins_relay_and_harness() {
+    fn fixes_relay_argv() {
         assert!(check_relay_argv(&["soda-project-terminal", "factory-mcp"]).is_ok());
         assert!(check_relay_argv(&["soda-project-terminal"]).is_err());
         assert!(check_relay_argv(&["/tmp/relay", "factory-mcp"]).is_err());
-        assert!(is_pinned_harness("muse", "1.4.9"));
-        assert!(is_pinned_harness("codex", "0.161.0"));
-        assert!(!is_pinned_harness("muse", "1.4.2"));
-        assert!(!is_pinned_harness("codex", "0.162.0"));
-        assert!(!is_pinned_harness("shell", "1.4.9"));
     }
 
     #[test]
-    fn instruction_routes_match_pinned_harnesses() {
-        // Config shape: only the exact pinned harness/versions carry a
-        // per-run instruction route, mirroring is_pinned_harness.
-        use PerRunInstructionRoute::*;
+    fn instruction_routes_match_harness_interfaces() {
         assert_eq!(
-            instruction_route("muse", "1.4.9"),
-            Some(MuseDeveloperPrompt)
+            instruction_route("muse"),
+            Some(PerRunInstructionRoute::MuseDeveloperPrompt)
         );
         assert_eq!(
-            instruction_route("muse", "1.4.9-R6297.1"),
-            Some(MuseDeveloperPrompt)
+            instruction_route("codex"),
+            Some(PerRunInstructionRoute::CodexDeveloperInstructions)
         );
-        assert_eq!(
-            instruction_route("codex", "0.161.0"),
-            Some(CodexDeveloperInstructions)
-        );
-        for (harness, vers) in [
-            ("muse", "1.4.2"),
-            ("muse", "9.9.9"),
-            ("codex", "0.160.0"),
-            ("codex", "0.162.0"),
-            ("shell", "1.4.9"),
-            ("muse", ""),
-            ("", "0.161.0"),
-        ] {
-            assert!(
-                instruction_route(harness, vers).is_none(),
-                "{harness} {vers}: unpinned harness carries a route"
-            );
-        }
+        assert!(instruction_route("shell").is_none());
+        assert!(instruction_route("").is_none());
     }
 
     #[test]

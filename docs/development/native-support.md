@@ -4,7 +4,7 @@ Outside build, transport, VM and evidence tools for Soda development. They suppl
 artifacts and observations; they do not redefine product API, Project OS or Spaces
 contracts.
 
-Permissions follow [AGENTS.md](../../AGENTS.md#permissions-and-preservation).
+Permissions follow [AGENTS.md](../../AGENTS.md#scope-and-protection).
 This document is not an execution grant.
 
 Release model: [Release architecture](../architecture/release.md).
@@ -28,9 +28,9 @@ Reuse and licensing are recorded in [native support notices](../research/notices
 ## Effects and permissions
 
 This section owns command effects, not an approval queue. Apply the
-[execution policy](../../AGENTS.md#permissions-and-preservation) and the applicable grants:
-[release commissioning](../../AGENTS.md#permissions-and-preservation) or
-[development targets](../../AGENTS.md#permissions-and-preservation). Already-approved
+[execution policy](../../AGENTS.md#scope-and-protection) and the applicable grants:
+[release commissioning](../../AGENTS.md#scope-and-protection) or
+[development targets](../../AGENTS.md#scope-and-protection). Already-approved
 local work does not need a new grant per command.
 
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
@@ -76,7 +76,7 @@ The disk installer verifies candidate media before writing, validates the explic
 [release contract](../architecture/release.md).
 Explicit [development targets](release.md)
 stop this same producer at the requested boundary; they never qualify a release.
-Build from a clean committed checkout (including an admitted linked worktree) with the pinned Go/Rust/Bun/native prerequisites.
+Build from a clean committed checkout (including an admitted linked worktree) with the installed Go/Rust/Bun/native prerequisites.
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
 worker policy. Account/helper installation requires applicable task approval.
@@ -115,7 +115,7 @@ The configuration names `Executable`, exact checkout `Source`, canonical
 immutable HTTPS `/vVERSION/release.json`, and an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
-`soda-build-worker`; setup stages pinned Go, the repository-selected stable Rust
+`soda-build-worker`; setup stages installed Go, the repository-selected stable Rust
 sysroot under `Tools/rust`, and `Tools/bin/bun`. Cargo dependencies are fetched
 with the committed lockfile during setup. The worker builds offline with
 `CARGO_HOME` and `CARGO_TARGET_DIR` in its writable build home; source and compiler

@@ -7,7 +7,7 @@
 
 **Work:** Implement and prove. **Owner lane:** C. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current (wind-down):** Native protected admission/finalization boundary; 88a2ce7b/f188e13b serving proof and 73fe175b tag repair accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Native protected admission/finalization boundary; 88a2ce7b/f188e13b serving proof and 73fe175b tag repair accepted. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Close the protected admission/controller/finalization mechanism in the existing candidate pipeline. Prove its exact identity, failure and recovery rules with the smallest isolated development inputs. A qualified existing upgrade source must be bound when selected; an unavailable future source remains a precise external case.
 
@@ -24,7 +24,7 @@
 
 **Work:** Candidate production. **Owner lane:** C. **Accepted inputs:** [R02](01-boundaries.md#r02), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R49](05-experience-and-development.md#r49), [R50](06-candidate-release-closure.md#r50), [R54](06-candidate-release-closure.md#r54).
 
-**Current (wind-down):** Coherent current x86_64 candidate after source freeze and real immutable component availability. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Coherent current x86_64 candidate after source freeze and real immutable component availability. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use existing production/staging tools for exact Fountain/SDK/package/backend/host/Project OS/source/component identities, notices and media. Reuse unchanged outputs by real inputs and update pins only as a coherent reviewed set.
 
@@ -45,7 +45,7 @@
 
 **Work:** Installed shipping-byte qualification. **Owner lane:** Coordinator. **Accepted inputs:** [R51](06-candidate-release-closure.md#r51), [R49](05-experience-and-development.md#r49).
 
-**Current (wind-down):** Exact candidate fresh ISO/Docker, supported upgrade, recovery and installed journey. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Exact candidate fresh ISO/Docker, supported upgrade, recovery and installed journey. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use the existing native x86_64 drivers against the exact candidate for fresh ISO/Docker, supported upgrade source, maintenance/rollback/recovery, retained human/network/operator behavior and finished factory.
 
@@ -62,7 +62,7 @@
 
 **Work:** External publication gate. **Owner lane:** Coordinator. **Accepted inputs:** [R52](06-candidate-release-closure.md#r52).
 
-**Current (wind-down):** Concrete immutable public release and actual downloaded-byte qualification. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Concrete immutable public release and actual downloaded-byte qualification. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Promote R51’s already staged immutable package/image/archive/media/metadata batch using R52’s protected exact-candidate evidence through R50. Obtain authorization for the concrete promotion when required, then verify public recommendations and downloads. Component inputs and unqualified public staging precede R52; neither can be postponed here.
 
@@ -77,7 +77,7 @@
 
 **Work:** Cutover and documentation. **Owner lane:** Coordinator. **Accepted inputs:** [R41](04-controls-repair-verification.md#r41), [R43](05-experience-and-development.md#r43), [R45](05-experience-and-development.md#r45), [R49](05-experience-and-development.md#r49), [R50](06-candidate-release-closure.md#r50).
 
-**Current (wind-down):** One-current-path source/caller/selector/docs/license/pin cutover before candidate freeze. Cleanup shutdown does not close product cutover. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** One-current-path source/caller/selector/docs/license/pin cutover before candidate freeze. Cleanup shutdown does not close product cutover. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Remove evidenced obsolete runner/transport/result/format paths and their actual callers/tests/assets/selectors with each replacement, then close source/staging/support/documentation gaps before R51 freezes candidate bytes. Reconcile product/architecture/reference/operator/handbook truths, licensing and final pins. Release disposable development resources only after their custody has ended; keep candidate qualification fixtures available through R52/R53 and account for their final release in R55.
 
@@ -92,7 +92,7 @@
 
 **Work:** Independent acceptance. **Owner lane:** Codex. **Accepted inputs:** [R46](05-experience-and-development.md#r46), [R47](05-experience-and-development.md#r47), [R48](05-experience-and-development.md#r48), [R49](05-experience-and-development.md#r49), [R50](06-candidate-release-closure.md#r50), [R51](06-candidate-release-closure.md#r51), [R52](06-candidate-release-closure.md#r52), [R53](06-candidate-release-closure.md#r53), [R54](06-candidate-release-closure.md#r54).
 
-**Current (wind-down):** Independent acceptance of complete mapped factory scope; stopping execution does not accept unfinished backlog. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
+**Current (wind-down):** Independent acceptance of complete mapped factory scope; stopping execution does not accept unfinished backlog. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Independently close every mapped requirement/control/case at its actual revision and evidence layer, resolve substantive findings, verify focused commits and writer/command/resource release, and report precise remaining external cases if any.
 

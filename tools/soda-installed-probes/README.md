@@ -25,7 +25,7 @@ these commands can write local state and execute remote Git or workload actions.
 
 ## Observe configured HTTPS
 
-Run from the repository root with the pinned Go toolchain, an actual HTTPS
+Run from the repository root with the installed Go toolchain, an actual HTTPS
 origin and an absolute trusted PEM CA file:
 
 ```sh

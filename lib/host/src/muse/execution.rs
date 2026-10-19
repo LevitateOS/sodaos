@@ -12,7 +12,7 @@ use crate::terminal::{self, AcquireRequest, Binding};
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.verifyGuestBinary`: pinned dispatcher digest, ELF
-    /// header and version handshake.
+    /// header and command availability.
     pub fn verify_guest_binary(
         &self,
         container: &str,
@@ -55,14 +55,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .guest(container, &[], &head_argv, deadline)
             .map_err(|_| terminal::err_denied())?;
         muse_elf(&header, host_go_arch())?;
-        if self.binary_version.is_empty() {
-            return Err(terminal::err_denied());
-        }
         let mut check_argv = prefix;
         check_argv.extend([
             "/usr/local/bin/muse".to_string(),
             "--soda-check".to_string(),
-            self.binary_version.clone(),
         ]);
         self.guest(container, &[], &check_argv, deadline)
             .map(|_| ())

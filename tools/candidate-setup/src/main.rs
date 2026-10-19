@@ -157,9 +157,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         pwd,
         output_parent,
         worker_json_path,
-        pinned,
-        pinned_goroot,
-        want,
+        go_root,
     } = pre;
 
     storage::prepare_scratch(&storage)?;
@@ -167,21 +165,14 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     let ctl = controller::admit_controller(&storage, cleanup)?;
     let controller::ControllerPaths { bindir } = ctl;
 
-    let tools = worker_tools::provision_worker_tools(
-        &output_parent,
-        &storage,
-        &pinned,
-        &pinned_goroot,
-        &want,
-    )?;
+    let tools = worker_tools::provision_worker_tools(&output_parent, &storage, &go_root)?;
     let worker_tools::WorkerTools {
         rust_bin,
         bun_final,
         owned,
     } = tools;
 
-    let caches =
-        worker_caches::warm_worker_caches(&storage, &pinned, &owned, &bun_final, &rust_bin)?;
+    let caches = worker_caches::warm_worker_caches(&storage, &owned, &bun_final, &rust_bin)?;
     let worker_caches::WorkerCaches {
         go_mod,
         go_build_cache,
