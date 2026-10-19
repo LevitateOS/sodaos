@@ -21,6 +21,7 @@ export interface JourneyViewInput {
   readOutcome: () => string;
   readStatus: () => string;
   readRepositoryName: () => string;
+  readRepositoryURL?: () => string;
   readBindingRepository: () => string;
   readJoinCaption: () => string;
   readAcceptedRequest: () => {intent: string; revision: string; objective: string} | undefined;
@@ -133,9 +134,14 @@ function renderJourneyJoinFailed(input: JourneyViewInput) {
 
 function joinAction(input: JourneyViewInput) {
   const label = input.isMutationPending() ? 'Joining project…' : 'Join project';
-  return html`<button class="ui primary button" ?disabled=${input.isBlocked()} @click=${input.requestJoin}>
+  return html`${projectFeedAction(input)}<button class="ui button" ?disabled=${input.isBlocked()} @click=${input.requestJoin}>
     ${label}
   </button>`;
+}
+
+function projectFeedAction(input: JourneyViewInput) {
+  const url = input.readRepositoryURL?.();
+  return url ? html`<a class="ui primary button" href=${url + '/workspace'}>Open project feed</a>` : '';
 }
 
 function joinFeedback(input: JourneyViewInput) {
@@ -179,9 +185,7 @@ function renderJourneyJoin(input: JourneyViewInput) {
     ${renderWorkspaceIntro({
       kind: 'project',
       heading: 'Project created',
-      description: html`Join ${input.readRepositoryName()} to set up your personal account<span
-          >in this persistent human project.</span
-        >`,
+      description: html`Follow ${input.readRepositoryName()} in its feed. Join the development environment to use a browser terminal.`,
       action: joinAction(input),
       helper: joinHelper(),
       feedback: joinFeedback(input),
@@ -241,7 +245,7 @@ function journeyStartButton(input: JourneyViewInput, stopped: boolean) {
 function journeyExistingAction(input: JourneyViewInput, stopped: boolean) {
   const refreshClass = stopped && input.hasLifecycle() ? 'ui button soda-quiet-action' : 'ui primary button';
   const refreshLabel = input.isBusy() && !input.isMutationPending() ? 'Checking status…' : 'Refresh status';
-  return html`${journeyStartButton(input, stopped)}<button
+  return html`${projectFeedAction(input)}${journeyStartButton(input, stopped)}<button
       class=${refreshClass}
       ?disabled=${input.isBlocked()}
       @click=${input.requestRefresh}

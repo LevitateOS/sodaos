@@ -327,6 +327,7 @@ export class SodaProjectControls extends LitElement {
       readOutcome: () => this.outcome,
       readStatus: () => this.status,
       readRepositoryName: () => this.repositoryName,
+      readRepositoryURL: () => this.repositoryURL,
       readBindingRepository: () => this.binding?.repositoryId || '',
       readJoinCaption: () => this.joinCaption(),
       readAcceptedRequest: () => this.acceptedRequest,

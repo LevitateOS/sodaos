@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Feed communication contract (R32.2/R32.14, R42.2): durable comment
@@ -95,7 +96,7 @@ func (r CommentRequest) Validate() error {
 		return errors.New("comment needs its repository scope")
 	}
 	body := strings.TrimSpace(r.Body)
-	if body == "" || len(r.Body) > CommentBodyLimit {
+	if body == "" || utf8.RuneCountInString(r.Body) > CommentBodyLimit {
 		return errors.New("comment needs its bounded body")
 	}
 	if r.Issue < 0 {
@@ -172,10 +173,13 @@ const (
 // the judgment (bound issue scope, source snapshot, reply parent or
 // recent repository work).
 type CommentWorkCandidate struct {
-	Issue   int64  `json:"issue"`
-	Summary string `json:"summary,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Origin  string `json:"origin"`
+	Title        string `json:"title,omitempty"`
+	Objective    string `json:"objective,omitempty"`
+	WorkerStatus string `json:"execution_status,omitempty"`
+	Issue        int64  `json:"issue"`
+	Summary      string `json:"summary,omitempty"`
+	Status       string `json:"status,omitempty"`
+	Origin       string `json:"origin"`
 }
 
 // Validate admits one existing-work candidate.
@@ -188,7 +192,7 @@ func (c CommentWorkCandidate) Validate() error {
 	default:
 		return errors.New("comment work candidate needs its known origin")
 	}
-	if len([]rune(c.Summary)) > CommentSourceSummaryLimit || len(c.Status) > 128 {
+	if len([]rune(c.Summary)) > CommentSourceSummaryLimit || len(c.Status) > 128 || len([]rune(c.Objective)) > 4000 || len(c.WorkerStatus) > 128 {
 		return errors.New("comment work candidate evidence outside its bound")
 	}
 	return nil
@@ -299,6 +303,13 @@ func (p CommentPipeline) AdmitCommentJudgment() bool {
 func (p CommentPipeline) AdmitCommentDraft() bool {
 	return p.Judgment == CommentJudgmentApplied && p.Route == CommentRouteNewIssue &&
 		p.Draft == CommentDraftPending && p.Attempts < CommentAttemptLimit
+}
+
+func (p CommentPipeline) RetryAllowed() bool {
+	if p.Effect == CommentEffectApplied || p.Effect == CommentEffectVerified {
+		return false
+	}
+	return p.Attempts >= CommentAttemptLimit || p.Judgment == CommentJudgmentFailed || p.Draft == CommentDraftInvalid || p.Effect == CommentEffectFailed || p.Route == CommentRouteClarify || p.Route == CommentRouteExistingWork
 }
 
 // AdmitCommentEffect reports whether the native issue/graph effect may

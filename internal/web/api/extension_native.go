@@ -136,7 +136,8 @@ func extensionProductContribution(path string, contribution extensions.Contribut
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
 		return auth.ExtensionContribution("tailnet", contribution)
 	}
-	return extensionPageContribution(contribution, "spaces") || extensionWorkspacePanelContribution(contribution)
+	return extensionPageContribution(contribution, "spaces") || extensionPageContribution(contribution, "feed") || extensionPageContribution(contribution, "applications") ||
+		contribution.Kind == "page" && contribution.ID == "repository-feed" && contribution.Scope == "repository" || extensionWorkspacePanelContribution(contribution)
 }
 
 func extensionPageContribution(contribution extensions.Contribution, id string) bool {
@@ -225,7 +226,9 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodGet))
 	mux.HandleFunc("PUT /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodPut))
 	mux.HandleFunc("POST /api/factory/feed/comments", protect(s.apiFactoryFeedComment, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/feed/replies", protect(s.apiFactoryFeedReplies, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/feed/comments/{id}", protect(s.apiFactoryFeedCommentOne, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/feed/comments/{id}/retry", protect(s.apiFactoryFeedCommentRetry, http.MethodPost))
 	mux.HandleFunc("GET /api/spaces", protect(s.apiSpaces, http.MethodGet))
 	mux.HandleFunc("GET /api/environments", protect(s.apiEnvironments, http.MethodGet))
 	mux.HandleFunc("POST /api/environments", protect(s.apiEnvironments, http.MethodPost))
@@ -246,6 +249,7 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/environments/{id}/identity/connections", protect(s.apiIdentityAvailable, http.MethodGet))
 	mux.HandleFunc("POST /api/environments/{id}/identity/grants", protect(s.apiIdentityCreateGrant, http.MethodPost))
 	mux.HandleFunc("GET /api/identity/connections", protect(s.apiIdentityConnections, http.MethodGet))
+	mux.HandleFunc("GET /api/identity/enrollments", protect(s.apiIdentityEnrollments, http.MethodGet))
 	mux.HandleFunc("POST /api/identity/enrollments", protect(s.apiIdentityStartEnrollment, http.MethodPost))
 	mux.HandleFunc("GET /api/identity/enrollments/{identityID}", protect(s.apiIdentityEnrollment, http.MethodGet))
 	mux.HandleFunc("POST /api/identity/enrollments/{identityID}/cancel", protect(s.apiIdentityCancelEnrollment, http.MethodPost))

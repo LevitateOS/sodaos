@@ -72,8 +72,8 @@ export class SodaProviders extends LitElement {
     const value = await readSodaJSON(response);
     if (serial !== this.serial || !this.isConnected) throw Error('Project changed. Reopen Providers.');
     if (!response.ok) {
-      const detail = value as {message?: unknown};
-      throw Error(typeof detail?.message === 'string' ? detail.message : `Provider request failed (${response.status}). Try again.`);
+      const detail = value as {message?: unknown; error?: {message?: string}};
+      throw Error(detail.error?.message ?? (typeof detail?.message === 'string' ? detail.message : `Provider request failed (${response.status}). Try again.`));
     }
     return value;
   }
@@ -103,13 +103,18 @@ export class SodaProviders extends LitElement {
 
   private async readStatus() {
     const next = {...this.attempts};
+    const recovered = items(await this.request('identity/enrollments'), enrollmentView);
+    for (const attempt of recovered) next[attempt.provider_id] = attempt;
     for (const provider of providers) {
       const attempt = next[provider.id];
       if (attempt?.state === 'pending') next[provider.id] = enrollmentView(await this.request(`identity/enrollments/${attempt.id}`));
     }
     this.attempts = next;
-    this.connections = items(await this.request('identity/connections'), availableConnectionView);
+    const connections = items(await this.request('identity/connections'), availableConnectionView);
+    const changed = JSON.stringify(connections) !== JSON.stringify(this.connections);
+    this.connections = connections;
     this.loaded = true;
+    if (changed) this.dispatchEvent(new CustomEvent('soda-provider-connections-changed', {bubbles: true, composed: true}));
   }
 
   private start(provider: ProviderID) {
@@ -131,6 +136,14 @@ export class SodaProviders extends LitElement {
       if (!attempt || attempt.state !== 'pending') return;
       await this.request(`identity/enrollments/${attempt.id}/cancel`, {});
       this.attempts = {...this.attempts, [provider]: {...attempt, state: 'cancelled'}};
+    });
+  }
+
+  private disconnect(connection: Connection) {
+    return this.run(async () => {
+      await this.request(`identity/connections/${connection.id}/revoke`, {});
+      await this.readStatus();
+      this.message = 'Account disconnected. Its active uses have ended.';
     });
   }
 
@@ -156,6 +169,13 @@ export class SodaProviders extends LitElement {
         <span><span aria-hidden="true" style=${connected ? 'color:#218c45' : ''}>${connected ? '✓' : '○'}</span>
           ${connected ? 'Connected' : pending ? 'Awaiting sign-in' : previous ? 'Reconnect' : 'Connect'}</span>
       </button>
+      ${this.connections.filter(c => c.provider_id === provider.id && c.state === 'ready').map(connection => html`<div style="padding:8px 4px">
+        <p>${connection.email || connection.label}${connection.plan ? ` · ${connection.plan}` : ''}</p>
+        <details><summary>Manage account</summary>
+          <p>Disconnecting ends this account’s active Factory sessions.</p>
+          <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.disconnect(connection)}>Disconnect and end active uses</button>
+        </details>
+      </div>`)}
       ${!connected && attempt ? html`<section aria-label=${`${provider.name} sign-in`} style="padding:8px 4px">
         <p role="status">${pending ? 'Complete sign-in on the provider page. This dialog updates automatically.' : `Sign-in ${attempt.state}.`}</p>
         ${pending && attempt.verification_url ? html`<a class="ui button" href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">Open sign-in</a>

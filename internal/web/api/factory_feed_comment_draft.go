@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -130,7 +131,7 @@ func commentSourceContext(comment store.FeedCommentDetail) string {
 // outcome and candidate tasks never have to cover it.
 func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUnix int64) (factory.IntentRevision, error) {
 	body := comment.Body
-	if len(body) > 4000 {
+	if utf8.RuneCountInString(body) > 4000 {
 		return factory.IntentRevision{}, errors.New("comment body exceeds the planning idea bound")
 	}
 	commentID, revision := comment.Record.ID, comment.Record.Revision

@@ -1,15 +1,15 @@
+import './soda-providers.js';
 import {LitElement, html} from 'lit';
 import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {
   availableConnectionView,
   connectionView,
-  enrollmentView,
   grantView,
   items,
   leaseView,
 } from './soda-identity-response.js';
-import type {Connection, Enrollment, Grant, Lease} from './soda-identity-response.js';
+import type {Connection, Grant, Lease} from './soda-identity-response.js';
 
 export class SodaIdentity extends LitElement {
   static properties = {
@@ -17,7 +17,7 @@ export class SodaIdentity extends LitElement {
     message: {state: true},
     connections: {state: true},
     selected: {state: true},
-    enrollment: {state: true},
+    members: {state: true},
     grants: {state: true},
     leases: {state: true},
     available: {state: true},
@@ -29,7 +29,7 @@ export class SodaIdentity extends LitElement {
   declare private message: string;
   declare private connections: Connection[];
   declare private selected: string;
-  declare private enrollment: Enrollment | undefined;
+  declare private members: {user_id: string; login: string}[];
   declare private grants: Grant[];
   declare private leases: Lease[];
   declare private available: Connection[];
@@ -42,7 +42,7 @@ export class SodaIdentity extends LitElement {
     this.connections = this.available = [];
     this.grants = [];
     this.leases = [];
-    this.enrollment = undefined;
+    this.members = [];
   }
   set context(context: {actor: string; transport: PreparedExtensionMount; project: string}) {
     if (this.actor === context.actor && this.transport === context.transport && this.project === context.project)
@@ -66,7 +66,7 @@ export class SodaIdentity extends LitElement {
     this.available = [];
     this.grants = [];
     this.leases = [];
-    this.enrollment = undefined;
+    this.members = [];
     this.requestUpdate();
   }
   private retire = () => {
@@ -76,7 +76,7 @@ export class SodaIdentity extends LitElement {
     this.grants = [];
     this.leases = [];
     this.available = [];
-    this.enrollment = undefined;
+    this.members = [];
     this.message = 'Reload this Forgejo page before managing connections.';
   };
   disconnectedCallback() {
@@ -128,57 +128,41 @@ export class SodaIdentity extends LitElement {
     if (!this.connections.some((connection) => connection.id === this.selected))
       this.selected = this.connections[0]?.id || '';
     await this.loadSelected();
-    if (this.project)
+    if (this.project) {
       this.available = items(
         await this.request('/environments/' + this.project + '/identity/connections'),
         availableConnectionView
       );
-    if (this.enrollment)
-      this.enrollment = enrollmentView(await this.request('/identity/enrollments/' + this.enrollment.id));
+      const result = object(await this.request('/environments/' + this.project + '/members'));
+      check(Array.isArray(result.items));
+      this.members = result.items.map(raw => { const row = object(raw); check(id(row.user_id) && typeof row.login === 'string'); return {user_id: row.user_id, login: row.login}; });
+    }
+
   }
   private async loadSelected() {
     this.grants = [];
     this.leases = [];
     if (!this.selected) return;
-    this.grants = items(await this.request('/identity/connections/' + this.selected + '/grants'), grantView);
-    this.leases = items(await this.request('/identity/connections/' + this.selected + '/leases'), leaseView);
+    const selected = this.selected;
+    const [grants, leases] = await Promise.all([
+      this.request('/identity/connections/' + selected + '/grants'),
+      this.request('/identity/connections/' + selected + '/leases'),
+    ]);
+    if (selected !== this.selected) return;
+    this.grants = items(grants, grantView);
+    this.leases = items(leases, leaseView);
   }
   refresh = () => this.act(() => this.load());
   private select = (event: Event) => {
     this.selected = (event.target as HTMLSelectElement).value;
     void this.act(() => this.loadSelected());
   };
-  private connect = (event: SubmitEvent) => {
-    event.preventDefault();
-    const data = new FormData(event.target as HTMLFormElement),
-      label = String(data.get('label') || '').trim();
-    void this.act(async () => {
-      this.enrollment = enrollmentView(
-        await this.request('/identity/enrollments', {
-          provider_id: data.get('provider_id'),
-          label,
-          confirm_credential_exposure: data.has('exposure'),
-        })
-      );
-    });
-  };
-  private disconnect = () =>
-    this.act(async () => {
-      await this.request('/identity/connections/' + this.selected + '/revoke', {});
-      await this.load();
-    });
-  private cancel = () =>
-    this.act(async () => {
-      if (!this.enrollment) return;
-      await this.request('/identity/enrollments/' + this.enrollment.id + '/cancel', {});
-      this.enrollment = undefined;
-    });
   private delegate = (event: SubmitEvent) => {
     event.preventDefault();
     const data = new FormData(event.target as HTMLFormElement),
       user = String(data.get('user_id') || '');
     if (!id(user)) {
-      this.message = 'Enter a valid Forgejo user ID.';
+      this.message = 'Choose a project member.';
       return;
     }
     void this.act(async () => {
@@ -234,28 +218,10 @@ export class SodaIdentity extends LitElement {
       if (serial === this.contextSerial) this.busy = false;
     }
   }
-  private enrollmentView() {
-    const enrollment = this.enrollment;
-    if (!enrollment) return '';
-    return html`<section>
-      <p>Provider sign-in: ${enrollment.state}</p>
-      ${
-        enrollment.verification_url
-          ? html`<a href=${enrollment.verification_url} target="_blank" rel="noopener noreferrer"
-                >Open provider sign-in</a
-              >
-              ${enrollment.user_code ? html`<p>Code: <strong>${enrollment.user_code}</strong></p>` : ''}`
-          : ''
-      }
-      <button type="button" @click=${this.cancel}>Cancel sign-in</button>
-    </section>`;
-  }
   private selectedView() {
     const connection = this.connections.find((item) => item.id === this.selected);
     if (!connection) return '';
     return html`<p>${connection.email} · ${connection.plan} · ${connection.state}</p>
-      <p>Connection ID: ${connection.id}</p>
-      <button type="button" @click=${this.disconnect}>Disconnect connection and end its active uses</button>
       <ul>
         ${this.grants.map(
           (grant) => html`<li>
@@ -278,8 +244,9 @@ export class SodaIdentity extends LitElement {
     return html`<form @submit=${this.delegate}>
         <h3>Delegate this subscription in this project</h3>
         <label
-          >Named member's Forgejo user ID <input name="user_id" required inputmode="numeric" pattern="[1-9][0-9]*"
-        /></label>
+          >Project member <select name="user_id" required><option value="">Choose a member</option>
+            ${this.members.map(member => html`<option value=${member.user_id}>${member.login}</option>`)}
+          </select></label>
         <label
           ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user to
           use my subscription.</label
@@ -309,21 +276,8 @@ export class SodaIdentity extends LitElement {
       <fieldset ?disabled=${this.blocked()}>
         <legend>Personal account connections</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
-        <form @submit=${this.connect}>
-          <label
-            >Provider
-            <select name="provider_id">
-              <option value="codex">Codex / OpenAI</option>
-              <option value="muse">Muse Code / Meta</option>
-            </select></label
-          >
-          <label>Connection label <input name="label" required maxlength="80" /></label
-          ><label
-            ><input type="checkbox" name="exposure" required />I trust this appliance and project administrators with my
-            connected credentials. Authorized project code may receive provider credentials.</label
-          ><button>Connect account</button>
-        </form>
-        ${this.enrollmentView()}<label
+        <soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>
+        <label
           >Your connections
           <select .value=${this.selected} @change=${this.select}>
             ${this.connections.map((connection) => html`<option value=${connection.id}>${connection.label}</option>`)}

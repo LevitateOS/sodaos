@@ -214,7 +214,7 @@ test('post headers keep author context outside the card without inventing facts'
   const header = describePostHeader(record, repo);
   assert.equal(header.project, 'soda-tester/demo');
   assert.match(header.timeText, /#41/);
-  assert.equal(header.role, 'factory record');
+  assert.equal(header.role, 'Factory');
   const unknown = describePostHeader(record, repositoryRef(11, undefined, undefined, undefined));
   assert.equal(unknown.project, 'repository 11');
   const enriched = describePostHeader(
@@ -234,7 +234,7 @@ test('post headers keep author context outside the card without inventing facts'
   assert.equal(enriched.name, 'Ada');
   assert.equal(enriched.role, 'Product Lead');
   assert.equal(enriched.project, 'soda-tester/demo');
-  assert.equal(enriched.statusText, 'assessing');
+  assert.equal(enriched.statusText, 'Assessing');
   assert.doesNotMatch(enriched.timeText, /#42/);
 });
 
@@ -257,7 +257,8 @@ test('discussion submits real drafts with stored outcomes beside them', () => {
   assert.equal(discussion.draft, 'half-written reply');
   assert.equal(discussion.submitAvailable, true);
   assert.equal(describeDiscussion(post, repo, '   ', []).submitAvailable, false);
-  assert.equal(discussion.discussionLink, '/soda-tester/demo/issues');
+  assert.equal(discussion.discussionLink, undefined);
+  assert.equal(describeDiscussion({...post, issue: 12}, repo, '', []).discussionLink, '/soda-tester/demo/issues/12');
   const full = describeFeedPost(record, repo, '', [], undefined, false);
   assert.equal(full.header.key, 'record:' + 'a'.repeat(32));
   assert.equal(full.postBody, undefined);
@@ -369,7 +370,7 @@ test('recorded statuses classify without ever upgrading to success', () => {
 test('family sections carry designed anatomy with honest state and links', () => {
   const review = describeFeedFamily(roleRecord('inspector', 'findings_submitted'), repo);
   assert.equal(review.label, 'Independent review');
-  assert.match(review.headline, /soda-tester\/demo/);
+  assert.equal(review.headline, 'Independent review in progress');
   assert.match(review.detailText, /coverage/i);
   assert.match(review.stateText, /findings_submitted/);
   assert.equal(review.sourceLinks.length, 2);
@@ -393,7 +394,7 @@ test('failures lead and malformed enrichment degrades to unknown, never success'
   assert.match(family.nextText, /needs attention/);
   const attention = describeDecisionAttention(failed, false);
   assert.equal(attention.tone, 'notice');
-  assert.match(attention.attentionText, /check_failed/);
+  assert.match(attention.attentionText, /needs attention/i);
   const unknown = describeDecisionAttention(roleRecord('builder', 'frobnicate'), false);
   assert.equal(unknown.tone, 'notice');
   assert.match(unknown.attentionText, /unknown, not successful/);
@@ -579,11 +580,11 @@ test('comment source carry, existing-work link and durable pending reads', () =>
   const linkedOutcome = describeCommentOutcome(linked, repo);
   assert.equal(linkedOutcome.tone, 'settled');
   assert.equal(linkedOutcome.issueLink, '/soda-tester/demo/issues/9');
-  assert.match(linkedOutcome.text, /persisted selected issue #9/);
-  // Pipeline stages read as recorded words, ending at the persisted link.
+  assert.match(linkedOutcome.text, /Feedback added to issue #9/);
+  // Delivery is a distinct confirmed effect after choosing the issue.
   assert.deepEqual(
     linkedOutcome.stages.map((stage) => stage.state),
-    ['done', 'done', 'done', 'done — issue #9']
+    ['done', 'done', 'done', 'done — issue #9', 'delivered']
   );
   const pendingStages = describeCommentOutcome(
     parseCommentPipelineState({...base, judgment: 'pending', route: undefined}),
@@ -1095,7 +1096,7 @@ test('comment responses carry existing_issue and the resolved source snapshot', 
   assert.equal(outcome.tone, 'settled');
   // The existing-work link renders from existing_issue.
   assert.equal(outcome.issueLink, '/soda-tester/demo/issues/9');
-  assert.match(outcome.text, /persisted selected issue #9/);
+  assert.match(outcome.text, /Feedback added to issue #9/);
   assert.match(outcome.sourceText, /^About recorded work aaaaaaaaaaaa… · issue #3 · pull request #42 · candidate e{40}/);
   assert.match(outcome.sourceText, /— Built the form service\.$/);
   // Null and absent sources stay absent; malformed ones refuse.
@@ -1140,4 +1141,12 @@ test('exhausted authoring stops polling and reports failure without claiming a n
   const verified = describeCommentOutcome(parseCommentPipelineState({...base, draft: 'applied', effect: 'verified', issue: 9}), repo);
   assert.equal(verified.tone, 'settled');
   assert.equal(verified.issueLink, '/tester/project/issues/9');
+});
+
+test('comment failures and review changes cannot be presented as waiting or completed', () => {
+  for (const status of ['judgment:failed', 'draft:failed', 'draft:invalid', 'effect:blocked', 'effect:unconfirmed', 'review:finished:succeeded:request-changes', 'investigate:finished:cancelled', 'decompose:finished:needs-human']) {
+    assert.equal(classifyFeedStatus(status), 'failure', status);
+    const model = describeFeedFamily({...record, actor:'architect', status, summary:'stopped'}, repo);
+    assert.ok(!model.blocks.some(block => block.kind === 'steps' && block.steps.some(step => step.state === 'done')), status);
+  }
 });

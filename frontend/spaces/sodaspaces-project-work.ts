@@ -13,6 +13,7 @@ export interface ProjectWorkContext {
   mode: 'project' | 'all-plans';
   repository?: {id: string; name: string};
   repositoryNames: ReadonlyMap<string, string>;
+  account?: string;
 }
 
 function sameContext(a: ProjectWorkContext | undefined, b: ProjectWorkContext | undefined) {
@@ -206,7 +207,10 @@ export class SodaProjectWork extends LitElement {
   protected render() {
     const context = this.current;
     if (!context) return html``;
-    return html`<soda-providers .transport=${this.active ? context.transport : undefined}></soda-providers>${renderProjectWork({
+    const feed = context.mode === 'project' && context.repository
+      ? html`<soda-factory-feed .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}></soda-factory-feed>`
+      : '';
+    const plans = renderProjectWork({
       mode: context.mode,
       repositoryName: context.repository?.name || 'this project',
       repositoryNames: context.repositoryNames,
@@ -224,10 +228,8 @@ export class SodaProjectWork extends LitElement {
       loadMore: () => {
         void this.load(true);
       },
-    })}
-      ${context.mode === 'project' && context.repository
-        ? html`<soda-factory-feed .context=${this.active ? {transport: context.transport, repository: context.repository.id} : undefined}></soda-factory-feed>`
-        : ''}`;
+    });
+    return html`${feed}${context.mode === 'project' ? html`<details class="soda-project-plans"><summary>My plans</summary>${plans}</details>` : plans}`;
   }
 }
 

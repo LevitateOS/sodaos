@@ -22,7 +22,10 @@
           "title": "Build request"
         }
       ]
-    }
+    },
+    {"id": "repository-feed", "route": "workspace", "title": "Feed", "scope": "repository", "permission": "read", "entry": "soda-feed-entry.js"},
+    {"id": "feed", "route": "feed", "title": "Feed", "scope": "global", "entry": "soda-feed-entry.js"},
+    {"id": "applications", "route": "applications", "title": "Applications", "scope": "global", "entry": "soda-feed-entry.js"}
   ],
   "panels": [
     {

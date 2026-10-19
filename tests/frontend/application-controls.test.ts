@@ -32,17 +32,16 @@ after(async () => {
   server?.stop(true);
 });
 
-test('Spaces applications only read on explicit Refresh, fence double activation, and require confirmed Stop', async (t) => {
+test('Opening Applications loads current status, fences double Start and requires confirmed Stop', async (t) => {
   const page = await browser.newPage();
   t.after(() => page.close());
   await page.goto(server.url.href);
   await page.waitForFunction(() => typeof window.createApplicationFixture === 'function');
   await page.evaluate(() => window.createApplicationFixture());
   await page.getByText('Applications', {exact: true}).click();
-  assert.equal(await page.evaluate(() => window.applicationFixture.calls.length), 0);
-  await page.getByRole('button', {name: 'Refresh applications', exact: true}).click();
   await page.getByText('Stopped', {exact: false}).waitFor();
-  assert.equal(await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body).length), 0);
+  await page.waitForFunction(() => window.applicationFixture.calls.some(c => c.body?.action === 'inspect'));
+  assert.equal(await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body && c.body.action !== 'inspect').length), 0);
   await page.evaluate(() => {
     const button = Array.from(document.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === 'Start Example'
@@ -55,7 +54,7 @@ test('Spaces applications only read on explicit Refresh, fence double activation
     }
   });
   await page.getByText('Ready', {exact: false}).waitFor();
-  const writes = await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body));
+  const writes = await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body && c.body.action !== 'inspect'));
   assert.equal(writes.length, 1);
   assert.deepEqual(writes[0]?.body, {
     action: 'start',
@@ -72,7 +71,7 @@ test('Spaces applications only read on explicit Refresh, fence double activation
   await page.getByText('Outcome unconfirmed. Inspect the application before acting again.', {exact: true}).waitFor();
   assert.equal(await page.getByText('private diagnostic', {exact: true}).count(), 0);
   assert(await page.getByRole('button', {name: 'Start Example', exact: true}).isDisabled());
-  assert.equal(await page.getByRole('link', {name: 'Open application', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('link', {name: /Open application/}).count(), 1);
 });
 
 test('suspended or replaced session discards pending application data without replaying an action', async (t) => {
@@ -82,6 +81,8 @@ test('suspended or replaced session discards pending application data without re
   await page.waitForFunction(() => typeof window.createApplicationFixture === 'function');
   await page.evaluate(() => window.createApplicationFixture());
   await page.getByText('Applications', {exact: true}).click();
+  await page.getByText('Stopped', {exact: false}).waitFor();
+  await page.waitForFunction(() => window.applicationFixture.calls.some(c => c.body?.action === 'inspect'));
   await page.evaluate(() => {
     window.applicationFixture.delay = true;
   });
@@ -95,6 +96,6 @@ test('suspended or replaced session discards pending application data without re
   });
   await page.waitForTimeout(50);
   assert.equal(await page.getByText('https://app.example.test', {exact: true}).count(), 0);
-  assert.equal(await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body).length), 0);
+  assert.equal(await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body && c.body.action !== 'inspect').length), 0);
   assert(await page.getByRole('button', {name: 'Refresh applications', exact: true}).isDisabled());
 });

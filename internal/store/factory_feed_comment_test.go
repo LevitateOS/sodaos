@@ -3,11 +3,55 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+func TestFeedRepliesIncludeOtherAuthorsAndPageWithoutCrossingSources(t *testing.T) {
+	ctx := context.Background()
+	s, _ := postgresFixture(t, nil)
+	parent := saveTestComment(t, s, 7, "42", "parent", "parent")
+	for i := 0; i < 23; i++ {
+		_, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "reply", ReplyTo: parent, IdempotencyKey: fmt.Sprint(i)}, "43", "Another person", 1729000001)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 8, Body: "other project", ReplyTo: parent, IdempotencyKey: "foreign"}, "44", "Other", 1729000002)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, next, err := s.FeedReplyIDs(ctx, 7, "post", parent, 0)
+	if err != nil || len(first) != 20 || next == 0 {
+		t.Fatalf("first page: %d %d %v", len(first), next, err)
+	}
+	second, next, err := s.FeedReplyIDs(ctx, 7, "post", parent, next)
+	if err != nil || len(second) != 3 || next != 0 {
+		t.Fatalf("second page: %d %d %v", len(second), next, err)
+	}
+	seen := map[string]bool{}
+	for _, id := range append(first, second...) {
+		if seen[id] {
+			t.Fatal("reply duplicated across pages")
+		}
+		seen[id] = true
+	}
+	if _, err := s.DeleteFeedComment(ctx, second[0], "43", 0); err != nil {
+		t.Fatal(err)
+	}
+	remaining, _, err := s.FeedReplyIDs(ctx, 7, "post", parent, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range remaining {
+		if id == second[0] {
+			t.Fatal("deleted reply exposed")
+		}
+	}
+}
 
 func saveTestComment(t *testing.T, s *Store, repository int64, author, body, key string) string {
 	t.Helper()
@@ -21,6 +65,37 @@ func saveTestComment(t *testing.T, s *Store, repository int64, author, body, key
 		t.Fatalf("fresh comment revision = %d", revision)
 	}
 	return id
+}
+
+func TestFeedbackQueueDoesNotReplayHistoricalIssueMappings(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	id := saveTestComment(t, s, 7, "42", "existing work", "old-feedback")
+	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := pipe
+	next.Judgment = factory.CommentJudgmentApplied
+	next.Route = factory.CommentRouteExistingWork
+	next.Issue = 55
+	if err = s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
+	queued, err := s.PendingCommentPipelines(ctx, 4)
+	if err != nil || len(queued) != 1 {
+		t.Fatalf("newly assessed feedback absent: %+v %v", queued, err)
+	}
+	if _, err = s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data=data-'feedback_revision' WHERE comment=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	queued, err = s.PendingCommentPipelines(ctx, 4)
+	if err != nil || len(queued) != 0 {
+		t.Fatalf("historical mapping replayed: %+v %v", queued, err)
+	}
 }
 
 func TestFeedCommentSaveReplaysIdempotencyKey(t *testing.T) {
@@ -442,5 +517,80 @@ func TestPostStatusShowsExhaustionWithoutDiscardingConfirmedIssue(t *testing.T) 
 	p.Judgment = factory.CommentJudgmentPending
 	if got := PostStatus(&p); got != "judgment:failed" {
 		t.Fatalf("exhausted judgment shown as %s", got)
+	}
+}
+
+func TestRetryFeedCommentPreservesPostAndReconcilesUncertainEffect(t *testing.T) {
+	ctx := context.Background()
+	s, _ := postgresFixture(t, nil)
+	id := saveTestComment(t, s, 7, "42", "Original request", "retry-1")
+	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	for range factory.CommentAttemptLimit {
+		if err := s.NoteCommentAttempt(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RetryFeedComment(ctx, id, "43", 0, "Other account", 1729000020); err == nil {
+		t.Fatal("another author changed request")
+	}
+	if err := s.RetryFeedComment(ctx, id, "42", 0, "Clarified request", 1729000020); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil || detail.Body != "Clarified request" || detail.Record.Revision != 1 {
+		t.Fatalf("post lost: %+v %v", detail, err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil || pipe.Attempts != 0 || pipe.Judgment != "pending" || pipe.Revision != 1 {
+		t.Fatalf("retry state: %+v %v", pipe, err)
+	}
+	next := pipe
+	next.Judgment = factory.CommentJudgmentApplied
+	next.Route = factory.CommentRouteNewIssue
+	next.Draft = factory.CommentDraftApplied
+	next.Effect = factory.CommentEffectFailed
+	if err := s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryFeedComment(ctx, id, "42", 1, "Clarified request", 1729000030); err != nil {
+		t.Fatal(err)
+	}
+	resumed, _ := s.CommentPipeline(ctx, id)
+	if resumed.Revision != 1 || resumed.Draft != factory.CommentDraftApplied || resumed.Effect != factory.CommentEffectFailed {
+		t.Fatalf("uncertain native effect was replaced: %+v", resumed)
+	}
+	done := resumed
+	done.Effect = factory.CommentEffectApplied
+	done.Issue = 5
+	if err := s.AdvanceCommentPipeline(ctx, resumed, done); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryFeedComment(ctx, id, "42", 1, "Duplicate", 1729000040); err == nil {
+		t.Fatal("confirmed issue was duplicated")
+	}
+}
+
+func TestPendingCommentRequestsRotatePastWaitingWork(t *testing.T) {
+	ctx := context.Background()
+	s, _ := postgresFixture(t, nil)
+	first := saveTestComment(t, s, 7, "42", "Waiting", "fair-1")
+	second := saveTestComment(t, s, 7, "42", "Ready", "fair-2")
+	for _, id := range []string{first, second} {
+		if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err := s.PendingCommentPipelines(ctx, 1)
+	if err != nil || len(page) != 1 || page[0].Comment != first {
+		t.Fatalf("first: %+v %v", page, err)
+	}
+	if err := s.NoteCommentProgress(ctx, first, "Waiting for setup"); err != nil {
+		t.Fatal(err)
+	}
+	page, err = s.PendingCommentPipelines(ctx, 1)
+	if err != nil || len(page) != 1 || page[0].Comment != second {
+		t.Fatalf("waiting work starved next request: %+v %v", page, err)
 	}
 }

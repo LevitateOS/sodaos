@@ -53,6 +53,28 @@ type GraphCommentIssueCreator struct {
 var _ CommentIssueCreator = (*GraphCommentIssueCreator)(nil)
 var _ CommentIssueStore = (*store.Store)(nil)
 
+func (c *GraphCommentIssueCreator) DeliverCommentFeedback(ctx context.Context, comment store.FeedCommentDetail, issue int64) error {
+	if c == nil || c.Graph == nil || c.Actor <= 0 {
+		return errors.New("Issue discussion delivery is unavailable. Retry after Factory is connected.")
+	}
+	writer, ok := c.Graph.(interface {
+		DeliverIssueFeedback(context.Context, int64, int64, int64, string, string) error
+	})
+	if !ok {
+		return errors.New("Issue discussion delivery is unavailable.")
+	}
+	author, err := strconv.ParseInt(comment.Record.Author, 10, 64)
+	if err != nil || author <= 0 {
+		return errors.New("Feedback author is unavailable.")
+	}
+	if _, err = c.Graph.CheckIntentOwner(ctx, comment.Record.Repository, author, c.Actor); err != nil {
+		return errors.New("Feedback needs current repository write access. Restore access before retrying.")
+	}
+	marker := "<!-- soda-feed:" + comment.Record.ID + ":r" + strconv.FormatInt(comment.Record.Revision, 10) + " -->"
+	body := "Feedback from @" + comment.AuthorName + " in the project feed:\n\n" + comment.Body
+	return writer.DeliverIssueFeedback(ctx, comment.Record.Repository, issue, c.Actor, marker, body)
+}
+
 // commentIssueOperationID binds one native operation to one comment:
 // repeated intake for the same source resolves the existing effect.
 func commentIssueOperationID(comment string) string {

@@ -32,6 +32,7 @@ test('application receipts preserve stable administrator precision and refuse un
   const source = fixture();
   assert.equal(applicationResponse(source).administrator_id, '9223372036854775807');
   assert.equal(applicationResponse({...source, observation: null}).observation, null);
+  assert.equal(applicationResponse({...source, observation: {...source.observation, container: '', running: false, ready: false}}).observation?.container, '');
   assert.throws(() => applicationResponse({...source, observation: {...source.observation, revision: 2}}));
   assert.throws(() => applicationResponse({...source, observation: {...source.observation, running: false}}));
   assert.throws(() =>

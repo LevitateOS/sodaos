@@ -165,15 +165,14 @@ func (s *Store) OperatorApplication(ctx context.Context, id string) (application
 	return scanApplication(s.db.QueryRowContext(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.id=$1`, id))
 }
 
-// Applications returns a bounded inventory for one admitted administrator.
+// Applications returns the inventory for one admitted administrator.
 func (s *Store) Applications(ctx context.Context, actorID int64) ([]application.Record, error) {
-	return s.applicationInventory(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.administrator_id=$1 ORDER BY a.id LIMIT 33`, actorID)
+	return s.applicationInventory(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.administrator_id=$1 ORDER BY a.id`, actorID)
 }
 
-// OperatorApplications requires operator admission by its caller. The 33rd row
-// signals incomplete inventory rather than silently claiming complete coverage.
+// OperatorApplications requires operator admission by its caller.
 func (s *Store) OperatorApplications(ctx context.Context) ([]application.Record, error) {
-	return s.applicationInventory(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision ORDER BY a.id LIMIT 33`)
+	return s.applicationInventory(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision ORDER BY a.id`)
 }
 
 func (s *Store) applicationInventory(ctx context.Context, query string, args ...any) ([]application.Record, error) {

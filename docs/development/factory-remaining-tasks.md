@@ -80,6 +80,8 @@ R52/P30 → R53 → R55; R54 must not wait for its own installed candidate.
 <a id="tomorrow-manual-testing"></a>
 ## Immediate priority: tomorrow's manual testing
 
+The [19 October UI/UX investigation](ux-audit-2026-10-19.md) records 62 concrete defects and unfinished user journeys, with code locations and evidence strength. Installed components below do not establish a usable manual-testing path. The immediate repairs are reachable scrolling/feed navigation, project-scoped activity and URLs, truthful statuses, working comment recovery, preservation of Factory settings, and recoverable provider sign-in. Apply those findings within their existing task owners; the audit's repair-order table gives the next sequence without adding another backlog. The repository-specific workspace route already exists in the native host; project selection fails to use it consistently.
+
 The owner wants to make simple Canlang apps on a libvirt-hosted SodaOS and watch
 the entire Factory feed, including a comment that JEV routes to an LLM-authored
 issue. This is the next development target. The owner subsequently authorized

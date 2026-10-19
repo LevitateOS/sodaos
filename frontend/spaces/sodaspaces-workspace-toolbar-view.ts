@@ -26,7 +26,7 @@ export function renderToolbarProject(
   projectName: string
 ) {
   if (kind !== 'page') return '';
-  const stateBadge = space ? html`<span class="soda-project-state" data-state=${state}>${status}</span>` : '';
+  const stateBadge = space ? html`<span class="soda-project-state" data-state=${state}>Environment: ${status}</span>` : '';
   const title = toolbarProjectTitle(space, projectName);
   return html`<div class="soda-selected-project">
     <div class="soda-project-heading">

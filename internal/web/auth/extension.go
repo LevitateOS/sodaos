@@ -48,6 +48,7 @@ func ExtensionContribution(packageID string, contribution extensions.Contributio
 	if packageID != "soda" {
 		return false
 	}
-	return contribution.Kind == "page" && contribution.ID == "spaces" && contribution.Scope == "global" ||
+	return contribution.Kind == "page" && (contribution.ID == "spaces" || contribution.ID == "feed" || contribution.ID == "applications") && contribution.Scope == "global" ||
+		contribution.Kind == "page" && contribution.ID == "repository-feed" && contribution.Scope == "repository" ||
 		contribution.Kind == "panel" && contribution.ID == "workspace" && contribution.Scope == "panel"
 }

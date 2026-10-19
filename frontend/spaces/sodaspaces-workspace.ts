@@ -413,6 +413,8 @@ export class SodaSpaces extends LitElement {
       ...context,
     };
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
+    const requestedProject = new URLSearchParams(location.search).get('repository');
+    if (context.kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
     this.view = context.kind === 'page' ? 'work' : 'terminal';
     this.factory = factory;
     this.storageKey = '';
@@ -445,18 +447,20 @@ export class SodaSpaces extends LitElement {
     const entered = pathname !== this.routePathname || kind !== this.binding.kind;
     this.routePathname = pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
+    const requestedProject = new URLSearchParams((route ? new URL(route, location.href) : new URL(location.href)).search).get('repository');
+    if (kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
     this.presentView(kind, entered, repositoryId);
     this.armNewRoute(kind, entered);
     this.requestUpdate();
   }
   private presentView(kind: 'page' | 'native', entered: boolean, repositoryId?: string) {
+    if (repositoryId) this.project = repositoryId;
     if (kind === 'native') {
       if (this.view === 'work' || this.view === 'plans') this.view = 'terminal';
       return;
     }
     if (this.selected) return;
     if (entered && this.view === 'terminal') this.view = 'work';
-    if (repositoryId) this.project = repositoryId;
   }
   private presentedRoute(route?: string) {
     return route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
@@ -892,7 +896,7 @@ export class SodaSpaces extends LitElement {
     </nav>`;
   }
   private projectWorkContext() {
-    return this.binding && this.actor && !this.stale && this.available
+    return this.binding && this.actor && !this.stale
       ? {
           transport: this.binding.transport,
           mode: this.view === 'plans' ? ('all-plans' as const) : ('project' as const),
@@ -900,6 +904,7 @@ export class SodaSpaces extends LitElement {
           repositoryNames: new Map(
             this.spaces.map((space) => [space.environment.repository_id, this.projectName(space)])
           ),
+          account: this.actor.id,
         }
       : undefined;
   }
@@ -1311,6 +1316,8 @@ export class SodaSpaces extends LitElement {
     if (this.binding?.kind === 'page') {
       this.view = 'work';
       this.choosingPane = undefined;
+      const name = space.environment.repository;
+      if (name.includes('/')) this.binding.navigate?.(`${this.repositoryPrefix()}/${name}/workspace`);
       return;
     }
     this.back();

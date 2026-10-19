@@ -105,7 +105,7 @@ function observation(value: unknown, application: ApplicationSpec): ApplicationO
   if (value === null) return null;
   const o = object(value);
   check(observationReferences(o, application));
-  check(sha(o.container) && typeof o.running === 'boolean' && typeof o.ready === 'boolean' && (!o.ready || o.running));
+  check((sha(o.container) || (o.container === '' && o.running === false && o.ready === false)) && typeof o.running === 'boolean' && typeof o.ready === 'boolean' && (!o.ready || o.running));
   return {
     id: application.id,
     revision: application.revision,
@@ -133,7 +133,6 @@ export function applicationsResponse(value: unknown): {applications: Application
   check(
     Object.keys(v).length === 2 &&
       Array.isArray(v.applications) &&
-      v.applications.length <= 32 &&
       typeof v.complete === 'boolean'
   );
   const applications = v.applications.map((item) => applicationResponse(item));

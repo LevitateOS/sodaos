@@ -70,6 +70,24 @@ func (s *API) apiIdentityConnections(w http.ResponseWriter, r *http.Request, v s
 	s.identityResult(w, r, v, result, err)
 }
 
+func (s *API) apiIdentityEnrollments(w http.ResponseWriter, r *http.Request, v store.Session) {
+	if !s.identityAdmission(w, r, v) {
+		return
+	}
+	reader, ok := s.Identity.(interface {
+		Enrollments(context.Context, int64) ([]identity.Enrollment, error)
+	})
+	if !ok {
+		auth.JSONError(w, 503, "identity_unavailable", "Sign-in recovery is unavailable.")
+		return
+	}
+	items, err := reader.Enrollments(r.Context(), v.User.ID)
+	if items == nil {
+		items = []identity.Enrollment{}
+	}
+	s.identityResult(w, r, v, items, err)
+}
+
 func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.identityAdmission(w, r, v) {
 		return

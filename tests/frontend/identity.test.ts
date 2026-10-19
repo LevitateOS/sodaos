@@ -109,6 +109,7 @@ test(
             return Response.json({terminal_id: 'a'.repeat(32)});
           }
           if (url.pathname.endsWith('/connections')) return Response.json([connection]);
+          if (url.pathname.endsWith('/members')) return Response.json({items: [{user_id: '1', login: 'tester'}], authority_unavailable: false});
           return Response.json([]);
         }
         return new Response('<!doctype html><html><head><link rel="icon" href="data:,"></head><body></body></html>', {

@@ -68,6 +68,17 @@ func (s *API) apiFactoryFeed(w http.ResponseWriter, r *http.Request, v store.Ses
 		auth.JSONError(w, 503, "store_unavailable", "Could not read feed subscription.")
 		return
 	}
+	if r.URL.Query().Get("scope") == "project" {
+		if len(query.Repositories) != 1 {
+			auth.JSONError(w, 400, "invalid_request", "Select one project.")
+			return
+		}
+		if _, err := s.visibleRepository(r, v, query.Repositories[0]); err != nil {
+			auth.JSONError(w, 404, "repository_not_found", "Project is not visible.")
+			return
+		}
+		sub = factory.FeedSubscription{Subscriber: subscriber, Revision: 1, Repositories: query.Repositories}
+	}
 	projects := make(map[int64]string)
 	visible := func(entry factory.FeedEntry) bool {
 		access, err := s.visibleRepository(r, v, entry.Repository)

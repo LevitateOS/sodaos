@@ -59,8 +59,10 @@ func allowedContribution(request extensions.ContributionRequest) bool {
 	contribution := request.Contribution
 	if contribution.Kind == "page" {
 		switch contribution.ID {
-		case "spaces":
+		case "spaces", "feed", "applications":
 			return contribution.Scope == "global"
+		case "repository-feed":
+			return contribution.Scope == "repository" && request.RepositoryID != ""
 		default:
 			return false
 		}

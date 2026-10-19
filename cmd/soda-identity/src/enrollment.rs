@@ -3,6 +3,16 @@ use super::control::{new_id, zeroize, Controller, EnrollmentEntry, State};
 use crate::wire::{Enrollment, Error, READY};
 
 impl Controller {
+    pub fn enrollments(&self, owner: i64) -> Result<Vec<Enrollment>, Error> {
+        if owner <= 0 { return Err(Error::denied("identity authority denied")); }
+        let ids: Vec<String> = {
+            let state = self.lock();
+            state.enrollments.iter().filter(|(_, entry)| entry.owner == owner && entry.session.is_some())
+                .map(|(id, _)| id.clone()).collect()
+        };
+        ids.iter().map(|id| self.enrollment(owner, id)).collect()
+    }
+
     fn pending_enrollment(state: &State, owner: i64, provider_id: &str) -> bool {
         state.enrollments.values().any(|entry| {
             entry.owner == owner

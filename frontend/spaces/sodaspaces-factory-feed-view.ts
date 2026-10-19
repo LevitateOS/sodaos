@@ -1,4 +1,5 @@
 import {html} from 'lit';
+import {live} from 'lit/directives/live.js';
 import type {TemplateResult} from 'lit';
 import type {CommentPipelineState, FeedEntry} from './sodaspaces-factory-feed-response.js';
 import {commentAttemptsExhausted, feedEntryKey} from './sodaspaces-factory-feed-response.js';
@@ -83,19 +84,34 @@ export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryR
     key: feedEntryKey(entry),
     avatarInitial: name.slice(0, 1).toUpperCase(),
     name,
-    role: roleLabel(entry.actor) ?? (recorded ? 'factory record' : 'comment'),
+    role: roleLabel(entry.actor && !/^\d+$/.test(entry.actor) ? entry.actor : undefined) ?? (recorded ? 'Factory' : 'Comment'),
     project: entry.project ?? repository.label,
     timeText: entry.at ? formatStamp(entry.at) : `recorded order #${entry.seq}, newest first`,
-    statusText: entry.status ?? (recorded ? 'Recorded canonical work.' : 'Discussion post.'),
+    statusText: readableStatus(entry),
     milestoneText: milestoneText(entry),
   };
+}
+
+function readableStatus(entry: FeedEntry): string {
+  const status = entry.status ?? '';
+  if (/cancelled|canceled|stopped/.test(status)) return 'Stopped';
+  if (/needs-human|request-changes|clarify/.test(status)) return 'Needs your attention';
+  if (classifyFeedStatus(status) === 'failure') return 'Needs attention';
+  if (status === 'route:discussion') return 'Comment';
+  if (status === 'route:existing_work') return 'Linked to work';
+  if (status === 'feedback:delivered') return 'Feedback delivered';
+  if (classifyFeedStatus(status) === 'settled') return 'Completed';
+  if (/running/.test(status)) return 'Working';
+  if (/assess/.test(status)) return 'Assessing';
+  if (/pending|queued/.test(status)) return 'Waiting';
+  return entry.kind === 'post' ? 'Comment' : 'Recorded';
 }
 
 function formatStamp(at: number): string {
   if (!Number.isSafeInteger(at) || at <= 0) return 'time unrecorded';
   const date = new Date(at * 1000);
   if (!Number.isFinite(date.getTime())) return 'time unrecorded';
-  return date.toLocaleString();
+  return date.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 }
 
 export type PostBodyState =
@@ -124,7 +140,7 @@ export function describePostBody(body: PostBodyState): PostBodyModel {
 
 export function renderPostBody(model: PostBodyModel): TemplateResult {
   return html`<section aria-label="Discussion text">
-    <p>${model.bodyText}${model.editedText}</p>
+    <p class="soda-feed-body-text">${model.bodyText}${model.editedText}</p>
   </section>`;
 }
 
@@ -198,7 +214,7 @@ export function describeDecisionAttention(entry: FeedEntry, denied: boolean): De
   if (statusClass === 'failure')
     return {
       tone: 'notice',
-      attentionText: `Attention needed: recorded status is ${entry.status}. Preserved work and its evidence stay linked above; nothing here marks it resolved.`,
+      attentionText: 'This work needs attention. See the result above.',
     };
   if (statusClass === 'unknown' && entry.status !== undefined)
     return {
@@ -213,6 +229,10 @@ export function describeDecisionAttention(entry: FeedEntry, denied: boolean): De
 export type CommentOutcomeTone = 'progress' | 'settled' | 'failed';
 
 export interface CommentOutcomeModel {
+  readonly needsClarification?: boolean;
+  readonly canRetry?: boolean | undefined;
+  readonly revision?: number;
+  readonly detail?: string | undefined;
   readonly commentId: string;
   readonly text: string;
   readonly tone: CommentOutcomeTone;
@@ -271,6 +291,7 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
       label: 'Persisted selected-issue link',
       state: selected > 0 ? `done — issue #${selected}` : state.effect === 'pending' ? 'pending' : 'not recorded',
     });
+    stages.push({label: 'Issue discussion feedback', state: state.effect === 'applied' || state.effect === 'verified' ? 'delivered' : commentAttemptsExhausted(state) ? 'stopped — retry needed' : 'delivery not confirmed'});
   }
   return stages;
 }
@@ -313,6 +334,10 @@ export function describeCommentOutcome(
     retryable,
     sourceText,
     stages: commentStages(state),
+    canRetry: state.canRetry,
+    revision: state.revision,
+    detail: state.detail,
+    needsClarification: state.route === 'clarify',
   });
   if (commentAttemptsExhausted(state)) {
     if (state.judgment === 'pending' || state.judgment === 'failed')
@@ -339,6 +364,8 @@ export function describeCommentOutcome(
   if (state.route === 'clarify')
     return outcome('Waiting on clarification from the author before any further routing.', 'progress', false);
   if (state.route === 'existing_work') {
+    if (state.effect === 'applied' || state.effect === 'verified')
+      return outcome(`Feedback added to issue #${selectedExisting}.${linked}`, 'settled', false);
     if (selectedExisting <= 0 && state.effect === 'pending')
       return outcome(
         'Routed to already tracked work. The persisted selected-issue link appears here once it lands; checking progress reads stored state only.',
@@ -379,6 +406,7 @@ export function describeCommentOutcome(
 }
 
 export interface DiscussionModel {
+  readonly showComposer?: boolean;
   readonly label?: string;
   readonly submitLabel?: string;
   readonly key: string;
@@ -407,7 +435,7 @@ export function describeDiscussion(
     outcomes,
     intakeText:
       'Submitting asks JEV to route this comment; a selected new request reaches Product Lead authoring and validated native creation. Acknowledgements stay discussion-only.',
-    discussionLink: repository.path === undefined ? undefined : `${repository.path}/issues`,
+    discussionLink: repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
   };
 }
 
@@ -415,7 +443,7 @@ export function renderPostHeader(model: PostHeaderModel): TemplateResult {
   return html`<div class="soda-feed-header">
     <span class="soda-feed-avatar" aria-hidden="true">${model.avatarInitial}</span>
     <div>
-      <p><strong>${model.name}</strong> · ${model.role} · ${model.project}</p>
+      <p><strong>${model.name}</strong>${model.role !== model.name ? html` · ${model.role}` : ''} · ${model.project}</p>
       <p>${model.timeText} · ${model.statusText}</p>
       ${model.milestoneText ? html`<p>${model.milestoneText}</p>` : ''}
     </div>
@@ -454,7 +482,6 @@ export function renderDecisionAttention(model: DecisionAttentionModel): Template
 
 export function renderDiscussion(model: DiscussionModel): TemplateResult {
   return html`<section aria-label="Discussion">
-    <p>${model.intakeText}</p>
     ${model.outcomes.map(
       (outcome) => html`<div class="soda-feed-outcome">
         <p role=${outcome.tone === 'failed' ? 'alert' : 'status'}>
@@ -467,15 +494,17 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
               : ''
           }
         </p>
+        ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
+        ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}</button>` : ''}
         ${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}
-        <ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
+        <details><summary>Processing details</summary><ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
           ${outcome.stages.map((stage) => html`<li><strong>${stage.label}</strong> — ${stage.state}</li>`)}
-        </ol>
+        </ol></details>
       </div>`
     )}
-    <label
+    ${model.showComposer === false ? '' : html`<label
       >${model.label ?? 'Reply draft'}
-      <textarea name="reply" data-feed-draft=${model.key} rows="2" maxlength="4000">${model.draft}</textarea>
+      <textarea name="reply" data-feed-draft=${model.key} rows="3" maxlength="4000" .value=${live(model.draft)}></textarea>
     </label>
     <p>
       <button
@@ -487,8 +516,8 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
       >
         ${model.submitLabel ?? 'Submit reply'}
       </button>
-      ${model.discussionLink ? html`<a href=${model.discussionLink}>Open native discussion</a>` : 'Native discussion link unavailable.'}
-    </p>
+      ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
+    </p>`}
   </section>`;
 }
 
@@ -532,18 +561,21 @@ export function describeFeedPost(
 // A registered family section is the focal visual; discussion posts lead
 // with their stored text and fallback entries keep the generic work
 // section, so no entry loses its facts, failures or links.
-export function renderFeedPost(model: FeedPostModel): TemplateResult {
+export function renderFeedPost(model: FeedPostModel, replies: TemplateResult | string = ''): TemplateResult {
   const focal =
     model.family.family === 'discussion'
-      ? renderWorkEvidence(model.work)
+      ? ''
       : model.family.family === 'fallback'
         ? html`${renderFeedFamily(model.family)} ${renderWorkEvidence(model.work)}`
         : renderFeedFamily(model.family);
-  return html`<article class="soda-feed-post">
+  return html`<article class="soda-feed-post" id=${'feed-' + model.header.key.replace(':', '-')} data-status=${model.family.statusClass}>
     ${renderPostHeader(model.header)}
     <div class="soda-feed-card">
-      ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal} ${renderPlanIssue(model.plan)}
-      ${renderDecisionAttention(model.attention)} ${renderDiscussion(model.discussion)}
+      ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
+      ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}
+      ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''}
+      ${replies}
+      <details class="soda-feed-replies"><summary>Reply</summary>${renderDiscussion({...model.discussion, outcomes: []})}</details>
     </div>
   </article>`;
 }

@@ -49,7 +49,7 @@ func admitApplicationAction(record application.Record, in applicationAction) (ap
 
 func admitApplicationGeneration(record application.Record, in applicationAction) error {
 	if in.Action == "install" {
-		if record.Application.Revision != 1 || record.Observation != nil {
+		if record.Application.Revision != 1 || (record.Observation != nil && record.Observation.Container != "") || in.ExpectedContainer != "" {
 			return errors.New("application action differs from current admission")
 		}
 	} else {

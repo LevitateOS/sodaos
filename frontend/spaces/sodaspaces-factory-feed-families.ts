@@ -101,6 +101,10 @@ export function classifyFeedStatus(status: string | undefined): FeedStatusClass 
   if (status === undefined) return 'unknown';
   const text = status.trim().toLowerCase();
   if (text === '') return 'unknown';
+  if (/(?:^|:)(?:failed|invalid|blocked|stuck|unconfirmed|cancelled|canceled|needs-human|stopped|request-changes|clarify)(?=:|$)/.test(text)) return 'failure';
+  if (/^route:(?:discussion|existing_work)$/.test(text)) return 'settled';
+  if (text === 'feedback:delivered') return 'settled';
+  if (/^(?:judgment:applied|draft:valid|effect:created)$/.test(text)) return 'settled';
   if (text.includes(':')) {
     const segments = parseFeedStatusSegments(text);
     if (segments.phase !== undefined) {
@@ -247,7 +251,7 @@ const familyText: Readonly<Record<FeedFamily, {label: string; detail: string}>> 
   knowledge: {
     label: 'Knowledge',
     detail:
-      'The library entry, its evidence and revision history open in the existing library views. A recorded lesson keeps its support and applicability labels.',
+      'Recorded knowledge and its supporting evidence. Open the linked source to inspect the original context.',
   },
   decision: {
     label: 'Recorded decision',
@@ -317,8 +321,8 @@ function humanSegment(segment: string): string {
 }
 
 function stageState(segments: FeedStatusSegments): string {
-  if (segments.outcome && /fail|refus|reject|error/i.test(segments.outcome)) return 'failed';
-  if (segments.stage === 'finished') return 'done';
+  if (segments.outcome && /fail|refus|reject|error|cancel|needs-human|stopped/i.test(segments.outcome)) return 'stopped';
+  if (segments.stage === 'finished') return segments.outcome === 'succeeded' ? 'done' : 'not completed';
   if (segments.stage) return 'current';
   return 'not recorded';
 }
@@ -382,7 +386,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
           kind: 'steps',
           heading: 'Proposal adoption (PL08/PL11)',
           steps: [
-            {label: 'Product plan submitted', state: stageState(segments)},
+            {label: 'Product planning', state: stageState(segments)},
             ...(segments.outcome
               ? [{label: `Recorded outcome: ${humanSegment(segments.outcome)}`, state: stageState(segments)}]
               : []),
@@ -410,7 +414,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
           kind: 'steps',
           heading: 'Plan handoff',
           steps: [
-            {label: 'Investigation and plan recorded', state: stageState(segments)},
+            {label: 'Investigation', state: stageState(segments)},
             {
               label: 'Builder admitted on the accepted plan',
               state:
@@ -578,9 +582,9 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
           rows: [
             {
               term: 'State',
-              value: segments.outcome ? humanSegment(segments.outcome) : 'open until answered and incorporated',
+              value: segments.outcome ? humanSegment(segments.outcome) : 'needs an answer',
             },
-            {term: 'Answer path', value: 'reply in the discussion below; the answer routes back to this work'},
+            {term: 'Answer path', value: 'reply below to add your answer to the project conversation'},
             ...phaseRows,
           ],
         },
@@ -1183,7 +1187,7 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
   return {
     family,
     label: text.label,
-    headline: `${text.label} recorded for ${project}.`,
+    headline: `${text.label}${statusClass === 'failure' ? ' needs attention' : statusClass === 'settled' ? ' completed' : statusClass === 'waiting' ? ' in progress' : ' stopped'}`,
     detailText: text.detail,
     stateText:
       entry.status !== undefined
@@ -1194,11 +1198,14 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
     nextText: nextTextFor(statusClass),
     statusClass,
     sourceLinks: familyLinks(family, repository, entry),
-    blocks: [...typed, ...familyBlocks(family, entry, parseFeedStatusSegments(entry.status))],
+    blocks: (typed.length ? typed : statusClass === 'failure' && (family === 'plan' || family === 'issue')
+      ? (entry.summary ? [{kind: 'brief' as const, heading: 'What happened', text: entry.summary}] : [])
+      : familyBlocks(family, entry, parseFeedStatusSegments(entry.status))),
   };
 }
 
 function renderFeedBlock(block: FeedBlock): TemplateResult {
+  block = {...block, heading: block.heading.replace(/\s*\([A-Z]+\d+[^)]*\)/g, '')};
   const note = block.note ? html`<p class="soda-feed-block-note">${block.note}</p>` : '';
   switch (block.kind) {
     case 'alert':
@@ -1273,17 +1280,17 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
 export function renderFeedFamily(model: FeedFamilyModel): TemplateResult {
   return html`<section aria-label=${model.label} data-feed-family=${model.family}>
     <p><strong>${model.headline}</strong></p>
-    <p role=${model.statusClass === 'failure' ? 'alert' : 'status'}>${model.stateText}</p>
     ${model.blocks.map(renderFeedBlock)}
     <details class="soda-feed-record-details">
-      <summary>About this record</summary>
+      <summary>Details</summary>
+      <p>${model.stateText}</p>
       <p>${model.detailText}</p>
       <p>${model.nextText}</p>
     </details>
     ${
       model.sourceLinks.length > 0
         ? html`<p>${model.sourceLinks.map((link) => html`<a href=${link.href}>${link.label}</a> `)}</p>`
-        : html`<p>Source links unavailable.</p>`
+        : ''
     }
   </section>`;
 }

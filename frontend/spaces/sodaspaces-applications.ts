@@ -16,6 +16,7 @@ export class SodaApplications extends LitElement {
   static properties = {
     request: {attribute: false},
     active: {type: Boolean},
+    expanded: {type: Boolean},
     sessionKey: {attribute: false},
     records: {state: true},
     notice: {state: true},
@@ -25,6 +26,7 @@ export class SodaApplications extends LitElement {
   };
   declare request: ApplicationRequest | undefined;
   declare active: boolean;
+  declare expanded: boolean;
   declare sessionKey: string;
   declare private records: ApplicationRecord[];
   declare private notice: string;
@@ -37,6 +39,7 @@ export class SodaApplications extends LitElement {
     super();
     this.request = undefined;
     this.active = false;
+    this.expanded = false;
     this.sessionKey = '';
     this.records = [];
     this.notice = '';
@@ -92,16 +95,31 @@ export class SodaApplications extends LitElement {
         this.complete = result.complete;
         this.confirmations = new Set();
         this.notice = this.records.length ? '' : 'No applications are assigned to you.';
+        void this.inspectAll();
       },
       () => {
-        this.records = [];
-        this.notice = 'Application records could not be read. Refresh after reconnecting.';
+        this.notice = 'Could not refresh applications. Showing the last available results. Try Refresh after reconnecting.';
       }
     );
   }
-  private act(record: ApplicationRecord, action: 'inspect' | 'start' | 'stop') {
+  private async inspectAll() {
+    // Status inspection reads the running app; it never installs or starts it.
+    await this.updateComplete;
+    const epoch = this.epoch;
+    for (const record of [...this.records]) {
+      if (!this.current(epoch) || !this.request) break;
+      try {
+        const result = applicationResponse(await this.request(`/api/applications/${record.application.id}/actions`, {
+          action:'inspect', revision:record.application.revision, expected_container:record.observation?.container ?? '', confirm_stop:false,
+        }, this.controller?.signal),record.application);
+        if (!this.current(epoch)) break;
+        this.records = this.records.map(row=>row.application.id===record.application.id ? result : row);
+      } catch { if (this.current(epoch)) this.notice = 'Some application status checks failed. Open the app or refresh to try again.'; }
+    }
+  }
+  private act(record: ApplicationRecord, action: 'inspect' | 'install' | 'start' | 'stop') {
     if (!this.records.includes(record)) return;
-    if (action !== 'inspect' && !record.observation) return;
+    if (action !== 'inspect' && action !== 'install' && !record.observation) return;
     if (action === 'stop' && !this.confirmations.has(record.application.id)) return;
     const body = {
       action,
@@ -135,6 +153,7 @@ export class SodaApplications extends LitElement {
   }
   private status(record: ApplicationRecord) {
     if (!record.observation) return 'State unknown';
+    if (!record.observation.container) return 'Not installed';
     if (!record.observation.running) return 'Stopped';
     return record.observation.ready ? 'Ready' : 'Running; readiness unconfirmed';
   }
@@ -143,6 +162,7 @@ export class SodaApplications extends LitElement {
       <strong>${record.application.name}</strong> · Last observed: ${this.status(record)}
       <p>${record.application.origin}</p>
       ${this.openApplication(record)}
+      ${record.operator && record.observation && !record.observation.container ? html`<button type="button" class="ui button" ?disabled=${this.blocked()} @click=${() => void this.act(record, 'install')}>Install ${record.application.name}</button>` : ''}
       <button
         type="button"
         class="ui button"
@@ -182,18 +202,18 @@ export class SodaApplications extends LitElement {
     return this.busy || !this.active;
   }
   private startBlocked(record: ApplicationRecord) {
-    return this.blocked() || !record.observation || record.observation.running;
+    return this.blocked() || !record.observation?.container || record.observation.running;
   }
   private stopBlocked(record: ApplicationRecord) {
     return this.blocked() || !record.observation?.running;
   }
   private openApplication(record: ApplicationRecord) {
-    return record.observation?.ready
-      ? html`<a href=${record.application.origin} target="_blank" rel="noopener noreferrer">Open application</a>`
-      : '';
+    return html`<a href=${record.application.origin} target="_blank" rel="noopener noreferrer">Open application ↗</a>`;
   }
   protected render() {
-    return html`<details class="soda-applications" aria-busy=${this.busy ? 'true' : 'false'}>
+    return html`<details class="soda-applications" ?open=${this.expanded} aria-busy=${this.busy ? 'true' : 'false'} @toggle=${(event: Event) => {
+      if ((event.currentTarget as HTMLDetailsElement).open && !this.records.length && !this.busy) void this.refresh();
+    }}>
       <summary>Applications</summary>
       <button
         type="button"
@@ -204,7 +224,7 @@ export class SodaApplications extends LitElement {
         Refresh applications
       </button>
       <p role="status">${this.notice}</p>
-      ${!this.complete ? html`<p>Only the first 32 applications are shown. Ask the operator for the remaining records.</p>` : ''}
+      ${!this.complete ? html`<p>Some application details could not be loaded. Refresh to try again.</p>` : ''}
       <ul>
         ${repeat(
           this.records,

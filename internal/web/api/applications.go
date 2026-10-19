@@ -95,10 +95,7 @@ func (s *API) apiApplications(w http.ResponseWriter, r *http.Request, v store.Se
 	if !s.checkLifecycleSession(w, r, v) {
 		return
 	}
-	complete := len(records) <= 32
-	if !complete {
-		records = records[:32]
-	}
+	complete := true
 	views := make([]applicationView, 0, len(records))
 	for _, record := range records {
 		views = append(views, appView(record, operator))

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -83,7 +84,7 @@ type IntentRevision struct {
 }
 
 func intentText(s string, limit int) bool {
-	return strings.TrimSpace(s) != "" && len(s) <= limit && !strings.ContainsRune(s, 0)
+	return strings.TrimSpace(s) != "" && utf8.RuneCountInString(s) <= limit && !strings.ContainsRune(s, 0)
 }
 
 func (r IntentRevision) Validate() error {

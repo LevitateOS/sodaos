@@ -191,7 +191,9 @@ test('repository policy preserves canonical role selections and submits only act
                 create_actor: {...actors.create_actor, kind: 'pull_request.create'},
                 review_actor: {...actors.review_actor, kind: 'pull_request.review.submit'},
                 merge_actor: {...actors.merge_actor, kind: 'pull_request.merge'},
-                attempt_limits: {active_minutes: 10, correction_cycles: 1},
+                attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
+                intent_minutes: 9,
+                reassessment_minutes: 17,
                 max_concurrent: 1,
               },
             })
@@ -242,7 +244,9 @@ test('repository policy preserves canonical role selections and submits only act
         required_checks: ['native-check', 'review-check'],
         roles,
         ...actors,
-        attempt_limits: {active_minutes: 10, correction_cycles: 1},
+        attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
+        intent_minutes: 9,
+        reassessment_minutes: 17,
         max_concurrent: 1,
       },
     }
@@ -946,7 +950,7 @@ test('provider budget reports a forbidden response and does not repeat the comma
   await settings.getByRole('button', {name: 'Save connection budget'}).click();
   await settings.getByRole('status').filter({hasText: 'not confirmed (403)'}).waitFor();
   sessionInvalid = (await settings.getAttribute('data-invalid')) === 'yes' ? 1 : 0;
-  assert.equal(sessionInvalid, 1);
+  assert.equal(sessionInvalid, 0, 'an ordinary permission refusal must not retire the signed-in session');
   const budgetWrites = (await writes(page)).filter((call) =>
     call.url.endsWith('/api/factory/connections/connection-observed/usage-budget')
   );
@@ -1174,6 +1178,7 @@ test('Factory execution usage reports exact minutes, editability and required ac
 test('Factory execution usage stays honestly unavailable without the access read', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {
+    window.drawerFixture.setReply(async call => call.url.endsWith('/factory/access') ? Response.json({error:{code:'unavailable'}},{status:503}) : null);
     window.drawerFixture.api.setPresentation('settings');
   });
   await refresh(page);

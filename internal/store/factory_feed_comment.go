@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -31,6 +32,35 @@ type FeedCommentDetail struct {
 	At         int64
 	Status     string
 	Source     *factory.CommentSource
+}
+
+// FeedReplyIDs lists the actual conversation, including replies from other
+// browsers. The caller authorizes the repository and source before this read.
+func (s *Store) FeedReplyIDs(ctx context.Context, repository int64, kind, source string, before int64) ([]string, int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id,seq FROM factory_feed_comments
+		WHERE repository=$1 AND (($2='post' AND data->>'reply_to'=$3) OR (data->'source'->>'kind'=$2 AND data->'source'->>'id'=$3))
+		AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
+		AND ($4::bigint=0 OR seq<$4) ORDER BY seq DESC LIMIT 21`, repository, kind, source, before)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	var next, last int64
+	for rows.Next() {
+		var id string
+		var seq int64
+		if err := rows.Scan(&id, &seq); err != nil {
+			return nil, 0, err
+		}
+		if len(ids) == 20 {
+			next = last
+			break
+		}
+		ids = append(ids, id)
+		last = seq
+	}
+	return ids, next, rows.Err()
 }
 
 // SaveFeedComment persists one comment submission and returns its
@@ -105,7 +135,7 @@ func (s *Store) SaveFeedCommentWithSource(ctx context.Context, req factory.Comme
 // expected revision must match and the author must own the comment.
 // Deleted or revoked sources refuse the edit.
 func (s *Store) EditFeedComment(ctx context.Context, id, author, body string, expected int64, at int64) (int64, error) {
-	if len(body) == 0 || len(body) > factory.CommentBodyLimit || at <= 0 {
+	if len(body) == 0 || utf8.RuneCountInString(body) > factory.CommentBodyLimit || at <= 0 {
 		return 0, errors.New("comment edit needs its bounded body and time")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -307,7 +337,8 @@ func (s *Store) AdvanceCommentPipeline(ctx context.Context, expected, next facto
 		return errors.New("comment pipeline advance needs its comment identity")
 	}
 	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
-		SET revision=$2,intake=$3,judgment=$4,route=$5,draft=$6,effect=$7,issue=$8,attempts=$9
+		SET revision=$2,intake=$3,judgment=$4,route=$5,draft=$6,effect=$7,issue=$8,attempts=$9,
+		data=CASE WHEN $12='pending' AND $4='applied' AND $5='existing_work' THEN data || jsonb_build_object('feedback_revision',$2::bigint) ELSE data END
 		WHERE comment=$1 AND revision=$10 AND intake=$11 AND judgment=$12 AND route=$13 AND draft=$14 AND effect=$15 AND issue=$16 AND attempts=$17`,
 		next.Comment, next.Revision, next.Intake, next.Judgment, next.Route, next.Draft, next.Effect, next.Issue, next.Attempts,
 		expected.Revision, expected.Intake, expected.Judgment, expected.Route, expected.Draft, expected.Effect, expected.Issue, expected.Attempts)
@@ -557,8 +588,9 @@ func (s *Store) PendingCommentPipelines(ctx context.Context, limit int) ([]facto
 		AND r.attempts<$2
 		AND (r.judgment='pending'
 			OR (r.judgment='applied' AND r.route='new_issue'
-				AND (r.draft='pending' OR (r.draft='applied' AND r.effect IN ('pending','failed')))))
-		ORDER BY r.comment LIMIT $1`, limit, factory.CommentAttemptLimit)
+				AND (r.draft='pending' OR (r.draft='applied' AND r.effect IN ('pending','failed'))))
+			OR (r.judgment='applied' AND r.route='existing_work' AND r.effect IN ('pending','failed') AND (r.data->>'feedback_revision')::bigint=r.revision))
+		ORDER BY COALESCE(r.data->>'last_checked_at',''),c.seq LIMIT $1`, limit, factory.CommentAttemptLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -575,6 +607,81 @@ func (s *Store) PendingCommentPipelines(ctx context.Context, limit int) ([]facto
 		out = append(out, pipe)
 	}
 	return out, rows.Err()
+}
+
+// NoteCommentProgress retains a safe user-facing reason and rotates waiting
+// requests through the continuation queue without consuming model attempts.
+func (s *Store) NoteCommentProgress(ctx context.Context, id, detail string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+		SET data=data || jsonb_build_object('last_checked_at',clock_timestamp()::text,'detail',$2::text) WHERE comment=$1`, id, TruncateFeedSummary(detail))
+	return err
+}
+
+func (s *Store) CommentProgress(ctx context.Context, id string) (string, error) {
+	var detail string
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(data->>'detail','') FROM factory_feed_comment_requests WHERE comment=$1`, id).Scan(&detail)
+	return detail, err
+}
+
+func (s *Store) CommentFeedbackRequested(ctx context.Context, id string, revision int64) (bool, error) {
+	var pending bool
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE((data->>'feedback_revision')::bigint=$2,false) FROM factory_feed_comment_requests WHERE comment=$1`, id, revision).Scan(&pending)
+	return pending, err
+}
+
+// RetryFeedComment preserves the original post and prior processing history.
+// Uncertain issue writes keep their draft/identity for reconciliation; a new
+// judgment/planning attempt gets a new source revision instead of another post.
+func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expected int64, body string, at int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var savedAuthor, oldBody string
+	var revision int64
+	var closed bool
+	if err := tx.QueryRowContext(ctx, `SELECT author,body,revision,COALESCE((data->>'deleted')::boolean,false) OR COALESCE((data->>'revoked')::boolean,false)
+		FROM factory_feed_comments WHERE id=$1 FOR UPDATE`, id).Scan(&savedAuthor, &oldBody, &revision, &closed); err != nil {
+		return err
+	}
+	if savedAuthor != author || revision != expected || closed {
+		return ErrStaleRevision
+	}
+	var draft, effect, route, judgment string
+	var attempts int
+	if err := tx.QueryRowContext(ctx, `SELECT draft,effect,route,judgment,attempts FROM factory_feed_comment_requests WHERE comment=$1 FOR UPDATE`, id).Scan(&draft, &effect, &route, &judgment, &attempts); err != nil {
+		return err
+	}
+	if !(factory.CommentPipeline{Draft: draft, Effect: effect, Route: route, Judgment: judgment, Attempts: attempts}).RetryAllowed() {
+		return errors.New("this request is still processing or has already completed")
+	}
+	if effect == factory.CommentEffectApplied || effect == factory.CommentEffectVerified {
+		return errors.New("this request already created an issue")
+	}
+	if body == "" {
+		body = oldBody
+	}
+	if err := (factory.CommentRequest{Repository: 1, Body: body, IdempotencyKey: "retry"}).Validate(); err != nil {
+		return err
+	}
+	if draft == factory.CommentDraftApplied {
+		if body != oldBody {
+			return errors.New("check the previous issue creation before changing this request")
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET attempts=0,data=data || '{"detail":""}'::jsonb WHERE comment=$1`, id)
+	} else {
+		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comments SET revision=revision+1,body=$2,
+		 data=data || jsonb_build_object('edited',true,'at',$3::bigint,'history',COALESCE(data->'history','[]'::jsonb) || jsonb_build_array(jsonb_build_object('revision',revision,'body',body))) WHERE id=$1`, id, body, at)
+		if err == nil {
+			_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET revision=$2,judgment='pending',route='',draft='pending',effect='pending',issue=0,attempts=0,
+		 data=jsonb_build_object('history',COALESCE(data->'history','[]'::jsonb) || jsonb_build_array(jsonb_build_object('revision',revision,'judgment',judgment,'route',route,'issue',issue))) WHERE comment=$1`, id, expected+1)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // RecentCommentWorkCandidates lists the most recently worked native
@@ -647,7 +754,12 @@ func PostStatus(pipe *factory.CommentPipeline) string {
 		return "judgment:failed"
 	}
 	switch pipe.Route {
-	case factory.CommentRouteDiscussion, factory.CommentRouteExistingWork, factory.CommentRouteClarify:
+	case factory.CommentRouteExistingWork:
+		if pipe.Effect == factory.CommentEffectApplied || pipe.Effect == factory.CommentEffectVerified {
+			return "feedback:delivered"
+		}
+		return "route:" + pipe.Route
+	case factory.CommentRouteDiscussion, factory.CommentRouteClarify:
 		return "route:" + pipe.Route
 	}
 	if pipe.Route != factory.CommentRouteNewIssue {

@@ -8,7 +8,7 @@ function onProjectOSChange(event: Event, blocked: boolean, select: (id: string) 
 function createdProjectOS(p: CreationProfile): TemplateResult {
   return html`<p>Rocky ${p.version} · headless · ${p.architecture}</p>
     <details>
-      <summary>Immutable creation identity</summary>
+      <summary>Environment details</summary>
       <dl>
         <dt>Profile</dt>
         <dd>${p.id}</dd>
@@ -24,8 +24,8 @@ function projectOSOptionLabel(p: CreationProfile, context: 'standard' | 'configu
   return `Rocky ${p.version} headless (${p.architecture})`;
 }
 function projectOSHelp(context: 'standard' | 'configure'): string {
-  if (context === 'configure') return 'A persistent Linux project for human development, debugging and intervention.';
-  return 'Headless provides terminal access to a persistent human project. KDE adds graphical access, but KDE and Fedora are not available in this build. Agent workspaces have a separate runtime and lifetime. Selection alone does not pull or start anything.';
+  if (context === 'configure') return 'A Linux environment for this project. Your files are kept when it stops.';
+  return 'Use a browser terminal or SSH to work in this environment. Your files are kept when it stops.';
 }
 function projectOSPicker(
   profiles: readonly CreationProfile[],
@@ -60,10 +60,6 @@ export function renderProjectOS(
   return html`<section aria-label="Project OS">
     <h3>Project OS</h3>
     ${p ? createdProjectOS(p) : html`<p>Legacy / unknown creation profile. The current image default is not this persistent root’s identity.</p>`}
-    <p>
-      Creation metadata describes the original image, not later installed packages. Changing distribution/interface for
-      an existing root is not implemented.
-    </p>
   </section>`;
 }
 

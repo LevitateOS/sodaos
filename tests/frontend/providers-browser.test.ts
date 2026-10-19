@@ -7,6 +7,7 @@ test('Providers starts device login, resumes its dialog, follows completion and 
   assert(build.success, build.logs.join('\n'));
   const script = await build.outputs[0]!.text();
   let completed = false, expired = false, starts = 0, cancels = 0;
+  const attempts = new Map<string, Record<string, string>>();
   const server = Bun.serve({hostname: '127.0.0.1', port: 0, async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === '/widget.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
@@ -19,9 +20,12 @@ test('Providers starts device login, resumes its dialog, follows completion and 
       assert(body.label);
       starts++;
       expired = false;
-      return Response.json({provider_id: body.provider_id, id: body.provider_id, state: 'pending',
-        verification_url: body.provider_id === 'codex' ? 'https://auth.openai.com/codex/device' : 'https://auth.meta.com/oauth/device/', user_code: 'ABCD-EFGH'});
+      const attempt = {provider_id: body.provider_id, id: body.provider_id, state: 'pending',
+        verification_url: body.provider_id === 'codex' ? 'https://auth.openai.com/codex/device' : 'https://auth.meta.com/oauth/device/', user_code: 'ABCD-EFGH'};
+      attempts.set(body.provider_id, attempt);
+      return Response.json(attempt);
     }
+    if (url.pathname === '/api/identity/enrollments') return Response.json([...attempts.values()]);
     if (url.pathname.endsWith('/cancel')) { cancels++; return Response.json({}); }
     if (url.pathname.startsWith('/api/identity/enrollments/')) {
       const provider = url.pathname.split('/').at(-1)!;
@@ -57,6 +61,9 @@ test('Providers starts device login, resumes its dialog, follows completion and 
   await page.getByRole('button', {name: 'Providers', exact: true}).click();
   await dialog.getByText('ABCD-EFGH', {exact: true}).waitFor();
   assert.equal(starts, 1, 'reopening must resume the same login');
+  await mount();
+  await dialog.getByText('ABCD-EFGH', {exact: true}).waitFor();
+  assert.equal(starts, 1, 'a full page reload must recover pending sign-in without starting another');
   completed = true;
   await dialog.getByRole('button', {name: 'Codex: Connected', exact: true}).waitFor();
   assert.equal(await dialog.getByText('ABCD-EFGH', {exact: true}).count(), 0);

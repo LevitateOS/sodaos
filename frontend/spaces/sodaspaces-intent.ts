@@ -222,6 +222,8 @@ export class SodaIntent extends LitElement {
   private fundingNote = '';
   private savedSnapshot: IntentRevision | undefined;
   private departmentsLoaded = false;
+  private progressTimer?: ReturnType<typeof setInterval>;
+  private progressReading = false;
   generationNotice = '';
   constructor() {
     super();
@@ -253,6 +255,10 @@ export class SodaIntent extends LitElement {
   }
   protected willUpdate(changed: PropertyValues<this>) {
     if (changed.has('actor')) {
+      this.objective = '';
+      this.department = '';
+      this.changeText = '';
+      this.restoreDraft();
       this.exploration = undefined;
       this.restoredReview = undefined;
       // Abort an in-flight resume, but do not clear its controller: the
@@ -264,6 +270,44 @@ export class SodaIntent extends LitElement {
         this.loadedRequest = this.request;
       }
     }
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    this.progressTimer = setInterval(() => void this.refreshProgress(), 10000);
+  }
+  private async refreshProgress() {
+    const revision = this.revision, actor = this.actor;
+    if (!revision || !this.active || this.blocked || this.busy || this.progressReading || document.visibilityState !== 'visible') return;
+    const accepted = revision.state === 'accepted';
+    if (!accepted && (revision.state !== 'draft' || revision.repository === '0')) return;
+    this.progressReading = true;
+    try {
+      const value = await this.call('/api/factory/intents/' + revision.intent + (accepted ? '/generation' : '/plan'), undefined, AbortSignal.timeout(15000));
+      if (this.actor !== actor || this.revision?.id !== revision.id || !this.active) return;
+      if (accepted) { this.generation = intentGeneration(value); this.generationError = ''; }
+      else { const status = intentPlanStatus(value); if (status.revision === revision.id) { this.plan = status; this.planNotice = ''; } }
+    } catch {
+      if (this.actor === actor && this.revision?.id === revision.id) {
+        if (accepted) this.generationError = 'Live updates interrupted. Your saved work is kept; retrying automatically.';
+        else this.planNotice = 'Live updates interrupted. Your saved work is kept; retrying automatically.';
+      }
+    } finally { this.progressReading = false; }
+  }
+  private draftStorageKey() { return `soda-intent-draft:v1:${this.actor}:${this.request || 'new'}`; }
+  private rememberDraft() {
+    if (!this.actor) return;
+    try { localStorage.setItem(this.draftStorageKey(), JSON.stringify({base: this.revision?.id ?? '', objective: this.objective, department: this.department, changeText: this.changeText})); } catch { /* Keep in-memory writing when storage is unavailable. */ }
+  }
+  private restoreDraft() {
+    if (!this.actor) return;
+    try {
+      const draft = JSON.parse(localStorage.getItem(this.draftStorageKey()) ?? 'null');
+      if (!draft || draft.base !== (this.revision?.id ?? '') || typeof draft.objective !== 'string') return;
+      this.objective = draft.objective;
+      if (typeof draft.department === 'string') this.department = draft.department;
+      if (typeof draft.changeText === 'string') this.changeText = draft.changeText;
+      this.dirty = !!this.revision && this.objective !== this.revision.objective;
+    } catch { /* An unreadable local draft never blocks saved work. */ }
   }
   protected updated(changed: PropertyValues<this>) {
     if (changed.has('active') || changed.has('blocked') || (changed.has('busy') && !this.busy)) this.activate();
@@ -295,11 +339,13 @@ export class SodaIntent extends LitElement {
     return changed.has('request') || changed.has('api') || changed.has('active') || (changed.has('busy') && !this.busy);
   }
   disconnectedCallback() {
+    clearInterval(this.progressTimer);
     this.operation?.abort();
     this.resumeController?.abort();
     super.disconnectedCallback();
   }
   reset() {
+    this.rememberDraft();
     this.operation?.abort();
     this.resumeController?.abort();
     this.request = '';
@@ -515,6 +561,7 @@ export class SodaIntent extends LitElement {
     this.dirty = false;
     this.changeOpen = false;
     this.changeText = '';
+    this.restoreDraft();
   }
   private explorationStale(): boolean {
     const exploration = this.exploration;
@@ -1062,6 +1109,7 @@ export class SodaIntent extends LitElement {
       set: (field, value) => {
         this[field] = value;
         if ((field === 'objective' || field === 'department') && this.revision) this.dirty = true;
+        this.rememberDraft();
       },
       setBound: (field, value) => {
         this[field] = value;

@@ -251,7 +251,7 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-project-views { display: flex; flex: 0 0 auto; gap: var(--soda-space-1); }
 .soda-workspace .soda-project-views .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-2) !important; border: 0; border-bottom: 2px solid transparent; text-transform: none; color: var(--soda-page-muted); }
 .soda-workspace .soda-project-views .ui.button[aria-pressed=true] { color: var(--soda-page-text); background: transparent; border-bottom-color: var(--soda-button-primary-bg); }
-.soda-project-content { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: var(--soda-space-6) var(--soda-space-8); }
+.soda-project-content { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: var(--soda-space-6) var(--soda-space-8); }
 soda-project-work { display: block; min-width: 0; }
 .soda-project-work, .soda-project-activity { max-width: 960px; margin-inline: auto; }
 .soda-project-work { font: var(--soda-font-body); }
@@ -404,3 +404,58 @@ soda-project-work { display: block; min-width: 0; }
   .soda-workspace.is-project-setup .soda-configuration-repository { margin-bottom: 0; }
 }
 .soda-menu-heading > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+
+/* Feed is a reading surface shared by repository and Following pages. */
+.soda-feed-page { max-width: 960px; margin: 0 auto; padding: 28px 24px 64px; font: var(--soda-font-body); color: var(--soda-page-text); }
+.soda-feed-page-heading { display: flex; gap: 20px; align-items: start; justify-content: space-between; margin-bottom: 28px; }
+.soda-feed-page-heading h1 { font: var(--soda-font-heading); margin: 0 0 6px; overflow-wrap: anywhere; }
+.soda-feed-page-heading p { color: var(--soda-page-muted); margin: 0; }
+.soda-feed-page-heading nav { display: flex; flex-wrap: wrap; gap: 14px; }
+soda-factory-feed { display: block; max-width: 960px; margin-inline: auto; }
+.soda-feed { min-width: 0; font: var(--soda-font-body); }
+.soda-feed-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.soda-feed-toolbar h2 { font: var(--soda-font-heading); margin: 0; }
+.soda-feed-updated { font: var(--soda-font-caption); color: var(--soda-page-muted); }
+.soda-feed button, .soda-feed textarea { font: inherit; }
+.soda-feed button { min-height: 36px; padding: 6px 12px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); color: var(--soda-page-text); cursor: pointer; }
+.soda-feed button:disabled { opacity: .5; cursor: default; }
+.soda-feed textarea { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; margin-top: 6px; min-height: 80px; resize: vertical; background: var(--soda-page-surface); color: var(--soda-page-text); border: 1px solid var(--soda-page-edge); border-radius: 4px; }
+.soda-feed > section[aria-label=Discussion] { border: 1px solid var(--soda-page-edge); padding: 16px; margin: 20px 0 28px; background: var(--soda-page-surface); }
+.soda-feed-list { display: flex; flex-direction: column; gap: 30px; margin-top: 24px; }
+.soda-feed-post { min-width: 0; scroll-margin-top: 20px; }
+.soda-feed-header { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; }
+.soda-feed-header p { margin: 0 0 2px; font: var(--soda-font-caption); color: var(--soda-page-muted); }
+.soda-feed-header strong { color: var(--soda-page-text); }
+.soda-feed-avatar { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; color: var(--soda-page-text); background: var(--soda-page-hover); font-weight: 600; }
+.soda-feed-card { padding: 18px 20px; border: 1px solid var(--soda-page-edge); border-radius: 5px; background: var(--soda-page-surface); }
+.soda-feed-post[data-status=failure] .soda-feed-card { border-inline-start: 3px solid var(--soda-page-warning); }
+.soda-feed-card p { margin: 0 0 10px; }
+.soda-feed-card h4 { font: var(--soda-font-label); margin: 12px 0 8px; }
+.soda-feed-body-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.soda-feed-card blockquote { margin: 0; padding: 8px 12px; border-inline-start: 2px solid var(--soda-page-edge); }
+.soda-feed-card dl { margin: 0; }
+.soda-feed-card dl > div { display: grid; grid-template-columns: minmax(110px, 1fr) 2fr; gap: 12px; padding-block: 5px; }
+.soda-feed-card dt { color: var(--soda-page-muted); }
+.soda-feed-card dd { margin: 0; overflow-wrap: anywhere; }
+.soda-feed-card table { width: 100%; text-align: left; border-collapse: collapse; }
+.soda-feed-card th, .soda-feed-card td { padding: 6px; border-bottom: 1px solid var(--soda-page-edge); }
+.soda-feed-card a { margin-inline-end: 12px; }
+.soda-feed-record-details, .soda-feed-replies { border-top: 1px solid var(--soda-page-edge); margin-top: 14px; padding-top: 10px; color: var(--soda-page-muted); }
+.soda-feed-record-details summary, .soda-feed-replies summary { cursor: pointer; }
+.soda-feed-record-details[open], .soda-feed-replies[open] { color: var(--soda-page-text); }
+.soda-feed-empty { padding: 30px 0; color: var(--soda-page-muted); }
+.soda-feed-thread { border-top: 1px solid var(--soda-page-edge); margin-top: 14px; padding-top: 10px; }
+.soda-feed-thread summary { cursor: pointer; }
+.soda-feed-thread-reply { border: 1px solid var(--soda-page-edge); border-radius: 4px; padding: 14px; margin-top: 14px; }
+.soda-applications ul { list-style: none; padding: 0; }
+.soda-applications li { border: 1px solid var(--soda-page-edge); padding: 18px; margin-block: 16px; }
+.soda-applications li > a { display: inline-block; margin: 0 16px 12px 0; }
+.soda-feed fieldset { border: 1px solid var(--soda-page-edge); padding: 12px; margin: 12px 0; }
+.soda-feed fieldset label { display: inline-flex; align-items: center; gap: 8px; margin-inline-end: 16px; }
+.soda-project-plans { margin: 30px auto; max-width: 960px; }
+@media (max-width: 640px) {
+ .soda-feed-page { padding: 18px 14px 40px; }
+ .soda-feed-page-heading { flex-direction: column; }
+ .soda-feed-card { padding: 14px; }
+ .soda-feed-card dl > div { grid-template-columns: 1fr; gap: 2px; }
+}

@@ -31,7 +31,7 @@ export function renderNetworkSelection(
 
 function networkStatus(view: ProjectNetwork | undefined, notice: string) {
   if (!view) return notice || 'Private network state has not been observed.';
-  return 'Saved policy: ' + (view.enabled ? 'managed' : 'Off') + ' · Native observation: ' + view.state;
+  return 'Private network: ' + (view.enabled ? 'On' : 'Off') + ' · ' + view.state.replaceAll('-', ' ');
 }
 
 function connectedDevice(view: ProjectNetwork) {
@@ -86,7 +86,7 @@ function networkActions(
         ?disabled=${retryBlocked(view, confirmed)}
         @click=${(event: MouseEvent) => act(event, 'retry')}
       >
-        Retry native startup
+        Retry connection
       </button>
     </div>`;
 }

@@ -26,6 +26,9 @@ func (f *fakeCommentJudge) JudgeComment(ctx context.Context, input CommentJudgeI
 		return CommentJudgment{}, factory.PriorityReceipt{}, f.err
 	}
 	selected := f.judgment.Route
+	if selected == factory.CommentRouteClarify {
+		selected = "clarify_result"
+	}
 	if f.judgment.Route == factory.CommentRouteExistingWork {
 		selected = commentExistingChoice(f.judgment.Issue)
 	}
@@ -70,6 +73,78 @@ type fakeCommentCreator struct {
 	next      int64
 	creates   int
 	createErr error
+}
+
+type feedbackCommentCreator struct {
+	fakeCommentCreator
+	deliveries int
+}
+
+func TestClarificationQuestionAndAnswerResumeTheSameRequest(t *testing.T) {
+	s, ctx := driveTestStore(t)
+	id, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "Change that page", IdempotencyKey: "clarification"}, "42", "ada", 1729000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	judgment, err := commentJudgmentFromSelection("clarify_target", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = applyCommentJudgment(ctx, s, pipe, judgment); err != nil {
+		t.Fatal(err)
+	}
+	question, err := s.CommentProgress(ctx, id)
+	if err != nil || question != commentClarificationQuestions["clarify_target"] {
+		t.Fatalf("missing specific question: %q %v", question, err)
+	}
+	if err = s.RetryFeedComment(ctx, id, "42", 0, "Change that page\n\nClarification: the onboarding page", 1729000001); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil || detail.Record.Revision != 1 || detail.Body != "Change that page\n\nClarification: the onboarding page" {
+		t.Fatalf("answer lost original request: %+v %v", detail, err)
+	}
+	resumed, err := s.CommentPipeline(ctx, id)
+	if err != nil || resumed.Judgment != factory.CommentJudgmentPending {
+		t.Fatalf("answer did not resume assessment: %+v %v", resumed, err)
+	}
+}
+
+func (f *feedbackCommentCreator) DeliverCommentFeedback(_ context.Context, detail store.FeedCommentDetail, issue int64) error {
+	if issue != 55 || detail.Body != "Fix the filter" {
+		return errors.New("feedback changed source or issue")
+	}
+	f.deliveries++
+	return nil
+}
+
+func TestExistingWorkFeedbackActuallyReachesTheSelectedIssue(t *testing.T) {
+	s, ctx := driveTestStore(t)
+	id, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "Fix the filter", Issue: 55, IdempotencyKey: "feedback"}, "42", "ada", 1729000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	creator := &feedbackCommentCreator{}
+	wired := &CommentCollaborators{Judge: &fakeCommentJudge{judgment: CommentJudgment{Route: factory.CommentRouteExistingWork, Issue: 55}}, Creator: creator}
+	for range 2 {
+		response, err := driveCommentPipeline(ctx, s, wired, id)
+		if err != nil || response.Effect != factory.CommentEffectApplied {
+			t.Fatalf("feedback not delivered: %+v %v", response, err)
+		}
+	}
+	if creator.deliveries != 1 || creator.creates != 0 {
+		t.Fatalf("feedback duplicated or created new work: %+v", creator)
+	}
 }
 
 func (f *fakeCommentCreator) CreateCommentIssue(ctx context.Context, draft factory.IssueDraft, repository int64) (int64, error) {
@@ -435,7 +510,7 @@ func TestCommentJudgeChoiceHelpers(t *testing.T) {
 		{Issue: 9, Origin: factory.CommentCandidateRecent},
 	}
 	keys := commentChoiceKeys(candidates)
-	want := []string{"new_issue", "discussion", "clarify", "existing_55", "existing_9"}
+	want := []string{"new_issue", "discussion", "clarify_target", "clarify_result", "clarify_conflict", "existing_55", "existing_9"}
 	if len(keys) != len(want) {
 		t.Fatalf("keys %v", keys)
 	}
@@ -444,7 +519,7 @@ func TestCommentJudgeChoiceHelpers(t *testing.T) {
 			t.Fatalf("keys %v, want %v", keys, want)
 		}
 	}
-	if keys := commentChoiceKeys(nil); len(keys) != 3 {
+	if keys := commentChoiceKeys(nil); len(keys) != 5 {
 		t.Fatalf("candidate-less keys %v must exclude existing work", keys)
 	}
 	judgment, err := commentJudgmentFromSelection("existing_9", candidates)

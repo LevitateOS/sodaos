@@ -270,8 +270,8 @@ function validDecisionReview(review: Record<string, unknown>) {
 }
 
 class FactoryRequestError extends Error {
-  constructor(readonly status: number) {
-    super(`Factory request was not confirmed (${status}). Refresh before retrying.`);
+  constructor(readonly status: number, message?: string) {
+    super(message ?? `Factory request was not confirmed (${status}). Refresh before retrying.`);
   }
 }
 
@@ -394,7 +394,7 @@ export class SodaFactorySettings extends LitElement {
       signal: AbortSignal.timeout(timeoutMs),
     });
     const payload = await this.responsePayload(response);
-    this.requireSuccessfulResponse(response);
+    this.requireSuccessfulResponse(response, payload);
     return payload;
   }
 
@@ -407,12 +407,14 @@ export class SodaFactorySettings extends LitElement {
     }
   }
 
-  private requireSuccessfulResponse(response: Response) {
+  private requireSuccessfulResponse(response: Response, payload?: unknown) {
     if (response.ok) return;
-    if (response.status === 401 || response.status === 403)
+    if (response.status === 401)
       this.dispatchEvent(new CustomEvent('soda-session-invalid', {bubbles: true, composed: true}));
+    const body = payload as {error?: {message?: string}} | null;
+    if (body?.error?.message) throw new FactoryRequestError(response.status, body.error.message);
     if (response.status === 409 || response.status === 412)
-      throw Error('Authority changed. Refresh this view and review the current revision before trying again.');
+      throw new FactoryRequestError(response.status, 'Authority changed. Refresh and try again.');
     throw new FactoryRequestError(response.status);
   }
 
@@ -427,7 +429,7 @@ export class SodaFactorySettings extends LitElement {
     try {
       const next = await this.loadView(context, retained);
       if (serial !== this.serial) return this.discardInterruptedLoad();
-      this.view = {...next, message: '', busy: false};
+      this.view = {...next, busy: false};
     } catch (error) {
       if (serial !== this.serial) return this.discardInterruptedLoad();
       this.showRefreshError(error);
@@ -455,7 +457,10 @@ export class SodaFactorySettings extends LitElement {
     ]);
     const nextPreparation = asObject(preparation || {});
     const sourcePreview = retainPreview(retained.sourcePreview, safeText(nextPreparation.requirements));
-    const connections = await this.loadConnections();
+    let connections = this.view.connections;
+    let message = '';
+    try { connections = await this.loadConnections(); }
+    catch { message = 'Provider accounts could not be refreshed. Other settings are current; showing the last available accounts.'; }
     const selected = connections.some((item) => item.id === this.view.selectedConnection)
       ? this.view.selectedConnection
       : safeText(connections[0]?.id);
@@ -469,7 +474,7 @@ export class SodaFactorySettings extends LitElement {
       connections,
       selectedConnection: selected,
       ...related,
-      message: '',
+      message,
       busy: false,
     };
   }
@@ -483,12 +488,9 @@ export class SodaFactorySettings extends LitElement {
   }
 
   private async loadConnections() {
-    try {
-      const connections = await this.request('/api/identity/connections');
-      return Array.isArray(connections) ? connections.map(asObject) : [];
-    } catch {
-      return [];
-    }
+    const connections = await this.request('/api/identity/connections');
+    if (!Array.isArray(connections)) throw Error('Provider accounts could not be loaded. Refresh to try again.');
+    return connections.map(asObject);
   }
 
   private showRefreshError(error: unknown) {
@@ -530,12 +532,15 @@ export class SodaFactorySettings extends LitElement {
     const select = event.currentTarget;
     if (!(select instanceof HTMLSelectElement)) return;
     const connection = select.value;
+    const serial = this.serial;
     const {usageBudget: _oldBudget, ...withoutBudget} = this.view;
     this.view = {...withoutBudget, selectedConnection: connection, grants: [], busy: true};
     try {
       const facts = await this.connectionFacts(connection);
+      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
       this.view = {...this.view, ...facts, busy: false};
     } catch {
+      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
       this.view = {
         ...this.view,
         busy: false,
@@ -566,6 +571,7 @@ export class SodaFactorySettings extends LitElement {
     if (!(form instanceof HTMLFormElement) || !this.contextValue) return;
     const action = form.dataset.action;
     if (!action) return;
+    if (!this.canAction(action)) { this.view = {...this.view, message: 'This setting is read-only for your account. See the required actions below.'}; return; }
     const handlers: Record<string, (current: HTMLFormElement) => Promise<void>> = {
       hold: this.submitHold,
       'source-preview': this.submitSourcePreview,
@@ -584,6 +590,20 @@ export class SodaFactorySettings extends LitElement {
     if (!handler) return;
     void this.act(form, handler, action !== 'source-preview');
   };
+
+  private canAction(action: string) {
+    const access = this.view.access;
+    if (!access?.viewer.session_current) return false;
+    switch (action) {
+      case 'policy': return access.editable.policy.editable;
+      case 'capacity': return access.editable.capacity.editable;
+      case 'operator-grant': return access.editable.operator_grant.editable;
+      case 'environment-grant': return access.editable.environment_grant.editable;
+      case 'sponsorship': return access.editable.sponsorships.some(row => row.connection === this.view.selectedConnection && row.editable);
+      case 'budget': return access.editable.usage_budgets.some(row => row.connection === this.view.selectedConnection && row.editable);
+      default: return access.viewer.environment_owner || access.viewer.operator;
+    }
+  }
 
   private submitHold = async (form: HTMLFormElement) => {
     const context = this.contextValue;
@@ -922,9 +942,12 @@ export class SodaFactorySettings extends LitElement {
       review_actor: {actor_id: review.actor_id, token_id: review.token_id},
       merge_actor: {actor_id: merge.actor_id, token_id: merge.token_id},
       attempt_limits: {
+        ...asObject(policy.attempt_limits || {}),
         active_minutes: integer(form, 'active_minutes', 1),
         correction_cycles: integer(form, 'correction_cycles'),
       },
+      intent_minutes: policy.intent_minutes ?? 0,
+      reassessment_minutes: policy.reassessment_minutes ?? 30,
       max_concurrent: integer(form, 'policy_concurrent', 1),
     };
   }
@@ -967,7 +990,11 @@ export class SodaFactorySettings extends LitElement {
     const context = this.contextValue;
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
-    return html`<soda-providers .transport=${this.activeValue ? context.transport : undefined}></soda-providers>${this.renderSummary(status)}
+    return html`<soda-providers .transport=${this.activeValue ? context.transport : undefined} @soda-provider-connections-changed=${() => {
+      void this.loadConnections().then(connections => { this.view = {...this.view, connections}; }).catch(() => {
+        this.view = {...this.view, message: 'Could not refresh connected accounts. Try Refresh.'};
+      });
+    }}></soda-providers>${this.renderSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       <soda-factory-optional-effects .context=${this.effectsContext()}></soda-factory-optional-effects>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
@@ -983,10 +1010,26 @@ export class SodaFactorySettings extends LitElement {
 
   private renderEffective(effective: Record<string, unknown>, status: Record<string, unknown>) {
     const queue = asObject(status.queue || {});
-    return html`<p>
-        Effective: ${effective.effective === true ? 'yes' : 'no'}; missing:
-        ${Array.isArray(effective.missing) ? effective.missing.join(', ') || 'none' : 'not reported'}.
-      </p>
+    const actions: Record<string, [string, string]> = {
+      policy_missing: ['Configure how Factory works in this repository', 'policy'],
+      policy_disabled: ['Enable automatic work', 'policy'], policy_paused: ['Resume paused work', 'policy'],
+      operator_grant_missing: ['Allow this repository to run jobs', 'operator-grant'], operator_grant_withdrawn: ['Restore permission to run jobs', 'operator-grant'],
+      capacity_missing: ['Set how many jobs can run', 'capacity'],
+      sponsorship_missing: ['Choose an account for Factory to use', 'sponsorship'], sponsorship_withdrawn: ['Restore Factory account access', 'sponsorship'],
+      connection_usage_budget_missing: ['Set the account’s usage allowance', 'budget'],
+      environment_grant_missing: ['Allow project preparation', 'environment-grant'], environment_grant_withdrawn: ['Restore project preparation permission', 'environment-grant'],
+      preparation_not_ready: ['Prepare the project’s tools and checks', 'source-preview'],
+      dispatch_closed: ['Work is paused by the appliance; contact its administrator', 'capacity'],
+    };
+    return html`<p><strong>${effective.effective === true ? 'Factory is ready' : 'Factory needs setup'}</strong></p>
+      <ul>${(Array.isArray(effective.missing) ? effective.missing : []).map(raw => {
+        const [label, action] = actions[String(raw)] ?? [String(raw).replaceAll('_', ' '), 'policy'];
+        return html`<li><button type="button" class="ui basic button" @click=${() => {
+          const form = this.querySelector<HTMLElement>(`form[data-action="${action}"]`);
+          form?.scrollIntoView({block: 'center'});
+          form?.querySelector<HTMLElement>('input:not(:disabled),select:not(:disabled),button:not(:disabled)')?.focus({preventScroll: true});
+        }}>${label}</button></li>`;
+      })}</ul>
       <p>
         Dispatch: ${effective.dispatch_open === true ? 'open' : 'closed'}; queue ${queue.queued ?? 'unknown'}; active
         ${queue.active ?? 'unknown'}.
@@ -1014,12 +1057,12 @@ export class SodaFactorySettings extends LitElement {
         Hold: ${prep.hold === true ? 'active' : 'released'} (revision ${prep.hold_revision ?? 0}); requirements
         ${safeText(prep.requirements) || 'not accepted'}; approval ${safeText(prep.approval) || 'not recorded'}.
       </p>
-      <form data-action="hold" @submit=${this.submit}>
+      <form data-action="hold" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('hold')}>
         <select name="hold_action">
           <option value="hold">Hold</option>
           <option value="release">Release</option></select
         >${this.submitButton('Apply hold state')}
-      </form>
+      </fieldset></form>
       ${this.renderPreparationEvidence(prep)} ${this.renderSourceForm(prep)} ${this.renderAcceptanceForm(prep)}
       ${this.renderInitialApproval(prep)} ${this.renderPrepareForm(prep)} ${this.renderEffectsApproval(prep)}
     </fieldset>`;
@@ -1054,7 +1097,7 @@ export class SodaFactorySettings extends LitElement {
     const files = Array.isArray(source.files) ? source.files.map(asObject) : [];
     const inputs = Array.isArray(requirements.source_inputs) ? requirements.source_inputs.map(asObject) : [];
     const digests = new Map(inputs.map((row) => [safeText(row.path), safeText(row.digest)]));
-    return html`<form data-action="source-preview" @submit=${this.submit}>
+    return html`<form data-action="source-preview" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('source-preview')}>
       <h3>Select and review repository source</h3>
       <p>
         Choose exact paths and required tools. Leave source commit blank to use the native approved base. The native API
@@ -1062,7 +1105,7 @@ export class SodaFactorySettings extends LitElement {
       </p>
       ${this.renderSourceFields(selection)} ${this.renderSourceDetails(requirements, decision, inputs, files, digests)}
       <button type="submit" class="ui button" ?disabled=${this.view.busy}>Preview selected source</button>
-    </form>`;
+    </fieldset></form>`;
   }
 
   private renderSourceFields(selection: View['sourceSelection']) {
@@ -1123,7 +1166,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       Array.isArray(sourceInputs) &&
       sourceInputs.length
     );
-    return html`<form data-action="acceptance" @submit=${this.submit}>
+    return html`<form data-action="acceptance" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('acceptance')}>
       <h3>Accept exact setup inputs</h3>
       <p>
         Decision IDs are generated here. Acceptance binds the reviewed source commit, setup files, exact selected paths
@@ -1133,7 +1176,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <button type="submit" class="ui button" ?disabled=${this.view.busy || !canAccept}>
         Record exact-input acceptance
       </button>
-    </form>`;
+    </fieldset></form>`;
   }
 
   private renderAcceptedInputs(requirements: Record<string, unknown>, decision: Record<string, unknown>) {
@@ -1160,7 +1203,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
 
   private renderInitialApproval(prep: Record<string, unknown>) {
     if (!safeText(prep.requirements) || this.approvalMatchesRequirement(prep)) return nothing;
-    return html`<form data-action="approval-initial" @submit=${this.submit}>
+    return html`<form data-action="approval-initial" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('approval-initial')}>
       <h3>Approve initial Project operations</h3>
       <p>
         Review the required privileged effects and separately record the live installed service, resource and readiness
@@ -1179,7 +1222,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
         and resources.</label
       >
       <button type="submit" class="ui button" ?disabled=${this.view.busy}>Record initial operational approval</button>
-    </form>`;
+    </fieldset></form>`;
   }
 
   private matchingPreparationRows(prep: Record<string, unknown>) {
@@ -1198,7 +1241,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     if (!safeText(prep.requirements) || !this.approvalMatchesRequirement(prep)) return nothing;
     const {source} = this.sourceReview(prep);
     const hasRetired = this.matchingPreparationRows(prep).some(retiredPreparation);
-    return html`<form data-action="prepare" @submit=${this.submit}>
+    return html`<form data-action="prepare" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('prepare')}>
       <p>
         Exact-input acceptance and initial operational approval are recorded. Starting preparation creates separate
         coder and reviewer identities from this exact selection.
@@ -1211,16 +1254,16 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       >
         Start role preparation
       </button>
-    </form>`;
+    </fieldset></form>`;
   }
 
   private renderEffectsApproval(prep: Record<string, unknown>) {
     const decision = asObject(prep.decision_preview || {});
     const review = asObject(decision.approval || {});
-    return html`<form data-action="approval" @submit=${this.submit}>
+    return html`<form data-action="approval" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('approval')}>
       <h3>Approve reviewed effects</h3>
       ${this.renderApprovalReview(review, decision)}
-    </form>`;
+    </fieldset></form>`;
   }
 
   private renderApprovalReview(review: Record<string, unknown>, decision: Record<string, unknown>) {
@@ -1257,11 +1300,11 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     const capacity = asObject(status.appliance || status.capacity || {});
     return html`<fieldset>
       <legend>Appliance capacity</legend>
-      <form data-action="capacity" @submit=${this.submit}>
+      <form data-action="capacity" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('capacity')}>
         ${this.numberInput('Concurrent runs', 'max_concurrent_runs', safeNumber(capacity.max_concurrent_runs, 1))}
         ${this.numberInput('Queued runs', 'max_queued', safeNumber(capacity.max_queued, 0))}
         ${this.submitButton('Save capacity')}
-      </form>
+      </fieldset></form>
     </fieldset>`;
   }
 
@@ -1270,22 +1313,22 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     const environment = asObject(status.environment_grant || {});
     return html`<fieldset>
       <legend>Project grants</legend>
-      <form data-action="operator-grant" @submit=${this.submit}>
+      <form data-action="operator-grant" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
         ${this.numberInput('Operator concurrent limit', 'operator_concurrent', safeNumber(operator.max_concurrent, 1))}
         <label
           ><input type="checkbox" name="operator_active" .checked=${operator.active === true} /> Active operator
           grant</label
         >
         ${this.submitButton('Save operator grant')}
-      </form>
-      <form data-action="environment-grant" @submit=${this.submit}>
+      </fieldset></form>
+      <form data-action="environment-grant" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('environment-grant')}>
         <p>The selected Project profile is also the profile that will be authorized.</p>
         <label
           ><input type="checkbox" name="environment_active" .checked=${environment.active === true} /> Permit factory
           Project setup</label
         >
         ${this.submitButton('Save Project grant')}
-      </form>
+      </fieldset></form>
     </fieldset>`;
   }
 
@@ -1298,7 +1341,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     return html`<fieldset>
       <legend>Repository policy</legend>
       ${this.renderPolicyBindings(policy)}
-      <form data-action="policy" @submit=${this.submit}>
+      <form data-action="policy" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('policy')}>
         ${this.textInput('Target branch ref', 'target_branch', safeText(policy.target_branch))}
         ${this.textInput('Required checks (comma separated)', 'required_checks', Array.isArray(policy.required_checks) ? policy.required_checks.join(', ') : '')}
         ${this.textInput('Coder harness', 'coder_harness', safeText(coder.harness || 'codex'))}
@@ -1316,7 +1359,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
         >
         <label><input type="checkbox" name="policy_paused" .checked=${policy.paused === true} /> Pause dispatch</label>
         ${this.submitButton('Save repository policy')}
-      </form>
+      </fieldset></form>
     </fieldset>`;
   }
 
@@ -1337,6 +1380,8 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     const connection = this.view.selectedConnection;
     const generation = safeNumber(this.view.connections.find((row) => row.id === connection)?.generation, 0);
     const grants = this.view.grants.filter((grant) => grant.revoked !== true);
+    const sponsorship = (Array.isArray(this.view.status?.sponsorships) ? this.view.status.sponsorships.map(asObject) : []).find(row => row.connection === connection) ?? {};
+    const roles = Array.isArray(sponsorship.roles) ? sponsorship.roles : [];
     return html`<fieldset>
       <legend>Provider allowance and sponsorship</legend>
       <label
@@ -1346,34 +1391,34 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
         </select></label
       >
       ${this.renderBudgetForm()}
-      <form data-action="sponsorship" @submit=${this.submit}>
+      <form data-action="sponsorship" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('sponsorship')}>
         <label
-          >Current broker grant<select name="grant_id">
+          >Project access<select name="grant_id" .value=${safeText(sponsorship.grant_id)}>
             <option value="">Select a current grant</option>
             ${grants.map((grant) => html`<option value=${safeText(grant.id)}>${safeText(grant.project_id)} · ${safeText(grant.id)}</option>`)}
           </select></label
         >
         <p>Credential generation ${generation}.</p>
-        <label><input type="checkbox" name="coder" /> Coder role</label>
-        <label><input type="checkbox" name="reviewer" /> Reviewer role</label>
-        ${this.numberInput('Allowance minutes', 'allowance_minutes', 60)}
-        ${this.numberInput('Concurrent sessions', 'max_concurrent', 1)}
-        <label><input type="checkbox" name="sponsorship_active" /> Active sponsorship</label>
+        <label><input type="checkbox" name="coder" .checked=${roles.includes('soda-coder')} /> Builder</label>
+        <label><input type="checkbox" name="reviewer" .checked=${roles.includes('soda-reviewer')} /> Inspector</label>
+        ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 60))}
+        ${this.numberInput('Concurrent sessions', 'max_concurrent', safeNumber(sponsorship.max_concurrent, 1))}
+        <label><input type="checkbox" name="sponsorship_active" .checked=${sponsorship.active === true} /> Allow Factory to use this account</label>
         ${this.submitButton('Save sponsorship')}
-      </form>
+      </fieldset></form>
     </fieldset>`;
   }
 
   private renderBudgetForm() {
     const budget = this.view.usageBudget;
-    return html`<form data-action="budget" @submit=${this.submit}>
+    return html`<form data-action="budget" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('budget')}>
       <p>
         Current rolling allowance:
         ${budget ? `${budget.rolling_minutes} minutes (revision ${budget.revision})` : 'not configured'}.
       </p>
       ${this.numberInput('Rolling minutes', 'rolling_minutes', safeNumber(budget?.rolling_minutes, 360))}
       ${this.submitButton('Save connection budget')}
-    </form>`;
+    </fieldset></form>`;
   }
 
   private renderPlanningCalls() {

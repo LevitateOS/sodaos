@@ -31,8 +31,15 @@ import (
 // CommentJudgment is one routing outcome: the assessed route plus,
 // for existing_work, the already-tracked issue the judgment selected.
 type CommentJudgment struct {
-	Route string
-	Issue int64
+	Route    string
+	Issue    int64
+	Question string
+}
+
+var commentClarificationQuestions = map[string]string{
+	"clarify_target":   "Which app, page, or existing issue should this request apply to?",
+	"clarify_result":   "What should change, and what should the result look like?",
+	"clarify_conflict": "Which of the conflicting requirements should take precedence?",
 }
 
 // CommentParentEvidence carries the recorded reply-parent facts one
@@ -92,8 +99,9 @@ const commentRouteRubric = "Route one feed comment to exactly one outcome: " +
 	"new_issue when it requests a concrete change that needs new tracked work; " +
 	"existing_<issue> for one listed candidate when the comment belongs to that already tracked work; " +
 	"discussion when it is an acknowledgement or discussion that must never create an issue; " +
-	"clarify when it cannot be routed before its author clarifies it. " +
-	"Weigh the source work and reply parent evidence when present; a comment continuing its source or parent work belongs to that work, not to a new issue."
+	"clarify_target when the target is ambiguous, clarify_result when the desired result is unclear, or clarify_conflict when requirements conflict. " +
+	"Match the requested deliverable against actual issue objectives. Project membership, recent activity, generic worker status, or being a reply do not establish an objective match. " +
+	"Use existing work for the same deliverable or a correction of that deliverable; a distinct requested change needs new work even when the comment replies to an older post."
 
 // commentExistingChoice names the Choice key selecting one
 // existing-work candidate issue.
@@ -106,7 +114,7 @@ func commentExistingChoice(issue int64) string {
 // With no candidates there is no existing-work key to select, so a
 // comment can never be routed to work the server never listed.
 func commentChoiceKeys(candidates []factory.CommentWorkCandidate) []string {
-	keys := []string{factory.CommentRouteNewIssue, factory.CommentRouteDiscussion, factory.CommentRouteClarify}
+	keys := []string{factory.CommentRouteNewIssue, factory.CommentRouteDiscussion, "clarify_target", "clarify_result", "clarify_conflict"}
 	for _, candidate := range candidates {
 		keys = append(keys, commentExistingChoice(candidate.Issue))
 	}
@@ -118,6 +126,9 @@ func commentChoiceKeys(candidates []factory.CommentWorkCandidate) []string {
 // actually offered admit: an existing-work key outside the candidate
 // set refuses instead of linking unlisted work.
 func commentJudgmentFromSelection(selected string, candidates []factory.CommentWorkCandidate) (CommentJudgment, error) {
+	if question, ok := commentClarificationQuestions[selected]; ok {
+		return CommentJudgment{Route: factory.CommentRouteClarify, Question: question}, nil
+	}
 	switch selected {
 	case factory.CommentRouteNewIssue, factory.CommentRouteDiscussion, factory.CommentRouteClarify:
 		return CommentJudgment{Route: selected}, nil
@@ -182,6 +193,7 @@ func commentJudgeState(input CommentJudgeInput) map[string]any {
 		candidates = append(candidates, map[string]any{
 			"issue": candidate.Issue, "summary": candidate.Summary,
 			"status": candidate.Status, "origin": candidate.Origin,
+			"title": candidate.Title, "objective": candidate.Objective, "execution_status": candidate.WorkerStatus,
 		})
 	}
 	state["candidates"] = candidates
@@ -193,6 +205,14 @@ func commentJudgeState(input CommentJudgeInput) map[string]any {
 // call; this method grants no authority and performs no dispatch.
 type TypeSafeCommentJudge struct {
 	Priority *control.TypeSafePriority
+	Prepare  func(context.Context, CommentJudgeInput) (CommentJudgeInput, error)
+}
+
+func (j *TypeSafeCommentJudge) PrepareCommentInput(ctx context.Context, in CommentJudgeInput) (CommentJudgeInput, error) {
+	if j.Prepare == nil {
+		return in, nil
+	}
+	return j.Prepare(ctx, in)
 }
 
 // JudgeComment assesses one comment through one funded Choice call.
@@ -204,7 +224,20 @@ func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJu
 	keys := commentChoiceKeys(input.Candidates)
 	choices := make(map[string]any, len(keys))
 	for _, key := range keys {
-		choices[key] = map[string]any{"route": key}
+		switch key {
+		case factory.CommentRouteNewIssue:
+			choices[key] = "A concrete new deliverable or change that no listed issue already covers."
+		case factory.CommentRouteDiscussion:
+			choices[key] = "Conversation or acknowledgement without a request to change the product."
+		case factory.CommentRouteClarify:
+			choices[key] = "The desired result cannot be determined from the comment and supplied context."
+		default:
+			if question, ok := commentClarificationQuestions[key]; ok {
+				choices[key] = "The comment requires an answer to: " + question
+			} else {
+				choices[key] = "Continue the specific listed issue only if its objective covers this requested result."
+			}
+		}
 	}
 	answer, err := j.Priority.Select(ctx, commentJudgeState(input), commentRouteRubric, choices)
 	if err != nil {
@@ -273,6 +306,13 @@ func (s *API) apiFactoryFeedComment(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	_ = access
+	if req.ReplyTo != "" {
+		parent, err := s.Store.FeedComment(r.Context(), req.ReplyTo)
+		if err != nil || parent.Record.Repository != req.Repository || parent.Record.Deleted || parent.Record.Revoked {
+			auth.JSONError(w, 404, "source_not_found", "The comment you are replying to is no longer visible.")
+			return
+		}
+	}
 	var source *factory.CommentSource
 	if req.SourceKind != "" {
 		resolved, err := s.Store.ResolveCommentSource(r.Context(), req.Repository, req.SourceKind, req.SourceID)
@@ -330,7 +370,12 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		auth.JSONError(w, 503, "store_unavailable", "Could not read the comment request.")
 		return
 	}
-	auth.JSONResponse(w, 200, map[string]any{
+	progress, _ := s.Store.CommentProgress(r.Context(), detail.Record.ID)
+	auth.JSONResponse(w, 200, feedCommentResponse(detail, pipe, progress, strconv.FormatInt(v.User.ID, 10)))
+}
+
+func feedCommentResponse(detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
+	return map[string]any{
 		"comment_id": detail.Record.ID, "revision": detail.Record.Revision,
 		"repository": detail.Record.Repository, "author": detail.Record.Author,
 		"author_name": detail.AuthorName, "at": detail.At, "issue_scope": detail.Record.Issue,
@@ -341,7 +386,89 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		"draft": pipe.Draft, "effect": pipe.Effect, "issue": pipe.Issue,
 		"existing_issue": commentExistingIssue(pipe), "source": detail.Source,
 		"attempts": pipe.Attempts, "attempt_limit": factory.CommentAttemptLimit,
-	})
+		"detail":    progress,
+		"can_retry": detail.Record.Author == actor && !detail.Record.Deleted && !detail.Record.Revoked && pipe.RetryAllowed(),
+	}
+}
+
+func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v store.Session) {
+	q := r.URL.Query()
+	repository, err := strconv.ParseInt(q.Get("repository"), 10, 64)
+	if err != nil || repository <= 0 {
+		auth.JSONError(w, 400, "invalid_request", "Choose a project.")
+		return
+	}
+	if _, err := s.visibleRepository(r, v, repository); err != nil {
+		auth.JSONError(w, 404, "source_not_found", "Conversation is not visible.")
+		return
+	}
+	source, err := s.Store.ResolveCommentSource(r.Context(), repository, q.Get("source_kind"), q.Get("source_id"))
+	if err != nil {
+		auth.JSONError(w, 404, "source_not_found", "Conversation is not visible.")
+		return
+	}
+	var before int64
+	if raw := q.Get("before"); raw != "" {
+		before, err = strconv.ParseInt(raw, 10, 64)
+		if err != nil || before <= 0 {
+			auth.JSONError(w, 400, "invalid_cursor", "Refresh the conversation.")
+			return
+		}
+	}
+	ids, next, err := s.Store.FeedReplyIDs(r.Context(), repository, source.Kind, source.ID, before)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
+		return
+	}
+	items := []map[string]any{}
+	for _, id := range ids {
+		detail, err := s.Store.FeedComment(r.Context(), id)
+		if err != nil {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
+			return
+		}
+		pipe, err := s.Store.CommentPipeline(r.Context(), id)
+		if err != nil {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read reply progress.")
+			return
+		}
+		progress, _ := s.Store.CommentProgress(r.Context(), id)
+		items = append(items, feedCommentResponse(detail, pipe, progress, strconv.FormatInt(v.User.ID, 10)))
+	}
+	auth.JSONResponse(w, 200, map[string]any{"items": items, "next_before": next})
+}
+
+func (s *API) apiFactoryFeedCommentRetry(w http.ResponseWriter, r *http.Request, v store.Session) {
+	detail, err := s.Store.FeedComment(r.Context(), r.PathValue("id"))
+	if err != nil {
+		auth.JSONError(w, 404, "comment_not_found", "Comment not found.")
+		return
+	}
+	if _, err = s.visibleRepository(r, v, detail.Record.Repository); err != nil {
+		auth.JSONError(w, 404, "comment_not_found", "Comment not found.")
+		return
+	}
+	if detail.Record.Author != strconv.FormatInt(v.User.ID, 10) {
+		auth.JSONError(w, 403, "comment_author_required", "Only the author can revise this request.")
+		return
+	}
+	var in struct {
+		ExpectedRevision int64  `json:"expected_revision"`
+		Body             string `json:"body"`
+	}
+	if !auth.DecodeAPIObject(w, r, &in) || !s.checkLifecycleSession(w, r, v) {
+		return
+	}
+	if err := s.Store.RetryFeedComment(r.Context(), detail.Record.ID, detail.Record.Author, in.ExpectedRevision, in.Body, time.Now().Unix()); err != nil {
+		auth.JSONError(w, 409, "comment_retry_conflict", err.Error())
+		return
+	}
+	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read the updated request.")
+		return
+	}
+	auth.JSONResponse(w, 200, commentResponse(pipe))
 }
 
 // commentBodyFor hides the text of closed sources while keeping their
@@ -364,7 +491,7 @@ func commentBodyFor(detail store.FeedCommentDetail) string {
 func (s *API) commentCollaborators() *CommentCollaborators {
 	wired := &CommentCollaborators{}
 	if s.Config.TypeSafeAPIKeyFile != "" {
-		wired.Judge = &TypeSafeCommentJudge{Priority: &control.TypeSafePriority{
+		wired.Judge = &TypeSafeCommentJudge{Prepare: s.prepareCommentJudgeInput, Priority: &control.TypeSafePriority{
 			APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel,
 		}}
 	}
@@ -414,6 +541,8 @@ func driveCommentPipeline(ctx context.Context, st *store.Store, wired *CommentCo
 			advanced, err = driveCommentDraft(ctx, st, wired.Drafter, pipe, detail)
 		case pipe.AdmitCommentEffect() && wired != nil && wired.Creator != nil:
 			advanced, err = driveCommentEffect(ctx, st, wired.Creator, pipe, detail)
+		case pipe.Route == factory.CommentRouteExistingWork && pipe.Judgment == factory.CommentJudgmentApplied && pipe.Effect == factory.CommentEffectPending && pipe.Attempts < factory.CommentAttemptLimit && wired != nil:
+			advanced, err = driveCommentFeedback(ctx, st, wired.Creator, pipe, detail)
 		default:
 			return commentResponse(pipe), nil
 		}
@@ -525,6 +654,31 @@ func collectCommentJudgeInput(ctx context.Context, st *store.Store, detail store
 // applyCommentJudgment advances one pipeline with a settled routing
 // outcome. An existing_work judgment persists which work it selected
 // in the pipeline's issue link; every other route clears it.
+func driveCommentFeedback(ctx context.Context, st *store.Store, creator CommentIssueCreator, pipe factory.CommentPipeline, detail store.FeedCommentDetail) (bool, error) {
+	requested, err := st.CommentFeedbackRequested(ctx, pipe.Comment, pipe.Revision)
+	if err != nil || !requested {
+		return false, err
+	}
+	writer, ok := creator.(interface {
+		DeliverCommentFeedback(context.Context, store.FeedCommentDetail, int64) error
+	})
+	if !ok {
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "Feedback delivery is unavailable. Restore Factory’s connection before retrying.")
+		return false, nil
+	}
+	if err = writer.DeliverCommentFeedback(ctx, detail, pipe.Issue); err != nil {
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "Could not confirm delivery to the issue discussion. Check repository access and refresh before retrying.")
+		return false, noteCommentFailure(ctx, st, pipe, false)
+	}
+	next := pipe
+	next.Effect = factory.CommentEffectApplied
+	if err = st.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		return false, err
+	}
+	_ = st.NoteCommentProgress(ctx, pipe.Comment, "Feedback added to the issue discussion. Accepted requirements have not been changed.")
+	return true, nil
+}
+
 func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.CommentPipeline, judgment CommentJudgment) error {
 	next := pipe
 	next.Judgment = factory.CommentJudgmentApplied
@@ -533,7 +687,17 @@ func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.Com
 	if judgment.Route == factory.CommentRouteExistingWork {
 		next.Issue = judgment.Issue
 	}
-	return st.AdvanceCommentPipeline(ctx, pipe, next)
+	if err := st.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		return err
+	}
+	if judgment.Route == factory.CommentRouteClarify {
+		question := judgment.Question
+		if question == "" {
+			question = commentClarificationQuestions["clarify_result"]
+		}
+		return st.NoteCommentProgress(ctx, pipe.Comment, question)
+	}
+	return nil
 }
 
 // driveCommentJudgment runs one JEV Choice call behind the comment
@@ -572,6 +736,15 @@ func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJud
 	if err != nil {
 		return false, noteCommentFailure(ctx, st, pipe, true)
 	}
+	if preparer, ok := judge.(interface {
+		PrepareCommentInput(context.Context, CommentJudgeInput) (CommentJudgeInput, error)
+	}); ok {
+		input, err = preparer.PrepareCommentInput(ctx, input)
+		if err != nil {
+			_ = st.NoteCommentProgress(ctx, pipe.Comment, err.Error())
+			return false, noteCommentFailure(ctx, st, pipe, true)
+		}
+	}
 	judgment, receipt, err := judge.JudgeComment(ctx, input, snapshot)
 	if err != nil {
 		return false, noteCommentFailure(ctx, st, pipe, true)
@@ -609,8 +782,10 @@ func driveCommentDraft(ctx context.Context, st *store.Store, drafter CommentDraf
 		// intact and the next service pass resumes the same funded
 		// attempt instead of spending again.
 		if errors.Is(err, ErrCommentDraftPending) || ctx.Err() != nil {
+			_ = st.NoteCommentProgress(ctx, pipe.Comment, err.Error())
 			return false, nil
 		}
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, err.Error())
 		return false, noteCommentFailure(ctx, st, pipe, false)
 	}
 	draft.Comment = pipe.Comment
@@ -798,6 +973,7 @@ func drivePendingComments(ctx context.Context, st *store.Store, wired *CommentCo
 		if ctx.Err() != nil {
 			break
 		}
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "")
 		if _, err := driveCommentPipeline(ctx, st, wired, pipe.Comment); err == nil {
 			driven++
 		}

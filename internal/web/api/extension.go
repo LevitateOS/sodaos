@@ -144,7 +144,7 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/feed/replies", "/spaces":
 		return true
 	default:
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
@@ -308,9 +308,11 @@ func extensionFactoryRoute(parts []string, method string) bool {
 			return method == http.MethodGet
 		case 3:
 			return parts[2] == "subscription" && (method == http.MethodGet || method == http.MethodPut) ||
-				parts[2] == "comments" && method == http.MethodPost
+				parts[2] == "comments" && method == http.MethodPost || parts[2] == "replies" && method == http.MethodGet
 		case 4:
 			return parts[2] == "comments" && extensionProductID(parts[3]) && method == http.MethodGet
+		case 5:
+			return parts[2] == "comments" && extensionProductID(parts[3]) && parts[4] == "retry" && method == http.MethodPost
 		}
 		return false
 	}
@@ -422,7 +424,7 @@ func extensionIdentityConnectionsRoute(parts []string, method string) bool {
 func extensionIdentityEnrollmentsRoute(parts []string, method string) bool {
 	switch len(parts) {
 	case 2:
-		return method == http.MethodPost
+		return method == http.MethodPost || method == http.MethodGet
 	case 3:
 		return extensionProductID(parts[2]) && method == http.MethodGet
 	case 4:

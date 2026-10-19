@@ -1031,6 +1031,8 @@ export interface CommentSource {
 }
 
 export interface CommentPipelineState {
+  detail?: string;
+  canRetry?: boolean;
   attempts?: number;
   attemptLimit?: number;
   commentId: string;
@@ -1115,6 +1117,8 @@ export function parseCommentPipelineState(value: unknown): CommentPipelineState 
     effect,
     issue: linkedIssue,
     existingIssue: typeof selected === 'number' ? selected : 0,
+    ...(typeof data.detail === 'string' && data.detail ? {detail: data.detail} : {}),
+    ...(typeof data.can_retry === 'boolean' ? {canRetry: data.can_retry} : {}),
   };
   if (source !== undefined) parsed.source = source;
   if (typeof attempts === 'number') parsed.attempts = attempts;
@@ -1234,7 +1238,7 @@ export function commentUnsettled(state: CommentPipelineState): boolean {
     if (state.draft === 'invalid') return false;
     return state.effect === 'pending';
   }
-  if (state.route === 'existing_work') return state.effect === 'pending' && state.issue <= 0;
+  if (state.route === 'existing_work') return state.effect === 'pending';
   return false;
 }
 
