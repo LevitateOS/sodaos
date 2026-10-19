@@ -1,7 +1,13 @@
-# SodaOS
+# SodaOS — An Open-Source Operating System for AI Software Factories
 
-**The operating system for software factories.** Run your coding agents on your
-infrastructure, with controlled access and reviewable results.
+SodaOS is a self-hosted operating system appliance built on Fedora CoreOS. It
+integrates persistent Podman project environments, Forgejo collaboration, AI
+agent coordination and policy-governed verification and merge, so teams can
+operate a software factory without assembling that infrastructure themselves.
+
+Start with the [AI software factory OS overview](https://sodaos.dev/ai-software-factory-os),
+[technical reference](https://sodaos.dev/technical-reference) and
+[infrastructure comparisons](https://sodaos.dev/compare).
 
 A person authorizes factory operation in Forgejo. Soda coordinates eligible
 issues through bounded agent execution in a persistent Project, pull requests,
@@ -26,7 +32,20 @@ commands; [manual development](docs/guides/develop.md) is a separate path.
 
 Documentation index: [docs/README.md](docs/README.md).
 
-Install a released Docker image with the [Docker installation guide](docs/guides/docker.md#install-a-released-image).
+Choose the [installer and deployment path](https://sodaos.dev/download), follow
+[installation](docs/public/20-Deploy/20-install-on-premises.md), and consult the
+[selected release's notes and assets](https://github.com/LevitateOS/sodaos/releases).
+Docker is a separate runtime path with its own [release and host requirements](docs/guides/docker.md#install-a-released-image).
+
+Projects share the host Linux kernel; they are not hardware-isolated VMs or a
+hostile multi-tenant sandbox. The Docker runtime is privileged and trusts its
+dedicated host operator. Self-hosted coordination can use external coding
+providers and TypeSafe/JEV; it does not imply offline AI. See the
+[trust model](docs/architecture/trust.md).
+
+[CanLang](https://sodaos.dev/canlang) is an optional, independently usable language
+for custom business applications. SodaOS coordinates development; CanLang
+supplies application constructs. Projects can use other languages too.
 
 ## System
 

@@ -55,8 +55,9 @@ run `soda-install disk`.
    choose reboot. Boot the installed disk and log in as root with your password.
 
 The installer prepares destination provisioning and copies the reviewed network
-settings. Native startup imports the included application images before starting
-their services. No separate Soda component-installation command is needed.
+settings. Installation and first startup acquire the matching release payloads
+and pinned application images; keep internet access available. No separate Soda
+component-installation command is needed.
 
 If writing fails or is interrupted, the disk may be partly written. Preserve the
 failure and inspect the current boot before deciding what to do; do not blindly

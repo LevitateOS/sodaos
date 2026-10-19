@@ -3,6 +3,12 @@
 Navigate by intent. Each important subject has one canonical owner; other documents
 link to it rather than redefining the contract.
 
+For product evaluation, use the [AI software factory OS overview](https://sodaos.dev/ai-software-factory-os),
+[technical reference](https://sodaos.dev/technical-reference),
+[comparisons](https://sodaos.dev/compare) and
+[operating guides](https://sodaos.dev/use-cases). The website repository owns
+those editorial pages; `docs/public` below owns the synchronized handbook.
+
 Soda OS coordinates an automatic software factory within authorized boundaries.
 Start with the [target product contract](product/overview.md). The
 [operator interface](reference/factory.md) and

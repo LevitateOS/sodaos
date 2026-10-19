@@ -1,19 +1,26 @@
 # Product model
 
-Understand supervised factory runs, bounded agent execution and persistent human projects.
+Understand the AI software factory, bounded agent execution, persistent Projects and the authorities that govern development.
 
-This chapter describes the `soda-factory` command and human project workflow.
+SodaOS combines a Fedora CoreOS host with persistent Podman Projects, Forgejo
+collaboration and agent coordination. It uses the host's Linux kernel; it does
+not introduce a separate kernel or hardware-isolated execution layer.
 
 ## Software work and execution
 
 | Concept | Meaning |
 | --- | --- |
 | Run | One bounded supervised agent execution with a recorded identity, exact process binding and outcome |
-| Persistent Project | A shared human development environment with lasting accounts, tools and data |
+| Persistent Project | A shared repository environment for humans and factory roles, with lasting tools/services and separate accounts/checkouts |
+| Attempt | A bounded effort against accepted requirements and recorded repository inputs |
+| Work item | An issue whose objective, dependencies and required outcomes drive factory work |
 
 Forgejo owns software collaboration and repository policy; Soda owns supervised
-execution and its records; the agent performs the task. Automatic intake
-remains unavailable: nothing admits, launches or publishes work on its own.
+coordination, execution and its records; the agent performs the task. Authorized,
+ready work advances through coding, candidate publication, review, correction,
+required checks and native merge under repository policy. Material questions and
+unresolved dependencies block affected work. Human approval is required where
+policy calls for it; it is not a mandatory final step for every routine change.
 
 Runs end when work finishes, limits expire or the operator stops them. Their
 settlement is recorded separately from their outcome. Follow the
@@ -35,10 +42,11 @@ host kernel. Soda is for a trusted team on a private network, not hostile public
 multitenancy. Provider credentials require protected enrollment and may require
 renewal; credential return cannot revoke a token copied outside the runtime.
 
-## Persistent human development
+## Persistent development environments
 
-Human project environments have separate roots, credentials and lifetimes. The
-following layers describe manual development and intervention.
+Projects have separate roots and persistent state. Within each Project, humans
+and authorized factory roles have distinct accounts and executions while sharing
+tools and services. The following layers describe manual development and intervention.
 
 ## Three layers for human development
 

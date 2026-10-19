@@ -1,13 +1,14 @@
-# Soda OS handbook
+# SodaOS handbook
 
-Deploy Soda on infrastructure you control, run factory tasks through the operator interface, and work in persistent projects.
+Install and operate SodaOS, an open-source operating system for AI software factories with persistent Projects, Forgejo collaboration and governed agent workflows.
 
-The operator-invoked factory workflow creates fresh environments for approved
-work, enforces time and resource limits, and records outcomes and cleanup. Forgejo
-keeps repositories, issues, pull requests, reviews and CI. In this workflow,
-people admit objectives and merge verified results.
-Persistent human projects support development, debugging and intervention through
-familiar editors, browser terminals and SSH.
+Built on Fedora CoreOS, SodaOS integrates the infrastructure for continuing AI
+development. People authorize objectives and operating policy; the factory
+coordinates ready work through coding, review, checks and native policy-governed
+merge. Forgejo owns repositories, issues, pull requests, reviews and CI records.
+Humans and factory roles share persistent Podman Projects with separate accounts,
+checkouts and executions. Familiar editors, terminals and SSH support development
+and intervention.
 
 ## Start with your task
 
@@ -15,11 +16,11 @@ familiar editors, browser terminals and SSH.
 | --- | --- |
 | Understand the factory and human projects | [Product model](20-product-model.md) |
 | Install on hardware from an ISO | [Install on premises](../20-Deploy/20-install-on-premises.md) |
-| Import a VM image or deploy on Scaleway | [Deploy to a cloud or VM](../20-Deploy/10-deploy-to-cloud.md) |
+| Install in a compatible VM | [Deploy to a cloud or VM](../20-Deploy/10-deploy-to-cloud.md) |
 | Prepare a Docker deployment | [Run Soda OS with Docker](../20-Deploy/22-docker.md) |
 | Configure private access and the factory | [Operator setup](../20-Deploy/25-operator-setup.md) |
 | Authorize and inspect the first agent task | [Software factory walkthrough](../30-Use-Soda/15-software-factory.md) |
-| Review a candidate and merge it yourself | [Collaboration](../30-Use-Soda/35-collaboration.md) |
+| Review a candidate and govern its merge | [Collaboration](../30-Use-Soda/35-collaboration.md) |
 | Manage runs, capacity or interruption | [Administration](../50-Operate/20-administration.md) |
 | Manage human and agent access | [People and access](../50-Operate/10-people-and-access.md) |
 | Develop or intervene manually | [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md) |
@@ -30,20 +31,22 @@ familiar editors, browser terminals and SSH.
 
 1. Deploy Soda and configure private access, Forgejo and the selected agent profile.
 2. Choose a private repository and write an issue with a clear expected outcome.
-3. Admit the issue explicitly through the operator interface.
-4. Run the bounded attempt and inspect its pull request, CI and fresh review.
+3. Authorize repository policy, appliance capacity and provider sponsorship; accept the issue's requirements.
+4. Observe the bounded attempt and inspect its pull request, CI and current review.
 5. If a repair produces another commit, check its new verification.
-6. Merge the final verified commit yourself, or resolve the intervention request.
+6. Supply human approval where policy requires it, then confirm the policy-governed native merge or resolve the intervention request.
 7. Confirm the run's recorded cleanup independently of its terminal outcome.
 
 Follow the [factory walkthrough](../30-Use-Soda/15-software-factory.md) for the
-actual commands. An issue, label or successful process exit alone is insufficient
+workflow and operator commands. An issue, label or successful process exit alone is insufficient
 authorization or verification.
 
 ## Choose the right interface
 
 [Forgejo](../30-Use-Soda/30-forgejo.md) owns code, permissions and collaboration.
-The factory operator command owns explicit admission, run status and cancellation.
+The factory coordinator owns automatic progress under the accepted requirements
+and grants. The operator command inspects recorded runs, stops one run and
+reconciles outstanding execution; it does not admit or launch work.
 The [Soda Dashboard](../30-Use-Soda/05-dashboard.md) provides repository and human
 project access. [Cockpit](../30-Use-Soda/10-cockpit.md) is for host administration.
 The [CI runners](../30-Use-Soda/50-ci-runners.md) supply Forgejo verification capacity.
@@ -55,6 +58,6 @@ details. A human project account is separate from a factory execution identity.
 ## Platforms
 
 Choose x86-64 hardware or a matching VM. Run Soda on hardware you control or a
-private cloud instance; Scaleway is the first team cloud path.
+compatible private cloud VM with a documented boot path and private client access.
 WSL2 support for x86-64 Windows gaming PCs is planned for a future release,
 with no WSL2 download. Use the full hardware or VM paths at launch.

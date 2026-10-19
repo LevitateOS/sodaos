@@ -1,6 +1,6 @@
 # Projects and workspaces
 
-Open a persistent human project for manual development, debugging and intervention, separately from disposable agent workspaces.
+Open a persistent repository environment shared by humans and authorized factory roles, with separate accounts, checkouts and supervised executions.
 
 Creating a project, starting it, joining it and creating a terminal are separate
 operations. Browser terminals do **not** require SSH keys or Tailnet. A human

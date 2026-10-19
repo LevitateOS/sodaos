@@ -2,8 +2,8 @@
 
 Protect factory records, retained results, credentials and persistent human data using consistent native backups and tested restoration.
 
-Disposable workspaces are not persistent project backups. Preserve the execution
-ledger and useful retained artifacts separately from human project roots. Provider
+An execution record is not a persistent Project backup. Preserve the execution
+ledger and useful retained artifacts as well as shared Project state. Provider
 credentials need protected continuity; restoring an old token file can invalidate
 renewal state rather than recover it.
 

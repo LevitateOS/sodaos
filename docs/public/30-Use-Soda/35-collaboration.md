@@ -3,7 +3,9 @@
 Authorize clear objectives, inspect exact-commit verification and merge results through Forgejo using your human account.
 
 For agent work, follow the [factory walkthrough](15-software-factory.md). Your
-team retains every publication and merge decision. The same native issues,
+team sets the authority and policy for publication and merge, including human
+approval where required. Routine authorized work can advance automatically when
+that policy permits. The same native issues,
 branches and reviews also support manual development.
 
 ## Issues and notifications
@@ -81,7 +83,9 @@ permission system. No Soda action copies upstream roles or bypasses a native den
 
 Check the issue objective and the pull request's final head commit. Its CI result
 and fresh review must reference that exact commit. A changed candidate
-invalidates the earlier evidence; verify it again before human merge.
+invalidates the earlier evidence; verify it again before merge. Native protections
+and the configured factory policy govern integration, including any required human
+approval. A prompt asking an agent to wait does not replace that policy boundary.
 
 Keep findings in Forgejo and infrastructure status in the linked run record.
 See the [factory walkthrough](15-software-factory.md).

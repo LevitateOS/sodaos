@@ -1,10 +1,49 @@
-# Supervise software factory runs
+# Operate an AI software factory
 
-Factory work runs as supervised agent executions inside a Project, with durable
-run records, exact process binding and credential return. The operator
-interface inspects recorded runs, retires one run and settles outstanding
-work. Automatic intake remains unavailable: nothing admits issues, launches
-runs or publishes results on its own.
+Authorize objectives and operating policy, then supervise coding, review, verification and policy-governed merge in persistent SodaOS Projects.
+
+SodaOS coordinates eligible issues through bounded agent executions. Forgejo
+owns the collaboration records and native merge authority. Spaces provides
+visibility and intervention; the private operator command inspects recorded runs,
+retires one run and settles outstanding execution. Those command limits do not
+define the automatic factory's scope.
+
+## Prepare the factory
+
+Configure private access and a repository with a meaningful check command.
+Establish its required CI checks and review/protection policy. Coding agents,
+review agents and CI runners have separate responsibilities; follow
+[CI runners](50-ci-runners.md) for verification capacity.
+
+Authorize three things separately: the repository's factory policy and native
+actors, appliance capacity and execution limits, and provider-account sponsorship.
+Choose supported harness/model profiles and finite allowances. Accept a clear,
+bounded issue objective with its required outcomes and dependencies. An arbitrary
+comment, label or agent instruction does not supply those grants.
+
+## From an issue to a reviewed change
+
+1. Create or adopt the exact objective as a currently authorized maintainer.
+2. Resolve prerequisite outcomes and material questions. A blocked issue waits
+   for the needed evidence or decision rather than guessing an answer.
+3. Observe the coding execution in its persistent Project. Record the issue,
+   attempt and candidate commit; a CLI exit alone is not completed software.
+4. Inspect the generated pull request and separate review session. Corrections
+   create a new candidate that needs current verification.
+5. Confirm required check results and review evidence for the exact candidate.
+   Supply human approval when the repository's policy requires it.
+6. Confirm the native merge and issue outcome. Soda reconsiders dependent work
+   after the required outcome, within the remaining authority and limits.
+
+For a small exercise, ask for a testable change to one access rule in a disposable
+repository. Include active/disabled users, allowed/denied roles and the expected
+tests in the accepted requirements. Inspect a failing check and a corrected
+candidate before expanding unattended work. Keep actual PR, review, CI and merge
+references; do not substitute an agent summary for those records.
+
+See [Review a factory candidate](35-collaboration.md#review-a-factory-candidate).
+Merge is distinct from application deployment and from the business owner's
+acceptance of the running application. Authorize and verify those steps separately.
 
 ## The everyday journey
 
@@ -14,7 +53,7 @@ product direction**), accepting each choice or asking for changes. Supported,
 reversible details settle on their own; only consequential assumptions wait
 for you. Then authorize a finite planning allowance, choose a repository, and
 let generation turn the accepted direction into real native issues you can
-follow, review and merge in Forgejo. Saved requests stay private to you;
+follow through review and policy-governed merge in Forgejo. Saved requests stay private to you;
 resume any of them later from your list.
 
 ## Inspect recorded runs
@@ -73,10 +112,10 @@ waiting binding, and takes the state back after the run's descendants
 retire. A run never sees the broker or host sockets. Unknown credential
 return keeps the connection unavailable until the run is accounted for.
 
-The only proved factory harness is Codex CLI `0.157.1`, pinned per run with
-its executable digest. Other harnesses stay unavailable until their own
-supervised-run proof passes. Soda uses subscription access only and never
-switches to paid API billing if the subscription becomes unavailable.
+Select a harness and model supported by the chosen release and execution profile.
+Each run records its harness and executable identity. Do not infer universal
+provider or subscription compatibility. Soda's subscription connection path does
+not switch to paid API billing when that subscription becomes unavailable.
 
 Persistent human projects remain available for investigation and manual
 development. See [Projects and workspaces](20-projects-and-workspaces.md) and
