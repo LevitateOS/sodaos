@@ -35,6 +35,22 @@ struct NativeImage {
     labels: BTreeMap<String, String>,
 }
 
+fn same_storage(current: Option<&String>, replacement: Option<&String>) -> bool {
+    current.is_some_and(|digest| hex(digest, 64)) && current == replacement
+}
+
+#[test]
+fn storage_updates_require_equal_real_fingerprints() {
+    let first = "a".repeat(64);
+    let different = "b".repeat(64);
+    let empty = String::new();
+    assert!(same_storage(Some(&first), Some(&first)));
+    assert!(!same_storage(Some(&first), Some(&different)));
+    assert!(!same_storage(None, None));
+    assert!(!same_storage(Some(&empty), Some(&empty)));
+    assert!(!same_storage(Some(&first), None));
+}
+
 pub struct Runtime<E> {
     pub exec: E,
     pub release: Option<ReleaseBinding>,
@@ -106,7 +122,7 @@ impl<E: Executor> Runtime<E> {
         Ok(native)
     }
 
-    fn admit_image(&self, spec: &Spec, deadline: Instant) -> Result<(), String> {
+    fn admit_image(&self, spec: &Spec, deadline: Instant) -> Result<NativeImage, String> {
         let bytes = self.command(
             "podman",
             &[
@@ -137,7 +153,7 @@ impl<E: Executor> Runtime<E> {
         {
             return Err("application image differs from admitted Canlang references".into());
         }
-        Ok(())
+        Ok(image)
     }
 
     fn create(&self, spec: &Spec, deadline: Instant) -> Result<String, String> {
@@ -318,15 +334,17 @@ impl<E: Executor> Runtime<E> {
         action: &str,
         deadline: Instant,
     ) -> Result<Observation, String> {
-        // This target currently rejects authored schema migrations. Image
-        // replacement must preserve the exact artifact and bundle.
-        if native.labels.get("io.canlang.artifact") != Some(&spec.artifact_sha256)
-            || native.labels.get("io.canlang.bundle") != Some(&spec.bundle_sha256)
-        {
+        let changed = native.labels.get("io.canlang.artifact") != Some(&spec.artifact_sha256)
+            || native.labels.get("io.canlang.bundle") != Some(&spec.bundle_sha256);
+        let current_storage = native.labels.get("io.canlang.storage");
+        if changed && !current_storage.is_some_and(|digest| hex(digest, 64)) {
             return Err("application migration is not qualified; replacement refused".into());
         }
+        let image = self.admit_image(spec, deadline)?;
+        if changed && !same_storage(current_storage, image.labels.get("io.canlang.storage")) {
+            return Err("application storage schema changed; migration is not supported".into());
+        }
         super::ingress::verify(spec)?;
-        self.admit_image(spec, deadline)?;
         self.systemd("disable", &spec.id, deadline)?;
         self.systemd("stop", &spec.id, deadline)?;
         let stopped = self.inspect(spec, &native.container, deadline)?;

@@ -53,6 +53,12 @@ func admitApplicationGeneration(record application.Record, in applicationAction)
 		}
 	} else {
 		if record.Observation == nil {
+			// An operator can recover an uncertain replacement using a freshly
+			// observed native container ID. The host still checks that exact ID
+			// and the app/data identity before stopping the writer.
+			if in.Action == "replace" && in.ExpectedContainer != "" {
+				return nil
+			}
 			if in.Action != "inspect" || in.ExpectedContainer != "" {
 				return errors.New("application action differs from current admission")
 			}
@@ -68,11 +74,7 @@ func admitApplicationReplacement(record application.Record, in applicationAction
 		if err := record.Application.Replacement(*in.Replacement); err != nil {
 			return request, err
 		}
-		// The current native target qualifies image replacement of the exact
-		// artifact/bundle only; reject semantic upgrades before any effect.
-		if in.Replacement.ArtifactSHA256 != record.Application.ArtifactSHA256 || in.Replacement.BundleSHA256 != record.Application.BundleSHA256 {
-			return request, errors.New("application action differs from current admission")
-		}
+		// Native image admission checks storage compatibility before stopping the app.
 		request.Application = *in.Replacement
 	}
 	return request, request.Validate()
@@ -85,9 +87,13 @@ func (s *API) apiApplicationAction(w http.ResponseWriter, r *http.Request, v sto
 	}
 	release, ok := s.acquireApplicationMutation(record.Application.ID)
 	if !ok {
-		if request.Action=="inspect" {
-			if current,visible:=s.loadApplication(w,r,v);visible {auth.JSONResponse(w,200,s.applicationView(r,v,current,s.applicationOperator(v)))}
-		} else {auth.JSONError(w,409,"application_pending","An application operation is already in progress. Refresh its status before trying again.")}
+		if request.Action == "inspect" {
+			if current, visible := s.loadApplication(w, r, v); visible {
+				auth.JSONResponse(w, 200, s.applicationView(r, v, current, s.applicationOperator(v)))
+			}
+		} else {
+			auth.JSONError(w, 409, "application_pending", "An application operation is already in progress. Refresh its status before trying again.")
+		}
 		return
 	}
 	defer release()
@@ -120,7 +126,7 @@ func (s *API) admitApplicationOperation(w http.ResponseWriter, r *http.Request, 
 	}
 	request, err := admitApplicationAction(record, in)
 	if err != nil {
-		auth.JSONError(w, 409, "application_action_conflict", "Use the current revision/container, and explicitly confirm Stop or image replacement. Semantic upgrades are not qualified.")
+		auth.JSONError(w, 409, "application_action_conflict", "Use the current revision/container, and explicitly confirm Stop or image replacement.")
 		return empty, noRequest, false
 	}
 	if !s.applicationOriginAllowed(request.Application) {
@@ -146,16 +152,16 @@ func (s *API) performApplicationOperation(w http.ResponseWriter, r *http.Request
 		auth.JSONError(w, 409, "application_state_changed", "Application references or observation changed; inspect again.")
 		return
 	}
-	if request.Action == "replace" {
-		if err := s.Store.ReplaceApplication(ctx, record.AdministratorID, record.Application.Revision, request.Application); err != nil {
-			auth.JSONError(w, 409, "application_state_changed", "Replacement references changed; inspect again.")
-			return
-		}
-	}
 	result, err := s.Host.Application(ctx, request)
 	if err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native outcome is unknown. Inspect before acting again; desired references do not prove readiness.")
 		return
+	}
+	if request.Action == "replace" {
+		if err := s.Store.ReplaceApplication(ctx, record.AdministratorID, record.Application.Revision, request.Application); err != nil {
+			auth.JSONError(w, 409, "application_state_changed", "The native app changed, but its references could not be saved. Refresh before acting again.")
+			return
+		}
 	}
 	if err := s.Store.ObserveApplication(ctx, record.Application.ID, record.AdministratorID, request.Application.Revision, nil, &result); err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native outcome could not be recorded. Inspect before acting again.")

@@ -115,7 +115,7 @@ does not inherit Project homes, SSH, sudo, an engine socket or Forgejo credentia
 
 For production, build the application layer over the exact selected runtime
 image using the application recipe's `APP_BUNDLE`, `APP_NAME`, `ARTIFACT_DIGEST`,
-`BUNDLE_DIGEST`, `TOOLS_DIGEST`, `RUNTIME_DIGEST` and `APP_ORIGIN` inputs. Preserve
+`BUNDLE_DIGEST`, `STORAGE_DIGEST`, `TOOLS_DIGEST`, `RUNTIME_DIGEST` and `APP_ORIGIN` inputs. Take `STORAGE_DIGEST` from the built Soda bundle's `storageFingerprint`. Preserve
 those values from the admitted bundle and release; labels cannot substitute for
 checking bytes. Transfer the resulting OCI archive through the operator's
 trusted path and load it into the appliance's Podman store before registration.
@@ -151,8 +151,7 @@ container generation. The [API contract](../reference/api.md#application-adminis
 owns registration and action payloads. Operators explicitly register, Install
 and replace images; the recorded administrator or operator may Inspect, Start
 and confirm Stop. Existing Spaces controls provide passive inventory and these
-explicit actions. Navigation does not install, start or deploy anything. Unknown
-observations hide the open-app link and require inspection before further action.
+explicit actions. The Applications page loads inventory and inspects status automatically; opening it does not install, start or deploy anything. The app link remains available when status cannot be read.
 Factory merge authority grants no deployment permission.
 
 Native installation requires the exact local images and labels, a private
@@ -167,8 +166,7 @@ Installation leaves the unit stopped and disabled. Start enables it for boot
 and waits for actual backend readiness. Stop disables boot startup and retains
 all data. Image
 replacement preflights exact references before stopping the old generation,
-retains the same artifact/bundle/data and leaves the replacement stopped until
-explicit Start. Semantic upgrades and migrations are rejected before effects.
+retains the same data and leaves the replacement stopped until explicit Start. Changed artifact/bundle bytes require matching nonempty `io.canlang.storage` fingerprints on the old container and new image. This permits ordinary UI/code updates with unchanged model declarations. An older container can first receive an unchanged-artifact runtime update to seed the storage fingerprint. Canlang independently checks app/resource identity and the retained schema. Schema migrations remain unsupported; source-bound opaque file/SEND operations may still refuse source changes.
 
 ## Configure private access
 

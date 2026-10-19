@@ -214,18 +214,30 @@ func TestApplicationImageReplacementHTTP(t *testing.T) {
 	next := spec
 	next.Revision = 2
 	next.Image = "sha256:" + strings.Repeat("b", 64)
+	next.BundleSHA256 = strings.Repeat("d", 64)
 	request := applicationAction{Action: "replace", Revision: 1, ExpectedContainer: strings.Repeat("a", 64), ConfirmStop: true, Replacement: &next}
 	if status, _ := f.call(41, "POST", base+"/actions", request); status != 403 {
 		t.Fatal("administrator replaced image")
 	}
 	bad := next
-	bad.BundleSHA256 = strings.Repeat("d", 64)
+	bad.Data = "a" + strings.Repeat("9", 24)
 	request.Replacement = &bad
 	effects := f.effects.Load()
 	if status, _ := f.call(1, "POST", base+"/actions", request); status != 409 || f.effects.Load() != effects {
-		t.Fatal("unqualified semantic replacement affected native runtime")
+		t.Fatal("replacement changed retained data identity")
 	}
 	request.Replacement = &next
+	f.fail.Store(true)
+	if status, _ := f.call(1, "POST", base+"/actions", request); status != 502 {
+		t.Fatal("native refusal was not reported")
+	}
+	unchanged, err := f.store.Application(context.Background(), spec.ID, 41)
+	if err != nil || unchanged.Application != spec || unchanged.Observation != nil {
+		t.Fatal("failed replacement advanced app references", unchanged, err)
+	}
+	f.fail.Store(false)
+	// Retry binds the exact old container even though the interrupted call
+	// cleared its cached observation. Native admission checks it again.
 	if status, body := f.call(1, "POST", base+"/actions", request); status != 200 {
 		t.Fatalf("replace %d %s", status, body)
 	}

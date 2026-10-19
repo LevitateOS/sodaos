@@ -16,6 +16,7 @@ assert.ok(state.startsWith('/home/') && cache.startsWith('/home/'));
 const repo = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const canlang = join(dirname(repo), 'canlang');
 const input = JSON.parse(await readFile(bundleFile, 'utf8'));
+assert.match(input.storageFingerprint, /^[0-9a-f]{64}$/);
 const release = JSON.parse(await readFile(releaseFile, 'utf8'));
 assert.equal(input.descriptor.identity.appName, 'SodaRuntime', 'this finite witness uses the compiled SodaRuntime fixture');
 assert.match(release.sha256, /^[0-9a-f]{64}$/);
@@ -49,12 +50,14 @@ if (!existingApplication) await writeFile(join(state, 'application-build.log'), 
   '--build-arg', `RUNTIME_IMAGE=${runtimeImage}`, '--build-arg', 'APP_BUNDLE=bundle.json',
   '--build-arg', `APP_NAME=${input.descriptor.identity.appName}`, '--build-arg', `ARTIFACT_DIGEST=${input.descriptor.identity.artifactDigest}`,
   '--build-arg', `BUNDLE_DIGEST=${input.bundle.mixedSha256}`, '--build-arg', `TOOLS_DIGEST=${release.sha256}`,
+  '--build-arg', `STORAGE_DIGEST=${input.storageFingerprint}`,
   '--build-arg', `RUNTIME_DIGEST=${runtimeDigest}`, '--build-arg', `APP_ORIGIN=${input.environment.vars.CAN_AUTH_ORIGIN}`,
   '--tag', appImage, state]));
 const application = inspect('image', appImage);
 assert.equal(application.Config.User, '10000:10000');
 for (const [key, value] of Object.entries({ 'io.canlang.app': input.descriptor.identity.appName,
   'io.canlang.artifact': input.descriptor.identity.artifactDigest, 'io.canlang.bundle': input.bundle.mixedSha256,
+  'io.canlang.storage': input.storageFingerprint,
   'io.canlang.tools': release.sha256, 'io.soda.canlang.runtime': runtimeDigest,
   'io.canlang.origin': input.environment.vars.CAN_AUTH_ORIGIN })) assert.equal(application.Config.Labels[key], value);
 const confinement = ['--network', 'none', '--userns', 'keep-id:uid=10000,gid=10000', '--read-only', '--read-only-tmpfs=false', '--cap-drop', 'ALL',
