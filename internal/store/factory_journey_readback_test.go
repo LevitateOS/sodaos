@@ -386,3 +386,117 @@ func TestLatestIssueAttemptBindsNewestRow(t *testing.T) {
 		t.Fatal("latest attempt accepted empty scope")
 	}
 }
+
+func TestJourneyAdoptionsScopePerIssue(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, _, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	revision := factory.IntentRevision{
+		ID: "d111111111111111111111111", Intent: "d222222222222222222222222",
+		Owner: 1, Repository: 7, Objective: "Build a request form",
+		State: "accepted", MaxIssues: 4, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+		Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
+	if err := s.SaveIntentRevision(ctx, revision); err != nil {
+		t.Fatal(err)
+	}
+	binding := factory.IntentTaskBinding{
+		RevisionID: revision.ID, TaskKey: "d444444444444444444444444",
+		IssueID: 99, IssueIndex: 3, AcceptanceID: "d555555555555555555555555", CreatedUnix: 1,
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	adoptions, truncated, err := s.JourneyAdoptions(ctx, 7, 3, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if truncated || len(adoptions) != 1 || adoptions[0].Intent != revision.Intent ||
+		adoptions[0].Revision != revision.ID || adoptions[0].Binding.AcceptanceID != binding.AcceptanceID {
+		t.Fatalf("adoptions: %+v truncated=%v", adoptions, truncated)
+	}
+	// Wrong repository or issue scope never leaks the binding.
+	for _, scope := range [][2]int64{{8, 3}, {7, 4}} {
+		none, _, err := s.JourneyAdoptions(ctx, scope[0], scope[1], 16)
+		if err != nil || len(none) != 0 {
+			t.Fatalf("scope %v adoptions=%v err=%v", scope, none, err)
+		}
+	}
+	if _, _, err := s.JourneyAdoptions(ctx, 0, 3, 16); err == nil {
+		t.Fatal("adoptions accepted empty scope")
+	}
+}
+
+func TestDeliveryJudgmentsForPublicationScope(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	publicationID := strings.Repeat("9", 32)
+	root := strings.Repeat("7", 32)
+	in := factory.DeliveryFingerprintInput{
+		Reviews:     []string{strings.Repeat("6", 32)},
+		AttemptRoot: root, PublicationID: publicationID,
+		ScopeDigest: strings.Repeat("3", 64), FixDigest: strings.Repeat("7", 64),
+		DiffDigest: strings.Repeat("8", 64), CheckDigest: strings.Repeat("6", 64),
+		TreeDigest: strings.Repeat("9", 64),
+		Head:       strings.Repeat("a1", 20), Base: strings.Repeat("b2", 20),
+		Model: "test-delivery-model", Rubric: factory.DeliveryRubric,
+		PolicyRevision: 1, Round: 1,
+	}
+	fingerprint, err := factory.DeliveryFingerprint(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := factory.DeliveryAnswer{
+		Selected: factory.DeliveryReadyToMerge, Probability: 0.9, Confidence: 0.95,
+		Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1},
+		Model:         "test-delivery-model", Fingerprint: fingerprint,
+	}
+	receipt, err := factory.NewDeliveryReceipt(in, fingerprint, answer, true, 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawReceipt, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`,
+		fingerprint, string(rawReceipt)); err != nil {
+		t.Fatal(err)
+	}
+	// A non-delivery journal row in the same table never joins.
+	if _, err := raw.Exec(`INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`,
+		strings.Repeat("b", 64), `{"snapshot":"`+strings.Repeat("b", 64)+`"}`); err != nil {
+		t.Fatal(err)
+	}
+	receipts, truncated, err := s.DeliveryJudgmentsForPublication(ctx, publicationID, root, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if truncated || len(receipts) != 1 || receipts[0].Fingerprint != fingerprint {
+		t.Fatalf("receipts: %+v truncated=%v", receipts, truncated)
+	}
+	none, _, err := s.DeliveryJudgmentsForPublication(ctx, strings.Repeat("8", 32), root, 8)
+	if err != nil || len(none) != 0 {
+		t.Fatalf("wrong publication receipts=%v err=%v", none, err)
+	}
+	if _, _, err := s.DeliveryJudgmentsForPublication(ctx, "bad", root, 8); err == nil {
+		t.Fatal("delivery listing accepted invalid scope")
+	}
+}

@@ -497,9 +497,10 @@ func nonNilJourney[T any](got, fallback []T) []T {
 // Journey reason codes name every incomplete or unavailable fact behind
 // one recorded issue journey. Codes carry no raw data and stay bounded:
 // absence of a code means its section rendered whole, never a guess.
-// Producer-absent sections (adoptions, delivery judgments) read
-// unavailable until their owners journal them; the full merged journey
-// stays blocked and never reports complete here.
+// Adoption and delivery sections read unavailable until their
+// recorded linkage renders (intent task bindings; delivery
+// acceptances with their funded receipts); without that proof the
+// full merged journey never reports complete here.
 const (
 	journeyReasonNoAttempt                = "no_attempt"
 	journeyReasonChainPageBound           = "chain_page_bound"
@@ -519,6 +520,8 @@ const (
 	journeyReasonGatesUnrenderable        = "gates_unrenderable"
 	journeyReasonGatesTruncated           = "gates_truncated"
 	journeyReasonAdoptionsUnavailable     = "adoptions_unavailable"
+	journeyReasonAdoptionsInvalidRow      = "adoptions_invalid_row"
+	journeyReasonAdoptionsTruncated       = "adoptions_truncated"
 	journeyReasonDeliveryUnavailable      = "delivery_unavailable"
 )
 

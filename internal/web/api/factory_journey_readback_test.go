@@ -119,7 +119,6 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	s.PriorityCallBudget = 100
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -1140,5 +1139,180 @@ func TestFactoryIssueJourneyPrePhaseExplicit(t *testing.T) {
 	}
 	if reasons := journeyReasons(view); !reasons[journeyReasonPhasesPrePhase] {
 		t.Fatalf("pre-phase not named: %+v", view.Journey.Reasons)
+	}
+}
+
+// seedJourneyAdoption records one accepted intent revision and binds
+// its task to the journey issue under the journey acceptance, through
+// the real intent writers. The binding is the canonical adoption
+// record the journey evidence section joins on.
+func seedJourneyAdoption(t *testing.T, s *store.Store, acceptance string) (string, string) {
+	t.Helper()
+	revision := factory.IntentRevision{
+		ID: "d111111111111111111111111", Intent: "d222222222222222222222222",
+		Owner: 1, Repository: journeyRepo, Objective: "Build a request form",
+		State: "accepted", MaxIssues: 4, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+		Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
+	ctx := context.Background()
+	if err := s.SaveIntentRevision(ctx, revision); err != nil {
+		t.Fatal(err)
+	}
+	binding := factory.IntentTaskBinding{
+		RevisionID: revision.ID, TaskKey: "d444444444444444444444444",
+		IssueID: 99, IssueIndex: journeyIssue, AcceptanceID: acceptance, CreatedUnix: 1,
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	return revision.Intent, revision.ID
+}
+
+// journeyDeliveryAcceptanceFixture builds one valid journaled delivery
+// acceptance over the fixture publication's committed correction tip.
+func journeyDeliveryAcceptanceFixture(root factory.Assignment, kind string) factory.DeliveryAcceptance {
+	publicationID := strings.Repeat("9", 32)
+	acceptance := factory.DeliveryAcceptance{
+		Tuple:         factory.CandidateTuple{Head: journeyCorrection, Base: journeyBase, DiffBase: journeyBase},
+		ID:            factory.DeliveryAcceptanceID(publicationID, root.ID, 1, kind),
+		PublicationID: publicationID, AttemptRoot: root.ID,
+		ScopeDigest: strings.Repeat("3", 64), FindingDigest: strings.Repeat("4", 64),
+		CoverageDigest: strings.Repeat("5", 64), CheckDigest: strings.Repeat("6", 64),
+		PolicyRevision: "policy-1", OriginReceipt: strings.Repeat("6", 32),
+		Kind: kind, Round: 1,
+	}
+	if kind == factory.AcceptanceJevAcceptance {
+		acceptance.DecisionID = strings.Repeat("5", 32)
+	}
+	return acceptance
+}
+
+// seedJourneyDeliveryReceipt records the decided funded delivery
+// receipt whose fingerprinted input binds the fixture publication,
+// attempt root, round and correction tuple.
+func seedJourneyDeliveryReceipt(t *testing.T, fx *journeyHTTPFixture, root factory.Assignment) {
+	t.Helper()
+	in := factory.DeliveryFingerprintInput{
+		Reviews:     []string{strings.Repeat("6", 32)},
+		AttemptRoot: root.ID, PublicationID: strings.Repeat("9", 32),
+		ScopeDigest: strings.Repeat("3", 64), FixDigest: strings.Repeat("7", 64),
+		DiffDigest: strings.Repeat("8", 64), CheckDigest: strings.Repeat("6", 64),
+		TreeDigest: strings.Repeat("9", 64),
+		Head:       journeyCorrection, Base: journeyBase,
+		Model: "test-delivery-model", Rubric: factory.DeliveryRubric,
+		PolicyRevision: 1, Round: 1,
+	}
+	fingerprint, err := factory.DeliveryFingerprint(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := factory.DeliveryAnswer{
+		Selected: factory.DeliveryReadyToMerge, Probability: 0.9, Confidence: 0.95,
+		Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1},
+		Model:         "test-delivery-model", Fingerprint: fingerprint,
+	}
+	receipt, err := factory.NewDeliveryReceipt(in, fingerprint, answer, true, 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.Exec(`INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`,
+		fingerprint, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedJourneyWithDelivery records the rich lineage with one journaled
+// delivery acceptance of the given kind, its funded receipt when
+// asked, and one intent adoption binding.
+func seedJourneyWithDelivery(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptanceSource, kind string, withReceipt bool) (string, string, factory.Assignment) {
+	t.Helper()
+	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
+	fake.decision = journeyAcceptanceFor(acceptance)
+	root := journeyOwner(t, strings.Repeat("7", 32), acceptance, project.ExecutionImplement, factory.AssignmentFinished, factory.Succeeded, "")
+	child := journeyChild(t, strings.Repeat("8", 32), root.ID, acceptance, project.ExecutionReview, factory.AssignmentFinished, factory.Failed)
+	insertJourneyRow(t, fx.raw, root, factory.AssignmentFinished)
+	insertJourneyRow(t, fx.raw, child, factory.AssignmentFinished)
+	publication := journeyPublicationFixture(root, factory.OpEffectCommitted, factory.FindingSeverityMajor)
+	publication.DeliveryAcceptances = []factory.DeliveryAcceptance{journeyDeliveryAcceptanceFixture(root, kind)}
+	insertJourneyPublication(t, fx.raw, publication)
+	seedJourneyPlan(t, fx.db, root.ID)
+	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder", strings.Repeat("b", 64))
+	intent, revision := seedJourneyAdoption(t, fx.db, acceptance)
+	if withReceipt {
+		seedJourneyDeliveryReceipt(t, fx, root)
+	}
+	return intent, revision, root
+}
+
+func TestFactoryIssueJourneyEvidenceJoinsComplete(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	intent, revision, _ := seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("evidence status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	if !journey.Available || !journey.Complete || len(journey.Reasons) != 0 {
+		t.Fatalf("evidence flags: %+v", journey)
+	}
+	if len(journey.Adoptions) != 1 || journey.Adoptions[0].Intent != intent ||
+		journey.Adoptions[0].Revision != revision || journey.Adoptions[0].State != journeyAdoptionAdopted {
+		t.Fatalf("evidence adoptions: %+v", journey.Adoptions)
+	}
+	if len(journey.Judgments) != 2 || journey.Judgments[0].Kind != journeyJudgmentDelivery ||
+		journey.Judgments[0].Selected != journeyJudgmentDeliveryReady ||
+		journey.Judgments[0].Model != "test-delivery-model" || journey.Judgments[0].Probability != 0.9 ||
+		journey.Judgments[1].Kind != journeyJudgmentReassessDecision {
+		t.Fatalf("evidence judgments: %+v", journey.Judgments)
+	}
+}
+
+func TestFactoryIssueJourneyDeliveryMissingReceipt(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, false)
+
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("missing-receipt status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	// Adoption proof renders; the unlinked Jev acceptance keeps the
+	// delivery section honestly unavailable with no fabricated judgment.
+	if len(journey.Adoptions) != 1 || journey.Complete {
+		t.Fatalf("missing-receipt adoption/flags: %+v", journey)
+	}
+	if len(journey.Reasons) != 1 || journey.Reasons[0] != journeyReasonDeliveryUnavailable {
+		t.Fatalf("missing-receipt reasons: %+v", journey.Reasons)
+	}
+	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision {
+		t.Fatalf("missing-receipt judgments: %+v", journey.Judgments)
+	}
+}
+
+func TestFactoryIssueJourneyCleanDeliveryEvidence(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceCleanReview, false)
+
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("clean-delivery status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	// A clean-review acceptance is its own delivery evidence: the join
+	// closes without inventing a funded judgment.
+	if !journey.Complete || len(journey.Reasons) != 0 {
+		t.Fatalf("clean-delivery flags: %+v", journey)
+	}
+	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision {
+		t.Fatalf("clean-delivery judgments: %+v", journey.Judgments)
 	}
 }

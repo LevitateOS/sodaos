@@ -88,15 +88,139 @@ func (s *API) factoryIssueJourney(ctx context.Context, repository, index int64, 
 	if err := s.journeyCycleSections(ctx, view, repository, index); err != nil {
 		return nil, err
 	}
-	// No producer journals adoptions yet, and delivery acceptances carry
-	// the funded call identity rather than the evidence fingerprint, so
-	// no recorded receipt linkage exists to render. Both stay empty and
-	// read unavailable until their producers record the linkage; the
-	// full merged journey stays blocked and never reports complete.
-	view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsUnavailable)
-	view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveryUnavailable)
+	if err := s.journeyEvidenceSections(ctx, view, repository, index, owner, publication); err != nil {
+		return nil, err
+	}
 	view.Complete = len(view.Reasons) == 0
 	return view, nil
+}
+
+// journeyEvidenceSections closes the two evidence joins from canonical
+// records. Adoptions render from the intent task bindings that adopted
+// this native issue (intent + revision, state adopted: a binding is
+// recorded only after native readback confirmed the issue). Delivery
+// proof renders from the publication's journaled delivery acceptances:
+// a clean-review acceptance is its own evidence and renders no funded
+// judgment; a Jev acceptance renders its funded delivery judgment only
+// when the recorded receipt joins on the exact publication, attempt
+// root, round and tuple. Either section without rendered proof keeps
+// its unavailable reason, so the full merged journey never reports
+// complete on missing evidence.
+func (s *API) journeyEvidenceSections(ctx context.Context, view *factoryIssueJourneyView, repository, index int64, owner *factory.Assignment, publication *factory.Publication) error {
+	if err := s.journeyAdoptionSection(ctx, view, repository, index); err != nil {
+		return err
+	}
+	return s.journeyDeliverySection(ctx, view, owner, publication)
+}
+
+func (s *API) journeyAdoptionSection(ctx context.Context, view *factoryIssueJourneyView, repository, index int64) error {
+	recorded, truncated, err := s.Store.JourneyAdoptions(ctx, repository, index, maxJourneyAdoptions)
+	if err != nil {
+		return err
+	}
+	adoptions := make([]journeyAdoptionView, 0, len(recorded))
+	invalid := false
+	for _, adoption := range recorded {
+		rendered, err := journeyAdoptionDTO(adoption.Intent, adoption.Revision, journeyAdoptionAdopted)
+		if err != nil {
+			invalid = true
+			continue
+		}
+		adoptions = append(adoptions, rendered)
+	}
+	if invalid {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsInvalidRow)
+	}
+	if truncated {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsTruncated)
+	}
+	if len(adoptions) == 0 {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsUnavailable)
+	}
+	view.Adoptions = nonNilJourney(adoptions, []journeyAdoptionView{})
+	return nil
+}
+
+func (s *API) journeyDeliverySection(ctx context.Context, view *factoryIssueJourneyView, owner *factory.Assignment, publication *factory.Publication) error {
+	if publication == nil || len(publication.DeliveryAcceptances) == 0 {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveryUnavailable)
+		return nil
+	}
+	var receipts []factory.DeliveryReceipt
+	receiptsTruncated := false
+	for _, acceptance := range publication.DeliveryAcceptances {
+		if acceptance.Kind != factory.AcceptanceJevAcceptance {
+			continue
+		}
+		var err error
+		receipts, receiptsTruncated, err = s.Store.DeliveryJudgmentsForPublication(
+			ctx, publication.ID, owner.AttemptRoot, maxJourneyJudgments)
+		if err != nil {
+			return err
+		}
+		break
+	}
+	if receiptsTruncated {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonJudgmentsTruncated)
+	}
+	linked, unlinked := false, false
+	deliveries := make([]journeyJudgmentView, 0, len(publication.DeliveryAcceptances))
+	for _, acceptance := range publication.DeliveryAcceptances {
+		if acceptance.Validate() != nil || acceptance.PublicationID != publication.ID ||
+			acceptance.AttemptRoot != owner.AttemptRoot {
+			unlinked = true
+			continue
+		}
+		if acceptance.Kind == factory.AcceptanceCleanReview {
+			linked = true
+			continue
+		}
+		rendered, ok := journeyDeliveryJudgment(acceptance, receipts)
+		if !ok {
+			unlinked = true
+			continue
+		}
+		deliveries = append(deliveries, rendered)
+		linked = true
+	}
+	if len(deliveries) > 0 {
+		// Delivery precedes completion reassessment in the loop, so its
+		// judgments render before the cycle judgments.
+		view.Judgments = append(deliveries, view.Judgments...)
+		if len(view.Judgments) > maxJourneyJudgments {
+			view.Judgments = view.Judgments[len(view.Judgments)-maxJourneyJudgments:]
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonJudgmentsTruncated)
+		}
+	}
+	if !linked || unlinked {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveryUnavailable)
+	}
+	return nil
+}
+
+// journeyDeliveryJudgment renders the funded delivery judgment behind
+// one Jev delivery acceptance: the unique decided receipt over the
+// acceptance's exact round and tuple whose effective action is ready.
+// A missing, undecided or mismatched receipt renders nothing, never a
+// fabricated judgment from the acceptance alone.
+func journeyDeliveryJudgment(acceptance factory.DeliveryAcceptance, receipts []factory.DeliveryReceipt) (journeyJudgmentView, bool) {
+	for _, receipt := range receipts {
+		if receipt.Outcome != factory.DeliveryOutcomeDecided ||
+			receipt.Decision.Effective != factory.DeliveryEffectiveReady ||
+			receipt.Input.Round != acceptance.Round ||
+			receipt.Input.Head != acceptance.Tuple.Head ||
+			receipt.Input.Base != acceptance.Tuple.Base {
+			continue
+		}
+		answer := receipt.Decision.Answer
+		rendered, err := journeyJudgmentDTO(journeyJudgmentDelivery, answer.Selected, answer.Model,
+			answer.Confidence, answer.Probability, false, "")
+		if err != nil {
+			return journeyJudgmentView{}, false
+		}
+		return rendered, true
+	}
+	return journeyJudgmentView{}, false
 }
 
 // applyJourneyPublicationLineage binds the recorded candidate, the

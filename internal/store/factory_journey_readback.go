@@ -129,6 +129,126 @@ func (s *Store) JourneyReassignmentCycles(ctx context.Context, repository, issue
 	return records, false, nil
 }
 
+// journeyAdoptionLimit bounds one per-issue adoption listing; the
+// caller reads one extra record past its render cap as the truncation
+// signal, mirroring the reassessment listing.
+const journeyAdoptionLimit = 256
+
+// JourneyAdoption is one recorded intent adoption behind an issue: the
+// intent and revision whose generated task binding adopted the native
+// issue, with the binding itself. A binding exists only after native
+// readback confirmed the issue, so its presence is the adoption proof;
+// its absence means no intent ever adopted this issue.
+type JourneyAdoption struct {
+	Intent   string
+	Revision string
+	Binding  factory.IntentTaskBinding
+}
+
+// JourneyAdoptions returns up to limit recorded adoptions naming one
+// repository issue, oldest binding first. The join is canonical:
+// factory_intent_tasks bindings by issue index, joined to their intent
+// revision, whose recorded repository must match the journey scope.
+// The truncated flag mirrors the other journey readers. Rows that
+// decode, validate or scope-check refuse as storage errors.
+func (s *Store) JourneyAdoptions(ctx context.Context, repository, issue int64, limit int) ([]JourneyAdoption, bool, error) {
+	if repository <= 0 || issue <= 0 || limit <= 0 || limit > journeyAdoptionLimit {
+		return nil, false, errors.New("invalid journey adoption listing")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT r.data, t.data FROM factory_intent_tasks t
+		JOIN factory_intent_revisions r ON r.id=t.revision
+		WHERE t.data->>'issue_index' ~ '^[0-9]+$' AND (t.data->>'issue_index')::bigint=$2
+		AND r.data->>'repository' ~ '^-?[0-9]+$' AND (r.data->>'repository')::bigint=$1
+		ORDER BY t.revision, t.task LIMIT $3`, repository, issue, limit+1)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	adoptions := make([]JourneyAdoption, 0, limit+1)
+	for rows.Next() {
+		var revisionRaw, bindingRaw []byte
+		if err = rows.Scan(&revisionRaw, &bindingRaw); err != nil {
+			return nil, false, err
+		}
+		var revision factory.IntentRevision
+		if err = json.Unmarshal(revisionRaw, &revision); err != nil {
+			return nil, false, err
+		}
+		if err = revision.Validate(); err != nil {
+			return nil, false, err
+		}
+		var binding factory.IntentTaskBinding
+		if err = json.Unmarshal(bindingRaw, &binding); err != nil {
+			return nil, false, err
+		}
+		if revision.Repository != repository || binding.RevisionID != revision.ID ||
+			binding.IssueIndex != issue || binding.IssueID <= 0 {
+			return nil, false, errors.New("journey adoption scope mismatch")
+		}
+		adoptions = append(adoptions, JourneyAdoption{
+			Intent: revision.Intent, Revision: revision.ID, Binding: binding,
+		})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, false, err
+	}
+	if len(adoptions) > limit {
+		return adoptions[:limit], true, nil
+	}
+	return adoptions, false, nil
+}
+
+// journeyDeliveryLimit bounds one per-publication delivery receipt
+// listing; the extra record past the cap is the truncation signal.
+const journeyDeliveryLimit = 64
+
+// DeliveryJudgmentsForPublication returns up to limit recorded funded
+// delivery receipts whose fingerprinted input names one publication
+// and attempt root. Delivery acceptances carry the funded call
+// identity rather than the evidence fingerprint, so the receipt join
+// is over the recorded input scope (publication, attempt root); the
+// caller binds the exact round and tuple. Every returned receipt
+// revalidates, which recomputes its evidence fingerprint. The
+// truncated flag mirrors the other journey readers.
+func (s *Store) DeliveryJudgmentsForPublication(ctx context.Context, publicationID, attemptRoot string, limit int) ([]factory.DeliveryReceipt, bool, error) {
+	if !factory.ValidID(publicationID) || !factory.ValidID(attemptRoot) || limit <= 0 || limit > journeyDeliveryLimit {
+		return nil, false, errors.New("invalid delivery judgment listing")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_priority_judgments
+		WHERE data IS NOT NULL AND data->>'kind'=$3
+		AND data->'input'->>'publication_id'=$1 AND data->'input'->>'attempt_root'=$2
+		ORDER BY snapshot LIMIT $4`, publicationID, attemptRoot, factory.DeliveryReceiptKind, limit+1)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	receipts := make([]factory.DeliveryReceipt, 0, limit+1)
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
+			return nil, false, err
+		}
+		var receipt factory.DeliveryReceipt
+		if err = json.Unmarshal(raw, &receipt); err != nil {
+			return nil, false, err
+		}
+		if err = receipt.Validate(); err != nil {
+			return nil, false, err
+		}
+		if receipt.Input.PublicationID != publicationID || receipt.Input.AttemptRoot != attemptRoot {
+			return nil, false, errors.New("delivery judgment scope mismatch")
+		}
+		receipts = append(receipts, receipt)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, false, err
+	}
+	if len(receipts) > limit {
+		return receipts[:limit], true, nil
+	}
+	return receipts, false, nil
+}
+
 // LatestIssueAttempt returns the newest recorded assignment for one
 // repository issue, whatever its ownership. The newest row may be a
 // child correction or review attempt: callers keep its AttemptRoot as
