@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // Helpers for the restored dispatch/settlement integration tests. These
@@ -62,7 +63,7 @@ func checkSeed(t *testing.T, issue int64) (*publishFixture, factory.Publication)
 func correctionRun(t *testing.T, fx *publishFixture, a factory.Assignment, candidate string) factory.Run {
 	t.Helper()
 	publication := fx.publication(t, a)
-	_, run := fx.childRun(t, a, publication, "coder", publication.Candidate, a.Preparation, true)
+	_, run := fx.childRun(t, a, publication, project.RoleCoder, publication.Candidate, a.Preparation, true)
 	accountChildResult(t, fx, run, correctionOutput(candidate))
 	return run
 }
