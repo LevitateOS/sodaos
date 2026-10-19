@@ -80,7 +80,6 @@ func drivePGFixture(t *testing.T) (*mergeFixture, *continueChooser, CompletionDr
 		t.Fatalf("merge stage: %+v", m)
 	}
 	db := fx.publish.db
-	db.PriorityCallBudget = 100
 	chooser := &continueChooser{}
 	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
 	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
@@ -364,7 +363,6 @@ func native92DrivePGFixture(t *testing.T, chooser ProductJudgment) (*mergeFixtur
 		t.Fatalf("merge stage: %+v", m)
 	}
 	db := fx.publish.db
-	db.PriorityCallBudget = 100
 	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
 	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
 	return fx, deps

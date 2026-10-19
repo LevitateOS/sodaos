@@ -143,7 +143,6 @@ func TestServingPriorityDispatchCompletesBeyondReadinessBudget(t *testing.T) {
 	ctx := context.Background()
 	fx := dispatchSeed(t, db)
 	holdLaunchedRuns(fx)
-	db.PriorityCallBudget = 20
 	const issues = 170
 	seedPriorityQueue(t, fx, fixtureDB, 100, issues)
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
@@ -229,7 +228,6 @@ func TestPriorityLargeQueueCompletesAndSurvivesRestart(t *testing.T) {
 	ctx := context.Background()
 	fx := dispatchSeed(t, db)
 	holdLaunchedRuns(fx)
-	db.PriorityCallBudget = 20
 	const issues = 256
 	seedPriorityQueue(t, fx, fixtureDB, 100, issues)
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
@@ -303,7 +301,6 @@ func TestPriorityPartialObservationResumesAcrossPasses(t *testing.T) {
 	defer func() { _ = fixtureDB.Close() }()
 	ctx := context.Background()
 	fx := dispatchSeed(t, db)
-	db.PriorityCallBudget = 20
 	const issues = 5
 	seedPriorityQueue(t, fx, fixtureDB, 100, issues)
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
@@ -376,7 +373,6 @@ func TestPriorityInventoryInvalidation(t *testing.T) {
 		defer func() { _ = fixtureDB.Close() }()
 		ctx := context.Background()
 		fx := dispatchSeed(t, db)
-		db.PriorityCallBudget = 20
 		seedPriorityQueue(t, fx, fixtureDB, 100, 2)
 		source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 		observer := &countingObserver{revisions: []int64{41, 42}}
@@ -479,7 +475,6 @@ func TestPriorityInventoryInvalidation(t *testing.T) {
 		defer func() { _ = fixtureDB.Close() }()
 		ctx := context.Background()
 		fx := dispatchSeed(t, db)
-		db.PriorityCallBudget = 20
 		seedPriorityQueue(t, fx, fixtureDB, 100, 2)
 		source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 		observer := &countingObserver{revisions: []int64{41, 41, 42}}

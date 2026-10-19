@@ -152,7 +152,6 @@ func TestAttemptSlotRemainsActiveUntilConfirmedMerge(t *testing.T) {
 	// drive seals the merged substance and releases the continue
 	// decision through the production path.
 	db := fx.publish.db
-	db.PriorityCallBudget = 100
 	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: &continueChooser{}}
 	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
 	if sealed := fx.publish.coord.DriveCompletions(ctx, deps); len(sealed.Sealed) != 1 {
@@ -428,7 +427,6 @@ func TestMergePassRequiresCurrentAuthority(t *testing.T) {
 	// The completed merge closes the D13 fence until its reassessment
 	// cycle seals, decides and releases through the real drive, so
 	// issue 4 admits only after that release.
-	fx.publish.db.PriorityCallBudget = 100
 	fx.publish.coord.Planning = &PlanningJudgments{Journal: fx.publish.db, Funding: fx.publish.db, Chooser: &continueChooser{}}
 	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: fx.publish.db.CaptureCompletionLocal}
 	if report := fx.publish.coord.DriveCompletions(context.Background(), deps); len(report.Sealed) != 1 {

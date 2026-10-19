@@ -13,7 +13,6 @@
       "expect": {
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "factory_intake_secret_file": "",
-        "factory_judgment_call_budget": 0,
         "factory_publication_root": "",
         "forgejo_background_credential_file": "",
         "forgejo_background_host_uid": null,
@@ -55,7 +54,6 @@
       "expect": {
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "factory_intake_secret_file": "/etc/soda/intake.secret",
-        "factory_judgment_call_budget": 0,
         "factory_publication_root": "/var/lib/soda/factory-pub",
         "forgejo_background_credential_file": "/etc/soda/bg.cred",
         "forgejo_background_host_uid": 997,

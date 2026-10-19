@@ -283,7 +283,7 @@ func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, ma
 	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, snapshot).Scan(&existing); err != nil {
 		return false, err
 	}
-	if existing > 0 || s.PriorityCallBudget-spent < maxCalls {
+	if existing > 0 {
 		return false, nil
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,$2)`, snapshot, maxCalls); err != nil {
@@ -388,7 +388,7 @@ func (s *Store) reserveIntentJudgmentTx(ctx context.Context, tx *sql.Tx, r facto
 	if used >= allowance.Amount {
 		return false, ErrPlanningAllowanceExhausted
 	}
-	if existing > 0 || spent >= s.PriorityCallBudget {
+	if existing > 0 {
 		return false, nil
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, snapshot); err != nil {

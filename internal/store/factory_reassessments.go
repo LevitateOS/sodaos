@@ -622,9 +622,6 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
 		return false, err
 	}
-	if spent >= s.PriorityCallBudget {
-		return false, ErrReassessmentBudgetExhausted
-	}
 	record.Cycle.Ledger = ledger
 	recordData, err := json.Marshal(record)
 	if err != nil {

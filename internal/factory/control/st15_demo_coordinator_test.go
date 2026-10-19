@@ -105,7 +105,6 @@ func (fx *st15Fixture) wireCoordinator() error {
 	// release. The inventory enumerator is the production snapshot
 	// source, so the seal carries the real fixture issues.
 	coord.CompletionEnumerator = api.NewCompletionSnapshotSource(observer)
-	coord.Store.PriorityCallBudget = 100
 	coord.Planning = &control.PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: &st15JourneyChooser{}}
 	fx.coord = coord
 	secret := make([]byte, 32)

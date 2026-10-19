@@ -257,7 +257,6 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 	}
 	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
 	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
-	db.PriorityCallBudget = 100
 	chooser := &continueReleaseChooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
@@ -433,7 +432,6 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	db.PriorityCallBudget = 100
 	chooser := &staleRefusalChooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
 	// One completion per repository-generation row: each scenario seals
@@ -564,7 +562,6 @@ func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
 	cycleID := seedStaleRefusalCycle(t, raw, 7, "budget-48")
 	reader := &scriptedBudgetReader{total: 48, tip: strings.Repeat("c", 40)}
 	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
-	db.PriorityCallBudget = 100
 	chooser := &continue48Chooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}

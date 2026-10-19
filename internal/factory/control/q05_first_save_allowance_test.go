@@ -18,7 +18,6 @@ import (
 // external judgment: assumptionChooser{consistent, 0.9}.
 func TestFirstSaveAllowanceProducerExploreBoundary(t *testing.T) {
 	c := coordinatorFixture(t, nil, nil)
-	c.Store.PriorityCallBudget = 10
 	ctx := context.Background()
 	ideas := []factory.ProductIdea{
 		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},

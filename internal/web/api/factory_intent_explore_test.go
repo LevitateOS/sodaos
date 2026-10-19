@@ -268,11 +268,11 @@ func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
 // TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
 // distinction on the real explore path: finite allowance exhaustion
 // mid-round reports 409 planning_funding_required (never 503), while
-// provider failure, operator ceiling, stale head and session change keep
+// provider failure, stale head and session change keep
 // their own codes. Charged calls stay charged and the saved correction
 // head is untouched by the failed round.
 func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
+	product, _, call, errorCode := q05Mux(t, "")
 	saveDraft := func(id, intent, predecessor, ideas string) {
 		t.Helper()
 		body := `{"id":"` + id + `","intent":"` + intent + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[` + ideas + `]}`
@@ -306,21 +306,8 @@ func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
 		return `{"id":"` + id + `","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}`
 	}
 
-	// Operator ceiling first: the global budget is fresh, so the purpose
-	// call reserves and the assumptions leg refuses on the ceiling with
-	// 503, never the funding code.
-	const ceilingDraft = "d555555555555555555555555"
-	const ceilingIntent = "d666666666666666666666666"
-	saveDraft(ceilingDraft, ceilingIntent, "", pendingIdea("d777777777777777777777777"))
-	saveAllowance("d888888888888888888888888", ceilingIntent, 8)
-	s.PriorityCallBudget = 1
-	ceilingChooser := &exploreFixtureChooser{}
-	product.IntentExploreChooser = ceilingChooser
-	code, body := call(http.MethodPost, "/api/factory/intents/"+ceilingIntent+"/explore", `{"revision":"`+ceilingDraft+`"}`)
-	s.PriorityCallBudget = 32
-	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" || ceilingChooser.calls != 1 {
-		t.Fatalf("ceiling explore status=%d body=%s calls=%d", code, body, ceilingChooser.calls)
-	}
+	var code int
+	var body []byte
 
 	// Mid-round exhaustion: amount 1 funds the purpose call; the
 	// assumptions leg then refuses on the exhausted allowance with 409.

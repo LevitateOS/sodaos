@@ -93,7 +93,7 @@ func StageIntentPlanningPrompt(head factory.IntentRevision, in factory.SemanticP
 	b.WriteString("\n## Admitted planning input\n\n")
 	b.WriteString(promptFenceGuard.Replace(string(encoded)) + "\n")
 	b.WriteString(phasedReportContract(project.ExecutionDecompose))
-	prompt := []byte(promptFenceGuard.Replace(b.String()))
+	prompt := []byte(b.String())
 	if len(prompt) == 0 || len(prompt) > project.MaxFactoryPrompt {
 		return nil, errors.New("staged intent prompt is empty or over its bound")
 	}

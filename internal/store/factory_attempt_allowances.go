@@ -1185,9 +1185,6 @@ func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue i
 	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
 		return false, err
 	}
-	if spent >= s.PriorityCallBudget {
-		return false, nil
-	}
 	next.Revision++
 	if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
 		return false, err

@@ -259,3 +259,40 @@ func TestStageIntentPlanningPromptPreservesCompleteInput(t *testing.T) {
 		}
 	}
 }
+
+func TestStagedPlanningReportExampleParsesWithCanonicalTaskFields(t *testing.T) {
+	head := p4TypoHead()
+	in := p4PlannerInput(t, head, factory.IntentPlanningPropose)
+	prompt, err := StageIntentPlanningPrompt(head, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Fill the schema's placeholders as a worker would. The actual strict
+	// parser must accept the report contract carried by the staged prompt.
+	filled := strings.NewReplacer(
+		`"intent":"<decision-id>"`, `"intent":"`+head.Intent+`"`,
+		`"revision":"<decision-id>"`, `"revision":"`+head.ID+`"`,
+		`completed|blocked|failed|cancelled`, `completed`,
+		`<this run's operation>`, in.Operation,
+		`<candidate key>`, `title_change`,
+		`<task decision-id>`, `d444444444444444444444444`,
+		`<task objective>`, `Rename the page title`,
+		`<observable outcome>`, `The page displays the requested title`,
+		`<idea ID from admitted input>`, head.EffectiveOutcomes[0],
+	).Replace(string(prompt))
+	result, ok := factory.ParsePhaseResult(filled)
+	if !ok || result.Output == nil || result.Output.Decomposition == nil {
+		t.Fatal("staged report example is not accepted by the phase-result parser")
+	}
+	if err := factory.AssessSemanticOutput(in, *result.Output.Decomposition); err != nil {
+		t.Fatalf("advertised result cannot pass semantic admission: %v", err)
+	}
+	task := result.Output.Decomposition.Candidates[0].Tasks[0]
+	if task.Objective == "" || len(task.Outcomes) != 1 || len(task.IdeaIDs) != 1 {
+		t.Fatalf("staged example lost required task fields: %+v", task)
+	}
+	result.Output.Decomposition.Candidates[0].Tasks[0].Key = "update-page-title"
+	if err := factory.AssessSemanticOutput(in, *result.Output.Decomposition); err == nil {
+		t.Fatal("readable task slug admitted instead of a decision ID")
+	}
+}

@@ -46,7 +46,6 @@ func deliveryStoreAnswer(fingerprint string) factory.DeliveryAnswer {
 func deliveryStoreFixture(t *testing.T) (*Store, factory.Assignment) {
 	t.Helper()
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
 	if err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
@@ -150,10 +149,9 @@ func TestDeliveryJudgmentExhaustionAndConflicts(t *testing.T) {
 	}
 }
 
-func TestDeliveryJudgmentGlobalCeiling(t *testing.T) {
+func TestDeliveryJudgmentAllowsIndependentInputs(t *testing.T) {
 	db, a := deliveryStoreFixture(t)
 	ctx := context.Background()
-	db.PriorityCallBudget = 1
 	first, err := factory.DeliveryFingerprint(deliveryStoreInput(1))
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +164,7 @@ func TestDeliveryJudgmentGlobalCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), second); err != nil || ok {
-		t.Fatalf("ceiling reserve=%v err=%v", ok, err)
+	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), second); err != nil || !ok {
+		t.Fatalf("independent reserve=%v err=%v", ok, err)
 	}
 }

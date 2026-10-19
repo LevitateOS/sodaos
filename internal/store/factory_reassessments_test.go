@@ -381,7 +381,6 @@ func recordTestCompletion(t *testing.T, db *Store, m factory.Merge) bool {
 
 func TestCompletionPersistFenceAndFund(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	const repository = int64(7)
 
@@ -468,8 +467,8 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 		t.Fatal("sealed bodies dropped")
 	}
 
-	// One funded call reserves against the ledger and the global
-	// ceiling; repeats reconcile instead of charging again.
+	// Calls reserve against the cycle ledger; repeats reconcile instead
+	// of charging again. Historical global usage does not gate free JEV calls.
 	call := factory.NewID()
 	fingerprint := strings.Repeat("0", 64)
 	reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint)
@@ -482,8 +481,8 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	if _, err := db.db.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=1000 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", strings.Repeat("1", 64)); !errors.Is(err, ErrReassessmentBudgetExhausted) {
-		t.Fatalf("exhausted budget: %v", err)
+	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", strings.Repeat("1", 64)); err != nil || !reserved {
+		t.Fatalf("reservation after historical usage: %v %v", reserved, err)
 	}
 
 	// The fenced repository refuses packet admission while the open
@@ -538,7 +537,6 @@ func TestCompletionRetrySuccession(t *testing.T) {
 // material refuses without touching the sealed row.
 func TestReassessmentLocalEqualCAS(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	seal := func(t *testing.T, occurrence string) ReassessmentRecord {
 		t.Helper()
@@ -654,7 +652,6 @@ func decidingTestCycle(t *testing.T, db *Store, occurrence string) ReassessmentR
 // its receipt and the global spend all survive.
 func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	decided := decidingTestCycle(t, db, "911")
 	cycleID := decided.Cycle.CycleID
@@ -694,7 +691,6 @@ func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
 // only the first call retains both calls in order.
 func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	decided := decidingTestCycle(t, db, "912")
 	cycleID := decided.Cycle.CycleID
@@ -747,7 +743,6 @@ func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 // the receipts unchanged.
 func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	decided := decidingTestCycle(t, db, "913")
 	cycleID := decided.Cycle.CycleID
@@ -805,7 +800,6 @@ func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
 // stay unchanged.
 func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	decided := decidingTestCycle(t, db, "915")
 	cycleID := decided.Cycle.CycleID
@@ -844,7 +838,6 @@ func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
 // budget and receipts unchanged.
 func TestCasPrefixKeepsSealAndStaleRefusals(t *testing.T) {
 	db := dispatchStoreFixture(t)
-	db.PriorityCallBudget = 100
 	ctx := context.Background()
 	decided := decidingTestCycle(t, db, "914")
 	cycleID := decided.Cycle.CycleID

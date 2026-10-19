@@ -65,7 +65,6 @@ func multiOutcomeAccepted(t *testing.T) (*Coordinator, factory.IntentRevision) {
 
 func TestRecomposeDecompositionKeepsConfidentGraphs(t *testing.T) {
 	c, _, r := acceptedGenerationFixture(t)
-	c.Store.PriorityCallBudget = 32
 	chooser := &recomposeChooser{triplet: "keep", tripletConf: 1}
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: chooser}
 	decomposition, err := c.RecomposeDecomposition(context.Background(), r, nil)
@@ -82,7 +81,6 @@ func TestRecomposeDecompositionKeepsConfidentGraphs(t *testing.T) {
 
 func TestRecomposeDecompositionSelectsScopedAlternative(t *testing.T) {
 	c, r := multiOutcomeAccepted(t)
-	c.Store.PriorityCallBudget = 32
 	candidates := factory.DecompositionCandidates(r)
 	if len(candidates) < 2 {
 		t.Fatal("no split candidate to select")
@@ -100,7 +98,6 @@ func TestRecomposeDecompositionSelectsScopedAlternative(t *testing.T) {
 		t.Fatalf("decomposition=%+v optionsCalls=%d", decomposition, chooser.optionsCalls)
 	}
 	fresh, freshRevision := multiOutcomeAccepted(t)
-	fresh.Store.PriorityCallBudget = 32
 	fresh.Planning = &PlanningJudgments{Journal: fresh.Store, Funding: fresh.Store, Chooser: &recomposeChooser{triplet: "revise", tripletConf: 1, selected: candidates[1].Key, optionsConf: 0.2}}
 	fallback, err := fresh.RecomposeDecomposition(context.Background(), freshRevision, nil)
 	if err != nil {
@@ -113,7 +110,6 @@ func TestRecomposeDecompositionSelectsScopedAlternative(t *testing.T) {
 
 func TestRecomposeDecompositionChallengesProductAmbiguity(t *testing.T) {
 	c, r := multiOutcomeAccepted(t)
-	c.Store.PriorityCallBudget = 32
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: &recomposeChooser{triplet: "review", tripletConf: 1}}
 	if _, err := c.RecomposeDecomposition(context.Background(), r, nil); !errors.Is(err, ErrIntentDecompositionReview) {
 		t.Fatalf("review error=%v", err)
@@ -176,7 +172,6 @@ func (f *capturingDecompositionChooser) Select(_ context.Context, state any, _ s
 
 func TestRecomposeDecompositionJudgesEffectiveScope(t *testing.T) {
 	c, _, r := acceptedGenerationFixture(t)
-	c.Store.PriorityCallBudget = 32
 	r.Ideas = append(r.Ideas,
 		factory.ProductIdea{ID: "d666666666666666666666666", Description: "Keep the first version small", Consequence: "No extra integrations", Assumption: true, Decision: "accept", Source: "assumption", Provenance: "autonomous", Material: true},
 		factory.ProductIdea{ID: "d777777777777777777777777", Description: "Self-register accounts", Consequence: "Unverified access", Decision: "decline", Source: "autonomous", Provenance: "autonomous"},
@@ -219,7 +214,6 @@ func TestIntentDecompositionFreshTripletCachesAndDisagreementRefuses(t *testing.
 	for _, disagree := range []bool{false, true} {
 		t.Run(map[bool]string{false: "agree", true: "disagree"}[disagree], func(t *testing.T) {
 			c, _, r := acceptedGenerationFixture(t)
-			c.Store.PriorityCallBudget = 10
 			chooser := &decompositionChooser{disagree: disagree}
 			c.Planning = &PlanningJudgments{Chooser: chooser}
 			for i := 0; i < 2; i++ {

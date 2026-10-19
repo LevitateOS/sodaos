@@ -46,7 +46,6 @@ func TestPlanningAllowanceCASAndEffect(t *testing.T) {
 
 func TestPlanningUsageDerivesFromRuntimeRecords(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
-	s.PriorityCallBudget = 100
 	ctx := context.Background()
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Tracker", State: "draft", MaxIssues: 10, CreatedUnix: 1}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
@@ -92,7 +91,6 @@ func TestPlanningUsageDerivesFromRuntimeRecords(t *testing.T) {
 
 func TestConcurrentPlanningReservationsCannotOverspend(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
-	s.PriorityCallBudget = 100
 	ctx := context.Background()
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Tracker", State: "draft", MaxIssues: 10, CreatedUnix: 1}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {

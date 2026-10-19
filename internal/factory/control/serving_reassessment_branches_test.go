@@ -65,7 +65,6 @@ func driveReassessmentBranch(t *testing.T, chooser ProductJudgment) (context.Con
 	if report := fx.pass(t); len(report.Merged) != 1 {
 		t.Fatalf("branch merge did not record: %+v", report)
 	}
-	db.PriorityCallBudget = 100
 	coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
 	deps := CompletionDriveDeps{
 		Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal,

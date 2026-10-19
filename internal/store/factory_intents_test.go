@@ -189,10 +189,9 @@ func TestIntentHistoryAndRepositoryIdentity(t *testing.T) {
 	}
 }
 
-func TestPriorityBudgetReservesBeforeCalls(t *testing.T) {
+func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
-	s.PriorityCallBudget = 3
 	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	ok, err := s.ReservePriorityJudgment(ctx, a, 2)
@@ -204,7 +203,7 @@ func TestPriorityBudgetReservesBeforeCalls(t *testing.T) {
 		t.Fatal("repeated reservation")
 	}
 	ok, err = s.ReservePriorityJudgment(ctx, b, 2)
-	if err != nil || ok {
-		t.Fatal("exhausted reservation")
+	if err != nil || !ok {
+		t.Fatalf("independent reservation: %v %v", ok, err)
 	}
 }

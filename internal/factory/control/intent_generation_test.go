@@ -191,7 +191,6 @@ func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixtu
 		return nil
 	}
 	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
-	c.Store.PriorityCallBudget = 32
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: generatedGraphChooser{}}
 	return c, f, r
 }

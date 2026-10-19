@@ -140,7 +140,6 @@ func q05Mux(t *testing.T, keyFile string) (*API, *store.Store, func(method, path
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	s.PriorityCallBudget = 32
 	product := &API{Config: &config.Config{ForgejoURL: "https://soda.test", TypeSafeAPIKeyFile: keyFile}, Store: s}
 	mux := http.NewServeMux()
 	product.registerExtensionProductRoutes(mux)

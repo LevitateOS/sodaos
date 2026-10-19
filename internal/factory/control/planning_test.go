@@ -29,7 +29,6 @@ func (f *planningChooser) Select(_ context.Context, _ any, _ string, choices map
 func planningCoordinator(t *testing.T) (*Coordinator, *planningChooser, dispatchFixture) {
 	t.Helper()
 	db, _ := dispatchTestDB(t)
-	db.PriorityCallBudget = 20
 	fx := dispatchSeed(t, db)
 	decision := fx.accept(t, 3, "d333333333333333333333333")
 	fx.queue(t, 3, decision.ID)

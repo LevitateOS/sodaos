@@ -884,9 +884,6 @@ func servingJourney(t *testing.T, variant servingVariant, configure ...func(*Coo
 	// journey, provisional planning) keep it; the fence enumerator
 	// defaults to the scripted pages either way.
 	if fx.coord.Planning == nil {
-		if fx.db.PriorityCallBudget < 100 {
-			fx.db.PriorityCallBudget = 100
-		}
 		fx.coord.Planning = &PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: &servingJourneyChooser{}}
 	}
 	if fx.coord.CompletionEnumerator == nil {

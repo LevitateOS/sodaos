@@ -17,7 +17,6 @@ func TestPrepareContextBundleSelectionRecordsFundedChoice(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	db := producerTestDB(t)
-	db.PriorityCallBudget = 10
 	assignment, run := producerDispatch(t, ctx, db)
 
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.9}
@@ -41,7 +40,6 @@ func TestPrepareContextBundleSelectionHoldsWhenChooserDown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	db := producerTestDB(t)
-	db.PriorityCallBudget = 10
 	assignment, run := producerDispatch(t, ctx, db)
 
 	chooser := &bundleChooser{fail: true}

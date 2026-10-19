@@ -34,7 +34,6 @@ func driveMergedCompletionContinue(t *testing.T, fx *mergeFixture) {
 	t.Helper()
 	ctx := context.Background()
 	db := fx.publish.db
-	db.PriorityCallBudget = 100
 	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: &continueChooser{}}
 	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
 	for i := 0; i < 6; i++ {

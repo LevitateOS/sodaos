@@ -19,7 +19,6 @@ import (
 func admissionCoordinator(t *testing.T, issues ...int64) (*Coordinator, *planningChooser, dispatchFixture) {
 	t.Helper()
 	db, _ := dispatchTestDB(t)
-	db.PriorityCallBudget = 20
 	fx := dispatchSeed(t, db)
 	evidence := map[string]AcceptanceEvidence{}
 	for _, issue := range issues {

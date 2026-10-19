@@ -24,7 +24,6 @@ type Config struct {
 	ForgejoGraphActorID        int64  `json:"forgejo_graph_actor_id"`
 	TypeSafeAPIKeyFile         string `json:"typesafe_api_key_file"`
 	TypeSafeModel              string `json:"typesafe_model"`
-	FactoryJudgmentCallBudget  int    `json:"factory_judgment_call_budget"`
 
 	Listen             string `json:"listen"`
 	ForgejoURL         string `json:"forgejo_url"`
@@ -134,9 +133,6 @@ func validateGraphConfig(c Config) error {
 }
 
 func validateCredentialFiles(c Config) error {
-	if c.FactoryJudgmentCallBudget < 0 || c.FactoryJudgmentCallBudget > 100000 {
-		return errors.New("factory_judgment_call_budget must be a finite nonnegative allowance")
-	}
 	if c.TypeSafeAPIKeyFile != "" && !filepath.IsAbs(c.TypeSafeAPIKeyFile) {
 		return errors.New("typesafe_api_key_file must be absolute")
 	}

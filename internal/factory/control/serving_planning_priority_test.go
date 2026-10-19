@@ -79,7 +79,6 @@ func TestServingCoordinatorRefreshesProvisionalPlanningForActualMergedOutput(t *
 		coordinator = c
 		// Planning, priority selection and the journey's D13 continue
 		// share this ceiling; the decision reserves one funded call.
-		c.Store.PriorityCallBudget = 100
 		// The provisional/final planning assertions keep their planner;
 		// the journey's D13 release still needs its funded continue, so
 		// both ride one deterministic chooser.

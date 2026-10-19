@@ -75,7 +75,6 @@ func TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks(t *te
 		coordinator = c
 		// Decomposition, planning and the journey's D13 continue share
 		// this ceiling; the decision reserves one funded call.
-		c.Store.PriorityCallBudget = 100
 		if err := c.Store.SaveIntentRevision(ctx, r); err != nil {
 			t.Fatal(err)
 		}

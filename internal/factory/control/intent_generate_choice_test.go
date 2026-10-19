@@ -74,7 +74,6 @@ func choiceFixtureChain(t *testing.T, chain ...factory.IntentRevision) (*Coordin
 	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
 	never := &refusingDecompositionChooser{}
-	c.Store.PriorityCallBudget = 32
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: never}
 	return c, f, never
 }

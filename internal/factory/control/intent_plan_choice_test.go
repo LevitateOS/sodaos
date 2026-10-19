@@ -64,7 +64,6 @@ func choicePlanAccepted(t *testing.T, repo int64) factory.IntentRevision {
 func choicePlanCoordinator(t *testing.T, db *store.Store, fx dispatchFixture, stub ProductJudgment) *Coordinator {
 	t.Helper()
 	c := &Coordinator{Store: db, Host: fx.host}
-	c.Store.PriorityCallBudget = 32
 	if err := c.Store.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: choicePlanIDs.intent, Owner: 7, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}

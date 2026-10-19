@@ -12,14 +12,12 @@ func TestFactoryJudgmentConfigurationAdmission(t *testing.T) {
 			c.ForgejoGraphCredentialFile = "/home/tester/secrets/graph"
 			c.ForgejoGraphActorID = 2
 		},
-		func(c *Config) { c.FactoryJudgmentCallBudget = -1 },
-		func(c *Config) { c.FactoryJudgmentCallBudget = 100001 },
 		func(c *Config) { c.TypeSafeAPIKeyFile = "relative" },
 	} {
 		c := base
 		change(&c)
 		if validateConfigPaths(c) == nil {
-			t.Fatal("accepted incomplete graph authority or unbounded consultation configuration")
+			t.Fatal("accepted incomplete graph authority or invalid credential path")
 		}
 	}
 	uid := uint32(2000)
@@ -30,7 +28,6 @@ func TestFactoryJudgmentConfigurationAdmission(t *testing.T) {
 	c.ForgejoBackgroundHostUID = &uid
 	c.ForgejoBackgroundCredentialFile = "/home/tester/secrets/background"
 	c.TypeSafeAPIKeyFile = "/home/tester/secrets/judgment"
-	c.FactoryJudgmentCallBudget = 8
 	if err := validateConfigPaths(c); err != nil {
 		t.Fatal(err)
 	}
