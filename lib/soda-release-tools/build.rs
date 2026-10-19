@@ -2,6 +2,9 @@
 // requires (the Go owner reads it from its build info instead).
 use std::process::Command;
 
+// Shared compile-time unit-test ban (AGENTS.md); see tools/unitban/build_impl.rs.
+include!("../../tools/unitban/build_impl.rs");
+
 fn git(args: &[&str]) -> Option<String> {
     let root = format!("{}/../..", env!("CARGO_MANIFEST_DIR"));
     let output = Command::new("git")
@@ -38,6 +41,7 @@ fn watch_tracked_files() {
 }
 
 fn main() {
+    deny_unit_tests();
     // Re-run when Git's revision metadata or any tracked cleanliness input changes.
     watch_git_input("HEAD");
     watch_git_input("index");

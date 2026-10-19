@@ -2,6 +2,9 @@
 //! `vcs.revision`/`vcs.modified` settings the driver records on every
 //! observation. Read-only git inspection; missing git bakes "unknown".
 
+// Shared compile-time unit-test ban (AGENTS.md); see tools/unitban/build_impl.rs.
+include!("../../tools/unitban/build_impl.rs");
+
 fn git_output(manifest: &str, args: &[&str]) -> Option<String> {
     let output = std::process::Command::new("git")
         .arg("--no-optional-locks")
@@ -48,6 +51,7 @@ fn watch_tracked_files(manifest: &str) {
 }
 
 fn main() {
+    deny_unit_tests();
     let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     // Cargo otherwise watches only build.rs. Track metadata that can change the
     // revision and every tracked path whose status contributes to `dirty`.

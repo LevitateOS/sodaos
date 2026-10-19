@@ -21,6 +21,8 @@ case $1 in
         bash scripts/check-sql-locality.sh
         bash scripts/check-no-npm.sh
         bash scripts/check-no-python.sh
+        bash scripts/check-no-unit-tests.sh
+        bash scripts/check-go-unitban.sh
         ;;
       store) go test -count=1 ./internal/store ;;
       web) go test -count=1 ./internal/web/... ;;

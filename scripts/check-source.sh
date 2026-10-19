@@ -24,6 +24,8 @@ if [[ "$suite" != browser ]]; then
   check bash scripts/check-sql-locality.sh
   check bash scripts/check-no-npm.sh
   check bash scripts/check-no-python.sh
+  check bash scripts/check-no-unit-tests.sh
+  check bash scripts/check-go-unitban.sh
 fi
 if [[ "$suite" != go ]]; then
   check bun run typecheck
