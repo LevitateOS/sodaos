@@ -5,6 +5,8 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {intentList} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
+import './sodaspaces-factory-feed.js';
+import './soda-providers.js';
 
 export interface ProjectWorkContext {
   transport: PreparedExtensionMount;
@@ -204,7 +206,7 @@ export class SodaProjectWork extends LitElement {
   protected render() {
     const context = this.current;
     if (!context) return html``;
-    return renderProjectWork({
+    return html`<soda-providers .transport=${this.active ? context.transport : undefined}></soda-providers>${renderProjectWork({
       mode: context.mode,
       repositoryName: context.repository?.name || 'this project',
       repositoryNames: context.repositoryNames,
@@ -222,7 +224,10 @@ export class SodaProjectWork extends LitElement {
       loadMore: () => {
         void this.load(true);
       },
-    });
+    })}
+      ${context.mode === 'project' && context.repository
+        ? html`<soda-factory-feed .context=${this.active ? {transport: context.transport, repository: context.repository.id} : undefined}></soda-factory-feed>`
+        : ''}`;
   }
 }
 

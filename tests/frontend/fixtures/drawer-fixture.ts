@@ -1,5 +1,6 @@
 // Browser-realm fixture only. Production modules are emitted separately, never bundled into this double.
 import {mountProjectControls} from '../../../frontend/spaces/sodaspaces-project.js';
+import {SodaFactoryFeed} from '../../../frontend/spaces/sodaspaces-factory-feed.js';
 export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureProfile = {
   id: 'rocky-headless',
@@ -217,6 +218,12 @@ function createFixture(extra: Partial<State> = {}) {
       return root.querySelectorAll('soda-terminal');
     },
     root,
+    mountFeed() {
+      const feed = new SodaFactoryFeed();
+      root.append(feed);
+      feed.context = {transport, repository: '7'};
+      return feed;
+    },
     button,
     showButton,
     setReply(value: typeof reply) {

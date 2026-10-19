@@ -1,0 +1,561 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setupProjectControlsDriver, fixture, refresh} from './fixtures/project-controls-driver';
+setupProjectControlsDriver();
+
+const recordId = 'a'.repeat(32);
+const postId = 'c'.repeat(32);
+const commentId = 'd'.repeat(32);
+
+test('Combined feed reads newest-first with separate enriched posts and live comment outcomes', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await page.evaluate(
+    async ({recordId, postId, commentId}) => {
+      const state = {feed: 0, comments: [] as string[]};
+      (window as unknown as {feedProbeState?: unknown}).feedProbeState = state;
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.endsWith('/api/factory/feed/subscription') && call.method === 'GET')
+          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        if (call.url.includes('/api/repositories?q=') && call.method === 'GET')
+          return Response.json({
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
+            next_cursor: '',
+          });
+        if (call.url.includes('/api/factory/feed?') && call.method === 'GET') {
+          state.feed++;
+          if (call.url.includes('cursor=')) {
+            return Response.json({
+              entries: [{kind: 'record', id: 'e'.repeat(32), repository: 7, seq: 30}],
+              truncated: false,
+            });
+          }
+          return Response.json({
+            entries: [
+              {kind: 'record', id: recordId, repository: 7, seq: 42, issue: 3},
+              {
+                kind: 'post',
+                id: postId,
+                repository: 7,
+                seq: 41,
+                actor: 'Product Lead',
+                author: 'Ada',
+                project: 'soda-tester/demo',
+                at: 1720000000,
+                status: 'assessing',
+              },
+            ],
+            next: 'v1:41',
+            truncated: true,
+          });
+        }
+        if (call.url.endsWith('/api/factory/feed/comments') && call.method === 'POST') {
+          const body = JSON.parse((call as unknown as {body?: string}).body ?? '{}') as Record<string, unknown>;
+          state.comments.push(typeof body.body === 'string' ? body.body : '');
+          return Response.json({
+            comment_id: commentId,
+            revision: 0,
+            intake: 'recorded',
+            judgment: 'pending',
+            draft: 'pending',
+            effect: 'pending',
+          });
+        }
+        if (call.url.endsWith(`/api/factory/feed/comments/${postId}`) && call.method === 'GET')
+          return Response.json({
+            comment_id: postId,
+            revision: 0,
+            repository: 7,
+            author: '1',
+            author_name: 'Ada',
+            at: 1720000000,
+            edited: false,
+            deleted: false,
+            revoked: false,
+            body: 'Should the demo cover substitute approvers?',
+            intake: 'recorded',
+            judgment: 'applied',
+            route: 'discussion',
+            draft: 'pending',
+            effect: 'pending',
+            issue: 0,
+          });
+        if (call.url.endsWith(`/api/factory/feed/comments/${commentId}`) && call.method === 'GET')
+          return Response.json({
+            comment_id: commentId,
+            revision: 0,
+            repository: 7,
+            author: '1',
+            author_name: 'alice',
+            at: 1720000000,
+            edited: false,
+            deleted: false,
+            revoked: false,
+            body: 'Please add substitute approvers.',
+            intake: 'recorded',
+            judgment: 'applied',
+            route: 'new_issue',
+            draft: 'applied',
+            effect: 'verified',
+            issue: 12,
+            source: {
+              kind: 'record',
+              id: recordId,
+              issue: 3,
+              status: 'implement:finished:succeeded',
+              summary: 'Built the form service.',
+            },
+          });
+        return null;
+      });
+    },
+    {recordId, postId, commentId}
+  );
+  await refresh(page);
+  await page.evaluate(() => { window.drawerFixture.mountFeed(); });
+  const feed = page.locator('soda-factory-feed');
+  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  // Separate posts with the outside-card author context and stored text.
+  await feed.getByText('Recorded work').first().waitFor();
+  await feed.getByText('Ada').first().waitFor();
+  await feed.getByText('Product Lead').first().waitFor();
+  await feed.getByText('assessing').first().waitFor();
+  await feed.getByText('Should the demo cover substitute approvers?').waitFor();
+  // Cursor history: older entries append behind the confirmed page.
+  await feed.getByRole('button', {name: 'Load older entries'}).click();
+  await feed.getByRole('button', {name: 'Back to latest'}).waitFor();
+  // Drafts survive refreshes with reading position intact.
+  const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
+  await draft.fill('half-written reply');
+  await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  await feed.getByText('Feed refreshed; no new posts.').waitFor();
+  assert.equal(await draft.inputValue(), 'half-written reply');
+  // Submit persists through the real intake shape and exposes progress.
+  await feed.locator(`[data-comment-submit="record:${recordId}"]`).click();
+  await feed.getByText('Reply saved. Assessment, authoring and creation progress appear beside it.').waitFor();
+  const posted = await page.evaluate(() => {
+    const drawer = window.drawerFixture as unknown as {calls: {url: string; method: string; body?: string}[]};
+    return drawer.calls
+      .filter((call) => call.url.endsWith('/api/factory/feed/comments') && call.method === 'POST')
+      .map((call) => JSON.parse(call.body ?? '{}'));
+  });
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0]?.repository, 7);
+  // Commenting from a work card carries its authorized bound source issue
+  // and names the source entry for server-side resolution.
+  assert.equal(posted[0]?.issue, 3);
+  assert.equal(posted[0]?.source_kind, 'record');
+  assert.equal(posted[0]?.source_id, recordId);
+  assert.equal(posted[0]?.body, 'half-written reply');
+  assert.match(
+    typeof posted[0]?.idempotency_key === 'string' ? (posted[0]?.idempotency_key as string) : '',
+    /^[A-Za-z0-9_-]{1,64}$/
+  );
+  assert.equal('author' in (posted[0] ?? {}), false);
+  // The refresh after saving re-reads progress without another submission.
+  const issueLink = feed.getByRole('link', {name: 'Open linked issue'});
+  await issueLink.waitFor();
+  assert.equal(await issueLink.getAttribute('href'), '/soda-tester/demo/issues/12');
+  // The resolved source snapshot shows on the comment outcome.
+  await feed.getByText(/About recorded work aaaaaaaaaaaa… · issue #3/).waitFor();
+  await feed.locator('.soda-feed-outcome-source').getByText(/Built the form service\./).waitFor();
+});
+
+test('Factory-loop families render their own sections and failures stay in front', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await page.evaluate(async () => {
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/factory/feed/subscription') && call.method === 'GET')
+        return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+      if (call.url.includes('/api/repositories?q=') && call.method === 'GET')
+        return Response.json({
+          items: [
+            {
+              id: '7',
+              owner: 'soda-tester',
+              name: 'demo',
+              can_create: false,
+              project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+            },
+          ],
+          next_cursor: '',
+        });
+      if (call.url.includes('/api/factory/feed?') && call.method === 'GET')
+        return Response.json({
+          entries: [
+            {
+              kind: 'record',
+              id: '1'.repeat(32),
+              repository: 7,
+              seq: 60,
+              actor: 'factory',
+              status: 'merged',
+              at: 1720000060,
+              issue: 3,
+              pr: 42,
+              ref: 'c'.repeat(40),
+              summary: 'Built <candidate> & merged it.',
+            },
+            {
+              kind: 'record',
+              id: '2'.repeat(32),
+              repository: 7,
+              seq: 59,
+              actor: 'test_pilot',
+              status: 'verified',
+              at: 1720000059,
+            },
+            {
+              kind: 'record',
+              id: '3'.repeat(32),
+              repository: 7,
+              seq: 58,
+              actor: 'fixer',
+              status: 'submitted',
+              at: 1720000058,
+            },
+            {
+              kind: 'record',
+              id: '4'.repeat(32),
+              repository: 7,
+              seq: 57,
+              actor: 'inspector',
+              status: 'findings_submitted',
+              at: 1720000057,
+            },
+            {
+              kind: 'record',
+              id: '5'.repeat(32),
+              repository: 7,
+              seq: 56,
+              actor: 'builder',
+              status: 'check_failed',
+              at: 1720000056,
+            },
+            {
+              kind: 'record',
+              id: '6'.repeat(32),
+              repository: 7,
+              seq: 55,
+              actor: 'strategist',
+              status: 'proposed',
+              at: 1720000055,
+            },
+            {
+              kind: 'record',
+              id: '7'.repeat(32),
+              repository: 7,
+              seq: 54,
+              actor: 'architect',
+              status: 'submitted',
+              at: 1720000054,
+            },
+            {
+              kind: 'record',
+              id: '8'.repeat(32),
+              repository: 7,
+              seq: 53,
+              actor: 'product_lead',
+              status: 'submitted',
+              at: 1720000053,
+            },
+            {
+              kind: 'record',
+              id: '9'.repeat(32),
+              repository: 7,
+              seq: 52,
+              actor: 'jev',
+              status: 'recorded',
+              at: 1720000052,
+            },
+            {
+              kind: 'record',
+              id: 'a'.repeat(32),
+              repository: 7,
+              seq: 51,
+              actor: 'library_admin',
+              status: 'recorded',
+              at: 1720000051,
+            },
+            {
+              kind: 'record',
+              id: 'b'.repeat(32),
+              repository: 7,
+              seq: 50,
+              actor: 'mystery_actor',
+              status: 'frobnicate',
+              at: 1720000050,
+            },
+          ],
+          truncated: false,
+        });
+      return null;
+    });
+  });
+  await refresh(page);
+  await page.evaluate(() => { window.drawerFixture.mountFeed(); });
+  const feed = page.locator('soda-factory-feed');
+  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  for (const family of [
+    'integration',
+    'verification',
+    'correction',
+    'review',
+    'work',
+    'reassessment',
+    'issue',
+    'plan',
+    'decision',
+    'knowledge',
+    'fallback',
+  ])
+    assert.equal(await feed.locator(`[data-feed-family="${family}"]`).count(), 1, family);
+  // Readable role authors, not canonical ids, in the outside-card headers.
+  await feed.getByText('Test Pilot').first().waitFor();
+  await feed.getByText('Product Lead').first().waitFor();
+  await feed.getByText('Library Admin').first().waitFor();
+  // The failed check leads as an alert; the unknown status never reads done.
+  await feed.getByText(/Attention needed: recorded status is check_failed/).waitFor();
+  await feed.getByText(/frobnicate is not interpreted yet/).waitFor();
+  // Family anatomy: what it covers plus recorded state, with source links.
+  await feed.getByText(/Application verification recorded for soda-tester\/demo/).waitFor();
+  await feed.getByText(/Recorded status: check_failed/).waitFor();
+  assert.equal(await feed.locator('[data-feed-family="work"] a[href="/soda-tester/demo/pulls"]').count(), 1);
+  assert.equal(await feed.locator('[data-feed-family="plan"] a[href="/soda-tester/demo/issues"]').count(), 1);
+  // Enriched recorded content: bound records link natively by number,
+  // the candidate reference and the recorded summary render as text.
+  const integration = feed.locator('[data-feed-family="integration"]');
+  const issueLink = integration.getByRole('link', {name: 'Open issue #3'});
+  await issueLink.waitFor();
+  assert.equal(await issueLink.getAttribute('href'), '/soda-tester/demo/issues/3');
+  const pullLink = integration.getByRole('link', {name: 'Open pull request #42'});
+  await pullLink.waitFor();
+  assert.equal(await pullLink.getAttribute('href'), '/soda-tester/demo/pulls/42');
+  await integration.getByText('Built <candidate> & merged it.').waitFor();
+  await integration.locator('.soda-feed-rows').getByText('c'.repeat(40), {exact: true}).waitFor();
+  // The summary is text, never markup.
+  assert.equal(await feed.locator('candidate').count(), 0);
+});
+
+test('Designed blocks render recorded segments; durable continuation lands without resubmission', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await page.evaluate(
+    async ({recordId, commentId}) => {
+      const state = {reads: 0, posts: 0};
+      (window as unknown as {feedDurableState?: unknown}).feedDurableState = state;
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.endsWith('/api/factory/feed/subscription') && call.method === 'GET')
+          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        if (call.url.includes('/api/repositories?q=') && call.method === 'GET')
+          return Response.json({
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
+            next_cursor: '',
+          });
+        if (call.url.includes('/api/factory/feed?') && call.method === 'GET')
+          return Response.json({
+            entries: [
+              {
+                kind: 'record',
+                id: recordId,
+                repository: 7,
+                seq: 70,
+                actor: 'builder',
+                status: 'implement:finished:succeeded>checks:6>published',
+                issue: 3,
+                pr: 42,
+                ref: 'c'.repeat(40),
+                summary: 'Form and permission service ready.',
+              },
+              {
+                kind: 'record',
+                id: 'f'.repeat(32),
+                repository: 7,
+                seq: 69,
+                actor: 'inspector',
+                status: 'review:finished:succeeded:request-changes>findings:2',
+                summary: 'Cross-team read is possible.',
+              },
+              {
+                kind: 'record',
+                id: 'e'.repeat(32),
+                repository: 7,
+                seq: 68,
+                actor: 'fixer',
+                status: 'correct:finished:succeeded>findings:2',
+                ref: 'd'.repeat(40),
+              },
+            ],
+            truncated: false,
+          });
+        if (call.url.endsWith('/api/factory/feed/comments') && call.method === 'POST') {
+          state.posts++;
+          return Response.json({
+            comment_id: commentId,
+            revision: 0,
+            intake: 'recorded',
+            judgment: 'pending',
+            draft: 'pending',
+            effect: 'pending',
+          });
+        }
+        if (call.url.endsWith(`/api/factory/feed/comments/${commentId}`) && call.method === 'GET') {
+          state.reads++;
+          // Durable continuation: stored state advances server-side
+          // between reads; the browser must pick it up by refreshing
+          // the KNOWN pending row, never by resubmitting.
+          if (state.reads < 2)
+            return Response.json({
+              comment_id: commentId,
+              revision: 0,
+              repository: 7,
+              author_name: 'alice',
+              at: 1720000000,
+              edited: false,
+              body: 'Please add substitute approvers.',
+              intake: 'recorded',
+              judgment: 'pending',
+              draft: 'pending',
+              effect: 'pending',
+              issue: 0,
+            });
+          return Response.json({
+            comment_id: commentId,
+            revision: 0,
+            repository: 7,
+            author_name: 'alice',
+            at: 1720000000,
+            edited: false,
+            body: 'Please add substitute approvers.',
+            intake: 'recorded',
+            judgment: 'applied',
+            route: 'existing_work',
+            draft: 'pending',
+            effect: 'verified',
+            issue: 0,
+            existing_issue: 9,
+          });
+        }
+        return null;
+      });
+    },
+    {recordId, commentId}
+  );
+  await refresh(page);
+  await page.evaluate(() => { window.drawerFixture.mountFeed(); });
+  const feed = page.locator('soda-factory-feed');
+  await feed.getByRole('heading', {name: 'Combined feed'}).waitFor();
+  // Designed Builder component: brief + check table + candidate rows.
+  const work = feed.locator('[data-feed-family="work"]');
+  await work.getByText('Form and permission service ready.').waitFor();
+  assert.equal(await work.locator('.soda-feed-checks table').count(), 1);
+  await work.getByText('6 receipts').waitFor();
+  // Designed Inspector component: verdict + findings rows.
+  const review = feed.locator('[data-feed-family="review"]');
+  await review.getByText(/2 recorded findings/).waitFor();
+  await review.getByText('request changes').waitFor();
+  // Designed Fixer component: before/after panels.
+  const correction = feed.locator('[data-feed-family="correction"]');
+  assert.equal(await correction.locator('.soda-feed-beforeafter').count(), 1);
+  await correction.getByText(/Submitted for independent acceptance/).waitFor();
+  // Expandable record details are native, keyboard-operable <details>.
+  assert.equal(await work.locator('details.soda-feed-record-details').count(), 1);
+  // Submit once; the durable continuation result must appear on feed
+  // refresh (known-pending re-read) with no second POST.
+  const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
+  await draft.fill('Please add substitute approvers.');
+  await feed.locator(`[data-comment-submit="record:${recordId}"]`).click();
+  await feed.getByText(/Saved\. Assessment pending/).waitFor();
+  await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  const linked = feed.getByRole('link', {name: 'Open linked issue'});
+  await linked.waitFor();
+  assert.equal(await linked.getAttribute('href'), '/soda-tester/demo/issues/9');
+  await feed.getByText(/persisted selected issue #9/).waitFor();
+  const durable = await page.evaluate(
+    () => (window as unknown as {feedDurableState?: {reads: number; posts: number}}).feedDurableState
+  );
+  assert.equal(durable?.posts, 1);
+  assert.ok((durable?.reads ?? 0) >= 2);
+});
+
+
+test('a project comment works before the first worker post', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(({commentId}) => {
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/factory/feed/subscription')) return Response.json({subscriber:'1',repositories:[7],kinds:[],revision:1});
+      if (call.url.includes('/api/repositories?q=')) return Response.json({items:[],next_cursor:''});
+      if (call.url.includes('/api/factory/feed?')) return Response.json({entries:[],truncated:false});
+      if (call.url.endsWith('/api/factory/feed/comments') && call.method === 'POST') return Response.json({comment_id:commentId,revision:0,intake:'recorded',judgment:'pending',draft:'pending',effect:'pending'});
+      if (call.url.endsWith('/api/factory/feed/comments/'+commentId)) return Response.json({comment_id:commentId,revision:0,repository:7,author:'1',author_name:'alice',at:1720000000,edited:false,deleted:false,revoked:false,body:'Thanks for the update.',intake:'recorded',judgment:'applied',route:'discussion',draft:'pending',effect:'pending',issue:0});
+      return null;
+    });
+    window.drawerFixture.mountFeed();
+  }, {commentId});
+  const feed=page.locator('soda-factory-feed');
+  await feed.getByText('No feed entries in scope yet.').waitFor();
+  await feed.getByLabel('Project comment',{exact:true}).fill('Thanks for the update.');
+  await feed.getByRole('button',{name:'Post comment',exact:true}).click();
+  await feed.getByText('Kept as discussion: no issue is ever created from this comment.').waitFor();
+  const posts=await page.evaluate(()=>window.drawerFixture.calls.filter(c=>c.url.endsWith('/api/factory/feed/comments')&&c.method==='POST').map(c=>JSON.parse(c.body??'{}')));
+  assert.equal(posts.length,1);
+  assert.equal(posts[0].repository,7);
+  assert.equal(posts[0].body,'Thanks for the update.');
+  assert.equal('source_id' in posts[0],false);
+  assert.equal('reply_to' in posts[0],false);
+});
+
+test('Project switch during feed loading starts the new read and releases Refresh', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    const feed = document.createElement('soda-factory-feed') as HTMLElement & {context: unknown; updateComplete: Promise<unknown>};
+    feed.dataset.feedRace = 'true';
+    document.body.append(feed);
+    let count = 0;
+    let release: (response: Response) => void = () => {};
+    const subscription = () => Response.json({subscriber: '1', repositories: null, kinds: null, revision: 0});
+    const transport = {request: async (path: string) => {
+      if (path === 'factory/feed/subscription') {
+        count++;
+        if (count === 1) return new Promise<Response>(resolve => {release = resolve;});
+        return subscription();
+      }
+      if (path === 'repositories?q=') return Response.json({items: [], next_cursor: ''});
+      if (path.startsWith('factory/feed?')) return Response.json({entries: [], truncated: false});
+      throw Error('Unexpected feed read');
+    }};
+    Object.assign(feed, {releaseFirst: () => release(subscription())});
+    feed.context = {transport, repository: '7'};
+    await feed.updateComplete;
+    feed.context = {transport, repository: '8'};
+  });
+  const feed = page.locator('soda-factory-feed[data-feed-race="true"]');
+  await feed.getByRole('button', {name: 'Refresh feed', exact: true}).waitFor();
+  await page.waitForFunction(() => !document.querySelector<HTMLButtonElement>('soda-factory-feed[data-feed-race="true"] button')?.disabled);
+  await feed.evaluate(el => (el as HTMLElement & {releaseFirst(): void}).releaseFirst());
+  await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  assert.equal(await feed.locator('[data-feed-message]').innerText(), '');
+});
