@@ -64,7 +64,7 @@ function createWorkspaceFixture(
   let navigationDeferred = false;
   const presentRoute = (route = location.pathname + location.search + location.hash) => {
     const pathname = route.split(/[?#]/)[0] || '';
-    const workspace = pathname === `${subpath}/workspace` || pathname.startsWith(`${subpath}/workspace/`);
+    const workspace = pathname === `${subpath}/workspace` || pathname.startsWith(`${subpath}/workspace/`) || /^\/[^/]+\/[^/]+\/workspace\/?$/.test(pathname.slice(subpath.length));
     api.update({mode: workspace ? 'page' : 'panel', route, params: {}, visible: true});
   };
   // Authored fixture host: history is owned here, and the consumer receives

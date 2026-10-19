@@ -180,8 +180,8 @@ export class SodaApplications extends LitElement {
   }
   private row(record: ApplicationRecord) {
     return html`<li>
-      <strong>${record.application.name}</strong> · Last observed: ${this.status(record)}
-      <p>${record.application.origin}</p>
+      <header class="soda-application-heading"><h2>${record.application.name}</h2><span class="soda-application-status">Last observed: ${this.status(record)}</span></header>
+      <p class="soda-application-origin">${record.application.origin}</p>
       ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : html`<p>No project linked.</p>`}
       <details
         @toggle=${(event: Event) => {
@@ -203,7 +203,7 @@ export class SodaApplications extends LitElement {
           </select></label
         >
       </details>
-      ${this.openApplication(record)}
+      <div class="soda-application-actions">${this.openApplication(record)}
       ${record.operator && record.observation && !record.observation.container ? html`<button type="button" class="ui button" ?disabled=${this.blocked()} @click=${() => void this.act(record, 'install')}>Install ${record.application.name}</button>` : ''}
       <button
         type="button"
@@ -213,6 +213,8 @@ export class SodaApplications extends LitElement {
       >
         Inspect ${record.application.name}
       </button>
+      </div>
+      <details class="soda-application-runtime"><summary>Start or stop application</summary><div class="soda-application-runtime-actions">
       <button
         type="button"
         class="ui button"
@@ -238,6 +240,7 @@ export class SodaApplications extends LitElement {
       >
         Confirm Stop ${record.application.name}
       </button>
+      </div></details>
     </li>`;
   }
   private blocked() {
@@ -250,7 +253,7 @@ export class SodaApplications extends LitElement {
     return this.blocked() || !record.observation?.running;
   }
   private openApplication(record: ApplicationRecord) {
-    return html`<a href=${record.application.origin} target="_blank" rel="noopener noreferrer">Open application ↗</a>`;
+    return html`<a class="ui primary button" href=${record.application.origin} target="_blank" rel="noopener noreferrer">Open application ↗</a>`;
   }
   private loadProjects() {
     return this.run(

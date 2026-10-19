@@ -164,7 +164,8 @@ export function renderRepositoryContext(input: SettingsViewInput) {
     <h2>${input.readRepository()}</h2>
     <nav aria-label="Repository destinations">
       <a href=${input.readRepositoryURL() + '/settings'}>Native repository settings</a> ·
-      <a href=${input.readRepositoryURL() + '#sodaspaces'}>Open repository and workspace drawer</a>
+      <a href=${input.readRepositoryURL() + '/workspace'}>Open project feed</a> ·
+      <a href=${input.readRepositoryURL()}>Repository</a>
     </nav>
     <p>
       Project OS selection affects only creation. Existing roots cannot change distribution or interface here. Create,

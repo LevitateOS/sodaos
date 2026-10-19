@@ -339,6 +339,11 @@ export class SodaProjectControls extends LitElement {
       needsNetworkReview: () => this.networkReview,
       requestRefresh: (event) => this.command(event, () => this.refresh()),
       refreshNow: () => this.refresh(),
+      requestInspect: (event) => this.command(event, async () => {
+        this.setPresentation('settings');
+        await this.updateComplete;
+        this.querySelector<HTMLElement>('[data-view="environment"]')?.focus();
+      }),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
       requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
       requestCreate: (event) => this.command(event, () => createProject(this.requestInput())),

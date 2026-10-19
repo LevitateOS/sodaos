@@ -14,7 +14,12 @@ export class SodaProviders extends LitElement {
     busy: {state: true},
     message: {state: true},
     loaded: {state: true},
+    externalTrigger: {type: Boolean, attribute: 'external-trigger'},
   };
+  /** With an external trigger (the navbar robot button) the dialog is
+      opened through open() and no in-page button is rendered. */
+  declare externalTrigger: boolean;
+  private pendingOpen = false;
   declare private connections: Connection[];
   declare private attempts: Partial<Record<ProviderID, Enrollment>>;
   declare private busy: boolean;
@@ -30,6 +35,7 @@ export class SodaProviders extends LitElement {
     this.attempts = {};
     this.busy = this.loaded = false;
     this.message = '';
+    this.externalTrigger = false;
   }
 
   protected createRenderRoot() { return this; }
@@ -45,6 +51,29 @@ export class SodaProviders extends LitElement {
     this.message = '';
     this.querySelector('dialog')?.close();
     this.requestUpdate();
+    void this.maybeOpen();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // The navbar button on pages without this element navigates to the feed
+    // and leaves a one-shot flag asking for the dialog on arrival.
+    try {
+      if (sessionStorage.getItem('soda-open-providers') === '1') {
+        sessionStorage.removeItem('soda-open-providers');
+        this.pendingOpen = true;
+      }
+    } catch {
+      /* Storage can be blocked. */
+    }
+    void this.maybeOpen();
+  }
+
+  private async maybeOpen() {
+    if (!this.pendingOpen || !this.current || !this.isConnected) return;
+    this.pendingOpen = false;
+    await this.updateComplete;
+    await this.open();
   }
 
   disconnectedCallback() {
@@ -161,26 +190,26 @@ export class SodaProviders extends LitElement {
     const attempt = this.attempts[provider.id];
     const pending = attempt?.state === 'pending';
     const previous = this.connections.some(c => c.provider_id === provider.id);
-    return html`<li style="list-style:none;border-top:1px solid var(--color-secondary,#ddd);padding:14px 0">
-      <button type="button" class="ui basic button" style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:24px"
+    return html`<li class="soda-provider-row" data-connected=${connected}>
+      <button type="button" class="ui basic button soda-provider-choice"
         aria-label=${`${provider.name}: ${connected ? 'Connected' : pending ? 'Awaiting sign-in' : previous ? 'Reconnect' : 'Not connected'}`}
         ?disabled=${this.busy || !this.loaded || connected || pending} @click=${() => this.start(provider.id)}>
         <strong>${provider.name}</strong>
-        <span><span aria-hidden="true" style=${connected ? 'color:#218c45' : ''}>${connected ? '✓' : '○'}</span>
+        <span><span aria-hidden="true" class="soda-provider-indicator">${connected ? '✓' : '○'}</span>
           ${connected ? 'Connected' : pending ? 'Awaiting sign-in' : previous ? 'Reconnect' : 'Connect'}</span>
       </button>
-      ${this.connections.filter(c => c.provider_id === provider.id && c.state === 'ready').map(connection => html`<div style="padding:8px 4px">
+      ${this.connections.filter(c => c.provider_id === provider.id && c.state === 'ready').map(connection => html`<div class="soda-provider-detail">
         <p>${connection.email || connection.label}${connection.plan ? ` · ${connection.plan}` : ''}</p>
         <details><summary>Manage account</summary>
           <p>Disconnecting ends this account’s active Factory sessions.</p>
           <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.disconnect(connection)}>Disconnect and end active uses</button>
         </details>
       </div>`)}
-      ${!connected && attempt ? html`<section aria-label=${`${provider.name} sign-in`} style="padding:8px 4px">
+      ${!connected && attempt ? html`<section aria-label=${`${provider.name} sign-in`} class="soda-provider-detail">
         <p role="status">${pending ? 'Complete sign-in on the provider page. This dialog updates automatically.' : `Sign-in ${attempt.state}.`}</p>
-        ${pending && attempt.verification_url ? html`<a class="ui button" href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">Open sign-in</a>
+        ${pending && attempt.verification_url ? html`<a class="ui primary button" href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">Open sign-in</a>
           <p>Sign-in link: <a href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">${attempt.verification_url}</a></p>` : nothing}
-        ${pending && attempt.user_code ? html`<p>Code: <strong style="font-family:monospace;user-select:all">${attempt.user_code}</strong>
+        ${pending && attempt.user_code ? html`<p>Code: <strong class="soda-provider-code">${attempt.user_code}</strong>
           <button type="button" class="ui basic button" @click=${() => this.copy(attempt.user_code)}>Copy code</button></p>` : nothing}
         <button type="button" class="ui basic button" ?disabled=${this.busy}
           @click=${() => pending ? this.cancel(provider.id) : this.start(provider.id)}>${pending ? 'Cancel sign-in' : 'Try again'}</button>
@@ -193,14 +222,32 @@ export class SodaProviders extends LitElement {
         .soda-providers-dialog[open] { display:block !important; }
         .soda-providers-dialog:not([open]) { display:none !important; }
         .soda-providers-dialog::backdrop { background:rgb(0 0 0 / 35%); }
-        .soda-providers-dialog button span { white-space:nowrap; }
-      </style><button type="button" class="ui basic button" @click=${this.open} ?disabled=${!this.current}>Providers</button>
-      <dialog class="soda-providers-dialog" aria-label="Providers" style="width:min(480px,calc(100vw - 40px));border:1px solid var(--color-secondary,#ddd);border-radius:10px;padding:24px;background:var(--color-body,#fff);color:var(--color-text,#222)">
-        <header style="display:flex;justify-content:space-between;align-items:center;gap:24px"><h2 style="margin:0;font-size:20px;font-weight:600">Providers</h2>
+        .soda-providers-dialog { box-sizing:border-box; width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--soda-page-text); border-top:3px solid var(--soda-page-link); border-radius:0; background:var(--soda-page-surface); color:var(--soda-page-text); font:var(--soda-font-body); }
+        .soda-providers-dialog > header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px; }
+        .soda-providers-dialog h2 { margin:0; font:var(--soda-font-title); }
+        .soda-providers-dialog .soda-provider-eyebrow { margin:0 0 4px; color:var(--soda-page-muted); font:var(--soda-font-button); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+        .soda-providers-dialog > p { color:var(--soda-page-muted); font:var(--soda-font-meta); }
+        .soda-providers-dialog > ul { list-style:none; padding:0; margin:20px 0 0; }
+        .soda-provider-row { border-top:1px solid var(--soda-page-edge); padding:12px 0; }
+        .soda-providers-dialog .soda-provider-choice { display:flex; align-items:center; justify-content:space-between; width:100%; gap:16px; text-align:start; background:var(--soda-page-selected); border:1px solid transparent; }
+        .soda-providers-dialog .soda-provider-choice strong { font:var(--soda-font-label); }
+        .soda-provider-choice > span { font:var(--soda-font-caption); }
+        .soda-provider-row[data-connected=true] .soda-provider-choice:disabled { opacity:1 !important; color:var(--soda-page-text); }
+        .soda-provider-row[data-connected=true] .soda-provider-indicator { color:var(--soda-page-success); }
+        .soda-provider-indicator { font-size:18px; margin-inline-end:4px; }
+        .soda-provider-detail { padding:12px 4px 0; overflow-wrap:anywhere; font:var(--soda-font-meta); }
+        .soda-provider-detail summary { min-height:32px; cursor:pointer; color:var(--soda-page-muted); }
+        .soda-provider-code { display:inline-block; padding:8px 12px; background:var(--soda-page-selected); border:1px solid var(--soda-page-edge); font:var(--soda-font-mono); letter-spacing:.1em; user-select:all; }
+        .soda-providers-dialog :focus-visible { outline:2px solid var(--soda-page-focus); outline-offset:3px; }
+        .soda-providers-dialog [role=status]:empty { display:none; }
+        @media(max-width:480px) { .soda-providers-dialog { padding:16px; } }
+      </style>${this.externalTrigger ? nothing : html`<button type="button" class="ui basic button" @click=${this.open} ?disabled=${!this.current}>Providers</button>`}
+      <dialog class="soda-providers-dialog" aria-label="Providers" >
+        <header><div><p class="soda-provider-eyebrow">Factory connections</p><h2>Providers</h2></div>
           <button type="button" class="ui basic button" @click=${() => this.querySelector('dialog')?.close()}>Close</button></header>
         <p>Connect an account to use it in Factory. Connecting lets Soda securely store your account credentials and use them in authorized Project processes.</p>
         ${!this.loaded ? html`<p role="status">${this.busy ? 'Loading providers…' : 'Provider status unavailable.'}</p>` : nothing}
-        <ul style="padding:0;margin:0">${providers.map(provider => this.row(provider))}</ul>
+        <ul>${providers.map(provider => this.row(provider))}</ul>
         <p role="status">${this.message}</p>
         ${this.message ? html`<button type="button" class="ui basic button" ?disabled=${this.busy} @click=${() => this.run(() => this.readStatus())}>Check status</button>` : nothing}
       </dialog>`;

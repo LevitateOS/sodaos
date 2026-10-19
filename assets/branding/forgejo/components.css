@@ -29,7 +29,7 @@
   --soda-button-primary-hover: var(--soda-page-action-hover);
   --soda-button-danger: light-dark(var(--soda-light-danger), var(--soda-dark-danger));
   --soda-font-button: 500 13px/20px "IBM Plex Mono", monospace;
-  --soda-font-button-prominent: 500 16px/24px "IBM Plex Mono", monospace;
+  --soda-font-button-prominent: 500 13px/20px "IBM Plex Mono", monospace;
   --soda-space-1: 4px;
   --soda-space-2: 8px;
   --soda-space-3: 12px;
@@ -44,10 +44,10 @@
   --soda-spaces-form-width: 720px;
   --soda-spaces-page-inset: clamp(16px, 3vw, 48px);
   --soda-spaces-panel-inset: clamp(16px, 3vw, 32px);
-  --soda-font-title: 800 clamp(28px, 4vw, 40px)/1.05 "Barlow Condensed", "Arial Narrow", sans-serif;
+  --soda-font-title: 800 clamp(30px, 4vw, 42px)/1.12 "Barlow Condensed", "Arial Narrow", sans-serif;
   --soda-font-workspace-title: 800 28px/1.1 "Barlow Condensed", "Arial Narrow", sans-serif;
-  --soda-font-heading: 800 22px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif;
-  --soda-font-body: 400 16px/1.5 Barlow, Arial, sans-serif;
+  --soda-font-heading: 700 24px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif;
+  --soda-font-body: 400 16px/1.6 Barlow, Arial, sans-serif;
   --soda-font-label: 600 15px/1.5 Barlow, Arial, sans-serif;
   --soda-font-meta: 400 14px/1.5 Barlow, Arial, sans-serif;
   --soda-page-focus: light-dark(var(--soda-light-focus), var(--soda-dark-focus));
@@ -59,7 +59,7 @@
   --soda-font-workspace: 400 14px/1.4 Barlow, Arial, sans-serif;
   --soda-font-caption: 400 12px/1.4 Barlow, Arial, sans-serif;
   /* Dense desktop chrome; compact projection uses the ordinary 44px control. */
-  --soda-workspace-control: 32px;
+  --soda-workspace-control: 36px;
   --soda-workspace-tab: 36px;
   --soda-workspace-radius: 0px;
   --soda-elevation-menu: none;
@@ -185,6 +185,14 @@ html[data-theme^="soda-"] body .soda-account-appearance {
 
 html[data-theme^="soda-"] body .soda-account-appearance:hover {
   color: var(--soda-page-link);
+}
+
+html[data-theme^="soda-"] body button.soda-account-appearance {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 html[data-theme^="soda-"] body .page-footer {
@@ -325,3 +333,8 @@ body:has(.soda-login) {
  html[data-theme^="soda-"] body #navbar #mobile-notifications-icon { margin-right: 0 !important; }
  html[data-theme^="soda-"] body #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
 }
+
+/* Provider rows are selection controls, not the native uppercase CTA pattern. */
+html[data-theme^="soda-"] body .soda-providers-dialog .ui.basic.button.soda-provider-choice { display: flex; justify-content: space-between; text-transform: none; letter-spacing: 0; background: var(--soda-page-selected); border: 1px solid var(--soda-page-edge); }
+html[data-theme^="soda-"] body .soda-providers-dialog { box-shadow: none; }
+html[data-theme^="soda-"] body .soda-providers-dialog > header { padding: 0 0 16px; background: transparent; border-bottom: 1px solid var(--soda-page-edge); }

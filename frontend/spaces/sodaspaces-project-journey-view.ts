@@ -32,6 +32,7 @@ export interface JourneyViewInput {
   isNetworkEnabled: () => boolean;
   needsNetworkReview: () => boolean;
   requestRefresh: (event: Event) => void;
+  requestInspect?: (event: Event) => void;
   refreshNow: () => void;
   requestJoin: (event: Event) => void;
   requestStart: (event: Event) => void;
@@ -229,7 +230,7 @@ function journeyExistingDescription(
     return html`Your project account is ready for a browser terminal. Use New terminal to open your first one.`;
   if (executionDenied(input))
     return html`You can inspect this project. Joining and terminal access require repository write permission.`;
-  if (incomplete) return html`Project setup is incomplete. Ask the operator to inspect this project.`;
+  if (incomplete) return html`Project setup did not finish. Inspect the environment details, then refresh its status.`;
   if (stopped) return html`This project is stopped. Start it before joining or opening a terminal.`;
   return html`Current project access or runtime state could not be confirmed.`;
 }
@@ -245,7 +246,7 @@ function journeyStartButton(input: JourneyViewInput, stopped: boolean) {
 function journeyExistingAction(input: JourneyViewInput, stopped: boolean) {
   const refreshClass = stopped && input.hasLifecycle() ? 'ui button soda-quiet-action' : 'ui primary button';
   const refreshLabel = input.isBusy() && !input.isMutationPending() ? 'Checking status…' : 'Refresh status';
-  return html`${projectFeedAction(input)}${journeyStartButton(input, stopped)}<button
+  return html`${projectFeedAction(input)}${!input.readDetail()?.environment.provisioned && input.requestInspect ? html`<button class="ui button" ?disabled=${input.isBlocked()} @click=${input.requestInspect}>Inspect environment</button>` : ''}${journeyStartButton(input, stopped)}<button
       class=${refreshClass}
       ?disabled=${input.isBlocked()}
       @click=${input.requestRefresh}
@@ -255,7 +256,7 @@ function journeyExistingAction(input: JourneyViewInput, stopped: boolean) {
 }
 
 function journeyExistingHelper(input: JourneyViewInput, incomplete: boolean, stopped: boolean) {
-  if (incomplete) return html`Do not recreate a reserved project.`;
+  if (incomplete) return html`Refresh can finish an interrupted setup when the existing environment is ready. Your reserved project is kept.`;
   if (stopped && !input.hasLifecycle()) return html`A project administrator must start this project.`;
   return html`Refreshing checks the existing project without repeating an operation.`;
 }

@@ -55,6 +55,7 @@
   "public/assets/soda/forgejo/moderation.css": "assets/branding/forgejo/moderation.css",
   "public/assets/soda/forgejo/notification-preview.css": "assets/branding/forgejo/notification-preview.css",
   "public/assets/soda/forgejo/notification-preview.js": "@build/forgejo-js/notification-preview.js",
+  "public/assets/soda/forgejo/providers-button.js": "@build/forgejo-js/providers-button.js",
   "public/assets/soda/forgejo/notifications.css": "assets/branding/forgejo/notifications.css",
   "public/assets/soda/forgejo/onboarding.css": "assets/branding/forgejo/onboarding.css",
   "public/assets/soda/forgejo/org-create.css": "assets/branding/forgejo/org-create.css",

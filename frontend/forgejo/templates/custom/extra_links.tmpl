@@ -1,5 +1,6 @@
 {{template "custom/soda/guest_theme" (dict "Page" . "Placement" "navbar")}}
 
 {{if .IsSigned}}
-  <a class="item soda-account-appearance" href="{{AppSubUrl}}/user/settings/appearance" aria-label="{{ctx.Locale.Tr "settings.manage_themes"}}" title="{{ctx.Locale.Tr "settings.manage_themes"}}">{{svg "octicon-paintbrush" 21}}</a>
+  <button id="soda-providers-button" class="item soda-account-appearance" type="button" aria-label="AI providers" title="AI providers"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V5"/><circle cx="12" cy="3.2" r="1.1"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg></button>
+  <script src="{{AssetUrlPrefix}}/soda/forgejo/providers-button.js?v=1" data-app-sub-url="{{AppSubUrl}}"></script>
 {{end}}

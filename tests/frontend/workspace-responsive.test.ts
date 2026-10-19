@@ -154,7 +154,7 @@ test('current native panels allocation preserves available Spaces width and quie
   );
   assert.equal(
     await page.locator('#native-button-probe').evaluate((node) => getComputedStyle(node).borderTopWidth),
-    '1px'
+    '2px'
   );
   assert(
     (await page.locator('#native-button-probe').boundingBox())!.height >= 44,

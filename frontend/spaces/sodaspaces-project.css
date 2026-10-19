@@ -26,3 +26,13 @@
 .soda-spaces-controls [hidden] { display: none !important; }
 .soda-spaces-controls a[aria-disabled=true] { pointer-events: none; opacity: .5; }
 .soda-spaces-controls > a { align-self: flex-start; }
+
+/* Match the website's document hierarchy without changing pane geometry. */
+.soda-spaces-view { padding: 20px; }
+.soda-spaces-controls fieldset + fieldset { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--soda-page-edge); }
+.soda-spaces-controls legend { color: var(--soda-page-text); letter-spacing: -.015em; }
+.soda-spaces-controls label { color: var(--soda-page-text); }
+.soda-spaces-tabs { background: var(--soda-page-selected); }
+.soda-spaces-tabs [aria-selected=true] { background: var(--soda-page-surface); color: var(--soda-page-link); }
+.soda-spaces-summary { padding: 10px 16px; background: var(--soda-page-selected); }
+@media(max-width:640px) { .soda-spaces-view { padding:16px; } }

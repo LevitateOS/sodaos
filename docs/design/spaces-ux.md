@@ -31,6 +31,8 @@ controls/terminal, square geometry, thin rules, restrained red primary actions a
 clear whitespace. Every repository lives on this Forgejo; there is no external
 provider picker in onboarding.
 
+The October 2026 website-alignment pass applies this language across the native shell and product surfaces: condensed page/action headings, Barlow reading text, mono utility labels, square neutral panels and red primary actions. Feed authors remain outside separate cards, and action-specific diagrams stay inside them. Quiet refresh/navigation controls do not compete with authoring actions. Project comments explain their JEV routing; the library shares the same search and panel styling. Provider rows show connection state without dimming a connected account, and application cards lead with name, observed state and Open/Inspect; start/stop controls expand separately while retaining confirmation. Native fallback titles remain available before mount and are hidden only when the mounted feed/application page supplies its own heading. These styles preserve native navigation, scroll ownership and retained terminals.
+
 ### Everyday Project flow
 
 - **Work** lists the signed-in person's plans for the selected repository. **New

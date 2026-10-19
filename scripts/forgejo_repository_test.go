@@ -153,6 +153,12 @@ func TestForgejoRepositoryHeaderRendersWorkspaceOnceAndKeepsAdminSettings(t *tes
 		{"Title": "Repository settings contribution", "URL": "/native-owner/native-workspace/settings/workspace", "Permission": "admin"},
 	}
 	body := renderForgejoRepositoryHeader(t, repositoryHeaderPermission{read: true, admin: true}, approvedExtensionPages)
+	feedBody := renderForgejoRepositoryHeader(t, repositoryHeaderPermission{read: true, admin: true}, []map[string]string{
+		{"ID": "repository-feed", "Title": "Feed", "URL": "/native-owner/native-workspace/workspace", "Permission": "read"},
+	})
+	if !strings.Contains(feedBody, "icon Feed") {
+		t.Fatal("repository feed tab rendered without its icon")
+	}
 	if got := strings.Count(body, `href="/native-owner/native-workspace/workspace"`); got != 1 {
 		t.Fatalf("native repository workspace link rendered %d times, want once", got)
 	}

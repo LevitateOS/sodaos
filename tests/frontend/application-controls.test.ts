@@ -42,6 +42,8 @@ test('Opening Applications loads current status, fences double Start and require
   await page.getByText('Stopped', {exact: false}).waitFor();
   await page.waitForFunction(() => window.applicationFixture.calls.some(c => c.body?.action === 'inspect'));
   assert.equal(await page.evaluate(() => window.applicationFixture.calls.filter((c) => c.body && c.body.action !== 'inspect').length), 0);
+  assert.equal(await page.getByRole('button', {name: 'Start Example', exact: true}).isVisible(), false);
+  await page.getByText('Start or stop application', {exact: true}).click();
   await page.evaluate(() => {
     const button = Array.from(document.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === 'Start Example'

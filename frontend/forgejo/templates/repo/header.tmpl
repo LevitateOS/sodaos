@@ -103,7 +103,7 @@
 			<div class="overflow-menu-items">
 				{{with .ExtensionPages}}{{range index . "repository"}}
 					{{if ne .Permission "admin"}}
-					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
+					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{if eq .ID "repository-feed"}}{{svg "octicon-rss"}} {{end}}{{.Title}}</a>
 					{{end}}
 				{{end}}{{end}}
 				{{if .Permission.CanRead $.UnitTypeCode}}

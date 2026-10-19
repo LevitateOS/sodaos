@@ -80,3 +80,35 @@ test('Providers starts device login, resumes its dialog, follows completion and 
   await page.getByRole('button', {name: 'Codex: Connected', exact: true}).waitFor();
   assert.equal(starts, 3, 'reload must read connection state without starting login');
 });
+
+test('external trigger hides the in-page button and the arrival flag opens the dialog once', async t => {
+  const build = await Bun.build({entrypoints: ['frontend/spaces/soda-providers.ts'], target: 'browser'});
+  assert(build.success, build.logs.join('\n'));
+  const script = await build.outputs[0]!.text();
+  const server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === '/widget.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
+    if (url.pathname.startsWith('/api/identity/')) return Response.json([]);
+    return new Response('<!doctype html><html><body></body></html>', {headers: {'Content-Type': 'text/html'}});
+  }});
+  t.after(() => server.stop(true));
+  const browser = await chromium.launch({headless: true, chromiumSandbox: true,
+    ...(process.env.CHROME ? {executablePath: process.env.CHROME} : {})});
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.goto(server.url.toString());
+  await page.evaluate(async () => {
+    sessionStorage.setItem('soda-open-providers', '1');
+    const path = '/widget.js';
+    const module = await import(path);
+    const widget = new module.SodaProviders();
+    widget.setAttribute('external-trigger', '');
+    document.body.append(widget);
+    widget.transport = {request: (path: string, init: RequestInit) => fetch('/api/' + path, init)};
+  });
+  // No in-page Providers button; the arrival flag opens the dialog by itself.
+  assert.equal(await page.getByRole('button', {name: 'Providers', exact: true}).count(), 0);
+  const dialog = page.getByRole('dialog', {name: 'Providers', exact: true});
+  await dialog.getByRole('button', {name: 'Codex: Not connected', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-open-providers')), null, 'flag is one-shot');
+});

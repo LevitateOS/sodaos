@@ -30,18 +30,21 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const show = () =>
     render(
       html`
-        <header class="soda-feed-page-heading">
-          <div><h1>${applications ? 'Applications' : global ? 'Feed' : name}</h1></div>
-          <nav aria-label="Project navigation">
-            ${name ? html`<a href=${`${prefix}/${name}`}>Repository ↗</a><a href=${`${prefix}/${name}/issues`}>Issues</a><a href=${`${prefix}/workspace/new?repository=${repository}`}>New work</a>` : ''}
-            <a href=${`${prefix}/workspace`}>Projects</a>
-            <a href=${`${prefix}/applications${!global && repository ? '?repository=' + repository : ''}`}
-              >${applications && repository ? 'All applications' : 'Applications'}</a
-            >
-            ${!global ? html`<a href=${`${prefix}/feed`}>Following</a>` : ''}
-            <soda-providers .transport=${visible ? transport : undefined}></soda-providers>
-          </nav>
-        </header>
+        ${
+          // The repository feed sits under the native repository header and
+          // tabs, so it renders no heading of its own. The providers dialog
+          // host stays mounted on every feed page for the navbar button.
+          global
+            ? html`<header class="soda-feed-page-heading">
+                <div><p class="soda-page-eyebrow">${applications ? 'Your software' : 'Across your projects'}</p><h1>${applications ? 'Applications' : 'Following'}</h1><p>${applications ? 'Open and manage the software your projects deliver.' : 'Agent updates, decisions and results.'}</p></div>
+                <nav aria-label="Project navigation">
+                  <a href=${`${prefix}/workspace`}>Projects</a>
+                  <a href=${`${prefix}/applications`}>${applications && repository ? 'All applications' : 'Applications'}</a>
+                </nav>
+              </header>`
+            : ''
+        }
+        <soda-providers external-trigger .transport=${visible ? transport : undefined}></soda-providers>
         ${
           applications
             ? html`<soda-applications
