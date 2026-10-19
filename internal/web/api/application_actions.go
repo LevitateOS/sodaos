@@ -18,14 +18,13 @@ type applicationAction struct {
 	Replacement       *application.Spec `json:"replacement"`
 }
 
-func (s *API) acquireApplicationMutation(w http.ResponseWriter, id string) (func(), bool) {
+func (s *API) acquireApplicationMutation(id string) (func(), bool) {
 	s.applicationMu.Lock()
 	defer s.applicationMu.Unlock()
 	if s.applicationPending == nil {
 		s.applicationPending = make(map[string]bool)
 	}
 	if s.applicationPending[id] {
-		auth.JSONError(w, 409, "application_pending", "An application operation is pending; inspect its recorded outcome.")
 		return nil, false
 	}
 	s.applicationPending[id] = true
@@ -84,8 +83,11 @@ func (s *API) apiApplicationAction(w http.ResponseWriter, r *http.Request, v sto
 	if !ok {
 		return
 	}
-	release, ok := s.acquireApplicationMutation(w, record.Application.ID)
+	release, ok := s.acquireApplicationMutation(record.Application.ID)
 	if !ok {
+		if request.Action=="inspect" {
+			if current,visible:=s.loadApplication(w,r,v);visible {auth.JSONResponse(w,200,s.applicationView(r,v,current,s.applicationOperator(v)))}
+		} else {auth.JSONError(w,409,"application_pending","An application operation is already in progress. Refresh its status before trying again.")}
 		return
 	}
 	defer release()

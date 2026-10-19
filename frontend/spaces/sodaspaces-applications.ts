@@ -114,7 +114,7 @@ export class SodaApplications extends LitElement {
     // Status inspection reads the running app; it never installs or starts it.
     await this.updateComplete;
     const epoch = this.epoch;
-    for (const record of [...this.records]) {
+    for (const record of this.records.filter(record => !this.repository || record.project?.repository === this.repository)) {
       if (!this.current(epoch) || !this.request) break;
       try {
         const result = applicationResponse(
