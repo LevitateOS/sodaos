@@ -207,10 +207,7 @@ test('Project feed reads newest-first with separate enriched posts and live comm
   await feed.getByRole('button', {name: 'Back to latest'}).waitFor();
   // Drafts survive refreshes with reading position intact.
   const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
-  await draft.evaluate((el) => {
-    const details = el.closest('details');
-    if (details) details.open = true;
-  });
+  await feed.locator(`[data-feed-drawer-toggle="record:${recordId}"]`).click();
   await draft.fill('half-written reply');
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
   await feed.getByText('Feed refreshed; no new posts.').waitFor();
@@ -576,10 +573,7 @@ test('Designed blocks render recorded segments; durable continuation lands witho
   // Submit once; the durable continuation result must appear on feed
   // refresh (known-pending re-read) with no second POST.
   const draft = feed.locator(`textarea[data-feed-draft="record:${recordId}"]`);
-  await draft.evaluate((el) => {
-    const details = el.closest('details');
-    if (details) details.open = true;
-  });
+  await feed.locator(`[data-feed-drawer-toggle="record:${recordId}"]`).click();
   await draft.fill('Please add substitute approvers.');
   await feed.locator(`[data-comment-submit="record:${recordId}"]`).click();
   await feed.getByText(/Saved\. JEV is assessing/).waitFor();

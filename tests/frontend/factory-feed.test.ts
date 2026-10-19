@@ -19,7 +19,9 @@ import {
 } from '../../frontend/spaces/sodaspaces-factory-feed-response.js';
 import type {FeedEntry} from '../../frontend/spaces/sodaspaces-factory-feed-response.js';
 import {
+  commentsCountText,
   describeCommentOutcome,
+  describeComments,
   describeDecisionAttention,
   describeDiscussion,
   describeFeedPost,
@@ -1271,4 +1273,20 @@ test('source evidence and commit trails survive feed decoding at their supported
   assert.equal(payload?.communication?.summary.length, 900);
   assert.equal(parseFeedPayload({communication: {...communication, source: {...source, highlight_lines: [99]}}})?.invalid, true);
   assert.equal(parseFeedPayload({communication: {...communication, commits: [{revision: 'fake', summary: 'No revision'}]}})?.invalid, true);
+});
+
+test('comment drawer tab counts only loaded replies and starts collapsed', () => {
+  assert.equal(commentsCountText(undefined), 'Comments');
+  assert.equal(commentsCountText(0), '0 comments');
+  assert.equal(commentsCountText(1), '1 comment');
+  assert.equal(commentsCountText(3), '3 comments');
+  assert.equal(commentsCountText(20, true), '20+ comments');
+  const closed = describeFeedPost(record, repo, '', [], undefined, false);
+  assert.equal(closed.comments.open, false);
+  assert.equal(closed.comments.countText, 'Comments');
+  assert.equal(closed.discussion.compactComposer, true);
+  const thread = {items: [{authorName: 'soda-operator'}, {authorName: 'Product Lead'}, {authorName: ''}, {authorName: 'Architect'}], next: 5};
+  const loaded = describeComments('record:x', true, thread);
+  assert.equal(loaded.countText, '4+ comments');
+  assert.deepEqual(loaded.faces, ['S', 'P', '?']);
 });

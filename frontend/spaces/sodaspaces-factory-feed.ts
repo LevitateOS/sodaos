@@ -27,6 +27,7 @@ import type {
 } from './sodaspaces-factory-feed-response.js';
 import {
   describeCommentOutcome,
+  describeComments,
   describeFeedPost,
   renderDiscussion,
   renderFeedPost,
@@ -54,6 +55,21 @@ function failureMessage(status: number | undefined, fallback: string): string {
   if (status === 403)
     return 'One or more subscribed projects are not visible to you. The feed shows only permitted activity.';
   return fallback;
+}
+
+// Relative reply age for comment rows ("now", "12m", "2h", "3d"); older
+// replies fall back to a short date. The full timestamp stays on the
+// <time> element's title in the row markup.
+export function relativeReplyTime(at: number, now = Date.now()): string {
+  const seconds = Math.floor((now - at * 1000) / 1000);
+  if (seconds < 60) return 'now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(at * 1000).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
 }
 
 function draftKey(key: string): string {
@@ -149,6 +165,7 @@ export class SodaFactoryFeed extends LitElement {
   private refreshTimer?: ReturnType<typeof setInterval>;
   private revising: {id: string; revision: number; body: string; original?: string; question?: string} | undefined;
   private threads = new Map<string, {items: CommentDetail[]; next: number; busy: boolean; message: string}>();
+  private openDrawers = new Set<string>();
   private library: {repository: string; item?: string} | undefined;
 
   protected createRenderRoot() {
@@ -188,6 +205,7 @@ export class SodaFactoryFeed extends LitElement {
     this.serial++;
     this.drafts.clear();
     this.threads.clear();
+    this.openDrawers.clear();
     this.revising = undefined;
     this.library = undefined;
     this.view = {
@@ -624,6 +642,7 @@ export class SodaFactoryFeed extends LitElement {
       this.pendingPosts.set(pendingKey, post);
     }
     const serial = this.serial;
+    if (entry) this.openDrawer(key);
     this.view = {...this.view, commentBusy: [...this.view.commentBusy, key]};
     try {
       const response = await context.transport.request('factory/feed/comments', {
@@ -828,9 +847,27 @@ export class SodaFactoryFeed extends LitElement {
     }
   }
 
+  // openDrawer pulls one post's comment drawer out and reads its thread on
+  // first open; typing a draft or reopening never invokes intake.
+  private openDrawer(key: string) {
+    this.openDrawers.add(key);
+    const entry = this.entryForKey(key);
+    if (entry && !this.threads.has(key)) void this.loadReplies(entry);
+    this.requestUpdate();
+  }
+
   private onFeedClick = (event: Event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const drawerToggle = target.closest<HTMLElement>('[data-feed-drawer-toggle]');
+    if (drawerToggle?.dataset.feedDrawerToggle) {
+      const key = drawerToggle.dataset.feedDrawerToggle;
+      if (this.openDrawers.has(key)) {
+        this.openDrawers.delete(key);
+        this.requestUpdate();
+      } else this.openDrawer(key);
+      return;
+    }
     const library = target.closest<HTMLElement>('[data-library-item]');
     if (library?.dataset.libraryItem) {
       const entry = this.entryForKey(library.dataset.libraryEntry ?? '');
@@ -878,10 +915,11 @@ export class SodaFactoryFeed extends LitElement {
       if (area) {
         // Selecting a choice edits the existing draft; only Submit invokes JEV.
         area.value = area.value.trim() ? `${area.value}\n${text}`.slice(0, 4000) : text.slice(0, 4000);
-        const disclosure = area.closest('details');
-        if (disclosure) disclosure.open = true;
+        this.openDrawer(key);
         area.dispatchEvent(new Event('input', {bubbles: true}));
-        area.focus();
+        void this.updateComplete.then(() =>
+          this.querySelector<HTMLTextAreaElement>(`[data-feed-draft="${CSS.escape(key)}"]`)?.focus()
+        );
       }
       return;
     }
@@ -1065,7 +1103,15 @@ export class SodaFactoryFeed extends LitElement {
             );
             const body: PostBodyState | undefined =
               entry.kind === 'post' ? (this.view.bodies.get(entry.id) ?? {state: 'loading'}) : undefined;
-            const post = describeFeedPost(entry, repository, this.draftFor(key), outcomes, body, false);
+            const post = describeFeedPost(
+              entry,
+              repository,
+              this.draftFor(key),
+              outcomes,
+              body,
+              false,
+              describeComments(key, this.openDrawers.has(key), this.threads.get(key))
+            );
             return renderFeedPost(
               {
                 ...post,
@@ -1149,48 +1195,44 @@ export class SodaFactoryFeed extends LitElement {
     const key = this.entryKeyFor(entry),
       thread = this.threads.get(key);
     const ref = this.view.labels.refs.get(entry.repository);
-    return html`<details
-      class="soda-feed-thread"
-      @toggle=${(event: Event) => {
-        if ((event.currentTarget as HTMLDetailsElement).open && !this.threads.has(key)) void this.loadReplies(entry);
-      }}
-    >
-      <summary>View replies</summary>
-      ${
-        thread
-          ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry)}>
-                Refresh replies
-              </button>
-              <p role="status">
-                ${thread.busy ? 'Loading replies…' : thread.message || (thread.items.length ? '' : 'No replies yet.')}
+    if (!thread) return html`<p role="status" class="soda-feed-thread-status">Loading replies…</p>`;
+    return html`<div class="soda-feed-thread">
+      <p class="soda-feed-thread-head">
+        <span role="status">${thread.busy ? 'Loading replies…' : thread.message || (thread.items.length ? '' : 'No replies yet.')}</span>
+        <button type="button" class="soda-feed-icon-button" aria-label="Refresh replies" title="Refresh replies" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry)}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 3v4h-4"/></svg></button>
+      </p>
+      <ul class="soda-feed-comments">
+        ${thread.items.map(
+          (reply) => html`<li class="soda-feed-comment">
+            <span class="soda-feed-avatar" aria-hidden="true">${(reply.authorName || '?').slice(0, 1).toUpperCase()}</span>
+            <div class="soda-feed-comment-main">
+              <p class="soda-feed-comment-who">
+                <strong>${reply.authorName || 'Comment'}</strong>
+                <time datetime=${new Date(reply.at * 1000).toISOString()} title=${new Date(reply.at * 1000).toLocaleString()}>· ${relativeReplyTime(reply.at)}</time>
+                ${reply.edited ? html` <span class="soda-feed-comment-edited">(edited)</span>` : ''}
               </p>
-              ${thread.items.map(
-                (reply) => html`<article class="soda-feed-thread-reply">
-                  <p>
-                    <strong>${reply.authorName || 'Comment'}</strong> · ${new Date(reply.at * 1000).toLocaleString()}
-                  </p>
-                  <p class="soda-feed-body-text">${reply.body}</p>
-                  ${reply.pipeline ? renderDiscussion({
-                    key: 'post:' + reply.commentId,
-                    draft: '',
-                    submitAvailable: false,
-                    showComposer: false,
-                    intakeText: '',
-                    discussionLink: undefined,
-                    outcomes: [
-                      describeCommentOutcome(reply.pipeline, {
-                        id: entry.repository,
-                        path: ref?.path,
-                        label: ref?.label ?? 'This project',
-                      }),
-                    ],
-                  }) : ''}
-                </article>`
-              )}
-              ${thread.next ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry, true)}>Older replies</button>` : ''}`
-          : 'Loading replies…'
-      }
-    </details>`;
+              <p class="soda-feed-body-text">${reply.body}</p>
+              ${reply.pipeline ? renderDiscussion({
+                key: 'post:' + reply.commentId,
+                draft: '',
+                submitAvailable: false,
+                showComposer: false,
+                intakeText: '',
+                discussionLink: undefined,
+                outcomes: [
+                  describeCommentOutcome(reply.pipeline, {
+                    id: entry.repository,
+                    path: ref?.path,
+                    label: ref?.label ?? 'This project',
+                  }),
+                ],
+              }) : ''}
+            </div>
+          </li>`
+        )}
+      </ul>
+      ${thread.next ? html`<button type="button" class="soda-feed-more" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry, true)}>Show more</button>` : ''}
+    </div>`;
   }
 }
 

@@ -442,6 +442,7 @@ export function describeCommentOutcome(
 
 export interface DiscussionModel {
   readonly showComposer?: boolean;
+  readonly compactComposer?: boolean;
   readonly label?: string;
   readonly submitLabel?: string;
   readonly key: string;
@@ -466,6 +467,7 @@ export function describeDiscussion(
   return {
     key: feedEntryKey(entry),
     draft,
+    compactComposer: true,
     submitAvailable: draft.trim() !== '',
     outcomes,
     intakeText:
@@ -556,11 +558,11 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
       model.showComposer === false
         ? ''
         : html`<label
-              >${model.label ?? 'Reply draft'}
+              >${model.compactComposer ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
               <textarea
                 name="reply"
                 data-feed-draft=${model.key}
-                rows="3"
+                rows=${model.compactComposer ? '1' : '3'}
                 maxlength="4000"
                 placeholder=${model.label === 'Project comment' ? 'Ask a question, share feedback, or request a change…' : 'Write a reply…'}
                 .value=${live(model.draft)}
@@ -574,7 +576,7 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
                 .disabled=${live(!model.submitAvailable)}
                 title="Submit persists the comment and starts its JEV assessment."
               >
-                ${model.submitLabel ?? 'Submit reply'}
+                ${model.submitLabel ?? (model.compactComposer ? 'Post' : 'Submit reply')}
               </button>
               ${model.label === 'Project comment' ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
               ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
@@ -591,6 +593,37 @@ export interface FeedPostModel {
   readonly attention: DecisionAttentionModel;
   readonly discussion: DiscussionModel;
   readonly postBody: PostBodyModel | undefined;
+  readonly comments: CommentsModel;
+}
+
+// CommentsModel projects the comment drawer's pull-tab: open state plus the
+// loaded reply count and first author initials. Replies load on first open,
+// so before that the tab reads plainly "Comments" rather than inventing a
+// count the feed page has not read yet.
+export interface CommentsModel {
+  readonly key: string;
+  readonly open: boolean;
+  readonly countText: string;
+  readonly faces: readonly string[];
+}
+
+export function commentsCountText(count: number | undefined, more = false): string {
+  if (count === undefined) return 'Comments';
+  if (count === 1) return '1 comment';
+  return `${count}${more ? '+' : ''} comments`;
+}
+
+export function describeComments(
+  key: string,
+  open: boolean,
+  thread: {items: readonly {authorName: string}[]; next: number} | undefined
+): CommentsModel {
+  return {
+    key,
+    open,
+    countText: commentsCountText(thread?.items.length, (thread?.next ?? 0) > 0),
+    faces: (thread?.items ?? []).slice(0, 3).map((item) => (item.authorName || '?').slice(0, 1).toUpperCase()),
+  };
 }
 
 // describeFeedPost composes one entry's full post: its registered family
@@ -604,7 +637,8 @@ export function describeFeedPost(
   draft: string,
   outcomes: readonly CommentOutcomeModel[],
   body: PostBodyState | undefined,
-  denied: boolean
+  denied: boolean,
+  comments?: CommentsModel
 ): FeedPostModel {
   return {
     header: describePostHeader(entry, repository),
@@ -614,6 +648,7 @@ export function describeFeedPost(
     attention: describeDecisionAttention(entry, denied),
     discussion: describeDiscussion(entry, repository, draft, outcomes),
     postBody: body === undefined || entry.payload?.communication ? undefined : describePostBody(body),
+    comments: comments ?? {key: feedEntryKey(entry), open: false, countText: 'Comments', faces: []},
   };
 }
 
@@ -642,14 +677,30 @@ export function renderFeedPost(
     data-role=${model.header.role.toLowerCase().replace(/[\s-]+/g, '_')}
   >
     ${renderPostHeader(model.header, assetBase)}
-    <div class="soda-feed-card">
-      ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
-      ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}
-      ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''} ${replies}
-      <details class="soda-feed-replies">
-        <summary>Reply</summary>
-        ${renderDiscussion({...model.discussion, outcomes: []})}
-      </details>
+    <div class="soda-feed-stack">
+      <div class="soda-feed-card">
+        ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
+        ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}
+      </div>
+      <section class="soda-feed-drawer" data-open=${model.comments.open} aria-label="Comments">
+        <button
+          type="button"
+          class="soda-feed-pull-tab"
+          data-feed-drawer-toggle=${model.comments.key}
+          aria-expanded=${model.comments.open}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+          <strong>${model.comments.countText}</strong>
+          ${model.comments.faces.length ? html`<span class="soda-feed-faces" aria-hidden="true">${model.comments.faces.map((face) => html`<i>${face}</i>`)}</span>` : ''}
+          <svg class="soda-feed-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="soda-feed-drawer-body" .inert=${!model.comments.open}>
+          <div class="soda-feed-drawer-inner">
+            ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''} ${replies}
+            ${renderDiscussion({...model.discussion, outcomes: []})}
+          </div>
+        </div>
+      </section>
     </div>
   </article>`;
 }

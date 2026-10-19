@@ -467,9 +467,46 @@ soda-factory-feed { display: block; max-width: 880px; margin-inline: auto; }
 .soda-feed-record-details summary, .soda-feed-replies summary { cursor: pointer; }
 .soda-feed-record-details[open], .soda-feed-replies[open] { color: var(--soda-page-text); }
 .soda-feed-empty { padding: 30px 0; color: var(--soda-page-muted); }
-.soda-feed-thread { border-top: 1px solid var(--soda-feed-edge); margin-top: 14px; padding-top: 10px; }
-.soda-feed-thread summary { cursor: pointer; }
-.soda-feed-thread-reply { border: 1px solid var(--soda-feed-edge); border-radius: 0; padding: 14px; margin-top: 14px; }
+/* Comment drawer: a narrower card tucked behind the post card. Collapsed,
+   only its pull-tab peeks out underneath; open, it slides out with the
+   thread and the composer. The post card stays in front (z-index) so the
+   drawer's top edge remains hidden behind it in both states. */
+.soda-feed-stack { position: relative; }
+.soda-feed-stack > .soda-feed-card { position: relative; z-index: 2; }
+.soda-feed-drawer { position: relative; z-index: 1; margin-inline: 24px; margin-top: -16px; padding-top: 16px; background: var(--soda-feed-tint); border: 1px solid var(--soda-feed-edge); border-top: 0; display: grid; grid-template-rows: auto 0fr; transition: grid-template-rows .45s ease; }
+.soda-feed-drawer[data-open="true"] { grid-template-rows: auto 1fr; }
+.soda-feed-pull-tab { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 16px; background: transparent; border: 0; cursor: pointer; font: var(--soda-font-caption); color: var(--soda-page-muted); text-align: left; }
+.soda-feed-pull-tab:hover { color: var(--soda-page-text); }
+.soda-feed-pull-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+.soda-feed-pull-tab strong { color: var(--soda-page-text); font-weight: 600; }
+.soda-feed-faces { display: inline-flex; }
+.soda-feed-faces i { display: grid; place-items: center; width: 20px; height: 20px; margin-inline-start: -5px; border: 1px solid var(--soda-feed-tint); background: var(--soda-page-surface); color: var(--soda-page-muted); font: 600 9px/1 "IBM Plex Mono", monospace; font-style: normal; }
+.soda-feed-faces i:first-child { margin-inline-start: 0; }
+.soda-feed-drawer .soda-feed-chev { margin-inline-start: auto; transition: transform .3s ease; }
+.soda-feed-drawer[data-open="true"] .soda-feed-chev { transform: rotate(180deg); }
+.soda-feed-drawer-body { overflow: hidden; min-height: 0; }
+.soda-feed-drawer-inner { padding: 2px 16px 6px; }
+.soda-feed-drawer .soda-feed-outcome { margin-block: 8px; }
+.soda-feed-thread-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin: 0; color: var(--soda-page-muted); font: var(--soda-font-caption); }
+.soda-feed-thread-head .soda-feed-icon-button { color: var(--soda-page-muted); }
+.soda-feed-thread-head .soda-feed-icon-button:hover { color: var(--soda-page-text); }
+.soda-feed-thread-status { color: var(--soda-page-muted); font: var(--soda-font-caption); margin: 8px 0; }
+.soda-feed-comments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.soda-feed-comment { display: flex; gap: 10px; min-width: 0; }
+.soda-feed-comment .soda-feed-avatar { --soda-feed-role: var(--soda-page-muted); --soda-feed-role-color: var(--soda-page-muted); flex-basis: 30px; width: 30px; height: 30px; font-size: 11px; }
+.soda-feed-comment-main { min-width: 0; flex: 1; }
+.soda-feed-comment-who { margin: 0; font-size: 13px; }
+.soda-feed-comment-who strong { font-weight: 600; }
+.soda-feed-comment-who time, .soda-feed-comment-edited { color: var(--soda-page-muted); font-size: 12px; }
+.soda-feed-comment .soda-feed-body-text { margin: 2px 0 0; }
+.soda-feed-more { background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; color: var(--soda-page-muted); padding: 4px 0; }
+.soda-feed-more:hover { color: var(--soda-page-text); text-decoration: underline; }
+.soda-feed-drawer section[aria-label="Discussion"]:has(> label) { display: flex; gap: 10px; align-items: flex-start; border-top: 1px solid var(--soda-feed-edge); margin-top: 8px; padding: 12px 0 10px; }
+.soda-feed-drawer section[aria-label="Discussion"]:has(> label) > label { flex: 1; min-width: 0; }
+.soda-feed-drawer section[aria-label="Discussion"] textarea { margin-top: 0; min-height: 38px; }
+.soda-feed-drawer .soda-feed-compose-actions { margin: 0; }
+@media (max-width: 640px) { .soda-feed-drawer { margin-inline: 12px; } }
+@media (prefers-reduced-motion: reduce) { .soda-feed-drawer, .soda-feed-drawer .soda-feed-chev { transition: none; } }
 .soda-applications ul { list-style: none; padding: 0; }
 .soda-applications li { border: 1px solid var(--soda-feed-edge); padding: 18px; margin-block: 16px; }
 .soda-applications li > a { display: inline-block; margin: 0 16px 12px 0; }
