@@ -342,6 +342,54 @@ test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 an
 });
 
 test(
+  'F06 page presentation with a growing host: work content scrolls inside the workspace',
+  {timeout: 60000},
+  async (t) => {
+    const page = await browser.context.newPage();
+    page.setDefaultTimeout(5000);
+    trackErrors(t, page);
+    await page.goto(server.url.href + 'page');
+    await browser.setZoom(page, 1);
+    await page.waitForFunction(() => !!window.createWorkspaceFixture);
+    await page.evaluate(async () => {
+      window.workspaceFixture = window.createWorkspaceFixture('page');
+      await window.workspaceFixture.api.ready;
+      await window.workspaceFixture.api.refresh();
+    });
+    await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+    await page.locator('soda-factory-feed').first().waitFor();
+    // Installed hosts may let the page body grow with content instead of
+    // supplying definite space; the mount's viewport-height fallback must
+    // still engage the workspace's own scroller for tall work content.
+    await page.addStyleTag({content: 'html,body{height:auto}body{min-height:100dvh}'});
+    const grown = await page.evaluate(() => {
+      const section = document.querySelector('soda-factory-feed section')!;
+      for (let i = 0; i < 60; i++) {
+        const p = document.createElement('p');
+        p.textContent = `Tall feed content ${i + 1}`;
+        section.append(p);
+      }
+      const mount = document.querySelector('.soda-spaces-page-mount') as HTMLElement;
+      const scroller = document.querySelector('.soda-project-content') as HTMLElement;
+      return {
+        mountH: mount.clientHeight,
+        viewportH: innerHeight,
+        clientH: scroller.clientHeight,
+        scrollH: scroller.scrollHeight,
+      };
+    });
+    console.log('F06 growing host', JSON.stringify(grown));
+    assert(grown.mountH <= grown.viewportH, `page mount grew past the viewport: ${grown.mountH}px`);
+    assert(grown.scrollH > grown.clientH, 'work content does not overflow its own scroller under a growing host');
+    const feedBox = await page.locator('soda-factory-feed').first().boundingBox();
+    assert(feedBox, 'feed has no layout box');
+    await page.mouse.move(feedBox.x + 120, Math.min(feedBox.y + 80, grown.viewportH - 40));
+    await page.mouse.wheel(0, 1200);
+    await page.waitForFunction(() => (document.querySelector('.soda-project-content') as HTMLElement).scrollTop > 0);
+  }
+);
+
+test(
   'F06 settings in panel container: host-sized at zoom 1, tabs reachable at zoom 4x',
   {timeout: 60000},
   async (t) => {
