@@ -192,9 +192,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 
 ```text
 .
-├── .agents/
-│   └── plans/
-│       └── 2026-09-16-remove-rpm-pinning.md
 ├── .githooks/
 │   └── pre-commit
 ├── assets/
