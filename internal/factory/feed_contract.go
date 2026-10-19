@@ -40,16 +40,352 @@ const feedCursorVersion = "v1"
 // existing 256-row read windows.
 const FeedPageLimit = 256
 
+// Feed milestone activities: consequential Factory/Jev events that
+// are their own feed entries (catalogue F04/F06/F10) instead of
+// suffixes folded into a worker record's status. A milestone entry
+// keeps Kind "record", carries the milestone record's own identity
+// in ID, names its bound assignment when available, and receives its own
+// global order key when recorded.
+const (
+	// FeedActivityMerged is one confirmed native merge (Factory).
+	FeedActivityMerged = "merged"
+	// FeedActivityCompleted is one verified completion event (Factory).
+	FeedActivityCompleted = "completed"
+	// FeedActivityJudgment is one recorded Jev judgment bound to its
+	// repository/assignment (Jev).
+	FeedActivityJudgment = "judgment"
+)
+
 // FeedEntry is one combined feed member: a stable unique identity
 // with its global order key and scope. Seq is the table-global
-// sequence behind the owning record (as factory_assignments.seq),
-// unique across projects, so newest-first by seq is deterministic
-// with no second key.
+// sequence behind the owning record (as factory_assignments.seq;
+// communication posts draw from the same sequence), unique across
+// projects and kinds, so newest-first by seq is deterministic with
+// no second key. Actor, Author, Project, At and Status are optional
+// server-derived enrichment: the serving layer fills them from the
+// canonical owner (never from caller input) and Lane C renders them.
+// Records may arrive unenriched until their canonical producer fills
+// them; posts always carry them. Issue, PR, Ref and Summary are
+// additive recorded content (Lane B2): the bound native issue and
+// pull request, the candidate commit the record produced, and a
+// bounded preview of the recorded result summary. The full content
+// stays with its canonical owner; an unsuppliable field stays empty.
+// Activity and Assignment are additive milestone identity (Lane B3):
+// empty on assignment records and posts. Payload is the additive
+// typed component content projected from the canonical record;
+// a record that supplies no typed content omits it entirely.
 type FeedEntry struct {
-	Kind       string `json:"kind"`
+	Kind       string       `json:"kind"`
+	ID         string       `json:"id"`
+	Repository int64        `json:"repository"`
+	Seq        int64        `json:"seq"`
+	Actor      string       `json:"actor,omitempty"`
+	Author     string       `json:"author,omitempty"`
+	Project    string       `json:"project,omitempty"`
+	At         int64        `json:"at,omitempty"`
+	Status     string       `json:"status,omitempty"`
+	Issue      int64        `json:"issue,omitempty"`
+	PR         int64        `json:"pr,omitempty"`
+	Ref        string       `json:"ref,omitempty"`
+	Summary    string       `json:"summary,omitempty"`
+	Activity   string       `json:"activity,omitempty"`
+	Assignment string       `json:"assignment,omitempty"`
+	Payload    *FeedPayload `json:"payload,omitempty"`
+}
+
+// FeedPayload is one record's typed component content, projected by
+// the server from the canonical typed result (assignment result,
+// plan tasks, judgment receipt, merge or completion record). At
+// most one role family is set, matching the record's phase or
+// milestone activity; Tasks may accompany an implementation or
+// correction. Every list is a bounded preview in recorded order
+// with its honest total beside it; the full content stays with its
+// canonical owner. Nothing here is inferred: a field the record
+// does not supply stays absent.
+type FeedPayload struct {
+	Plan           *FeedPlan           `json:"plan,omitempty"`
+	Tasks          *FeedTaskStates     `json:"tasks,omitempty"`
+	Implementation *FeedImplementation `json:"implementation,omitempty"`
+	Review         *FeedReview         `json:"review,omitempty"`
+	Correction     *FeedCorrection     `json:"correction,omitempty"`
+	Reassessment   *FeedReassessment   `json:"reassessment,omitempty"`
+	Repair         *FeedRepair         `json:"repair,omitempty"`
+	Verification   *FeedVerification   `json:"verification,omitempty"`
+	Decomposition  *FeedDecomposition  `json:"decomposition,omitempty"`
+	Judgment       *FeedJudgment       `json:"judgment,omitempty"`
+	Merge          *FeedMerge          `json:"merge,omitempty"`
+	Completion     *FeedCompletion     `json:"completion,omitempty"`
+}
+
+// FeedPlan projects one investigated plan: approach, evidence and
+// the task/lane/check graph (AR04/AR07/AR09).
+type FeedPlan struct {
+	Approach           string          `json:"approach,omitempty"`
+	SourceCommit       string          `json:"source_commit,omitempty"`
+	Generation         int             `json:"generation,omitempty"`
+	Findings           []string        `json:"findings,omitempty"`
+	FindingsTotal      int             `json:"findings_total,omitempty"`
+	Unresolved         []string        `json:"unresolved,omitempty"`
+	Rejected           []FeedRejected  `json:"rejected,omitempty"`
+	Inspected          []FeedInspected `json:"inspected,omitempty"`
+	InspectedTotal     int             `json:"inspected_total,omitempty"`
+	AcceptanceCoverage []string        `json:"acceptance_coverage,omitempty"`
+	Tasks              []FeedPlanTask  `json:"tasks,omitempty"`
+	TasksTotal         int             `json:"tasks_total,omitempty"`
+	Lanes              []FeedPlanLane  `json:"lanes,omitempty"`
+	Checks             []FeedPlanCheck `json:"checks,omitempty"`
+	ChecksTotal        int             `json:"checks_total,omitempty"`
+}
+
+type FeedPlanTask struct {
+	ID        string   `json:"id"`
+	Objective string   `json:"objective,omitempty"`
+	Lane      string   `json:"lane,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty"`
+	Outputs   []string `json:"outputs,omitempty"`
+	Checks    []string `json:"checks,omitempty"`
+}
+
+type FeedPlanLane struct {
+	ID    string   `json:"id"`
+	Tasks []string `json:"tasks,omitempty"`
+}
+
+type FeedPlanCheck struct {
+	ID       string   `json:"id"`
+	Argv     []string `json:"argv,omitempty"`
+	Scope    string   `json:"scope,omitempty"`
+	Required bool     `json:"required,omitempty"`
+}
+
+type FeedInspected struct {
+	Path     string `json:"path"`
+	Commit   string `json:"commit,omitempty"`
+	Evidence string `json:"evidence,omitempty"`
+}
+
+type FeedRejected struct {
+	Approach string `json:"approach,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+// FeedTaskStates projects the observed per-task states behind one
+// implementation or correction record (BU01/BU06 checkpoint lanes).
+type FeedTaskStates struct {
+	Tasks []FeedTaskState `json:"tasks,omitempty"`
+	Total int             `json:"total,omitempty"`
+}
+
+type FeedTaskState struct {
+	ID    string `json:"id"`
+	State string `json:"state,omitempty"`
+}
+
+// FeedImplementation projects one implementation receipt (BU10).
+type FeedImplementation struct {
+	Candidate      string   `json:"candidate,omitempty"`
+	DiagnosticRefs []string `json:"diagnostic_refs,omitempty"`
+}
+
+// FeedFinding projects one canonical review finding (IN03/IN04).
+type FeedFinding struct {
+	Key             string               `json:"key"`
+	Severity        string               `json:"severity,omitempty"`
+	Defect          string               `json:"defect,omitempty"`
+	Evidence        string               `json:"evidence,omitempty"`
+	RequiredOutcome string               `json:"required_outcome,omitempty"`
+	FixKind         string               `json:"fix_kind,omitempty"`
+	Actionable      bool                 `json:"actionable,omitempty"`
+	Location        *FeedFindingLocation `json:"location,omitempty"`
+}
+
+type FeedFindingLocation struct {
+	Path string `json:"path"`
+	Side string `json:"side,omitempty"`
+	Line int64  `json:"line,omitempty"`
+}
+
+type FeedAssessment struct {
+	Key      string `json:"key"`
+	Status   string `json:"status,omitempty"`
+	Evidence string `json:"evidence,omitempty"`
+}
+
+// FeedReview projects one review result: the native verdict report
+// and/or the typed cycle verdict recorded for the phase (IN02/IN10).
+type FeedReview struct {
+	Verdict          string           `json:"verdict,omitempty"`
+	Summary          string           `json:"summary,omitempty"`
+	CycleID          string           `json:"cycle_id,omitempty"`
+	Findings         []string         `json:"findings,omitempty"`
+	FindingsTotal    int              `json:"findings_total,omitempty"`
+	NewFindings      []FeedFinding    `json:"new_findings,omitempty"`
+	NewFindingsTotal int              `json:"new_findings_total,omitempty"`
+	Assessments      []FeedAssessment `json:"assessments,omitempty"`
+	AssessmentsTotal int              `json:"assessments_total,omitempty"`
+	Clear            *FeedClearReview `json:"clear,omitempty"`
+}
+
+type FeedClearReview struct {
+	Head             string           `json:"head,omitempty"`
+	Base             string           `json:"base,omitempty"`
+	CoverageDigest   string           `json:"coverage_digest,omitempty"`
+	Assessments      []FeedAssessment `json:"assessments,omitempty"`
+	AssessmentsTotal int              `json:"assessments_total,omitempty"`
+}
+
+// FeedCorrection projects one correction report: the finding set it
+// answered (before) with one disposition and its recorded fix
+// evidence per finding (after) (FX02/FX03/FX04).
+type FeedCorrection struct {
+	NewCandidate      string            `json:"new_candidate,omitempty"`
+	SetDigest         string            `json:"set_digest,omitempty"`
+	Findings          []FeedFinding     `json:"findings,omitempty"`
+	FindingsTotal     int               `json:"findings_total,omitempty"`
+	Dispositions      []FeedDisposition `json:"dispositions,omitempty"`
+	DispositionsTotal int               `json:"dispositions_total,omitempty"`
+}
+
+type FeedDisposition struct {
+	Key          string   `json:"key"`
+	Disposition  string   `json:"disposition,omitempty"`
+	ChangedPaths []string `json:"changed_paths,omitempty"`
+	Commits      []string `json:"commits,omitempty"`
+}
+
+type FeedIntentTask struct {
+	Key       string   `json:"key"`
+	Objective string   `json:"objective,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty"`
+	Outcomes  []string `json:"outcomes,omitempty"`
+}
+
+type FeedIntentChange struct {
+	IntentID   string           `json:"intent_id,omitempty"`
+	Reason     string           `json:"reason,omitempty"`
+	Tasks      []FeedIntentTask `json:"tasks,omitempty"`
+	TasksTotal int              `json:"tasks_total,omitempty"`
+}
+
+type FeedAttention struct {
+	Issue  int64  `json:"issue,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type FeedCoverage struct {
+	IntentID               string   `json:"intent_id,omitempty"`
+	OutcomeID              string   `json:"outcome_id,omitempty"`
+	TaskKeys               []string `json:"task_keys,omitempty"`
+	DeliveredAcceptanceIDs []string `json:"delivered_acceptance_ids,omitempty"`
+}
+
+// FeedReassessment projects one reassessment report's deltas
+// against the retained issue set (ST05/ST06/ST08).
+type FeedReassessment struct {
+	Summary        string             `json:"summary,omitempty"`
+	RetainedIssues []int64            `json:"retained_issues,omitempty"`
+	Changes        []FeedIntentChange `json:"changes,omitempty"`
+	ChangesTotal   int                `json:"changes_total,omitempty"`
+	Attention      []FeedAttention    `json:"attention,omitempty"`
+	Coverage       []FeedCoverage     `json:"coverage,omitempty"`
+	CoverageTotal  int                `json:"coverage_total,omitempty"`
+	InspectedTotal int                `json:"inspected_total,omitempty"`
+}
+
+type FeedCheckFailure struct {
+	Check  string `json:"check,omitempty"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// FeedRepair projects one stall or delivery repair report
+// (ST02/ST06): recorded causes plus the proposed graph deltas.
+type FeedRepair struct {
+	Outcome        string             `json:"outcome,omitempty"`
+	Causes         []FeedCheckFailure `json:"causes,omitempty"`
+	RetainedIssues []int64            `json:"retained_issues,omitempty"`
+	Changes        []FeedIntentChange `json:"changes,omitempty"`
+	ChangesTotal   int                `json:"changes_total,omitempty"`
+	Attention      []FeedAttention    `json:"attention,omitempty"`
+	Coverage       []FeedCoverage     `json:"coverage,omitempty"`
+	CoverageTotal  int                `json:"coverage_total,omitempty"`
+	InspectedTotal int                `json:"inspected_total,omitempty"`
+}
+
+// FeedVerification projects one application verification report:
+// outcome coverage and trusted check receipts (TP02/TP07/TP11).
+type FeedVerification struct {
+	Outcome        string             `json:"outcome,omitempty"`
+	DeliveryID     string             `json:"delivery_id,omitempty"`
+	Checks         []FeedCheckReceipt `json:"checks,omitempty"`
+	ChecksTotal    int                `json:"checks_total,omitempty"`
+	Failures       []FeedCheckFailure `json:"failures,omitempty"`
+	Coverage       []FeedCoverage     `json:"coverage,omitempty"`
+	CoverageTotal  int                `json:"coverage_total,omitempty"`
+	ArtifactsTotal int                `json:"artifacts_total,omitempty"`
+	EvidenceTotal  int                `json:"evidence_total,omitempty"`
+}
+
+type FeedCheckReceipt struct {
+	ID             string `json:"id"`
+	Outcome        string `json:"outcome,omitempty"`
+	ArtifactDigest string `json:"artifact_digest,omitempty"`
+}
+
+// FeedDecomposition projects one product decomposition answer:
+// its candidate issue graphs or its recorded attention (PL06/PL08).
+type FeedDecomposition struct {
+	Operation       string                `json:"operation,omitempty"`
+	Attention       string                `json:"attention,omitempty"`
+	Candidates      []FeedDecompCandidate `json:"candidates,omitempty"`
+	CandidatesTotal int                   `json:"candidates_total,omitempty"`
+}
+
+type FeedDecompCandidate struct {
+	Key        string           `json:"key,omitempty"`
+	Rationale  string           `json:"rationale,omitempty"`
+	Tasks      []FeedIntentTask `json:"tasks,omitempty"`
+	TasksTotal int              `json:"tasks_total,omitempty"`
+}
+
+// FeedJudgment projects one recorded Jev judgment receipt (F04):
+// the supplied candidates, the recorded selection/distribution and
+// the effective outcome. No rationale is carried: none is recorded.
+type FeedJudgment struct {
+	Kind            string                  `json:"kind"`
+	Selected        string                  `json:"selected,omitempty"`
+	Outcome         string                  `json:"outcome,omitempty"`
+	Effective       string                  `json:"effective,omitempty"`
+	Model           string                  `json:"model,omitempty"`
+	Probability     *float64                `json:"probability,omitempty"`
+	Confidence      *float64                `json:"confidence,omitempty"`
+	Probabilities   map[string]float64      `json:"probabilities,omitempty"`
+	Candidates      []FeedJudgmentCandidate `json:"candidates,omitempty"`
+	CandidatesTotal int                     `json:"candidates_total,omitempty"`
+}
+
+type FeedJudgmentCandidate struct {
 	ID         string `json:"id"`
-	Repository int64  `json:"repository"`
-	Seq        int64  `json:"seq"`
+	Repository int64  `json:"repository,omitempty"`
+	Issue      int64  `json:"issue,omitempty"`
+	Objective  string `json:"objective,omitempty"`
+}
+
+// FeedMerge projects one confirmed merge record (F06).
+type FeedMerge struct {
+	Stage              string `json:"stage,omitempty"`
+	Publication        string `json:"publication,omitempty"`
+	MergedCommit       string `json:"merged_commit,omitempty"`
+	MergedUnix         int64  `json:"merged_unix,omitempty"`
+	OriginalClosedUnix int64  `json:"original_closed_unix,omitempty"`
+}
+
+// FeedCompletion projects one verified completion event (F07/F10).
+type FeedCompletion struct {
+	Event        string `json:"event,omitempty"`
+	Publication  string `json:"publication,omitempty"`
+	Occurrence   string `json:"occurrence,omitempty"`
+	MergedCommit string `json:"merged_commit,omitempty"`
+	Generation   int64  `json:"generation,omitempty"`
 }
 
 // Validate admits one feed entry with a known kind and positive scope.

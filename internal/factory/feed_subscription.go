@@ -45,8 +45,8 @@ func (s FeedSubscription) Validate() error {
 
 // ApplyFeedSubscription narrows one feed query to the intersection of
 // its scope with the subscription, preserving kinds, window and
-// cursor. An empty intersection refuses honestly at serve time
-// through query validation; nothing renders and nothing leaks.
+// cursor. An empty intersection serves no entries; it never widens
+// to the original query scope.
 func ApplyFeedSubscription(query FeedQuery, sub FeedSubscription) FeedQuery {
 	member := make(map[int64]bool, len(sub.Repositories))
 	for _, repository := range sub.Repositories {
