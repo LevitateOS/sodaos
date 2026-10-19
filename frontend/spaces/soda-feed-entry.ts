@@ -21,7 +21,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   root.append(content);
   const prefix = nativeAppSubUrl(context);
   const applications = context.pageId === 'applications';
-  const repository =
+  let repository =
     context.repositoryId ?? (applications ? (new URLSearchParams(location.search).get('repository') ?? '') : '');
   const global = context.pageId === 'feed' || applications;
   const parts = location.pathname.slice(prefix.length).split('/').filter(Boolean);
@@ -70,6 +70,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   show();
   return {
     update(presentation) {
+      if (applications) repository = new URLSearchParams(location.search).get('repository') ?? '';
       visible = presentation.visible;
       show();
     },

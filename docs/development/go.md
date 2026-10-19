@@ -277,6 +277,8 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | `internal/web/api/factory_completion_serving_test.go` | Test-owned SQLite emulating external native issue truth and revision bracket through the real adapter |
 | `internal/web/api/factory_completion_budget_test.go` | Seed completion/reassessment prefixes and observe budget/cursor rollback with scripted native RPC evidence |
 | `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
+| `internal/factory/control/mcp_settle_pg_test.go` | Seed a persisted review assignment to isolate terminal receipt settlement from admission and dispatch |
+| `internal/web/api/factory_feed_route_test.go` | Seed finished assignment history to check feed enrichment without recreating a full execution lifecycle |
 
 The separate `internal/acceptance/workload_access.go` and its matching test also
 have exact exemptions: their `psql` statements target disposable workload

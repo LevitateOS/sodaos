@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -28,7 +27,7 @@ type fakeDraftStore struct {
 
 func (f *fakeDraftStore) IntentRevision(_ context.Context, intent string, owner int64) (factory.IntentRevision, error) {
 	if f.head == nil || f.head.Intent != intent || f.head.Owner != owner {
-		return factory.IntentRevision{}, sql.ErrNoRows
+		return factory.IntentRevision{}, store.ErrNotFound
 	}
 	return *f.head, nil
 }

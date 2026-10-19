@@ -47,6 +47,10 @@ while IFS= read -r -d '' file; do
     # Seed and corrupt persisted assignment/publication/completion records for
     # registered-HTTP projection, order and refusal; no exported hook.
     ./internal/web/api/factory_journey_readback_test.go) continue ;;
+    # Seed a persisted review assignment to isolate MCP terminal settlement.
+    ./internal/factory/control/mcp_settle_pg_test.go) continue ;;
+    # Seed finished assignment history to exercise feed projection directly.
+    ./internal/web/api/factory_feed_route_test.go) continue ;;
   esac
   if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do

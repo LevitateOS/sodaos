@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -193,9 +192,9 @@ func (d *IntentCommentDrafter) ensureCommentDraftIntent(ctx context.Context, com
 }
 
 // isNoRowsIntent reports the store's raw no-head read: IntentRevision
-// surfaces sql.ErrNoRows unwrapped when no head exists yet.
+// surfaces store.ErrNotFound unwrapped when no head exists yet.
 func isNoRowsIntent(err error) bool {
-	return errors.Is(err, sql.ErrNoRows)
+	return errors.Is(err, store.ErrNotFound)
 }
 
 func (d *IntentCommentDrafter) now() time.Time {
