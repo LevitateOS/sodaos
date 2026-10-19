@@ -142,7 +142,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | --- | --- |
 | Historical `internal/host/publish/` | Completed: `internal/forgejo/publish/` (`33682cfc`); retain current owner |
 | `internal/testoci/` | Retire with Go release tests at cutover |
-| `appliance/forgejo/templates/` | `frontend/forgejo/templates/`; retain the intentional Soda design overrides across all pages, per [GUIDANCE-08](review-assignments.md#guidance-conflicts-and-controlling-decisions) and [G08](reviews/G08.md). Relocation does not reduce override scope. |
+| `appliance/forgejo/templates/` | `frontend/forgejo/templates/`; retain the intentional Soda design overrides across all pages, per GUIDANCE-08 and G08. Relocation does not reduce override scope. |
 | `appliance/forgejo/i18n/` | `frontend/forgejo/locales/` |
 | `appliance/forgejo/` | `frontend/forgejo/` |
 | `appliance/config/` | `system/host/config/` |
@@ -180,8 +180,8 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `tests/build/{project_os_observation,project_keys,terminal}_test.go` | Retire guards that pin obsolete Go/Python file existence; retain actual Rust behavior tests |
 | Historical `tools/soda-candidate-check/main.go` | Already absent; current Rust `soda-release-tools` binary and `check_cli` owner move/split under `lib/`; preserve the existing verification CLI, no new port |
 | `rust/soda-identity/src/main.rs` | `cmd/soda-identity/src/main.rs`, `cmd/soda-identity/src/service.rs` |
-| `frontend/spaces/sodaspaces-widths.ts` | Retire the unused predecessor utility; no target leaf. [S03](reviews/S03.md#s03-q2-independent-retirement-disposition) and its independent challenge found definitions only, no production imports or build entry. Active workspace layout and geometry remain with their current owner. |
-| `rust/soda-release-build/src/{progress,clock}.rs` and exclusive progress oracle/support duties | Retire the unused mirrored closure; no target leaves for progress, build_execution, clock, progress/tests, oracle/progress or support/buffer. [D03](reviews/D03.md) and A's independent source/caller challenge support this exact disposition. Current release-tools progress and release-image Runner remain. |
+| `frontend/spaces/sodaspaces-widths.ts` | Retire the unused predecessor utility; no target leaf. S03 and its independent challenge found definitions only, no production imports or build entry. Active workspace layout and geometry remain with their current owner. |
+| `rust/soda-release-build/src/{progress,clock}.rs` and exclusive progress oracle/support duties | Retire the unused mirrored closure; no target leaves for progress, build_execution, clock, progress/tests, oracle/progress or support/buffer. D03 and A's independent source/caller challenge support this exact disposition. Current release-tools progress and release-image Runner remain. |
 | `rust/soda-release-tools/src/record.rs:256-259` (`files_map`) | Retire this definition-only helper at cutover; retain active candidate/build record duties in the existing Rust release-tools owner. |
 
 The tracked root files `installer` and `soda-candidate` are ELF build outputs. Their proposed disposition is removal from the tracked source tree; current tools build into ignored `.artifacts/`. The `rust/soda-host/` files and its actual daemon are retained at `lib/host/`, with the same-package entrypoint moved to `cmd/soda-host/main.rs`. Detailed decomposition entries for cutover-deleted files stay as review history; the [proposed tree](proposed-tree.md) omits them. This document deletes or executes none of these files.

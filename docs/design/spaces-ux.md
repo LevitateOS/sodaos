@@ -649,22 +649,14 @@ advanced technical evidence is available on demand.
 
 ### Design tradeoffs and verification
 
-Three fresh Jev consultations compared equivalent reworded source facts and
-alternatives. They all selected a dedicated routed creation composition over an
-embedded wizard or long modal; an evidence-based request/work overview over a
-stage board or enhanced native issue list alone; and bounded native action
-candidates for all three lifecycle events over subscriptions/display alone or
-only PR reviewer requests. Their uncertainty varied, especially for optional
-actions. These are advisory choices, not capability or usability verification.
-
-Acceptance ordering disagreed: one selected collecting optional Project details
-before acceptance, while two selected native-work acceptance followed by separate
-environment setup. Inspection of `apiIntentGenerate`, `apiIntentRevision` and
+Use a dedicated routed creation flow, a request/work overview, and bounded native
+actions for lifecycle events. Keep work acceptance separate from environment setup.
+Inspection of `apiIntentGenerate`, `apiIntentRevision` and
 `configureProject` confirms repository/revision-bound generation does not require
 human Project configuration. Prefer separate work/environment steps to preserve
 manual reuse and avoid unrelated setup before an inspectable native graph. The
 commitment summary still needs all applicable scope, funding and authority facts;
-there is no majority-vote proof and no claim of unanimous ordering advice.
+verify the resulting flow with the actual application.
 
 Implement in coherent journey slices: reachable New Project and saved-state
 navigation; meaningful exploration/review and explicit commitment; integrated

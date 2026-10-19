@@ -9,7 +9,7 @@ The [library-adoption allocation](../library-adoption.md#library-contracts)
 supersedes pending generic-engine preservation and extraction below. Historical
 source sizes, line allocations and completed moves remain evidence; they are
 not requirements to keep the extracted engines. Follow the existing packet
-owners and [readiness gates](../library-adoption.md#readiness-gates), retaining
+owners and [focused verification](../library-adoption.md#verification), retaining
 one Controller/State and provider-specific custody.
 
 ## rust/identity-providers/src/codex.rs
@@ -49,7 +49,7 @@ Observed size: 910 lines, including tests where embedded. Keep main as the expli
 - `cmd/soda-identity-compose/src/launch_wire.rs` — Canonical registration record, borrowed launch DTO and response-admission visitor; direct Serde emission.
 - `cmd/soda-identity-compose/src/compose_tests.rs`
 
-Evidence at f7: 20–47 explicit sequence/load-options→main.rs; Options derive12 and struct13–18 plus complete flag/validation/usage49–165→options.rs; launch_compose245–287, write_override316–345 and child-attribution comments697/function698–750→compose.rs; root/random/mkdir166–244, account288–315 and complete registration626–694 (including its internal FD Guard/Drop)→registration.rs; string codec346–371, single NestedRegistration373–378, request/comment380–396 and exit-decode/comment397–469→launch_wire.rs; scalar/skip helpers471–624→launch_json.rs; cfg(test)751/module752 and all real cases753–909→compose_tests.rs, with original910 closing that test root. Keep one MUSE_LAUNCH_SOCKET9 in the common main owner, imported by compose and registration; TMPFS_MAGIC10 belongs registration. NestedRegistration and its fields use bounded parent-only imports for main/registration, with no duplicate DTO or public API. Tests import the actual moved subjects privately. [I09](../reviews/I09.md) records the independent defining-fit challenge and preserves canonical H03 parser corrections; Go-parity comments do not override the required wire semantics. No Compose, socket or test operation was run.
+Evidence at f7: 20–47 explicit sequence/load-options→main.rs; Options derive12 and struct13–18 plus complete flag/validation/usage49–165→options.rs; launch_compose245–287, write_override316–345 and child-attribution comments697/function698–750→compose.rs; root/random/mkdir166–244, account288–315 and complete registration626–694 (including its internal FD Guard/Drop)→registration.rs; string codec346–371, single NestedRegistration373–378, request/comment380–396 and exit-decode/comment397–469→launch_wire.rs; scalar/skip helpers471–624→launch_json.rs; cfg(test)751/module752 and all real cases753–909→compose_tests.rs, with original910 closing that test root. Keep one MUSE_LAUNCH_SOCKET9 in the common main owner, imported by compose and registration; TMPFS_MAGIC10 belongs registration. NestedRegistration and its fields use bounded parent-only imports for main/registration, with no duplicate DTO or public API. Tests import the actual moved subjects privately. I09 records the independent defining-fit challenge and preserves canonical H03 parser corrections; Go-parity comments do not override the required wire semantics. No Compose, socket or test operation was run.
 
 The historical launch_json allocation above records the completed seam only.
 JSON01 completed this caller transfer in `22c858fc`: typed request, exit and
@@ -68,7 +68,7 @@ embedding, signature, fingerprint or raw-byte comparison requirement. Current
 field/default/null/duplicate behavior and raw config payloads remain; legacy
 Go HTML and Unicode-separator escape bytes impose no compatibility obligation.
 The scoped producer/consumer tests, compiled config-helper evidence and native
-limits are recorded in the [finding allocation](../execution-findings.md).
+limits are recorded in the finding allocation.
 
 ## rust/soda-identity/src/control.rs
 

@@ -1,28 +1,6 @@
-# Integration and review boundaries
+# Integration wiring
 
-## Large data and documents retained
-
-Locks, complete data fixtures, attribution and canonical documentation owners are retained. Their line counts do not establish excessive implementation complexity. Any later split of a data inventory needs its real loader and consumer contract, rather than a size-only rule.
-
-| Current file | Lines | Proposed file |
-| --- | ---: | --- |
-| `Cargo.lock` | 1849 | `Cargo.lock` |
-| `appliance/forgejo/README.md` | 782 | `frontend/forgejo/README.md` |
-| `appliance/licenses/forgejo-LICENSE` | 674 | `system/licenses/forgejo-LICENSE` |
-| `assets/branding/cockpit/provenance/LICENSES.txt` | 510 | `assets/branding/cockpit/provenance/LICENSES.txt` |
-| `docs/architecture/trust.md` | 956 | `docs/architecture/trust.md` |
-| Historical Factory plan (removed) | 1353 at the recorded baseline | Requirements now owned by `docs/development/factory-remaining-tasks.md` and linked contracts |
-| Historical extension plan (removed) | 1029 at the recorded baseline | Authority in `docs/architecture/trust.md`; scope in `docs/product/scope.md`; remaining outcomes in the canonical catalog |
-| `docs/development/ideal-filetree-plan.md` | 5020 at the structural baseline | `docs/development/ideal-filetree-plan/` (one living plan, split into the index and owned topic files) |
-| `docs/development/native-support.md` | 475 | `docs/development/native-support.md` |
-| `docs/product/overview.md` | 546 | `docs/product/overview.md` |
-| `docs/research/factory-capability-map.md` | 532 | `docs/research/factory-capability-map.md` |
-| `docs/research/onedev.md` | 413 | `docs/research/onedev.md` |
-| `internal/avatar/style-v1.json` | 1465 | `internal/avatar/style-v1.json` |
-| `tests/forgejo/presentation/form-native-contracts.json` | 750 | `tests/forgejo/presentation/form-native-contracts.json` |
-| `tests/forgejo/presentation/inventory.json` | 9729 | `tests/forgejo/presentation/inventory.json` |
-| `tests/forgejo/presentation/repository-settings-native-contracts.json` | 886 | `tests/forgejo/presentation/repository-settings-native-contracts.json` |
-| `tests/forgejo/presentation/settings-native-contracts.json` | 611 | `tests/forgejo/presentation/settings-native-contracts.json` |
+Preserve canonical assets, licenses, fixtures and technical documentation.
 
 ## Wiring that changes with the tree
 
@@ -64,7 +42,7 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
   Bun scripts, TypeScript includes and browser fixtures. The native Forgejo
   presentation and independently installed extension retain separate payloads.
   Preserve the full intentional Soda design overrides across all Forgejo pages,
-  as the owner confirmed in [GUIDANCE-08](review-assignments.md#guidance-conflicts-and-controlling-decisions).
+  as the owner confirmed in GUIDANCE-08.
   Correctness and native integration findings cannot infer permission to remove
   the overrides, restore stock pages or redesign the presentation.
 - Direct source-path assertions in retained Rust, Go and browser tests, including
@@ -76,67 +54,3 @@ Locks, complete data fixtures, attribution and canonical documentation owners ar
   Rust-only directories inside the Go directory-name assertion.
 - Relative documentation links and source references. The external handbook
   sync contract keeps `docs/public/` stable.
-
-## Review and implementation boundary
-
-The [implementation task list](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) covers all 80 slices
-through 27 primary packets and a shared extraction packet. Its
-[parallel schedule](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) gives three workers and the
-coordinator exclusive shared-file handoffs, dependency order and progressively
-larger verification. These are deferred execution instructions under later
-matching authorization, not a source change or new runtime proof.
-
-The [80-slice source audit](reviews/README.md#completed-source-audit-coverage)
-closes responsibility, established workflow, independent challenge and exact
-selected target dimensions at `f7e9cf9d`. Its corrections remain proposed and
-its named product/producer/equivalence gates remain pending. In particular,
-shared Factory run/native/binding/lifecycle/output/artifacts now have explicit
-provider-neutral owners inside the existing Rust host, with direct caller and
-single test-fixture imports. The desired tree excludes the inherited Codex run
-leaf; provider-specific custody and launch policy retain their real owners.
-
-
-This plan folder is the maintained project artifact from this pass; the inventory
-and analysis reports remain in ignored .artifacts/filetree-planning/. Source
-moves, implementation splits, manifests, operational configuration and Git
-operations are not performed by authoring it. The repository asks for three
-fresh Jev SystemOne consultations
-on difficult design decisions; that tool is not available in this session. The
-tree remains a proposal, and consultation agreement would not prove behavior.
-
-Source inspection and inventory checks validate coverage of the proposal. They
-do not prove compilation, package imports, source checks, installed paths or
-native user journeys. Those require the corresponding checks when the refactor
-is authorized and implemented. Preserve current private inputs and unrelated
-work, and recheck source drift before each later update of this plan.
-
-The initial review covered 1,586 paths at its recorded baseline. The historical
-structural reconciliation accounted for all 1,705 paths at d7e565aa, with 1,488
-retained/moved dispositions and 217 retirements, and reviewed all 190 oversized
-code files then present. Those are historical counts, not the current source
-inventory. The latest coverage ledger accounts for all 1,719 tracked paths at
-0d8d3b8e and gives current mixed/oversized responsibility maps separately. The
-five-file source delta and documentation split are reconciled; unchanged code
-reuses its earlier inspection. No tests or native operations were run for upkeep.
-
-The primary tree now contains 2,533 unique leaves after excluding 11 obsolete
-proposals found by the coverage pass and replacing the single plan document
-with its 122 Markdown sections and adding the new settlement test
-at its existing Go package destination, shared review inputs, actual slice records
-the active Python-elimination policy document formerly omitted as old tooling,
-and explicit active Muse/shared factory lifecycle modules in the Rust host,
-plus the two current implementation scheduling documents.
-The plan folder now has 208 maintained Markdown documents. The review and
-scheduling documents are planning additions outside the older pinned coverage
-inventory; their current tracked status does not advance that inventory. The
-tree retains
-27 Cargo package manifests plus the root workspace manifest. These counts include proposed native
-entrypoints and concern splits, not measured final implementation sizes. Full
-structural reconciliation after d7e565aa remains pending. Shared destination
-leaves consolidate existing providers, assets, HTTP/test support and native
-assertion coverage. No file/directory or Rust file/module-root filename conflicts
-remain in the proposed tree. It omits pre-port Go acceptance/process/release/
-host implementations, Python sources and the newly evidenced historical mockup,
-retired provenance overrides and alternate factory recipe. Live input/wire and
-probe portions remain separately mapped; unknown lifecycle is not treated as
-proof of dead code.

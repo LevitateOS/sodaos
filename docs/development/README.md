@@ -27,12 +27,8 @@ Do not treat package paths as the product vocabulary.
 
 ## Source ownership and desired tree
 
-The [source ownership index](ideal-filetree-plan/ideal-filetree-plan.md) owns
-language, package, placement and desired-tree contracts. Update changed
-responsibilities through its [maintenance guidance](ideal-filetree-plan/maintenance.md).
-Historical inventories and body reviews keep their exact pins; Filetree R02 in
-the remaining-outcome catalog owns the incomplete coverage. No unchanged-plan
-audit or restructuring is dispatched by documentation upkeep.
+The [source ownership index](ideal-filetree-plan/ideal-filetree-plan.md) describes
+language, packages and placement. Update guidance affected by the current change.
 
 ## Build, test and release
 
@@ -46,7 +42,7 @@ audit or restructuring is dispatched by documentation upkeep.
 ## Remaining implementation and qualification
 
 The [remaining-outcome catalog](factory-remaining-tasks.md) is the single execution
-entrypoint: 53 Factory, 12 Canlang and 2 maintenance outcomes remain, with all
+entrypoint: 53 Factory and 12 Canlang outcomes remain, with all
 shared criteria counted once. Its six task packets and Canlang recipes supply
 concrete source starts, prerequisite outputs, next slices and acceptance.
 Implementation remains stopped until instructed.

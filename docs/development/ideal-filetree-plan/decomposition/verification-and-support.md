@@ -16,7 +16,7 @@ appliance-directory decision. L17 verifies one tracked startup/recovery
 declaration, native environment → save/reparse/settings and actual unit staging.
 No foreign grammar adapter remains. Locale catalog custody stays independent;
 deployed generator/service and installed identity remain R04.
-See [finding allocation and readiness](../library-adoption.md#readiness-gates).
+See [finding allocation and readiness](../library-adoption.md#verification).
 
 ## internal/acceptance/developer_access_test.go
 

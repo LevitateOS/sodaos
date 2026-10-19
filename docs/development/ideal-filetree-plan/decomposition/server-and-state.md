@@ -25,7 +25,7 @@ Keep Go `internal/forgejo/repositories.go` as the single defining owner of
 `RepositoryPageSize` (`12`) and `repositoryPart` (`65–67`): current API search
 pagination (`internal/web/api/repositories.go:125,130`) and native observation
 (`internal/forgejo/observe.go:172,188`) consume them. Retain those callers and
-their real tests. See [P01's source and allocation record](../reviews/P01.md).
+their real tests. See P01's source and allocation record.
 This is a supported target disposition, with no source removal or native
 search execution performed.
 
@@ -73,7 +73,7 @@ At `f7e9cf9d`, `internal/store/identity.go` is not the broker runtime.
 Its two save methods have only test callers; its two metadata readers have
 one production consumer, `internal/web/api/factory_settings.go:468–485`.
 That consumer must use the existing broker administration client under the
-separate broker database contract; see [F04-F2](../reviews/F04.md#concrete-findings).
+separate broker database contract; see F04-F2.
 Installed database identities have not been inspected.
 
 The desired tree excludes `internal/store/identity.go` and
@@ -94,8 +94,8 @@ The corrected sponsorship test must exercise the actual broker metadata
 caller. Retain canonical Go PostgreSQL DDL, its generated Rust mirror,
 the current Go domain/client and grant-key custody, and the existing Rust
 broker store. Do not remove identity tables or introduce another store,
-process, schema authority or test framework. [I03](../reviews/I03.md) and
-[I10](../reviews/I10.md#exact-fixture-successor-allocation-independently-challenged)
+process, schema authority or test framework. I03 and
+I10
 record the full caller census and B's independent source challenge.
 This is a deferred correction plan; no source deletion or database change
 has been performed or authorized.

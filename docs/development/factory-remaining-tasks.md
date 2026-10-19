@@ -42,7 +42,7 @@ unassigned; the named code owner is the existing subsystem, not a new worker.
 | Disposition | Existing outcome IDs | First useful work / release |
 | --- | --- | --- |
 | Ready slice (13 factory) | R03, R06, R07, R10, R11, R15, R31, R32, R36, R42, R43, R47, R50 | Current native fixture preparation/qualification for R03/R06/R50; harness installation/driver alignment for R07; bounded ingress/transaction/plan/read/communication/progression work for R10/R11/R15/R31/R32/R36/R42; concrete Lit/Ralph flow design for R43; recorded Deep-CI failure triage for R47. Native fixture access and paid trials still require their concrete inputs. |
-| Ready slice (4 additional) | Canlang P09, P14; BROAD-COMPLEXITY-037; Filetree R02 | Existing Files lifecycle proof, native direct-runtime assumption proof, one cohesive residual Go simplification, or missing source/duty mapping. Canlang producer work belongs to its repository owner; this Soda planning pass neither dispatches nor edits that repository. |
+| Ready slice (2 additional) | Canlang P09, P14 | Files lifecycle proof and the direct-runtime implementation. |
 | Decision held (2) | Canlang P08, P10 | Select the R2 adapter/service contract or concrete external provider/effect/reconciliation contract. Existing native Files/internal durable-work behavior remains usable. Decision outputs and owners are defined below; these adopted deferred outcomes stay counted. |
 | External input held (1) | Canlang P22 | Selected real client, authorized route/enrollment and TLS trust input. Local/CoreOS ingress proof is retained. |
 | Dependency held (47) | All other R03–R55 rows (40); Canlang P15, P16, P25, P26, P27/P28, P29, P30 (7) | Consume the named outputs in the task cards and runtime substeps. Resolve local source slices as inputs arrive; full native/release acceptance remains distinct. |
@@ -103,7 +103,6 @@ every Deep-CI failure or changing production admission.
 | 5 — R45, R46, R50; Canlang P15, P16, P25, P26, P27/P28, P29 (9) | Ready R50 can proceed independently. R03/R06/R44 release R45 → R46. Consume P14 → P15/P16 → P25 → P26 → P27/P28 and P29. Share an applicable private-client fixture with P22. | Establish reusable component/tool/image identities and procedures before candidate assembly, avoiding builds that merely discover storage/offline/lifetime assumptions. Native cutover is substantial work. Retain scoped RCX/Miniflare evidence without treating it as replacement proof; remote access holds only its cases. |
 | 6 — R48, R49, R54, R51, R52, R53, R55; Canlang P30 (8) | R48 cases as role consumers become ready; complete R47 composition/R49 journey. Then R54 freeze → R51 candidate/unqualified public stage → P30/R52 installed journey → R53 promotion/public readback → R55. | Group bounded provider trials by actual configuration; reuse component proof and one matching candidate to avoid duplicate build/install/capture loops. Real qualification and external authority remain required. P31/G4 aliases R52; P32 aliases R55. |
 | 7 — Canlang P08, P10, P22 (3) | Obtain the selected R2/provider contract or actual client/route/trust input when its dependent scope needs it; promote the available concrete slice. | Resolve actual waits without speculative adapters/substitute clients. P22 gates claimed remote access; P08/P10 do not become universal first-app release gates. |
-| 8 — BROAD-COMPLEXITY-037, Filetree R02 (2) | Take a cohesive simplification or missing duty map when it materially eases the next selected change; otherwise follow the branches above. | Comprehension benefits are plausible, not measured throughput gains. No whole-tree refactor/audit first; keep the 58-function residual and historical coverage gap explicit. |
 
 Release useful outputs without waiting for siblings. Existing fixtures, journals,
 read models and focused checks are the reuse opportunities, not a new capture
@@ -143,29 +142,7 @@ P08/P10 provider selection and P22 real-client input remain scoped holds.
 Outbound notifications, broad provider parity, automatic backups and optional
 library/structural changes remain proposals; no new universal gate follows.
 No whole-source/body audit, native run or renewed qualification was performed.
-Historical coverage drift remains Filetree R02, and runtime/provider/installed
-evidence gaps remain open even where this check found an adequate task criterion.
-
-## Historical planning inputs and preserved evidence
-
-The former Factory baseline/workflow/experience, extension, RCX, frontend,
-Canlang parent and filetree task/lane/correctness schedules were absorbed into
-this catalog and their existing contract owners. Their pre-consolidation text is
-available in [Git at 83cf27a3](https://github.com/LevitateOS/sodaos/tree/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development).
-Deleting those duplicate records changes no acceptance or outcome count.
-
-
-Original planning inputs: Soda `ddd6251bef5bb7e0dba02b269e7e419dcffce5f9` (origin `603f9c23ee548b001ddf4857a6395efca21da005`) and Fountain `c8fea1d293366b457df7608c6f3b9293d0810110` (published source). The owner-requested Soda snapshot `d308e8e9edabb6dba55692eb9250069d04170eb6` now preserves the formerly dirty identity/tooling work, task documents and reservation extraction. Committing those inputs does not qualify them or transfer writer ownership. Current Fountain cleanup changes and its retained stash remain preserved.
-
-- Keep durable inventory/selection, immutable plans, budgets, native collaboration/recovery, authorization helpers and persisted journey views. Complete their missing callers and acceptance; do not rebuild them from historical gap prose.
-- Keep scoped RCX native development acceptance at Soda730/Fountaina4fd and earlier NFX source/browser/installed proofs. Recheck changed inputs and joins; do not reopen completed component or frontend redesign as new implementation.
-- Preserve the completed approved test-fixture retirement and Fountain pull/source push. Neither closes product importer custody or installed release qualification.
-- Fountain full run `39061684838` finished with failure: its unit cleanup job failed and database job `117480774633` succeeded at 20:55:42 UTC. Earlier exact-c8 full/required/admission successes remain historical scoped facts; there is no unconditional current green claim.
-- Preserve the original A197/198 artifacts separately from their newer canonical variants. Fountain has a distinct uncommitted two-file cleanup revision; Soda's snapshot includes the corrected reservation extraction, without transactional qualification. The R01 review binds their exact bytes and proposed checks through the central checklist. 183A remains returned, 183B incomplete, and B197 is a partial source map. The eight-file tuple overlay's thirteen selected passing tests do not accept the later increment.
-
-R02 is a newly observed CI regression with no separate legacy-index ancestor. The other tasks carry the indexed requirements; adding this repair does not replace or omit any of the 365 historical rows.
-
-The [independent readiness review](../../.artifacts/muse-factory-workflow/reviews/independent-20261017-01a1470a/full-readiness-review189.json) and [new requirement crosswalk](../../.artifacts/muse-factory-workflow/reviews/independent-20261017-01a1470a/reorganization199/requirement-crosswalk.json) retain the evidence and all **365 overlapping requirement/task/control rows**. Only 15 had detailed individual current observations before this reorganization; the others are not silently accepted. Mapping is coverage accounting, not 365 passed tests or mandatory reimplementation of accepted work.
+Runtime, provider and installed behavior still need the checks required by their tasks.
 
 ## Consolidated remaining outcomes — execution stopped
 
@@ -229,18 +206,11 @@ R01 input/freeze and R02 focused Fountain CI repair (`56a1c17bb0`) are accepted 
 | [R54](factory-remaining-tasks/06-candidate-release-closure.md#r54) | Dependency held; unassigned (Coordinator) | One-current-path source/caller/selector/docs/license/pin cutover before candidate freeze. Cleanup shutdown does not close product cutover. | R41, R43, R45, R49, R50; Canlang P27/P28 producer schema and P29 shipping procedures. | All shipping changes precede R51; obsolete paths are evidenced and human work/qualification resources preserved. |
 | [R55](factory-remaining-tasks/06-candidate-release-closure.md#r55) | Dependency held; unassigned (Codex) | Independent acceptance of complete mapped factory scope; stopping execution does not accept unfinished backlog. | R46, R47, R48, R49, R50, R51, R52, R53, R54. | Production callers and decisive evidence satisfy all original outcomes/refinements/profiles/controls and concrete external cases. |
 
-### Counts and aliases
+### Outcome scope
 
-There are **67 counted remaining outcome rows**: **53 factory**, **12 Canlang-specific**, and **2 repository maintenance** outcomes. This includes blocked, planned and deferred adopted scope; it is not a ready-work count or a claim of implementation authorization. Every counted row has a named existing ID, unmet deliverable, unassigned/human owner, prerequisite and finite release condition in this document.
-
-| Counted family | Existing IDs | Rows |
-| --- | --- | ---: |
-| Factory | R03–R55; R01/R02 remain accepted at their defined scope | 53 |
-| Canlang-specific | P08, P09, P10, P14, P15, P16, P22, P25, P26, the shared P27/P28 admission bundle, P29, P30 | 12 |
-| Repository maintenance | BROAD-COMPLEXITY-037; Filetree R02 source/duty coverage | 2 |
-| **Total** | Aliases, substeps, shared consumers and optional proposals excluded | **67** |
-
-The 12 Canlang rows preserve **13 parent P IDs**, with P27/P28 counted once for their matching runtime/tools admission bundle; its image and Project-tool consumers are both required. P14.1–P14.4, P15.1, P16.1–P16.2, P25.1, P26.1 and P27.1 refine their existing parent rows. P31/G4 and P32 remain unmet criteria but are shared qualification/closure aliases, owned once by R52 and R55 respectively below. Thus all **15 unmet Canlang parent IDs** remain visible without counting a second candidate or closure. The 58 residual Go functions are the scope of one complexity outcome, not 58 extra rows. The historical 365-row crosswalk and 80-slice inventory describe requirement coverage, not additional assignments.
+The backlog covers 53 Factory and 12 Canlang outcomes. Audit coverage and
+complexity-score maintenance are not product deliverables. Simplify code and
+update ownership guidance when useful to the current task.
 
 ### Shared external inputs and settled decisions
 
@@ -248,7 +218,7 @@ The 12 Canlang rows preserve **13 parent P IDs**, with P27/P28 counted once for 
 - **V03 → R44/R48/R49:** the human/provider must complete normal managed Muse device-account approval; TestOnly credentials and mock accounts do not establish normal enrollment. Release condition is successful normal managed account admission with exact custody/return proof.
 - **R46 / Canlang P22:** the human supplies the selected real LAN/Tailnet client, authorized enrollment and DNS/client trust where needed. Core local/native acceptance does not await an optional Tailnet purchase. Real client access closes only the named external route cases.
 - **R50/R51/R53:** release owner prepares actual immutable Fountain/package/image/source inputs and protected collector access. Human publication authorization applies to the concrete component/product batch. Anonymous URL/digest/source readback, qualified supported upgrade source and exact candidate observations close the affected gates. Source push is not product release; R50 mechanism proof precedes R51 and must not acquire a dependency on future candidate bytes.
-- **GUIDANCE-01–08:** the existing [decision register](ideal-filetree-plan/review-assignments.md#guidance-conflicts-and-controlling-decisions) and current AGENTS.md control. Preserve Go servers, Rust system/privileged owners, x86_64 scope and intentional page-design coverage. No language port, React integration, new coordinator or backlog dispatch follows from this reconciliation.
+- Preserve Go servers, Rust system/privileged owners, x86_64 scope and intentional page-design coverage.
 
 <a id="other-distinct-outcomes-and-shared-consumers"></a>
 ### Additional counted outcomes
@@ -257,8 +227,6 @@ Canlang P IDs are namespaced below to avoid confusing them with factory R IDs. H
 
 | Existing ID / source | State / owner | Unmet deliverable | Prerequisite / hold | Finite acceptance / release |
 | --- | --- | --- | --- | --- |
-| [BROAD-COMPLEXITY-037 / complexity policy](complexity.md) | Ready slice; unassigned | Residual 58 Go functions above 20; max 94 in BuildDispatchPrompt. Rust/TypeScript have zero above 20. | Retain non-increasing baseline/exceptions and actual behavior; same-file custody before any future edit. | Cohesive simplification plus affected checks meets <=20 or a narrow justified cap; no baseline regeneration. |
-| [Filetree R02 / source coverage](ideal-filetree-plan/coverage/README.md) | Ready slice; unassigned | Accumulated source-to-duty/desired-tree coverage beyond retained scoped pins. | Historical components-v4 and pre-730fc205 drift remains explicitly unreconciled; current batch is mapped in the living plan. | Every affected leaf/changed duty has one current owner/destination and large-file concern; historical body/native pins stay distinct. |
 | [Canlang P08](#canlang-p08) | Decision held; product/runtime owner input | Asynchronous R2-compatible blob seam. Native SQLite Files acceptance remains retained. | P04/P06 contracts; R2/provider scope selection. | Actual async local/R2 adapters preserve finalized integrity and explicit failures; no R2 claim from native chunks. |
 | [Canlang P09](#canlang-p09) | Ready slice; unassigned producer owner | Full retention/cleanup and interrupted-upload operational proof. | Existing authenticated native routes, 10 MiB/lost-ack proofs; P08 only for R2 claims. | Real interrupted uploads recover or fail visibly and retained file authorization/bytes survive replacement. |
 | [Canlang P10](#canlang-p10) | Decision held; product/provider owner input | External provider dispatch, uncertain outcomes and reconciliation. | Selected provider contract/credential input and finite authorization; accepted internal durable occurrence/replay remains closed. | Actual provider effects/retries/unknown outcomes preserve stable identities without duplicate work or credential leaks. |
@@ -390,23 +358,20 @@ These are the remaining criteria of their existing parents, with one counted out
 | [Filetree B01–B08 / F/G slices](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#b--factory-and-forgejo) | **R03–R05/R10–R43/R47–R49/R52**, according to the existing requirement's domain | Current authority/accounting/dispatch/native effects and browser composition criteria are the existing factory rows. Source receipts do not close those parents; aliasing does not reopen source cuts. |
 | [Filetree C01–C11 / N/O/D/H slices](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#c--platform-release-and-verification) | **R06/R44–R46/R50–R54**; CI evidence under **R47** | Current importer, kernel/openat2, native provider/IPC/network/component/media/installed evidence. Preserve accepted parser/OCI/Butane/observer/media/notice scopes; exact required runtime and candidate evidence closes the residual. |
 | [Filetree Q1–Q9](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/ideal-filetree-plan/implementation-tasks.md#gates-and-readiness) | Q1/Q2/Q3 → **R41/R44/R48/R52**; Q5 → **R03–R05/R19–R28**; Q6/Q7 → **R45/R50–R53**; Q8 → **R11/R19–R29/R37/R41**; Q9 → **R44/R45/R52** | Existing resolved source/profile decisions remain settled. Only their actual current producer/native/installed boundary is required; Q4 optional policies are proposals below. No whole-packet or old design-decision gate is added. |
-| [Library L00–L18 and post-adoption findings](ideal-filetree-plan/library-adoption.md) | Retained completed source scopes; residual **R44/R45/R46/R48/R52**, plus **Filetree R02** for coverage | Exact shipped curl/Bash/Podman/kernel, TLS/provider, generator/service and native caller identities must be observed where required. L16.G is complete; optional L16 conversion and CA narrowing are proposals below. No new library-adoption or generic-engine split queue. |
 | [Deep regression CI and composed evidence](testing.md) | **R47** | The recorded 39139499605 source-grep/CLI/navigation/PG/fixture residuals need specific triage and affected proof. Required publication CI passed at 476742e0; that does not erase Deep CI gaps or turn them into another cleanup gate. |
-| [Filetree inventory/body/desired-tree drift](ideal-filetree-plan/coverage/README.md) and chapter-local coverage holds | **Filetree R02** | One source-to-duty/desired-tree coverage outcome absorbs these consumers. Preserve earlier structural/body/native pins; update only real missing coverage and do not claim full review from path counts. |
-| [Complexity baseline and batch receipts](complexity.md) | **BROAD-COMPLEXITY-037** | One residual reduction outcome covers the recorded 58 Go functions and applicable unchanged baseline/caps. Accepted reductions and Rust/TypeScript <=20 remain accepted; no rescan or refactor is dispatched here. |
 
 ### Optional proposals and unresolved policy choices — excluded from the 67
 
 | Existing ID / source | Owner / missing decision | Finite disposition |
 | --- | --- | --- |
 | [L16 / RED01 optional matcher](ideal-filetree-plan/library-adoption.md) | Unassigned; demonstrated value and explicit adoption selection | Keep current matcher and accepted L16.G bounds; select a bounded conversion only if its construction/streaming and caller criteria justify it, otherwise remain deferred. |
-| [CA-ALGORITHM-PROFILE-1](ideal-filetree-plan/execution-findings.md) | Unassigned; optional narrowing needs an actual selected producer profile | Existing RSA/named-curve ECDSA/Ed25519/SHA-2 policy stands. Retain original DER/TBS/CA-use rules; actual selected-producer proof is required before narrowing. |
+| CA-ALGORITHM-PROFILE-1 | Unassigned; optional narrowing needs an actual selected producer profile | Existing RSA/named-curve ECDSA/Ed25519/SHA-2 policy stands. Retain original DER/TBS/CA-use rules; actual selected-producer proof is required before narrowing. |
 | [A34/C41/browser seams and Q4 optional creation/selection/history policy](#optional-proposals-and-unresolved-policy-choices--excluded-from-the-67) | Unassigned; explicit scope selection and demonstrated current need | Park optional structural seams and P01/N05 creation intent, N04/N06 selection/retry and I10 history-retention choices. Retain established native policy; no source/port assignment arises from historical parked proposals. |
 | [Canlang automatic backup/RPO/RTO targets and eventual wider service breadth](#optional-proposals-and-unresolved-policy-choices--excluded-from-the-67) | Human policy choice, unassigned implementation | Existing explicit stopped backup and first-app supported/rejected matrix remain adopted. Set frequency/loss/recovery and additional provider requirements concretely before creating implementation scope; these choices do not hold accepted first-app behavior or P25's stopped-restore proof. |
 
 ### Superseded schedules and accepted work
 
-FW/FT/ST/RT/UX/FX, RCX/RCX-2, NFX and the 365-row legacy crosswalk are requirement/evidence references. They are not additional remaining queues. RCX-2 accepted source/native development at Soda `730fc205` / Fountain `a4fd2221` is preserved; current component/native/public-byte gaps live once in R03–R06/R45/R46/R50–R53. NFX accepted source/browser/installed work through the later October 13 continuation supersedes its older 23/34 snapshot and stale rows; only changed joins/new feed and current candidate proof remain under R03/R43/R52/R54. The earlier extension transition and experience-plan baseline are historical; native extension and intent/Generate source work already accepted is not implementation backlog. Canlang historical Miniflare results do not qualify the planned direct-workerd replacement. Filetree whole-tree/body/independent/native review pins remain historical and are not renewed by merging or by this documentation pass.
+FW/FT/ST/RT/UX/FX, RCX/RCX-2, NFX and the 365-row legacy crosswalk are requirement/evidence references. They are not additional remaining queues. RCX-2 accepted source/native development at Soda `730fc205` / Fountain `a4fd2221` is preserved; current component/native/public-byte gaps live once in R03–R06/R45/R46/R50–R53. NFX accepted source/browser/installed work through the later October 13 continuation supersedes its older 23/34 snapshot and stale rows; only changed joins/new feed and current candidate proof remain under R03/R43/R52/R54. The earlier extension transition and experience-plan baseline are historical; native extension and intent/Generate source work already accepted is not implementation backlog. Canlang historical Miniflare results do not qualify the planned direct-workerd replacement.
 
 ### Wind-down custody and retained outputs
 
@@ -517,7 +482,6 @@ This retained dependency graph is not an active schedule. **Read both dependency
 
 ### Why this order
 
-The historical [dependency validation](../../.artifacts/muse-factory-workflow/reviews/dependency-order-20261018-01a1470a/validation.json) and [derived graph](../../.artifacts/muse-factory-workflow/reviews/dependency-order-20261018-01a1470a/graph.json) bind the retained Factory parent graph, not the new slice/cross-family refinements: 55 unique tasks, no cycles or unknown references, every prerequisite before its consumer, and all 54 other tasks feeding R55. All 365 requirement keys/texts and the existing task checkbox states are preserved. These are planning checks, not implementation acceptance.
 
 - **Establish inputs first:** R01/R02 retained-input and focused CI-repair outputs are already accepted; R07/R08/R09 establish native control, exclusion and transport; R10 releases typed contracts. R44 qualifies Project/provider foundations before live dispatch. R50 proves the protected release mechanism independently with narrow development inputs, as original RT01 requires.
 - **Build the common workflow before its consumers:** R11 precedes semantic planning and investigation. Native scheduling and trusted checkpoint production precede publication and current-tuple qualification. Product Lead/Architect, Builder, Inspector/Fixer and Strategist/Test Pilot controls compose the already established owners; R34 consumes R33 singleton-Fixer output rather than inventing another executor.
@@ -568,7 +532,6 @@ Product Lead and Architect use R32; Builder R33; Inspector and Fixer R34 (with s
 
 P1 is R07/R16/R17; P2 R04/R05/R22; P3 R14; P4 R12/R48; P5 R05/R28/R29; P6 R09/R30; P7 R08; P8 R16/R17/R33; P9 R38/R39. H2 acceptance production is R24/R26, H3 history R23/R24/R26/R27, and H4 current tuples R20/R21/R25/R26.
 
-The [original machine-readable scope snapshot](../../.artifacts/muse-factory-workflow/reviews/independent-20261017-01a1470a/reorganization199/remaining-task-catalog.json) preserves exact namespaced legacy keys, requirement text, prior observation, primary task and supporting tasks. Its historical dependencies do not override this revised order and the current task cards. It is not a second live status ledger. Unknown individual acceptance remains open until its mapped task verifies or repairs it.
 
 ## Detailed task packets
 

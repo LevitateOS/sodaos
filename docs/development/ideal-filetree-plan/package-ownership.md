@@ -2,7 +2,7 @@
 
 ## Docker release ownership (2026-10-16)
 
-The [bounded installer integration](coverage/maps/release-docker-current.md#installer-integration-scope)
+The bounded installer integration
 at `92069938` retains release-deliver's Rust publisher/admission owner. Its new
 `src/publish/installer.rs` renders only the archived template; assets.rs owns the
 rendered asset identity and qualification.rs owns installer/transcript admission.
@@ -69,7 +69,7 @@ earlier observations, rather than current source facts.
 
 ## Source coverage
 
-Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `0d8d3b8e` in the [coverage index](coverage/README.md). The table and full structural counts below remain historical; latest upkeep reconciles the five source/test changes after `26d420f2` and the documentation split without claiming a new full structural review.
+Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `0d8d3b8e` in the coverage index. The table and full structural counts below remain historical; latest upkeep reconciles the five source/test changes after `26d420f2` and the documentation split without claiming a new full structural review.
 
 The selective library-adoption reconciliation uses source
 `72e4bb9015b6d6a622b45638104c74851a137473`. The
@@ -152,7 +152,7 @@ This adds no daemon and does not extend the Canlang tooling plan's product scope
 
 | Current ownership | Proposed ownership | Reason and implementation closure |
 | --- | --- | --- |
-| `internal/forgejo/publish` | Retain `internal/forgejo/publish`; predecessor `internal/host/publish` retired | B07.M's publication move and operation/observation/validation/push/receipt plus test splits landed in `33682cfc`; its merge-completion split landed in `6cb54cf9`. Direct callers and architecture assertions name the successor, with one `BackgroundOperations`/`StatusError` owner. Native effects, F09/F10/F12 corrections and Q5 remain separate; see current reconciliation in [G04](reviews/G04.md) and [G07](reviews/G07.md). |
+| `internal/forgejo/publish` | Retain `internal/forgejo/publish`; predecessor `internal/host/publish` retired | B07.M's publication move and operation/observation/validation/push/receipt plus test splits landed in `33682cfc`; its merge-completion split landed in `6cb54cf9`. Direct callers and architecture assertions name the successor, with one `BackgroundOperations`/`StatusError` owner. Native effects, F09/F10/F12 corrections and Q5 remain separate; see current reconciliation in G04 and G07. |
 | Go acceptance execution/evidence closure | Retired; no `internal/process` package | The old `Command`, `Evidence`, `Execute`, `Remote` and uncalled worker closure are retired. Go `StartCommand`/`Process` remains live for actual installed-probe callers. `privateFile` remains live in installed-probe input support. |
 | `tools/soda-build/worker_linux.go` | Retired; `lib/soda-release-tools` owns the current worker | The Go worker implementation and exclusive tests have been removed. Preserve the Rust worker's real tool duties; this is completed source ownership, separate from runtime qualification. |
 | `internal/acceptance/worker_linux*` | Retired with the obsolete Go worker caller | No target implementation or compatibility worker remains. Go `StartCommand`/`Process` is retained independently for installed probes. |
@@ -167,7 +167,7 @@ Current scoped placement also retains `tools/soda-rootfs-server`: `d89f4563`
 moved its Go command/tests and rebound service references. These B07/rootfs
 updates do not refresh the historical root counts or import census above.
 Current R02 target/owner/source-join mapping has its separate accepted
-[source crosswalk](build-and-operational-joins.md#current-r02-source-join-crosswalk).
+source crosswalk.
 
 Historical publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:
@@ -304,7 +304,7 @@ moves, duplicate domain records or create credential/database/codec services.
 
 ### Current correction and simplification reservations
 
-The [finding allocation](execution-findings.md) defines exact post-adoption
+The finding allocation defines exact post-adoption
 subtasks under the existing plan. It changes no process/language boundary and
 adds no generic helper, third DTO, runtime or state owner. Selective reservations:
 

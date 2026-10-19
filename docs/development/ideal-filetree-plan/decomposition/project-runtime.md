@@ -20,7 +20,7 @@ supersedes pending generic-engine extraction in the historical reviews below.
 Keep completed guest modules, helper binaries and concern-specific custody
 boundaries; reduce generic code through library adoption within those owners.
 The [library contracts](../library-adoption.md#library-contracts) and
-[readiness gates](../library-adoption.md#readiness-gates) preserve acceptance.
+[focused verification](../library-adoption.md#verification) preserve acceptance.
 Current execution belongs to the [remaining outcomes](../../factory-remaining-tasks.md).
 
 | Finding and existing surface | Current target responsibility |
@@ -41,7 +41,7 @@ prerequisites to the narrow deadline or ownership repairs.
 ## Current Project account helper allocation
 
 The current Rust helper is retained in the existing Project terminal package;
-the separate guest account package folds into that owner. [P03](../reviews/P03.md)
+the separate guest account package folds into that owner. P03
 records A's mapped source review and B's independent source challenge of this
 package/test seam. This is a package consolidation, with the same guest helper
 process and installed `/usr/libexec/soda/project-account` binary.
@@ -103,7 +103,7 @@ These allocations preserve the existing helper process, binary/install identity 
 The historical Python source review below described 800 lines. At `f7e9cf9d`
 the helper is already Rust in `rust/soda-project-factory-roles`; the pending
 work is consolidation into the existing project-terminal Cargo package, with
-current per-duty allocation in [P06](../reviews/P06.md) and the connected
+current per-duty allocation in P06 and the connected
 identity/factory review records. The line intervals below refer to the historical
 predecessor and cannot be used as current Rust move selectors. Separate the
 role/layout, approved input custody, receipt observation and process lifecycle

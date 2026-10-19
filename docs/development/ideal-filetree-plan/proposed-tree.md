@@ -2,7 +2,7 @@
 
 ## Current Docker release targets (2026-10-16)
 
-The installer source delta is `730fc205..92069938`; [changed responsibilities](coverage/maps/release-docker-current.md#installer-integration-scope)
+The installer source delta is `730fc205..92069938`; changed responsibilities
 add three exact targets to the retained `76daa366` overlay below. Existing package
 and native process owners remain. Intervening components-v4/thirteen canonical
 commits and earlier whole-tree gaps remain pending; this is not all-HEAD coverage. The completed `docs/development/project-runtime-upgrade-plan.md`
@@ -30,7 +30,6 @@ has no successor plan; its contracts remain in release/operator guidance.
 | `tests/build/ci_admission_test.go` | H06/D07 |
 | `system/docker/image-import.conf` | D03/H01/D11 |
 | `docs/guides/docker.md` | H06 |
-| `docs/development/ideal-filetree-plan/coverage/maps/release-docker-current.md` | H06 |
 | `system/docker/.dockerignore` | D03/H01/D11 |
 | `system/docker/Dockerfile` | D03/H01/D11 |
 | `system/docker/compose.yaml` | D03/H01/D11 |
@@ -114,22 +113,22 @@ Earlier counts and source review pins remain historical; the
 [library chapter](library-adoption.md#library-contracts) retains the completed
 replacement scopes and their evidence limits.
 
-The [workflow requirements map](workflow-requirements.md) is an H06 audit
-document allocated below. The current [library caller maps](library-integrations/README.md),
-[observation-reliability chapter](observation-reliability.md) and
-[connected workflow traces](workflow-traces.md) and
-[adapter challenges](library-integrations/adapter-challenges.md) and
-[representation audit](data-representations.md) and
-[concurrency audit](concurrency-and-termination.md) and
-[authority/state audit](authority-and-state.md) and
-[resource-bounds audit](resource-bounds.md) and
-[custody audit](file-and-process-custody.md) and
-[dependency/cost audit](dependency-and-architecture-cost.md) and
-[test/evidence audit](test-evidence.md) and
-[build/operational join audit](build-and-operational-joins.md) and
-[total maintenance assessment](integration-maintenance-result.md) and
-[independent consequential challenge](independent-conclusions.md) and
-[finding allocation](execution-findings.md) are also H06 audit documents
+The workflow requirements map is an H06 audit
+document allocated below. The current library caller maps,
+observation-reliability chapter and
+connected workflow traces and
+adapter challenges and
+representation audit and
+concurrency audit and
+authority/state audit and
+resource-bounds audit and
+custody audit and
+dependency/cost audit and
+test/evidence audit and
+build/operational join audit and
+total maintenance assessment and
+independent consequential challenge and
+finding allocation are also H06 audit documents
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
@@ -837,7 +836,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 ├── docs/
 │   ├── architecture/
 │   │   ├── factory-interfaces.md
-│   │   ├── networking.md
 │   │   ├── overview.md
 │   │   ├── release.md
 │   │   └── trust.md
@@ -861,239 +859,24 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   └── spaces-ux.md
 │   ├── development/
 │   │   ├── ideal-filetree-plan/
-│   │   │   ├── coverage/
-│   │   │   │   ├── inventory/
-│   │   │   │   │   ├── README.md
-│   │   │   │   │   ├── agent-plans.md
-│   │   │   │   │   ├── appliance.md
-│   │   │   │   │   ├── assets.md
-│   │   │   │   │   ├── backend.md
-│   │   │   │   │   ├── cmd.md
-│   │   │   │   │   ├── docs.md
-│   │   │   │   │   ├── factory-os.md
-│   │   │   │   │   ├── frontend.md
-│   │   │   │   │   ├── git-hooks.md
-│   │   │   │   │   ├── native-packages.md
-│   │   │   │   │   ├── project-os.md
-│   │   │   │   │   ├── root-files.md
-│   │   │   │   │   ├── scripts.md
-│   │   │   │   │   ├── tests.md
-│   │   │   │   │   └── tools.md
-│   │   │   │   ├── maps/
-│   │   │   │   │   ├── README.md
-│   │   │   │   │   ├── acceptance-execution-and-evidence.md
-│   │   │   │   │   ├── acceptance-native-qualification.md
-│   │   │   │   │   ├── appliance-definitions.md
-│   │   │   │   │   ├── assets.md
-│   │   │   │   │   ├── backend-acceptance.md
-│   │   │   │   │   ├── backend-config.md
-│   │   │   │   │   ├── backend-factory.md
-│   │   │   │   │   ├── backend-forgejo.md
-│   │   │   │   │   ├── backend-host.md
-│   │   │   │   │   ├── backend-identity.md
-│   │   │   │   │   ├── backend-project.md
-│   │   │   │   │   ├── backend-store.md
-│   │   │   │   │   ├── backend-tailnet.md
-│   │   │   │   │   ├── backend-web-api.md
-│   │   │   │   │   ├── backend-web-auth-and-composition.md
-│   │   │   │   │   ├── browser-spaces.md
-│   │   │   │   │   ├── browser-tailnet.md
-│   │   │   │   │   ├── developer-scripts.md
-│   │   │   │   │   ├── developer-tools.md
-│   │   │   │   │   ├── documentation-contracts.md
-│   │   │   │   │   ├── documentation-development-and-design.md
-│   │   │   │   │   ├── factory-control-admission-and-dispatch.md
-│   │   │   │   │   ├── factory-control-native-fixtures.md
-│   │   │   │   │   ├── factory-control-publication-and-review.md
-│   │   │   │   │   ├── host-factory-runs.md
-│   │   │   │   │   ├── host-muse-execution.md
-│   │   │   │   │   ├── host-preparation.md
-│   │   │   │   │   ├── host-projects.md
-│   │   │   │   │   ├── host-protocols-and-clients.md
-│   │   │   │   │   ├── host-provider-execution.md
-│   │   │   │   │   ├── host-runtime-composition.md
-│   │   │   │   │   ├── host-service-admission.md
-│   │   │   │   │   ├── host-tailnet-companions.md
-│   │   │   │   │   ├── host-tailnet-control.md
-│   │   │   │   │   ├── host-terminals.md
-│   │   │   │   │   ├── identity-broker-protocol-and-policy.md
-│   │   │   │   │   ├── identity-broker-state-and-entrypoints.md
-│   │   │   │   │   ├── identity-providers.md
-│   │   │   │   │   ├── installation-input-parsers.md
-│   │   │   │   │   ├── installation-native-workflow.md
-│   │   │   │   │   ├── installation-operator-enrollment.md
-│   │   │   │   │   ├── project-system-definitions.md
-│   │   │   │   │   ├── public-handbook.md
-│   │   │   │   │   ├── root-and-retired-definitions.md
-│   │   │   │   │   ├── server-entrypoints.md
-│   │   │   │   │   ├── soda-activate.md
-│   │   │   │   │   ├── soda-asset-fetchers.md
-│   │   │   │   │   ├── soda-candidate-setup.md
-│   │   │   │   │   ├── soda-console-welcome.md
-│   │   │   │   │   ├── soda-factory.md
-│   │   │   │   │   ├── soda-forgejo-domain.md
-│   │   │   │   │   ├── soda-forgejo-locales.md
-│   │   │   │   │   ├── soda-forgejo-migrate.md
-│   │   │   │   │   ├── soda-identity-compose.md
-│   │   │   │   │   ├── soda-image-import.md
-│   │   │   │   │   ├── soda-muse-maintain.md
-│   │   │   │   │   ├── soda-muse.md
-│   │   │   │   │   ├── soda-pg-maintenance.md
-│   │   │   │   │   ├── soda-project-account.md
-│   │   │   │   │   ├── soda-project-factory-roles.md
-│   │   │   │   │   ├── soda-project-terminal.md
-│   │   │   │   │   ├── soda-release-build-implementation.md
-│   │   │   │   │   ├── soda-release-build-verification.md
-│   │   │   │   │   ├── soda-release-deliver-implementation.md
-│   │   │   │   │   ├── soda-release-deliver-verification.md
-│   │   │   │   │   ├── soda-release-image-implementation.md
-│   │   │   │   │   ├── soda-release-image-verification.md
-│   │   │   │   │   ├── soda-release-tools-implementation.md
-│   │   │   │   │   ├── soda-release-tools-verification.md
-│   │   │   │   │   ├── soda-rotate-lab-creds.md
-│   │   │   │   │   ├── soda-setup.md
-│   │   │   │   │   ├── soda-stage-render.md
-│   │   │   │   │   ├── soda-test-vm.md
-│   │   │   │   │   ├── tests-build.md
-│   │   │   │   │   ├── tests-forgejo.md
-│   │   │   │   │   ├── tests-frontend.md
-│   │   │   │   │   └── tests-installed.md
-│   │   │   │   └── README.md
 │   │   │   ├── decomposition/
-│   │   │   │   ├── README.md
 │   │   │   │   ├── browser-and-design.md
 │   │   │   │   ├── factory-coordination.md
 │   │   │   │   ├── host-runtime.md
 │   │   │   │   ├── identity-brokering.md
 │   │   │   │   ├── installation-and-operations.md
 │   │   │   │   ├── project-runtime.md
+│   │   │   │   ├── README.md
 │   │   │   │   ├── release-production.md
 │   │   │   │   ├── server-and-state.md
 │   │   │   │   └── verification-and-support.md
-│   │   │   ├── library-integrations/
-│   │   │   │   ├── README.md
-│   │   │   │   ├── adapter-challenges.md
-│   │   │   │   ├── crypto-profiles.md
-│   │   │   │   ├── go-browser.md
-│   │   │   │   └── native-engines.md
-│   │   │   ├── reviews/
-│   │   │   │   ├── D01.md
-│   │   │   │   ├── D02.md
-│   │   │   │   ├── D03.md
-│   │   │   │   ├── D04.md
-│   │   │   │   ├── D05.md
-│   │   │   │   ├── D06.md
-│   │   │   │   ├── D07.md
-│   │   │   │   ├── D08.md
-│   │   │   │   ├── D09.md
-│   │   │   │   ├── D10.md
-│   │   │   │   ├── D11.md
-│   │   │   │   ├── F01.md
-│   │   │   │   ├── F02.md
-│   │   │   │   ├── F03.md
-│   │   │   │   ├── F04.md
-│   │   │   │   ├── F05.md
-│   │   │   │   ├── F06.md
-│   │   │   │   ├── F07.md
-│   │   │   │   ├── F08.md
-│   │   │   │   ├── F09.md
-│   │   │   │   ├── F10.md
-│   │   │   │   ├── F11.md
-│   │   │   │   ├── F12.md
-│   │   │   │   ├── G01.md
-│   │   │   │   ├── G02.md
-│   │   │   │   ├── G03.md
-│   │   │   │   ├── G04.md
-│   │   │   │   ├── G05.md
-│   │   │   │   ├── G06.md
-│   │   │   │   ├── G07.md
-│   │   │   │   ├── G08.md
-│   │   │   │   ├── G09.md
-│   │   │   │   ├── H01.md
-│   │   │   │   ├── H02.md
-│   │   │   │   ├── H03.md
-│   │   │   │   ├── H04.md
-│   │   │   │   ├── H05.md
-│   │   │   │   ├── H06.md
-│   │   │   │   ├── I01.md
-│   │   │   │   ├── I02.md
-│   │   │   │   ├── I03.md
-│   │   │   │   ├── I04.md
-│   │   │   │   ├── I05.md
-│   │   │   │   ├── I06.md
-│   │   │   │   ├── I07.md
-│   │   │   │   ├── I08.md
-│   │   │   │   ├── I09.md
-│   │   │   │   ├── I10.md
-│   │   │   │   ├── N01.md
-│   │   │   │   ├── N02.md
-│   │   │   │   ├── N03.md
-│   │   │   │   ├── N04.md
-│   │   │   │   ├── N05.md
-│   │   │   │   ├── N06.md
-│   │   │   │   ├── N07.md
-│   │   │   │   ├── O01.md
-│   │   │   │   ├── O02.md
-│   │   │   │   ├── O03.md
-│   │   │   │   ├── O04.md
-│   │   │   │   ├── O05.md
-│   │   │   │   ├── O06.md
-│   │   │   │   ├── O07.md
-│   │   │   │   ├── P01.md
-│   │   │   │   ├── P02.md
-│   │   │   │   ├── P03.md
-│   │   │   │   ├── P04.md
-│   │   │   │   ├── P05.md
-│   │   │   │   ├── P06.md
-│   │   │   │   ├── P07.md
-│   │   │   │   ├── P08.md
-│   │   │   │   ├── P09.md
-│   │   │   │   ├── P10.md
-│   │   │   │   ├── P11.md
-│   │   │   │   ├── P12.md
-│   │   │   │   ├── README.md
-│   │   │   │   ├── S01.md
-│   │   │   │   ├── S02.md
-│   │   │   │   ├── S03.md
-│   │   │   │   ├── S04.md
-│   │   │   │   ├── S05.md
-│   │   │   │   └── S06.md
-│   │   │   ├── slices/
-│   │   │   │   ├── README.md
-│   │   │   │   ├── factory-coordination.md
-│   │   │   │   ├── forgejo-integration.md
-│   │   │   │   ├── identity-brokering.md
-│   │   │   │   ├── networking.md
-│   │   │   │   ├── operator-administration.md
-│   │   │   │   ├── projects.md
-│   │   │   │   ├── release-and-installation.md
-│   │   │   │   ├── shared-supporting-slices.md
-│   │   │   │   └── spaces-and-terminals.md
-│   │   │   ├── authority-and-state.md
-│   │   │   ├── build-and-operational-joins.md
-│   │   │   ├── concurrency-and-termination.md
-│   │   │   ├── data-representations.md
-│   │   │   ├── dependency-and-architecture-cost.md
-│   │   │   ├── execution-findings.md
-│   │   │   ├── file-and-process-custody.md
 │   │   │   ├── ideal-filetree-plan.md
-│   │   │   ├── independent-conclusions.md
-│   │   │   ├── integration-maintenance-result.md
 │   │   │   ├── integration.md
 │   │   │   ├── library-adoption.md
-│   │   │   ├── maintenance.md
-│   │   │   ├── observation-reliability.md
 │   │   │   ├── package-ownership.md
 │   │   │   ├── placement.md
 │   │   │   ├── port-assessment.md
-│   │   │   ├── proposed-tree.md
-│   │   │   ├── resource-bounds.md
-│   │   │   ├── review-assignments.md
-│   │   │   ├── review-baseline.md
-│   │   │   ├── review-format.md
-│   │   │   ├── test-evidence.md
-│   │   │   ├── workflow-requirements.md
-│   │   │   └── workflow-traces.md
+│   │   │   └── proposed-tree.md
 │   │   ├── README.md
 │   │   ├── cockpit.md
 │   │   ├── go-packages.md
@@ -1122,7 +905,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   └── retention.md
 │   ├── product/
 │   │   ├── overview.md
-│   │   ├── projects.md
 │   │   ├── scope.md
 │   │   └── spaces.md
 │   ├── public/
@@ -1161,12 +943,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── credentials.md
 │   │   ├── factory.md
 │   │   ├── forgejo.md
-│   │   ├── project-os.md
 │   │   └── terminal.md
 │   ├── research/
 │   │   ├── factory-capability-map.md
 │   │   ├── host-strategy.md
-│   │   ├── library-reuse-coverage.md
 │   │   ├── library-reuse-investigation.md
 │   │   ├── licensing.md
 │   │   ├── notices.md

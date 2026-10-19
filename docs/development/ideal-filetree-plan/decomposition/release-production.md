@@ -2,7 +2,7 @@
 
 ## Current Docker release concerns (2026-10-16)
 
-At `92069938`, the [18-path installer delta](../coverage/maps/release-docker-current.md#installer-integration-scope)
+At `92069938`, the 18-path installer delta
 adds one file over the 400-line concern trigger. Exact source lines include test
 fixtures, comments and blanks. The new large file and the security-sensitive
 bootstrap were inspected internally; unchanged historical bodies below are not
@@ -23,7 +23,7 @@ paths remain allocated; no extraction, language port or service split is selecte
 
 ## Earlier inspected Docker concern bodies (2026-10-14)
 
-The [selected source ledger](../coverage/maps/release-docker-current.md) is pinned
+The selected source ledger is pinned
 at `76daa366`. The 400-line trigger selects eighteen changed code files; seven
 are new crossings. This is a bounded concern review, not a new full-body census.
 Line counts include fixtures, tests, comments and blank lines. Current exact
@@ -70,7 +70,7 @@ extraction tasks. Replace selected generic engines through the existing release
 owners; retain admission, descriptor custody, authenticated raw bytes,
 publication order and native tooling authority. Dependency/cache/toolchain and
 fixture checks precede large cutovers at the
-[readiness gates](../library-adoption.md#readiness-gates).
+[focused verification](../library-adoption.md#verification).
 
 ## internal/release/build/coreos_stream.go
 
@@ -309,7 +309,7 @@ Observed size: 856 lines, including tests where embedded. Separate admitted live
 
 Evidence: 24-65: current endpoint accessors; 67-257: TailnetInputs/ResolvedCoreOS/LiveInputs plus decode/read/write/validation; 258-301: fetch_capped_json/fetch_capped_text; existing http.rs is 296 lines including its current unit tests; 302-438: Tailnet resolution, release scan and newest base tag; 439-559: stream document/location/triple parsing; 560-645: resolve_registry_digests_with; 646-706: ISO/QEMU/full CoreOS resolution; 707-856: fixture_live_inputs, stream/index fixtures and four existing cases; production.rs:843-844 imports fixture/read/write
 
-Open detail: SIMP-REL-WIRE-1 source cut is complete in `3ccbc127`: the actual `write_live_inputs` → `RealProduction::read_live_inputs` path and tests cover the producer/consumer contract. The live-input writer retains I/O; the actual resolver is in the existing Rust build owner. The deleted image `model/live_inputs.rs` leaf is not recreated: consumers import canonical shared records directly where needed, and image-only policy remains with its current owners. No native qualification or change to original signed/raw-byte handling is implied. SIMP-REL-ORDERED-1 source cut is complete in `feb95e50`: the two actual consumers now use the selected direct representations, preserving opaque nested values, existing settings policy, Ignition null-object normalization/array order and raw `live.ign` custody. Its scoped tests and independent medium review pass; no pinned image specimen or native/installed qualification is claimed. SIMP-INSTALL-OCI-1 source cut is complete in `6f4a72d7`; native/installed qualification remains open. See the [finding receipt](../execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
+Open detail: SIMP-REL-WIRE-1 source cut is complete in `3ccbc127`: the actual `write_live_inputs` → `RealProduction::read_live_inputs` path and tests cover the producer/consumer contract. The live-input writer retains I/O; the actual resolver is in the existing Rust build owner. The deleted image `model/live_inputs.rs` leaf is not recreated: consumers import canonical shared records directly where needed, and image-only policy remains with its current owners. No native qualification or change to original signed/raw-byte handling is implied. SIMP-REL-ORDERED-1 source cut is complete in `feb95e50`: the two actual consumers now use the selected direct representations, preserving opaque nested values, existing settings policy, Ignition null-object normalization/array order and raw `live.ign` custody. Its scoped tests and independent medium review pass; no pinned image specimen or native/installed qualification is claimed. SIMP-INSTALL-OCI-1 source cut is complete in `6f4a72d7`; native/installed qualification remains open. See the finding receipt.
 
 ## rust/soda-release-build/src/files.rs
 
@@ -328,7 +328,7 @@ Open detail: Update current callers directly. JSON01 specifies duplicate/fold/nu
 
 Observed size: 451 lines, including tests where embedded. JSON01 replaces the custom JSON grammar and recursive byte emitter with locked serde/serde_json. Keep narrow strict/lenient DTO profiles where actual callers need duplicate, folded-name, null and unknown-field rules. Preserve original authenticated input bytes and the explicitly required producer representation; do not recreate a general Go JSON API around serde.
 
-No shared emitter target remains: the complete release-build `json_emit` engine was retired in `5186c2eb`; current producers use standard Serde at their actual owners ([SIMP-REL-EMIT-1 source disposition](../execution-findings.md#implemented-source-follow-ups-2026-10-08)). Bounded input remains in `lib/soda-release-build/src/json_input.rs` under the preceding `files.rs` allocation.
+No shared emitter target remains: the complete release-build `json_emit` engine was retired in `5186c2eb`; current producers use standard Serde at their actual owners (SIMP-REL-EMIT-1 source disposition). Bounded input remains in `lib/soda-release-build/src/json_input.rs` under the preceding `files.rs` allocation.
 
 Evidence: 14-122: FieldError/Fields lenient extraction;125-312: Strict/json_kind/type and unknown-field diagnostics; 315-389: Emit/sorted_object/marshal_indent/emit_indent/emit_value; 390-451: four existing unit cases; coreos.rs,coreos_stream.rs,files.rs,forgejo.rs,production.rs import these real semantics
 
@@ -374,7 +374,7 @@ Open detail: Preserve completed package/caller changes. SYS01 replaces hand-pars
 
 ## rust/soda-release-build/src/progress.rs
 
-Observed size: 857 lines, including embedded tests. The current [D03 audit](../reviews/D03.md)
+Observed size: 857 lines, including embedded tests. The current D03 audit
 and A's independent source/caller challenge identify this mirrored progress,
 BuildExecution and SharedBuffer closure as obsolete: it has only its own tests
 and the two exclusive progress/exit oracle cases as consumers. Retire it and its
@@ -502,7 +502,7 @@ Evidence: 24-213 Image/Payload and validation/decode; 214-262 decode_opt_* / dec
 
 Open detail: Preserve crate::payload public names, build decoding last-wins behavior versus strict document callers, and exact load errors/digest checks. Use #[cfg(test)] mod tests; src/payload.rs + src/payload/tests.rs is an ordinary Rust module/descendant pair.
 
-SIMP-INSTALL-OCI-1 is source complete in `6f4a72d7`; the installed consumers remain [`cmd/soda-install/src/deliver.rs`](../../../../cmd/soda-install/src/deliver.rs), [`cmd/soda-install/src/oci/metadata.rs`](../../../../cmd/soda-install/src/oci/metadata.rs), [`cmd/soda-install/src/oci/layout.rs`](../../../../cmd/soda-install/src/oci/layout.rs) and `inspection.rs`. The release-image producer [`model/payload.rs`](../../../../lib/soda-release-image/src/model/payload.rs) owns its required PascalCase payload; `payload_stage::seal_candidate_payload` owns pre-write validation and private `0600` LF custody. The source cut uses direct typed installer records, preserving authenticated original payload/blob bytes and hashes, and OCI v1.1.1 required/optional-field rules with tolerated extensions. Strict UTF-8 precedes parsing; `IgnoredAny` plus complete EOF handles discarded-`Value` syntax in `copy_oci_blob`. It retains 4 MiB per retained JSON body and 32 MiB Loader retained-body cache; rejection follows insertion of the final body, so transient allowance may include one extra body (up to 4 MiB), not a strict peak-memory cap. Larger layer blobs still stream/hash under separate descriptor/layer limits. The test-only edge exercises current `model::Payload` Serialize → `deliver::load`; sealer custody remains source-inspected. The exact tagged Skopeo source was unavailable; no native fixture or installed qualification is claimed. Adjacent image-import, Muse and release-deliver decoder cuts remain separate. See the [finding receipt](../execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
+SIMP-INSTALL-OCI-1 is source complete in `6f4a72d7`; the installed consumers remain [`cmd/soda-install/src/deliver.rs`](../../../../cmd/soda-install/src/deliver.rs), [`cmd/soda-install/src/oci/metadata.rs`](../../../../cmd/soda-install/src/oci/metadata.rs), [`cmd/soda-install/src/oci/layout.rs`](../../../../cmd/soda-install/src/oci/layout.rs) and `inspection.rs`. The release-image producer [`model/payload.rs`](../../../../lib/soda-release-image/src/model/payload.rs) owns its required PascalCase payload; `payload_stage::seal_candidate_payload` owns pre-write validation and private `0600` LF custody. The source cut uses direct typed installer records, preserving authenticated original payload/blob bytes and hashes, and OCI v1.1.1 required/optional-field rules with tolerated extensions. Strict UTF-8 precedes parsing; `IgnoredAny` plus complete EOF handles discarded-`Value` syntax in `copy_oci_blob`. It retains 4 MiB per retained JSON body and 32 MiB Loader retained-body cache; rejection follows insertion of the final body, so transient allowance may include one extra body (up to 4 MiB), not a strict peak-memory cap. Larger layer blobs still stream/hash under separate descriptor/layer limits. The test-only edge exercises current `model::Payload` Serialize → `deliver::load`; sealer custody remains source-inspected. The exact tagged Skopeo source was unavailable; no native fixture or installed qualification is claimed. Adjacent image-import, Muse and release-deliver decoder cuts remain separate. See the finding receipt.
 
 ## rust/soda-release-deliver/src/publish.rs
 
@@ -512,7 +512,7 @@ Observed size: 533 lines, including tests where embedded. Ledger state and chann
 - `lib/soda-release-deliver/src/publish/ledger.rs` — Ledger type/decode/validation/emission, phase rule and explicit private init_ledger.
 - `lib/soda-release-deliver/src/publish/channel.rs` — Protected channel history/offer admission, anonymous tag observation, prior-channel verification and tag promotion.
 
-D09-E3 source retirement is complete in `65c12153`; the actual publish/channel/ledger history path remains with these owners. Current evidence and still-open C10.C/Q7 gates are recorded in the [execution finding](../execution-findings.md#rank-2-costly-boundary-and-profile-decisions).
+D09-E3 source retirement is complete in `65c12153`; the actual publish/channel/ledger history path remains with these owners. Current evidence and still-open C10.C/Q7 gates are recorded in the execution finding.
 
 Library boundary: JSON01 replaces ledger codec mechanics, and FS01/TMP01 replace typed file/temporary allocation mechanics. Keep lock custody, pending uncertainty, immutable upload, optional promotion, observation and durable completion in the same operation. REL01 delegates document.rs's new delivery-document tar production to tar Builder with explicit deterministic metadata. Existing authenticated archive bytes remain untouched during reading; new descriptor hashes bind newly emitted bytes. Historical Go checksum-field bytes are not an independent requirement.
 

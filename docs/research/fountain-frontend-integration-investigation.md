@@ -42,12 +42,6 @@ Credential-enrollment/configuration pages and states requiring product writes or
 new model calls were excluded. Native forms and many ordinary pages remain
 readable; the evidence does not support declaring every native template broken.
 
-Private captures, probes, override inventory and consultation receipts are in
-ignored `.artifacts/screenshots/installed-1791812068278/` and
-`.artifacts/frontend-investigation-20261012/`. No runtime patch, installation,
-service restart, Project lifecycle operation or execution-provider call forms
-part of this investigation.
-
 ## Actual shell ownership
 
 | Responsibility | Current implementation |
@@ -337,22 +331,9 @@ actual native lifecycle proof. Fountain owns the generic capability; Soda owns
 its product fixes and consumer simplification. Production qualification and
 execution-provider calls are separate from these frontend checks.
 
-Three corrected, independently reworded Jev consultations with actual
-`jev-1.13.0` responses favor native documents at probabilities 0.99, 0.97 and 0.75.
-The last confidence is 0.69, with 0.13 for persistent native navigation and 0.11
-undetermined. Their independent review confirms equivalent facts/alternatives
-and distinguishes native shell ownership from document-loading semantics.
-The first consultation set was retained and superseded because explanatory
-snippet prose was reused. These judgments provide advice; they supply no
-requirement authority, software proof or explanation of the wording sensitivity.
-
-The subsequent responsibility review preserves the existing object guarantee and
-selects the Fountain-owned native persistent capability. Its corrected fresh Jev
-triplet favors that direction at 1.00, 1.00 and 0.89, with 0.11 insufficient in
-the third result. Receipts and independent wording/equivalence review are retained
-in `.artifacts/fountain-frontend-boundary-20261012/`. This advice reinforces the
-ownership direction, not implementation feasibility; a generic host proof comes
-before consumer migration or whole-site conversion.
+Fountain owns native persistence and lifecycle capabilities; Soda consumes them
+through the existing product boundary. Prove the generic host behavior before
+consumer migration or whole-site conversion.
 
 ## Minimum acceptance for the correction
 

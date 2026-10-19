@@ -81,7 +81,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |
 | [Factory capability map](research/factory-capability-map.md) | Source assessment of target requirements, existing capabilities, gaps and Soda/Fountain/upstream ownership |
 | [Library reuse investigation](research/library-reuse-investigation.md) | Completed generic-infrastructure assessment; selected work lives in the existing implementation plan |
-| [Library reuse coverage](research/library-reuse-coverage.md) | Scope, finding ownership and evidence limits for that investigation |
+| Library reuse coverage | Scope, finding ownership and evidence limits for that investigation |
 | [Fountain frontend investigation](research/fountain-frontend-integration-investigation.md) | Native shell ownership, installed frontend failures, terminal lifetime constraints and correction boundaries |
 | [Licensing](research/licensing.md) | License and attribution notes |
 | [Predecessor reuse](research/predecessor-reuse.md) | Selected reuse attribution |

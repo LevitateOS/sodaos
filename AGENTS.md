@@ -24,6 +24,13 @@ Preserve correctness, permissions, evaluation order, atomicity and failure/recov
   work, source checks and full acceptance. Never infer execution from dispatch or invent
   completion percentages. Save coherent completed work at safe boundaries.
 
+- Keep process artifacts out of the repository, including ignored directories:
+  no JEV requests/responses/receipts, consultation transcripts, review ledgers,
+  audit inventories or execution-status reports. Summarize useful conclusions in
+  chat; record only resulting technical decisions in the existing owning docs.
+  If a tool needs temporary consultation files, use scratch outside the checkout
+  under `/home` and remove them when finished.
+
 ## Scope and protection
 
 - Work in the canonical `~/Projects/sodaos` checkout; no worktrees unless requested.
@@ -92,5 +99,6 @@ before provisioning, activation, VM or installed checks; these can change real s
 
 Only when explicitly requested, consult Jev/SystemOne with complete supplied context:
 it cannot research. Make three fresh, semantically equivalent consultations with rewritten
-prose and unchanged technical facts; retain requests/responses, investigate disagreements,
-and treat agreement as advice rather than proof. This grants no external-call permission.
+prose and unchanged technical facts; investigate disagreements and treat agreement as
+advice rather than proof. Keep the three consultations; do not create receipts
+or a wording/equivalence report. This grants no external-call permission.

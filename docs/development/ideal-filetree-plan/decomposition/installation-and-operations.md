@@ -9,7 +9,7 @@ historical source spans below remain evidence; completed structural extractions
 remain completed. Replace each selected generic engine at its actual caller
 boundary, retaining Soda admission, descriptor custody and operation ordering.
 Check dependency resolution, offline cache, artifact toolchains and raw-byte
-fixtures at the [readiness gates](../library-adoption.md#readiness-gates) before
+fixtures at the [focused verification](../library-adoption.md#verification) before
 large cutovers; do not add a second compatibility implementation.
 
 ## rust/soda-activate/src/main.rs

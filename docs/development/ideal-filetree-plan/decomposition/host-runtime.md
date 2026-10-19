@@ -22,7 +22,7 @@ supersedes pending extraction of the generic engines identified below. Existing
 completed concern modules remain useful locations for Soda adapters; historical
 source ranges and test maps remain provenance, not instructions to preserve an
 engine or every Go/Python parser quirk. The
-[library contracts](../library-adoption.md#library-contracts) own retained boundary rules; [readiness gates](../library-adoption.md#readiness-gates) own the
+[library contracts](../library-adoption.md#library-contracts) own retained boundary rules; [focused verification](../library-adoption.md#verification) own the
 small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |
@@ -190,7 +190,7 @@ Retire `stream_table_flows` (`4561–4584`) and the private-terminal predicate
 assertions (`4586–4591`). Keep `private_request_matrix`'s identity assertions
 (`4592` onward), current frame/metadata/identity/attachment tests and the live
 gmux lifetime owner. Do not delete NativeAttach or terminal transport behavior.
-See [S05](../reviews/S05.md) and [H01-F3](../reviews/H01.md#h01-f3-terminal-output-read-owns-the-mutex-needed-for-input-and-expiry)
+See S05 and H01-F3
 for the separate live transport ownership defect. Source and tests remain
 unchanged; this paragraph refines the desired allocation only.
 
@@ -222,16 +222,16 @@ production API exposed solely for tests is required.
 
 Keep each test attribute with its full function. The fixture and mock modules
 use only the internal visibility justified by actual callers. C's independent
-allocation challenge remains in [F08](../reviews/F08.md); this is a concrete
+allocation challenge remains in F08; this is a concrete
 candidate partition, not executed lifecycle or installed qualification.
 
 ## Current factory Muse and shared lifecycle allocation
 
 The connected source review at `f7e9cf9db616f93de351dd44c9bb7456feb608b9`
 accounts for the active `rust/soda-host/src/tmuse.rs` and `tfactory.rs`, which
-the earlier physical split omitted. [I09](../reviews/I09.md) records provider
-semantics; [I04](../reviews/I04.md), [I05](../reviews/I05.md) and
-[I06](../reviews/I06.md) record related enrollment, lease and lifecycle duties.
+the earlier physical split omitted. I09 records provider
+semantics; I04, I05 and
+I06 record related enrollment, lease and lifecycle duties.
 Both remain Rust in the existing `soda-host` process and `lib/host` crate.
 The module splits add no service, database or authority boundary.
 
@@ -286,8 +286,8 @@ compilation or installed execution.
 The current 3,089-line `rust/soda-host/src/tcodex.rs` contains both-family
 models and native mechanics used by `tfactory.rs`, `tmuse.rs`, `pfactory.rs`
 and `dbackend.rs`. Its filename does not establish Codex ownership.
-[F07](../reviews/F07.md), [F08](../reviews/F08.md) and
-[F09](../reviews/F09.md) record the primary inspection and independent challenge;
+F07, F08 and
+F09 record the primary inspection and independent challenge;
 the coordinator inspected the defining units and actual shared callers.
 The following allocation supersedes the historical Codex ranges. All owners
 remain Rust in the existing `soda-host` crate/Service and process; they add no
@@ -331,7 +331,7 @@ establish compilation, native stop/return/export or installed provider behavior.
 
 ## Current Project operations adapter allocation
 
-[P12](../reviews/P12.md) inspected all of the active
+P12 inspected all of the active
 `rust/soda-host/src/pops.rs` (286 lines) and its actual
 `tests/pops_oracle.rs` (870 lines), including duties owned by other Project
 slices. Retain the thin `Ops` adapter, borrowed `Runtime` and current request
@@ -659,7 +659,7 @@ Evidence: 26-64,756-907: trim_ws, parse_public_key/parse_key_text/scan_options/p
 
 ## rust/soda-host/src/tailnet_companion.rs
 
-Current `f7e9cf9d` retirement: the private `#[allow(dead_code)] podman` method at 394–398 has no caller in the actual source census. Exclude precisely that attribute/method from the proposed execute module. Retain the enclosing Companion, `runtime_command` from 400, live `runtime_podman` and their secret-safe error handling. The production and independent reviewers challenged this scope in [N06](../reviews/N06.md); no whole-file retirement or additional process is implied.
+Current `f7e9cf9d` retirement: the private `#[allow(dead_code)] podman` method at 394–398 has no caller in the actual source census. Exclude precisely that attribute/method from the proposed execute module. Retain the enclosing Companion, `runtime_command` from 400, live `runtime_podman` and their secret-safe error handling. The production and independent reviewers challenged this scope in N06; no whole-file retirement or additional process is implied.
 
 Observed size: 2188 lines, including tests where embedded. The 1,111-line production companion module combines incarnation proof, process execution, state reconciliation/start, enrollment key consumption, confirmed logout/stop, and user-facing observation. Split these existing phases within the host crate while retaining one Companion executor and TailnetControl authority boundary. Keep repeated runtime/resolver/namespace checks at their current lifecycle points. Its 1,075-line test module needs the same concern grouping: existing fixture/mock scaffolding, identity/record cases, lifecycle cases, and view/action cases.
 

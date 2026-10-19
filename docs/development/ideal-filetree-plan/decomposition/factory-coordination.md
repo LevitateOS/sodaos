@@ -13,7 +13,7 @@ transaction; the six typed entrypoints preserve their separate policy, operator,
 capacity, sponsorship, connection-budget and environment duties. Private SQL
 helpers reuse the database/transaction executor without exporting raw SQL.
 
-The [current responsibility map](../coverage/maps/backend-store.md)
+The current responsibility map
 assigns disjoint fields/cases and shared mechanics to their existing slices.
 Control retains principal admission and external cancellation after commit.
 No extra package, runtime, generic Store API or split is selected merely to
@@ -91,7 +91,7 @@ These are source-fit allocations. Moving definitions does not resolve workflow
 defects or prove execution. The later F07-F1 source correction remains at the
 existing Store packet owner, with `factory_dispatch_authority_test.go` and the
 controller wait test; the other F07/F08 findings retain their separate scope
-and prerequisites in [the execution allocation](../execution-findings.md).
+and prerequisites in the execution allocation.
 
 Observed size: 742 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 
@@ -189,7 +189,7 @@ Current size at f7: 650 production lines. Keep the same Go package, exported con
 - `internal/factory/control/merge_evidence.go` — Exact snapshot, authority and completion observation.
 - `internal/factory/control/merge_withdraw.go` — Repository/acceptance cancellation and withdrawal ordering.
 
-Current defining fit: merge.go retains interface/report/pass/open-row1–150, common error classification506–518 and CAS/finish628–650. merge_reconcile.go owns reconciliation comments151–153 plus complete function154–307, receipt adoption443–462 and observation/outcome conversion600–627. merge_evidence.go owns evidence comments309–315/function316–384, authority386–431, work433–441 and completion comments463–466/function467–504. merge_withdraw.go owns complete cancellation wrappers, bounded cancellation and withdrawal519–599. Blank separators travel with their adjoining units. The coordinator independently inspected the whole current file and actual callers; [F12](../reviews/F12.md) records the primary and native-boundary challenges. Preserve check-before-open, lookup/adoption before fresh write authority, immutable intent persistence before submit, the gate recheck, same-identity cancellation and separate native completion. F12-F1 requires genuine result-reachability proof at the existing native boundary; deleting the current equality alone cannot establish it. No native protocol or merge engine is invented by this split.
+Current defining fit: merge.go retains interface/report/pass/open-row1–150, common error classification506–518 and CAS/finish628–650. merge_reconcile.go owns reconciliation comments151–153 plus complete function154–307, receipt adoption443–462 and observation/outcome conversion600–627. merge_evidence.go owns evidence comments309–315/function316–384, authority386–431, work433–441 and completion comments463–466/function467–504. merge_withdraw.go owns complete cancellation wrappers, bounded cancellation and withdrawal519–599. Blank separators travel with their adjoining units. The coordinator independently inspected the whole current file and actual callers; F12 records the primary and native-boundary challenges. Preserve check-before-open, lookup/adoption before fresh write authority, immutable intent persistence before submit, the gate recheck, same-identity cancellation and separate native completion. F12-F1 requires genuine result-reachability proof at the existing native boundary; deleting the current equality alone cannot establish it. No native protocol or merge engine is invented by this split.
 
 ## internal/factory/control/merge_native_test.go
 
