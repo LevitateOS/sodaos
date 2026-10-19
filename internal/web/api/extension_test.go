@@ -177,6 +177,8 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodPost, "/factory/feed", false},
 		{http.MethodGet, "/factory/feed/unknown", false},
 		{http.MethodGet, "/applications", true},
+		{http.MethodPost, "/applications/a111111111111111111111111/project", true},
+		{http.MethodGet, "/applications/a111111111111111111111111/project", false},
 		{http.MethodPost, "/applications", true},
 		{http.MethodGet, "/applications/a111111111111111111111111", true},
 		{http.MethodPost, "/applications/a111111111111111111111111/actions", true},

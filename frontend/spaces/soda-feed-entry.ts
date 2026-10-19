@@ -20,8 +20,9 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   content.className = 'soda-feed-page';
   root.append(content);
   const prefix = nativeAppSubUrl(context);
-  const repository = context.repositoryId ?? '';
   const applications = context.pageId === 'applications';
+  const repository =
+    context.repositoryId ?? (applications ? (new URLSearchParams(location.search).get('repository') ?? '') : '');
   const global = context.pageId === 'feed' || applications;
   const parts = location.pathname.slice(prefix.length).split('/').filter(Boolean);
   const name = global ? undefined : parts.slice(0, 2).map(decodeURIComponent).join('/');
@@ -34,7 +35,9 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
           <nav aria-label="Project navigation">
             ${name ? html`<a href=${`${prefix}/${name}`}>Repository ↗</a><a href=${`${prefix}/${name}/issues`}>Issues</a><a href=${`${prefix}/workspace/new?repository=${repository}`}>New work</a>` : ''}
             <a href=${`${prefix}/workspace`}>Projects</a>
-            <a href=${`${prefix}/applications`}>Applications</a>
+            <a href=${`${prefix}/applications${!global && repository ? '?repository=' + repository : ''}`}
+              >${applications && repository ? 'All applications' : 'Applications'}</a
+            >
             ${!global ? html`<a href=${`${prefix}/feed`}>Following</a>` : ''}
             <soda-providers .transport=${visible ? transport : undefined}></soda-providers>
           </nav>
@@ -55,6 +58,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
                 .active=${visible}
                 .sessionKey=${transport.generation}
                 .expanded=${true}
+                .repository=${repository}
               ></soda-applications>`
             : html`<soda-factory-feed
                 .context=${visible ? {transport, repository, repositoryName: name, global} : undefined}

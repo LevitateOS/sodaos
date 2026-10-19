@@ -106,7 +106,12 @@ function observation(value: unknown, application: ApplicationSpec): ApplicationO
   if (value === null) return null;
   const o = object(value);
   check(observationReferences(o, application));
-  check((sha(o.container) || (o.container === '' && o.running === false && o.ready === false)) && typeof o.running === 'boolean' && typeof o.ready === 'boolean' && (!o.ready || o.running));
+  check(
+    (sha(o.container) || (o.container === '' && o.running === false && o.ready === false)) &&
+      typeof o.running === 'boolean' &&
+      typeof o.ready === 'boolean' &&
+      (!o.ready || o.running)
+  );
   return {
     id: application.id,
     revision: application.revision,
@@ -120,11 +125,21 @@ function observation(value: unknown, application: ApplicationSpec): ApplicationO
 export function applicationResponse(value: unknown, expected?: ApplicationSpec): ApplicationRecord {
   const v = object(value),
     application = spec(v.application);
-  check((Object.keys(v).length === 4 || Object.keys(v).length === 5) && id(v.administrator_id) && typeof v.operator === 'boolean');
+  check(
+    (Object.keys(v).length === 4 || Object.keys(v).length === 5) &&
+      id(v.administrator_id) &&
+      typeof v.operator === 'boolean'
+  );
   let project: ApplicationRecord['project'];
   if (v.project !== undefined) {
     const p = object(v.project);
-    check(id(p.repository) && typeof p.name === 'string' && typeof p.path === 'string' && p.path === '/' + p.name && !/[?#\\\s]/.test(p.path));
+    check(
+      id(p.repository) &&
+        typeof p.name === 'string' &&
+        typeof p.path === 'string' &&
+        p.path === '/' + p.name &&
+        !/[?#\\\s]/.test(p.path)
+    );
     project = {repository: p.repository, name: p.name, path: p.path};
   }
   if (expected) check(JSON.stringify(application) === JSON.stringify(expected));
@@ -138,11 +153,7 @@ export function applicationResponse(value: unknown, expected?: ApplicationSpec):
 }
 export function applicationsResponse(value: unknown): {applications: ApplicationRecord[]; complete: boolean} {
   const v = object(value);
-  check(
-    Object.keys(v).length === 2 &&
-      Array.isArray(v.applications) &&
-      typeof v.complete === 'boolean'
-  );
+  check(Object.keys(v).length === 2 && Array.isArray(v.applications) && typeof v.complete === 'boolean');
   const applications = v.applications.map((item) => applicationResponse(item));
   check(new Set(applications.map((item) => item.application.id)).size === applications.length);
   return {applications, complete: v.complete};

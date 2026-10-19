@@ -15,6 +15,28 @@ func applicationFixture() application.Record {
 	return application.Record{Application: application.Spec{ID: "a" + strings.Repeat("1", 24), Revision: 1, Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("7", 24), OwnerTeam: "12345678-1234-1234-1234-123456789abc", Origin: "https://app.example.test", Port: 20001}, AdministratorID: 41}
 }
 
+func TestApplicationProjectAssociationNeedsTheApplicationAdministrator(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	record := applicationFixture()
+	if err := s.CreateApplication(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetApplicationProject(ctx, record.Application.ID, 42, 7); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("another account changed project: %v", err)
+	}
+	if err := s.SetApplicationProject(ctx, record.Application.ID, 41, 7); err != nil {
+		t.Fatal(err)
+	}
+	repository, err := s.ApplicationProject(ctx, record.Application.ID)
+	if err != nil || repository != 7 {
+		t.Fatalf("source project lost: %d %v", repository, err)
+	}
+	if _, err = s.Application(ctx, record.Application.ID, 42); !errors.Is(err, ErrNotFound) {
+		t.Fatal("project link expanded application permission")
+	}
+}
+
 func TestApplicationPersistenceAndAdministration(t *testing.T) {
 	s, dsn := postgresFixture(t, nil)
 	ctx := context.Background()
