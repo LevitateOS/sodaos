@@ -84,6 +84,8 @@ impl<E: Executor> super::Runtime<E> {
             "--label".to_string(),
             format!("org.soda.creation-profile={encoded}"),
             "--pull=never".to_string(),
+            "--volume".to_string(),
+            "/var/lib/soda/dashboard/factory-ipc:/run/soda/factory-ipc:ro".to_string(),
         ];
         if !self.config.muse_socket.is_empty() {
             args.push("--volume".to_string());

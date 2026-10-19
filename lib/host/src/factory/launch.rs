@@ -136,6 +136,15 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 }
             },
         );
+        if let Some(mcp) = &req.mcp {
+            if self
+                .terminal
+                .stage_mcp(&lease.with_binding(&binding), mcp, run_deadline)
+                .is_err()
+            {
+                return self.stop_failed_start(&receipt, &lease, &binding, deadline);
+            }
+        }
         if let Some(stopped) = self.consume_start(&mut receipt, deadline)? {
             let _ = self
                 .terminal

@@ -5,6 +5,7 @@ pub mod children;
 pub mod codex;
 pub mod lifecycle;
 pub mod mcp_relay;
+mod mcp_stage;
 pub mod muse;
 pub mod native;
 pub mod output;

@@ -6,6 +6,24 @@ use super::mocks::script_success;
 use crate::factory::*;
 
 #[test]
+fn launch_stages_mcp_before_releasing_model_and_keeps_secret_out_of_receipt() {
+    let (dir, factory, _exec, term, broker) = wired_factory("launch-mcp");
+    let mut req = sample_launch();
+    req.mcp = Some(FactoryMCPBinding {
+        capability: "a".repeat(32),
+        secret: "b".repeat(64),
+    });
+    script_success(&term, &broker, &req.run, 0, "done");
+    let state = factory.launch(&req, deadline()).unwrap();
+    assert_eq!(state.phase, "completed");
+    assert_eq!(*term.launch_steps.borrow(), ["mcp", "start"]);
+    assert_eq!(term.mcp_calls.borrow()[0], *req.mcp.as_ref().unwrap());
+    let text = String::from_utf8(receipt_bytes(&dir, &req.run.project, &req.run.id)).unwrap();
+    assert!(!text.contains(&"b".repeat(64)));
+    assert!(!format!("{req:?}").contains(&"b".repeat(64)));
+}
+
+#[test]
 fn launch_success_drives_to_completed() {
     let (dir, factory, _exec, term, broker) = wired_factory("launch-ok");
     let mut req = sample_launch();

@@ -53,6 +53,8 @@ pub(in crate::factory) struct FakeTerminal {
     pub(in crate::factory) muse_sha256: String,
     pub(in crate::factory) reserve: RefCell<VecDeque<Result<Binding, FactoryError>>>,
     pub(in crate::factory) start: RefCell<VecDeque<Result<(), FactoryError>>>,
+    pub(in crate::factory) launch_steps: RefCell<Vec<&'static str>>,
+    pub(in crate::factory) mcp_calls: RefCell<Vec<FactoryMCPBinding>>,
     pub(in crate::factory) wait: RefCell<VecDeque<Result<(i64, String), FactoryError>>>,
     pub(in crate::factory) stop: RefCell<VecDeque<Result<(), FactoryError>>>,
     pub(in crate::factory) stop_unbound: RefCell<VecDeque<Result<(), FactoryError>>>,
@@ -78,6 +80,8 @@ impl FakeTerminal {
             muse_sha256: "e".repeat(64),
             reserve: RefCell::new(VecDeque::new()),
             start: RefCell::new(VecDeque::new()),
+            launch_steps: RefCell::new(Vec::new()),
+            mcp_calls: RefCell::new(Vec::new()),
             wait: RefCell::new(VecDeque::new()),
             stop: RefCell::new(VecDeque::new()),
             stop_unbound: RefCell::new(VecDeque::new()),
@@ -131,6 +135,16 @@ impl FactoryTerminal for FakeTerminal {
             .push((pin.to_string(), max_secs));
         Self::pop(&self.reserve, "reserve")
     }
+    fn stage_mcp(
+        &self,
+        _lease: &Lease,
+        binding: &FactoryMCPBinding,
+        _deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        self.launch_steps.borrow_mut().push("mcp");
+        self.mcp_calls.borrow_mut().push(binding.clone());
+        Ok(())
+    }
     fn start(
         &self,
         _lease: &Lease,
@@ -139,6 +153,7 @@ impl FactoryTerminal for FakeTerminal {
         _deadline: Instant,
         _execution_phase: &str,
     ) -> Result<(), FactoryError> {
+        self.launch_steps.borrow_mut().push("start");
         Self::pop(&self.start, "start")
     }
     fn wait(&self, _lease: &Lease, deadline: Instant) -> Result<(i64, String), FactoryError> {
@@ -342,6 +357,14 @@ impl FactoryTerminal for std::rc::Rc<FakeTerminal> {
         deadline: Instant,
     ) -> Result<Binding, FactoryError> {
         (**self).reserve(run, lease, pin, max_secs, deadline)
+    }
+    fn stage_mcp(
+        &self,
+        lease: &Lease,
+        binding: &FactoryMCPBinding,
+        deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        (**self).stage_mcp(lease, binding, deadline)
     }
     fn start(
         &self,

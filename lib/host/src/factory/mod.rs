@@ -81,12 +81,12 @@ pub use self::run::{
     execution_manifest_required, factory_run_paths, factory_unit_name, max_prompt_for_phase,
     takeover_destination, takeover_source, valid_execution_phase, valid_factory_phase,
     valid_factory_run_id, valid_harness_family, valid_harness_version, FactoryError, FactoryLaunch,
-    FactoryRun, DEFAULT_TASK_CHILDREN, ERR_RUN_NOT_FOUND, ERR_RUN_STALE, EXECUTION_CORRECT,
-    EXECUTION_DECOMPOSE, EXECUTION_IMPLEMENT, EXECUTION_INVESTIGATE, EXECUTION_REASSESS,
-    EXECUTION_REPAIR, EXECUTION_REVIEW, EXECUTION_TERMINAL, EXECUTION_VERIFY, FACTORY_APPROVED,
-    FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE,
-    FACTORY_RUNNING, FACTORY_STATE_ROOT, FACTORY_STOPPED, FACTORY_UNCERTAIN, IDENTITY_FACTORY,
-    MAX_EXECUTION_MANIFEST, MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT,
+    FactoryMCPBinding, FactoryRun, DEFAULT_TASK_CHILDREN, ERR_RUN_NOT_FOUND, ERR_RUN_STALE,
+    EXECUTION_CORRECT, EXECUTION_DECOMPOSE, EXECUTION_IMPLEMENT, EXECUTION_INVESTIGATE,
+    EXECUTION_REASSESS, EXECUTION_REPAIR, EXECUTION_REVIEW, EXECUTION_TERMINAL, EXECUTION_VERIFY,
+    FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_HARNESS_CODEX,
+    FACTORY_HARNESS_MUSE, FACTORY_RUNNING, FACTORY_STATE_ROOT, FACTORY_STOPPED, FACTORY_UNCERTAIN,
+    IDENTITY_FACTORY, MAX_EXECUTION_MANIFEST, MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT,
     MAX_FACTORY_OUTPUT_OFFSET, MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW,
     MAX_FACTORY_PROMPT, MAX_REASSESS_PROMPT, MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
 };
@@ -107,6 +107,16 @@ pub trait FactoryTerminal {
         max_secs: i64,
         deadline: Instant,
     ) -> Result<Binding, FactoryError>;
+    fn stage_mcp(
+        &self,
+        _lease: &Lease,
+        _binding: &FactoryMCPBinding,
+        _deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        Err(FactoryError::Msg(
+            "Factory MCP staging is unavailable".to_string(),
+        ))
+    }
     fn start(
         &self,
         lease: &Lease,

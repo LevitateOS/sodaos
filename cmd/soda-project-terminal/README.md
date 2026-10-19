@@ -26,7 +26,7 @@ validated identity bindings rather than arbitrary caller-selected programs.
 | `project-account` | Reads one JSON request on stdin to provision or confirm a member account; `--status` selects read-only administrator observation. |
 | `project-factory-roles` | Reads one JSON request on stdin to manage the bounded factory roles, approved preparation inputs and supervised work. |
 
-`project-terminal` accepts `prepare ID`, `broker`, `keys`, or the fixed control
+`project-terminal` accepts `prepare ID`, `broker`, `keys`, `factory-mcp`, or the fixed control
 argument shape below. Control actions are `reserve`, `create`, `attach`,
 `inspect`, `list`, `end` and `rename`:
 
@@ -39,6 +39,13 @@ emit JSON metadata; attachment exchanges terminal frames. `broker` consumes a
 bounded JSON subscription request; `keys` consumes a revision-checked key request
 and returns its current revision and public keys. Key changes affect only the
 Soda-managed authorized-keys file for that bound account.
+
+`factory-mcp` carries newline-delimited MCP JSON between the model harness and
+the private Factory socket. Before a worker starts, the host installs its MCP
+configuration and a root-owned credential bound to that run. The relay derives
+that file from the admitted run home; it accepts no socket, URL, role or account
+argument. The server supplies project, role, assignment and permitted tools
+from the capability, and rejects calls after the run is stopped or expires.
 
 `project-account` with no args accepts `login`, `identity`, `admin` and `keys`.
 Provisioning creates or confirms the account, home, managed identity marker and

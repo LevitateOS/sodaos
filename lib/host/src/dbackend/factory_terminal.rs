@@ -84,6 +84,19 @@ impl factory::FactoryTerminal for TerminalSeam {
         };
         out.map_err(factory::FactoryError::Msg)
     }
+    fn stage_mcp(
+        &self,
+        lease: &factory::Lease,
+        binding: &factory::FactoryMCPBinding,
+        deadline: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        binding.validate().map_err(factory::FactoryError::Msg)?;
+        let data = serde_json::to_vec(binding)
+            .map_err(|_| factory::FactoryError::Msg("invalid Factory MCP staging".to_string()))?;
+        self.service()
+            .factory_stage_mcp(&cv_lease_to_texec(lease), &data, deadline)
+            .map_err(factory::FactoryError::Msg)
+    }
     fn start(
         &self,
         lease: &factory::Lease,

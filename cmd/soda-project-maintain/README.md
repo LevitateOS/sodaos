@@ -1,6 +1,6 @@
 # soda-project-maintain
 
-`soda-project-maintain` provides explicit `muse`, `canlang`, `terminal-support`
+`soda-project-maintain` provides explicit `muse`, `canlang`, `factory-mcp`, `terminal-support`
 and `release` operations.
 Muse installs packaged public tools and restores the launch interface.
 Terminal support repairs one admitted helper in an idle retained root.
@@ -67,6 +67,15 @@ for it to be running. It does not start a stopped project.
 
 The project startup service uses `muse --bind-only --project ID` to restore the
 interface after a restart. Full maintenance is an explicit operator action.
+
+The same startup service runs `factory-mcp --project ID` to restore the fixed
+Factory socket directory in retained Projects. It binds
+`/var/lib/soda/dashboard/factory-ipc` at `/run/soda/factory-ipc` read-only, with
+execution, devices and set-ID behavior disabled on that mount. This reuses the
+native mount operation and checks the exact running container before attaching.
+It does not recreate or restart the Project. An existing correct mount is left
+in place. Worker credentials are staged separately per run; access to this
+socket alone grants no Factory tool authority.
 
 ## Inputs and effects
 

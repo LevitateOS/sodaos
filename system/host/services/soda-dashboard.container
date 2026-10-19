@@ -25,6 +25,8 @@ Volume=/run/soda/postgres:/run/soda/postgres:ro,z
 Volume=/run/soda/host.sock:/run/soda/host.sock:ro
 Volume=/run/soda/identity:/run/soda/identity:ro
 Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
+# Only the authenticated worker MCP socket directory is shared with Projects.
+Volume=/var/lib/soda/dashboard/factory-ipc:/var/lib/soda/dashboard/factory-ipc:rw,z
 # Read-only directory FD shares native maintenance admission; private journal
 # contents remain root-only. Keep its host inode and label unchanged.
 Volume=/var/lib/soda/project-maintenance:/var/lib/soda/project-maintenance:ro

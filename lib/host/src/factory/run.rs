@@ -50,6 +50,7 @@ pub const EXECUTION_REPAIR: &str = "repair";
 /// D16 integrated delivery verification (reviewer, read-only, no
 /// publication or children, no candidate).
 pub const EXECUTION_VERIFY: &str = "verify";
+pub const EXECUTION_MAINTAIN_LIBRARY: &str = "maintain_library";
 
 /// `ValidExecutionPhase`: admitted execution phases, including the empty
 /// pre-phase record. Phase is never inferred from role or PR state.
@@ -64,6 +65,7 @@ pub fn valid_execution_phase(phase: &str) -> bool {
             | "reassess"
             | "repair"
             | "verify"
+            | "maintain_library"
     )
 }
 
@@ -320,6 +322,9 @@ impl FactoryRun {
         if self.execution_phase == EXECUTION_VERIFY && self.role != preparation::ROLE_REVIEWER {
             return Err("verify run requires the reviewer role".to_string());
         }
+        if self.execution_phase == EXECUTION_MAINTAIN_LIBRARY && self.role != preparation::ROLE_REVIEWER {
+            return Err("library maintenance run requires the reviewer role".to_string());
+        }
         Ok(())
     }
 
@@ -436,6 +441,34 @@ pub struct FactoryLaunch {
     pub prompt: Vec<u8>,
     pub harness_sha256: String,
     pub execution_manifest: Vec<u8>,
+    pub mcp: Option<FactoryMCPBinding>,
+}
+
+/// A run-scoped transport credential. It is staged privately before launch and
+/// never included in the user prompt, saved run receipt or diagnostic output.
+#[derive(Clone, Deserialize, serde::Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct FactoryMCPBinding {
+    pub capability: String,
+    pub secret: String,
+}
+
+impl fmt::Debug for FactoryMCPBinding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FactoryMCPBinding")
+            .field("capability", &self.capability)
+            .field("secret", &"[redacted]")
+            .finish()
+    }
+}
+
+impl FactoryMCPBinding {
+    pub fn validate(&self) -> Result<(), String> {
+        if !valid_factory_run_id(&self.capability) || !preparation::valid_digest(&self.secret) {
+            return Err("invalid Factory MCP binding".to_string());
+        }
+        Ok(())
+    }
 }
 
 struct PromptBytes(Vec<u8>);
@@ -525,9 +558,19 @@ impl<'de> Deserialize<'de> for FactoryLaunch {
                         }
                         continue;
                     }
+                    if key.eq_ignore_ascii_case("mcp") {
+                        out.mcp = map.next_value::<Option<FactoryMCPBinding>>()?;
+                        continue;
+                    }
                     return Err(de::Error::unknown_field(
                         &key,
-                        &["run", "prompt", "harness_sha256", "execution_manifest"],
+                        &[
+                            "run",
+                            "prompt",
+                            "harness_sha256",
+                            "execution_manifest",
+                            "mcp",
+                        ],
                     ));
                 }
                 Ok(out)
@@ -546,6 +589,9 @@ impl FactoryLaunch {
 impl FactoryLaunch {
     pub fn validate(&self) -> Result<(), String> {
         self.run.validate()?;
+        if let Some(binding) = &self.mcp {
+            binding.validate()?;
+        }
         if self.prompt.is_empty()
             || self.prompt.len() > max_prompt_for_phase(&self.run.execution_phase)
         {

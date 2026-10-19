@@ -43,6 +43,15 @@ pub(crate) fn attach_interface(
 ) -> Result<(), String> {
     // attachLaunchInterface with kind "muse".
     let source = public_socket_directory(muse_socket)?;
+    attach_socket_directory(target, &source, "run/soda-muse-interface", deadline)
+}
+
+pub(crate) fn attach_socket_directory(
+    target: &Observation,
+    source: &str,
+    destination: &str,
+    deadline: Instant,
+) -> Result<(), String> {
     let c = CString::new(source).map_err(|_| go_errno(libc::EINVAL))?;
     let source_fd = unsafe {
         libc::open(
@@ -58,7 +67,7 @@ pub(crate) fn attach_interface(
     let tree = syscall_open_tree(source_fd)?;
     let _tree_guard = FdGuard(tree);
     restrict_interface_mount(tree)?;
-    attach_project_mount(target, tree, deadline)
+    attach_project_mount(target, tree, destination, deadline)
 }
 
 fn syscall_open_tree(source_fd: RawFd) -> Result<RawFd, String> {
@@ -110,10 +119,11 @@ fn restrict_interface_mount(tree: RawFd) -> Result<(), String> {
 fn attach_project_mount(
     target: &Observation,
     tree: RawFd,
+    destination: &str,
     deadline: Instant,
 ) -> Result<(), String> {
     let root = format!("/proc/{}", target.pid);
-    let dest = format!("{root}/root/run/soda-muse-interface");
+    let dest = format!("{root}/root/{destination}");
     let cdest = CString::new(dest).map_err(|_| go_errno(libc::EINVAL))?;
     let target_fd = unsafe {
         libc::open(

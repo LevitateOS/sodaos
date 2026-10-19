@@ -19,6 +19,7 @@ mod account;
 mod b64;
 mod broker;
 mod cgroup;
+mod factory_mcp;
 mod fs;
 mod key_lines;
 mod key_request;
@@ -58,6 +59,7 @@ enum Route {
     Prepare(String),
     Broker,
     Keys,
+    FactoryMCP,
     Control(Vec<String>),
     Bad,
 }
@@ -71,6 +73,9 @@ fn route(argv: &[String]) -> Route {
     }
     if argv.len() == 2 && argv[1] == "keys" {
         return Route::Keys;
+    }
+    if argv.len() == 2 && argv[1] == "factory-mcp" {
+        return Route::FactoryMCP;
     }
     if argv.len() == 11 {
         return Route::Control(argv[1..].to_vec());
@@ -166,6 +171,7 @@ fn run() -> i32 {
         Route::Prepare(identifier) => term::prepare(&identifier),
         Route::Broker => broker::broker_main(),
         Route::Keys => keys::key_main(),
+        Route::FactoryMCP => factory_mcp::main(),
         Route::Control(args) => control_main(&args),
         Route::Bad => emit_closed(),
     }
@@ -206,6 +212,11 @@ mod tests {
         );
         assert_eq!(route(&argv(&["pt", "broker"])), Route::Broker);
         assert_eq!(route(&argv(&["pt", "keys"])), Route::Keys);
+        assert_eq!(route(&argv(&["pt", "factory-mcp"])), Route::FactoryMCP);
+        assert_eq!(
+            route(&argv(&["pt", "factory-mcp", "/other/socket"])),
+            Route::Bad
+        );
         let mut full = vec!["pt".to_string()];
         full.extend(control10());
         assert_eq!(route(&full), Route::Control(control10()));

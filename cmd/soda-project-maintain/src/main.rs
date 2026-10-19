@@ -7,6 +7,7 @@ mod command;
 mod config;
 mod config_validation;
 mod config_wire;
+mod factory_mcp;
 mod filesystem;
 mod importer_custody;
 mod interface;
@@ -68,10 +69,14 @@ fn run(argv: &[String]) -> Result<(), String> {
     }
     match argv.first().map(String::as_str) {
         Some("terminal-support") => return terminal_support::run(&argv[1..]),
+        Some("factory-mcp") => return factory_mcp::run(&argv[1..]),
         Some("canlang") => return canlang::run(&argv[1..]),
         Some("muse") => {}
         _ => {
-            return Err("select muse, canlang, terminal-support or release maintenance".to_string())
+            return Err(
+                "select muse, canlang, factory-mcp, terminal-support or release maintenance"
+                    .to_string(),
+            )
         }
     }
     let o = parse(&argv[1..])?;

@@ -99,6 +99,7 @@ pub(in crate::factory) fn sample_launch() -> FactoryLaunch {
         prompt: b"do the thing".to_vec(),
         harness_sha256: "f".repeat(64),
         execution_manifest: Vec::new(),
+        mcp: None,
     }
 }
 

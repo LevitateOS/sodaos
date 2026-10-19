@@ -124,6 +124,19 @@ fn repair_verify_phase_parity() {
 }
 
 #[test]
+fn library_maintenance_uses_reviewer_without_manifest() {
+    assert!(valid_execution_phase("maintain_library"));
+    assert!(!execution_manifest_required("maintain_library"));
+    let mut run = implement_run_for(&envelope_json().into_bytes());
+    run.execution_phase = "maintain_library".to_string();
+    run.manifest_digest.clear();
+    run.role = "soda-reviewer".to_string();
+    assert!(run.validate().is_ok());
+    run.role = "soda-coder".to_string();
+    assert!(run.validate().is_err());
+}
+
+#[test]
 fn manifest_correct_singleton_refusals() {
     // Correct with child concurrency refuses.
     let with_children = envelope_json().replace("\"phase\":\"implement\"", "\"phase\":\"correct\"");
