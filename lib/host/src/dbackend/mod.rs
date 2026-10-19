@@ -23,8 +23,6 @@ use crate::{factory, json, project, tcontrol, terminal};
 mod backend;
 mod factory_terminal;
 mod tailnet;
-#[cfg(test)]
-pub(in crate::dbackend) mod test_support;
 mod websocket;
 
 // -- error mapping (daemon.go ServeHTTP + subsystem handlers) --

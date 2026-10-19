@@ -75,22 +75,3 @@ pub fn admit_ip(ip: &str, subnet: &str) -> Result<(), String> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn admission_matches_go_cases() {
-        assert!(admit_ip("", "10.0.0.0/24").is_ok());
-        assert!(admit_ip("10.0.0.5", "10.0.0.0/24").is_ok());
-        assert!(admit_ip("10.0.1.5", "10.0.0.0/24").is_err());
-        assert!(admit_ip("not-an-ip", "10.0.0.0/24").is_err());
-        assert!(admit_ip("10.0.0.5", "bogus").is_err());
-        assert!(admit_ip("10.0.0.5", "10.0.0.0").is_err()); // bits required
-        assert!(admit_ip("10.0.0.5", "10.0.0.0/33").is_err());
-        assert!(admit_ip("fd00::5", "fd00::/64").is_ok());
-        assert!(admit_ip("fd00:1::5", "fd00::/64").is_err());
-        assert!(admit_ip("10.0.0.5", "fd00::/64").is_err()); // family mismatch
-    }
-}

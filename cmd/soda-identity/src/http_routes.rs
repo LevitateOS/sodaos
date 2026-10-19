@@ -71,8 +71,12 @@ fn route_enrollment(
     input: &Request,
 ) -> Option<Result<Option<Vec<u8>>, Error>> {
     match path {
-        "/enrollment/list" => Some(controller.enrollments(input.owner_id)
-            .and_then(|items| serde_json::to_vec(&items).map_err(Error::from)).map(Some)),
+        "/enrollment/list" => Some(
+            controller
+                .enrollments(input.owner_id)
+                .and_then(|items| serde_json::to_vec(&items).map_err(Error::from))
+                .map(Some),
+        ),
         "/enrollment/start" => Some(
             controller
                 .start_enrollment(input.owner_id, &input.provider_id, &input.label)

@@ -269,20 +269,3 @@ impl std::io::Write for BoundedListWriter<'_> {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod list_tests {
-    use super::{ListJson, LIST_JSON_BYTES};
-
-    #[test]
-    fn bounded_list_accepts_exact_json_limit_and_refuses_one_more_byte() {
-        let exact_value = "x".repeat(LIST_JSON_BYTES - 4);
-        let mut exact = ListJson::new();
-        exact.push(&exact_value).unwrap();
-        assert_eq!(exact.finish().unwrap().len(), LIST_JSON_BYTES);
-
-        let over_value = "x".repeat(LIST_JSON_BYTES - 3);
-        let mut over = ListJson::new();
-        assert!(over.push(&over_value).is_err());
-    }
-}

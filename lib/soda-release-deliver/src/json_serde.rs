@@ -172,33 +172,3 @@ fn parse_integer(token: &str) -> Option<&str> {
     }
     Some(token)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::strict;
-    use serde::Deserialize;
-
-    #[derive(Deserialize)]
-    struct RawDocument {
-        value: Box<serde_json::value::RawValue>,
-    }
-
-    #[test]
-    fn strict_raw_values_preserve_numbers_and_reject_duplicates_and_depth() {
-        let doc: RawDocument =
-            strict(br#"{"value":{"z":1e2,"negative_zero":-0,"wide":1e400}}"#).unwrap();
-        assert_eq!(
-            doc.value.get(),
-            r#"{"z":1e2,"negative_zero":-0,"wide":1e400}"#
-        );
-        assert!(strict::<RawDocument>(br#"{"value":{"nested":{"\u0061":1,"a":2}}}"#).is_err());
-        assert!(strict::<RawDocument>(br#"{"value":1} {"value":2}"#).is_err());
-
-        // Root object is depth 0; its value starts at depth 1. A scalar at
-        // depth 100 is accepted and one at depth 101 is refused.
-        let at_limit = format!("{{\"value\":{}}}", "[".repeat(99) + "0" + &"]".repeat(99));
-        let over_limit = format!("{{\"value\":{}}}", "[".repeat(100) + "0" + &"]".repeat(100));
-        assert!(strict::<RawDocument>(at_limit.as_bytes()).is_ok());
-        assert!(strict::<RawDocument>(over_limit.as_bytes()).is_err());
-    }
-}

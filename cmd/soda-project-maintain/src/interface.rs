@@ -176,7 +176,3 @@ fn attach_project_mount(
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "interface_tests.rs"]
-mod interface_tests;

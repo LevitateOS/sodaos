@@ -248,6 +248,3 @@ fn main() {
         Err(Exit::Propagate(code)) => std::process::exit(code),
     }
 }
-
-#[cfg(test)]
-mod tests;

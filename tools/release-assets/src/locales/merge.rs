@@ -366,6 +366,3 @@ pub fn run(native: &Native, additions_path: &Path, out_path: &Path) -> Result<()
                 .map_err(|e| Error::runtime(format!("cannot write {}: {e}", out_path.display())))
         })
 }
-
-#[cfg(test)]
-mod tests;

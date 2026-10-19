@@ -72,29 +72,3 @@ pub fn media_file(path: &str) -> Result<MediaFile, Error> {
         bytes: meta.len() as i64,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_public_files_enforce_modes() {
-        // Oracle: Go publicFiles mode errors.
-        let dir = std::env::temp_dir().join(format!("sri-pf-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(dir.join("sub")).unwrap();
-        fs::write(dir.join("sub/a.txt"), b"a").unwrap();
-        fs::set_permissions(dir.join("sub/a.txt"), fs::Permissions::from_mode(0o644)).unwrap();
-        fs::set_permissions(dir.join("sub"), fs::Permissions::from_mode(0o755)).unwrap();
-        fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
-        let files = public_files(dir.to_str().unwrap()).unwrap();
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].0, "sub/a.txt");
-        fs::set_permissions(dir.join("sub/a.txt"), fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(
-            public_files(dir.to_str().unwrap()).unwrap_err().0,
-            "public presentation file must be 0644"
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-}

@@ -4,11 +4,17 @@ use crate::wire::{Enrollment, Error, READY};
 
 impl Controller {
     pub fn enrollments(&self, owner: i64) -> Result<Vec<Enrollment>, Error> {
-        if owner <= 0 { return Err(Error::denied("identity authority denied")); }
+        if owner <= 0 {
+            return Err(Error::denied("identity authority denied"));
+        }
         let ids: Vec<String> = {
             let state = self.lock();
-            state.enrollments.iter().filter(|(_, entry)| entry.owner == owner && entry.session.is_some())
-                .map(|(id, _)| id.clone()).collect()
+            state
+                .enrollments
+                .iter()
+                .filter(|(_, entry)| entry.owner == owner && entry.session.is_some())
+                .map(|(id, _)| id.clone())
+                .collect()
         };
         ids.iter().map(|id| self.enrollment(owner, id)).collect()
     }

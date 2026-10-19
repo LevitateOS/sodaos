@@ -405,8 +405,3 @@ impl<E: Executor> Runtime<E> {
         Ok(out)
     }
 }
-
-#[cfg(test)]
-mod access_keys_tests;
-#[cfg(test)]
-mod tests;

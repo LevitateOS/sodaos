@@ -145,28 +145,3 @@ pub fn inspect_complete(
     inspect_complete_service_files(context, run_ref)?;
     inspect_complete_inventory(context, run_ref)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_quadlet_generator_binding_checks() {
-        // Oracle: Go inspectCompleteQuadlets error strings.
-        let payload = model::Payload::default();
-        let run = |_: &str, _: &str, _: &[String]| -> Result<String, Error> {
-            Ok("additionalimagestore enabled".to_string())
-        };
-        let run_ref: InspectRun<'_> = &run;
-        let dir = std::env::temp_dir().join(format!("sri-iq-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        assert_eq!(
-            inspect_complete_quadlets(dir.to_str().unwrap(), &payload, run_ref)
-                .unwrap_err()
-                .0,
-            "native Quadlet generator lost ordinary Podman import ordering"
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-}

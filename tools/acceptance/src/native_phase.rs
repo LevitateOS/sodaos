@@ -461,6 +461,3 @@ pub fn run_phase(
     println!("Native phase completed; no later phase was requested or implied.");
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

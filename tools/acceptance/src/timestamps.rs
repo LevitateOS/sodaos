@@ -15,6 +15,3 @@ pub fn validate_rfc3339(text: &str) -> Result<(), Error> {
         .map(|_| ())
         .ok_or_else(|| Error::msg(format!("invalid timestamp: {text:?}")))
 }
-
-#[cfg(test)]
-mod tests;

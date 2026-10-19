@@ -24,12 +24,6 @@ pub fn decode_base64(input: &str) -> Result<Vec<u8>, Error> {
         .map_err(|_| Error::msg("invalid base64"))
 }
 
-/// Standard base64 encode, for tests only. Production never emits secrets.
-#[cfg(test)]
-pub fn encode_base64(input: &[u8]) -> String {
-    base64::engine::general_purpose::STANDARD.encode(input)
-}
-
 /// Percent-decode bytes, like Go's `url.PathUnescape`: `+` stays literal,
 /// malformed escapes fail, and non-UTF-8 results are kept as bytes.
 fn percent_decode(input: &str) -> Result<Vec<u8>, Error> {

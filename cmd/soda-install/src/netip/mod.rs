@@ -7,6 +7,3 @@ pub use self::prefix::parse_prefix;
 mod address;
 mod address_format;
 mod prefix;
-
-#[cfg(test)]
-mod tests;

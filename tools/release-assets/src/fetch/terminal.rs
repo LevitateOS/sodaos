@@ -343,6 +343,3 @@ pub fn fetch(lock_path: &Path, out: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

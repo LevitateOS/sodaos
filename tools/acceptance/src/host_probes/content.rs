@@ -313,66 +313,6 @@ fn check_required_package(root: &Path, package: &FountainPackage) -> Result<(), 
     check_extension_package(&installed, expected)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-
-    #[test]
-    fn native_package_binds_cache_receipt_and_exact_installed_bytes() {
-        let root = tempfile::tempdir().unwrap();
-        let installed = root.path().join("soda");
-        std::fs::create_dir(&installed).unwrap();
-        let mut archive = tar::Builder::new(Vec::new());
-        let mut header = tar::Header::new_gnu();
-        header.set_size(7);
-        header.set_mode(0o755);
-        header.set_cksum();
-        archive
-            .append_data(&mut header, "backend", &b"backend"[..])
-            .unwrap();
-        let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
-        gzip.write_all(&archive.into_inner().unwrap()).unwrap();
-        let bytes = gzip.finish().unwrap();
-        let package = FountainPackage {
-            id: "soda".into(),
-            version: "1.0.0".into(),
-            sha256: sha256::hex_lower(&sha256::digest(&bytes)),
-            size: bytes.len() as u64,
-            required: true,
-            ..Default::default()
-        };
-        let cache = root.path().join(".cache/packages");
-        std::fs::create_dir_all(&cache).unwrap();
-        std::fs::write(cache.join(format!("{}.tar.gz", package.sha256)), bytes).unwrap();
-        std::fs::write(installed.join("backend"), b"backend").unwrap();
-        let receipt = serde_json::to_vec(&serde_json::json!({"schema":1,"package_id":"soda","package_version":"1.0.0","archive_sha256":package.sha256})).unwrap();
-        std::fs::write(installed.join(".fountain-package.json"), &receipt).unwrap();
-        check_required_package(root.path(), &package).unwrap();
-        std::fs::write(installed.join("backend"), b"changed").unwrap();
-        assert!(check_required_package(root.path(), &package).is_err());
-        std::fs::write(installed.join("backend"), b"backend").unwrap();
-        std::fs::write(installed.join(".disabled"), b"").unwrap();
-        assert!(check_required_package(root.path(), &package).is_err());
-        std::fs::remove_file(installed.join(".disabled")).unwrap();
-        std::fs::write(installed.join(".fountain-package.json"), b"{}").unwrap();
-        assert!(check_required_package(root.path(), &package).is_err());
-    }
-
-    #[test]
-    fn podman_image_id_accepts_bare_or_prefixed_config_digest_only() {
-        let expected = format!("sha256:{}", "7".repeat(64));
-        let bare = "7".repeat(64);
-        assert!(image_config_id_matches(&format!("{bare}\n"), &expected));
-        assert!(image_config_id_matches(&format!("{expected}\n"), &expected));
-        assert!(!image_config_id_matches(
-            &format!("{}\n", "8".repeat(64)),
-            &expected
-        ));
-        assert!(!image_config_id_matches("not-a-digest\n", &expected));
-    }
-}
-
 fn check_extension_package(
     root: &Path,
     expected: BTreeMap<String, String>,

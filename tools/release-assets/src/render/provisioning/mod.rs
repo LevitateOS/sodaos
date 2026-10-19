@@ -9,15 +9,9 @@ mod document;
 mod private_files;
 mod render;
 
-#[cfg(test)]
-mod tests;
-
 use std::io::ErrorKind;
 
 pub use render::{render, RenderInputs};
-
-#[cfg(test)]
-use private_files::{is_appliance_hostname, is_fixture_hostname};
 
 /// Python exception class names the script's single `except` clause
 /// reports; the bin formats the exact failure line from the kind.

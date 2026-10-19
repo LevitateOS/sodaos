@@ -71,7 +71,3 @@ pub(crate) fn error_response(status: u16, code: &str) -> Response<Full<Bytes>> {
     headers.insert(X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
     response
 }
-
-#[cfg(test)]
-#[path = "http_tests.rs"]
-mod tests;

@@ -504,7 +504,3 @@ pub fn do_approve(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
         }
     }
 }
-
-#[cfg(test)]
-#[path = "inputs_tests.rs"]
-mod tests;

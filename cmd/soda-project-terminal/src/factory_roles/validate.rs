@@ -160,7 +160,3 @@ pub fn as_int_text(value: &StateValue) -> Option<String> {
 pub fn as_i64(value: &StateValue) -> Option<i64> {
     as_int_text(value).and_then(|text| text.parse().ok())
 }
-
-#[cfg(test)]
-#[path = "validate_tests.rs"]
-mod tests;

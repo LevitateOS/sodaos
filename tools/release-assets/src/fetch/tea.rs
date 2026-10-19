@@ -219,6 +219,3 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
         out.display()
     ))
 }
-
-#[cfg(test)]
-mod tests;

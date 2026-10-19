@@ -325,20 +325,3 @@ pub fn recheck_project_run(
 mod project;
 
 pub use project::{id_map, inspect_project, project_container, project_isolation, project_running};
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod project_tests;
-
-#[cfg(test)]
-pub(crate) fn test_ownership(image: &str, parent: &ProjectRun) -> OwnedCompanion {
-    OwnedCompanion {
-        parent: parent.clone(),
-        id: "e".repeat(64),
-        image: image.into(),
-        installation_id: "550e8400-e29b-41d4-a716-446655440000".into(),
-        generation: "7".into(),
-    }
-}

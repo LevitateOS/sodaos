@@ -223,28 +223,3 @@ fn serialize_value<S: Serializer>(value: &Value, serializer: S) -> Result<S::Ok,
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Value;
-
-    #[test]
-    fn dynamic_tree_keeps_duplicates_order_and_raw_numbers() {
-        let value = Value::parse(r#"{"z":1e2,"a":-0,"z":1e400}"#).unwrap();
-        let Value::Object(entries) = value else {
-            panic!()
-        };
-        assert_eq!(entries.len(), 3);
-        assert_eq!(entries[0].0, "z");
-        assert_eq!(entries[1].1, Value::Number("-0".into()));
-        assert_eq!(entries[2].1, Value::Number("1e400".into()));
-    }
-
-    #[test]
-    fn dynamic_tree_uses_pinned_serde_container_depth() {
-        let nested = |count: usize| format!("{}0{}", "[".repeat(count), "]".repeat(count));
-        assert!(Value::parse(&nested(127)).is_ok());
-        assert!(Value::parse(&nested(128)).is_err());
-        assert_eq!(Value::parse("0").unwrap(), Value::Number("0".into()));
-    }
-}

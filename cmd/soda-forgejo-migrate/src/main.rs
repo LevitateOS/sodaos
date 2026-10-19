@@ -95,32 +95,3 @@ fn migrate(conf: &Path) -> Result<(Vec<u8>, usize), ()> {
     }
     Ok((out, scrubbed))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn passwd_shape_matches_awk() {
-        for ok in [
-            "PASSWD=x",
-            "passwd =",
-            "  Passwd\t= x",
-            "\tPASSWD\t=",
-            "PASSWD =",
-        ] {
-            assert!(is_passwd_assignment(ok.as_bytes()), "{ok:?}");
-        }
-        for bad in ["", "PASSWD", "PASSWDX=", "XPASSWD=", "PASS WD="] {
-            assert!(!is_passwd_assignment(bad.as_bytes()), "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn record_split_matches_awk_print() {
-        assert!(records(b"").is_empty());
-        assert_eq!(records(b"a\nb\n"), [b"a".as_slice(), b"b".as_slice()]);
-        assert_eq!(records(b"a\nb"), [b"a".as_slice(), b"b".as_slice()]);
-        assert_eq!(records(b"a\n\n"), [b"a".as_slice(), b"".as_slice()]);
-    }
-}

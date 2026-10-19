@@ -82,12 +82,6 @@ impl Store {
         rows.into_iter().next().ok_or_else(Error::not_found)
     }
 
-    #[cfg(test)]
-    pub(crate) fn simple(&self, sql: &str) -> Result<u64, Error> {
-        let (mut connection, deadline, work_deadline) = self.begin_operation()?;
-        run_simple(self, &mut connection, sql, work_deadline, deadline).map(|()| 0)
-    }
-
     pub(crate) fn transaction<T>(
         &self,
         operation: impl FnOnce(&Tx<'_>) -> Result<T, Error>,
@@ -195,11 +189,6 @@ impl Store {
         let _ = self.runtime.block_on(async {
             let _ = timeout_at(deadline, &mut driver).await;
         });
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_operation_budget_for_test(&mut self, budget: Duration) {
-        self.operation_budget = budget;
     }
 }
 

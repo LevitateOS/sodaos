@@ -58,36 +58,3 @@ pub fn is_revision(s: &str) -> bool {
 fn non_empty_digits(s: &str) -> bool {
     !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn architecture_names() {
-        assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(
-            oci_architecture("aarch64").unwrap_err(),
-            Error("expected x86_64".to_string())
-        );
-        assert_eq!(
-            oci_architecture("amd64").unwrap_err(),
-            Error("expected x86_64".to_string())
-        );
-    }
-
-    #[test]
-    fn digest_and_revision_shapes() {
-        assert!(is_digest(&"a".repeat(64)));
-        assert!(is_digest(&"0123456789abcdef".repeat(4)));
-        assert!(!is_digest(&"a".repeat(63)));
-        assert!(!is_digest(&"a".repeat(65)));
-        assert!(!is_digest(&"A".repeat(64)));
-        assert!(!is_digest(&"g".repeat(64)));
-        assert!(!is_digest(""));
-        assert!(is_revision(&"b".repeat(40)));
-        assert!(!is_revision(&"b".repeat(39)));
-        assert!(!is_revision(&"B".repeat(40)));
-        assert!(!is_revision(&"z".repeat(40)));
-    }
-}

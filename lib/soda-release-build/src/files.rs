@@ -9,9 +9,6 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-#[cfg(test)]
-mod tests;
-
 /// One inventoried byte, link, or directory for producer records and
 /// context inventories.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

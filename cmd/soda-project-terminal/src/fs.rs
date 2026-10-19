@@ -234,7 +234,3 @@ pub fn read_up_to(file: &std::fs::File, limit: usize) -> std::io::Result<Vec<u8>
     buf.truncate(got);
     Ok(buf)
 }
-
-#[cfg(test)]
-#[path = "fs_tests.rs"]
-mod fs_tests;

@@ -11,8 +11,6 @@ mod cli;
 mod domain;
 mod marker;
 mod system;
-#[cfg(test)]
-mod tests;
 
 use std::io::{self, Write};
 

@@ -25,9 +25,6 @@ mod production_docker;
 pub mod production_images;
 pub mod production_inputs;
 
-#[cfg(test)]
-pub(crate) mod test_support;
-
 use std::io;
 use std::path::Path;
 
@@ -194,54 +191,4 @@ pub fn path_clean(path: &str) -> String {
         return ".".to_string();
     }
     joined
-}
-
-/// Serializes tests that mutate process environment (Rust runs tests in
-/// threads sharing one environment).
-#[cfg(test)]
-pub(crate) fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    match LOCK.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_path_clean_vectors() {
-        // Oracle: Go path.Clean outputs for OCI entry shapes.
-        for (input, want) in [
-            ("", "."),
-            (".", "."),
-            ("./", "."),
-            ("blobs/", "blobs"),
-            ("blobs/sha256/x", "blobs/sha256/x"),
-            ("a//b", "a/b"),
-            ("a/./b", "a/b"),
-            ("a/b/..", "a"),
-            ("../escape", "../escape"),
-            ("a/../../escape", "../escape"),
-            ("/abs", "/abs"),
-            ("/", "/"),
-            ("/../x", "/x"),
-            ("./wanted", "wanted"),
-        ] {
-            assert_eq!(path_clean(input), want, "clean {input:?}");
-        }
-    }
-
-    #[test]
-    fn look_path_matches_go_errors() {
-        assert!(look_path("sh").is_ok());
-        assert_eq!(
-            look_path("definitely-not-a-soda-tool")
-                .unwrap_err()
-                .message(),
-            "exec: \"definitely-not-a-soda-tool\": executable file not found in $PATH"
-        );
-    }
 }

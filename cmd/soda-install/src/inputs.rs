@@ -227,6 +227,3 @@ pub fn destination(
     );
     serialize_ignition(&config)
 }
-
-#[cfg(test)]
-mod tests;

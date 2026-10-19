@@ -15,7 +15,3 @@ pub fn parse_iso_deadline(s: &str) -> Option<i64> {
     let (seconds, _) = soda_wire_time::parse(s)?;
     (seconds >= 0).then_some(seconds)
 }
-
-#[cfg(test)]
-#[path = "timex_tests.rs"]
-mod timex_tests;

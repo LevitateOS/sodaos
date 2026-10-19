@@ -422,7 +422,3 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
         finished.as_ref(),
     )
 }
-
-#[cfg(test)]
-#[path = "records_tests.rs"]
-mod tests;

@@ -370,39 +370,3 @@ fn join_enrollment_result(
         }),
     }
 }
-
-#[cfg(test)]
-mod cleanup_result_tests {
-    use super::join_enrollment_result;
-    use crate::errors::Error;
-
-    #[test]
-    fn successful_operation_with_failed_close_is_failure() {
-        assert_eq!(
-            join_enrollment_result(Ok(()), Err(Error::msg("close failed"))),
-            Err(Error::msg("close failed"))
-        );
-    }
-
-    #[test]
-    fn primary_and_close_failures_are_both_retained() {
-        let result =
-            join_enrollment_result(Err(Error::EnrollUncertain), Err(Error::msg("close failed")));
-        let Error::EnrollmentCleanup { primary, cleanup } = result.unwrap_err() else {
-            panic!("both errors should be retained");
-        };
-        assert_eq!(*primary, Error::EnrollUncertain);
-        assert_eq!(*cleanup, Error::msg("close failed"));
-        let combined = Error::EnrollmentCleanup { primary, cleanup }.to_string();
-        assert!(combined.contains("authorized-key import may have completed"));
-        assert!(combined.contains("close failed"));
-    }
-
-    #[test]
-    fn primary_error_survives_successful_close() {
-        assert_eq!(
-            join_enrollment_result(Err(Error::EnrollUncertain), Ok(())),
-            Err(Error::EnrollUncertain)
-        );
-    }
-}

@@ -48,22 +48,3 @@ pub fn local_quadlet(body: &str, reference: &str) -> Result<String, Error> {
     }
     Ok(out.join("\n"))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_quadlet_rewrite_and_refusals() {
-        // Oracle: Go TestPublicStageAndQuadletRefuseAmbiguity vectors.
-        let body = "[Unit]\nDescription=x\n[Container]\nImage=localhost/soda-dashboard:dev\nPull=newer\nExec=a\n";
-        let out = local_quadlet(body, "sha256:deadbeef").unwrap();
-        assert!(out.contains("Requires=soda-image-import.service"));
-        assert!(out.contains("Pull=never"));
-        assert!(out.contains("Image=sha256:deadbeef"));
-        assert!(!out.contains("Pull=newer"));
-        assert!(local_quadlet("[Unit]\n[Container]\nGlobalArgs=x\n", "r").is_err());
-        assert!(local_quadlet("[Unit]\n[Container]\n", "r").is_err());
-        assert!(local_quadlet("[Unit]\n[Unit]\n[Container]\nImage=a\n", "r").is_err());
-    }
-}

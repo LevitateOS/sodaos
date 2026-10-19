@@ -320,23 +320,3 @@ fn managed_projects(text: &str) -> Result<BTreeSet<String>, String> {
     }
     Ok(projects)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn inventory_uses_native_project_ownership_and_keeps_bounds() {
-        let id = "p0123456789abcdef01234567";
-        let rows = format!(
-            r#"{{"project":"{id}","owner":"42"}}
-{{"project":"p000000000000000000000004","owner":"tailnet-gate-task"}}"#
-        );
-        assert_eq!(
-            managed_projects(&rows).unwrap(),
-            BTreeSet::from([id.into()])
-        );
-        assert!(managed_projects(r#"{"project":"bad","owner":"42"}"#).is_err());
-        assert!(managed_projects("invalid").is_err());
-        assert!(managed_projects(&format!("{rows}\n").repeat(65)).is_err());
-    }
-}

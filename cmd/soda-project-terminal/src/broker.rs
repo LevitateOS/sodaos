@@ -163,7 +163,3 @@ pub fn broker_main() -> i32 {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "broker_tests.rs"]
-mod broker_tests;

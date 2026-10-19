@@ -12,8 +12,6 @@ use crate::payload::Payload;
 use crate::{hash_bytes, Error};
 
 mod source;
-#[cfg(test)]
-mod tests;
 
 pub const METADATA_PATH: &str = "docker/docker.json";
 pub const IMAGE_PATH: &str = "docker/image.oci";

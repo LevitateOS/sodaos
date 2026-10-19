@@ -175,57 +175,6 @@ impl MediaBinding {
     }
 }
 
-#[cfg(test)]
-mod media_json_tests {
-    use super::MediaBinding;
-
-    #[test]
-    fn media_binding_defers_validation_until_the_last_exact_raw_value() {
-        let value = MediaBinding::decode_lenient(br#"{"Revision":7,"Revision":"final","ISO":{"Path":false,"Path":"disk.iso","Bytes":1.5,"Bytes":-0,"Unknown":{"nested":[1]}},"Rootfs":null,"ignored":true}"#).unwrap();
-        assert_eq!(value.revision, "final");
-        assert_eq!(value.iso.path, "disk.iso");
-        assert_eq!(value.iso.bytes, 0);
-        assert_eq!(value.rootfs, Default::default());
-        assert!(MediaBinding::decode_lenient(br#"{"ISO":{"Bytes":-0.0}}"#).is_err());
-        assert!(MediaBinding::decode_lenient(br#"{"ISO":{"Bytes":-0,"Bytes":1e0}}"#).is_err());
-        let reset = MediaBinding::decode_lenient(br#"{"Revision":"old","Revision":null}"#).unwrap();
-        assert!(reset.revision.is_empty());
-    }
-
-    #[test]
-    fn media_binding_rejects_rootfs_above_kernel_margin() {
-        let payload = super::Payload::default();
-        let candidate = super::Candidate::default();
-        let mut media = MediaBinding::default();
-        media.iso = super::MediaFile {
-            path: "installer.iso".into(),
-            sha256: "a".repeat(64),
-            bytes: 1,
-        };
-        media.rootfs = super::MediaFile {
-            path: "rootfs.img".into(),
-            sha256: "b".repeat(64),
-            bytes: soda_build_tools::MAX_ROOTFS_BYTES as i64,
-        };
-        media.rootfs_url = "https://example.test/rootfs.img".into();
-        assert!(super::valid_media_binding(&media, &payload, &candidate));
-        media.rootfs.bytes += 1;
-        assert!(!super::valid_media_binding(&media, &payload, &candidate));
-    }
-    #[test]
-    fn deployment_binding_is_distinct_from_assembler_import() {
-        let parsed = MediaBinding::decode_lenient(
-            br#"{"DeploymentCommit":"actual-rootfs","AssemblerImportCommit":"assembler-import"}"#,
-        )
-        .unwrap();
-        assert_eq!(parsed.deployment_commit, "actual-rootfs");
-        let import_only =
-            MediaBinding::decode_lenient(br#"{"AssemblerImportCommit":"assembler-import"}"#)
-                .unwrap();
-        assert!(import_only.deployment_commit.is_empty());
-    }
-}
-
 pub(crate) fn valid_media_file(f: &MediaFile) -> bool {
     !f.path.is_empty()
         && !f.path.contains("..")

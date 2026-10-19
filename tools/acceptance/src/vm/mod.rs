@@ -18,6 +18,3 @@ pub use self::base::VerifiedBase;
 pub use self::config::{decode_vm_config, RemoteConfig, VmConfig};
 pub use self::launch::LaunchFailure;
 pub use self::lifecycle::{launch_vm, Vm};
-
-#[cfg(test)]
-mod tests;

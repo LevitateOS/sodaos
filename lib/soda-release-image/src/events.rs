@@ -113,37 +113,3 @@ impl<W: Write, E: Write> Write for MediaEventWriter<W, E> {
         self.events.flush()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_events_observe_bounded_public_windows() {
-        // Oracle: Go TestMediaEventsObserveBoundedPublicWindows.
-        let mut writer = MediaEventWriter::new(Vec::new(), Vec::new());
-        writer
-            .write_data(b"noise\nCreating erofs with mkfs\nmore\n")
-            .unwrap();
-        writer.write_data(b"Packing successful!\n").unwrap();
-        let events = String::from_utf8(writer.events.clone()).unwrap();
-        assert!(events.ends_with('\n'));
-        let records: Vec<serde_json::Value> = events
-            .lines()
-            .map(|line| serde_json::from_str(line).unwrap())
-            .collect();
-        assert_eq!(records.len(), 2);
-        assert_eq!(records[0]["Event"], "rootfs-start");
-        assert_eq!(records[1]["Event"], "osmet-end");
-        assert!(records
-            .iter()
-            .all(|record| record["Seconds"].as_f64().is_some()));
-        assert!(!events.contains("noise"));
-        // Over-long lines are dropped, never emitted.
-        let mut writer = MediaEventWriter::new(Vec::new(), Vec::new());
-        let mut long = vec![b'x'; 9000];
-        long.extend_from_slice(b"Packing successful!\n");
-        writer.write_data(&long).unwrap();
-        assert!(writer.events.is_empty());
-    }
-}

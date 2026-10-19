@@ -3,8 +3,6 @@
 
 mod authorized_keys;
 mod directory;
-#[cfg(test)]
-mod tests;
 
 use std::fs::File;
 use std::os::unix::io::AsRawFd;

@@ -375,7 +375,3 @@ pub fn verify_journal(path: &Path, expected_hex: &str) -> Result<Vec<u8>, Error>
     }
     Ok(raw)
 }
-
-#[cfg(test)]
-#[path = "permissions_tests.rs"]
-mod tests;

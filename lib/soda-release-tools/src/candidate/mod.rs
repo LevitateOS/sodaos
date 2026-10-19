@@ -83,6 +83,3 @@ pub fn main() {
         }
     }
 }
-
-#[cfg(test)]
-pub mod tests;

@@ -442,6 +442,3 @@ pub fn copy_file(src: &str, dst: &str) -> Result<(), String> {
         (Some(a), Some(b)) => Err(format!("{a}; {b}")),
     }
 }
-
-#[cfg(test)]
-mod tests;

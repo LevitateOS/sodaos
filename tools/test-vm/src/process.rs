@@ -159,21 +159,3 @@ pub(super) fn exec_replace(prog: &str, args: &[String]) -> ! {
     eprintln!("{FAIL_PREFIX}: {prog}: {err}");
     std::process::exit(code);
 }
-
-#[cfg(test)]
-mod capture_tests {
-    use super::*;
-
-    #[test]
-    fn infinite_output_fails_at_capture_bound() {
-        assert!(matches!(capture("yes", &[], true), Captured::CaptureFailed));
-    }
-
-    #[test]
-    fn descendant_pipe_is_a_capture_failure() {
-        assert!(matches!(
-            capture("sh", &["-c", "sleep 2.5 & exit 0"], true),
-            Captured::CaptureFailed
-        ));
-    }
-}

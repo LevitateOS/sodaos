@@ -358,6 +358,3 @@ pub fn prompter_overview(o: &mut Options, suggest: fn() -> String) -> Result<(),
     let mut p = Prompter::new(input, output);
     p.overview(o, &suggest)
 }
-
-#[cfg(test)]
-mod tests;

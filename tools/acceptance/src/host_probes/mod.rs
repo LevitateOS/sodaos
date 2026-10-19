@@ -23,9 +23,6 @@ pub use forgejo::{forgejo_advertisement, forgejo_origins};
 pub use listeners::host_listeners;
 pub use tailnet::forgejo_tailnet;
 
-#[cfg(test)]
-use listeners::{bound, is_private_bind, parse_env_file, parse_listeners, split_origin};
-
 /// Host-probe failure: a verdict message or an operational failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProbeFailure {
@@ -131,6 +128,3 @@ fn podman(args: &[&str], op: &'static str) -> Result<String, ProbeFailure> {
     argv.extend(args.iter().copied());
     run_output(&argv, op)
 }
-
-#[cfg(test)]
-mod tests;

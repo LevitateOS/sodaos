@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::os::unix::io::AsRawFd;
 
@@ -9,19 +7,6 @@ use crate::signal::Ctx;
 use super::{errno_text, trim_space_bytes, Console};
 
 impl Console {
-    #[cfg(test)]
-    pub fn open(path: &str) -> Result<Console, Error> {
-        let tty = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path)
-            .map_err(|e| Error::msg(format!("cannot open operator terminal: {e}")))?;
-        Ok(Console {
-            tty_path: path.to_string(),
-            tty,
-        })
-    }
-
     pub(super) fn fd(&self) -> libc::c_int {
         self.tty.as_raw_fd()
     }

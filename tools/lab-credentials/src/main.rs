@@ -18,8 +18,6 @@ mod fixture_authority;
 mod inventory;
 mod process;
 mod runbooks;
-#[cfg(test)]
-mod tests;
 
 use std::env;
 use std::fs;

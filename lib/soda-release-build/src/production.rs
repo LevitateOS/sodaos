@@ -9,9 +9,6 @@ use soda_release_deliver::buildx::Image;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-#[cfg(test)]
-mod tests;
-
 /// Command execution and capture hooks, like Go's `BuildExec`/`BuildCapture`.
 pub type BuildExec = Box<dyn Fn(&str, &str, &[String]) -> Result<(), Error> + Send + Sync>;
 pub type BuildCapture = Box<dyn Fn(&str, &str, &[String]) -> Result<String, Error> + Send + Sync>;

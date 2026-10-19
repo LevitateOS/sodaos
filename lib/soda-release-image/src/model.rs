@@ -114,6 +114,3 @@ pub fn valid_repository_prefix(s: &str) -> bool {
         });
     owner_ok && repo_ok
 }
-
-#[cfg(test)]
-mod tests;

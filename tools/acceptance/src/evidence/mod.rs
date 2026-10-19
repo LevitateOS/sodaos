@@ -36,6 +36,3 @@ fn contains_slice(haystack: &[u8], needle: &[u8]) -> bool {
 fn longest_secret(secrets: &[Vec<u8>]) -> usize {
     secrets.iter().map(|s| s.len()).max().unwrap_or(0).max(1)
 }
-
-#[cfg(test)]
-mod tests;

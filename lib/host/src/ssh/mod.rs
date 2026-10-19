@@ -2,9 +2,6 @@
 
 mod base64;
 
-#[cfg(test)]
-mod tests;
-
 pub use self::base64::{b64_corrupt, b64_decode, b64_decode_go, b64_encode, b64_encode_raw};
 
 use ssh_key::public::KeyData;

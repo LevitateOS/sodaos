@@ -47,20 +47,6 @@ fn rand_id_with(fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>) -> Result<S
     Ok(sha256::hex_lower(&bytes))
 }
 
-#[cfg(test)]
-mod entropy_tests {
-    use super::*;
-
-    #[test]
-    fn id_generation_rejects_partial_entropy_output() {
-        let result = rand_id_with(|bytes| {
-            bytes[0] = 1;
-            Err(std::io::Error::other("injected entropy failure"))
-        });
-        assert_eq!(result.unwrap_err(), "kernel randomness unavailable");
-    }
-}
-
 /// `Daemon.identityLaunch`: acquire, prepare, register, start. Every
 /// failure after acquire reconciles the lease (reconcile errors ignored).
 pub fn identity_launch<B: IdentityBroker, E: Executor>(

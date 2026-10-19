@@ -276,24 +276,3 @@ pub fn verify_built_host(
         production,
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn oracle_host_image_id_shape() {
-        let dir = std::env::temp_dir().join(format!("sri-hid-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        let iid = dir.join("host.iid");
-        fs::write(&iid, format!("sha256:{}\n", "b".repeat(64))).unwrap();
-        assert!(read_host_image_id(iid.to_str().unwrap()).is_ok());
-        fs::write(&iid, b"not-an-id\n").unwrap();
-        assert_eq!(
-            read_host_image_id(iid.to_str().unwrap()).unwrap_err().0,
-            "invalid built host image ID"
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-}

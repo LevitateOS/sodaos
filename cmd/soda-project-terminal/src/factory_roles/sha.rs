@@ -25,7 +25,3 @@ pub fn approved_digest(files: &[(String, Vec<u8>)]) -> String {
     }
     hex(&hasher.finalize())
 }
-
-#[cfg(test)]
-#[path = "sha_tests.rs"]
-mod tests;

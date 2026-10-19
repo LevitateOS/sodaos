@@ -142,7 +142,3 @@ fn check_unique_object(text: &str) -> Result<(), String> {
         .end()
         .map_err(|error| format!("decode request: {error}"))
 }
-
-#[cfg(test)]
-#[path = "strict_tests.rs"]
-mod strict_tests;

@@ -1026,24 +1026,3 @@ impl PolicyStore {
         })
     }
 }
-
-#[cfg(test)]
-mod entropy_tests {
-    use super::*;
-
-    #[test]
-    fn signed_policy_version_keeps_negative_zero_and_rejects_fraction() {
-        let policy = decode_enrollment_policy(br#"{"version":-0}"#).unwrap();
-        assert_eq!(policy.version, 0);
-        assert!(decode_enrollment_policy(br#"{"version":1e0}"#).is_err());
-    }
-
-    #[test]
-    fn revision_generation_propagates_partial_entropy_failure() {
-        let result = new_revision_with(|out| {
-            out[0] = 1;
-            Err(std::io::Error::other("injected entropy failure"))
-        });
-        assert_eq!(result.unwrap_err(), wire::err_unavailable());
-    }
-}

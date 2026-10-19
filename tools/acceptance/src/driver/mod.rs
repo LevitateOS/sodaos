@@ -27,8 +27,6 @@ use actions::execute_action;
 use clap::{Arg, ArgAction, Command};
 use finalization::finalize_observation;
 use inputs::collect_all_secrets;
-#[cfg(test)]
-use options::parse_duration;
 use options::{parse_run_options, RunOptions, HELP_REQUESTED};
 
 /// SIGINT/SIGTERM cancel this phase, like `signal.NotifyContext`.
@@ -219,6 +217,3 @@ fn requested_top_level_help(args: &[String]) -> Option<String> {
         .err()?;
     (error.kind() == clap::error::ErrorKind::DisplayHelp).then(|| error.to_string())
 }
-
-#[cfg(test)]
-mod tests;

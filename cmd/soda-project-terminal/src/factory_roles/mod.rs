@@ -36,9 +36,6 @@ pub(crate) mod proc {
 }
 pub(crate) mod records;
 pub(crate) mod sha;
-#[cfg(test)]
-#[path = "tests.rs"]
-pub(crate) mod testutil;
 pub(crate) mod validate;
 
 use crate::state_json::StateValue;

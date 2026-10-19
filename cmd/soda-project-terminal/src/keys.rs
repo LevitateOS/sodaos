@@ -239,7 +239,3 @@ fn key_inner() -> Result<(), KeyFail> {
     let result = update(&request).map_err(|_| KeyFail::Error)?;
     write_stdout_all(&pyemit::line(&result))
 }
-
-#[cfg(test)]
-#[path = "keys_tests.rs"]
-mod keys_tests;

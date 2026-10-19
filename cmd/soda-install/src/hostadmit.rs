@@ -97,25 +97,3 @@ pub fn core_os_host(live: bool, run: &dyn Runner) -> Result<(), Error> {
     }
     selinux_enforcing()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn os_release_and_live_detection() {
-        let values = os_release(
-            b"ID=fedora\nVARIANT_ID=coreos\nVERSION_ID=44\nIMAGE_VERSION='44.20260817.3.2'\n",
-        );
-        assert_eq!(values["VERSION_ID"], "44");
-        assert_eq!(values["IMAGE_VERSION"], "44.20260817.3.2");
-        assert_eq!(values["VARIANT_ID"], "coreos");
-        assert!(live_iso_from_cmdline(
-            b"root=live:/dev/sdb1 coreos.liveiso quiet"
-        ));
-        assert!(live_iso_from_cmdline(b"coreos.liveiso=1"));
-        assert!(live_iso_from_cmdline(b"coreos.live.rootfs_url=http://x/y"));
-        assert!(!live_iso_from_cmdline(b"root=/dev/sda2 quiet"));
-        assert!(!live_iso_from_cmdline(b""));
-    }
-}

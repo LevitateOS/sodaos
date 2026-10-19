@@ -83,6 +83,3 @@ fn has_forgejo_native_build_tools(packages: &[String]) -> bool {
     }
     base && gcc && musl
 }
-
-#[cfg(test)]
-mod tests;

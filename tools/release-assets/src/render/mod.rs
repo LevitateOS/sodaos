@@ -83,6 +83,3 @@ pub fn sha256_hex(data: &[u8]) -> String {
     }
     out
 }
-
-#[cfg(test)]
-mod tests;

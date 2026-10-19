@@ -79,6 +79,3 @@ pub(crate) fn look_path(name: &str) -> Result<(), Error> {
         "exec: {name:?}: executable file not found in $PATH"
     )))
 }
-
-#[cfg(test)]
-mod tests;

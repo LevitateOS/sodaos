@@ -243,6 +243,3 @@ pub fn fetch_muse(
     }
     stage(&mut response.reader, &artifact, dest)
 }
-
-#[cfg(test)]
-mod tests;

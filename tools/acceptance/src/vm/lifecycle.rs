@@ -63,8 +63,6 @@ pub fn launch_vm<'a>(
         wait_ssh: true,
         qmp: QmpClient {
             socket: String::new(),
-            #[cfg(test)]
-            dial: None,
         },
         outputs: Vec::new(),
         evidence,
@@ -173,8 +171,6 @@ impl<'a> Vm<'a> {
         self.process = Some(process::start_process(phase, &spec, out, err_writer)?);
         self.qmp = QmpClient {
             socket: format!("{}/qmp.sock", self.config.work),
-            #[cfg(test)]
-            dial: None,
         };
         self.wait_qemu_ready(phase)?;
         self.wait_guest_ssh(phase)

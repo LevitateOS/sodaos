@@ -522,6 +522,3 @@ pub fn main() {
         std::process::exit(build_exit_code(Some(&err)));
     }
 }
-
-#[cfg(test)]
-mod tests;

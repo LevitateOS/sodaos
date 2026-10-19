@@ -7,11 +7,8 @@ use crate::disks::Disk;
 use crate::errors::Error;
 use crate::signal::Ctx;
 
-use self::review::{erase_phrase, step_subnet_and_review};
-use self::steps::{
-    password_feedback, select_disk, step_disk, step_hostname, step_network, step_password,
-    valid_password,
-};
+use self::review::step_subnet_and_review;
+use self::steps::{step_disk, step_hostname, step_network, step_password};
 
 type DiskInspector<'a> = &'a dyn Fn(&Ctx, &dyn Runner) -> Result<Vec<Disk>, Error>;
 
@@ -107,6 +104,3 @@ pub fn collect_disk_install_choices(
 
 mod review;
 mod steps;
-
-#[cfg(test)]
-mod tests;

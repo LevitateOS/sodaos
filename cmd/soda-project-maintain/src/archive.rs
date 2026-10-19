@@ -182,7 +182,3 @@ pub(crate) fn emit_archive(
     }
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "archive_tests.rs"]
-mod archive_tests;

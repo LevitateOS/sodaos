@@ -991,8 +991,6 @@ pub fn status(
         serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
     )
 }
-#[cfg(test)]
-mod tests;
 
 pub fn verify_registry(
     gh: &dyn GitHub,

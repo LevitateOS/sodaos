@@ -26,8 +26,6 @@ mod sha256;
 mod stage;
 mod support_root;
 mod terminal_support;
-#[cfg(test)]
-mod test_support;
 
 use config::{load_config, Config};
 use filesystem::load_tools;

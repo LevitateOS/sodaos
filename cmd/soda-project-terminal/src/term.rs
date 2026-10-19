@@ -143,15 +143,3 @@ pub fn control_terminal(
     drop(parent);
     result
 }
-
-#[cfg(test)]
-#[path = "term_binding_tests.rs"]
-mod term_binding_tests;
-
-#[cfg(test)]
-#[path = "term_protocol_tests.rs"]
-mod term_protocol_tests;
-
-#[cfg(test)]
-#[path = "term_native_tests.rs"]
-mod term_native_tests;

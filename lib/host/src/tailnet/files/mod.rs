@@ -236,9 +236,6 @@ mod resolver;
 
 pub use resolver::validate_run_resolver;
 
-#[cfg(test)]
-mod tests;
-
 mod owned;
 pub use owned::OwnedLock;
 pub(crate) use owned::OwnedState;

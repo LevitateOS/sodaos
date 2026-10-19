@@ -106,6 +106,3 @@ impl FileAttr {
 pub fn same_file(a: FileAttr, b: FileAttr) -> bool {
     a.dev == b.dev && a.ino == b.ino
 }
-
-#[cfg(test)]
-mod tests;

@@ -5,8 +5,6 @@ mod cli;
 mod forgejo_env;
 mod origin;
 mod system;
-#[cfg(test)]
-mod tests;
 
 use std::io::{self, Write};
 

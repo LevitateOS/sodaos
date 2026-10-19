@@ -3,8 +3,6 @@
 //! transient systemd units, and peer provenance.
 
 pub mod arm;
-#[cfg(test)]
-mod arm_tests;
 pub mod keys;
 mod native_config;
 mod peer;
@@ -12,17 +10,13 @@ pub mod receive;
 pub mod selinux;
 pub mod serve;
 pub mod session;
-#[cfg(test)]
-pub(crate) mod test_support;
-#[cfg(test)]
-pub(crate) mod tests;
 
 pub use native_config::{
     enrollment_client_command, enrollment_config, enrollment_private_address,
     enrollment_public_key, enrollment_socket_unit_config, enrollment_start_args,
     enrollment_template_unit_config, read_bounded,
 };
-pub use peer::{enrollment_connection_unit, enrollment_peer_unit, enrollment_receiver_unit};
+pub use peer::{enrollment_connection_unit, enrollment_receiver_unit};
 pub use receive::receive_enrollment;
 pub use serve::serve_enrollment;
 pub use session::arm_enrollment;

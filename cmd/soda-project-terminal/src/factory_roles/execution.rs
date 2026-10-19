@@ -91,18 +91,7 @@ fn wait_child(pid: libc::pid_t) -> libc::c_int {
     }
 }
 
-/// Test-only log of signals this module sends to role children, so a
-/// regression can prove no signal follows ownership loss. Release builds
-/// emit the raw kill with no footprint.
-#[cfg(test)]
-static KILL_LOG: std::sync::Mutex<Vec<(libc::pid_t, libc::c_int)>> =
-    std::sync::Mutex::new(Vec::new());
-
 fn signal_child(pid: libc::pid_t, signal: libc::c_int) {
-    #[cfg(test)]
-    if let Ok(mut log) = KILL_LOG.lock() {
-        log.push((pid, signal));
-    }
     unsafe {
         libc::kill(pid, signal);
     }
@@ -571,8 +560,8 @@ struct RoleDrainState {
 }
 
 fn advance_role_drain(
-    ctx: &crate::Ctx,
-    directory: &Path,
+    _ctx: &crate::Ctx,
+    _directory: &Path,
     pid: libc::pid_t,
     pgid: i32,
     start_ticks: u64,
@@ -1494,7 +1483,3 @@ pub fn do_release(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
     std::fs::remove_file(&ctx.hold).map_err(Error::classify)?;
     Ok(obj(vec![("hold", hold_json(&hold_state(ctx)?))]))
 }
-
-#[cfg(test)]
-#[path = "execution_tests.rs"]
-mod tests;

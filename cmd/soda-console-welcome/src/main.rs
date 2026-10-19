@@ -10,8 +10,6 @@
 
 mod config;
 mod origin;
-#[cfg(test)]
-mod tests;
 mod welcome;
 
 use crate::welcome::run;

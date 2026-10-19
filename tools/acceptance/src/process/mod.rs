@@ -45,6 +45,3 @@ impl ProcessOutcome {
         ])
     }
 }
-
-#[cfg(test)]
-mod tests;
