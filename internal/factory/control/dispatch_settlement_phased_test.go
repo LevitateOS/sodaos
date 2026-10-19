@@ -13,32 +13,9 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// settleSucceededRunFixture stages one dispatched attempt whose host run
-// just settled successfully, before any settlement accounting ran.
 func settleSucceededRunFixture(t *testing.T) (context.Context, *store.Store, factory.Assignment, factory.Run) {
 	t.Helper()
-	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
-	fx := dispatchSeed(t, db)
-	head := fx.accept(t, 3, "d333333333333333333333333")
-	fx.queue(t, 3, head.ID)
-	report := DispatchPass(ctx, fx.deps())
-	if len(report.Launched) != 1 {
-		t.Fatalf("launched = %+v", report.Launched)
-	}
-	a, err := db.Assignment(ctx, report.Launched[0].AssignmentID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	run, err := db.FactoryRun(ctx, report.Launched[0].RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "host says so", true
-	if err := db.SaveFactoryRun(ctx, run); err != nil {
-		t.Fatal(err)
-	}
-	return ctx, db, a, run
+	return settleRunFixture(t, factory.Succeeded, "host says so")
 }
 
 func assertBlockedHuman(t *testing.T, finished factory.Assignment, ok bool) {

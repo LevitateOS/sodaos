@@ -10,9 +10,9 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// settleFailedRunFixture stages one dispatched coder attempt whose host run
-// just settled failed, before any settlement accounting ran.
-func settleFailedRunFixture(t *testing.T) (context.Context, *store.Store, factory.Assignment, factory.Run) {
+// settleRunFixture stages one dispatched coder attempt whose host run just
+// settled with the given outcome, before any settlement accounting ran.
+func settleRunFixture(t *testing.T, outcome factory.Outcome, summary string) (context.Context, *store.Store, factory.Assignment, factory.Run) {
 	t.Helper()
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
@@ -31,7 +31,7 @@ func settleFailedRunFixture(t *testing.T) (context.Context, *store.Store, factor
 	if err != nil {
 		t.Fatal(err)
 	}
-	run.Outcome, run.Summary, run.Reconciled = factory.Failed, "host says so", true
+	run.Outcome, run.Summary, run.Reconciled = outcome, summary, true
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func settleFailedRunFixture(t *testing.T) (context.Context, *store.Store, factor
 // one finished assignment and one charge. The loser replays safely instead
 // of double-charging or duplicating the allowance transition.
 func TestSettlementConcurrentDoubleFinish(t *testing.T) {
-	ctx, db, a, run := settleFailedRunFixture(t)
+	ctx, db, a, run := settleRunFixture(t, factory.Failed, "host says so")
 
 	const racers = 8
 	start := make(chan struct{})
@@ -100,7 +100,7 @@ func TestSettlementConcurrentDoubleFinish(t *testing.T) {
 // the terminal write. The recovery replay completes the same settlement
 // without a second charge.
 func TestSettlementConsumeThenCrashReplay(t *testing.T) {
-	ctx, db, a, run := settleFailedRunFixture(t)
+	ctx, db, a, run := settleRunFixture(t, factory.Failed, "host says so")
 	now := time.Now()
 
 	// Crash point: confirmed usage plus consumed reservation, no finish.
