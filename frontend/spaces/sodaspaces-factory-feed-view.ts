@@ -12,6 +12,7 @@ import {
   roleLabel,
 } from './sodaspaces-factory-feed-families.js';
 import type {FeedFamilyModel} from './sodaspaces-factory-feed-families.js';
+import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
 
 // Pure combined-feed presentation: the shared post shell, one registered
 // family section per entry (plans, issues, work, reviews, corrections,
@@ -46,6 +47,7 @@ export function repositoryRef(
 export interface PostHeaderModel {
   readonly key: string;
   readonly avatarInitial: string;
+  readonly avatarFile: string | undefined;
   readonly name: string;
   readonly role: string;
   readonly project: string;
@@ -61,7 +63,7 @@ function shortFeedID(id: string): string {
 }
 
 export function milestoneText(entry: FeedEntry): string | undefined {
-  if (entry.activity === undefined) return undefined;
+  if (entry.activity === undefined || entry.payload?.communication) return undefined;
   const label =
     entry.activity === 'merged'
       ? 'merged'
@@ -80,13 +82,15 @@ export function milestoneText(entry: FeedEntry): string | undefined {
 export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryRef): PostHeaderModel {
   const recorded = entry.kind === 'record';
   const name = entry.author ?? (recorded ? 'Recorded work' : 'Discussion post');
+  const role =
+    roleLabel(entry.actor && !/^\d+$/.test(entry.actor) ? entry.actor : undefined) ??
+    (recorded ? 'Factory' : 'Comment');
   return {
     key: feedEntryKey(entry),
     avatarInitial: name.slice(0, 1).toUpperCase(),
+    avatarFile: feedRolePortraits[role],
     name,
-    role:
-      roleLabel(entry.actor && !/^\d+$/.test(entry.actor) ? entry.actor : undefined) ??
-      (recorded ? 'Factory' : 'Comment'),
+    role,
     project: entry.project ?? repository.label,
     timeText: entry.at ? formatStamp(entry.at) : `recorded order #${entry.seq}, newest first`,
     statusText: readableStatus(entry),
@@ -95,6 +99,20 @@ export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryR
 }
 
 function readableStatus(entry: FeedEntry): string {
+  const communication = entry.payload?.communication;
+  if (communication) {
+    if (communication.kind === 'ask') {
+      if (communication.questionState === 'answered') return 'Answer recorded';
+      if (communication.questionState === 'replied') return 'Reply received';
+    }
+    const labels = {
+      ask: 'Question open', answer: 'Answer recorded', reply: 'Reply', flag: 'Concern raised',
+      learned: 'Observation recorded', suggest: 'Proposed', partial: 'Progress reported',
+      blocked: 'Blocked', stuck: 'Diagnosis needed', record_decision: 'Decision recorded',
+      finish_incomplete: 'Incomplete', system: (entry.status ?? 'Factory update').replaceAll(':', ' · ').replaceAll('_', ' '), library_maintenance: (entry.status ?? 'Library updated').replaceAll(':', ' · ').replaceAll('_', ' '), artifact: 'Artifact available',
+    };
+    return labels[communication.kind];
+  }
   const status = entry.status ?? '';
   if (/cancelled|canceled|stopped/.test(status)) return 'Stopped';
   if (/needs-human|request-changes|clarify/.test(status)) return 'Needs your attention';
@@ -201,10 +219,11 @@ export interface DecisionAttentionModel {
 }
 
 // describeDecisionAttention projects the decision/attention section: quiet
-// when the post needs nothing, a notice when its state is material. A
-// recorded failure or wait leads here regardless of family, so no
-// successful-looking section can hide it. Unknown or missing state
-// never reads as success.
+// when the post needs nothing, a notice only when it adds a fact the rest
+// of the post does not already state. A recorded failure already leads in
+// the family headline and the header status chip, so repeating it here as
+// a banner would be a third copy of the same signal. Unknown or missing
+// state never reads as success.
 export function describeDecisionAttention(entry: FeedEntry, denied: boolean): DecisionAttentionModel {
   if (denied)
     return {
@@ -214,10 +233,7 @@ export function describeDecisionAttention(entry: FeedEntry, denied: boolean): De
     };
   const statusClass = classifyFeedStatus(entry.status);
   if (statusClass === 'failure')
-    return {
-      tone: 'notice',
-      attentionText: 'This work needs attention. See the result above.',
-    };
+    return {tone: 'quiet', attentionText: 'This work needs attention; the headline and status above state it.'};
   if (statusClass === 'unknown' && entry.status !== undefined)
     return {
       tone: 'notice',
@@ -459,12 +475,23 @@ export function describeDiscussion(
   };
 }
 
-export function renderPostHeader(model: PostHeaderModel): TemplateResult {
+export function renderPostHeader(model: PostHeaderModel, assetBase = ''): TemplateResult {
   return html`<div class="soda-feed-header">
-    <span class="soda-feed-avatar" aria-hidden="true">${model.avatarInitial}</span>
+    <span class="soda-feed-avatar" aria-hidden="true">${
+      model.avatarFile
+        ? html`<img
+            src=${assetBase + model.avatarFile}
+            alt=""
+            width="36"
+            height="36"
+            loading="lazy"
+            decoding="async"
+          >`
+        : model.avatarInitial
+    }</span>
     <div>
       <p><strong>${model.name}</strong>${model.role !== model.name ? html` · ${model.role}` : ''} · ${model.project}</p>
-      <p>${model.timeText} · ${model.statusText}</p>
+      <p>${model.timeText} · <span class="soda-feed-status">${model.statusText}</span></p>
       ${model.milestoneText ? html`<p>${model.milestoneText}</p>` : ''}
     </div>
   </div>`;
@@ -535,19 +562,21 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
                 data-feed-draft=${model.key}
                 rows="3"
                 maxlength="4000"
+                placeholder=${model.label === 'Project comment' ? 'Ask a question, share feedback, or request a change…' : 'Write a reply…'}
                 .value=${live(model.draft)}
               ></textarea>
             </label>
-            <p>
+            <p class="soda-feed-compose-actions">
               <button
                 type="button"
-                class="ui button"
+                class="ui primary button"
                 data-comment-submit=${model.key}
                 .disabled=${live(!model.submitAvailable)}
                 title="Submit persists the comment and starts its JEV assessment."
               >
                 ${model.submitLabel ?? 'Submit reply'}
               </button>
+              ${model.label === 'Project comment' ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
               ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
             </p>`
     }
@@ -584,7 +613,7 @@ export function describeFeedPost(
     work: describeWorkEvidence(entry, repository),
     attention: describeDecisionAttention(entry, denied),
     discussion: describeDiscussion(entry, repository, draft, outcomes),
-    postBody: body === undefined ? undefined : describePostBody(body),
+    postBody: body === undefined || entry.payload?.communication ? undefined : describePostBody(body),
   };
 }
 
@@ -594,19 +623,25 @@ export function describeFeedPost(
 // A registered family section is the focal visual; discussion posts lead
 // with their stored text and fallback entries keep the generic work
 // section, so no entry loses its facts, failures or links.
-export function renderFeedPost(model: FeedPostModel, replies: TemplateResult | string = ''): TemplateResult {
+export function renderFeedPost(
+  model: FeedPostModel,
+  replies: TemplateResult | string = '',
+  request?: import('./sodaspaces-factory-feed-artifact.js').FeedArtifactRequest,
+  assetBase = ''
+): TemplateResult {
   const focal =
-    model.family.family === 'discussion'
+    model.family.family === 'discussion' && !model.family.communication
       ? ''
       : model.family.family === 'fallback'
-        ? html`${renderFeedFamily(model.family)} ${renderWorkEvidence(model.work)}`
-        : renderFeedFamily(model.family);
+        ? html`${renderFeedFamily(model.family, request)} ${renderWorkEvidence(model.work)}`
+        : renderFeedFamily(model.family, request);
   return html`<article
     class="soda-feed-post"
     id=${'feed-' + model.header.key.replace(':', '-')}
     data-status=${model.family.statusClass}
+    data-role=${model.header.role.toLowerCase().replace(/[\s-]+/g, '_')}
   >
-    ${renderPostHeader(model.header)}
+    ${renderPostHeader(model.header, assetBase)}
     <div class="soda-feed-card">
       ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
       ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}

@@ -7,7 +7,76 @@ const recordId = 'a'.repeat(32);
 const postId = 'c'.repeat(32);
 const commentId = 'd'.repeat(32);
 
-test('Combined feed reads newest-first with separate enriched posts and live comment outcomes', async (t) => {
+test('every feed author loads its own role portrait, while human and unknown authors keep their initials', async (t) => {
+  const page = await fixture(t);
+  const actors: [string, string][] = [
+    ['product_lead', 'product-lead'],
+    ['architect', 'architect'],
+    ['builder', 'builder'],
+    ['inspector', 'inspector'],
+    ['fixer', 'fixer'],
+    ['strategist', 'strategist'],
+    ['test_pilot', 'test-pilot'],
+    ['library_admin', 'library-admin'],
+    ['jev', 'jev'],
+    ['factory', 'factory'],
+    ['System One', 'jev'],
+    ['systemone', 'jev'],
+    ['system', 'factory'],
+    ['17', ''],
+    ['unknown_role', ''],
+  ];
+  await page.evaluate((actors) => {
+    window.drawerFixture.api.setPresentation('settings');
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/factory/feed/subscription'))
+        return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+      if (call.url.includes('/api/repositories?q='))
+        return Response.json({items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false}], next_cursor: ''});
+      if (call.url.includes('/api/factory/feed?'))
+        return Response.json({
+          entries: actors.map(([actor], index) => ({
+            kind: actor === '17' ? 'post' : 'record',
+            id: (index + 1).toString(16).padStart(32, '0'),
+            repository: 7,
+            seq: 100 - index,
+            actor,
+            author: actor === '17' ? 'Architect' : 'Builder',
+            payload: {communication: {kind: 'flag', title: 'Portrait identity', summary: 'The author role owns this portrait.'}},
+          })),
+          truncated: false,
+        });
+      return null;
+    });
+  }, actors);
+  await refresh(page);
+  await page.evaluate(() => window.drawerFixture.mountFeed());
+  const feed = page.locator('soda-factory-feed');
+  await feed.getByRole('heading', {name: 'Portrait identity', exact: true}).first().waitFor();
+  assert.equal(await feed.locator('.soda-feed-post').count(), actors.length);
+  for (const [index, [actor, file]] of actors.entries()) {
+    const kind = actor === '17' ? 'post' : 'record';
+    const card = feed.locator(`#feed-${kind}-${(index + 1).toString(16).padStart(32, '0')}`);
+    const image = card.locator('.soda-feed-avatar img');
+    if (!file) {
+      assert.equal(await image.count(), 0, actor);
+      assert.equal(await card.locator('.soda-feed-avatar').textContent(), actor === '17' ? 'A' : 'B');
+      continue;
+    }
+    assert.equal(await card.getAttribute('data-role'), file.replaceAll('-', '_'));
+    assert.equal(await image.getAttribute('src'), `/assets/role-portraits/ps1-v1/${file}.png`);
+    assert.equal(await image.getAttribute('alt'), '');
+    await image.scrollIntoViewIfNeeded();
+    const size = await image.evaluate(async (node) => {
+      const img = node as HTMLImageElement;
+      await img.decode();
+      return [img.naturalWidth, img.naturalHeight];
+    });
+    assert.deepEqual(size, [1254, 1254], actor);
+  }
+});
+
+test('Project feed reads newest-first with separate enriched posts and live comment outcomes', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {
     window.drawerFixture.api.setPresentation('settings');
@@ -185,6 +254,7 @@ test('Combined feed reads newest-first with separate enriched posts and live com
 
 test('Factory-loop families render their own sections and failures stay in front', async (t) => {
   const page = await fixture(t);
+  page.setDefaultTimeout(5000);
   await page.evaluate(() => {
     window.drawerFixture.api.setPresentation('settings');
   });
@@ -341,11 +411,15 @@ test('Factory-loop families render their own sections and failures stay in front
   await feed.getByText('Test Pilot').first().waitFor();
   await feed.getByText('Product Lead').first().waitFor();
   await feed.getByText('Library Admin').first().waitFor();
-  // The failed check leads as an alert; the unknown status never reads done.
-  await feed.getByText(/Attention needed: recorded status is check_failed/).waitFor();
+  // The failed check leads in its headline/status; the unknown status never reads done.
+  await feed.locator('details').evaluateAll((nodes) => {
+    for (const node of nodes) (node as HTMLDetailsElement).open = true;
+  });
+  assert.equal(await feed.getByText('This work needs attention. See the result above.', {exact: true}).count(), 0);
   await feed.getByText(/frobnicate is not interpreted yet/).waitFor();
   // Family anatomy: what it covers plus recorded state, with source links.
-  await feed.getByText(/Application verification recorded for soda-tester\/demo/).waitFor();
+  await feed.getByText('Application verification completed', {exact: true}).waitFor();
+  await feed.locator('[data-feed-family="work"]').getByText('Implementation work needs attention', {exact: true}).waitFor();
   await feed.getByText(/Recorded status: check_failed/).waitFor();
   assert.equal(await feed.locator('[data-feed-family="work"] a[href="/soda-tester/demo/pulls"]').count(), 1);
   assert.equal(await feed.locator('[data-feed-family="plan"] a[href="/soda-tester/demo/issues"]').count(), 1);
@@ -594,25 +668,25 @@ test('Project switch during feed loading starts the new read and releases Refres
     document.body.append(feed);
     let count = 0;
     let release: (response: Response) => void = () => {};
-    const subscription = () => Response.json({subscriber: '1', repositories: null, kinds: null, revision: 0});
+    const emptyFeed = () => Response.json({entries: [], truncated: false});
     const transport = {
       request: async (path: string) => {
-        if (path === 'factory/feed/subscription') {
+        if (path.startsWith('factory/feed?')) {
           count++;
           if (count === 1)
             return new Promise<Response>((resolve) => {
               release = resolve;
             });
-          return subscription();
+          return emptyFeed();
         }
         if (path === 'repositories?q=') return Response.json({items: [], next_cursor: ''});
-        if (path.startsWith('factory/feed?')) return Response.json({entries: [], truncated: false});
         throw Error('Unexpected feed read');
       },
     };
-    Object.assign(feed, {releaseFirst: () => release(subscription())});
+    Object.assign(feed, {releaseFirst: () => release(emptyFeed()), readCount: () => count});
     feed.context = {transport, repository: '7'};
     await feed.updateComplete;
+    while (count === 0) await new Promise((resolve) => setTimeout(resolve, 0));
     feed.context = {transport, repository: '8'};
   });
   const feed = page.locator('soda-factory-feed[data-feed-race="true"]');
@@ -622,6 +696,7 @@ test('Project switch during feed loading starts the new read and releases Refres
   );
   await feed.evaluate((el) => (el as HTMLElement & {releaseFirst(): void}).releaseFirst());
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  assert.ok(await feed.evaluate((el) => (el as HTMLElement & {readCount(): number}).readCount()) >= 3);
   assert.equal(await feed.locator('[data-feed-message]').innerText(), '');
 });
 

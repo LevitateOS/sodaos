@@ -1,16 +1,22 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import {feedPayloadCap, parseFeedStatusSegments} from './sodaspaces-factory-feed-response.js';
+import {feedEntryKey, feedPayloadCap, parseFeedStatusSegments} from './sodaspaces-factory-feed-response.js';
 import type {
   FeedCoverage,
+  FeedCommunication,
   FeedEntry,
   FeedFinding,
   FeedIntentChange,
   FeedPayload,
   FeedStatusSegments,
+  FeedGraphItem,
 } from './sodaspaces-factory-feed-response.js';
 import type {FeedRepositoryRef} from './sodaspaces-factory-feed-view.js';
 import {nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
+import {feedComponent, renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
+import {renderFeedGraph} from './sodaspaces-factory-feed-graph.js';
+import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
+import {renderRecordAction} from './sodaspaces-factory-feed-record-actions.js';
 
 // Registered feed component families for the complete factory loop. The
 // server-derived actor selects the role family and the recorded status
@@ -38,6 +44,14 @@ export const feedFamilies = [
   'knowledge',
   'decision',
   'question',
+  'answer',
+  'flag',
+  'proposal',
+  'progress',
+  'blocked',
+  'stuck',
+  'incomplete',
+  'maintenance',
   'discussion',
   'fallback',
 ] as const;
@@ -138,6 +152,19 @@ export function classifyFeedStatus(status: string | undefined): FeedStatusClass 
 // question or decision status names its shared family when no role
 // actor is present. Everything else keeps the honest fallback.
 export function selectFeedFamily(entry: FeedEntry): FeedFamily {
+  if (entry.payload?.invalid) return 'fallback';
+  const communication = entry.payload?.communication;
+  if (communication) {
+    const bySignal: Record<FeedCommunication['kind'], FeedFamily> = {
+      ask: 'question', answer: 'answer', reply: 'discussion', flag: 'flag', learned: 'knowledge',
+      suggest: 'proposal', partial: 'progress', blocked: 'blocked', stuck: 'stuck',
+      record_decision: 'decision', finish_incomplete: 'incomplete', system: 'integration', library_maintenance: 'maintenance', artifact: 'work',
+    };
+    const component = feedComponent(communication.componentId);
+    if (communication.kind === 'partial' && component && feedFamilies.some((family) => family === component.family))
+      return component.family as FeedFamily;
+    return bySignal[communication.kind];
+  }
   if (entry.kind === 'post') return 'discussion';
   // Milestone entries are their own steps (Lane B3): a confirmed merge
   // and a verified completion get their own posts, and a recorded Jev
@@ -145,6 +172,8 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
   if (entry.activity === 'merged') return 'merged';
   if (entry.activity === 'completed') return 'completed';
   if (entry.activity === 'judgment') return 'decision';
+  const component = feedComponent(entry.payload?.componentId);
+  if (component && feedFamilies.some((family) => family === component.family)) return component.family as FeedFamily;
   const byRole = roleFamilies[normalizedActor(entry.actor)];
   if (byRole !== undefined) return byRole;
   const status = (entry.status ?? '').toLowerCase();
@@ -154,6 +183,10 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
 }
 
 export interface FeedFamilyModel {
+  readonly payload?: FeedPayload;
+  readonly entryKey?: string;
+  readonly communication?: FeedCommunication;
+  readonly componentId?: string;
   readonly family: FeedFamily;
   readonly label: string;
   readonly headline: string;
@@ -185,6 +218,7 @@ export type FeedBlock = (
   | {kind: 'brief'; heading: string; text: string}
   | {kind: 'alert'; heading: string; text: string}
   | {kind: 'steps'; heading: string; steps: readonly {label: string; state: string}[]}
+  | {kind: 'graph'; heading: string; items: readonly FeedGraphItem[]}
   | {kind: 'rows'; heading: string; rows: readonly {term: string; value: string}[]}
   | {kind: 'checks'; heading: string; rows: readonly {name: string; result: string}[]}
   | {
@@ -244,9 +278,9 @@ const familyText: Readonly<Record<FeedFamily, {label: string; detail: string}>> 
       'One confirmed native merge, posted by Factory as its own step. The merged commit and any closing of the original issue stay distinct recorded effects.',
   },
   completed: {
-    label: 'Completion verified',
+    label: 'Issue completed',
     detail:
-      'One verified completion event, posted by Factory as its own step. Completion closes the recorded loop for its publication; it is not a deployment claim.',
+      'The bound issue was completed after its merged change was confirmed. Application verification is recorded separately for the accepted outcomes.',
   },
   knowledge: {
     label: 'Knowledge',
@@ -263,6 +297,14 @@ const familyText: Readonly<Record<FeedFamily, {label: string; detail: string}>> 
     detail:
       'The question, its consequence and answer history stay with the affected work. An answered question still needs its answer incorporated before dependent work relies on it.',
   },
+  answer: {label: 'Answer', detail: 'The answer is recorded with the question. Dependent work reports separately when it incorporates the answer.'},
+  flag: {label: 'Concern raised', detail: 'A worker has reported a concern with its impact and evidence.'},
+  proposal: {label: 'Proposal', detail: 'A proposed change remains a proposal until the responsible workflow adopts it.'},
+  progress: {label: 'Progress update', detail: 'The worker reports completed and remaining work. Confirmed workflow results are recorded separately.'},
+  blocked: {label: 'Blocked', detail: 'Progress depends on a known missing input. The release condition appears in this post.'},
+  stuck: {label: 'Diagnosis needed', detail: 'The worker cannot find a working route. Prior attempts help the next worker continue the diagnosis.'},
+  incomplete: {label: 'Incomplete handoff', detail: 'Useful work is preserved alongside the unresolved work and the reason it ended.'},
+  maintenance: {label: 'Library maintenance', detail: 'Item changes retain their evidence, scope and history. A proposal does not mean a library operation was applied.'},
   discussion: {
     label: 'Discussion',
     detail: 'The stored discussion text appears above with its replies and recorded outcome below.',
@@ -618,8 +660,8 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
         ...brief('Completion'),
         {
           kind: 'steps',
-          heading: 'Verified completion (F07/F10)',
-          steps: [{label: 'Verified completion recorded', state: 'done'}],
+          heading: 'Issue completion (F06)',
+          steps: [{label: 'Issue completion recorded', state: 'done'}],
         },
         {
           kind: 'rows',
@@ -730,10 +772,13 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     });
     if (plan.tasks.length > 0 || plan.tasksTotal > 0)
       blocks.push({
-        kind: 'steps',
+        kind: 'graph',
         heading: 'Plan tasks and dependencies (AR07)',
-        steps: plan.tasks.map((task) => ({
+        items: plan.tasks.map((task) => ({
+          id: task.id,
           label: `${task.id}: ${task.objective ?? 'objective not recorded'}`,
+          dependsOn: task.dependsOn,
+          ...(task.objective ? {detail: task.objective} : {}),
           state: [
             task.lane ? `lane ${task.lane}` : 'no lane recorded',
             task.dependsOn.length > 0 ? `after ${task.dependsOn.join(', ')}` : 'starts first',
@@ -1136,10 +1181,10 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     blocks.push(
       {
         kind: 'steps',
-        heading: 'Verified completion (F07/F10)',
+        heading: 'Issue completion (F06)',
         steps: [
           {
-            label: 'Verified completion recorded',
+            label: 'Issue completion recorded',
             state: completion.mergedCommit ? `done — merged commit ${completion.mergedCommit}` : 'done',
           },
         ],
@@ -1169,7 +1214,10 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
 export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryRef): FeedFamilyModel {
   const family = selectFeedFamily(entry);
   const text = familyText[family];
-  const statusClass = classifyFeedStatus(entry.status);
+  const communication = entry.payload?.communication;
+  const statusClass: FeedStatusClass = communication && communication.kind !== 'system' && communication.kind !== 'library_maintenance'
+    ? ['blocked', 'stuck', 'finish_incomplete'].includes(communication.kind) || (communication.kind === 'flag' && communication.severity !== 'info') ? 'failure' : 'waiting'
+    : classifyFeedStatus(entry.status);
   const project = entry.project ?? repository.label;
   const payload = entry.payload;
   const typed: FeedBlock[] =
@@ -1185,6 +1233,10 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
           ]
         : payloadBlocks(entry, payload);
   return {
+    entryKey: feedEntryKey(entry),
+    ...(payload ? {payload} : {}),
+    ...(payload?.communication ? {communication: payload.communication} : {}),
+    ...(payload?.componentId ? {componentId: payload.componentId} : {}),
     family,
     label: text.label,
     headline: `${text.label}${statusClass === 'failure' ? ' needs attention' : statusClass === 'settled' ? ' completed' : statusClass === 'waiting' ? ' in progress' : ' stopped'}`,
@@ -1209,7 +1261,7 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
   const note = block.note ? html`<p class="soda-feed-block-note">${block.note}</p>` : '';
   switch (block.kind) {
     case 'alert':
-      return html`${html`<div class="soda-feed-brief">
+      return html`${html`<div class="soda-feed-brief soda-feed-alert">
         <h4>${block.heading}</h4>
         <p role="alert">${block.text}</p>
       </div>`}${note}`;
@@ -1225,6 +1277,8 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
           ${block.steps.map((step) => html`<li><strong>${step.label}</strong> — ${step.state}</li>`)}
         </ol>
       </div>`}${note}`;
+    case 'graph':
+      return html`<div class="soda-feed-plan-graph"><h4>${block.heading}</h4>${renderFeedGraph(block.items, block.heading)}${note}</div>`;
     case 'rows':
       return html`<div class="soda-feed-rows">
         <h4>${block.heading}</h4>
@@ -1277,20 +1331,27 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
   }
 }
 
-export function renderFeedFamily(model: FeedFamilyModel): TemplateResult {
-  return html`<section aria-label=${model.label} data-feed-family=${model.family}>
-    <p><strong>${model.headline}</strong></p>
-    ${model.blocks.map(renderFeedBlock)}
-    <details class="soda-feed-record-details">
-      <summary>Details</summary>
-      <p>${model.stateText}</p>
-      <p>${model.detailText}</p>
-      <p>${model.nextText}</p>
-    </details>
-    ${
-      model.sourceLinks.length > 0
-        ? html`<p>${model.sourceLinks.map((link) => html`<a href=${link.href}>${link.label}</a> `)}</p>`
-        : ''
-    }
+export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactRequest): TemplateResult {
+  const component = feedComponent(model.componentId);
+  const action = renderRecordAction(model.payload);
+  return html`<section aria-label=${model.label} data-feed-family=${model.family} data-feed-component=${component?.id ?? ''}>
+    ${model.communication
+      ? renderFeedCommunication(model.communication, model.entryKey ?? '', request)
+      : html`<p class="soda-feed-headline"><strong>${component?.label ?? model.headline}</strong></p>
+          ${action ?? html`${model.blocks.slice(0, 4).map(renderFeedBlock)}`}
+          ${action ? html`<details class="soda-feed-more-content"><summary>Recorded details and evidence</summary>${model.blocks.map(renderFeedBlock)}</details>` : model.blocks.length > 4 ? html`<details class="soda-feed-more-content"><summary>${model.blocks.length - 4} more details</summary>${model.blocks.slice(4).map(renderFeedBlock)}</details>` : ''}`}
+    <div class="soda-feed-card-footer">
+      <details class="soda-feed-record-details">
+        <summary>Details</summary>
+        <p>${model.stateText}</p>
+        <p>${model.detailText}</p>
+        <p>${model.nextText}</p>
+      </details>
+      ${
+        model.sourceLinks.length > 0
+          ? html`<p class="soda-feed-source-links">${model.sourceLinks.map((link) => html`<a href=${link.href}>${link.label}</a> `)}</p>`
+          : ''
+      }
+    </div>
   </section>`;
 }

@@ -1,0 +1,1 @@
+Gave the roles in an AI coding feed their own fixed colors. Card accents keep the exact palette; text gets lighter or darker shades for contrast. Checked all ten in both themes. The fixer is hot pink because debugging deserves some drama.

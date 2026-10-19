@@ -1,10 +1,11 @@
 # Factory feed components by worker role
 
 This catalog expands the [worker MCP redesign](factory-worker-mcp.md) into the
-proposed feed vocabulary for the seven production roles and Library Admin. It
-covers the currently designed Factory lifecycle, including incomplete work, questions, corrections,
-repair and shared knowledge. Names and compositions are design proposals, not
-implemented components or a frozen list of frontend classes.
+feed vocabulary for the seven production roles and Library Admin. It covers the
+currently designed Factory lifecycle, including incomplete work, questions,
+corrections, repair and shared knowledge. All 121 numbered variants now have
+renderers and producer paths; broader issue/research surfaces and domain
+interactions retain their explicit task scope below.
 
 The [feed integration design](factory-feed-and-ralph-integration.md) owns the
 combined subscribed feed and its relationship to Work/Spaces. This document owns
@@ -23,6 +24,18 @@ The [restructured visual coverage map](../development/factory-remaining-tasks.md
 maps all 121 numbered families plus issue/research surfaces to concrete Rxx.y
 execution tasks; it replaces broad appended UI scope as the implementation map.
 
+### Implementation update · 19 October 2026
+
+The executable component catalog is [`internal/factory/feed_components.json`](../../internal/factory/feed_components.json). It contains all 121 numbered variants with their role, allowed outlet, presentation and authority. The frontend renders those variants with 19 compositions, including questions with reply choices, proposals, progress and remaining work, blockers, diagnosis, evidence/check/finding tables, journeys, dependency items, comparisons, decisions, knowledge and maintenance mappings. Large item lists show four entries with the remainder expandable; supporting detail stays collapsed. The author, role, project, time and reported status remain outside each separate card.
+
+Shared MCP communications now carry typed content rather than being inferred from a worker's prose. A question choice opens and fills the existing reply draft; it does not submit or invoke JEV until the person presses Submit. Worker reports never acquire a confirmed check, merge or completion state from their text. Structured role finishes retain their selected component on the canonical workflow record. Components use the same light/dark CSS and reflow on narrow screens. A local browser gallery rendered all 121 variants at desktop and mobile widths without horizontal overflow; keyboard reply selection was checked through the real feed controller.
+
+The nine Library Admin variants now correspond to actual revisioned operations: scope, edit, consolidate, split, remove/restore, supersede, relate, affected-work report and finish. Knowledge and decision posts create searchable project-library entries; users can inspect current content, relations and revision history. Decisions retain the original choice and authority across maintenance. Authenticated artifact cards lazily preview images, video, audio and text, with downloads for other supported files. Larger text is bounded and explicitly truncated. Dependency graphs draw only supplied edges and preserve a textual alternative. Controller-owned posts come from their actual recorded operations; a worker cannot publish a trusted Factory effect by selecting its component ID.
+
+The website movie's action-specific compositions now inform the real feed: investigation dossiers connect sources to observations; decisions connect considered inputs to the recorded choice; findings show annotated source and expected/observed behavior; corrections connect findings to changes; commit trails show saved changes; integration and dependency-release cards draw their different relationships. Questions, stalled investigations, blockers, proposals, knowledge notes, journeys and handoffs each have their own layout and next-action language. Canonical plan/review/correction/judgment/verification records use their typed facts for these visuals, with existing binding and receipt details in an expandable section. Connections stay inside each card; posts remain separate and newest first, with author metadata outside. No authored movie example is presented as live work.
+
+MCP content can include a bounded `source` excerpt with path, revision, starting line, highlighted lines and an optional changed excerpt, plus up to eight `commits` with full revisions and summaries. These render supplied evidence; they do not imply passed checks or acceptance. Excerpts render as escaped text, preserve line numbers and scroll within the card. Missing code remains missing rather than being fabricated from a finding's prose.
+
 ## 1. What makes the roles visibly different
 
 The primary content should reflect what each role is doing:
@@ -36,7 +49,7 @@ The primary content should reflect what each role is doing:
 | Fixer | What changed to address each problem, and did it work? | Finding-to-fix links, before/after comparisons and regression evidence. |
 | Strategist | Why did work stall or change, and how will it recover? | Cause maps, inventory gaps, plan comparisons and repair impact. |
 | Test Pilot | Does the complete product deliver the promised experience? | Journeys, expected/observed behavior, recordings and outcome coverage. |
-| Library Admin (proposed) | Is our knowledge and decision history accurate, usable and current? | Item changes, consolidation/split mappings, replacements and unresolved contradictions. |
+| Library Admin | Is our knowledge and decision history accurate, usable and current? | Item changes, consolidation/split mappings, replacements and unresolved contradictions. |
 
 The role is the author, the communication action explains intent, and the
 component explains the work. An Architect's plan may contain an approach diagram,
@@ -47,6 +60,37 @@ with the question expressed in that role's context.
 canonical plan can support several useful components. One feed post can compose
 them. Several recorded events can update one continuing component. Every state
 and action still comes from the owning domain record and permission checks.
+
+### Approved role colors · 19 October 2026
+
+Every role has one persistent color identity, shared by feed posts and role
+artwork. The canonical values are the `--soda-role-*` tokens in
+[`palette.css`](../../assets/branding/theme/palette.css):
+
+| Feed author | Color |
+| --- | --- |
+| Product Lead | Soda red |
+| Architect | Violet |
+| Builder | Orange |
+| Inspector | Emerald green |
+| Fixer | Hot pink |
+| Strategist | Cobalt blue |
+| Test Pilot | Cyan |
+| Library Admin | Golden yellow |
+| JEV / System One | Bone white / ivory |
+| Factory / System | Graphite |
+
+The exact approved color marks the card's top edge. Role portraits, card
+surfaces and details carry the same hue; text uses a readable shade in each
+theme. Role identity follows the author across every post type and reported
+status. Human comments use the neutral discussion treatment. The ten PS1
+portraits in [`assets/branding/role-portraits/ps1-v1/`](../../assets/branding/role-portraits/ps1-v1/)
+are shipped with the native Soda extension and selected from the post's
+server-derived author role. System One aliases use JEV; System uses Factory.
+The portrait mapping in
+[`sodaspaces-factory-feed-portraits.ts`](../../frontend/spaces/sodaspaces-factory-feed-portraits.ts)
+also owns the packaged image paths. Human and unrecognized authors retain their
+initials rather than borrowing a worker's portrait from their name or post type.
 
 ## 2. Common anatomy and reusable components
 

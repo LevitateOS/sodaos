@@ -2,6 +2,7 @@ import {expect, test} from 'bun:test';
 import {mkdir, mkdtemp, readFile, rm, stat} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {buildExtensionStylesheets, buildSodaExtensionAssets, styles} from './build-soda-extension.js';
+import {feedRolePortraits} from '../frontend/spaces/sodaspaces-factory-feed-portraits.js';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -38,6 +39,13 @@ test('native Soda package contains its entire local browser asset graph', async 
     expect(optionalFiles).toContain('soda-tailnet-entry.js');
     expect(optionalFiles).not.toContain('soda-spaces-entry.js');
     expect(optionalFiles.some((name) => name.startsWith('soda-terminal/'))).toBe(false);
+    expect(optionalFiles.some((name) => name.startsWith('role-portraits/'))).toBe(false);
+    for (const portrait of Object.values(feedRolePortraits)) {
+      expect(files).toContain(portrait);
+      expect(await readFile(resolve(out, 'assets', portrait))).toEqual(
+        await readFile(resolve(root, 'assets/branding', portrait))
+      );
+    }
     for (const name of optionalFiles.filter((file) => file.endsWith('.js'))) {
       const body = await readFile(resolve(optionalOut, 'assets', name), 'utf8');
       for (const match of body.matchAll(/(?:from\s*|import\(\s*)["'](\.[^"']+)["']/g)) {

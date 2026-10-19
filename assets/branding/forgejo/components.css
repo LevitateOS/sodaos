@@ -1,5 +1,5 @@
 @import "../fonts/fonts.css?v=2026-09-12.brutalist-2";
-@import "../theme/palette.css?v=2026-09-12.brutalist-2";
+@import "../theme/palette.css?v=2026-10-19.role-colors-1";
 /* Values are available to islands without opting native body/navbar/footer into
    full-page styling. Native adapters still own color-scheme selection. */
 :root {

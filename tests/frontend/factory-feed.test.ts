@@ -36,10 +36,91 @@ import {
   roleLabel,
   selectFeedFamily,
 } from '../../frontend/spaces/sodaspaces-factory-feed-families.js';
+import {feedComponentCatalog} from '../../frontend/spaces/sodaspaces-factory-feed-communication.js';
+import {feedGraphLayout} from '../../frontend/spaces/sodaspaces-factory-feed-graph.js';
 
 const record: FeedEntry = {kind: 'record', id: 'a'.repeat(32), repository: 7, seq: 41};
 const post: FeedEntry = {kind: 'post', id: 'comment-9', repository: 9, seq: 42};
 const repo = repositoryRef(7, '/soda-tester/demo', 'soda-tester', 'demo');
+
+test('artifact references stay on the authenticated artifact route and graph edges use explicit IDs', () => {
+  const communication = {kind: 'partial', title: 'Preview', summary: 'Recorded preview', artifacts: [{id: 'e'.repeat(32), name: 'view.png', media_type: 'image/png', href: `/api/factory/artifacts/${'e'.repeat(32)}?repository=7`}], items: [{id: 'a', label: 'Access', depends_on: []}, {id: 'b', label: 'Tasks', depends_on: ['a']}]};
+  const payload = parseFeedPayload({communication});
+  assert.equal(payload?.communication?.artifacts?.[0]?.mediaType, 'image/png');
+  const graph = feedGraphLayout(payload?.communication?.items ?? []);
+  assert.equal(graph.edges.length, 1);
+  assert.ok((graph.nodes[1]?.x ?? 0) > (graph.nodes[0]?.x ?? 0));
+  assert.equal(parseFeedPayload({communication: {...communication, artifacts: [{...communication.artifacts[0], href: 'https://example.com/track.png'}]}})?.invalid, true);
+  assert.equal(parseFeedPayload({communication: {...communication, artifacts: [{...communication.artifacts[0], href: '/api/factory/artifacts/../../../secret'}]}})?.invalid, true);
+  const cycle = feedGraphLayout([{id: 'outside', label: 'After cycle', dependsOn: ['a']}, {id: 'a', label: 'A', dependsOn: ['b']}, {id: 'b', label: 'B', dependsOn: ['a']}]);
+  assert.equal(cycle.cyclic, true);
+  assert.equal(cycle.nodes[0]?.cyclic, false);
+  assert.equal(cycle.nodes[1]?.cyclic, true);
+});
+
+test('worker communications keep their semantic content and never turn reports into completed work', () => {
+  const kinds = ['ask', 'answer', 'reply', 'flag', 'learned', 'suggest', 'partial', 'blocked', 'stuck', 'record_decision', 'finish_incomplete'];
+  const families = ['question', 'answer', 'discussion', 'flag', 'knowledge', 'proposal', 'progress', 'blocked', 'stuck', 'decision', 'incomplete'];
+  for (const [index, kind] of kinds.entries()) {
+    const entry = parseFeedEntry({
+      ...post, activity: kind, actor: 'builder', author: 'Builder', status: 'verified',
+      payload: {communication: {kind, title: 'Access check', summary: 'The owner check is in place.', question: 'Should HR also reassign tasks?', options: ['Allow reassignment', 'Keep ownership fixed'], completed: ['Owner check'], remaining: ['Reassignment policy'], items: [{label: 'Owner access', detail: 'Passed locally', state: 'passed'}], before: 'Any task owner', after: 'Current staff member'}},
+    });
+    assert.equal(selectFeedFamily(entry), families[index]);
+    const model = describeFeedPost(entry, repo, '', [], {state: 'text', body: 'duplicate stored summary', edited: false}, false);
+    assert.equal(model.postBody, undefined);
+    assert.notEqual(model.header.statusText, 'Completed');
+    assert.notEqual(model.family.statusClass, 'settled');
+    assert.equal(model.family.communication?.items[0]?.detail, 'Passed locally');
+    assert.equal(model.family.communication?.after, 'Current staff member');
+  }
+});
+
+test('all catalog variants resolve while communication intent takes priority over the author role', () => {
+  assert.equal(feedComponentCatalog.length, 121);
+  for (const component of feedComponentCatalog) {
+    const entry = parseFeedEntry({...post, actor: 'builder', payload: {communication: {kind: 'partial', component_id: component.id, title: component.label, summary: 'Recorded work and its actual limits.'}}});
+    const model = describeFeedFamily(entry, repo);
+    assert.equal(model.communication?.componentId, component.id);
+    assert.notEqual(model.family, 'fallback');
+  }
+  const blocked = parseFeedEntry({...post, actor: 'builder', payload: {communication: {kind: 'blocked', component_id: 'S05', title: 'Access is missing', summary: 'Cannot reach the fixture.', resolution: 'Grant fixture access'}}});
+  assert.equal(selectFeedFamily(blocked), 'blocked');
+  assert.equal(describeFeedFamily(blocked, repo).statusClass, 'failure');
+});
+
+test('malformed communication stays visible as unavailable content and worker replies have no invented pipeline', () => {
+  const malformed = parseFeedEntry({...post, payload: {communication: {kind: 'ask', title: 'Incomplete', summary: 'Missing question content', items: [{label: 7}]}}});
+  assert.deepEqual(malformed.payload, {invalid: true});
+  assert.equal(selectFeedFamily(malformed), 'fallback');
+  assert.equal(describeFeedFamily(malformed, repo).blocks[0]?.kind, 'alert');
+  const reply = parseCommentDetail({comment_id: 'f'.repeat(32), body: 'The fixture needs a connected account.', author_name: 'Architect', at: 1720000000});
+  assert.equal(reply.pipeline, undefined);
+  assert.equal(reply.commentId, 'f'.repeat(32));
+});
+
+test('terminal component selection retains the canonical result and its actual status', () => {
+  const entry = parseFeedEntry({...record, actor: 'builder', status: 'implementation:finished:failed', payload: {component_id: 'BU10', implementation: {candidate: 'abc123', diagnostic_refs: []}}});
+  const model = describeFeedFamily(entry, repo);
+  assert.equal(model.componentId, 'BU10');
+  assert.equal(model.family, 'work');
+  assert.equal(model.statusClass, 'failure');
+  assert.equal(model.communication, undefined);
+});
+
+test('an original question shows stored answers and replies without claiming incorporation', () => {
+  const ask = {kind: 'ask', component_id: 'S02', title: 'Who can reassign tasks?', summary: 'The permission changes the access plan.', question: 'Can HR reassign?', options: ['Allow HR', 'Keep the owner']};
+  for (const [state, label] of [['open', 'Question open'], ['answered', 'Answer recorded'], ['replied', 'Reply received']] as const) {
+    const entry = parseFeedEntry({...post, activity: 'ask', status: 'ask', payload: {communication: {...ask, question_state: state}}});
+    const model = describeFeedPost(entry, repo, '', [], undefined, false);
+    assert.equal(model.header.statusText, label);
+    assert.equal(model.family.communication?.questionState, state);
+    assert.equal(model.family.family, 'question');
+    assert.equal(model.family.statusClass, 'waiting');
+    assert.deepEqual(model.family.communication?.options, ['Allow HR', 'Keep the owner']);
+  }
+  assert.deepEqual(parseFeedPayload({communication: {...ask, question_state: 'incorporated'}}), {invalid: true});
+});
 
 test('feed entries admit the released kinds with positive scope and order', () => {
   assert.deepEqual(parseFeedEntry({kind: 'record', id: 'a'.repeat(32), repository: 7, seq: 41}), record);
@@ -208,6 +289,33 @@ test('feed entries admit additive recorded content without fabricating it', () =
     {kind: 'record', id: 'x', repository: 7, seq: 1, summary: 42},
   ])
     assert.throws(() => parseFeedEntry(bad));
+});
+
+test('role portraits follow the recorded actor, including aliases, independently of author names and post actions', () => {
+  const cases: [string, string][] = [
+    ['product_lead', 'product-lead'],
+    ['  Product-Lead  ', 'product-lead'],
+    ['architect', 'architect'],
+    ['builder', 'builder'],
+    ['inspector', 'inspector'],
+    ['fixer', 'fixer'],
+    ['strategist', 'strategist'],
+    ['test_pilot', 'test-pilot'],
+    ['library_admin', 'library-admin'],
+    ['jev', 'jev'],
+    ['systemone', 'jev'],
+    ['system_one', 'jev'],
+    ['System One', 'jev'],
+    ['factory', 'factory'],
+    ['system', 'factory'],
+  ];
+  for (const [actor, file] of cases) {
+    const header = describePostHeader({...post, actor, author: 'Another role name', activity: 'flag'}, repo);
+    assert.equal(header.avatarFile, `role-portraits/ps1-v1/${file}.png`, actor);
+  }
+  assert.equal(describePostHeader({...post, actor: '17', author: 'Architect'}, repo).avatarFile, undefined);
+  assert.equal(describePostHeader({...post, actor: 'unknown_role', author: 'Builder'}, repo).avatarFile, undefined);
+  assert.equal(describePostHeader(record, repo).avatarFile, 'role-portraits/ps1-v1/factory.png');
 });
 
 test('post headers keep author context outside the card without inventing facts', () => {
@@ -393,7 +501,8 @@ test('failures lead and malformed enrichment degrades to unknown, never success'
   assert.equal(family.statusClass, 'failure');
   assert.match(family.nextText, /needs attention/);
   const attention = describeDecisionAttention(failed, false);
-  assert.equal(attention.tone, 'notice');
+  // Failure leads in the headline and status chip; no third banner copy.
+  assert.equal(attention.tone, 'quiet');
   assert.match(attention.attentionText, /needs attention/i);
   const unknown = describeDecisionAttention(roleRecord('builder', 'frobnicate'), false);
   assert.equal(unknown.tone, 'notice');
@@ -405,7 +514,7 @@ test('failures lead and malformed enrichment degrades to unknown, never success'
   assert.equal(bare.sourceLinks.length, 0);
   const post = describeFeedPost(roleRecord('inspector', 'check_failed'), repo, '', [], undefined, false);
   assert.equal(post.family.family, 'review');
-  assert.equal(post.attention.tone, 'notice');
+  assert.equal(post.attention.tone, 'quiet');
 });
 
 test('family sections render bound issue, PR, candidate reference and recorded summary', () => {
@@ -696,11 +805,11 @@ test('typed plan payloads parse their graph and render steps, dependencies and p
   assert.equal(entry.payload?.plan?.tasks[1]?.dependsOn.join(','), 't1');
   assert.equal(entry.payload?.plan?.checks[0]?.required, true);
   const family = describeFeedFamily(entry, repo);
-  const steps = family.blocks.find((block) => block.kind === 'steps' && block.heading.startsWith('Plan tasks'));
-  assert.equal(steps?.kind, 'steps');
-  if (steps?.kind === 'steps') {
-    assert.match(steps.steps[0]?.state ?? '', /lane core; starts first/);
-    assert.match(steps.steps[1]?.state ?? '', /after t1/);
+  const steps = family.blocks.find((block) => block.kind === 'graph' && block.heading.startsWith('Plan tasks'));
+  assert.equal(steps?.kind, 'graph');
+  if (steps?.kind === 'graph') {
+    assert.match(steps.items[0]?.state ?? '', /lane core; starts first/);
+    assert.deepEqual(steps.items[1]?.dependsOn, ['t1']);
     assert.match(steps.note ?? '', /Showing 2 of 30 recorded plan tasks/);
   }
   const checks = family.blocks.find((block) => block.kind === 'checks' && block.heading.startsWith('Planned checks'));
@@ -901,7 +1010,7 @@ test('merge and completion milestones are their own families and steps', () => {
   });
   assert.equal(selectFeedFamily(completed), 'completed');
   const completionSteps = describeFeedFamily(completed, repo).blocks.find(
-    (block) => block.kind === 'steps' && block.heading === 'Verified completion (F07/F10)'
+    (block) => block.kind === 'steps' && block.heading === 'Issue completion (F06)'
   );
   assert.equal(completionSteps?.kind, 'steps');
   // Independent recording order wins over any assumed lifecycle ranking.
@@ -1149,4 +1258,17 @@ test('comment failures and review changes cannot be presented as waiting or comp
     const model = describeFeedFamily({...record, actor:'architect', status, summary:'stopped'}, repo);
     assert.ok(!model.blocks.some(block => block.kind === 'steps' && block.steps.some(step => step.state === 'done')), status);
   }
+});
+
+test('source evidence and commit trails survive feed decoding at their supported sizes', () => {
+  const source = {path: 'router.ts', start_line: 12, code: '// <script>literal source</script>\n' + 'x'.repeat(600), after: 'return owner === staff.id;', highlight_lines: [13]};
+  const communication = {kind: 'flag', title: 'Access defect', summary: 's'.repeat(900), source, commits: [{revision: 'a'.repeat(40), summary: 'Restrict access'}]};
+  const payload = parseFeedPayload({communication});
+  assert.equal(payload?.communication?.source?.code, source.code);
+  assert.equal(payload?.communication?.source?.startLine, 12);
+  assert.equal(payload?.communication?.source?.after, source.after);
+  assert.equal(payload?.communication?.commits?.[0]?.revision, 'a'.repeat(40));
+  assert.equal(payload?.communication?.summary.length, 900);
+  assert.equal(parseFeedPayload({communication: {...communication, source: {...source, highlight_lines: [99]}}})?.invalid, true);
+  assert.equal(parseFeedPayload({communication: {...communication, commits: [{revision: 'fake', summary: 'No revision'}]}})?.invalid, true);
 });

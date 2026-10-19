@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {copyFile, mkdir, readdir, readFile, stat, writeFile} from 'node:fs/promises';
-import {basename, resolve} from 'node:path';
+import {basename, dirname, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
+import {feedRolePortraits} from '../frontend/spaces/sodaspaces-factory-feed-portraits.js';
 
 const root = resolve(import.meta.dir, '..');
 const allEntries = {
@@ -229,6 +230,14 @@ export async function buildExtensionStylesheets(
   await writeFile(terminal, `@import url("./soda-terminal/xterm.css");\n${await readFile(terminal, 'utf8')}`);
 }
 
+async function copyRolePortraits(assets: string) {
+  for (const file of Object.values(feedRolePortraits)) {
+    const destination = resolve(assets, file);
+    await mkdir(dirname(destination), {recursive: true});
+    await copyFile(source(`assets/branding/${file}`), destination);
+  }
+}
+
 async function copyLockedTerminal(assets: string, terminal: string) {
   const lock = JSON.parse(await readFile(source('tools/release-assets/terminal-assets.lock.json'), 'utf8')) as Array<{
     files: Array<{file: string; sha256: string}>;
@@ -291,7 +300,10 @@ export async function buildSodaExtensionAssets(out: string, terminal: string, pa
   await mkdir(assets, {recursive: true});
   await buildScripts(assets, entries);
   await buildExtensionStylesheets(assets, selectedStyles);
-  if (packageID === 'soda') await copyLockedTerminal(assets, terminal);
+  if (packageID === 'soda') {
+    await copyLockedTerminal(assets, terminal);
+    await copyRolePortraits(assets);
+  }
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();
   assert(files.length > Object.keys(entries).length + Object.keys(selectedStyles).length);

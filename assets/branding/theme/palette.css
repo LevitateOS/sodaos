@@ -1,6 +1,18 @@
 /* Shared Soda color values, extracted from the approved Forgejo/website themes.
  * Values only: native theme selection and application keys belong in adapters. */
 :root {
+  /* Approved factory role identities, shared by feed posts and role artwork. */
+  --soda-role-product-lead: #df001b;
+  --soda-role-architect: #8054e8;
+  --soda-role-builder: #f47b20;
+  --soda-role-inspector: #2da44e;
+  --soda-role-fixer: #e94e9c;
+  --soda-role-strategist: #3567d6;
+  --soda-role-test-pilot: #20bdd0;
+  --soda-role-library-admin: #e7be30;
+  --soda-role-jev: #ded9cc;
+  --soda-role-factory: #5d6675;
+
   /* Light: semantic roles followed by the additional native-control ramps. */
   --soda-light-canvas: #ffffff;
   --soda-light-surface: #ffffff;
@@ -64,10 +76,10 @@
   --soda-light-header-wrapper-transparent: #ffffff00;
   --soda-light-success-bg: #dff4ea;
   --soda-light-success-border: #087c65;
-  --soda-light-success-text: #066e59;
+  --soda-light-success-text: #13613d;
   --soda-light-warning-bg: #fff0df;
   --soda-light-warning-border: #a54808;
-  --soda-light-warning-text: #923e07;
+  --soda-light-warning-text: #9a3b08;
   --soda-light-danger: #b42318;
 
   /* Dark: semantic roles followed by the additional native-control ramps. */
@@ -130,10 +142,10 @@
   --soda-dark-markup-code-block: #181818;
   --soda-dark-success-bg: #042f2e;
   --soda-dark-success-border: #14b8a6;
-  --soda-dark-success-text: #5ef3d2;
+  --soda-dark-success-text: #8bdbad;
   --soda-dark-warning-bg: #451a03;
   --soda-dark-warning-border: #f59e0b;
-  --soda-dark-warning-text: #fbbf24;
+  --soda-dark-warning-text: #ffaf7c;
   --soda-dark-danger: #ff958a;
 
 }

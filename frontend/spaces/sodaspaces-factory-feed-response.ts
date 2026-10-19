@@ -21,7 +21,9 @@ export const feedPayloadCap = 24;
 // events served as their own record entries instead of status
 // suffixes. A milestone entry names its bound assignment in
 // `assignment` when available and receives its own order key when recorded.
-export const feedActivities = ['merged', 'completed', 'judgment'] as const;
+export const feedCommunicationKinds = ['ask', 'answer', 'reply', 'flag', 'learned', 'suggest', 'partial', 'blocked', 'stuck', 'record_decision', 'finish_incomplete', 'system', 'library_maintenance', 'artifact'] as const;
+export type FeedCommunicationKind = (typeof feedCommunicationKinds)[number];
+export const feedActivities = ['merged', 'completed', 'judgment', ...feedCommunicationKinds] as const;
 export type FeedActivity = (typeof feedActivities)[number];
 
 // feedSummaryLimit mirrors the serving bound on one record's summary
@@ -306,11 +308,66 @@ export interface FeedCompletion {
   generation?: number;
 }
 
+export interface FeedArtifact {
+  id: string;
+  name: string;
+  mediaType: string;
+  href: string;
+}
+
+export interface FeedGraphItem {
+  id?: string;
+  label: string;
+  detail?: string;
+  state?: string;
+  dependsOn?: string[];
+}
+
+export interface FeedCommunication {
+  commits?: {revision: string; summary: string}[];
+  source?: FeedSourceExcerpt;
+  kind: FeedCommunicationKind;
+  componentId?: string;
+  title: string;
+  summary: string;
+  question?: string;
+  questionState?: 'open' | 'answered' | 'replied';
+  resolution?: string;
+  scope?: string;
+  severity?: 'info' | 'warning' | 'critical';
+  evidenceRefs: string[];
+  options: string[];
+  completed: string[];
+  remaining: string[];
+  attempts: string[];
+  decision?: string;
+  rationale?: string;
+  alternatives: string[];
+  replyTo?: string;
+  items: FeedGraphItem[];
+  artifacts?: FeedArtifact[];
+  libraryItemId?: string;
+  libraryRevision?: number;
+  before?: string;
+  after?: string;
+}
+
+export interface FeedSourceExcerpt {
+  path: string;
+  revision?: string;
+  startLine: number;
+  code: string;
+  after?: string;
+  highlightLines: number[];
+}
+
 // FeedPayload is one record's typed component content. At most one
 // role family is set; `tasks` may accompany an implementation or a
 // correction. `invalid` marks a present-but-unreadable payload.
 export interface FeedPayload {
   invalid?: boolean;
+  componentId?: string;
+  communication?: FeedCommunication;
   plan?: FeedPlan;
   tasks?: FeedTaskStates;
   implementation?: FeedImplementation;
@@ -865,7 +922,86 @@ function parseCompletionPayload(value: unknown): FeedCompletion {
   return parsed;
 }
 
+function communicationText(value: unknown, limit = 2048): string | undefined {
+  if (value === undefined || value === '') return undefined;
+  check(typeof value === 'string' && [...value].length <= limit);
+  return value;
+}
+
+function parseCommunicationPayload(value: unknown): FeedCommunication {
+  const data = object(value);
+  const kind = feedCommunicationKinds.find((candidate) => candidate === data.kind);
+  const title = communicationText(data.title, 160), summary = communicationText(data.summary);
+  check(kind !== undefined && title !== undefined && summary !== undefined);
+  const parsed: FeedCommunication = {
+    kind, title, summary,
+    evidenceRefs: payloadStrings(data.evidence_refs), options: payloadStrings(data.options),
+    completed: payloadStrings(data.completed), remaining: payloadStrings(data.remaining),
+    attempts: payloadStrings(data.attempts), alternatives: payloadStrings(data.alternatives),
+    items: payloadList(data.items, (item) => {
+      const label = payloadText(item.label);
+      check(label !== undefined);
+      const row: FeedGraphItem = {label};
+      const itemID = payloadOptionalID(item.id);
+      if (itemID !== undefined) row.id = itemID;
+      if (item.depends_on !== undefined) row.dependsOn = payloadStrings(item.depends_on);
+      const detail = payloadText(item.detail), state = payloadText(item.state);
+      if (detail !== undefined) row.detail = detail;
+      if (state !== undefined) row.state = state;
+      return row;
+    }),
+  };
+  if (data.commits !== undefined) {
+    check(Array.isArray(data.commits) && data.commits.length <= 8);
+    parsed.commits = payloadList(data.commits, item => {
+      const revision = payloadText(item.revision), summary = communicationText(item.summary, 160);
+      check(revision !== undefined && /^[a-f0-9]{40}$/.test(revision) && summary !== undefined);
+      return {revision, summary};
+    });
+  }
+  if (data.artifacts !== undefined) parsed.artifacts = payloadList(data.artifacts, (artifact) => {
+    const artifactID = payloadOptionalID(artifact.id), name = payloadText(artifact.name);
+    const mediaType = payloadText(artifact.media_type), href = payloadText(artifact.href);
+    check(artifactID !== undefined && name !== undefined && mediaType !== undefined && href !== undefined);
+    check(/^\/api\/factory\/artifacts\/[a-f0-9]{32}\?repository=[1-9][0-9]*$/.test(href));
+    check(href.startsWith(`/api/factory/artifacts/${artifactID}?`));
+    return {id: artifactID, name, mediaType, href};
+  });
+  if (data.source !== undefined) {
+    const source = object(data.source), path = payloadText(source.path), code = communicationText(source.code, 3072);
+    check(path !== undefined && code !== undefined && typeof source.start_line === 'number' && Number.isInteger(source.start_line) && source.start_line > 0);
+    check(path.length <= 512 && code.length <= 3072 && code.split('\n').length <= 32);
+    const startLine = source.start_line;
+    const highlightLines = source.highlight_lines === undefined ? [] : source.highlight_lines;
+    check(Array.isArray(highlightLines) && highlightLines.length <= 32 && highlightLines.every((line) => typeof line === 'number' && Number.isInteger(line) && line >= startLine && line < startLine + code.split('\n').length));
+    parsed.source = {path, code, startLine: source.start_line, highlightLines};
+    const revision = communicationText(source.revision, 80), after = communicationText(source.after, 3072);
+    if (revision !== undefined) parsed.source.revision = revision;
+    if (after !== undefined) { check(after.length <= 3072 && after.split('\n').length <= 32); parsed.source.after = after; }
+  }
+  for (const field of ['question', 'resolution', 'scope', 'decision', 'rationale', 'before', 'after'] as const) {
+    const text = communicationText(data[field]);
+    if (text !== undefined) parsed[field] = text;
+  }
+  const componentId = payloadOptionalID(data.component_id), replyTo = payloadOptionalID(data.reply_to);
+  const libraryItemId = payloadOptionalID(data.library_item_id);
+  if (libraryItemId !== undefined && /^[a-f0-9]{32}$/.test(libraryItemId)) parsed.libraryItemId = libraryItemId;
+  if (typeof data.library_revision === 'number' && data.library_revision > 0) parsed.libraryRevision = data.library_revision;
+  if (componentId !== undefined) parsed.componentId = componentId;
+  if (replyTo !== undefined) parsed.replyTo = replyTo;
+  if (data.question_state !== undefined) {
+    check(data.question_state === 'open' || data.question_state === 'answered' || data.question_state === 'replied');
+    parsed.questionState = data.question_state;
+  }
+  if (data.severity !== undefined) {
+    check(data.severity === 'info' || data.severity === 'warning' || data.severity === 'critical');
+    parsed.severity = data.severity;
+  }
+  return parsed;
+}
+
 const feedPayloadFamilies = [
+  'communication',
   'plan',
   'implementation',
   'review',
@@ -893,6 +1029,9 @@ export function parseFeedPayload(value: unknown): FeedPayload | undefined {
     const tasks = data.tasks === undefined ? undefined : parseTaskStatesPayload(data.tasks);
     if (present.length === 0 && tasks === undefined) return {invalid: true};
     const parsed: FeedPayload = {};
+    const componentId = payloadOptionalID(data.component_id);
+    if (componentId !== undefined) parsed.componentId = componentId;
+    if (data.communication !== undefined) parsed.communication = parseCommunicationPayload(data.communication);
     if (data.plan !== undefined) parsed.plan = parsePlanPayload(data.plan);
     if (data.implementation !== undefined) parsed.implementation = parseImplementationPayload(data.implementation);
     if (data.review !== undefined) parsed.review = parseReviewPayload(data.review);
@@ -1177,7 +1316,8 @@ export function commentPostBody(options: CommentPostOptions): CommentPostBody {
 }
 
 export interface CommentDetail {
-  pipeline: CommentPipelineState;
+  commentId: string;
+  pipeline?: CommentPipelineState;
   body: string;
   authorName: string;
   at: number;
@@ -1189,8 +1329,9 @@ export interface CommentDetail {
 // plus the display facts. Deleted or revoked sources arrive bodyless; the
 // tombstone still resolves through the pipeline states.
 export function parseCommentDetail(value: unknown): CommentDetail {
-  const pipeline = parseCommentPipelineState(value);
   const data = object(value);
+  const pipeline = data.judgment === undefined ? undefined : parseCommentPipelineState(value);
+  check(commentID(data.comment_id));
   const {body, author_name, at, edited, deleted, revoked} = data;
   check(typeof body === 'string' && body.length <= 4096);
   check(author_name === undefined || (typeof author_name === 'string' && author_name.length <= 128));
@@ -1199,7 +1340,8 @@ export function parseCommentDetail(value: unknown): CommentDetail {
   check(deleted === undefined || typeof deleted === 'boolean');
   check(revoked === undefined || typeof revoked === 'boolean');
   return {
-    pipeline,
+    commentId: data.comment_id,
+    ...(pipeline ? {pipeline} : {}),
     body,
     authorName: typeof author_name === 'string' ? author_name : '',
     at: typeof at === 'number' ? at : 0,

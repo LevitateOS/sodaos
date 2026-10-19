@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
 import path from 'node:path';
 import type {State} from './drawer-fixture';
+import {feedRolePortraits} from '../../../frontend/spaces/sodaspaces-factory-feed-portraits';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 let browser: Browser;
@@ -25,6 +26,11 @@ export function setupProjectControlsDriver() {
         const url = new URL(req.url);
         if (url.pathname === '/assets/drawer-fixture.js')
           return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
+        const portrait = Object.values(feedRolePortraits).find((file) => url.pathname === `/assets/${file}`);
+        if (portrait)
+          return new Response(Bun.file(path.join(root, 'assets/branding', portrait)), {
+            headers: {'Content-Type': 'image/png'},
+          });
         if (url.pathname !== '/') return new Response(null, {status: 404});
         return new Response(
           '<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/assets/drawer-fixture.js"></script>',

@@ -15,6 +15,7 @@ Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3
 | `branding/fonts/` | Self-hosted Barlow Condensed, Barlow and IBM Plex Mono, plus retained Fraunces WOFF2 faces, CSS, exact-version provenance and OFL licenses |
 | `branding/forgejo/` | Four PNG exports, native theme review sheet, manifest and light/dark/automatic themes; no decorative artwork |
 | `branding/theme/palette.css` | Shared light/dark semantic color tokens and control ramps |
+| `branding/role-portraits/ps1-v1/` | Ten original PS1-style feed portraits, their approved color reference, gallery and generation prompts; the native Soda extension ships the individual role PNGs |
 | `branding/terminal/sodaos.txt` | Canonical ASCII symbol; sibling fastfetch preset and plain MOTD |
 | `animated-wave-background/` | Animated SVG background with standalone HTML/CSS demo |
 

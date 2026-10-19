@@ -1,0 +1,1 @@
+Added portraits to an AI coding feed. Each picture follows the recorded author role, so a builder’s question still looks like the builder. Images ship with the UI, and browser checks cover every role and alias. The machine crew has faces now.

@@ -32,6 +32,7 @@ import {
   renderFeedPost,
 } from './sodaspaces-factory-feed-view.js';
 import type {CommentOutcomeModel, PostBodyState} from './sodaspaces-factory-feed-view.js';
+import './sodaspaces-factory-library.js';
 
 export interface FactoryFeedContext {
   transport: PreparedExtensionMount;
@@ -148,6 +149,7 @@ export class SodaFactoryFeed extends LitElement {
   private refreshTimer?: ReturnType<typeof setInterval>;
   private revising: {id: string; revision: number; body: string; original?: string; question?: string} | undefined;
   private threads = new Map<string, {items: CommentDetail[]; next: number; busy: boolean; message: string}>();
+  private library: {repository: string; item?: string} | undefined;
 
   protected createRenderRoot() {
     return this;
@@ -187,6 +189,7 @@ export class SodaFactoryFeed extends LitElement {
     this.drafts.clear();
     this.threads.clear();
     this.revising = undefined;
+    this.library = undefined;
     this.view = {
       ...this.view,
       busy: false,
@@ -784,7 +787,7 @@ export class SodaFactoryFeed extends LitElement {
     const context = this.current;
     if (!context) return;
     for (const entry of this.view.entries) {
-      if (entry.kind !== 'post' || !/^[a-f0-9]{32}$/.test(entry.id)) continue;
+      if (entry.kind !== 'post' || entry.payload?.communication || !/^[a-f0-9]{32}$/.test(entry.id)) continue;
       try {
         const response = await context.transport.request(`factory/feed/comments/${entry.id}`, {
           method: 'GET',
@@ -815,7 +818,7 @@ export class SodaFactoryFeed extends LitElement {
             : {state: 'text', body: detail.body, edited: detail.edited}
         );
         this.view = {...this.view, bodies};
-        this.upsertOutcome(this.entryKeyFor(entry), detail.pipeline);
+        if (detail.pipeline) this.upsertOutcome(this.entryKeyFor(entry), detail.pipeline);
       } catch {
         if (serial !== this.serial) return;
         const bodies = new Map(this.view.bodies);
@@ -828,6 +831,12 @@ export class SodaFactoryFeed extends LitElement {
   private onFeedClick = (event: Event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const library = target.closest<HTMLElement>('[data-library-item]');
+    if (library?.dataset.libraryItem) {
+      const entry = this.entryForKey(library.dataset.libraryEntry ?? '');
+      if (entry) { this.library = {repository: String(entry.repository), item: library.dataset.libraryItem}; this.requestUpdate(); }
+      return;
+    }
     const revise = target.closest<HTMLElement>('[data-comment-revise]');
     if (revise?.dataset.commentRevise && this.current) {
       const serial = this.serial;
@@ -862,6 +871,20 @@ export class SodaFactoryFeed extends LitElement {
       void this.reviseComment();
       return;
     }
+    const answer = target.closest('[data-feed-answer]');
+    if (answer instanceof HTMLButtonElement && answer.dataset.feedAnswer) {
+      const key = answer.dataset.feedAnswer, text = answer.dataset.feedAnswerText ?? '';
+      const area = this.querySelector<HTMLTextAreaElement>(`[data-feed-draft="${CSS.escape(key)}"]`);
+      if (area) {
+        // Selecting a choice edits the existing draft; only Submit invokes JEV.
+        area.value = area.value.trim() ? `${area.value}\n${text}`.slice(0, 4000) : text.slice(0, 4000);
+        const disclosure = area.closest('details');
+        if (disclosure) disclosure.open = true;
+        area.dispatchEvent(new Event('input', {bubbles: true}));
+        area.focus();
+      }
+      return;
+    }
     const submit = target.closest('[data-comment-submit]');
     if (submit instanceof HTMLElement && submit.dataset.commentSubmit) {
       void this.submitComment(submit.dataset.commentSubmit);
@@ -880,6 +903,11 @@ export class SodaFactoryFeed extends LitElement {
       context = this.current,
       serial = this.serial;
     if (!edit || !context || this.view.busy || !edit.body.trim()) return;
+    const body = edit.original === undefined ? edit.body : edit.original + '\n\nClarification: ' + edit.body;
+    if ([...body].length > 4000) {
+      this.view = {...this.view, message: 'Keep the original request and answer within 4,000 characters. You can shorten the original request below.'};
+      return;
+    }
     this.view = {...this.view, busy: true};
     try {
       const response = await context.transport.request(`factory/feed/comments/${edit.id}/retry`, {
@@ -887,7 +915,7 @@ export class SodaFactoryFeed extends LitElement {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           expected_revision: edit.revision,
-          body: edit.original === undefined ? edit.body : edit.original + '\n\nClarification: ' + edit.body,
+          body,
         }),
         signal: AbortSignal.timeout(15000),
       });
@@ -910,18 +938,23 @@ export class SodaFactoryFeed extends LitElement {
 
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
+    if (this.library) return html`<section class="soda-feed" aria-label="Project library"><header class="soda-feed-toolbar"><h2>Project library</h2><button type="button" @click=${() => { this.library = undefined; this.requestUpdate(); }}>← Back to activity</button></header><soda-factory-library .repository=${this.library.repository} .itemID=${this.library.item} .request=${this.current?.transport.request}></soda-factory-library></section>`;
     return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
       <header class="soda-feed-toolbar">
         <h2>${this.current?.global ? 'Following' : 'Activity'}</h2>
-        <button type="button" class="ui button" ?disabled=${this.view.busy} @click=${() => void this.readLatest(true)}>
-          Refresh feed
-        </button>
+        <span class="soda-feed-toolbar-actions">
+          ${!this.current?.global && this.current?.repository ? html`<button type="button" class="soda-feed-utility soda-feed-icon-button" aria-label="Knowledge & decisions" title="Knowledge & decisions" @click=${() => { if (this.current) this.library = {repository: this.current.repository}; this.requestUpdate(); }}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-1.8-1.5-4.2-2-8-2v14c3.8 0 6.2.5 8 2 1.8-1.5 4.2-2 8-2V4c-3.8 0-6.2.5-8 2Zm0 0v14"/></svg></button>` : ''}
+          <button type="button" class="ui button soda-feed-utility soda-feed-icon-button" aria-label="Refresh feed" title="Refresh feed" ?disabled=${this.view.busy} @click=${() => void this.readLatest(true)}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 3v4h-4"/></svg></button>
+        </span>
       </header>
       <p data-feed-message aria-live="polite">${this.view.message}</p>
       ${
         this.revising
           ? html`<section class="soda-feed-revision" aria-label="Revise request">
-              ${this.revising.original ? html`<p class="soda-feed-body-text">${this.revising.original}</p>` : ''}
+              ${this.revising.original !== undefined ? html`<details><summary>Original request · edit if needed</summary><label>Original request<textarea rows="4" maxlength="4000" .value=${this.revising.original} @input=${(event: Event) => {
+                const target = event.target;
+                if (target instanceof HTMLTextAreaElement && this.revising) this.revising.original = target.value;
+              }}></textarea></label></details>` : ''}
               <label
                 >${this.revising.question ?? 'Update your request'}<textarea
                   data-revision-body
@@ -1041,7 +1074,9 @@ export class SodaFactoryFeed extends LitElement {
                   submitAvailable: post.discussion.submitAvailable && !this.view.commentBusy.includes(key),
                 },
               },
-              this.renderReplies(entry)
+              this.renderReplies(entry),
+              this.current?.transport.request,
+              this.current?.transport.assetBase
             );
           }
         )}
@@ -1135,8 +1170,8 @@ export class SodaFactoryFeed extends LitElement {
                     <strong>${reply.authorName || 'Comment'}</strong> · ${new Date(reply.at * 1000).toLocaleString()}
                   </p>
                   <p class="soda-feed-body-text">${reply.body}</p>
-                  ${renderDiscussion({
-                    key: 'post:' + reply.pipeline.commentId,
+                  ${reply.pipeline ? renderDiscussion({
+                    key: 'post:' + reply.commentId,
                     draft: '',
                     submitAvailable: false,
                     showComposer: false,
@@ -1149,7 +1184,7 @@ export class SodaFactoryFeed extends LitElement {
                         label: ref?.label ?? 'This project',
                       }),
                     ],
-                  })}
+                  }) : ''}
                 </article>`
               )}
               ${thread.next ? html`<button type="button" ?disabled=${thread.busy} @click=${() => void this.loadReplies(entry, true)}>Older replies</button>` : ''}`
