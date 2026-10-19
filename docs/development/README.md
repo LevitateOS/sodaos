@@ -1,6 +1,6 @@
 # Development
 
-[Factory execution tasks](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
+[Factory execution map](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 

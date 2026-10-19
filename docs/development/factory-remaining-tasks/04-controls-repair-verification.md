@@ -1,13 +1,22 @@
 # Role controls, repair and app verification
 
-[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the catalog's consolidated outcomes own current status; the closed checklist retains evidence and former leases. Implementation is stopped. The executable remainder refines each existing parent without adding counted outcomes. Source locators identify the current owner, not blanket write permission; use the catalog’s next-step disposition and actual prerequisite outputs.
+[Executable task map](../factory-remaining-tasks.md#task-list) owns the current
+deliverables and output dependencies. This packet preserves the parent contracts,
+technical source owners, accepted evidence and additional native/installed gates.
+The Rxx.y links below identify the execution units; parent input lists describe
+full qualification and do not require waiting for whole parents before using
+applicable outputs. Recorded baseline and landed slices retain their actual
+scope. Implementation notes support the execution map rather than define a
+second schedule. This documentation restructuring starts no runtime work.
 
 <a id="r30"></a>
 ## R30 — Qualify one live Factory MCP authority and lifecycle
 
+**Execution tasks:** [R30.1](../factory-remaining-tasks.md#r30-1), [R30.2](../factory-remaining-tasks.md#r30-2), [R30.3](../factory-remaining-tasks.md#r30-3).
+
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Qualify live MCP authority/lifecycle, including role communication. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Qualify live MCP authority/lifecycle, including role communication. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect one server and fixed relay to exact role/subject/repository/revision/run/incarnation authority, trusted startup, reconnect/stop and receipt lifecycle. Activate only after the native boundaries actually pass.
 
@@ -23,6 +32,27 @@ native children acquire broader parent/operator credentials. Release the common
 contract to role producers before live qualification; schema design and focused
 handler work do not wait for an unrelated full-parent outcome.
 
+**Generic System One tools:** Implement the required
+[`systemone.noul`, `systemone.choice`, `systemone.score`](../../design/factory-worker-mcp.md#generic-systemone-tools)
+as reusable provider adapters built into every role's MCP surface. These are
+three additional generic tools alongside the 63 Factory tools. Accept supplied
+state and bounded question maps with primitive-specific criteria; preserve typed
+answers/distributions, Score scale, usage and invocation identity. The generic
+contract requires no issue/plan/Factory purpose; hosting supplies caller authority,
+server-held credentials and allowance. Reuse suitable existing TypeSafe transport
+through a generic owner rather than coupling these schemas to Factory DTOs.
+
+R11 supplies finite worker-call funding and settlement; discovery and all direct
+calls enforce the same admitted provider access. Cover missing configuration,
+rate limits, invalid/partial answers, exhausted allowance, timeout with unknown
+execution/charge, lost reply, replay and revocation. A recorded invocation can
+be recovered without reevaluation; a genuinely new attempt remains accounted.
+Return valid uncertain judgments without inventing universal thresholds, extra
+consultations or false results. Generic judgments cannot substitute for trusted
+controller acceptance receipts, advance work or auto-publish knowledge/posts.
+R48 qualifies actual calls; R42/R43 expose references when an existing Factory
+action uses a consequential judgment. This does not change spend-free reads.
+
 **Ralph absorption addition:** Extend this same MCP authority to R32's typed role
 communication. Derive author, role, run, assignment and subject from admission;
 apply lifetime, replay, revocation and cross-scope refusal to communication as
@@ -31,16 +61,18 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Accept only when:** Cross-scope/expired/revoked/forbidden calls refuse server-side. Replay returns the same receipt, conflict refuses, restart/rebind cannot renew authority. No secrets in prompts/argv/logs or broad operator/extension socket exposure.
 
-**Executable remainder:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` currently stages metadata; `FactoryMCPHandler` currently supplies neither `Observed` nor `Catalog`. First wire trusted host observation plus stop/revocation ordering into activation and request admission; prove the cached-stopped=false race remains refused. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
+**Implementation notes:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` currently stages metadata; `FactoryMCPHandler` currently supplies neither `Observed` nor `Catalog`. First wire trusted host observation plus stop/revocation ordering into activation and request admission; prove the cached-stopped=false race remains refused. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
 
 **Principal source owners:** [cmd/soda-dashboard/factory_mcp.go](../../../cmd/soda-dashboard/factory_mcp.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/mcp_admission.go](../../../internal/factory/control/mcp_admission.go), [internal/store/factory_mcp_capability.go](../../../internal/store/factory_mcp_capability.go), [lib/host/src/terminal/factory/mcp_relay.rs](../../../lib/host/src/terminal/factory/mcp_relay.rs).
 
 <a id="r31"></a>
 ## R31 — Complete role context, interaction and library/decision reads
 
+**Execution tasks:** [R31.1](../factory-remaining-tasks.md#r31-1), [R31.2](../factory-remaining-tasks.md#r31-2), [R31.3](../factory-remaining-tasks.md#r31-3), [R31.4](../factory-remaining-tasks.md#r31-4).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30).
 
-**Current (wind-down):** Complete four canonical bounded read controls and live readback. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Complete four canonical bounded read controls and live readback. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Complete the four baseline reads plus inbox/discussion and knowledge/decision search/read, with the required context for all seven production profiles and Library Admin. Use bounded canonical evidence, explicit grants, complete pagination, honest incompleteness and exact receipt recovery.
 
@@ -67,7 +99,7 @@ new library/decision pages obey the same finite bounds and access checks.
 
 **Accept only when:** Each admitted profile receives its allowed current context without spending, leaking or granting authority. Missing pages cannot claim completeness. Reads need no native mutation effect; they still require live authenticated transport and correct readback.
 
-**Executable remainder:** Follow the [D14 worker-context design](../factory-workflow-contracts.md#d14-worker-context) from `factoryCatalogServer::{serveRead,serveEvidence,serveReceipt}` and the existing context selection/preparation owners. First close the partial-selection gaps below: enforce S0-plus-hold fallback, reapply validated effective decisions on receipt readback, and bind the one-call reservation to capability identity rather than only a fingerprint. Then join required role facts and authorized local-lineage projections, supply the complete selection state, and add bounded context cursor pages. General evidence record pages remain FW40; provenance-linked comments remain R32/R42. Release cursor/completeness and allowed-context contracts to role consumers without waiting for live activation, then use R30 for real read-only transport. Test missing/later pages, revisions, unauthorized repository/comment access and zero spending through actual handlers. Comments remain attributed user input, never tool authority or a route to unsubscribed private work.
+**Implementation notes:** Follow the [D14 worker-context design](../factory-workflow-contracts.md#d14-worker-context) from `factoryCatalogServer::{serveRead,serveEvidence,serveReceipt}` and the existing context selection/preparation owners. First close the partial-selection gaps below: enforce S0-plus-hold fallback, reapply validated effective decisions on receipt readback, and bind the one-call reservation to capability identity rather than only a fingerprint. Then join required role facts and authorized local-lineage projections, supply the complete selection state, and add bounded context cursor pages. General evidence record pages remain FW40; provenance-linked comments remain R32/R42. Release cursor/completeness and allowed-context contracts to role consumers without waiting for live activation, then use R30 for real read-only transport. Test missing/later pages, revisions, unauthorized repository/comment access and zero spending through actual handlers. Comments remain attributed user input, never tool authority or a route to unsubscribed private work.
 
 **Read-contract status:** zero spending, unknown-capability refusal on all four reads, cross-assignment receipt non-disclosure and honest-incomplete evidence are proven through the actual handlers. The basic context projects the recorded assignment (prompt digest, exact source/preparation, outcome/reason once set) and refuses without it. Partial optional joins now expose own-attempt run IDs and a linked parent's outcome/reason; prompt bytes, private conversations and actor identities remain excluded. Full role projections, field-level lineage grants and pagination inputs remain open; current schemas have no context cursor or general evidence ref/cursor.
 
@@ -94,9 +126,11 @@ new library/decision pages obey the same finite bounds and access checks.
 <a id="r32"></a>
 ## R32 — Implement shared records, planning tools and Library Admin
 
+**Execution tasks:** [R32.1](../factory-remaining-tasks.md#r32-1), [R32.2](../factory-remaining-tasks.md#r32-2), [R32.3](../factory-remaining-tasks.md#r32-3), [R32.4](../factory-remaining-tasks.md#r32-4), [R32.5](../factory-remaining-tasks.md#r32-5), [R32.6](../factory-remaining-tasks.md#r32-6), [R32.7](../factory-remaining-tasks.md#r32-7), [R32.8](../factory-remaining-tasks.md#r32-8), [R32.9](../factory-remaining-tasks.md#r32-9), [R32.14](../factory-remaining-tasks.md#r32-14), [R32.10](../factory-remaining-tasks.md#r32-10), [R32.11](../factory-remaining-tasks.md#r32-11), [R32.12](../factory-remaining-tasks.md#r32-12), [R32.13](../factory-remaining-tasks.md#r32-13).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R12](02-prompt-to-pr.md#r12), [R13](02-prompt-to-pr.md#r13), [R15](02-prompt-to-pr.md#r15).
 
-**Current (wind-down):** Planning finish consumers and typed ask/flag/learned/suggest/partial/blocked/stuck/done records. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Planning finish consumers and typed ask/flag/learned/suggest/partial/blocked/stuck/done records. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Implement shared communication, decision/knowledge/artifact records, Product Lead/Architect work tools and Library Admin maintenance. Bind them to real domain consumers, durable revisions/receipts and feed/index obligations, with formal planning and maintenance finishes using common settlement.
 
@@ -141,6 +175,11 @@ emit a PR or bypass today's non-code acceptance with a new label.
 
 - [ ] Implement Ask/Answer/Reply and human comment/reply records with routing,
   answer incorporation, revision history and exact discussion-to-work origin.
+  Submitted human comments invoke funded JEV assessment; a new-issue result
+  admits Product Lead LLM authoring and validated native creation through R13.
+  Persist discussion-only, existing-work and clarification results too. Drafts,
+  reads and generated agent replies do not trigger this intake. Show saved,
+  assessing, drafting and actually created as distinct states with one lineage.
   Implement Flag/Suggest/Partial/Blocked/Stuck with actual finding/proposal/
   readiness/diagnosis consumers; unaffected work continues. Inspector Flag uses
   R34's canonical finding, never a second feed-only defect.
@@ -210,18 +249,20 @@ discovery, prompt/tool contracts and consumers together for the selected outlets
 
 **Accept only when:** Every assigned shared/planning/maintenance tool reaches its real owner and durable readback, with the required authority, revision and recovery cases. Planning finishes also require their permitted native effects and observed settlement. No-repository drafts launch nothing; recorded decisions and maintenance edits cannot grant policy or issue authority, and accepted finish cannot advance while the process remains uncertain.
 
-**Executable remainder:** Use the full implementation checklist above. First establish shared record/revision/grant/receipt schemas and one Ask → answer → incorporation path. Next connect decision recording/retrieval and Learned → later use → amendment with R31/R42, then Library Admin operations through the same item owners. In parallel, join durable Product Lead/Architect drafts and finishes to R12/R13/R15 and connect exact discussion revisions to those requests. Release producer records and focused checks incrementally to R42/R43; finish the maintenance subject/consumer with R10/R11/R30/R35. Reuse existing scope/approval rules, the current MCP server and reserved terminal capacity. Real-PG cases cover actual consumers, history, authority, conflict and replay; native planning/maintenance qualification still needs admitted transport and observed settlement. Completing only the original seven signals or two planning finishes leaves this parent open.
+**Implementation notes:** Use the full implementation checklist above. First establish shared record/revision/grant/receipt schemas and one Ask → answer → incorporation path. Next connect decision recording/retrieval and Learned → later use → amendment with R31/R42, then Library Admin operations through the same item owners. In parallel, join durable Product Lead/Architect drafts and finishes to R12/R13/R15 and connect exact discussion revisions to those requests. Release producer records and focused checks incrementally to R42/R43; finish the maintenance subject/consumer with R10/R11/R30/R35. Reuse existing scope/approval rules, the current MCP server and reserved terminal capacity. Real-PG cases cover actual consumers, history, authority, conflict and replay; native planning/maintenance qualification still needs admitted transport and observed settlement. Completing only the original seven signals or two planning finishes leaves this parent open.
 
-**Discussion-to-effect recovery:** The [accepted discussion contract](../../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work) requires more than persisted comments and a success link. After the trigger/routing choice for this slice is resolved and R12/R13/R15 consumers exist, bind one immutable discussion revision and request ID to their existing dispatch/native operation journals in `intent_generation.go`, `factory_intent_generation.go` and `factory_planning_revisions.go`. Next exercise edit/deletion or access loss before admission, an unavailable consumer, and a lost native-effect reply after commit. Finite acceptance: stale/refused/pending results are visible; retry recovers the original plan/issue and charge, never a duplicate or a relabeled newer comment; confirmed results retain the original discussion link. R31/R42/R43 expose the same outcome with current access checks. Trigger/edit policy remains a scoped design choice, not permission to auto-dispatch or demand approval for every comment.
+**Discussion-to-effect recovery:** The [accepted discussion contract](../../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work) now settles the trigger: submitted human comment → JEV assessment → Product Lead LLM authoring if new work is selected → native issue creation. Bind one immutable comment revision and request ID through funded judgment, authoring and the existing dispatch/native operation journals in `intent_generation.go`, `factory_intent_generation.go` and `factory_planning_revisions.go`. Validate title/body, acceptance criteria and Soda work metadata before R13 applies the issue. Exercise discussion-only, existing-work and clarification outcomes, edits/deletion or access loss before application, missing allowance, malformed LLM output, an unavailable consumer and a lost native-effect reply after commit. Finite acceptance: stale/refused/pending/unknown results remain visible; retry reuses recorded judgments/drafts and recovers the original native operation, never a duplicate or a relabeled newer comment. Provider timeouts do not establish zero spending or permission for blind retries. Confirmed results retain the source link; explicit edited submissions bind a new revision to earlier work, and deletion does not erase an already created issue. R31/R42/R43 expose the same outcome with current access checks. Existing readiness/pause/grant rules govern subsequent execution; ordinary authorized issue creation needs no new approval per comment.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/intent_generation.go](../../../internal/factory/control/intent_generation.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
 
 <a id="r33"></a>
 ## R33 — Connect Builder task output and implementation finish to checkpoints
 
+**Execution tasks:** [R33.1](../factory-remaining-tasks.md#r33-1).
+
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R16](02-prompt-to-pr.md#r16), [R17](02-prompt-to-pr.md#r17), [R18](02-prompt-to-pr.md#r18).
 
-**Current (wind-down):** Builder output/finish to trusted checkpoint and singleton Fixer reuse. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Builder output/finish to trusted checkpoint and singleton Fixer reuse. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Wire factory.submit_task_output and factory.finish_implementation through actual native observation, trusted checks/Git CAS/receipt and the common plan completion owner. Reuse the executor for singleton Fixer output.
 
@@ -236,16 +277,18 @@ checkpoint replies; expose the exact affected task and permitted next action.
 
 **Accept only when:** Duplicate/racing proposals produce one checkpoint and no ownership rewrite. Child/handoff identity is forbidden for singleton Fixer; failed checks, mutation after release and unobserved retirement cannot advance. P8 is a real native composition.
 
-**Executable remainder:** Consume R16 events, R17 trusted checkpoint production, R18 final-plan gate and R30/R31 authenticated submission/readback. Start at `factoryCatalogServer::serveMutation`, `task_events.rs` and `SavePlanTaskReceipt`. Wire submit_task_output to the existing observed/check/CAS path, then finish_implementation to final-plan completion. Reuse that executor for singleton Fixer without children/handoff. Release consumed receipt/effect references to R34/R42. Race duplicate proposals and failed checks in focused PG tests; P8 then proves a real native checkpoint and retirement. Accepted submission alone must not mark a task completed or release capacity.
+**Implementation notes:** Consume R16 events, R17 trusted checkpoint production, R18 final-plan gate and R30/R31 authenticated submission/readback. Start at `factoryCatalogServer::serveMutation`, `task_events.rs` and `SavePlanTaskReceipt`. Wire submit_task_output to the existing observed/check/CAS path, then finish_implementation to final-plan completion. Reuse that executor for singleton Fixer without children/handoff. Release consumed receipt/effect references to R34/R42. Race duplicate proposals and failed checks in focused PG tests; P8 then proves a real native checkpoint and retirement. Accepted submission alone must not mark a task completed or release capacity.
 
 **Principal source owners:** [lib/host/src/factory/task_events.rs](../../../lib/host/src/factory/task_events.rs), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
 
 <a id="r34"></a>
 ## R34 — Implement Inspector and Fixer work, coverage and finish controls
 
+**Execution tasks:** [R34.3](../factory-remaining-tasks.md#r34-3), [R34.1](../factory-remaining-tasks.md#r34-1), [R34.2](../factory-remaining-tasks.md#r34-2).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R24](03-review-merge-reassessment.md#r24), [R33](04-controls-repair-verification.md#r33).
 
-**Current (wind-down):** Inspector/Fixer finish to actual review/correction effects. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Inspector/Fixer finish to actual review/correction effects. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Apply exact independent role prompts, canonical review coverage/dispositions and singleton Fixer output to factory.finish_review and factory.finish_correction. Use conditional native review/comment/resolution owners.
 
@@ -263,16 +306,18 @@ regression states and root-cause links to R42/R43 using the component catalog.
 
 **Accept only when:** Clear is explicit and complete; nothing-found, incomplete and disputed reports keep their distinct semantics. No direct agent merge or authority grant. Native readback, task output and observed retirement gate progression.
 
-**Executable remainder:** Consume R22 review, R23 dispositions, R24 acceptance and R33 singleton output with R30/R31 authority/readback. In the existing MCP mutation consumer, route finish_review to native review ownership and finish_correction to the correction journal/checkpoint owner. Release report, native resolution and effect receipts to R42. Test explicit clear versus incomplete/disputed reports, stale candidate and replay through real handlers/Store; native readback must agree after observed retirement. Preserve independent actor separation and no agent merge authority.
+**Implementation notes:** Consume R22 review, R23 dispositions, R24 acceptance and R33 singleton output with R30/R31 authority/readback. In the existing MCP mutation consumer, route finish_review to native review ownership and finish_correction to the correction journal/checkpoint owner. Release report, native resolution and effect receipts to R42. Test explicit clear versus incomplete/disputed reports, stale candidate and replay through real handlers/Store; native readback must agree after observed retirement. Preserve independent actor separation and no agent merge authority.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/review_cycle.go](../../../internal/factory/control/review_cycle.go), [internal/factory/control/correction.go](../../../internal/factory/control/correction.go).
 
 <a id="r35"></a>
 ## R35 — Finish incomplete, handoff and terminal settlement semantics
 
+**Execution tasks:** [R35.2](../factory-remaining-tasks.md#r35-2), [R35.1](../factory-remaining-tasks.md#r35-1).
+
 **Work:** Implement and integrate. **Owner lane:** A. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R11](02-prompt-to-pr.md#r11).
 
-**Current (wind-down):** Incomplete/handoff/terminal settlement composition. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Incomplete/handoff/terminal settlement composition. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Wire factory.finish_incomplete and factory.request_handoff to the exact blocked owner/approved DAG successor and common stop/settlement path. Preserve pre-start hold/FactoryStart, receipt recovery and terminal capacity.
 
@@ -286,16 +331,18 @@ answer requires fresh authorized admission, never revival of an old capability.
 
 **Accept only when:** Blocked/nothing-found/finish are distinct. Submission is not observed termination; stop/submission/reconnect/restart races cannot release unknown children, transfer ownership arbitrarily or charge twice.
 
-**Executable remainder:** Consume R11 settlement and R30/R31 authority/receipts. Start at MCP finish_incomplete/request_handoff, `dispatch_result.go::AccountSettledRun` and host `finish.rs`/`stop.rs`. First persist the exact blocked owner or admitted DAG successor proposal; then join stop observation, children retirement and one settlement/credential return. Release terminal state/custody facts to R41/R42. Run PG submission-versus-stop/reconnect races and one native parent-with-child restart witness. Ordinary partial communication is not terminal; unknown retirement holds custody/capacity, and handoff cannot create a new allowance or arbitrary assignee.
+**Implementation notes:** Consume R11 settlement and R30/R31 authority/receipts. Start at MCP finish_incomplete/request_handoff, `dispatch_result.go::AccountSettledRun` and host `finish.rs`/`stop.rs`. First persist the exact blocked owner or admitted DAG successor proposal; then join stop observation, children retirement and one settlement/credential return. Release terminal state/custody facts to R41/R42. Run PG submission-versus-stop/reconnect races and one native parent-with-child restart witness. Ordinary partial communication is not terminal; unknown retirement holds custody/capacity, and handoff cannot create a new allowance or arbitrary assignee.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/dispatch_result.go](../../../internal/factory/control/dispatch_result.go), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs), [lib/host/src/factory/stop.rs](../../../lib/host/src/factory/stop.rs).
 
 <a id="r36"></a>
 ## R36 — Wire serving stall detection over complete component inventories
 
+**Execution tasks:** [R36.2](../factory-remaining-tasks.md#r36-2), [R36.1](../factory-remaining-tasks.md#r36-1).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R14](02-prompt-to-pr.md#r14), [R10](01-boundaries.md#r10).
 
-**Current (wind-down):** Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Preserve the accepted serving detector, complete component inventory and bound episode/fence; finish progress-generation and downstream consumers. Separate active work, CI, quota, preparation, permission, pause and product attention from cycles/missing producers/unexplained no-ready work.
 
@@ -309,7 +356,7 @@ or a report alone does not launch a new investigation or resolve a blocker.
 
 **Accept only when:** Ordinary waits make no investigator call; a wait in one component cannot hide repairable work in another. Partial inventory cannot prove deadlock. Ready work returns to selection and fully delivered outcomes enter verification.
 
-**Executable remainder:** Detection, repository isolation and ordered events are accepted. Start at `stall_serve.go::ServeStallRound`, `factory_stall_events.go::StallRoundGeneration` and the verified-completion transaction. First advance progress generation from a committed verified required outcome exactly once (attributable merge/completion or accepted evidenced non-code prerequisite); duplicate observation/restart, comments, edits and graph reshuffles must not increment it. Then route classified ready/wait/attention/stall/verify outputs to their existing consumers, with verify handed to R38/R39 when available. Release bound current episodes to R37. Extend serving PG cases for generation and delivered-state handoff; retain mixed-component/isolation tests. Never add another detector/timer or infer deadlock from incomplete inventory.
+**Implementation notes:** Detection, repository isolation and ordered events are accepted. Start at `stall_serve.go::ServeStallRound`, `factory_stall_events.go::StallRoundGeneration` and the verified-completion transaction. First advance progress generation from a committed verified required outcome exactly once (attributable merge/completion or accepted evidenced non-code prerequisite); duplicate observation/restart, comments, edits and graph reshuffles must not increment it. Then route classified ready/wait/attention/stall/verify outputs to their existing consumers, with verify handed to R38/R39 when available. Release bound current episodes to R37. Extend serving PG cases for generation and delivered-state handoff; retain mixed-component/isolation tests. Never add another detector/timer or infer deadlock from incomplete inventory.
 
 **Serving proof (landed):** `TestServeStallRoundGenerationReuseAndIsolation` runs two rounds on real PG — generation stays reused at zero, a stalled repo keeps one bound episode and one charge while a ready sibling resumes selection with no episode, charge or standing observation. Open finding: the detector's verify branch has no production producer — nothing writes completed readiness, delivered outcomes flow through completion fences instead. Who advances generation on verified delivery (this card vs the R37 lifecycle owner) and what produces delivery state for the verify handoff is a design decision, not implemented here.
 
@@ -318,15 +365,17 @@ or a report alone does not launch a new investigation or resolve a blocker.
 <a id="r37"></a>
 ## R37 — Connect bounded Strategist repair, sponsorship and adoption
 
+**Execution tasks:** [R37.1](../factory-remaining-tasks.md#r37-1).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R36](04-controls-repair-verification.md#r36), [R29](03-review-merge-reassessment.md#r29), [R11](02-prompt-to-pr.md#r11).
 
-**Current (wind-down):** Strategist proposal/Jev choice and later repair-cycle adoption; cycle-1 episode/charge joint accepted. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Strategist proposal/Jev choice and later repair-cycle adoption; cycle-1 episode/charge joint accepted. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Admit one bound repair episode under explicit sponsor and stable intent/repository/global accounting. Consume a checked Strategist proposal and finite Jev choice, then reuse protected serial graph adoption and fresh readback.
 
 **Accept only when:** Restart, Retry, replacement issues and graph reshuffles cannot refill allowances; only material new evidence permits the allowed next cycle. No-change cannot clear a real stall; obsolete ready work retires the episode and committed prefixes remain fenced/reconciled.
 
-**Executable remainder:** Consume R36's current episode, R11's stable charge and R29's protected serial adoption. `repair_admit.go::AdmitStallEpisodeRun` already owns cycle-1 charging. First connect a checked Strategist proposal and bounded Jev choice to that episode; then admit only the allowed later cycle with material new evidence and unchanged cumulative ledger. Release adopted repair or named attention to R39/R40. PG tests cover repeated detection, restart, Retry and reshuffled issue IDs without refill; a native/funded case consumes R07–R09. No-change cannot clear a real stall, and ready work retires obsolete diagnosis.
+**Implementation notes:** Consume R36's current episode, R11's stable charge and R29's protected serial adoption. `repair_admit.go::AdmitStallEpisodeRun` already owns cycle-1 charging. First connect a checked Strategist proposal and bounded Jev choice to that episode; then admit only the allowed later cycle with material new evidence and unchanged cumulative ledger. Release adopted repair or named attention to R39/R40. PG tests cover repeated detection, restart, Retry and reshuffled issue IDs without refill; a native/funded case consumes R07–R09. No-change cannot clear a real stall, and ready work retires obsolete diagnosis.
 
 **Principal source owners:** [internal/store/factory_repair_grants.go](../../../internal/store/factory_repair_grants.go), [internal/store/factory_reassessment_allowances.go](../../../internal/store/factory_reassessment_allowances.go), [internal/factory/control](../../../internal/factory/control).
 
@@ -335,9 +384,11 @@ or a report alone does not launch a new investigation or resolve a blocker.
 <a id="r38"></a>
 ## R38 — Implement trusted Test Pilot manifests and artifact verification
 
+**Execution tasks:** [R38.1](../factory-remaining-tasks.md#r38-1).
+
 **Work:** Implement and prove. **Owner lane:** A. **Accepted inputs:** [R10](01-boundaries.md#r10), [R13](02-prompt-to-pr.md#r13), [R18](02-prompt-to-pr.md#r18), [R27](03-review-merge-reassessment.md#r27).
 
-**Current (wind-down):** Trusted Test Pilot manifest adoption and exact integrated-artifact checks. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Trusted Test Pilot manifest adoption and exact integrated-artifact checks. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind approved manifest/outcome coverage to accepted intent version and integrated tree/artifact/fixture. Launch Test Pilot under the readonly profile and existing bounded host operations, retaining trusted check and cleanup receipts.
 
@@ -350,7 +401,7 @@ the recording tool; missing fixtures or evidence remain explicit incomplete case
 
 **Accept only when:** P9 uses the actual approved fixture and current integrated bytes. Missing/stale/failed checks cannot pass; forged proposed evidence is not trusted check output. Lost replies and CLI-start ordering preserve identity and no deployment occurs.
 
-**Executable remainder:** Consume R10 delivery identity, R13 accepted outcome coverage, R18 exact integrated artifact and R27 verified delivery. Start at `internal/factory/mcp_manifest.go::ValidateManifestProposal`, `verification.go` and API `FactoryMCPDeps.Catalog`. First wire approved catalog lookup and durable adoption of the proposal; then launch its bounded readonly Test Pilot checks through existing host manifest/run owners. Bind trusted check output independently of submitted report digests. Release exact verification receipts to R39/R40. Test missing fixture, stale manifest/artifact, forged receipt and failed required check at the actual Store/handler join, then native P9 using R30/R44/R45. No deployment or agent-defined shell authority.
+**Implementation notes:** Consume R10 delivery identity, R13 accepted outcome coverage, R18 exact integrated artifact and R27 verified delivery. Start at `internal/factory/mcp_manifest.go::ValidateManifestProposal`, `verification.go` and API `FactoryMCPDeps.Catalog`. First wire approved catalog lookup and durable adoption of the proposal; then launch its bounded readonly Test Pilot checks through existing host manifest/run owners. Bind trusted check output independently of submitted report digests. Release exact verification receipts to R39/R40. Test missing fixture, stale manifest/artifact, forged receipt and failed required check at the actual Store/handler join, then native P9 using R30/R44/R45. No deployment or agent-defined shell authority.
 
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs).
 
@@ -359,24 +410,28 @@ the recording tool; missing fixtures or evidence remain explicit incomplete case
 <a id="r39"></a>
 ## R39 — Make app completion and delivery repair truthful and bounded
 
+**Execution tasks:** [R39.1](../factory-remaining-tasks.md#r39-1).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R38](04-controls-repair-verification.md#r38), [R13](02-prompt-to-pr.md#r13), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37).
 
-**Current (wind-down):** Verified app completion and bounded delivery-repair chain. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Verified app completion and bounded delivery-repair chain. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Complete an intent only from all accepted delivered outcomes plus its exact verification receipts. Route real verification failure through the distinct bounded delivery-repair cause, stable intent ledger and protected graph owner.
 
 **Accept only when:** Intent A can verify while unrelated B progresses. A missing fixture is a precise per-intent wait. Failure/Retry/revision cannot refill the two-run ceiling or manufacture an app intent for a manual issue; material scope questions return to the owner.
 
-**Executable remainder:** Consume R38 trusted receipts, R13 accepted scope and R29/R37 protected repair/ledger contracts. Start at `verification.go::{DeliverySubject,DeliveryRepairSubject}` and existing intent/allowance Store owners. First make intent completion require all accepted outcomes and exact artifact verification; then route verified failure to the distinct delivery-repair cause with its two-run ceiling. Release completed/failed/waiting state to R40/R42. Real-PG cases cover unrelated intent progress, missing fixture, partial coverage, duplicate result, Retry and revision without allowance refill. A manual issue gains no synthetic app intent, and material scope change returns through existing product authority.
+**Implementation notes:** Consume R38 trusted receipts, R13 accepted scope and R29/R37 protected repair/ledger contracts. Start at `verification.go::{DeliverySubject,DeliveryRepairSubject}` and existing intent/allowance Store owners. First make intent completion require all accepted outcomes and exact artifact verification; then route verified failure to the distinct delivery-repair cause with its two-run ceiling. Release completed/failed/waiting state to R40/R42. Real-PG cases cover unrelated intent progress, missing fixture, partial coverage, duplicate result, Retry and revision without allowance refill. A manual issue gains no synthetic app intent, and material scope change returns through existing product authority.
 
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store).
 
 <a id="r40"></a>
 ## R40 — Implement Strategist and Test Pilot work and finish controls
 
+**Execution tasks:** [R40.1](../factory-remaining-tasks.md#r40-1), [R40.2](../factory-remaining-tasks.md#r40-2).
+
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37), [R38](04-controls-repair-verification.md#r38), [R39](04-controls-repair-verification.md#r39).
 
-**Current (wind-down):** Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect typed role prompts/results and observed retirement to the reassessment/repair and exact-artifact verification/app completion owners. Finish the seven-profile instruction/context matrix.
 
@@ -400,16 +455,18 @@ instruction/result schema and R30/R48 qualify the combined eight-profile matrix.
 
 **Accept only when:** Both controls have authenticated producer→durable admission→permitted effect→native/host readback→visible state, including stale/blocked/refused/replay cases. Tool completion grants no merge or deployment authority.
 
-**Executable remainder:** Consume R29/R37 proposal adoption, R38/R39 verification/completion and R30/R31 admission/readback. Start at MCP finish_reassessment/finish_app_verification payloads and `dispatch_prompt.go::BuildDispatchPrompt`. Wire each recorded submission to its existing consumer and retirement gate; then reconcile instructions/context for all seven profiles, including permitted communication and comment provenance. Release durable effect/readback references to R42/R48. Handler/Store tests distinguish recorded, refused, waiting and applied across replay; actual native receipts complete qualification. Tool success grants neither merge nor deployment.
+**Implementation notes:** Consume R29/R37 proposal adoption, R38/R39 verification/completion and R30/R31 admission/readback. Start at MCP finish_reassessment/finish_app_verification payloads and `dispatch_prompt.go::BuildDispatchPrompt`. Wire each recorded submission to its existing consumer and retirement gate; then reconcile instructions/context for all seven profiles, including permitted communication and comment provenance. Release durable effect/readback references to R42/R48. Handler/Store tests distinguish recorded, refused, waiting and applied across replay; actual native receipts complete qualification. Tool success grants neither merge nor deployment.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store).
 
 <a id="r41"></a>
 ## R41 — Qualify intervention, withdrawal and interrupted-work recovery
 
+**Execution tasks:** [R41.1](../factory-remaining-tasks.md#r41-1).
+
 **Work:** Integrate and qualify. **Owner lane:** A. **Accepted inputs:** [R06](01-boundaries.md#r06), [R11](02-prompt-to-pr.md#r11), [R16](02-prompt-to-pr.md#r16), [R26](03-review-merge-reassessment.md#r26), [R30](04-controls-repair-verification.md#r30), [R35](04-controls-repair-verification.md#r35), [R44](05-experience-and-development.md#r44).
 
-**Current (wind-down):** Composed intervention/withdrawal/crash recovery. The catalog owns the remaining prerequisites and release condition.
+**Recorded baseline:** Composed intervention/withdrawal/crash recovery. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Compose pause/cancel/resume/Retry/takeover with exact native tasks, outstanding operations, MCP capability withdrawal and credential/resource return. Preserve finite consumption and human work.
 
@@ -423,6 +480,6 @@ without reopening the worker, making a new charge or repeating a native effect.
 
 **Accept only when:** Observe whole owned execution retirement before release or takeover; uncertain stop remains fenced. Restart adopts committed effects instead of duplicating them. Human terminals, checkouts, services and credentials remain distinct and usable.
 
-**Executable remainder:** Consume R06 importer custody, R11 settlement, R16 child journal, R26 operation reconciliation, R30 capability withdrawal, R35 terminal semantics and R44 provider custody. Start at host `stop.rs`, `project/admission.rs` and the existing controller pause/cancel/Retry paths. First compose withdrawal with active parent/children and outstanding native operation; then restart/takeover after known retirement versus uncertain stop. Release observed custody-return facts to R49/R54. Focused PG races plus native interruption at those two boundaries are sufficient; preserve committed effects, charges and unrelated human checkout/terminal/service data.
+**Implementation notes:** Consume R06 importer custody, R11 settlement, R16 child journal, R26 operation reconciliation, R30 capability withdrawal, R35 terminal semantics and R44 provider custody. Start at host `stop.rs`, `project/admission.rs` and the existing controller pause/cancel/Retry paths. First compose withdrawal with active parent/children and outstanding native operation; then restart/takeover after known retirement versus uncertain stop. Release observed custody-return facts to R49/R54. Focused PG races plus native interruption at those two boundaries are sufficient; preserve committed effects, charges and unrelated human checkout/terminal/service data.
 
 **Principal source owners:** [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/stop.rs](../../../lib/host/src/factory/stop.rs), [lib/host/src/project/admission.rs](../../../lib/host/src/project/admission.rs).

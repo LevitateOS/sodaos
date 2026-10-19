@@ -26,6 +26,13 @@ and agent-created prerequisites. It recommends Researcher and five additional
 tools as explicit options beyond the main catalog below; those choices remain
 proposed and have their own mapped task scope.
 
+The owner also requires three built-in generic System One tools:
+`systemone.noul`, `systemone.choice` and `systemone.score`. They are shared by
+every role alongside the Factory interface. The main inventory therefore has
+63 Factory tools plus three generic judgment tools; the research extension
+remains separately proposed. This is required design scope, not implemented
+worker MCP exposure.
+
 ## 1. What the redesign must accomplish
 
 A worker should be able to answer five practical questions throughout its run:
@@ -83,6 +90,9 @@ Product Lead and an Inspector should see different work tools and input schemas.
 They should both be able to ask questions, consult knowledge and explain progress.
 Library Admin gets a separate maintenance profile on that same service, scoped
 to explicitly granted knowledge/decision collections and a bounded assignment.
+Compose the generic `systemone.*` provider module into that same worker-facing
+MCP service. Its input/output contract remains reusable outside Factory; it
+does not require Factory issues, roles or workflow purposes to express a question.
 
 Splitting this into seven independent server implementations would also split
 question routing, knowledge visibility, receipts and lifecycle rules unless those
@@ -92,6 +102,8 @@ deployment split. The redesign is primarily about capabilities and semantics.
 ```mermaid
 flowchart TD
     W[Worker with an admitted role] --> M[Shared tools and role work tools]
+    W --> S[Generic systemone.noul / choice / score]
+    S --> W
     M --> A[Validate scope, revision and evidence]
     A --> R[Canonical domain records and durable receipts]
     R --> F[Factory controller and trusted execution]
@@ -107,9 +119,10 @@ flowchart TD
 The loop matters. Publishing a question without retrieving its answer, or writing
 a learning without finding it on the next assignment, is an incomplete interface.
 
-### Four categories workers can understand
+### Five categories workers can understand
 
 - **Understand:** assignment, status, evidence, relevant knowledge and new replies.
+- **Evaluate:** ask a typed System One question about supplied context.
 - **Work:** operations specific to the role, such as draft a plan, submit an output
   or record a finding assessment.
 - **Communicate:** ask, answer, flag, suggest, report progress and explain a wait.
@@ -124,10 +137,101 @@ do not assume either a tiny catalog or every possible tool is automatically bett
 
 ## 3. Shared interface, first
 
-Every admitted parent role receives the following capabilities. The names in
-this section are the proposed complete shared set; existing source names retain
+Every admitted parent role receives the following capabilities: three generic
+System One tools and 25 Factory tools. The names in this section are the proposed
+complete shared set; existing source names retain
 their current spelling. Native child capabilities require their own qualified
 contract and do not inherit the parent's Factory credentials.
+
+<a id="generic-systemone-tools"></a>
+### Generic System One judgments
+
+These are worker-callable primitives in the `systemone` namespace, built into
+each role's MCP surface. All seven production roles and Library Admin receive
+the same three contracts; Researcher receives them if that profile is adopted.
+Role context changes the questions asked, not the tool names or provider semantics.
+
+| Tool | Input meaning | Typed answer |
+| --- | --- | --- |
+| `systemone.noul` | Supplied state plus a yes/no question, optionally describing what true and false mean. | `noul`: probability of yes from 0 to 1. There is no separate confidence field; 0.5 expresses uncertainty, not medium severity. |
+| `systemone.choice` | Supplied state, a selection question and named candidate options with their criteria. | Selected `choice`, probabilities across the supplied options, and `confidence`. Include a no-match option when the candidates may not cover the input. |
+| `systemone.score` | Supplied state, the dimension to assess and ordered descriptive levels. | Probability-weighted `score` on the level indices, level probabilities, `legend` and `confidence`. With N levels the scale is 0 through N−1; it is not implicitly a percentage. |
+
+The primitive semantics follow the live TypeSafe references for
+[Noul](https://docs.typesafe.ai/primitives/noul),
+[Choice](https://docs.typesafe.ai/primitives/choice) and
+[Score](https://docs.typesafe.ai/primitives/score). The
+[provider API](https://docs.typesafe.ai/api) evaluates state against typed
+questions; these three MCP names are our interface to it, not three separate
+provider HTTP endpoints.
+
+**Proposed MCP shape:** each tool accepts `state` and a `questions` map keyed by
+caller-chosen IDs. Each question has `instructions` and the primitive's
+`criteria`; the tool supplies its fixed question type. Permit structured
+instructions/criteria where the provider permits them. One question is a map
+with one entry; independent questions of the same primitive over shared state
+can be batched. Dependent questions require new state and a subsequent call.
+Return typed `answers` under the same IDs, provider/model identity, usage and a
+generic invocation reference. Resolve credentials and configured model through
+the host service. No issue ID, plan, Factory decision purpose or Factory result
+schema is required in the generic arguments.
+
+**Context and authority:** the caller supplies the evidence, alternatives and
+criteria needed for the judgment. The primitive does not browse, search the
+library or silently gather additional context. Hosting supplies authenticated
+caller identity, allowed provider access and finite usage accounting outside
+the semantic payload; non-Factory callers use their own admitted session.
+The caller may ask any relevant bounded question within that grant. Existing
+controller-owned Jev selection/acceptance procedures keep their prescribed
+inputs and consumers; a worker's free-form judgment cannot substitute for their
+receipt or approve its own work. The context-preparation once-per-capability
+rule applies to that controller operation, not to all generic consultations.
+
+**Execution and failure:** these are explicit paid evaluations, not spend-free
+Factory reads. Keep secrets server-side; validate request shape/size and each
+answer's question/type/options/levels before exposing it as a result. Missing
+configuration, unavailable allowance, authentication failure, rate limiting,
+timeout and malformed/partial answers return explicit errors, never a made-up
+zero, false or default choice. An uncertain valid answer remains available with
+its distribution; no universal confidence threshold or automatic triple-call
+policy is built into the tools. The consumer decides whether more evidence or
+another evaluation is useful within its allowance.
+
+Use the generic invocation identity and actual recorded state to recover lost
+replies. Replaying a completed invocation returns its existing result; changed
+inputs require a new invocation. A provider timeout may leave execution/charge
+unknown: expose that uncertainty, and make any retry an explicitly accounted
+attempt rather than claiming provider-wide exactly-once execution. Retiring a
+worker prevents new calls and new dependent work; an already sent request still
+needs accounting. Source changes can make a stored answer inapplicable without
+rewriting the historical answer.
+
+**Work, feed and library:** a judgment returns to its caller. It neither records
+a Factory decision nor publishes a post, creates knowledge or advances an issue
+by itself. When consequential, the worker uses existing Record Decision, Learned,
+Flag, Suggest or its role output to explain the conclusion and reference the
+invocation and supplied evidence. Preserve human/worker authorship of that action
+and label Jev as the judgment source. Do not fabricate a provider-written rationale:
+these primitives return typed answers, not generated explanations. Routine calls
+remain inspectable work detail; meaningful consequences use the existing feed
+components and exact library identities.
+
+For example, Product Lead can compare scope options; Architect can compare
+approaches; Builder can check a claim against supplied output; Inspector can
+assess severity; Fixer can compare correction options; Strategist can compare
+repair routes; Test Pilot can assess supplied observations; Library Admin can
+evaluate possible duplicates or contradictions. These are uses of the same
+three tools, not new role-specific judgment endpoints or acceptance authorities.
+
+**Current gap and ownership:** `internal/factory/control/priority_typesafe.go`
+already calls the provider for controller-owned Choice judgments. The current
+`internal/factory/mcp_profile.go` catalog exposes none of these three generic
+tools. Reuse suitable transport/accounting behavior through a generic provider
+module without making the reusable contract depend on Factory DTOs. R30 owns
+the three MCP adapters, discovery and admission; R11 supplies bounded Factory
+usage accounting. R48 qualifies actual harness calls, and R42/R43/R49 cover
+referenced consequential judgments in work/feed/library. See the
+[task mapping](../development/factory-remaining-tasks.md#full-worker-design-integration).
 
 ### Situation, evidence and interaction reads
 
@@ -242,24 +346,28 @@ Every row below adds to the complete shared set. The division follows the work
 each role owns. Similar nouns do not justify different endpoints unless their
 authority, lifecycle or consumer actually differs.
 
-The current proposal contains 25 shared tools. Each profile includes all of them
+The current proposal contains 25 shared Factory tools plus three generic System
+One tools. Each profile includes all 28
 plus the work tools below, including its own finish. These counts describe this
 draft; they are not an implementation target or a measure of completeness.
 
-| Worker profile | Shared tools | Additional work/finish tools | Total visible tools |
-| --- | --- | --- | --- |
-| Product Lead | 25 | 4 | 29 |
-| Architect | 25 | 4 | 29 |
-| Builder | 25 | 5 | 30 |
-| Inspector | 25 | 4 | 29 |
-| Fixer | 25 | 6 | 31 |
-| Strategist | 25 | 5 | 30 |
-| Test Pilot | 25 | 3 | 28 |
-| Library Admin (proposed maintenance profile) | 25 | 10 | 35 |
+| Worker profile | Shared Factory tools | Generic System One tools | Additional work/finish tools | Total visible MCP tools |
+| --- | --- | --- | --- | --- |
+| Product Lead | 25 | 3 | 4 | 32 |
+| Architect | 25 | 3 | 4 | 32 |
+| Builder | 25 | 3 | 5 | 33 |
+| Inspector | 25 | 3 | 4 | 32 |
+| Fixer | 25 | 3 | 6 | 34 |
+| Strategist | 25 | 3 | 5 | 33 |
+| Test Pilot | 25 | 3 | 3 | 31 |
+| Library Admin (proposed maintenance profile) | 25 | 3 | 10 | 38 |
 
 Builder and Fixer reuse `tasks`, `task_inputs` and `submit_task_output` with
 different admitted scopes. Across all profiles there are 63 distinct proposed
-tool names. Factory and Jev remain system actors, not additional worker profiles.
+Factory tool names plus three generic System One names: 66 in this main catalog.
+Native editing/execution tools and the five proposed research/issue additions
+are outside these counts. Factory and Jev remain system actors, not additional
+worker profiles.
 
 ### Product Lead
 
@@ -669,10 +777,17 @@ not require an invented worker-authored report. No model call selects a renderer
 | Learned entry | Reusable lesson with source, scope and reliability label | Open the library entry, suggest a correction or see later uses. |
 
 Human comments and answers use authenticated frontend operations against these
-same domain objects. They do not borrow a worker capability. A comment selected
-as a work request binds its exact revision to the existing generation/adoption
-route. Ordinary discussion must not silently launch work, and routine authorized
-technical changes must not acquire a new human approval requirement.
+same domain objects. They do not borrow a worker capability. Submitting a human
+comment invokes JEV assessment; if new work is selected, a Product Lead LLM writes
+the issue and the native issue owner creates it. The
+[comment intake contract](factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work)
+binds the exact source revision, funded assessment, authoring and native result.
+It also covers discussion-only, clarification and existing-work outcomes. Reads,
+draft typing and generated agent replies do not invoke this intake. A created
+issue follows existing readiness, pause, grant and allowance rules; routine
+authorized issue creation does not gain a separate approval requirement. The
+generic `systemone.choice` tool itself still has no issue-writing side effect:
+this controller consumer supplies the product behavior.
 
 There is no worker tool for arbitrary HTML, forged authors, setting completion
 percentages or editing authoritative workflow states. A presentation correction
@@ -913,6 +1028,7 @@ list of tool stubs or another feed-only layer.
 | Existing owner | Redesign responsibility |
 | --- | --- |
 | R10/R11/R30 and D14 admission | Typed maintenance subject/result, bounded common dispatch/accounting, role/collection capabilities, discovery, mutation lifecycle and native parent isolation for every added action. |
+| R30, with R11 accounting | Generic `systemone.noul`, `systemone.choice`, `systemone.score` adapters shared by every role; reusable provider contract, explicit paid calls, typed answers and bounded failure/recovery. |
 | R31 | Complete context for the seven production roles and proposed Library Admin; inbox/discussion, decision retrieval and explicit library-grant projections; bounded, spend-free reads. |
 | R32 | Shared question/report/proposal/decision lifecycles, role planning drafts and their actual consumers. Proposed home for library mutations and maintenance completion within existing domain/control/Store ownership, subject to explicit schema allocation. |
 | R33–R35 | Builder/Fixer work records, role assessments, finish integration, incomplete settlement and handoff semantics. |
@@ -930,21 +1046,16 @@ are not adequate replacements for Soda's grants, bounded retrieval and separatio
 between data and authority. Knowledge text must remain attributed data even if
 it contains instruction-like language; a string scrubber is not that boundary.
 
-Suggested implementation sequence once the design is adopted:
-
-1. Define the canonical objects, revision/receipt semantics and shared grants.
-   Finalize one complete Ask → answer → incorporation → feed journey.
-2. Build Learned → library read/search → later worker use → contradiction/amendment,
-   plus Record Decision → authority/application → later decision retrieval. Connect
-   Library Admin edit/remove/restore/consolidate/split to these same owners,
-   including scope, access loss and historical references.
-3. Connect role work tools to real draft/coverage/disposition/task owners and their
-   existing finish consumers. Exercise one complete plan/build/review/fix loop.
-4. Connect diagnosis, graph adoption and whole-app verification with exact
-   evidence and feed transitions.
-5. Qualify the seven production profiles, Library Admin maintenance and retrieval
-   usefulness using real prepared environments and persisted readback. Replace changed unreleased
-   callers/configuration together; no parallel authoritative legacy path.
+The [restructured execution map](../development/factory-remaining-tasks.md#task-list)
+owns the implementation sequence. It starts with the typed issue/workflow and
+admitted-subject contracts, then releases shared MCP/context/System One and
+record lifecycles to independently useful consumers. Communication/knowledge
+reuse, role delivery, research prerequisites, UI and qualification have explicit
+Rxx.y tasks rather than appended scope inside oversized parents. Its
+[complete tool map](../development/factory-remaining-tasks.md#full-worker-design-integration)
+assigns every main-design tool one primary executable owner; the five proposed
+issue/research additions have separate, explicit owners in that same list.
+Preserve accepted mechanisms and replace changed unreleased callers together.
 
 Acceptance must cover successful paths as well as the failures that would make
 the design misleading:
@@ -987,7 +1098,8 @@ The owner requested a brainstorm about Soda metadata in issue content: the issue
 should determine the appropriate worker/expertise, expected deliverable and
 completion route; a blocked worker may need to create prerequisite research
 whose only output is knowledge. This section is the proposed extension to the
-eight-profile/63-tool design above. Researcher and the five additional tool names
+eight-profile/63-Factory-tool design above, alongside its three generic System
+One tools. Researcher and the five additional Factory tool names
 below are recommendations for this new requirement, not existing runtime
 capabilities or a silent change to the preceding catalog.
 
@@ -1204,8 +1316,13 @@ would need an explicit research-subject schema, with no fake code candidate/PR.
 
 ### Feed, knowledge and failure behavior
 
-The issue view should show the work type, expertise, expected output, current
-stage and why it is routed there. Show the responsible role plus specialty where
+The [structured native issue presentation](factory-feed-components.md#structured-issue-presentation)
+defines the issue detail/editor and compact list/feed previews: objective,
+work type, expertise, deliverables/acceptance, workflow/current responsibility,
+directional dependencies, context/boundaries and results. It keeps editable
+instructions distinct from observed execution and renders the same native Soda
+block through labeled fields rather than requiring raw metadata editing.
+Show the responsible role plus specialty where
 useful in the outside-card header. Distinct post content includes research
 questions/scope, sourced findings, a comparison, a knowledge result and a linked
 “prerequisite created / research accepted / work resumed” event. Retain newest
@@ -1229,11 +1346,13 @@ open separately; no mandatory post for each search or source read.
 
 ### Task ownership for this extension
 
-The [task-list extension](../development/factory-remaining-tasks.md#issue-work-contract-extension)
-keeps the same task IDs. R10/R11/R30 own typed routing/admission; R12/R13/R32 own
-issue-contract producers and creation; R14/R27/R36/R39 own typed prerequisite and
-non-code completion/readiness; R15/R29/R35/R37/R41 own safe active-work revision
-and recovery; R31/R32/R34 own research context/result/assessment and library
-links; R42/R43 own projections/components; R47–R49 qualify the complete route.
-Specific Researcher/tool names remain proposed, while these responsibilities
-make the missing workflow and acceptance work explicit.
+The [integrated issue/research tasks](../development/factory-remaining-tasks.md#issue-work-contract-extension)
+are part of the main execution map. R10.1/R10.2 resolve the role/workflow and
+typed subject, R13.2 owns the native metadata, R14.2 resolves routing and R32.12
+creates/reuses issues and required-result relations. R32.13 produces research;
+R34.3 assesses it and R27.2 applies exact non-code resolution/closure. R35.2
+releases the blocked parent's slot; R15.2/R36.2 admit fresh continuation only
+when its requirements are met. R42.5/R43.8/R43.9 render the issue/research
+surfaces; R47.4/R49.3 qualify the full route. These are stable parent refinements,
+not a separate backlog. Specific Researcher/tool names remain proposed until
+their owning contract task selects one implementation.

@@ -23,7 +23,9 @@ factory credentials or run authority to a human project configuration.
 | `forgejo_graph_credential_file`, `forgejo_graph_actor_id` | Paired absolute restricted secret-file path and separately enrolled native service actor for bounded issue graph operations. Requires the existing background service admission inputs. Current human intent-owner code-write permission remains independently checked. The native token must grant `read:user`, `write:repository` and `read:issue`: submission and owner proofs need the first two, adoption snapshot reads need `read:issue`, and snapshot reads ride only enrolled token bindings. |
 | `typesafe_api_key_file` | Absolute server-only key file, regular and accessible only to its owner; never delivered to Projects or browser inputs. |
 | `typesafe_model` | System One classifier model; defaults to `jev-latest`. |
-| `factory_judgment_call_budget` | Finite cumulative consultation ceiling, between zero and 100,000 calls. Zero disables spending. Reserved failed or interrupted calls remain spent; changing this ceiling does not erase durable usage. Each intent has its own additional finite allowance. |
+
+JEV calls are free and have no cumulative call ceiling. The Factory records
+usage and keeps duplicate reservations, per-workflow allowances and retry bounds.
 
 Paths and secret files are operator-protected. Never commit secret contents or pass
 them on argv in shared logs.

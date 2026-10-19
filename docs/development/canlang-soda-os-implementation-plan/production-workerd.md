@@ -131,7 +131,7 @@ external-provider, migration, replication or high-availability claim is added.
 | --- | --- |
 | Canlang checkout | `/home/vince/Projects/canlang`, clean at `2f3adfea7a7e8275500ebc1c7f37522e10cab1b0` |
 | Soda checkout | `/home/vince/Projects/sodaos`, `cf68711666c4e70723007f8ea121d8607b268ca7`, with existing unrelated and overlapping uncommitted refactors |
-| Admitted tools | `system/project/canlang-release.json`: archive SHA-256 `76b7e3db5bd38201af878061bc234e54978c7a63ed3c823c2dfe458ac380c25a`, Node `v24.22.0`, Bun `1.4.2` |
+| Admitted tools | `system/project/canlang-release.json`: archive SHA-256 `aa33db44a9f38342fbf5fe7a77ad113da0e21bc99e90a2304be8fe2d9927608f`, Node `v24.22.0`, Bun `1.4.2` |
 | Pinned workerd | `1.20260730.1`, upstream commit `26b5461b7dcc640bb16072f1ba6f2c6df82572ba` |
 | Pinned Miniflare | `4.20260730.0`, workers-sdk commit `96fd16f0e06e82eb99001c70e4935e992e69cb87` |
 | Current upstream comparison | workerd `2c34e935cea3c8c81412b3ff7a08285db551d6e4`; workers-sdk `0d826c6aa3ae5d3db1c539c78ddca0ac42df5001`; comparison only, not an upgrade selection |

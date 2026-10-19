@@ -24,6 +24,55 @@ end-to-end journeys. Its extra tool names and presentation recommendations are
 proposals, not implemented or frozen contracts. The seven communication additions
 below are a minimum requirement, not the complete redesigned interface.
 
+<a id="factory-providers-dialog"></a>
+## Default Factory Providers dialog
+
+Provider connection is a first-class, self-service interaction in Soda Forge.
+Factory exposes a **Providers** action and opens the same dialog when the user
+needs to connect a provider to proceed. This is required for the initial manual
+testing experience, not deferred settings polish. Users should never need an
+agent to start ordinary provider login or retrieve its link and code.
+
+- List each supported account provider, initially Codex and Muse, in its own
+  clickable row. Keep the provider name and status together: a hollow circle
+  (`○`) for not connected, a green check (`✓`) for connected. Include readable
+  status text so color and icons are not the only indication.
+- Clicking a row with `○` starts that provider's login attempt programmatically
+  through Soda's existing identity enrollment API and broker. Show the returned
+  verification link, an **Open sign-in** action and the code with **Copy code**
+  in the dialog. The user completes authorization on the provider's own page;
+  Soda handles starting and following the attempt.
+- Show starting and awaiting-authorization states immediately. Follow the
+  attempt automatically and switch the row to a green check only when the
+  broker confirms the connection is ready. No manual refresh, pasted callback,
+  agent intervention or terminal command is required.
+- Preserve the current Factory view and any draft while connecting. Closing
+  and reopening the dialog resumes the current pending attempt; repeated
+  clicks do not create parallel login attempts. An explicit cancel stops the
+  attempt. Expired, denied, cancelled or failed attempts show the actual state
+  and an appropriate **Try again** action. Provider unavailability gives a
+  concrete explanation, never a false connected check.
+- Read saved connection state when opening the dialog and after reload. A
+  disconnected or expired account returns to `○` with **Reconnect** through
+  the same flow. Provider connection status describes the account connection;
+  separate Project preparation or execution allowance problems remain specific
+  Factory messages and must not relabel a connected account as disconnected.
+
+Reuse `POST /api/identity/enrollments`,
+`GET /api/identity/enrollments/{identityID}`,
+`POST /api/identity/enrollments/{identityID}/cancel` and
+`GET /api/identity/connections`, the existing `soda-identity` UI/response owners
+and the single identity broker. Adapt the presentation and missing joins rather
+than introducing another login service. Credentials stay with the broker; the
+dialog receives connection state and the device-login link/code.
+
+Implementation and installed acceptance are tracked in
+[R44.2](../development/factory-remaining-tasks.md#r44-2). The acceptance journey
+starts unconnected, completes real provider authorization, observes the check
+automatically and retains it after reload. Also exercise an expired attempt and
+closing/reopening a pending dialog. Existing manually connected VM credentials
+do not establish that this UX works.
+
 ## Agreed direction
 
 - Put the feed **inside Soda OS**, following real Factory work.
@@ -275,29 +324,76 @@ Changing subscriptions or permissions must not leave another account's cached
 content visible. Neither a timer nor a notification service is required by this
 direction.
 
-Agents receive comments as attributed user input through R31's bounded context
-and evidence reads. A selected discussion can supply a draft/plan input via
-R12/R15 and an issue/graph request via R13's existing native adoption path. Bind
-the triggering post/comment revision and a durable request identity to the
-resulting plan/issue; retries recover the original result rather than create
-duplicate issues or spend again. Changed or deleted input, lost effect replies,
-unavailable agents and insufficient scope/grants produce visible stale, pending,
-refused or failed results, not a fabricated success. A resulting native issue or
-plan keeps its own canonical owner and links back to the discussion.
+**Owner-settled trigger:** submitting a human comment invokes JEV to decide
+whether it should become a new issue. If it should, an LLM writes the issue.
+Saving a comment, recording a judgment, drafting an issue and confirming native
+issue creation are separate observable outcomes. Typing a draft, opening a
+thread, polling or reloading never invokes JEV. Agent replies and generated
+status messages do not recursively trigger this human-comment intake.
 
-The capability to turn discussion into plans/issues is adopted. The exact trigger
-is still a bounded product choice: explicit user action, an addressed agent
-request, or an existing authorized assignment consuming relevant comments.
-Select supported triggers and routing before enabling that slice; do not infer
-universal auto-dispatch. Ordinary commenting/readback and feed aggregation can
-proceed independently. Existing consequential product decisions and issue/graph
-authority remain in force, without adding approval to every comment. Comments
-are untrusted content, not instructions to bypass those contracts.
+Recommended implementation through the existing owners:
+
+1. R32 saves the authenticated comment, exact revision and a durable assessment
+   request together. The comment remains readable if assessment is unavailable.
+2. The controller supplies JEV with the comment, its parent post/thread,
+   relevant product direction and bounded accessible issue candidates. Use a
+   Choice over `new_issue`, `existing_work`, `discussion` and `clarify`.
+   `new_issue` means a coherent actionable request without a matching supplied
+   issue; `existing_work` links relevant existing work; `discussion` needs no
+   issue; `clarify` identifies insufficient information for a work request.
+   Candidate retrieval must report missing/truncated context rather than imply
+   an exhaustive duplicate search. This applies the generic
+   [System One tools contract](factory-worker-mcp.md#generic-systemone-tools);
+   [TypeSafe's routing cookbook](https://docs.typesafe.ai/cookbooks/function_calling)
+   supports closed-set action selection. These four routes are our product
+   recommendation, not provider-defined outputs or an arbitrary confidence cutoff.
+3. For `new_issue`, admit bounded **Product Lead LLM** authoring through R12/R13.
+   It writes title, objective/body, acceptance criteria and Soda work metadata:
+   work type, expertise, expected deliverables, route and relevant dependencies.
+   Preserve the exact source-comment link. JEV selects a route; it does not
+   generate issue prose. A clarification that needs prose uses an LLM or a
+   deterministic prompt, never an invented JEV explanation.
+4. Validate the draft and current authority, then use R13's native issue/graph
+   operation to create the issue. Recheck relevant issue candidates before
+   creation; repeated intake for the same source resolves the existing effect.
+   A confirmed issue enters normal readiness/routing. An active Factory can
+   pick it up under its existing grants and allowance; a paused Factory keeps
+   it queued. Creation grants neither implementation nor deployment authority.
+5. R42/R43 show the linked outcome beside the comment and emit a confirmed
+   issue-created post when creation actually commits. Keep assessment/drafting
+   progress on the same comment result, avoiding a separate top-level post for
+   every internal step. `existing_work` links the selected issue and offers its
+   attributed input to the normal consumer; it never silently rewrites an
+   accepted plan. `discussion` and `clarify` remain visible outcomes too.
+
+Assessment and LLM authoring use separate bounded funding/admission records.
+Missing allowance or provider access leaves a saved comment with an actionable
+pending/unavailable result. Reuse a recorded judgment and draft on retry; do not
+spend again merely to repair readback. A provider timeout can leave execution or
+charge unknown: reconcile where supported and show uncertainty rather than
+promise provider exactly-once behavior or blindly resubmit.
+
+Bind comment ID/revision and request ID through judgment, authoring and native
+creation. A changed/deleted/inaccessible source before application invalidates
+that pending application. Explicitly submitting an edited comment creates a new
+revision assessment linked to the previous result; it cannot create the same
+issue again. If the original issue already exists, retain its provenance and
+route the amendment through existing work. Deleting a comment does not silently
+delete an issue already created. Concurrent callbacks and lost native replies
+recover the original operation. Malformed drafts, unavailable workers and
+scope changes remain visible failures with the comment preserved.
+
+Agents receive comments as attributed input through R31's bounded reads. Human
+comment submission authorizes this assessment and ordinary permitted issue
+creation without another approval on each comment. Existing consequential
+product decisions and issue/graph authority remain in force. Comment text is
+untrusted content, not a grant or an instruction to bypass those contracts.
 
 Acceptance joins R32/R42/R43/R49: two authorized subscribed projects in one
 newest-first feed; equal-time posts and concurrent pagination; persisted comments
 after reload/restart; denial across an inaccessible project; one authorized
-comment-to-plan/issue path with origin link, replay and visible failure. Use the
+comment → JEV → LLM-authored native issue path with origin link, no-issue and
+existing-issue outcomes, replay and visible failure. Use the
 same records for formal agent results and human replies. No separate social task
 database, parallel backlog or mock-only browser demonstration.
 
@@ -609,13 +705,17 @@ records the source references and built-in imagegen inputs.
 
 ## Open design choices and next design deliverable
 
-The owner requested integration into the existing 55-task list. The
-[catalog addition](../development/factory-remaining-tasks.md#owner-addition-on-18-october-2026-ralph4days-absorption)
-maps this scope to R30 authority, R32 communication producers, R42 durable
-readback, R43 visible absorption and R49 installed journey acceptance. Existing
-task identities, dependencies and the single execution ledger are retained.
+The owner requested a complete task-list restructuring around this direction
+and the subsequent MCP, issue/research and knowledge designs. The
+[execution map](../development/factory-remaining-tasks.md#task-list) now separates
+concrete Rxx.y deliverables while preserving the stable parent IDs and accepted
+evidence. Its [visual coverage map](../development/factory-remaining-tasks.md#complete-visual-and-interaction-coverage)
+assigns every component family, interaction and exception to an actual producer,
+UI task and joined qualification. R49 is development demonstration; R52 proves
+the changed installed consumers.
 
-Before implementation, resolve:
+Resolve these choices inside the task that needs them; they do not hold all
+implementation behind another design or approval pass:
 
 1. Subscription unit/defaults and the exact project/issue/assignment post/thread
    structure within the adopted combined newest-first feed; reply/edit bump rules.
@@ -640,8 +740,8 @@ exact producer schemas, and expands the concrete code/asset reuse inventory.
 Define the fresh Lit interface using those role-specific semantics, Soda's
 procedure and existing host/lifetime constraints. React integration is excluded;
 visual design and portrait selection remain open.
-Refine this record in the existing R32/R43 slices; the canonical task cards now
-hold their dependency-ordered execution instructions. Resolve only the choices
+Refine this record through the named R32/R42/R43 execution tasks; the main map
+owns their output dependencies and the packets retain technical acceptance. Resolve only the choices
 needed for the next slice rather than requiring another whole-design pass.
 
 ## Source references

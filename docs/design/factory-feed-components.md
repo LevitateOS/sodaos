@@ -10,13 +10,18 @@ The [feed integration design](factory-feed-and-ralph-integration.md) owns the
 combined subscribed feed and its relationship to Work/Spaces. This document owns
 the role-specific component inventory, content, interactions, record bindings,
 state behavior and [non-happy-path selection rules](#failure-component-routing).
-The worker MCP proposal owns the candidate tool surface. These are linked parts
-of the same design.
+The worker MCP proposal owns the candidate tool surface. The
+[structured issue presentation](#structured-issue-presentation) renders its work
+contract in the native issue and links it to feed activity. These are linked
+parts of the same design.
 
 The [full task integration](../development/factory-remaining-tasks.md#full-worker-design-integration)
 assigns this catalog's producers, projections, UI and failure/recovery cases to
 R32–R43 and R47–R49, with installed consumers in R52. Component names remain
 design vocabulary; all families and their actual interactions are required scope.
+The [restructured visual coverage map](../development/factory-remaining-tasks.md#complete-visual-and-interaction-coverage)
+maps all 121 numbered families plus issue/research surfaces to concrete Rxx.y
+execution tasks; it replaces broad appended UI scope as the implementation map.
 
 ## 1. What makes the roles visibly different
 
@@ -106,6 +111,87 @@ names and stable role identity; optional specialties such as Security remain a
 separate descriptor. Model/provider/run details belong in an inspectable author
 disclosure. They should not dominate the product narrative.
 
+<a id="structured-issue-presentation"></a>
+### Structured native issue presentation
+
+The owner requires Soda issue metadata to be visually structured. The
+[issue work contract](factory-worker-mcp.md#issue-work-contracts) therefore needs
+a readable issue detail and a matching editor, as well as compact list/feed
+previews. This is required design scope; the exact layout below is the proposed
+composition. Researcher remains a proposed role, and visualizing a workflow does
+not mean that workflow is implemented.
+
+Keep the native issue identity, title, Open/Closed state, author and discussion.
+Render the Soda block into labeled sections above the discussion. Its raw source
+is available through a secondary action. The existing native issue shells in
+`frontend/forgejo/templates/repo/issue/view.tmpl` and `new.tmpl` remain entry
+points; the existing Lit Work detail uses the same authorized contract projection.
+Do not introduce an independently editable Soda copy of the issue.
+
+| Area, in reading order | Visible content and interaction |
+| --- | --- |
+| Issue header | Native number/title/state, project, author and time. A separate Factory state says unclassified, ready, running, waiting, result under review or completed only when supported by the owning records. Native Closed alone does not mean an accepted result. |
+| Work summary | Labeled work type, primary and supporting expertise, and expected output. Example: **Research · Security / Backend · Knowledge report**. Expertise never appears as a new role. |
+| Objective and required results | Human description and concrete questions/outcomes. Each deliverable has acceptance criteria, a result link when submitted, and its actual assessment state. Criteria are readable rows; checking a decorative checkbox cannot accept an output. |
+| Workflow and current responsibility | Requested workflow, its registered stages, current role/specialty and actual assignment if any. A short “Why this route” disclosure explains the recorded routing choice. Distinguish proposed route, admitted work and observed execution; list only stages required by this output contract. |
+| Waiting on / needed by | Two directional groups with the linked issue, exact required output, relationship state and release condition. Keep related/duplicate links separate. A research issue can show who needs its findings; a parent can show why an accepted finding still fails its requirement. |
+| Context and boundaries | Relevant knowledge and decisions, source/components/paths, approach guidance, exclusions and inherited limits. Use short summaries with expandable references. Requested capabilities and actual granted access are distinct. |
+| Results and evidence | Type-appropriate artifacts, exact source revisions, known limitations and acceptance. Reuse the same knowledge/decision records displayed in the library and feed. Show next action or unresolved outcome without inventing a completion percentage. |
+| Discussion and history | Existing native conversation and attributed contract changes, with links to role activity. Preserve comments, attachments and human context outside the structured block. |
+
+Use the established Soda typography, thin borders, restrained color and spacing.
+The objective and results are the visual focus. Compact labeled fields can sit
+side by side on wide screens; longer requirements and dependencies need full
+width. On narrow screens these become one reading order. Keep the active blocker
+and next required action visible rather than hiding them in collapsed context.
+Status needs text as well as color; controls retain labels, keyboard access and
+focus. A workflow diagram inside issue detail does not change the separate,
+newest-first feed post layout.
+
+**Adapt the content to the work type.** Research emphasizes questions, sources,
+findings and uncertainty; implementation emphasizes behavior, scope, changes
+and checks; diagnosis shows reproduction and evidence for the cause; design
+shows constraints, alternatives and the specification; verification shows
+expected versus observed outcomes. Decision work shows options, tradeoffs and
+the actual decision owner; planning shows proposed dependencies and their
+adoption; curation shows affected items, changes and preserved references. Keep
+the common structure, but omit irrelevant controls such as a PR requirement on
+knowledge-only work.
+
+**Editing follows the same structure.** Offer objective, work type, expertise,
+deliverables and acceptance first. Selecting a work type suggests an output
+template and a supported route; advanced context, boundaries and relationships
+expand when needed. Prefill a worker-created prerequisite from its originating
+blocker, including the exact needed output. Show inherited values and their
+source; changing work type must preserve existing text/results and surface
+incompatible fields before saving, not silently discard them.
+
+Structured and raw editing round-trip the same strict native block, preserving
+the surrounding description. Validate field combinations and required-result
+links, with inline errors and an error summary. Saving a draft does not admit
+work. For already accepted inputs, show the meaningful change and its effect on
+future routing/dependencies; distinguish the edited issue from the contract an
+active worker still holds. Use the existing authorized revision/adoption path,
+without adding a blanket human approval for every edit. Concurrent changes keep
+the user's draft and offer comparison/reload instead of overwriting newer input.
+
+**Failure states belong in the design.** Missing metadata offers classification
+without enrollment; malformed or unsupported metadata preserves the issue and
+shows the specific repair needed. No eligible role/capability gives an actionable
+wait. Partial issue creation/linking shows the created issue and pending link
+separately. An accepted negative research result can coexist with an unsatisfied
+parent dependency; inconclusive work retains useful findings. Loading,
+unavailable, stale and inaccessible data are distinct from an empty section or
+success. Recheck access for links/previews/counts, preserving historical result
+references without exposing restricted material.
+
+Issue list rows summarize work type, primary expertise, expected output and the
+material wait/state. A related feed post uses the existing outside-card author
+header and a focused result/question/dependency preview with an “Open issue”
+action. The full issue form is not embedded in every post. Opening the native
+issue or Work detail must agree on identity, accepted inputs and observed state.
+R42 owns that projection; R43 owns the detail, editor and compact presentations.
+
 ### Shared component catalog
 
 These are available to all production roles and the proposed Library Admin,
@@ -121,7 +207,7 @@ composed into role-specific posts.
 | S06 · Diagnosis needed | Why progress stopped and what was tried → failed approaches, evidence and remaining machine routes | Inspect diagnosis or answer a necessary question | Stuck plus bounded repair routing; diagnosis pending, assigned, resolved, exhausted. Do not label it as an already understood dependency. |
 | S07 · Evidence strip | Source/check/artifact references with evidence state → exact revision, completeness and provenance | Open evidence at the referenced version | Existing evidence owners; available, incomplete, stale, inaccessible, unavailable. No invented pass from an attachment. |
 | S08 · Artifact preview | Useful image, diagram, document or trace preview → safe detailed viewer and provenance | Expand, compare or open an authorized native artifact | Attach Artifact and existing capture records; illustrative, observed, failed load, revoked. |
-| S09 · Discussion and reply | Relevant replies and unresolved questions → ordered revision-aware thread | Reply or propose a correction without losing reading position | Persisted discussion records; sending, recorded, failed, changed-source, read-only. Ordinary comments do not auto-dispatch work. |
+| S09 · Discussion and reply | Relevant replies, unresolved questions and comment-to-work result → ordered revision-aware thread | Submit a comment, inspect JEV routing and follow the LLM-authored issue or existing-work link without losing reading position | Persisted comment/revision and assessment/authoring/native-operation references; sending, saved, assessing, drafting issue, created, linked existing work, discussion-only, clarification needed, unavailable, uncertain, failed, changed-source, read-only. Human submission invokes JEV; drafts, reads and agent-generated replies do not. Issue creation and worker dispatch remain distinct. |
 | S10 · Revision comparison | What changed since the last version → added/removed/changed fields and rationale | Compare exact revisions or open current | Domain revisions; current, superseded, conflicting edit, deleted source. |
 | S11 · Result and next stage | Role result submitted and what follows → completeness, acceptance, retirement and confirmed effects | Open resulting plan, candidate, review or delivery | Finish plus actual consumers; submitted, verifying, accepted/refused, effects pending/confirmed. |
 | S12 · Incomplete work handoff | Useful work preserved and why it ended → unresolved items, evidence and restart prerequisites | Inspect preserved work or the authorized recovery action | Finish Incomplete and settlement; submitted, retirement pending, ended, recovery available. |
@@ -397,7 +483,7 @@ episode; show a consequential decision replacement separately with its rationale
 | LA08 · Affected work | Which assignments cite an edited/replaced item → historical revisions, inbox notice and incorporation state | Inspect the work's actual response. Notification does not prove an accepted plan changed. |
 | LA09 · Maintenance result | Confirmed changes and unresolved cases → operation receipts, partial failures and projection status | Follow remaining work; finishing the episode does not certify the entire library or reapply its mutations. |
 
-## 11. Factory and Jev components around the workers
+### Proposed research issue components
 
 The later [issue work-contract proposal](factory-worker-mcp.md#issue-work-contracts)
 also needs research questions/scope, sourced findings/comparisons, accepted
@@ -410,10 +496,24 @@ report and a satisfied parent prerequisite can differ; simultaneous blockers,
 conflicting sources, inconclusive findings and partial creation/link failures
 remain visible. R42/R43 own the projection and rendering under the task extension.
 
+## 11. Factory and Jev components around the workers
+
 Some critical events have no worker author. Presenting them as a worker's own
 announcement would blur the distinction between a report and confirmed progress.
 These components complement the production and Library Admin role sets. Factory
 and Jev remain system actors with their own attribution.
+
+The [generic `systemone.*` tools](factory-worker-mcp.md#generic-systemone-tools)
+return judgments to the calling worker; a call alone does not publish F04 or
+create a library decision. A consequential worker post can compose F04/S07/S16
+with its role-specific content and reference the invocation and supplied sources.
+Keep that post's worker author and label Jev as the judgment source. Display the
+actual primitive semantics when useful: yes probability for Noul, candidate
+distribution for Choice, described level scale for Score. No invented Noul
+confidence, unexplained score percentage or provider-generated rationale.
+Routine evaluations stay in inspectable work detail. A controller's actual Jev
+decision remains a system event with its own recorded effect/acceptance source.
+R42/R43 own this readback and rendering; R49 qualifies consequential reuse.
 
 | ID / component | What it shows | Actions and source of truth |
 | --- | --- | --- |
@@ -485,7 +585,13 @@ Every important interaction has a keyboard-accessible text/list equivalent.
 - Simulation/mockup previews are labeled illustrative and isolated from live
   product state. Playback of recorded evidence never re-executes the scenario.
 - A successful comment save does not confirm the requested work happened. Show
-  linked request/assessment/adoption outcomes separately.
+  linked request/assessment/authoring/adoption outcomes separately. Apply the
+  [comment intake contract](factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work):
+  submitted human comment → JEV routing → Product Lead LLM issue authoring when
+  selected → native creation → linked result. Keep intermediate progress beside
+  the comment; a confirmed issue merits its own work post. A saved comment
+  survives missing allowance, provider failure and invalid issue output. Retry
+  recovers the same request; a reload never calls JEV or creates another issue.
 - Unsupported actions are absent or explained, rather than attractive buttons
   that cannot perform their stated action.
 

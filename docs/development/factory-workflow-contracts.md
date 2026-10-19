@@ -126,7 +126,7 @@ planner/Jev assess semantic completeness, cohesion and necessary dependencies.
 One Jev Choice request includes every candidate plus `clarify`. Candidate
 selection requires a valid answer and confidence **>= 0.50**; `clarify` or lower
 confidence records `decomposition_needs_attention` without generating another
-batch automatically. Use the intent allowance and existing global call ceiling.
+batch automatically. Use the intent allowance to bound each workflow. JEV calls are free; cumulative usage is recorded without a global ceiling.
 Persist the result by producing assignment and the chosen candidate/judgment
 digest in the accepted revision. Native generation writes that exact graph;
 remove the second template split/combine and decomposition-triplet pass from this
@@ -249,7 +249,7 @@ from a missing field in a running record.
 | Plan size | 64 tasks, 4 lanes, 32 ownership entries/task, 16 reusable checks/plan, 64 inspected source references. Total encoded result remains <=64 KiB. |
 | Plan text / checks | Objective or evidence text <=4 KiB each; clean path <=1,024 bytes; argv <=64 elements and <=16 KiB total; check timeout 1–600 seconds and never beyond remaining run time. |
 | Review runs | `ReviewRounds=6` by default, allowed 1–16 per attempt, including initial and policy-required reviews. Charge before launch by immutable assignment ID. |
-| Delivery judgments | `DeliveryCalls=8` by default, allowed 0–16; zero disables the Jev acceptance route, not an otherwise valid clean-review merge. Reserve against attempt root and global judgment ceiling. |
+| Delivery judgments | `DeliveryCalls=8` by default, allowed 0–16; zero disables the Jev acceptance route, not an otherwise valid clean-review merge. Reserve against the attempt root; record cumulative usage without a global ceiling. |
 | Discretionary unchanged-head reviews | At most one additional pass per `(attempt_root,publication,head)`, also charged to total ReviewRounds. Base, policy, model, round and finding changes do not refill this counter. |
 | Agent prompt/result | Keep 64 KiB each except D13 reassess/D15 repair prompt <=320 KiB with bounded inventory; result always <=64 KiB. Required evidence may use authorized D14 pages; incomplete collection cannot finish successfully. Never silently truncate. |
 | Execution manifest/events | Manifest <=64 KiB; journal <=512 events/8 MiB, reserving two terminal events; event <=16 KiB; checkpoint metadata <=64 KiB/task and <=64 tasks/run. Logs retain existing separate bounds. |
@@ -629,7 +629,7 @@ evidence that the required outcome holds permits its later acceptance. Otherwise
 use attention, retaining the defect. No model call or empty task resets a limit.
 
 Reuse `AdvisePurpose` and the existing journal. Delivery funding uses the attempt
-subledger plus global budget in one transaction. Missing/malformed/provider-failed
+subledger plus cumulative usage in one transaction. Missing/malformed/provider-failed
 answers give `judgment_unavailable`; an already reserved fingerprint without a
 completed answer stays charged and is not automatically retried. Successful
 unchanged decisions are reused. Explicit authorized Retry creates a new attempt;
@@ -751,7 +751,7 @@ native or funded evidence are separate from deterministic adapter tests.
 | T04 Scope graph | FW09; intent/decomposition tests | Invalid IDs/outcome indexes, missing coverage, cycles, declined scope and false provenance refuse; prior task keys/delivered bindings retained correctly. |
 | T05 Semantic examples | FW05/FW09; existing exploration fixture, then funded run | Existing tracker: independent CSV export and label filter; dashboard needs both; saved reports need dashboard. Preserve roots/join/descendant. A help-text typo stays one issue. A consequential unspecified access policy returns attention. |
 | T06 Candidate choice | FW09; intent judgment/generation | All 1–3 candidates plus clarify supplied; confidence 0.50 boundary; no second triplet/template rewrite; exact graph adopted once; source/preparation/scope changed after planning prevents adoption and refresh preserves active-root consumption. |
-| T07 Funded-call replay | FW09/FW21; S judgment allowance | Reserve both scoped/global budgets before request; failed/interrupted request remains charged; repeated fingerprint never resends; no funds means zero calls. |
+| T07 Funded-call replay | FW09/FW21; S judgment allowance | Reserve scoped allowance before request and record cumulative usage; failed/interrupted requests retain their reservation; repeated fingerprints never resend; an exhausted workflow allowance stops that workflow. |
 | T08 Large queue progress | FW04/FW10; serving priority fixture | 256 candidates use actual per-pass limits, eventually complete, survive restart and all reach selection; no second full native scan. |
 | T09 Inventory invalidation | FW10; priority/readiness | Insert during initial membership/digest capture cannot disappear; changed eligibility/grant/source/preparation/budget invalidates; ticking timestamps do not; selected evidence must match N; partial large prerequisite reads resume. |
 | T10 Selected investigation | FW12; planning + S packet | Two ready issues produce one persisted investigation; no unselected prompt/planning run; crash/replay no duplicate spend; stale selected admission refuses. |
@@ -1759,8 +1759,9 @@ when eligibility or inputs change.
 
 The controller validates scope/stop/expiry/source access and assembles bounded
 candidates before spending. In one Store transaction, recheck eligibility, claim
-the unique point, reserve its priority journal entry and consume one unit of the
-existing PriorityCallBudget. A loser or exhausted budget sends nothing. Do not
+the unique point, reserve its priority journal entry and record one call in the
+cumulative usage journal. JEV is free; historical usage never blocks a new
+consultation. A duplicate claim sends nothing. Do not
 borrow delivery/reassessment allowances. Outside the transaction send once,
 then persist the validated raw answer and effective action with a final scope
 check. Failure or ambiguous send outcome retains the charge. A persisted answer
