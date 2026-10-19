@@ -183,6 +183,11 @@ func (s *Server) StartCoordinator(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
 		return err
 	}
+	key, err := control.LoadFactoryMCPKey(publicationRoot(s.Config))
+	if err != nil {
+		return err
+	}
+	s.Coordinator.MCPKey = key
 	if err := s.Coordinator.Start(ctx, lockPath); err != nil {
 		return err
 	}

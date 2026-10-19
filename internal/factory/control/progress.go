@@ -166,6 +166,7 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// with completion wiring, never with an unqualified capture.
 	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
 	_ = c.DriveCompletions(ctx, deps)
+	c.driveDeliveryVerifications(ctx)
 	// D15 stall detection (R36) runs inside this same progress pass,
 	// after observation, reconciliation and dispatch: a pass that
 	// selected no work classifies the sealed inventory and admits at

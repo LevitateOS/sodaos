@@ -1,19 +1,8 @@
 package control
 
-// Direct proof for the dispatch-side MCP capability producer
-// (trace-029 proposal prompted it; no supervisor authorized live
-// activation). CODEX FREEZE032: ordinary dispatch records STAGED
-// metadata only. A dispatched run's staged capability is retained as
-// history and every admission through the served handler gate
-// refuses inactive, so no catalog tool admits and no submission row
-// is durably recorded — including across a stop. The store replays
-// identical staged bytes and conflicts changed scope; unknown phases
-// carry no MCP authority.
-//
-// The fixture is a disposable database and never a shared one: these
-// tests require SODA_PG_* (own pinned PG17 fixture under /home, free
-// port, destroyed after the run) and fail instead of skipping
-// without it.
+// Capability preparation and replay use recorded assignment scope. Staging
+// alone never activates tools: the authenticated API additionally observes the
+// live native run and checks current work/stop state (mcp_prelaunch_test.go).
 
 import (
 	"context"

@@ -249,7 +249,11 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if retry != nil {
 		id = retry.CommandID
 	}
-	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, project.RoleCoder, "", false, id, attemptLineage{phase: project.ExecutionInvestigate})
+	phase, role, wait, failed := selectInitialIssuePhase(ctx, deps, repository, issue, head)
+	if wait != nil || failed != nil {
+		return nil, wait, failed
+	}
+	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, role, "", false, id, attemptLineage{phase: phase})
 }
 
 // planAttemptForRole shares the mutable dispatch checks between initial coder
@@ -268,7 +272,7 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 		return nil, nil
 	}
 	if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
-		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect {
+		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect && lineage.phase != project.ExecutionMaintainLibrary {
 		return nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
 	}
 	if !factory.ValidPhaseRole(lineage.phase, role) {
@@ -286,7 +290,7 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 
 func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
 	if lineage.parent == "" {
-		if lineage.phase != project.ExecutionInvestigate {
+		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionMaintainLibrary {
 			return waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
 		}
 		return nil
@@ -380,6 +384,9 @@ func prepareAttemptInputs(ctx context.Context, deps DispatchDeps, occupancy *pas
 }
 
 func confirmAttemptPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string, recordedPrompt bool, retryID string) *planWait {
+	if plan.phase == project.ExecutionMaintainLibrary {
+		return nil
+	}
 	if retryID != "" {
 		if deps.PrepareRetry == nil {
 			return waitFor(WaitPreparation, "fresh retry preparation is unavailable")
@@ -503,6 +510,12 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 	}
 	if wait, failed := prepareAttemptInputs(ctx, deps, occupancy, plan, role, preparation, repository, issue, control); failed != nil || wait != nil {
 		return nil, wait, failed
+	}
+	if lineage.parent == "" {
+		maintenance, err := issueLibraryMaintenance(plan.inputs.Issue.Body)
+		if err != nil || maintenance != (lineage.phase == project.ExecutionMaintainLibrary) {
+			return nil, waitFor(WaitInputsChanged, "accepted issue work role changed"), nil
+		}
 	}
 	if wait := confirmAttemptPreparation(ctx, deps, plan, role, recordedPrompt, retryID); wait != nil {
 		return nil, wait, nil
@@ -657,7 +670,7 @@ var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+fac
 // stay within the admitted phase bound; anything larger waits instead of
 // truncating requirements.
 func renderPhasedDispatchPrompt(prompt []byte, phase string, plan *factory.InvestigationPlan) ([]byte, error) {
-	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement {
+	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement && phase != project.ExecutionMaintainLibrary {
 		return nil, errors.New("phased prompt needs an admitted dispatcher phase")
 	}
 	if plan != nil && phase != project.ExecutionImplement {
@@ -725,6 +738,9 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 // candidate commit. Planning finishes without a commit or PR and can never
 // publish.
 func phasedReportContract(phase string) string {
+	if phase == project.ExecutionMaintainLibrary {
+		return phasedReportMarker + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
+	}
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)
 	b.WriteString("Close your work with exactly one fenced block:\n\n")

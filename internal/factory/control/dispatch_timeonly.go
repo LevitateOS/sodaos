@@ -116,6 +116,7 @@ type timeOnlyLaunch struct {
 	report        *DispatchReport
 	now           time.Time
 	phase         string
+	role          string
 	plan          *attemptPlan
 	projectID     string
 	selection     factory.RoleSelection
@@ -150,6 +151,7 @@ func (t *timeOnlyLaunch) drive() {
 // with its prompt and source commit.
 func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 	phase := ""
+	t.role = project.RoleCoder
 	switch t.subject.Kind {
 	case factory.SubjectIntent:
 		phase = project.ExecutionDecompose
@@ -163,11 +165,17 @@ func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "reassessment root lacks its completion subject"})
 			return "", false
 		}
+	case factory.SubjectDelivery:
+		phase, t.role = project.ExecutionVerify, project.RoleReviewer
+		if t.subject.Delivery == nil || t.subject.Delivery.Validate() != nil || t.subject.Delivery.SourceCommit != t.source {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "verification requires its exact delivery source"})
+			return "", false
+		}
 	default:
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only dispatch needs its intent or completion subject"})
 		return "", false
 	}
-	if !factory.ValidPhaseRole(phase, project.RoleCoder) || !factory.SubjectKindAllowed(t.subject.Kind, phase) {
+	if !factory.ValidPhaseRole(phase, t.role) || !factory.SubjectKindAllowed(t.subject.Kind, phase) {
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root does not match its execution phase"})
 		return "", false
 	}
@@ -216,7 +224,7 @@ func (t *timeOnlyLaunch) loadGrants() bool {
 		return false
 	}
 	t.plan.policy = policy
-	selection, ok := policy.Roles[project.RoleCoder]
+	selection, ok := policy.Roles[t.role]
 	if !ok {
 		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitSponsorshipRole, Detail: "policy has no coder role selection"})
 		return false
@@ -227,7 +235,7 @@ func (t *timeOnlyLaunch) loadGrants() bool {
 
 // selectSponsorship selects the sponsorship behind one time-only root.
 func (t *timeOnlyLaunch) selectSponsorship() bool {
-	sponsorship, wait, failure := selectSponsorship(t.ctx, t.deps, t.repository, t.plan.effective, project.RoleCoder)
+	sponsorship, wait, failure := selectSponsorship(t.ctx, t.deps, t.repository, t.plan.effective, t.role)
 	if failure != nil {
 		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, failure))
 		return false
@@ -258,7 +266,7 @@ func (t *timeOnlyLaunch) checkLimits() bool {
 
 // selectPreparation selects the preparation behind one time-only root.
 func (t *timeOnlyLaunch) selectPreparation() bool {
-	if first, second := selectPreparationFor(t.ctx, t.deps, t.plan, project.RoleCoder, t.preparationID); second != nil {
+	if first, second := selectPreparationFor(t.ctx, t.deps, t.plan, t.role, t.preparationID); second != nil {
 		t.report.Errors = append(t.report.Errors, timeOnlyFailure(t.repository, second))
 		return false
 	} else if first != nil {
@@ -270,7 +278,7 @@ func (t *timeOnlyLaunch) selectPreparation() bool {
 
 // checkHarness checks the harness behind one time-only root.
 func (t *timeOnlyLaunch) checkHarness() bool {
-	if wait := checkHarnessFor(t.ctx, t.deps, t.plan, project.RoleCoder); wait != nil {
+	if wait := checkHarnessFor(t.ctx, t.deps, t.plan, t.role); wait != nil {
 		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, wait))
 		return false
 	}
@@ -336,7 +344,7 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		Authority: t.plan.effective.Authority,
 		ID:        assignmentID, AttemptRoot: assignmentID, PublicationAssignment: "", ParentAssignment: "",
 		Subject: t.subject, Phase: t.phase,
-		ProjectID: t.projectID, ActorID: t.plan.sponsorship.ActorID, Role: project.RoleCoder,
+		ProjectID: t.projectID, ActorID: t.plan.sponsorship.ActorID, Role: t.role,
 		Repository: t.repository, Issue: 0, NativeRev: nativeRev, Acceptance: "", Preparation: t.plan.prep.Preparation.ID,
 		Harness: t.plan.pin.Harness + "-" + t.plan.pin.Version, HarnessVers: t.plan.pin.Version, Model: t.selection.Model,
 		Connection: t.plan.sponsorship.Connection, SourceCommit: t.source,
@@ -350,7 +358,7 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		return none, noRun, false
 	}
 	run := factory.Run{
-		ID: runID, ProjectID: t.projectID, Role: project.RoleCoder, InputSHA: t.source,
+		ID: runID, ProjectID: t.projectID, Role: t.role, InputSHA: t.source,
 		Started: t.now, Deadline: deadline,
 		Image: "sha256:" + t.plan.pin.SHA256, Harness: t.selection.Harness + "-" + t.selection.HarnessVers, Model: t.selection.Model,
 	}
@@ -387,6 +395,13 @@ func timeOnlyScope(ctx context.Context, deps DispatchDeps, repository int64, sub
 			return 0, 0, waitFor(WaitAllowance, "intent root is unfunded; explicit funding required"), nil
 		}
 		return 1, policy.IntentMinutes, nil, nil
+	}
+	if subject.Kind == factory.SubjectDelivery {
+		policy, err := deps.Store.RepositoryPolicy(ctx, repository)
+		if err != nil {
+			return fail("policy unreadable")
+		}
+		return 1, policy.AttemptLimits.ActiveMinutes, nil, nil
 	}
 	record, err := deps.Store.ReassessmentRecord(ctx, subject.Completion.CycleID)
 	if err != nil {
@@ -430,7 +445,7 @@ func stageTimeOnlyLaunch(plan *attemptPlan, model string, assignment factory.Ass
 	}
 	launch := project.FactoryLaunch{
 		Run: project.FactoryRun{
-			ID: run.ID, Project: assignment.ProjectID, Role: project.RoleCoder,
+			ID: run.ID, Project: assignment.ProjectID, Role: assignment.Role,
 			Preparation: assignment.Preparation,
 			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      model,

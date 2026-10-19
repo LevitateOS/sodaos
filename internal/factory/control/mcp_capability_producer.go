@@ -1,36 +1,9 @@
 package control
 
-// Dispatch-side MCP capability producer (trace-029 proposal prompted
-// it; no supervisor authorized live activation).
-//
-// Production serving (web/api FactoryMCPHandler), admission
-// (AdmitMCPCapability, AdmitMCPSubmission) and durability (store
-// Stage/Activate/Record) are wired but starved: no production caller
-// ever stages a capability, so every admission refuses inactive.
-// This producer records one staged capability per dispatched run,
-// built from already-recorded state only — the assignment, the
-// packet-settled run, the recorded preparation digest and recorded
-// stop-intent. That is metadata, not activation.
-//
-// CODEX FREEZE032: ordinary dispatch produces STAGED metadata ONLY
-// while FW39/P1/P6/P7 live-observation, protected native-attribution,
-// pre-start and stop gates stay unqualified. Dispatch must NEVER
-// transition a capability to active from a stored snapshot or caller
-// assertions: an independent real-PG race proved a cached
-// stopped=false/authority digest activates across a stop and admits a
-// durable post-stop submission. Activation needs a separately frozen
-// handoff with a qualified controller/host-native observation gate,
-// never another patch around a cached boolean. Until then the served
-// path honestly reports staged/unavailable/qualification-hold; no
-// claim labels all fourteen tools served or accepted.
-//
-// Deliberately OUT of scope (FW39 held intact): provider calls,
-// relay transport, proof-of-possession secrets, permission-model or
-// native-auth reads, host run observation, schema/DDL changes,
-// revocation/retirement, catalog checks and every FW40+
-// graph/checkpoint/review/adoption/verification effect. Production
-// failures are best-effort: dispatch never fails a launch because
-// capability production refused.
+// Dispatch prepares the role-scoped capability before starting the native
+// harness. The host receives its private relay binding separately from prompt
+// content. Authentication activates it only after observing the matching live
+// native run and rechecking current dispatch and preparation stop state.
 
 import (
 	"context"
@@ -74,6 +47,8 @@ func mcpProfileForPhase(phase string) (factory.MCPProfile, error) {
 		return factory.MCPProfileStrategist, nil
 	case project.ExecutionVerify:
 		return factory.MCPProfileTestPilot, nil
+	case project.ExecutionMaintainLibrary:
+		return factory.MCPProfileLibraryAdmin, nil
 	}
 	return "", errors.New("mcp producer refuses a phase without MCP authority")
 }
@@ -211,8 +186,7 @@ func recordedMCPPreparation(ctx context.Context, st *store.Store, id string) (pr
 // dispatch-gate closure: either stages the retained history and
 // reports the stop; admission stays refused while inactive. An
 // unreadable stop signal refuses production rather than guessing.
-// Dispatch calls this best-effort and ignores refusal: a refused
-// capability never fails its launch.
+// Production dispatch requires this to succeed before starting its harness.
 func ProduceMCPCapabilityForLaunch(ctx context.Context, st *store.Store, a factory.Assignment, run factory.Run) error {
 	if st == nil {
 		return errors.New("mcp producer has no store")

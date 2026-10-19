@@ -72,6 +72,7 @@ type BrokerExecution interface {
 // Checks observes native check evidence for published candidates; while
 // no assessor is wired, checks report unavailable instead of guessing.
 type Coordinator struct {
+	MCPKey          []byte
 	Store           *store.Store
 	Host            HostFactory
 	Broker          BrokerExecution

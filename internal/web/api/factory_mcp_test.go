@@ -300,8 +300,8 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	for _, tool := range tools.Tools {
 		seen[tool.Name] = true
 	}
-	if len(seen) != 14 {
-		t.Fatalf("discovery advertises %d tools, want 14", len(seen))
+	if len(seen) != len(factory.MCPTools) {
+		t.Fatalf("discovery advertises %d tools, want %d", len(seen), len(factory.MCPTools))
 	}
 	for _, tool := range factory.MCPTools {
 		if !seen[string(tool)] {

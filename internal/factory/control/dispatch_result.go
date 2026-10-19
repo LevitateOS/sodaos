@@ -264,6 +264,9 @@ func mapPhasedRunOutcome(a factory.Assignment, run factory.Run, summary string, 
 // reportPhasedReviewerResult maps one settled reviewer run to its
 // recorded result under the phased contract.
 func reportPhasedReviewerResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+	if a.Phase == project.ExecutionMaintainLibrary {
+		return refusePhasedAttempt(a, recordedUnix, "library maintenance requires its durable MCP finish receipt")
+	}
 	if a.Phase == project.ExecutionVerify {
 		return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
 	}

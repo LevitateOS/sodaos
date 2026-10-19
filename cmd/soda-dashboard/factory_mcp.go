@@ -2,13 +2,13 @@ package main
 
 // Dedicated Factory-only Unix HTTP listener (FW38).
 //
-// The fourteen-tool catalog serves at the fixed factory-ipc/mcp.sock
+// The role-filtered catalog serves at the fixed factory-ipc/mcp.sock
 // relative location under the service private data root (see
 // web.FactoryMCPSocketPath: no flag, request input or configuration
 // key moves it). The IPC directory is service-owned mode 0755 and
-// the socket 0660 with the helper-selected client group, visible
+// the socket accepts connections across Project user namespaces, visible
 // only in admitted Project mounts; connecting alone grants nothing
-// because every request still needs a live Factory capability. A
+// because every request must authenticate its live Factory capability. A
 // live socket or any non-socket file is never replaced; only a stale
 // socket from an unclean shutdown is reclaimed, so dashboard socket
 // unlink/rebind reconnects the live Project without new run
@@ -58,10 +58,10 @@ func factoryMCPListener(socket string, handler http.Handler) (*http.Server, net.
 	if err != nil {
 		return nil, nil, err
 	}
-	// Group-restricted: only the helper-selected client group (the
-	// FW39 relay) connects. Capability checks remain mandatory for
-	// every request even for a process able to connect.
-	if err := os.Chmod(socket, 0o660); err != nil {
+	// Project user namespaces have distinct UID/GID mappings. Connecting to
+	// this dedicated socket grants no authority: each request must prove its
+	// run-specific HMAC secret, and only this directory is mounted in workers.
+	if err := os.Chmod(socket, 0o666); err != nil {
 		_ = listener.Close()
 		return nil, nil, err
 	}

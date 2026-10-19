@@ -16,6 +16,7 @@ import (
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -92,6 +93,23 @@ func TestExtensionResponseIsBounded(t *testing.T) {
 	}
 }
 
+func TestExtensionArtifactResponseUsesFileLimit(t *testing.T) {
+	for _, size := range []int{auth.APIBodyLimit + 1, factory.MaxFeedArtifactBytes, factory.MaxFeedArtifactBytes + 1} {
+		response := &http.Response{
+			Request: httptest.NewRequest(http.MethodGet, "/api/factory/artifacts/0123456789abcdef0123456789abcdef?repository=7", nil),
+			Header:  make(http.Header), Body: io.NopCloser(strings.NewReader(strings.Repeat("x", size))),
+		}
+		err := boundExtensionResponse(response)
+		if size > factory.MaxFeedArtifactBytes {
+			if err != errExtensionResponseTooLarge {
+				t.Fatalf("oversized artifact: %v", err)
+			}
+		} else if err != nil || response.ContentLength != int64(size) {
+			t.Fatalf("artifact of %d bytes: length=%d error=%v", size, response.ContentLength, err)
+		}
+	}
+}
+
 func TestExtensionRejectsUnknownRouteAndUnverifiedActor(t *testing.T) {
 	handler, closeTransport := Extension("/unavailable-soda-socket")
 	defer closeTransport()
@@ -162,6 +180,13 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		allowed      bool
 	}{
 		{http.MethodGet, "/factory/feed", true},
+		{http.MethodGet, "/factory/library?repository=7&kind=decision&query=access", true},
+		{http.MethodGet, "/factory/library/item?repository=7&id=0123456789abcdef0123456789abcdef", true},
+		{http.MethodPost, "/factory/library?repository=7", false},
+		{http.MethodGet, "/factory/library/unknown", false},
+		{http.MethodGet, "/factory/artifacts/0123456789abcdef0123456789abcdef?repository=7", true},
+		{http.MethodPost, "/factory/artifacts/0123456789abcdef0123456789abcdef?repository=7", false},
+		{http.MethodGet, "/factory/artifacts/invalid?repository=7", false},
 		{http.MethodGet, "/factory/feed?repositories=7&limit=20&cursor=v1:42", true},
 		{http.MethodGet, "/factory/feed/subscription", true},
 		{http.MethodPut, "/factory/feed/subscription", true},

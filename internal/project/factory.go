@@ -80,7 +80,8 @@ const (
 	// against its approved manifest (D16). It accepts only the delivery
 	// subject and the reviewer role, runs read-only with no publication
 	// or children, and carries no publishable candidate.
-	ExecutionVerify = "verify"
+	ExecutionVerify          = "verify"
+	ExecutionMaintainLibrary = "maintain_library"
 )
 
 // ValidExecutionPhase reports whether phase is an admitted execution phase.
@@ -89,7 +90,7 @@ const (
 // role, parent equality or whether a PR happens to exist.
 func ValidExecutionPhase(phase string) bool {
 	switch phase {
-	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify:
+	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify, ExecutionMaintainLibrary:
 		return true
 	default:
 		return false
@@ -224,6 +225,9 @@ func (r FactoryRun) validateRunPhase() error {
 	if r.ExecutionPhase == ExecutionVerify && r.Role != RoleReviewer {
 		return errors.New("verify run requires the reviewer role")
 	}
+	if r.ExecutionPhase == ExecutionMaintainLibrary && r.Role != RoleReviewer {
+		return errors.New("library maintenance requires the reviewer role")
+	}
 	if ExecutionManifestRequired(r.ExecutionPhase) {
 		if !ValidDigest(r.ManifestDigest) {
 			if r.ExecutionPhase == ExecutionCorrect {
@@ -256,11 +260,19 @@ func FactoryPromptDigest(prompt []byte) string {
 // its own pinned harness bytes. ExecutionManifest carries the immutable staged
 // plan for implement and correct runs and stays absent for every other phase;
 // the run's manifest digest must match its exact bytes.
+// FactoryMCPBinding is delivered to the host-owned relay before the model starts.
+// Its secret is never prompt content or user-visible run output.
+type FactoryMCPBinding struct {
+	Capability string `json:"capability"`
+	Secret     string `json:"secret"`
+}
+
 type FactoryLaunch struct {
-	Run               FactoryRun `json:"run"`
-	Prompt            []byte     `json:"prompt"`
-	HarnessSHA256     string     `json:"harness_sha256"`
-	ExecutionManifest []byte     `json:"execution_manifest,omitempty"`
+	MCP               *FactoryMCPBinding `json:"mcp,omitempty"`
+	Run               FactoryRun         `json:"run"`
+	Prompt            []byte             `json:"prompt"`
+	HarnessSHA256     string             `json:"harness_sha256"`
+	ExecutionManifest []byte             `json:"execution_manifest,omitempty"`
 }
 
 // ExecutionManifestDigest returns the canonical digest over staged manifest
@@ -272,6 +284,9 @@ func ExecutionManifestDigest(manifest []byte) string {
 }
 
 func (l FactoryLaunch) Validate() error {
+	if l.MCP != nil && (!ValidFactoryRunID(l.MCP.Capability) || !ValidDigest(l.MCP.Secret) || l.MCP.Capability != l.Run.ID) {
+		return errors.New("invalid bound Factory MCP configuration")
+	}
 	if err := l.Run.Validate(); err != nil {
 		return err
 	}

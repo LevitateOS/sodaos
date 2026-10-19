@@ -32,16 +32,22 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		attemptRoot = assignmentID
 	}
 	authority := plan.effective.Authority
+	role := project.RoleCoder
+	publication := assignmentID
+	if plan.phase == project.ExecutionMaintainLibrary {
+		role = project.RoleReviewer
+		publication = ""
+	}
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
 		Authority: authority,
-		ID:        assignmentID, AttemptRoot: attemptRoot, PublicationAssignment: assignmentID,
+		ID:        assignmentID, AttemptRoot: attemptRoot, PublicationAssignment: publication,
 		Subject: plan.subject, Phase: plan.phase, ParentAssignment: plan.parent,
-		ProjectID: plan.projectID, Role: project.RoleCoder,
+		ProjectID: plan.projectID, Role: role,
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		Acceptance: plan.acceptance.ID, Preparation: plan.prep.Preparation.ID,
 		Harness: plan.pin.Harness + "-" + plan.pin.Version, HarnessVers: plan.pin.Version,
-		Model: plan.policy.Roles[project.RoleCoder].Model, Connection: plan.sponsorship.Connection,
+		Model: plan.policy.Roles[role].Model, Connection: plan.sponsorship.Connection,
 		SourceCommit: plan.inputs.Tip, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
@@ -58,7 +64,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Connection: plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: plan.planned,
 	}
 	run := factory.Run{
-		ID: runID, ProjectID: plan.projectID, Role: project.RoleCoder, InputSHA: plan.inputs.Tip,
+		ID: runID, ProjectID: plan.projectID, Role: role, InputSHA: plan.inputs.Tip,
 		Started: now, Deadline: plan.deadline,
 		Image: plan.pin.Image, Harness: assignment.Harness, Model: assignment.Model,
 	}
@@ -85,7 +91,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 	occupancy.hold(reservation)
 	launch := project.FactoryLaunch{
 		Run: project.FactoryRun{
-			ID: runID, Project: plan.projectID, Role: project.RoleCoder,
+			ID: runID, Project: plan.projectID, Role: role,
 			Preparation: plan.prep.Preparation.ID,
 			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      assignment.Model,
@@ -305,7 +311,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	if !ok {
 		return
 	}
-	child := a.PublicationAssignment != a.ID
+	child := a.PublicationAssignment != a.ID && a.Phase != project.ExecutionMaintainLibrary
 	publicationTarget := ""
 	if child {
 		var parentOK bool
@@ -473,6 +479,9 @@ func checkPublishedParent(ctx context.Context, deps DispatchDeps, a factory.Assi
 // terminal waits to the report.
 func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, a factory.Assignment, child bool, report *DispatchReport) (*attemptPlan, bool) {
 	role, exactPreparation := project.RoleCoder, ""
+	if a.Phase == project.ExecutionMaintainLibrary {
+		role, exactPreparation = a.Role, a.Preparation
+	}
 	if child {
 		role, exactPreparation = a.Role, a.Preparation
 	}
@@ -652,14 +661,30 @@ const launchObservationTimeout = 5 * time.Second
 // the run's effects; the host and broker decide what is unused. The native
 // run retains its admitted deadline after this observation ends.
 func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run, launch project.FactoryLaunch, report *DispatchReport) {
+	if deps.Store != nil {
+		if err := ProduceMCPCapabilityForLaunch(ctx, deps.Store, a, run); err != nil {
+			if len(deps.MCPKey) > 0 {
+				recordLaunchFailure(ctx, deps, a, run, errors.New("worker MCP could not be prepared"), report)
+				return
+			}
+		} else if len(deps.MCPKey) > 0 {
+			capability, err := deps.Store.GetMCPCapability(ctx, run.ID)
+			if err != nil {
+				report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "worker MCP binding unavailable"})
+				return
+			}
+			secret, err := factory.DeriveMCPCapabilitySecret(deps.MCPKey, capability)
+			if err != nil {
+				report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "worker MCP configuration unavailable"})
+				return
+			}
+			launch.MCP = &project.FactoryMCPBinding{Capability: capability.ID, Secret: secret}
+		}
+	}
 	launchCtx, cancel := context.WithTimeout(ctx, launchObservationTimeout)
 	defer cancel()
 	state, err := deps.Host.FactoryLaunch(launchCtx, launch)
 	if err == nil {
-		// Trace-029 staged-capability producer (FREEZE032: staged
-		// metadata only, never activation): best-effort staged
-		// record for the settled run. Refusal never fails the launch.
-		_ = ProduceMCPCapabilityForLaunch(ctx, deps.Store, a, run)
 		// R31 preparation-time bundle selection: one funded Choice
 		// per capability before the first read. Best-effort like
 		// staging — refusal or an unavailable consultation never
@@ -676,6 +701,10 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 		})
 		return
 	}
+	recordLaunchFailure(ctx, deps, a, run, err, report)
+}
+
+func recordLaunchFailure(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run, launchErr error, report *DispatchReport) {
 	unused, fenced := confirmUnused(ctx, deps, a, run)
 	switch {
 	case fenced:
@@ -685,7 +714,7 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrFence, Detail: "launch left effects for reconcile"})
 		ensureHeldLaunch(ctx, deps, a, report)
 	default:
-		settleUnusedLaunch(ctx, deps, a, run, err, report)
+		settleUnusedLaunch(ctx, deps, a, run, launchErr, report)
 	}
 }
 

@@ -36,10 +36,6 @@ func run() (runErr error) {
 		return err
 	}
 	defer func() { runErr = errors.Join(runErr, database.Close()) }()
-	if err = app.StartCoordinator(context.Background()); err != nil {
-		return err
-	}
-	defer func() { runErr = errors.Join(runErr, app.CloseCoordinator()) }()
 	server := &http.Server{Addr: app.Config.Listen, Handler: app.Coordinator.AdmitHTTP(app), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -68,6 +64,11 @@ func run() (runErr error) {
 		defer factoryMCPListener.Close()
 		serveFactoryMCPSocket(factoryMCPServer, factoryMCPListener, stop, serveErrors)
 	}
+	// Worker MCP must be listening before the coordinator can launch an agent.
+	if err = app.StartCoordinator(context.Background()); err != nil {
+		return err
+	}
+	defer func() { runErr = errors.Join(runErr, app.CloseCoordinator()) }()
 	stopped := beginShutdown(ctx, app, server, privateServer, operatorServer, factoryMCPServer)
 	serveErr := server.ListenAndServe()
 	stop()

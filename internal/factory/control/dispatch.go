@@ -177,6 +177,7 @@ const (
 // carries fair-rotation progress across passes; a nil queue visits from
 // the beginning without advancing.
 type DispatchDeps struct {
+	MCPKey        []byte
 	Store         *store.Store
 	Host          DispatchHost
 	Broker        DispatchBroker
@@ -283,7 +284,7 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 // dispatchDeps binds one pass to this coordinator's dependencies.
 func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
-		Store: c.Store, Host: c.Host, Broker: c.Broker,
+		Store: c.Store, Host: c.Host, Broker: c.Broker, MCPKey: c.MCPKey,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
 		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
 		Queue:           &c.queue,

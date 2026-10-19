@@ -365,6 +365,10 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		auth.JSONError(w, 404, "comment_not_found", "Feed comment is not found.")
 		return
 	}
+	if detail.Payload != nil && detail.Payload.Communication != nil {
+		auth.JSONResponse(w, 200, feedWorkerCommentResponse(detail))
+		return
+	}
 	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read the comment request.")
@@ -426,6 +430,10 @@ func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v st
 		if err != nil {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
 			return
+		}
+		if detail.Payload != nil && detail.Payload.Communication != nil {
+			items = append(items, feedWorkerCommentResponse(detail))
+			continue
 		}
 		pipe, err := s.Store.CommentPipeline(r.Context(), id)
 		if err != nil {
@@ -839,6 +847,7 @@ func driveCommentEffect(ctx context.Context, st *store.Store, creator CommentIss
 	}
 	issue, err := creator.CreateCommentIssue(ctx, draft, detail.Record.Repository)
 	if err != nil || issue <= 0 {
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "Could not confirm issue creation. Retry checks for an existing issue before creating one.")
 		return false, noteCommentFailure(ctx, st, pipe, false)
 	}
 	next := pipe
@@ -924,6 +933,15 @@ func enrichFeedPosts(ctx context.Context, st *store.Store, projects map[int64]st
 			continue
 		}
 		entries[i].Actor = detail.Record.Author
+		if detail.Actor != "" {
+			entries[i].Actor = detail.Actor
+		}
+		entries[i].Assignment = detail.Assignment
+		entries[i].Issue = detail.Record.Issue
+		entries[i].Payload = detail.Payload
+		if detail.Payload != nil && detail.Payload.Communication != nil {
+			entries[i].Activity = detail.Payload.Communication.Kind
+		}
 		entries[i].Author = detail.AuthorName
 		entries[i].Project = projects[entry.Repository]
 		entries[i].At = detail.At

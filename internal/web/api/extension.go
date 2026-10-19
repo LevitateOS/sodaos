@@ -15,6 +15,7 @@ import (
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -89,12 +90,16 @@ func boundExtensionResponse(response *http.Response) error {
 	if response.Body == nil {
 		return nil
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, int64(auth.APIBodyLimit)+1))
+	limit := auth.APIBodyLimit
+	if response.Request != nil && response.Request.Method == http.MethodGet && extensionArtifactRoute(strings.TrimPrefix(response.Request.URL.Path, "/api")) {
+		limit = factory.MaxFeedArtifactBytes
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
 	closeErr := response.Body.Close()
 	if err != nil || closeErr != nil {
 		return fmt.Errorf("%w: response body read failed", errExtensionResponseInvalid)
 	}
-	if len(body) > auth.APIBodyLimit {
+	if len(body) > limit {
 		return errExtensionResponseTooLarge
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
@@ -144,9 +149,12 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/feed/replies", "/spaces":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/feed/replies", "/factory/library", "/factory/library/item", "/spaces":
 		return true
 	default:
+		if extensionArtifactRoute(route) {
+			return true
+		}
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
 		if len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
 			parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
@@ -302,6 +310,12 @@ func extensionRepositoryFactoryItem(parts []string, method string) bool {
 }
 
 func extensionFactoryRoute(parts []string, method string) bool {
+	if len(parts) >= 2 && parts[1] == "library" {
+		return method == http.MethodGet && (len(parts) == 2 || len(parts) == 3 && parts[2] == "item")
+	}
+	if len(parts) == 3 && parts[1] == "artifacts" {
+		return method == http.MethodGet && factory.ValidID(parts[2])
+	}
 	if len(parts) >= 2 && parts[1] == "feed" {
 		switch len(parts) {
 		case 2:
@@ -335,6 +349,11 @@ func extensionFactoryRoute(parts []string, method string) bool {
 			parts[3] == "output" && method == http.MethodGet
 	}
 	return false
+}
+
+func extensionArtifactRoute(route string) bool {
+	parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
+	return len(parts) == 3 && parts[0] == "factory" && parts[1] == "artifacts" && factory.ValidID(parts[2])
 }
 
 func extensionEnvironmentRoute(parts []string, method string) bool {

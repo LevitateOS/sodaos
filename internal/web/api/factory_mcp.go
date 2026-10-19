@@ -1,30 +1,11 @@
 package api
 
-// D14 fourteen-tool catalog server with capability admission,
-// immutable submissions and receipt recovery (FW38).
-//
-// The pinned upstream Go MCP SDK (github.com/modelcontextprotocol/go-sdk
-// v1.8.0) serves one implementation over stdio (through the Rust
-// relay, FW39) and over the fixed Factory route on the dedicated
-// private listener (internal/web + cmd/soda-dashboard). The SDK
-// validates every call against the explicit per-tool input schema
-// server-side: unknown tools and unknown fields refuse before
-// admission. Every request validates capability plus
-// profile/tool/input binding; mutations repeat freshness/authority
-// checks at admission and persist through control admission into the
-// store. Transport/schema/authentication failure creates no receipt.
-//
-// Reads serve capability-bound state from owned rows. Evidence pages
-// over run/plan/review/inventory records, dispatch/settlement
-// consumers and downstream mutation effects (graph writes,
-// checkpoints, reviews) belong to FW40/FW41/FW42/FW44/FW45: this
-// server records proposals with durable receipts and reports
-// incomplete evidence honestly instead of an empty success.
-// Proof-of-possession request MACs and host run/incarnation
-// observation ride the FW39 relay/staging joint; until then the
-// private Unix socket plus per-request capability validation is the
-// request authentication, and empty host observations skip only the
-// run-binding comparison.
+// One role-filtered Factory MCP implementation serves the private listener
+// through the Rust stdio relay. Host-staged credentials bind each interface to
+// its worker; tool arguments carry content rather than identity. The SDK
+// validates schemas, admission rechecks the current capability, and durable
+// submissions share a transaction with their feed posts and receipts. Role
+// results still pass through their existing workflow consumers.
 
 import (
 	"context"
@@ -86,28 +67,31 @@ type FactoryMCPRunSource interface {
 // D16 proposal validation; nil names the unwired catalog honestly
 // (FW40 wires the approved check catalog).
 type FactoryMCPDeps struct {
-	Capabilities      FactoryMCPCapabilitySource
-	Submissions       FactoryMCPSubmissionSink
-	Assignments       FactoryMCPAssignmentSource
-	PriorityJudgments FactoryMCPPriorityJudgmentSource
-	Runs              FactoryMCPRunSource
-	Observed          func(capability factory.MCPCapability) (control.MCPRunObservation, error)
-	Catalog           factory.ApprovedCatalog
-	Now               func() time.Time
+	// BoundCapability is supplied by the authenticated transport, never tool
+	// arguments. Its immutable scope supplies identity and default revisions.
+	BoundCapability      *factory.MCPCapability
+	Limiter              *mcpRateLimiter
+	Prepare              func(context.Context, factory.MCPCapability) (factory.MCPCapability, error)
+	Capabilities         FactoryMCPCapabilitySource
+	Submissions          FactoryMCPSubmissionSink
+	Assignments          FactoryMCPAssignmentSource
+	PriorityJudgments    FactoryMCPPriorityJudgmentSource
+	Runs                 FactoryMCPRunSource
+	Observed             func(capability factory.MCPCapability) (control.MCPRunObservation, error)
+	Catalog              factory.ApprovedCatalog
+	Now                  func() time.Time
+	SystemOne            FactorySystemOne
+	VerificationEvidence func(context.Context, factory.MCPCapability) (map[string]any, error)
 }
 
-// mcpCallArgs is the uniform tool envelope. Mutations require
-// submission_id, expected_input_digest and payload; reads require
-// only capability_id; receipt requires capability_id plus
-// submission_id. Payload canonical bytes are json.Marshal of the
-// payload map (sorted keys, deterministic): expected_input_digest
-// names the caller's capability scope snapshot and must equal the
-// admitted capability's current scope digest, never the payload
-// hash.
+// mcpCallArgs is the tool envelope. Production supplies capability identity
+// outside the schema and defaults expected_input_digest to the bound scope.
+// An explicitly supplied digest must still match. CapabilityID remains an
+// internal admission field used by the unbound transport fixtures.
 type mcpCallArgs struct {
 	CapabilityID        string         `json:"capability_id" jsonschema:"recorded capability identity"`
 	SubmissionID        string         `json:"submission_id,omitempty" jsonschema:"32-hex submission identity for mutations and receipt recovery"`
-	ExpectedInputDigest string         `json:"expected_input_digest,omitempty" jsonschema:"SHA-256 hex of the canonical payload bytes"`
+	ExpectedInputDigest string         `json:"expected_input_digest,omitempty" jsonschema:"scope_digest from factory.context; defaults to this server's bound scope"`
 	Payload             map[string]any `json:"payload,omitempty" jsonschema:"tool payload within 64 KiB"`
 }
 
@@ -122,9 +106,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	} else if !factory.MCPIsRead(tool) {
 		required = []string{"capability_id", "submission_id", "expected_input_digest", "payload"}
 	}
-	return &mcp.Tool{
+	definition := &mcp.Tool{
 		Name:        string(tool),
-		Description: "Factory " + string(tool),
+		Description: factoryToolDescription(tool),
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
@@ -137,6 +121,28 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
 		},
 	}
+	if payload := communicationPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
+	if payload := inboxPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+		if tool == factory.MCPToolDiscussion {
+			definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
+		}
+	}
+	if payload := rolePayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
+	if payload := libraryPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+		if tool == factory.MCPToolReadLibraryItem || tool == factory.MCPToolPreviewLibraryChanges {
+			definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
+		}
+	}
+	if tool == factory.MCPToolPublishArtifact {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = artifactPayloadSchema()
+	}
+	return definition
 }
 
 // mcpRateLimiter bounds traffic per run: 4 concurrent requests and
@@ -204,12 +210,21 @@ func (s *factoryCatalogServer) observed(capability factory.MCPCapability) (contr
 // binding, freshness/authority and the rate limit. It returns the
 // admitted capability and the rate release the caller defers.
 func (s *factoryCatalogServer) admitCall(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (factory.MCPCapability, func(), error) {
+	if bound := s.deps.BoundCapability; bound != nil {
+		if args.CapabilityID != "" && args.CapabilityID != bound.ID {
+			return factory.MCPCapability{}, nil, errors.New("tool identity differs from this worker's context")
+		}
+		args.CapabilityID = bound.ID
+	}
 	if !factory.ValidID(args.CapabilityID) {
 		return factory.MCPCapability{}, nil, errors.New("factory capability refused")
 	}
 	capability, err := s.deps.Capabilities.GetMCPCapability(ctx, args.CapabilityID)
 	if err != nil {
 		return factory.MCPCapability{}, nil, errors.New("factory capability refused")
+	}
+	if bound := s.deps.BoundCapability; bound != nil && capability.ScopeDigest() != bound.ScopeDigest() {
+		return factory.MCPCapability{}, nil, errors.New("worker context changed; reconnect to the assigned server")
 	}
 	observed, err := s.observed(capability)
 	if err != nil {
@@ -378,6 +393,15 @@ func (s *factoryCatalogServer) checkPayloadOutcome(tool factory.MCPTool, payload
 // checkPayload enforces the strict per-tool shape plus the D16
 // manifest-proposal contract on product plans.
 func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
+	if factory.MCPIsLibraryMutation(tool) {
+		return checkLibraryPayload(tool, payload)
+	}
+	if tool == factory.MCPToolPublishArtifact {
+		return checkArtifactPayload(payload)
+	}
+	if factory.MCPIsCommunication(tool) {
+		return checkCommunicationPayload(tool, payload)
+	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
 		return fmt.Errorf("unsupported factory tool")
@@ -400,6 +424,9 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 // mcpOptionalPayloadKey admits documented optional keys beyond the
 // required set without opening arbitrary input.
 func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
+	if key == "component_id" {
+		return true
+	}
 	switch tool {
 	case factory.MCPToolFinishImplement:
 		return key == "unchanged" || key == "candidate"
@@ -468,6 +495,20 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
+	if value, exists := args.Payload["component_id"]; exists {
+		id, ok := value.(string)
+		if !ok || id == "" {
+			release()
+			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, errors.New("component_id must name a feed component")
+		}
+		if err := factory.ValidateFeedComponent(id, capability.Profile, tool); err != nil {
+			release()
+			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
+		}
+	}
+	if args.ExpectedInputDigest == "" && s.deps.BoundCapability != nil {
+		args.ExpectedInputDigest = s.deps.BoundCapability.ScopeDigest()
+	}
 	submission := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: args.SubmissionID,
 		CapabilityID: capability.ID,
@@ -500,15 +541,34 @@ func mcpJSONResult(value any) (*mcp.CallToolResult, any, error) {
 	return mcpTextResult(string(raw))
 }
 
-// newFactoryCatalogServer builds the fourteen-tool catalog. Reads
+// newFactoryCatalogServer builds the shared, role-filtered catalog. Reads
 // serve capability-bound state; mutations record immutable proposals
 // with durable receipts; receipt recovers lost responses.
 func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
-	catalog := &factoryCatalogServer{deps: deps, limiter: newMCPRateLimiter()}
-	server := mcp.NewServer(&mcp.Implementation{Name: "soda-factory"}, nil)
+	limiter := deps.Limiter
+	if limiter == nil {
+		limiter = newMCPRateLimiter()
+	}
+	catalog := &factoryCatalogServer{deps: deps, limiter: limiter}
+	name := "soda-factory"
+	if deps.BoundCapability != nil {
+		name += "-" + string(deps.BoundCapability.Profile)
+	}
+	server := mcp.NewServer(&mcp.Implementation{Name: name}, nil)
 	for _, tool := range factory.MCPTools {
 		tool := tool
-		mcp.AddTool(server, mcpEnvelopeSchema(tool), func(ctx context.Context, _ *mcp.CallToolRequest, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+		if deps.BoundCapability != nil && !factory.MCPToolAdmitted(deps.BoundCapability.Profile, tool) {
+			continue
+		}
+		if isSystemOneTool(tool) {
+			catalog.addSystemOneTool(server, tool)
+			continue
+		}
+		schema := mcpEnvelopeSchema(tool)
+		if deps.BoundCapability != nil {
+			bindMCPToolSchema(schema, tool, *deps.BoundCapability)
+		}
+		mcp.AddTool(server, schema, func(ctx context.Context, _ *mcp.CallToolRequest, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 			return catalog.serve(ctx, tool, args)
 		})
 	}
@@ -516,13 +576,34 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 }
 
 func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+	if factory.MCPIsLibraryRead(tool) {
+		return s.serveLibraryRead(ctx, tool, args)
+	}
 	switch tool {
+	case factory.MCPToolPublishArtifact:
+		return s.serveArtifact(ctx, args)
+	case factory.MCPToolVerificationEvidence:
+		cap, release, err := s.admitCall(ctx, tool, args)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer release()
+		if s.deps.VerificationEvidence == nil {
+			return nil, nil, errors.New("native verification evidence unavailable")
+		}
+		evidence, err := s.deps.VerificationEvidence(ctx, cap)
+		if err != nil {
+			return nil, nil, err
+		}
+		return mcpJSONResult(evidence)
 	case factory.MCPToolContext, factory.MCPToolStatus:
 		return s.serveRead(ctx, tool, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
 	case factory.MCPToolReceipt:
 		return s.serveReceipt(ctx, args)
+	case factory.MCPToolInbox, factory.MCPToolDiscussion:
+		return s.serveInbox(ctx, tool, args)
 	default:
 		return s.serveMutation(ctx, tool, args)
 	}
@@ -563,6 +644,12 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 	if err != nil {
 		return nil, err
 	}
+	loaded := false
+	defer func() {
+		if !loaded {
+			release()
+		}
+	}()
 	read := &readContext{capability: capability, release: release}
 	if read.terminal, read.frozen, err = s.deps.Submissions.TerminalMCPProposal(ctx, capability.AssignmentID); err != nil {
 		return nil, err
@@ -584,6 +671,7 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 			read.parent, read.parentLoaded = loaded, true
 		}
 	}
+	loaded = true
 	return read, nil
 }
 
@@ -626,23 +714,36 @@ func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, for
 	serveLineage := lineageEligible && (foregrounded == "" || foregrounded == factory.ContextBundleLineage)
 	bundle := factory.ContextBundleCurrent
 	body := map[string]any{
-		"assignment":    capability.AssignmentID,
-		"prompt_sha":    assignment.PromptSHA,
-		"source_commit": assignment.SourceCommit,
-		"preparation":   assignment.Preparation,
-		"profile":       string(capability.Profile),
-		"phase":         factory.MCPPhaseOf(capability.Profile),
-		"subject":       capability.Subject,
-		"repository":    capability.Repository,
-		"generation":    capability.Generation,
-		"capability":    capability.State,
-		"deadline":      capability.DeadlineUnix,
-		"submissions":   read.count,
-		"terminal":      read.frozen,
-		"route":         FactoryMCPRoute,
-		"limits":        map[string]any{"page_bytes": factory.MCPMaxPageBytes, "page_refs": factory.MCPMaxPageRefs, "result_bytes": factory.MCPMaxResultPayloadBytes},
-		"source_digest": capability.SourceDigest,
-		"scope_digest":  capability.ScopeDigest(),
+		"assignment":            capability.AssignmentID,
+		"run":                   capability.RunID,
+		"project":               capability.Project,
+		"identity_source":       "authenticated_worker_context",
+		"prompt_sha":            assignment.PromptSHA,
+		"source_commit":         assignment.SourceCommit,
+		"preparation":           assignment.Preparation,
+		"profile":               string(capability.Profile),
+		"phase":                 factory.MCPPhaseOf(capability.Profile),
+		"subject":               capability.Subject,
+		"repository":            capability.Repository,
+		"generation":            capability.Generation,
+		"capability":            capability.State,
+		"deadline":              capability.DeadlineUnix,
+		"submissions":           read.count,
+		"terminal":              read.frozen,
+		"route":                 FactoryMCPRoute,
+		"limits":                map[string]any{"page_bytes": factory.MCPMaxPageBytes, "page_refs": factory.MCPMaxPageRefs, "result_bytes": factory.MCPMaxResultPayloadBytes},
+		"source_digest":         capability.SourceDigest,
+		"scope_digest":          capability.ScopeDigest(),
+		"feed_components":       workerFeedComponents(capability.Profile),
+		"replies_tool":          string(factory.MCPToolInbox),
+		"library_tools":         []string{"factory.search_library", "factory.read_library_item"},
+		"consultation_guidance": "Use systemone.noul, systemone.choice and systemone.score for typed judgments. For substantive decisions consult three times with the same facts and alternatives but independently worded, counterbalanced questions; compare results. Judgments are advice and do not replace native checks or authorization.",
+	}
+	if assignment.Issue > 0 {
+		body["issue"] = assignment.Issue
+	}
+	if assignment.ActorID > 0 {
+		body["actor_id"] = assignment.ActorID
 	}
 	if serveAttempt {
 		body["attempt"] = map[string]any{"run_history": factory.AttemptContinuity(assignment)}
@@ -746,8 +847,10 @@ func (s *factoryCatalogServer) serveReceipt(ctx context.Context, args mcpCallArg
 		return nil, nil, errors.New("receipt not found")
 	}
 	return mcpJSONResult(map[string]any{
-		"submission_id": receipt.SubmissionID,
-		"state":         receipt.State,
+		"submission_id":   receipt.SubmissionID,
+		"state":           receipt.State,
+		"feed_post_id":    receipt.FeedPostID,
+		"library_item_id": receipt.LibraryItemID, "artifact_id": receipt.ArtifactID,
 	})
 }
 
@@ -770,8 +873,10 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 		return nil, nil, err
 	}
 	return mcpJSONResult(map[string]any{
-		"submission_id": recorded.SubmissionID,
-		"state":         recorded.State,
+		"submission_id":   recorded.SubmissionID,
+		"state":           recorded.State,
+		"feed_post_id":    recorded.FeedPostID,
+		"library_item_id": recorded.LibraryItemID, "artifact_id": recorded.ArtifactID,
 	})
 }
 
@@ -808,11 +913,23 @@ func (s *API) FactoryMCPHandler() http.Handler {
 			http.Error(w, "factory MCP unavailable", http.StatusServiceUnavailable)
 		})
 	}
-	return factoryCatalogMux(newFactoryCatalogServer(FactoryMCPDeps{
-		Capabilities: s.Store,
-		Submissions:  s.Store,
-		Assignments:  s.Store,
-	}))
+	if s.Config == nil {
+		return unavailableFactoryMCP(errors.New("factory configuration unavailable"))
+	}
+	key, err := control.LoadFactoryMCPKey(s.Config.FactoryPublicationRoot)
+	if err != nil {
+		return unavailableFactoryMCP(err)
+	}
+	return factoryBoundCatalogHandler(FactoryMCPDeps{
+		Capabilities:         s.Store,
+		Submissions:          s.Store,
+		Assignments:          s.Store,
+		PriorityJudgments:    s.Store,
+		Runs:                 s.Store,
+		Prepare:              s.prepareFactoryWorkerMCP,
+		SystemOne:            &control.TypeSafeSystemOne{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel},
+		VerificationEvidence: s.factoryVerificationEvidence,
+	}, key)
 }
 
 var _ FactoryMCPCapabilitySource = (*store.Store)(nil)

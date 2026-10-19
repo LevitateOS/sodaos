@@ -49,8 +49,8 @@ func TestFactoryMCPListenerLifecycle(t *testing.T) {
 	if info.Mode().Type() != os.ModeSocket {
 		t.Fatal("listener path is not a socket")
 	}
-	if perm := info.Mode().Perm(); perm != 0o660 {
-		t.Fatalf("socket mode = %o, want 660", perm)
+	if perm := info.Mode().Perm(); perm != 0o666 {
+		t.Fatalf("socket mode = %o, want 666", perm)
 	}
 
 	roundtrip := func() {
