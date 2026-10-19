@@ -137,6 +137,9 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 	if err := s.feedTaskStates(ctx, taskRoots, out); err != nil {
 		return nil, err
 	}
+	if err := s.feedSubmissionComponents(ctx, ids, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -250,6 +253,8 @@ func recordPersona(profile factory.MCPProfile) string {
 		return "Strategist"
 	case factory.MCPProfileTestPilot:
 		return "Test Pilot"
+	case factory.MCPProfileLibraryAdmin:
+		return "Library Admin"
 	default:
 		return ""
 	}
@@ -698,7 +703,7 @@ func (s *Store) feedMergeDetails(ctx context.Context, ids []string, out map[stri
 				detail.Status = "merged>closed"
 			}
 		}
-		detail.Payload = &factory.FeedPayload{Merge: merge}
+		detail.Payload = &factory.FeedPayload{ComponentID: "F06", Merge: merge}
 		out[detail.ID] = detail
 	}
 	return rows.Err()
@@ -723,14 +728,14 @@ func (s *Store) feedCompletionDetails(ctx context.Context, ids []string, out map
 		}
 		completion.Event = detail.ID
 		detail.Actor, detail.Author = "factory", "Factory"
-		detail.Status = "completed"
+		detail.Status = "issue:completed"
 		var event factory.CompletionEvent
 		if json.Unmarshal(raw, &event) == nil {
 			detail.Issue = event.Issue
 			detail.Ref = event.MergedCommit
 			completion.MergedCommit = event.MergedCommit
 		}
-		detail.Payload = &factory.FeedPayload{Completion: &completion}
+		detail.Payload = &factory.FeedPayload{ComponentID: "F06", Completion: &completion}
 		out[detail.ID] = detail
 	}
 	return rows.Err()
@@ -764,7 +769,11 @@ func (s *Store) feedJudgmentDetails(ctx context.Context, ids []string, out map[s
 		if detail.Issue == 0 {
 			detail.Issue = issue
 		}
-		detail.Payload = &factory.FeedPayload{Judgment: judgment}
+		component := "F04"
+		if judgment.Kind == "priority" {
+			component = "F03"
+		}
+		detail.Payload = &factory.FeedPayload{ComponentID: component, Judgment: judgment}
 		out[detail.ID] = detail
 	}
 	return rows.Err()

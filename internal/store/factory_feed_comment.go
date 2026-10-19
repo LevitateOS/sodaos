@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -26,6 +27,9 @@ import (
 // fields. Source is the persisted resolved snapshot of the feed
 // entry the comment was submitted against, when it named one.
 type FeedCommentDetail struct {
+	Actor      string
+	Assignment string
+	Payload    *factory.FeedPayload
 	Record     factory.CommentRecord
 	Body       string
 	AuthorName string
@@ -277,18 +281,21 @@ func (s *Store) FeedComment(ctx context.Context, id string) (FeedCommentDetail, 
 	var author, body, replyTo, authorName string
 	var edited, deleted, revoked bool
 	var at int64
-	var sourceRaw []byte
+	var sourceRaw, dataRaw []byte
 	err := s.db.QueryRowContext(ctx, `SELECT id,repository,revision,author,body,
 		COALESCE(data->>'reply_to',''),COALESCE((data->>'issue')::bigint,0),
 		COALESCE((data->>'edited')::boolean,false),COALESCE((data->>'deleted')::boolean,false),
 		COALESCE((data->>'revoked')::boolean,false),COALESCE(data->>'author_name',''),
-		COALESCE((data->>'at')::bigint,0),COALESCE(data->'source','null'::jsonb) FROM factory_feed_comments WHERE id=$1`, id).
-		Scan(&out.Record.ID, &repository, &revision, &author, &body, &replyTo, &issue, &edited, &deleted, &revoked, &authorName, &at, &sourceRaw)
+		COALESCE((data->>'at')::bigint,0),COALESCE(data->'source','null'::jsonb),data FROM factory_feed_comments WHERE id=$1`, id).
+		Scan(&out.Record.ID, &repository, &revision, &author, &body, &replyTo, &issue, &edited, &deleted, &revoked, &authorName, &at, &sourceRaw, &dataRaw)
 	if err != nil {
 		return FeedCommentDetail{}, err
 	}
 	out.Record = factory.CommentRecord{ID: out.Record.ID, Revision: revision, Repository: repository, Author: author, Issue: issue, ReplyTo: replyTo, Edited: edited, Deleted: deleted, Revoked: revoked}
 	out.Body, out.AuthorName, out.At = body, authorName, at
+	if err := applyFeedCommunicationDetail(&out, dataRaw); err != nil {
+		return FeedCommentDetail{}, err
+	}
 	if len(sourceRaw) != 0 && string(sourceRaw) != "null" {
 		var source factory.CommentSource
 		if err := json.Unmarshal(sourceRaw, &source); err != nil {
@@ -298,6 +305,13 @@ func (s *Store) FeedComment(ctx context.Context, id string) (FeedCommentDetail, 
 			return FeedCommentDetail{}, err
 		}
 		out.Source = &source
+	}
+	if out.Payload != nil && out.Payload.Communication != nil && out.Payload.Communication.Kind == "ask" {
+		details := map[string]FeedCommentDetail{out.Record.ID: out}
+		if err := s.feedQuestionStates(ctx, details); err != nil {
+			return FeedCommentDetail{}, err
+		}
+		out = details[out.Record.ID]
 	}
 	return out, nil
 }
@@ -336,7 +350,12 @@ func (s *Store) AdvanceCommentPipeline(ctx context.Context, expected, next facto
 	if expected.Comment == "" || expected.Comment != next.Comment {
 		return errors.New("comment pipeline advance needs its comment identity")
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests
 		SET revision=$2,intake=$3,judgment=$4,route=$5,draft=$6,effect=$7,issue=$8,attempts=$9,
 		data=CASE WHEN $12='pending' AND $4='applied' AND $5='existing_work' THEN data || jsonb_build_object('feedback_revision',$2::bigint) ELSE data END
 		WHERE comment=$1 AND revision=$10 AND intake=$11 AND judgment=$12 AND route=$13 AND draft=$14 AND effect=$15 AND issue=$16 AND attempts=$17`,
@@ -352,7 +371,19 @@ func (s *Store) AdvanceCommentPipeline(ctx context.Context, expected, next facto
 	if n != 1 {
 		return ErrStaleRevision
 	}
-	return nil
+	if next.Issue > 0 && next.Issue != expected.Issue && (next.Effect == factory.CommentEffectApplied || next.Effect == factory.CommentEffectVerified) {
+		var repository int64
+		if err = tx.QueryRowContext(ctx, `SELECT repository FROM factory_feed_comments WHERE id=$1`, next.Comment).Scan(&repository); err != nil {
+			return err
+		}
+		if err = recordFactoryFeedEventTx(ctx, tx, repository, next.Issue, "", "issue:"+strconv.FormatInt(next.Issue, 10), "native_issue:created", factory.FeedCommunication{
+			ComponentID: "F05", Title: fmt.Sprintf("Issue #%d created from a comment", next.Issue), Summary: "The native repository confirmed the new issue.",
+			ReplyTo: next.Comment, Items: []factory.FeedCommunicationItem{{Label: fmt.Sprintf("Issue #%d", next.Issue), State: "created"}},
+		}, 0); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // NoteCommentAttempt records one funded judgment, draft or native
@@ -476,7 +507,7 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		COALESCE((c.data->>'edited')::boolean,false),COALESCE((c.data->>'deleted')::boolean,false),
 		COALESCE((c.data->>'revoked')::boolean,false),COALESCE(c.data->>'author_name',''),
 		COALESCE((c.data->>'at')::bigint,0),
-		COALESCE(r.judgment,''),COALESCE(r.route,''),COALESCE(r.draft,''),COALESCE(r.effect,''),COALESCE(r.issue,0),COALESCE(r.attempts,0)
+		COALESCE(r.judgment,''),COALESCE(r.route,''),COALESCE(r.draft,''),COALESCE(r.effect,''),COALESCE(r.issue,0),COALESCE(r.attempts,0),c.data
 		FROM factory_feed_comments c LEFT JOIN factory_feed_comment_requests r ON r.comment=c.id
 		WHERE c.id = ANY($1)`, ids)
 	if err != nil {
@@ -488,10 +519,11 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		var judgment, route, draft, effect string
 		var issue int64
 		var attempts int
+		var dataRaw []byte
 		if err := rows.Scan(&detail.Record.ID, &detail.Record.Repository, &detail.Record.Revision,
 			&detail.Record.Author, &detail.Body, &detail.Record.ReplyTo, &detail.Record.Issue,
 			&detail.Record.Edited, &detail.Record.Deleted, &detail.Record.Revoked,
-			&detail.AuthorName, &detail.At, &judgment, &route, &draft, &effect, &issue, &attempts); err != nil {
+			&detail.AuthorName, &detail.At, &judgment, &route, &draft, &effect, &issue, &attempts, &dataRaw); err != nil {
 			return nil, err
 		}
 		if detail.Record.Deleted || detail.Record.Revoked {
@@ -505,9 +537,18 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 				Judgment: judgment, Route: route, Draft: draft, Effect: effect, Issue: issue, Attempts: attempts,
 			})
 		}
+		if err := applyFeedCommunicationDetail(&detail, dataRaw); err != nil {
+			return nil, err
+		}
 		out[detail.Record.ID] = detail
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.feedQuestionStates(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ResolveCommentSource resolves one caller-named feed entry inside
@@ -554,6 +595,10 @@ func (s *Store) ResolveCommentSource(ctx context.Context, repository int64, kind
 		source := &factory.CommentSource{
 			Kind: kind, ID: id, Issue: detail.Record.Issue,
 			Summary: TruncateFeedSummary(detail.Body), Status: PostStatus(nil),
+		}
+		if detail.Payload != nil && detail.Payload.Communication != nil {
+			source.Status = detail.Status
+			return source, source.Validate()
 		}
 		if pipe, err := s.CommentPipeline(ctx, id); err == nil {
 			source.Status = PostStatus(&pipe)

@@ -1,0 +1,1701 @@
+[
+  {
+    "id": "S01",
+    "label": "Author and work context",
+    "family": "shared",
+    "presentation": "brief",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S02",
+    "label": "Question and answer",
+    "family": "shared",
+    "presentation": "question",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.ask",
+      "factory.answer"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S03",
+    "label": "Proposal and disposition",
+    "family": "shared",
+    "presentation": "proposal",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S04",
+    "label": "Progress and remaining work",
+    "family": "shared",
+    "presentation": "progress",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S05",
+    "label": "Known blocker",
+    "family": "shared",
+    "presentation": "blocker",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S06",
+    "label": "Diagnosis needed",
+    "family": "shared",
+    "presentation": "diagnosis",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.stuck"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S07",
+    "label": "Evidence strip",
+    "family": "shared",
+    "presentation": "evidence",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S08",
+    "label": "Artifact preview",
+    "family": "shared",
+    "presentation": "artifact",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S09",
+    "label": "Discussion and reply",
+    "family": "shared",
+    "presentation": "discussion",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.reply"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S10",
+    "label": "Revision comparison",
+    "family": "shared",
+    "presentation": "comparison",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S11",
+    "label": "Result and next stage",
+    "family": "shared",
+    "presentation": "result",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S12",
+    "label": "Incomplete work handoff",
+    "family": "shared",
+    "presentation": "incomplete",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.finish_incomplete"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S13",
+    "label": "Knowledge reference",
+    "family": "shared",
+    "presentation": "knowledge",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S14",
+    "label": "Attention and permissions",
+    "family": "shared",
+    "presentation": "blocker",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.blocked",
+      "factory.ask"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S15",
+    "label": "Freshness and completeness",
+    "family": "shared",
+    "presentation": "evidence",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "S16",
+    "label": "Recorded decision",
+    "family": "shared",
+    "presentation": "decision",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.record_decision"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL01",
+    "label": "Product direction brief",
+    "family": "plan",
+    "presentation": "brief",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL02",
+    "label": "People and access map",
+    "family": "plan",
+    "presentation": "graph",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL03",
+    "label": "Experience walkthrough",
+    "family": "plan",
+    "presentation": "journey",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL04",
+    "label": "Outcome and acceptance map",
+    "family": "plan",
+    "presentation": "checks",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL05",
+    "label": "Assumption challenge",
+    "family": "plan",
+    "presentation": "question",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.ask"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL06",
+    "label": "Product alternatives",
+    "family": "plan",
+    "presentation": "comparison",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL07",
+    "label": "Delivery milestone story",
+    "family": "plan",
+    "presentation": "progress",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL08",
+    "label": "Issue and dependency preview",
+    "family": "plan",
+    "presentation": "graph",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL09",
+    "label": "Scope change comparison",
+    "family": "plan",
+    "presentation": "comparison",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL10",
+    "label": "Product decision rationale",
+    "family": "plan",
+    "presentation": "decision",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.record_decision"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "PL11",
+    "label": "Decomposition result",
+    "family": "plan",
+    "presentation": "result",
+    "roles": [
+      "product_lead"
+    ],
+    "outlets": [
+      "factory.finish_product_plan"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR01",
+    "label": "Investigation brief",
+    "family": "issue",
+    "presentation": "brief",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR02",
+    "label": "Evidence and investigation ledger",
+    "family": "issue",
+    "presentation": "evidence",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR03",
+    "label": "Assumption or spike result",
+    "family": "issue",
+    "presentation": "diagnosis",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR04",
+    "label": "Architecture and data-flow diagram",
+    "family": "issue",
+    "presentation": "graph",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR05",
+    "label": "Interface contract change",
+    "family": "issue",
+    "presentation": "comparison",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR06",
+    "label": "Design decision comparison",
+    "family": "issue",
+    "presentation": "decision",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.record_decision"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR07",
+    "label": "Execution dependency graph",
+    "family": "issue",
+    "presentation": "graph",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR08",
+    "label": "Ownership and boundary map",
+    "family": "issue",
+    "presentation": "graph",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR09",
+    "label": "Verification plan",
+    "family": "issue",
+    "presentation": "checks",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR10",
+    "label": "Executable-plan readiness",
+    "family": "issue",
+    "presentation": "checks",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "AR11",
+    "label": "Plan handoff brief",
+    "family": "issue",
+    "presentation": "result",
+    "roles": [
+      "architect"
+    ],
+    "outlets": [
+      "factory.finish_issue_plan"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU01",
+    "label": "Task lane board",
+    "family": "work",
+    "presentation": "progress",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU02",
+    "label": "Current work focus",
+    "family": "work",
+    "presentation": "brief",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU03",
+    "label": "Dependency and handoff strip",
+    "family": "work",
+    "presentation": "progress",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU04",
+    "label": "Implementation change preview",
+    "family": "work",
+    "presentation": "comparison",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU05",
+    "label": "Working artifact preview",
+    "family": "work",
+    "presentation": "artifact",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU06",
+    "label": "Check execution strip",
+    "family": "work",
+    "presentation": "checks",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU07",
+    "label": "Verified checkpoint",
+    "family": "work",
+    "presentation": "result",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU08",
+    "label": "Failed approach and recovery",
+    "family": "work",
+    "presentation": "diagnosis",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.stuck",
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU09",
+    "label": "Plan change request",
+    "family": "work",
+    "presentation": "proposal",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU10",
+    "label": "Implementation result",
+    "family": "work",
+    "presentation": "result",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.finish_implementation"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "BU11",
+    "label": "Implementation lesson",
+    "family": "work",
+    "presentation": "knowledge",
+    "roles": [
+      "builder"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN01",
+    "label": "Review brief",
+    "family": "review",
+    "presentation": "brief",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN02",
+    "label": "Review coverage matrix",
+    "family": "review",
+    "presentation": "checks",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN03",
+    "label": "Actionable finding",
+    "family": "review",
+    "presentation": "finding",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN04",
+    "label": "Reproduction recipe",
+    "family": "review",
+    "presentation": "journey",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN05",
+    "label": "Annotated evidence comparison",
+    "family": "review",
+    "presentation": "comparison",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN06",
+    "label": "Carried-finding assessment",
+    "family": "review",
+    "presentation": "finding",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag",
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN07",
+    "label": "Check reliability assessment",
+    "family": "review",
+    "presentation": "checks",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag",
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN08",
+    "label": "Optional advice",
+    "family": "review",
+    "presentation": "proposal",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN09",
+    "label": "Related-findings group",
+    "family": "review",
+    "presentation": "finding",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN10",
+    "label": "Review verdict",
+    "family": "review",
+    "presentation": "result",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.finish_review"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "IN11",
+    "label": "Regression pattern",
+    "family": "review",
+    "presentation": "knowledge",
+    "roles": [
+      "inspector"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX01",
+    "label": "Correction brief",
+    "family": "correction",
+    "presentation": "brief",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX02",
+    "label": "Finding disposition ledger",
+    "family": "correction",
+    "presentation": "checks",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX03",
+    "label": "Before/after behavior",
+    "family": "correction",
+    "presentation": "comparison",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX04",
+    "label": "Regression evidence pair",
+    "family": "correction",
+    "presentation": "comparison",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX05",
+    "label": "Correction checkpoint",
+    "family": "correction",
+    "presentation": "result",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX06",
+    "label": "Evidence-backed dispute",
+    "family": "correction",
+    "presentation": "finding",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX07",
+    "label": "Optional-advice disposition",
+    "family": "correction",
+    "presentation": "proposal",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX08",
+    "label": "Remaining corrections",
+    "family": "correction",
+    "presentation": "progress",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX09",
+    "label": "Correction result",
+    "family": "correction",
+    "presentation": "result",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.finish_correction"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX10",
+    "label": "Root-cause chain",
+    "family": "correction",
+    "presentation": "diagnosis",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "FX11",
+    "label": "Lesson correction",
+    "family": "correction",
+    "presentation": "knowledge",
+    "roles": [
+      "fixer"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST01",
+    "label": "Reassessment trigger",
+    "family": "reassessment",
+    "presentation": "brief",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST02",
+    "label": "Diagnosis and causal map",
+    "family": "reassessment",
+    "presentation": "diagnosis",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.stuck"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST03",
+    "label": "Work inventory health",
+    "family": "reassessment",
+    "presentation": "progress",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST04",
+    "label": "Dependency stall view",
+    "family": "reassessment",
+    "presentation": "graph",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST05",
+    "label": "Repair alternative comparison",
+    "family": "reassessment",
+    "presentation": "comparison",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST06",
+    "label": "Before/after work graph",
+    "family": "reassessment",
+    "presentation": "comparison",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST07",
+    "label": "Protected-work impact",
+    "family": "reassessment",
+    "presentation": "checks",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST08",
+    "label": "Outcome gap and recovery map",
+    "family": "reassessment",
+    "presentation": "graph",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST09",
+    "label": "No-change or verified-wait result",
+    "family": "reassessment",
+    "presentation": "result",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.finish_reassessment"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST10",
+    "label": "Adoption progress",
+    "family": "reassessment",
+    "presentation": "progress",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "ST11",
+    "label": "Recovery lesson",
+    "family": "reassessment",
+    "presentation": "knowledge",
+    "roles": [
+      "strategist"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP01",
+    "label": "Delivery under test",
+    "family": "verification",
+    "presentation": "brief",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP02",
+    "label": "Accepted-outcome coverage",
+    "family": "verification",
+    "presentation": "checks",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP03",
+    "label": "User journey walkthrough",
+    "family": "verification",
+    "presentation": "journey",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP04",
+    "label": "Expected versus observed",
+    "family": "verification",
+    "presentation": "comparison",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP05",
+    "label": "Screenshot, recording and trace viewer",
+    "family": "verification",
+    "presentation": "artifact",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP06",
+    "label": "Environment and fixture validity",
+    "family": "verification",
+    "presentation": "checks",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial",
+      "factory.blocked"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP07",
+    "label": "Integrated check results",
+    "family": "verification",
+    "presentation": "checks",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP08",
+    "label": "Failure and repair linkage",
+    "family": "verification",
+    "presentation": "finding",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP09",
+    "label": "Regression comparison",
+    "family": "verification",
+    "presentation": "comparison",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.partial"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP10",
+    "label": "Quality observations",
+    "family": "verification",
+    "presentation": "finding",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP11",
+    "label": "Application verification verdict",
+    "family": "verification",
+    "presentation": "result",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.finish_app_verification"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "TP12",
+    "label": "Reusable verification recipe",
+    "family": "verification",
+    "presentation": "knowledge",
+    "roles": [
+      "test_pilot"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K01",
+    "label": "Discovery",
+    "family": "knowledge",
+    "presentation": "knowledge",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K02",
+    "label": "Decision or convention",
+    "family": "knowledge",
+    "presentation": "decision",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.record_decision"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K03",
+    "label": "Pitfall and failed approach",
+    "family": "knowledge",
+    "presentation": "knowledge",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K04",
+    "label": "Recipe or playbook",
+    "family": "knowledge",
+    "presentation": "journey",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K05",
+    "label": "Amendment and supersession",
+    "family": "knowledge",
+    "presentation": "comparison",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K06",
+    "label": "Contradiction",
+    "family": "knowledge",
+    "presentation": "finding",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.flag"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K07",
+    "label": "Reuse with outcome",
+    "family": "knowledge",
+    "presentation": "knowledge",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.learned"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "K08",
+    "label": "Scope and sharing proposal",
+    "family": "knowledge",
+    "presentation": "proposal",
+    "roles": [
+      "*"
+    ],
+    "outlets": [
+      "factory.suggest"
+    ],
+    "authority": "worker",
+    "availability": "worker"
+  },
+  {
+    "id": "LA01",
+    "label": "Maintenance scope",
+    "family": "maintenance",
+    "presentation": "brief",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.begin_library_maintenance"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA02",
+    "label": "Item edited",
+    "family": "maintenance",
+    "presentation": "comparison",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.edit_library_item"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA03",
+    "label": "Consolidation",
+    "family": "maintenance",
+    "presentation": "graph",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.consolidate_library_items"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA04",
+    "label": "Split",
+    "family": "maintenance",
+    "presentation": "graph",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.split_library_item"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA05",
+    "label": "Removal and restoration",
+    "family": "maintenance",
+    "presentation": "maintenance",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.remove_library_item",
+      "factory.restore_library_item"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA06",
+    "label": "Replacement",
+    "family": "maintenance",
+    "presentation": "comparison",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.supersede_library_item"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA07",
+    "label": "Relationship and conflict",
+    "family": "maintenance",
+    "presentation": "graph",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.relate_library_items"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA08",
+    "label": "Affected work",
+    "family": "maintenance",
+    "presentation": "progress",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.report_library_impact"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "LA09",
+    "label": "Maintenance result",
+    "family": "maintenance",
+    "presentation": "result",
+    "roles": [
+      "library_admin"
+    ],
+    "outlets": [
+      "factory.finish_library_maintenance"
+    ],
+    "authority": "library",
+    "availability": "library"
+  },
+  {
+    "id": "F01",
+    "label": "Preparation and admission",
+    "family": "system",
+    "presentation": "checks",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F02",
+    "label": "Dispatch and role transition",
+    "family": "system",
+    "presentation": "progress",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F03",
+    "label": "Why this work is next",
+    "family": "system",
+    "presentation": "decision",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F04",
+    "label": "Jev assessment",
+    "family": "system",
+    "presentation": "decision",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F05",
+    "label": "Native issue or PR created",
+    "family": "system",
+    "presentation": "result",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F06",
+    "label": "Merge and issue closure",
+    "family": "system",
+    "presentation": "result",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F07",
+    "label": "Dependency released",
+    "family": "system",
+    "presentation": "progress",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F08",
+    "label": "Pause, stop and takeover",
+    "family": "system",
+    "presentation": "progress",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F09",
+    "label": "Reconciliation and unavailable effect",
+    "family": "system",
+    "presentation": "blocker",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  },
+  {
+    "id": "F10",
+    "label": "Application completion",
+    "family": "system",
+    "presentation": "result",
+    "roles": [
+      "factory",
+      "jev"
+    ],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
+  }
+]

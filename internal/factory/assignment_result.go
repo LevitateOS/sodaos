@@ -92,7 +92,7 @@ func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	switch phased.Phase {
 	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess,
 		project.ExecutionReview,
-		project.ExecutionRepair, project.ExecutionVerify:
+		project.ExecutionRepair, project.ExecutionVerify, project.ExecutionMaintainLibrary:
 		return true
 	default:
 		return false
@@ -158,6 +158,9 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 }
 
 func checkReportedReviewerResult(r AssignmentResult, sourceCommit string) error {
+	if r.Review == nil && r.Phase == project.ExecutionMaintainLibrary && r.PhaseResult != nil && r.PhaseResult.Phase == r.Phase && r.Status == "completed" && r.Candidate == "" && !r.ReviewPassed && len(r.Findings) == 0 && r.Summary == r.PhaseResult.Summary && r.PhaseResult.Output != nil && r.PhaseResult.Output.Maintenance != nil {
+		return r.PhaseResult.Validate()
+	}
 	if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
 		return nil
 	}

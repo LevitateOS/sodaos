@@ -385,6 +385,9 @@ func checkSubjectKindScope(a Assignment) error {
 }
 
 func checkIssueAssignmentScope(a Assignment) error {
+	if a.Phase == project.ExecutionMaintainLibrary && (a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "") {
+		return errors.New("library maintenance is an issue-scoped root without publication")
+	}
 	if a.Repository <= 0 || a.Issue <= 0 || a.Issue != a.Subject.Issue.Issue {
 		return errors.New("issue assignment does not match its subject")
 	}
@@ -503,6 +506,12 @@ func (a Assignment) Validate() error {
 }
 
 func checkAssignmentPublication(a Assignment) error {
+	if a.Phase == project.ExecutionMaintainLibrary {
+		if a.PublicationAssignment != "" {
+			return errors.New("library maintenance carries no publication")
+		}
+		return nil
+	}
 	switch a.Subject.Kind {
 	case SubjectCompletion, SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
 		if a.PublicationAssignment != "" {

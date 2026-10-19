@@ -185,6 +185,22 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 			return err
 		}
 	}
+	if previous.PRNumber == 0 && p.PRNumber > 0 {
+		if err = recordFactoryFeedEventTx(ctx, tx, p.Repository, p.Issue, p.AssignmentID, p.ID+":pr", "native_pr:created", factory.FeedCommunication{
+			ComponentID: "F05", Title: fmt.Sprintf("Pull request #%d created", p.PRNumber), Summary: "The native repository confirmed the pull request for this candidate.",
+			Items: []factory.FeedCommunicationItem{{Label: fmt.Sprintf("PR #%d", p.PRNumber), State: "created"}},
+		}, p.ObservedUnix); err != nil {
+			return err
+		}
+	}
+	if previous.Stage != p.Stage && (p.Stage == factory.PublicationFailed || p.Stage == factory.PublicationFenced || p.Stage == factory.PublicationWithdrawn) {
+		if err = recordFactoryFeedEventTx(ctx, tx, p.Repository, p.Issue, p.AssignmentID, fmt.Sprintf("%s:%d", p.ID, p.Revision), "publication:"+p.Stage, factory.FeedCommunication{
+			ComponentID: "F09", Title: "Publication " + p.Stage, Summary: p.Reason, Severity: "warning",
+			Items: []factory.FeedCommunicationItem{{Label: "Native publication", Detail: p.Reason, State: p.Stage}},
+		}, p.FinishedUnix); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 

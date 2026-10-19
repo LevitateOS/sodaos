@@ -161,6 +161,7 @@ type AttemptAllowance struct {
 	// required exactly when Issue is zero without Completion, and forbidden
 	// on positive issues and alongside Completion.
 	Intent         *IntentAttemptScope `json:"intent,omitempty"`
+	Delivery       *DeliverySubject    `json:"delivery,omitempty"`
 	RootAssignment string              `json:"root_assignment"`
 	Repository     int64               `json:"repository,string"`
 	Issue          int64               `json:"issue,string"`
@@ -176,6 +177,15 @@ func (a AttemptAllowance) Validate() error {
 		return errors.New("invalid attempt allowance binding")
 	}
 	if a.Issue == 0 {
+		if a.Delivery != nil {
+			if a.Intent != nil || a.Completion != nil || a.Delivery.Validate() != nil {
+				return errors.New("delivery allowance requires its single exact delivery subject")
+			}
+			if a.Limits.ActiveMinutes < 1 || int64(a.Limits.ActiveMinutes) > math.MaxInt64/int64(time.Minute) || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+				return errors.New("delivery allowance carries only bounded active time")
+			}
+			return nil
+		}
 		if (a.Intent == nil) == (a.Completion == nil) {
 			return errors.New("time-only attempt allowance carries exactly one of intent or completion")
 		}
@@ -186,6 +196,9 @@ func (a AttemptAllowance) Validate() error {
 	}
 	if a.Completion != nil {
 		return errors.New("issue attempt allowance carries no completion subject")
+	}
+	if a.Delivery != nil {
+		return errors.New("issue attempt allowance carries no delivery subject")
 	}
 	if a.Intent != nil {
 		return errors.New("issue attempt allowance carries no intent scope")

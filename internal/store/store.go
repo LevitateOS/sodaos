@@ -93,6 +93,15 @@ func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, err
 	if err == nil {
 		err = initializeSchema(context.Background(), db)
 	}
+	if err == nil {
+		err = initializeLibrarySchema(context.Background(), db)
+	}
+	if err == nil {
+		err = initializeArtifactSchema(context.Background(), db)
+	}
+	if err == nil {
+		err = initializeDeliverySchema(context.Background(), db)
+	}
 	if err == nil && cipher != nil {
 		err = s.initializeGrantKey(context.Background())
 	}

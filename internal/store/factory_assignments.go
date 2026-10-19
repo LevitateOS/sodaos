@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // storeAssignedLimit bounds one unfinished-assignment listing.
@@ -203,7 +204,7 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 		// fails the finish instead of committing without
 		// accounting. Ordinary issue paths keep the historical
 		// absent-row tolerance.
-		if !isCompletion && !isIntent && errors.Is(err, sql.ErrNoRows) {
+		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectDelivery && errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -212,6 +213,15 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 }
 
 func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, isCompletion, isIntent bool) error {
+	if a.Subject.Kind == factory.SubjectDelivery {
+		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
+	}
+	if a.Phase == project.ExecutionMaintainLibrary {
+		if err := transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
+			return err
+		}
+		return enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue)
+	}
 	if isCompletion {
 		// Successful+reported terminal completion closes its
 		// coder-only root admission here; the shared joint

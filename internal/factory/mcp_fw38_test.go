@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-// FW38 freezes the D14 catalog: seven profiles, fourteen tools, the
+// FW38 freezes the D14 catalog: seven profiles and shared communication tools, the
 // per-profile discovery set and the admission matrix. Unknown tools
 // fail; undiscoverable tools still refuse direct calls.
 func TestMCPDiscoveryAdmitsReadsEverywhere(t *testing.T) {
-	if len(MCPProfiles) != 7 || len(MCPTools) != 14 {
+	if len(MCPProfiles) != 8 || len(MCPTools) != 45 {
 		t.Fatalf("catalog drift: %d profiles, %d tools", len(MCPProfiles), len(MCPTools))
 	}
 	for _, profile := range MCPProfiles {
@@ -40,6 +40,9 @@ func TestMCPAdmissionMatrix(t *testing.T) {
 		tool    MCPTool
 		want    bool
 	}{
+		{MCPProfileLibraryAdmin, MCPToolFinishLibraryMaintenance, true},
+		{MCPProfileLibraryAdmin, MCPToolFinishImplement, false},
+		{MCPProfileBuilder, MCPToolEditLibraryItem, false},
 		{MCPProfileProductLead, MCPToolFinishProductPlan, true},
 		{MCPProfileProductLead, MCPToolFinishIssuePlan, false},
 		{MCPProfileArchitect, MCPToolFinishIssuePlan, true},

@@ -201,11 +201,14 @@ func (s MCPSubmission) Validate() error {
 
 // MCPReceipt is the durable terminal record for one submission.
 type MCPReceipt struct {
-	SubmissionID string  `json:"submission_id"`
-	Tool         MCPTool `json:"tool"`
-	State        string  `json:"state"`
-	InputDigest  string  `json:"input_digest"`
-	Reason       string  `json:"reason,omitempty"`
+	ArtifactID    string  `json:"artifact_id,omitempty"`
+	LibraryItemID string  `json:"library_item_id,omitempty"`
+	FeedPostID    string  `json:"feed_post_id,omitempty"`
+	SubmissionID  string  `json:"submission_id"`
+	Tool          MCPTool `json:"tool"`
+	State         string  `json:"state"`
+	InputDigest   string  `json:"input_digest"`
+	Reason        string  `json:"reason,omitempty"`
 }
 
 // ValidateReceipt bounds refusal diagnostics: bounded reason text,

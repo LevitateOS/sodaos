@@ -204,6 +204,14 @@ func insertCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparation p
 	if revision != stored.Preparation.Revision {
 		return empty, false, fmt.Errorf("%w: candidate preparation revision differs", ErrCandidatePreparationConflict)
 	}
+	if created {
+		if err = recordFactoryFeedEventTx(ctx, tx, registration.Repository, registration.Issue, registration.OwnerAssignment, preparation.Preparation.ID+":admitted", "preparation:approved", factory.FeedCommunication{
+			ComponentID: "F01", Title: "Worker environment admitted", Summary: "The recorded source and approved environment are ready for preparation.",
+			Items: []factory.FeedCommunicationItem{{Label: preparation.Preparation.Role, Detail: preparation.Preparation.ID, State: "approved"}},
+		}, 0); err != nil {
+			return empty, false, err
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		return empty, false, err
 	}

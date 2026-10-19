@@ -333,6 +333,16 @@ func transitionAttemptAssignmentTx(ctx context.Context, tx *sql.Tx, assignmentID
 		}
 		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
 	}
+	if assignment.Subject.Kind == factory.SubjectDelivery {
+		typed, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, 0, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		if typed.Delivery == nil || assignment.Subject.Delivery == nil || *typed.Delivery != *assignment.Subject.Delivery {
+			return ErrAttemptRootMismatch
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -483,6 +493,13 @@ func deactivateReleasedAttemptTx(ctx context.Context, tx *sql.Tx, assignmentID s
 func sameAttemptAllowanceScope(stored, next factory.AttemptAllowance) bool {
 	if stored.Repository != next.Repository || stored.Issue != next.Issue ||
 		stored.RootAssignment != next.RootAssignment || stored.Limits != next.Limits {
+		return false
+	}
+	if stored.Delivery == nil || next.Delivery == nil {
+		if stored.Delivery != nil || next.Delivery != nil {
+			return false
+		}
+	} else if *stored.Delivery != *next.Delivery {
 		return false
 	}
 	if stored.Completion == nil || next.Completion == nil {

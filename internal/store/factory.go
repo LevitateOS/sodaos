@@ -84,6 +84,24 @@ AND ((data->>'reconciled')::boolean=FALSE OR $11)`, r.Outcome == "", r.Reconcile
 		if err = settleClosedAttemptForRunTx(ctx, tx, r.ID, time.Now()); err != nil {
 			return err
 		}
+		repository, issue, assignment, scopeErr := factoryRunFeedScopeTx(ctx, tx, r.ID, r.ProjectID)
+		if scopeErr != nil {
+			return scopeErr
+		}
+		if repository > 0 {
+			content := factory.FeedCommunication{ComponentID: "F02", Title: "Worker run finished", Summary: "The run has stopped and its recorded resources have settled.",
+				Items: []factory.FeedCommunicationItem{{Label: "Run", State: string(r.Outcome)}}}
+			if r.Outcome != factory.Succeeded {
+				content.ComponentID, content.Title, content.Severity = "F09", "Worker run "+string(r.Outcome), "warning"
+				content.Summary = feedText(r.Summary)
+			}
+			if r.Outcome == factory.Cancelled {
+				content.ComponentID, content.Title = "F08", "Worker run stopped"
+			}
+			if err = recordFactoryFeedEventTx(ctx, tx, repository, issue, assignment, "run:"+r.ID, "run:"+string(r.Outcome), content, 0); err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit()
 }

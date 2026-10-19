@@ -39,6 +39,7 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 		return factory.IssueControl{}, false, err
 	}
 	stored := candidate
+	var previous *factory.IssueControl
 	stored.AssessedUnix = now.Unix()
 	if err == nil {
 		var current factory.IssueControl
@@ -61,6 +62,7 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 		}
 		stored.Revision = current.Revision + 1
 		stored.FirstSeenUnix = current.FirstSeenUnix
+		previous = &current
 	} else {
 		stored.Revision = 1
 		stored.FirstSeenUnix = now.Unix()
@@ -73,6 +75,24 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 		ON CONFLICT(repository,issue) DO UPDATE SET revision=excluded.revision, data=excluded.data`,
 		stored.Repository, stored.Issue, stored.Revision, string(data)); err != nil {
 		return factory.IssueControl{}, false, fmt.Errorf("readiness assessment failed: %w", err)
+	}
+	if previous != nil && stored.Readiness == factory.ReadinessQueued {
+		var released []factory.FeedCommunicationItem
+		for _, blocker := range previous.Blockers {
+			if blocker.Code == factory.BlockerCodePending || blocker.Code == factory.BlockerResultPending {
+				released = append(released, factory.FeedCommunicationItem{Label: fmt.Sprintf("Issue #%d", blocker.EndpointIssue), Detail: "Prerequisite satisfied", State: "released"})
+			}
+		}
+		if len(released) > 0 {
+			if len(released) > feedPayloadCap {
+				released = released[:feedPayloadCap]
+			}
+			if err = recordFactoryFeedEventTx(ctx, tx, stored.Repository, stored.Issue, "", fmt.Sprintf("%d:%d", stored.Issue, stored.Revision), "dependency:released", factory.FeedCommunication{
+				ComponentID: "F07", Title: fmt.Sprintf("Issue #%d is ready after its prerequisites", stored.Issue), Summary: "Readiness confirmed that the dependency blockers are resolved. This issue is queued for selection.", Items: released,
+			}, now.Unix()); err != nil {
+				return factory.IssueControl{}, false, err
+			}
+		}
 	}
 	return stored, true, tx.Commit()
 }

@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 // EnqueueReadinessCreation retains original creation authority until admission
@@ -40,6 +43,14 @@ func enqueueReadinessCreationTx(ctx context.Context, tx *sql.Tx, work ReadinessW
 	if !saved.CreationVerified {
 		if err := fillUnverifiedCreationTx(ctx, tx, saved, &work); err != nil {
 			return err
+		}
+		if work.CreationVerified {
+			if err := recordFactoryFeedEventTx(ctx, tx, work.Root.Repository, work.Root.Issue, "", fmt.Sprintf("issue:%d", work.Root.Issue), "native_issue:created", factory.FeedCommunication{
+				ComponentID: "F05", Title: fmt.Sprintf("Issue #%d created", work.Root.Issue), Summary: "The native repository confirmed this issue. Readiness assessment follows.",
+				Items: []factory.FeedCommunicationItem{{Label: fmt.Sprintf("Issue #%d", work.Root.Issue), State: "created"}},
+			}, work.CreatedUnix); err != nil {
+				return err
+			}
 		}
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET retry_at=$2 WHERE id=$1 AND retry_at>$2`, work.ID, time.Now())

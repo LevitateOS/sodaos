@@ -285,6 +285,7 @@ func checkPreparationObservationCurrent(current project.StoredPreparation, curre
 }
 
 func writePreparationObservationTx(ctx context.Context, tx *sql.Tx, current project.StoredPreparation, currentMeta, meta *candidatePreparationRegistration, p project.StoredPreparation, revision int64, allowance factory.AttemptAllowance) error {
+	previousPhase := current.State.Phase
 	current.State = p.State
 	current.Preparation.Revision++
 	var data []byte
@@ -304,6 +305,25 @@ func writePreparationObservationTx(ctx context.Context, tx *sql.Tx, current proj
 	if meta != nil && meta.PublicationID != "" && allowance.Closed {
 		if err = transitionLockedAttemptRootTx(ctx, tx, allowance, true, time.Now()); err != nil {
 			return err
+		}
+	}
+	if p.State.Phase != "" && p.State.Phase != previousPhase {
+		var repository, issue int64
+		var assignment string
+		if meta != nil {
+			repository, issue, assignment = meta.Repository, meta.Issue, meta.OwnerAssignment
+		} else if err = tx.QueryRowContext(ctx, `SELECT repository_id FROM projects WHERE id=$1`, p.Preparation.Project).Scan(&repository); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if repository > 0 {
+			content := factory.FeedCommunication{ComponentID: "F01", Title: "Worker environment " + p.State.Phase, Summary: "Preparation observed the recorded environment state.",
+				Items: []factory.FeedCommunicationItem{{Label: p.Preparation.Role, Detail: p.Preparation.ID, State: p.State.Phase}}}
+			if p.State.Phase == project.PrepareFailed || p.State.Phase == project.PrepareInterrupted {
+				content.Severity = "warning"
+			}
+			if err = recordFactoryFeedEventTx(ctx, tx, repository, issue, assignment, fmt.Sprintf("%s:%d", p.Preparation.ID, current.Preparation.Revision), "preparation:"+p.State.Phase, content, 0); err != nil {
+				return err
+			}
 		}
 	}
 	return tx.Commit()

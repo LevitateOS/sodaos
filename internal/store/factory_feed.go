@@ -42,7 +42,8 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			WHERE $1 AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
 			UNION ALL
 			SELECT seq,id,repository,'post','','' FROM factory_feed_comments
-			WHERE $4 AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
+			WHERE (($4 AND NOT (data ? 'communication')) OR ($1 AND data ? 'communication'))
+ AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
 			AND COALESCE((data->>'deleted')::boolean,false) = false
 			AND COALESCE((data->>'revoked')::boolean,false) = false
 			UNION ALL

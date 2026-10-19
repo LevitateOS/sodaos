@@ -397,6 +397,12 @@ func captureDispatchWithdrawal(ctx context.Context, tx *sql.Tx, repository, revi
 	if n != 1 {
 		return factory.Withdrawal{}, ErrStaleRevision
 	}
+	if err = recordFactoryFeedEventTx(ctx, tx, repository, 0, "", fmt.Sprintf("pause:%d", withdrawal.Revision), "dispatch:paused", factory.FeedCommunication{
+		ComponentID: "F08", Title: "Factory paused", Summary: cause,
+		Items: []factory.FeedCommunicationItem{{Label: "New worker dispatch", State: "paused"}, {Label: "Outstanding work", Detail: fmt.Sprintf("%d recorded dispatches", len(captured)), State: "stopping"}},
+	}, 0); err != nil {
+		return factory.Withdrawal{}, err
+	}
 	return withdrawal, nil
 }
 
@@ -491,6 +497,15 @@ func (s *Store) clearDispatchCauses(ctx context.Context, repository, expectedRev
 	}
 	if n != 1 {
 		return false, revision, ErrStaleRevision
+	}
+	state, title, summary := "paused", "Factory pause updated", "Some stop causes remain active."
+	if nextOpen {
+		state, title, summary = "resumed", "Factory resumed", "The recorded stop causes are cleared. Eligible work can be selected again."
+	}
+	if err = recordFactoryFeedEventTx(ctx, tx, repository, 0, "", fmt.Sprintf("resume:%d", nextRevision), "dispatch:"+state, factory.FeedCommunication{
+		ComponentID: "F08", Title: title, Summary: summary, Items: []factory.FeedCommunicationItem{{Label: "Worker dispatch", State: state}},
+	}, 0); err != nil {
+		return false, revision, err
 	}
 	if err = tx.Commit(); err != nil {
 		return false, revision, err

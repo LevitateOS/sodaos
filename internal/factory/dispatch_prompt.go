@@ -164,7 +164,7 @@ func admitPromptScope(in PromptInputs) error {
 // prompts: one prompt answers one evidence source.
 func admitPromptPhase(in PromptInputs) error {
 	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
-		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect {
+		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect && in.Phase != project.ExecutionMaintainLibrary {
 		return errors.New("invalid dispatch prompt phase")
 	}
 	if in.Phase != "" && in.ImplementationPlan != nil {
@@ -350,6 +350,11 @@ func writePromptHeader(b *strings.Builder, in PromptInputs) {
 // role-specific task directive.
 func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Controller policy\n\n")
+	if in.Phase == project.ExecutionMaintainLibrary {
+		b.WriteString("Maintain this project's knowledge and decision library using your bound Factory MCP tools. Inspect exact item revisions and sources, preserve attribution and decision authority, and use the dedicated edit, remove, restore, consolidate, split, relationship and supersession operations. The repository checkout is context only: do not modify source, Git issues, grants, product acceptance or publication. Begin with factory.begin_library_maintenance and finish through factory.finish_library_maintenance; report blockers through the shared communication tools.\n")
+		b.WriteString("Recorded active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. The accepted objective and selected sources below define the authorized maintenance scope.\n")
+		return
+	}
 	if in.Role == project.RoleReviewer {
 		b.WriteString("Permitted actions: inspect the exact candidate and its diff against the verified base in the separate prepared reviewer checkout; run relevant checks; report concrete findings. Do not modify or publish the candidate, merge pull requests, change grants, select another provider or model, or expose credentials. The coding conversation and its claimed approval are not review evidence.\n")
 	} else {

@@ -103,6 +103,8 @@ type FeedEntry struct {
 // canonical owner. Nothing here is inferred: a field the record
 // does not supply stays absent.
 type FeedPayload struct {
+	ComponentID    string              `json:"component_id,omitempty"`
+	Communication  *FeedCommunication  `json:"communication,omitempty"`
 	Plan           *FeedPlan           `json:"plan,omitempty"`
 	Tasks          *FeedTaskStates     `json:"tasks,omitempty"`
 	Implementation *FeedImplementation `json:"implementation,omitempty"`

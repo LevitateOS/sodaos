@@ -72,16 +72,17 @@ func (r ImplementationReceipt) validate(status string) error {
 // resulting tree alongside its dispositions; the nomination is not
 // checkpoint proof or publish authorization.
 type PhaseOutput struct {
-	Plan           *InvestigationPlan     `json:"plan,omitempty"`
-	Implementation *ImplementationReceipt `json:"implementation,omitempty"`
-	Reassessment   *ReassessmentReport    `json:"reassessment,omitempty"`
-	Decomposition  *SemanticPlannerOutput `json:"decomposition,omitempty"`
-	Review         *ReviewCycleReport     `json:"review,omitempty"`
-	Clear          *ClearReviewReport     `json:"clear,omitempty"`
-	Correction     *CorrectionReport      `json:"correction,omitempty"`
-	Repair         *StallRepairReport     `json:"repair,omitempty"`
-	DeliveryRepair *DeliveryRepairReport  `json:"delivery_repair,omitempty"`
-	Verification   *AppVerificationReport `json:"verification,omitempty"`
+	Maintenance    *LibraryMaintenanceResult `json:"maintenance,omitempty"`
+	Plan           *InvestigationPlan        `json:"plan,omitempty"`
+	Implementation *ImplementationReceipt    `json:"implementation,omitempty"`
+	Reassessment   *ReassessmentReport       `json:"reassessment,omitempty"`
+	Decomposition  *SemanticPlannerOutput    `json:"decomposition,omitempty"`
+	Review         *ReviewCycleReport        `json:"review,omitempty"`
+	Clear          *ClearReviewReport        `json:"clear,omitempty"`
+	Correction     *CorrectionReport         `json:"correction,omitempty"`
+	Repair         *StallRepairReport        `json:"repair,omitempty"`
+	DeliveryRepair *DeliveryRepairReport     `json:"delivery_repair,omitempty"`
+	Verification   *AppVerificationReport    `json:"verification,omitempty"`
 }
 
 // validateReviewShape checks the structural review verdict: finding and
@@ -140,7 +141,15 @@ func validateClearShape(r *ClearReviewReport) error {
 }
 
 func (o PhaseOutput) validate(phase, status string) error {
+	if phase != project.ExecutionMaintainLibrary && o.Maintenance != nil {
+		return errors.New("library maintenance output on another phase")
+	}
 	switch phase {
+	case project.ExecutionMaintainLibrary:
+		if status != "completed" || o.Maintenance == nil || !ValidID(o.Maintenance.SubmissionID) || !o.nilTypedOutputExceptMaintenance() {
+			return errors.New("maintenance output needs its completed MCP receipt")
+		}
+		return nil
 	case project.ExecutionInvestigate:
 		return o.validateInvestigationOutput(status)
 	case project.ExecutionImplement:

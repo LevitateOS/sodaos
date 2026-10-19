@@ -299,7 +299,7 @@ func TestSubscribedFeedMilestonesRecordTheirOwnOrder(t *testing.T) {
 		t.Fatalf("merge detail: %+v", merged)
 	}
 	completed := details[strings.Repeat("e", 32)]
-	if completed.Actor != "factory" || completed.Status != "completed" || completed.Issue != 3 ||
+	if completed.Actor != "factory" || completed.Status != "issue:completed" || completed.Issue != 3 ||
 		completed.Payload == nil || completed.Payload.Completion == nil ||
 		completed.Payload.Completion.Publication != publication {
 		t.Fatalf("completion detail: %+v", completed)

@@ -142,6 +142,19 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if capability.Expired(time.Now()) {
 		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityExpired
 	}
+	if err = recordMCPArtifactTx(ctx, tx, capability, submission, &receipt); err != nil {
+		return factory.MCPReceipt{}, err
+	}
+	if err = recordMCPLibraryTx(ctx, tx, capability, submission, &receipt); err != nil {
+		return factory.MCPReceipt{}, err
+	}
+	if err = recordMCPCommunicationTx(ctx, tx, capability, submission, &receipt); err != nil {
+		return factory.MCPReceipt{}, err
+	}
+	raw, err = json.Marshal(receipt)
+	if err != nil {
+		return factory.MCPReceipt{}, err
+	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		submission.AssignmentID, submission.SubmissionID, string(submission.Tool),
 		submission.ExpectedInputDigest, submission.PayloadHash, submission.Payload,
@@ -188,6 +201,17 @@ func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCP
 		return capability, err
 	}
 	capability.State = capState
+	var observed struct {
+		Live bool `json:"live_observed"`
+	}
+	if err := json.Unmarshal(capRaw, &observed); err != nil {
+		return capability, err
+	}
+	if observed.Live {
+		if err := checkMCPWorkActiveTx(ctx, tx, capability); err != nil {
+			return capability, err
+		}
+	}
 	if err := capability.Validate(); err != nil {
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
@@ -424,8 +448,9 @@ func (s *Store) AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionI
 	}
 	defer func() { _ = tx.Rollback() }()
 	var state string
-	if err = tx.QueryRowContext(ctx, `SELECT state FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
-		assignmentID, submissionID).Scan(&state); err != nil {
+	var storedRaw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
+		assignmentID, submissionID).Scan(&state, &storedRaw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -433,6 +458,16 @@ func (s *Store) AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionI
 	}
 	if state != expectedState {
 		return ErrStaleRevision
+	}
+	var stored factory.MCPReceipt
+	if err = json.Unmarshal(storedRaw, &stored); err != nil {
+		return err
+	}
+	receipt.FeedPostID, receipt.LibraryItemID = stored.FeedPostID, stored.LibraryItemID
+	receipt.ArtifactID = stored.ArtifactID
+	raw, err = json.Marshal(receipt)
+	if err != nil {
+		return err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_mcp_submissions SET state=$3,reason=$4,receipt=$5 WHERE assignment=$1 AND submission=$2`,
 		assignmentID, submissionID, receipt.State, receipt.Reason, string(raw)); err != nil {

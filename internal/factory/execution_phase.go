@@ -24,7 +24,7 @@ func PhaseRole(phase string) (string, error) {
 		project.ExecutionImplement, project.ExecutionCorrect,
 		project.ExecutionReassess, project.ExecutionRepair:
 		return project.RoleCoder, nil
-	case project.ExecutionReview, project.ExecutionVerify:
+	case project.ExecutionReview, project.ExecutionVerify, project.ExecutionMaintainLibrary:
 		return project.RoleReviewer, nil
 	default:
 		return "", errors.New("unknown execution phase")
@@ -51,7 +51,7 @@ func SubjectKindAllowed(kind, phase string) bool {
 	case SubjectIssue:
 		switch phase {
 		case project.ExecutionInvestigate, project.ExecutionImplement,
-			project.ExecutionReview, project.ExecutionCorrect:
+			project.ExecutionReview, project.ExecutionCorrect, project.ExecutionMaintainLibrary:
 			return true
 		default:
 			return false

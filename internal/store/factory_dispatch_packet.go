@@ -149,7 +149,14 @@ func writeDispatchPacketRowsTx(ctx context.Context, tx *sql.Tx, a factory.Assign
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	return nil
+	_, author := RecordAuthor(a.Phase, a.Role)
+	if author == "" {
+		author = a.Role
+	}
+	return recordFactoryFeedEventTx(ctx, tx, a.Repository, a.Issue, a.ID, a.ID, "dispatch:assigned", factory.FeedCommunication{
+		ComponentID: "F02", Title: author + " assigned", Summary: "The worker assignment and its run are recorded. Startup is next.",
+		Items: []factory.FeedCommunicationItem{{Label: author, Detail: a.Phase, State: "assigned"}},
+	}, a.CreatedUnix)
 }
 
 func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, grants admissionGrants, run factory.Run, now time.Time, freshAttempt bool) error {
@@ -178,6 +185,8 @@ func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 			return insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now)
 		case factory.SubjectIntent:
 			return insertIntentAttemptAllowanceTx(ctx, tx, a, grants.policy.IntentMinutes, run.Deadline, now)
+		case factory.SubjectDelivery:
+			return insertDeliveryAttemptAllowanceTx(ctx, tx, a, grants.policy.AttemptLimits.ActiveMinutes, run.Deadline, now)
 		default:
 			return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
 		}
@@ -320,6 +329,12 @@ func validateLegacyChildPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 }
 
 func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
+	if a.Phase == project.ExecutionMaintainLibrary {
+		if a.Role != project.RoleReviewer || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" || a.Subject.Kind != factory.SubjectIssue {
+			return errors.New("library maintenance requires an issue-scoped reviewer root")
+		}
+		return currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance)
+	}
 	owner := a.PublicationAssignment == a.ID
 	if owner {
 		return validateOwnerAttemptRootTx(ctx, tx, a, freshAttempt)
@@ -340,6 +355,8 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 		return validateImplementChildTx(ctx, tx, a)
 	case project.ExecutionReassess:
 		return validateReassessRootTx(ctx, tx, a)
+	case project.ExecutionVerify:
+		return validateDeliveryRootTx(ctx, tx, a)
 	case project.ExecutionReview:
 		return validateReviewChildTx(ctx, tx, a)
 	case project.ExecutionCorrect:
