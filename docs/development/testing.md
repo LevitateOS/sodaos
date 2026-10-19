@@ -336,13 +336,10 @@ also requires focused native checks:
 
 ### Recording completion
 
-Retain a scoped receipt with the exercised source/image behavior and native architecture;
-issue, PR, repository, Project, attempt/run and native process identities; accepted
-input and policy revisions; reviewed head/base and check results; confirmed native
-merge/issue outcome; usage and cleanup outcome. Use non-secret credential/lease
-identifiers only. Record what was actually exercised, including failures and any
-unsupported boundary. Useful diagnostics and detailed receipts belong in task
-artifacts/history, not additional product status documents.
+Report what was exercised, the result and any concrete remaining failure in chat.
+Use existing test output and product records when useful; do not create a separate
+completion receipt, evidence packet or status document. Keep credentials and
+private content out of the report.
 
 Focused development proof precedes production qualification when the native
 boundary is uncertain. Reuse valid unchanged evidence at its stated scope. A failed

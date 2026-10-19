@@ -17,6 +17,6 @@ The helper builds its parser, not Soda. Go uses gocyclo, Rust uses syn, and
 TypeScript uses its existing parser. Reports cover authored production source;
 tests, generated files, dependencies and upstream copies are excluded. Scores
 are navigation hints, not proof of correctness or a reason to block working code.
-Existing baseline/exception files describe historical measurements and do not
-need updating for ordinary development. Tests for the reporting tool remain
-available through `bun run test:complexity`.
+The helper only reports measurements. It has no baselines, exception records or
+score-based refusal mode. Parser tests remain available through
+`bun run test:complexity`.

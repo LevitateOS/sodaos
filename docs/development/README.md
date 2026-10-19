@@ -1,6 +1,6 @@
 # Development
 
-[Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes) is the current backlog. Work from the user’s current request; historical wind-down status does not block new development.
+[Factory execution tasks](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 
@@ -18,16 +18,15 @@ How to work on the Soda OS repository itself.
 | Go package placement and style | [Go ownership](go.md) |
 | Go file/role convention | [Go packages](go-packages.md) |
 | Bun / TypeScript / Lit browser assets | [TypeScript](typescript.md), [Lit](lit.md) |
-| Python tooling | [Python](python.md) |
 | Forgejo presentation customization | [Forgejo](../reference/forgejo.md) |
 | Cockpit branding | [Cockpit](cockpit.md) |
 
 Product and security boundaries remain in [Architecture](../architecture/overview.md).
 Do not treat package paths as the product vocabulary.
 
-## Source ownership and desired tree
+## Source ownership
 
-The [source ownership index](ideal-filetree-plan/ideal-filetree-plan.md) describes
+The [source ownership guide](ownership.md) describes
 language, packages and placement. Update guidance affected by the current change.
 
 ## Build, test and release

@@ -55,15 +55,14 @@ command workflow. Spaces connects repository environments with human and factory
 | Document | Owns |
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
-| [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Source ownership, desired tree and pinned coverage references |
-| [Remaining factory work](development/factory-remaining-tasks.md) | Single remaining-outcome record after wind-down: accepted scope, unmet deliverables, owners, holds and finite release conditions |
+| [Source ownership](development/ownership.md) | Language, package and process boundaries |
+| [Remaining factory work](development/factory-remaining-tasks.md) | Dependency-ordered execution tasks for the complete Factory/MCP/issue/research/library/feed design, with retained acceptance and shared release dependencies |
 | [Workflow contracts](development/factory-workflow-contracts.md) | D01–D17 schemas, algorithms, authority/recovery limits and decisive tests |
 | [Canlang runtime contract](development/canlang-soda-os-implementation-plan/production-workerd.md) | Proposed provider, storage, process and packaging contracts with technical substeps |
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |
 | [Lit](development/lit.md) | Spaces Lit components |
-| [Python](development/python.md) | Python format/lint/complexity |
 | [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
 | [Native support tools](development/native-support.md) | Build/support tool effects |
 | [Release workflow](development/release.md) | Running the release pipeline |
@@ -76,14 +75,13 @@ command workflow. Spaces connects repository environments with human and factory
 | [Branding](design/branding.md) | Logo, palette, asset rules |
 | [Spaces UX](design/spaces-ux.md) | Spaces page and persistent panel design |
 | [Factory feed and Ralph4days integration](design/factory-feed-and-ralph-integration.md) | Agreed integration direction, complete-procedure presentation, role authors, MCP communication proposals and open feed design choices |
-| [Factory worker MCP redesign](design/factory-worker-mcp.md) | Seven production profiles plus proposed Library Admin; shared decision logging, knowledge maintenance, issue ownership and connected work/feed/library tools |
+| [Factory worker MCP redesign](design/factory-worker-mcp.md) | Shared/role-specific Factory tools, generic System One judgments, Library Admin, issue work contracts and proposed research routing |
 | [Factory feed component catalog](design/factory-feed-components.md) | Custom components for every role, shared knowledge and Factory events; compact/expanded views, interactions, source records and state behavior |
 | [Spaces sheets](design/spaces/README.md) | Annotated visual design sheets |
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |
 | [Factory capability map](research/factory-capability-map.md) | Source assessment of target requirements, existing capabilities, gaps and Soda/Fountain/upstream ownership |
-| [Library reuse investigation](research/library-reuse-investigation.md) | Completed generic-infrastructure assessment; selected work lives in the existing implementation plan |
-| Library reuse coverage | Scope, finding ownership and evidence limits for that investigation |
+| [Library boundaries](development/library-boundaries.md) | Existing library callers and retained technical constraints |
 | [Fountain frontend investigation](research/fountain-frontend-integration-investigation.md) | Native shell ownership, installed frontend failures, terminal lifetime constraints and correction boundaries |
 | [Licensing](research/licensing.md) | License and attribution notes |
 | [Predecessor reuse](research/predecessor-reuse.md) | Selected reuse attribution |

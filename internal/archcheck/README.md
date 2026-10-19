@@ -37,6 +37,6 @@ or native deployment behavior.
 When a check fails, inspect the reported package/import and its owning source.
 Follow [Go ownership](../../docs/development/go.md) and
 [package conventions](../../docs/development/go-packages.md), reconciled with
-the [recorded ownership decisions](../../docs/development/ideal-filetree-plan/package-ownership.md).
+the [recorded ownership decisions](../../docs/development/ownership.md).
 An intended ownership change needs its applicable decision; do not weaken a
 boundary merely to silence a failing import.

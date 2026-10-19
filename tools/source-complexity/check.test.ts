@@ -1,26 +1,6 @@
 import {expect, test} from 'bun:test';
-import {generated, key, language, measure, validateBaseline, violation, type Baseline} from './check';
-import {measureTypeScript, type Row} from './typescript';
-
-const row: Row = {path: 'internal/example.go', name: 'Run', line: 3, score: 21};
-const baseline: Baseline = {version: 1, revision: 'test', functions: {[key(row)]: 25}};
-
-test('20 passes, new 21 fails, baseline cannot increase or regain reduced complexity', () => {
-  expect(violation({...row, score: 20}, undefined, baseline, {})).toBeUndefined();
-  expect(violation(row, undefined, baseline, {})).toBeDefined();
-  expect(violation({...row, score: 25}, {...row, score: 25}, baseline, {})).toBeUndefined();
-  expect(violation({...row, score: 26}, {...row, score: 25}, baseline, {})).toBeDefined();
-  expect(violation({...row, score: 24}, {...row, score: 23}, baseline, {})).toBeDefined();
-});
-
-test('exceptions are specific and capped', () => {
-  const exception = {
-    [key(row)]: {max: 22, reason: 'Exhaustive protocol dispatch: each case selects one existing handler.'},
-  };
-  expect(violation(row, undefined, baseline, exception)).toBeUndefined();
-  expect(violation({...row, score: 23}, undefined, baseline, exception)).toBeDefined();
-  expect(() => violation(row, undefined, baseline, {[key(row)]: {max: 99, reason: 'large'}})).toThrow();
-});
+import {generated, language, measure} from './check';
+import {measureTypeScript} from './typescript';
 
 test('excludes tests, generated headers and dependencies, retains product build package', () => {
   for (const path of [
@@ -96,27 +76,4 @@ test('Rust excludes test-only crates, expressions, arms and nested functions in 
     },
   ]);
   expect(rows.map((r) => [r.name, r.score])).toEqual([['kept', 1]]);
-});
-
-test('each language admits score 20 and rejects new score 21', () => {
-  for (const [Path, make] of [
-    ['internal/threshold.go', (count: number) => `package p\nfunc limit() { ${'if true {}\n'.repeat(count)} }`],
-    ['cmd/app/src/threshold.rs', (count: number) => `fn limit() { ${'if true {}\n'.repeat(count)} }`],
-    ['frontend/threshold.ts', (count: number) => `function limit() { ${'if (true) {}\n'.repeat(count)} }`],
-  ] as const) {
-    for (const score of [20, 21]) {
-      const measured = measure([{Path, Text: make(score - 1)}])[0]!;
-      expect(measured.score).toBe(score);
-      expect(violation(measured, undefined, {version: 1, revision: 'test', functions: {}}, {}) === undefined).toBe(
-        score === 20
-      );
-    }
-  }
-});
-
-test('malformed baseline caps fail closed instead of producing NaN allowances', () => {
-  const valid = {version: 1, revision: 'a'.repeat(40), functions: {'internal/x.go::f': 21}};
-  expect(() => validateBaseline(valid)).not.toThrow();
-  expect(() => validateBaseline({...valid, functions: {'internal/x.go::f': NaN}})).toThrow();
-  expect(() => validateBaseline({...valid, revision: ''})).toThrow();
 });

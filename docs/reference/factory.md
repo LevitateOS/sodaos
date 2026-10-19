@@ -120,8 +120,8 @@ check does not prevent intentional encoding or exfiltration by code that can
 read the injected credential. Source bundles stay bounded to 4 MiB. No push,
 direct PR or review submission path remains.
 
-## Storage decision gate
+## Storage
 
-The ledger stays on the retained PostgreSQL store and unconfigured intake stays fail-closed.
-Measurements, revisit criteria and the reservation-race analysis live in
-the [factory storage decision gate](../factory/decision-gate.md).
+The ledger uses PostgreSQL. Unconfigured intake refuses requests as unavailable;
+it never bypasses authentication. The [trust model](../architecture/trust.md)
+owns the authorization rules.

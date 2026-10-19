@@ -358,13 +358,9 @@ contract; these are source seams to change, not implemented capabilities.
 | Completion and deferred work | [Post-receive](../../../forgejo-ext/routers/private/hook_post_receive.go) does native merge/branch bookkeeping but also supports independent push-option policy changes; conditional reentry must distinguish them. Native merge notification synchronously reaches the [Actions notifier](../../../forgejo-ext/services/actions/notifier_helper.go), creating runs/statuses and cancelling configured concurrency groups; these post-publication effects need bounded completion ownership. [Push queue](../../../forgejo-ext/services/repository/push.go) currently logs failures then returns no retry items. Fresh ownership and retaining busy jobs need explicit integration; the parent cannot wait for a consumer needing its reservation. |
 | Maintenance and recovery | [Mirrors](../../../forgejo-ext/services/mirror/mirror_pull.go), [repository maintenance](../../../forgejo-ext/services/repository/check.go) and native administrative commands can alter refs, objects or authority outside HTTP. [Process cancellation](../../../forgejo-ext/modules/process/graceful_cancel_linux.go) observes a leader, not an empty execution domain. Offline recovery requires host-verified whole-domain quiescence and family-specific effect/consistency reconciliation for ordinary owners too; a PID-based unlock or conditional merge-tip comparison is insufficient. |
 
-Three fresh Jev SystemOne consultations received equivalent evidence, constraints
-and alternatives with all explanatory prose rewritten and independently checked
-before sending. All selected runtime admission plus native PATs, a private native
-execution capability file, and offline host-operator recovery. Callback confidence
-varied: the concrete reason for choosing a file is its fit with existing native
-child environment/hook behavior and restricted secret inputs; inherited channels
-would introduce an additional propagation proof. Agreement is advice, not proof.
+Use runtime admission with native PATs, a private execution capability file and
+host-operator recovery. The file fits existing child-environment and hook
+behavior and restricted secret inputs.
 
 Merge-method advice split between fast-forward-only and adding ordinary merge.
 The native `doMergeAndPush` seam supplies a prepared base/result for all styles,
@@ -377,9 +373,6 @@ proven candidate-as-result shape and add other styles when needed. This delibera
 excludes repositories forbidding that method; it is not evidence of an upstream
 limitation. Fountain receives generic ref conditions, not Soda's publisher rules.
 
-Requests, responses, the wording audit and the disagreement assessment are retained
-in `.artifacts/fountain-integration-design-20260930/jev/`. This selection required
-source inspection and consultation only; the prior native proof was reused.
 The new authentication, callback, coverage and recovery paths still require the
 [focused acceptance cases](../development/testing.md#acceptance-cases).
 
@@ -398,19 +391,14 @@ new authenticated operations already exist.
 | True transaction and completion | [Transaction reuse](../../../forgejo-ext/models/db/context.go) makes inner commits no-ops under an outer transaction. Wrapping the full PR/review service would therefore move supposed postcommit effects before the real commit. Integrate receipts at the native database core, keep Git outside SQL, and preserve native mentions/notifications/Actions through bounded completion. |
 | Consumer ledger gaps | [Soda publication](../../internal/factory/control/publication.go) pushes before saving the candidate, saves the PR number after the creation response, and submits a review without a durable operation receipt. Each lost response can strand a native effect outside the local transition. Distinct operation IDs and attributable receipts replace guesswork; a correction retains its recorded PR and invalidates earlier candidate evidence. |
 
-Three fresh Jev SystemOne requests used equivalent source evidence and alternatives
-with all explanatory prose rewritten and independently checked before sending.
-All selected operation-bound native receive and database-primary PR creation with
-separate completion. One PR recommendation had weak confidence; agreement is not
-proof. The concrete reasons are the existing receive launch seam and the model's
+Use operation-bound native receive and database-primary PR creation with
+separate completion. The concrete reasons are the existing receive launch seam and the model's
 SQL-only index/record allocation. Bundle ingestion would add a new input/storage
 lifecycle; pre-creating the PR ref would add orphan-ref/index reconciliation.
 The selected tradeoff is that a committed PR may be visible before derived state
 is ready, with downstream work held until required completion is confirmed.
 
-Requests, responses, wording checks and the source-based decision are retained in
-`.artifacts/fountain-other-writes-20260930/jev/`. Only source/contract checks and
-consultations were performed; the [native acceptance cases](../development/testing.md#acceptance-cases)
+The [native acceptance cases](../development/testing.md#acceptance-cases)
 for receive binding, database atomicity, cancellation and incomplete completion
 still require implementation and proof.
 
@@ -435,18 +423,13 @@ inherit automatic provenance. Ordinary API/web deletion excludes title system
 comments and no title timeline pruning was found; this observation is not a claim
 that arbitrary database/import operations preserve it.
 
-Three fresh Jev SystemOne consultations used equivalent evidence and alternatives,
-with every explanatory field rewritten and independently checked before sending.
-All advised an authenticated Soda decision receipt over a structured native approval
-comment. Source reasoning supports that choice: the receipt uses the product's
+Use an authenticated Soda decision record. It uses the product's
 required authority/input records and directly authenticates the accepting human,
 while native text stays editable. A strict original-comment protocol is possible,
 but would add approval syntax, posting and supersession validation while still
-needing the same exact snapshots. Agreement is advice, not proof.
+needing the same exact snapshots.
 
-Requests, responses and the decision/wording audit are retained in
-`.artifacts/factory-accepted-inputs-20260930/jev/`. This is source/design evidence;
-the selected human action, generic reads, initial-creation provenance and native
+The selected human action, generic reads, initial-creation provenance and native
 invalidation journey remain unimplemented and need their
 [acceptance cases](../development/testing.md#acceptance-cases).
 
@@ -479,16 +462,9 @@ toolchain/service and preserved human state under the
 Repeating the old process probe or building a general provisioning harness would
 not close that integration gap.
 
-Three fresh Jev SystemOne consultations compared native shared administration
-with a new typed privileged preparation service. Complete requests were independently
-checked for equivalent evidence/alternatives and rewritten explanatory prose before
-sending. All selected native administration followed by unprivileged setup.
-The source-based reason is narrower: existing native tools already cover shared
-preparation, while the alternative adds privileged input validation, maintenance
-and partial-effect handling without a requirement for unattended shared installation.
-Agreement is advice, not proof of the selected execution path. Requests, responses
-and the wording/decision audit are retained in
-`.artifacts/factory-environment-preparation-20260930/jev/`.
+Use native administration followed by unprivileged setup. Existing native tools
+already cover shared preparation; another privileged service would add input
+validation, maintenance and partial-effect handling without a demonstrated need.
 
 ## Remaining decisive boundaries
 

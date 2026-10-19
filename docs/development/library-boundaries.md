@@ -2,7 +2,7 @@
 
 These are technical constraints for changes to existing callers. Completed
 adoptions need no renewed inventory, consultation receipt or approval record.
-Unfinished product work belongs in the [backlog](../factory-remaining-tasks.md).
+Unfinished product work belongs in the [backlog](factory-remaining-tasks.md).
 
 ## Library contracts
 

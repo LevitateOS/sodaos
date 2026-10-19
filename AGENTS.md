@@ -75,8 +75,7 @@ Preserve correctness, permissions, evaluation order, atomicity and failure/recov
 - Token and build budgets matter. Test a critical assumption before investing in work
   that depends on it. Choose the cheapest sufficient check and move on once it answers
   the question. A failed assumption changes the affected approach, not the whole plan.
-- Preserve [language/package ownership](docs/development/ideal-filetree-plan/package-ownership.md)
-  and [owner language decisions](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy):
+- Preserve [language and package ownership](docs/development/ownership.md):
   network servers use Go, system/privileged applications Rust, no authored Python programs.
   Planned cutovers are not completed cutovers or permission to port. Resolve routine
   implementation choices directly from the owner's instructions and existing code;

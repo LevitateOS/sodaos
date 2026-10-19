@@ -133,9 +133,9 @@ controls. It does not relax `captureNativePage` or create a login shortcut.
 
 Use an explicitly authorized matching-native installation/browser and disposable representative identities, projects and repositories. Hide tokens, private keys, passwords, authentication URLs, personal email, private repository names and sensitive terminal details **before capture**. Do not crop away a warning or alter a control to imply a capability.
 
-Capture readable controls with enough navigation to identify the page, not a full desktop. PNG suits UI text. Record actual source revision, target/architecture, viewport and performed action in the review/handoff—not a fabricated PASS manifest. A screenshot proves only what is visible, not that the corresponding provisioning, access or persistence action worked.
+Capture readable controls with enough navigation to identify the page, not a full desktop. PNG suits UI text. Include the viewport and performed action in the caption when useful; do not create a capture review or handoff report. A screenshot proves only what is visible, not that the corresponding provisioning, access or persistence action worked.
 
-Use a fresh private evidence directory under `.artifacts/`; publish selected images into documentation only after explicit review. There are intentionally no published image placeholders below.
+Use a fresh private evidence directory under `.artifacts/`; add requested images to the owning documentation. There are intentionally no published image placeholders below.
 
 ## Useful captures
 
