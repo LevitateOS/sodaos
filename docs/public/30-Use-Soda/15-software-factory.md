@@ -8,6 +8,12 @@ visibility and intervention; the private operator command inspects recorded runs
 retires one run and settles outstanding execution. Those command limits do not
 define the automatic factory's scope.
 
+The normal workflow is fully autonomous under standing authorization. SodaOS
+picks up ready issues, plans, codes, reviews, corrects, checks, merges and continues
+with dependent work. People configure the goals and boundaries first; they do
+not have to start each task or merge each result. Human approval gates are
+optional policy choices, and unresolved material decisions require intervention.
+
 ## Prepare the factory
 
 Configure private access and a repository with a meaningful check command.
@@ -17,13 +23,17 @@ review agents and CI runners have separate responsibilities; follow
 
 Authorize three things separately: the repository's factory policy and native
 actors, appliance capacity and execution limits, and provider-account sponsorship.
-Choose supported harness/model profiles and finite allowances. Accept a clear,
-bounded issue objective with its required outcomes and dependencies. An arbitrary
-comment, label or agent instruction does not supply those grants.
+Choose supported harness/model profiles and finite allowances. Under standing
+repository policy, new issues from authorized maintainers are picked up
+automatically. Work generated from an accepted product direction carries that
+direction's bounded authority. Objectives without trusted authorization wait
+for explicit adoption. An arbitrary comment, label or agent instruction does
+not supply new grants.
 
 ## From an issue to a reviewed change
 
-1. Create or adopt the exact objective as a currently authorized maintainer.
+1. Create a clear objective as an authorized maintainer. SodaOS automatically
+   considers it under standing policy; explicitly adopt work from other sources.
 2. Resolve prerequisite outcomes and material questions. A blocked issue waits
    for the needed evidence or decision rather than guessing an answer.
 3. Observe the coding execution in its persistent Project. Record the issue,

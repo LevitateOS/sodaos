@@ -4,8 +4,10 @@ Install and operate SodaOS, an open-source operating system for AI software fact
 
 Built on Fedora CoreOS, SodaOS integrates the infrastructure for continuing AI
 development. People authorize objectives and operating policy; the factory
-coordinates ready work through coding, review, checks and native policy-governed
-merge. Forgejo owns repositories, issues, pull requests, reviews and CI records.
+automatically picks up ready, authorized issues and coordinates planning, coding,
+review, corrections, checks and native merge. The normal loop is fully autonomous
+under standing policy; human approval gates are optional. Forgejo owns
+repositories, issues, pull requests, reviews and CI records.
 Humans and factory roles share persistent Podman Projects with separate accounts,
 checkouts and executions. Familiar editors, terminals and SSH support development
 and intervention.
@@ -31,7 +33,7 @@ and intervention.
 
 1. Deploy Soda and configure private access, Forgejo and the selected agent profile.
 2. Choose a private repository and write an issue with a clear expected outcome.
-3. Authorize repository policy, appliance capacity and provider sponsorship; accept the issue's requirements.
+3. Establish standing repository policy, appliance capacity and provider sponsorship. Soda picks up issues created by authorized maintainers automatically; objectives without trusted authorization need adoption.
 4. Observe the bounded attempt and inspect its pull request, CI and current review.
 5. If a repair produces another commit, check its new verification.
 6. Supply human approval where policy requires it, then confirm the policy-governed native merge or resolve the intervention request.
