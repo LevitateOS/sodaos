@@ -35,36 +35,28 @@ func (f *bundleChooser) Select(_ context.Context, _ any, _ string, choices map[s
 	return a, nil
 }
 
-func contextBundleFixture(t *testing.T, chooser *bundleChooser) (*Coordinator, factory.MCPCapability, factory.Assignment) {
+func contextBundleFixture(t *testing.T, chooser *bundleChooser) (*Coordinator, factory.MCPCapability, factory.Assignment, func(context.Context, string) (bool, error)) {
 	t.Helper()
-	c := coordinatorFixture(t, nil, nil)
+	c, _, r := acceptedGenerationFixture(t)
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: chooser}
 	capability := testMCPCapability()
 	assignment := factory.Assignment{
 		ID: capability.AssignmentID, SourceCommit: "abc123", PromptSHA: strings.Repeat("p", 64),
 	}
-	return c, capability, assignment
-}
-
-func onceReserve(spent *map[string]bool) func(context.Context, string) (bool, error) {
-	return func(_ context.Context, snapshot string) (bool, error) {
-		if (*spent)[snapshot] {
-			return false, nil
-		}
-		(*spent)[snapshot] = true
-		return true, nil
+	reserve := func(ctx context.Context, snapshot string) (bool, error) {
+		return c.Store.ReserveIntentJudgment(ctx, r, snapshot)
 	}
+	return c, capability, assignment, reserve
 }
 
 func TestSelectContextBundleServesConfidentCurrent(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.9}
-	c, capability, assignment := contextBundleFixture(t, chooser)
-	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
+	c, capability, assignment, reserve := contextBundleFixture(t, chooser)
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, reserve)
 	if err != nil || bundle != factory.ContextBundleCurrent || reason != "" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
-	again, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
+	again, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, reserve)
 	if err != nil || again != factory.ContextBundleCurrent || chooser.calls != 1 {
 		t.Fatalf("reuse bundle=%q calls=%d err=%v", again, chooser.calls, err)
 	}
@@ -72,10 +64,9 @@ func TestSelectContextBundleServesConfidentCurrent(t *testing.T) {
 
 func TestSelectContextBundleServesConfidentAttempt(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleAttempt, confidence: 0.9}
-	c, capability, assignment := contextBundleFixture(t, chooser)
+	c, capability, assignment, reserve := contextBundleFixture(t, chooser)
 	assignment.RunHistory = []string{"run-1", "run-2"}
-	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, onceReserve(&spent))
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, reserve)
 	if err != nil || bundle != factory.ContextBundleAttempt || reason != "" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
@@ -83,9 +74,8 @@ func TestSelectContextBundleServesConfidentAttempt(t *testing.T) {
 
 func TestSelectContextBundleHoldsLowConfidence(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.2}
-	c, capability, assignment := contextBundleFixture(t, chooser)
-	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
+	c, capability, assignment, reserve := contextBundleFixture(t, chooser)
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, reserve)
 	if err != nil || bundle != factory.ContextBundleSnapshotHold || reason != factory.ContextBundleHoldLowConfidence {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
@@ -93,9 +83,8 @@ func TestSelectContextBundleHoldsLowConfidence(t *testing.T) {
 
 func TestSelectContextBundleHoldsUnofferedLineage(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleLineage, confidence: 0.95, force: true}
-	c, capability, assignment := contextBundleFixture(t, chooser)
-	spent := map[string]bool{}
-	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, onceReserve(&spent))
+	c, capability, assignment, reserve := contextBundleFixture(t, chooser)
+	bundle, reason, err := c.SelectContextBundle(context.Background(), capability, assignment, true, false, reserve)
 	if err == nil || bundle != factory.ContextBundleSnapshotHold || reason != "unavailable" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
@@ -103,9 +92,8 @@ func TestSelectContextBundleHoldsUnofferedLineage(t *testing.T) {
 
 func TestSelectContextBundleHoldsWhenChooserDown(t *testing.T) {
 	chooser := &bundleChooser{fail: true}
-	c, capability, assignment := contextBundleFixture(t, chooser)
-	spent := map[string]bool{}
-	bundle, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, onceReserve(&spent))
+	c, capability, assignment, reserve := contextBundleFixture(t, chooser)
+	bundle, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, reserve)
 	if bundle != factory.ContextBundleSnapshotHold || err == nil {
 		t.Fatalf("bundle=%q err=%v", bundle, err)
 	}
@@ -113,7 +101,7 @@ func TestSelectContextBundleHoldsWhenChooserDown(t *testing.T) {
 
 func TestSelectContextBundleExhaustedHoldsUnfunded(t *testing.T) {
 	chooser := &bundleChooser{selected: factory.ContextBundleCurrent, confidence: 0.9}
-	c, capability, assignment := contextBundleFixture(t, chooser)
+	c, capability, assignment, _ := contextBundleFixture(t, chooser)
 	refuse := func(context.Context, string) (bool, error) { return false, nil }
 	if _, _, err := c.SelectContextBundle(context.Background(), capability, assignment, false, false, refuse); err == nil {
 		t.Fatal("exhausted funding served a bundle")
