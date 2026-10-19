@@ -36,8 +36,9 @@ packets are historical responsibility labels, not active agents or worker roles.
 
 The product, workflow and trust owners continue to define execution authority.
 Designs describe required capabilities and recommended shapes; they do not claim
-current runtime support. The current source catalog has seven production roles
-and fourteen Factory tools. The main design adds Library Admin and totals 63
+current runtime support. The seven production profiles now also expose the shared
+communication and decision outlets; the original baseline had fourteen Factory
+tools. The main design adds Library Admin and totals 63
 Factory tools plus three generic System One tools. Research capability is in
 scope; its dedicated Researcher profile and five candidate issue/research names
 remain choices to resolve in R10.1/R30.1, not a silently accepted ninth role.
@@ -80,7 +81,11 @@ R52/P30 → R53 → R55; R54 must not wait for its own installed candidate.
 <a id="tomorrow-manual-testing"></a>
 ## Immediate priority: tomorrow's manual testing
 
-The [19 October UI/UX investigation](ux-audit-2026-10-19.md) records 62 concrete defects and unfinished user journeys, with code locations and evidence strength. Installed components below do not establish a usable manual-testing path. The immediate repairs are reachable scrolling/feed navigation, project-scoped activity and URLs, truthful statuses, working comment recovery, preservation of Factory settings, and recoverable provider sign-in. Apply those findings within their existing task owners; the audit's repair-order table gives the next sequence without adding another backlog. The repository-specific workspace route already exists in the native host; project selection fails to use it consistently.
+The [19 October UI/UX investigation and repair update](ux-audit-2026-10-19.md) records 62 findings and distinguishes installed repairs from unfinished journeys. Repository Feed navigation, project scope, scrolling/card styling, truthful statuses, comment/reply recovery, allowance preservation, provider recovery and project-linked Applications are now installed. The actual browser passed repo navigation, project-only requests, wheel scrolling, loaded mobile width, provider status and shared reply reads. A manually prepared Todo title update retained a task on the VM. This does not establish the full Factory-built app journey. Continue with self-service Factory enrollment (A2/A6), structured issue contracts (C22/C23), real downstream checks/delivery (C24), and the app publish/update UI (A5); preserve the existing task owners below. The repair update identifies remaining presentation/library gaps explicitly.
+
+Feed/MCP implementation slice, 19 October: R32.1–R32.3/R32.5 and R42.6/R43.1–R43.7 now share an executable 121-component catalog, role/outlet selection, typed shared communications and 19 styled presentations. Ask choices edit the existing reply draft with keyboard focus; only Submit invokes the comment route. Canonical finishes retain their selected component; worker-reported checks never become confirmed workflow effects. The renderer gallery covers every catalog ID in light/dark and desktop/mobile layouts, while the controller check covers actual option selection without a write. The continuation implements project-scoped revisioned Library Admin operations (R32.7–R32.9/R42.4), knowledge/decision search and history (R31.3/R42.3), authenticated media/text viewers and explicit dependency graphs (R43.9), generic System One tools, and controller-event writes from their domain owners. Broader sharing grants and adoption/incorporation consumers remain separate domain criteria. The [feed design update](../design/factory-feed-components.md#implementation-update--19-october-2026) describes this boundary.
+
+Visual refinement continuation (R43): the real feed now uses the website movie’s action-specific compositions for source investigations, evidence-to-choice decisions, annotated findings, corrections, saved commits, merges and released dependencies, plus distinct question/blocker/knowledge/journey layouts. Canonical records retain their complete details in disclosures. MCP source excerpts and commit summaries survive authenticated submission and stored feed projection. All 121 examples fit desktop/mobile layouts; the installed project feed retains working scrolling and external author metadata. The existing eight VM posts lack these structured action payloads, so the gallery demonstrates the new compositions without fabricating live work.
 
 The owner wants to make simple Canlang apps on a libvirt-hosted SodaOS and watch
 the entire Factory feed, including a comment that JEV routes to an LLM-authored
@@ -291,6 +296,10 @@ Preserve accepted primitives; finish the native consumers needed by actual worke
 ### 2. Issue contracts, role routing and shared MCP
 
 Define the common work contract, complete context, and expose both Factory tools and generic System One judgments.
+
+**19 October implementation update for R09.1/R30.1/R30.2/R31.1:** eight role profiles expose 45 tools (42 Factory, three generic System One). The shared catalog binds 102 worker variants to their role/outlet, nine Library Admin variants to actual maintenance operations, and ten Factory variants to controller-owned events. Each worker receives server-bound identity, role-filtered schemas, library search/read and artifact upload. The host stages its private credential and Codex/Muse configuration before model start; the Rust stdio relay reaches the private Unix HTTP server. Knowledge/decision mutations and feed posts share a transaction; exact retries reuse receipts. Local API, database and browser checks cover these interfaces. Broader role work interfaces, sharing policy and installed model-driven journeys retain their existing criteria below.
+
+**Delivery admission update for R38–R40:** the controller now admits Test Pilot when an accepted scope's tasks are complete and the current integrated source has a ready reviewer preparation with approved `project.check` assertions. The delivery gets its exact allowance and bound MCP before launch. Its finish closes that allowance; independently observed native evidence and exact outcome coverage produce F10. Missing assertions, stale source or failed checks produce an actionable wait/failure. PostgreSQL tests exercised admission, settlement, duplicate suppression and reopening retained data; the broader fixture catalog and a paid end-to-end Factory app run remain outstanding.
 
 | Task and concrete output | Work type · expertise | Needs | Completion boundary |
 | --- | --- | --- | --- |

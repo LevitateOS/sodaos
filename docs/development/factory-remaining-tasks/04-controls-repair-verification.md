@@ -61,7 +61,7 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Accept only when:** Cross-scope/expired/revoked/forbidden calls refuse server-side. Replay returns the same receipt, conflict refuses, restart/rebind cannot renew authority. No secrets in prompts/argv/logs or broad operator/extension socket exposure.
 
-**Implementation notes:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` currently stages metadata; `FactoryMCPHandler` currently supplies neither `Observed` nor `Catalog`. First wire trusted host observation plus stop/revocation ordering into activation and request admission; prove the cached-stopped=false race remains refused. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
+**Implementation notes:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` now stages metadata before native launch; authenticated request preparation observes the live host worker and checks stored stop/assignment state before activation. Local tests refuse a cached observation across committed stop. The approved verification `Catalog` still needs its separate binding. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
 
 **Principal source owners:** [cmd/soda-dashboard/factory_mcp.go](../../../cmd/soda-dashboard/factory_mcp.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/mcp_admission.go](../../../internal/factory/control/mcp_admission.go), [internal/store/factory_mcp_capability.go](../../../internal/store/factory_mcp_capability.go), [lib/host/src/terminal/factory/mcp_relay.rs](../../../lib/host/src/terminal/factory/mcp_relay.rs).
 
@@ -150,13 +150,7 @@ finishes incomplete through R35. Ask/reply and suggest follow existing product
 review/adoption authority; blocked/stuck are reports for deterministic assessment,
 not caller-authorized readiness transitions. R42 consumes these records.
 
-**Communication status boundary:** actual MCP outlets are the required design.
-The seven nonterminal tools are shared by all seven admitted parent roles; Done
-uses each role's existing finish tool. The current source catalog remains at
-fourteen tools until the seven additions land, yielding the 21-tool communication extension in
-the [D14 interface breakdown](../factory-workflow-contracts.md#d14-worker-interface-layers).
-Tool selection is settled; strict schemas, bounds, persistence and consumer
-wiring remain R32 work. Context selection in R31 does not implement this layer.
+**Implemented interfaces:** eight profiles expose 45 tools, including shared communication, project-library search/read, artifact upload, generic System One judgments and the Library Admin maintenance operations. Knowledge/decision records, revisions, feed posts and receipts are atomic; maintenance requires exact revisions and preserves original decision authority. The host binds identity/project/issue/run before startup. Test Pilot reads independently observed verification evidence. The [D14 breakdown](../factory-workflow-contracts.md#d14-worker-interface-layers) owns current per-role counts. These implementations cover the catalog and feed/library interfaces; broader planner controls, sharing grants and downstream proposal adoption retain their own criteria.
 
 **Full design implementation slices:** The
 [tool-to-task inventory](../factory-remaining-tasks.md#full-worker-design-integration)

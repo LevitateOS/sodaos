@@ -1126,11 +1126,12 @@ local under that tip in the same repeatable-read scope. The bracket prepays
 a fixed 8 native calls (2 outer observations + 2x3 capture reads) before any
 collection; no automatic database-local fallback path exists.
 
-## D14 — One Factory MCP implementation and seven profiles
+<a id="d14--one-factory-mcp-implementation-and-seven-profiles"></a>
+## D14 — One Factory MCP implementation and eight profiles
 
 FW-REFINE-003 freezes the control surface below. Jev remains the controller's typed
 judgment service. The dispatcher remains ordinary deterministic code. Neither is
-an eighth agent profile. Product defaults and the implementation crew's Spark
+a worker profile; Library Admin is the eighth worker profile. Product defaults and the implementation crew's Spark
 1.3 Contributor/XHIGH settings remain distinct (D04).
 
 The owner has requested a broader [worker MCP redesign](../design/factory-worker-mcp.md)
@@ -1170,8 +1171,7 @@ operator, broker or host-operation socket. No TCP/public listener, general proxy
 or browser bearer token. Test namespace reachability before dependent work. All
 implementation fixtures, sockets, temporary files and caches stay under `/home`.
 
-The IPC directory is service-owned mode 0755 and socket mode 0660 with a dedicated
-helper-selected client group, visible only in admitted Project mounts. The
+The IPC directory is service-owned mode 0755 and socket mode 0666, allowing the mapped Project role users to connect through their admitted mounts. Per-run HMAC authentication, live native observation and stored capability scope authorize requests; filesystem reachability alone grants no tools. The
 read-only mount forbids agent replacement; run capability checks remain mandatory
 even for a process able to connect. Do not derive trust from Unix group membership.
 
@@ -1204,7 +1204,7 @@ account-home/0600 files do not prove this.** P7 must prove supported attribution
 and credential exclusion; otherwise return the failed assumption to Codex and
 leave that harness/profile unqualified. No caller-asserted identity fallback.
 
-Product Lead, Architect, Inspector, Strategist and Test Pilot have OS-enforced
+Product Lead, Architect, Inspector, Strategist, Test Pilot and Library Admin have OS-enforced
 read-only source and separate disposable scratch/cache/output. Builder/Fixer may
 edit assigned source but cannot write Git metadata, Factory journals, credentials
 or managed MCP configuration through shell tools. D05 still treats same-role
@@ -1267,56 +1267,42 @@ must be extended together before enabling it. The proposal owns its detailed
 [Git issue ownership](../design/factory-worker-mcp.md#git-issue-ownership).
 
 <a id="d14-communication-outlets"></a>
-**Required communication outlets (implementation pending).** The seven
-nonterminal actions each have a distinct tool on the existing Factory server.
-Done uses the role's existing finish tool. All eight actions therefore have an
-MCP outlet; a feed label alone does not satisfy this contract.
+**Implemented communication outlets.** Every admitted worker has ten nonterminal tools with strict content schemas, authenticated attribution, durable MCP receipts and feed posts committed in the same transaction. Done uses its existing role finish.
 
-| Action | MCP outlet | Purpose |
+| Action | MCP outlet | Required content beyond title and summary |
 | --- | --- | --- |
-| Ask | `factory.ask` | Submit a question, affected work and the information or decision needed. |
-| Flag | `factory.flag` | Report a problem or risk with scope and supporting evidence. |
-| Learned | `factory.learned` | Record a discovery or useful observation with its evidence and applicable scope. |
-| Suggest | `factory.suggest` | Submit a proposed improvement or change for the existing assessment/adoption route. |
-| Partial | `factory.partial` | Report completed progress, remaining work and why it remains. |
-| Blocked | `factory.blocked` | Report a known obstacle and what would release it. |
-| Stuck | `factory.stuck` | Request diagnosis after attempted approaches have failed to produce progress. |
-| Done | The admitted role's `factory.finish_*` tool in the table below | Submit the structured role result for validation and observed retirement. |
+| Ask | `factory.ask` | Question; optional choices. |
+| Answer | `factory.answer` | Existing Ask post identity. |
+| Reply | `factory.reply` | Existing post identity in the same project. |
+| Flag | `factory.flag` | Severity; optional evidence and scope. |
+| Learned | `factory.learned` | Evidence references and applicable scope. |
+| Suggest | `factory.suggest` | Rationale for the proposed change. |
+| Partial | `factory.partial` | Completed or remaining work. |
+| Blocked | `factory.blocked` | What would release the obstacle. |
+| Stuck | `factory.stuck` | Attempted approaches. |
+| Record decision | `factory.record_decision` | Decision and rationale; optional alternatives. |
+| Done | Admitted role's `factory.finish_*` | Structured role result for existing validation and retirement. |
 
-The [communication design](../design/factory-feed-and-ralph-integration.md#adopted-verb-vocabulary)
-owns payload meaning and feed behavior. [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32)
-implements the seven new tools, strict schemas, persistence and consumer wiring.
-All seven roles may use them within their admitted subject. Their submissions
-are nonterminal: they do not finish the assignment, approve a proposal or directly
-change readiness. Done remains bound to the role-specific result contract;
-there is no separate generic `factory.done` submission path.
+Reports do not themselves change readiness, adopt suggestions or verify evidence. Learned and decision tools create durable project-library entries and feed records together. Library Admin applies explicit revision-checked maintenance operations; ordinary workers can search/read current entries. The shared executable component catalog validates each optional `component_id` against both role and outlet. A worker cannot select Factory-owned merge/completion cards or another role's maintenance operations.
 
-**Shared first:** the communication extension has twelve common tools: `factory.context`,
-`factory.evidence`, `factory.status`, `factory.receipt`,
-`factory.finish_incomplete`, and the seven nonterminal outlets above. Add each
-role's finish and any work controls below. This gives a minimum communication
-extension of **21 unique tools on one server**. The
-[full redesign proposal](../design/factory-worker-mcp.md) also covers role work
-operations, interaction reads and a shared knowledge lifecycle; its complete
-catalog must not be reduced to this communication-only count.
+Communication is bounded to 128 nonterminal posts per assignment and 8 KiB per payload. The terminal slot remains available after that limit. Exact submission replay returns the original feed post. `factory.inbox` reads this assignment's posts and recursively related human/worker replies; `factory.discussion` reads a named authorized post and its reply thread. Both page at 50 messages and 32 KiB and do not invoke models.
 
-**Current implementation:** the fourteen names and admission matrix in
-[`mcp_profile.go`](../../internal/factory/mcp_profile.go) still contain only the
-five original common tools, seven role finishes and two work controls. The seven
-new communication tools are required additions, not registered source tools yet.
-Current and communication-extension per-role counts are:
+**Shared first:** eight reads (context, evidence, status, receipt, inbox, discussion, search_library, read_library_item), ten communication tools, publish_artifact, the three generic System One judgments and finish_incomplete give **23 shared tools**. The complete catalog has **45 unique tools: 42 Factory and three System One**.
 
-| Role | Role finish control | Additional work controls | Current tools (5 shared) | Communication extension (12 shared) |
-| --- | --- | --- | --- | --- |
-| Product Lead | finish_product_plan | None | 6 | 13 |
-| Architect | finish_issue_plan | None | 6 | 13 |
-| Builder | finish_implementation | submit_task_output, request_handoff | 8 | 15 |
-| Inspector | finish_review | None | 6 | 13 |
-| Fixer | finish_correction | submit_task_output | 7 | 14 |
-| Strategist | finish_reassessment | None | 6 | 13 |
-| Test Pilot | finish_app_verification | None | 6 | 13 |
+| Role | Role finish control | Additional work controls | Current tools |
+| --- | --- | --- | --- |
+| Product Lead | finish_product_plan | None | 24 |
+| Architect | finish_issue_plan | None | 24 |
+| Builder | finish_implementation | submit_task_output, request_handoff | 26 |
+| Inspector | finish_review | None | 24 |
+| Fixer | finish_correction | submit_task_output | 25 |
+| Strategist | finish_reassessment | None | 24 |
+| Test Pilot | finish_app_verification | verification_evidence | 25 |
+| Library Admin | finish_library_maintenance | library_inventory, preview_library_changes, begin_library_maintenance, edit_library_item, remove_library_item, restore_library_item, consolidate_library_items, split_library_item, relate_library_items, supersede_library_item, report_library_impact | 35 |
 
-All names in this table have the factory. prefix. Registration does not prove a
+The MCP capability and private relay binding are prepared before the native harness starts. The first authenticated request activates it only after observing that exact running worker and checking current dispatch, assignment and preparation state. Tools derive author, role, project, repository, issue, run and assignment from this binding; the model supplies content and a retry identity, not attribution. Every request rechecks the native worker, and writes repeat stored stop checks inside the submission transaction.
+
+The role-specific names in this table have the factory. prefix; shared generic judgments retain systemone.noul, systemone.choice and systemone.score. Registration does not prove a
 tool's full payload, consumer, transport or native effect has been implemented
 and qualified; the remaining-outcome catalog owns that status. Native Builder
 children do not inherit the parent's mutation capability.
@@ -1325,18 +1311,16 @@ Keep the following responsibilities distinct:
 
 | Part of the interface | What it provides | Boundary |
 | --- | --- | --- |
-| Context and evidence | Assignment facts, authorized inputs, progress and receipt recovery through the four shared reads. | The [context bundle design](#d14-worker-context) specifies richer target projections and Jev's optional-history preference; it does not add work/communication authority. |
+| Context and evidence | Assignment facts, authorized inputs, progress and receipt recovery through eight shared reads, including the assignment inbox and discussion threads. | The [context bundle design](#d14-worker-context) specifies richer target projections and Jev's optional-history preference; it does not add work/communication authority. |
 | Working tools | Native harness editing, terminal, browser and qualified child controls appropriate to the role and permission profile. | These are execution capabilities outside the Factory MCP catalog. Their availability depends on the admitted harness/profile and native proof. |
-| Nonterminal communication | Seven distinct shared MCP tools for ask, flag, learned, suggest, partial, blocked and stuck. | The outlet names and all-role admission are settled above. R32 owns implementation; the current fourteen-tool catalog does not yet expose them. |
+| Nonterminal communication | Ten shared tools record structured worker posts and answers. | Atomic receipt/feed/library persistence is implemented for knowledge and decisions; proposal adoption retains its domain owner. |
 | Formal results | One role-specific finish control plus the shared finish_incomplete alternative; Builder/Fixer also submit task outputs. | A finish carries a structured role result. Accepted result, observed retirement and verified downstream effects remain separate. |
 
 One role-specific finish control can carry many tasks, findings, dispositions or
 coverage entries. A nonterminal blocked/stuck report differs from
-finish_incomplete, which submits a terminal result. Jev runs through
-controller-owned funded judgments and is not a worker MCP server or tool.
+finish_incomplete, which submits a terminal result. Workers also receive generic System One judgments; controller-owned acceptance judgments remain distinct.
 
-**Existing fourteen-tool catalog and required behavior.** These tools are
-filtered to each admitted profile; the seven required additions are listed above.
+**Role results and context contracts.** The baseline tools below remain filtered to each admitted profile; implemented communication and conversation reads are listed above.
 Tool schemas reject unknown fields and enforce D04 byte/count limits. Every read
 is bound to the capability; optional reference IDs must belong to its authorized
 snapshot. Page tokens are opaque, digest-bound and expiring. Each page <=32 KiB,
@@ -1345,11 +1329,11 @@ reports incomplete evidence; it cannot become an empty successful collection.
 
 | Tool | Input and authoritative result | Allowed profile |
 | --- | --- | --- |
-| `factory.context` | Default input → current assignment, required role context and authorized local-lineage index, with one fixed bundle foregrounded by a saved Jev choice; optional `{cursor}` continues a bounded context page. Missing/uncertain selection → basic snapshot plus hold. See [worker context](#d14-worker-context); the cursor and role projections are target contracts, not a claim of current implementation. | All seven |
-| `factory.evidence` | `{ref,cursor?}` → authorized bounded evidence page, digest, completeness and next cursor. No arbitrary file/URL reads. | All seven |
-| `factory.status` | Empty input → current assignment/tasks, observed operations, integration HEAD, remaining allowance and stop/staleness reason. Reading never launches work. | All seven |
-| `factory.receipt` | `{submission_id}` → this assignment's durable receipt/state or undisclosable not-found. | All seven |
-| `factory.finish_incomplete` | Terminal `{outcome:blocked\|failed\|cancelled,cause,evidence_refs,affected_task_ids,requested_resolution}` → recorded proposal. Causes include question, failed assumption, ownership conflict, missing evidence and exhausted allowance. | All seven parents |
+| `factory.context` | Default input → current assignment, required role context and authorized local-lineage index, with one fixed bundle foregrounded by a saved Jev choice; optional `{cursor}` continues a bounded context page. Missing/uncertain selection → basic snapshot plus hold. See [worker context](#d14-worker-context); the cursor and role projections are target contracts, not a claim of current implementation. | All eight |
+| `factory.evidence` | `{ref,cursor?}` → authorized bounded evidence page, digest, completeness and next cursor. No arbitrary file/URL reads. | All eight |
+| `factory.status` | Empty input → current assignment/tasks, observed operations, integration HEAD, remaining allowance and stop/staleness reason. Reading never launches work. | All eight |
+| `factory.receipt` | `{submission_id}` → this assignment's durable receipt/state or undisclosable not-found. | All eight |
+| `factory.finish_incomplete` | Terminal `{outcome:blocked\|failed\|cancelled,cause,evidence_refs,affected_task_ids,requested_resolution}` → recorded proposal. Causes include question, failed assumption, ownership conflict, missing evidence and exhausted allowance. | All eight parents |
 | `factory.finish_product_plan` | D02 complete 1–3 graph candidates, inspected evidence, idea coverage and consequential questions. Required unanswered questions make it incomplete, not an accepted graph. | Product Lead |
 | `factory.finish_issue_plan` | D03 investigation and immutable plan: evidence, approach/alternatives, coverage, ordered tasks/lanes/checks and unresolved facts. Mandatory unresolved facts refuse executable status. | Architect |
 | `factory.finish_implementation` | Exact candidate plus completed-task/checkpoint/integration receipt references, or explicit unchanged outcome. D05/D03 validators establish publication eligibility. | Builder parent |
@@ -1360,7 +1344,7 @@ reports incomplete evidence; it cannot become an empty successful collection.
 | `factory.submit_task_output` | `{task_id,manifest_digest,native_child_ref?,output_digest,evidence_refs}` → proposal awaiting trusted observation/checkpoint. Builder requires its observed child; Fixer must omit child and uses the bound parent singleton. Agent success text is not a receipt. | Builder/Fixer parent |
 | `factory.request_handoff` | `{predecessor_task,successor_task,manifest_digest,output_submission_id}` → request against the already approved DAG. Release only follows verified predecessor checkpoint. | Builder parent |
 
-All mutations also require `{submission_id,expected_input_digest,payload}`;
+Authenticated worker mutations require `{submission_id,payload}`; the server supplies the bound input digest unless the caller explicitly sends `expected_input_digest` to detect a stale view.
 `submission_id` is a 32-hex identifier. Unique `(assignment_id,submission_id)` is the idempotency key; persist tool,
 expected input digest and canonical payload hash for immutable comparison. Exact replay returns the existing receipt; changed
 bytes under that ID conflict. One terminal proposal per assignment: a second
@@ -1962,6 +1946,10 @@ stops charging only after confirmed retirement. Owner-authorized limit increases
 retain consumed usage. This is a finite time bound, not a promised monetary cap.
 
 ## D16 — Whole-app verification and honest completion
+
+**Current local implementation:** the trusted check catalog contains `project.check`, executed by the existing native preparation supervisor using the administrator-approved `check.sh` bytes. That script must include exactly one line `# soda-app-verification: {"intent_id":"<intent ID>","accepted_revision":"<accepted revision ID>","outcomes":["<accepted outcome ID>"]}` naming the current accepted intent revision and every effective outcome. The approved script's assertions must actually test those outcomes; an ordinary successful environment check without this declaration cannot verify the application. Changing the declaration or assertions changes approved setup bytes and uses the existing preparation approval path. Arbitrary generated shell commands and external fixture grants are unavailable through this catalog entry.
+
+The controller discovers accepted intents whose bound tasks have real integrated issue-completion records. It reads the protected approved script and current native preparation receipt at the exact integrated target commit before admitting a readonly Test Pilot assignment. `factory.verification_evidence` exposes the bound declaration and native check receipt for that assignment. After successful worker retirement, the controller independently reloads the native receipt, current accepted scope, approved preparation and repository target; the worker report must cover exactly the accepted outcomes and match the observed check-output digest. Only that join writes the Factory-owned F10 “Application outcomes verified” post. Missing, stale or failed native evidence produces an F09 wait; issue completion remains F06 and never substitutes for application verification. This fixed check route is implemented; the broader manifest executor and fixture catalog described below remain separate work.
 
 Test Pilot verifies a delivered **accepted intent version**, not an empty queue.
 Persist `DeliverySubject{delivery_id,intent_id,accepted_revision,scope_digest,

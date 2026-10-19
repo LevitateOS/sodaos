@@ -36,6 +36,7 @@ language, packages and placement. Update guidance affected by the current change
 | Native validation journeys | [Testing](testing.md) |
 | Support tool effects and candidates | [Native support](native-support.md) |
 | Running the release pipeline | [Release workflow](release.md) |
+| Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
 ## Remaining implementation and qualification

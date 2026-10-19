@@ -1,10 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This is a design proposal for the seven production worker roles and the proposed
-Library Admin maintenance role. It covers how they
-receive information, advance their assigned work, communicate with people and
-other roles, and build a reusable shared knowledge library. It is a brainstorm
-with a recommended design, not an implemented API or a frozen tool count.
+This document defines the seven production worker roles and Library Admin, their context, work, communication and shared knowledge. The implemented catalog now contains 45 tools across eight profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -16,9 +12,10 @@ Done continues to use the admitted role's structured finish tool in this proposa
 The owner subsequently identified two omissions: a dedicated decision-recording
 outlet and a bot that can maintain both knowledge and decision items. This
 revision adds shared decision tools and the Library Admin profile. The seven
-production roles and their work ownership remain; the source catalog still has
-seven profiles and 14 tools. The new maintenance role is a design addition,
-not a claim that an eighth runtime profile already exists.
+production roles and their work ownership remain; the original source baseline had
+seven profiles and 14 tools. Shared communication and decision tools have since
+been added, with the [executable feed catalog](../../internal/factory/feed_components.json)
+binding each component to permitted roles and outlets. Library Admin is now the eighth runtime profile. An accepted issue with a `soda` JSON fence containing `{"role":"library_admin"}` selects the `maintain_library` phase. It runs as the reviewer account, scoped to the project library, without source publication or a code-completion claim.
 
 The later [issue work-contract brainstorm](#issue-work-contracts) extends this
 design with typed issue metadata, specialist routing, knowledge-only completion
@@ -30,8 +27,8 @@ The owner also requires three built-in generic System One tools:
 `systemone.noul`, `systemone.choice` and `systemone.score`. They are shared by
 every role alongside the Factory interface. The main inventory therefore has
 63 Factory tools plus three generic judgment tools; the research extension
-remains separately proposed. This is required design scope, not implemented
-worker MCP exposure.
+remains separately proposed. The generic judgments are implemented now; the
+larger 63-Factory-tool inventory remains design scope, distinct from the current 42.
 
 ## 1. What the redesign must accomplish
 
@@ -59,9 +56,8 @@ not automatically become permanent knowledge.
 
 ### Verified starting points
 
-- The [source catalog](../../internal/factory/mcp_profile.go) contains 14 tools
-  filtered by seven roles. It is the current source baseline, not the complete
-  product interface being proposed here.
+- The [source catalog](../../internal/factory/mcp_profile.go) now contains 45
+  tools filtered by eight roles: 42 Factory tools plus generic `systemone.noul`, `systemone.choice` and `systemone.score`. Shared communication, library search/read and artifact upload precede role-specific tools in discovery. Library Admin operations apply actual revisioned knowledge and decision changes.
 - [D14](../development/factory-workflow-contracts.md#d14--one-factory-mcp-implementation-and-seven-profiles)
   already defines one Factory MCP implementation, scoped admission, receipts,
   role finishes and separate native execution tools.
@@ -69,10 +65,9 @@ not automatically become permanent knowledge.
   combined subscribed feed, structured contributions, comments and links from
   discussions to resulting work. Several interaction and record schemas remain
   unspecified.
-- The inspected Soda Factory, frontend and product/design sources contain a
-  knowledge/discovery feed concept, but I did not find a defined shared knowledge
-  library lifecycle or worker API. That is a gap in the inspected scope, not proof
-  that no related work exists elsewhere.
+- The initial inspection found a knowledge/discovery feed concept without a
+  library lifecycle. The current implementation adds revisioned knowledge and
+  decisions, scoped search/read tools, maintenance tools and project library UI.
 - Ralph's local `crates/ai-prompt-builder/src/mcp/task_signals_server.ts` exposes
   eight signal tools, including a learning with kind, reason and scope.
   `crates/ai-rag/src/learning.rs` adds provenance, deduplication/conflict handling,
@@ -83,6 +78,49 @@ The concrete insufficiency is missing interaction lifecycles and consumers. Tool
 count alone neither establishes nor resolves it.
 
 ## 2. Recommended shape: one service, complete role interfaces
+
+### Implemented worker binding and startup
+
+The interface is instantiated for a particular assignment immediately before
+its worker starts. The server already knows the repository/project, actor,
+role, assignment, run, source binding, preparation and expiry from its admitted
+capability. These are supplied in discovery/context and attached to stored
+submissions by the server. A worker supplies the content of its question,
+decision, progress or result; it does not repeatedly select its identity or
+claim another project's authority through tool arguments.
+
+The privileged host stages the run-scoped credential and fixed MCP
+configuration before releasing the existing model-start marker. Codex loads
+its per-run `config.toml`; Muse loads its per-run `settings.json`. Both invoke
+`/usr/libexec/soda/project-terminal factory-mcp`. This stdio relay connects only
+to the private Factory Unix socket and reads the root-staged credential from
+that run's home. Missing socket, helper or staging fails startup rather than
+quietly launching a worker with no Factory tools. Credentials stay out of
+prompts, feed posts and saved run receipts. The server rechecks actual run and
+stop authority; an expired or stopped assignment cannot keep submitting merely
+because its relay process still exists.
+
+The shared [component catalog](../../internal/factory/feed_components.json)
+contains 121 presentation variants: 102 worker-report/role-result variants,
+10 controller-owned event variants and nine Library Admin variants.
+Each worker variant declares its allowed role and semantic outlet; direct tool
+calls enforce that mapping. A worker cannot select a merge/completion card to
+manufacture a confirmed effect. Library Admin has dedicated revision-checked mutation tools, scoped to the current project. `learned` and `record_decision` create real searchable library entries together with their posts. Edit, remove, restore, consolidate, split, relate and supersede preserve attributed history. Project feed users can search these entries and inspect their revisions.
+
+Artifacts use `factory.publish_artifact`: stable upload ID, byte offset, base64 chunks of at most 32 KiB and an explicit final chunk, with an 8 MiB file limit. Only finalization publishes a post; chunk replay recovers the same receipt. Artifact references resolve through project authorization, with lazy image/video/audio/text previews and downloads. Graph edges come from explicit item IDs and dependencies.
+
+Communication payloads also accept `source: {path, revision?, start_line, code, after?, highlight_lines?}` and `commits: [{revision, summary}]`. Each excerpt is limited to 32 lines and 3,072 bytes; highlighted absolute line numbers must occur in `code`. Up to eight commits carry full 40-character revisions and summaries of at most 160 characters. The existing 8 KiB post bound still applies. Source and commit data pass through the authenticated tool, storage and feed projection without worker-supplied identity. These fields enable annotated findings, corrections and checkpoint trails; they record reported evidence without granting review, merge or completion authority.
+
+Test Pilot now has production admission: completed accepted intent tasks, a current integrated source and a ready reviewer preparation with approved application assertions create a delivery assignment. Funding and the scoped MCP are recorded before launch. `factory.verification_evidence` reads independently observed native checks; F10 is recorded only after the completed report matches that exact source, receipt and outcome coverage. Missing assertions or unavailable checks produce an actionable Factory event.
+
+Generic System One tools accept state, instructions and primitive-specific criteria directly. Credentials stay server-side, and results carry no Factory acceptance authority. They use the same live worker binding and request limits. Workers receive guidance to compare three independent, counterbalanced questions for substantive decisions.
+
+Local checks cover the stdio-to-Unix-HTTP exchange, role/outlet enforcement,
+configuration for both harnesses, staging before model start and exclusion of
+credentials from durable receipts. This does not by itself establish a new
+paid model run on the installed VM or the entire proposed 63-tool design.
+
+### Shared implementation, role-specific interfaces
 
 Keep one Factory MCP server implementation and give every worker a role-specific
 interface composed of shared tools plus the tools for its assigned job. A
@@ -223,15 +261,7 @@ repair routes; Test Pilot can assess supplied observations; Library Admin can
 evaluate possible duplicates or contradictions. These are uses of the same
 three tools, not new role-specific judgment endpoints or acceptance authorities.
 
-**Current gap and ownership:** `internal/factory/control/priority_typesafe.go`
-already calls the provider for controller-owned Choice judgments. The current
-`internal/factory/mcp_profile.go` catalog exposes none of these three generic
-tools. Reuse suitable transport/accounting behavior through a generic provider
-module without making the reusable contract depend on Factory DTOs. R30 owns
-the three MCP adapters, discovery and admission; R11 supplies bounded Factory
-usage accounting. R48 qualifies actual harness calls, and R42/R43/R49 cover
-referenced consequential judgments in work/feed/library. See the
-[task mapping](../development/factory-remaining-tasks.md#full-worker-design-integration).
+**Current implementation:** the role-filtered worker catalog exposes all three generic tools. `systemone_typesafe.go` owns their provider transport and the MCP adapter accepts state, instructions and criteria without Factory-specific question fields. The server supplies its provider credential, run admission and request limits. Live synthetic-input checks returned typed Noul, Choice and Score answers. These judgments do not write feed/library records by themselves; consequential decisions can reference them through `factory.record_decision`. Controller-owned Choice selection keeps its separate existing acceptance and accounting rules.
 
 ### Situation, evidence and interaction reads
 
@@ -575,7 +605,7 @@ authorized.
 
 **Job:** maintain useful, accurate, navigable knowledge and decision collections:
 edit, remove, restore, consolidate, split, relate and supersede items. This is a
-dedicated proposed `library_admin` profile, in addition to the seven production
+dedicated `library_admin` profile, in addition to the seven production
 roles. The owner explicitly requested this responsibility; it is no longer left
 as a hypothetical future Librarian option.
 

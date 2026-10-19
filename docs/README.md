@@ -71,6 +71,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Lit](development/lit.md) | Spaces Lit components |
 | [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
 | [Native support tools](development/native-support.md) | Build/support tool effects |
+| [Front-end VM update](development/frontend-vm-update.md) | Shipping front-end changes to the retained local development VM |
 | [Release workflow](development/release.md) | Running the release pipeline |
 | [Cockpit](development/cockpit.md) | Stock Cockpit branding port |
 
