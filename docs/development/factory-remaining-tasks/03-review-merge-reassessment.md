@@ -164,6 +164,17 @@
 
 **Deliver:** Consume checked no-change or proposed revisions, assess through finite Jev policy and adopt serial exact native graph operations without replacing protected/manual/active/completed identities or accepted history.
 
+**Ongoing Git-issue ownership:** Strategist owns in-scope issue-plan maintenance:
+clarify idle tasks, split/combine them, add missing tasks, retire redundant tasks
+and repair dependencies. Consume R40's exact diagnosis/draft/preview/finish and
+R32's attributed decision references; Factory/native operations apply the graph.
+Preserve protected manual/active/delivered/PR-linked work. Retiring a task uses
+supersession and removes dispatch authority, not false delivered closure. Qualify
+these changes with full outcome/dependency coverage, lost replies and partial
+adoption; R42 shows proposed versus confirmed changes. Scope expansion returns
+to the actual product owner. Generic labels/assignees/milestones or arbitrary
+issue deletion are not silently added to this bounded contract.
+
 **Accept only when:** Current scope/coverage/route/packet bounds refuse before effects. Lost replies and a later conflicting intent preserve the committed prefix and fence successor work. Only confirmed no-change/full adoption releases its event; Retry cannot abandon an activated head.
 
 **Executable remainder:** Consume R28's sealed cycle and R13's exact graph adoption contract. `reassessment_adoption.go::ValidateReassessmentAdoption` and `ReassessmentJournal::{CurrentStep,MarkStepActive,MarkStepCommitted,Releasable}` already validate and stage serial work; this pass found no production caller of validation. Join checked Strategist output and bounded Jev judgment to durable step progression through the existing generation owner. First materialize one intent; then two intents with a crash/lost reply after the first commit and a conflicting later head. Release only confirmed no-change or fully adopted revision sets. Focused PG driver tests and R05 native readback supplement T35–T39; never abandon an activated unmaterialized head.

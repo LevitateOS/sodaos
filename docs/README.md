@@ -76,6 +76,8 @@ command workflow. Spaces connects repository environments with human and factory
 | [Branding](design/branding.md) | Logo, palette, asset rules |
 | [Spaces UX](design/spaces-ux.md) | Spaces page and persistent panel design |
 | [Factory feed and Ralph4days integration](design/factory-feed-and-ralph-integration.md) | Agreed integration direction, complete-procedure presentation, role authors, MCP communication proposals and open feed design choices |
+| [Factory worker MCP redesign](design/factory-worker-mcp.md) | Seven production profiles plus proposed Library Admin; shared decision logging, knowledge maintenance, issue ownership and connected work/feed/library tools |
+| [Factory feed component catalog](design/factory-feed-components.md) | Custom components for every role, shared knowledge and Factory events; compact/expanded views, interactions, source records and state behavior |
 | [Spaces sheets](design/spaces/README.md) | Annotated visual design sheets |
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |

@@ -22,6 +22,40 @@ Exact storage/post schema follows the
 [feed design](../../design/factory-feed-and-ralph-integration.md), not an invented
 second task database.
 
+**Required work/feed/library projections:** Implement the
+[full design](../factory-remaining-tasks.md#full-worker-design-integration) against
+R32/R33/R34/R40 records, not a parallel task or decision database:
+
+- [ ] Supply authorized prepared search/read projections for knowledge and
+  decisions: applicability, provenance, exact revision, support/governance/
+  validity, authority/application state, conflicts, reuse and supersession.
+  Start with indexed/filterable retrieval; reads do not run a model or spend.
+- [ ] Supply Library Admin inventory, reference/impact and maintenance-result
+  projections, including consolidation/split mappings, removal/restoration and
+  historical links. Preserve access for every source, snippet, count and cache;
+  collection grants are separate from feed subscriptions and attempt lineage.
+- [ ] Project questions, answers, incorporation, proposals, role drafts,
+  coverage/dispositions, decisions, artifacts and changed prerequisites into
+  the same feed/thread/inbox identities. Decision logging, actual authority and
+  work application stay separate. Routine updates coalesce with visible history;
+  consequential changes have their own posts, with stable newest-first ordering.
+- [ ] Consume durable projection obligations with replayable identity. Expose
+  recorded/applied state separately from delayed search/feed indexing. Deletion,
+  access loss, supersession and concurrent updates cannot leak cached content,
+  resurrect old state or require repeating the original mutation/native effect.
+
+Release each prepared projection to R31 reads and R43 views as its producer is
+ready. Qualify a complete empty result versus incomplete/unavailable pages,
+cross-project denial, out-of-order events, lost projection work and restart.
+The [component catalog](../../design/factory-feed-components.md#13-component-data-and-mcp-relationship)
+maps each presentation family to required source records and identifies missing
+producer schemas; a generic summary or a fixture alone does not supply them.
+Its [exception-routing contract](../../design/factory-feed-components.md#failure-component-routing)
+defines deterministic compositions from role records, lifecycle/effect state,
+source validity and access. Preserve simultaneous exceptions, exact affected
+scope and stable identities through late/duplicate updates; a missing projection
+cannot become a successful empty result or trigger a model call on read.
+
 **Additional acceptance:** All eight verbs and their role-specific formal
 results have real producer-to-store-to-API coverage. Reads spend nothing and do
 not mutate the workflow. Cross-account/repository isolation, ordering/revision
@@ -47,6 +81,41 @@ submission is never mislabeled as an observed downstream effect.
 
 **Deliver:** Render actual producer/read-model states, links, actionable waits and admitted intervention in existing Work/Spaces. Reuse native ownership/lifecycle/navigation/terminal work and requalify changed joins, geometry, accessibility, assets and attribution.
 
+**Full design implementation:** Build the [entire component catalog](../../design/factory-feed-components.md)
+through the existing Lit owners: all seven production role families, Library
+Admin, shared conversation/decision/knowledge components and actual Factory/Jev
+events. Use the documented source-to-component and non-happy-path mappings;
+there is no worker-facing widget-ping tool. Implement source contracts as needed
+with R32/R33/R34/R40 and R42, preserving one canonical record per fact.
+
+- [ ] Render the combined subscribed feed newest first, with clearly separated
+  posts and avatar/name/role/project/time/status in an unboxed header outside
+  each card. No default timeline spine or nested multi-role issue wrapper.
+  Use medium-detail work posts consistent with the accepted visual direction;
+  full applications/logs/evidence open separately, with no literal-tweet cap.
+- [ ] Implement real questions/answers, comments/replies, safe artifacts,
+  proposal/decision inspection and links to resulting plans/issues/effects.
+  Preserve discussion drafts, reading position and explicit return-to-latest
+  behavior. Replies do not silently dispatch work or reorder the feed.
+- [ ] Build library and decision search/browse/detail with project/component/
+  kind/applicability/status filters, sources, examples, history, conflicts,
+  replacements and usage. Authorized humans can propose corrections or apply
+  permitted governance/maintenance actions against the same domain objects.
+- [ ] Render Library Admin edits, consolidations, splits, removals/restorations,
+  supersession, conflicts, affected work and maintenance results. Show proposed,
+  refused, applied and projection-pending states accurately; a maintenance bot
+  cannot author a new product policy through a cosmetic edit.
+- [ ] Preserve every material exception in the default post: missing evidence,
+  stale inputs, known blocker, diagnosis needed, incomplete coverage, disputed
+  finding, failed regression, partial adoption, invalid fixture, conflicting
+  decisions and access loss. Simultaneous problems retain their affected scope.
+  Recovery follows the actual owner/receipt; no invented success or retry power.
+
+Use focused producer-backed browser cases for the changed interactions, including
+keyboard/focus, narrow/wide and light/dark layouts, reload, account change,
+late updates and inaccessible artifacts. Reuse renderer primitives and existing
+valid checks rather than creating a separate implementation/test per catalog row.
+
 **Ralph absorption addition:** Absorb Ralph's useful capabilities and interaction
 behavior into a fresh Lit/TypeScript interface in this same Work/Spaces experience.
 The owner explicitly excluded React integration; Ralph's existing appearance
@@ -56,7 +125,7 @@ the complete intended procedure to role, permitted MCP action, feed component,
 evidence condition and concrete reuse source. Use one actual avatar/typed
 question/reply/history flow to define the new Lit components, their Soda
 appearance and host/resource lifetime behavior. Preserve the seven established personas as
-primary authors; select character/artwork assignments explicitly, with technical
+production authors and add Library Admin's distinct attribution; select character/artwork assignments explicitly, with technical
 specialties as a separate possible dimension. Include structured components for
 direction, dependencies, investigation, task lanes/checkpoints, review/correction,
 JEV decisions, waits, reassessment/repair and exact app verification. Reuse
@@ -73,6 +142,35 @@ accessibility and any reused asset attribution survive integration. The source
 reuse map accounts for retained independent code/assets, behavior implemented
 in fresh Lit components and demonstrated new work. No React runtime or React
 component integration is introduced.
+
+**Role component design:** use the
+[full custom component catalog](../../design/factory-feed-components.md) for the
+seven distinct role compositions, shared communication/knowledge components and
+Factory/Jev events. Its compact/expanded views, allowed actions, canonical state
+sources and incomplete/stale/access-lost behavior are required R43 implementation scope.
+Include the shared Recorded Decision component and proposed
+[Library Admin components](../../design/factory-feed-components.md#library-admin-components):
+item edits, consolidation/split mappings, removal/restoration, supersession,
+conflicts and affected work. Bind these to canonical decision/maintenance records
+from R32 and authorized R42 projections. Logged choice, actual decision authority,
+applied workflow effects and search-index freshness remain distinct.
+Apply the [work-post presentation direction](../../design/factory-feed-components.md#work-post-presentation):
+give the message, role-specific visual, state and relevant interaction enough
+space to explain the work. The owner excludes both literal tweets and entire
+embedded applications; no fixed post count or tiny-preview cap is implied.
+Full workspaces and long evidence open separately; failure/pending state remains
+visible in the post.
+Reuse Lit renderer primitives while retaining different outcome, finding, task
+and verification semantics; this is not one implementation class or MCP endpoint
+per catalog row. Finalize producer schemas with R32/R42 and the relevant role
+consumers before claiming live component acceptance.
+Use the catalog's [per-role exception matrices](../../design/factory-feed-components.md#18-non-happy-path-compositions-for-each-role)
+and [combined failures](../../design/factory-feed-components.md#19-knowledge-transport-and-combined-failures)
+for concrete component selection and recovery. Qualify the
+[routing acceptance cases](../../design/factory-feed-components.md#20-acceptance-of-the-routing-design)
+with producer-backed records: required exceptions survive compact views,
+unknown/stale evidence cannot imply success, system events retain system
+authorship, and visible controls obey current authority and revision checks.
 
 **Accept only when:** Real persisted API-to-browser journeys pass both native entry orders, page/panel/history/reload/account changes and mandatory terminal/renderer/socket assertions. No injected links, absent-renderer success or reopening all 57 NFX tasks as new implementation.
 
@@ -169,6 +267,15 @@ aliases of existing gates, not extra prerequisite projects.
 
 **Accept only when:** No pre-injected accepted graph/merge authorization or manual phase invocation substitutes for serving progression. Relevant race/rollback/lost-reply cases pass on actual PostgreSQL with no hidden skips; compare real baseline failures, not summary claims. This adds cross-task composition to checks already required within each task.
 
+**Full design composition:** Include R32 decision/library/maintenance records and
+R31/R42 retrieval in the existing API/Store cases. Prove stable identity across
+work/feed/library, question incorporation, decision authority versus application,
+atomic consolidation/split mappings, stale/refused writes, source revocation,
+terminal freeze and lost replies with delayed projections. Shared result preflight
+must be read-only and finish must recheck current evidence. Reuse constituent
+role/native checks; add only missing cross-owner and race cases required by the
+[full design task map](../factory-remaining-tasks.md#full-worker-design-integration).
+
 **Executable remainder:** First triage recorded Deep CI 39139499605 against its actual failed jobs and current selectors: release-build source/CLI assertions, Tailnet navigation, PG topology and fixture/toolchain cases. Start at `.github/workflows/deep-ci.yml`, `tests/build/source_checks_test.go`, `tests/frontend/{tailnet,workspace-navigation}.test.ts`, `scripts/pg_runtime_test.go` and the failed package's existing PG fixture. Prepare only demonstrated repairs and focused reproductions; accepted wait-slot/schema fixes stay closed. This can start independently of the later composed proof. As upstream slices land, exercise API/Start/MCP → real PG → adapter → next consumer in existing tests, ending with clean/correction, D13, stall/Test Pilot and intervention routes. Reuse constituent evidence and run only missing cross-task/race cases with no hidden PG skips. The listed parent inputs gate final composition, not initial failure triage; required CI green does not erase Deep failures.
 
 **Triage status:** PG topology/wiring (four unit lines realigned to the merged image-import composition and `Pull=never`), the CLI surface fixture (`soda-image-import` root-refusal prose) and the oci-archive export literals (skopeo copy form) are repaired test-side with no product change and pass; frontend `tailnet.test.ts` passes. Settled per owner direction: Tailnet stays a separately activatable optional extension with its admin-gated page; stale contract tests are rebound to the optional package (R46 records the verified connection). Held on external inputs: candidate/provisioning/installer/wire/backup cases (Fountain checkout, private keys, daemon, sockets, live PG). The navigation browser suite passes 14/14 on the pinned headless-shell build. Complexity gate is fully green: shim/prose/discovery/precommit test repairs pass, the TS gate test is rewritten to the native mechanism, and two small product restorations landed in `check.ts` — fail-closed on missing explicit input (documented policy since the fail-closed fix, regressed at gate unification) and analyzer-stderr forwarding for download diagnostics; the gate's own bun self-tests match baseline with no regression. Composed R47 qualification remains open.
@@ -183,6 +290,17 @@ aliases of existing gates, not extra prerequisite projects.
 **Current (wind-down):** Exact harness/provider transport and first-response semantic trials. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use retained drivers and bounded authorized accounts/fixtures to exercise actual Codex and Muse transport/role/native behavior and first-response semantic cases for decomposition, delivery decisions, reassessment and repair.
+
+**Expanded profile usability:** Consume the complete R30 catalog and R31 context
+plus R32/R33/R34/R40 consumers. Qualify all seven production profiles and Library
+Admin on supported harnesses: required input discovery, choosing the appropriate
+shared/role action, receiving its actual result and recovering an uncertain
+receipt. Include decision logging/retrieval, question-answer incorporation,
+learning reuse, maintenance edits/consolidation/splitting and authority refusal.
+Check actual tool-list/prompt usability before changing exposure; do not impose
+an arbitrary tiny catalog or treat advertised stubs as usable capabilities.
+These cases use the existing finite funded trials when authorized; planning
+integration itself does not dispatch a provider call.
 
 **Accept only when:** Exact CLI/model/account/reasoning/Contributor/config and prompt/result/usage bindings are retained. Broad roots/joins, tiny work, ambiguity, clean zero-call and correction/uncertainty cases meet contracts. A missing input names the precise case; mock or duplicated SDK-binary runs cannot qualify a real provider/harness.
 
@@ -206,6 +324,31 @@ reuse and real persisted updates; illustrative movie data cannot stand in for
 this acceptance. Retain the existing R49 inputs and installed proof boundaries.
 
 **Deliver:** On one owned supported development assembly, run real prompt→semantic graph→selection→investigation/plan→native overlap/checkpoints→PR→review/correction→CI→merge/original closure→dependent→reassessment→Test Pilot, with actual Work/Spaces and human intervention.
+
+**Full design journeys:** Extend this same assembly with the
+[MCP journeys](../../design/factory-worker-mcp.md#8-complete-journeys-that-stress-the-design)
+and [component failure routing](../../design/factory-feed-components.md#failure-component-routing):
+
+- [ ] A product ambiguity becomes an answer, attributed decision, incorporated
+  plan and actual initial Git issues; another worker retrieves the decision.
+- [ ] An independent defect becomes a correction/regression result and reusable
+  knowledge; a later role finds and uses the exact entry, then contradicts or
+  amends it when evidence changes.
+- [ ] A known blocker resolves while independent work progresses; an uncertain
+  cause takes the bounded diagnosis route. Strategist split/combine/dependency
+  changes preserve protected issues, and a failed/partial adoption remains honest.
+- [ ] Library Admin edits, removes/restores, consolidates, splits, relates and
+  supersedes knowledge/decision items with real receipts. Old work references
+  remain inspectable; changed decisions notify affected work without silently
+  adopting new scope. Conflicts, stale preview, access revocation, a lost reply
+  and delayed indexing exercise the actual recovery paths.
+- [ ] All resulting posts obey newest-first separation and external author
+  headers, use the correct role/system components and survive reload, paging and
+  account change. Library/decision search and human actions share the same facts.
+
+Reuse focused R47/R48 evidence for established boundaries and prove the missing
+cross-surface joins here. Report actual remaining failures; this criterion does
+not infer success from mock cards, a component count or an agent's Done message.
 
 **Accept only when:** Both clean and correction/Jev routes plus pre-completion stall recovery and restart are observed with exact identities/bytes and bounded usage. Retained human services/work survive. Development success is explicitly distinct from shipping-byte qualification.
 

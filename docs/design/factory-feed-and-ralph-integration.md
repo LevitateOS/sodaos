@@ -16,9 +16,22 @@ authority. [Spaces UX](spaces-ux.md) owns the surrounding workspace experience.
 The procedure below maps those contracts to a proposed presentation; it does not
 replace them or create a second implementation task catalog.
 
+The owner subsequently requested a complete role-by-role MCP redesign spanning
+Factory progression, this feed and a shared knowledge library. The
+[worker interface proposal](factory-worker-mcp.md) owns that full brainstorm:
+shared tools, role work operations, interaction lifecycles, knowledge reuse and
+end-to-end journeys. Its extra tool names and presentation recommendations are
+proposals, not implemented or frozen contracts. The seven communication additions
+below are a minimum requirement, not the complete redesigned interface.
+
 ## Agreed direction
 
 - Put the feed **inside Soda OS**, following real Factory work.
+- Present **work posts with useful visual detail**, avoiding both literal tweets
+  and entire embedded applications. The
+  [post presentation contract](factory-feed-components.md#work-post-presentation)
+  keeps explanations, role-specific visuals, state and discussion coherent,
+  while full workspaces and long evidence remain separately inspectable.
 - Consolidate subscribed activity into **one combined feed**, with the newest
   posts at the top. Users subscribe to feeds/projects; project-only views and
   threads support navigation but do not replace this combined experience.
@@ -31,13 +44,16 @@ replace them or create a second implementation task catalog.
   parallel tasks, reviews, corrections, waits, recovery and application verification.
 - Use the marketing website's factory film as a source of component and interaction
   ideas. Ground the real feed in recorded work and evidence.
-- Use the established seven agent personas as recognizable authors. Keep the
-  author separate from the type of event or message.
+- Use the established seven production personas and the proposed Library Admin
+  as recognizable authors. Keep the author separate from the event/message type.
 - Extend role-scoped MCP controls so agents can explain their work and maintain
   their feed contributions during an assignment.
 - Adopt Ralph's eight communication verbs: **ask, flag, learned, suggest, partial,
-  blocked, stuck and done**. Use Soda's existing Factory MCP implementation and
-  profiles. Done submits the role's formal result; Factory confirms completion.
+  blocked, stuck and done** as actual MCP outlets. The seven nonterminal actions
+  each have a shared tool on Soda's existing Factory MCP server. Done submits
+  through the role's existing finish tool; Factory confirms completion. The
+  [outlet contract](../development/factory-workflow-contracts.md#d14-communication-outlets)
+  fixes the names and role access.
 - Treat Ralph4days absorption as a product integration spanning identity,
   communication, work inspection, prompts and workspace interactions.
 - Absorb Ralph's useful capabilities, communication vocabulary and interaction
@@ -185,6 +201,19 @@ assignment. Human illustrations, robots, new artwork and reuse of existing
 portraits have not been selected by this discussion.
 
 ## Feed and component proposal
+
+The [role-by-role component catalog](factory-feed-components.md) owns the full
+brainstorm of custom feed components: compact/expanded content, interactions,
+canonical producers, evidence states and library links for the seven production
+roles and Library Admin, including shared recorded decisions.
+Its [exception routing](factory-feed-components.md#failure-component-routing)
+also maps non-happy paths to concrete role components, simultaneous conditions
+and permitted recovery. Server projections select these compositions from typed
+work records and authoritative state; workers cannot hide failures by choosing
+a successful-looking layout.
+The families below are an overview, not the complete inventory. One role action
+can populate several components in one post; components do not each require a
+separate MCP tool or a separate source of truth.
 
 The primary composition is one combined feed of the user's subscribed activity,
 with newest posts first. This accepted direction supersedes the earlier
@@ -364,7 +393,26 @@ seven role-scoped profiles**. Common reads are `factory.context`,
 `factory.evidence`, `factory.status` and `factory.receipt`. All profiles can report
 incomplete work. Builder/Fixer can submit task outputs, and Builder can request
 handoff to an approved successor. The existing fourteen-tool catalog is the
-baseline; this discussion proposes additions, not a claim that new tools exist.
+implementation baseline. The required design adds seven distinct shared MCP
+communication tools; their implementation remains R32 work.
+
+Use the [worker-interface breakdown](../development/factory-workflow-contracts.md#d14-worker-interface-layers)
+for current per-role catalog counts and the distinction between working tools,
+context, communication and formal results. A single role-specific finish control
+is a structured result boundary, not evidence that the role has only one tool or
+that its workflow is inadequate. The communication requirements below are
+independently adopted additions whose implementation remains with R32.
+
+The [worker-context design](../development/factory-workflow-contracts.md#d14-worker-context)
+distinguishes what each of the seven roles needs, the current facts supplied
+automatically, and additional authorized history it could use. Required task and
+finding information stays available in every usable bundle. Jev proactively
+chooses which code-built bundle to foreground; it cannot grant access, omit
+required inputs or turn conversation text into authority. An uncertain or
+unavailable selection returns the basic snapshot with an explicit hold. The
+linked contract owns the role matrix, projections, limits and funding; this feed
+design does not create a second context policy or make private discussions
+available to workers.
 
 Ralph contributes a useful distinction between author and communication intent.
 Its signal verbs include `done`, `partial`, `stuck`, `ask`, `flag`, `learned`,
@@ -375,9 +423,14 @@ Its signal verbs include `done`, `partial`, `stuck`, `ask`, `flag`, `learned`,
 The owner agreed to carry these eight verbs into the integration blueprint while
 retaining Soda's existing MCP system. **Role identifies who is speaking; verb
 identifies the communication; workflow state records what actually happened.**
-The names of new MCP tools and whether the seven nonterminal verbs use separate
-tools or a typed communication tool remain interface choices. The vocabulary
-does not require eight new tools or a replacement server.
+Each action must have an actual MCP outlet. The
+[canonical outlet table](../development/factory-workflow-contracts.md#d14-communication-outlets)
+selects seven distinct shared tools for ask, flag, learned, suggest, partial,
+blocked and stuck. Done uses each role's existing structured finish tool.
+Separate callable tools are the required design; a generic communication tool
+or feed-only labels do not satisfy it. All seven roles receive the shared
+outlets on the existing server. The selection is settled; strict payload schemas
+and implementation remain R32 work.
 
 The following fields are the proposed semantic payloads, not a frozen wire schema.
 Normal scope, submission identity and expected-input binding come from the
@@ -387,15 +440,26 @@ existing MCP admission contract.
 | --- | --- | --- | --- |
 | **ask** | Specific question; blocking meaning; optional answers and recommendation; consequence and affected work | Question with options, linked work and reply history | Route material product choices through existing review; a reply or reported blocking flag does not independently change authority or bypass readiness |
 | **flag** | Problem, severity, category, affected outcome and evidence references | Finding/problem card with evidence and native location where available | Link canonical review findings rather than creating a second finding truth; distinguish informational warnings from actionable defects |
-| **learned** | Observation, decision or convention; rationale where relevant; applicable scope and evidence | Knowledge/discovery card | Retain useful context without promoting an agent assertion into accepted policy; actual decisions link their authorized records |
+| **learned** | Reusable observation or evidenced convention; applicable scope, rationale and evidence | Knowledge/discovery card linked to its library entry | The [shared knowledge proposal](factory-worker-mcp.md#7-shared-knowledge-as-a-product-capability) gives this action a library consumer; decision choices use the separate Record Decision outlet and retain their actual authority |
 | **suggest** | Proposed change, kind, reason, affected issue/outcomes and supporting evidence | Proposal with consequences and disposition | Use the appropriate existing product, reassessment or repair route; a suggestion itself does not create issues, edit dependencies or authorize new scope |
-| **partial** | Progress made, remaining work and reason it remains | Progress/remaining-work component | May be a nonterminal progress report; ending an incomplete assignment uses its existing formal incomplete control and retirement rules |
+| **partial** | Progress made, remaining work and reason it remains | Progress/remaining-work component | A nonterminal progress report; ending an incomplete assignment uses its existing formal incomplete control and retirement rules |
 | **blocked** | Known blocking condition, kind, affected work, relevant prerequisite/question and what would resolve it | Dependency/resource/question wait card | Server assessment determines effective readiness; resolving the reported condition triggers reassessment under the existing gates |
 | **stuck** | Why meaningful progress cannot continue, attempted approaches and relevant evidence | Attention/diagnosis card | Distinguish diagnosis needed from a known blocker; existing bounded stall classification decides whether repair, a wait or owner attention is appropriate |
 | **done** | Role-specific structured result and evidence references | Result-submitted card, followed by validation/confirmation | Use the existing role-specific finish control; recorded submission, accepted result, observed retirement and verified downstream completion remain distinct |
 
-All seven roles can communicate within their admitted subject. Their permitted
-formal result tools remain role-specific. A native Builder child does not gain
+The expanded design also adds [Record Decision](factory-worker-mcp.md#decision-recording)
+to every profile, with a decision feed component and one shared work/library
+identity. It adds the owner-requested [Library Admin](factory-worker-mcp.md#library-admin)
+maintenance profile alongside the seven production roles, with its own
+[item-maintenance components](factory-feed-components.md#library-admin-components).
+This extends the proposal; it does not claim these tools or the eighth profile
+are present in the current source catalog.
+
+The target communication layer lets all seven roles submit through these MCP
+outlets within their admitted subject. The seven new tools are not present
+in the current fourteen-tool catalog; their selected interfaces and consumers
+remain to be implemented. Done uses the existing role-specific finish control,
+whose downstream acceptance is tracked separately. A native Builder child does not gain
 the parent's MCP mutation capability merely because it appears as a lane author;
 its recorded output remains attributable through the existing parent/worker path.
 
@@ -412,7 +476,7 @@ its recorded output remains attributable through the existing parent/worker path
 
 ### Post maintenance and result binding
 
-The eight verbs describe meaningful communication. Editing a post's current
+The eight actions have the MCP outlets selected above. Editing a post's current
 headline/summary, arranging supported artifact components and appending history
 still need a concrete post model. Earlier example names such as
 `factory.update_post`, `factory.add_component`, `factory.append_update` and
@@ -498,6 +562,51 @@ The PNG is a generated design output kept under ignored `.artifacts/` according 
 repository policy. It is available in this checkout; the tracked design record
 remains understandable without that local image.
 
+### Role-specific post examples
+
+The owner identified the older full-run concept above as an approved visual
+reference for its restrained styling, proportions and shallow role-specific
+content. The current direction changes its presentation to newest-first,
+clearly separated independent posts, with no connecting spine or nested stage
+chain. The [new vertical feed proposal](../../.artifacts/design/factory-feed/vertical-feed-external-headers-v5-2026-10-19.png)
+explores that direction with all seven worker roles plus Factory/Jev events.
+The profile picture, author name, project, time and status sit outside each
+content card in its own unboxed header. Proximity joins a header to its card;
+a larger gap separates consecutive posts. The card contains the message,
+role-specific visuals and actions.
+Its [imagegen prompt](../../.artifacts/design/factory-feed/vertical-feed-v5-prompt.md)
+records the reference and exact requested changes. The generated layout remains
+a proposal for review; newest-first order, post separation and metadata outside
+the content card are explicit owner requirements.
+
+The preceding role studies propose medium-sized work posts: explanation, a useful
+role-specific visual, honest status and a small set of relevant actions. Soda's
+typography, square controls, thin rules and restrained red accents remain;
+Ralph's `SignalSection`, `SignalDisplay`, `SignalAvatar` and `ReplyCard` inform
+author/verb separation and discussion. The visual space and post height adapt to
+the work being explained; these examples do not fix a universal density.
+
+- [Work posts in dark mode](../../.artifacts/design/factory-feed/work-posts-dark-v3-2026-10-19.png):
+  Builder progress with task/check states and a next step, followed by an
+  Architect's explanatory dependency diagram. Failure remains visible beside
+  preserved work without embedding the whole task workspace.
+- [Work posts in light mode](../../.artifacts/design/factory-feed/work-posts-light-v3-2026-10-19.png):
+  Product Lead's proposed experience and access question, followed by an
+  Inspector's expected/observed finding. The question has enough context to answer;
+  detailed review evidence opens separately.
+
+The earlier oversized single-post images and `interactive-tweets-*-v2` images
+remain local artifacts but are superseded as default presentation references.
+The owner rejected both extremes. Use the approved older concept's visual
+character with the ordering and separation changes described above.
+
+These are illustrative generated mockups, not screenshots of implemented feed
+behavior or finalized role portraits. Their fictional content and robot avatars
+remain examples. The images are local ignored artifacts; the descriptions above
+preserve the design intent without requiring those files. The
+[exact prompt set](../../.artifacts/design/factory-feed/work-posts-v3-prompts.md)
+records the source references and built-in imagegen inputs.
+
 ## Open design choices and next design deliverable
 
 The owner requested integration into the existing 55-task list. The
@@ -511,8 +620,9 @@ Before implementation, resolve:
 1. Subscription unit/defaults and the exact project/issue/assignment post/thread
    structure within the adopted combined newest-first feed; reply/edit bump rules.
 2. The role character set and whether/how technical specialties appear.
-3. The exact tool representation and schemas for the adopted eight verbs,
-   permitted components, post maintenance and existing formal-result bindings.
+3. Strict payload schemas and bounds for the selected MCP outlets, permitted
+   components, post maintenance and existing formal-result bindings. The separate
+   shared tools and Done's role-specific finish mapping are already settled.
 4. Which facts are linked from their existing owners and which new communication
    history needs durable storage, ordering, paging and revision semantics.
 5. Comment-to-agent trigger/routing, revision/deletion handling and transitions
@@ -522,13 +632,14 @@ Before implementation, resolve:
 7. Concrete Ralph code/assets to reuse or adapt, their destination owners, and
    genuine gaps requiring new work.
 
-The next design deliverable is one annotated full procedure linking each stage to
-its actor, permitted actions, feed components, evidence conditions and reuse
-sources. Include a substantial reuse inventory distinguishing assets/code that
-can be retained, code requiring adaptation, responsibilities already owned by Soda,
-and demonstrated new work. Define the fresh Lit interface using concrete Ralph
-behaviors, Soda's procedure and existing host/lifetime constraints. React
-integration is excluded; visual design and portrait selection remain open.
+The [worker interface proposal](factory-worker-mcp.md) and
+[component catalog](factory-feed-components.md) now map the full procedure to
+roles, proposed MCP actions, component families, evidence conditions and source
+reuse candidates. The next refinement selects compact/expanded compositions and
+exact producer schemas, and expands the concrete code/asset reuse inventory.
+Define the fresh Lit interface using those role-specific semantics, Soda's
+procedure and existing host/lifetime constraints. React integration is excluded;
+visual design and portrait selection remain open.
 Refine this record in the existing R32/R43 slices; the canonical task cards now
 hold their dependency-ordered execution instructions. Resolve only the choices
 needed for the next slice rather than requiring another whole-design pass.

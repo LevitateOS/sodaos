@@ -11,6 +11,14 @@
 
 **Deliver:** Extend the existing shared registration/assignment/reservation/run/view/result core for intent and completion subjects. Factor transaction-bound reservation internals; inspect actual lock ordering, authority, preparation, current head, capacity and withdrawal. Persist intent before any host call.
 
+**Collection-maintenance admission:** Consume R10's Library Admin subject in this
+same dispatch/accounting path. Admit an explicit maintenance request or configured
+bounded trigger with finite queue/collection/operation scope and funding; search,
+feed reads and item edits do not implicitly start another bot. Do not invent an
+issue or refill a production attempt's allowance. Concurrent/replayed triggers
+must identify one admitted operation/run or no run; R32 maintenance finish and
+R35 incomplete settlement preserve committed item changes and actual charges.
+
 **Accept only when:** Concurrent admission/replay produces one run/charge or no rows. Failed/interrupted provider work stays charged; retries cannot refill consumption. Provider calls happen outside short database transactions. Settlement and release are atomic and replay-safe; no nested self-committing reservation or separate intent engine.
 
 **Dependency boundary:** R10 releases the exact typed contract before transaction changes. Real PostgreSQL admission/rollback work can proceed before native activation; R44's current Project/provider custody is required before a live launch.
@@ -62,6 +70,14 @@ of every comment or an extra mandatory comment approval.
 
 **Deliver:** Wire single-candidate direct choice and complete-set funded multi-candidate choice to current accepted outcome authority and exact native graph adoption. Preserve existing task/delivered bindings and explicit human product decisions.
 
+**Initial Git-issue ownership:** Product Lead supplies initial decomposition,
+issue descriptions/acceptance and dependencies through R32's revisioned product
+draft/finish tools. This existing Factory/native graph owner applies accepted
+changes and returns actual issue IDs/effects. Reference the actual choice/authority
+in R32 decision records and R42 feed/library projections; a decision log or draft
+does not itself create an issue. Strategist's ongoing maintenance is R29/R37;
+Library Admin never receives a generic Git issue-edit capability.
+
 **Discussion-derived issues:** Consume R12/R32's origin-bound authorized request
 through this same issue/graph owner. Persist links from created issues to the
 source discussion; exact retry returns the existing operation/issues. Stale
@@ -102,6 +118,14 @@ creating another issue or bypassing native conditional mutation.
 **Current (wind-down):** Compose selected investigation and exact plan/head admission; journey and immutable old-revision Store proofs already pass. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Investigate only the freshly selected issue using current source/prerequisite evidence. Persist a concrete required-check plan and ordered task DAG with coverage, output dependencies, nonconflicting ownership and parallel lanes before coding.
+
+**Work-in-progress integration:** Consume R32's Architect investigation and plan
+draft records at exact revisions; expose inspected interfaces, evidence,
+alternatives, ownership, dependencies and checks before finish. Bind recorded
+technical decisions and knowledge references without granting authority from
+their prose. Drafts remain inert; accepted executable plans are immutable and
+material changes use the existing replacement/admission route. Release these
+same records to R42 approach/investigation/lane components.
 
 **Discussion input:** Relevant authorized comments may inform this selected
 issue's plan through R31/R32 context. Bind the consumed discussion revision and

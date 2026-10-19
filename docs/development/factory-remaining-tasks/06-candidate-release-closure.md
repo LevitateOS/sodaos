@@ -49,6 +49,15 @@
 
 **Deliver:** Use the existing native x86_64 drivers against the exact candidate for fresh ISO/Docker, supported upgrade source, maintenance/rollback/recovery, retained human/network/operator behavior and finished factory.
 
+**Expanded design consumer:** Carry R49's joined eight-profile MCP/feed/library
+experience into the installed candidate's changed-boundary checks: deployed
+catalog/instructions agree, decisions and knowledge remain retrievable, Library
+Admin grants and history survive restart, and persisted posts retain correct
+state and attribution. Reuse valid component/journey evidence; prove the actual
+packaged API/Store/UI/native joins and retained data, rather than replaying every
+unchanged semantic case. Source or development-only success cannot establish this
+installed scope.
+
 **Accept only when:** Actual installed byte/mode/source/artifact/architecture readback and every required case agree. Failed-run identities remain non-qualifying. Missing immutable components or a qualified upgrade source are specific unfulfilled inputs, not an invitation to rebuild blindly or waive cases.
 
 **Executable remainder:** Consume R51's exact candidate and R49's development result. In existing native-support/testing/installation drivers, first qualify fresh ISO and Docker against those bytes; then the named supported upgrade source, rollback/recovery and retained human/network/operator behavior. Run Canlang P30's installed UI/API/app journey on this same candidate and bind P31/G4 here, not a second release. Release protected observed byte/mode/source/artifact identities to R53. Missing qualified upgrade media or private-client input holds only its case and keeps full qualification open. Driver-only fixes reuse unchanged candidate bytes; byte-changing fixes return to R51.
@@ -80,6 +89,15 @@
 **Current (wind-down):** One-current-path source/caller/selector/docs/license/pin cutover before candidate freeze. Cleanup shutdown does not close product cutover. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Remove evidenced obsolete runner/transport/result/format paths and their actual callers/tests/assets/selectors with each replacement, then close source/staging/support/documentation gaps before R51 freezes candidate bytes. Reconcile product/architecture/reference/operator/handbook truths, licensing and final pins. Release disposable development resources only after their custody has ended; keep candidate qualification fixtures available through R52/R53 and account for their final release in R55.
+
+**Full MCP/feed/library cutover:** Consume the expanded R30–R43 interfaces and
+R49 joins. Update the single source catalog, supported harness instructions,
+subject/result mirrors, persisted schemas, API/frontend callers and user-facing
+decision/library maintenance guidance together. Retire superseded unreleased
+formats/callers rather than shipping two authoritative paths. Package the same
+existing Go/Rust/Lit owners for R51; the Library Admin profile adds no standalone
+knowledge daemon or broad operator account. Keep proposal names clearly labeled
+until their actual implemented contract is reflected in the canonical docs.
 
 **Accept only when:** No parallel legacy reader/engine or misleading existing-interface/public-readiness claim remains, and all shipping source/selector changes are complete before candidate production. Native Actions and human work are preserved, no broad prune occurs, and resources with unknown ownership remain explicit. Publication receipts and actual URLs can be recorded under R53 after qualification without changing tested product bytes; any byte-changing correction requires a new R51 candidate. Completed planning material is absorbed only after its requirements/evidence are carried forward.
 

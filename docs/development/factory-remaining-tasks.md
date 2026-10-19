@@ -29,6 +29,11 @@ consumers without waiting for unrelated parts of the parent. The old level graph
 below describes full parent qualification, not a requirement to finish whole
 plans before using accepted contracts. Local slices do not add counted outcomes.
 An accepted source mechanism is a starting point, not a request to rebuild it.
+The [full worker/feed/library design scope](#full-worker-design-integration)
+is included in these existing outcomes. The original fourteen-tool catalog and
+seven communication additions are intermediate slices, not completion of that
+scope. Exact schemas are resolved in the owning implementation task; the design
+is not parked outside the task list pending a separate general approval.
 Small-model manageability is aspirational; difficult authority, transaction or
 native-lifetime work can use stronger executor judgment without another gate.
 
@@ -140,7 +145,7 @@ asset/character choices remain decisions inside R32/R42/R43, with the combined
 newest-first subscribed feed and comment-to-linked-work capability adopted.
 P08/P10 provider selection and P22 real-client input remain scoped holds.
 Outbound notifications, broad provider parity, automatic backups and optional
-library/structural changes remain proposals; no new universal gate follows.
+third-party-library/structural changes remain proposals; no new universal gate follows.
 No whole-source/body audit, native run or renewed qualification was performed.
 Runtime, provider and installed behavior still need the checks required by their tasks.
 
@@ -159,8 +164,8 @@ R01 input/freeze and R02 focused Fountain CI repair (`56a1c17bb0`) are accepted 
 | [R07](factory-remaining-tasks/01-boundaries.md#r07) | Ready slice; unassigned (A) | Install admitted harness pins and align proof tools; obtain finite funded overlap trial. Pin ruling already settled: use admitted pins first. | R01. | Both actual harnesses prove child overlap/control/cancel/parent-death retirement with exact identity and usage. |
 | [R08](factory-remaining-tasks/01-boundaries.md#r08) | Dependency held; unassigned (A) | Native parent attenuation and OS-enforced role isolation. | R07. | Actual forbidden shell reads/writes and parent-only calls refuse; allowed role work succeeds. |
 | [R09](factory-remaining-tasks/01-boundaries.md#r09) | Dependency held; unassigned (A) | Installed CLI instruction/configuration and private MCP transport proof. | R07, R08. | Both CLIs reach the fixed relay/controller with authenticated request roles and recovery. |
-| [R10](factory-remaining-tasks/01-boundaries.md#r10) | Ready slice; unassigned (B) | Finish trusted ingress/consumer and D15/D16 subject wiring; accepted parity and terminal transport slices stay closed. | R01. | Full phase/role/subject/result refusal matrix plus real Store and native consumers pass. |
-| [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | Ready slice; unassigned (B) | Live/native dispatch and atomic settlement qualification; source/common-boundary acceptance retained. | R01, R10; native: R07, R08, R09, R44, R30. | One run/charge under racing/replayed admission; failed work stays charged and retirement releases once. |
+| [R10](factory-remaining-tasks/01-boundaries.md#r10) | Ready slice; unassigned (B) | Typed ingress/result parity plus Library Admin collection-maintenance subject/result; prior production parity remains accepted. | R01. | Existing phase refusals and new maintenance role/scope/result bindings agree through Go, Store and actual host consumers. |
+| [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | Ready slice; unassigned (B) | Live/native common dispatch and settlement qualification, including bounded Library Admin admission; accepted accounting proofs retained. | R01, R10; native: R07, R08, R09, R44, R30. | One admitted run/charge per request, no read-triggered maintenance or fake issue, and replay-safe settlement preserves committed changes. |
 | [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12) | Dependency held; unassigned (B) | Real semantic provider qualification; server inputs, plan/Generate UI through cf5887a0 accepted. | R10, R11; native: R07, R08, R09, R44, R30. | Associated draft produces exact bounded semantic results; unassociated/stale/unauthorized inputs launch nothing. |
 | [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13) | Dependency held; unassigned (B) | Native chosen-graph adoption qualification; 3e4de021 source repair accepted. | R12; native: R04, R05. | Single choice uses zero comparison calls; funded multiple choice replays once with exact graph readback. |
 | [R14](factory-remaining-tasks/02-prompt-to-pr.md#r14) | Dependency held; unassigned (B) | Native current-inventory readiness qualification; cursor/restart/large-queue source proofs accepted. | R01; native: R05. | 256 candidates and later-page prerequisites progress without false readiness or duplicate spending. |
@@ -179,26 +184,26 @@ R01 input/freeze and R02 focused Fountain CI repair (`56a1c17bb0`) are accepted 
 | [R27](factory-remaining-tasks/03-review-merge-reassessment.md#r27) | Dependency held; unassigned (B) | Composed original-closure readiness release; evidence/authority/CAS/completion source checks accepted. | R26, R14; native: R05. | Two-parent join waits for both original verified closures; reopened/stale closures cannot release. |
 | [R28](factory-remaining-tasks/03-review-merge-reassessment.md#r28) | Dependency held; unassigned (B) | Two-completion/two-Jev-decision serving proof; fence/drive/replay PG checks accepted. | R27, R11; native: R05. | Each verified completion consumes one bounded decision; continue launches no investigator and other repos progress. |
 | [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29) | Dependency held; Design prerequisite; unassigned (B) | Finish serial adoption/materialization composition; T35–T39, committed-prefix recovery and no-change release accepted. FW32 step driver remains deferred/unmaterialized. | R28, R13; native: R05. | Accepted contract drives exact protected native steps; lost reply/conflict preserves prefix and only confirmed completion releases. |
-| [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | Dependency held; unassigned (A) | Qualify live MCP authority/lifecycle, including role communication. | R08, R09, R10. | Cross-scope/expired/revoked calls refuse; replay/rebind cannot renew authority or expose secrets. |
-| [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) | Ready slice; unassigned (B) | Complete four canonical bounded read controls and live readback. | R30. | Authorized context/evidence/status/receipt are complete or explicitly incomplete and spend nothing. |
-| [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Ready slice; unassigned (B) | Planning finish consumers, eight-verb communication and human comments usable for linked plans/issues. | R30, R31, R12, R13, R15. | Formal controls, eight verbs and human comments persist with correct authorship; derived plans/issues link to discussion and report effects/failures without granting authority. |
-| [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) | Dependency held; unassigned (A) | Builder output/finish to trusted checkpoint and singleton Fixer reuse. | R30, R31, R16, R17, R18. | Racing proposals yield one trusted checkpoint; failed checks or uncertain retirement cannot advance. |
-| [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) | Dependency held; unassigned (B) | Inspector/Fixer finish to actual review/correction effects. | R30, R31, R22, R23, R24, R33. | Explicit complete clear, dispositions, native readback and observed retirement drive the common consumers. |
-| [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) | Dependency held; unassigned (A) | Incomplete/handoff/terminal settlement composition. | R30, R31, R11. | Stop/submission/reconnect/restart races conserve ownership, child custody, capacity and charges. |
+| [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | Dependency held; unassigned (A) | Qualify one MCP authority/lifecycle for the full tool inventory and seven production profiles plus Library Admin. | R08, R09, R10. | Every tool enforces role, subject/collection, revision, replay, expiry and revocation; no broader native or policy authority. |
+| [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) | Ready slice; unassigned (B) | Complete required/optional role context, baseline reads, inbox/discussion and knowledge/decision retrieval for all eight profiles. | R30. | Bounded authorized current/historical readback, explicit incomplete states, exact receipts and spend-free reads; Jev cannot hide required facts or widen access. |
+| [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Ready slice; unassigned (B) | Implement shared communication/decision/knowledge/artifact records, Product Lead/Architect work tools and Library Admin maintenance. | R30, R31, R12, R13, R15. | Real question/decision/learning/maintenance loops preserve authority, revisions and references; drafts and comments reach existing consumers with honest effects. |
+| [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) | Dependency held; unassigned (A) | Builder task/input reads, output and finish to trusted checkpoints; singleton Fixer reuse. | R30, R31, R16, R17, R18. | Exact task readiness/inputs and one trusted checkpoint survive races; failed checks or uncertain retirement cannot advance. |
+| [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) | Dependency held; unassigned (B) | Inspector coverage/finding assessments and Fixer dispositions, scopes and finishes to actual review/correction. | R30, R31, R22, R23, R24, R33. | Complete exact-candidate coverage/dispositions, independent acceptance and native readback distinguish clear, disputed, failed and incomplete. |
+| [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) | Dependency held; unassigned (A) | Incomplete/handoff/terminal settlement for all eight profiles, retaining open records and committed maintenance. | R30, R31, R11. | Stop/submission/reconnect/restart conserves ownership, custody, capacity and charges; no revived capability or duplicate committed operation. |
 | [R36](factory-remaining-tasks/04-controls-repair-verification.md#r36) | Ready slice; unassigned (B) | Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. | R14, R10. | Ordinary waits do not investigate; complete independent components progress and fully delivered outcomes enter verification. |
 | [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37) | Dependency held; unassigned (B) | Strategist proposal/Jev choice and later repair-cycle adoption; cycle-1 episode/charge joint accepted. | R36, R29, R11; native: R07, R08, R09. | Restart/Retry/graph reshuffle cannot refill allowances; material evidence alone permits bounded next cycle. |
 | [R38](factory-remaining-tasks/04-controls-repair-verification.md#r38) | Dependency held; unassigned (A) | Trusted Test Pilot manifest adoption and exact integrated-artifact checks. | R10, R13, R18, R27; native: R07, R08, R09, R30, R44, R45. | Real approved fixture/current bytes and trusted host receipts pass P9; forged/stale/missing checks refuse. |
 | [R39](factory-remaining-tasks/04-controls-repair-verification.md#r39) | Dependency held; unassigned (B) | Verified app completion and bounded delivery-repair chain. | R38, R13, R29, R37. | All accepted outcomes plus exact verification complete an intent; missing fixture waits and two-run ceiling survives retry. |
-| [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) | Dependency held; unassigned (B) | Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. | R30, R31, R29, R37, R38, R39. | Authenticated submission reaches durable permitted effect/readback/visible state with refusal/replay coverage. |
+| [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) | Dependency held; unassigned (B) | Strategist diagnosis/repair draft/preview and Test Pilot journey coverage/observations/finishes; production instruction matrix. | R30, R31, R29, R37, R38, R39. | Exact cause/candidate/fixture evidence reaches existing consumers; incomplete, refused, partial adoption and confirmed effects remain distinct. |
 | [R41](factory-remaining-tasks/04-controls-repair-verification.md#r41) | Dependency held; unassigned (A) | Composed intervention/withdrawal/crash recovery. | R06, R11, R16, R26, R30, R35, R44. | Whole execution retirement precedes custody return/takeover; committed effects and human work survive. |
-| [R42](factory-remaining-tasks/05-experience-and-development.md#r42) | Ready slice; unassigned (C) | Extend canonical read model with workflow producers, subscriptions and combined newest-first role/verb/comment feed. | R10; native: R13, R17, R24, R28, R29, R31, R32, R33, R34, R35, R36, R37, R39, R40. | Bounded authorized ordered/revisioned API survives reload/restart and distinguishes reports from verified effects. |
-| [R43](factory-remaining-tasks/05-experience-and-development.md#r43) | Ready slice; unassigned (C) | Fresh Lit Work/Spaces feed and changed native joins; reuse suitable independent Ralph code/assets, seven roles and stable reading/drafts. | R42; native: R03. | Real persisted native-entry/navigation/reload/account/keyboard/geometry and exact terminal object assertions pass; attribution retained. |
+| [R42](factory-remaining-tasks/05-experience-and-development.md#r42) | Ready slice; unassigned (C) | Canonical workflow, conversation, decision, library and maintenance projections; subscriptions and newest-first combined feed. | R10; native: R13, R17, R24, R28, R29, R31, R32, R33, R34, R35, R36, R37, R39, R40. | Prepared authorized search/read/inbox/feed survive restart and projection delay, preserve history/access and distinguish reports from verified effects. |
+| [R43](factory-remaining-tasks/05-experience-and-development.md#r43) | Ready slice; unassigned (C) | Full Lit role/shared/Library Admin/Factory/Jev components, combined feed, decision/library browsing and permitted interactions. | R42; native: R03. | Real records render all required failure/recovery states; separate newest-first posts with metadata outside cards preserve reading/drafts, access and accessibility. |
 | [R44](factory-remaining-tasks/05-experience-and-development.md#r44) | Dependency held; unassigned (A) | Current Project preparation/provider/broker/human/operator qualification. | R03, R10. | Exact peer/account/grant/rotated-credential refusals and background authority work without harming human services. |
 | [R45](factory-remaining-tasks/05-experience-and-development.md#r45) | Dependency held; unassigned (C) | Current component/package/controller/maintenance qualification; scoped RCX development acceptance retained. | R03, R06, R44. | Payload v4/current declared image set, exact bytes, closed admission, offline preparation and rollback readback agree. |
 | [R46](factory-remaining-tasks/05-experience-and-development.md#r46) | Dependency held; unassigned (C) | Current optional Tailnet/network qualification; actual external enrollment/routes remain separate. | R45. | Default absence and native enable/disable/restart pass; authorized real client route/trust evidence closes external cases. |
 | [R47](factory-remaining-tasks/05-experience-and-development.md#r47) | Ready slice; unassigned (Coordinator) | Current composed API/Start/MCP/PostgreSQL serving and race acceptance. Deep CI 39139499605 residuals: release-build source-grep/CLI drift, Tailnet-page/navigation contract tests, PG topology/wiring and fixture/toolchain cases; wait-slot/schema repairs in 51ba6d2f are accepted. | R11, R13, R17, R20, R23, R26, R29, R32, R33, R34, R35, R37, R39, R40, R41, R42. | Real clean/correction/reassessment/repair/Test Pilot/intervention paths pass without injected acceptance or hidden skips. |
-| [R48](factory-remaining-tasks/05-experience-and-development.md#r48) | Dependency held; External + engineering; unassigned (A) | Exact harness/provider transport and first-response semantic trials. | R12, R13, R16, R22, R24, R29, R32, R33, R34, R35, R40, R41. | Funded real Codex/Muse cases meet identity, prompt/result/usage and ambiguity/clean/correction contracts. |
-| [R49](factory-remaining-tasks/05-experience-and-development.md#r49) | Dependency held; unassigned (Coordinator) | Complete real development factory plus persisted role feed question/reply/finding/result journey. | R39, R40, R43, R44, R45, R47, R48. | Prompt through native overlap/checkpoints/review/merge/reassessment/Test Pilot and intervention passes with bounded usage and human preservation. |
+| [R48](factory-remaining-tasks/05-experience-and-development.md#r48) | Dependency held; External + engineering; unassigned (A) | Actual harness transport/tool usability and bounded semantic trials for all eight profiles and shared work/feed/library loops. | R12, R13, R16, R22, R24, R29, R32, R33, R34, R35, R40, R41. | Supported harnesses use the complete admitted interfaces with correct context, decisions, knowledge reuse, maintenance and authority/refusal behavior. |
+| [R49](factory-remaining-tasks/05-experience-and-development.md#r49) | Dependency held; unassigned (Coordinator) | Complete development factory plus joined question/decision/knowledge/Library Admin and real Work/Spaces journeys. | R39, R40, R43, R44, R45, R47, R48. | Prompt through verified work, issue maintenance, learning reuse and item maintenance has real effects/readback, correct feed presentation and bounded recovery. |
 | [R50](factory-remaining-tasks/06-candidate-release-closure.md#r50) | Ready slice; External + engineering; unassigned (C) | Native protected admission/finalization boundary; 88a2ce7b/f188e13b serving proof and 73fe175b tag repair accepted. | R01. | Real protected valid/forged/failure/cancel/recovery evidence qualifies the mechanism before candidate production. |
 | [R51](factory-remaining-tasks/06-candidate-release-closure.md#r51) | Dependency held; unassigned (C) | Coherent current x86_64 candidate after source freeze and real immutable component availability. | R02, R43, R45, R49, R50, R54; Canlang P27/P28 qualified producer outputs. | Source/pins/packages/images/attribution/media are attributable; the unqualified public stage and anonymous readback precede R52 without moving recommendations. |
 | [R52](factory-remaining-tasks/06-candidate-release-closure.md#r52) | Dependency held; unassigned (Coordinator) | Exact candidate fresh ISO/Docker, supported upgrade, recovery and installed journey. | R51, R49; Canlang P30 supplies shared G4 evidence. | Installed byte/mode/source identities and every required preserved-data/support case match qualified inputs. |
@@ -350,6 +355,7 @@ These are the remaining criteria of their existing parents, with one counted out
 | [Factory baseline FT/ST/RT/UX/FX and original D01–D26](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md) | **R03–R55** via the retained 365-row primary-owner crosswalk | Reuse accepted source/fixture/installed scopes. Exact current native/installed/release gaps must satisfy their linked row; a historical whole-plan completion demand adds no job. |
 | [FW01–FW50 / D01–D17 / P1–P9 / T01–T64](factory-workflow-contracts.md), [frozen contracts](factory-workflow-contracts.md) | **R03–R55**; seven profiles/fourteen controls are consumers of **R07–R09/R16–R18/R30–R41/R48** | The retained dependency graph and actual needed outputs apply. Close each authenticated producer/effect/readback and native refusal case at its real evidence layer; do not count controls again. |
 | [Experience direction](../design/factory-feed-and-ralph-integration.md) and [role/verb feed design](../design/factory-feed-and-ralph-integration.md) | **R12/R13/R30/R32/R42/R43/R49** | Accepted intent/Generate source remains closed. Combined subscribed activity, newest-first posts and user comments usable for linked plans/issues are adopted. Subscription defaults/trigger details, MCP representation and artwork remain choices within these outcomes; actual producer-to-browser/effect acceptance closes them. |
+| [Full worker MCP and feed component design](#full-worker-design-integration) | **R10–R15/R29–R43/R47–R49/R52/R54** within their existing outcomes | All proposed tools, eight profiles, decisions, knowledge/maintenance, issue ownership and complete feed/failure compositions have the primary owners and acceptance criteria below. No new counted parent or separate design-approval queue. |
 | [Fountain extension transition](../architecture/trust.md#fountain-consumption-boundary) | **R03–R05/R43/R45/R51/R52/R54** | Current exact SDK/native authority, composition and candidate evidence; preserve completed native replacement and avoid restoring obsolete OAuth/shell paths. |
 | [RCX / RCX-2 FX01–FX08 and G1–G4](testing.md#release-component-regression-boundaries) | **R03–R06/R45/R46/R50–R53** | Eight source repairs accepted; close only the uncovered real native/component/public-byte criteria. Required immutable inputs precede R51; qualified unchanged product publication follows R52. |
 | [NFX 57-task correction](testing.md#native-frontend-composition) / FX09 | **R03/R43/R52/R54** | Later natural-link/history/terminal/installed receipts supersede older remainder snapshots. Prove changed native joins/new feed and exact new candidate; no replay of all 57 tasks. |
@@ -402,6 +408,11 @@ This is added scope within the existing outcomes below: retain all 55 task IDs,
 their dependency edges, historical requirements and valid completed evidence.
 The consolidated outcomes above own current status; the closed checklist retains evidence.
 
+The later [full worker/feed/library integration](#full-worker-design-integration)
+extends this initial absorption scope with all role tools, decision logging and
+Library Admin. Its complete task mapping and expanded task-card criteria control
+that added work.
+
 | Owning task | Added deliverable |
 | --- | --- |
 | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | Apply existing single Factory MCP authority/lifecycle to role communication; human comments use authenticated user authority |
@@ -440,7 +451,7 @@ This retained dependency graph is not an active schedule. **Read both dependency
 | 5 | [R45](factory-remaining-tasks/05-experience-and-development.md#r45) — Qualify current release-component composition and maintenance | [R03](factory-remaining-tasks/01-boundaries.md#r03), [R06](factory-remaining-tasks/01-boundaries.md#r06), [R44](factory-remaining-tasks/05-experience-and-development.md#r44) | none | C |
 | 6 | [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) — Finish one atomic subject-aware dispatch and accounting path | [R01](factory-remaining-tasks/01-boundaries.md#r01), [R10](factory-remaining-tasks/01-boundaries.md#r10) | [R07](factory-remaining-tasks/01-boundaries.md#r07), [R08](factory-remaining-tasks/01-boundaries.md#r08), [R09](factory-remaining-tasks/01-boundaries.md#r09), [R44](factory-remaining-tasks/05-experience-and-development.md#r44), [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | B |
 | 6 | [R14](factory-remaining-tasks/02-prompt-to-pr.md#r14) — Finish current large-inventory selection and readiness qualification | [R01](factory-remaining-tasks/01-boundaries.md#r01) | [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
-| 6 | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) — Finish all four bounded MCP read controls | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | none | B |
+| 6 | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) — Complete role context, interaction and library/decision reads | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | none | B |
 | 6 | [R46](factory-remaining-tasks/05-experience-and-development.md#r46) — Qualify optional Tailnet and retained networking behavior | [R45](factory-remaining-tasks/05-experience-and-development.md#r45) | none | C |
 | 7 | [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12) — Connect the real semantic Product Lead planner | [R10](factory-remaining-tasks/01-boundaries.md#r10), [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | [R07](factory-remaining-tasks/01-boundaries.md#r07), [R08](factory-remaining-tasks/01-boundaries.md#r08), [R09](factory-remaining-tasks/01-boundaries.md#r09), [R44](factory-remaining-tasks/05-experience-and-development.md#r44), [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | B |
 | 7 | [R15](factory-remaining-tasks/02-prompt-to-pr.md#r15) — Connect selected investigation to immutable executable plans | [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11), [R14](factory-remaining-tasks/02-prompt-to-pr.md#r14) | [R07](factory-remaining-tasks/01-boundaries.md#r07), [R08](factory-remaining-tasks/01-boundaries.md#r08), [R09](factory-remaining-tasks/01-boundaries.md#r09), [R44](factory-remaining-tasks/05-experience-and-development.md#r44) | B |
@@ -449,7 +460,7 @@ This retained dependency graph is not an active schedule. **Read both dependency
 | 8 | [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13) — Adopt one chosen semantic graph with exact scope and provenance | [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12) | [R04](factory-remaining-tasks/01-boundaries.md#r04), [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
 | 8 | [R16](factory-remaining-tasks/02-prompt-to-pr.md#r16) — Connect real native task scheduling and dependency release | [R07](factory-remaining-tasks/01-boundaries.md#r07), [R08](factory-remaining-tasks/01-boundaries.md#r08), [R09](factory-remaining-tasks/01-boundaries.md#r09), [R15](factory-remaining-tasks/02-prompt-to-pr.md#r15) | none | A |
 | 9 | [R17](factory-remaining-tasks/02-prompt-to-pr.md#r17) — Produce trusted task receipts and early Git checkpoints | [R16](factory-remaining-tasks/02-prompt-to-pr.md#r16) | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30) | A |
-| 9 | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) — Connect Product Lead and Architect finish controls to real consumers | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12), [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13), [R15](factory-remaining-tasks/02-prompt-to-pr.md#r15) | none | B |
+| 9 | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) — Implement shared records, planning tools and Library Admin | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12), [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13), [R15](factory-remaining-tasks/02-prompt-to-pr.md#r15) | none | B |
 | 10 | [R18](factory-remaining-tasks/02-prompt-to-pr.md#r18) — Gate final integration and publication on the complete checked plan | [R17](factory-remaining-tasks/02-prompt-to-pr.md#r17) | none | A |
 | 10 | [R20](factory-remaining-tasks/03-review-merge-reassessment.md#r20) — Wire fresh candidate/base tuples into every current consumer | [R01](factory-remaining-tasks/01-boundaries.md#r01) | [R05](factory-remaining-tasks/01-boundaries.md#r05), [R17](factory-remaining-tasks/02-prompt-to-pr.md#r17) | B |
 | 11 | [R19](factory-remaining-tasks/02-prompt-to-pr.md#r19) — Complete one attributable PR and publication recovery journey | [R18](factory-remaining-tasks/02-prompt-to-pr.md#r18), [R20](factory-remaining-tasks/03-review-merge-reassessment.md#r20) | [R04](factory-remaining-tasks/01-boundaries.md#r04) | B |
@@ -460,7 +471,7 @@ This retained dependency graph is not an active schedule. **Read both dependency
 | 13 | [R23](factory-remaining-tasks/03-review-merge-reassessment.md#r23) — Account for every correction and native thread resolution | [R22](factory-remaining-tasks/03-review-merge-reassessment.md#r22) | [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
 | 14 | [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24) — Connect clean-review and funded-Jev delivery acceptance producers | [R22](factory-remaining-tasks/03-review-merge-reassessment.md#r22), [R23](factory-remaining-tasks/03-review-merge-reassessment.md#r23), [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | none | B |
 | 15 | [R26](factory-remaining-tasks/03-review-merge-reassessment.md#r26) — Gate every merge path with current acceptance and authorization | [R20](factory-remaining-tasks/03-review-merge-reassessment.md#r20), [R21](factory-remaining-tasks/03-review-merge-reassessment.md#r21), [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24), [R25](factory-remaining-tasks/03-review-merge-reassessment.md#r25) | [R04](factory-remaining-tasks/01-boundaries.md#r04) | B |
-| 15 | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) — Connect Inspector and Fixer finish controls to native review/correction | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R22](factory-remaining-tasks/03-review-merge-reassessment.md#r22), [R23](factory-remaining-tasks/03-review-merge-reassessment.md#r23), [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24), [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) | none | B |
+| 15 | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) — Implement Inspector and Fixer work, coverage and finish controls | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R22](factory-remaining-tasks/03-review-merge-reassessment.md#r22), [R23](factory-remaining-tasks/03-review-merge-reassessment.md#r23), [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24), [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) | none | B |
 | 16 | [R27](factory-remaining-tasks/03-review-merge-reassessment.md#r27) — Confirm original issue completion before releasing dependants | [R26](factory-remaining-tasks/03-review-merge-reassessment.md#r26), [R14](factory-remaining-tasks/02-prompt-to-pr.md#r14) | [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
 | 16 | [R41](factory-remaining-tasks/04-controls-repair-verification.md#r41) — Qualify intervention, withdrawal and interrupted-work recovery | [R06](factory-remaining-tasks/01-boundaries.md#r06), [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11), [R16](factory-remaining-tasks/02-prompt-to-pr.md#r16), [R26](factory-remaining-tasks/03-review-merge-reassessment.md#r26), [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35), [R44](factory-remaining-tasks/05-experience-and-development.md#r44) | none | A |
 | 17 | [R28](factory-remaining-tasks/03-review-merge-reassessment.md#r28) — Complete the post-completion Jev reassessment fence | [R27](factory-remaining-tasks/03-review-merge-reassessment.md#r27), [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
@@ -468,7 +479,7 @@ This retained dependency graph is not an active schedule. **Read both dependency
 | 18 | [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29) — Complete protected reassessment adoption and prefix recovery | [R28](factory-remaining-tasks/03-review-merge-reassessment.md#r28), [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13) | [R05](factory-remaining-tasks/01-boundaries.md#r05) | B |
 | 19 | [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37) — Connect bounded Strategist repair, sponsorship and adoption | [R36](factory-remaining-tasks/04-controls-repair-verification.md#r36), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R11](factory-remaining-tasks/02-prompt-to-pr.md#r11) | [R07](factory-remaining-tasks/01-boundaries.md#r07), [R08](factory-remaining-tasks/01-boundaries.md#r08), [R09](factory-remaining-tasks/01-boundaries.md#r09) | B |
 | 20 | [R39](factory-remaining-tasks/04-controls-repair-verification.md#r39) — Make app completion and delivery repair truthful and bounded | [R38](factory-remaining-tasks/04-controls-repair-verification.md#r38), [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37) | none | B |
-| 21 | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) — Connect Strategist and Test Pilot finish controls | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37), [R38](factory-remaining-tasks/04-controls-repair-verification.md#r38), [R39](factory-remaining-tasks/04-controls-repair-verification.md#r39) | none | B |
+| 21 | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) — Implement Strategist and Test Pilot work and finish controls | [R30](factory-remaining-tasks/04-controls-repair-verification.md#r30), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37), [R38](factory-remaining-tasks/04-controls-repair-verification.md#r38), [R39](factory-remaining-tasks/04-controls-repair-verification.md#r39) | none | B |
 | 22 | [R42](factory-remaining-tasks/05-experience-and-development.md#r42) — Finish the persisted factory read model and API | [R10](factory-remaining-tasks/01-boundaries.md#r10) | [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13), [R17](factory-remaining-tasks/02-prompt-to-pr.md#r17), [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24), [R28](factory-remaining-tasks/03-review-merge-reassessment.md#r28), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31), [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32), [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33), [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34), [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35), [R36](factory-remaining-tasks/04-controls-repair-verification.md#r36), [R37](factory-remaining-tasks/04-controls-repair-verification.md#r37), [R39](factory-remaining-tasks/04-controls-repair-verification.md#r39), [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) | C |
 | 22 | [R48](factory-remaining-tasks/05-experience-and-development.md#r48) — Qualify actual harness transport and first-response semantic behavior | [R12](factory-remaining-tasks/02-prompt-to-pr.md#r12), [R13](factory-remaining-tasks/02-prompt-to-pr.md#r13), [R16](factory-remaining-tasks/02-prompt-to-pr.md#r16), [R22](factory-remaining-tasks/03-review-merge-reassessment.md#r22), [R24](factory-remaining-tasks/03-review-merge-reassessment.md#r24), [R29](factory-remaining-tasks/03-review-merge-reassessment.md#r29), [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32), [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33), [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34), [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35), [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40), [R41](factory-remaining-tasks/04-controls-repair-verification.md#r41) | none | A |
 | 23 | [R43](factory-remaining-tasks/05-experience-and-development.md#r43) — Complete Work/Spaces and current native frontend composition | [R42](factory-remaining-tasks/05-experience-and-development.md#r42) | [R03](factory-remaining-tasks/01-boundaries.md#r03) | C |
@@ -496,26 +507,132 @@ There are no active assignments or workers. Use the [next-step disposition](#how
 
 The useful first product route is prompt → real graph → native implementation/checkpoints → one PR, followed by review/merge/reassessment. The feed/comment slices can proceed against existing accepted contracts alongside that route. R49 supplies development evidence; R50 proves the release mechanism; R54 freezes source before the single R51/R52 candidate path.
 
-## Fourteen controls and seven profiles
+<a id="fourteen-controls-and-seven-profiles"></a>
+<a id="full-worker-design-integration"></a>
+## Full worker, feed, decision and library design integration
 
-| Control | Completion owner |
+The owner requires the entire [MCP design](../design/factory-worker-mcp.md),
+[feed component catalog](../design/factory-feed-components.md) and
+[feed integration direction](../design/factory-feed-and-ralph-integration.md)
+to be implemented through the existing tasks. Those documents own behavior;
+this section assigns the work. The current source baseline has seven production
+profiles and fourteen tools. The expanded design has those seven profiles plus
+Library Admin, 25 shared tools and 63 distinct tool names. These are coverage
+counts for this design, not evidence of implementation or frozen API names.
+The later [issue work-contract extension](#issue-work-contract-extension) separately
+maps typed issues, research-only outcomes and worker-created prerequisites,
+including a recommended Researcher role and five candidate tool additions.
+Retain R01–R55 and their accepted work; these are expanded criteria of existing
+outcomes, not a new parallel backlog or additional counted parents.
+
+Every proposed tool has one primary completion owner below. All use R30's
+discovery/admission and the existing domain/control/Store owners. Role-specific
+reads share R31's access/paging conventions; they remain owned with their role's
+schema and consumer. R42 owns prepared projections, R43 the UI. A read has no
+mutation effect; mutations need their actual consumer, and terminal results also
+need observed settlement. Native editing/execution tools remain separate.
+
+| Tool family | Complete proposed tool inventory | Primary task | Consumer / released contract |
+| --- | --- | --- | --- |
+| Orientation and recovery | `factory.context`, `factory.evidence`, `factory.status`, `factory.receipt` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) | Required context for all eight profiles; bounded evidence and exact submission recovery. |
+| Incoming interactions | `factory.inbox`, `factory.discussion` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) | R32 records and R42 authorized projections; changed questions, decisions and prerequisites reach affected work. |
+| Knowledge and decision retrieval | `factory.knowledge_search`, `factory.knowledge_read`, `factory.decision_search`, `factory.decision_read` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) | R32 identities/grants and R42 indexes; exact provenance, validity and historical references. |
+| Conversation | `factory.ask`, `factory.answer`, `factory.reply` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Question routing, answer incorporation and authenticated human discussion-to-work consumers. |
+| Reports and reusable observations | `factory.flag`, `factory.learned`, `factory.suggest`, `factory.partial`, `factory.blocked`, `factory.stuck` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Canonical findings via R34, readiness/diagnosis via R36/R37, proposal adoption and library creation. |
+| Knowledge/decision mutations and attachments | `factory.knowledge_amend`, `factory.knowledge_feedback`, `factory.record_decision`, `factory.attach_artifact` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | One work/feed/library identity, actual decision authority, revisioned evidence and safe artifact references. |
+| Result preflight | `factory.validate_result` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Shared read-only preflight over the validators owned by R32/R33/R34/R40; finish revalidates. |
+| Incomplete result | `factory.finish_incomplete` | [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) | All eight profiles; preserve useful work and committed maintenance while settling the assignment. |
+| Product Lead | `factory.product_map`, `factory.draft_product_plan`, `factory.compare_product_plans`, `factory.finish_product_plan` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | R12/R13 initial issue decomposition and confirmed graph adoption. |
+| Architect | `factory.issue_context`, `factory.record_investigation`, `factory.draft_issue_plan`, `factory.finish_issue_plan` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | R15 investigation and immutable accepted executable plans. |
+| Builder and shared singleton work | `factory.tasks`, `factory.task_inputs`, `factory.submit_task_output`, `factory.finish_implementation` | [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) | R16–R18 task/checkpoint/integration owners; Fixer reuses the first three under singleton scope. |
+| Planned successor handoff | `factory.request_handoff` | [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) | Builder-only approved edge and verified predecessor; R33 supplies trusted task evidence. |
+| Inspector | `factory.review_scope`, `factory.record_review_coverage`, `factory.assess_finding`, `factory.finish_review` | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) | R22 complete independent exact-candidate review; shared Flag uses the same finding identity. |
+| Fixer | `factory.correction_scope`, `factory.record_disposition`, `factory.finish_correction` | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) | R23/R24 complete dispositions and independent acceptance; singleton output remains R33. |
+| Strategist | `factory.reassessment_scope`, `factory.record_diagnosis`, `factory.draft_repair`, `factory.preview_repair`, `factory.finish_reassessment` | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) | R29/R36/R37 cause-specific diagnosis and protected ongoing issue-plan maintenance. |
+| Test Pilot | `factory.verification_scope`, `factory.record_journey_result`, `factory.finish_app_verification` | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) | R38/R39 exact delivery/fixture/outcome coverage, trusted checks and bounded repair. |
+| Library Admin inspection | `factory.library_inventory`, `factory.preview_library_changes` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Collection-scoped complete/incomplete inventory and deterministic operation impact; R42 supplies projections. |
+| Library Admin maintenance | `factory.edit_library_item`, `factory.remove_library_item`, `factory.restore_library_item`, `factory.consolidate_library_items`, `factory.split_library_item`, `factory.relate_library_items`, `factory.supersede_library_item`, `factory.finish_library_maintenance` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) | Knowledge and decision item owners; preserved authority/history/access, atomic multi-item changes, actual operation receipts and maintenance result. |
+
+**Cross-cutting work and completion criteria:**
+
+- **R10/R11/R30:** add the typed Library Admin subject/result, finite collection
+  grants and common dispatch/accounting; extend profile discovery, instructions,
+  safe native execution, replay and revocation together. It has no Git issue,
+  merge or product-policy authority and no inherited parent credentials.
+- **R31:** implement required/optional context for every profile, fixed authorized
+  optional bundles, the existing once-per-capability Jev preparation and honest
+  fallback/hold. Library grants and private-lineage grants remain distinct.
+- **R12/R13/R15/R29/R37:** Product Lead owns initial issues, Architect executable
+  issue plans and Strategist ongoing in-scope issue maintenance. Factory/native
+  operations apply accepted changes and prove closure. Library Admin cannot
+  edit the backlog; decisions/comments cannot independently apply a graph.
+- **R32/R35/R41:** persist drafts, questions, decisions, knowledge, artifacts and
+  maintenance with exact revisions/receipts, finite bounds and actual consumers.
+  Recover lost replies, preserve committed changes after interruption and notify
+  affected work. Known blockers, diagnosis requests, partial work and terminal
+  incomplete results stay distinct; routine authorized maintenance needs no new
+  human approval queue.
+- **R42/R43:** build the complete authorized library/decision browsing and
+  maintenance experience alongside the combined subscribed feed. Render every
+  family in the component catalog from typed records, including all per-role,
+  shared, Library Admin and Factory/Jev failure/recovery compositions. Newest
+  posts are first; posts are separate; avatar/name/project/time/status sit outside
+  the card. Preserve the medium-detail work-post direction, discussions, reading
+  position and drafts; full workspaces/evidence open separately.
+- **R47/R48/R49:** qualify domain/Store/API joins, actual harness tool use for all
+  eight profiles and human-facing journeys. Cover Ask → answer → incorporation,
+  decision → application/supersession, Learned → later use → contradiction/amend,
+  Library Admin edit/remove/restore/consolidate/split, and the existing role and
+  non-happy-path journeys. Constituent checks are reused; schema stubs, pictures
+  and feed-only success do not close these criteria.
+- **R54/R51/R52:** update the one current catalog/callers/instructions/docs and
+  package the changed owners. Carry R49's joined capabilities into installed
+  readback/persistence and changed native boundary checks; no second runtime or
+  standalone knowledge daemon is introduced.
+
+**Useful implementation order:** establish R10/R11/R30 subject and capability
+contracts; connect R32 records with R31/R42 reads; deliver one question/answer
+loop and one decision/knowledge reuse loop; implement the role work and Library
+Admin operations with their existing consumers; render through R43 and qualify
+the changed joins through R47–R49. Release each useful contract independently.
+This is a producer/consumer sequence, not a new whole-parent dependency cycle:
+R31/R42 query and schema work can proceed before live R30, and R32 maintenance
+does not wait for a complete factory run or UI. Existing funding/native inputs
+gate only the tests that actually require them.
+
+**Remaining scoped choices:** exact schemas/bounds and routing defaults belong
+to their owning tasks. R32/R43 resolve collection governance, subscription/reply
+defaults and concrete artwork as needed. Unrestricted Git label/assignee/milestone
+administration and new exploratory Test Pilot execution were not specified by
+the design; do not silently claim those capabilities. A general vector-search
+stack or model-based curation service is not a prerequisite for indexed retrieval.
+
+<a id="issue-work-contract-extension"></a>
+### Issue work contracts, research and worker-created prerequisites
+
+The owner's [new issue-routing brainstorm](../design/factory-worker-mcp.md#issue-work-contracts)
+requires the issue to specify work type, expertise, workflow, deliverables,
+acceptance, guidance and relationships through Soda metadata in native content.
+Knowledge-only work and new prerequisites from blocked workers need actual
+workflow/completion consumers. The Researcher profile and five additional tool
+names are recommendations beyond the 63-tool map, not claimed current interfaces.
+Resolve them in these existing owners without introducing another task queue:
+
+| Existing task owners | Extension deliverable and acceptance |
 | --- | --- |
-| `factory.context` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) |
-| `factory.evidence` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) |
-| `factory.status` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) |
-| `factory.receipt` | [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31) |
-| `factory.finish_incomplete` | [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) |
-| `factory.finish_product_plan` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) |
-| `factory.finish_issue_plan` | [R32](factory-remaining-tasks/04-controls-repair-verification.md#r32) |
-| `factory.finish_implementation` | [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) |
-| `factory.finish_review` | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) |
-| `factory.finish_correction` | [R34](factory-remaining-tasks/04-controls-repair-verification.md#r34) |
-| `factory.finish_reassessment` | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) |
-| `factory.finish_app_verification` | [R40](factory-remaining-tasks/04-controls-repair-verification.md#r40) |
-| `factory.submit_task_output` | [R33](factory-remaining-tasks/04-controls-repair-verification.md#r33) |
-| `factory.request_handoff` | [R35](factory-remaining-tasks/04-controls-repair-verification.md#r35) |
+| R10/R11/R30 | Typed issue contract, registered routing/result variants and bounded Researcher subject if selected. Resolve role plus specialty against actual capability grants; invalid metadata or unavailable expertise cannot grant access or launch a default coding run. Follow-up work retains finite allowance and original attribution. |
+| R12/R13/R32 | Produce/edit one authoritative Soda block through native issue content and exact accepted inputs. Implement the proposed `factory.create_issue` and `factory.request_prerequisite` through existing native operation/adoption owners, including reuse/deduplication, origin, required-result binding, replay and partial creation/link failure. Routine in-scope creation follows existing machine authority; expanded/protected scope follows its real owner. |
+| R14/R27/R36/R39 | Design and implement an attributable non-code completion route against approved deliverables and required verification. Today's maintainer-confirmed non-code route remains the baseline until this extension exists. Accepted report/knowledge, native resolution/closure and the parent's exact required outcome must agree before readiness. Negative/inconclusive research, reopened or stale evidence cannot falsely unblock work. |
+| R15/R29/R35/R37/R41 | A newly required dependency on active work uses safe pause/checkpoint/settlement and successor admission, preserving completed work and immutable old inputs. Settle/release the occupied repository slot before research admission where required; a waiting parent must not deadlock its child. Test cycles, cancellation, changed parent scope, partial effects and no budget refill. |
+| R31/R32/R34 | Define Researcher context, `factory.research_scope`, `factory.record_research`, `factory.finish_research` and the declared assessment route if adopting that role. Preserve question coverage, sources/observations, uncertainty and existing Learned/Decision identities. An Inspector research review needs an explicit non-code subject with independent evidence, not a dummy PR or code candidate. |
+| R42/R43 | Issue form/readback for work type, expertise, outputs, guidance and routing reason; research questions/findings/comparisons and prerequisite-created/result-accepted/resumed components. Retain outside-card attribution, separate newest-first posts and same-identity library evidence. Recorded, accepted, linked, searchable and unblocked remain distinct. |
+| R47/R48/R49 | Qualify one blocked implementation → existing/new research prerequisite → evidence/knowledge → accepted non-code result → fresh parent continuation journey. Cover matching-result reuse, duplicate requests, cycles, active-slot release, changed requirements, inaccessible/contradictory evidence, inconclusive findings, lost native reply and delayed indexing. Existing research/curation work cannot silently gain coding or issue-edit authority. |
+| R54/R51/R52 | When the extension is implemented, package the chosen schema/profile/consumer/UI in the same owners and qualify its changed installed persistence/routing/readiness boundary. Update the catalog and exact schemas together; do not ship a research label without its result consumer. |
 
-Product Lead and Architect use R32; Builder R33; Inspector and Fixer R34 (with singleton checkpoint reuse in R33); Strategist and Test Pilot R40, backed by R29/R37 and R38/R39. All seven also require R08/R09/R30/R31/R35. Every mutation needs actual downstream effect and observed retirement; read controls need complete authorized readback, not invented mutation effects.
+The first useful implementation slice is the issue contract and one bounded
+research-to-knowledge prerequisite route. Wider workflow combinations and richer
+specialties can reuse those validated contracts. General issue administration,
+arbitrary stage scripts and a new scheduler are not prerequisites for this work.
 
 ## Requirement preservation and evidence gates
 

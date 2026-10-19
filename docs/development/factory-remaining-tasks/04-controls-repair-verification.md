@@ -11,6 +11,18 @@
 
 **Deliver:** Connect one server and fixed relay to exact role/subject/repository/revision/run/incarnation authority, trusted startup, reconnect/stop and receipt lifecycle. Activate only after the native boundaries actually pass.
 
+**Full design scope:** Implement discovery and admission for the
+[complete tool/profile inventory](../factory-remaining-tasks.md#full-worker-design-integration),
+including the new Library Admin profile. Consume R10's maintenance subject and
+R11's bounded assignment, with explicit collection/operation grants and no Git
+issue or policy authority. Update the current catalog, role instructions, native
+configuration and direct-call enforcement together. Qualify every added tool's
+role/scope/revision, byte/count limits, idempotency, revocation and terminal
+capacity; hidden tools must also refuse direct calls. Neither Library Admin nor
+native children acquire broader parent/operator credentials. Release the common
+contract to role producers before live qualification; schema design and focused
+handler work do not wait for an unrelated full-parent outcome.
+
 **Ralph absorption addition:** Extend this same MCP authority to R32's typed role
 communication. Derive author, role, run, assignment and subject from admission;
 apply lifetime, replay, revocation and cross-scope refusal to communication as
@@ -24,23 +36,44 @@ Native child/lane presentation does not grant the parent's mutation capability.
 **Principal source owners:** [cmd/soda-dashboard/factory_mcp.go](../../../cmd/soda-dashboard/factory_mcp.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/mcp_admission.go](../../../internal/factory/control/mcp_admission.go), [internal/store/factory_mcp_capability.go](../../../internal/store/factory_mcp_capability.go), [lib/host/src/terminal/factory/mcp_relay.rs](../../../lib/host/src/terminal/factory/mcp_relay.rs).
 
 <a id="r31"></a>
-## R31 — Finish all four bounded MCP read controls
+## R31 — Complete role context, interaction and library/decision reads
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30).
 
 **Current (wind-down):** Complete four canonical bounded read controls and live readback. The catalog owns the remaining prerequisites and release condition.
 
-**Deliver:** Complete factory.context, factory.evidence, factory.status and factory.receipt using bounded current canonical evidence, complete pagination, honest incompleteness and exact receipt recovery.
+**Deliver:** Complete the four baseline reads plus inbox/discussion and knowledge/decision search/read, with the required context for all seven production profiles and Library Admin. Use bounded canonical evidence, explicit grants, complete pagination, honest incompleteness and exact receipt recovery.
+
+**Required expanded reads:** Implement `factory.inbox`, `factory.discussion`,
+`factory.knowledge_search`, `factory.knowledge_read`, `factory.decision_search`
+and `factory.decision_read` alongside context/evidence/status/receipt. Consume
+R32's canonical objects and R42's prepared projections incrementally; role-detail
+read schemas stay with R32/R33/R34/R40 and reuse this paging/access contract.
+Required context follows each role's always-gets/may-retrieve contract in the
+[MCP design](../../design/factory-worker-mcp.md). Library Admin receives its
+objective, collection/operation grant, exact item revisions, evidence/authority,
+affected references, queue completeness and allowance. No broader library grant
+is inferred from local attempt lineage, repository membership or subscription.
+
+**Expanded acceptance:** Retrieve an answer and a changed decision through a
+cursor without marking either incorporated; retrieve an applicable learning on
+a later assignment with its actual support/validity and exact revision. Preserve
+removed/superseded historical references, source revocation and independent review
+boundaries. Complete empty, incomplete and unavailable results differ. Search,
+discussion, inbox and role reads perform no writes, execution or model spending.
+Jev may foreground a prepared optional bundle once per capability; required facts
+and authority are unchanged. Missing/uncertain selection uses S0-plus-hold, and
+new library/decision pages obey the same finite bounds and access checks.
 
 **Accept only when:** Each admitted profile receives its allowed current context without spending, leaking or granting authority. Missing pages cannot claim completeness. Reads need no native mutation effect; they still require live authenticated transport and correct readback.
 
-**Executable remainder:** Start at `factoryCatalogServer::{serveRead,serveEvidence,serveReceipt}`: receipt recovery exists, while evidence deliberately reports incomplete. First implement bounded current context/evidence projections over existing plan/run/review/inventory rows; add provenance-linked user comments through R32/R42 when available. Release cursor/completeness and allowed-context contracts to role consumers without waiting for live activation. Then use R30 for real read-only transport. Test missing/later pages, revisions, unauthorized repository/comment access and zero spending through the actual handlers. Context presents comments as attributed user input; it must not promote comment text into tool authority or expose unsubscribed private work.
+**Executable remainder:** Follow the [D14 worker-context design](../factory-workflow-contracts.md#d14-worker-context) from `factoryCatalogServer::{serveRead,serveEvidence,serveReceipt}` and the existing context selection/preparation owners. First close the partial-selection gaps below: enforce S0-plus-hold fallback, reapply validated effective decisions on receipt readback, and bind the one-call reservation to capability identity rather than only a fingerprint. Then join required role facts and authorized local-lineage projections, supply the complete selection state, and add bounded context cursor pages. General evidence record pages remain FW40; provenance-linked comments remain R32/R42. Release cursor/completeness and allowed-context contracts to role consumers without waiting for live activation, then use R30 for real read-only transport. Test missing/later pages, revisions, unauthorized repository/comment access and zero spending through actual handlers. Comments remain attributed user input, never tool authority or a route to unsubscribed private work.
 
-**Read-contract status:** zero spending, unknown-capability refusal on all four reads, cross-assignment receipt non-disclosure and honest-incomplete evidence are proven through the actual handlers. Context now projects the recorded assignment behind the capability (prompt digest, exact source/preparation, outcome/reason once set; never prompt bytes, history or actor) and refuses without its assignment. Wider projections over plan/run/review/inventory rows plus pagination inputs stay open: ref/cursor are absent from the current schema by the FW40 boundary.
+**Read-contract status:** zero spending, unknown-capability refusal on all four reads, cross-assignment receipt non-disclosure and honest-incomplete evidence are proven through the actual handlers. The basic context projects the recorded assignment (prompt digest, exact source/preparation, outcome/reason once set) and refuses without it. Partial optional joins now expose own-attempt run IDs and a linked parent's outcome/reason; prompt bytes, private conversations and actor identities remain excluded. Full role projections, field-level lineage grants and pagination inputs remain open; current schemas have no context cursor or general evidence ref/cursor.
 
-**Context-scope direction (A+B with Jev selection):** context serves current rows plus paged history. History scope is local lineage by default — own attempt, parents, prior attempts on the same task, carried findings — because full history is unbounded and risks exposing unsubscribed private work; anything wider goes through explicit authorized pages. At the context point, code builds fixed context bundles and Jev Choice-selects among them (same pattern as the existing priority judgments: server-only secret file, funded consultation first, low confidence or unavailable holds with attention, never an inferred bundle). Build slice: fixed bundles, one Choice question, funded once per capability with deterministic fallback to current-only.
+**Context-scope direction (A+B with Jev selection):** [D14](../factory-workflow-contracts.md#d14-worker-context) owns the distinction between what each role **needs**, what current information it **gets**, and what optional authorized history it **could use**. Required role material survives every choice. Code builds fixed current/attempt/lineage bundles and Jev selects which to foreground; Jev cannot choose permissions, invent context or omit required findings. History defaults to local lineage: own attempt, parents, authorized prior attempts on the same task and carried findings. Wider history needs explicit authorized pages. Selection is prepared proactively by the controller, once per capability, through the existing funded TypeSafe path; reads refresh current facts without new spending. Low confidence or unavailable selection serves the basic S0 snapshot with an enforced hold and attention, never the widest or another inferred bundle.
 
-**External design (retained, advice only):** full point-design at `.artifacts/codex-consult-context-design/response.md` (prompt retained beside it). Verified grounded: S0 field list, fingerprint/purpose registry, budget subledgers, rate limits and worker-rule references all check out against source. Key refinements over the recipe sketch: the saved choice selects a projection *template* (reads reproject live facts, no frozen copy); preparation is controller-owned before first read (never a read side effect); funding is exactly one attempt per capability with reservation owner; thresholds (0.80/0.80), collection caps and cursor shape are *proposed* needing evaluation, not settled. Not building until directed.
+**Integrated design and remaining coverage:** the [D14 context section](../factory-workflow-contracts.md#d14-worker-context) now contains the seven-role needs/optional-history matrix, exact Builder/Inspector/Fixer projections, bundle definitions, Choice/state, reservation/fallback rules and bounded-page design. Product Lead, Architect, Strategist and Test Pilot still need their exact role adapters; a shared snapshot does not satisfy their required inputs. The 0.80/0.80 cutoffs in source still need context-specific evaluation; additional collection caps and cursor/wire shapes remain recommended design parameters. `.artifacts/codex-consult-context-design/response.md` is retained consultation history, not a second contract owner. This integration changes documentation, not implementation or qualification status.
 
 **Selection-plumbing slice (landed, host PG proof pending):** `context-bundle-v1` purpose registered (eleven purposes); `ApplyContextBundleAnswer` serves only a confident eligible selection, else holds snapshot_hold with attention; `Coordinator.SelectContextBundle` runs the funded Choice over code-enforced eligibility through the same receipt-cache path as existing judgments — repeat selections reuse the cached receipt without new spend, reserve refusal spends nothing, chooser failure or an unoffered selection holds snapshot_hold. Sandbox: `go vet` clean, archcheck PASS, factory pure tests PASS, control option/state tests PASS; six funded `SelectContextBundle` tests skip without SODA_PG_* and need the host fixture run.
 
@@ -50,27 +83,31 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Preparation-call slice (landed, host PG proof pending):** `PrepareContextBundleSelection` rebuilds the staged capability from recorded preparation, joins parent content for eligibility, and records one funded Choice through `ReservePriorityJudgment` (once per fingerprint by construction; recorded selections reuse without new spend). `launchTail` invokes it best-effort beside capability staging — refusal or an unavailable consultation never fails the launch. Sandbox: vet clean, nil-guard test PASS, handler contract tests PASS, archcheck PASS; two PG-lane tests fail-fast without the fixture by lane convention and need the host run.
 
+**Required reconciliation of these partial slices:** current source is not yet the D14 target. Missing/mismatched receipts fall back to the widest bundle; `serveRead` uses raw `receipt.Selected` without applying the saved answer's confidence/effective hold; preparation failures do not gate launch; and a fingerprint-keyed reservation does not cap changed inputs/options at one call per capability. The selection state currently contains only version/scope, although its rubric references current facts, history previews and candidate bundles. A loaded parent also does not establish a field-level visibility grant. Resolve these in `internal/factory/control`, `internal/store` and `internal/web/api` before claiming selection acceptance: use the unique capability point, complete bounded state, validated effective decision/explicit hold and per-row grants, while preserving denial order, no read-side writes/spend, recovery and terminal precedence. Existing source/test evidence above remains evidence of those narrower slices; it does not prove these missing guarantees.
+
 **Evidence run-projection slice (landed):** `serveEvidence` projects the admitted assignment's own attempt as bounded run rows (id/role/outcome only, capped at `MCPMaxPageRefs` with `runs_truncated` marking the cap) via a new `Runs` dep (`*store.Store` already implements it). Missing assignments and unresolvable recorded runs refuse; plan/review/inventory pages plus pagination stay pending, so evidence remains honestly incomplete and the spend-nothing contract still passes.
 
-**FW40 pagination handoff (precise, no code):** plan/review/inventory readers are scoped by repository/issue/project/owner (`PriorityReceiptsForIssue` needs issue plus cursor, `ProjectFactoryRuns`/`ProjectUnsettledRuns` are project-wide, `IntentReview` is revision-keyed) — none is assignment-scoped, so R31 cannot serve them capability-bound without two schema-side pieces that FW40 owns: (1) cursor/ref inputs on the evidence envelope (the envelope currently refuses unknown top-level fields, so this is a schema change, not a handler tweak); (2) a per-row lineage filter restricting every page to the admitted attempt plus its loaded parent chain. R31 closes pagination when evidence serves plan/review/inventory first pages plus cursor follow-ups with `complete` true only on exhaustion — a missing page still refuses or declares incomplete, never empty success. Live readback stays held on R30, comments on R32/R42.
+**Pagination handoff:** bounded context-projection pages are specified by [D14](../factory-workflow-contracts.md#d14-worker-context) with a context-only cursor; they do not implement FW40's general evidence-record pages. Plan/review/inventory readers are scoped by repository/issue/project/owner (`PriorityReceiptsForIssue` needs issue plus cursor, `ProjectFactoryRuns`/`ProjectUnsettledRuns` are project-wide, `IntentReview` is revision-keyed), so neither read path may expose them directly. Both need schema inputs and per-row capability/visibility grants over the allowed lineage; a loaded parent chain alone is insufficient. FW40 retains evidence `{ref,cursor?}` and general plan/review/inventory records. Collection exhaustion can report complete only for its declared bounded snapshot, never for absent evidence or missing pages. Live readback stays held on R30, comments on R32/R42.
 
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control](../../../internal/factory/control), [internal/store/factory_mcp_submission.go](../../../internal/store/factory_mcp_submission.go).
 
 <a id="r32"></a>
-## R32 — Connect Product Lead and Architect finish controls to real consumers
+## R32 — Implement shared records, planning tools and Library Admin
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R12](02-prompt-to-pr.md#r12), [R13](02-prompt-to-pr.md#r13), [R15](02-prompt-to-pr.md#r15).
 
 **Current (wind-down):** Planning finish consumers and typed ask/flag/learned/suggest/partial/blocked/stuck/done records. The catalog owns the remaining prerequisites and release condition.
 
-**Deliver:** Bind product-plan and issue-plan prompts/results to current common dispatch, semantic graph/manifest proposal adoption and immutable executable plans, with explicit product attention and observed terminal settlement.
+**Deliver:** Implement shared communication, decision/knowledge/artifact records, Product Lead/Architect work tools and Library Admin maintenance. Bind them to real domain consumers, durable revisions/receipts and feed/index obligations, with formal planning and maintenance finishes using common settlement.
 
 **Ralph absorption addition:** Own the common typed communication producer for
 all seven admitted roles: **ask, flag, learned, suggest, partial, blocked, stuck
 and done**, following the
 [verb blueprint](../../design/factory-feed-and-ralph-integration.md#adopted-verb-vocabulary).
-Resolve the exact tool representation/schemas within Soda's existing MCP system,
-reuse Ralph's useful structured payloads, and persist attributable submissions
+Implement the seven distinct shared MCP tools selected in the
+[D14 outlet contract](../factory-workflow-contracts.md#d14-communication-outlets)
+within Soda's existing server. Define their strict schemas using Ralph's useful
+structured payloads, and persist attributable submissions
 and revisions through the existing domain/Store owners. Link canonical findings,
 plans and evidence instead of creating duplicate truth. Done uses each role's
 existing finish control; R33/R34/R40 retain ownership of their role-specific
@@ -79,17 +116,101 @@ finishes incomplete through R35. Ask/reply and suggest follow existing product
 review/adoption authority; blocked/stuck are reports for deterministic assessment,
 not caller-authorized readiness transitions. R42 consumes these records.
 
-**Additional acceptance:** Exercise each verb with actual persisted readback and
-the admitted role/run binding. Forged authors, wrong scope, changed-content
+**Communication status boundary:** actual MCP outlets are the required design.
+The seven nonterminal tools are shared by all seven admitted parent roles; Done
+uses each role's existing finish tool. The current source catalog remains at
+fourteen tools until the seven additions land, yielding the 21-tool communication extension in
+the [D14 interface breakdown](../factory-workflow-contracts.md#d14-worker-interface-layers).
+Tool selection is settled; strict schemas, bounds, persistence and consumer
+wiring remain R32 work. Context selection in R31 does not implement this layer.
+
+**Full design implementation slices:** The
+[tool-to-task inventory](../factory-remaining-tasks.md#full-worker-design-integration)
+is the complete scope, with behavior owned by the [MCP design](../../design/factory-worker-mcp.md).
+Resolve strict schemas and finite per-assignment limits within these slices:
+
+The later [issue work-contract extension](../factory-remaining-tasks.md#issue-work-contract-extension)
+adds design/implementation scope for typed native issue metadata, proposed
+`factory.create_issue` / `factory.request_prerequisite`, and a recommended
+Researcher interface (`research_scope`, `record_research`, `finish_research`).
+R32 is the primary tool/record owner for those additions; R10/R11/R30 admit them,
+R31 supplies context/read conventions, R34 supplies any required research review,
+and the named readiness/completion owners validate non-code results. Resolve the
+Researcher versus Architect-variant choice explicitly; do not force research to
+emit a PR or bypass today's non-code acceptance with a new label.
+
+- [ ] Implement Ask/Answer/Reply and human comment/reply records with routing,
+  answer incorporation, revision history and exact discussion-to-work origin.
+  Implement Flag/Suggest/Partial/Blocked/Stuck with actual finding/proposal/
+  readiness/diagnosis consumers; unaffected work continues. Inspector Flag uses
+  R34's canonical finding, never a second feed-only defect.
+- [ ] Implement `factory.record_decision`: choice, rationale, alternatives,
+  consequences, affected scope, evidence, actual decider/authority and application
+  state. Reference existing human/acceptance/Jev decisions rather than creating
+  competing authorities. Deliver retrieval/index inputs to R31/R42 and changed
+  decision notifications to affected work; logging alone applies no graph.
+- [ ] Implement Learned, knowledge amendment/feedback and artifact registration:
+  explicit reusable entries, applicability, separate support/governance/validity,
+  provenance, contradiction/duplicate relations, stale-source handling and usage
+  feedback. Use safe staged/capture references; illustrative artifacts cannot
+  establish trusted checks. Library grants/publication respect source visibility;
+  do not make every feed update permanent knowledge or require human review for
+  ordinary observations. Release prepared-index inputs to R42.
+- [ ] Implement Product Lead's product map, revisioned plan drafts, deterministic
+  comparisons and finish against R12/R13. Implement Architect's issue context,
+  investigation records, executable-plan drafts and finish against R15. Seal
+  exact draft revisions, preserve unresolved required inputs and prevent drafts
+  from launching work. Shared `factory.validate_result` invokes existing role
+  validators read-only; each role owner supplies its schema and finish recheck.
+- [ ] Implement Library Admin inventory/preview and typed edit, remove, restore,
+  consolidate, split, relate and supersede operations for knowledge and decisions.
+  Check current grants/revisions, preserve provenance/authority/history and old
+  references, and commit each bounded multi-item operation plus mappings/event
+  obligation atomically. Preview reserves nothing. Removed items leave ordinary
+  discovery while historical references and still-operative required decisions
+  retain their proper authoritative path. Routine authorized edits need no
+  separate approval queue; changing an effective choice needs its actual owner.
+- [ ] Implement bounded maintenance admission triggers through R10/R11/R30,
+  the Library Admin instruction/result schema and `finish_library_maintenance`
+  consumer. An explicit request or configured bounded trigger can admit work;
+  reads do not. Finish summarizes confirmed operations and remaining cases;
+  R35/R41 settlement preserves changes already committed before interruption.
+- [ ] For every mutation return stable receipt/object/revision, actual consumer
+  state and permitted next route. Persist canonical change and projection
+  obligation together. Recover a lost response from the original identity;
+  repair feed/index projection without repeating the native effect or operation.
+
+**Expanded acceptance:** Exercise question → answer → incorporation, decision →
+read/application/supersession, Learned → later use → contradiction/amendment and
+all maintenance operations through handlers and real Store readback. Cover stale
+previews, conflicting decisions, revoked sources, partial inventories, atomic
+consolidation/split, restore against a newer replacement, lost replies and
+operation success with delayed projection. Assert correct authority and preserved
+references in each case. Release each producer to R31/R42/R43 as it is usable;
+R32 does not wait for the complete UI or an entire factory run to begin.
+
+The [exception-routing design](../../design/factory-feed-components.md#failure-component-routing)
+specifies the typed failure/recovery information needed by those producers:
+affected object/revision, actual reason and evidence, recorded/refused/uncertain
+effect, receipt identity and permitted next route. R42 projects that state into
+components; no generic widget-ping tool or worker-selected success state replaces
+the real domain action. The per-role matrices are required implementation cases; qualification needs
+their actual producer and consumer paths.
+
+**Additional acceptance:** Discover and call all seven shared communication tools
+through every admitted parent role profile, with actual persisted readback and
+the admitted role/run binding. Exercise Done through each role's existing finish
+tool; a feed label or generic text submission alone does not qualify. Forged
+authors, wrong scope, changed-content
 replay, expired/revoked capabilities and terminal-afterlife mutation refuse.
 Question/answer, partial progress, known blocker and diagnosis-needed reports
 remain distinct; no communication grants approval, resets allowances or turns an
-agent's done report into verified completion. Update affected prompt/tool
-contracts and consumers together when the extension representation is selected.
+agent's done report into verified completion. Update the canonical source catalog,
+discovery, prompt/tool contracts and consumers together for the selected outlets.
 
-**Accept only when:** Real handler→controller→Store→permitted native effect→readback cases pass for both controls and all refusals. No-repository drafts launch nothing, model output grants no approval, and accepted finish cannot advance while the process remains uncertain.
+**Accept only when:** Every assigned shared/planning/maintenance tool reaches its real owner and durable readback, with the required authority, revision and recovery cases. Planning finishes also require their permitted native effects and observed settlement. No-repository drafts launch nothing; recorded decisions and maintenance edits cannot grant policy or issue authority, and accepted finish cannot advance while the process remains uncertain.
 
-**Executable remainder:** Work in three coherent slices. First define the eight-verb envelope and persisted human post/comment/reply mutations in the existing MCP/domain/Store owners: server-derived actor/scope, stable post/comment IDs, revision/replay rules and canonical evidence references. Choose tool representation and bounds in the owning feed design; no replacement MCP server. Second join Product Lead/Architect finish to R12/R13/R15 consumers. Third expose authorized discussions through R31 and bind a selected comment/discussion revision to an explicit planning/issue request, returning its durable result or failure. Reuse existing product scope/approval rules; do not require new approval for every comment or auto-launch on every post. R42/R43 consume records. Real-PG handler tests cover all verbs/comments, replay/conflict/revocation and origin links; native finish acceptance still needs R30 and observed retirement.
+**Executable remainder:** Use the full implementation checklist above. First establish shared record/revision/grant/receipt schemas and one Ask → answer → incorporation path. Next connect decision recording/retrieval and Learned → later use → amendment with R31/R42, then Library Admin operations through the same item owners. In parallel, join durable Product Lead/Architect drafts and finishes to R12/R13/R15 and connect exact discussion revisions to those requests. Release producer records and focused checks incrementally to R42/R43; finish the maintenance subject/consumer with R10/R11/R30/R35. Reuse existing scope/approval rules, the current MCP server and reserved terminal capacity. Real-PG cases cover actual consumers, history, authority, conflict and replay; native planning/maintenance qualification still needs admitted transport and observed settlement. Completing only the original seven signals or two planning finishes leaves this parent open.
 
 **Discussion-to-effect recovery:** The [accepted discussion contract](../../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work) requires more than persisted comments and a success link. After the trigger/routing choice for this slice is resolved and R12/R13/R15 consumers exist, bind one immutable discussion revision and request ID to their existing dispatch/native operation journals in `intent_generation.go`, `factory_intent_generation.go` and `factory_planning_revisions.go`. Next exercise edit/deletion or access loss before admission, an unavailable consumer, and a lost native-effect reply after commit. Finite acceptance: stale/refused/pending results are visible; retry recovers the original plan/issue and charge, never a duplicate or a relabeled newer comment; confirmed results retain the original discussion link. R31/R42/R43 expose the same outcome with current access checks. Trigger/edit policy remains a scoped design choice, not permission to auto-dispatch or demand approval for every comment.
 
@@ -104,6 +225,15 @@ contracts and consumers together when the extension representation is selected.
 
 **Deliver:** Wire factory.submit_task_output and factory.finish_implementation through actual native observation, trusted checks/Git CAS/receipt and the common plan completion owner. Reuse the executor for singleton Fixer output.
 
+**Full role interface:** Implement `factory.tasks` and `factory.task_inputs`
+alongside output/finish, using the same immutable plan, readiness, ownership,
+input/check manifest and native checkpoint records. Fixer sees only its admitted
+singleton and cannot supply a child/handoff identity. Release these records to
+R42 task lanes, previews, check failure/recovery and candidate components. A
+Partial report cannot change observed task counts. Qualify later-page inputs,
+failed/unknown output, stale candidate, concurrent independent progress and lost
+checkpoint replies; expose the exact affected task and permitted next action.
+
 **Accept only when:** Duplicate/racing proposals produce one checkpoint and no ownership rewrite. Child/handoff identity is forbidden for singleton Fixer; failed checks, mutation after release and unobserved retirement cannot advance. P8 is a real native composition.
 
 **Executable remainder:** Consume R16 events, R17 trusted checkpoint production, R18 final-plan gate and R30/R31 authenticated submission/readback. Start at `factoryCatalogServer::serveMutation`, `task_events.rs` and `SavePlanTaskReceipt`. Wire submit_task_output to the existing observed/check/CAS path, then finish_implementation to final-plan completion. Reuse that executor for singleton Fixer without children/handoff. Release consumed receipt/effect references to R34/R42. Race duplicate proposals and failed checks in focused PG tests; P8 then proves a real native checkpoint and retirement. Accepted submission alone must not mark a task completed or release capacity.
@@ -111,13 +241,25 @@ contracts and consumers together when the extension representation is selected.
 **Principal source owners:** [lib/host/src/factory/task_events.rs](../../../lib/host/src/factory/task_events.rs), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
 
 <a id="r34"></a>
-## R34 — Connect Inspector and Fixer finish controls to native review/correction
+## R34 — Implement Inspector and Fixer work, coverage and finish controls
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R24](03-review-merge-reassessment.md#r24), [R33](04-controls-repair-verification.md#r33).
 
 **Current (wind-down):** Inspector/Fixer finish to actual review/correction effects. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Apply exact independent role prompts, canonical review coverage/dispositions and singleton Fixer output to factory.finish_review and factory.finish_correction. Use conditional native review/comment/resolution owners.
+
+**Full role interfaces:** Implement Inspector `review_scope`,
+`record_review_coverage` and `assess_finding`, plus Fixer `correction_scope` and
+`record_disposition`, with their existing typed finishes. Inspector's shared Flag
+creates/revises the same canonical draft finding that R22 publishes; early feed
+visibility remains reported/draft. Persist complete coverage/disposition sets
+before finish with exact candidate and evidence bindings. R33 supplies Fixer's
+singleton task views/output. Qualify missing carried findings, stale candidates,
+unreliable checks, incomplete coverage, disputes, optional advice declined and
+failed regression. Independent assessment owns acceptance; a Fixer report cannot
+resolve its own required finding. Release finding/repro/coverage/before-after/
+regression states and root-cause links to R42/R43 using the component catalog.
 
 **Accept only when:** Clear is explicit and complete; nothing-found, incomplete and disputed reports keep their distinct semantics. No direct agent merge or authority grant. Native readback, task output and observed retirement gate progression.
 
@@ -134,6 +276,14 @@ contracts and consumers together when the extension representation is selected.
 
 **Deliver:** Wire factory.finish_incomplete and factory.request_handoff to the exact blocked owner/approved DAG successor and common stop/settlement path. Preserve pre-start hold/FactoryStart, receipt recovery and terminal capacity.
 
+**Expanded settlement:** Apply incomplete/terminal semantics to all eight
+profiles, including Library Admin. Preserve drafts, open required questions,
+decision/knowledge references and already committed maintenance operations.
+Nonterminal reports do not freeze mutations; one terminal identity does, with
+exact replay and later receipt recovery through the authorized owner after
+retirement. Native failure after a submitted finish must remain visible. A late
+answer requires fresh authorized admission, never revival of an old capability.
+
 **Accept only when:** Blocked/nothing-found/finish are distinct. Submission is not observed termination; stop/submission/reconnect/restart races cannot release unknown children, transfer ownership arbitrarily or charge twice.
 
 **Executable remainder:** Consume R11 settlement and R30/R31 authority/receipts. Start at MCP finish_incomplete/request_handoff, `dispatch_result.go::AccountSettledRun` and host `finish.rs`/`stop.rs`. First persist the exact blocked owner or admitted DAG successor proposal; then join stop observation, children retirement and one settlement/credential return. Release terminal state/custody facts to R41/R42. Run PG submission-versus-stop/reconnect races and one native parent-with-child restart witness. Ordinary partial communication is not terminal; unknown retirement holds custody/capacity, and handoff cannot create a new allowance or arbitrary assignee.
@@ -148,6 +298,14 @@ contracts and consumers together when the extension representation is selected.
 **Current (wind-down):** Generation advancement on verified delivery and full episode consumer composition. Serving detector/events/isolation/order accepted through 3af53d09. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Preserve the accepted serving detector, complete component inventory and bound episode/fence; finish progress-generation and downstream consumers. Separate active work, CI, quota, preparation, permission, pause and product attention from cycles/missing producers/unexplained no-ready work.
+
+**Report consumer:** Consume R32 Blocked/Stuck records as evidence to the existing
+readiness/classification owners. A known prerequisite identifies affected work,
+responsible owner and release condition; an uncertain cause may route bounded
+diagnosis. Concurrent waits/failures must not collapse into a global blocked
+state or hide an independently ready component. Release current reason, evidence,
+resolution and stale-report states to R42's exception routing; unchanged polling
+or a report alone does not launch a new investigation or resolve a blocker.
 
 **Accept only when:** Ordinary waits make no investigator call; a wait in one component cannot hide repairable work in another. Partial inventory cannot prove deadlock. Ready work returns to selection and fully delivered outcomes enter verification.
 
@@ -183,6 +341,13 @@ contracts and consumers together when the extension representation is selected.
 
 **Deliver:** Bind approved manifest/outcome coverage to accepted intent version and integrated tree/artifact/fixture. Launch Test Pilot under the readonly profile and existing bounded host operations, retaining trusted check and cleanup receipts.
 
+**Journey boundary:** Execute the entire approved deterministic manifest before
+CLI start as required by D16. Failed preparation/manifest execution is a Factory
+event, never an invented Test Pilot report. R40 may record outcome-linked journey
+observations and attach existing captures only within admitted capabilities.
+New exploratory environments/browser execution are not implicitly authorized by
+the recording tool; missing fixtures or evidence remain explicit incomplete cases.
+
 **Accept only when:** P9 uses the actual approved fixture and current integrated bytes. Missing/stale/failed checks cannot pass; forged proposed evidence is not trusted check output. Lost replies and CLI-start ordering preserve identity and no deployment occurs.
 
 **Executable remainder:** Consume R10 delivery identity, R13 accepted outcome coverage, R18 exact integrated artifact and R27 verified delivery. Start at `internal/factory/mcp_manifest.go::ValidateManifestProposal`, `verification.go` and API `FactoryMCPDeps.Catalog`. First wire approved catalog lookup and durable adoption of the proposal; then launch its bounded readonly Test Pilot checks through existing host manifest/run owners. Bind trusted check output independently of submitted report digests. Release exact verification receipts to R39/R40. Test missing fixture, stale manifest/artifact, forged receipt and failed required check at the actual Store/handler join, then native P9 using R30/R44/R45. No deployment or agent-defined shell authority.
@@ -207,13 +372,31 @@ contracts and consumers together when the extension representation is selected.
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store).
 
 <a id="r40"></a>
-## R40 — Connect Strategist and Test Pilot finish controls
+## R40 — Implement Strategist and Test Pilot work and finish controls
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R30](04-controls-repair-verification.md#r30), [R31](04-controls-repair-verification.md#r31), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37), [R38](04-controls-repair-verification.md#r38), [R39](04-controls-repair-verification.md#r39).
 
 **Current (wind-down):** Strategist/Test Pilot finish effects and seven-profile instruction/context matrix. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect typed role prompts/results and observed retirement to the reassessment/repair and exact-artifact verification/app completion owners. Finish the seven-profile instruction/context matrix.
+
+**Full role interfaces:** Implement Strategist `reassessment_scope`,
+`record_diagnosis`, `draft_repair`, `preview_repair` and its finish for the admitted
+completion/stall/delivery-repair cause. Use complete inventories, preserved
+protected work, exact proposal revisions and a deterministic no-effect preview;
+R29/R37 apply accepted changes. Implement Test Pilot `verification_scope`,
+`record_journey_result` and its finish with exact outcome, delivery, fixture,
+expected/observed behavior and trusted receipts from R38/R39. Journey failures
+retain canonical IDs through repair; no duplicate Flag submission is required.
+Persist drafts/observations and expose their limits to R42 before finishing.
+
+**Expanded acceptance:** Distinguish incomplete inventory, ordinary wait, real
+stall, refused/no-change repair, partial adoption and confirmed new readiness.
+Distinguish failed/incomplete/stale journey evidence from a verified delivery;
+all required coverage survives paging and revisions. Feed diagnosis/comparison/
+journey components, decision logs and reusable lessons reference the same facts.
+Reconcile the seven production instructions here; R32 owns Library Admin's
+instruction/result schema and R30/R48 qualify the combined eight-profile matrix.
 
 **Accept only when:** Both controls have authenticated producer→durable admission→permitted effect→native/host readback→visible state, including stale/blocked/refused/replay cases. Tool completion grants no merge or deployment authority.
 
@@ -229,6 +412,14 @@ contracts and consumers together when the extension representation is selected.
 **Current (wind-down):** Composed intervention/withdrawal/crash recovery. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Compose pause/cancel/resume/Retry/takeover with exact native tasks, outstanding operations, MCP capability withdrawal and credential/resource return. Preserve finite consumption and human work.
+
+**Maintenance and conversation recovery:** Include R32 drafts, decisions,
+knowledge and collection-maintenance effects when testing interruption. Preserve
+committed edits/removals/consolidations/splits and recover their original receipts;
+cancel does not roll them back or repeat them. A stopped Library Admin cannot
+continue through an old capability. Open questions/proposals retain history and
+their real next owner; delayed feed/index work reconciles existing obligations
+without reopening the worker, making a new charge or repeating a native effect.
 
 **Accept only when:** Observe whole owned execution retirement before release or takeover; uncertain stop remains fenced. Restart adopts committed effects instead of duplicating them. Human terminals, checkouts, services and credentials remain distinct and usable.
 

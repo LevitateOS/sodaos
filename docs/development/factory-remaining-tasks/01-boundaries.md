@@ -154,9 +154,22 @@
 
 **Deliver:** Trace every admitted phase through Go controller/Store, actual Rust host, CLI result ingress and settlement. Finish missing typed payloads/consumers together, retaining phase bounds and existing owner policy.
 
+**Owner-requested Library Admin addition:** Define a typed collection-maintenance
+subject and result for the eighth profile in the
+[full design](../factory-remaining-tasks.md#full-worker-design-integration).
+Bind objective, collection/operation grants, exact input revisions and allowance
+without inventing a Git issue, delivery or code candidate. Carry the same identity
+through Go dispatch/Store, actual host admission and finish/settlement mirrors.
+Release the contract to R11/R30/R31/R32. Extend the existing positive/refusal
+matrix for wrong profile, cross-collection scope, candidate-bearing maintenance
+results and stale revisions; prior accepted production-role parity remains valid
+at its original scope and does not qualify this new subject.
+
 **Accept only when:** A complete positive/negative phase-role-subject-result matrix passes. Extra/cross-phase payloads, candidate-bearing planning results, stale identities and wrong manifests refuse. Actual host owners are inspected; absence in the operator CLI is not a claimed execution gap.
 
 **Executable remainder:** The types already exist, including `internal/factory/verification.go::{DeliverySubject,DeliveryRepairSubject}`. Start at `assignment_result.go`, `dispatch_result.go::derivePhasedAttemptResult` and host `finish.rs`. Trace one repair and one verify result from trusted host ingress through Store settlement; close missing subject/cause/manifest binding there. Release the same envelope to R11/R32/R38/R40. Extend the existing parity matrix for these consumers: wrong subject/profile, extra candidate, stale run and manifest mismatch refuse before effect. Preserve accepted Go/Rust parity and terminal transport; coordinate changed mirrors through existing schema owners.
+
+**Source-complete status:** the ingress-to-settlement path is traced and closed in source — host `finish_run` carries raw output only, control derives and binds (phase/subject/cycle/inventory/head, repair-chain settlement with unproven-to-blocked refusal, all matrix-green), store finishes with shape/freshness/immutability checks. Failure-digest linkage stays open by design (no producer equation; cause semantics belong to R37-R40) and verify/repair assignment production awaits R11 dispatch. Remainder is PG/native qualification of the matrix plus native consumers.
 
 **PG matrix proof (landed):** `dispatch_settlement_phased_test.go` runs the refusal classes end to end on real PG — cross-phase and legacy-candidate results finish blocked-human with no recorded candidate and a stable single charge; a stale direct finish refuses with exactly one terminal success. Manifest-mismatch end to end still wants a verify-root staging helper; pure derivation refusals and the store freshness guard stay green. Native consumers remain open.
 

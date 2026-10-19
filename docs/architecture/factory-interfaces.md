@@ -78,6 +78,12 @@ retirement revoke it. Provider credentials and Factory control capabilities are
 separate. The native parent/worker identity and instruction-channel boundary must
 be proved for each supported pinned harness/profile before enabling it.
 
+The table below lists each role's **formal completion control only**. The full
+[worker-interface breakdown](../development/factory-workflow-contracts.md#d14-worker-interface-layers)
+separates shared reads, native working tools, pending nonterminal communication
+and structured final results. A role's finish control is not its entire toolset
+or a limit of one finding/task/output item.
+
 | Profile | Phase / execution account | Completion control |
 | --- | --- | --- |
 | Product Lead | decompose / coder | `factory.finish_product_plan` |
@@ -91,10 +97,31 @@ be proved for each supported pinned harness/profile before enabling it.
 All profiles expose `factory.context`, `factory.evidence`, `factory.status`,
 `factory.receipt` and `factory.finish_incomplete`. Builder/Fixer can
 `factory.submit_task_output`; Builder alone can `factory.request_handoff` to an
-already planned successor. These are 14 tools across seven profiles, not seven
-server processes or seven native account roles. Native editor/terminal/browser
+already planned successor. These are the current 14 source tools across seven
+profiles. The [required communication outlets](../development/factory-workflow-contracts.md#d14-communication-outlets)
+add seven distinct nonterminal MCP tools shared by every role, giving a minimum
+communication extension of 21 tools on the same server. Ask, flag, learned, suggest, partial, blocked and
+stuck are callable submissions in that design; Done uses the role's existing
+finish tool. R32 owns implementation of the additions. Native editor/terminal/browser
 and native child controls remain execution-harness capabilities. Jev is invoked
 only by the controller's funded typed-judgment path.
+
+The [full worker MCP proposal](../design/factory-worker-mcp.md) explores the broader
+redesign requested for all seven roles: work-in-progress records, questions and
+answers, feed contributions and a shared knowledge library with retrieval,
+correction and scope. The 21-tool communication extension is not its final tool
+catalog. Proposed interfaces must be reconciled with these domain/native owners
+before their exact schemas become implementation contracts.
+
+The owner-requested extension adds [decision logging and retrieval](../design/factory-worker-mcp.md#decision-recording)
+to every profile and a proposed [Library Admin profile](../design/factory-worker-mcp.md#library-admin)
+for maintaining knowledge and decision items. This is an eighth proposed
+maintenance profile; the source matrix above still describes seven production
+profiles. New admission, context, mutation and finish schemas remain design work.
+[Issue ownership](../design/factory-worker-mcp.md#git-issue-ownership) stays with
+Product Lead for initial decomposition, Strategist for ongoing bounded plan
+maintenance and Factory/native owners for actual effects. Library maintenance
+does not grant issue writes or authority to change an accepted product decision.
 
 Each mutation carries submission ID, expected input digest and strict typed
 payload. Unique assignment/submission identity returns the same immutable receipt
