@@ -1,6 +1,6 @@
 # Knowledge and decisions
 
-Factory workers can search scoped shared knowledge and decision history to find relevant evidence, prior findings and reusable methods. Each item carries its source, applicability and revision so readers can judge whether it applies to the current repository and version.
+Factory knowledge and decision records preserve sources, scope and revisions so workers can assess reuse, while Library Admin maintains items within granted authority.
 
 ## Search and assess what you find
 
@@ -13,6 +13,28 @@ Search results are limited to information the current reader and work scope may 
 ## Maintain the library
 
 A scoped Library Admin can edit, remove, restore, consolidate, split, relate or supersede knowledge and decision items within its granted collection. Maintenance preserves provenance, applicability, visibility and prior revisions. A duplicate suggestion does not by itself justify merging claims; an apparent contradiction may reflect different versions or scopes.
+
+```doc-visual
+{
+  "placeholder": "Inspect a scoped Project knowledge item with its evidence references and attributed revision history.",
+  "caption": "The Project library detail for a fictional public-safe knowledge item, with its scope, owning role, evidence references, and expanded revision history. Markers identify provenance, current revision, and prior attributed changes.",
+  "alt": "Project library item showing its scope, evidence references, current revision and attributed history",
+  "production": {
+    "method": "screenshot",
+    "instructions": [
+      "In the approved Soda documentation instance, open the repository Feed and select the actual Knowledge & decisions control to reach Project library. Open an existing fictional public-safe knowledge item from the sample collection; do not create, edit, remove, restore, or otherwise curate an item for the screenshot.",
+      "Use an authorized documentation account with access to the item. Choose a record that genuinely displays its Project scope, owning role, current revision, evidence references, and at least one prior revision with its recorded reason and actor. Expand the existing evidence and recent-revisions details without changing them.",
+      "Use only approved public-safe sample knowledge and evidence references. Do not expose private URLs, personal details, credentials, tokens, device codes, cookies, or profile paths. If the approved instance lacks a scoped item with real evidence and revision history, defer the capture rather than inventing provenance or history.",
+      "Record the actual Soda and Fountain revisions and capture date in the asset notes. Capture the real screen at 1280 by 900 in the light theme, then check the labels at a mobile-width preview."
+    ],
+    "edits": [
+      "Crop to the Project library item details and expanded evidence/revision sections, retaining the Project library heading, scope, owner and all labels that identify the history.",
+      "Add at most three numbered rectangles to the scope/owner provenance, current item revision/evidence, and attributed prior revision history. Keep text readable, do not cover actor or reason labels, and do not use color alone.",
+      "Explain each marker in the caption, identify the sample item as fictional, and verify that the caption and alt text describe only information visible in the actual capture."
+    ]
+  }
+}
+```
 
 Removing an item from ordinary discovery does not erase its historical references or revoke an operative decision. Restoring an item requires checking its current source, validity and replacements. Superseding a decision requires the actual authorized replacement; Library Admin can preserve the record and explain its history but cannot change what was decided. Wider publication requires separate authority.
 

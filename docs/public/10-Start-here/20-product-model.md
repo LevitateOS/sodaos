@@ -1,6 +1,6 @@
 # Product model
 
-SodaOS is a private software-factory appliance for a trusted team. Forgejo owns native repository collaboration, Soda coordinates bounded Factory work and persistent Projects support both human development and authorized Factory roles.
+SodaOS coordinates authorized Factory work on Forgejo repositories and provides persistent Projects for human and agent development within a trusted team's private appliance.
 
 ## The main parts
 
@@ -17,11 +17,21 @@ SodaOS is a private software-factory appliance for a trusted team. Forgejo owns 
 | Session or view | A human terminal or Factory CLI execution is a session. Spaces is an authorized view of live sessions and work; it does not own the session's lifetime. |
 | Application | A separately administered workload with its own identity and lifecycle. Developing or merging its source does not install or deploy it. |
 
+## How the parts connect
+
+A build request can be saved and revised before any issue or Project exists. Once a maintainer accepts exact native issue requirements and dependencies, Factory reassesses readiness and assigns eligible work inside the repository's persistent Project. A dependent issue waits until its required code change is merged to the stated target branch; closing the prerequisite issue alone is not enough.
+
+After confirmed merge and original issue closure, Factory reassesses dependent work. The Test Pilot later checks the integrated version against approved outcomes and records its evidence. This final verification completes a different question from whether an individual issue was delivered, and it does not install the application.
+
 ## How work is governed
 
-Factory automation requires standing authorization from separate owners. A native repository owner controls repository policy, target branch, native actors and required checks. The configured Soda operator controls appliance capacity. The owner of a supported provider account controls sponsorship and its allowance. Current native permissions still apply. One person may hold several responsibilities, but one grant does not imply another.
+Factory automation requires standing authorization from separate owners. A native repository owner controls repository policy, target branch, native actors and required checks. The configured Soda operator controls appliance capacity.
 
-Once an authorized maintainer accepts an issue's exact inputs, ready work proceeds automatically within those standing grants and limits. A material issue change, missing prerequisite, unavailable resource or changed permission can suspend affected work and trigger reassessment. An agent can report a question or dependency; it cannot supply human authority, waive a blocker or grant itself additional access. See [Factory authorization](../40-Factory/20-factory-authorization.md) for grant ownership and [Issue work and dependencies](../40-Factory/30-issue-work-and-dependencies.md) for readiness and task outcomes.
+The owner of a supported provider account controls sponsorship and its allowance. Current native permissions still apply. One person may hold several responsibilities, but one grant does not imply another.
+
+Once an authorized maintainer accepts an issue's exact inputs, ready work proceeds automatically within those standing grants and limits. A material issue change, missing prerequisite, unavailable resource or changed permission can suspend affected work and trigger reassessment.
+
+An agent can report a question or dependency; it cannot supply human authority, waive a blocker or grant itself additional access. See [Factory authorization](../40-Factory/20-factory-authorization.md) for grant ownership and [Issue work and dependencies](../40-Factory/30-issue-work-and-dependencies.md) for readiness and task outcomes.
 
 Forgejo owns issue and pull-request records, reviews, native CI and merge. Soda records accepted inputs, coordinates separate production role identities and reports observed effects. The roles include Product Lead, Architect, Builder, Inspector, Fixer, Strategist and Test Pilot, plus a scoped Library Admin for reusable knowledge and decision records. The Feed presents their reports and confirmed outcomes without replacing the native source records.
 
@@ -30,6 +40,22 @@ Forgejo owns issue and pull-request records, reviews, native CI and merge. Soda 
 Humans and Factory roles use the same persistent Project with separate accounts and checkouts. The Project is a development environment, not a disposable container created for each agent. Ending or cleaning up a run does not destroy or recreate the shared Project or remove unrelated work.
 
 Projects have host-enforced boundaries but share the host Linux kernel. Soda is designed for a trusted private team, not hostile public multitenancy. Project membership, native repository access and host administration are separate permissions. Docker deployment has its own operator trust boundary; see [Docker](../20-Install/50-docker.md).
+
+```mermaid
+flowchart TD
+    accTitle: Separate Project accounts and application lifecycle
+    accDescr: One native repository is associated with a persistent Project containing separate human, coder and reviewer accounts and checkouts plus shared tools. The private application has its own accounts, storage and lifecycle outside the Project.
+    R["Native repository"] -->|"associated environment"| P
+    subgraph P["Persistent Project"]
+        H["Human account and checkout"]
+        C["Coder account and checkout"]
+        V["Reviewer account and checkout"]
+        T["Shared tools and services"]
+    end
+    A["Private application"] --> L["Own accounts, storage and lifecycle"]
+```
+
+Project Stop interrupts the shared development environment while retaining its state. A private application has its own lifecycle; it is outside the Project boundary shown here.
 
 ## CI and applications
 

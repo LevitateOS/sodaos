@@ -1,12 +1,12 @@
 # CI runners
 
-Factory relies on required checks reported by native Forgejo Actions for the exact pull request candidate. Repository maintainers provide and configure the Actions capacity through Forgejo; Soda's coding and review agents do not act as CI runners.
+Native Forgejo Actions runners supply required check results for each exact candidate; Factory coding and review agents do not provide CI capacity.
 
 ## Configure required checks
 
-An authorized repository owner or administrator configures native Actions workflows and runner capacity for the repository, then names the required checks in Factory policy. The required set must be nonempty. Each check must report against the candidate revision that Factory is considering for merge, so a green result from an earlier commit cannot satisfy current policy.
-
-Runner administration, operating-system setup, credentials and workflow code belong to the repository's Forgejo Actions configuration and the team's external execution environment. Keep runner permissions scoped to the repositories and code they execute. A workflow that cannot run because its runner is offline or unavailable is an infrastructure wait or failure, not a passing check.
+1. **Provide native Actions capacity.** A repository owner or administrator configures the repository's workflows and arranges runner capacity through Forgejo. Runner administration, operating-system setup, credentials and workflow code belong to the team's external execution environment. Scope runner permissions to the repositories and code they execute.
+2. **Set the Factory requirements.** The authorized owner names a nonempty set of required native checks in Factory policy. Each check must report against the candidate revision considered for merge; a green result from an earlier commit cannot satisfy the current candidate.
+3. **Confirm the candidate results.** Factory associates each observed result with the exact candidate. A runner outage or workflow that cannot run is an infrastructure wait or failure, not a passing check.
 
 ## Read check results
 

@@ -1,6 +1,6 @@
 # SodaOS handbook
 
-Install and operate SodaOS, follow autonomous Factory work in Forgejo and Spaces, or develop with your team in persistent Projects. Start with the task you need; the handbook links each procedure to the page that owns it.
+Install SodaOS, follow Factory work from an accepted issue through verification, or develop with teammates in persistent Projects. Choose the handbook path that matches the task you need to complete.
 
 ## Find your path
 
