@@ -69,9 +69,13 @@ or the composed installed release; P32/R55 stays open after document absorption.
 ## Public handbook refresh
 
 The [public handbook cutover](public-handbook/ideal-filetree-plan.md) records the
-implemented seven-section, 41-page handbook, its source evidence and page
-boundaries. Public copy describes the intended finished product. The remaining
-website snapshot and route integration stay recorded there until cutover.
+implemented six-section, 41-page handbook, its source evidence and page
+boundaries. The [handbook remaining tasks](public-handbook/cutover.md) owns the
+current priorities, all-page allocation, examples, captures and website handoff.
+Its [current todo status](public-handbook/cutover.md#what-can-proceed-now)
+separates ready source work, partial preparation and tasks awaiting named inputs.
+Public copy describes the intended finished product; implementation status
+belongs in the existing product backlogs.
 
 ## Permissions
 

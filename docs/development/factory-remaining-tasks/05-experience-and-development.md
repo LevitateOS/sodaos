@@ -142,6 +142,20 @@ with R32/R33/R34/R40 and R42, preserving one canonical record per fact.
   field errors, unsupported routes, concurrent edits and effects on accepted
   inputs; never rewrite an active worker's contract through a UI field. Add
   compact list/feed previews, with full issue detail reached through a link.
+- [ ] Connect explicit issue adoption and reacceptance to the existing
+  revision-bound acceptance preview and mutation in
+  `internal/web/api/factory_issue_view.go` and `issue_acceptances.go`. Let a
+  current code-write maintainer inspect the exact title/body, selected source
+  comments and prerequisite outcomes, then record their authorized acceptance
+  and inspect its result. Distinguish a role reply, comment-intake clarification,
+  Project setup acceptance and issue-requirement acceptance. The current Work
+  detail displays acceptance status but does not provide this complete human
+  action. Cover imported work, changed requirements, selected answers and
+  non-code prerequisite confirmation, including stale preview, authority loss
+  and uncertain-response readback. This completes R43.8/R43.9's existing
+  ownership and unblocks the [HB12 reader walkthrough](../public-handbook/cutover.md#hb12-follow-the-daily-author-and-contributor-journeys);
+  do not substitute private API calls for the public procedure or add approval
+  to qualifying native creation and validated generated work.
 
 Use focused producer-backed browser cases for the changed interactions, including
 keyboard/focus, narrow/wide and light/dark layouts, reload, account change,
@@ -227,6 +241,61 @@ authorship, and visible controls obey current authority and revision checks.
 
 **Deliver:** Qualify current Project preparation, protected service identities/Unix mappings, broker custody, provider grants and human SSH/terminal/operator foundations before live factory dispatch. Inspect and repair demonstrated joins only. R41 later composes factory-specific intervention with these accepted foundations.
 
+**Handbook integration finding — native enrollment recipe:** Complete and
+execute the existing explicit enrollment recipe before handing it to public
+Factory authorization. The manifest example in
+[`soda-setup`](../../../cmd/soda-setup/README.md#explicit-factory-enrollment)
+sets `identity.database_dsn_file` to `/etc/soda/postgres/soda.dsn`, but
+[`validate_target_and_identity`](../../../cmd/soda-setup/src/factory_enrollment.rs)
+requires a broker-owned UID 2001/GID 2000 file without group/other access.
+[`provision_postgres_secrets`](../../../cmd/soda-setup/src/secrets.rs)
+creates that dashboard DSN as root/GID 2000 mode 0640. The example therefore
+fails the normal fresh-install ownership/mode checks. Supply the supported
+credential preparation and custody steps without weakening those checks or
+changing the shared dashboard DSN's ownership. Correct the command README and
+[operator guide](../../guides/operator-setup.md#explicit-factory-enrollment),
+then exercise first enrollment, matching maintenance and partial native
+binding/hook recovery with safe native accounts. Record actual service and
+binding readback; browser activation alone is not enrollment. HB12 owns the
+reader walkthrough and F03 owns the resulting public procedure. This is a
+repair within R44's operator/broker foundation, not another enrollment system.
+
+<a id="project-access-revocation"></a>
+**Selected product addition — explicit member revocation (R44.1, audit Q2):**
+Implement **Revoke Project access** in the existing Project member view, Go
+authorization/API and Rust Project host owner. Only the configured operator or
+current native repository owner (including organization-owner authority) may
+invoke it; code-write access or repository-admin status alone is insufficient.
+This is targeted manual offboarding; automatic cross-system synchronization
+remains deferred.
+
+- Preview the stable member identity, Project, installed keys and affected
+  sessions/processes, then confirm. Persist an admission hold before native
+  effects so a still-valid write grant cannot immediately Join or attach again.
+- Remove that member's installed SSH keys, disable native login and terminate
+  their managed terminals, native SSH sessions and Project-local processes.
+  Preserve their account identity/files, other members and independently owned
+  service identities. Preview any service running under the revoked member's
+  own UID as affected; do not promise it survives.
+- Keep an inspectable operation and per-effect result across restart or lost
+  replies. Partial/unknown termination stays pending or failed, with re-entry
+  blocked; a successful database write alone cannot report revocation complete.
+  A stopped or unreachable Project must not restart accepting that login before
+  pending revocation is applied.
+- **Restore Project access** explicitly clears the hold under the same authority;
+  the member must then Join with current native code-write permission and
+  explicitly selected keys. Retain the stable Linux identity and existing data.
+- Explain separately how native Forgejo access is removed. This action does not
+  revoke copied credentials, change repository permissions or establish an
+  untrusted-code security boundary.
+
+Accept through a real two-member Project: revoke a member with browser and SSH
+sessions, prove denied reconnect/Join and stopped target processes, retain the
+other member and files, then restore and explicitly rejoin. Include stale
+authority, lost reply and stopped-Project recovery. Update the existing
+Project/trust/API owners and handbook access guide with the implemented
+interface; the selected control names above are not claims of existing UI.
+
 **Immediate implementation — default Providers dialog (R44.2):** Implement the
 [provider UX](../../design/factory-feed-and-ralph-integration.md#factory-providers-dialog)
 inside Soda Forge: supported provider rows with a hollow circle or green check
@@ -300,6 +369,31 @@ aliases of existing gates, not extra prerequisite projects.
 **Implementation notes:** Consume R03 package authority, R06 importer retirement and R44 preparation. Start at `lib/release-inputs/src/payload.rs::Role`, release maintenance and existing component drivers. Bind Payload v4's seven required image roles including canlang-runtime; qualify current package/controller enablement, offline preparation and same-input maintenance/rollback. Release exact component/lifecycle observations to R46/R51; direct-workerd replacement adds its own P27/P28 producer outputs before shipping. Existing RCX source/development evidence remains accepted. Missing/invalid bytes must preserve prior data and keep admission closed; test changed native joins rather than rebuilding the component architecture.
 
 **Principal source owners:** [lib/release-inputs/src/payload.rs](../../../lib/release-inputs/src/payload.rs), [cmd/soda-project-maintain/src/release_extensions.rs](../../../cmd/soda-project-maintain/src/release_extensions.rs), [tools/release-assets](../../../tools/release-assets).
+
+**HB14 operator handoff findings (20 October 2026):**
+
+- `preview_operation_content` skips prefetch for `release --check`, then
+  requires both selected target and retained source package/image content.
+  A downloaded release alone therefore need not admit the check. Complete the
+  supported preparation route within existing release maintenance and qualify
+  a target whose content is initially absent; the inspected command interface
+  exposes no separate preparation operation. Do not advise bypassing the check
+  or manually populating protected caches. The operator guide and O05 now
+  describe the actual preflight effects.
+- Reconciliation without `operation.json` checks the current installed payload
+  and administrator intent; it does not replay `last-operation` or independently
+  prove a requested historical transition. O05/O08 now distinguish this from
+  extension attention after recorded core completion. R45/R52 still owe an
+  exact qualified source/target pair and its transition, interrupted-recovery
+  and stopped-Project receipts for the handbook walkthrough.
+- Read-only inspection of the retained development VM found
+  `soda-postgres-backup.timer` disabled/inactive with no recorded trigger and
+  no backup-service execution timestamp or retained completion message. Image
+  preparation declares the timer enabled, so this observation establishes no
+  general release defect or cause. Check timer enablement and a completed
+  native backup in the installed maintenance witness; the handbook now
+  explains how readers distinguish these states. No timer, service or data was
+  changed during the documentation check.
 
 <a id="r46"></a>
 ## R46 — Qualify optional Tailnet and retained networking behavior

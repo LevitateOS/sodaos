@@ -44,11 +44,14 @@ schema/ownership changes refuse retained state; stopping and deliberately using
 a fresh root is a development reset, not a production migration. Example
 databases remain disposable and do not mutate preview data.
 
-`can-dev` supplies the retained D1/Identity preview. It explicitly rejects
-Files, scheduled handlers and migrations. To develop the full selected profile,
-use the installed `can-soda` target with a separate development data directory,
-explicit development owner bootstrap and an HTTPS origin/proxy for Files. Never
-point development or example execution at production storage or credentials.
+`can dev` supplies the retained D1/Identity preview and supported local bindings,
+including Files backed by local R2. Scheduled handlers and migrations require
+their owning runtime. To exercise the Soda target's native Files storage and
+durable scheduled work, use the installed `can-soda` target with a separate
+development data directory, explicit development owner bootstrap and an HTTPS
+origin/proxy for Files. Local preview success does not establish native-provider
+behavior. Never point development or example execution at production storage or
+credentials.
 `can lsp` supplies diagnostics, completion, navigation and formatting over
 standard LSP; an editor chooses how to connect to it.
 

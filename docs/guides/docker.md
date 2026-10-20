@@ -7,7 +7,7 @@ the internal Project and application engine. Docker owns the outer container's
 lifecycle; the operator owns the host operating system.
 
 Website-facing operator instructions live in the
-[public Docker handbook](../public/20-Install/50-docker.md).
+[public Docker handbook](../public/60-Install/50-docker.md).
 
 ## Host requirements
 

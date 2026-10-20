@@ -26,14 +26,14 @@ operator settings and stock branded Cockpit. The dashboard backend owns factory
 coordination and its PostgreSQL ledger; `soda-factory` exposes private operator
 status, stop and reconciliation commands.
 
-Start with the [Factory journey](docs/public/40-Factory/05-software-factory.md).
+Start with the [Factory journey](docs/public/20-Factory/10-software-factory.md).
 The [operator reference](docs/reference/factory.md) describes configuration and
 commands; [manual development](docs/guides/develop.md) is a separate path.
 
 Documentation index: [docs/README.md](docs/README.md).
 
 Choose the [installer and deployment path](https://sodaos.dev/download), follow
-[installation](docs/public/20-Install/30-install-on-premises.md), and consult the
+[installation](docs/public/60-Install/40-install-on-premises.md), and consult the
 [selected release's notes and assets](https://github.com/LevitateOS/sodaos/releases).
 Docker is a separate runtime path with its own [release and host requirements](docs/guides/docker.md#install-a-released-image).
 
@@ -84,7 +84,7 @@ routing are separate configuration.
 | Area | Source / documentation |
 | --- | --- |
 | Product and architecture | [Overview](docs/product/overview.md), [Architecture](docs/architecture/overview.md), [Scope](docs/product/scope.md) |
-| Bounded software work | [Factory command](cmd/soda-factory/README.md), `internal/factory/`, [Operator reference](docs/reference/factory.md), [Factory journey](docs/public/40-Factory/05-software-factory.md) |
+| Bounded software work | [Factory command](cmd/soda-factory/README.md), `internal/factory/`, [Operator reference](docs/reference/factory.md), [Factory journey](docs/public/20-Factory/10-software-factory.md) |
 | Host capability strategy | [Host strategy](docs/research/host-strategy.md) |
 | API / auth / Forgejo customization | `cmd/`, `internal/`, [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md), [Forgejo](docs/reference/forgejo.md) |
 | Installation / operator access | `system/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |

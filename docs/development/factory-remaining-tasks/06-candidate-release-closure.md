@@ -77,6 +77,92 @@ installed scope.
 
 **Distribution-specific acceptance:** Consume R51’s public unqualified stage through the [streamed installer](../release.md#4-exercise-the-actual-public-installation-bytes) in qualification mode. The [Docker contract](../../architecture/release.md#docker-qualification) and `lib/soda-release-deliver/src/publish/qualification.rs` own receipt admission. Next bind real installer/Compose/registry observations on a fresh supported native host: rerun and truncated/hash-invalid download refusal; setup/HTTPS; Project Join/terminal/nested workload; bounded Factory use; same-image recreation retaining `/etc`, `/var` and `/home`. Exact downloaded/installed identities and credentials/database/app/Project preservation must pass without replaying initialization. ISO proof cannot substitute. Appliance upgrade/interrupted recovery uses its bound native transition receipt; Docker cross-version upgrade/downgrade/restore is outside fresh/same-image qualification and cannot be advertised from it.
 
+<a id="consumer-download-verification"></a>
+**Consumer download verification (Q3; R51/R52/R53):** Use the existing
+[GitHub immutable-release trust](../../architecture/release.md#trust-key-admission)
+and the supported [`gh release verify-asset`](https://cli.github.com/manual/gh_release_verify-asset)
+command. R54 prepares the procedure; R51 supplies actual staged artifacts; R52
+exercises it before booting the ISO or executing a saved Docker installer.
+R53 repeats downloaded-byte verification after promotion.
+
+The guide must identify the real repository, selected release tag and filenames
+from the candidate inventory. Verify each executable/media asset with
+`gh release verify-asset TAG FILE --repo OWNER/REPO`; placeholders must be
+replaced with that explicit release identity, never an unqualified latest lookup.
+Authenticate any checksum manifest the same way before using its entries.
+Preserve downstream rootfs/Compose/image checks. A matching hash from the same
+unauthenticated download is insufficient release-authenticity evidence.
+Exercise changed bytes, an asset absent from the selected repository/tag,
+missing attestation and verification/network failure; none permits continuing
+installation. Record the actual consumer authentication/access requirements.
+Use GitHub's existing trust mechanism, without a new Soda signing service or
+local packaging key presented as public trust. This is still unqualified until
+performed on the staged/downloaded artifacts.
+
+<a id="complete-cold-recovery"></a>
+**Complete cold recovery (Q5; R45/R52/R54):** Adopt one consistent stopped
+recovery point using existing disk/volume tools. R45 develops and exercises the
+procedure and repairs demonstrated storage/shutdown gaps before R54 freezes
+shipping instructions. R52 repeats the changed installed boundary on the
+candidate:
+
+- For the appliance, cleanly stop it and capture the boot disk and every
+  attached disk/filesystem holding retained state as one offline set.
+- For Docker, stop the Soda container and all writers to its retained storage;
+  capture all `/etc`, `/var` and `/home` volumes together with the exact
+  Compose/deployment settings and image identity. Unrelated containers need
+  not stop. Include external retained mounts or report the set incomplete.
+- Inventory databases and repositories, Project roots/accounts/homes/dirty work,
+  application data, Factory/Identity/broker state and matching encryption/key
+  material, setup/configuration and TLS/SSH trust. Project roots are not assumed
+  to live only under `/home`. Do not publish credentials or backups as fixtures;
+  encrypt/protect the recovery set with separately recoverable operator custody.
+- Restore to a fresh isolated destination using the matching supported image
+  and every part of the same set. Keep the original untouched. Before connecting
+  the clone to real providers or users, inspect retained identities and pending
+  operations so the recovery exercise cannot duplicate external work.
+- Prove login, repositories, Project Join/terminal and dirty files, app-local
+  identity/data, Factory records and secret-backed service startup after
+  recovery. Record exact source/image/storage boundaries and omitted external
+  services; partial database exports and app snapshots retain their narrower
+  scope. Include interrupted/incomplete capture refusal.
+
+This is an operator-triggered cold procedure, not automatic online backup or
+an RPO/RTO promise. Same-image Docker recovery does not establish cross-version
+restore support. Any required product changes return to R45 before candidate
+creation; do not introduce a backup daemon to write the guide.
+
+<a id="supported-sizing"></a>
+**Supported sizing (Q6; R45/R52/R54):** R45 measures working basic and
+small-team profiles on the current native development product using existing
+workloads. R54 places those measured allocations and procedures in shipping
+guidance before R51 freezes it. R52 then verifies them on the exact candidate
+for both installation forms; only that result establishes release support.
+Include a tested minimum for the stated basic workload and a recommended
+profile for the default two active Factory issues across Projects, a human
+terminal and a small private app. State actual concurrency, app count and
+relevant external provider limits; fixture allocations alone do not establish
+support.
+
+Record peak memory/CPU, startup and ordinary task responsiveness, installed and
+retained disk use, and temporary/free-space needs for update, rollback and the
+selected backup destination. Docker figures must distinguish Soda's allocation
+from the host's other workloads. Use actual low-resource failures to explain
+diagnostics and recovery; never prescribe blanket data deletion. R52 records
+confirmation without editing frozen shipping guidance. If the candidate fails
+the stated profile or needs different values, return through R45/R54/R51 and
+repeat only affected qualification; do not silently change the promised numbers
+after testing. Do not guess numbers or require an exhaustive hardware benchmark
+before releasing a useful supported profile.
+
+**Application consumers (Q4/Q7):** P14/P25/P26 provide implemented setup,
+restore and fixed resource-limit behavior before candidate freeze. P30 shares
+this installed fixture to prove first-owner setup, two-user use and fresh
+restore at the same application address. Exercise the 1 GiB RAM, two-CPU and
+128-process-and-thread limits and report actual failure/restart/persistence behavior.
+These caps are per application; they do not reserve host capacity or qualify
+an unlimited number of apps.
+
 **Principal source owners:** [docs/development/testing.md](../../../docs/development/testing.md), [docs/guides/installation.md](../../../docs/guides/installation.md), [docs/guides/docker.md](../../../docs/guides/docker.md), [docs/guides/media.md](../../../docs/guides/media.md).
 
 <a id="r53"></a>
@@ -115,6 +201,18 @@ formats/callers rather than shipping two authoritative paths. Package the same
 existing Go/Rust/Lit owners for R51; the Library Admin profile adds no standalone
 knowledge daemon or broad operator account. Keep proposal names clearly labeled
 until their actual implemented contract is reflected in the canonical docs.
+
+**Handbook resolution cutover:** Carry the
+[seven selected resolutions](../factory-remaining-tasks.md#selected-product-resolutions-for-handbook-blockers)
+into existing product/reference/guide/public owners as their implementations
+land. Include runnable worked tasks for member removal/restoration, prepared-app
+setup, first-owner access, stopped backup/fresh restore and verified downloads.
+Keep prerequisites, exact permissions, expected result and partial-failure
+recovery together. Make these tasks easy to find from their existing chapter
+entry pages. Preserve public article summaries, meaningful anchors and the
+shared authoring contract; never present a proposed button or unmeasured sizing
+number as available. Candidate measurement/publication receipts may follow
+under R52/R53 without changing product bytes.
 
 **Accept only when:** No parallel legacy reader/engine or misleading existing-interface/public-readiness claim remains, and all shipping source/selector changes are complete before candidate production. Native Actions and human work are preserved, no broad prune occurs, and resources with unknown ownership remain explicit. Publication receipts and actual URLs can be recorded under R53 after qualification without changing tested product bytes; any byte-changing correction requires a new R51 candidate. Completed planning material is absorbed only after its requirements/evidence are carried forward.
 

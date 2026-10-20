@@ -18,7 +18,7 @@ Reference: `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. The pred
 | `scripts/render-forgejo-branding.sh`, `tools/png-equal/`, focused tests | Forgejo raster consistency/regeneration source; real renderer test opt-in, canonical artwork unchanged |
 | `packaging/rpm/forgejo/sources/app.ini.tmpl` | Selected app metadata, stock/accessibility themes and cache policy in `system/host/config/forgejo.env`; no copied host paths, PAM identity or secrets |
 | Native console welcome and profile hook | `cmd/soda-console-welcome` (formerly `appliance/bin/soda-console-welcome`), interactive-only host hook, actual configured HTTPS origins and loopback Cockpit guidance |
-| Predecessor `docs/public/40-Develop/10-connect-and-develop.md` → current `docs/public/60-Develop/20-connect-and-develop.md` | Reworked editor, SSH/SCP/SFTP, Git, tool and service guidance for project-local users/IPs and shared installations |
+| Predecessor `docs/public/40-Develop/10-connect-and-develop.md` → current `docs/public/30-Projects-and-development/40-connect-and-develop.md` | Reworked editor, SSH/SCP/SFTP, Git, tool and service guidance for project-local users/IPs and shared installations |
 | `docs/design/screenshot-capture.md` | Current-page capture/redaction rules, with no fabricated images or published placeholders |
 | Tea CLI and license | Tea remains preinstalled in Rocky projects; inherited source-build machinery was replaced with verified upstream binaries. See [project CLIs](../guides/project-clis.md). |
 | GitHub CLI baseline and user guidance | Same version baseline via GitHub's signed RPM repository inside Rocky; personal native authentication, not host runner credentials |

@@ -1,6 +1,6 @@
 # Factory workflow contracts and decisive tests
 
-This document owns D01–D17 schemas, algorithms, limits, authority/recovery rules
+This document owns D01–D18 schemas, algorithms, limits, authority/recovery rules
 and T01–T64 decisive cases. It specifies required behavior; implemented and
 qualified scopes are recorded in the [remaining-outcome catalog](factory-remaining-tasks.md).
 Use its executable recipes and existing source instead of treating these original
@@ -48,7 +48,7 @@ attempt; immutable subject snapshots on individual assignments name exact inputs
 only `reassess` accepts D13 completion, `repair` accepts D15 stall or D16 delivery
 repair, and `verify`
 accepts D16 delivery. The remaining phases require an issue. `review` and `verify`
-use the reviewer account; all other phases use the coder account. The seven MCP
+use the reviewer account; all other phases use the coder account. The MCP
 profiles in D14 do not add native account roles. Add `ParentAssignment`;
 root has no parent, children keep `AttemptRoot`. `PublicationAssignment` is absent
 until implementation establishes the publication owner. Do not infer phase from
@@ -123,7 +123,8 @@ to the same native dependency edges; do not create another dependency authority.
 Code validates IDs, explicit outcome references/coverage, bounds and DAG. The
 planner/Jev assess semantic completeness, cohesion and necessary dependencies.
 
-One Jev Choice request includes every candidate plus `clarify`. Candidate
+One valid candidate needs no comparative call. With two or three candidates,
+one Jev Choice request includes every candidate plus `clarify`. Candidate
 selection requires a valid answer and confidence **>= 0.50**; `clarify` or lower
 confidence records `decomposition_needs_attention` without generating another
 batch automatically. Use the intent allowance to bound each workflow. JEV calls are free; cumulative usage is recorded without a global ceiling.
@@ -170,8 +171,13 @@ Implement `internal/store/factory_priority_inventory.go` and extend
 4. A changed native revision or local semantic digest invalidates observations.
    Retain spent judgment receipts. On restart, verify bindings before resuming.
 5. At completion, recheck idle `N` and the full local digest, then use the existing
-   complete tournament, fairness and uncertainty policy. One candidate skips the
-   comparative call; zero waits. Never truncate the set to fit a pass.
+   complete tournament, fairness and uncertainty policy. Zero candidates wait;
+   one candidate skips the comparative call. When the existing age-based rule
+   already selects the oldest eligible candidate, record that deterministic
+   fairness selection without a comparative call. Otherwise cover the whole
+   tournament: the current 4,096-item/255-option bounds require a finite default
+   of 18 calls, consistently in configuration and fallback. Never truncate the
+   set to fit a pass or leave a valid maximum inventory permanently unfunded.
 6. After judgment, recheck `N`/local digest, then fresh selected-issue evidence
    whose native bracket also reports `N`.
    In a serializable packet transaction, compare the complete local input snapshot
@@ -1127,11 +1133,15 @@ a fixed 8 native calls (2 outer observations + 2x3 capture reads) before any
 collection; no automatic database-local fallback path exists.
 
 <a id="d14--one-factory-mcp-implementation-and-seven-profiles"></a>
-## D14 — One Factory MCP implementation and eight profiles
+<a id="d14--one-factory-mcp-implementation-and-eight-profiles"></a>
+## D14 — One Factory MCP implementation and nine profiles
 
 FW-REFINE-003 freezes the control surface below. Jev remains the controller's typed
 judgment service. The dispatcher remains ordinary deterministic code. Neither is
-a worker profile; Library Admin is the eighth worker profile. Product defaults and the implementation crew's Spark
+a worker profile. The intended registry includes the seven original production
+profiles, Library Admin and the selected Researcher profile. D18 extends the
+outcome routes and content specialties without adding execution identities.
+Product defaults and the implementation crew's Spark
 1.3 Contributor/XHIGH settings remain distinct (D04).
 
 The owner has requested a broader [worker MCP redesign](../design/factory-worker-mcp.md)
@@ -1251,17 +1261,17 @@ must reconcile/retire rather than start optimistically.
 
 <a id="d14-worker-interface-layers"></a>
 **Worker interface: catalog, working tools, communication and results.**
-The Factory has one MCP server implementation and seven role profiles. The
+The Factory has one MCP server implementation and nine intended role profiles. The
 required design gives every admitted parent profile shared MCP communication
 outlets as well as context reads, work controls and its role-specific finish.
 An outlet is a callable MCP tool with a structured submission and durable receipt.
 
-The [expanded proposal](../design/factory-worker-mcp.md) additionally specifies
-shared decision recording/search/read and an owner-requested Library Admin
-maintenance profile. That eighth profile and its tools are proposed additions,
-not part of the current seven-profile source matrix or the minimum communication
-extension below. Admission, instructions, context, grants and finish consumers
-must be extended together before enabling it. The proposal owns its detailed
+The [worker MCP design](../design/factory-worker-mcp.md) specifies shared decision
+recording/search/read, Library Admin maintenance and the selected Researcher
+route. Admission, instructions, context, grants and finish consumers must agree
+with that registry; a named role alone does not establish a complete workflow.
+Historical catalog counts below describe the accepted eight-profile baseline,
+not the final registry. The design owns its detailed
 [decision contract](../design/factory-worker-mcp.md#decision-recording),
 [maintenance contract](../design/factory-worker-mcp.md#library-admin) and
 [Git issue ownership](../design/factory-worker-mcp.md#git-issue-ownership).
@@ -1287,9 +1297,9 @@ Reports do not themselves change readiness, adopt suggestions or verify evidence
 
 Communication is bounded to 128 nonterminal posts per assignment and 8 KiB per payload. The terminal slot remains available after that limit. Exact submission replay returns the original feed post. `factory.inbox` reads this assignment's posts and recursively related human/worker replies; `factory.discussion` reads a named authorized post and its reply thread. Both page at 50 messages and 32 KiB and do not invoke models.
 
-**Shared first:** eight reads (context, evidence, status, receipt, inbox, discussion, search_library, read_library_item), ten communication tools, publish_artifact, the three generic System One judgments and finish_incomplete give **23 shared tools**. The complete catalog has **45 unique tools: 42 Factory and three System One**.
+**19 October baseline:** eight reads (context, evidence, status, receipt, inbox, discussion, search_library, read_library_item), ten communication tools, publish_artifact, the three generic System One judgments and finish_incomplete give **23 shared tools**. That catalog has **45 unique tools: 42 Factory and three System One**. R30.1 owns the complete registry and later role interfaces; these historical counts are not its completion criteria.
 
-| Role | Role finish control | Additional work controls | Current tools |
+| Role | Role finish control | Additional work controls | Baseline tools |
 | --- | --- | --- | --- |
 | Product Lead | finish_product_plan | None | 24 |
 | Architect | finish_issue_plan | None | 24 |
@@ -1329,11 +1339,11 @@ reports incomplete evidence; it cannot become an empty successful collection.
 
 | Tool | Input and authoritative result | Allowed profile |
 | --- | --- | --- |
-| `factory.context` | Default input → current assignment, required role context and authorized local-lineage index, with one fixed bundle foregrounded by a saved Jev choice; optional `{cursor}` continues a bounded context page. Missing/uncertain selection → basic snapshot plus hold. See [worker context](#d14-worker-context); the cursor and role projections are target contracts, not a claim of current implementation. | All eight |
-| `factory.evidence` | `{ref,cursor?}` → authorized bounded evidence page, digest, completeness and next cursor. No arbitrary file/URL reads. | All eight |
-| `factory.status` | Empty input → current assignment/tasks, observed operations, integration HEAD, remaining allowance and stop/staleness reason. Reading never launches work. | All eight |
-| `factory.receipt` | `{submission_id}` → this assignment's durable receipt/state or undisclosable not-found. | All eight |
-| `factory.finish_incomplete` | Terminal `{outcome:blocked\|failed\|cancelled,cause,evidence_refs,affected_task_ids,requested_resolution}` → recorded proposal. Causes include question, failed assumption, ownership conflict, missing evidence and exhausted allowance. | All eight parents |
+| `factory.context` | Default input → current assignment, required role context and authorized local-lineage index, with one fixed bundle foregrounded by a saved Jev choice; optional `{cursor}` continues a bounded context page. Missing/uncertain selection → basic snapshot plus hold. See [worker context](#d14-worker-context); the cursor and role projections are target contracts, not a claim of current implementation. | All profiles |
+| `factory.evidence` | `{ref,cursor?}` → authorized bounded evidence page, digest, completeness and next cursor. No arbitrary file/URL reads. | All profiles |
+| `factory.status` | Empty input → current assignment/tasks, observed operations, integration HEAD, remaining allowance and stop/staleness reason. Reading never launches work. | All profiles |
+| `factory.receipt` | `{submission_id}` → this assignment's durable receipt/state or undisclosable not-found. | All profiles |
+| `factory.finish_incomplete` | Terminal `{outcome:blocked\|failed\|cancelled,cause,evidence_refs,affected_task_ids,requested_resolution}` → recorded proposal. Causes include question, failed assumption, ownership conflict, missing evidence and exhausted allowance. | All parent profiles |
 | `factory.finish_product_plan` | D02 complete 1–3 graph candidates, inspected evidence, idea coverage and consequential questions. Required unanswered questions make it incomplete, not an accepted graph. | Product Lead |
 | `factory.finish_issue_plan` | D03 investigation and immutable plan: evidence, approach/alternatives, coverage, ordered tasks/lanes/checks and unresolved facts. Mandatory unresolved facts refuse executable status. | Architect |
 | `factory.finish_implementation` | Exact candidate plus completed-task/checkpoint/integration receipt references, or explicit unchanged outcome. D05/D03 validators establish publication eligibility. | Builder parent |
@@ -1436,12 +1446,17 @@ and complete before the worker relies on it. Optional history cannot replace it.
 | Fixer | Complete supplied finding set and digest, candidate tuple, independent review, prior dispositions relevant to carried findings, correction allowance, singleton manifest, approved checks and protected verification definitions. | Older linked correction/review rounds beyond the required current finding inputs. Jev cannot make a required finding or disposition optional. |
 | Strategist | Its admitted completion/cycle, stall/episode or delivery-failure cause; sealed inventory, accepted heads/outcomes, protected routes/bindings, blockers, consumed limits and the matching D13/D15/D16 schema. | Earlier authorized repair/reassessment outcomes explaining this cause. Delivery repair uses its exact failed-verification link, not a repository-wide history scan. |
 | Test Pilot | Exact accepted delivery/outcome map, integrated commit/artifact, approved verification manifest, fixture identity, required prior-failure inputs, allowance and receipt schema. | Earlier authorized verification runs or resolved failures useful for orientation beyond required current verification inputs. |
+| Researcher | Bound questions and required outputs, accepted source/collection scope, limitations, consumer needs, evidence requirements, follow-up allowance and typed result schema. | Earlier authorized reports, failed approaches and applicable knowledge; unavailable or superseded evidence remains identified. |
+| Library Admin | Exact maintenance objective, authorized library inventory and revisions, proposed operation scope, expected impacts, limits and maintenance result schema. | Related decisions, lessons and replacement/conflict history within the same grant. |
 
 The exact read projections below cover Builder, Inspector and Fixer. Product
 Lead, Architect, Strategist and Test Pilot have the required-content contract
 above and the existing role templates, but their complete field-level context
 adapters remain to be specified and joined. Do not label those adapters complete
 or waive their required evidence merely because the common snapshot is available.
+Researcher and Library Admin consume their registered subject/result context
+through the same owners; the common snapshot is not a substitute for their
+research scope or revision-bound maintenance inventory.
 Native discussions, diff/check bodies and complete inventories remain dependent
 on their authorized input producers/FW40; context references alone do not supply
 them. The new lineage slice does not implement comment access.
@@ -1782,10 +1797,11 @@ source records, cursor churn during progress, threshold calibration and enforced
 hold/activation wiring. Resolve each in its existing owner; do not label partial
 selection source tests as complete R31 acceptance.
 
-### Seven instruction templates and generated task messages
+<a id="seven-instruction-templates-and-generated-task-messages"></a>
+### Role instruction templates and generated task messages
 
-Store versioned templates in the existing `internal/factory` prompt owner, not
-seven new packages. Persist profile/template digest, generated task digest and
+Store versioned templates in the existing `internal/factory` prompt owner.
+Persist profile/template digest, generated task digest and
 actual harness instruction-channel configuration in the dispatch packet. P6 must
 prove the native supported high-priority role-instruction channel; prefixing a
 user message and calling it a system prompt does not pass. Instructions guide
@@ -1815,11 +1831,21 @@ instruction below; do not append another agent's private conversation.
 | `strategist` / Strategist / `reassess` or `repair` | “Inspect the complete inventory and cited cause of this assignment. Preserve accepted scope, manual/active/completed work and real prerequisites. Propose the smallest coherent repair or evidence-based no-change/wait result. Do not edit source or apply the graph.” | Completion/cycle, stall/episode or delivery failure, sealed inventory, accepted intent heads/outcomes, protected bindings/routes, source/preparation, blockers, consumed limits and D13/D15/D16 report schema. |
 | `test_pilot` / Test Pilot / `verify` | “Verify the integrated delivery against every accepted outcome using approved journeys and fixtures. Record exact candidate/artifact/check evidence. Report failures without repairing source or weakening checks. Say verified only when the complete delivery passes.” | D16 subject, outcome-to-delivery map, integrated commit/artifact, approved verification manifest, fixture identity, prior failures, allowance and receipt schema. |
 
+Researcher instructions consume the selected research route and required context:
+answer the bound questions with attributable evidence, distinguish supported
+negative from inconclusive results, disclose limitations and submit the exact
+typed report without inventing a code change. Library Admin instructions consume
+the maintenance contract: inspect the permitted inventory, preview impacts and
+apply only revision-bound admitted operations, preserving attribution and
+replacement relationships. R31 owns their exact task payloads and joins. D18's
+writing brief extends Builder/Inspector context for content outcomes; it adds
+neither a Copywriter profile nor an extra editorial approval.
+
 Product Lead starts only after authorized repository association and prepared
 Project admission. Before that, retain the existing private product draft and
 bounded exploration service. This refinement does not introduce a non-Project
 generative runtime or API-billed fallback. Native coder/reviewer accounts remain
-the two execution identities; profile names do not become seven native actors.
+the two execution identities; profile names do not become additional native actors.
 
 ### Required production wiring
 
@@ -2106,3 +2132,157 @@ valid cause-addressing repair and protected/scope-expanding repair. Deterministi
 adapters force transitions but do not qualify these judgments. No paid trial is
 run without existing explicit funding. Missing provider/native/unpublished inputs
 remain precise external gates, never replaced by fabricated passing evidence.
+
+## D18 — Outcome routes, decision alternatives and content work
+
+This contract refines the final intended workflow. Its implementation and
+qualification belong to the [process-audit findings](factory-remaining-tasks.md#factory-process-audit-and-required-improvements)
+and their existing R tasks. It adds no separate queue, service or blanket human
+approval. Product/handbook prose describes the completed behavior; this contract
+and the task list retain implementation criteria.
+
+### Route by the requested deliverable
+
+Every accepted outcome binds a stable key, exact deliverable, source/brief
+revision, acceptance criteria, applicable evidence and actual acceptance owner.
+Mixed work retains all required outcomes; completing one cannot conceal another.
+
+| Deliverable | Production and acceptance route |
+| --- | --- |
+| Repository code, configuration, documentation or UI copy | Existing `code_change` route. Architect supplies a proportionate executable plan; Builder/Fixer produces the tracked change; Inspector reviews independently; applicable native checks and merge/closure rules establish delivery. A text-only change needs no invented runtime build or app journey. |
+| Standalone final copy or document | Register `content_artifact` in the existing workflow registry. Builder with writing expertise produces exact text through the existing artifact owner; Inspector assesses its bound brief and sources; typed content acceptance and native issue closure use R34.3/R27.2. Upload, preview and “looks good” are not completion. No synthetic commit or PR. |
+| Research, diagnosis, specification or decision | Retain the corresponding registered typed result and its acceptance authority. Researcher owns evidence-producing investigation; Architect owns executable design; Product Lead prepares product choices; the actual decision owner retains consequential choices. A research report is not a substitute for requested final copy. |
+| Integrated application behavior | Test Pilot consumes the approved manifest, exact integrated version and real fixtures/receipts under D16. Repository merge alone does not establish the application outcome. |
+| External publication or deployment | A separate explicitly authorized action through its existing owner. Accepted copy, merged source, verified app and publication are different states; none grants the next action by implication. |
+
+Copywriting and technical documentation are explicit specialties for production
+and independent review, not new standing roles. Library Admin maintains reusable
+knowledge/decision records; it does not own product copy or edit native work.
+Use one registry across metadata, assignment/result types, MCP discovery,
+instructions, frontend labels and completion consumers. Researcher is selected;
+the final set is the seven original production responsibilities plus Researcher
+and Library Admin. Historical seven/eight-profile evidence remains scoped to
+what was actually accepted.
+
+### Give content work an executable brief
+
+Bind the intended reader, their task, channel/surface, desired action, voice and
+terminology, authoritative product facts, required material, exclusions and
+acceptance criteria. Add length, locale and accessibility constraints only where
+the task needs them. Existing product decisions govern factual claims; a writing
+agent cannot invent behavior or promise a feature because the sentence reads well.
+
+Review factual fidelity, coverage, clarity, consistency and the actual output.
+For UI copy, inspect the affected rendered controls, error/empty/success states,
+accessible names and relevant narrow/translated layouts. For a guide, exercise
+applicable commands/links/examples in their declared context. For a plain content
+artifact, assess the exact final text; do not demand a running application.
+Mixed code/copy work checks that wording matches actual behavior and permissions.
+
+Use wording alternatives when requested or when they resolve a real tradeoff;
+do not manufacture three drafts for every label. Inspector performs independent
+editorial/factual review under the accepted criteria. Routine wording needs no
+additional human editor gate. Changed product intent, unsupported consequential
+claims and publication authority return to their actual owner. System One can
+assess supplied copy/evidence; an LLM writes the prose and code validates effects.
+
+### Retain alternatives without executing every arm
+
+Product and technical candidates have stable IDs, the same accepted objective,
+relevant evidence, criteria, tradeoffs and dependencies. Record selected,
+rejected and deferred arms with the decision owner and reconsideration trigger.
+Preserve the existing one-to-three decomposition bound and zero comparative
+calls for a single valid graph; a comparison cannot invent a missing candidate.
+
+The choice set includes `clarify` when no supplied graph adequately covers the
+intent. A clarification is a saved outcome with the exact missing question,
+not a selected graph or an automatic request for another batch. Distinguish:
+
+- **Already satisfied:** exact current evidence establishes all affected
+  outcomes; record that result without fake issues or commits.
+- **Existing work:** link the matching admitted work and its outstanding
+  outcomes; linkage alone is not completion.
+- **Need evidence:** reuse applicable findings or run bounded authorized
+  research/experiments. Preserve partial or negative results.
+- **Need human direction:** ask the consequential question of its actual owner,
+  naming affected outcomes and why available evidence cannot decide.
+- **Deferred, canceled or superseded:** preserve the reason, authority, existing
+  effects and remaining unsatisfied outcomes; never label these successful
+  delivery.
+
+A complete supported negative research answer can satisfy a prerequisite that
+asks whether something is possible. It cannot satisfy a prerequisite requiring
+that capability to exist. Compare the accepted report with the dependent's
+exact required outcome; choose a different plan where needed. Inconclusive
+evidence is a separate unresolved result. Neither report closure nor its
+positive/negative label alone releases dependent work.
+
+Only selected work executes. Comparative experiments may run under an explicit
+finite assignment where their evidence is necessary; candidate generation does
+not authorize parallel full implementations or external side effects.
+
+An unanswered question holds its affected outcomes and transitive dependents.
+Independent accepted/authorized roots can continue, while the request still
+shows complete outcome coverage. A changed answer creates a revision and
+invalidates affected plans/evidence; it does not silently rewrite active work.
+Coalesce equivalent open questions within the same authorized scope and retain
+each dependent's reference. Recorded answer, accepted decision and incorporated
+input remain separate observations.
+
+### Use System One where semantic judgment changes the next step
+
+Code still owns exact validation, grants, freshness, capacity, checks, receipts
+and effects. Do not ask a model to decide a hash match, permission, confirmed
+retirement or whether a required native check passed. Free JEV usage still has
+latency and finite workflow accounting; useful judgment is the criterion.
+
+| Opportunity and existing owner | Judgment over supplied evidence | Consumer and limit |
+| --- | --- | --- |
+| Intake and reuse — R12.1/R32.14 | Choice among new work, existing work, discussion, clarification and no action; compare actual objectives rather than latest status alone. | Product Lead authors necessary work; code deduplicates, binds source revision and enforces native authority. |
+| Work type and expertise — R14.2 | Choice for the supported route; independent Nouls for multiple relevant specialties. | Code admits the registered route; a specialty never grants tools or becomes another mandatory worker. |
+| Question triage — R32.2/R32.5 | Whether accepted facts answer the question, which affected outcomes depend on it, and whether a material human choice remains. | Reuse evidence or ask the responsible owner once; do not treat model confidence as human consent. |
+| Alternative comparison — R32.10/R32.11 | Choice among coherent approaches; separate Scores for relevant clarity/value/effort dimensions with explicit criteria. | Code retains the chosen decision and alternatives. Missing required outcomes and authority are hard conditions, never averaged away by a high preference score. |
+| Decomposition quality — R13.1/R32.12 | Semantic overlap, missing scope, unnecessary splits and whether a stated prerequisite is actually needed. | The planner proposes changes; code validates DAG, scope and exact outcome references. “Related” is not automatically “blocks.” |
+| Content assessment — R33.1/R34.3 | Nouls for claim support/required coverage; Scores for defined clarity/tone criteria; Choice among acceptable wording variants. | Author/Inspector uses exact brief and source evidence. No generated factual claim becomes authoritative through scoring. |
+| Relevant memory — R31.2/R31.3/R32.9 | Relevance, applicability, duplicate/contradictory knowledge and superseded decisions over authorized candidates. | Reuse the existing optional-context and library lifecycle; preserve mandatory facts, grants and current revisions. |
+| Correction and review — R24.1/R34.1 | Whether remaining feedback is material, repetitive or needs useful independent inspection, using D08's prescribed evidence. | Known defects require correction; missing checks wait; clear accepted review skips an extra decision. Generic advice cannot replace controller acceptance. |
+| Stalls and changed plans — R28.1/R37.1 | Cause classification and whether new evidence justifies a bounded repair or continued wait. | Existing Strategist and adoption owners execute only admitted changes; unchanged ordinary waits spend nothing. |
+
+Use the existing three generic tools. Each accepts bounded same-primitive
+questions over one state; independent branch questions can be evaluated together
+and unused answers ignored. A question needing an earlier result or new evidence
+requires a subsequent request. This follows the provider's
+[parallel-question pattern](https://docs.typesafe.ai/patterns/fan-out);
+it does not justify evaluating every imaginable branch.
+
+Retain raw per-dimension scores so a permitted presentation-weight change need
+not repeat inference; code controls any combination, as in
+[composite scoring](https://docs.typesafe.ai/patterns/composite-scoring).
+Do not let compensating preferences hide an unsatisfied requirement. Retain
+purpose-specific thresholds: [confidence describes the answer distribution](https://docs.typesafe.ai/confidence),
+not factual correctness or permission. A harmless tie among already acceptable
+reversible wording choices may use a deterministic default; consequential
+uncertainty, known defects, unavailable evidence and provider failure remain
+different branches. Do not weaken D02/D08's acceptance thresholds by relabeling
+uncertainty as preference.
+
+R11.2/R30.3 bind reservation, request identity, normalized input/question identity,
+model/rubric, usage and complete response or uncertain failure before replay.
+Require all expected answers and validate each primitive's actual provider
+shape, probabilities, score/legend and confidence with documented rounding
+tolerance; Noul has no separate confidence. Malformed input fails before sending;
+malformed or partial output is an explicit unavailable result, not zeros.
+Retiring a caller prevents new invocations; an already sent one still settles.
+There is no global lifetime ceiling or automatic three-call runtime policy.
+
+### Demonstrate the composed paths
+
+Use existing real integration/native/browser owners, not new unit-test files
+or a parallel evaluation service. R47–R49 include a mixed code/copy/research
+intent, standalone accepted copy, no-work/existing-work intake, two unsuitable
+planning alternatives, scoped unanswered outcomes, one shared question with an
+edited answer, restored invocation receipts and malformed provider responses.
+Verify largest-queue progress, zero-call fairness, no duplicate Feed events,
+ordinary waits without inference, and retained effects after cancellation.
+Measure request count and latency where reducing calls/refreshes is the goal;
+model agreement or a renamed role is not completion evidence.

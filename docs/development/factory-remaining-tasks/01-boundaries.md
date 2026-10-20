@@ -75,6 +75,19 @@ second schedule. This documentation restructuring starts no runtime work.
 
 **Principal source owners:** `Fountain:services/extensions`, [internal/forgejo](../../../internal/forgejo), [internal/factory/control/publication.go](../../../internal/factory/control/publication.go), [internal/store/factory_merges.go](../../../internal/store/factory_merges.go).
 
+**HB14 operator handoff finding (20 October 2026):** The public recovery
+procedure can identify the native `admin native-operation status/recover`
+subcommands, but the packaged appliance has no documented offline launch
+invocation supplying their exact server image, user, configuration, database
+network and retained mounts. `soda-forgejo-domain stop` removes the running
+container; the server binary is `/app/gitea/gitea` in that image, not a host
+`forgejo` executable. Complete this existing recovery handoff and observe it
+with the whole writer domain inhibited. Preserve the same AppDataPath/offline
+marker, database and repository storage; do not restart the web entrypoint
+merely to obtain a shell. Update the operator guide and O08 with the supported
+invocation after that witness. This is a missing execution context within R04,
+not a new recovery authority or a substitute for its native-effect evidence.
+
 **Additional runtime/qualification gates:** [R03](01-boundaries.md#r03). Source-only work cannot release these gates.
 
 <a id="r05"></a>

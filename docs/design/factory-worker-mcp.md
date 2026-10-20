@@ -1122,16 +1122,17 @@ entrypoints; progressing work, comprehensible activity and reusable knowledge
 are the outcomes the interface must deliver.
 
 <a id="issue-work-contracts"></a>
-## 11. Issue work contracts and specialist routing — proposed extension
+## 11. Issue work contracts and specialist routing — defined (R10.1)
 
 The owner requested a brainstorm about Soda metadata in issue content: the issue
 should determine the appropriate worker/expertise, expected deliverable and
 completion route; a blocked worker may need to create prerequisite research
-whose only output is knowledge. This section is the proposed extension to the
-eight-profile/63-Factory-tool design above, alongside its three generic System
-One tools. Researcher and the five additional Factory tool names
-below are recommendations for this new requirement, not existing runtime
-capabilities or a silent change to the preceding catalog.
+whose only output is knowledge. R10.1 promotes that proposal to defined
+contracts: the work-type/specialty vocabulary, the workflow registry and the
+supported routes below are decided. Researcher and the five additional Factory
+tool names below are decided interfaces with executable owners in the
+remaining-tasks map, not existing runtime capabilities or a silent change to
+the preceding catalog.
 
 ### Separate work type, expertise, workflow and deliverable
 
@@ -1214,7 +1215,7 @@ can receive a classification proposal; reading it does not auto-enroll it,
 grant execution or assume it needs a PR. Arbitrary prose/instructions in the
 body remain attributed source material rather than tool authority.
 
-### Workflow routes and a Researcher recommendation
+### Workflow routes and the Researcher resolution
 
 | Work needed | Suggested route | Completion |
 | --- | --- | --- |
@@ -1227,19 +1228,49 @@ body remain attributed source material rather than tool authority.
 | Plan/dependency repair | Strategist under the admitted cause and accepted scope | Confirmed protected graph changes or justified no-change/wait. |
 | Knowledge/decision curation | Library Admin | Confirmed item operations and preserved history/references. |
 
-**Recommendation:** add a Researcher profile for explicit information-producing
+### Defined workflow registry
+
+Workflow keys are stable identifiers. An issue names one workflow; the author
+proposes, Factory admits. Unknown or contradictory metadata produces a precise
+classification question or correction proposal, never a default coding run.
+
+| Workflow key | Roles | Issue subject | Typed result | Completion |
+| --- | --- | --- | --- | --- |
+| `code_change` | Architect → Builder/Fixer → Inspector + checks | issue | plan → implementation → review/clear | Accepted delivered change with required native evidence |
+| `correction` | Inspector verdict → Fixer → Inspector + checks | issue (correction cycle) | correction over carried findings | Accepted correction bound to the carried finding set |
+| `research_report` | Researcher (+ Inspector review where the output contract requires it) | research (R10.2) | research report + evidence | Accepted report/knowledge and evidence; no synthetic commit or PR |
+| `diagnosis` | Researcher or Architect → separately admitted correction if needed | issue | diagnosis/reproduction | Diagnosis can complete while correction remains another issue |
+| `design_specification` | Architect (+ Product Lead/owner for consequential choices) | issue | specification/decision | Accepted specification/decision; implementation is separate when requested |
+| `product_decision` | Product Lead prepares → actual decision owner | issue | attributed decision | An accepted decision, not a model preference represented as policy |
+| `verification_result` | Test Pilot under the approved manifest/fixture contract | issue | verification evidence | Required outcome coverage and trusted delivery evidence |
+| `plan_repair` | Strategist under the admitted cause and accepted scope | issue | confirmed graph changes or justified no-change/wait | Protected graph changes or justified wait |
+| `library_maintenance` | Library Admin | collection (R10.2) | maintenance operations | Confirmed item operations with preserved history/references |
+
+**R10.1 resolution:** add a Researcher profile for explicit information-producing
 work. It owns questions, investigation methods, source gathering, experiments,
 evidence, comparisons, uncertainty and a useful conclusion. Architect owns
 turning findings into a technical design/executable plan. Library Admin maintains
 the records afterwards. This distinction avoids forcing all research to emit
 an implementation plan or making the curator responsible for new investigations.
 
-The smaller alternative is an Architect research-only result variant. That can
-cover narrow code investigations, but makes product/domain research and
-comparative studies less clear. Researcher is the recommended direction for the
-broader requirement. It needs its own admitted subject, instructions, bounded
-source/experiment capabilities, context and typed finish; merely adding a name
-or prompt is insufficient.
+The resolution is grounded in actual subjects and results, not preference.
+Every typed result in the runtime binds a phase, role and subject
+(`PhaseOutput`: plan, implementation, review/clear, correction, verification,
+repair, maintenance, ...). None fits information-producing work: the
+investigation plan is an executable implementation plan with checks and
+manifests that R10.3/R11 advance and restage, and stuffing reports into it
+would corrupt exactly that contract. An Architect research-only variant covers
+narrow code investigations but leaves product/domain research and comparative
+studies homeless — the gap the R32.13 interfaces exist to fill. Researcher
+follows the established responsibility split (Builder versus Inspector):
+a role with distinct completion semantics (accepted report with evidence,
+no synthetic commit or PR), while specialties stay expertise, never roles.
+It needs its own admitted subject, instructions, bounded source/experiment
+capabilities, context and typed finish; merely adding a name or prompt is
+insufficient. R10.2 admits the research/non-code subjects, R30.1 finalizes
+the `research_scope`/`record_research`/`finish_research` schemas, and R27.2
+supplies the attributable non-code completion route; the maintainer-confirmed
+route stays the baseline until then.
 
 Research context includes the exact questions, scope, available evidence,
 relevant known/conflicting knowledge, required deliverables, evidence-quality
@@ -1325,7 +1356,7 @@ merge or silently treat all historical output as undone.
 
 ### Proposed MCP additions and existing tool extensions
 
-These five names are an explicit extension proposal beyond the previous catalog:
+These five names are decided interfaces beyond the previous catalog, with executable owners in the remaining-tasks map:
 
 | Proposed addition | Responsibility and consumer |
 | --- | --- |

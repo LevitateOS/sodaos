@@ -456,6 +456,114 @@ the Node child-process API. Reusing `setpriv` plus shell process checks introduc
 an additional process/exec assumption; a focused guard makes the exact sequence
 testable. This is a proposed small native addition, not a port of the launcher.
 
+## Guided application setup and recovery
+
+The handbook blocker resolutions select the following final-product experience.
+These are new implementation requirements within P14/P25/P26, not existing
+controls or acceptance of the replacement runtime. The current
+[application guide](../../guides/canlang-applications.md) remains authoritative
+for commands that actually exist.
+
+### Prepared application and first owner
+
+Applications provides an operator-guided flow for an exact locally admitted
+application image/bundle, matching runtime/tools/storage identities, fresh data,
+private origin and assigned application administrator. It previews those
+identities and consequences before effects; no arbitrary image upload, implicit
+build/deploy, password in a Soda record or invented provider integration.
+
+Normal browser onboarding uses a distinct provisional owner-setup record and
+an explicitly launched setup-only generation. This is necessary because normal
+registration, runtime validation and Install require an existing `owner_team`.
+Keep that invariant for normal applications. The setup generation exposes only
+Canlang-owned first-owner setup at the private HTTPS app origin; ordinary app
+and MCP routes remain unavailable until provisioning completes.
+
+The assigned administrator/operator receives a short-lived single-use setup
+capability. Canlang accepts the account credentials directly and atomically
+claims only an empty Identity store under exclusive writer ownership. Soda
+never collects those credentials. Bind the capability to the exact app/data
+and intended administrator, protect origin/CSRF and retries, and keep secret
+material out of logs, URLs and retained operation records. Only a confirmed
+owner-team receipt advances the provisional record to normal registration.
+Close setup access, stop the setup generation and enable normal Install, which
+leaves the application stopped until explicit Start.
+
+Concurrent claims have one winner. Lost replies, partial state or already
+provisioned storage require inspecting the existing claim/signing in, never
+resetting identity or creating another owner. Setup expiry/reissue must preserve
+that rule. Retain private-file CLI bootstrap/member administration for offline
+and recovery use, with the existing exclusive-writer and no-silent-reset
+constraints. Browser first-owner setup does not imply configured invitation,
+verification or password-reset email delivery.
+
+P14.4 owns Canlang provisioning and its narrow receipt/admission contract;
+P26 owns Soda's provisional records, authorized API, host generation and
+Applications UI joins. They release implemented component behavior before
+P27/R54/R51. P15/P26 qualify the native failure cases; P30 exercises the composed
+installed browser journey.
+
+### Restore the same application to fresh data
+
+Add a separate operator-only **Restore** operation; normal **Replace** keeps
+its prohibition on changing data identity. Choose a host-inventoried snapshot
+by opaque identity, not a client-supplied filesystem path. Show its timestamp,
+application/bundle and expected loss of writes after the snapshot before
+confirmation.
+
+1. Stop the original application and confirm exclusive writer retirement.
+2. Restore into a fresh data identity; verify checksums, matching bundle/storage,
+   owner team and origin without exposing a second writable app.
+3. Advance the same logical application's immutable revision using the expected
+   current revision. Preserve its app ID, name, administrator, origin and port;
+   retain the old revision and data. Only this explicit restore operation may
+   change the data binding.
+4. Install the new generation stopped, inspect the result, then explicitly Start.
+
+Failed copy or validation leaves the old binding intact. Unknown copy, rebind
+or native outcomes preserve both data trees, keep writes disabled and expose
+an inspectable pending/unknown operation; reconcile before retry. A prior
+snapshot can be selected again only by another fresh-data restore, never by
+overwriting retained data or treating an image rollback as database recovery.
+P25 owns the Go application-record/API and Rust snapshot/host operation;
+P26 adds its Applications control and native journey; P29/P30 own instructions
+and the installed same-address recovery result.
+
+**HB13 source finding (20 October):** P25 must reconcile the snapshot helper
+with the actual producer's retained-storage identity before claiming this
+backup/restore path. Canlang
+`packages/cloudflare/src/deploy/soda-run.ts::prepareStorage` writes
+`canlang.soda.storage.v2` and promotes only the exact matching legacy identity.
+Soda `lib/host/src/application/snapshot.rs::backup` currently admits only
+`canlang.soda.storage.v1`, so current v2 storage is refused as an invalid
+identity before copying. Preserve the producer's fingerprint, resource and
+legacy-admission rules; do not repair a backup by editing its marker or
+weakening checks. Qualify a real current-image stopped backup and fresh reopen,
+including refusal of incompatible identities, under P25.1.
+
+The current snapshot manifest contains file/directory checksums, not the
+trusted timestamp/application/bundle inventory required for browser selection.
+P25/P26 must bind that inventory to the selected snapshot and complete the
+durable Restore operation and revision transition; the current application
+identity guard forbids changing `data_id`, and ordinary Replace retains it.
+Keep the selected same-address behavior in the handbook while these producers
+and the P30 installed witness remain open. A successful unbound directory copy
+does not establish this operation.
+
+### Fixed initial runtime envelope
+
+Adopt the existing normal-app limits: **1 GiB RAM, two CPUs' worth of CPU time,
+and 128 processes/threads**, with a read-only root and explicit persistent data.
+Expose these as fixed limits in Applications and the guide, not configurable
+fields or dedicated CPU reservations. Preserve any distinct bounded bootstrap
+helper constraints; a setup command is not a normal running app.
+
+P26 measures actual memory/process exhaustion, CPU contention, readiness,
+restart and retained-write behavior; P29 documents the observed outcomes and
+diagnostics. P30/R52 verify the changed installed join. Per-app caps do not
+reserve aggregate host capacity. Tunable resource plans need a separate
+host-capacity/admission design; they are not required for this first envelope.
+
 ## Implementation packets and dependencies
 
 These are substeps of existing canonical tasks. Their outputs replace only
@@ -469,12 +577,12 @@ of this investigation.
 | **P14.1 Native decision gate — runtime lead** | Freeze actual binary/schema/provider profile and baseline-generated storage configuration. Prepare the smallest disposable native fixture using the real built-in D1 client, DO SQL and alarm. Own the specified `host/` exec-guard files and native producer, with shared build/cache edits handed to integration. **C/V:** establish effective sync/commit behavior, atomic failed batch, acknowledged write after kill, no-request alarm recovery, and inherited-lock/parent-death behavior including startup race. Release proven configuration/provider/lifetime contracts. Failure blocks only dependent runtime/storage adoption; investigate observed failure before selecting fallback architecture. |
 | **P14.2 D1 provider — provider lane** | After P14.1's native provider interface: own `runtime/soda-d1.ts`, focused provider test and notice. **C:** implement the finite D1 contract above, preserving error/unknown-outcome distinctions and storage IDs. **V:** actual pinned client → provider → disk, rollback after partial batch, coherent read batch, binds/BLOB/RETURNING/changes, one-winner revision guard and separate DBs. No generic emulator or business-rule copy. |
 | **P14.3 Configuration, transport and lifetime — runtime lane** | After P14.1's process/config contract: own `workerd-config.ts`, `soda-lifetime.ts`, `soda-gateway.ts`, `soda-run.ts`. **M/C:** stage immutable app plus host modules, deny network, private transport, admission, direct child supervision and retained lock. **V:** app/Wasm load, invalid paths/config refusal, HTTPS URL/manual redirects/cookies/body handling, child crash, parent kill, startup cancellation, timeout and orderly/forced shutdown. Hand off stable direct-runtime interface to P14.4. |
-| **P14.4 Production CLI and provisioning — runtime lane after handoff** | Uses P14.2 and P14.3; owns `cli/soda-runtime.ts`, `cli/soda.ts`, `soda-contract.ts`, `runtime/soda-admin.ts` and final `soda-run.ts` join. **M:** one validation owner and build/runtime import separation. **C/V:** real Worker Identity bootstrap/member, correct worker crypto/import conditions, private credentials and retry/refusal semantics; no Miniflare Node proxy. |
+| **P14.4 Production CLI and provisioning — runtime lane after handoff** | Uses P14.2 and P14.3; owns `cli/soda-runtime.ts`, `cli/soda.ts`, `soda-contract.ts`, `runtime/soda-admin.ts` and final `soda-run.ts` join, plus the existing Identity owner for app-local first-run setup. **M:** one validation owner and build/runtime import separation. **C/V:** real Worker Identity bootstrap/member and protected browser first-owner claim with exact setup admission/receipt, private credentials, exclusive writer and retry/refusal semantics; no Miniflare Node proxy. |
 | **P15.1 Native application acceptance — verification lead** | After P14.2–P14.4. Extend current native drivers and original app fixture; exercise provider/process/application portions of the matrix through real routes. **V:** new-runtime native G1/G2 scope with exact binaries/config/module inputs; P16.2 and P25.1 own final-image and retained-data subjects. Failure returns to its defining owner. Report remaining power/storage/performance limits explicitly. |
 | **P16.1 Production archive closure — packaging lane** | Can start graph analysis after P14.1; executable closure waits for P14.4. Own `scripts/pack-tools.mjs`, necessary existing pack/build/install selectors and new `scripts/verify-soda-runtime-closure.mjs`. Shared package/lock edits go through integration owner. **M/C/V:** one archive with verified production subtree, prebuilt host workers, direct binary pin and frozen exec guard with executable permissions/native ABI, complete inventory/licenses; offline commands with development dependencies absent. Reuse existing archive format where possible and version incompatible schema edits with all readers. |
 | **P16.2 Production image — Soda integration lane** | After P16.1, own Canlang Containerfile recipes and image driver. **M/C/V:** copy only runtime closure; preserve UID/read-only/data/network/command contract, exact admitted app bytes and runtime/tools labels. Prove real production commands and absence of Miniflare/dev packages and debug surfaces. |
-| **P25.1 Retained-data cutover and restoration — verification + Rust snapshot owner** | After P15.1 and P16.2. **V:** stopped baseline snapshot → disposable clone → direct runtime with identical app bundle; check every retained identity/state/File/work class, mutate/restart and restore. Validate complete tree/WAL/alarm metadata and prove second-writer exclusion through shutdown. **C:** only correct demonstrated snapshot/layout joins; no automatic migration or relaxed artifact fence. |
-| **P26.1 / P29 installed component and procedures — verification lead** | After P25.1, using explicit qualified runtime/tools fixture admission as in the existing G3 component workflow. **V:** actual native host/Caddy runtime, browser/MCP/Files/work, Project-stop independence, boot/stopped intent, same-bundle replacement and fresh restore. Update existing guides to measured behavior; preserve distinction from full release. |
+| **P25.1 Retained-data cutover and restoration — Go application + Rust snapshot owners** | After P15.1 and P16.2. **C:** separate authorized Restore operation/revision for verified fresh data, preserving normal Replace and immutable old data/spec. **V:** stopped baseline snapshot → disposable clone → direct runtime with identical app bundle; check every retained identity/state/File/work class, mutate/restart and restore the same logical app. Validate complete tree/WAL/alarm metadata, lost-reply reconciliation and second-writer exclusion; no automatic migration or relaxed artifact fence. |
+| **P26.1 / P29 application setup, native lifecycle and procedures — integration owners** | After P25.1, using explicit qualified runtime/tools fixture admission as in the existing G3 component workflow. **C:** Soda provisional setup/API/host/UI joins consuming P14.4, prepared-app wizard and explicit Restore UI consuming P25.1. **V:** actual first-owner browser setup, host/Caddy/browser/MCP/Files/work, fixed resource envelope, Project-stop independence, boot/stopped intent, same-bundle replacement and fresh restore. Update existing guides to measured behavior; release implemented producers before P27/R54/R51 and preserve distinction from installed full release. |
 | **P27.1 / P28 admission refresh — exclusive release integration owner** | Qualification follows P26.1, preserving the parent P26 → P27 gate. Source reader/pin preparation may proceed earlier against the fixed schema. Own `fetch/canlang.rs`, maintenance pin, release JSON, runtime inventory/candidate readers and affected release producer joins. **M/C/V:** exact archive/image attribution and checksums, corrected Node pin agreement, runtime/tools mismatch refusal, old admitted generation still inspectable/startable/stoppable. |
 | **P30 → P31 → P32 — existing integration/release owner** | Remain open. Use the matching complete release for the actual installed UI/API/private-client journey and G4; then absorb completed design into owning guides and reconcile living plans. Publication is not implied. |
 

@@ -9,7 +9,7 @@ Media details: [Installation media](media.md).
 For Docker Engine deployment, follow [Install a released image](docker.md#install-a-released-image)
 to download the versioned Compose file, pin its GHCR digest and configure the runtime.
 
-After installation and private operator setup, the [public Factory journey](../public/40-Factory/05-software-factory.md)
+After installation and private operator setup, the [public Factory journey](../public/20-Factory/10-software-factory.md)
 explains how authorized issues progress to verified results. The
 [factory operator interface](../reference/factory.md) documents the existing
 command surface.
@@ -41,7 +41,7 @@ activation. Root password SSH is available after the guided installation; operat
 key enrollment is optional. Complete client certificate trust and a real browser
 Project terminal as described in [Operator setup](operator-setup.md).
 
-Use [the public installation guide](../public/20-Install/30-install-on-premises.md)
+Use [the public installation guide](../public/60-Install/40-install-on-premises.md)
 for the complete end-user path. The builder instructions below are for release
 developers, not prerequisites for installing a downloaded release.
 

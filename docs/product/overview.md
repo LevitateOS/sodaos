@@ -424,13 +424,14 @@ version and evidence and does not authorize deployment.
 
 ### Role-specific workflow controls
 
-One Factory MCP server implementation provides seven scoped profiles: Product
-Lead, Architect, Builder, Inspector, Fixer, Strategist and Test Pilot. Each has
+One Factory MCP server implementation provides scoped profiles for Product
+Lead, Architect, Builder, Inspector, Fixer, Strategist, Test Pilot, Researcher
+and Library Admin. Each has
 its own stable role instructions, generated assignment context and permitted
 controls. Inspector has an explicit “nothing found” result; all roles can report
 blocked/failed/incomplete work and submit their role's completed result.
 
-These are workflow controls, not seven new native identities or servers. The
+These are workflow controls, not a new native identity or server per profile. The
 controller authenticates every call, verifies submitted evidence and observed
 process retirement, and drives the existing issue, checkpoint, review, merge and
 read-model paths. A durable submission receipt is visibly distinct from verified
@@ -652,11 +653,47 @@ Revisions preserve history and compare the expected predecessor. Routine choices
 within existing direction and authority do not require repeated human acceptance.
 Current native evidence and independent execution, account, preparation and
 funding grants remain required; model advice cannot expand them.
-Code-defined delivery alternatives compare a complete first workflow with
+Delivery alternatives compare a complete first workflow with
 separately verified milestones without inventing domain features. Jev advises;
 the person can change the approach and review the resulting proposal. Accepted
 assumption corrections enter native requirements, rejected assumptions are
 excluded, and a consequential contradiction requires clarification.
+
+### Content and non-code outcomes
+
+Factory routes work by its requested result. Repository documentation and UI
+copy use the same attributable change, independent review and native delivery
+path as other source changes. Builder and Inspector apply copywriting or
+documentation expertise against an accepted brief: audience, user task,
+surface, voice, authoritative facts and concrete success criteria. These
+specialties do not add separate standing roles or a mandatory human editor.
+
+Standalone copy has an exact artifact and typed acceptance, without a synthetic
+PR. Researcher produces sourced findings; Architect turns relevant findings into
+executable design. A supported negative answer can complete a research question
+while showing that a proposed implementation cannot work. Inconclusive evidence
+remains unresolved. Every dependency names the result it actually needs.
+
+Mixed work retains code, content and other required outputs independently.
+Checks match the deliverable: a changed UI needs its relevant rendered states
+and accessible wording assessed; plain copy does not need an invented app
+verification run. Accepted text, merged source, integrated app verification and
+external publication remain distinct. Publication needs its own existing
+authority.
+
+### Alternatives and scoped questions
+
+Candidate approaches retain their evidence, tradeoffs, actual decision owner
+and selected/rejected/deferred state. Factory executes the selected admitted
+work, rather than implementing every proposed arm. A later material change can
+trigger reconsideration without erasing the previous decision.
+
+When no candidate fits, Factory records the missing clarification. A request
+already established by current evidence can finish without creating artificial
+work; a matching open issue is linked without pretending its outcome is already
+delivered. Unanswered consequential questions hold only affected outcomes and
+their dependents. Independent accepted work continues, and the complete
+requested scope remains visible.
 
 ## Planning and priority judgments
 
@@ -691,20 +728,24 @@ reuse the record; completion of prerequisites, accepted-input edits or changed
 source/setup invalidate it. Generated work needs a current nonprovisional plan
 before coding. Planning confers no execution permission.
 
-The operator configures a finite cumulative consultation ceiling and a restricted
-server-side TypeSafe key file. A person's intent separately limits its planning
-calls; failed or interrupted requests retain reserved allowance. Increasing a
-ceiling requires an explicit configuration or revised human intent decision.
-Keys never enter Projects or browser inputs.
+The operator configures a restricted server-side TypeSafe key file. There is no
+cumulative operator-wide consultation ceiling: historical usage is recorded,
+but does not block unrelated work. Each intent, attempt or capability retains
+its own finite allowance; failed or interrupted requests retain reserved
+allowance, and retries never silently refill it. Changing an allowance requires
+its explicit authorized revision. Provider quota, rate-limit and availability
+failures remain visible. Keys never enter Projects or browser inputs.
 
-For multiple deterministically eligible issues, Jev receives every candidate and
+For multiple deterministically eligible issues, the existing fairness rule first
+selects the oldest candidate that has waited at least one day; this deterministic
+result needs no comparative call. Otherwise Jev receives every candidate and
 observed relevant state. Bounded groups of at most 255 compete through a complete
-tournament; sets exceeding the configured maximum consultation count wait rather
-than dropping candidates. Uncertain valid advice uses the oldest candidate in
-its group. After consultation, a candidate waiting at least one day receives the
-recorded fairness preference. Cached advice is reusable for unchanged semantic
-inputs, but dispatch rechecks the complete exact current candidate inventory and
-all admission gates. One eligible candidate requires no priority call.
+tournament, whose finite allowance covers the supported inventory. An explicitly
+smaller available allowance reports a precise wait instead of dropping candidates.
+Uncertain valid advice uses the oldest candidate in its group. Cached advice is
+reusable for unchanged semantic inputs, but dispatch rechecks the complete exact
+current candidate inventory and all admission gates. One eligible candidate
+also requires no priority call.
 
 ## Bounded lifecycle actions
 

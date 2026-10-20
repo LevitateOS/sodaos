@@ -33,7 +33,7 @@ client reachability nor completed login/execution.
 
 An activated installation produces read-only access guidance on rerun; uncertain
 setup/activation preserves state and must be inspected before retry. The
-[public operator setup guide](../public/30-Set-up/10-operator-setup.md) follows this path.
+[public operator setup guide](../public/60-Install/60-operator-setup.md) follows this path.
 
 ## Deliberate setup with custom configuration
 
@@ -76,9 +76,9 @@ from the installed complete release. Signing in again or importing a Project ima
 does not repair retained support. Host activation remains subject to the separate
 [release qualification boundary](../architecture/release.md#host-update-ownership).
 
-The [public Factory authorization guide](../public/40-Factory/20-factory-authorization.md)
+The [public Factory authorization guide](../public/40-Configure/20-factory-authorization.md)
 explains the separate owners of repository policy, appliance capacity and provider
-sponsorship. The [Factory journey](../public/40-Factory/05-software-factory.md)
+sponsorship. The [Factory journey](../public/20-Factory/10-software-factory.md)
 describes how eligible accepted issues proceed under standing authority. The
 [operator reference](../reference/factory.md) documents the existing command
 interface.
@@ -109,9 +109,10 @@ release before admitting the exact source-to-target qualification.
 
 Run `/usr/libexec/soda/soda-project-maintain release --release-dir DIRECTORY --check`
 to inspect every enrolled running or stopped Project, verify the candidate and
-report active or uncertain managed work. This stages content and may import the
-future Project image, but does not replace Project support or stage/activate the
-host. Let existing work finish; the command never ends a terminal to proceed.
+report active or uncertain managed work. This extracts and temporarily mounts
+the rootfs and checks locally retained image/package content; it does not acquire
+missing images, replace Project support or stage/activate the host. Let existing
+work finish; the command never ends a terminal to proceed.
 Then run the same command without `--check`. It closes managed admission, records
 the fixed release and container set, locks the native staged deployment before
 replacing support, verifies all retained roots, and requests native activation and
