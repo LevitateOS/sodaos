@@ -99,10 +99,10 @@ func TestFinishTerminalBindsPhasedResult(t *testing.T) {
 	}
 }
 
-// TestFinishTerminalKeepsPrePhaseLegacyResult pins the other arm: a
-// pre-phase assignment finished terminally keeps the legacy phaseless
-// shape through the synthesizePhased fallback.
-func TestFinishTerminalKeepsPrePhaseLegacyResult(t *testing.T) {
+// TestFinishTerminalKeepsPhasedResult pins the terminal arm: a phased
+// assignment finished terminally keeps its phased shape through the
+// synthesizePhased fallback.
+func TestFinishTerminalKeepsPhasedResult(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
@@ -110,12 +110,14 @@ func TestFinishTerminalKeepsPrePhaseLegacyResult(t *testing.T) {
 
 	decision := fx.accept(t, 9, "d"+strings.Repeat("b", 24))
 	now := time.Now().Truncate(time.Second)
-	prompt := []byte("pre-phase prompt for terminal finish")
+	prompt := []byte("phased prompt for terminal finish")
 	sum := sha256.Sum256(prompt)
 	assignmentID, runID := factory.NewID(), factory.NewID()
 	a := factory.Assignment{
 		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
-		Subject:   factory.ExecutionSubject{},
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 9, Acceptance: decision.ID}},
+		Phase:     project.ExecutionInvestigate,
 		ProjectID: fx.proj, ActorID: 7, Role: project.RoleCoder,
 		Repository: fx.repo, Issue: 9, NativeRev: 41,
 		Acceptance: decision.ID, Preparation: "f111111111111111111111111",
@@ -138,7 +140,7 @@ func TestFinishTerminalKeepsPrePhaseLegacyResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := a.Validate(); err != nil {
-		t.Fatalf("pre-phase terminal fixture invalid: %v", err)
+		t.Fatalf("phased terminal fixture invalid: %v", err)
 	}
 	reservation := factory.Reservation{AssignmentID: a.ID, Repository: fx.repo, Connection: "conn", State: factory.ReservationHeld, PlannedMinutes: 30}
 	run := factory.Run{
@@ -148,7 +150,7 @@ func TestFinishTerminalKeepsPrePhaseLegacyResult(t *testing.T) {
 	}
 	view := factory.RunView{RunID: runID, Repository: fx.repo, Issue: 9, Attempt: a.ID}
 	if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
-		t.Fatalf("pre-phase terminal packet refused: %v", err)
+		t.Fatalf("phased terminal packet refused: %v", err)
 	}
 
 	var report DispatchReport
@@ -158,10 +160,10 @@ func TestFinishTerminalKeepsPrePhaseLegacyResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := stored.Validate(); err != nil {
-		t.Fatalf("finished pre-phase assignment invalid: %v", err)
+		t.Fatalf("finished phased assignment invalid: %v", err)
 	}
-	if stored.Result == nil || stored.Result.Phase != "" || stored.Result.PhaseResult != nil {
-		t.Fatalf("terminal finish changed the pre-phase legacy shape: %+v", stored.Result)
+	if stored.Result == nil || stored.Result.Phase != project.ExecutionInvestigate || stored.Result.PhaseResult == nil || stored.Result.PhaseResult.Phase != project.ExecutionInvestigate {
+		t.Fatalf("terminal finish changed the phased shape: %+v", stored.Result)
 	}
 	if stored.Result.Status != "cancelled" || stored.Outcome != factory.Cancelled {
 		t.Fatalf("terminal finish mapping changed: %+v %+v", stored.Result, stored.Outcome)

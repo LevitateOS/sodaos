@@ -20,7 +20,9 @@ func TestST10PublishableAssignmentsExcludeReviewer(t *testing.T) {
 	reviewer := coder
 	reviewer.ID, reviewer.Run, reviewer.RunHistory = factory.NewID(), reviewRun, []string{reviewRun}
 	reviewer.AttemptRoot, reviewer.PublicationAssignment = coder.AttemptRoot, coder.ID
+	reviewer.ParentAssignment = coder.ID
 	reviewer.Role = project.RoleReviewer
+	reviewer.Phase = project.ExecutionReview
 	reviewer.Stage, reviewer.Outcome, reviewer.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
 	reviewer.Revision, reviewer.Attempts, reviewer.FinishedUnix = 0, 1, now.Unix()
 	reviewer.Result = &factory.AssignmentResult{

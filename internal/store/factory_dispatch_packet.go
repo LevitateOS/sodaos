@@ -163,11 +163,10 @@ func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 	if freshAttempt {
 		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now)
 	}
-	// Only the correction phase spends a correction cycle. Pre-phase
-	// coder children predate phase admission and keep the legacy
-	// charge; advanced implementations retain the root unconsumed.
+	// Only the correction phase spends a correction cycle; advanced
+	// implementations retain the root unconsumed.
 	if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder &&
-		(a.Phase == project.ExecutionCorrect || a.Phase == "") {
+		a.Phase == project.ExecutionCorrect {
 		if err := consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
 			return err
 		}
@@ -260,72 +259,15 @@ func validateOwnerAttemptRootTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 	if a.Role != project.RoleCoder {
 		return errors.New("publication owner assignment must be a coder")
 	}
-	// Only investigation opens a phased attempt root: intent roots
+	// Only investigation opens an attempt root: intent roots
 	// arrive through FW08 and reassessment roots through FW30.
-	if a.Phase != "" && a.Phase != project.ExecutionInvestigate {
+	if a.Phase != project.ExecutionInvestigate {
 		return errors.New("only investigation opens a phased attempt root")
 	}
 	if a.AttemptRoot != a.ID {
 		return childAllowanceRootExistsTx(ctx, tx, a)
 	}
 	return nil
-}
-
-func checkLegacyPacketOwner(parent, a factory.Assignment) error {
-	if parent.ID != a.PublicationAssignment || parent.PublicationAssignment != parent.ID || parent.Role != project.RoleCoder ||
-		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
-		parent.Repository != a.Repository || parent.Issue != a.Issue || parent.ProjectID != a.ProjectID ||
-		parent.Acceptance != a.Acceptance || parent.AttemptRoot != a.AttemptRoot {
-		return fmt.Errorf("%w: child assignment does not match its publication owner", ErrAttemptRootMismatch)
-	}
-	return nil
-}
-
-func checkLegacyPacketPublication(publication factory.Publication, parent, a factory.Assignment) error {
-	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository || publication.Issue != a.Issue ||
-		publication.Acceptance != a.Acceptance || publication.Stage != factory.PublicationPublished ||
-		publication.WithdrawRequested || publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
-		return fmt.Errorf("%w: child assignment does not match the current published candidate", ErrAttemptRootMismatch)
-	}
-	return nil
-}
-
-func loadChildPacketLineageTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.Assignment, factory.Publication, error) {
-	parent, err := loadValidatedAssignmentTx(ctx, tx, a.PublicationAssignment)
-	if err != nil {
-		return factory.Assignment{}, factory.Publication{}, err
-	}
-	if err := checkLegacyPacketOwner(parent, a); err != nil {
-		return factory.Assignment{}, factory.Publication{}, err
-	}
-	publication, err := lockedChildPublicationTx(ctx, tx, parent.ID)
-	if err != nil {
-		return factory.Assignment{}, factory.Publication{}, err
-	}
-	if err := checkLegacyPacketPublication(publication, parent, a); err != nil {
-		return factory.Assignment{}, factory.Publication{}, err
-	}
-	return parent, publication, nil
-}
-
-func validateLegacyChildPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
-	if a.Role != project.RoleCoder && a.Role != project.RoleReviewer {
-		return errors.New("child assignment has an invalid role or fresh allowance")
-	}
-	parent, _, err := loadChildPacketLineageTx(ctx, tx, a)
-	if err != nil {
-		return err
-	}
-	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
-		return err
-	}
-	if a.Role == project.RoleCoder && a.Preparation != parent.Preparation {
-		return errors.New("correction must retain the publication coder preparation")
-	}
-	if a.Role == project.RoleReviewer && a.Preparation == parent.Preparation {
-		return errors.New("reviewer child requires a distinct preparation")
-	}
-	return childAllowanceRootExistsTx(ctx, tx, a)
 }
 
 func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
@@ -342,12 +284,11 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	if freshAttempt {
 		return errors.New("fresh allowance requires a self-owned coder assignment")
 	}
-	// Phased children enter through their phase's owning guard. An advanced
+	// Children enter through their phase's owning guard. An advanced
 	// implementation binds its finished investigation parent without a
 	// publication or PR; a reviewer binds its publication owner, the
 	// current candidate and its review cycle; a corrector binds the
 	// current reviewer, its correction cycle and the retained owner slot.
-	// Pre-phase children keep the published-parent path below.
 	switch a.Phase {
 	case project.ExecutionDecompose:
 		return validateDecomposeRootTx(ctx, tx, a)
@@ -361,11 +302,9 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 		return validateReviewChildTx(ctx, tx, a)
 	case project.ExecutionCorrect:
 		return validateCorrectChildTx(ctx, tx, a)
-	case "":
 	default:
 		return errors.New("child assignment carries an unadmitted execution phase")
 	}
-	return validateLegacyChildPacketTx(ctx, tx, a)
 }
 
 // validateDecomposeRootTx admits one intent decompose fresh root against

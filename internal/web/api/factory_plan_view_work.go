@@ -80,7 +80,7 @@ type journeyPhaseView struct {
 // journeyPhaseDTO validates one fixture phase against the frozen
 // execution vocabulary.
 func journeyPhaseDTO(phase, state string) (journeyPhaseView, error) {
-	if !project.ValidExecutionPhase(phase) || phase == "" {
+	if !project.ValidExecutionPhase(phase) {
 		return journeyPhaseView{}, errors.New("journey phase is not an admitted execution phase")
 	}
 	if !validJourneyState(state) {
@@ -506,7 +506,6 @@ const (
 	journeyReasonChainPageBound           = "chain_page_bound"
 	journeyReasonLatestAcceptanceMismatch = "latest_acceptance_mismatch"
 	journeyReasonPhasesInvalidRow         = "phases_invalid_row"
-	journeyReasonPhasesPrePhase           = "phases_pre_phase"
 	journeyReasonPhasesTruncated          = "phases_truncated"
 	journeyReasonTasksInvalidRow          = "tasks_invalid_row"
 	journeyReasonTasksTruncated           = "tasks_truncated"

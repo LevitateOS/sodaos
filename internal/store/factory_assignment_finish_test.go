@@ -298,6 +298,9 @@ func TestFinishAssignmentRefusesChangedInputs(t *testing.T) {
 	t.Run("same-key changed acceptance", func(t *testing.T) {
 		forged := finishWithTerminal(original)
 		forged.Acceptance = "d" + strings.Repeat("b", 24)
+		// Fresh subject: the shared-issue fixture must not mutate the
+		// original's subject through the copied pointer.
+		forged.Subject.Issue = &factory.IssueSubject{Issue: forged.Subject.Issue.Issue, Acceptance: forged.Acceptance}
 		if err := forged.Validate(); err != nil {
 			t.Fatalf("forged changed-acceptance request invalid, masking the store comparison: %v", err)
 		}

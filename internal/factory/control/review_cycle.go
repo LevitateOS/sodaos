@@ -122,37 +122,26 @@ func (c *Coordinator) currentPublicationApproved(ctx context.Context, p factory.
 }
 
 // ResolvedReviewVerdict is the canonical consumer view of one reviewer
-// assignment's recorded verdict: exactly one source. A pre-phase reviewer
-// run reports the legacy string report; a phased review run reports
-// exactly one typed verdict (findings verdict or explicit clear). The
-// resolver admits exactly one source per assignment — never both, never
-// neither — so legacy and typed rows never share authority over one
-// verdict. Findings verdicts always map to request-changes (their shape
-// guarantees blocking content); only an explicit clear maps to approve.
+// assignment's recorded verdict: exactly one typed verdict (findings
+// verdict or explicit clear). Findings verdicts always map to
+// request-changes (their shape guarantees blocking content); only an
+// explicit clear maps to approve.
 type ResolvedReviewVerdict struct {
 	Verdict string // "approve" | "request-changes"
-	Legacy  *factory.ReviewReport
 	Review  *factory.ReviewCycleReport
 	Clear   *factory.ClearReviewReport
 }
 
 // resolveAssignmentVerdict resolves one reviewer assignment's recorded
-// verdict to its single canonical source. Pre-phase assignments resolve
-// the legacy report; phased review assignments resolve the typed v2
-// verdict. Anything else — missing report, both sources, neither source,
-// or a non-review phase — refuses.
+// verdict to its single canonical source: review assignments resolve the
+// typed v2 verdict. Anything else — missing report, both sources, neither
+// source, or a non-review phase — refuses.
 func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerdict, error) {
 	var empty ResolvedReviewVerdict
 	if assignment.Result == nil || !assignment.Result.Reported {
 		return empty, errors.New("review lacks its recorded report")
 	}
 	result := assignment.Result
-	if assignment.Phase == "" {
-		if result.Review == nil {
-			return empty, errors.New("review lacks its recorded report")
-		}
-		return ResolvedReviewVerdict{Verdict: result.Review.Verdict, Legacy: result.Review}, nil
-	}
 	if assignment.Phase != project.ExecutionReview {
 		return empty, errors.New("review assignment carries another phase")
 	}
@@ -164,7 +153,7 @@ func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerd
 		return empty, errors.New("phased review carries no single verdict")
 	}
 	if result.Review != nil {
-		return empty, errors.New("phased review carries a legacy report")
+		return empty, errors.New("phased review carries a string report")
 	}
 	if output.Review != nil {
 		return ResolvedReviewVerdict{Verdict: "request-changes", Review: output.Review}, nil
@@ -185,8 +174,8 @@ func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerd
 // recorded review report for this publication. Correction dispositions
 // alone — fixed, unresolved, disputed or declined — never retire a key; an
 // agent claim is not disappearance. Same-head prior rounds that resolved
-// legacy refuse: their string defects carry no stable key, so a typed
-// verdict cannot prove coverage and the legacy consumer keeps the chain.
+// with unkeyed string defects refuse: their defects carry no stable key,
+// so a typed verdict cannot prove coverage.
 // A cross-head prior round whose reviewer assignment cannot be
 // reconstructed holds the cycle incomplete instead of succeeding empty.
 type carriedCollector struct {
@@ -285,7 +274,7 @@ func checkPriorReviewerEvidence(p factory.Publication, prior factory.ReviewCycle
 	if out == nil || out.Output == nil ||
 		(out.Output.Review == nil && out.Output.Clear == nil) {
 		if reviewer.Result.Review != nil {
-			return errors.New("prior review needs its legacy consumer")
+			return errors.New("prior review carries an unkeyed string report")
 		}
 		return errors.New("canonical carried history is incomplete: step07")
 	}
@@ -422,9 +411,9 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 	// and its verified assessments retire. A report that omits required
 	// coverage, rewrites the tuple or breaks its digest refuses here with
 	// zero downstream effect — the collector never performs semantic
-	// validation on a parallel path. A result that resolved legacy
-	// refuses: its string defects carry no stable key, so a typed verdict
-	// cannot prove coverage and the legacy consumer keeps the chain.
+	// validation on a parallel path. A result that resolved with unkeyed
+	// string defects refuses: they carry no stable key, so a typed
+	// verdict cannot prove coverage.
 	// The canonical set rebuilds in bounded monotonic review-cycle order
 	// within this publication and attempt: each attributable review and
 	// each correction journal merges at its recorded cycle and round, so
@@ -487,7 +476,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 // downstream effect: no native call happens before every check passes. It
 // returns the native event and body for the bound verdict.
 func resolveVerdictCycleID(p factory.Publication, assignment factory.Assignment, head string, verdict ResolvedReviewVerdict) (string, error) {
-	if verdict.Legacy != nil || (verdict.Review == nil && verdict.Clear == nil) {
+	if verdict.Review == nil && verdict.Clear == nil {
 		return "", errors.New("phased binding needs its typed verdict")
 	}
 	if assignment.Role != project.RoleReviewer || assignment.SourceCommit != head || head != p.Candidate {
@@ -687,22 +676,9 @@ func (c *Coordinator) buildReviewWork(ctx context.Context, p factory.Publication
 	if err != nil {
 		return empty, err
 	}
-	var event, body string
-	if resolved.Legacy != nil {
-		report := *resolved.Legacy
-		event = "APPROVED"
-		if report.Verdict == "request-changes" {
-			event = "REQUEST_CHANGES"
-		}
-		body = report.Body
-		if strings.TrimSpace(body) == "" {
-			body = report.Summary
-		}
-	} else {
-		event, body, err = c.bindPhasedReviewVerdict(ctx, p, assignment, head, resolved)
-		if err != nil {
-			return empty, err
-		}
+	event, body, err := c.bindPhasedReviewVerdict(ctx, p, assignment, head, resolved)
+	if err != nil {
+		return empty, err
 	}
 	w := factory.ReviewWork{
 		OperationID: "review-" + run.ID, AuthRevision: factory.ReviewAuthRevision(owner.ID, run.ID),
@@ -875,12 +851,8 @@ func (c *Coordinator) reconcileRecordedReviews(ctx context.Context, p *factory.P
 const reviewCyclePhase = "review"
 
 // reviewCycleEvidenceDigest binds one cycle's inputs for the resolved
-// current verdict: the legacy v1 digest for string reports, the v2 digest
-// for typed verdicts. One verdict, one digest domain — never both.
+// current verdict: the v2 digest for typed verdicts.
 func reviewCycleEvidenceDigest(head, base string, review ResolvedReviewVerdict, checks *factory.CheckAssessment) string {
-	if review.Legacy != nil {
-		return reviewCycleInputDigest(head, base, review.Legacy, checks)
-	}
 	return reviewCycleInputDigestTyped(head, base, review.Review, review.Clear, checks)
 }
 
@@ -914,8 +886,8 @@ func reviewCycleInputDigest(head, base string, review *factory.ReviewReport, che
 
 // reviewCycleInputDigestTyped binds one cycle's inputs for a typed current
 // verdict: exact head/base plus the typed review or clear evidence the
-// child must answer, with the check verdict. The v2 domain keeps typed
-// rounds distinct from legacy v1 rounds; new decisions change the digest
+// child must answer, with the check verdict. Typed rounds stay distinct
+// by digest domain; new decisions change the digest
 // (new round, fresh IDs) and replay reuses it. Exactly one of review and
 // clear is set; nil evidence means a fresh independent review.
 func reviewCycleInputDigestTyped(head, base string, review *factory.ReviewCycleReport, clear *factory.ClearReviewReport, checks *factory.CheckAssessment) string {
@@ -992,7 +964,7 @@ func reviewCyclePreparationID(cycleID string) string {
 
 // ensureReviewCycle persists one durable D07 review cycle for the child being
 // dispatched and returns the cycle plus the exact child/preparation IDs to
-// use. First occurrence of a head reuses the legacy head-based IDs so
+// use. First occurrence of a head reuses the head-based IDs so
 // pre-cycle publications keep their reviewer binding; repeats on the same
 // head use round-derived fresh IDs (new decision distinct, replay identical).
 // Reviewer rounds leave CorrectionAssignment empty; correction rounds record
@@ -1007,9 +979,9 @@ func replayReviewCycle(p *factory.Publication, owner factory.Assignment, role, d
 			if role == project.RoleReviewer {
 				childID = last.ReviewerAssignment
 				// Replay keeps the recorded IDs: first occurrence of a head
-				// used legacy head-based IDs, repeats used round-derived IDs.
-				// Infer from the stored child ID so new-head rounds (legacy
-				// even when round > 1) replay their legacy preparation.
+				// used head-based IDs, repeats used round-derived IDs.
+				// Infer from the stored child ID so new-head rounds
+				// (even when round > 1) replay their preparation.
 				if childID == publicationChildID(p.ID, p.Candidate, project.RoleReviewer) {
 					prepID = publicationPreparationID(p.ID, p.Candidate)
 				} else {
@@ -1063,7 +1035,7 @@ func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publicat
 			childID = publicationChildID(p.ID, p.Candidate, project.RoleReviewer)
 			prepID = publicationPreparationID(p.ID, p.Candidate)
 		} else if firstHead {
-			// New head after prior rounds: legacy head-based IDs keep the
+			// New head after prior rounds: head-based IDs keep the
 			// reviewer binding stable per head (fresh via new head).
 			childID = publicationChildID(p.ID, p.Candidate, project.RoleReviewer)
 			prepID = publicationPreparationID(p.ID, p.Candidate)

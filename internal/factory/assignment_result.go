@@ -99,17 +99,15 @@ func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	}
 }
 
-// ValidatePhaseBinding enforces the phase/role/result contract for v2
-// results: the recorded phase matches the assignment phase and its admitted
-// role, and the typed payload binds that same phase. Cross-phase payloads
-// refuse, and a phased result never binds a pre-phase assignment. The
-// legacy harness fields above stay untouched for the FW11 result-parser
-// migration; new admission records PhaseResult.
+// ValidatePhaseBinding enforces the phase/role/result contract: the
+// recorded phase matches the assignment phase and its admitted role,
+// and the typed payload binds that same phase. Cross-phase payloads
+// refuse; admission always records PhaseResult.
 func (r AssignmentResult) ValidatePhaseBinding(role, assignmentPhase string) error {
 	if r.PhaseResult == nil {
 		return errors.New("phased result lacks its typed output")
 	}
-	if r.Phase == "" || r.Phase != assignmentPhase {
+	if r.Phase != assignmentPhase {
 		return errors.New("phased result does not match its assignment phase")
 	}
 	if !ValidPhaseRole(r.Phase, role) {

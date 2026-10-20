@@ -289,9 +289,8 @@ func checkDeliveryRepairSubject(s ExecutionSubject) error {
 // grant to this assignment. Phase names the admitted execution phase and
 // ParentAssignment the immediate parent; a root has no parent and keeps its
 // own AttemptRoot. A D13 reassessment cycle is always a fresh root with no
-// parent and no publication assignment. New admission always records
-// Subject, Phase and ParentAssignment; pre-phase issue records without them
-// validate for readback until FW11 migrates admission.
+// parent and no publication assignment. Admission always records Subject,
+// Phase and ParentAssignment.
 type Assignment struct {
 	Authority             AuthorityRef      `json:"authority"`
 	Result                *AssignmentResult `json:"result,omitempty"`
@@ -490,10 +489,9 @@ func (a Assignment) Validate() error {
 		return errors.New("invalid assignment address")
 	}
 	if a.Subject.Kind == "" {
-		if err := checkLegacyAssignmentScope(a); err != nil {
-			return err
-		}
-	} else if err := a.validateSubjectPhase(); err != nil {
+		return errors.New("subject assignment lacks its subject kind")
+	}
+	if err := a.validateSubjectPhase(); err != nil {
 		return err
 	}
 	if err := checkAssignmentExecution(a); err != nil {
@@ -524,22 +522,6 @@ func checkAssignmentPublication(a Assignment) error {
 		if !ValidID(a.PublicationAssignment) {
 			return errors.New("invalid assignment identity")
 		}
-	}
-	return nil
-}
-
-func checkLegacyAssignmentScope(a Assignment) error {
-	// Pre-phase issue record: legacy scope rules apply, and no
-	// half-migrated subject field may accompany it.
-	if a.Phase != "" || a.ParentAssignment != "" || a.Subject.Issue != nil || a.Subject.Intent != nil || a.Subject.Completion != nil ||
-		a.Subject.Stall != nil || a.Subject.Delivery != nil || a.Subject.DeliveryRepair != nil {
-		return errors.New("subject assignment lacks its subject kind")
-	}
-	if a.Repository <= 0 || a.Issue <= 0 {
-		return errors.New("invalid assignment scope")
-	}
-	if !project.ValidDecisionID(a.Acceptance) {
-		return errors.New("invalid assignment acceptance")
 	}
 	return nil
 }

@@ -131,7 +131,7 @@ func finishAssignmentFromRun(a factory.Assignment, run factory.Run, output strin
 	if a.Stage != factory.AssignmentAssigned {
 		return a, nil
 	}
-	result, outcome, reason := deriveAttemptResult(a, run, output, run.Summary, now.Unix())
+	result, outcome, reason := derivePhasedAttemptResult(a, run, output, run.Summary, now.Unix())
 	a.Stage, a.Outcome, a.Reason = factory.AssignmentFinished, outcome, reason
 	a.FinishedUnix = now.Unix()
 	a.Result = &result
@@ -162,57 +162,14 @@ func recordConfirmedUsage(ctx context.Context, db *store.Store, a factory.Assign
 	})
 }
 
-// deriveAttemptResult maps one settled run outcome plus its output to the
-// recorded assignment result. Phased assignments bind the strict v2 phase
-// result to their recorded phase, subject lineage and run; pre-phase
-// assignments keep the legacy harness report contract. A completed run
-// with a valid fenced report records it verbatim; anything else
-// synthesizes an honest result with an empty candidate, leaving validation
-// to publication.
-func deriveAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
-	if a.Phase != "" {
-		return derivePhasedAttemptResult(a, run, output, summary, recordedUnix)
-	}
-	switch run.Outcome {
-	case factory.Succeeded:
-		if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
-			return factory.ResultSynthesized(a.ID, a.Run, "blocked",
-				"settled run does not match its assignment", recordedUnix), factory.NeedsHuman, factory.AssignReasonNoReport
-		}
-		if a.Role == project.RoleReviewer {
-			if report, ok := factory.ParseReviewReport(output); ok {
-				return factory.AssignmentResult{
-					AssignmentID: a.ID, RunID: a.Run, Status: "completed",
-					Summary: report.Summary, Candidate: run.InputSHA,
-					Findings: []string{}, Review: &report, Reported: true, RecordedUnix: recordedUnix,
-				}, factory.Succeeded, factory.AssignReasonReported
-			}
-			return factory.ResultSynthesized(a.ID, a.Run, "blocked",
-				"review completed without a parseable report", recordedUnix), factory.NeedsHuman, factory.AssignReasonNoReport
-		}
-		if reported, ok := factory.ParseHarnessResult(output); ok {
-			return factory.ResultFromHarness(a.ID, a.Run, reported, recordedUnix), factory.Succeeded, factory.AssignReasonReported
-		}
-		return factory.ResultSynthesized(a.ID, a.Run, "blocked",
-			"harness completed without a parseable result report", recordedUnix), factory.NeedsHuman, factory.AssignReasonNoReport
-	case factory.Cancelled:
-		return factory.ResultSynthesized(a.ID, a.Run, "cancelled",
-			boundSummary(summary, "run cancelled"), recordedUnix), factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		return factory.ResultSynthesized(a.ID, a.Run, "failed",
-			boundSummary(summary, "run failed"), recordedUnix), factory.Failed, factory.AssignReasonRunFailed
-	}
-}
-
-// derivePhasedAttemptResult maps one settled run to the recorded result
-// for a phased assignment. The settled run must match its assignment; the
-// role must be the phase's admitted account; and a reported result must be
-// a strict v2 phase result bound to that same phase. Cross-phase payloads,
-// extra JSON and legacy harness shapes refuse to a synthesized blocked
-// result: planning outputs never authorize effects, and completed planning
-// never names a publishable candidate. Reviewer runs report the same v2
-// contract with the typed review verdict; only pre-phase reviewer runs
-// keep the legacy review fence.
+// derivePhasedAttemptResult maps one settled run to the recorded result.
+// The settled run must match its assignment; the role must be the phase's
+// admitted account; and a reported result must be a strict v2 phase result
+// bound to that same phase. Cross-phase payloads, extra JSON and legacy
+// harness shapes refuse to a synthesized blocked result: planning outputs
+// never authorize effects, and completed planning never names a
+// publishable candidate. Reviewer runs report the same v2 contract with
+// the typed review verdict.
 // refusePhasedAttempt maps one invalid phased run to a synthesized
 // blocked result.
 func refusePhasedAttempt(a factory.Assignment, recordedUnix int64, detail string) (factory.AssignmentResult, factory.Outcome, string) {
@@ -270,17 +227,7 @@ func reportPhasedReviewerResult(a factory.Assignment, run factory.Run, output, s
 	if a.Phase == project.ExecutionVerify {
 		return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
 	}
-	if a.Phase != "" {
-		return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
-	}
-	if report, ok := factory.ParseReviewReport(output); ok {
-		return factory.AssignmentResult{
-			AssignmentID: a.ID, RunID: a.Run, Status: "completed",
-			Summary: report.Summary, Candidate: run.InputSHA,
-			Findings: []string{}, Review: &report, Reported: true, RecordedUnix: recordedUnix,
-		}, factory.Succeeded, factory.AssignReasonReported
-	}
-	return refusePhasedAttempt(a, recordedUnix, "review completed without a parseable report")
+	return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
 }
 
 // buildPhasedCoderResult builds one successful coder run's recorded

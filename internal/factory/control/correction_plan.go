@@ -42,9 +42,9 @@ func correctionPlanWaitReason(err error) (string, bool) {
 // executes controller-selected verification, never agent-selected checks.
 // An accepted-policy gap — a missing or unexecutable investigation plan,
 // no derived checks, no policy checks, or ownership beyond the singleton
-// bound — is a visible planning blocker, never a guessed plan. A typed
-// current verdict supplies the finding keys the plan answers; legacy
-// string verdicts carry no stable keys and block as well.
+// bound — is a visible planning blocker, never a guessed plan. The
+// current verdict supplies the finding keys the plan answers; verdicts
+// without stable keys block as well.
 func checkCorrectionPlanAdmission(attemptRoot, head, base, preparation, cycleID, findingDigest string, acceptance factory.Acceptance, investigation factory.InvestigationPlan, policyChecks []string) error {
 	if !factory.ValidID(attemptRoot) || !factory.ValidCommit(head) || !factory.ValidCommit(base) ||
 		!factory.ValidID(cycleID) || !factory.ValidDigest(findingDigest) || !factory.ValidPreparationRef(preparation) {

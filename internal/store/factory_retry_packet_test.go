@@ -208,6 +208,7 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	b, r2, run2, view2 := dispatchTestPacket(t, now)
 	b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 	b.Acceptance = "d" + strings.Repeat("b", 24)
+	b.Subject.Issue.Issue, b.Subject.Issue.Acceptance = 4, b.Acceptance
 	b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 	b.Authority.Capacity = 2
 	r2.AssignmentID = b.ID

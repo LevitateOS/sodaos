@@ -247,10 +247,9 @@ func applyJourneyPublicationLineage(lineage *journeyLineageView, publication *fa
 // selected AttemptRoot, in stable canonical order. A newer retry storm
 // on one phase cannot displace another phase, a sibling AttemptRoot
 // sharing the acceptance cannot leak in, and no old capped prefix ever
-// stands in for current state. Unknown nonempty phases and ref-less
+// stands in for current state. Unknown or empty phases and ref-less
 // contributing rows name phases_invalid_row instead of dropping
-// silently; pre-phase rows without a phase stay out explicitly under
-// phases_pre_phase and never fabricate a phase. A cut group read names
+// silently and never fabricate a phase. A cut group read names
 // phases_truncated. Unreadable storage returns its error for the
 // existing 503 pattern.
 func (s *API) journeyPhaseSection(ctx context.Context, view *factoryIssueJourneyView, repository, index int64, owner *factory.Assignment) error {
@@ -273,14 +272,11 @@ func (s *API) journeyPhaseSection(ctx context.Context, view *factoryIssueJourney
 	current := make(map[string]factory.Assignment, len(journeyCanonicalPhases))
 	for _, group := range groups {
 		assignment := group.Assignment
-		switch phase := assignment.Phase; {
-		case phase == "":
-			view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesPrePhase)
-		case !project.ValidExecutionPhase(phase):
+		if !project.ValidExecutionPhase(assignment.Phase) {
 			view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesInvalidRow)
-		default:
-			current[phase] = assignment
+			continue
 		}
+		current[assignment.Phase] = assignment
 	}
 	phases := make([]journeyPhaseView, 0, len(journeyCanonicalPhases))
 	for _, phase := range journeyCanonicalPhases {

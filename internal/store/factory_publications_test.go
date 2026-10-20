@@ -132,6 +132,7 @@ func finishedPublishableAssignment(t *testing.T, now time.Time, issue int64, rep
 	t.Helper()
 	a, r, run, view := dispatchTestPacket(t, now)
 	a.Issue = issue
+	a.Subject.Issue.Issue = issue
 	view.Issue = issue
 	result := factory.AssignmentResult{
 		AssignmentID: a.ID, RunID: a.Run, Status: status,
@@ -505,6 +506,7 @@ func seedPublicationAssignment(t *testing.T, db *Store, p factory.Publication) {
 	a.ID, a.Run, a.RunHistory = p.AssignmentID, p.Run, []string{p.Run}
 	a.AttemptRoot, a.PublicationAssignment = a.ID, a.ID
 	a.Repository, a.Issue, a.ProjectID, a.Acceptance, a.Authority = p.Repository, p.Issue, p.ProjectID, p.Acceptance, p.Authority
+	a.Subject.Issue.Issue, a.Subject.Issue.Acceptance = p.Issue, p.Acceptance
 	reservation.AssignmentID, reservation.Repository = a.ID, a.Repository
 	run.ID, run.ProjectID = a.Run, a.ProjectID
 	view.RunID, view.Attempt, view.Repository, view.Issue = a.Run, a.ID, a.Repository, a.Issue

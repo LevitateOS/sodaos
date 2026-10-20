@@ -194,6 +194,7 @@ func TestCloseExpiredAttemptIgnoresStalePublicationOwnerWithinRoot(t *testing.T)
 	latest := a
 	latest.ID, latest.Run = factory.NewID(), factory.NewID()
 	latest.PublicationAssignment = latest.ID
+	latest.ParentAssignment = a.ID
 	latest.RunHistory = []string{latest.Run}
 	latest.Revision = 0
 	latest.CreatedUnix = time.Now().Unix()

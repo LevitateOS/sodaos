@@ -23,8 +23,8 @@ const journeyPhaseGroupLimit = 32
 
 // PhaseAttempt carries one phase group's newest recorded assignment
 // behind the selected owner AttemptRoot, with its stable seq order.
-// The read layer classifies the recorded phase value (canonical,
-// pre-phase empty, or unknown); the store only scopes and orders.
+// The read layer classifies the recorded phase value (canonical or
+// unknown); the store only scopes and orders.
 type PhaseAttempt struct {
 	Assignment factory.Assignment
 	Seq        int64

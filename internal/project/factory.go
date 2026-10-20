@@ -85,12 +85,12 @@ const (
 )
 
 // ValidExecutionPhase reports whether phase is an admitted execution phase.
-// The empty phase is a pre-phase record admitted during the FW11 migration;
-// FW11 admission always records an explicit phase. Do not infer phase from
-// role, parent equality or whether a PR happens to exist.
+// Admission always records an explicit phase; the empty phase is invalid.
+// Do not infer phase from role, parent equality or whether a PR happens
+// to exist.
 func ValidExecutionPhase(phase string) bool {
 	switch phase {
-	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify, ExecutionMaintainLibrary:
+	case ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify, ExecutionMaintainLibrary:
 		return true
 	default:
 		return false

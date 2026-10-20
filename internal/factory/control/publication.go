@@ -168,10 +168,9 @@ func (c *Coordinator) consumePublicationChildren(ctx context.Context, report *Pu
 
 // publishCorrectionChild routes one settled corrector child to the
 // report-carrying correction entry when settlement kept the corrector's
-// parsed correction report. A phased corrector without its typed payload
-// on a completed report refuses loudly instead of taking the legacy
-// head-advance bypass; only legacy (pre-phase) correctors keep the
-// legacy entry, and unsettled phased runs stay on the legacy waits. The
+// parsed correction report. A corrector without its typed payload on a
+// completed report refuses loudly; runs that have not reported yet stay
+// on the wait path. The
 // typed report journals its dispositions and agent-claimed fix evidence
 // through the canonical gate with the publication's current check
 // assessment; admission judges freshness itself. A missing assessment

@@ -489,6 +489,7 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	// fence stands: no early admission through any packet path.
 	a, r, run, view := dispatchTestPacket(t, time.Now().UTC())
 	a.Issue, view.Issue = 4, 4
+	a.Subject.Issue.Issue = 4
 	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); !errors.Is(err, ErrCompletionFenced) {
 		t.Fatalf("packet past the fence: %v", err)
 	}

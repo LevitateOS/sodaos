@@ -9,8 +9,7 @@ import (
 )
 
 // PhaseResultVersion is the only admitted phase-result schema version.
-// There is no v1 reader: legacy harness payloads are retired with the FW11
-// result-parser migration, not translated.
+// Only v2 results are admitted; there is no v1 reader.
 const PhaseResultVersion = 2
 
 // MaxPhaseResultBytes bounds one encoded phase result.
@@ -400,7 +399,7 @@ func (r PhaseResult) Validate() error {
 	if r.Version != PhaseResultVersion {
 		return errors.New("unsupported phase result version")
 	}
-	if !project.ValidExecutionPhase(r.Phase) || r.Phase == "" {
+	if !project.ValidExecutionPhase(r.Phase) {
 		return errors.New("phase result lacks its execution phase")
 	}
 	switch r.Status {
@@ -427,7 +426,7 @@ func (r PhaseResult) Validate() error {
 
 // BindAssignment verifies the result against its recorded assignment: phase
 // equality binds phase and subject lineage, since the assignment already
-// binds role, subject and run. Pre-phase assignments cannot bind v2 results.
+// binds role, subject and run.
 // Decompose, repair and verify results additionally bind their subject kind
 // and, for completed runs, the report's subject, cycle and inventory
 // identities. A decompose report answers its assignment's exact intent and
@@ -437,9 +436,6 @@ func (r PhaseResult) Validate() error {
 func (r PhaseResult) BindAssignment(a Assignment) error {
 	if err := r.Validate(); err != nil {
 		return err
-	}
-	if a.Phase == "" {
-		return errors.New("phase result cannot bind a pre-phase assignment")
 	}
 	if r.Phase != a.Phase {
 		return errors.New("phase result does not match its assignment phase")

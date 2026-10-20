@@ -48,7 +48,7 @@ func validatePromptRole(in PromptInputs) error {
 	}
 	if in.PublicationAssignment == "" {
 		roleAllowed := in.Role == project.RoleCoder || (in.Role == project.RoleReviewer && in.Phase == project.ExecutionMaintainLibrary)
-		if !roleAllowed || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil ||
+		if !roleAllowed || in.BaseCommit != "" || in.CheckAssessment != nil ||
 			in.TypedReview != nil || in.TypedClear != nil {
 			return errors.New("initial coding prompt carries child evidence")
 		}
@@ -56,20 +56,14 @@ func validatePromptRole(in PromptInputs) error {
 	return nil
 }
 
-// validatePromptReviewEvidence admits the carried review evidence:
-// at most one source, with a single valid typed verdict.
-// Fresh independent reviews carry no prior verdict (caller passes nil);
-// same-head re-reviews carry the full outstanding review/check evidence
-// as carried input to independently assess, never to rubber-stamp.
-// Distinct reviewer/corrector sessions are retained by the dispatcher.
+// validatePromptReviewEvidence admits the carried review evidence: a
+// single valid typed verdict. Fresh independent reviews carry no prior
+// verdict (caller passes nil); same-head re-reviews carry the full
+// outstanding review/check evidence as carried input to independently
+// assess, never to rubber-stamp. Distinct reviewer/corrector sessions
+// are retained by the dispatcher.
 func validatePromptReviewEvidence(in PromptInputs) error {
-	if in.Review != nil && in.Review.Validate() != nil {
-		return errors.New("invalid correction review evidence")
-	}
 	if in.TypedReview != nil || in.TypedClear != nil {
-		if in.Review != nil {
-			return errors.New("dispatch prompt carries two review evidence sources")
-		}
 		if (in.TypedReview == nil) == (in.TypedClear == nil) {
 			return errors.New("dispatch prompt carries no single typed verdict")
 		}
@@ -94,10 +88,9 @@ func validatePromptCheckEvidence(in PromptInputs) error {
 }
 
 // validateCorrectionPrompt admits one correction prompt's consolidated
-// review and failed-check evidence. Legacy corrections carry the string
-// verdict; typed corrections carry the findings verdict (always
-// blocking) or the explicit clear beside failing checks (fix the
-// checks). Anything else is not a correction.
+// review and failed-check evidence. Corrections carry the findings
+// verdict (always blocking) or the explicit clear beside failing checks
+// (fix the checks). Anything else is not a correction.
 func validateCorrectionPrompt(in PromptInputs) error {
 	if in.Role != project.RoleCoder {
 		return nil
@@ -107,10 +100,6 @@ func validateCorrectionPrompt(in PromptInputs) error {
 		return errors.New("correction needs consolidated current review and failed-check evidence")
 	}
 	switch {
-	case in.Review != nil:
-		if in.Review.Verdict != "request-changes" && in.CheckAssessment.Verdict != CheckFailed {
-			return errors.New("correction needs consolidated current review and failed-check evidence")
-		}
 	case in.TypedReview != nil:
 	case in.TypedClear != nil:
 		if in.CheckAssessment.Verdict != CheckFailed {
@@ -132,31 +121,15 @@ func writePromptStage(b *strings.Builder, in PromptInputs) {
 			b.WriteString("- " + strconv.Quote(result.Context) + ": " + strconv.Quote(result.State) + "; passed: " + strconv.FormatBool(result.Passed) + "\n")
 		}
 	}
-	if in.Review != nil {
-		r := in.Review
-		if in.Role == project.RoleReviewer {
-			b.WriteString("\n## Carried review findings for independent re-review\n\n")
-			b.WriteString("Assess every carried actionable finding explicitly as verified|still_open with evidence; report new defects separately. Do not repost duplicate native comments for unchanged findings: stable finding keys reuse their native comment IDs.\n")
-		} else {
-			b.WriteString("\n## Independent review findings\n\n")
-		}
-		b.WriteString("Verdict: " + r.Verdict + "\n")
-		b.WriteString(fenceCollision(r.Summary) + "\n\n")
-		b.WriteString(fenceCollision(r.Body) + "\n")
-		for _, finding := range r.Findings {
-			b.WriteString("- " + fenceCollision(finding) + "\n")
-		}
-	}
 	writePromptTypedVerdict(b, in)
 }
 
-// writePromptTypedReviewContract directs a phased re-review: close with
-// exactly one v2 phase result carrying exactly one typed verdict — the
-// findings verdict with new keyed defects and verified|still_open
-// dispositions, or the explicit clear when nothing blocks — answering the
-// carried cycle identity. A findings verdict with no new defect and no
-// still-open assessment refuses; report the explicit clear instead. No
-// legacy review fence is accepted on this contract.
+// writePromptTypedReviewContract directs a re-review: close with exactly
+// one v2 phase result carrying exactly one typed verdict — the findings
+// verdict with new keyed defects and verified|still_open dispositions,
+// or the explicit clear when nothing blocks — answering the carried
+// cycle identity. A findings verdict with no new defect and no
+// still-open assessment refuses; report the explicit clear instead.
 func writePromptTypedReviewContract(b *strings.Builder, in PromptInputs) {
 	cycle := ""
 	if in.TypedReview != nil {
@@ -217,9 +190,6 @@ func admitPromptText(in PromptInputs) error {
 		return err
 	}
 	if err := budget.admitChecks(in); err != nil {
-		return err
-	}
-	if err := budget.admitReview(in); err != nil {
 		return err
 	}
 	if err := budget.admitTypedReview(in); err != nil {
@@ -288,17 +258,6 @@ func (b *promptTextBudget) admitChecks(in PromptInputs) error {
 		if err := b.admit([]string{p.Occurrence, p.DependsOn, p.Outcome, in.Control.EndpointHeads[p.Occurrence], in.Control.Fingerprint, in.Control.Satisfied[p.Occurrence].Acceptance}, 32); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// admitReview charges the carried legacy review evidence.
-func (b *promptTextBudget) admitReview(in PromptInputs) error {
-	if r := in.Review; r != nil {
-		if err := b.admit([]string{r.Verdict, r.Summary, r.Body}, 32); err != nil {
-			return err
-		}
-		return b.admit(r.Findings, 4)
 	}
 	return nil
 }

@@ -864,7 +864,7 @@ func TestFactoryIssueJourneyChainTail(t *testing.T) {
 	// for current, and no phase repeats or displaces another.
 	journeyExpectCurrentPhases(t, journey, root, n)
 	for _, unwanted := range []string{
-		journeyReasonPhasesInvalidRow, journeyReasonPhasesPrePhase, journeyReasonPhasesTruncated,
+		journeyReasonPhasesInvalidRow, journeyReasonPhasesTruncated,
 	} {
 		if reasons[unwanted] {
 			t.Fatalf("tail names %s without cause: %+v", unwanted, journey.Reasons)
@@ -1111,11 +1111,11 @@ func TestFactoryIssueJourneyInvalidPhaseExplicit(t *testing.T) {
 	}
 }
 
-// TestFactoryIssueJourneyPrePhaseExplicit records one pre-phase row
-// without a phase beside the owner's implement attempt: no phase is
-// fabricated from it, implement still renders current, and the
-// journey names phases_pre_phase explicitly.
-func TestFactoryIssueJourneyPrePhaseExplicit(t *testing.T) {
+// TestFactoryIssueJourneyPhaselessRowInvalid records one row without a
+// phase beside the owner's implement attempt: no phase is fabricated
+// from it, implement still renders current, and the journey names
+// phases_invalid_row.
+func TestFactoryIssueJourneyPhaselessRowInvalid(t *testing.T) {
 	fake := &journeyAcceptanceSource{}
 	fx, call := journeyMux(t, fake)
 	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
@@ -1128,17 +1128,17 @@ func TestFactoryIssueJourneyPrePhaseExplicit(t *testing.T) {
 
 	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
 	if code != http.StatusOK {
-		t.Fatalf("pre-phase status=%d body=%s", code, body)
+		t.Fatalf("phaseless status=%d body=%s", code, body)
 	}
 	view := journeyIssueView(t, body)
 	if len(view.Journey.Phases) != 1 || view.Journey.Phases[0].Phase != project.ExecutionImplement {
-		t.Fatalf("pre-phase phases: %+v", view.Journey.Phases)
+		t.Fatalf("phaseless phases: %+v", view.Journey.Phases)
 	}
 	if view.Journey.Phases[0].Assignment != root.ID {
-		t.Fatalf("pre-phase refs: %+v", view.Journey.Phases[0])
+		t.Fatalf("phaseless refs: %+v", view.Journey.Phases[0])
 	}
-	if reasons := journeyReasons(view); !reasons[journeyReasonPhasesPrePhase] {
-		t.Fatalf("pre-phase not named: %+v", view.Journey.Reasons)
+	if reasons := journeyReasons(view); !reasons[journeyReasonPhasesInvalidRow] {
+		t.Fatalf("phaseless row not named invalid: %+v", view.Journey.Reasons)
 	}
 }
 

@@ -71,8 +71,8 @@ func TestCaptureCompletionMaterialRefusesUnacceptedSubmitted(t *testing.T) {
 	generation := factory.IntentGeneration{
 		RevisionID: rev, IntentID: intent, OperationID: "op-1", ActorID: 7,
 		NativeRev: 1, NotAfter: time.Now().Add(time.Hour).Unix(),
-		Payload:        json.RawMessage(`{"edits":[]}`),
-		IntentDigest:   revision.Digest(),
+		Payload:      json.RawMessage(`{"edits":[]}`),
+		IntentDigest: revision.Digest(),
 		SubmittedTasks: []factory.IntentTask{{
 			Key: "d" + strings.Repeat("f", 24), Objective: "sentinel unaccepted objective",
 			Outcomes: []string{"done"}, IdeaIDs: []string{pending},
@@ -278,6 +278,7 @@ func TestCaptureCompletionMaterialComplete(t *testing.T) {
 
 	a, r, run, view := dispatchTestPacket(t, time.Now().UTC())
 	a.Acceptance = v2.ID
+	a.Subject.Issue.Acceptance = v2.ID
 	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatalf("packet: %v", err)
 	}

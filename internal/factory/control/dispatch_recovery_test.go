@@ -117,7 +117,7 @@ func TestReleasedCorrectionChildRetryKeepsRecordedPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, run := fx.childRun(t, parent, publication, project.RoleCoder, publication.Candidate, parent.Preparation, false)
+	_, run := correctionChildFixture(t, fx, parent, &publication, false)
 	child, err := fx.db.AssignmentByRun(ctx, run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestReleasedCorrectionChildRetryKeepsRecordedPlan(t *testing.T) {
 		launches[0].Run.Preparation != child.Preparation || launches[0].Run.Model != child.Model ||
 		launches[0].Run.SourceCommit != child.SourceCommit || launches[0].Run.Connection != child.Connection ||
 		!bytes.Equal(launches[0].Prompt, child.Prompt) || launches[0].Run.Assignment != child.PromptSHA {
-		t.Fatalf("correction retry changed its recorded plan: launches=%+v errors=%+v", launches, report.Errors)
+		t.Fatalf("correction retry changed its recorded plan: launches=%+v waits=%+v errors=%+v", launches, report.Waits, report.Errors)
 	}
 	after, err := fx.db.Assignment(ctx, child.ID)
 	if err != nil || after.Attempts != 2 || after.AttemptRoot != parent.AttemptRoot ||
@@ -338,7 +338,7 @@ func TestReleasedReviewerRetryRefusesChangedRequiredChecks(t *testing.T) {
 	}
 	after, err := fx.db.Assignment(ctx, child.ID)
 	if err != nil || after.Stage != factory.AssignmentFinished || after.Reason != factory.AssignReasonSuperseded {
-		t.Fatalf("obsolete child was not retired: %+v err=%v", after, err)
+		t.Fatalf("obsolete child was not retired: %+v waits=%+v err=%v", after, report.Waits, err)
 	}
 }
 
@@ -369,11 +369,17 @@ func TestReleasedChildRetryRefusesSupersededPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
-	if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
-		t.Fatal(err)
+	reviewerPermitted := false
+	for _, role := range sponsorship.Roles {
+		reviewerPermitted = reviewerPermitted || role == project.RoleReviewer
 	}
-	_, reviewRun := fx.childRun(t, parent, publication, project.RoleReviewer, publication.Candidate, "f222222222222222222222222", false)
+	if !reviewerPermitted {
+		sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
+		if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, reviewRun := fx.childRun(t, parent, &publication, project.RoleReviewer, publication.Candidate, "f222222222222222222222222", false)
 	staleChild, err := fx.db.AssignmentByRun(ctx, reviewRun.ID)
 	if err != nil {
 		t.Fatal(err)

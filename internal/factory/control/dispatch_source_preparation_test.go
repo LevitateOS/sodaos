@@ -51,7 +51,7 @@ func commitSourceFixtureCorrection(t *testing.T, fx *mergeFixture, p factory.Pub
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, run := fx.publish.childRun(t, owner, p, project.RoleCoder, p.Candidate, owner.Preparation, true)
+	_, run := correctionChildFixture(t, fx.publish, owner, &p, true)
 	tip := strings.Repeat("d", 40)
 	accountChildResult(t, fx.publish, run, correctionOutput(tip))
 	if report := fx.publish.coord.PublishCorrection(ctx, run.ID); len(report.Errors) != 0 || len(report.Corrected) != 1 {

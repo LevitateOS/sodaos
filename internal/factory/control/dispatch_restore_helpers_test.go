@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,17 +70,174 @@ func checkSeed(t *testing.T, issue int64) (*publishFixture, factory.Publication)
 	return fx, p
 }
 
-// correctionRun settles one coder child result carrying the given candidate.
+// reviewVerdictOutput settles one reviewer run with a typed v2 findings
+// verdict over the given cycle and findings.
+func reviewVerdictOutput(cycleID string, findings ...factory.Finding) string {
+	result := factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionReview,
+		Status: "completed", Summary: "review recorded",
+		Output: &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
+			CycleID: cycleID, NewFindings: findings,
+		}},
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		panic(err)
+	}
+	return "review recorded\n```" + factory.ResultFence + "\n" + string(raw) + "\n```\n"
+}
+
+// reviewerCycleID returns the review cycle that admitted the given reviewer
+// child: the round carrying it as reviewer with no corrector yet.
+func reviewerCycleID(publication factory.Publication, reviewer factory.Assignment) string {
+	for _, cycle := range publication.ReviewCycles {
+		if cycle.ReviewerAssignment == reviewer.ID && cycle.CorrectionAssignment == "" {
+			return cycle.ID
+		}
+	}
+	return ""
+}
+
+// correctionChildFixture settles one reviewer verdict under the owner and
+// admits one corrector child under the finished reviewer. Phased corrector
+// admission parents the corrector to the finished reviewer, never the
+// publication owner.
+func correctionChildFixture(t *testing.T, fx *publishFixture, owner factory.Assignment, publication *factory.Publication, settled bool) (factory.Assignment, factory.Run) {
+	t.Helper()
+	grantReviewerRoleKeepingRevision(t, fx, owner)
+	reviewer, reviewRun := fx.childRun(t, owner, publication, project.RoleReviewer, publication.Candidate, "f222222222222222222222222", true)
+	cycleID := reviewerCycleID(*publication, reviewer)
+	if cycleID == "" {
+		t.Fatalf("reviewer child admitted no review cycle: reviewer=%s publication=%+v", reviewer.ID, publication)
+	}
+	reviewer = accountChildResult(t, fx, reviewRun, reviewVerdictOutput(cycleID, correctionFinding()))
+	commitReviewerOperation(t, fx, publication, reviewer)
+	return fx.childRun(t, reviewer, publication, project.RoleCoder, publication.Candidate, owner.Preparation, settled)
+}
+
+// grantReviewerRoleKeepingRevision permits the reviewer role on the owner's
+// connection without moving the sponsorship revision, so admissions recorded
+// before the grant keep their authority snapshot.
+func grantReviewerRoleKeepingRevision(t *testing.T, fx *publishFixture, owner factory.Assignment) {
+	t.Helper()
+	ctx := context.Background()
+	raw, err := sql.Open("pgx", fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = raw.Close() }()
+	var data []byte
+	if err := raw.QueryRowContext(ctx, `SELECT data FROM factory_sponsorships WHERE repository=$1 AND connection=$2`, owner.Repository, owner.Connection).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	var sponsorship factory.Sponsorship
+	if err := json.Unmarshal(data, &sponsorship); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range sponsorship.Roles {
+		if role == project.RoleReviewer {
+			return
+		}
+	}
+	sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
+	updated, err := json.Marshal(sponsorship)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.ExecContext(ctx, `UPDATE factory_sponsorships SET data=$1 WHERE repository=$2 AND connection=$3`, string(updated), owner.Repository, owner.Connection); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// commitReviewerOperation records the finished reviewer's committed review
+// operation, so a corrector admitted under it answers the newest committed
+// verdict on the current head and base.
+func commitReviewerOperation(t *testing.T, fx *publishFixture, publication *factory.Publication, reviewer factory.Assignment) {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now()
+	stored, err := fx.db.PublicationByAssignment(ctx, reviewer.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := reviewer.ActorID
+	if actor == stored.PRCreate.Work.ActorID {
+		actor = stored.PRCreate.Work.ActorID + 1
+	}
+	stored.ReviewOperations = append(stored.ReviewOperations, factory.ReviewOperation{
+		RunID: reviewer.Run,
+		Work: factory.ReviewWork{
+			OperationID:  "review-" + reviewer.Run,
+			AuthRevision: factory.ReviewAuthRevision(stored.AssignmentID, reviewer.Run),
+			Repository:   stored.Repository, ActorID: actor,
+			PRNumber: stored.PRNumber, PRID: stored.PRID, IssueID: stored.PRCreate.IssueID,
+			PRAuthorID: stored.PRCreate.Work.ActorID,
+			HeadRef:    stored.PRCreate.HeadRef, BaseRef: stored.PRCreate.BaseRef,
+			HeadOID: stored.Candidate, BaseOID: stored.PRCreate.BaseOID,
+			NativeRev: stored.NativeRev, NotAfter: now.Add(10 * time.Minute).Unix(),
+			Event: "REQUEST_CHANGES", Body: "independent review",
+		},
+		Outcome: factory.OperationOutcome{
+			OperationID: "review-" + reviewer.Run, InstallationID: "installation-1",
+			Kind: factory.OpReviewSubmit, ActorID: actor, RepositoryID: stored.Repository,
+			Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete,
+			Receipt: []byte(`{"review_id":31}`),
+		},
+	})
+	stored.Revision++
+	if err := fx.db.UpdatePublication(ctx, stored); err != nil {
+		t.Fatalf("review operation unrecorded: %v", err)
+	}
+	refreshed, err := fx.db.PublicationByAssignment(ctx, reviewer.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*publication = refreshed
+}
+
+// correctionRun settles one finished reviewer verdict and one coder corrector
+// child carrying the given candidate.
 func correctionRun(t *testing.T, fx *publishFixture, a factory.Assignment, candidate string) factory.Run {
 	t.Helper()
 	publication := fx.publication(t, a)
-	_, run := fx.childRun(t, a, publication, project.RoleCoder, publication.Candidate, a.Preparation, true)
+	_, run := correctionChildFixture(t, fx, a, &publication, true)
 	accountChildResult(t, fx, run, correctionOutput(candidate))
 	return run
 }
 
+// correctionFindingKey is the single fixed finding every phased corrector
+// fixture answers: one key keeps the finding-set digest deterministic.
+const correctionFindingKey = "000000000000000000000000000000a0"
+
+func correctionFinding() factory.Finding {
+	return factory.Finding{
+		Key: correctionFindingKey, OriginRun: strings.Repeat("1", 32),
+		Severity: factory.FindingSeverityMajor, Defect: "missing bound",
+		Evidence: "line 7 lacks a check", RequiredOutcome: "add the check",
+		FixKind: factory.FindingFixCode, Actionable: true,
+	}
+}
+
 func correctionOutput(candidate string) string {
-	return "fixed the finding\n```" + factory.ResultFence + "\n{\"status\":\"completed\",\"summary\":\"fixed\",\"candidate\":\"" + candidate + "\",\"review_passed\":false,\"findings\":[]}\n```\n"
+	finding := correctionFinding()
+	digest, err := factory.FindingSetDigest([]string{finding.Key})
+	if err != nil {
+		panic(err)
+	}
+	result := factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionCorrect,
+		Status: "completed", Summary: "correction recorded",
+		Output: &factory.PhaseOutput{Correction: &factory.CorrectionReport{
+			SetDigest: digest, NewCandidate: candidate,
+			Findings:     []factory.Finding{finding},
+			Dispositions: []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}},
+		}},
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		panic(err)
+	}
+	return "correction recorded\n```" + factory.ResultFence + "\n" + string(raw) + "\n```\n"
 }
 
 // phaseTestRun builds a run record bound to the given assignment.

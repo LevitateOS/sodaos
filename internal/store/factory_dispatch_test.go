@@ -186,7 +186,7 @@ func dispatchTestPrompt(t *testing.T) []byte {
 	t.Helper()
 	selection := grantTestPolicy().Roles[project.RoleCoder]
 	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
-		Repository: 7, Issue: 3, NativeRev: 5,
+		Repository: 7, Issue: 3, NativeRev: 5, Phase: project.ExecutionInvestigate,
 		AcceptanceID: "d" + strings.Repeat("a", 24),
 		TargetBranch: "refs/heads/main", SourceCommit: strings.Repeat("c", 40),
 		Preparation: "f" + strings.Repeat("b", 24),
@@ -211,7 +211,12 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 	a := factory.Assignment{
 		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
 		ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
-		ActorID:    7,
+		ActorID: 7,
+		Subject: factory.ExecutionSubject{
+			Kind:  factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 3, Acceptance: "d" + strings.Repeat("a", 24)},
+		},
+		Phase:      project.ExecutionInvestigate,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 5,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
 		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
@@ -299,6 +304,7 @@ func TestRecordDispatchPacketEnforcesOneRepositorySession(t *testing.T) {
 			second, nextReservation, nextRun, nextView := dispatchTestPacket(t, now)
 			second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, nextRun.ID, []string{nextRun.ID}
 			second.Acceptance = "d" + strings.Repeat("b", 24)
+			second.Subject.Issue.Issue, second.Subject.Issue.Acceptance = 4, second.Acceptance
 			second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 			nextReservation.AssignmentID = second.ID
 			nextView.Issue, nextView.Attempt = second.Issue, second.ID
@@ -391,6 +397,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 		b.Acceptance = "d" + strings.Repeat("b", 24)
+		b.Subject.Issue.Issue, b.Subject.Issue.Acceptance = 4, b.Acceptance
 		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Capacity = 2
 		r2.AssignmentID = b.ID
@@ -478,6 +485,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 		b.Acceptance = "d" + strings.Repeat("b", 24)
+		b.Subject.Issue.Issue, b.Subject.Issue.Acceptance = 4, b.Acceptance
 		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Sponsorship = 2
 		r2.AssignmentID = b.ID
@@ -553,6 +561,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		second, r2, run2, view2 := dispatchTestPacket(t, now)
 		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 		second.Acceptance = "d" + strings.Repeat("b", 24)
+		second.Subject.Issue.Issue, second.Subject.Issue.Acceptance = 4, second.Acceptance
 		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		second.Authority.ConnectionUsageBudget = budget.Revision + 1
 		r2.AssignmentID = second.ID

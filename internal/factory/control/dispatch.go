@@ -207,7 +207,6 @@ type DispatchDeps struct {
 	collectPlan         func(*attemptPlan)
 	checkPlan           func(*attemptPlan) bool
 	PlanCurrent         func(context.Context, factory.IssueControl) bool
-	PlanRecord          func(context.Context, int64, int64) (factory.PlanningRecord, error)
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -292,7 +291,6 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		ObserveRevision: c.observePriorityRevision, RefreshCandidate: c.refreshPriorityCandidate,
 		FenceCache:  map[int64]bool{},
 		PlanCurrent: c.planningCurrent,
-		PlanRecord:  c.planningRecord,
 	}
 }
 

@@ -212,9 +212,9 @@ func TruncateFeedSummary(summary string) string {
 // RecordAuthor derives one record's actor/author pair from its
 // recorded phase through the canonical MCP profiles: actor is the
 // profile that serves the phase (the Strategist serves both reassess
-// and repair), author its persona name. A pre-phase or unknown-phase
-// record falls back to its recorded execution role as actor and
-// leaves the author empty instead of inventing a persona.
+// and repair), author its persona name. An unknown-phase record falls
+// back to its recorded execution role as actor and leaves the author
+// empty instead of inventing a persona.
 func RecordAuthor(phase, role string) (actor, author string) {
 	profile := recordProfile(phase)
 	if profile == "" {

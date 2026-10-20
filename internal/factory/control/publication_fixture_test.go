@@ -206,6 +206,11 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	a := factory.Assignment{
 		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
 		ProjectID: fx.seed.proj, ActorID: 7, Role: project.RoleCoder,
+		Subject: factory.ExecutionSubject{
+			Kind:  factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: issue, Acceptance: decision.ID},
+		},
+		Phase:      project.ExecutionInvestigate,
 		Repository: fx.seed.repo, Issue: issue, Revision: 0, NativeRev: 41,
 		Acceptance: decision.ID, Preparation: "f111111111111111111111111",
 		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
@@ -252,10 +257,19 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	if err := fx.db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
+	// The reported investigation carries its executable plan: phased
+	// follow-ups (implementation advance, correction retry manifests)
+	// restage it, and completed planning never names a candidate.
+	plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
 	result := factory.AssignmentResult{
-		AssignmentID: a.ID, RunID: a.Run, Status: "completed",
-		Summary: "done", Candidate: strings.Repeat("2", 40),
+		AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionInvestigate,
+		Status: "completed", Summary: "done", Candidate: strings.Repeat("2", 40),
 		Findings: []string{}, Reported: true, RecordedUnix: now.Unix(),
+		PhaseResult: &factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate,
+			Status: "completed", Summary: "done",
+			Output: &factory.PhaseOutput{Plan: &plan},
+		},
 	}
 	a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, &result, now.Unix()
 	if err := fx.db.FinishAssignment(ctx, a); err != nil {
@@ -267,12 +281,15 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	return a
 }
 
-// childRun admits a publication child through the same atomic dispatch packet
-// path used by production. Native execution remains the caller's explicit stub.
-func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publication factory.Publication, role, source, preparation string, settled bool) (factory.Assignment, factory.Run) {
+// childRun admits a phased publication child through the same atomic dispatch
+// packet used by production: reviewers bind the publication owner, correctors
+// bind the current reviewer. Native execution remains the caller's explicit
+// stub. The publication gains the child's review cycle before admission and
+// is refreshed in place.
+func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publication *factory.Publication, role, source, preparation string, settled bool) (factory.Assignment, factory.Run) {
 	t.Helper()
 	ctx := context.Background()
-	if publication.AssignmentID != parent.ID || publication.Stage != factory.PublicationPublished || publication.Candidate != source {
+	if publication.AssignmentID != parent.PublicationAssignment || publication.Stage != factory.PublicationPublished || publication.Candidate != source {
 		t.Fatalf("child fixture must use the current published candidate: publication=%+v source=%q", publication, source)
 	}
 	authority, err := fx.coord.EffectiveAuthority(ctx, parent.Repository)
@@ -287,16 +304,58 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	if !ok {
 		t.Fatalf("child fixture role %q has no policy selection", role)
 	}
+	phase := project.ExecutionCorrect
+	if role == project.RoleReviewer {
+		phase = project.ExecutionReview
+	}
+	runID := factory.NewID()
 	a := factory.Assignment{
 		Authority: authority.Authority,
-		ID:        factory.NewID(), AttemptRoot: parent.AttemptRoot, PublicationAssignment: parent.ID,
-		ProjectID: parent.ProjectID, ActorID: parent.ActorID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
+		ID:        factory.NewID(), AttemptRoot: parent.AttemptRoot, PublicationAssignment: parent.PublicationAssignment,
+		ParentAssignment: parent.ID,
+		Subject:          parent.Subject,
+		Phase:            phase,
+		ProjectID:        parent.ProjectID, ActorID: parent.ActorID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
 		NativeRev: parent.NativeRev, Acceptance: parent.Acceptance, Preparation: preparation,
 		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
 		Connection: parent.Connection, SourceCommit: source,
 		Prompt: []byte("child prompt"), PromptSHA: dispatchDigest("child prompt"),
-		Run: factory.NewID(), RunHistory: []string{}, Stage: factory.AssignmentAssigned,
+		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: time.Now().Unix(),
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("child fixture invalid: %v", err)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, parent.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	round := len(stored.ReviewCycles) + 1
+	cycle := factory.ReviewCycle{
+		PublicationID: stored.ID, AttemptRoot: parent.AttemptRoot,
+		ID:    factory.ReviewCycleID(stored.ID, parent.AttemptRoot, round, "review"),
+		Phase: "review", TriggerDecision: "initial-review",
+		TriggerReason: "fixture child admission",
+		Head:          source, BaseOID: stored.PRCreate.BaseOID,
+		FindingDigest:      strings.Repeat("e", 64),
+		ReviewerAssignment: a.ID, CorrectionAssignment: a.ID, Round: round,
+	}
+	if role == project.RoleReviewer {
+		cycle.CorrectionAssignment = ""
+	} else {
+		cycle.ReviewerAssignment = parent.ID
+	}
+	if err := cycle.Validate(); err != nil {
+		t.Fatalf("child cycle invalid: %v", err)
+	}
+	stored.ReviewCycles = append(stored.ReviewCycles, cycle)
+	stored.Revision++
+	if err := fx.db.UpdatePublication(ctx, stored); err != nil {
+		t.Fatalf("childRun publication update: %v", err)
+	}
+	*publication, err = fx.db.PublicationByAssignment(ctx, parent.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
 	}
 	a.Authority.RequirementsID, err = fx.db.RequirementHead(ctx, a.ProjectID)
 	if err != nil {
@@ -306,7 +365,6 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.RunHistory = []string{a.Run}
 	now := time.Now().Truncate(time.Second)
 	r := factory.Run{
 		ID: a.Run, ProjectID: a.ProjectID, Role: role, InputSHA: source,
@@ -320,7 +378,7 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	view := factory.RunView{RunID: r.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
 	registration := factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}
 	if err := fx.db.RecordDispatchPacket(ctx, registration, dispatchControlForAssignment(t, fx.db, a), a, reservation, r, view); err != nil {
-		t.Fatal(err)
+		t.Fatalf("childRun packet record: %v", err)
 	}
 	if settled {
 		r.Outcome, r.Summary, r.Reconciled = factory.Succeeded, "child finished", true

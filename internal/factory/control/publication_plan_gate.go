@@ -177,10 +177,10 @@ func collectPlanPublicationEvidence(plan factory.InvestigationPlan, candidate st
 	return PlanPublicationVerdict{Ready: true, Evidence: evidence}
 }
 
-// gatePhasedPublication requires completed plan task evidence before a
-// phased implement assignment may publish. Pre-phase work keeps the
-// existing path untouched. It reports false after recording the wait, so
-// the caller publishes nothing and retries on a later pass.
+// gatePhasedPublication requires completed plan task evidence before an
+// implement assignment may publish. Other phases skip the gate. It
+// reports false after recording the wait, so the caller publishes nothing
+// and retries on a later pass.
 func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assignment, report *PublishReport) bool {
 	if a.Phase != project.ExecutionImplement {
 		return true

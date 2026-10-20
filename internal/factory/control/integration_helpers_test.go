@@ -252,7 +252,7 @@ func reviewRunSeed(t *testing.T, settled bool) (*publishFixture, factory.Assignm
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, run := fx.childRun(t, a, p, project.RoleReviewer, p.Candidate, "f222222222222222222222222", settled)
+	_, run := fx.childRun(t, a, &p, project.RoleReviewer, p.Candidate, "f222222222222222222222222", settled)
 	return fx, a, p, run
 }
 
@@ -471,6 +471,10 @@ func phaseTestPlan(t *testing.T, root, source, prep string) factory.Investigatio
 			Lane: "lane-one", OwnedPaths: []string{"internal/x.go"},
 		}},
 		Lanes: []factory.PlanLane{{ID: "lane-one", TaskIDs: []string{"task-one"}}},
+		Checks: []factory.CheckSpec{{
+			ID: "ci", Argv: []string{"ci"}, Cwd: ".",
+			TimeoutSeconds: 60, Scope: factory.CheckScopeTask, Required: true,
+		}},
 	}
 	digest, err := factory.PlanDigest(plan)
 	if err != nil {
@@ -624,6 +628,30 @@ func publishedChildProducerSeed(t *testing.T, issue int64, preparationPhase ...s
 	return fx, host, owner, p
 }
 
+// producedReviewCycleID returns the review cycle that admitted the child
+// behind the given production run.
+func producedReviewCycleID(t *testing.T, fx *publishFixture, runID string) string {
+	t.Helper()
+	ctx := context.Background()
+	view, err := fx.db.FactoryRunView(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment, err := fx.db.Assignment(ctx, view.Attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := fx.db.PublicationByAssignment(ctx, assignment.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cycleID := reviewerCycleID(p, assignment)
+	if cycleID == "" {
+		t.Fatalf("produced child admitted no review cycle: child=%s", assignment.ID)
+	}
+	return cycleID
+}
+
 func settleProducedChild(t *testing.T, fx *publishFixture, runID, output string) (factory.Assignment, factory.Run) {
 	t.Helper()
 	ctx := context.Background()
@@ -659,6 +687,14 @@ func authorizeMergeFixtureRound(t *testing.T, ctx context.Context, db *store.Sto
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Phased fixtures record real review cycles before the merge round:
+	// derive the round from the stored publication like production instead
+	// of reusing the hardcoded first round.
+	stored, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	round = maxReviewCycleRound(stored) + 1
 	reviewer := factory.NewID()
 	cycle := factory.ReviewCycle{
 		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot,
@@ -670,9 +706,9 @@ func authorizeMergeFixtureRound(t *testing.T, ctx context.Context, db *store.Sto
 	if err := cycle.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	cycled := p
+	cycled := stored
 	cycled.ReviewCycles = append(cycled.ReviewCycles, cycle)
-	cycled.Revision = p.Revision + 1
+	cycled.Revision = stored.Revision + 1
 	if err := db.UpdatePublication(ctx, cycled); err != nil {
 		t.Fatal(err)
 	}

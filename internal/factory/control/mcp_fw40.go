@@ -511,10 +511,10 @@ func settleAppVerification(assigned factory.Assignment, submission factory.MCPSu
 	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "app verification settled", true, nil
 }
 
-// settleTypedImplementation settles one Builder finish on a phased
-// implement assignment as a typed implementation receipt, so phased
-// parents advance through the same consumers as harness-reported
-// results. Pre-phase assignments keep the legacy candidate settle.
+// settleTypedImplementation settles one Builder finish on an implement
+// assignment as a typed implementation receipt, so parents advance
+// through the same consumers as harness-reported results. Assignments
+// whose phase does not bind fence instead of settling.
 func settleTypedImplementation(assigned factory.Assignment, submission factory.MCPSubmission, candidate string, now time.Time) factory.Assignment {
 	parsed := phaseResultFor(submission, project.ExecutionImplement, "worker nominates "+candidate,
 		&factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: candidate}})

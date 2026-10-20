@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // Candidate-tuple seeding at review adoption (R20) against real
@@ -32,8 +33,33 @@ func tupleReviewSeed(t *testing.T, p factory.Publication, fx *publishFixture, ru
 	}
 	exec.adopted.Operation = exec.outcome
 	fx.coord.Reviews = exec
-	output := "notes\n```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
-	run, err := fx.db.FactoryRun(context.Background(), runID)
+	ctx := context.Background()
+	view, err := fx.db.FactoryRunView(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment, err := fx.db.Assignment(ctx, view.Attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := fx.db.PublicationByAssignment(ctx, assignment.PublicationAssignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cycleID := reviewerCycleID(pub, assignment)
+	if cycleID == "" {
+		t.Fatalf("reviewer admitted no review cycle: reviewer=%s", assignment.ID)
+	}
+	output := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+		Summary: "solid",
+		Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{
+			Conclusion: factory.ClearReviewConclusion, CycleID: cycleID,
+			Head: assignment.SourceCommit, BaseOID: pub.PRCreate.BaseOID,
+			CoverageDigest: strings.Repeat("c", 64),
+		}},
+	})
+	run, err := fx.db.FactoryRun(ctx, runID)
 	if err != nil {
 		t.Fatal(err)
 	}

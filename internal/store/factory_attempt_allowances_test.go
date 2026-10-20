@@ -128,9 +128,162 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	}
 }
 
+// phasedCorrectionReviewer records a finished reviewer with a typed
+// findings verdict and a committed review operation on the published
+// candidate, returning the reviewer. Correction children parented to
+// the reviewer admit through the phased correction guard.
+func phasedCorrectionReviewer(t *testing.T, ctx context.Context, db *Store, now time.Time, root factory.Assignment, p *factory.Publication) factory.Assignment {
+	t.Helper()
+	selection, ok := grantTestPolicy().Roles[project.RoleReviewer]
+	if !ok {
+		t.Fatal("reviewer policy selection missing")
+	}
+	reviewerRunID := factory.NewID()
+	reviewer := root
+	reviewer.ID, reviewer.Run, reviewer.RunHistory = factory.NewID(), reviewerRunID, []string{reviewerRunID}
+	reviewer.AttemptRoot, reviewer.PublicationAssignment, reviewer.ParentAssignment = root.AttemptRoot, root.ID, root.ID
+	reviewer.Role, reviewer.Phase = project.RoleReviewer, project.ExecutionReview
+	reviewer.Preparation = "f" + strings.Repeat("d", 24)
+	reviewer.SourceCommit = p.Candidate
+	reviewer.Stage, reviewer.Revision, reviewer.Attempts = factory.AssignmentAssigned, 0, 1
+	reviewer.Outcome, reviewer.Reason, reviewer.Result, reviewer.FinishedUnix = "", "", nil, 0
+	reviewer.Harness, reviewer.HarnessVers, reviewer.Model = selection.Harness+"-"+selection.HarnessVers, selection.HarnessVers, selection.Model
+	reviewer.Authority = dispatchCurrentAuthority(t, db, reviewer)
+	if err := reviewer.Validate(); err != nil {
+		t.Fatalf("reviewer fixture invalid: %v", err)
+	}
+	cycle := factory.ReviewCycle{
+		PublicationID: p.ID, AttemptRoot: root.AttemptRoot,
+		ID:    factory.ReviewCycleID(p.ID, root.AttemptRoot, 1, "review"),
+		Phase: "review", TriggerDecision: "initial-review",
+		TriggerReason: "first review of published head",
+		Head:          p.Candidate, BaseOID: p.PRCreate.BaseOID,
+		FindingDigest:      strings.Repeat("e", 64),
+		ReviewerAssignment: reviewer.ID, Round: 1,
+	}
+	if err := cycle.Validate(); err != nil {
+		t.Fatalf("reviewer cycle invalid: %v", err)
+	}
+	p.ReviewCycles = append(p.ReviewCycles, cycle)
+	p.Revision++
+	if err := db.UpdatePublication(ctx, *p); err != nil {
+		t.Fatal(err)
+	}
+	*p = cyclePublicationRefresh(t, ctx, db, p.AssignmentID)
+	reservation := factory.Reservation{AssignmentID: reviewer.ID, Repository: reviewer.Repository, Connection: reviewer.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}
+	run := factory.Run{
+		ID: reviewerRunID, ProjectID: reviewer.ProjectID, Role: project.RoleReviewer, InputSHA: p.Candidate,
+		Started: now, Deadline: now.Add(30 * time.Minute),
+		Image: "sha256:" + strings.Repeat("b", 64), Harness: reviewer.Harness, Model: reviewer.Model,
+	}
+	view := factory.RunView{RunID: run.ID, Repository: reviewer.Repository, Issue: reviewer.Issue, Attempt: reviewer.ID}
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(reviewer), dispatchTestControlFor(t, db, reviewer), reviewer, reservation, run, view); err != nil {
+		t.Fatalf("reviewer packet refused: %v", err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "reviewed", true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumeReservation(ctx, reviewer.ID); err != nil {
+		t.Fatal(err)
+	}
+	output := &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
+		CycleID: cycle.ID,
+		NewFindings: []factory.Finding{{
+			Key: string("000000000000000000000000000000a0"), OriginRun: reviewer.Run,
+			Severity: factory.FindingSeverityMajor, Defect: "missing bound",
+			Evidence: "line 42 lacks a check", RequiredOutcome: "add the check",
+			FixKind: factory.FindingFixCode, Actionable: true,
+		}},
+	}}
+	phased := factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionReview, Status: "completed",
+		Summary: "reviewed", Output: output,
+	}
+	result := factory.AssignmentResult{
+		AssignmentID: reviewer.ID, RunID: run.ID, Phase: project.ExecutionReview,
+		PhaseResult: &phased, Status: "completed", Summary: "reviewed",
+		Findings: []string{}, Reported: true, RecordedUnix: now.Unix(),
+	}
+	stored, err := db.Assignment(ctx, reviewer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Stage, stored.Outcome, stored.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
+	stored.FinishedUnix = now.Unix()
+	stored.Result = &result
+	if err := db.FinishAssignment(ctx, stored); err != nil {
+		t.Fatalf("reviewer finish refused: %v", err)
+	}
+	// The reviewer packet advanced the stored publication; reload before
+	// appending the operation so the revision is current.
+	*p = cyclePublicationRefresh(t, ctx, db, p.AssignmentID)
+	p.ReviewOperations = append(p.ReviewOperations, factory.ReviewOperation{
+		RunID: reviewer.Run,
+		Work: factory.ReviewWork{
+			OperationID: "review-" + reviewer.Run, AuthRevision: factory.ReviewAuthRevision(p.AssignmentID, reviewer.Run),
+			Repository: p.Repository, ActorID: 14,
+			PRNumber: p.PRNumber, PRID: p.PRID, IssueID: p.PRCreate.IssueID, PRAuthorID: p.PRCreate.Work.ActorID,
+			HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef,
+			HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID,
+			NativeRev: p.NativeRev, NotAfter: now.Add(10 * time.Minute).Unix(),
+			Event: "REQUEST_CHANGES", Body: "independent review",
+		},
+		Outcome: factory.OperationOutcome{
+			OperationID: "review-" + reviewer.Run, InstallationID: "installation-1",
+			Kind: factory.OpReviewSubmit, ActorID: 14, RepositoryID: p.Repository,
+			Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete,
+			Receipt: []byte(`{"review_id":31}`),
+		},
+	})
+	p.Revision++
+	if err := db.UpdatePublication(ctx, *p); err != nil {
+		t.Fatalf("review operation unrecorded: %v", err)
+	}
+	*p = cyclePublicationRefresh(t, ctx, db, p.AssignmentID)
+	finished, err := db.Assignment(ctx, reviewer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return finished
+}
+
+// cyclePublicationRefresh reloads the publication the tests mutate
+// in place, so later UpdatePublication calls carry its live revision.
+func cyclePublicationRefresh(t *testing.T, ctx context.Context, db *Store, assignmentID string) factory.Publication {
+	t.Helper()
+	stored, err := db.PublicationByAssignment(ctx, assignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stored
+}
+
+// grantCorrectionFixtureRoles adds the reviewer role to the fixture
+// sponsorship in place, keeping its revision: the world being simulated
+// granted both roles from the start, so every canned test authority
+// still binds.
+func grantCorrectionFixtureRoles(t *testing.T, ctx context.Context, db *Store) {
+	t.Helper()
+	sponsorship, err := db.Sponsorship(ctx, 7, "conn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
+	data, err := json.Marshal(sponsorship)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `UPDATE factory_sponsorships SET data=$1 WHERE repository=$2 AND connection=$3 AND revision=$4`,
+		string(data), sponsorship.Repository, sponsorship.Connection, sponsorship.Revision); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 	ctx := context.Background()
 	db := publicationStoreFixture(t)
+	grantCorrectionFixtureRoles(t, ctx, db)
 	now := time.Now().UTC()
 	root := recordFinishedAssignment(t, db, now, 3, true, "completed")
 	p := publicationTestRecord()
@@ -169,13 +322,40 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	reviewer := phasedCorrectionReviewer(t, ctx, db, now, root, &p)
+	correctorRound := 2
 	newChild := func(source string) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView, factory.IssueControl) {
 		child := root
 		child.ID, child.AttemptRoot, child.PublicationAssignment = factory.NewID(), root.AttemptRoot, root.ID
+		child.ParentAssignment = reviewer.ID
+		child.Phase = project.ExecutionCorrect
 		child.Run, child.RunHistory, child.Stage, child.Revision = factory.NewID(), nil, factory.AssignmentAssigned, 0
 		child.Attempts, child.Outcome, child.Reason, child.Result, child.FinishedUnix = 1, "", "", nil, 0
 		child.SourceCommit = source
 		child.RunHistory = []string{child.Run}
+		child.Authority = dispatchCurrentAuthority(t, db, child)
+		if err := child.Validate(); err != nil {
+			t.Fatalf("corrector fixture invalid: %v", err)
+		}
+		cycle := factory.ReviewCycle{
+			PublicationID: p.ID, AttemptRoot: root.AttemptRoot,
+			ID:    factory.ReviewCycleID(p.ID, root.AttemptRoot, correctorRound, "review"),
+			Phase: "review", TriggerDecision: "initial-review",
+			TriggerReason: "correction of published head",
+			Head:          source, BaseOID: p.PRCreate.BaseOID,
+			FindingDigest:      strings.Repeat("e", 64),
+			ReviewerAssignment: reviewer.ID, CorrectionAssignment: child.ID, Round: correctorRound,
+		}
+		correctorRound++
+		if err := cycle.Validate(); err != nil {
+			t.Fatalf("corrector cycle invalid: %v", err)
+		}
+		p.ReviewCycles = append(p.ReviewCycles, cycle)
+		p.Revision++
+		if err := db.UpdatePublication(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+		p = cyclePublicationRefresh(t, ctx, db, p.AssignmentID)
 		run := factory.Run{
 			ID: child.Run, ProjectID: child.ProjectID, Role: child.Role, InputSHA: source,
 			Started: time.Now().UTC(), Deadline: time.Now().UTC().Add(30 * time.Minute), Image: "sha256:" + strings.Repeat("b", 64), Harness: child.Harness, Model: child.Model,
@@ -241,6 +421,7 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 func TestCorrectionExhaustionRefusesDispatchAfterBudgetFilled(t *testing.T) {
 	ctx := context.Background()
 	db := publicationStoreFixture(t)
+	grantCorrectionFixtureRoles(t, ctx, db)
 	now := time.Now().UTC()
 	root := recordFinishedAssignment(t, db, now, 3, true, "completed")
 	p := publicationTestRecord()
@@ -278,12 +459,36 @@ func TestCorrectionExhaustionRefusesDispatchAfterBudgetFilled(t *testing.T) {
 	if err := db.UpdatePublication(ctx, p); err != nil {
 		t.Fatal(err)
 	}
+	reviewer := phasedCorrectionReviewer(t, ctx, db, now, root, &p)
 	child := root
 	child.ID, child.AttemptRoot, child.PublicationAssignment = factory.NewID(), root.AttemptRoot, root.ID
+	child.ParentAssignment = reviewer.ID
+	child.Phase = project.ExecutionCorrect
 	child.Run, child.RunHistory, child.Stage, child.Revision = factory.NewID(), nil, factory.AssignmentAssigned, 0
 	child.Attempts, child.Outcome, child.Reason, child.Result, child.FinishedUnix = 1, "", "", nil, 0
 	child.SourceCommit = p.Candidate
 	child.RunHistory = []string{child.Run}
+	child.Authority = dispatchCurrentAuthority(t, db, child)
+	if err := child.Validate(); err != nil {
+		t.Fatalf("corrector fixture invalid: %v", err)
+	}
+	cycle := factory.ReviewCycle{
+		PublicationID: p.ID, AttemptRoot: root.AttemptRoot,
+		ID:    factory.ReviewCycleID(p.ID, root.AttemptRoot, 2, "review"),
+		Phase: "review", TriggerDecision: "initial-review",
+		TriggerReason: "correction of published head",
+		Head:          p.Candidate, BaseOID: p.PRCreate.BaseOID,
+		FindingDigest:      strings.Repeat("e", 64),
+		ReviewerAssignment: reviewer.ID, CorrectionAssignment: child.ID, Round: 2,
+	}
+	if err := cycle.Validate(); err != nil {
+		t.Fatalf("corrector cycle invalid: %v", err)
+	}
+	p.ReviewCycles = append(p.ReviewCycles, cycle)
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
 	run := factory.Run{
 		ID: child.Run, ProjectID: child.ProjectID, Role: child.Role, InputSHA: p.Candidate,
 		Started: time.Now().UTC(), Deadline: time.Now().UTC().Add(30 * time.Minute), Image: "sha256:" + strings.Repeat("b", 64), Harness: child.Harness, Model: child.Model,

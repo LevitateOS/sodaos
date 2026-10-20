@@ -264,13 +264,3 @@ func (c *Coordinator) planningCurrent(ctx context.Context, control factory.Issue
 	record, err := c.Planning.Journal.PlanningRecord(ctx, control.Repository, control.Issue)
 	return err == nil && record.Snapshot == snapshot && record.Outcome == "planned" && !record.Provisional
 }
-
-func (c *Coordinator) planningRecord(ctx context.Context, repository, issue int64) (factory.PlanningRecord, error) {
-	if c.Planning == nil {
-		return factory.PlanningRecord{}, nil
-	}
-	if c.Planning.Journal == nil {
-		return factory.PlanningRecord{}, ErrPriorityUnavailable
-	}
-	return c.Planning.Journal.PlanningRecord(ctx, repository, issue)
-}

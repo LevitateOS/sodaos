@@ -19,12 +19,14 @@ in [cutover](cutover.md).
 | [Complete target tree](proposed-tree.md) | Every final handbook filename and section |
 | [Page contracts](page-contracts.md) | Each page's reader task, boundaries, source owners and exceptions |
 | [Source investigation](source-audit.md) | Workflow traces, stale assumptions and independent boundary challenges |
+| [Coverage and usability audit](coverage-audit.md) | Full current handbook review, source-backed omissions, worked-example priorities and predicted task prominence |
 | [Cutover and writing tasks](cutover.md) | Disposition of all 25 existing files, dependencies, writers and verification |
 
-These five files retain the source investigation, page boundaries and outstanding
-website cutover in one living plan. They do not establish product requirements or
-duplicate the Factory implementation backlog. Absorb the remaining useful
-maintenance guidance and remove the plan when website integration is complete.
+These records retain the source investigation, page boundaries, current coverage
+audit and outstanding website cutover in one living plan. They do not establish
+product requirements or duplicate the Factory implementation backlog. Absorb
+completed planning guidance into its owning documentation; retain the coverage
+audit while its findings remain actionable.
 
 ## Inputs and authority
 

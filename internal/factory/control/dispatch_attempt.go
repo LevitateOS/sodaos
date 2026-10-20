@@ -14,13 +14,13 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// attemptLineage carries the FW11 phase/lineage admission for one planned
+// attemptLineage carries the phase/lineage admission for one planned
 // attempt: the admitted execution phase, the immediate parent for advanced
 // children, and the validated investigation plan an implement child
-// executes. The zero value is the pre-phase legacy path. Intent subjects
-// enter through the intent-bound admission (intent_bound.go) and completion
-// subjects through FW30; this boundary admits issue subjects only and
-// refuses every other phased kind.
+// executes. The zero value carries no phase and refuses admission.
+// Intent subjects enter through the intent-bound admission
+// (intent_bound.go) and completion subjects through FW30; this boundary
+// admits issue subjects only and refuses every other kind.
 type attemptLineage struct {
 	advancePlan *factory.InvestigationPlan
 	phase       string
@@ -268,9 +268,6 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // through the intent-bound admission and other phases through their owning
 // boundaries.
 func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string, recordedPrompt bool, issue int64, head string) (*planWait, *planWait) {
-	if lineage.phase == "" {
-		return nil, nil
-	}
 	if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
 		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect && lineage.phase != project.ExecutionMaintainLibrary {
 		return nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
@@ -422,24 +419,6 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	if contextErr != nil {
 		return waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
 	}
-	var implementationPlan *factory.PlanningRecord
-	// FW12 joint: the generic planning record stages only on the
-	// legacy pre-phase path. Phased prompts carry the admitted
-	// dispatcher phase instead; investigation renders its own
-	// inspection directive and implementation stages the recorded
-	// investigation plan below.
-	if plan.phase == "" && plan.advancePlan == nil && deps.PlanRecord != nil {
-		record, recordErr := deps.PlanRecord(ctx, repository, issue)
-		if recordErr != nil {
-			return waitFor("plan_not_current", "implementation approach is unavailable"), nil
-		}
-		if record.Snapshot != "" {
-			if record.Provisional || record.Outcome != "planned" {
-				return waitFor("plan_not_current", "implementation approach is provisional or waiting"), nil
-			}
-			implementationPlan = &record
-		}
-	}
 	// FW12 joint: the admitted dispatcher phase travels into the
 	// prompt so the template owns phased rendering. Investigation
 	// prompts additionally carry the canonical prerequisite
@@ -470,8 +449,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
-		RepositoryContext:  repositoryContext,
-		ImplementationPlan: implementationPlan,
+		RepositoryContext: repositoryContext,
 	})
 	if err != nil {
 		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
@@ -479,17 +457,12 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 		}
 		return waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
 	}
-	// Phased attempts report through the strict v2 phase contract,
-	// not the legacy harness shape: replace the trailing legacy
-	// report section and, for an advanced implementation, stage the
-	// recorded investigation plan the run must execute. The shared
-	// prompt template keeps the legacy text for pre-phase runs and
-	// FW12 absorbs this rendering when it takes prompt ownership.
-	if plan.phase != "" {
-		prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
-		if err != nil {
-			return waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound"), nil
-		}
+	// Attempts report through the strict v2 phase contract: replace the
+	// trailing report section and, for an advanced implementation,
+	// stage the recorded investigation plan the run must execute.
+	prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
+	if err != nil {
+		return waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound"), nil
 	}
 	plan.prompt = prompt
 	plan.promptSHA = project.FactoryPromptDigest(prompt)
@@ -538,9 +511,9 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 // for one finished investigation owner and verifies the recorded result
 // still justifies advancement: a reported completed phase result carrying
 // an executable plan, on the current acceptance, with the owner's lineage
-// intact. Pre-phase owners, non-completed planning and anything without an
-// executable plan refuse with no child: the issue stays recorded instead
-// of advancing.
+// intact. Owners without an executable plan, non-completed planning and
+// anything without the owner's lineage refuse with no child: the issue
+// stays recorded instead of advancing.
 func advanceChildOwner(owner factory.Assignment, head string) bool {
 	return owner.Subject.Kind == factory.SubjectIssue && owner.Subject.Issue != nil &&
 		owner.Subject.Issue.Acceptance == head && owner.Phase == project.ExecutionInvestigate &&
@@ -656,15 +629,15 @@ func maybeAdvanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occup
 	return true
 }
 
-// phasedReportMarker ends the shared prompt template: the legacy report
-// section is always last, so phased rendering replaces from this marker.
+// phasedReportMarker ends the shared prompt template: the report section
+// is always last, so phased rendering replaces from this marker.
 const phasedReportMarker = "\n## Report\n\n"
 
 // promptFenceGuard keeps recorded plan text from forging the harness
 // report block, mirroring the template's own collision guard.
 var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+factory.ResultFence, "```"+factory.ReviewReportFence, "``` "+factory.ReviewReportFence)
 
-// renderPhasedDispatchPrompt replaces the legacy trailing report section
+// renderPhasedDispatchPrompt replaces the trailing report section
 // with the strict v2 phase contract and, for an advanced implementation,
 // stages the recorded investigation plan the run must execute. Prompts
 // stay within the admitted phase bound; anything larger waits instead of

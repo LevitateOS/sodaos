@@ -524,6 +524,11 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	if err = checkCandidatePreparationControlTx(ctx, tx, r.Control, r.Repository, r.Issue, r.Control.Acceptance); err != nil {
 		return empty, err
 	}
+	// The probe authorizes the attempt the preparation serves: an
+	// investigation-rooted coder root for explicit coder retries, the
+	// publication review child for reviewer preparations. It carries the
+	// owning guard's phase, subject and parent, never a phaseless
+	// record.
 	assignment := factory.Assignment{
 		Authority: r.Authority, ID: r.ChildAssignment, AttemptRoot: r.AttemptRoot,
 		PublicationAssignment: r.OwnerAssignment, ProjectID: r.Project,
@@ -531,6 +536,13 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 		NativeRev: r.Control.NativeRev, Acceptance: r.Control.Acceptance,
 		Preparation: preparation.Preparation.ID, Connection: r.Connection,
 		SourceCommit: preparation.Preparation.SourceCommit,
+		Phase:        project.ExecutionInvestigate,
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: r.Issue, Acceptance: r.Control.Acceptance}},
+	}
+	if r.PublicationID != "" {
+		assignment.Phase = project.ExecutionReview
+		assignment.ParentAssignment = r.OwnerAssignment
 	}
 	if err = validateAttemptPacketTx(ctx, tx, assignment, false); err != nil {
 		return empty, err

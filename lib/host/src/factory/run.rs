@@ -52,12 +52,13 @@ pub const EXECUTION_REPAIR: &str = "repair";
 pub const EXECUTION_VERIFY: &str = "verify";
 pub const EXECUTION_MAINTAIN_LIBRARY: &str = "maintain_library";
 
-/// `ValidExecutionPhase`: admitted execution phases, including the empty
-/// pre-phase record. Phase is never inferred from role or PR state.
+/// `ValidExecutionPhase`: admitted execution phases. Admission always
+/// records an explicit phase; the empty phase is invalid. Phase is never
+/// inferred from role or PR state.
 pub fn valid_execution_phase(phase: &str) -> bool {
     matches!(
         phase,
-        "" | "decompose"
+        "decompose"
             | "investigate"
             | "implement"
             | "review"

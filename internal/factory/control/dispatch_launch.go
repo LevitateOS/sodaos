@@ -347,7 +347,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
-			Deadline: plan.deadline,
+			Deadline: plan.deadline, ExecutionPhase: plan.phase,
 		},
 		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 	}
@@ -485,10 +485,7 @@ func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 	if child {
 		role, exactPreparation = a.Role, a.Preparation
 	}
-	lineage := attemptLineage{}
-	if a.Phase != "" {
-		lineage = attemptLineage{phase: a.Phase, parent: a.ParentAssignment}
-	}
+	lineage := attemptLineage{phase: a.Phase, parent: a.ParentAssignment}
 	plan, wait, failed := planAttemptForRole(ctx, deps, occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child, "", lineage)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
@@ -876,6 +873,16 @@ func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupan
 		return
 	}
 	if !routeAttemptWait(ctx, deps, a, wait, report) {
+		return
+	}
+	// A relaunch reuses the recorded prompt bytes: refuse when the
+	// recorded launch profile moved under the child, exactly like the
+	// generic publication child retry. A changed launch profile
+	// supersedes instead of executing a stale plan.
+	if !checkRetryChildPlan(ctx, deps, a, plan, p.TargetBranch, report) {
+		return
+	}
+	if !checkRetryChildRun(ctx, deps, a, plan, report) {
 		return
 	}
 	runID := factory.NewID()

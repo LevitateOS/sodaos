@@ -611,9 +611,9 @@ func TestAccountSettledRunResults(t *testing.T) {
 		}
 		return run
 	}
-	setupReviewer := func(t *testing.T) (*store.Store, factory.Assignment, factory.Run) {
+	setupReviewer := func(t *testing.T) (*store.Store, factory.Assignment, factory.Run, string) {
 		t.Helper()
-		fx, _, _, run := reviewRunSeed(t, false)
+		fx, owner, _, run := reviewRunSeed(t, false)
 		view, err := fx.db.FactoryRunView(ctx, run.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -622,7 +622,20 @@ func TestAccountSettledRunResults(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return fx.db, assignment, run
+		p, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cycleID := ""
+		for _, cycle := range p.ReviewCycles {
+			if cycle.ReviewerAssignment == assignment.ID && cycle.CorrectionAssignment == "" {
+				cycleID = cycle.ID
+			}
+		}
+		if cycleID == "" {
+			t.Fatalf("reviewer admitted no review cycle: reviewer=%s", assignment.ID)
+		}
+		return fx.db, assignment, run, cycleID
 	}
 
 	t.Run("reported investigation plan", func(t *testing.T) {
@@ -689,44 +702,76 @@ func TestAccountSettledRunResults(t *testing.T) {
 			t.Fatal("unassigned run accounted")
 		}
 	})
-	for _, tc := range []struct {
-		name, verdict, summary, body string
-	}{
-		{name: "approve", verdict: "approve", summary: "No blocking findings."},
-		{name: "request changes", verdict: "request-changes", summary: "Fix the edge case.", body: "Empty input panics."},
-	} {
-		t.Run("reviewer "+tc.name, func(t *testing.T) {
-			db, assignment, run := setupReviewer(t)
-			run = settle(t, db, run, factory.Succeeded)
-			output := "```review-json\n" +
-				`{"verdict":"` + tc.verdict + `","summary":"` + tc.summary + `","body":"` + tc.body + `","findings":[]}` + "\n```"
-			finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
-			if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.Review == nil {
-				t.Fatalf("reviewer result = %+v, %v", finished, ok)
-			}
-			if finished.Result.Candidate != assignment.SourceCommit || finished.Result.Review.Verdict != tc.verdict || finished.Result.Review.Body != tc.body {
-				t.Fatalf("reviewer candidate/report = %+v", finished.Result)
-			}
-			if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
-				t.Fatalf("review reservation = %+v, %v", reservation, err)
-			}
-			if total, err := db.UsageTotal(ctx, assignment.Repository, assignment.Connection); err != nil || total < 1 {
-				t.Fatalf("review usage = %d, %v", total, err)
-			}
-			if replay, err := db.Assignment(ctx, assignment.ID); err != nil || replay.Result == nil || !reflect.DeepEqual(replay.Result.Review, finished.Result.Review) {
-				t.Fatalf("persisted reviewer result = %+v, %v", replay.Result, err)
-			}
-			if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
-				t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
-			}
-		})
-	}
-	t.Run("malformed reviewer report needs human", func(t *testing.T) {
-		db, assignment, run := setupReviewer(t)
+	t.Run("reviewer approve", func(t *testing.T) {
+		db, assignment, run, cycleID := setupReviewer(t)
 		run = settle(t, db, run, factory.Succeeded)
+		// The phased reviewer reports a strict v2 explicit clear: no
+		// candidate, no legacy review report, head bound to its source.
+		output := fencedResult(t, factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+			Summary: "No blocking findings.",
+			Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{
+				Conclusion: factory.ClearReviewConclusion, CycleID: cycleID,
+				Head: assignment.SourceCommit, BaseOID: strings.Repeat("f", 40),
+				CoverageDigest: strings.Repeat("c", 64),
+			}},
+		})
+		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Clear == nil {
+			t.Fatalf("reviewer result = %+v, %v", finished, ok)
+		}
+		if finished.Result.Candidate != "" || finished.Result.PhaseResult.Output.Clear.Head != assignment.SourceCommit {
+			t.Fatalf("reviewer candidate/report = %+v", finished.Result)
+		}
+		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
+			t.Fatalf("review reservation = %+v, %v", reservation, err)
+		}
+		if total, err := db.UsageTotal(ctx, assignment.Repository, assignment.Connection); err != nil || total < 1 {
+			t.Fatalf("review usage = %d, %v", total, err)
+		}
+		if replay, err := db.Assignment(ctx, assignment.ID); err != nil || replay.Result == nil || !reflect.DeepEqual(replay.Result.PhaseResult, finished.Result.PhaseResult) {
+			t.Fatalf("persisted reviewer result = %+v, %v", replay.Result, err)
+		}
+		if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
+			t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
+		}
+	})
+	t.Run("reviewer request changes", func(t *testing.T) {
+		db, assignment, run, cycleID := setupReviewer(t)
+		run = settle(t, db, run, factory.Succeeded)
+		// A blocking verdict carries the typed findings report over the
+		// same strict v2 wire.
+		finding := correctionFinding()
+		output := fencedResult(t, factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+			Summary: "Fix the edge case.",
+			Output: &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
+				CycleID: cycleID, NewFindings: []factory.Finding{finding},
+			}},
+		})
+		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Review == nil {
+			t.Fatalf("reviewer result = %+v, %v", finished, ok)
+		}
+		got := finished.Result.PhaseResult.Output.Review
+		if len(got.NewFindings) != 1 || got.NewFindings[0].Key != finding.Key {
+			t.Fatalf("reviewer candidate/report = %+v", finished.Result)
+		}
+		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
+			t.Fatalf("review reservation = %+v, %v", reservation, err)
+		}
+		if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
+			t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
+		}
+	})
+	t.Run("malformed reviewer report needs human", func(t *testing.T) {
+		db, assignment, run, _ := setupReviewer(t)
+		run = settle(t, db, run, factory.Succeeded)
+		// The legacy review-json wire no longer parses: an unparseable
+		// strict v2 report holds for a human with no report recorded.
 		output := "```review-json\n{\"verdict\":\"maybe\",\"summary\":\"unclear\",\"body\":\"\",\"findings\":[]}\n```"
 		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
-		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || finished.Result.Review != nil {
+		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || (finished.Result.PhaseResult != nil && finished.Result.PhaseResult.Output != nil) {
 			t.Fatalf("malformed reviewer result = %+v %v", finished, ok)
 		}
 		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {

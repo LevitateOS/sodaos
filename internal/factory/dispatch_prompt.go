@@ -46,24 +46,21 @@ type PromptInputs struct {
 	// the agent diffs against the observed merge-base.
 	PRBase                string
 	PublicationAssignment string
-	Review                *ReviewReport
-	// TypedReview and TypedClear carry the phased current verdict a
+	// TypedReview and TypedClear carry the current verdict a
 	// re-review or correction must answer: keyed findings with typed
-	// dispositions, never legacy strings. Exactly one is set when
-	// present, and never alongside Review: one prompt answers one
-	// evidence source. The agent closes phased work with the v2 phase
+	// dispositions. Exactly one is set when present: one prompt answers
+	// one evidence source. The agent closes work with the v2 phase
 	// result carrying the same verdict shape.
-	TypedReview        *ReviewCycleReport
-	TypedClear         *ClearReviewReport
-	CheckAssessment    *CheckAssessment
-	RepositoryContext  *project.FactoryPreparationContext
-	ImplementationPlan *PlanningRecord
-	// Phase names the admitted dispatcher phase this prompt serves: "" is
-	// the legacy pre-phase path, "investigate" opens planning, "implement"
-	// executes a recorded investigation plan, "review" reports native
-	// findings on a candidate head, and "correct" addresses the current
-	// finding set on the same head. Phased prompts never carry the generic
-	// PlanningRecord approach; the phase rendering owns it.
+	TypedReview       *ReviewCycleReport
+	TypedClear        *ClearReviewReport
+	CheckAssessment   *CheckAssessment
+	RepositoryContext *project.FactoryPreparationContext
+	// Phase names the admitted dispatcher phase this prompt serves:
+	// "investigate" opens planning, "implement" executes a recorded
+	// investigation plan, "review" reports native findings on a candidate
+	// head, and "correct" addresses the current finding set on the same
+	// head. Prompts never carry the generic PlanningRecord approach;
+	// the phase rendering owns it.
 	Phase string
 	// PlanPrerequisites carries the canonical prerequisite binding digests
 	// an investigation run echoes into its reported plan. Empty unless the
@@ -129,10 +126,6 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	writePromptHeader(&b, in)
 	writePromptPolicy(&b, in)
 	writePromptObjective(&b, in)
-	if err := admitImplementationPlan(in); err != nil {
-		return nil, err
-	}
-	writePromptPlan(&b, in)
 	writePromptPrerequisites(&b, in.Prerequisites, in.Control)
 	writePromptSection(&b, "Accepted resolutions", in.Resolutions)
 	if in.RepositoryContext != nil {
@@ -160,15 +153,12 @@ func admitPromptScope(in PromptInputs) error {
 	return nil
 }
 
-// admitPromptPhase refuses unknown phases and generic plans on phased
-// prompts: one prompt answers one evidence source.
+// admitPromptPhase refuses prompts outside the admitted dispatcher
+// phases: one prompt answers one evidence source.
 func admitPromptPhase(in PromptInputs) error {
-	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
+	if in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
 		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect && in.Phase != project.ExecutionMaintainLibrary {
 		return errors.New("invalid dispatch prompt phase")
-	}
-	if in.Phase != "" && in.ImplementationPlan != nil {
-		return errors.New("phased prompt carries a generic plan")
 	}
 	return nil
 }
@@ -195,7 +185,7 @@ func admitPromptPlanBindings(in PromptInputs) error {
 // admitInvestigationOpensNoChildEvidence refuses investigation prompts
 // carrying evidence only a child run may produce.
 func admitInvestigationOpensNoChildEvidence(in PromptInputs) error {
-	if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil ||
+	if in.PublicationAssignment != "" || in.BaseCommit != "" || in.CheckAssessment != nil ||
 		in.TypedReview != nil || in.TypedClear != nil {
 		return errors.New("investigation opens no child evidence")
 	}
@@ -390,33 +380,6 @@ func writePromptObjective(b *strings.Builder, in PromptInputs) {
 	writePromptSection(b, "Accepted sources", in.Sources)
 	if in.Phase == project.ExecutionInvestigate {
 		writePromptInvestigation(b, in)
-	}
-}
-
-// admitImplementationPlan refuses recorded plans that do not match
-// the dispatch they ride.
-func admitImplementationPlan(in PromptInputs) error {
-	plan := in.ImplementationPlan
-	if plan == nil || in.Phase != "" {
-		return nil
-	}
-	if plan.Validate() != nil || plan.Provisional || plan.Outcome != "planned" || plan.Input.Candidate.Control.Acceptance != in.AcceptanceID || plan.Input.Candidate.Source != in.SourceCommit || plan.Input.Candidate.Control.Repository != in.Repository || plan.Input.Candidate.Control.Issue != in.Issue {
-		return errors.New("implementation plan does not match dispatch")
-	}
-	return nil
-}
-
-// writePromptPlan renders the recorded implementation approach. The
-// plan was admitted before this call; rendering never revalidates.
-func writePromptPlan(b *strings.Builder, in PromptInputs) {
-	plan := in.ImplementationPlan
-	if plan == nil || in.Phase != "" {
-		return
-	}
-	b.WriteString("\n## Implementation approach\n\n")
-	b.WriteString("Recorded plan: " + plan.Snapshot + " strategy: " + plan.Strategy + ". The accepted requirements and controller policy remain authoritative.\n")
-	for _, step := range plan.Steps {
-		b.WriteString("- " + fenceCollision(step) + "\n")
 	}
 }
 

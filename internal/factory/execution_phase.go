@@ -78,7 +78,7 @@ func AdvancementID(parentAssignment, parentResultDigest, nextPhase string) (stri
 	if len(parentResultDigest) != 64 || strings.Trim(parentResultDigest, "0123456789abcdef") != "" {
 		return "", errors.New("invalid advancement parent result digest")
 	}
-	if !project.ValidExecutionPhase(nextPhase) || nextPhase == "" {
+	if !project.ValidExecutionPhase(nextPhase) {
 		return "", errors.New("invalid advancement next phase")
 	}
 	sum := sha256.Sum256([]byte("factory-advancement-v1\x00" + parentAssignment + "\x00" + parentResultDigest + "\x00" + nextPhase))

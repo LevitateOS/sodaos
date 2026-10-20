@@ -125,7 +125,7 @@ func TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry(t *tes
 		t.Fatalf("initial production did not launch one reviewer: %+v", producer.launches)
 	}
 	child, priorRun := settleProducedChild(t, fx, producer.launches[0].Run.ID,
-		"```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"handle empty input\",\"findings\":[\"empty input\"]}\n```")
+		reviewVerdictOutput(producedReviewCycleID(t, fx, producer.launches[0].Run.ID), correctionFinding()))
 	if child.Role != project.RoleReviewer || child.PublicationAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot ||
 		priorRun.Outcome != factory.Succeeded || !priorRun.Reconciled {
 		t.Fatalf("settled production child lost owner linkage: child=%+v run=%+v", child, priorRun)
