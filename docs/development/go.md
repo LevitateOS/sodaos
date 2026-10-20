@@ -266,6 +266,9 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
 | `internal/factory/control/mcp_settle_pg_test.go` | Seed a persisted review assignment to isolate terminal receipt settlement from admission and dispatch |
 | `internal/web/api/factory_feed_route_test.go` | Seed finished assignment history to check feed enrichment without recreating a full execution lifecycle |
+| `internal/factory/control/delivery_admission_test.go` | Seed a merged completion event so delivered intent admits a scoped Test Pilot; no public writer records a standalone completion outside the merge flow |
+| `internal/factory/control/app_verification_test.go` | Seed a finished assignment with its merged completion to challenge application verification; no public writer records a standalone finished assignment outside dispatch |
+| `internal/web/api/factory_mcp_live_test.go` | Seed an assigned assignment, ready preparation, open dispatch and active run to activate a staged worker MCP capability; no public writer records this exact bound set outside the dispatch admission flow under test |
 
 The separate `internal/acceptance/workload_access.go` also
 has an exact exemption: its `psql` statements target disposable workload

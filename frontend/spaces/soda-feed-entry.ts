@@ -44,7 +44,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
               </header>`
             : ''
         }
-        <soda-providers external-trigger .transport=${visible ? transport : undefined}></soda-providers>
+        <soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>
         ${
           applications
             ? html`<soda-applications

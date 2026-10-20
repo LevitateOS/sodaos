@@ -42,6 +42,18 @@ while IFS= read -r -d '' file; do
     # Seed and corrupt persisted assignment/publication/completion records for
     # registered-HTTP projection, order and refusal; no exported hook.
     ./internal/web/api/factory_journey_readback_test.go) continue ;;
+    # Seed a merged completion event so delivered intent admits a scoped Test
+    # Pilot; read allowance data/closed state by root assignment. No public
+    # writer records a standalone completion outside the merge flow.
+    ./internal/factory/control/delivery_admission_test.go) continue ;;
+    # Seed a finished assignment with its merged completion to challenge
+    # application verification; count trusted F10 completion posts. No public
+    # writer records a standalone finished assignment outside dispatch.
+    ./internal/factory/control/app_verification_test.go) continue ;;
+    # Seed an assigned assignment, ready preparation, open dispatch and active
+    # run to activate a staged worker MCP capability. No public writer records
+    # this exact bound set outside the dispatch admission flow under test.
+    ./internal/web/api/factory_mcp_live_test.go) continue ;;
     # Seed a persisted review assignment to isolate MCP terminal settlement.
     ./internal/factory/control/mcp_settle_pg_test.go) continue ;;
     # Seed finished assignment history to exercise feed projection directly.
