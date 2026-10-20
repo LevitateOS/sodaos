@@ -42,36 +42,7 @@ fn payload(directory: &Path, manifest: &Manifest) -> Result<Payload, Error> {
     Ok(payload)
 }
 
-fn observe(
-    registry: &dyn Registry,
-    reference: &str,
-    manifest: &str,
-    config: &str,
-) -> Result<(), Error> {
-    let raw = run(
-        registry,
-        &[
-            "inspect",
-            "--raw",
-            "--no-creds",
-            &format!("docker://{reference}"),
-        ],
-    )?;
-    #[derive(Deserialize)]
-    struct Descriptor {
-        digest: String,
-    }
-    #[derive(Deserialize)]
-    struct ImageManifest {
-        config: Descriptor,
-    }
-    let parsed: ImageManifest = serde_json::from_slice(&raw)
-        .map_err(|_| Error::msg("public component manifest refused"))?;
-    if hash_bytes(&raw) != manifest || parsed.config.digest != config {
-        return Err(Error::msg(
-            "public component manifest/config differs from payload",
-        ));
-    }
+fn observe_platform(registry: &dyn Registry, reference: &str, expected: &str) -> Result<(), Error> {
     let bytes = run(
         registry,
         &[
@@ -90,12 +61,97 @@ fn observe(
     }
     let observed: Platform = serde_json::from_slice(&bytes)
         .map_err(|_| Error::msg("public component platform refused"))?;
-    if observed.digest != manifest || observed.architecture != "amd64" || observed.os != "linux" {
+    if observed.digest != expected || observed.architecture != "amd64" || observed.os != "linux" {
         return Err(Error::msg(
             "public component digest/platform differs from payload",
         ));
     }
     Ok(())
+}
+
+fn observe(
+    registry: &dyn Registry,
+    reference: &str,
+    manifest: &str,
+    config: &str,
+) -> Result<(), Error> {
+    let raw = run(
+        registry,
+        &[
+            "inspect",
+            "--raw",
+            "--no-creds",
+            &format!("docker://{reference}"),
+        ],
+    )?;
+    if hash_bytes(&raw) != manifest {
+        return Err(Error::msg(
+            "public component manifest/config differs from payload",
+        ));
+    }
+    #[derive(Deserialize)]
+    struct Descriptor {
+        digest: String,
+    }
+    #[derive(Deserialize)]
+    struct ImageManifest {
+        config: Descriptor,
+    }
+    // Single-arch payloads (local builds, Fountain) bind config directly.
+    if let Ok(parsed) = serde_json::from_slice::<ImageManifest>(&raw) {
+        if parsed.config.digest != config {
+            return Err(Error::msg(
+                "public component manifest/config differs from payload",
+            ));
+        }
+        return observe_platform(registry, reference, manifest);
+    }
+    // Upstream pins (proxy, postgres) are multi-arch indexes: select the
+    // bound linux/amd64 child from the verified index and check it instead.
+    #[derive(Deserialize)]
+    struct ChildPlatform {
+        architecture: String,
+        os: String,
+    }
+    #[derive(Deserialize)]
+    struct IndexEntry {
+        digest: String,
+        platform: Option<ChildPlatform>,
+    }
+    #[derive(Deserialize)]
+    struct ImageIndex {
+        manifests: Vec<IndexEntry>,
+    }
+    let index: ImageIndex = serde_json::from_slice(&raw)
+        .map_err(|_| Error::msg("public component manifest refused"))?;
+    let child = index
+        .manifests
+        .iter()
+        .find(|entry| {
+            entry.platform.as_ref().is_some_and(|platform| {
+                platform.architecture == "amd64" && platform.os == "linux"
+            })
+        })
+        .ok_or_else(|| Error::msg("public component manifest refused"))?;
+    let (repository, _) = reference.rsplit_once('@').ok_or_else(Error::refused)?;
+    let child_reference = format!("{repository}@{}", child.digest);
+    let child_raw = run(
+        registry,
+        &[
+            "inspect",
+            "--raw",
+            "--no-creds",
+            &format!("docker://{child_reference}"),
+        ],
+    )?;
+    let parsed: ImageManifest = serde_json::from_slice(&child_raw)
+        .map_err(|_| Error::msg("public component manifest refused"))?;
+    if parsed.config.digest != config {
+        return Err(Error::msg(
+            "public component manifest/config differs from payload",
+        ));
+    }
+    observe_platform(registry, &child_reference, &child.digest)
 }
 
 fn observe_binding(registry: &dyn Registry, image: &Image) -> Result<(), Error> {
