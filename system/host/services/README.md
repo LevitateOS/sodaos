@@ -52,7 +52,9 @@ restore and init authenticate over container-local peer auth
   magic and role presence, then rotates to the newest 7 runs.
 - `soda-pg-restore --yes <run> [db ...]` restores dumps, recreating
   missing databases owned by their same-name role. Stop `forgejo.service`
-  and soda-host first. `--globals` restores roles onto a fresh cluster;
+  and the Soda backend first; also stop the host helper socket/service and any
+  external/admin writers after Factory settlement. Keep PostgreSQL running.
+  `--globals` restores roles onto a fresh cluster;
   normal restores assume first init already created them.
 
 ## Disposable test fixture

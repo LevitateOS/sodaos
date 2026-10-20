@@ -51,5 +51,5 @@ close cannot be confirmed, verify native key access locally before importing
 again; a key may already have been imported.
 
 After a successful import, continue with
-[operator setup](../public/20-Deploy/25-operator-setup.md) using key
+[operator setup](../public/30-Set-up/10-operator-setup.md) using key
 authentication.

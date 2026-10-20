@@ -1,0 +1,13 @@
+# Workspace terminals
+
+Workspace terminals give a joined Project member a browser shell in their own persistent Project account. They are for human development and debugging; opening one does not create a Project, Join an account, or admit Factory work.
+
+Join the repository Project first and confirm that your native Forgejo account currently has code-write permission. From Workspace, explicitly open a new terminal for the intended Project. Soda creates a managed shell only after that request is authorized. If the result is unclear or the browser disconnects, inspect the original terminal entry and reconnect to that session; do not repeat Create to obtain another shell. A support or maintenance error needs Project administrator attention, while a sign-in or permission error needs the corresponding account or repository access corrected.
+
+Your terminal runs as your Project-local Linux login and keeps its shell state in the Project. You can select a session, split the workspace to add another view, hide or show a view, and navigate native Forgejo pages while the live terminal remains attached. Splits create views, not shells. The terminal stays bound to its original Project and account even while you browse another repository. Closing a tab or hiding the terminal detaches its view; reconnect through the retained session entry.
+
+Human session inventory is member-scoped. Factory sessions are a different kind of work: current code-write authority permits live observation, while Factory controls determine pause, cancellation or takeover. Watching a Factory session never gives you input into its process. Ended runs retain their candidate, findings, status and check evidence, but their terminal cannot be reattached and there is no transcript replay. Use [Factory intervention](../40-Factory/90-factory-intervention.md) to take over or return work to the normal human workflow.
+
+Choose **End** only when you intend to stop that managed human terminal. Confirm the action; End stops the supervised processes for that terminal but leaves files, independent SSH sessions and Project services in place. Hide, close and detach are not End. If you need terminal-support repair, ask the Project administrator to use [Project maintenance](../70-Operate/30-project-maintenance.md).
+
+You can develop entirely in the browser terminal without setting up SSH keys or connecting an AI provider. For an external editor or file transfer, follow [Connect and develop](../60-Develop/20-connect-and-develop.md). For the Project's shared environment and account lifecycle, see [Projects and workspaces](20-projects-and-workspaces.md).

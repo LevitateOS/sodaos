@@ -27,7 +27,11 @@ Successful output names the backup directory.
 
 ## Restore
 
-Stop `forgejo.service` and `soda-host.service` before restoring. Restoration
+Stop Factory work and confirm settlement before restoring. Quiesce all database
+writers, including `soda-dashboard.service` and `forgejo.service`; stop
+`soda-host.socket` and `soda-host.service` to prevent helper reactivation. Check
+separately for external/admin writers. Keep PostgreSQL running for restoration.
+Stopping the host helper alone does not stop the Soda database's backend writer. Restoration
 uses `pg_restore --clean --if-exists`, replacing objects in the selected database.
 `--yes` is required as the first argument.
 

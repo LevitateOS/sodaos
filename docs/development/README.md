@@ -66,6 +66,13 @@ procedures; [testing](testing.md#canlang-qualification-boundaries) owns G1–G4
 evidence distinctions. Historical runtime acceptance does not prove direct workerd
 or the composed installed release; P32/R55 stays open after document absorption.
 
+## Public handbook refresh
+
+The [public handbook cutover](public-handbook/ideal-filetree-plan.md) records the
+implemented seven-section, 41-page handbook, its source evidence and page
+boundaries. Public copy describes the intended finished product. The remaining
+website snapshot and route integration stay recorded there until cutover.
+
 ## Permissions
 
 Destructive host operations, provider mutations, publication and fixture cleanup

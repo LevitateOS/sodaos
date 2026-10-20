@@ -9,10 +9,10 @@ Media details: [Installation media](media.md).
 For Docker Engine deployment, follow [Install a released image](docker.md#install-a-released-image)
 to download the versioned Compose file, pin its GHCR digest and configure the runtime.
 
-After installation and private operator setup, configure bounded work through the
-[factory operator interface](../reference/factory.md). The public
-[first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) connects
-admission to verified results and human merge.
+After installation and private operator setup, the [public Factory journey](../public/40-Factory/05-software-factory.md)
+explains how authorized issues progress to verified results. The
+[factory operator interface](../reference/factory.md) documents the existing
+command surface.
 
 Commands that write disks, mutate providers, publish artifacts or destroy fixtures
 require explicit task approval. This guide is not that approval.
@@ -41,7 +41,7 @@ activation. Root password SSH is available after the guided installation; operat
 key enrollment is optional. Complete client certificate trust and a real browser
 Project terminal as described in [Operator setup](operator-setup.md).
 
-Use [the public installation guide](../public/20-Deploy/20-install-on-premises.md)
+Use [the public installation guide](../public/20-Install/30-install-on-premises.md)
 for the complete end-user path. The builder instructions below are for release
 developers, not prerequisites for installing a downloaded release.
 

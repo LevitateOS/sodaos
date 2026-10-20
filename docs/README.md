@@ -11,9 +11,10 @@ those editorial pages; `docs/public` below owns the synchronized handbook.
 
 Soda OS coordinates an automatic software factory within authorized boundaries.
 Start with the [target product contract](product/overview.md). The
-[operator interface](reference/factory.md) and
-[first factory task](public/30-Use-Soda/15-software-factory.md) document the existing
-command workflow. Spaces connects repository environments with human and factory work.
+[operator interface](reference/factory.md) documents the existing command surface;
+the [Factory handbook](public/40-Factory/05-software-factory.md) describes the
+intended product journey. Spaces connects repository environments with human and
+factory work.
 
 ## Understand Soda
 

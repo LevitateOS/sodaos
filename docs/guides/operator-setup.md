@@ -33,7 +33,7 @@ client reachability nor completed login/execution.
 
 An activated installation produces read-only access guidance on rerun; uncertain
 setup/activation preserves state and must be inspected before retry. The
-[public walkthrough](../public/20-Deploy/25-operator-setup.md) follows this path.
+[public operator setup guide](../public/30-Set-up/10-operator-setup.md) follows this path.
 
 ## Deliberate setup with custom configuration
 
@@ -76,12 +76,12 @@ from the installed complete release. Signing in again or importing a Project ima
 does not repair retained support. Host activation remains subject to the separate
 [release qualification boundary](../architecture/release.md#host-update-ownership).
 
-After browser access is configured, prepare the private repository, publishing and
-review actors, selected agent profile and protected factory configuration through
-the [factory operator reference](../reference/factory.md). A repository, project
-join or issue label does not admit work. Follow the
-[first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) for explicit
-admission, verification and human merge.
+The [public Factory authorization guide](../public/40-Factory/20-factory-authorization.md)
+explains the separate owners of repository policy, appliance capacity and provider
+sponsorship. The [Factory journey](../public/40-Factory/05-software-factory.md)
+describes how eligible accepted issues proceed under standing authority. The
+[operator reference](../reference/factory.md) documents the existing command
+interface.
 
 ## Explicit release maintenance
 

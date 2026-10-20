@@ -7,7 +7,7 @@ the internal Project and application engine. Docker owns the outer container's
 lifecycle; the operator owns the host operating system.
 
 Website-facing operator instructions live in the
-[public Docker handbook](../public/20-Deploy/22-docker.md).
+[public Docker handbook](../public/20-Install/50-docker.md).
 
 ## Host requirements
 
@@ -44,9 +44,10 @@ not started inside the runtime.
 
 The released `install-docker.sh` is the normal installation entry point. Select
 an explicitly Docker-qualified release; do not use GitHub's latest ISO pointer.
-No qualified installer URL is available yet. The public handbook keeps its
-availability notice until actual publication and disposable-host qualification
-are complete.
+No qualified installer URL is available yet. This guide records the current
+release and qualification boundary for operators and maintainers. The published
+handbook describes the released Docker installation path and does not carry
+internal availability status.
 
 The version-bound script embeds the exact source revision and `docker.json`
 hash/size. It checks the immutable release and its Docker qualification marker,
