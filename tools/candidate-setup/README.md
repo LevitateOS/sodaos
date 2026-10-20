@@ -34,7 +34,7 @@ Configure it through the environment:
 | Variable | Use |
 | --- | --- |
 | `SODA_FORGEJO_SOURCE` | Required absolute canonical Fountain checkout supplying the pinned SDK. Unrelated changes remain untouched; build admission checks SDK bytes against the selected release. |
-| `SODA_FOUNTAIN_RELEASE_URL` | Required immutable HTTPS metadata for the separately released Fountain image and corresponding sources. The build controller checks its source against `fountain-source.json`. |
+| `SODA_FOUNTAIN_RELEASE_URL` | Required immutable HTTPS metadata for the separately released Fountain image and corresponding sources. The build controller checks its source against `fountain-source.json`. Run `soda-artifacts check-fountain-pin` from the checkout first: it reports the matching release URL or explains the gap. |
 | `SODA_REPOSITORY_PREFIX` | Repository namespace; defaults to `ghcr.io/levitateos/sodaos`. |
 | `SODA_REFRESH_AUTHORITY` | Set to `1` to regenerate the fixture media authority. This invalidates signatures made with the old keys. |
 | `SODA_CANDIDATE_ROOT` | Worker storage root; defaults to `/home/soda-candidate`. |

@@ -10,7 +10,7 @@ use crate::digest::{hash_file, is_signer, require_native};
 use clap::{Arg, ArgAction, Command as ClapCommand};
 
 pub const USAGE: &str =
-    "usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane [flags]";
+    "usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane|check-fountain-pin [flags]";
 const HELP_REQUESTED: &str = "artifact help requested";
 
 fn command() -> ClapCommand {
@@ -22,6 +22,7 @@ fn command() -> ClapCommand {
             "fetch-coreos",
             "fetch-coreos-iso",
             "convert-butane",
+            "check-fountain-pin",
         ]))
         .arg(
             Arg::new("arch")
@@ -71,6 +72,22 @@ fn command() -> ClapCommand {
                 .num_args(1)
                 .allow_hyphen_values(true),
         )
+        .arg(
+            Arg::new("pin-file")
+                .long("pin-file")
+                .help("Fountain pin file (default fountain-source.json in the working directory)")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("github-api-url")
+                .long("github-api-url")
+                .help("GitHub API base for the release lookup (default https://api.github.com)")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .allow_hyphen_values(true),
+        )
 }
 
 fn help_text() -> String {
@@ -85,6 +102,8 @@ pub struct ArtifactFlags {
     pub out: String,
     pub keyring: String,
     pub signer: String,
+    pub pin_file: String,
+    pub github_api_url: String,
 }
 
 pub fn parse_artifact_flags(args: &[String]) -> Result<(String, ArtifactFlags), String> {
@@ -129,6 +148,14 @@ pub fn parse_artifact_flags(args: &[String]) -> Result<(String, ArtifactFlags), 
                 .unwrap_or_default(),
             signer: matches
                 .get_one::<String>("signer")
+                .cloned()
+                .unwrap_or_default(),
+            pin_file: matches
+                .get_one::<String>("pin-file")
+                .cloned()
+                .unwrap_or_default(),
+            github_api_url: matches
+                .get_one::<String>("github-api-url")
                 .cloned()
                 .unwrap_or_default(),
         },
@@ -394,6 +421,19 @@ pub fn run_artifact_action(action: &str, f: &ArtifactFlags) -> Result<Option<Str
     match action {
         "inspect-oci" => inspect_artifact_oci(&f.source, &f.arch, &f.revision).map(Some),
         "convert-butane" => convert_butane(&f.source, &f.out, &f.arch).map(|()| None),
+        "check-fountain-pin" => {
+            let pin_file = if f.pin_file.is_empty() {
+                crate::fountain_pin::default_pin_file()
+            } else {
+                f.pin_file.clone()
+            };
+            let api_base = if f.github_api_url.is_empty() {
+                crate::fountain_pin::default_api_base()
+            } else {
+                f.github_api_url.clone()
+            };
+            crate::fountain_pin::check_fountain_pin(&pin_file, &api_base).map(Some)
+        }
         _ => run_coreos_artifact(action, f).map(|()| None),
     }
 }

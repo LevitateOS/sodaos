@@ -11,7 +11,7 @@ archives and retrieving verified upstream CoreOS inputs. This package supplies
 | `soda-candidate` | Interactive or scripted wrapper around the admitted build controller. |
 | `soda-build` | Dispatch a candidate or media build to an isolated worker. |
 | `soda-candidate-check` | Verify candidate archives against architecture and exact source revisions. |
-| `soda-artifacts` | Inspect OCI archives, fetch verified CoreOS inputs or convert private Butane. |
+| `soda-artifacts` | Inspect OCI archives, fetch verified CoreOS inputs, convert private Butane, or check the Fountain pin against published releases. |
 | `soda-release` | Stage immutable GitHub release assets and promote them after the native install smoke. |
 
 Use `--help` on any binary to see its flags. Builds require native Linux
@@ -58,10 +58,14 @@ soda-candidate-check --candidate /CANDIDATE/artifacts --arch x86_64 \
   --soda-revision FULL_SODA_COMMIT --forgejo-revision FULL_FOUNTAIN_COMMIT
 soda-artifacts inspect-oci --source /CANDIDATE/artifacts/image.oci.tar \
   --arch x86_64 --revision FULL_SODA_COMMIT
+soda-artifacts check-fountain-pin
 ```
 
 These commands read and validate existing artifacts. Use the actual archive
 path and full source revisions from that candidate. They do not qualify a host.
+`check-fountain-pin` answers whether a published Fountain release serves the
+pinned `fountain-source.json` revision before any build input freezes; run it
+from the checkout first and pass the reported URL as `SODA_FOUNTAIN_RELEASE_URL`.
 
 ## Fetch and convert inputs
 

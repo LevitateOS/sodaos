@@ -17,6 +17,7 @@ pub mod candidate_prompts;
 pub mod check_cli;
 pub mod digest;
 pub mod exitcode;
+pub mod fountain_pin;
 pub mod pipeline;
 pub mod progress;
 pub mod worker;
