@@ -36,6 +36,43 @@ impl std::fmt::Debug for HttpResponse {
     }
 }
 
+/// Admits one redirect target. Base input URLs refuse `?` and `#`, but
+/// signed asset hosts (GitHub release assets) require query strings, so
+/// redirect hops admit them while keeping the https-only, no-whitespace,
+/// no-backslash, no-credentials and valid-escape bars of the base gate.
+fn redirect_url(raw: &str) -> bool {
+    if !raw
+        .as_bytes()
+        .get(..8)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"https://"))
+        || raw.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\')
+    {
+        return false;
+    }
+    let Some((_, authority, _)) = split_url(raw) else {
+        return false;
+    };
+    if authority.is_empty() || authority.contains('@') {
+        return false;
+    }
+    let bytes = raw.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'%' {
+            if at + 2 >= bytes.len()
+                || !bytes[at + 1].is_ascii_hexdigit()
+                || !bytes[at + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            at += 3;
+        } else {
+            at += 1;
+        }
+    }
+    true
+}
+
 /// Single-request transport with redirects disabled.
 pub trait HttpTransport {
     fn get(
@@ -156,7 +193,7 @@ pub fn get_follow<T: HttpTransport>(
         drop(response);
         let next =
             resolve_location(&current, location.trim()).ok_or_else(|| Error::msg(redirect_err))?;
-        if !soda_build_tools::reader::url::https_url(&next) {
+        if !redirect_url(&next) {
             return Err(Error::msg(redirect_err));
         }
         current = next;
