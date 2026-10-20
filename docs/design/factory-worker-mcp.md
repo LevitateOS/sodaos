@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles and Library Admin, their context, work, communication and shared knowledge. The implemented catalog now contains 45 tools across eight profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 48 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -15,7 +15,7 @@ revision adds shared decision tools and the Library Admin profile. The seven
 production roles and their work ownership remain; the original source baseline had
 seven profiles and 14 tools. Shared communication and decision tools have since
 been added, with the [executable feed catalog](../../internal/factory/feed_components.json)
-binding each component to permitted roles and outlets. Library Admin is now the eighth runtime profile. An accepted issue with a `soda` JSON fence containing `{"role":"library_admin"}` selects the `maintain_library` phase. It runs as the reviewer account, scoped to the project library, without source publication or a code-completion claim.
+binding each component to permitted roles and outlets. Library Admin is now the eighth runtime profile. The later Researcher route (§11, R10.2) adds the ninth runtime profile with its `research` phase and `factory.finish_research` tool. An accepted issue with a `soda` JSON fence containing `{"role":"library_admin"}` selects the `maintain_library` phase. It runs as the reviewer account, scoped to the project library, without source publication or a code-completion claim.
 
 The later [issue work-contract brainstorm](#issue-work-contracts) extends this
 design with typed issue metadata, specialist routing, knowledge-only completion
@@ -57,7 +57,7 @@ not automatically become permanent knowledge.
 ### Verified starting points
 
 - The [source catalog](../../internal/factory/mcp_profile.go) now contains 45
-  tools filtered by eight roles: 42 Factory tools plus generic `systemone.noul`, `systemone.choice` and `systemone.score`. Shared communication, library search/read and artifact upload precede role-specific tools in discovery. Library Admin operations apply actual revisioned knowledge and decision changes.
+  tools filtered by eight roles: 45 Factory tools plus generic `systemone.noul`, `systemone.choice` and `systemone.score`. Shared communication, library search/read and artifact upload precede role-specific tools in discovery. Library Admin operations apply actual revisioned knowledge and decision changes.
 - [D14](../development/factory-workflow-contracts.md#d14--one-factory-mcp-implementation-and-seven-profiles)
   already defines one Factory MCP implementation, scoped admission, receipts,
   role finishes and separate native execution tools.

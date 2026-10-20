@@ -2,7 +2,7 @@ package factory
 
 // D14 canonical profile/tool DTOs (FW38).
 //
-// One Factory MCP implementation serves eight role profiles with shared
+// One Factory MCP implementation serves nine role profiles with shared
 // communication outlets and role-specific result tools. This file freezes the canonical names, the execution phase
 // each profile serves, and which profile may call which tool. Admission
 // (control), persistence (store) and transport (web/api) enforce this
@@ -28,9 +28,10 @@ const (
 	MCPProfileStrategist   MCPProfile = "strategist"
 	MCPProfileTestPilot    MCPProfile = "test_pilot"
 	MCPProfileLibraryAdmin MCPProfile = "library_admin"
+	MCPProfileResearcher   MCPProfile = "researcher"
 )
 
-// MCPProfiles lists the eight admitted profiles in contract order.
+// MCPProfiles lists the nine admitted profiles in contract order.
 var MCPProfiles = []MCPProfile{
 	MCPProfileProductLead,
 	MCPProfileArchitect,
@@ -40,6 +41,7 @@ var MCPProfiles = []MCPProfile{
 	MCPProfileStrategist,
 	MCPProfileTestPilot,
 	MCPProfileLibraryAdmin,
+	MCPProfileResearcher,
 }
 
 // MCPPhaseOf returns the execution phase a profile serves. Strategist
@@ -63,6 +65,8 @@ func MCPPhaseOf(profile MCPProfile) string {
 		return "verify"
 	case MCPProfileLibraryAdmin:
 		return "maintain_library"
+	case MCPProfileResearcher:
+		return "research"
 	default:
 		return ""
 	}
@@ -114,6 +118,9 @@ const (
 	MCPToolFinishReview             MCPTool = "factory.finish_review"
 	MCPToolFinishCorrection         MCPTool = "factory.finish_correction"
 	MCPToolFinishReassessment       MCPTool = "factory.finish_reassessment"
+	MCPToolFinishResearch           MCPTool = "factory.finish_research"
+	MCPToolResearchScope            MCPTool = "factory.research_scope"
+	MCPToolRecordResearch           MCPTool = "factory.record_research"
 	MCPToolFinishAppVerify          MCPTool = "factory.finish_app_verification"
 	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
 	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
@@ -166,6 +173,9 @@ var MCPTools = []MCPTool{
 	MCPToolSupersedeLibraryItem,
 	MCPToolReportLibraryImpact,
 	MCPToolFinishLibraryMaintenance,
+	MCPToolFinishResearch,
+	MCPToolResearchScope,
+	MCPToolRecordResearch,
 }
 
 // D14 byte/count bounds. Tool schemas reject unknown fields and
@@ -195,6 +205,7 @@ var mcpReadTools = map[MCPTool]bool{
 	MCPToolReadLibraryItem:       true,
 	MCPToolLibraryInventory:      true,
 	MCPToolPreviewLibraryChanges: true,
+	MCPToolResearchScope:         true,
 	MCPToolContext:               true,
 	MCPToolEvidence:              true,
 	MCPToolStatus:                true,
@@ -220,12 +231,13 @@ var mcpTerminalTools = map[MCPTool]bool{
 	MCPToolFinishCorrection:         true,
 	MCPToolFinishReassessment:       true,
 	MCPToolFinishAppVerify:          true,
+	MCPToolFinishResearch:           true,
 }
 
 // MCPIsTerminal reports whether the tool records a terminal proposal.
 func MCPIsTerminal(tool MCPTool) bool { return mcpTerminalTools[tool] }
 
-// mcpToolProfiles is the admitted caller set per tool. All eight
+// mcpToolProfiles is the admitted caller set per tool. All nine
 // profiles read; finish_incomplete is the every-parent terminal;
 // typed finishes, task output and handoff stay with their role.
 var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
@@ -272,6 +284,9 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolFinishCorrection:         singleMCPProfile(MCPProfileFixer),
 	MCPToolFinishReassessment:       singleMCPProfile(MCPProfileStrategist),
 	MCPToolFinishAppVerify:          singleMCPProfile(MCPProfileTestPilot),
+	MCPToolFinishResearch:           singleMCPProfile(MCPProfileResearcher),
+	MCPToolResearchScope:            singleMCPProfile(MCPProfileResearcher),
+	MCPToolRecordResearch:           singleMCPProfile(MCPProfileResearcher),
 	MCPToolSubmitTaskOutput: {
 		MCPProfileBuilder: true,
 		MCPProfileFixer:   true,

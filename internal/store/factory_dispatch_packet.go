@@ -270,12 +270,61 @@ func validateOwnerAttemptRootTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 	return nil
 }
 
-func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
-	if a.Phase == project.ExecutionMaintainLibrary {
-		if a.Role != project.RoleReviewer || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" || a.Subject.Kind != factory.SubjectIssue {
-			return errors.New("library maintenance requires an issue-scoped reviewer root")
+// validateResearchRootTx admits one research root or its retry: a
+// researcher-owned inquiry bound to its native issue, current acceptance
+// and granted sources. Research carries no code candidate, publication
+// slot or children; the standard attempt allowance bounds its follow-up.
+func validateResearchRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Role != project.RoleResearcher || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
+		return errors.New("research requires a researcher root")
+	}
+	if a.Subject.Kind != factory.SubjectResearch || a.Subject.Research == nil {
+		return errors.New("research requires its research subject")
+	}
+	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Subject.Research.Issue, a.Subject.Research.Acceptance); err != nil {
+		return err
+	}
+	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
+	if err != nil {
+		return err
+	}
+	admitted := make(map[string]bool, len(grants.sponsorship.Sources))
+	for _, source := range grants.sponsorship.Sources {
+		admitted[source] = true
+	}
+	for _, source := range a.Subject.Research.Sources {
+		if !admitted[source] {
+			return errors.New("research names an ungranted source")
 		}
-		return currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance)
+	}
+	return nil
+}
+
+func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
+	if a.Phase == project.ExecutionResearch {
+		return validateResearchRootTx(ctx, tx, a)
+	}
+	if a.Phase == project.ExecutionMaintainLibrary {
+		if a.Role != project.RoleReviewer || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
+			return errors.New("library maintenance requires a reviewer root")
+		}
+		switch a.Subject.Kind {
+		case factory.SubjectIssue:
+			return currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance)
+		case factory.SubjectCollection:
+			grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
+			if err != nil {
+				return err
+			}
+			for _, admitted := range grants.sponsorship.Collections {
+				if admitted == a.Subject.Collection.CollectionID {
+					return nil
+				}
+			}
+			return errors.New("collection maintenance names an ungranted collection")
+		default:
+			return errors.New("library maintenance requires an issue or collection subject")
+		}
 	}
 	owner := a.PublicationAssignment == a.ID
 	if owner {

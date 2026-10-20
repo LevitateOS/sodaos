@@ -78,10 +78,20 @@ type PhaseOutput struct {
 	Decomposition  *SemanticPlannerOutput    `json:"decomposition,omitempty"`
 	Review         *ReviewCycleReport        `json:"review,omitempty"`
 	Clear          *ClearReviewReport        `json:"clear,omitempty"`
+	Assessment     *NonCodeAssessment        `json:"assessment,omitempty"`
 	Correction     *CorrectionReport         `json:"correction,omitempty"`
 	Repair         *StallRepairReport        `json:"repair,omitempty"`
 	DeliveryRepair *DeliveryRepairReport     `json:"delivery_repair,omitempty"`
 	Verification   *AppVerificationReport    `json:"verification,omitempty"`
+	Research       *ResearchReport           `json:"research,omitempty"`
+}
+
+// nilTypedOutputExceptResearch reports whether every payload slot except
+// the research report is empty.
+func (o PhaseOutput) nilTypedOutputExceptResearch() bool {
+	return o.Maintenance == nil && o.Plan == nil && o.Implementation == nil &&
+		o.Reassessment == nil && o.Decomposition == nil && o.Review == nil && o.Clear == nil &&
+		o.Correction == nil && o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Assessment == nil
 }
 
 // validateReviewShape checks the structural review verdict: finding and
@@ -168,9 +178,18 @@ func (o PhaseOutput) validate(phase, status string) error {
 		return o.validateRepairOutput(status)
 	case project.ExecutionVerify:
 		return o.validateVerificationOutput(status)
+	case project.ExecutionResearch:
+		return o.validateResearchOutput(status)
 	default:
 		return errors.New("unknown result phase")
 	}
+}
+
+func (o PhaseOutput) validateResearchOutput(status string) error {
+	if o.Research == nil || !o.nilTypedOutputExceptResearch() {
+		return errors.New("research output must be exactly its report")
+	}
+	return o.Research.validate(status)
 }
 
 func (o PhaseOutput) validateInvestigationOutput(status string) error {
@@ -254,22 +273,38 @@ func (o PhaseOutput) validateBlockedDecomposition() error {
 }
 
 func (o PhaseOutput) validateReviewOutput(status string) error {
+	verdicts := 0
+	if o.Review != nil {
+		verdicts++
+	}
+	if o.Clear != nil {
+		verdicts++
+	}
+	if o.Assessment != nil {
+		verdicts++
+	}
+	// The review phase carries exactly one verdict: a code findings or
+	// clear verdict, or one non-code assessment. Code-cycle consumers
+	// keep their two-verdict gates; an assessment never enters them.
 	if !o.nilTypedOutputExceptReview() {
 		return errors.New("cross-phase result payload refused")
 	}
 	if status != "completed" {
-		if o.Review != nil || o.Clear != nil {
+		if verdicts > 0 {
 			return errors.New("non-completed review carries no verdict")
 		}
 		return nil
 	}
-	if (o.Review == nil) == (o.Clear == nil) {
+	if verdicts != 1 {
 		return errors.New("completed review carries exactly one verdict")
 	}
 	if o.Review != nil {
 		return validateReviewShape(o.Review)
 	}
-	return validateClearShape(o.Clear)
+	if o.Clear != nil {
+		return validateClearShape(o.Clear)
+	}
+	return validateNonCodeAssessment(o.Assessment)
 }
 
 func (o PhaseOutput) validateCorrectionOutput(status string) error {
@@ -322,7 +357,7 @@ func (o PhaseOutput) validateVerificationOutput(status string) error {
 func (o PhaseOutput) nilTypedOutputExceptPlan() bool {
 	return o.Implementation == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
 // nilTypedOutputExceptImplementation reports whether every payload slot
@@ -330,7 +365,7 @@ func (o PhaseOutput) nilTypedOutputExceptPlan() bool {
 func (o PhaseOutput) nilTypedOutputExceptImplementation() bool {
 	return o.Plan == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
 // nilTypedOutputExceptReassessment reports whether every payload slot
@@ -338,7 +373,7 @@ func (o PhaseOutput) nilTypedOutputExceptImplementation() bool {
 func (o PhaseOutput) nilTypedOutputExceptReassessment() bool {
 	return o.Plan == nil && o.Implementation == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
 // nilTypedOutputExceptDecomposition reports whether every payload slot
@@ -346,15 +381,17 @@ func (o PhaseOutput) nilTypedOutputExceptReassessment() bool {
 func (o PhaseOutput) nilTypedOutputExceptDecomposition() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
 		o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
-// nilTypedOutputExceptReview reports whether every payload slot except the
-// two review verdicts is empty.
+// nilTypedOutputExceptReview reports whether every payload slot except
+// the review verdicts is empty. Code findings, explicit clear and
+// non-code assessment verdicts all ride the review phase; anything
+// else beside them refuses as a cross-phase payload.
 func (o PhaseOutput) nilTypedOutputExceptReview() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Maintenance == nil
 }
 
 // nilTypedOutputExceptCorrection reports whether every payload slot except
@@ -362,7 +399,7 @@ func (o PhaseOutput) nilTypedOutputExceptReview() bool {
 func (o PhaseOutput) nilTypedOutputExceptCorrection() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
 // nilTypedOutputExceptRepair reports whether every payload slot except the
@@ -371,7 +408,7 @@ func (o PhaseOutput) nilTypedOutputExceptCorrection() bool {
 func (o PhaseOutput) nilTypedOutputExceptRepair() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Verification == nil
+		o.Verification == nil && o.Research == nil && o.Assessment == nil
 }
 
 // nilTypedOutputExceptVerification reports whether every payload slot
@@ -379,7 +416,7 @@ func (o PhaseOutput) nilTypedOutputExceptRepair() bool {
 func (o PhaseOutput) nilTypedOutputExceptVerification() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
 		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
-		o.Repair == nil && o.DeliveryRepair == nil
+		o.Repair == nil && o.DeliveryRepair == nil && o.Research == nil && o.Assessment == nil
 }
 
 // PhaseResult is the strict phase-bound process result. Completed
@@ -447,6 +484,23 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 		return r.bindRepairResult(a)
 	case project.ExecutionVerify:
 		return r.bindVerificationResult(a)
+	case project.ExecutionResearch:
+		return r.bindResearchResult(a)
+	}
+	return nil
+}
+
+// bindResearchResult binds a research report to its assignment's
+// research subject: the report answers the assigned issue inquiry,
+// never another issue and never a code subject. Phase equality alone
+// cannot prove that, so the subject kind and identity bind here while
+// the report content stays the worker's answerable evidence.
+func (r PhaseResult) bindResearchResult(a Assignment) error {
+	if a.Subject.Kind != SubjectResearch || a.Subject.Research == nil {
+		return errors.New("research result needs its research subject")
+	}
+	if err := a.Subject.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

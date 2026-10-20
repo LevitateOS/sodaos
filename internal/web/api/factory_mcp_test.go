@@ -15,6 +15,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -64,6 +66,7 @@ type fakeCatalogSink struct {
 	submissions map[string]fakeCatalogRecord
 	assignments map[string]factory.Assignment
 	receipts    map[string]factory.PriorityReceipt
+	reserved    map[string]bool
 	runs        map[string]factory.Run
 }
 
@@ -73,6 +76,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
 		receipts:    map[string]factory.PriorityReceipt{},
+		reserved:    map[string]bool{},
 		runs:        map[string]factory.Run{},
 		assignments: map[string]factory.Assignment{
 			capability.AssignmentID: {
@@ -102,6 +106,39 @@ func (f *fakeCatalogSink) PriorityJudgment(_ context.Context, snapshot string) (
 		return factory.PriorityReceipt{}, store.ErrNotFound
 	}
 	return receipt, nil
+}
+
+// ReservePriorityJudgment mirrors the store fund-once semantics: a
+// recorded receipt or an existing reservation reports false with no
+// new spend, otherwise the snapshot reserves one consultation.
+func (f *fakeCatalogSink) ReservePriorityJudgment(_ context.Context, snapshot string, maxCalls int) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !factory.ValidDigest(snapshot) || maxCalls < 1 || maxCalls > control.PriorityDefaultMaxCalls {
+		return false, errors.New("invalid priority reservation")
+	}
+	if f.reserved[snapshot] {
+		return false, nil
+	}
+	if _, ok := f.receipts[snapshot]; ok {
+		return false, nil
+	}
+	f.reserved[snapshot] = true
+	return true, nil
+}
+
+// RecordPriorityJudgment keeps the first recorded receipt, mirroring
+// the store's first-writer conflict rule for call-free receipts.
+func (f *fakeCatalogSink) RecordPriorityJudgment(_ context.Context, r factory.PriorityReceipt) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !factory.ValidDigest(r.Snapshot) || r.CreatedUnix <= 0 {
+		return errors.New("invalid priority receipt")
+	}
+	if _, ok := f.receipts[r.Snapshot]; !ok {
+		f.receipts[r.Snapshot] = r
+	}
+	return nil
 }
 
 func (f *fakeCatalogSink) Assignment(_ context.Context, id string) (factory.Assignment, error) {
@@ -979,6 +1016,67 @@ func TestFactoryCatalogEvidenceServesRunProjections(t *testing.T) {
 	}
 	if body["assignment"] != sink.capability.AssignmentID {
 		t.Fatalf("evidence unscoped: %v", body["assignment"])
+	}
+}
+
+// TestFactoryCatalogEvidenceServesRecordedResults proves the R31.1
+// inline result preservation: a finished research assignment serves
+// its answered report, a finished maintenance assignment serves its
+// submission handle, and an unfinished assignment serves no result
+// key while staying honestly incomplete.
+func TestFactoryCatalogEvidenceServesRecordedResults(t *testing.T) {
+	research := newFakeCatalogSink()
+	stored := research.assignments[research.capability.AssignmentID]
+	stored.Result = &factory.AssignmentResult{
+		Phase: project.ExecutionResearch, Status: "completed", Summary: "Restart through the supervisor.",
+		PhaseResult: &factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionResearch,
+			Status: "completed", Summary: "Restart through the supervisor.",
+			Output: &factory.PhaseOutput{Research: &factory.ResearchReport{
+				Questions:  []string{"What restarts the worker?"},
+				Findings:   []string{"The supervisor restarts it."},
+				Conclusion: "Restart through the supervisor.",
+			}},
+		},
+	}
+	research.assignments[research.capability.AssignmentID] = stored
+	body := serveEvidenceBody(t, research)
+	result, ok := body["result"].(map[string]any)
+	if !ok || result["phase"] != project.ExecutionResearch || result["status"] != "completed" {
+		t.Fatalf("research result=%v", body["result"])
+	}
+	report, ok := result["report"].(map[string]any)
+	if !ok {
+		t.Fatalf("research report missing: %v", result)
+	}
+	questions, ok := report["questions"].([]any)
+	if !ok || len(questions) != 1 || questions[0] != "What restarts the worker?" {
+		t.Fatalf("research questions=%v", report["questions"])
+	}
+
+	maintenance := newFakeCatalogSink()
+	kept := maintenance.assignments[maintenance.capability.AssignmentID]
+	kept.Result = &factory.AssignmentResult{
+		Phase: project.ExecutionMaintainLibrary, Status: "completed", Summary: "Source notes consolidated.",
+		PhaseResult: &factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionMaintainLibrary,
+			Status: "completed", Summary: "Source notes consolidated.",
+			Output: &factory.PhaseOutput{Maintenance: &factory.LibraryMaintenanceResult{SubmissionID: strings.Repeat("m", 32)}},
+		},
+	}
+	maintenance.assignments[maintenance.capability.AssignmentID] = kept
+	mbody := serveEvidenceBody(t, maintenance)
+	mresult, ok := mbody["result"].(map[string]any)
+	if !ok || mresult["phase"] != project.ExecutionMaintainLibrary || mresult["submission"] != strings.Repeat("m", 32) {
+		t.Fatalf("maintenance result=%v", mbody["result"])
+	}
+
+	inflight := serveEvidenceBody(t, newFakeCatalogSink())
+	if _, present := inflight["result"]; present {
+		t.Fatalf("unfinished assignment serves a result: %v", inflight["result"])
+	}
+	if complete, _ := inflight["complete"].(bool); complete {
+		t.Fatalf("evidence claims completeness")
 	}
 }
 

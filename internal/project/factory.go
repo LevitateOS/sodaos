@@ -82,6 +82,11 @@ const (
 	// or children, and carries no publishable candidate.
 	ExecutionVerify          = "verify"
 	ExecutionMaintainLibrary = "maintain_library"
+	// ExecutionResearch answers declared questions with evidence and a
+	// conclusion (R10.2). It accepts only the research subject and the
+	// researcher role, runs read-only with no publication, children or
+	// candidate, and carries no execution manifest.
+	ExecutionResearch = "research"
 )
 
 // ValidExecutionPhase reports whether phase is an admitted execution phase.
@@ -90,7 +95,7 @@ const (
 // to exist.
 func ValidExecutionPhase(phase string) bool {
 	switch phase {
-	case ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify, ExecutionMaintainLibrary:
+	case ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify, ExecutionMaintainLibrary, ExecutionResearch:
 		return true
 	default:
 		return false
@@ -227,6 +232,9 @@ func (r FactoryRun) validateRunPhase() error {
 	}
 	if r.ExecutionPhase == ExecutionMaintainLibrary && r.Role != RoleReviewer {
 		return errors.New("library maintenance requires the reviewer role")
+	}
+	if r.ExecutionPhase == ExecutionResearch && r.Role != RoleResearcher {
+		return errors.New("research run requires the researcher role")
 	}
 	if ExecutionManifestRequired(r.ExecutionPhase) {
 		if !ValidDigest(r.ManifestDigest) {

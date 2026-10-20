@@ -30,6 +30,13 @@ type PriorityJudgments struct {
 
 var ErrPriorityUnavailable = errors.New("priority consultation unavailable or exhausted")
 
+// PriorityDefaultMaxCalls funds one tournament over the largest
+// supported inventory. priorityCallCount(4096) is 18: seventeen
+// 255-candidate groups plus the final for the 4,096-issue control
+// reads. A future inventory or group-size change must re-derive
+// this budget; TestPriorityCallCountBoundaries pins the derivation.
+const PriorityDefaultMaxCalls = 18
+
 // selectPriority covers every candidate through a deterministic tournament.
 // Groups contain at most 255 alternatives; each winner advances until a final
 // choice. Required calls are reserved up front; an oversized set is refused,
@@ -48,6 +55,18 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 	selected, replayed, err := t.admitTournament()
 	if err != nil || replayed {
 		return selected, err
+	}
+	if t.fairness {
+		// A due oldest item skips comparative spending: the age rule
+		// already determines the selection, so no judgment call can
+		// affect it. The call-free fairness receipt records the
+		// deterministic reason; final admission still happens at
+		// dispatch through the serving layer.
+		t.receipt.Selected, t.receipt.Outcome = t.oldest.ID, "fairness"
+		if err := t.deps.Journal.RecordPriorityJudgment(t.ctx, t.receipt); err != nil {
+			return "", err
+		}
+		return t.oldest.ID, nil
 	}
 	if err := t.reserveTournamentCalls(); err != nil {
 		return "", err
@@ -111,7 +130,7 @@ func (t *priorityTournament) admitTournament() (string, bool, error) {
 func (t *priorityTournament) reserveTournamentCalls() error {
 	maxCalls := t.deps.MaxCalls
 	if maxCalls <= 0 {
-		maxCalls = 16
+		maxCalls = PriorityDefaultMaxCalls
 	}
 	required := priorityCallCount(len(t.candidates))
 	if required > maxCalls || t.deps.Chooser == nil {

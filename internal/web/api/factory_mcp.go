@@ -21,6 +21,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -46,12 +47,12 @@ type FactoryMCPAssignmentSource interface {
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
 }
 
-// FactoryMCPPriorityJudgmentSource reads recorded selection receipts
-// so context foregrounds a preparation-time bundle choice without
-// consulting on reads. *store.Store implements it; nil names no
-// recorded selection, and tests stub it.
+// FactoryMCPPriorityJudgmentSource is the funded consultation journal:
+// recorded selection receipts for read foregrounding plus the
+// reserve/record pair that attributes worker consultations to the
+// admitted caller. *store.Store implements it; tests stub it.
 type FactoryMCPPriorityJudgmentSource interface {
-	PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error)
+	control.PriorityJournal
 }
 
 // FactoryMCPRunSource loads recorded run rows behind an assignment
@@ -138,6 +139,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 		if tool == factory.MCPToolReadLibraryItem || tool == factory.MCPToolPreviewLibraryChanges {
 			definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
 		}
+	}
+	if payload := researchPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
 	}
 	if tool == factory.MCPToolPublishArtifact {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = artifactPayloadSchema()
@@ -290,6 +294,9 @@ var mcpMutationPayloads = map[factory.MCPTool]mcpPayloadSpec{
 	factory.MCPToolFinishReassessment: {
 		required: []string{"subject", "report"},
 	},
+	factory.MCPToolFinishResearch: {
+		required: []string{"questions", "conclusion"},
+	},
 	factory.MCPToolFinishAppVerify: {
 		required: []string{"delivery_id", "outcome", "coverage"},
 		enums:    map[string][]string{"outcome": {"verified", "failed", "incomplete"}},
@@ -390,17 +397,47 @@ func (s *factoryCatalogServer) checkPayloadOutcome(tool factory.MCPTool, payload
 	return nil
 }
 
+// checkReviewPayload enforces the finish_review shape for both code
+// and non-code verdicts. A deliverable binding selects the R34.3
+// assessment path — no tuple, no coverage digest — while a tuple
+// keeps the code review carrier rules unchanged.
+func checkReviewPayload(payload map[string]any) error {
+	spec := mcpMutationPayloads[factory.MCPToolFinishReview]
+	if _, ok := payload["deliverable"]; ok {
+		if _, ok := payload["tuple"]; ok {
+			return fmt.Errorf("assessment carries no code cycle")
+		}
+		if _, ok := payload["coverage"]; ok {
+			return fmt.Errorf("assessment carries no coverage digest")
+		}
+		spec = mcpPayloadSpec{required: []string{"conclusion", "deliverable", "evidence_refs"}, enums: spec.enums}
+	}
+	if err := checkPayloadKeys(factory.MCPToolFinishReview, payload, spec); err != nil {
+		return err
+	}
+	if err := checkPayloadRequired(payload, spec); err != nil {
+		return err
+	}
+	return checkPayloadEnums(payload, spec)
+}
+
 // checkPayload enforces the strict per-tool shape plus the D16
 // manifest-proposal contract on product plans.
 func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
 	if factory.MCPIsLibraryMutation(tool) {
 		return checkLibraryPayload(tool, payload)
 	}
+	if tool == factory.MCPToolRecordResearch {
+		return checkResearchPayload(tool, payload)
+	}
 	if tool == factory.MCPToolPublishArtifact {
 		return checkArtifactPayload(payload)
 	}
 	if factory.MCPIsCommunication(tool) {
 		return checkCommunicationPayload(tool, payload)
+	}
+	if tool == factory.MCPToolFinishReview {
+		return checkReviewPayload(payload)
 	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
@@ -435,7 +472,7 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 	case factory.MCPToolFinishIssuePlan:
 		return key == "alternatives" || key == "unresolved_facts"
 	case factory.MCPToolFinishReview:
-		return key == "tuple" || key == "carried_assessments" || key == "findings"
+		return key == "tuple" || key == "carried_assessments" || key == "findings" || key == "deliverable"
 	case factory.MCPToolFinishIncomplete:
 		return key == "cause_detail"
 	case factory.MCPToolSubmitTaskOutput:
@@ -444,6 +481,8 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 		return key == "check_receipts" || key == "artifact_refs" || key == "failures" || key == "input_digest"
 	case factory.MCPToolFinishReassessment:
 		return key == "input_digest"
+	case factory.MCPToolFinishResearch:
+		return key == "findings" || key == "evidence" || key == "uncertainty"
 	case factory.MCPToolFinishCorrection:
 		return key == "candidate"
 	default:
@@ -598,6 +637,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return mcpJSONResult(evidence)
 	case factory.MCPToolContext, factory.MCPToolStatus:
 		return s.serveRead(ctx, tool, args)
+	case factory.MCPToolResearchScope:
+		return s.serveResearchScope(ctx, tool, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
 	case factory.MCPToolReceipt:
@@ -827,7 +868,43 @@ func (s *factoryCatalogServer) serveEvidence(ctx context.Context, args mcpCallAr
 	if truncated {
 		body["runs_truncated"] = true
 	}
+	// The recorded research or maintenance result is preserved inline:
+	// R31.1 keeps those typed outputs with the assignment instead of
+	// deferring them to a later page. Other phases stay honestly
+	// incomplete until FW40 serves their pages.
+	if result := evidenceRecordedResult(assignment); result != nil {
+		body["result"] = result
+	}
 	return mcpJSONResult(body)
+}
+
+// evidenceRecordedResult projects one recorded assignment result for
+// the phases R31.1 owns inline: the answered research report, and the
+// maintenance submission handle whose library records carry the
+// content. Anything else returns nil and keeps the honest-incomplete
+// marker above.
+func evidenceRecordedResult(assignment factory.Assignment) map[string]any {
+	if assignment.Result == nil || assignment.Result.PhaseResult == nil {
+		return nil
+	}
+	phased := assignment.Result.PhaseResult
+	if phased.Output == nil {
+		return nil
+	}
+	switch {
+	case phased.Phase == project.ExecutionResearch && phased.Output.Research != nil:
+		return map[string]any{
+			"phase": phased.Phase, "status": phased.Status, "summary": phased.Summary,
+			"report": phased.Output.Research,
+		}
+	case phased.Phase == project.ExecutionMaintainLibrary && phased.Output.Maintenance != nil:
+		return map[string]any{
+			"phase": phased.Phase, "status": phased.Status, "summary": phased.Summary,
+			"submission": phased.Output.Maintenance.SubmissionID,
+		}
+	default:
+		return nil
+	}
 }
 
 // serveReceipt recovers the durable receipt for one submission: the

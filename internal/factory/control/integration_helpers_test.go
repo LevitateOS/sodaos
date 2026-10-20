@@ -512,6 +512,15 @@ func phaseTestAssignment(t *testing.T, phase, role string, validate bool) factor
 		Run: run, RunHistory: []string{run}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: 1700000000, ActorID: 7,
 	}
+	if phase == project.ExecutionResearch {
+		// Research roots bind a research inquiry and carry no
+		// publication slot, mirroring dispatch launch.
+		a.PublicationAssignment = ""
+		a.Subject = factory.ExecutionSubject{
+			Kind:     factory.SubjectResearch,
+			Research: &factory.ResearchSubject{Issue: 7, Acceptance: acceptance},
+		}
+	}
 	if validate {
 		if err := a.Validate(); err != nil {
 			t.Fatalf("assignment fixture invalid: %v", err)

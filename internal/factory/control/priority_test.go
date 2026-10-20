@@ -99,8 +99,11 @@ func TestPriorityUncertaintyAgeAndSingleCandidate(t *testing.T) {
 		t.Fatalf("uncertainty=%s %v", chosen, err)
 	}
 	candidates[0].Control.FirstSeenUnix = now.Add(-25 * time.Hour).Unix()
-	if chosen, err := selectPriority(context.Background(), deps, candidates, now); err != nil || chosen != "0" || len(f.calls) != 2 {
-		t.Fatalf("age=%s %v", chosen, err)
+	// FA09: the aged replay still selects the due oldest item but
+	// spends no new comparative call, so the total stays at the
+	// first fresh run's single call.
+	if chosen, err := selectPriority(context.Background(), deps, candidates, now); err != nil || chosen != "0" || len(f.calls) != 1 {
+		t.Fatalf("age=%s %v calls=%d", chosen, err, len(f.calls))
 	}
 	if chosen, err := selectPriority(context.Background(), nil, candidates[:1], now); err != nil || chosen != "0" {
 		t.Fatalf("single=%s %v", chosen, err)
@@ -143,5 +146,63 @@ func TestPriorityDispatchSelectsAndRefusesStaleSet(t *testing.T) {
 				t.Fatalf("priority launch: %+v", report)
 			}
 		})
+	}
+}
+
+// TestPriorityCallCountBoundaries pins the FA04 derivation: 3,826 is
+// the last inventory a 16-call budget funds, 3,827 needs 17, and the
+// full 4,096-issue inventory needs exactly PriorityDefaultMaxCalls.
+// A future inventory or group-size change must re-derive the budget.
+func TestPriorityCallCountBoundaries(t *testing.T) {
+	if got := priorityCallCount(3826); got != 16 {
+		t.Fatalf("3826 calls=%d, want 16", got)
+	}
+	if got := priorityCallCount(3827); got != 17 {
+		t.Fatalf("3827 calls=%d, want 17", got)
+	}
+	if got := priorityCallCount(4096); got != PriorityDefaultMaxCalls {
+		t.Fatalf("4096 calls=%d, want default %d", got, PriorityDefaultMaxCalls)
+	}
+}
+
+// TestPriorityDueOldestSkipsComparisons proves FA09: a starving oldest
+// item resolves with zero comparative calls and zero reservation —
+// not even a configured chooser is consulted — while fresh items
+// still run the full tournament.
+func TestPriorityDueOldestSkipsComparisons(t *testing.T) {
+	now := time.Now()
+	old := priorityCandidates(3, now.Add(-25*time.Hour))
+	f := &priorityFixture{choose: priorityLast}
+	selected, err := selectPriority(context.Background(), &PriorityJudgments{Journal: f, Chooser: f}, old, now)
+	if err != nil || selected != "0" || f.reserved != 0 || len(f.calls) != 0 {
+		t.Fatalf("selection=%s error=%v calls=%d reservation=%d", selected, err, len(f.calls), f.reserved)
+	}
+	if len(f.receipts) != 1 || f.receipts[0].Outcome != "fairness" || f.receipts[0].Selected != "0" || len(f.receipts[0].Calls) != 0 {
+		t.Fatalf("fairness receipt: %+v", f.receipts)
+	}
+	chooseless := &priorityFixture{}
+	selected, err = selectPriority(context.Background(), &PriorityJudgments{Journal: chooseless}, old, now)
+	if err != nil || selected != "0" {
+		t.Fatalf("chooseless fairness selection=%s error=%v", selected, err)
+	}
+	fresh := &priorityFixture{choose: priorityLast}
+	if _, err := selectPriority(context.Background(), &PriorityJudgments{Journal: fresh, Chooser: fresh}, priorityCandidates(256, now), now); err != nil || len(fresh.calls) != 2 {
+		t.Fatalf("fresh tournament error=%v calls=%d", err, len(fresh.calls))
+	}
+}
+
+// TestPriorityFullInventoryTournament proves the default budget funds
+// one tournament over the complete supported inventory, while an
+// explicit 16-call bound still refuses it instead of truncating.
+func TestPriorityFullInventoryTournament(t *testing.T) {
+	now := time.Now()
+	f := &priorityFixture{choose: priorityLast}
+	selected, err := selectPriority(context.Background(), &PriorityJudgments{Journal: f, Chooser: f}, priorityCandidates(4096, now), now)
+	if err != nil || selected != "4095" || f.reserved != PriorityDefaultMaxCalls || len(f.calls) != PriorityDefaultMaxCalls {
+		t.Fatalf("selection=%s error=%v calls=%d reservation=%d", selected, err, len(f.calls), f.reserved)
+	}
+	capped := &priorityFixture{choose: priorityLast}
+	if _, err := selectPriority(context.Background(), &PriorityJudgments{Journal: capped, Chooser: capped, MaxCalls: 16}, priorityCandidates(4096, now), now); err != ErrPriorityUnavailable {
+		t.Fatalf("explicit 16-call bound did not refuse the full inventory: %v", err)
 	}
 }

@@ -346,6 +346,14 @@ func settleReviewFinish(assigned factory.Assignment, submission factory.MCPSubmi
 		}
 		return finishMCPBlocked(assigned, submission, now, "worker reports incomplete review"), "incomplete review settled", true, nil
 	}
+	// Non-code subjects assess deliverables, never code cycles: a
+	// deliverable binding replaces the tuple (and the clear coverage
+	// digest). Research assesses its report, collections their content
+	// and decisions; anything else fences. Code subjects keep the
+	// tuple path below.
+	if assigned.Subject.Kind == factory.SubjectResearch || assigned.Subject.Kind == factory.SubjectCollection {
+		return settleNonCodeAssessment(assigned, submission, fields, now, conclusion)
+	}
 	// Carrier completeness parks before phase fencing: a verdict
 	// without its tuple (and, for clear, its coverage digest) proves
 	// nothing typed on any assignment.
@@ -406,6 +414,67 @@ func settleReviewVerdict(assigned factory.Assignment, submission factory.MCPSubm
 	parsed := phaseResultFor(submission, project.ExecutionReview, "worker reports review findings",
 		&factory.PhaseOutput{Review: &report})
 	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "review findings settled", true, nil
+}
+
+// settleNonCodeAssessment settles one Inspector finish over a non-code
+// subject. The deliverable binds the verdict to its exact bytes — a
+// recorded report submission or a library item revision — and the
+// verdict carries either blocking findings with evidence or the
+// explicit clear. No tuple, coverage digest, candidate, Git commit or
+// app verification crosses this path; a code-shaped carrier on a
+// non-code assignment fences.
+func settleNonCodeAssessment(assigned factory.Assignment, submission factory.MCPSubmission, fields map[string]json.RawMessage, now time.Time, conclusion string) (factory.Assignment, string, bool, error) {
+	if assigned.Phase != project.ExecutionReview {
+		return fenceFW40(assigned, submission, now, "assessment finish does not match its assignment phase")
+	}
+	raw, ok := rawField(fields, "deliverable")
+	if !isObjectRaw(raw, ok) {
+		return parkFW40()
+	}
+	var deliverable factory.NonCodeDeliverable
+	if err := strictDecodeField(raw, &deliverable); err != nil {
+		return fenceFW40(assigned, submission, now, "assessment deliverable refused: "+err.Error())
+	}
+	if err := factory.ValidateNonCodeSubject(deliverable, assigned.Subject.Kind); err != nil {
+		return fenceFW40(assigned, submission, now, "assessment deliverable refused: "+err.Error())
+	}
+	if _, present := rawField(fields, "tuple"); present {
+		return fenceFW40(assigned, submission, now, "assessment carries no code cycle")
+	}
+	if conclusion == "clear" {
+		if _, present := rawField(fields, "findings"); present {
+			return fenceFW40(assigned, submission, now, "assessment clear carries findings")
+		}
+		if _, present := rawField(fields, "carried_assessments"); present {
+			return fenceFW40(assigned, submission, now, "assessment clear carries assessments")
+		}
+		assessment := &factory.NonCodeAssessment{Deliverable: deliverable, Clear: true}
+		parsed := phaseResultFor(submission, project.ExecutionReview, "worker reports non-code assessment clear",
+			&factory.PhaseOutput{Assessment: assessment})
+		return finishFromMCPPhaseResult(assigned, submission, parsed, now), "non-code assessment clear settled", true, nil
+	}
+	findingsRaw, findingsOK := rawField(fields, "findings")
+	_, assessmentsPresent := rawField(fields, "carried_assessments")
+	if !isObjectArrayRaw(findingsRaw, findingsOK) && !assessmentsPresent {
+		return parkFW40()
+	}
+	var findings []factory.Finding
+	if findingsOK {
+		if err := strictDecodeField(findingsRaw, &findings); err != nil {
+			return fenceFW40(assigned, submission, now, "assessment findings refused: "+err.Error())
+		}
+	}
+	var assessments []factory.FindingAssessment
+	if assessmentsPresent {
+		assessmentsRaw, _ := rawField(fields, "carried_assessments")
+		if err := strictDecodeField(assessmentsRaw, &assessments); err != nil {
+			return fenceFW40(assigned, submission, now, "assessment assessments refused: "+err.Error())
+		}
+	}
+	assessment := &factory.NonCodeAssessment{Deliverable: deliverable, Findings: findings, Assessments: assessments}
+	parsed := phaseResultFor(submission, project.ExecutionReview, "worker reports non-code assessment findings",
+		&factory.PhaseOutput{Assessment: assessment})
+	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "non-code assessment findings settled", true, nil
 }
 
 // settleReassessmentFinish settles one Strategist finish whose report

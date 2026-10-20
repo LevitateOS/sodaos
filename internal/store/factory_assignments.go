@@ -204,7 +204,7 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 		// fails the finish instead of committing without
 		// accounting. Ordinary issue paths keep the historical
 		// absent-row tolerance.
-		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectDelivery && errors.Is(err, sql.ErrNoRows) {
+		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectDelivery && a.Subject.Kind != factory.SubjectResearch && errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -235,6 +235,13 @@ func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 		// shared joint. It never enqueues ordinary issue
 		// readiness: readiness refuses issue zero, and intent
 		// accounting is per-root, never per-latest(repository, 0).
+		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
+	}
+	if a.Subject.Kind == factory.SubjectResearch {
+		// Successful+reported terminal research closes its root
+		// admission here. It never enqueues ordinary issue
+		// readiness: research issues are not dispatched yet (R14.2
+		// routes them); readiness would misroute them as code.
 		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
 	}
 	return enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue)

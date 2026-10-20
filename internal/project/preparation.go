@@ -22,10 +22,15 @@ const (
 	// persistent non-login accounts, not memberships or provider identities.
 	RoleCoder    = "soda-coder"
 	RoleReviewer = "soda-reviewer"
+	// RoleResearcher runs research-phase attempts: declared questions,
+	// source gathering and a typed report, never code or candidates.
+	RoleResearcher = "soda-researcher"
 )
 
 // ValidFactoryRole reports whether role is one of the two fixed factory roles.
-func ValidFactoryRole(role string) bool { return role == RoleCoder || role == RoleReviewer }
+func ValidFactoryRole(role string) bool {
+	return role == RoleCoder || role == RoleReviewer || role == RoleResearcher
+}
 
 const (
 	// FactoryDir is the helper-owned protected state root inside the Project.

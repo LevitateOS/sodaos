@@ -50,7 +50,26 @@ type MCPTerminalSettleStore interface {
 	TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error)
 	TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPReceipt, bool, error)
 	AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionID, expectedState string, receipt factory.MCPReceipt) error
+	ResolveArtifactDigest(ctx context.Context, repository int64, assignment, digest string) (string, error)
 	FinishAssignment(ctx context.Context, a factory.Assignment) error
+}
+
+// checkSettledArtifactRefs resolves every artifact a finished
+// verification report cites against complete artifacts of the
+// finishing assignment. The read spends nothing and publishes
+// nothing; an unknown, foreign or unfinished digest fences the
+// finish for human attention instead of recording a bogus citation.
+func checkSettledArtifactRefs(ctx context.Context, st MCPTerminalSettleStore, finished factory.Assignment) error {
+	if finished.Result == nil || finished.Result.PhaseResult == nil ||
+		finished.Result.PhaseResult.Output == nil || finished.Result.PhaseResult.Output.Verification == nil {
+		return nil
+	}
+	for _, ref := range finished.Result.PhaseResult.Output.Verification.ArtifactRefs {
+		if _, err := st.ResolveArtifactDigest(ctx, finished.Repository, finished.ID, ref); err != nil {
+			return errors.New("verification artifact is not a complete artifact of this assignment")
+		}
+	}
+	return nil
 }
 
 // mcpDriveStore adds the recorded-terminal work list the coordinator
@@ -108,6 +127,13 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if !ok {
 		return false, nil
 	}
+	// Cited artifacts revalidate before persistence: the fence only
+	// shape-checked the refs, so an unknown, foreign or unfinished
+	// digest fences here with the proposal preserved for inspection.
+	if err := checkSettledArtifactRefs(ctx, st, finished); err != nil {
+		finished = fenceMCPTerminal(assigned, submission, now, err.Error())
+		note = "unresolvable verification artifact fenced for human attention"
+	}
 	// The delivery-repair chain binds before persistence, exactly as
 	// on the run-output path: a proven miss fences the repair, a load
 	// failure retries on a later pass with the receipt untouched.
@@ -162,6 +188,11 @@ func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSub
 	switch submission.Tool {
 	case factory.MCPToolFinishLibraryMaintenance:
 		built, note, ok, err = settleLibraryMaintenance(assigned, submission, now)
+		if err != nil || !ok {
+			return factory.Assignment{}, "", ok, err
+		}
+	case factory.MCPToolFinishResearch:
+		built, note, ok, err = settleResearch(assigned, submission, now)
 		if err != nil || !ok {
 			return factory.Assignment{}, "", ok, err
 		}

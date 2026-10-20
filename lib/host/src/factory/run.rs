@@ -51,6 +51,10 @@ pub const EXECUTION_REPAIR: &str = "repair";
 /// publication or children, no candidate).
 pub const EXECUTION_VERIFY: &str = "verify";
 pub const EXECUTION_MAINTAIN_LIBRARY: &str = "maintain_library";
+/// R10.2 research: declared questions answered with evidence and a
+/// conclusion (researcher, read-only, no publication, children or
+/// candidate, no manifest).
+pub const EXECUTION_RESEARCH: &str = "research";
 
 /// `ValidExecutionPhase`: admitted execution phases. Admission always
 /// records an explicit phase; the empty phase is invalid. Phase is never
@@ -67,6 +71,7 @@ pub fn valid_execution_phase(phase: &str) -> bool {
             | "repair"
             | "verify"
             | "maintain_library"
+            | EXECUTION_RESEARCH
     )
 }
 
@@ -327,6 +332,9 @@ impl FactoryRun {
             && self.role != preparation::ROLE_REVIEWER
         {
             return Err("library maintenance run requires the reviewer role".to_string());
+        }
+        if self.execution_phase == EXECUTION_RESEARCH && self.role != preparation::ROLE_RESEARCHER {
+            return Err("research run requires the researcher role".to_string());
         }
         Ok(())
     }

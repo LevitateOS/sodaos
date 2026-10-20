@@ -28,32 +28,38 @@ func MCPIsCommunication(tool MCPTool) bool {
 // FeedCommunication carries content only. Attribution, repository, issue, run,
 // assignment and time come from the authenticated capability and stored work.
 type FeedCommunication struct {
-	Commits         []FeedCommit            `json:"commits,omitempty"`
-	Source          *FeedSourceExcerpt      `json:"source,omitempty"`
-	LibraryItemID   string                  `json:"library_item_id,omitempty"`
-	LibraryRevision int64                   `json:"library_revision,omitempty"`
-	Artifacts       []FeedArtifact          `json:"artifacts,omitempty"`
-	QuestionState   string                  `json:"question_state,omitempty"`
-	Kind            string                  `json:"kind"`
-	ComponentID     string                  `json:"component_id,omitempty"`
-	Title           string                  `json:"title"`
-	Summary         string                  `json:"summary"`
-	Question        string                  `json:"question,omitempty"`
-	Resolution      string                  `json:"resolution,omitempty"`
-	Scope           string                  `json:"scope,omitempty"`
-	Severity        string                  `json:"severity,omitempty"`
-	EvidenceRefs    []string                `json:"evidence_refs,omitempty"`
-	Options         []string                `json:"options,omitempty"`
-	Completed       []string                `json:"completed,omitempty"`
-	Remaining       []string                `json:"remaining,omitempty"`
-	Attempts        []string                `json:"attempts,omitempty"`
-	Decision        string                  `json:"decision,omitempty"`
-	Rationale       string                  `json:"rationale,omitempty"`
-	Alternatives    []string                `json:"alternatives,omitempty"`
-	ReplyTo         string                  `json:"reply_to,omitempty"`
-	Items           []FeedCommunicationItem `json:"items,omitempty"`
-	Before          string                  `json:"before,omitempty"`
-	After           string                  `json:"after,omitempty"`
+	Commits          []FeedCommit            `json:"commits,omitempty"`
+	Source           *FeedSourceExcerpt      `json:"source,omitempty"`
+	LibraryItemID    string                  `json:"library_item_id,omitempty"`
+	LibraryRevision  int64                   `json:"library_revision,omitempty"`
+	LibraryItems     []LibraryRef            `json:"library_items,omitempty"`
+	AffectedRefs     []LibraryAffectedRef    `json:"affected_refs,omitempty"`
+	Artifacts        []FeedArtifact          `json:"artifacts,omitempty"`
+	QuestionState    string                  `json:"question_state,omitempty"`
+	Kind             string                  `json:"kind"`
+	ComponentID      string                  `json:"component_id,omitempty"`
+	Title            string                  `json:"title"`
+	Summary          string                  `json:"summary"`
+	Question         string                  `json:"question,omitempty"`
+	Resolution       string                  `json:"resolution,omitempty"`
+	Scope            string                  `json:"scope,omitempty"`
+	Severity         string                  `json:"severity,omitempty"`
+	EvidenceRefs     []string                `json:"evidence_refs,omitempty"`
+	Options          []string                `json:"options,omitempty"`
+	Completed        []string                `json:"completed,omitempty"`
+	Remaining        []string                `json:"remaining,omitempty"`
+	Attempts         []string                `json:"attempts,omitempty"`
+	Decision         string                  `json:"decision,omitempty"`
+	DecisionOwner    string                  `json:"decision_owner,omitempty"`
+	Rationale        string                  `json:"rationale,omitempty"`
+	Alternatives     []string                `json:"alternatives,omitempty"`
+	ReplyTo          string                  `json:"reply_to,omitempty"`
+	RevisesItem      string                  `json:"revises_item,omitempty"`
+	ExpectedRevision int64                   `json:"expected_revision,omitempty"`
+	Challenge        bool                    `json:"challenge,omitempty"`
+	Items            []FeedCommunicationItem `json:"items,omitempty"`
+	Before           string                  `json:"before,omitempty"`
+	After            string                  `json:"after,omitempty"`
 }
 
 type FeedCommit struct {
@@ -194,6 +200,33 @@ func (c FeedCommunication) Validate() error {
 	if c.ReplyTo != "" && !ValidID(c.ReplyTo) {
 		return errors.New("reply_to must name a feed post")
 	}
+	// Revisions and challenges ride the learned outlet: the server
+	// assigns library_item_id/library_revision, so a worker names its
+	// target explicitly and the insert transaction checks the expected
+	// revision. Decisions amend through their own owner (R32.5).
+	if c.RevisesItem != "" && !ValidID(c.RevisesItem) {
+		return errors.New("revises_item must name a library item")
+	}
+	if c.Challenge && c.RevisesItem == "" {
+		return errors.New("challenge needs revises_item")
+	}
+	if c.Kind != "learned" && (c.RevisesItem != "" || c.Challenge) {
+		return errors.New("only learned amends knowledge entries")
+	}
+	// The decision owner is the person/role/system that made the
+	// choice, distinct from the worker logging it: a worker records
+	// its own technical choice by leaving the owner blank, or names
+	// the authorized owner it references. The revision actor always
+	// stays the logging worker.
+	if c.DecisionOwner != "" {
+		if c.Kind != "record_decision" {
+			return errors.New("only record_decision names a decision owner")
+		}
+		owner := strings.TrimSpace(c.DecisionOwner)
+		if owner == "" || utf8.RuneCountInString(owner) > 160 || strings.ContainsAny(owner, "\r\n\x00") {
+			return errors.New("decision owner must be 1–160 characters without line breaks")
+		}
+	}
 	switch c.Severity {
 	case "", "info", "warning", "critical":
 	default:
@@ -215,6 +248,9 @@ func (c FeedCommunication) Validate() error {
 	case "learned":
 		if len(c.EvidenceRefs) == 0 {
 			return errors.New("learned needs evidence_refs")
+		}
+		if c.RevisesItem != "" && c.ExpectedRevision < 1 {
+			return errors.New("amendment needs the current revision")
 		}
 		return required(c.Scope, "scope")
 	case "suggest":

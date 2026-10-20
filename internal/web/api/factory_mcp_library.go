@@ -18,6 +18,7 @@ type factoryMCPLibrarySource interface {
 	LibrarySearch(context.Context, int64, string, string, string, bool) (factory.LibraryPage, error)
 	LibraryRead(context.Context, int64, string, bool) (factory.LibraryRead, error)
 	LibraryPreview(context.Context, factory.MCPCapability, factory.MCPTool, factory.LibraryChange) (map[string]any, error)
+	LibraryInventory(context.Context, int64, string, string, bool) (factory.LibraryInventory, error)
 }
 
 func libraryToolDescription(tool factory.MCPTool) string {
@@ -185,6 +186,13 @@ func (s *factoryCatalogServer) serveLibraryRead(ctx context.Context, tool factor
 			return nil, nil, err
 		}
 		return mcpJSONResult(preview)
+	}
+	if string(tool) == "factory.library_inventory" {
+		inventory, err := source.LibraryInventory(ctx, cap.Repository, in.Kind, in.Cursor, in.IncludeRemoved)
+		if err != nil {
+			return nil, nil, err
+		}
+		return mcpJSONResult(inventory)
 	}
 	if string(tool) == "factory.read_library_item" {
 		if !factory.ValidID(in.ID) {

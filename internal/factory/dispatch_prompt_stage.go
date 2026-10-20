@@ -12,6 +12,9 @@ func promptStage(in PromptInputs) string {
 	if in.Phase == project.ExecutionMaintainLibrary {
 		return "library maintenance"
 	}
+	if in.Phase == project.ExecutionResearch {
+		return "research"
+	}
 	if in.Role == project.RoleReviewer {
 		return "review"
 	}

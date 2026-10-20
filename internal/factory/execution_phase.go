@@ -26,6 +26,8 @@ func PhaseRole(phase string) (string, error) {
 		return project.RoleCoder, nil
 	case project.ExecutionReview, project.ExecutionVerify, project.ExecutionMaintainLibrary:
 		return project.RoleReviewer, nil
+	case project.ExecutionResearch:
+		return project.RoleResearcher, nil
 	default:
 		return "", errors.New("unknown execution phase")
 	}
@@ -56,6 +58,16 @@ func SubjectKindAllowed(kind, phase string) bool {
 		default:
 			return false
 		}
+	case SubjectResearch:
+		// Research assesses on its own subject (R32.13 records) and
+		// admits independent Inspector review of its report (R34.3):
+		// no candidate, tuple or code carrier crosses either path.
+		return phase == project.ExecutionResearch || phase == project.ExecutionReview
+	case SubjectCollection:
+		// Collection maintenance admits Library Admin work and
+		// independent Inspector review of its content and decisions
+		// (R34.3): no candidate, tuple or code carrier crosses over.
+		return phase == project.ExecutionMaintainLibrary || phase == project.ExecutionReview
 	case SubjectCompletion:
 		return phase == project.ExecutionReassess
 	case SubjectStall, SubjectDeliveryRepair:

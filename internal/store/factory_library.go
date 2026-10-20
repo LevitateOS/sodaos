@@ -74,6 +74,180 @@ func (s *Store) LibrarySearch(ctx context.Context, repository int64, query, kind
 	return page, rows.Err()
 }
 
+// LibraryInventory reads one bounded collection-scoped inventory page
+// with reference analysis over exactly the inventoried items. Total
+// always names the scope size and Complete is false whenever items
+// remain past NextCursor, so a partial page is never mistaken for a
+// complete inventory. Stale inputs refuse: an invalid cursor, kind or
+// repository errors instead of returning a silently partial page.
+func (s *Store) LibraryInventory(ctx context.Context, repository int64, kind, cursor string, includeRemoved bool) (factory.LibraryInventory, error) {
+	out := factory.LibraryInventory{Items: []factory.LibraryItem{}, Complete: true}
+	if repository < 1 || (cursor != "" && !factory.ValidID(cursor)) || (kind != "" && kind != "knowledge" && kind != "decision") {
+		return out, errors.New("invalid library inventory")
+	}
+	var total int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3)`, repository, includeRemoved, kind).Scan(&total); err != nil {
+		return out, err
+	}
+	out.Total = total
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3) AND id>$4 ORDER BY id LIMIT 51`, repository, includeRemoved, kind, cursor)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	bytes := 0
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
+			return out, err
+		}
+		if len(out.Items) == 50 || (bytes+len(raw) > factory.MCPMaxPageBytes && len(out.Items) > 0) {
+			out.Complete = false
+			out.NextCursor = out.Items[len(out.Items)-1].ID
+			break
+		}
+		var item factory.LibraryItem
+		if err = json.Unmarshal(raw, &item); err != nil {
+			return out, err
+		}
+		out.Items = append(out.Items, item)
+		bytes += len(raw)
+	}
+	if err = rows.Err(); err != nil {
+		return out, err
+	}
+	if len(out.Items) == 0 {
+		return out, nil
+	}
+	revRows, err := s.db.QueryContext(ctx, `SELECT item,COUNT(*) FROM factory_library_revisions WHERE repository=$1 GROUP BY item`, repository)
+	if err != nil {
+		return out, err
+	}
+	defer revRows.Close()
+	counts := map[string]int64{}
+	for revRows.Next() {
+		var item string
+		var count int64
+		if err = revRows.Scan(&item, &count); err != nil {
+			return out, err
+		}
+		counts[item] = count
+	}
+	if err = revRows.Err(); err != nil {
+		return out, err
+	}
+	idRows, err := s.db.QueryContext(ctx, `SELECT id,removed FROM factory_library_items WHERE repository=$1`, repository)
+	if err != nil {
+		return out, err
+	}
+	defer idRows.Close()
+	removedByID := map[string]bool{}
+	for idRows.Next() {
+		var id string
+		var removed bool
+		if err = idRows.Scan(&id, &removed); err != nil {
+			return out, err
+		}
+		removedByID[id] = removed
+	}
+	if err = idRows.Err(); err != nil {
+		return out, err
+	}
+	inPage := map[string]factory.LibraryItem{}
+	for _, item := range out.Items {
+		inPage[item.ID] = item
+		if n, ok := counts[item.ID]; ok {
+			if out.Revisions == nil {
+				out.Revisions = map[string]int64{}
+			}
+			out.Revisions[item.ID] = n
+		}
+	}
+	addPair := func(seen map[string]bool, dst *[][]string, a, b string) {
+		if a == b {
+			return
+		}
+		x, y := a, b
+		if x > y {
+			x, y = y, x
+		}
+		key := x + "\x00" + y
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		*dst = append(*dst, []string{x, y})
+	}
+	seenDuplicates := map[string]bool{}
+	seenContradictions := map[string]bool{}
+	byTitle := map[string]string{}
+	for _, item := range out.Items {
+		for _, rel := range item.Relations {
+			// A target that is gone — or removed from ordinary
+			// retrieval — dangles for maintenance purposes even
+			// though its row survives for history. A removed
+			// target still present in the page keeps its
+			// reference analysis; a missing one has none.
+			if removed, ok := removedByID[rel.Target]; !ok || removed {
+				out.Orphans = append(out.Orphans, factory.LibraryOrphanRef{FromID: item.ID, Relation: rel.Kind, TargetID: rel.Target})
+				if !ok {
+					continue
+				}
+			}
+			if rel.Kind == "contradicts" {
+				addPair(seenContradictions, &out.Contradictions, item.ID, rel.Target)
+			}
+			if rel.Kind == "duplicate_of" {
+				addPair(seenDuplicates, &out.Duplicates, item.ID, rel.Target)
+			}
+			if _, ok := inPage[rel.Target]; ok {
+				if out.Incoming == nil {
+					out.Incoming = map[string][]factory.LibraryIncomingRef{}
+				}
+				out.Incoming[rel.Target] = append(out.Incoming[rel.Target], factory.LibraryIncomingRef{FromID: item.ID, FromRevision: item.Revision, Relation: rel.Kind})
+			}
+		}
+		title := strings.ToLower(strings.TrimSpace(item.Title))
+		if title == "" {
+			continue
+		}
+		key := item.Kind + "\x00" + title
+		if first, ok := byTitle[key]; ok {
+			addPair(seenDuplicates, &out.Duplicates, first, item.ID)
+		} else {
+			byTitle[key] = item.ID
+		}
+	}
+	for _, refs := range out.Incoming {
+		slices.SortFunc(refs, func(a, b factory.LibraryIncomingRef) int {
+			if a.FromID != b.FromID {
+				return strings.Compare(a.FromID, b.FromID)
+			}
+			return strings.Compare(a.Relation, b.Relation)
+		})
+	}
+	sortPairs := func(pairs [][]string) {
+		slices.SortFunc(pairs, func(a, b []string) int {
+			if a[0] != b[0] {
+				return strings.Compare(a[0], b[0])
+			}
+			return strings.Compare(a[1], b[1])
+		})
+	}
+	sortPairs(out.Duplicates)
+	sortPairs(out.Contradictions)
+	slices.SortFunc(out.Orphans, func(a, b factory.LibraryOrphanRef) int {
+		if a.FromID != b.FromID {
+			return strings.Compare(a.FromID, b.FromID)
+		}
+		if a.Relation != b.Relation {
+			return strings.Compare(a.Relation, b.Relation)
+		}
+		return strings.Compare(a.TargetID, b.TargetID)
+	})
+	return out, nil
+}
+
 func (s *Store) LibraryRead(ctx context.Context, repository int64, id string, includeRemoved bool) (factory.LibraryRead, error) {
 	out := factory.LibraryRead{History: []factory.LibraryRevision{}}
 	item, err := readLibraryItem(ctx, s.db, repository, id, false)
@@ -130,11 +304,21 @@ func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.M
 	if submission.Tool != factory.MCPToolLearned && submission.Tool != factory.MCPToolRecordDecision {
 		return nil
 	}
+	if content.RevisesItem != "" {
+		return amendCommunicationLibraryTx(ctx, tx, cap, submission, content, postID, receipt)
+	}
 	item := factory.LibraryItem{ID: factory.MCPInputDigest([]byte("library\n" + postID))[:32], Repository: cap.Repository, Revision: 1, Kind: "knowledge", Title: content.Title, Body: content.Summary, Scope: content.Scope, EvidenceRefs: content.EvidenceRefs, OwnerRole: string(cap.Profile), Assignment: cap.AssignmentID, SourcePost: postID, State: "observed"}
 	if submission.Tool == factory.MCPToolRecordDecision {
 		item.Kind = "decision"
 		item.State = "current"
 		item.Decision = content.Decision
+		// The actual decision owner defaults to the logging worker;
+		// naming another owner references a choice made by an
+		// authorized person/controller. The revision actor below
+		// always stays the logging worker.
+		if owner := strings.TrimSpace(content.DecisionOwner); owner != "" {
+			item.OwnerRole = owner
+		}
 		item.Rationale = content.Rationale
 		item.Alternatives = content.Alternatives
 		if item.Scope == "" {
@@ -146,6 +330,52 @@ func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.M
 	}
 	content.LibraryItemID = item.ID
 	content.LibraryRevision = 1
+	receipt.LibraryItemID = item.ID
+	return nil
+}
+
+// amendCommunicationLibraryTx revises a recorded knowledge entry under
+// compare-and-swap: the expected revision must match the current row,
+// so concurrent amendments serialize instead of silently overwriting.
+// An amendment replaces the entry body and restores the observed
+// state; a challenge keeps the body and marks it contested. Either
+// records a full revision with its actor and submission, preserving
+// one identity across work, feed and retrieval. Removed entries and
+// decisions (R32.5) refuse here.
+func amendCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission, content *factory.FeedCommunication, postID string, receipt *factory.MCPReceipt) error {
+	item, err := readLibraryItem(ctx, tx, cap.Repository, content.RevisesItem, true)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("amended entry is not available in this project")
+		}
+		return err
+	}
+	if item.Removed {
+		return errors.New("removed entry cannot be revised")
+	}
+	if item.Kind != "knowledge" {
+		return errors.New("decisions amend through their own owner")
+	}
+	if item.Revision != content.ExpectedRevision {
+		return errors.New("knowledge revision changed under this amendment")
+	}
+	verb := "Amended"
+	// A challenge keeps the recorded body and only marks it contested;
+	// the counter-statement lives on the feed post and in the revision
+	// reason. An amendment replaces the body and restores observed.
+	if content.Challenge {
+		item.State = "contested"
+		verb = "Challenged"
+	} else {
+		item.Title, item.Body, item.Scope, item.EvidenceRefs = content.Title, content.Summary, content.Scope, content.EvidenceRefs
+		item.State = "observed"
+	}
+	item.Revision++
+	if err := writeLibraryRevision(ctx, tx, item, verb+" by "+string(cap.Profile)+": "+content.Title, "worker:"+cap.AssignmentID, submission.SubmissionID); err != nil {
+		return err
+	}
+	content.LibraryItemID = item.ID
+	content.LibraryRevision = item.Revision
 	receipt.LibraryItemID = item.ID
 	return nil
 }
@@ -166,6 +396,51 @@ func (s *Store) LibraryPreview(ctx context.Context, cap factory.MCPCapability, t
 		return nil, err
 	}
 	return map[string]any{"tool": tool, "component_id": factory.LibraryComponent(tool), "items": items, "applied": false}, nil
+}
+
+// libraryAffectedRefsTx collects every relation another repository
+// item holds toward a changed item: the maintenance blast radius the
+// feed post carries. It reads the just-written rows in the same
+// transaction, so the mapping reflects the applied operation.
+func libraryAffectedRefsTx(ctx context.Context, tx *sql.Tx, repository int64, changed map[string]bool) ([]factory.LibraryAffectedRef, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id,data->'relations' FROM factory_library_items WHERE repository=$1`, repository)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []factory.LibraryAffectedRef
+	for rows.Next() {
+		var id string
+		var raw []byte
+		if err = rows.Scan(&id, &raw); err != nil {
+			return nil, err
+		}
+		if len(raw) == 0 || string(raw) == "null" {
+			continue
+		}
+		var relations []factory.LibraryRelation
+		if err = json.Unmarshal(raw, &relations); err != nil {
+			return nil, err
+		}
+		for _, rel := range relations {
+			if changed[rel.Target] {
+				out = append(out, factory.LibraryAffectedRef{ItemID: rel.Target, FromID: id, Relation: rel.Kind})
+			}
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(out, func(a, b factory.LibraryAffectedRef) int {
+		if a.ItemID != b.ItemID {
+			return strings.Compare(a.ItemID, b.ItemID)
+		}
+		if a.FromID != b.FromID {
+			return strings.Compare(a.FromID, b.FromID)
+		}
+		return strings.Compare(a.Relation, b.Relation)
+	})
+	return out, nil
 }
 
 func recordMCPLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission, receipt *factory.MCPReceipt) error {
@@ -202,6 +477,20 @@ func recordMCPLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabili
 		content.LibraryItemID = items[0].ID
 		content.LibraryRevision = items[0].Revision
 		receipt.LibraryItemID = items[0].ID
+		receipt.LibraryRevision = items[0].Revision
+		refs := make([]factory.LibraryRef, 0, len(items))
+		changed := make(map[string]bool, len(items))
+		for _, item := range items {
+			refs = append(refs, factory.LibraryRef{ID: item.ID, Revision: item.Revision})
+			changed[item.ID] = true
+		}
+		slices.SortFunc(refs, func(a, b factory.LibraryRef) int { return strings.Compare(a.ID, b.ID) })
+		content.LibraryItems = refs
+		affected, err := libraryAffectedRefsTx(ctx, tx, cap.Repository, changed)
+		if err != nil {
+			return err
+		}
+		content.AffectedRefs = affected
 	}
 	if change.Content != nil {
 		content.After = change.Content.Body

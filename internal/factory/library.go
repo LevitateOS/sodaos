@@ -47,6 +47,15 @@ type LibraryRef struct {
 	ID       string `json:"id"`
 	Revision int64  `json:"revision"`
 }
+
+// LibraryAffectedRef names one relation another item holds toward a
+// changed item: the maintenance operation's blast radius. FromID may
+// itself be a changed item when an operation links its own results.
+type LibraryAffectedRef struct {
+	ItemID   string `json:"item_id"`
+	FromID   string `json:"from_id"`
+	Relation string `json:"relation"`
+}
 type LibraryContent struct {
 	Title        string   `json:"title"`
 	Body         string   `json:"body"`
@@ -61,6 +70,40 @@ type LibraryPage struct {
 type LibraryRead struct {
 	Item    LibraryItem       `json:"item"`
 	History []LibraryRevision `json:"history"`
+}
+
+// LibraryIncomingRef names one relation another inventoried item holds
+// toward the keyed item.
+type LibraryIncomingRef struct {
+	FromID       string `json:"from_id"`
+	FromRevision int64  `json:"from_revision"`
+	Relation     string `json:"relation"`
+}
+
+// LibraryOrphanRef names a relation whose target is missing or removed
+// from ordinary retrieval in this repository.
+type LibraryOrphanRef struct {
+	FromID   string `json:"from_id"`
+	Relation string `json:"relation"`
+	TargetID string `json:"target_id"`
+}
+
+// LibraryInventory is one bounded collection-scoped inventory page. Items
+// carries the current entries in ID order; Revisions counts recorded
+// history entries per returned item. Incoming, Duplicates, Contradictions
+// and Orphans analyze exactly the inventoried items: page through while
+// Complete is false for repository-wide coverage. Total names the scope
+// size so a partial page is never mistaken for a complete inventory.
+type LibraryInventory struct {
+	Items          []LibraryItem                   `json:"items"`
+	Revisions      map[string]int64                `json:"revisions,omitempty"`
+	Incoming       map[string][]LibraryIncomingRef `json:"incoming,omitempty"`
+	Duplicates     [][]string                      `json:"duplicates,omitempty"`
+	Contradictions [][]string                      `json:"contradictions,omitempty"`
+	Orphans        []LibraryOrphanRef              `json:"orphans,omitempty"`
+	Total          int64                           `json:"total"`
+	NextCursor     string                          `json:"next_cursor,omitempty"`
+	Complete       bool                            `json:"complete"`
 }
 
 type LibraryChange struct {

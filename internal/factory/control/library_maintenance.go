@@ -2,46 +2,21 @@ package control
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// issueLibraryMaintenance reads explicit accepted issue metadata. Ordinary
-// prose never changes the assignment role, and multiple Soda blocks refuse.
+// issueLibraryMaintenance reads explicit accepted issue metadata through
+// the canonical Soda block parser. Ordinary prose never changes the
+// assignment role, and ambiguous metadata refuses.
 func issueLibraryMaintenance(body string) (bool, error) {
-	lines := strings.Split(body, "\n")
-	found := false
-	maintenance := false
-	for i := 0; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) != "```soda" {
-			continue
-		}
-		if found {
-			return false, errors.New("multiple soda metadata blocks")
-		}
-		found = true
-		var block []string
-		i++
-		for ; i < len(lines) && strings.TrimSpace(lines[i]) != "```"; i++ {
-			block = append(block, lines[i])
-		}
-		if i == len(lines) {
-			return false, errors.New("unclosed soda metadata block")
-		}
-		var data struct {
-			Role string `json:"role"`
-		}
-		if err := json.Unmarshal([]byte(strings.Join(block, "\n")), &data); err != nil {
-			return false, errors.New("invalid soda issue metadata")
-		}
-		maintenance = data.Role == "library_admin"
+	block, err := factory.ParseSodaIssueBlock(body)
+	if err != nil {
+		return false, err
 	}
-	return maintenance, nil
+	return block.Role == factory.SodaRoleLibraryAdmin, nil
 }
 
 // Initial work selects maintenance only from the current, accepted native body.
@@ -60,14 +35,28 @@ func selectInitialIssuePhase(ctx context.Context, deps DispatchDeps, repository,
 	if wait, failed := readAttemptInputs(ctx, deps, plan, repository, issue); wait != nil || failed != nil {
 		return "", "", wait, failed
 	}
-	maintenance, err := issueLibraryMaintenance(plan.inputs.Issue.Body)
+	block, err := factory.ParseSodaIssueBlock(plan.inputs.Issue.Body)
 	if err != nil {
 		return "", "", waitFor(WaitInputsChanged, err.Error()), nil
 	}
-	if maintenance {
+	switch block.Role {
+	case factory.SodaRoleLibraryAdmin:
 		return project.ExecutionMaintainLibrary, project.RoleReviewer, nil, nil
+	case factory.SodaRoleResearch:
+		return project.ExecutionResearch, project.RoleResearcher, nil, nil
 	}
 	return project.ExecutionInvestigate, project.RoleCoder, nil, nil
+}
+
+// issueResearchRequest reads an explicit research inquiry from accepted
+// issue metadata through the canonical Soda block parser. Ordinary prose
+// never opens a research root: the soda block must name the research role.
+func issueResearchRequest(body string) (bool, error) {
+	block, err := factory.ParseSodaIssueBlock(body)
+	if err != nil {
+		return false, err
+	}
+	return block.Role == factory.SodaRoleResearch, nil
 }
 
 func settleLibraryMaintenance(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) (factory.Assignment, string, bool, error) {

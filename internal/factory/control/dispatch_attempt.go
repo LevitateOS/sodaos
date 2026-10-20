@@ -269,7 +269,8 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // boundaries.
 func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string, recordedPrompt bool, issue int64, head string) (*planWait, *planWait) {
 	if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
-		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect && lineage.phase != project.ExecutionMaintainLibrary {
+		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect &&
+		lineage.phase != project.ExecutionMaintainLibrary && lineage.phase != project.ExecutionResearch {
 		return nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
 	}
 	if !factory.ValidPhaseRole(lineage.phase, role) {
@@ -279,6 +280,9 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 		return nil, failed
 	}
 	plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
+	if lineage.phase == project.ExecutionResearch {
+		plan.subject = factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: issue, Acceptance: head}}
+	}
 	if !factory.SubjectKindAllowed(plan.subject.Kind, lineage.phase) {
 		return nil, waitFor("phase_not_admitted", "execution subject cannot enter its phase")
 	}
@@ -287,7 +291,7 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 
 func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
 	if lineage.parent == "" {
-		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionMaintainLibrary {
+		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionMaintainLibrary && lineage.phase != project.ExecutionResearch {
 			return waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
 		}
 		return nil
@@ -296,6 +300,13 @@ func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
 	case project.ExecutionImplement:
 		if !recordedPrompt && lineage.advancePlan == nil {
 			return waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+		}
+	case project.ExecutionResearch:
+		// Research never advances under a code parent: the only
+		// non-root research restage is a recorded retry replaying
+		// its exact assignment.
+		if !recordedPrompt {
+			return waitFor("phase_not_admitted", "research advances only as a recorded restage")
 		}
 	case project.ExecutionReview, project.ExecutionCorrect:
 		// Publication children never rebuild prompts: the caller
@@ -643,7 +654,7 @@ var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+fac
 // stay within the admitted phase bound; anything larger waits instead of
 // truncating requirements.
 func renderPhasedDispatchPrompt(prompt []byte, phase string, plan *factory.InvestigationPlan) ([]byte, error) {
-	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement && phase != project.ExecutionMaintainLibrary {
+	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement && phase != project.ExecutionMaintainLibrary && phase != project.ExecutionResearch {
 		return nil, errors.New("phased prompt needs an admitted dispatcher phase")
 	}
 	if plan != nil && phase != project.ExecutionImplement {
@@ -713,6 +724,17 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 func phasedReportContract(phase string) string {
 	if phase == project.ExecutionMaintainLibrary {
 		return phasedReportMarker + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
+	}
+	if phase == project.ExecutionResearch {
+		var b strings.Builder
+		b.WriteString(phasedReportMarker)
+		b.WriteString("Close your work with exactly one fenced block:\n\n")
+		b.WriteString("```" + factory.ResultFence + "\n")
+		b.WriteString(`{"version":2,"phase":"research","status":"completed|blocked|failed|cancelled","summary":"...","output":{"research":{"questions":["..."],"findings":["..."],"evidence":["..."],"conclusion":"...","uncertainty":"..."}}}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("Report \"completed\" only with the answered research report in \"output.research\": the declared questions, findings with evidence refs, and a conclusion naming the useful outcome plus open uncertainty. Research names no candidate, publishes nothing and changes no code, issue or product policy. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
+		b.WriteString("Any other shape, unknown field or trailing JSON is refused. Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
+		return b.String()
 	}
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)

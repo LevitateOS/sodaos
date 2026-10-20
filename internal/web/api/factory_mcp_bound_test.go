@@ -77,6 +77,56 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	}
 }
 
+// TestFactoryBoundMCPResearcherDiscoveryAndRefusal proves the R30.1
+// role interface for the researcher: discovery advertises the shared
+// reads plus finish_research, hides builder-only finishes, and a direct
+// call to a foreign finish refuses instead of executing.
+func TestFactoryBoundMCPResearcherDiscoveryAndRefusal(t *testing.T) {
+	ctx := context.Background()
+	sink := newFakeCatalogSink()
+	sink.capability.Profile = factory.MCPProfileResearcher
+	sink.capability.Subject = "research:7:7"
+	assignment := sink.assignments[sink.capability.AssignmentID]
+	assignment.Phase = string(factory.MCPPhaseOf(factory.MCPProfileResearcher))
+	sink.assignments[assignment.ID] = assignment
+	key := []byte(strings.Repeat("k", 32))
+	secret, err := factory.DeriveMCPCapabilitySecret(key, sink.capability)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink}, key))
+	defer srv.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "bound-researcher-test"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	list, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, tool := range list.Tools {
+		seen[tool.Name] = true
+		if !factory.MCPToolAdmitted(sink.capability.Profile, factory.MCPTool(tool.Name)) {
+			t.Fatalf("foreign tool advertised: %s", tool.Name)
+		}
+	}
+	for _, want := range []string{"factory.context", "factory.search_library", "factory.finish_incomplete", string(factory.MCPToolFinishResearch), string(factory.MCPToolResearchScope), string(factory.MCPToolRecordResearch)} {
+		if !seen[want] {
+			t.Fatalf("researcher catalog missing %s: %v", want, seen)
+		}
+	}
+	if seen[string(factory.MCPToolFinishImplement)] {
+		t.Fatalf("builder finish advertised to researcher: %v", seen)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishImplement), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"source_commit": strings.Repeat("c", 40)}}})
+	if !catalogRefused(result, err) {
+		t.Fatal("researcher reached a foreign finish")
+	}
+}
+
 func TestFactoryBoundMCPRejectsForeignSecret(t *testing.T) {
 	sink := newFakeCatalogSink()
 	handler := factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink}, []byte(strings.Repeat("k", 32)))

@@ -128,9 +128,10 @@ fn observe(
         .manifests
         .iter()
         .find(|entry| {
-            entry.platform.as_ref().is_some_and(|platform| {
-                platform.architecture == "amd64" && platform.os == "linux"
-            })
+            entry
+                .platform
+                .as_ref()
+                .is_some_and(|platform| platform.architecture == "amd64" && platform.os == "linux")
         })
         .ok_or_else(|| Error::msg("public component manifest refused"))?;
     let (repository, _) = reference.rsplit_once('@').ok_or_else(Error::refused)?;

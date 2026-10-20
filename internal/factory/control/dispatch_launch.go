@@ -38,6 +38,10 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		role = project.RoleReviewer
 		publication = ""
 	}
+	if plan.phase == project.ExecutionResearch {
+		role = project.RoleResearcher
+		publication = ""
+	}
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
 		Authority: authority,

@@ -29,6 +29,9 @@ func TestFactoryMCPSchemaContract(t *testing.T) {
 	if !strings.Contains(FactoryMCPSubmissionsDDL, "PRIMARY KEY(assignment,submission)") {
 		t.Fatal("submission idempotency key missing")
 	}
+	if !strings.Contains(FactoryMCPSubmissionsDDL, "capability TEXT NOT NULL") {
+		t.Fatal("submission author binding missing")
+	}
 	if !strings.Contains(FactoryMCPAssignmentGuardDDL, "factory_mcp_submission_guards") ||
 		!strings.Contains(FactoryMCPAssignmentGuardDDL, "PRIMARY KEY(assignment)") {
 		t.Fatal("per-assignment serialization guard missing")
@@ -94,11 +97,82 @@ func testMCPRecordedReceipt(submission factory.MCPSubmission) factory.MCPReceipt
 	}
 }
 
+// TestFactoryMCPSubmissionRecordsAuthorizingCapability proves the
+// R32.1 author binding against real PostgreSQL: the recorded row
+// durably names the authorizing capability, and the terminal readback
+// returns it, so author/role/subject attribution never assumes one
+// capability per assignment.
+func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
+	db, _ := postgresFixture(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+	terminal := testMCPSubmissionRow(capability, factory.MCPToolFinishResearch, []byte(`{"phase":"research","status":"complete","summary":"Bound author."}`))
+	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
+		t.Fatalf("record terminal: %v", err)
+	}
+	readback, found, err := db.TerminalMCPSubmission(ctx, capability.AssignmentID)
+	if err != nil || !found {
+		t.Fatalf("terminal readback: %v %v", found, err)
+	}
+	if readback.CapabilityID != capability.ID {
+		t.Fatalf("terminal author=%q, want %q", readback.CapabilityID, capability.ID)
+	}
+	var stored string
+	if err := db.db.QueryRowContext(ctx, `SELECT capability FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2`, terminal.AssignmentID, terminal.SubmissionID).Scan(&stored); err != nil {
+		t.Fatalf("author column: %v", err)
+	}
+	if stored != capability.ID {
+		t.Fatalf("stored author=%q, want %q", stored, capability.ID)
+	}
+}
+
 // TestFactoryMCPTransactions proves the T48/T51 store joints against
 // real PostgreSQL (SODA_PG_*; skips without it): staged replay
 // identity, scope-conflict refusal, CAS activation binding, revoke
 // and retire transitions, exact-replay receipts, changed-bytes
 // conflicts, terminal freezing and handoff counting.
+// TestFactoryMCPSubmissionRefusesFinishedAssignment proves the R35
+// late-answer rule against real PostgreSQL: new submission identities
+// against a finished assignment refuse, while exact replay of a
+// submission recorded before the finish still returns its receipt.
+func TestFactoryMCPSubmissionRefusesFinishedAssignment(t *testing.T) {
+	db, _ := postgresFixture(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	seedAssignment := func(id, stage string) {
+		t.Helper()
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,7,'run-9',$2,0,'{}')`, id, stage); err != nil {
+			t.Fatalf("seed assignment: %v", err)
+		}
+	}
+
+	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+	seedAssignment(capability.AssignmentID, string(factory.AssignmentFinished))
+	late := testMCPSubmissionRow(capability, factory.MCPToolFlag, []byte(`{"title":"Late flag","summary":"Arrived after the finish.","severity":"critical"}`))
+	if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); !errors.Is(err, ErrMCPSubmissionAssignmentFinished) {
+		t.Fatalf("late submission recorded: %v", err)
+	}
+
+	live := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+	seedAssignment(live.AssignmentID, string(factory.AssignmentAssigned))
+	early := testMCPSubmissionRow(live, factory.MCPToolFlag, []byte(`{"title":"Early flag","summary":"Recorded while assigned.","severity":"info"}`))
+	recorded, err := db.RecordMCPSubmission(ctx, early, testMCPRecordedReceipt(early))
+	if err != nil {
+		t.Fatalf("record before finish: %v", err)
+	}
+	if _, err := db.db.ExecContext(ctx, `UPDATE factory_assignments SET stage=$1 WHERE id=$2`, string(factory.AssignmentFinished), live.AssignmentID); err != nil {
+		t.Fatalf("finish assignment: %v", err)
+	}
+	again, err := db.RecordMCPSubmission(ctx, early, testMCPRecordedReceipt(early))
+	if err != nil {
+		t.Fatalf("replay refused after finish: %v", err)
+	}
+	if again.SubmissionID != recorded.SubmissionID {
+		t.Fatal("replay returned a different receipt")
+	}
+}
+
 func TestFactoryMCPTransactions(t *testing.T) {
 	db, _ := postgresFixture(t, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

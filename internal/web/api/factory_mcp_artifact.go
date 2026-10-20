@@ -41,7 +41,10 @@ func (s *factoryCatalogServer) serveArtifact(ctx context.Context, args mcpCallAr
 	u, content, _ := factory.DecodeArtifactUpload(sub.Payload)
 	out := map[string]any{"submission_id": receipt.SubmissionID, "artifact_id": receipt.ArtifactID, "next_offset": u.Offset + len(content), "complete": u.Final, "feed_post_id": receipt.FeedPostID}
 	if u.Final {
-		out["artifact"] = factory.FeedArtifact{ID: receipt.ArtifactID, Name: u.Name, MediaType: u.MediaType, Size: u.Offset + len(content), Href: "/api/factory/artifacts/" + receipt.ArtifactID + "?repository=" + strconv.FormatInt(cap.Repository, 10)}
+		// The attested content digest is what finish citations must
+		// reference; settlement resolves it back to this assignment.
+		out["digest"] = receipt.ArtifactDigest
+		out["artifact"] = factory.FeedArtifact{ID: receipt.ArtifactID, Name: u.Name, MediaType: u.MediaType, Size: u.Offset + len(content), Digest: receipt.ArtifactDigest, Href: "/api/factory/artifacts/" + receipt.ArtifactID + "?repository=" + strconv.FormatInt(cap.Repository, 10)}
 	}
 	return mcpJSONResult(out)
 }

@@ -2,6 +2,7 @@ package factory
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -24,7 +25,18 @@ type Sponsorship struct {
 	AllowanceMinutes int      `json:"allowance_minutes"`
 	MaxConcurrent    int      `json:"max_concurrent"`
 	Active           bool     `json:"active"`
+	// Sources admits declared research source refs on this connection
+	// (R10.2). A research subject may only name granted sources; an
+	// empty grant leaves repo-only inquiry.
+	Sources []string `json:"sources,omitempty"`
+	// Collections admits library collection IDs on this connection
+	// (R10.2). A collection subject must name a granted collection.
+	Collections []string `json:"collections,omitempty"`
 }
+
+// MaxGrantEntries bounds one sponsorship source/collection allowlist:
+// an initial explicit grant set, not a corpus limit.
+const MaxGrantEntries = 8
 
 func (s Sponsorship) Validate() error {
 	if s.Repository <= 0 || s.Revision < 0 || s.GrantedBy <= 0 || s.ActorID <= 0 || s.Generation <= 0 {
@@ -45,6 +57,22 @@ func (s Sponsorship) Validate() error {
 	}
 	if s.AllowanceMinutes < 1 || s.AllowanceMinutes > 10080 || s.MaxConcurrent < 1 || s.MaxConcurrent > 8 {
 		return errors.New("invalid sponsorship allowance")
+	}
+	if len(s.Sources) > MaxGrantEntries {
+		return errors.New("sponsorship admits too many sources")
+	}
+	for _, source := range s.Sources {
+		if source == "" || len(source) > 128 || strings.ContainsRune(source, 0) {
+			return errors.New("invalid sponsorship source ref")
+		}
+	}
+	if len(s.Collections) > MaxGrantEntries {
+		return errors.New("sponsorship admits too many collections")
+	}
+	for _, collection := range s.Collections {
+		if !ValidCollectionID(collection) {
+			return errors.New("invalid sponsorship collection")
+		}
 	}
 	return nil
 }

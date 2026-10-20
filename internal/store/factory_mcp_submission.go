@@ -31,10 +31,14 @@ const (
 
 // FactoryMCPSubmissionsDDL creates the submission table. data carries
 // the factory.MCPSubmission payload bytes beside the compared
-// digests; receipt carries the durable factory.MCPReceipt.
+// digests; receipt carries the durable factory.MCPReceipt. capability
+// durably binds the authorizing capability (author/run, role profile
+// and subject live on the capability row), so the record names its
+// author without assuming one capability per assignment.
 const FactoryMCPSubmissionsDDL = `CREATE TABLE factory_mcp_submissions(
 assignment TEXT NOT NULL CHECK(assignment ~ '^[a-f0-9]{32}$'),
 submission TEXT NOT NULL CHECK(submission ~ '^[a-f0-9]{32}$'),
+capability TEXT NOT NULL CHECK(capability ~ '^[a-f0-9]{32}$'),
 tool TEXT NOT NULL,
 input_digest TEXT NOT NULL CHECK(input_digest ~ '^[a-f0-9]{64}$'),
 payload_hash TEXT NOT NULL CHECK(payload_hash ~ '^[a-f0-9]{64}$'),
@@ -83,6 +87,13 @@ var (
 	// time. Recorded receipt reads stay on the separate MCPReceipt
 	// route: this refusal records nothing and grants nothing.
 	ErrMCPSubmissionCapabilityExpired = errors.New("factory submission capability is expired at insert")
+	// ErrMCPSubmissionAssignmentFinished reports a new submission
+	// against a finished assignment: a late answer requires fresh
+	// authorized admission, never revival of the finished attempt's
+	// capability. Exact replay of a recorded submission still returns
+	// its receipt above, so lost replies keep recovering; only new
+	// identities refuse here.
+	ErrMCPSubmissionAssignmentFinished = errors.New("assignment already finished")
 )
 
 // RecordMCPSubmission persists one admitted submission with its
@@ -131,6 +142,16 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = checkMCPHandoffCapTx(ctx, tx, submission); err != nil {
 		return factory.MCPReceipt{}, err
 	}
+	// A finished assignment admits no new submission identities: the
+	// attempt is over and a late answer needs fresh authorized
+	// admission. Assignments without a recorded row predate the
+	// dispatch packet and keep their current behavior; replay above
+	// already returned recorded receipts before this gate.
+	if finished, err := assignmentFinishedTx(ctx, tx, submission.AssignmentID); err != nil {
+		return factory.MCPReceipt{}, err
+	} else if finished {
+		return factory.MCPReceipt{}, ErrMCPSubmissionAssignmentFinished
+	}
 	// Deadline binds at the new-record admission point, after every
 	// potentially blocking lock (capability row, assignment guard,
 	// submission row) and after the replay/freeze/cap decisions: a
@@ -148,6 +169,9 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = recordMCPLibraryTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
+	if err = recordMCPResearchTx(ctx, tx, capability, submission, &receipt); err != nil {
+		return factory.MCPReceipt{}, err
+	}
 	if err = recordMCPCommunicationTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -155,8 +179,8 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err != nil {
 		return factory.MCPReceipt{}, err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		submission.AssignmentID, submission.SubmissionID, string(submission.Tool),
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,capability,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		submission.AssignmentID, submission.SubmissionID, submission.CapabilityID, string(submission.Tool),
 		submission.ExpectedInputDigest, submission.PayloadHash, submission.Payload,
 		receipt.State, receipt.Reason, string(raw)); err != nil {
 		return factory.MCPReceipt{}, err
@@ -228,6 +252,21 @@ func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCP
 // for one assignment queue on this row lock instead of racing an
 // unlocked terminal scan past each other. Assignments never block
 // each other, and capability rows always lock before guard rows.
+// assignmentFinishedTx reports whether the assignment row exists and
+// already finished. A missing row predates the dispatch packet and
+// keeps its current behavior; only a recorded finish refuses.
+func assignmentFinishedTx(ctx context.Context, tx *sql.Tx, assignmentID string) (bool, error) {
+	var stage string
+	err := tx.QueryRowContext(ctx, `SELECT stage FROM factory_assignments WHERE id=$1`, assignmentID).Scan(&stage)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return stage != "" && stage != string(factory.AssignmentAssigned), nil
+}
+
 func lockMCPSubmissionGuardTx(ctx context.Context, tx *sql.Tx, assignmentID string) error {
 	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_mcp_submission_guards(assignment) VALUES($1) ON CONFLICT DO NOTHING`,
 		assignmentID); err != nil {
@@ -363,23 +402,23 @@ func terminalMCPProposalTx(ctx context.Context, tx *sql.Tx, assignmentID string)
 // report through this owner; the bytes stay immutable and receipt
 // state still moves only through AdvanceMCPReceipt.
 func (s *Store) TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error) {
-	var submission, tool, inputDigest, payloadHash string
+	var submission, capabilityID, tool, inputDigest, payloadHash string
 	var payload []byte
-	rows, err := s.db.QueryContext(ctx, `SELECT submission,tool,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1`, assignmentID)
+	rows, err := s.db.QueryContext(ctx, `SELECT submission,capability,tool,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1`, assignmentID)
 	if err != nil {
 		return factory.MCPSubmission{}, false, err
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
-		var rowSubmission, rowTool, rowInput, rowHash string
+		var rowSubmission, rowCapability, rowTool, rowInput, rowHash string
 		var rowPayload []byte
-		if err = rows.Scan(&rowSubmission, &rowTool, &rowInput, &rowHash, &rowPayload); err != nil {
+		if err = rows.Scan(&rowSubmission, &rowCapability, &rowTool, &rowInput, &rowHash, &rowPayload); err != nil {
 			return factory.MCPSubmission{}, false, err
 		}
 		if !factory.MCPIsTerminal(factory.MCPTool(rowTool)) {
 			continue
 		}
-		submission, tool, inputDigest, payloadHash, payload = rowSubmission, rowTool, rowInput, rowHash, rowPayload
+		submission, capabilityID, tool, inputDigest, payloadHash, payload = rowSubmission, rowCapability, rowTool, rowInput, rowHash, rowPayload
 		break
 	}
 	if err = rows.Err(); err != nil {
@@ -388,18 +427,16 @@ func (s *Store) TerminalMCPSubmission(ctx context.Context, assignmentID string) 
 	if submission == "" {
 		return factory.MCPSubmission{}, false, nil
 	}
-	// The row carries no capability binding (admission checked it
-	// before insert and persistence rechecked it inside the insert
-	// transaction), so full submission validation cannot apply here:
-	// check the identities, the tool and the payload binding the
-	// settler consumes.
-	if !factory.ValidID(submission) || !factory.MCPToolKnown(factory.MCPTool(tool)) ||
+	// The row durably binds the authorizing capability alongside the
+	// identities, the tool and the payload binding the settler
+	// consumes.
+	if !factory.ValidID(submission) || !factory.ValidID(capabilityID) || !factory.MCPToolKnown(factory.MCPTool(tool)) ||
 		!factory.ValidDigest(inputDigest) || !factory.ValidDigest(payloadHash) ||
 		len(payload) == 0 || factory.MCPInputDigest(payload) != payloadHash {
 		return factory.MCPSubmission{}, false, errors.New("recorded terminal submission fails its payload binding")
 	}
 	out := factory.MCPSubmission{
-		AssignmentID: assignmentID, SubmissionID: submission,
+		AssignmentID: assignmentID, SubmissionID: submission, CapabilityID: capabilityID,
 		Tool: factory.MCPTool(tool), ExpectedInputDigest: inputDigest,
 		PayloadHash: payloadHash, Payload: payload,
 	}

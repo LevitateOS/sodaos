@@ -56,13 +56,65 @@ type PriorityCall struct {
 }
 
 type PriorityReceipt struct {
-	Snapshot    string              `json:"snapshot"`
-	Purpose     JudgmentPurpose     `json:"purpose,omitempty"`
-	Candidates  []PriorityCandidate `json:"candidates"`
-	Calls       []PriorityCall      `json:"calls"`
-	Selected    string              `json:"selected,omitempty"`
-	Outcome     string              `json:"outcome"`
-	CreatedUnix int64               `json:"created_unix"`
+	Snapshot   string              `json:"snapshot"`
+	Purpose    JudgmentPurpose     `json:"purpose,omitempty"`
+	Candidates []PriorityCandidate `json:"candidates"`
+	Calls      []PriorityCall      `json:"calls"`
+	Selected   string              `json:"selected,omitempty"`
+	Outcome    string              `json:"outcome"`
+	// Answer carries one recorded generic consultation answer for
+	// replay (worker System One calls): the tournament fields stay
+	// empty there, and tournament receipts leave this empty.
+	Answer      map[string]any `json:"answer,omitempty"`
+	CreatedUnix int64          `json:"created_unix"`
+}
+
+// SystemOneMaxBatchQuestions bounds one batched worker consultation:
+// independent same-primitive questions share one state and one
+// provider round trip. Larger sets split across calls; a question
+// needing an earlier result or new evidence waits for a later call.
+const SystemOneMaxBatchQuestions = 8
+
+// SystemOneWorkerQuestion is one batched same-primitive question over
+// the shared batch state.
+type SystemOneWorkerQuestion struct {
+	Instructions any `json:"instructions"`
+	Criteria     any `json:"criteria,omitempty"`
+}
+
+// SystemOneWorkerSnapshot binds one worker consultation to its exact
+// admitted caller, tool and question bytes. Same inputs always hash to
+// the same snapshot, so a retry replays the recorded answer instead of
+// spending a second consultation; different inputs never collide into
+// another caller's answer.
+func SystemOneWorkerSnapshot(capabilityID string, tool MCPTool, state, instructions, criteria any) (string, error) {
+	raw, err := json.Marshal(struct {
+		State        any `json:"state"`
+		Instructions any `json:"instructions"`
+		Criteria     any `json:"criteria,omitempty"`
+	}{State: state, Instructions: instructions, Criteria: criteria})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte("systemone-worker/v1:" + capabilityID + ":" + string(tool) + ":" + hex.EncodeToString(raw)))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// SystemOneWorkerBatchSnapshot binds one batched worker consultation
+// to its exact admitted caller, tool, shared state and question map.
+// The batch namespace never collides with single-question snapshots,
+// so a batch never replays a single answer and vice versa. Question
+// maps marshal with sorted keys, keeping the snapshot deterministic.
+func SystemOneWorkerBatchSnapshot(capabilityID string, tool MCPTool, state any, questions map[string]SystemOneWorkerQuestion) (string, error) {
+	raw, err := json.Marshal(struct {
+		State     any                                `json:"state"`
+		Questions map[string]SystemOneWorkerQuestion `json:"questions"`
+	}{State: state, Questions: questions})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte("systemone-worker-batch/v1:" + capabilityID + ":" + string(tool) + ":" + hex.EncodeToString(raw)))
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // PrioritySnapshot binds the complete candidate evidence and current rubric.

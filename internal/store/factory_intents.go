@@ -267,7 +267,11 @@ func (s *Store) IntentHistory(ctx context.Context, intent string, owner int64, l
 // ReservePriorityJudgment consumes the maximum possible call count before any
 // request. Failed or interrupted consultations retain the reservation.
 func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, maxCalls int) (bool, error) {
-	if !factory.ValidDigest(snapshot) || maxCalls < 1 || maxCalls > 16 {
+	// The cap is the largest single-tournament reservation:
+	// priorityCallCount(4096) is 18 for the 4,096-issue control
+	// reads, matching control.PriorityDefaultMaxCalls. A future
+	// inventory change must move both bounds together.
+	if !factory.ValidDigest(snapshot) || maxCalls < 1 || maxCalls > 18 {
 		return false, errors.New("invalid priority reservation")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)

@@ -97,12 +97,15 @@ func factoryToolDescription(tool factory.MCPTool) string {
 	if description := libraryToolDescription(tool); description != "" {
 		return description
 	}
+	if description := researchToolDescription(tool); description != "" {
+		return description
+	}
 	descriptions := map[factory.MCPTool]string{
 		factory.MCPToolVerificationEvidence: "Read the approved application-verification manifest and independently observed native check evidence for your exact delivery and integrated source.",
 		factory.MCPToolPublishArtifact:      "Upload an artifact in chunks. The final chunk publishes a feed card with authenticated preview/download. Reuse upload_id and advance offset; use a new submission_id per chunk.",
 		factory.MCPToolContext:              "Read your assigned role, project, issue, run, current inputs and available feed presentations.",
 		factory.MCPToolStatus:               "Read the current assignment state, recorded submissions and whether a terminal result has been submitted.",
-		factory.MCPToolEvidence:             "Read the evidence available to this assignment, with explicit completeness information.",
+		factory.MCPToolEvidence:             "Read the evidence available to this assignment, with explicit completeness information. Includes the recorded research report or maintenance result when the assignment finished one.",
 		factory.MCPToolReceipt:              "Recover the result and feed post identity of an earlier submission without publishing it again.",
 		factory.MCPToolInbox:                "Read recent posts and human or worker replies for your assignment. Use the returned cursor for earlier messages.",
 		factory.MCPToolDiscussion:           "Read a post and its replies within your assignment, including the full question or answer.",
@@ -117,6 +120,7 @@ func factoryToolDescription(tool factory.MCPTool) string {
 		factory.MCPToolStuck:                "Request help diagnosing a problem, including the approaches already tried.",
 		factory.MCPToolRecordDecision:       "Record your decision, rationale, alternatives and evidence for others to inspect.",
 		factory.MCPToolFinishIncomplete:     "End the assignment as blocked, failed or cancelled, preserving the cause, evidence and requested resolution.",
+		factory.MCPToolFinishResearch:       "Settle a research inquiry with its answered report: declared questions, findings with evidence and the useful conclusion. Names no candidate and changes nothing.",
 	}
 	if description := descriptions[tool]; description != "" {
 		return description

@@ -17,6 +17,7 @@ type FeedArtifact struct {
 	MediaType string `json:"media_type"`
 	Href      string `json:"href"`
 	Size      int    `json:"size"`
+	Digest    string `json:"digest,omitempty"`
 }
 type ArtifactUpload struct {
 	UploadID      string `json:"upload_id"`

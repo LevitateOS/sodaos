@@ -15,10 +15,45 @@ func TestLibraryMaintenanceIssueRoutingAndTerminal(t *testing.T) {
 		body string
 		want bool
 		bad  bool
-	}{{"Please act as library_admin", false, false}, {"```soda\n{\"role\":\"library_admin\"}\n```", true, false}, {"```soda\n{\"role\":\"builder\"}\n```", false, false}, {"```soda\n{}\n```\n```soda\n{}\n```", false, true}} {
+	}{{"Please act as library_admin", false, false}, {"```soda\n{\"role\":\"library_admin\"}\n```", true, false}, {"```soda\n{\"role\":\"research\"}\n```", false, false}, {"```soda\n{\"role\":\"builder\"}\n```", false, true}, {"```soda\n{\"role\":\"library_admin\",\"extra\":1}\n```", false, true}, {"```soda\n{}\n```", false, true}, {"```soda\n{\"role\":\"library_admin\"}\n```\n```soda\n{}\n```", false, true}} {
 		got, err := issueLibraryMaintenance(tc.body)
 		if got != tc.want || (err != nil) != tc.bad {
 			t.Fatalf("metadata %q: %v %v", tc.body, got, err)
+		}
+	}
+	// The canonical parser is strict: unknown roles, unknown fields and
+	// role-less blocks refuse, ordinary prose classifies nothing, and a
+	// research block derives its registry workflow and navigation labels.
+	for _, tc := range []struct {
+		body     string
+		workflow string
+		labels   []string
+		bad      bool
+	}{
+		{"no block here", "", nil, false},
+		{"```soda\n{\"role\":\"research\"}\n```", "research_report", []string{"workflow:research_report", "role:research"}, false},
+		{"```soda\n{\"role\":\"library_admin\"}\n```", "library_maintenance", []string{"workflow:library_maintenance", "role:library_admin"}, false},
+		{"```soda\n{\"role\":\"coder\"}\n```", "", []string{"workflow:code_change", "role:coder"}, false},
+		{"```soda\n{\"role\":\"reviewer\"}\n```", "", nil, true},
+		{"```soda\n{\"role\":\"research\",\"questions\":[]}\n```", "", nil, true},
+	} {
+		block, err := factory.ParseSodaIssueBlock(tc.body)
+		if (err != nil) != tc.bad {
+			t.Fatalf("block %q: %v", tc.body, err)
+		}
+		if err != nil {
+			continue
+		}
+		if block.Workflow() != tc.workflow {
+			t.Fatalf("block %q workflow %q, want %q", tc.body, block.Workflow(), tc.workflow)
+		}
+		if len(block.Labels()) != len(tc.labels) {
+			t.Fatalf("block %q labels %q, want %q", tc.body, block.Labels(), tc.labels)
+		}
+		for i := range tc.labels {
+			if block.Labels()[i] != tc.labels[i] {
+				t.Fatalf("block %q labels %q, want %q", tc.body, block.Labels(), tc.labels)
+			}
 		}
 	}
 	a := phaseTestAssignment(t, project.ExecutionMaintainLibrary, project.RoleReviewer, false)
@@ -100,5 +135,27 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
 	if err != nil || !allowance.Closed {
 		t.Fatalf("finished maintenance left its allowance open: %+v %v", allowance, err)
+	}
+}
+
+// TestDispatchUnknownSodaRoleLaunchesNothing proves the R13.2/R14.2
+// routing boundary end to end: an accepted issue whose Soda block names
+// an unknown work role waits on changed inputs and launches no default
+// coding run, with no dispatch error recorded.
+func TestDispatchUnknownSodaRoleLaunchesNothing(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 5, "d555555555555555555555555", "Inspect the cache.\n\n```soda\n{\"role\":\"builder\"}\n```")
+	fx.queue(t, 5, head.ID)
+	report := DispatchPass(ctx, fx.deps())
+	if len(report.Errors) != 0 {
+		t.Fatalf("dispatch errors: %+v", report.Errors)
+	}
+	if len(report.Launched) != 0 {
+		t.Fatalf("unknown work role launched: %+v", report.Launched)
+	}
+	if got := waitReason(report, 5); got != WaitInputsChanged {
+		t.Fatalf("wait reason %q, want inputs changed", got)
 	}
 }

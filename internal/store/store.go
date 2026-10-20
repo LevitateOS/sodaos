@@ -97,6 +97,9 @@ func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, err
 		err = initializeLibrarySchema(context.Background(), db)
 	}
 	if err == nil {
+		err = initializeResearchSchema(context.Background(), db)
+	}
+	if err == nil {
 		err = initializeArtifactSchema(context.Background(), db)
 	}
 	if err == nil {

@@ -207,3 +207,19 @@ func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
 		t.Fatalf("independent reservation: %v %v", ok, err)
 	}
 }
+
+// TestPriorityReservationFullTournamentBound pins the FA04 store cap:
+// a full-inventory 18-call tournament reservation succeeds while 19
+// still refuses.
+func TestPriorityReservationFullTournamentBound(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	full := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	if ok, err := s.ReservePriorityJudgment(ctx, full, 18); err != nil || !ok {
+		t.Fatalf("full-tournament reservation: %v %v", ok, err)
+	}
+	over := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	if ok, err := s.ReservePriorityJudgment(ctx, over, 19); err == nil || ok {
+		t.Fatalf("over-cap reservation admitted: %v %v", ok, err)
+	}
+}
