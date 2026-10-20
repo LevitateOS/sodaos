@@ -312,7 +312,7 @@ func TestInterruptedCreationReconcilesFromHostEvidence(t *testing.T) {
 			t.Fatalf("stop on unconfirmed provisioning misreported: %d %s", stop.Code, stop.Body.String())
 		}
 		join := httptest.NewRecorder()
-		nativeAPIServe(t, s, join, apiTestRequest("POST", "/api/environments/"+id+"/join", `{}`, "alice"))
+		nativeAPIServe(t, s, join, apiTestRequest("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "alice"))
 		if join.Code != 409 {
 			t.Fatalf("join on unconfirmed provisioning misreported: %d %s", join.Code, join.Body.String())
 		}

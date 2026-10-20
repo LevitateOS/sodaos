@@ -11,7 +11,7 @@ import (
 )
 
 func validJoinSSHSelection(selection string) bool {
-	return selection == "" || selection == "saved" || selection == "none"
+	return selection == "saved" || selection == "none"
 }
 
 func (s *API) joinPublicKeys(ctx context.Context, userID int64, selection string) ([]string, error) {
@@ -82,8 +82,9 @@ func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Sessi
 		auth.JSONError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
 		return "", nil, false
 	}
-	// Empty legacy requests retain saved-key behavior. New browser callers can
-	// explicitly choose account-only provisioning even when saved SSH keys exist.
+	// Browser callers always choose explicitly: saved keys or account-only
+	// provisioning even when saved SSH keys exist. Empty requests are
+	// rejected as invalid by validJoinSSHSelection before reaching here.
 	public, err := s.joinPublicKeys(r.Context(), v.User.ID, sshKeys)
 	if errors.Is(err, errTooManyJoinKeys) {
 		auth.JSONError(w, 422, "too_many_keys", "Native onboarding supports at most 32 development keys.")

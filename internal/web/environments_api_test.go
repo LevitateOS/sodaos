@@ -96,7 +96,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 			t.Fatal("implicit join", err)
 		}
 	}
-	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 502 || accountCalls != 1 {
+	if w := perform("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "bob"); w.Code != 502 || accountCalls != 1 {
 		t.Fatal("account-only join did not reach real native boundary")
 	}
 	expectedKeys = 1
@@ -106,7 +106,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		}
 	}
 	rejectAccount = true
-	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 502 {
+	if w := perform("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "bob"); w.Code != 502 {
 		t.Fatal(w.Code)
 	}
 	if _, err := s.Store.MemberLogin(context.Background(), id, 2); !errors.Is(err, store.ErrNotFound) {
@@ -114,12 +114,12 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	}
 	rejectAccount = false
 	for _, login := range []string{"alice", "bob"} {
-		if w := perform("POST", "/api/environments/"+id+"/join", `{}`, login); w.Code != 200 {
+		if w := perform("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, login); w.Code != 200 {
 			t.Fatal(w.Code, w.Body.String())
 		}
 	}
 	before := accountCalls
-	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 200 || accountCalls != before {
+	if w := perform("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "bob"); w.Code != 200 || accountCalls != before {
 		t.Fatal("existing membership reprovisioned")
 	}
 }

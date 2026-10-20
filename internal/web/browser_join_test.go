@@ -22,8 +22,8 @@ func TestBrowserOnlyJoinAndExplicitSavedSSHChoice(t *testing.T) {
 		{"new browser-only", `{"ssh_keys":"none"}`, false, false, 0, 200},
 		{"browser-only ignores saved", `{"ssh_keys":"none"}`, true, false, 0, 200},
 		{"explicit saved", `{"ssh_keys":"saved"}`, true, false, 1, 200},
-		{"legacy empty", `{}`, false, false, 0, 200},
-		{"legacy saved", `{}`, true, false, 1, 200},
+		{"empty is invalid", `{}`, false, false, 0, 400},
+		{"empty with saved keys is invalid", `{}`, true, false, 0, 400},
 		{"account-only native failure", `{"ssh_keys":"none"}`, false, true, 0, 502},
 		{"invalid selection", `{"ssh_keys":"all-provider-keys"}`, true, false, 0, 400},
 	} {

@@ -27,8 +27,8 @@ func TestProjectExecutionRequiresCurrentNativeWritePermission(t *testing.T) {
 		return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "public", Permission: "read"}}
 	}
 	for _, action := range []struct{ method, path, body string }{
-		{"POST", "/api/environments/" + fresh + "/join", `{}`},
-		{"POST", "/api/environments/" + webTerminalProject + "/join", `{}`},
+		{"POST", "/api/environments/" + fresh + "/join", `{"ssh_keys":"saved"}`},
+		{"POST", "/api/environments/" + webTerminalProject + "/join", `{"ssh_keys":"saved"}`},
 		{"POST", "/api/environments/" + webTerminalProject + "/access-keys", `{"revision":"` + strings.Repeat("a", 64) + `","saved_fingerprints":[],"confirm_empty":true}`},
 	} {
 		w := httptest.NewRecorder()

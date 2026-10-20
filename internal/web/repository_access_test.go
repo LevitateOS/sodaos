@@ -151,7 +151,7 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	})}
 	join := func() *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"), callback)
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "bob"), callback)
 		return w
 	}
 	allowed = false

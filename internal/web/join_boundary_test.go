@@ -52,7 +52,7 @@ func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 			for i := 0; i < count; i++ {
 				go func() {
 					w := httptest.NewRecorder()
-					nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"))
+					nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", `{"ssh_keys":"saved"}`, "bob"))
 					results <- w
 				}()
 			}

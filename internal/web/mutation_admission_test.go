@@ -38,7 +38,7 @@ func TestMutationAdmissionAfterNativeCallbackIO(t *testing.T) {
 					if err := s.Store.MarkReady(t.Context(), projectID, "10.89.0.3"); err != nil {
 						t.Fatal(err)
 					}
-					path, body = "/join", `{}`
+					path, body = "/join", `{"ssh_keys":"saved"}`
 				} else if operation == "apply" {
 					path, body = "/access-keys", `{"revision":"`+strings.Repeat("a", 64)+`","saved_fingerprints":[],"confirm_empty":true}`
 				}
