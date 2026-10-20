@@ -5,8 +5,12 @@ Paths below are relative to `docs/public/` and are the exact leaves in the
 link to [investigation evidence](source-audit.md); internal documentation remains
 the authority for the corresponding product contract.
 
-Every published page starts with one H1 and a descriptive paragraph. Write the
-finished intended behavior in present tense. Include prerequisites, actor,
+Every published page starts with one descriptive H1 and a standalone introduction
+of 140–220 characters, immediately followed by a body organized under meaningful
+H2 sections. H3 subsections belong beneath a relevant H2. Move detailed rules out
+of the introduction without dropping their meaning; preserve existing anchors
+where possible. The source README owns the complete authoring contract and
+article templates. Write the finished intended behavior in present tense. Include prerequisites, actor,
 observable success and consequential failure/recovery where applicable. Link to
 the canonical public procedure instead of repeating it. Do not publish source
 paths, task IDs, candidate revisions, fixture instructions or unfinished-feature
