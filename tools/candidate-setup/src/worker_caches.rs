@@ -25,6 +25,7 @@ fn warm_go_caches(storage: &Storage, go_mod: &str, go_build_cache: &str) -> Resu
         "GOTOOLCHAIN=local",
         "GOFLAGS=-mod=readonly",
         "CGO_ENABLED=0",
+        "GIT_OPTIONAL_LOCKS=0",
     ];
     // `sudo env ... go build ./...`: argv assembled exactly like the script.
     let mut build_args: Vec<&str> = vec!["env"];
