@@ -36,6 +36,8 @@ both `--fixture-canlang-runtime sha256:ID` and `--fixture-canlang-tools SHA256`,
 accepted only with `--release=`. The fixed reference guard does not interpret
 application semantics or provider configuration.
 
+### Codex child profile
+
 Factory Codex can select an explicit native backend catalog with
 `codex_model_catalog` and `codex_model_catalog_sha256` in the host configuration.
 The catalog must be a root-owned, non-writable regular file matching its digest;

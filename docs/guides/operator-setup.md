@@ -250,6 +250,16 @@ maintenance: the command restarts the broker and dashboard. It validates inputs 
 writing, enables the two broker sockets, starts/restarts the broker, and restarts
 the dashboard. Check the resulting service state before enabling factory policy.
 
+For Codex native child tasks, select the qualified model/backend catalog in the
+host configuration using `codex_model_catalog` and `codex_model_catalog_sha256`.
+Keep the reviewed catalog in a root-owned regular file with no group or other
+write permission. The host checks its digest and assigned model, then stages the
+exact catalog read-only for each run. Follow the
+[native profile requirements](../../lib/host/README.md#codex-child-profile) and retain
+installed proof for the selected harness, model and backend before enabling task
+writes. Pause dispatch and retire managed runs and leases before changing the
+host configuration or restarting `soda-host.service`.
+
 The explicit `soda-setup --factory-enrollment-file` operation obtains the
 stable Soda extension installation UUID through Forgejo's native CLI, applies
 each owner-selected token/actor/repository tuple with `extensions bind`, and
