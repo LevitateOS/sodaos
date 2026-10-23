@@ -256,14 +256,15 @@ export function issueBlocker(value: unknown): IssueBlocker {
 }
 function issueReadiness(value: unknown): IssueReadiness {
   const raw = object(value);
-  check(Array.isArray(raw.blockers) && raw.blockers.length <= 64);
+  const blockers = raw.blockers === undefined ? [] : raw.blockers;
+  check(Array.isArray(blockers) && blockers.length <= 64);
   return {
     readiness: closedSet(raw.readiness, readinessStates),
     reason: text(raw.reason, 256),
     revision: counter(raw.revision),
     assessed_unix: counter(raw.assessed_unix),
     ...(raw.acceptance === undefined ? {} : {acceptance: text(raw.acceptance, 256)}),
-    blockers: raw.blockers.map(issueBlocker),
+    blockers: blockers.map(issueBlocker),
   };
 }
 const decimalID = (value: unknown): value is string =>

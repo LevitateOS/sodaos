@@ -202,6 +202,7 @@ const attentionCompletion = {
 };
 const attentionIssueDetail = {
   ...issueDetail,
+  readiness: {readiness: 'queued', reason: 'eligible', revision: 9, assessed_unix: 1720000000},
   journey: {
     repository: '7',
     issue: '12',
