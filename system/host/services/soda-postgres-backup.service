@@ -1,7 +1,7 @@
 [Unit]
 Description=Nightly Soda PostgreSQL backup
-After=soda-postgres-init.service
-Wants=soda-postgres-init.service
+After=soda-postgres.service
+Requires=soda-postgres.service
 
 [Service]
 Type=oneshot
