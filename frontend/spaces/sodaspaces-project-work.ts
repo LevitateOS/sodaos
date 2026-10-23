@@ -10,6 +10,7 @@ import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
 import './sodaspaces-factory-context-resolution.js';
 import './sodaspaces-factory-completion-retry.js';
+import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 
 export interface ProjectWorkContext {
@@ -253,7 +254,10 @@ export class SodaProjectWork extends LitElement {
       <p role="status">${this.issueError}</p>
       ${
         this.requirementsIssue
-          ? html`<soda-factory-requirements-acceptance
+          ? html`<soda-factory-work-journey
+                .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
+              ></soda-factory-work-journey>
+              <soda-factory-requirements-acceptance
                 .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
               ></soda-factory-requirements-acceptance>
               <soda-factory-context-resolution

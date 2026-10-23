@@ -50,6 +50,7 @@ test('Project Work opens explicit requirements review for an imported native iss
   await work.getByLabel('Native issue number', {exact: true}).fill('13');
   await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();
   const acceptance = work.getByRole('region', {name: 'Issue requirements acceptance'});
+  await work.locator('soda-factory-work-journey').getByRole('button', {name: 'Refresh journey', exact: true}).waitFor();
   assert.equal(
     await acceptance
       .getByRole('link', {name: 'Review issue #13 in the native forge', exact: true})
@@ -58,6 +59,7 @@ test('Project Work opens explicit requirements review for an imported native iss
   );
   const requests = await page.evaluate(() => window.workspaceFixture.calls.map((call) => call.path));
   assert(requests.some((path) => path.endsWith('/api/repositories/7/factory/access')));
+  assert(requests.some((path) => path.endsWith('/api/repositories/7/factory/issues/13')));
   assert.equal(await writes(page), 0, 'opening review must not accept an issue or create a plan');
   await work.getByLabel('Native issue number', {exact: true}).fill('not-an-issue');
   await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();

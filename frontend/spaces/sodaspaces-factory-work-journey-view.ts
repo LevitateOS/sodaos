@@ -13,11 +13,11 @@ import type {
   WorkJourney,
 } from './sodaspaces-factory-work-journey-response.js';
 
-// Pure fixture work-journey presentation for FW23. Model builders turn
-// one issue's recorded-shaped facts into display state; render helpers
+// Work-journey presentation. Model builders turn one issue's recorded
+// facts into display state; render helpers
 // project those models to Lit templates. No transport, identity lookup
 // or mutable state lives here. Actual persisted readback binding belongs
-// to FW25; fixture text must never be read as the journey.
+// to the read-only work-journey element.
 
 export function describeJourneyPhase(phase: JourneyPhase): string {
   return `Phase ${phase.phase}: ${phase.state}.`;
@@ -69,8 +69,12 @@ const judgmentKindCopy: Record<string, string> = {
 
 export function describeJourneyJudgment(judgment: JourneyJudgment): string {
   const kind = judgmentKindCopy[judgment.kind] ?? 'Judgment';
-  const choice = `${kind} selected ${judgment.selected}.`;
-  if (judgment.cycle_state === 'superseded') return `${choice} This recorded decision was superseded by an explicit retry; it is not a current wait.`;
+  const confidence = judgment.confidence === undefined ? '' : ` Confidence ${judgment.confidence}.`;
+  const cycle =
+    judgment.cycle_id === undefined ? '' : ` Cycle ${judgment.cycle_id.slice(0, 9)}: ${judgment.cycle_state}.`;
+  const choice = `${kind} selected ${judgment.selected}.${confidence}${cycle}`;
+  if (judgment.cycle_state === 'superseded')
+    return `${choice} This recorded decision was superseded by an explicit retry; it is not a current wait.`;
   if (judgment.cycle_state === 'released') return `${choice} This completion cycle was released.`;
   if (!judgment.wait) return `${choice} No wait recorded.`;
   return `${choice} Waiting: ${judgment.wait_reason}. This wait is not a confirmed new attempt.`;
@@ -140,7 +144,7 @@ function journeyHeadline(journey: WorkJourney): string {
   return parts.length > 0 ? `Work journey: ${parts.join(' · ')}.` : 'No journey sections recorded.';
 }
 
-// describeWorkJourney projects one fixture journey to display state.
+// describeWorkJourney projects one recorded journey to display state.
 // Every section reflects only its own facts; missing sections stay
 // silent instead of inventing progress.
 export function describeWorkJourney(journey: WorkJourney, repositoryPath: string): WorkJourneyModel {

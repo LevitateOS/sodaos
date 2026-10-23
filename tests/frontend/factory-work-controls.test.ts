@@ -208,20 +208,40 @@ const attentionIssueDetail = {
     issue: '12',
     observed_unix: 1720000100,
     phases: [],
-    tasks: [],
-    commits: [],
+    tasks: [
+      {key: 'task_a', lane: 'a', state: 'complete'},
+      {key: 'task_b', lane: 'b', state: 'complete'},
+    ],
+    commits: [{commit: HEAD, base: BASE, pr_number: '34', pr_id: '56'}],
     findings: [],
     corrections: [],
-    judgments: [{
-      kind: 'reassessment-decision', selected: 'continue', model: 'test-prior-low-confidence',
-      cycle_id: 'a'.repeat(32), cycle_state: 'superseded',
-      confidence: 0.28, probability: 0.9, wait: false,
-    }, {
-      kind: 'reassessment-decision', selected: 'continue', model: 'test-low-confidence',
-      cycle_id: attentionCompletion.cycle_id, cycle_state: 'attention',
-      confidence: 0.24, probability: 0.9, wait: true, wait_reason: 'decision_not_actionable',
-    }],
-    gates: [{...attentionCompletion, cycle_id: 'a'.repeat(32), state: 'superseded', retryable: false, wait_reason: ''}, attentionCompletion],
+    judgments: [
+      {
+        kind: 'reassessment-decision',
+        selected: 'continue',
+        model: 'test-prior-low-confidence',
+        cycle_id: 'a'.repeat(32),
+        cycle_state: 'superseded',
+        confidence: 0.28,
+        probability: 0.9,
+        wait: false,
+      },
+      {
+        kind: 'reassessment-decision',
+        selected: 'continue',
+        model: 'test-low-confidence',
+        cycle_id: attentionCompletion.cycle_id,
+        cycle_state: 'attention',
+        confidence: 0.24,
+        probability: 0.9,
+        wait: true,
+        wait_reason: 'decision_not_actionable',
+      },
+    ],
+    gates: [
+      {...attentionCompletion, cycle_id: 'a'.repeat(32), state: 'superseded', retryable: false, wait_reason: ''},
+      attentionCompletion,
+    ],
     adoptions: [],
   },
 };
@@ -717,6 +737,16 @@ test('work detail retries the same completion command after lost replies and run
     },
   ]);
   const detail = page.locator('soda-factory-work-detail');
+  const journey = detail.getByRole('region', {name: 'Work journey', exact: true});
+  await journey.getByText(/Confidence 0\.28\. Cycle aaaaaaaaa: superseded\./).waitFor();
+  await journey.getByText(/Confidence 0\.24\. Cycle bbbbbbbbb: attention\./).waitFor();
+  await journey.getByText(/not a current wait/).waitFor();
+  await journey
+    .getByText(/Waiting: decision_not_actionable/)
+    .first()
+    .waitFor();
+  await journey.getByText('Task task_a (lane a): complete, no native issue mapped yet.', {exact: true}).waitFor();
+  await journey.getByText('Candidate aaaaaaaaaaaa over base bbbbbbbbbbbb: PR #34.').waitFor();
   const completion = detail.getByRole('region', {name: 'Completion review needs attention'});
   const retryCompletion = completion.getByRole('button', {name: 'Retry completion review', exact: true});
   await retryCompletion.waitFor();
