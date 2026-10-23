@@ -6,8 +6,8 @@ import (
 )
 
 // rolePayloadSchema documents each existing result carrier at discovery. The
-// preferred structured schemas come from the same Go DTOs the settler decodes;
-// the permissive alternate preserves existing proposal admission behavior.
+// structured schemas come from the same Go DTOs the settler decodes. Architect
+// plans require their complete typed shape before freezing a terminal result.
 func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
@@ -50,7 +50,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		set("verification_manifest_proposal", "Optional structured proposal using approved check catalog references; separately validated and adopted.", mcpCarrier[factory.VerificationManifestProposal]())
 	case factory.MCPToolFinishIssuePlan:
 		set("approach", "Approach chosen after source investigation; must match tasks.approach.", text)
-		set("tasks", "The COMPLETE InvestigationPlan object, not just its tasks array. Bind attempt_root and source_commit to this assignment and include inspected sources, task/lane/check graph and canonical digests.", mcpCarrier[factory.InvestigationPlan]())
+		props["tasks"] = investigationPlanSchema()
 		set("alternatives", "Rejected approaches and why they were rejected.", mcpCarrier[[]factory.RejectedAlternative]())
 		set("unresolved_facts", "Unresolved facts; required unresolved facts prevent executable adoption.", strings)
 	case factory.MCPToolFinishImplement:

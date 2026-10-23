@@ -747,7 +747,7 @@ func phasedReportContract(phase string) string {
 	if phase == project.ExecutionInvestigate {
 		b.WriteString(`{"version":2,"phase":"investigate","status":"completed|blocked|failed|cancelled","summary":"...","output":{"plan":{...}}}` + "\n")
 		b.WriteString("```\n\n")
-		b.WriteString("Report \"completed\" only with the executable investigation plan in \"output.plan\". Planning carries no candidate: never name a commit, open a PR or publish. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
+		b.WriteString("Report \"completed\" only with the executable investigation plan in \"output.plan\". Investigation creates no candidate: do not create commits, open a PR or publish; echo the existing source commit in the plan bindings. " + factory.InvestigationPlanGuidance + " \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
 	} else if phase == project.ExecutionDecompose {
 		b.WriteString(`{"version":2,"phase":"decompose","status":"completed|blocked|failed|cancelled","summary":"...","output":{"decomposition":{"intent":"<decision-id>","revision":"<decision-id>","operation":"<this run's operation>","candidates":[{"key":"<candidate key>","rationale":"...","tasks":[{"key":"<task decision-id>","objective":"<task objective>","outcomes":["<observable outcome>"],"idea_ids":["<idea ID from admitted input>"],"depends_on":[]}]}]}}}` + "\n")
 		b.WriteString("```\n\n")

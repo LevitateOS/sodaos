@@ -321,7 +321,11 @@ func settleIssuePlan(assigned factory.Assignment, submission factory.MCPSubmissi
 	}
 	parsed := phaseResultFor(submission, project.ExecutionInvestigate, "worker proposes issue plan",
 		&factory.PhaseOutput{Plan: &plan})
-	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "issue plan settled", true, nil
+	finished := finishFromMCPPhaseResult(assigned, submission, parsed, now)
+	if finished.Result == nil || !finished.Result.Reported {
+		return finished, "invalid issue plan fenced for human attention", true, nil
+	}
+	return finished, "issue plan settled", true, nil
 }
 
 // settleReviewFinish settles one Inspector finish. The conclusion

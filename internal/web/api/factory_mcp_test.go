@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -348,6 +349,62 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	seen := map[string]bool{}
 	for _, tool := range tools.Tools {
 		seen[tool.Name] = true
+		if tool.Name == string(factory.MCPToolFinishIssuePlan) {
+			// Validate through the schema actually returned over MCP, including
+			// the malformed values observed in the installed Architect run.
+			raw, err := json.Marshal(tool.InputSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var schema jsonschema.Schema
+			if err = json.Unmarshal(raw, &schema); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := schema.Resolve(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan := factory.InvestigationPlan{
+				ID: strings.Repeat("1", 32), AttemptRoot: strings.Repeat("2", 32),
+				ScopeDigest: strings.Repeat("3", 64), InputDigest: strings.Repeat("4", 64),
+				SourceCommit: strings.Repeat("5", 40), IntegrationCommit: strings.Repeat("5", 40),
+				Preparation: "f" + strings.Repeat("6", 24), Approach: "Create one owned output", AcceptanceCoverage: []string{"requested output"},
+				Tasks:  []factory.PlanTask{{ID: "proof", Objective: "Create proof", Outputs: []string{"proof.txt"}, AcceptanceRefs: []string{"requested output"}, Lane: "main", OwnedPaths: []string{"proof.txt"}, CheckIDs: []string{"native_check"}}},
+				Lanes:  []factory.PlanLane{{ID: "main", TaskIDs: []string{"proof"}}},
+				Checks: []factory.CheckSpec{{ID: "native_check", Argv: []string{"/bin/sh", "check.sh"}, Cwd: ".", TimeoutSeconds: 60, Scope: factory.CheckScopeIntegration, Required: true}},
+			}
+			plan.Digest, err = factory.PlanDigest(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "expected_input_digest": strings.Repeat("8", 64), "payload": map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{}}}
+			raw, _ = json.Marshal(payload)
+			var valid map[string]any
+			if err = json.Unmarshal(raw, &valid); err != nil {
+				t.Fatal(err)
+			}
+			if err = resolved.Validate(valid); err != nil {
+				t.Fatalf("discovered Architect schema refused a complete typed plan: %v", err)
+			}
+			for _, field := range []string{"id", "integration_commit", "check_id", "check_scope"} {
+				var invalid map[string]any
+				_ = json.Unmarshal(raw, &invalid)
+				proposal := invalid["payload"].(map[string]any)["tasks"].(map[string]any)
+				switch field {
+				case "id":
+					proposal[field] = "native-proof-plan"
+				case "integration_commit":
+					proposal[field] = ""
+				case "check_id":
+					proposal["checks"].([]any)[0].(map[string]any)["id"] = "rc-native/check.sh"
+				case "check_scope":
+					proposal["checks"].([]any)[0].(map[string]any)["scope"] = "proof"
+				}
+				if err = resolved.Validate(invalid); err == nil {
+					t.Fatalf("discovered Architect schema accepted the installed invalid %s", field)
+				}
+			}
+		}
 	}
 	if len(seen) != len(factory.MCPTools) {
 		t.Fatalf("discovery advertises %d tools, want %d", len(seen), len(factory.MCPTools))

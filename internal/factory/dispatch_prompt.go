@@ -468,12 +468,12 @@ func writePromptPrerequisites(b *strings.Builder, prerequisites []AcceptedPrereq
 	}
 }
 
-// writePromptInvestigation directs the investigation run: inspect exact
-// sources at their bound commits before reporting any plan. The reported
-// plan must carry every inspected path with its commit and evidence, echo
-// the prerequisite bindings below, cover every accepted outcome, and leave
-// no mandatory fact unresolved. Investigation plans; it never codes,
-// commits, opens pull requests or publishes.
+// InvestigationPlanGuidance documents the worker's existing typed plan
+// vocabulary and canonical digest retry, shared by prompts and discovery.
+const InvestigationPlanGuidance = "Submit the COMPLETE InvestigationPlan object, not just a tasks array. Plan id is exactly 32 lowercase hexadecimal digits. Copy current.binding.attempt_root, source_commit and preparation from factory.context; set initial integration_commit to that same source_commit, scope_digest to context.scope_digest and input_digest to context.prompt_sha. Initial generation is 0. Task, lane and check keys match ^[a-z][a-z0-9_-]{0,31}$; use a plan-local check alias such as native_check rather than a native CI context containing / or .. Check scope is exactly task or integration, never a task ID. Tasks are topologically ordered; each belongs to one declared lane, and concurrent tasks have exclusive paths. Echo admitted prerequisite digests and cover every accepted outcome. The plan digest is factory.PlanDigest: SHA-256 of Go encoding/json for {\"Version\":\"investigation-plan-v1\",\"Plan\":plan} after clearing plan.digest; typed field order and omitted/null fields matter. Correct validation errors and use expected_plan_digest from the response to retry rather than guessing a digest."
+
+// writePromptInvestigation directs the worker to inspect exact sources,
+// cover the accepted outcomes, and propose a plan without changing source.
 func writePromptInvestigation(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Investigation\n\n")
 	b.WriteString("Inspect first, plan second. Read the exact accepted objective and approved setup, then inspect the accepted sources and preparation context files at their bound commits before reporting any plan.\n")
@@ -481,7 +481,8 @@ func writePromptInvestigation(b *strings.Builder, in PromptInputs) {
 	if len(in.PlanPrerequisites) != 0 {
 		b.WriteString("Prerequisite bindings: " + strings.Join(in.PlanPrerequisites, ", ") + ". Echo these digests into the reported plan.\n")
 	}
-	b.WriteString("Record every inspected path with its commit and the evidence taken; the reported plan carries these inspected sources. Cover every accepted outcome; an unresolved mandatory fact blocks completion. Planning carries no candidate: never modify the checkout, name a commit, open a pull request or publish.\n")
+	b.WriteString("Record every inspected path with its commit and the evidence taken; the reported plan carries these inspected sources. Cover every accepted outcome; an unresolved mandatory fact blocks completion. Investigation creates no candidate: keep the checkout unchanged and do not create commits, open a pull request or publish. Echo the existing source commit in the required plan bindings.\n")
+	b.WriteString(InvestigationPlanGuidance + "\n")
 }
 
 func writePromptSection(b *strings.Builder, title string, sources []PromptSource) {

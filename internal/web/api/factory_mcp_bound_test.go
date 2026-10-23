@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -92,7 +93,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	if !catalogRefused(result, err) {
 		t.Fatal("model could supply identity")
 	}
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishImplement), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"unchanged": true}}})
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"outcome": "blocked", "cause": "missing_required_context", "evidence_refs": []string{}, "affected_task_ids": []string{}, "requested_resolution": "Restore current context before new work."}}})
 	if catalogRefused(result, err) {
 		t.Fatalf("default bound revision refused: %v %v", result, err)
 	}
@@ -444,5 +445,169 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
 	if !catalogRefused(result, err) {
 		t.Fatal("revoked capability read required context")
+	}
+
+	// A real Architect report must remain correctable before terminal freeze.
+	// Exercise the observed invalid-ID/empty-integration report against this
+	// same PostgreSQL journal, then settle only its corrected typed proposal.
+	architect := a
+	architect.ID, architect.Run = factory.NewID(), factory.NewID()
+	architect.Issue = 43
+	architect.AttemptRoot, architect.Role, architect.Phase = architect.ID, project.RoleCoder, project.ExecutionInvestigate
+	architect.PublicationAssignment = architect.ID
+	architect.Acceptance = "d" + strings.Repeat("2", 24)
+	architect.Harness, architect.HarnessVers, architect.Model, architect.Connection = "codex-fixture", "fixture", "fixture", "fixture"
+	architect.PromptSHA = project.FactoryPromptDigest(architect.Prompt)
+	architect.Attempts, architect.RunHistory = 1, []string{architect.Run}
+	architect.Subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: 43, Acceptance: "d" + strings.Repeat("2", 24)}}
+	if err := architect.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(architect)
+	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,43,$2,'assigned',1,$3)`, architect.ID, architect.Run, string(raw))
+	architectCap := cap
+	architectCap.ID, architectCap.AssignmentID, architectCap.RunID = factory.NewID(), architect.ID, architect.Run
+	architectCap.Profile, architectCap.Subject = factory.MCPProfileArchitect, architect.Subject.SubjectKey(architect.Repository)
+	if err := st.StageMCPCapability(ctx, architectCap); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ActivateObservedMCPCapability(ctx, architectCap); err != nil {
+		t.Fatal(err)
+	}
+	plan := factory.InvestigationPlan{
+		ID: "native-proof-plan", AttemptRoot: architect.ID, ScopeDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64),
+		SourceCommit: architect.SourceCommit, Preparation: architect.Preparation, Approach: "Write the single accepted output and run its declared check.",
+		Inspected:          []factory.InspectedSource{{Path: "README.md", Commit: architect.SourceCommit, Evidence: "Read the admitted source."}},
+		AcceptanceCoverage: []string{"The one accepted output is covered."},
+		Tasks:              []factory.PlanTask{{ID: "proof", Objective: "Write proof.txt", Outputs: []string{"proof.txt"}, AcceptanceRefs: []string{"output"}, Lane: "serial", OwnedPaths: []string{"proof.txt"}, CheckIDs: []string{"verify"}}},
+		Lanes:              []factory.PlanLane{{ID: "serial", TaskIDs: []string{"proof"}}},
+		Checks:             []factory.CheckSpec{{ID: "verify", Argv: []string{"/bin/sh", "check.sh"}, Cwd: ".", TimeoutSeconds: 30, Scope: factory.CheckScopeTask, Required: true}},
+	}
+	plan.Digest, _ = factory.PlanDigest(plan)
+	proposal := factory.MCPSubmission{AssignmentID: architect.ID, CapabilityID: architectCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan, ExpectedInputDigest: architectCap.ScopeDigest()}
+	encodePlan := func() {
+		t.Helper()
+		proposal.Payload, err = json.Marshal(map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{"README.md"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		proposal.PayloadHash = factory.MCPInputDigest(proposal.Payload)
+	}
+	encodePlan()
+	catalog := &factoryCatalogServer{deps: FactoryMCPDeps{Submissions: st, Assignments: st}}
+	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err == nil || !strings.Contains(err.Error(), "expected_plan_digest=") || !strings.Contains(err.Error(), "no terminal proposal recorded") {
+		t.Fatal("invalid plan did not return a correctable refusal", err)
+	}
+	if count, err := st.MCPSubmissionCount(ctx, architect.ID); err != nil || count != 0 {
+		t.Fatal("invalid plan consumed a terminal identity", count, err)
+	}
+	if _, frozen, err := st.TerminalMCPProposal(ctx, architect.ID); err != nil || frozen {
+		t.Fatal("invalid plan froze its assignment", err)
+	}
+	plan.ID, plan.IntegrationCommit = factory.NewID(), architect.SourceCommit
+	plan.Digest, _ = factory.PlanDigest(plan)
+	encodePlan()
+	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err != nil {
+		t.Fatal("corrected same submission identity was not recoverable", err)
+	}
+	if _, err := st.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal, _ := json.Marshal(factory.Withdrawal{Repository: 7, Revision: 1, Cause: "fixture", ClosedBy: "fixture"})
+	write(`UPDATE factory_dispatch SET data=$1 WHERE repository=7`, string(withdrawal))
+	// A byte conflict under a retained identity still reaches the immutable
+	// store guard rather than being recast as a new validation failure.
+	originalPlanID := plan.ID
+	plan.ID = "invalid-after-recording"
+	encodePlan()
+	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err != nil {
+		t.Fatal("new validation prevented immutable replay/conflict recovery", err)
+	}
+	conflictReceipt := factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}
+	if _, err := st.RecordMCPSubmission(ctx, proposal, conflictReceipt); err != store.ErrMCPSubmissionConflict {
+		t.Fatal("retained proposal bytes changed", err)
+	}
+	plan.ID = originalPlanID
+	encodePlan()
+	if settled, err := control.SettleMCPTerminalProposal(ctx, st, architect.ID, time.Now()); err != nil || !settled {
+		t.Fatal("correct typed plan did not settle", err)
+	}
+	settledReceipt, err := st.MCPReceipt(ctx, architect.ID, proposal.SubmissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settledBody := catalog.receiptBody(ctx, architect.ID, settledReceipt)
+	settlement, ok := settledBody["settlement"].(map[string]any)
+	if !ok || settlement["outcome"] != factory.Outcome(factory.Succeeded) || settlement["reported"] != true {
+		t.Fatal("receipt hid the actual settled result", settledBody)
+	}
+
+	// Reports retained before typed plan admission remain immutable. Exercise
+	// their exact replay through the authenticated SDK transport, where schema
+	// validation must not prevent the handler from recovering the stored receipt.
+	legacy := architect
+	legacy.ID, legacy.Run = factory.NewID(), factory.NewID()
+	legacy.AttemptRoot, legacy.PublicationAssignment = legacy.ID, legacy.ID
+	legacy.RunHistory = []string{legacy.Run}
+	raw, _ = json.Marshal(legacy)
+	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,43,$2,'assigned',1,$3)`, legacy.ID, legacy.Run, string(raw))
+	legacyCap := architectCap
+	legacyCap.ID, legacyCap.AssignmentID, legacyCap.RunID = factory.NewID(), legacy.ID, legacy.Run
+	if err := st.StageMCPCapability(ctx, legacyCap); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ActivateObservedMCPCapability(ctx, legacyCap); err != nil {
+		t.Fatal(err)
+	}
+	legacyCap, err = st.GetMCPCapability(ctx, legacyCap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyPayload := map[string]any{"approach": "Retained legacy plan", "tasks": []any{"legacy task"}, "evidence_refs": []any{"README.md"}}
+	legacyBytes, err := canonicalPayload(legacyPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyProposal := factory.MCPSubmission{AssignmentID: legacy.ID, CapabilityID: legacyCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan, ExpectedInputDigest: legacyCap.ScopeDigest(), Payload: legacyBytes, PayloadHash: factory.MCPInputDigest(legacyBytes)}
+	if _, err := st.RecordMCPSubmission(ctx, legacyProposal, factory.MCPReceipt{SubmissionID: legacyProposal.SubmissionID, Tool: legacyProposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyProposal.PayloadHash}); err != nil {
+		t.Fatal(err)
+	}
+	legacySecret, err := factory.DeriveMCPCapabilitySecret(key, legacyCap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacySession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{legacyCap.ID, legacySecret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer legacySession.Close()
+	beforeLegacyReplay := counts()
+	recovered, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReceipt), Arguments: map[string]any{"submission_id": legacyProposal.SubmissionID}})
+	if catalogRefused(recovered, err) {
+		t.Fatal("dedicated legacy receipt recovery refused", err)
+	}
+	for _, invalid := range []map[string]any{
+		{"submission_id": legacyProposal.SubmissionID},
+		{"payload": legacyPayload},
+		{"submission_id": legacyProposal.SubmissionID, "payload": []any{}},
+		{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload, "unknown": true},
+		{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload, "capability_id": legacyCap.ID},
+	} {
+		refused, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIssuePlan), Arguments: invalid})
+		if !catalogRefused(refused, err) || !strings.Contains(catalogText(t, refused), "validating arguments:") || counts() != beforeLegacyReplay {
+			t.Fatal("raw issue-plan registration weakened the bound envelope", err, catalogText(t, refused))
+		}
+	}
+	replayed, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIssuePlan), Arguments: map[string]any{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload}})
+	if catalogRefused(replayed, err) {
+		t.Fatal("SDK schema prevented retained legacy plan replay", err, catalogText(t, replayed))
+	}
+	if catalogText(t, replayed) != catalogText(t, recovered) || counts() != beforeLegacyReplay {
+		t.Fatal("legacy replay changed its receipt, journal or budget")
+	}
+	legacyPayload["approach"] = "Changed legacy bytes"
+	conflicted, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIssuePlan), Arguments: map[string]any{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload}})
+	if !catalogRefused(conflicted, err) || !strings.Contains(catalogText(t, conflicted), store.ErrMCPSubmissionConflict.Error()) || counts() != beforeLegacyReplay {
+		t.Fatal("legacy rewrite did not reach the immutable conflict guard", err, catalogText(t, conflicted))
 	}
 }

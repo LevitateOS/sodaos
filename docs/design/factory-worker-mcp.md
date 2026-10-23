@@ -470,6 +470,15 @@ known failure patterns and authorized technical discussions.
 | `factory.draft_issue_plan` | Construct and revise task outputs, dependencies, lanes, owned paths/interfaces and check definitions before acceptance. |
 | `factory.finish_issue_plan` | Seal the investigation and complete executable plan after validation of required facts, ownership and coverage. |
 
+The current finish accepts the full typed `InvestigationPlan` in `tasks`.
+Discovery states the hexadecimal identities, exact source/preparation bindings,
+plan-local check keys and `task`/`integration` scopes. Initial plans echo the
+existing source commit as `integration_commit`; investigation creates no new
+candidate. Malformed new plans return a correctable error before recording a
+terminal proposal, including `expected_plan_digest` for the exact typed fields.
+Retained proposals keep their original bytes. Accepted receipts also expose the
+actual settled outcome, so consumption alone cannot imply successful planning.
+
 The feed should expose the approach, important discoveries, meaningful tradeoffs
 and the resulting lanes. The library should receive reusable interface facts,
 architecture rationale and demonstrated constraints through Learned.

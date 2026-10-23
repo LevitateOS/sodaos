@@ -621,6 +621,10 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 		if deps.BoundCapability != nil {
 			bindMCPToolSchema(schema, tool, *deps.BoundCapability)
 		}
+		if tool == factory.MCPToolFinishIssuePlan {
+			catalog.addIssuePlanTool(server, schema)
+			continue
+		}
 		mcp.AddTool(server, schema, func(ctx context.Context, _ *mcp.CallToolRequest, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 			return catalog.serve(ctx, tool, args)
 		})
@@ -943,12 +947,7 @@ func (s *factoryCatalogServer) serveReceipt(ctx context.Context, args mcpCallArg
 	if err != nil {
 		return nil, nil, errors.New("receipt not found")
 	}
-	return mcpJSONResult(map[string]any{
-		"submission_id":   receipt.SubmissionID,
-		"state":           receipt.State,
-		"feed_post_id":    receipt.FeedPostID,
-		"library_item_id": receipt.LibraryItemID, "artifact_id": receipt.ArtifactID,
-	})
+	return mcpJSONResult(s.receiptBody(ctx, capability.AssignmentID, receipt))
 }
 
 // serveMutation records one immutable proposal with its durable
@@ -961,6 +960,9 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 		return nil, nil, err
 	}
 	defer release()
+	if err := s.validateIssuePlanSubmission(ctx, submission); err != nil {
+		return nil, nil, err
+	}
 	receipt := factory.MCPReceipt{
 		SubmissionID: submission.SubmissionID, Tool: tool,
 		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
@@ -969,12 +971,7 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 	if err != nil {
 		return nil, nil, err
 	}
-	return mcpJSONResult(map[string]any{
-		"submission_id":   recorded.SubmissionID,
-		"state":           recorded.State,
-		"feed_post_id":    recorded.FeedPostID,
-		"library_item_id": recorded.LibraryItemID, "artifact_id": recorded.ArtifactID,
-	})
+	return mcpJSONResult(s.receiptBody(ctx, submission.AssignmentID, recorded))
 }
 
 // factoryCatalogMux serves the catalog on the fixed route only: POST
