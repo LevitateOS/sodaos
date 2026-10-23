@@ -66,8 +66,16 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		set("fix_evidence", "Relevant changed paths and exact commits for each fixed code finding. Verification-only findings use passing native check evidence instead. These are nominations, independently verified before publication.", mcpCarrier[[]factory.CorrectionFixEvidence]())
 	case factory.MCPToolFinishReassessment:
 		set("subject", "The admitted reassessment/repair subject from context.", text)
-		report := &jsonschema.Schema{AnyOf: []*jsonschema.Schema{mcpCarrier[factory.ReassessmentReport](), mcpCarrier[factory.StallRepairReport](), mcpCarrier[factory.DeliveryRepairReport]()}}
+		outcome := &jsonschema.Schema{Type: "string", Enum: []any{factory.RepairOutcomeRepair, factory.RepairOutcomeVerifiedWait, factory.RepairOutcomeNoChange, factory.RepairOutcomeIncomplete}, Description: "repair proposes authorized graph changes; verified_wait records an evidenced wait; no_change completes diagnosis without graph changes; incomplete names missing facts or authority. Unresolved stalls remain held for owner attention."}
+		stall := mcpCarrier[factory.StallRepairReport]()
+		stall.Properties["outcome"] = outcome.CloneSchemas()
+		report := &jsonschema.Schema{AnyOf: []*jsonschema.Schema{mcpCarrier[factory.ReassessmentReport](), stall, mcpCarrier[factory.DeliveryRepairReport]()}}
 		set("report", "Full typed ReassessmentReport, StallRepairReport or DeliveryRepairReport, matching the assigned phase/subject. This proposes a change; it does not apply it.", report)
+		// Enforce the stall outcome even through the existing carrier fallback:
+		// an invalid value must be corrected before an immutable terminal is
+		// recorded. Other reassessment/repair subjects keep their own contract.
+		props["report"].If = &jsonschema.Schema{Type: "object", Required: []string{"stall_id"}}
+		props["report"].Then = &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"outcome": outcome}, Required: []string{"outcome"}}
 	case factory.MCPToolFinishAppVerify:
 		set("delivery_id", "Exact assigned delivery identity.", text)
 		set("coverage", "Structured outcome coverage for the assigned delivery.", mcpCarrier[[]factory.ReassessmentCoverage]())

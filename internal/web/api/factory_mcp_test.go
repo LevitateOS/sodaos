@@ -349,6 +349,39 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	seen := map[string]bool{}
 	for _, tool := range tools.Tools {
 		seen[tool.Name] = true
+		if tool.Name == string(factory.MCPToolFinishReassessment) {
+			// Exercise the actual discovered schema, including the invalid
+			// StallRepairReport outcome that fenced an installed native run.
+			raw, err := json.Marshal(tool.InputSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var schema jsonschema.Schema
+			if err = json.Unmarshal(raw, &schema); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := schema.Resolve(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			report := factory.StallRepairReport{StallID: strings.Repeat("1", 32), CycleID: strings.Repeat("2", 32), InventoryDigest: strings.Repeat("3", 64), SourceCommit: strings.Repeat("4", 40), PreparationDigest: strings.Repeat("5", 64), Inspected: []factory.InspectedSource{}, Causes: []factory.CheckFailure{{CheckRef: "missing_producer", Detail: "The manual prerequisite needs an authorized producer."}}, RetainedIssueIndexes: []int64{1, 2, 3}, IntentChanges: []factory.ReassessmentIntentChange{}, Coverage: []factory.ReassessmentCoverage{}, Attention: []factory.ReassessmentAttentionEntry{}}
+			for _, outcome := range []string{factory.RepairOutcomeRepair, factory.RepairOutcomeVerifiedWait, factory.RepairOutcomeNoChange, factory.RepairOutcomeIncomplete, "needs_attention"} {
+				report.Outcome = outcome
+				payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "expected_input_digest": strings.Repeat("8", 64), "payload": map[string]any{"subject": "stall:" + report.StallID, "report": report}}
+				raw, _ := json.Marshal(payload)
+				var proposal map[string]any
+				if err = json.Unmarshal(raw, &proposal); err != nil {
+					t.Fatal(err)
+				}
+				err = resolved.Validate(proposal)
+				if outcome == "needs_attention" && err == nil {
+					t.Fatal("discovered Strategist schema accepted an outcome outside the domain vocabulary")
+				}
+				if outcome != "needs_attention" && err != nil {
+					t.Fatalf("discovered Strategist schema refused %s: %v", outcome, err)
+				}
+			}
+		}
 		if tool.Name == string(factory.MCPToolFinishIssuePlan) {
 			// Validate through the schema actually returned over MCP, including
 			// the malformed values observed in the installed Architect run.
