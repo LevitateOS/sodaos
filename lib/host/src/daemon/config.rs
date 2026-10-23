@@ -233,7 +233,14 @@ fn selected_canlang_runtime(
                 .keys()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-                != ["bun", "compiler", "miniflare", "node", "workerd"]
+                != [
+                    "bun",
+                    "compiler",
+                    "devServer",
+                    "miniflare",
+                    "node",
+                    "workerd",
+                ]
             || tools.versions.values().any(|version| version.is_empty())
         {
             return Err("invalid Canlang tools reference".into());
