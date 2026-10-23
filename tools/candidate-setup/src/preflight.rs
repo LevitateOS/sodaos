@@ -144,7 +144,12 @@ fn admitted_toolchain() -> Result<String, Exit> {
     // D01-F3: only a successful empty status proves clean.
     let dirty = !git_tree_clean(&capture(
         "git",
-        &["status", "--porcelain", "--untracked-files=no"],
+        &[
+            "--no-optional-locks",
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+        ],
         false,
     ));
     if dirty {
