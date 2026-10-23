@@ -100,6 +100,8 @@ fn warm_cargo_source(
         "-u",
         WORKER_USER,
         "env",
+        "--chdir",
+        source,
         &cargo_user_home,
         &cargo_home_env,
         &cargo_target_env,
@@ -111,15 +113,10 @@ fn warm_cargo_source(
         "--manifest-path",
         "Cargo.toml",
     ];
-    if run_in_dir(
-        "sudo",
-        &cargo_warm,
-        source,
-        false,
-        "cannot warm Cargo cache",
-    )
-    .is_err()
-    {
+    // Enter worker-owned private scratch only after sudo changes identity.
+    // A pre-exec current_dir would still run as the operator and fail under
+    // a private caller umask, before sudo can grant the worker access.
+    if run("sudo", &cargo_warm).is_err() {
         return fail("cannot warm locked Rust dependency cache");
     }
     Ok(())
