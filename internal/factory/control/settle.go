@@ -81,9 +81,10 @@ func replayStop(stored factory.Command) (StopReceipt, error) {
 	return receipt, nil
 }
 
-// Reconcile retires every outstanding recorded run and settles each one
-// whose retirement, credential return and broker closure confirm. Runs with
-// unresolved effects stay fenced for a later command.
+// Reconcile retires outstanding native runs and settles each one whose
+// retirement, credential return and broker closure confirm. Unobserved
+// pre-launch context holds retain their admitted packet; unresolved native
+// effects stay fenced for a later command.
 func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (ReconcileReceipt, error) {
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
@@ -216,6 +217,9 @@ func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, erro
 			}
 			visited[run.ID] = true
 			progress = true
+			if c.preservePendingContext(ctx, run) {
+				continue
+			}
 			bounded, stop := context.WithTimeout(ctx, 2*time.Minute)
 			settled := c.settleRun(bounded, run)
 			stop()

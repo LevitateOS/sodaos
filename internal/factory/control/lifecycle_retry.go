@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -24,12 +25,30 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
+	view, err := c.Store.FactoryRunView(bounded, run.ID)
+	if err != nil {
+		return factory.RetryDecision{}, retryOwnershipError(err)
+	}
+	assignment, err := c.Store.Assignment(bounded, view.Attempt)
+	if err != nil {
+		return factory.RetryDecision{}, retryOwnershipError(err)
+	}
+	implementation := assignment.Phase == project.ExecutionImplement && run.ContextPending &&
+		run.Outcome == factory.Cancelled && run.Summary == "stop-before-start" &&
+		!run.CredentialDelegated && run.IdentityBinding == nil
+	if implementation {
+		cmd.Type = factory.CommandRetryImplementation
+		cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
+	}
 	if prior, done, err := c.replayRetryCommand(bounded, cmd); done || err != nil {
 		return prior, err
 	}
 	decision := factory.RetryDecision{
 		Prior: runID, CommandID: cmd.ID, Queued: true,
 		Reason: "new attempt queued; dispatch will revalidate current policy and provider budget",
+	}
+	if implementation {
+		decision.Reason = "implementation retry queued with the accepted plan and remaining attempt allowance"
 	}
 	if err = decision.Validate(); err != nil {
 		return factory.RetryDecision{}, err
@@ -38,7 +57,11 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	stored, created, err := c.Store.RecordExplicitRetryCommand(bounded, cmd, decision, view.Repository, view.Issue, head, time.Now())
+	record := c.Store.RecordExplicitRetryCommand
+	if implementation {
+		record = c.Store.RecordImplementationRetryCommand
+	}
+	stored, created, err := record(bounded, cmd, decision, view.Repository, view.Issue, head, time.Now())
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}

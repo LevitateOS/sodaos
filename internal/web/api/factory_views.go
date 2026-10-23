@@ -124,7 +124,7 @@ func (s *API) apiFactoryRun(w http.ResponseWriter, r *http.Request, v store.Sess
 		return
 	}
 	status := factoryRunStatus{Run: factoryRunRecordDTO(run)}
-	if run.ContextPending {
+	if run.ContextPending && !run.Reconciled && run.Outcome == "" {
 		selection, selectionErr := control.ContextSelectionStatus(r.Context(), s.Store, run)
 		if selectionErr != nil {
 			auth.JSONError(w, 503, "context_unavailable", "Could not read the saved context hold.")

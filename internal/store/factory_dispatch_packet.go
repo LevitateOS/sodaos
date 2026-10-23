@@ -441,8 +441,13 @@ func validateImplementChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignm
 		return err
 	}
 	childID, err := factory.AdvancementID(parent.ID, factory.ResultDigest(*parent.Result), project.ExecutionImplement)
-	if err != nil || childID != a.ID {
+	if err != nil {
 		return fmt.Errorf("%w: implementation child is not its parent's advancement", ErrAttemptRootMismatch)
+	}
+	if childID != a.ID {
+		if err := validateImplementationRetryChildTx(ctx, tx, a); err != nil {
+			return err
+		}
 	}
 	if err := currentHeadMatchesTx(ctx, tx, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err

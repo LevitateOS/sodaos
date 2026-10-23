@@ -195,7 +195,7 @@ func verifyStagedManifest(launch project.FactoryLaunch) error {
 // call, exactly like a fresh attempt. The child keeps its parent's attempt
 // root, publication slot, preparation and source: the allowance is retained
 // rather than reset, and planning stages no publication capability.
-func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, childID string, parent factory.Assignment, report *DispatchReport) {
+func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, childID string, parent factory.Assignment, report *DispatchReport, retry *factory.RetryDecision) {
 	repository, issue := parent.Repository, parent.Issue
 	now := time.Now()
 	runID := factory.NewID()
@@ -244,11 +244,18 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 	}
 	run := factory.Run{
 		ID: runID, ProjectID: plan.projectID, Role: project.RoleCoder, InputSHA: parent.SourceCommit,
+		ContextPending: len(deps.MCPKey) > 0, ExecutionManifest: manifest,
 		Started: now, Deadline: plan.deadline,
 		Image: plan.pin.Image, Harness: assignment.Harness, Model: assignment.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: childID}
-	if packetErr := deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view); packetErr != nil {
+	var packetErr error
+	if retry == nil {
+		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view)
+	} else {
+		packetErr = deps.Store.RecordImplementationRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
+	}
+	if packetErr != nil {
 		reportPacketRefusal(ctx, deps, occupancy, repository, issue, packetErr, report)
 		return
 	}

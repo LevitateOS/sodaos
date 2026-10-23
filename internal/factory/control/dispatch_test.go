@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -237,6 +238,21 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	ownerCoord := NewCoordinator(db, fx.host, fx.broker)
 	ownerCoord.DispatchReads = fx.reads
 	ownerCoord.MCPKey = guarded.MCPKey
+	// The actual coordinator startup must preserve this never-launched
+	// held packet before normal RecoverDispatch can recheck its receipt.
+	startup := NewCoordinator(db, fx.host, fx.broker)
+	startup.DispatchReads, startup.MCPKey = fx.reads, guarded.MCPKey
+	if err := startup.Start(ctx, filepath.Join(t.TempDir(), "context-owner.lock")); err != nil {
+		t.Fatal("startup refused held packet", err)
+	}
+	if err := startup.Close(); err != nil {
+		t.Fatal(err)
+	}
+	retained, _ := db.FactoryRun(ctx, childRun.ID)
+	retainedCap, _ := db.GetMCPCapability(ctx, childRun.ID)
+	if retained.Reconciled || retained.Outcome != "" || !retained.ContextPending || retainedCap.State != factory.MCPCapabilityStaged || retainedCap.ContextSelectionSnapshot != childCapability.ContextSelectionSnapshot || uncertain.calls != 1 || len(fx.host.launches) != beforeLaunch {
+		t.Fatalf("startup retired or refilled the unstarted hold: %+v %+v", retained, retainedCap)
+	}
 	commandID := factory.NewID()
 	wrong := request
 	wrong.RequiredDigest = strings.Repeat("e", 64)
@@ -275,6 +291,89 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {
 		t.Fatalf("settled candidate attempt = %+v, %v", allowance, err)
 	}
+	t.Run("owner replaces a cancelled unlaunched implementation", func(t *testing.T) {
+		db, _ := dispatchTestDB(t)
+		fx := dispatchSeed(t, db)
+		head := fx.accept(t, 3, "d333333333333333333333333")
+		fx.queue(t, 3, head.ID)
+		first := DispatchPass(ctx, fx.deps())
+		if len(first.Launched) != 1 {
+			t.Fatalf("planning launch: %+v", first)
+		}
+		parent, _ := db.Assignment(ctx, first.Launched[0].AssignmentID)
+		parentRun, _ := db.FactoryRun(ctx, parent.Run)
+		parentRun.Outcome, parentRun.Summary, parentRun.Reconciled = factory.Succeeded, "plan ready", true
+		if err := db.SaveFactoryRun(ctx, parentRun); err != nil {
+			t.Fatal(err)
+		}
+		plan := phaseTestPlan(t, parent.AttemptRoot, parent.SourceCommit, parent.Preparation)
+		output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed", Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan}})
+		if _, ok := AccountSettledRun(ctx, db, parentRun, output, time.Now()); !ok {
+			t.Fatal("planning settlement refused")
+		}
+		deps := fx.deps()
+		deps.MCPKey = []byte(strings.Repeat("k", 32))
+		chooser := &bundleGapChooser{pick: factory.ContextBundleCurrent, confidence: 0.6}
+		deps.Priority = &PriorityJudgments{Journal: db, Chooser: chooser}
+		occupancy, err := snapshotOccupancy(ctx, db)
+		if err != nil {
+			t.Fatal(err)
+		}
+		control, _ := db.IssueControl(ctx, fx.repo, 3)
+		held := newDispatchReport()
+		dispatchOne(ctx, deps, &occupancy, control, &held)
+		if len(held.Launched) != 0 || waitReason(held, 3) != "context_selection_hold" || chooser.calls != 1 {
+			t.Fatalf("implementation did not hold: %+v calls=%d", held, chooser.calls)
+		}
+		child, err := db.LatestIssueAttempt(ctx, fx.repo, 3)
+		if err != nil || child.Phase != project.ExecutionImplement {
+			t.Fatalf("held child: %+v %v", child, err)
+		}
+		run, _ := db.FactoryRun(ctx, child.Run)
+		beforeCap, _ := db.GetMCPCapability(ctx, run.ID)
+		beforeJudgment, _ := db.PriorityJudgment(ctx, beforeCap.ContextSelectionSnapshot)
+		// Reproduce the old startup's native stop/settlement through its
+		// real coordinator path, without rewriting any cancelled record.
+		fx.host.stop = func(in project.FactoryStop) (project.FactoryState, error) {
+			return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stop-before-start"}, nil
+		}
+		coord := NewCoordinator(db, fx.host, fx.broker)
+		coord.DispatchReads, coord.MCPKey = fx.reads, deps.MCPKey
+		if stopped := coord.settleRun(ctx, run); !stopped.Confirmed || stopped.Outcome != string(factory.Cancelled) {
+			t.Fatalf("unused stop not settled: %+v", stopped)
+		}
+		beforeAllowance, _ := db.AttemptAllowance(ctx, fx.repo, 3)
+		beforeInventory, _ := db.CapturePriorityInventory(ctx)
+		command := factory.NewID()
+		decision, err := coord.RetryRun(ctx, command, "native:7", run.ID)
+		if err != nil || !decision.Queued || decision.CommandID != command {
+			t.Fatalf("owner continuation refused: %+v %v", decision, err)
+		}
+		if replay, err := coord.RetryRun(ctx, command, "native:7", run.ID); err != nil || replay != decision {
+			t.Fatalf("owner continuation replay: %+v %v", replay, err)
+		}
+		afterInventory, _ := db.CapturePriorityInventory(ctx)
+		if beforeInventory.LocalDigest == afterInventory.LocalDigest {
+			t.Fatal("owner continuation did not invalidate the cached exclusion")
+		}
+		occupancy, _ = snapshotOccupancy(ctx, db)
+		control, _ = db.IssueControl(ctx, fx.repo, 3)
+		resumed := newDispatchReport()
+		deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
+		dispatchOne(ctx, deps, &occupancy, control, &resumed)
+		if len(resumed.Launched) != 1 || resumed.Launched[0].AssignmentID != command {
+			t.Fatalf("continuation not launched: %+v", resumed)
+		}
+		next, _ := db.Assignment(ctx, command)
+		old, _ := db.FactoryRun(ctx, run.ID)
+		afterAllowance, _ := db.AttemptAllowance(ctx, fx.repo, 3)
+		afterJudgment, _ := db.PriorityJudgment(ctx, beforeCap.ContextSelectionSnapshot)
+		beforeRaw, _ := json.Marshal(beforeJudgment)
+		afterRaw, _ := json.Marshal(afterJudgment)
+		if next.AttemptRoot != parent.ID || next.ParentAssignment != parent.ID || next.Preparation != child.Preparation || next.SourceCommit != child.SourceCommit || next.Run == old.ID || !old.Reconciled || old.Outcome != factory.Cancelled || string(beforeRaw) != string(afterRaw) || afterAllowance.Limits != beforeAllowance.Limits || afterAllowance.ActiveSeconds < beforeAllowance.ActiveSeconds || afterAllowance.RootAssignment != beforeAllowance.RootAssignment {
+			t.Fatal("continuation replaced old history, plan lineage, paid judgment or cumulative allowance")
+		}
+	})
 }
 
 func TestDispatchRefusesTargetDifferentFromPreparedCoderSource(t *testing.T) {

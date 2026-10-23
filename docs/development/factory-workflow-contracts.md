@@ -1786,6 +1786,28 @@ new capabilities. A staged capability remains staged and cannot read S0 through
 MCP; its controller/authorized owner can see the hold. Qualified activation and
 actual host enforcement stay with R30, not this documentation change.
 
+For a staged, unobserved run held by an uncertain saved selection, a current
+code-write owner can explicitly choose **Use current required context** from
+the run detail or the adopted issue's requirements review. This records a
+separate immutable command bound to the existing run, capability scope, saved
+selection fingerprint and complete current semantic context. Recheck ordinary
+authority, inputs, preparation, remaining allowance and expiry before recording
+the choice and again before launch. Retain the original judgment and its single
+paid call unchanged. The choice cannot extend a deadline, fund another call,
+replace mandatory context or revive a stopped or observed run; changed current
+inputs require a fresh read of the hold. Exact command replay recovers a lost
+reply without another decision.
+
+Startup reconciliation preserves a pending first launch when the host and
+broker confirm that no execution exists. If a prior implementation child was
+already cancelled before first launch, explicit run Retry can admit a replacement
+child under the same completed investigation and current plan. The command and
+packet recheck the cancelled child's unused, settled custody, unchanged accepted
+inputs and preparation, absence of task effects, and the open root's remaining
+cumulative allowance. Preserve the cancelled run and its capability; the new
+run receives its own normally admitted packet. No allowance is refilled and a
+closed root cannot use this continuation.
+
 Required checks include zero read-side rows/spend/provider calls; concurrent
 preparation and crash recovery with at most one request; low-confidence **saved
 receipt** and absent-receipt fallback; no cross-assignment disclosure; exact

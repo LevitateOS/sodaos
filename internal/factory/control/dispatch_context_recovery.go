@@ -6,9 +6,35 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+// Startup retains a recorded pre-launch hold when both native custody owners
+// confirm that no execution exists. Stop/Pause still retire it explicitly.
+func (c *Coordinator) preservePendingContext(ctx context.Context, run factory.Run) bool {
+	if !run.ContextPending || run.Reconciled || run.Outcome != "" || run.CredentialDelegated || run.IdentityBinding != nil || run.Admission == nil || !time.Now().Before(run.Deadline) || len(c.MCPKey) == 0 {
+		return false
+	}
+	a, err := c.Store.AssignmentByRun(ctx, run.ID)
+	if err != nil || a.Stage != factory.AssignmentAssigned || a.Run != run.ID || a.ProjectID != run.ProjectID {
+		return false
+	}
+	observed, err := c.Store.MCPRunWasObserved(ctx, run.ID, a.ID, a.ProjectID)
+	if err != nil || observed {
+		return false
+	}
+	if _, err = c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: run.ProjectID, ID: run.ID}); !isHostNotFound(err) {
+		return false
+	}
+	_, err = c.Broker.GetExecution(ctx, identity.Factory, run.ID)
+	if !errors.Is(err, identity.ErrNotFound) {
+		return false
+	}
+	_, _, terminal := pendingContextLaunch(ctx, c.dispatchDeps(), a, run)
+	return !terminal
+}
 
 // A context hold is a pending first launch, not a failed native attempt.
 // Recovery retains its run, capability and paid choice. The marker is cleared

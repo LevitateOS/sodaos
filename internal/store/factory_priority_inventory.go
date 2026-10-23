@@ -329,6 +329,9 @@ func (c *priorityDigestInputs) batchMemberInputs(ctx context.Context) error {
 			if assign.Stage == factory.AssignmentFinished && assign.Acceptance != "" &&
 				assign.Acceptance == heads[key] && assign.Acceptance == m.acceptance {
 				pending, err := pendingExplicitRetry(ctx, c.tx, m.repository, m.issue, assign.Acceptance)
+				if errors.Is(err, ErrNotFound) {
+					pending, err = pendingImplementationRetry(ctx, c.tx, m.repository, m.issue, assign.Acceptance)
+				}
 				if err != nil && !errors.Is(err, ErrNotFound) {
 					return err
 				}

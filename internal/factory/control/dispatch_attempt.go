@@ -110,6 +110,19 @@ func resolveDispatchRetry(ctx context.Context, deps DispatchDeps, occupancy *pas
 	latest, head, attemptClosed, hasAssignment := admitted.latest, admitted.head, admitted.attemptClosed, admitted.hasAssignment
 	var retry *factory.RetryDecision
 	if hasAssignment && latest.Acceptance == head {
+		continuation, continuationErr := deps.Store.PendingImplementationRetry(ctx, repository, issue, head)
+		if continuationErr == nil {
+			if attemptClosed {
+				report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAllowance, Detail: "the retained attempt is closed"})
+			} else {
+				advanceCompletedPlanning(ctx, deps, occupancy, control, latest, head, report, &continuation)
+			}
+			return nil, false
+		}
+		if !errors.Is(continuationErr, store.ErrNotFound) {
+			report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "implementation retry unreadable"})
+			return nil, false
+		}
 		pending, retryErr := deps.Store.PendingExplicitRetry(ctx, repository, issue, head)
 		if errors.Is(retryErr, store.ErrNotFound) {
 			// No explicit Retry waits: a completed investigation
@@ -579,10 +592,20 @@ func advanceChildID(owner factory.Assignment, head string) (string, *factory.Inv
 // resets, no publication, no priority competition. It reports true when
 // the report carries the outcome and the caller must stop.
 func maybeAdvanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, latest factory.Assignment, head string, report *DispatchReport) bool {
+	return advanceCompletedPlanning(ctx, deps, occupancy, control, latest, head, report, nil)
+}
+
+// An explicit replacement for a cancelled, never-launched implementation
+// retains this parent and plan. Its immutable command supplies the new child
+// identity; the packet transaction rechecks the retired prior run and budget.
+func advanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, latest factory.Assignment, head string, report *DispatchReport, retry *factory.RetryDecision) bool {
 	repository, issue := control.Repository, control.Issue
 	childID, plan, ok := advanceChildID(latest, head)
 	if !ok {
 		return false
+	}
+	if retry != nil {
+		childID = retry.CommandID
 	}
 	existing, err := deps.Store.Assignment(ctx, childID)
 	if err == nil {
@@ -640,7 +663,7 @@ func maybeAdvanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occup
 		return true
 	}
 	attempt.advancePlan = admitted
-	admitImplementChild(ctx, deps, occupancy, attempt, childID, latest, report)
+	admitImplementChild(ctx, deps, occupancy, attempt, childID, latest, report, retry)
 	return true
 }
 
