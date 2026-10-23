@@ -227,15 +227,22 @@ func (c *Coordinator) resolvePublicationOwner(ctx context.Context, a factory.Ass
 	if a.Phase != project.ExecutionInvestigate || a.Subject.Issue == nil {
 		return owner, candidate, runID, preparation, false
 	}
-	childID, _, ok := advanceChildID(a, a.Subject.Issue.Acceptance)
-	if !ok {
+	if advanceChildPlan(a) == nil {
 		return owner, candidate, runID, preparation, false
 	}
-	child, err := c.Store.Assignment(ctx, childID)
+	// The first implementation has a deterministic advancement identity;
+	// an explicit retry of a cancelled, never-launched child has its own
+	// immutable owner-command identity. Only the current child can supply
+	// this root's candidate, whichever normal admission produced it.
+	child, err := c.Store.LatestIssueAttempt(ctx, a.Repository, a.Issue)
 	if err != nil {
 		return owner, candidate, runID, preparation, false
 	}
-	if child.Phase != project.ExecutionImplement || child.Stage != factory.AssignmentFinished ||
+	if child.Validate() != nil || child.Phase != project.ExecutionImplement || child.Role != project.RoleCoder ||
+		child.ParentAssignment != a.ID || child.PublicationAssignment != a.ID || child.AttemptRoot != a.AttemptRoot ||
+		child.Repository != a.Repository || child.Issue != a.Issue || child.Acceptance != a.Acceptance ||
+		child.ProjectID != a.ProjectID || child.SourceCommit != a.SourceCommit || child.Preparation != a.Preparation ||
+		child.Stage != factory.AssignmentFinished ||
 		child.Outcome != factory.Succeeded || child.Result == nil || !child.Result.Reported ||
 		child.Result.Status != "completed" || !factory.ValidCommit(child.Result.Candidate) {
 		return owner, candidate, runID, preparation, false

@@ -373,6 +373,28 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		if next.AttemptRoot != parent.ID || next.ParentAssignment != parent.ID || next.Preparation != child.Preparation || next.SourceCommit != child.SourceCommit || next.Run == old.ID || !old.Reconciled || old.Outcome != factory.Cancelled || string(beforeRaw) != string(afterRaw) || afterAllowance.Limits != beforeAllowance.Limits || afterAllowance.ActiveSeconds < beforeAllowance.ActiveSeconds || afterAllowance.RootAssignment != beforeAllowance.RootAssignment {
 			t.Fatal("continuation replaced old history, plan lineage, paid judgment or cumulative allowance")
 		}
+		parent, _ = db.Assignment(ctx, parent.ID)
+		if _, _, _, _, ready := coord.resolvePublicationOwner(ctx, parent); ready {
+			t.Fatal("unfinished continuation supplied a publication candidate")
+		}
+		nextRun, _ := db.FactoryRun(ctx, next.Run)
+		nextRun.Outcome, nextRun.Summary, nextRun.Reconciled = factory.Succeeded, "implementation complete", true
+		if err := db.SaveFactoryRun(ctx, nextRun); err != nil {
+			t.Fatal(err)
+		}
+		candidate := strings.Repeat("2", 40)
+		implementation := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionImplement, Status: "completed", Summary: "implementation complete", Output: &factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: candidate}}})
+		if _, ok := AccountSettledRun(ctx, db, nextRun, implementation, time.Now()); !ok {
+			t.Fatal("continuation implementation settlement refused")
+		}
+		publicationOwner, gotCandidate, gotRun, gotPreparation, ready := coord.resolvePublicationOwner(ctx, parent)
+		if !ready || publicationOwner.ID != next.ID || gotCandidate != candidate || gotRun != next.Run || gotPreparation != next.Preparation {
+			t.Fatalf("publication ignored the completed current continuation: owner=%s candidate=%s run=%s preparation=%s ready=%t", publicationOwner.ID, gotCandidate, gotRun, gotPreparation, ready)
+		}
+		old, _ = db.FactoryRun(ctx, old.ID)
+		if old.Outcome != factory.Cancelled || !old.Reconciled || old.Summary != "stop-before-start" {
+			t.Fatal("publication resolution rewrote the cancelled first child")
+		}
 	})
 }
 
