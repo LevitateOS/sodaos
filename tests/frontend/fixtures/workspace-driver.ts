@@ -235,3 +235,17 @@ export async function reviewFirstIntent(page: Page) {
   await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
   await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
 }
+
+// Finish the declared synthetic planning peer through visible controls for
+// existing setup cases that need an accepted request, rather than a new draft.
+export async function completeBoundIntentPlanning(page: Page) {
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  const planning = page.locator('section[aria-label="Draft planning"]');
+  await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
+  await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await planning.getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+}

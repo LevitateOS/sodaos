@@ -5,6 +5,7 @@ import {
   setupWorkspaceDriver,
   chooseFirstRepository,
   reviewFirstIntent,
+  completeBoundIntentPlanning,
   fixture,
   textContents,
 } from './fixtures/workspace-driver';
@@ -181,7 +182,7 @@ test('first use: picker summarizes reviewed authorization and the create effect'
   await reviewFirstIntent(page);
   await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
   await page.getByText('Saving 1 authorized idea and 1 work item to the chosen repository.').waitFor();
-  await page.getByText('Continuing creates factory work for that repository.').waitFor();
+  await page.getByText('The draft is linked first. Factory work is created after a completed plan is accepted.').waitFor();
   const create = page.getByRole('link', {name: 'Create a new repository'});
   assert.equal(await create.getAttribute('target'), '_blank');
   assert.equal(await create.getAttribute('rel'), 'noopener');
@@ -193,6 +194,7 @@ test('first use: resumed accepted request suggests its repository in the picker'
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
     const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
     const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
@@ -227,6 +229,7 @@ test('first use: resumed accepted request restores its overview with native link
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
     const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
     const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
@@ -269,6 +272,7 @@ test('first use: committed inspection mounts plan, detail and revision from the 
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
     const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
     const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
@@ -318,6 +322,7 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
@@ -403,6 +408,7 @@ test(
     await page.getByRole('radio', {name: /alice\/Alpha/}).check();
     await page.getByRole('button', {name: 'Continue', exact: true}).click();
     await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+    await completeBoundIntentPlanning(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
     await page.getByRole('button', {name: 'Join project', exact: true}).click();
     await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
@@ -973,6 +979,7 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
@@ -1086,6 +1093,7 @@ test('setup: native New on idle Configure starts blank and saves apart', {timeou
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   const acceptedIntent = await page.evaluate(
     () =>
       (document.querySelector('soda-intent') as unknown as {revision?: {intent: string}} | null)?.revision?.intent ?? ''

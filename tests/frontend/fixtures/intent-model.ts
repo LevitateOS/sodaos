@@ -6,6 +6,7 @@ export function createIntentModel() {
   const revisions = new Map<string, IntentRevision>();
   const departments: Record<string, unknown>[] = [];
   const allowances = new Map<string, Record<string, unknown>>();
+  const plans = new Set<string>();
   let serial = 100;
   const nextID = () => 'd' + (++serial).toString(16).padStart(24, '0');
   return (path: string, method: string, body: Record<string, unknown> | null): Response | undefined => {
@@ -48,6 +49,17 @@ export function createIntentModel() {
       const intents = all.slice(0, limit);
       const next = all.length > intents.length ? intents.at(-1)?.intent : undefined;
       return Response.json({intents, ...(next ? {next_cursor: next} : {})});
+    }
+    const planning = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/plan$/);
+    if (planning) {
+      const head = [...revisions.values()].reverse().find((revision) => revision.intent === planning[1]);
+      if (!head || head.state !== 'draft' || head.repository === '0') return new Response(null, {status: 409});
+      if (method === 'POST') {
+        if (body?.revision !== head.id || body.operation !== 'propose_intent') return new Response(null, {status: 412});
+        plans.add(head.id);
+        return Response.json({assignment_id: 'a'.repeat(32), run_id: 'b'.repeat(32), revision_id: head.id}, {status: 201});
+      }
+      return Response.json({revision: head.id, state: plans.has(head.id) ? 'completed' : 'none', candidates: plans.has(head.id) ? 1 : 0});
     }
     if (method === 'GET') {
       const allowance = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/allowance$/);

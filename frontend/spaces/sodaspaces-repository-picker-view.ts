@@ -93,8 +93,8 @@ function authorizationNote(view: RepositoryPickerView) {
   if (!auth) return '';
   return html`<p>
     Saving ${plural(auth.ideas, 'authorized idea', 'authorized ideas')} and
-    ${plural(auth.tasks, 'work item', 'work items')} to the chosen repository. Continuing creates factory work for
-    that repository.
+    ${plural(auth.tasks, 'work item', 'work items')} to the chosen repository. The draft is linked first. Factory work
+    is created after a completed plan is accepted.
   </p>`;
 }
 function suggestedNote(view: RepositoryPickerView) {

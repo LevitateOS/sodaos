@@ -758,7 +758,7 @@ export class SodaIntent extends LitElement {
     }, 'Raising allowance…');
   };
   private async explore(signal: AbortSignal) {
-    const saved = await this.save('draft', '0', signal);
+    const saved = await this.save('draft', this.revision?.repository || '0', signal);
     if (!(await this.ensureAllowance(saved.intent, signal))) return;
     try {
       const response = await this.call(
@@ -839,6 +839,26 @@ export class SodaIntent extends LitElement {
   async acceptRepository(repository: string): Promise<boolean> {
     if (!reviewReady(this.view())) return false;
     return this.perform(async (signal) => {
+      const current = this.revision;
+      if (!current) throw Error('Product direction unavailable');
+      if (current.state !== 'accepted' || current.repository !== repository) {
+        if (current.repository !== repository) {
+          await this.save('draft', repository, signal);
+          this.generationNotice =
+            'Draft saved for this repository. Prepare the Project, then reopen this plan and use Plan work before accepting the direction.';
+          return;
+        }
+        const planned = intentPlanStatus(
+          await this.call('/api/factory/intents/' + current.intent + '/plan', undefined, signal)
+        );
+        if (planned.revision !== current.id) throw Error('Planning status answers another draft');
+        if (planned.state !== 'completed') {
+          this.plan = planned;
+          this.generationNotice =
+            'Your repository draft is saved. Reopen this plan and use Plan work; accept the direction after its planning result is complete.';
+          return;
+        }
+      }
       if (this.revision?.state !== 'accepted' || this.revision.repository !== repository)
         await this.save('accepted', repository, signal);
       await this.generate(signal);

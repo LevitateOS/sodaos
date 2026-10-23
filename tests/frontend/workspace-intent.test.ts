@@ -18,6 +18,7 @@ interface IntentStore {
   allowanceRefuse: boolean;
   exploreFundingRequired: boolean;
   allowanceCalls: {method: string; path: string; body: Record<string, unknown> | null}[];
+  planCalls: {revision: string; operation: string}[];
   seedAllowance(entry: Record<string, unknown>): void;
 }
 // Test-local private intent peer: records saved revisions, serves the declared
@@ -143,6 +144,7 @@ async function installIntentStore(page: Page) {
       };
     };
     const allowances = new Map<string, Record<string, unknown>>();
+    const plans = new Map<string, {revision: string; state: string; candidates: number}>();
     const store = {
       forbid: false,
       sessionLost: false,
@@ -152,6 +154,7 @@ async function installIntentStore(page: Page) {
       allowanceRefuse: false,
       exploreFundingRequired: false,
       allowanceCalls: [] as {method: string; path: string; body: Record<string, unknown> | null}[],
+      planCalls: [] as {revision: string; operation: string}[],
       seedAllowance(entry: Record<string, unknown>) {
         allowances.set(String(entry.intent), entry);
       },
@@ -221,6 +224,23 @@ async function installIntentStore(page: Page) {
             intent_digest: 'd',
             task_issue_ids: store.generation.state === 'pending' ? {} : {k1: '1'},
           });
+        }
+        if (url.includes('/api/factory/intents/') && url.endsWith('/plan')) {
+          const record = records.get(url.split('/').at(-2) || '');
+          if (!record || record.state !== 'draft' || record.repository === '0')
+            return new Response(null, {status: 409});
+          if (method === 'POST') {
+            const body = JSON.parse(String(init?.body || '{}')) as {revision: string; operation: string};
+            if (body.revision !== record.id || body.operation !== 'propose_intent')
+              return new Response(null, {status: 412});
+            store.planCalls.push(body);
+            plans.set(String(record.id), {revision: String(record.id), state: 'completed', candidates: 1});
+            return Response.json(
+              {assignment_id: 'a'.repeat(32), run_id: 'b'.repeat(32), revision_id: record.id},
+              {status: 201}
+            );
+          }
+          return Response.json(plans.get(String(record.id)) || {revision: record.id, state: 'none'});
         }
         if (url.includes('/api/factory/intents/') && url.endsWith('/allowance') && method === 'GET') {
           if (store.sessionLost) return new Response(null, {status: 403});
@@ -339,6 +359,26 @@ async function updateProposal(page: Page) {
     return !host.busy && (host.revision?.id || '') !== prev;
   }, before);
 }
+// The declared planning peer settles a bounded proposal; all actions below
+// use the emitted workspace's ordinary route and visible controls.
+async function planBoundIntent(page: Page) {
+  const draft = await lastPostedBody(page, 'draft');
+  assert.equal(draft.repository, '7');
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  const planning = page.locator('section[aria-label="Draft planning"]');
+  await planning.getByRole('combobox', {name: 'Planning operation', exact: true}).selectOption('propose_intent');
+  await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
+  await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await planning
+    .getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  return draft;
+}
 async function setExplorationMode(page: Page, mode: ExplorationMode) {
   await page.evaluate((value: ExplorationMode) => {
     (window as unknown as {intentStore: IntentStore}).intentStore.exploration = value;
@@ -352,7 +392,7 @@ async function lastPostedBody(page: Page, state: string): Promise<Record<string,
   }, state);
 }
 
-test('intent-first entry stores department and corrected product review before repository association', async (t) => {
+test('intent-first entry binds a draft before native planning and accepted generation', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
@@ -392,16 +432,33 @@ test('intent-first entry stores department and corrected product review before r
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
   const calls = await page.evaluate(() => window.workspaceFixture.calls);
-  const accepted = calls.find((call) => call.body?.state === 'accepted');
-  assert(accepted?.body);
-  assert.equal(accepted.body.repository, '7');
-  assert.equal(accepted.body.max_issues, 20);
-  assert.equal(accepted.body.planning_calls, 8);
-  assert.equal(accepted.body.approach, 'complete_first');
-  assert.equal(typeof accepted.body.department, 'string');
+  const bound = [...calls].reverse().find((call) => call.body?.state === 'draft');
+  assert(bound?.body);
+  assert.equal(bound.body.repository, '7', 'choosing a repository must save a draft that can be natively planned');
+  assert.equal(bound.body.max_issues, 20);
+  assert.equal(bound.body.planning_calls, 8);
+  assert.equal(bound.body.approach, 'complete_first');
+  assert.equal(typeof bound.body.department, 'string');
   assert.equal(calls.filter((call) => call.method !== 'GET' && !call.path.includes('/api/factory/')).length, 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
-  assert.equal(calls.filter((call) => call.path.endsWith('/generate')).length, 1);
+  assert.equal(calls.filter((call) => call.path.endsWith('/generate')).length, 0);
+  assert.equal(calls.filter((call) => call.body?.state === 'accepted').length, 0);
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length),
+    0
+  );
+  await planBoundIntent(page);
+  const accepted = await lastPostedBody(page, 'accepted');
+  assert.equal(accepted.predecessor, bound.body.id);
+  assert.equal(accepted.repository, bound.body.repository);
+  assert.deepEqual(accepted.ideas, bound.body.ideas);
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.endsWith('/generate')).length),
+    1
+  );
+  assert.deepEqual(await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls), [
+    {revision: String(bound.body.id), operation: 'propose_intent'},
+  ]);
 });
 
 test('native generation failure retains acceptance and explains the remaining enrollment', async (t) => {
@@ -423,6 +480,7 @@ test('native generation failure retains acceptance and explains the remaining en
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await planBoundIntent(page);
   await page
     .getByText(
       'Your product direction is saved. An administrator must enable native work creation before Factory can proceed.',
@@ -463,6 +521,7 @@ test('review refusal retains acceptance and asks for reconsideration without ret
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await planBoundIntent(page);
   await page
     .getByText(
       'Your product direction is saved. The proposed work needs reconsideration before native work can be created.',
@@ -1128,6 +1187,7 @@ test('accepted review shows authorization, generation progress and unsaved loss'
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await planBoundIntent(page);
   await page.waitForFunction(() => window.workspaceFixture.calls.some((call) => call.body?.state === 'accepted'));
   const accepted = await lastPostedBody(page, 'accepted');
   const intent = String(accepted.intent);
