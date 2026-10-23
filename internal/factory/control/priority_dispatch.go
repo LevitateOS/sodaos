@@ -155,7 +155,7 @@ func observePriorityInventory(ctx context.Context, deps DispatchDeps, nativeRev 
 		}
 		collected = nil
 		subject := scan.Subjects[i]
-		observation, advance, err := observePrioritySubject(ctx, collect, &occupancy, subject, nativeRev)
+		observation, advance, err := observePrioritySubject(ctx, collect, &occupancy, subject, nativeRev, &report)
 		if err != nil {
 			if len(observations) > 0 {
 				if recordErr := deps.Store.RecordPriorityProgress(ctx, nativeRev, scan.LocalDigest, observations, cursor); recordErr != nil {
@@ -208,7 +208,7 @@ func observePriorityInventory(ctx context.Context, deps DispatchDeps, nativeRev 
 // set records a candidate (via the collect hook) or an exclusion;
 // advance=false pauses the scan before the member so the next pass
 // resumes it. A store read failure returns an error.
-func observePrioritySubject(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, subject store.PriorityInventorySubject, nativeRev int64) (store.PriorityCandidateObservation, bool, error) {
+func observePrioritySubject(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, subject store.PriorityInventorySubject, nativeRev int64, report *DispatchReport) (store.PriorityCandidateObservation, bool, error) {
 	key := store.PrioritySubjectKey(subject.Repository, subject.Issue)
 	control, err := deps.Store.IssueControl(ctx, subject.Repository, subject.Issue)
 	if err != nil {
@@ -226,6 +226,13 @@ func observePrioritySubject(ctx context.Context, deps DispatchDeps, occupancy *p
 	}
 	silent := newDispatchReport()
 	dispatchOne(ctx, deps, occupancy, refreshed, &silent)
+	// A completed admitted investigation continues its own attempt before
+	// fresh-work selection. Keep that real launch in the pass report and
+	// exclude the now-assigned issue from the tournament.
+	if len(silent.Launched) > 0 {
+		report.Launched = append(report.Launched, silent.Launched...)
+		return store.PriorityCandidateObservation{Subject: key, Repository: subject.Repository, Issue: subject.Issue, Exclusion: WaitAssigned, Fingerprint: refreshed.Fingerprint}, true, nil
+	}
 	if len(silent.Errors) > 0 {
 		return store.PriorityCandidateObservation{}, false, nil
 	}

@@ -210,6 +210,7 @@ type priorityDigestInputs struct {
 	repoReqAppr   map[int64]string
 	repoPreps     map[int64]string
 	capacityRev   int64
+	occupancy     string
 	connBudget    map[string]string
 	connRoom      map[string]bool
 	allowRoom     map[int64]bool
@@ -237,10 +238,13 @@ func (c *priorityDigestInputs) digest() (string, error) {
 		Members  []member          `json:"members"`
 		Repos    map[string]string `json:"repos"`
 		Capacity int64             `json:"capacity"`
+		Occupied string            `json:"occupied"`
 		Conns    map[string]string `json:"conns"`
 	}{
-		Repos: map[string]string{},
-		Conns: map[string]string{},
+		Repos:    map[string]string{},
+		Conns:    map[string]string{},
+		Capacity: c.capacityRev,
+		Occupied: c.occupancy,
 	}
 	for _, m := range c.members {
 		doc.Members = append(doc.Members, member{
@@ -540,6 +544,20 @@ func (c *priorityDigestInputs) batchBudgetInputs(ctx context.Context) error {
 		return err
 	}
 	c.capacityRev = capacityRev
+	// Early authenticated completion can finish an assignment while its
+	// native unit still occupies capacity. Bind the actual occupancy so
+	// retirement invalidates that exclusion even when the assignment,
+	// native repository revision and grants remain unchanged. Stable held
+	// sessions keep the same scan and never spend another selection call.
+	if err := c.tx.QueryRowContext(ctx, `SELECT COALESCE(string_agg(kind||':'||slot||':'||occupied::text,'|' ORDER BY kind,slot),'') FROM (
+		SELECT 'held' AS kind,repository::text||':'||connection AS slot,count(*) AS occupied
+		FROM factory_reservations WHERE state='held' GROUP BY repository,connection
+		UNION ALL
+		SELECT 'run',data->>'project_id'||':'||active::text,count(*)
+		FROM factory_runs WHERE active OR NOT settled GROUP BY data->>'project_id',active
+	) occupancy`).Scan(&c.occupancy); err != nil {
+		return err
+	}
 	conns := map[string]struct{}{}
 	repoConn := map[int64]string{}
 	for repo := range c.repos {

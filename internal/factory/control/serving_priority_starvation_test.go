@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -136,12 +137,16 @@ func TestPriorityRetriesRecoveredNativeContextPG(t *testing.T) {
 	}
 	defer fixtureDB.Close()
 	fx := dispatchSeed(t, db)
+	if err := db.SaveCapacity(context.Background(), factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+		t.Fatal(err)
+	}
 	holdLaunchedRuns(fx)
 	seedPriorityQueue(t, fx, fixtureDB, 100, 1)
 	c := NewCoordinator(db, fx.host, fx.broker)
 	c.DispatchReads = fx.reads
 	c.Readiness = &countingObserver{revisions: []int64{41}}
-	c.Priority = &PriorityJudgments{Journal: db, Chooser: &priorityFixture{choose: priorityLast}, MaxCalls: 16}
+	chooser := &priorityFixture{choose: priorityLast}
+	c.Priority = &PriorityJudgments{Journal: db, Chooser: chooser, MaxCalls: 16}
 	fx.host.contextRead = func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
 		return project.FactoryPreparationContext{}, errors.New("native source read refused")
 	}
@@ -164,6 +169,64 @@ func TestPriorityRetriesRecoveredNativeContextPG(t *testing.T) {
 	second := DispatchPass(ctx, c.dispatchDeps())
 	if len(second.Launched) != 1 || len(second.Errors) != 0 {
 		t.Fatalf("recovered native read did not launch: %+v", second)
+	}
+	selectionCalls := len(chooser.calls)
+
+	// An authenticated terminal can finish investigation before its native
+	// unit retires. The held reservation is still real capacity, but its
+	// exclusion cannot freeze the admitted implementation after retirement.
+	owner, err := db.Assignment(ctx, second.Launched[0].AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := db.FactoryRun(ctx, owner.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ProduceMCPCapabilityForLaunch(ctx, db, owner, run); err != nil {
+		t.Fatal(err)
+	}
+	capability, err := db.GetMCPCapability(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ActivateMCPCapability(ctx, capability.ID, capability.Generation, capability.RunID, capability.AssignmentID, capability.Authority, time.Now().Unix(), false); err != nil {
+		t.Fatal(err)
+	}
+	capability, _ = db.GetMCPCapability(ctx, capability.ID)
+	plan := phaseTestPlan(t, owner.AttemptRoot, owner.SourceCommit, owner.Preparation)
+	payload, _ := json.Marshal(map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{"README.md"}})
+	proposal := testMCPSubmission(capability, factory.MCPToolFinishIssuePlan, factory.NewID(), payload)
+	if _, err := db.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+		t.Fatal(err)
+	}
+	if settled, err := SettleMCPTerminalProposal(ctx, db, owner.ID, time.Now()); err != nil || !settled {
+		t.Fatalf("early valid plan did not settle: %t %v", settled, err)
+	}
+	waiting := DispatchPass(ctx, c.dispatchDeps())
+	if len(waiting.Launched) != 0 || waitReason(waiting, owner.Issue) != WaitCapacity {
+		t.Fatalf("live native unit lost its capacity wait: %+v", waiting)
+	}
+	if scan, err := db.LoadPriorityScan(ctx); err != nil || scan.Observations[store.PrioritySubjectKey(owner.Repository, owner.Issue)].Exclusion != WaitCapacity {
+		t.Fatalf("unchanged live capacity lost its cached wait: %+v %v", scan, err)
+	}
+	run.Outcome, run.Reconciled = factory.Succeeded, true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	advanced := DispatchPass(ctx, c.dispatchDeps())
+	if len(advanced.Launched) != 1 || len(advanced.Errors) != 1 || advanced.Errors[0].Reason != PrioritySnapshotChanging {
+		t.Fatalf("retired native unit did not report its implementation continuation: %+v", advanced)
+	}
+	child, err := db.Assignment(ctx, advanced.Launched[0].AssignmentID)
+	if err != nil || child.Phase != project.ExecutionImplement || child.ParentAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot {
+		t.Fatalf("accepted plan lineage changed at implementation: %+v %v", child, err)
+	}
+	if len(fx.host.launches) != 2 {
+		t.Fatalf("continuation duplicated investigation or native launch: %d", len(fx.host.launches))
+	}
+	if len(chooser.calls) != selectionCalls {
+		t.Fatalf("implementation continuation spent another next-work selection: %d", len(chooser.calls))
 	}
 }
 
