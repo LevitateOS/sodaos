@@ -175,6 +175,7 @@ pub fn build_environment_pairs() -> Vec<(String, String)> {
     env.push(("GOWORK".to_string(), "off".to_string()));
     env.push(("GOFLAGS".to_string(), "-mod=readonly".to_string()));
     env.push(("CGO_ENABLED".to_string(), "0".to_string()));
+    env.push(("GIT_OPTIONAL_LOCKS".to_string(), "0".to_string()));
     env
 }
 
