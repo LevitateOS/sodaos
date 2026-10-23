@@ -254,7 +254,7 @@ func loadRetryPriorAssignmentTx(ctx context.Context, tx *sql.Tx, priorRun string
 		return empty, ErrExplicitRetryIneligible
 	}
 	if priorAssignment.Run != priorRun || priorAssignment.Acceptance != acceptance || priorAssignment.Stage != factory.AssignmentFinished ||
-		!project.ValidFactoryRole(priorAssignment.Role) || string(priorAssignment.Outcome) != priorOutcome || !retryableRunOutcome(priorOutcome) ||
+		!project.ValidFactoryRole(priorAssignment.Role) || !retryAssignmentOutcomeMatches(priorAssignment, priorOutcome) || !retryableRunOutcome(priorOutcome) ||
 		priorAssignment.Repository != repository || priorAssignment.Issue != issue {
 		return empty, ErrExplicitRetryIneligible
 	}
@@ -381,6 +381,18 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 
 func retryableRunOutcome(outcome string) bool {
 	return outcome == string(factory.Succeeded) || outcome == string(factory.Failed) || outcome == string(factory.Cancelled)
+}
+
+// A successful native process can produce an invalid report. Preserve native
+// success and the synthesized needs-human result independently: an explicit
+// owner Retry may recover it only after the ordinary closed-root, retirement,
+// accounting, current-acceptance and authority checks below have all passed.
+func retryAssignmentOutcomeMatches(a factory.Assignment, nativeOutcome string) bool {
+	if string(a.Outcome) == nativeOutcome {
+		return true
+	}
+	return nativeOutcome == string(factory.Succeeded) && a.Outcome == factory.NeedsHuman &&
+		a.Reason == factory.AssignReasonNoReport && a.Result != nil && !a.Result.Reported && a.Result.Status == "blocked"
 }
 
 func retryOperationNeedsResolution(attempts int, effect, cancellation, completion string) bool {

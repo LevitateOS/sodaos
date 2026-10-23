@@ -400,16 +400,32 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	for i := 0; i < factory.MaxDispatchAttempts+8; i++ {
 		settledRun := currentRun
 		settledRun.Outcome, settledRun.Summary, settledRun.Reconciled = factory.Failed, "worker failed", true
+		if i == 0 {
+			// Native success and an invalid report are distinct retained
+			// facts. An explicit owner Retry must recover this actual case.
+			settledRun.Outcome, settledRun.Summary = factory.Succeeded, "native exit zero without a valid report"
+		}
 		if err := db.SaveFactoryRun(ctx, settledRun); err != nil {
 			t.Fatalf("settle history run %d: %v", i, err)
 		}
-		if _, ok := AccountSettledRun(ctx, db, settledRun, "", time.Now()); !ok {
+		finished, ok := AccountSettledRun(ctx, db, settledRun, "", time.Now())
+		if !ok {
 			t.Fatalf("account history run %d", i)
+		}
+		if i == 0 && (finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport || finished.Result == nil || finished.Result.Reported) {
+			t.Fatalf("invalid native-success report was not honestly fenced: %+v", finished)
 		}
 		currentCommand = factory.NewID()
 		retainedAssignmentIDs = append(retainedAssignmentIDs, currentCommand)
 		if _, err := coord.RetryRun(ctx, currentCommand, "native:7", settledRun.ID); err != nil {
 			t.Fatalf("queue history retry %d: %v", i, err)
+		}
+		if i == 0 {
+			retainedRun, runErr := db.FactoryRun(ctx, settledRun.ID)
+			retainedAssignment, assignmentErr := db.Assignment(ctx, finished.ID)
+			if runErr != nil || assignmentErr != nil || retainedRun.Outcome != factory.Succeeded || retainedAssignment.Outcome != factory.NeedsHuman || retainedAssignment.Reason != factory.AssignReasonNoReport {
+				t.Fatal("owner Retry rewrote native success or the fenced report", runErr, assignmentErr)
+			}
 		}
 		retryReport := DispatchPass(ctx, fx.deps())
 		if len(retryReport.Launched) != 1 {
