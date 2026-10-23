@@ -12,6 +12,23 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+func recoverFinishedMCPAccounting(ctx context.Context, deps DispatchDeps, report *DispatchReport) {
+	runs, err := deps.Store.FinishedMCPAccountingRuns(ctx, MaxDispatchRecovery)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "finished MCP accounting inventory unavailable"})
+		return
+	}
+	for _, run := range runs {
+		if err := deps.Store.AccountFinishedMCPRun(ctx, run.ID); err != nil {
+			if errors.Is(err, store.ErrMCPAccountingTimeUnavailable) {
+				report.Waits = append(report.Waits, DispatchWait{Reason: "retirement_time_unavailable", Detail: "Retired worker accounting waits for its recorded end time."})
+				continue
+			}
+			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "finished MCP run accounting remains unconfirmed"})
+		}
+	}
+}
+
 // recoverAssigned resolves every interrupted assigned assignment: runs
 // that settled without accounting consume their reservation and finish,
 // launches that never reached the host release and retry bounded, and

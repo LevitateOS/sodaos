@@ -493,7 +493,8 @@ func boundSummary(summary, fallback string) string {
 // AccountSettledRun accounts one run the supervisor just settled: it
 // records confirmed usage, consumes the assignment's reservation and
 // finishes the assignment from the settled outcome. Runs without an
-// assignment, and assignments already finished, replay silently. The
+// assignment replay silently. An MCP finish may precede native retirement;
+// its usage still records without replacing that finished domain result. The
 // settle path calls this best-effort; recovery replays anything it
 // misses, so a false return never loses accounting.
 func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, output string, now time.Time) (factory.Assignment, bool) {
@@ -501,7 +502,17 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 		return factory.Assignment{}, false
 	}
 	a, err := db.AssignmentByRun(ctx, run.ID)
-	if err != nil || a.Stage != factory.AssignmentAssigned {
+	if err != nil {
+		return factory.Assignment{}, false
+	}
+	if a.Stage == factory.AssignmentFinished {
+		if err := db.AccountFinishedMCPRun(ctx, run.ID); err != nil {
+			return factory.Assignment{}, false
+		}
+		// Preserve the caller contract: no new domain finish occurred.
+		return factory.Assignment{}, false
+	}
+	if a.Stage != factory.AssignmentAssigned {
 		return factory.Assignment{}, false
 	}
 	if err := recordConfirmedUsage(ctx, db, a, run, now); err != nil {

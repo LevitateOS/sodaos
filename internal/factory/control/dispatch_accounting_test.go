@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -268,7 +270,12 @@ func TestReleasedLaunchRetryKeepsPromptAllowanceWhenUsageShortensDeadline(t *tes
 
 func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
+	db, dsn := dispatchTestDB(t)
+	fixtureDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixtureDB.Close()
 	fx := dispatchSeed(t, db)
 	head := fx.accept(t, 3, "d333333333333333333333333")
 	fx.queue(t, 3, head.ID)
@@ -400,27 +407,121 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	for i := 0; i < factory.MaxDispatchAttempts+8; i++ {
 		settledRun := currentRun
 		settledRun.Outcome, settledRun.Summary, settledRun.Reconciled = factory.Failed, "worker failed", true
-		if i == 0 {
+		var retainedResult []byte
+		if i < 2 {
 			// Native success and an invalid report are distinct retained
-			// facts. An explicit owner Retry must recover this actual case.
+			// facts. The MCP terminal arrives before actual native retirement.
+			assigned, err := db.Assignment(ctx, currentCommand)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ProduceMCPCapabilityForLaunch(ctx, db, assigned, currentRun); err != nil {
+				t.Fatal(err)
+			}
+			capability, err := db.GetMCPCapability(ctx, currentRun.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := db.ActivateMCPCapability(ctx, capability.ID, capability.Generation, capability.RunID, capability.AssignmentID, capability.Authority, time.Now().Unix(), false); err != nil {
+				t.Fatal(err)
+			}
+			capability, _ = db.GetMCPCapability(ctx, capability.ID)
+			invalidPlan := phaseTestPlan(t, assigned.AttemptRoot, assigned.SourceCommit, assigned.Preparation)
+			invalidPlan.ID = "invalid-worker-plan"
+			payload, _ := json.Marshal(map[string]any{"approach": invalidPlan.Approach, "tasks": invalidPlan, "evidence_refs": []string{"README.md"}})
+			proposal := testMCPSubmission(capability, factory.MCPToolFinishIssuePlan, factory.NewID(), payload)
+			if _, err := db.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+				t.Fatal(err)
+			}
+			if settled, err := SettleMCPTerminalProposal(ctx, db, assigned.ID, time.Now()); err != nil || !settled {
+				t.Fatal("early MCP terminal did not settle", err)
+			}
+			finished, _ := db.Assignment(ctx, assigned.ID)
+			retainedResult, _ = json.Marshal(finished.Result)
 			settledRun.Outcome, settledRun.Summary = factory.Succeeded, "native exit zero without a valid report"
+			if i == 1 {
+				// Give the recorded seconds-resolution root clock a real
+				// interval before exercising retained data without settled_at.
+				time.Sleep(1100 * time.Millisecond)
+			}
 		}
 		if err := db.SaveFactoryRun(ctx, settledRun); err != nil {
 			t.Fatalf("settle history run %d: %v", i, err)
 		}
+		if i == 1 {
+			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_runs SET data=data-'settled_at' WHERE id=$1`, settledRun.ID); err != nil {
+				t.Fatal(err)
+			}
+			var clock []byte
+			if err := fixtureDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, currentCommand).Scan(&clock); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET data=jsonb_set(data,'{checkpoint_unix}','0') WHERE root_assignment=$1`, currentCommand); err != nil {
+				t.Fatal(err)
+			}
+			unknown := RecoverDispatch(ctx, fx.deps())
+			if len(unknown.Waits) != 1 || unknown.Waits[0].Reason != "retirement_time_unavailable" {
+				t.Fatalf("unknown retirement time did not hold explicitly: %+v", unknown)
+			}
+			if _, err := db.RunUsage(ctx, settledRun.ID); !errors.Is(err, store.ErrNotFound) {
+				t.Fatal("unknown retirement time invented usage", err)
+			}
+			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET data=$1 WHERE root_assignment=$2`, string(clock), currentCommand); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if i < 2 {
+			var originalSettlement sql.NullString
+			if err := fixtureDB.QueryRowContext(ctx, `SELECT data->>'settled_at' FROM factory_runs WHERE id=$1`, settledRun.ID).Scan(&originalSettlement); err != nil {
+				t.Fatal(err)
+			}
+			for pass := 0; pass < 3; pass++ {
+				if recovered := RecoverDispatch(ctx, fx.deps()); len(recovered.Errors) != 0 {
+					t.Fatalf("early MCP accounting recovery: %+v", recovered.Errors)
+				}
+			}
+			usage, usageErr := db.RunUsage(ctx, settledRun.ID)
+			reservation, reservationErr := db.Reservation(ctx, currentCommand)
+			if usageErr != nil || reservationErr != nil || reservation.State != factory.ReservationConsumed || usage.Minutes < 0 {
+				t.Fatal("early MCP finish lost native accounting", usageErr, reservationErr, reservation.State)
+			}
+			if err := db.SaveFactoryRun(ctx, settledRun); err != nil {
+				t.Fatal(err)
+			}
+			var replayedSettlement sql.NullString
+			if err := fixtureDB.QueryRowContext(ctx, `SELECT data->>'settled_at' FROM factory_runs WHERE id=$1`, settledRun.ID).Scan(&replayedSettlement); err != nil || replayedSettlement != originalSettlement {
+				t.Fatal("run replay replaced the original settlement clock", err)
+			}
+			AccountSettledRun(ctx, db, settledRun, "", time.Now().Add(time.Hour))
+			replayed, err := db.RunUsage(ctx, settledRun.ID)
+			if err != nil || !reflect.DeepEqual(usage, replayed) {
+				t.Fatal("accounting replay changed actual usage", err)
+			}
+		}
 		finished, ok := AccountSettledRun(ctx, db, settledRun, "", time.Now())
-		if !ok {
+		if i < 2 {
+			finished, err = db.Assignment(ctx, currentCommand)
+			if err != nil || ok {
+				t.Fatal("accounting replay reported a new domain finish", err)
+			}
+		} else if !ok {
 			t.Fatalf("account history run %d", i)
 		}
-		if i == 0 && (finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport || finished.Result == nil || finished.Result.Reported) {
+		if i < 2 && (finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport || finished.Result == nil || finished.Result.Reported) {
 			t.Fatalf("invalid native-success report was not honestly fenced: %+v", finished)
+		}
+		if i < 2 {
+			currentResult, _ := json.Marshal(finished.Result)
+			if string(currentResult) != string(retainedResult) {
+				t.Fatal("native accounting replaced the retained MCP result")
+			}
 		}
 		currentCommand = factory.NewID()
 		retainedAssignmentIDs = append(retainedAssignmentIDs, currentCommand)
 		if _, err := coord.RetryRun(ctx, currentCommand, "native:7", settledRun.ID); err != nil {
 			t.Fatalf("queue history retry %d: %v", i, err)
 		}
-		if i == 0 {
+		if i < 2 {
 			retainedRun, runErr := db.FactoryRun(ctx, settledRun.ID)
 			retainedAssignment, assignmentErr := db.Assignment(ctx, finished.ID)
 			if runErr != nil || assignmentErr != nil || retainedRun.Outcome != factory.Succeeded || retainedAssignment.Outcome != factory.NeedsHuman || retainedAssignment.Reason != factory.AssignReasonNoReport {

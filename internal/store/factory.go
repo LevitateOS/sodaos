@@ -62,7 +62,7 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 	result, err := tx.ExecContext(ctx, `UPDATE factory_runs SET active=$1,settled=$2,
-data=($3::jsonb - 'admission' - 'execution_manifest' - 'final_checkpoint') || jsonb_build_object('admission',data->'admission','execution_manifest',data->'execution_manifest','final_checkpoint',data->'final_checkpoint') WHERE id=$4
+data=($3::jsonb - 'admission' - 'execution_manifest' - 'final_checkpoint' - 'settled_at') || jsonb_build_object('admission',data->'admission','execution_manifest',data->'execution_manifest','final_checkpoint',data->'final_checkpoint','settled_at',COALESCE(NULLIF(data->'settled_at','null'::jsonb),CASE WHEN $11 AND NOT settled THEN to_jsonb(clock_timestamp()) END)) WHERE id=$4
 AND (($7::jsonb->'admission') IS NULL OR (data->'admission')=($7::jsonb->'admission'))
 AND (($7::jsonb->'execution_manifest') IS NULL OR (data->'execution_manifest')=($7::jsonb->'execution_manifest'))
 AND (($7::jsonb->'final_checkpoint') IS NULL OR (data->'final_checkpoint')=($7::jsonb->'final_checkpoint'))

@@ -228,6 +228,7 @@ func RecoverDispatch(ctx context.Context, deps DispatchDeps) DispatchReport {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "dispatch dependencies unavailable"})
 		return report
 	}
+	recoverFinishedMCPAccounting(ctx, deps, &report)
 	recoverAssigned(ctx, deps, &report)
 	return report
 }
