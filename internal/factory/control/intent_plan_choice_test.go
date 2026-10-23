@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -633,7 +635,7 @@ func (s *movingChoiceStub) Select(ctx context.Context, state any, rubric string,
 // objective outside the canned alternatives, under the same source/head guards.
 func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
+	db, dsn := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	draft := choicePlanDraft(fx.repo)
 	draft.Objective = "Build a private team task board with saved priority"
@@ -677,6 +679,60 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	}
 	if stub.calls != 0 {
 		t.Fatalf("propose answer funded %d comparative calls", stub.calls)
+	}
+	bindings, err := db.IntentTaskBindings(ctx, accepted.ID)
+	if err != nil || len(bindings) != 1 || bindings[0].TaskKey != generated.SubmittedTasks[0].Key {
+		t.Fatalf("recorded graph adoption is unbound: %+v %v", bindings, err)
+	}
+	if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+		t.Fatalf("unmerged generated graph admitted delivery: %+v %v", candidates, err)
+	}
+	sqlDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	binding := bindings[0]
+	event := factory.CompletionEvent{ID: factory.NewID(), Repository: fx.repo, Issue: binding.IssueIndex, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: fx.tip, ClosingOccurrence: "1"}
+	raw, _ := json.Marshal(event)
+	if _, err = sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,1,$2,$3,'1',$4)`, fx.repo, event.ID, event.PublicationID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := db.DeliveredIntentCandidates(ctx, 16)
+	if err != nil || len(candidates) != 1 || candidates[0].Revision.ID != accepted.ID || candidates[0].FirstIssue != binding.IssueIndex {
+		t.Fatalf("merged recorded graph lost application verification: %+v %v", candidates, err)
+	}
+	for _, invalid := range []string{"pending", "stale-scope", "uncovered-outcome"} {
+		changed := generated
+		switch invalid {
+		case "pending":
+			changed.State = "pending"
+		case "stale-scope":
+			changed.IntentDigest = strings.Repeat("f", 64)
+		case "uncovered-outcome":
+			changed.SubmittedTasks = append([]factory.IntentTask(nil), generated.SubmittedTasks...)
+			changed.SubmittedTasks[0].IdeaIDs = nil
+		}
+		raw, _ := json.Marshal(changed)
+		if _, err := sqlDB.Exec(`UPDATE factory_intent_generations SET data=$2 WHERE revision=$1`, accepted.ID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+			t.Fatalf("%s graph admitted application verification: %+v %v", invalid, candidates, err)
+		}
+	}
+	raw, _ = json.Marshal(generated)
+	if _, err := sqlDB.Exec(`UPDATE factory_intent_generations SET data=$2 WHERE revision=$1`, accepted.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	changedBinding := binding
+	changedBinding.TaskKey = accepted.Tasks[0].Key
+	raw, _ = json.Marshal(changedBinding)
+	if _, err := sqlDB.Exec(`UPDATE factory_intent_tasks SET data=$3 WHERE revision=$1 AND task=$2`, accepted.ID, binding.TaskKey, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+		t.Fatalf("mismatched native task binding admitted application verification: %+v %v", candidates, err)
 	}
 }
 

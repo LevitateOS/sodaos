@@ -64,14 +64,36 @@ func applicationVerificationInputsTx(ctx context.Context, tx *sql.Tx, a factory.
 
 func deliveredIntentTasksTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision) (int64, error) {
 	var raw []byte
+	tasks := revision.Tasks
+	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1 FOR SHARE`, revision.ID).Scan(&raw)
+	if err == nil {
+		var generation factory.IntentGeneration
+		if err := json.Unmarshal(raw, &generation); err != nil {
+			return 0, err
+		}
+		if generation.State != "completed" || generation.RevisionID != revision.ID || generation.IntentID != revision.Intent || generation.IntentDigest != revision.Digest() {
+			return 0, errors.New("accepted application generation is not complete and current")
+		}
+		if err := factory.AssessProposedTasks(revision, generation.SubmittedTasks, revision.MaxIssues); err != nil {
+			return 0, err
+		}
+		// Native adoption binds the recorded assessed graph, whose task keys
+		// can differ from the owner's accepted planning sketch.
+		tasks = generation.SubmittedTasks
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
 	var firstIssue int64
-	for _, task := range revision.Tasks {
+	for _, task := range tasks {
 		var binding factory.IntentTaskBinding
 		if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_tasks WHERE revision=$1 AND task=$2`, revision.ID, task.Key).Scan(&raw); err != nil {
 			return 0, err
 		}
 		if err := json.Unmarshal(raw, &binding); err != nil {
 			return 0, err
+		}
+		if binding.RevisionID != revision.ID || binding.TaskKey != task.Key || binding.IssueID <= 0 || binding.IssueIndex <= 0 || !project.ValidDecisionID(binding.AcceptanceID) {
+			return 0, errors.New("accepted application task lacks its exact native binding")
 		}
 		var delivered bool
 		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_completions WHERE repository=$1 AND data->>'issue'=$2 AND data->>'acceptance_id'=$3)`, revision.Repository, fmt.Sprint(binding.IssueIndex), binding.AcceptanceID).Scan(&delivered); err != nil {
