@@ -30,7 +30,7 @@ var ErrPlanChoiceStore = errors.New("planning store unavailable")
 
 // GenerateAcceptedIntentFromRecordedPlan is the bound R13 serving
 // connector: it resolves the current accepted head's own recorded
-// decomposition choice and generates through the choice-bound pipeline
+// assessed planning choice and generates through the choice-bound pipeline
 // in one step, so no caller can resolve a choice and adopt it later
 // across an unchecked gap. A still-running plan or a volatile
 // preparation waits truthfully through the returned wait.
@@ -61,7 +61,7 @@ func (c *Coordinator) GenerateAcceptedIntentFromRecordedPlan(ctx context.Context
 }
 
 // ResolveAcceptedPlanChoice binds the current accepted head back to its
-// own recorded plan: the completed decomposition_options run the exact
+// own recorded plan: the completed proposal or decomposition-options run the exact
 // reviewed draft (this acceptance's predecessor) settled through the
 // shared finish boundary. It returns the single funded comparative
 // choice for one multi-candidate answer, or the lone candidate with
@@ -92,8 +92,8 @@ func (c *Coordinator) ResolveAcceptedPlanChoice(ctx context.Context, owner int64
 	if err != nil {
 		return empty, nil, err
 	}
-	if in.Operation != factory.IntentPlanningOptions {
-		return empty, nil, errors.New("accepted direction carries no recorded decomposition choice")
+	if !factory.ValidIntentPlanningOperation(in.Operation) {
+		return empty, nil, errors.New("accepted direction carries an unsupported recorded planning operation")
 	}
 	out, wait, err := settlePlanChoiceStatus(a)
 	if err != nil || wait != nil {
@@ -346,8 +346,8 @@ func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.I
 	if err != nil {
 		return nil, err
 	}
-	if in.Operation != factory.IntentPlanningOptions {
-		return nil, errors.New("generation requires a decomposition choice")
+	if !factory.ValidIntentPlanningOperation(in.Operation) {
+		return nil, errors.New("generation requires an assessed planning operation")
 	}
 	out, wait, err := settlePlanChoiceStatus(a)
 	if err != nil || wait != nil {

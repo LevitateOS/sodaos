@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,7 +204,20 @@ func generateAnswer(t *testing.T, operation string, keys ...string) string {
 func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(method, path, body string) (int, []byte), operation, acceptID string, keys ...string) string {
 	t.Helper()
 	ctx := context.Background()
-	if code, body := call(http.MethodPost, "/api/factory/intents", generateOptionsDraft()); code != http.StatusCreated {
+	draftBody, acceptedBody, answer := generateOptionsDraft(), generateAcceptedBody(acceptID), generateAnswer(t, operation, keys...)
+	if operation == factory.IntentPlanningPropose {
+		app := strings.NewReplacer(
+			"Build a leave approval workflow so managers can review time-off requests", "Build a private team task board with persisted priority",
+			"Capture leave requests", "Store team tasks", "Requests can be recorded", "Team tasks persist",
+			"Managers review requests", "Set task priority", "Decisions are visible", "Saved priority is visible",
+			"Build the leave tracker", "Build the team task board", "Requests list", "Team tasks are visible",
+			"Decide vacation requests with manager review", "Manage team tasks with saved priority")
+		draftBody, acceptedBody, answer = app.Replace(draftBody), app.Replace(acceptedBody), app.Replace(answer)
+		if factory.DescribeAlternatives("Build a private team task board with persisted priority").Supported {
+			t.Fatal("authored app scope unexpectedly matched a canned workflow")
+		}
+	}
+	if code, body := call(http.MethodPost, "/api/factory/intents", draftBody); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
 	seedPlanFunding(t, ctx, s)
@@ -218,8 +232,8 @@ func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(me
 	if err := json.Unmarshal(body, &launched); err != nil {
 		t.Fatal(err)
 	}
-	settlePlanRun(t, ctx, s, launched.RunID, generateAnswer(t, operation, keys...))
-	if code, body := call(http.MethodPost, "/api/factory/intents", generateAcceptedBody(acceptID)); code != http.StatusCreated {
+	settlePlanRun(t, ctx, s, launched.RunID, answer)
+	if code, body := call(http.MethodPost, "/api/factory/intents", acceptedBody); code != http.StatusCreated {
 		t.Fatalf("accept status=%d body=%s", code, body)
 	}
 	return acceptID
@@ -345,8 +359,7 @@ func TestGenerateRecordedMultiChoiceAdoptsFundedPick(t *testing.T) {
 // TestGenerateRecordedChoiceRefusals proves every non-choice Generate
 // refuses through the real mux before any funded comparison or native
 // effect: drafts report intent_not_accepted, accepted directions with
-// no recorded plan or with a propose_intent recording report
-// planning_choice_unavailable (even the refusing chooser never fires),
+// no recorded plan report planning_choice_unavailable (even the refusing chooser never fires),
 // and an accepted head in an invisible repository reports not_found.
 func TestGenerateRecordedChoiceRefusals(t *testing.T) {
 	product, s, call, errorCode := q05Mux(t, "")
@@ -405,18 +418,29 @@ func TestGenerateRecordedChoiceRefusals(t *testing.T) {
 	}
 }
 
-// TestGenerateProposeRecordingRefusesWithoutComparison proves a recorded
-// propose_intent run never feeds the decomposition connector: the
-// operation gate refuses before the funded comparison, so even a
-// multi-candidate propose answer with a refusing chooser reports
-// planning_choice_unavailable with no graph submitted.
-func TestGenerateProposeRecordingRefusesWithoutComparison(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
+// A completed proposal for an authored task-board scope reaches the same exact
+// recorded-choice serving path, including cached finite comparative funding.
+func TestGenerateRecordedProposalAdoptsAssessedGraph(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
 	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
 	recordGeneratePlan(t, product, s, call, "propose_intent", acceptID, "keep", "split")
-	wireGenerateCoordinator(product, s, t, q05RefusingChooser{})
+	fake := wireGenerateCoordinator(product, s, t, q05KeepChooser{})
 
-	if code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`); code != http.StatusConflict || errorCode(body) != "planning_choice_unavailable" {
-		t.Fatalf("propose generate status=%d body=%s", code, body)
+	for pass := 0; pass < 2; pass++ {
+		code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`)
+		if code != http.StatusOK {
+			t.Fatalf("propose generate status=%d body=%s", code, body)
+		}
+		var result factory.IntentGeneration
+		if err := json.Unmarshal(body, &result); err != nil {
+			t.Fatal(err)
+		}
+		if result.State != "completed" || len(result.SubmittedTasks) != 2 || result.SubmittedTasks[0].Key != generateTaskA || result.PlanAssignment == "" || fake.submits != 1 {
+			t.Fatalf("proposal graph not exact or replayed twice: %+v submits=%d", result, fake.submits)
+		}
+	}
+	allowance, err := s.PlanningAllowance(context.Background(), generateIntentID, 1)
+	if err != nil || allowance.Consumed != 1 || allowance.Reserved != 0 {
+		t.Fatalf("proposal comparison did not spend exactly once: %+v %v", allowance, err)
 	}
 }

@@ -629,14 +629,21 @@ func (s *movingChoiceStub) Select(ctx context.Context, state any, rubric string,
 	return answer, nil
 }
 
-// A recorded run for another planning operation refuses without
-// funding: only a decomposition choice feeds the serving connector,
-// never a propose_intent answer.
-func TestResolveAcceptedPlanChoiceWrongOperationRefuses(t *testing.T) {
+// A genuine assessed proposal can supply the recorded graph for an authored
+// objective outside the canned alternatives, under the same source/head guards.
+func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	draft := choicePlanDraft(fx.repo)
+	draft.Objective = "Build a private team task board with saved priority"
+	draft.Ideas = draft.Ideas[:1]
+	draft.Ideas[0].Description, draft.Ideas[0].Consequence = "Store team tasks and priority", "Team task state persists"
+	draft.EffectiveOutcomes = []string{draft.Ideas[0].ID}
+	draft.MaxIssues = 1
+	if factory.DescribeAlternatives(draft.Objective).Supported {
+		t.Fatal("authored task-board scope must not acquire a canned workflow")
+	}
 	answer := fencedResult(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "propose ready",
@@ -645,8 +652,8 @@ func TestResolveAcceptedPlanChoiceWrongOperationRefuses(t *testing.T) {
 			Candidates: []factory.SemanticCandidate{{
 				Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
 				Tasks: []factory.IntentTask{{
-					Key: "d999999999999999999999999", Objective: "Plan the recorded draft",
-					Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d555555555555555555555555"},
+					Key: "d999999999999999999999999", Objective: draft.Objective,
+					Outcomes: []string{"Team task state and priority persist"}, IdeaIDs: []string{draft.Ideas[0].ID},
 				}},
 			}},
 		}},
@@ -654,16 +661,19 @@ func TestResolveAcceptedPlanChoiceWrongOperationRefuses(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningPropose, answer); !ok {
 		t.Fatal("recorded propose plan did not settle")
 	}
-	accepted := choicePlanAccepted(t, fx.repo)
+	accepted := draft
+	accepted.ID, accepted.Predecessor, accepted.State = choicePlanIDs.accepted, draft.ID, "accepted"
+	accepted.Tasks = []factory.IntentTask{{Key: "d888888888888888888888888", Objective: draft.Objective, Outcomes: []string{"Team task state persists"}, IdeaIDs: []string{draft.Ideas[0].ID}}}
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
 	stub := &candidateChoiceStub{selected: "keep", confidence: 1}
 	c := choicePlanCoordinator(t, db, fx, stub)
-	_, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
-	if err == nil || errors.Is(err, ErrPlanChoiceStale) || errors.Is(err, ErrPlanChoiceAttention) ||
-		!strings.Contains(err.Error(), "no recorded decomposition choice") {
-		t.Fatalf("propose answer must refuse plainly: %v", err)
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	generated, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, draft.Owner)
+	if err != nil || wait != nil || generated.State != "completed" || len(generated.SubmittedTasks) != 1 || generated.SubmittedTasks[0].Key != "d999999999999999999999999" {
+		t.Fatalf("assessed proposal did not generate its exact recorded graph: %+v wait=%+v err=%v", generated, wait, err)
 	}
 	if stub.calls != 0 {
 		t.Fatalf("propose answer funded %d comparative calls", stub.calls)

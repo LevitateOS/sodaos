@@ -25,8 +25,8 @@ func (c *Coordinator) scopedIntentTasksFromChosen(_ context.Context, r factory.I
 	if chosen.Intent != r.Intent {
 		return nil, errors.New("chosen planner candidate binds another intent")
 	}
-	if chosen.Operation != factory.IntentPlanningOptions {
-		return nil, errors.New("chosen planner candidate is not a decomposition choice")
+	if !factory.ValidIntentPlanningOperation(chosen.Operation) {
+		return nil, errors.New("chosen planner candidate uses an unsupported operation")
 	}
 	// The planner runs against the reviewed draft; the accepted successor
 	// adopts its choice. Either the choice binds this exact revision or

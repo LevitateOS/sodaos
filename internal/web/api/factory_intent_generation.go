@@ -32,7 +32,7 @@ func (s *API) apiIntentGenerate(w http.ResponseWriter, r *http.Request, v store.
 	}
 	// Generate consumes the original completed semantic result behind
 	// this acceptance through the bound recorded-plan connector: the
-	// recorded decomposition_options run its exact reviewed draft
+	// recorded proposal or decomposition-options run its exact reviewed draft
 	// settled, with source, preparation and head currency proven again
 	// after the funded comparison and before native effects. A
 	// still-running plan or a volatile preparation waits truthfully; a
