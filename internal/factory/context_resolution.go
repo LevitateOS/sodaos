@@ -46,6 +46,13 @@ func CurrentRequiredSemanticDigest(role CurrentRoleContext) (string, error) {
 		plan.Receipts, plan.VerifiedIntegrationCommit, plan.FinalCheckpoint = nil, nil, nil
 		role.Plan = &plan
 	}
+	if role.Review != nil {
+		review := *role.Review
+		// CI can complete after reviewer admission. Its observed progress
+		// refreshes without changing the admitted candidate or requirements.
+		review.CheckAssessment = nil
+		role.Review = &review
+	}
 	raw, err := json.Marshal(role)
 	if err != nil {
 		return "", err

@@ -6,14 +6,17 @@ import "errors"
 // recorded cycle. Carried findings come from the existing canonical collector;
 // no coding conversation or earlier worker prompt is an input.
 type CurrentReviewContext struct {
-	Publication     CurrentPublicationContext  `json:"publication"`
-	AdmittedTuple   CandidateTuple             `json:"admitted_tuple"`
-	CurrentTuple    *CandidateTuple            `json:"current_tuple"`
-	Cycle           ReviewCycle                `json:"cycle"`
-	CarriedFindings []Finding                  `json:"carried_findings"`
-	Assessments     []CurrentFindingAssessment `json:"finding_assessments"`
-	Corrections     []CurrentCorrectionFact    `json:"correction_facts"`
-	Heads           []CurrentReviewHead        `json:"review_heads"`
+	Publication         CurrentPublicationContext  `json:"publication"`
+	AdmittedTuple       CandidateTuple             `json:"admitted_tuple"`
+	CurrentTuple        *CandidateTuple            `json:"current_tuple"`
+	Cycle               ReviewCycle                `json:"cycle"`
+	CarriedFindings     []Finding                  `json:"carried_findings"`
+	Assessments         []CurrentFindingAssessment `json:"finding_assessments"`
+	Corrections         []CurrentCorrectionFact    `json:"correction_facts"`
+	Heads               []CurrentReviewHead        `json:"review_heads"`
+	ClearCoverageDigest string                     `json:"clear_coverage_digest,omitempty"`
+	Implementation      *CurrentPlanContext        `json:"implementation,omitempty"`
+	CheckAssessment     *CheckAssessment           `json:"check_assessment,omitempty"`
 }
 
 type CurrentFindingAssessment struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,6 +124,10 @@ func TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry(t *tes
 	fx, producer, owner, _ := publishedChildProducerSeed(t, 27)
 	if len(producer.launches) != 1 {
 		t.Fatalf("initial production did not launch one reviewer: %+v", producer.launches)
+	}
+	prompt := string(producer.launches[0].Prompt)
+	if !strings.Contains(prompt, "Begin with factory.context") || !strings.Contains(prompt, "factory.finish_review") || !strings.Contains(prompt, "clear_coverage_digest") || !strings.Contains(prompt, "CI status context names, not executable commands") || strings.Contains(prompt, "```"+factory.ReviewReportFence) {
+		t.Fatal("production reviewer still received the obsolete report or CI command contract")
 	}
 	child, priorRun := settleProducedChild(t, fx, producer.launches[0].Run.ID,
 		reviewVerdictOutput(producedReviewCycleID(t, fx, producer.launches[0].Run.ID), correctionFinding()))

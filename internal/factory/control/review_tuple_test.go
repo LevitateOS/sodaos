@@ -384,6 +384,14 @@ func TestCleanReviewServingAuthorizesMergeWithoutDeliveryCallsPG(t *testing.T) {
 	if err != nil || required.Role.Review == nil || len(required.Role.Review.Heads) != 1 || required.Role.Review.Heads[0].RunID != run.ID || required.Role.Review.Heads[0].HeadOID != publication.Candidate || required.Role.Review.CurrentTuple == nil || required.Role.Review.CurrentTuple.DiffBase != strings.Repeat("d", 40) {
 		t.Fatalf("review context lost its authorized native operation: %v", err)
 	}
+	carriedDigest, err := factory.FindingContentDigest(required.Role.Review.CarriedFindings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coverageDigest, err := factory.ClearCoverageDigest(required.Role.Review.Cycle.Head, required.Role.Review.Cycle.BaseOID, carriedDigest)
+	if err != nil || required.Role.Review.ClearCoverageDigest != coverageDigest || !factory.ValidDigest(coverageDigest) {
+		t.Fatal("required review context omitted the exact canonical clear coverage binding")
+	}
 	merger := happyMerger()
 	fx.coord.Merges = merger
 	first := fx.coord.MergePass(ctx)
@@ -416,11 +424,27 @@ func TestCleanReviewServingAuthorizesMergeWithoutDeliveryCallsPG(t *testing.T) {
 	if fx.coord.checkCurrent(ctx, stored) {
 		t.Fatal("obsolete policy check assessment remained current")
 	}
+	staleContext, err := fx.db.FactoryCurrentContext(ctx, cap, time.Now())
+	if err != nil || staleContext.Role.Review == nil || staleContext.Role.Review.CheckAssessment != nil {
+		t.Fatalf("review context exposed stale-policy CI as current: %v", err)
+	}
+	beforeCI, err := factory.CurrentRequiredSemanticDigest(staleContext.Role)
+	if err != nil {
+		t.Fatal(err)
+	}
 	checks := happyCheckObserver()
 	fx.coord.Checks, fx.coord.Merges = checks, nil
 	checked := fx.coord.CheckPass(ctx)
 	if len(checked.Assessed) != 1 || len(checked.Errors) != 0 || len(checks.targets) != 1 {
 		t.Fatalf("check serving pass did not refresh obsolete policy evidence: %+v", checked)
+	}
+	freshContext, err := fx.db.FactoryCurrentContext(ctx, cap, time.Now())
+	if err != nil || freshContext.Role.Review == nil || freshContext.Role.Review.CheckAssessment == nil || freshContext.Role.Review.CheckAssessment.PolicyRevision != policy.Revision || freshContext.Role.Review.CheckAssessment.Verdict != factory.CheckPass {
+		t.Fatalf("review context omitted exact current native CI evidence: %v", err)
+	}
+	afterCI, err := factory.CurrentRequiredSemanticDigest(freshContext.Role)
+	if err != nil || beforeCI != afterCI {
+		t.Fatal("CI progress changed the admitted reviewer context choice binding")
 	}
 	fx.coord.Merges = merger
 	second := fx.coord.MergePass(ctx)

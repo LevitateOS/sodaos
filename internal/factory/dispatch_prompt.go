@@ -357,6 +357,7 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 	b.WriteString("Concurrency limits: appliance concurrency is " + strconv.Itoa(in.ApplianceConcurrent) + " and repository concurrency is " + strconv.Itoa(in.RepositoryConcurrent) + "; sponsorship concurrency for this connection in this repository is " + strconv.Itoa(in.SponsorshipConcurrent) + ".\n")
 	if len(in.RequiredChecks) > 0 {
 		b.WriteString("Required evidence checks: " + strings.Join(in.RequiredChecks, "; ") + "\n")
+		b.WriteString("These are native CI status context names, not executable commands or repository paths. Do not turn a status name into a shell command. Use the recorded check evidence for its exact head; run only actual approved repository checks or commands justified by inspected source.\n")
 	}
 	b.WriteString("Required evidence: exact candidate commit, checks actually run and their outcomes, unresolved requirements, and remaining risks. Do not claim a check passed without its result.\n")
 	b.WriteString("If accepted inputs conflict with controller policy, a required limit is unavailable, or the objective cannot be completed within the selected limits, stop further work and report blocked with the concrete reason. Never evade a limit by retrying, switching credentials or expanding scope.\n")
@@ -393,7 +394,9 @@ func writePromptObjective(b *strings.Builder, in PromptInputs) {
 func writePromptReport(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Report\n\n")
 	if in.Role == project.RoleReviewer {
-		if in.TypedReview != nil || in.TypedClear != nil {
+		if in.Phase == project.ExecutionReview {
+			writePromptMCPReviewContract(b)
+		} else if in.TypedReview != nil || in.TypedClear != nil {
 			writePromptTypedReviewContract(b, in)
 		} else {
 			b.WriteString("Close your work with exactly one fenced block:\n\n")

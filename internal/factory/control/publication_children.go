@@ -402,8 +402,9 @@ func (c *Coordinator) promptPublicationChild(ctx context.Context, plan *attemptP
 	var typedClear *factory.ClearReviewReport
 	var checksPrompt *factory.CheckAssessment
 	if role == project.RoleReviewer {
+		checksPrompt = in.checks
 		if in.hasReview {
-			typedReview, typedClear, checksPrompt = in.review.Review, in.review.Clear, in.checks
+			typedReview, typedClear = in.review.Review, in.review.Clear
 		}
 	} else {
 		if in.hasReview {

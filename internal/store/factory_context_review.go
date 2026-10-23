@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -60,6 +61,31 @@ func currentReviewTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out 
 	current.Publication = factory.CurrentPublicationContext{ID: p.ID, AssignmentID: p.AssignmentID, Revision: p.Revision, PRID: p.PRID, PRNumber: p.PRNumber, Stage: p.Stage}
 	if err := currentReviewFactsTx(ctx, tx, a, p, &current); err != nil {
 		return err
+	}
+	content, err := factory.FindingContentDigest(current.CarriedFindings)
+	if err != nil {
+		return err
+	}
+	current.ClearCoverageDigest, err = factory.ClearCoverageDigest(current.Cycle.Head, current.Cycle.BaseOID, content)
+	if err != nil {
+		return err
+	}
+	if err := currentPublishedImplementationTx(ctx, tx, a, owner, p, &current); err != nil {
+		return err
+	}
+	var assessment factory.CheckAssessment
+	err = contextJSONRow(ctx, tx, &assessment, `SELECT data FROM factory_check_assessments WHERE repository=$1 AND pr=$2`, p.Repository, p.PRNumber)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if err == nil {
+		var policy factory.RepositoryPolicy
+		if err := contextJSONRow(ctx, tx, &policy, `SELECT data FROM factory_policies WHERE repository=$1`, p.Repository); err != nil {
+			return err
+		}
+		if assessment.Validate() == nil && policy.Validate() == nil && assessment.Repository == p.Repository && assessment.PRNumber == p.PRNumber && assessment.PRID == p.PRID && assessment.IssueID == p.PRCreate.IssueID && assessment.HeadOID == current.AdmittedTuple.Head && assessment.HeadOID == p.Candidate && assessment.BaseOID == p.PRCreate.BaseOID && assessment.HeadRef == p.PRCreate.HeadRef && assessment.BaseRef == p.PRCreate.BaseRef && assessment.PolicyRevision == policy.Revision && slices.Equal(assessment.Checks, policy.Checks) && assessment.ChecksDigest == factory.ChecksDigest(policy.Checks) && (assessment.Verdict == factory.CheckPass || assessment.Verdict == factory.CheckFailed) {
+			current.CheckAssessment = &assessment
+		}
 	}
 	out.Role.Review = &current
 	if tuple.Head != current.AdmittedTuple.Head || tuple.Base != current.AdmittedTuple.Base || tuple.DiffBase != current.AdmittedTuple.DiffBase {
