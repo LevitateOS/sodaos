@@ -2,7 +2,7 @@
 use super::is_digest;
 use std::collections::BTreeMap;
 
-pub const REQUIRED_CONTENT: [&str; 14] = [
+pub const REQUIRED_CONTENT: [&str; 15] = [
     "dashboard:/usr/local/bin/soda-dashboard",
     "host:/usr/share/containers/systemd/forgejo.container",
     "host:/usr/share/containers/systemd/soda-dashboard.container",
@@ -14,8 +14,9 @@ pub const REQUIRED_CONTENT: [&str; 14] = [
     "canlang-runtime:/opt/canlang/tools.json",
     "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
     "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-    "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-    "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
+    "canlang-runtime:/usr/share/licenses/canlang/workerd-LICENSE",
+    "canlang-runtime:/usr/share/licenses/canlang/Miniflare-D1-LICENSE",
+    "canlang-runtime:/usr/share/licenses/canlang/D1-NOTICE",
     "release:fountain-release.json",
 ];
 

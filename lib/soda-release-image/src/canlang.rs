@@ -10,14 +10,14 @@ use std::path::Path;
 
 const ARCHIVE: &str = "canlang-tools-linux-x86_64.tar.gz";
 
-/// Existing admitted reference/license assets copied by the runtime recipe.
+/// Admitted production runtime attributions copied by the runtime recipe.
 pub(crate) fn runtime_content(native: &str) -> Result<Vec<(String, String)>, Error> {
     let root = Path::new(native).join("project-tools/canlang");
     let mut files = vec![(
         "canlang-runtime:/opt/canlang/tools.json".into(),
         root.join("tools.json").to_string_lossy().into_owned(),
     )];
-    let licenses = root.join("licenses");
+    let licenses = root.join("runtime/licenses");
     crate::sys::walk(&licenses.to_string_lossy(), |path, is_dir, _| {
         if is_dir {
             return Ok(());
