@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"time"
 
@@ -281,6 +282,20 @@ func validateImplementationRetryChildTx(ctx context.Context, tx *sql.Tx, a facto
 		return ErrExplicitRetryIneligible
 	}
 	if err := implementationRetryCommandTx(ctx, tx, decision, a.Repository, a.Issue, a.Acceptance); err != nil {
+		return err
+	}
+	// Once admitted, the existing bounded launch-retry path validates this
+	// exact assignment. Its root is active and its prior is historical now;
+	// the immutable owner admission must not be treated as a new command.
+	var stored factory.Assignment
+	err := contextJSONRow(ctx, tx, &stored, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID)
+	if err == nil {
+		if !reflect.DeepEqual(stored, a) {
+			return ErrExplicitRetryIneligible
+		}
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	facts, err := implementationRetryFactsTx(ctx, tx, decision.Prior, a.Repository, a.Issue, a.Acceptance, time.Now())

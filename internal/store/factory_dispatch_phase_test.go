@@ -274,6 +274,26 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	if err = db.RecordImplementationRetryPacket(ctx, decision, dispatchTestRegistration(next), expected, next, nextReservation, nextRun, nextView); err == nil {
 		t.Fatal("continuation duplicated packet")
 	}
+	// A later confirmed unused launch retry belongs to the already admitted
+	// continuation. Its immutable command remains valid with an active root
+	// and historical predecessor; it does not need another owner decision.
+	recordedNext, err := db.FactoryRun(ctx, nextRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordedNext.ContextPending = false
+	recordedNext.Outcome, recordedNext.Reconciled, recordedNext.Summary = factory.Cancelled, true, "stop-before-start"
+	if err = db.SaveFactoryRun(ctx, recordedNext); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.ReleaseReservation(ctx, next.ID); err != nil {
+		t.Fatal(err)
+	}
+	launchRetry, retryView := retryTestRun(t, next, nextRun)
+	continued, err := db.RecordRetryPacket(ctx, next, expected, next.Authority, launchRetry, retryView, 2)
+	if err != nil || continued.ID != next.ID || continued.AttemptRoot != parent.ID || continued.Attempts != 2 || len(continued.RunHistory) != 2 {
+		t.Fatalf("admitted continuation launch retry refused: %+v %v", continued, err)
+	}
 }
 
 func TestPhasedPacketRefusals(t *testing.T) {
