@@ -8,6 +8,7 @@ import {renderProjectWork} from './sodaspaces-project-work-view.js';
 import './sodaspaces-factory-feed.js';
 import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
+import './sodaspaces-factory-context-resolution.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 
 export interface ProjectWorkContext {
@@ -252,8 +253,11 @@ export class SodaProjectWork extends LitElement {
       ${
         this.requirementsIssue
           ? html`<soda-factory-requirements-acceptance
-              .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
-            ></soda-factory-requirements-acceptance>`
+                .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
+              ></soda-factory-requirements-acceptance>
+              <soda-factory-context-resolution
+                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue} : undefined}
+              ></soda-factory-context-resolution>`
           : ''
       }
     </details>`;
