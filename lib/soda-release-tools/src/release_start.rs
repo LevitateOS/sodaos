@@ -220,11 +220,10 @@ fn admit_build_request(
     values: &BTreeMap<String, String>,
 ) -> Result<(std::path::PathBuf, crate::build_spec::Request), String> {
     workflow_output(cwd, out)?;
-    if !Path::new(&config.build_home).starts_with(cwd.join(".artifacts"))
-        || !Path::new(&config.runtime).starts_with(cwd.join(".artifacts"))
-    {
-        return Err("workflow output, build home and runtime must stay below the selected worktree's .artifacts".into());
-    }
+    // Build home and runtime belong to the admitted private storage root,
+    // checked by admit_start_identity. Ordinary checkouts use the canonical
+    // worker home outside the source tree; linked-worktree containment stays
+    // enforced by the worker's runtime admission.
     let leaf = out
         .file_name()
         .and_then(|v| v.to_str())

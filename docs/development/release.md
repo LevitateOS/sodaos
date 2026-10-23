@@ -61,7 +61,9 @@ Flags preseed the same flow. `--non-interactive` requires every input.
 
 The admitted worker identifies its source, Fountain checkout, controller, cache,
 tools and output parent. The selected Source must be the current checkout, with
-writable workflow/build/cache/runtime paths below its `.artifacts/`. Admission
+workflow and build output below its `.artifacts/`. Build home and runtime stay
+inside the admitted private storage root; linked worktrees additionally require
+those paths below their own `.artifacts/`. Admission
 and worker setup follow [native support](native-support.md#local-host-content-image-candidate);
 start does not install accounts, grant sudo or admit an executable.
 Run `start` with sudo: the admitted controller and restricted worker configuration
