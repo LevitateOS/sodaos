@@ -837,6 +837,67 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 	if again, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now()); ok || again.Stage != "" {
 		t.Fatalf("second accounting = %+v %v", again, ok)
 	}
+	t.Run("incomplete planning terminal precedes native retirement", func(t *testing.T) {
+		serving, _ := dispatchTestDB(t)
+		fixture := dispatchSeed(t, serving)
+		fundTimeOnlyPolicy(t, ctx, serving, fixture.repo)
+		intent := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+		if err := serving.SaveIntentRevision(ctx, intent); err != nil {
+			t.Fatal(err)
+		}
+		worker := &Coordinator{Store: serving, Host: fixture.host, Broker: fixture.broker, DispatchReads: fixture.deps().Reads,
+			MCPKey: []byte(strings.Repeat("k", 32)), Priority: &PriorityJudgments{Journal: serving, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}}
+		launched := worker.DispatchIntentPlan(ctx, intent.Intent, 7, factory.IntentPlanningPropose, intentPlanInput(t, intent, factory.IntentPlanningPropose), strings.Repeat("c", 40), "")
+		if len(launched.Launched) != 1 || len(launched.Errors) != 0 || len(launched.Waits) != 0 {
+			t.Fatalf("normal intent admission failed: %+v", launched)
+		}
+		run, err := serving.FactoryRun(ctx, launched.Launched[0].RunID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		capability, err := serving.GetMCPCapability(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := serving.ActivateObservedMCPCapability(ctx, capability); err != nil {
+			t.Fatal(err)
+		}
+		capability, err = serving.GetMCPCapability(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Planning evidence is incomplete."}`))
+		if _, err := serving.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+			t.Fatal(err)
+		}
+		if settled, err := SettleMCPTerminalProposal(ctx, serving, capability.AssignmentID, time.Now()); err != nil || !settled {
+			t.Fatal("early intent terminal did not settle", settled, err)
+		}
+		scope := factory.IntentAttemptScope{IntentID: intent.Intent, OwnerID: intent.Owner}
+		before, err := serving.IntentAttemptAllowance(ctx, fixture.repo, scope, capability.AssignmentID)
+		if err != nil || !before.Closed || !before.Active {
+			t.Fatal("early intent terminal must keep its actual native clock", before, err)
+		}
+		run.Outcome, run.Reconciled = factory.Succeeded, true
+		if err := serving.SaveFactoryRun(ctx, run); err != nil {
+			t.Fatal("retired intent native outcome failed to save", err)
+		}
+		after, err := serving.IntentAttemptAllowance(ctx, fixture.repo, scope, capability.AssignmentID)
+		if err != nil || after.Active || !after.Closed || after.Limits != before.Limits || after.ActiveSeconds < before.ActiveSeconds {
+			t.Fatal("retired intent did not checkpoint the same closed allowance", after, err)
+		}
+		finished, err := serving.Assignment(ctx, capability.AssignmentID)
+		if err != nil || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Status != "blocked" {
+			t.Fatal("native retirement changed the recorded planning result", err)
+		}
+		if err := serving.SaveFactoryRun(ctx, run); err != nil {
+			t.Fatal("native intent save replay failed", err)
+		}
+		replayed, err := serving.IntentAttemptAllowance(ctx, fixture.repo, scope, capability.AssignmentID)
+		if err != nil || replayed.Revision != after.Revision || replayed.ActiveSeconds != after.ActiveSeconds {
+			t.Fatal("native intent replay charged or reopened its root", replayed, err)
+		}
+	})
 }
 
 // TestDispatchIntentPlanWaitsWhenPreparationChanged proves the pinned

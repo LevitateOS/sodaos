@@ -178,6 +178,12 @@ func settleClosedAttemptForRunTx(ctx context.Context, tx *sql.Tx, runID string, 
 	if assignment.Subject.Kind == factory.SubjectStall {
 		return settleTypedStallRootTx(ctx, tx, repository, issue, assignment, now)
 	}
+	if assignment.Subject.Kind == factory.SubjectIntent {
+		return settleTypedIntentRootTx(ctx, tx, repository, issue, assignment, now)
+	}
+	if assignment.Subject.Kind == factory.SubjectDelivery {
+		return settleTypedDeliveryRootTx(ctx, tx, repository, issue, assignment, now)
+	}
 	allowance, owner, proceed, err := gateSettleRootTx(ctx, tx, repository, issue, assignment.AttemptRoot)
 	if err != nil || !proceed {
 		return err
@@ -265,6 +271,47 @@ func settleTypedStallRootTx(ctx context.Context, tx *sql.Tx, repository, issue i
 		return err
 	}
 	if typed.Stall == nil || *typed.Stall != *assignment.Subject.Stall {
+		return ErrAttemptRootMismatch
+	}
+	if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
+		return nil
+	}
+	return transitionLockedAttemptRootTx(ctx, tx, typed, false, now)
+}
+
+// Intent planning and app verification can report incomplete before native
+// retirement. Both own independent issue-zero roots without publication owners;
+// resolve their exact typed allowance before the shared settled-effects joint.
+func settleTypedIntentRootTx(ctx context.Context, tx *sql.Tx, repository, issue int64, assignment factory.Assignment, now time.Time) error {
+	if err := assignment.Validate(); err != nil {
+		return err
+	}
+	if assignment.Repository != repository || issue != 0 || assignment.Issue != 0 || assignment.Subject.Intent == nil {
+		return errors.New("intent run view does not match its typed scope")
+	}
+	scope := factory.IntentAttemptScope{IntentID: assignment.Subject.Intent.IntentID, OwnerID: assignment.Subject.Intent.OwnerID}
+	typed, err := lockIntentAttemptAllowanceTx(ctx, tx, repository, scope, assignment.AttemptRoot)
+	if err != nil {
+		return err
+	}
+	if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
+		return nil
+	}
+	return transitionLockedAttemptRootTx(ctx, tx, typed, false, now)
+}
+
+func settleTypedDeliveryRootTx(ctx context.Context, tx *sql.Tx, repository, issue int64, assignment factory.Assignment, now time.Time) error {
+	if err := assignment.Validate(); err != nil {
+		return err
+	}
+	if assignment.Repository != repository || issue != 0 || assignment.Issue != 0 || assignment.Subject.Delivery == nil {
+		return errors.New("delivery run view does not match its typed scope")
+	}
+	typed, err := lockAttemptAllowanceRootTx(ctx, tx, repository, 0, assignment.AttemptRoot)
+	if err != nil {
+		return err
+	}
+	if typed.Delivery == nil || *typed.Delivery != *assignment.Subject.Delivery {
 		return ErrAttemptRootMismatch
 	}
 	if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
