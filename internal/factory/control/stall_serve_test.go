@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	sdk "forgejo.org/extension-sdk"
@@ -86,7 +87,7 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 		t.Fatalf("round=%+v, want no detection when the pass launched work", skipped)
 	}
 	t.Run("retained Strategist launch and required context", func(t *testing.T) {
-		serving, _ := dispatchTestDB(t)
+		serving, dsn := dispatchTestDB(t)
 		fx := dispatchSeed(t, serving)
 		fx.accept(t, 3, "d333333333333333333333333")
 		stallSeedControl(t, serving, fx.repo, 3, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
@@ -195,14 +196,52 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// A structured terminal may be fenced before native retirement.
+		// Its exact typed root closes admission but keeps its active clock
+		// until SaveFactoryRun records the actual stopped worker.
+		secondCapability, err := serving.GetMCPCapability(ctx, second.RunID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = serving.ActivateObservedMCPCapability(ctx, secondCapability); err != nil {
+			t.Fatal(err)
+		}
+		secondCapability, err = serving.GetMCPCapability(ctx, second.RunID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidReport, _ := json.Marshal(map[string]any{"subject": secondCapability.Subject, "report": map[string]any{}})
+		submission := testMCPSubmission(secondCapability, factory.MCPToolFinishReassessment, factory.NewID(), invalidReport)
+		receipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}
+		if _, err = serving.RecordMCPSubmission(ctx, submission, receipt); err != nil {
+			t.Fatal(err)
+		}
+		if finished, err := SettleMCPTerminalProposal(ctx, serving, second.AssignmentID, time.Now()); err != nil || !finished {
+			t.Fatal("early fenced Strategist terminal", finished, err)
+		}
+		sqlDB, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sqlDB.Close()
+		var beforeAllowance, afterAllowance factory.AttemptAllowance
+		var allowanceRaw []byte
+		if err = sqlDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, second.AssignmentID).Scan(&allowanceRaw); err != nil || json.Unmarshal(allowanceRaw, &beforeAllowance) != nil || !beforeAllowance.Active || !beforeAllowance.Closed {
+			t.Fatal("fenced root must retain active clock before native retirement", err)
+		}
 		run.Outcome, run.Reconciled = factory.Succeeded, true
 		if err = serving.SaveFactoryRun(ctx, run); err != nil {
 			t.Fatal(err)
 		}
-		proposal.CycleID, proposal.InventoryDigest = second.ID, second.InventoryDigest
-		output = fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Second diagnosis remains a real unresolved stall.", Output: &factory.PhaseOutput{Repair: &proposal}})
-		if a, ok := AccountSettledRun(ctx, serving, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
-			t.Fatal("second cycle finish did not settle")
+		if err = sqlDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, second.AssignmentID).Scan(&allowanceRaw); err != nil || json.Unmarshal(allowanceRaw, &afterAllowance) != nil || afterAllowance.Active || !afterAllowance.Closed || afterAllowance.Limits != beforeAllowance.Limits || afterAllowance.ActiveSeconds < beforeAllowance.ActiveSeconds {
+			t.Fatal("retired typed root did not freeze the same cumulative allowance", err)
+		}
+		if _, created := AccountSettledRun(ctx, serving, run, "", time.Now()); created {
+			t.Fatal("retirement replaced an already fenced terminal")
+		}
+		finishedSecond, err := serving.Assignment(ctx, second.AssignmentID)
+		if err != nil || finishedSecond.Stage != factory.AssignmentFinished || finishedSecond.Outcome != factory.NeedsHuman {
+			t.Fatal("original fenced terminal changed after native settlement", err)
 		}
 		for i := 0; i < 3; i++ {
 			_, _ = worker.ServeStallRound(ctx, DispatchReport{})

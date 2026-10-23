@@ -175,6 +175,9 @@ func settleClosedAttemptForRunTx(ctx context.Context, tx *sql.Tx, runID string, 
 	if assignment.Subject.Kind == factory.SubjectCompletion {
 		return settleTypedCompletionRootTx(ctx, tx, repository, issue, assignment, now)
 	}
+	if assignment.Subject.Kind == factory.SubjectStall {
+		return settleTypedStallRootTx(ctx, tx, repository, issue, assignment, now)
+	}
 	allowance, owner, proceed, err := gateSettleRootTx(ctx, tx, repository, issue, assignment.AttemptRoot)
 	if err != nil || !proceed {
 		return err
@@ -240,6 +243,29 @@ func settleTypedCompletionRootTx(ctx context.Context, tx *sql.Tx, repository, is
 	typed, err := lockReassessmentAttemptAllowanceTx(ctx, tx, repository, *assignment.Subject.Completion, assignment.AttemptRoot)
 	if err != nil {
 		return err
+	}
+	if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
+		return nil
+	}
+	return transitionLockedAttemptRootTx(ctx, tx, typed, false, now)
+}
+
+// A fenced Strategist terminal can close its independent stall root before
+// native retirement. Its issue-zero scope has no publication owner: settle
+// the exact retained subject/root and checkpoint only confirmed effects.
+func settleTypedStallRootTx(ctx context.Context, tx *sql.Tx, repository, issue int64, assignment factory.Assignment, now time.Time) error {
+	if err := assignment.Validate(); err != nil {
+		return err
+	}
+	if assignment.Repository != repository || issue != 0 || assignment.Issue != 0 || assignment.Subject.Stall == nil {
+		return errors.New("stall run view does not match its typed scope")
+	}
+	typed, err := lockAttemptAllowanceRootTx(ctx, tx, repository, 0, assignment.AttemptRoot)
+	if err != nil {
+		return err
+	}
+	if typed.Stall == nil || *typed.Stall != *assignment.Subject.Stall {
+		return ErrAttemptRootMismatch
 	}
 	if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
 		return nil
