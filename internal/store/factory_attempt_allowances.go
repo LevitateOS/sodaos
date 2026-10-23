@@ -134,9 +134,6 @@ func (s *Store) CloseExpiredAttempt(ctx context.Context, assignmentID string) (b
 	}
 	now := time.Now()
 	if !allowance.Closed {
-		if !allowance.Active {
-			return false, tx.Commit()
-		}
 		if now.Unix() < allowance.CheckpointUnix {
 			return false, factory.ErrAllowanceClock
 		}

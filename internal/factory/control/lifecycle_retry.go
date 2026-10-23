@@ -57,6 +57,15 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
+	// A completed run can exhaust its root while waiting for publication,
+	// then ordinary withdrawal deactivates it. Close that exact exhausted
+	// root before normal fresh-attempt admission; positive remaining time
+	// and all immutable retry/accounting checks keep their existing rules.
+	if !implementation {
+		if _, err = c.Store.CloseExpiredAttempt(bounded, assignment.ID); err != nil {
+			return factory.RetryDecision{}, err
+		}
+	}
 	record := c.Store.RecordExplicitRetryCommand
 	if implementation {
 		record = c.Store.RecordImplementationRetryCommand

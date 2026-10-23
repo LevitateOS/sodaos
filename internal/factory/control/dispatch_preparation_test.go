@@ -54,6 +54,7 @@ func consumedCoderRetry(t *testing.T) (dispatchFixture, *Coordinator, string, fa
 		t.Fatal(err)
 	}
 	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes * 60)
+	allowance.Active = false
 	allowance.CheckpointUnix = time.Now().Unix()
 	allowance.Revision++
 	raw, _ := json.Marshal(allowance)
@@ -65,18 +66,16 @@ func consumedCoderRetry(t *testing.T) (dispatchFixture, *Coordinator, string, fa
 	if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET revision=$1,data=$2 WHERE root_assignment=$3`, allowance.Revision, string(raw), allowance.RootAssignment); err != nil {
 		t.Fatal(err)
 	}
-	if closed, err := db.CloseExpiredAttempt(ctx, first.Launched[0].AssignmentID); err != nil || !closed {
-		t.Fatalf("close original: %t %v", closed, err)
-	}
-	allowance, err = db.AttemptAllowance(ctx, fx.repo, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
 	c := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.reads}
 	command := factory.NewID()
 	if result, err := c.RetryRun(ctx, command, "native:7", run.ID); err != nil || !result.Queued {
 		t.Fatalf("Retry: %+v %v", result, err)
 	}
+	closed, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil || !closed.Closed || closed.Active || closed.ActiveSeconds != allowance.ActiveSeconds || closed.Limits != allowance.Limits {
+		t.Fatalf("normal Retry did not close the inactive exhausted root without refill: %+v %v", closed, err)
+	}
+	allowance = closed
 	return fx, c, command, allowance, dsn
 }
 

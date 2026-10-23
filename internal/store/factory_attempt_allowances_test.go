@@ -928,6 +928,15 @@ func TestPublicationRegistrationRefusesInactiveExhaustedOrMissingRoot(t *testing
 			if err != nil || len(stored.Corrections) != 0 {
 				t.Fatalf("refused registration changed publication: %+v %v", stored.Corrections, err)
 			}
+			if tc.mode == "inactive" {
+				if closed, err := db.CloseExpiredAttempt(ctx, p.AssignmentID); err != nil || closed {
+					t.Fatalf("inactive positive allowance closed: %t %v", closed, err)
+				}
+				after, err := db.AttemptAllowance(ctx, p.Repository, p.Issue)
+				if err != nil || after.Revision != allowance.Revision || after.Active || after.Closed || after.ActiveSeconds != allowance.ActiveSeconds || after.CheckpointUnix != allowance.CheckpointUnix || after.Limits != allowance.Limits {
+					t.Fatal("inactive positive allowance changed during expiry check")
+				}
+			}
 		})
 	}
 }
