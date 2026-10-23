@@ -273,6 +273,22 @@ pub(super) fn provision_worker_tools(
     )?;
     run("sudo", &["chmod", "0755", TOOLS, &tools_bin])?;
     migrate_candidate_home(storage)?;
+    // The isolated worker binds this workspace-backed directory onto /tmp
+    // and /var/tmp, including for tools that do not honor TMPDIR.
+    run(
+        "sudo",
+        &[
+            "install",
+            "-d",
+            "-m",
+            "0700",
+            "-o",
+            WORKER_USER,
+            "-g",
+            WORKER_USER,
+            &format!("{}/tmp", storage.home),
+        ],
+    )?;
     if ls_nonempty(LEGACY_RUN) {
         println!(
             "-- legacy {LEGACY_RUN} holds leftovers; preserved untouched (new runs use {})",

@@ -186,16 +186,18 @@ func (c *Coordinator) refreshPriorityCandidate(ctx context.Context, control fact
 	if c.Readiness == nil {
 		return control, true, nil
 	}
+	authorityChanged := false
 	if control.Readiness == factory.ReadinessNotAuthorized && control.Reason == factory.BlockerAuthorityMissing {
 		authority, err := c.EffectiveAuthority(ctx, control.Repository)
 		if err != nil {
 			return factory.IssueControl{}, false, err
 		}
-		if factory.AuthorityFingerprint(authority) == control.Authority {
+		authorityChanged = factory.AuthorityFingerprint(authority) != control.Authority
+		if !authorityChanged {
 			return control, true, nil
 		}
 	}
-	if control.NativeRev == scanRevision {
+	if control.NativeRev == scanRevision && !authorityChanged {
 		return control, true, nil
 	}
 	reserved, err := c.reserveIssueAssessment(ctx, factory.DependenceRef{Repository: control.Repository, Issue: control.Issue})

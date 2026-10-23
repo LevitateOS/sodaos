@@ -339,6 +339,8 @@ func TestRetryRetainsPendingCustodyAcrossOperationalStoreFailure(t *testing.T) {
 func TestHoldReleaseWakesExistingRetryAfterProjectStop(t *testing.T) {
 	ctx := context.Background()
 	fx, c, command, _, _ := consumedCoderRetry(t)
+	// Exercise the serving priority path at one unchanged native revision.
+	c.Priority = &PriorityJudgments{Journal: fx.db, Chooser: &priorityFixture{}, MaxCalls: 1}
 	head := fx.decision[3]
 	c.AcceptanceReads = &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/3": {Revision: 41, Issue: AcceptanceIssueView{
@@ -371,10 +373,14 @@ func TestHoldReleaseWakesExistingRetryAfterProjectStop(t *testing.T) {
 	if err := fx.db.SaveMaintenanceHold(ctx, project.MaintenanceHold{Project: fx.proj, Revision: 1, Hold: false}); err != nil {
 		t.Fatal(err)
 	}
-	c.advanceProgress(ctx)
-	c.advanceProgress(ctx)
+	for pass := 0; pass < 8 && len(fx.host.launches) == before; pass++ {
+		c.advanceProgress(ctx)
+	}
 	a, err := fx.db.Assignment(ctx, command)
 	if err != nil || a.AttemptRoot != command || len(fx.host.launches) != before+1 {
+		control, _ := fx.db.IssueControl(ctx, fx.repo, 3)
+		scan, _ := fx.db.LoadPriorityScan(ctx)
+		t.Logf("control=%+v scan=%+v", control, scan)
 		t.Fatalf("existing Retry stayed blocked after release: %+v %v", a, err)
 	}
 	if a.Acceptance != head.ID {
