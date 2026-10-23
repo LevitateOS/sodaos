@@ -150,6 +150,8 @@ test('Work, Project and Terminals navigation retain the exact terminal owner and
   const socket = await page.evaluate(() => String(window.workspaceFixture.sockets[0]?.url));
   await page.getByRole('button', {name: 'Work', exact: true}).click();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  assert.equal(new URL(page.url()).pathname, '/workspace');
+  assert.equal(new URL(page.url()).searchParams.get('repository'), '8');
   await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
   assert(await owner?.evaluate((node) => node.isConnected && !node.hasAttribute('hidden')));
@@ -199,6 +201,8 @@ test('compact Projects navigation opens another Project work view without starti
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  assert.equal(new URL(page.url()).pathname, '/workspace');
+  assert.equal(new URL(page.url()).searchParams.get('repository'), '8');
   await (await openProjectPlans(page))
     .getByRole('heading', {name: 'What would you like to change?', exact: true})
     .waitFor();

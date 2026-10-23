@@ -1316,8 +1316,7 @@ export class SodaSpaces extends LitElement {
     if (this.binding?.kind === 'page') {
       this.view = 'work';
       this.choosingPane = undefined;
-      const name = space.environment.repository;
-      if (name.includes('/')) this.binding.navigate?.(`${this.repositoryPrefix()}/${name}/workspace`);
+      this.binding.navigate?.(`${this.repositoryPrefix()}/workspace?repository=${encodeURIComponent(this.project)}`);
       return;
     }
     this.back();

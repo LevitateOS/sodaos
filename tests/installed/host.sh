@@ -39,7 +39,7 @@ done
 [[ $(stat -c '%u:%g:%a' /run/soda/host/host.sock) == 0:2000:660 ]]
 # Socket activation alone cannot prove the host accepts its installed inputs.
 [[ $(curl --fail --silent --show-error --max-time 30 --unix-socket /run/soda/host/host.sock \
-  --request POST --output /dev/null --write-out '%{http_code}' http://localhost/profile) == 200 ]]
+  --request POST --data '{}' --output /dev/null --write-out '%{http_code}' http://localhost/profile) == 200 ]]
 systemctl is-active --quiet soda-host.service
 [[ $(stat -c '%u:%g:%a' /var/lib/soda/dashboard) == 2000:2000:700 ]]
 for file in /etc/cockpit/cockpit.conf /etc/pam.d/cockpit; do
