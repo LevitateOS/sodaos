@@ -36,20 +36,21 @@ type MCPCapability struct {
 	ID string `json:"id"`
 	// ContextSelectionSnapshot is controller-owned reservation metadata.
 	// It never changes the immutable credential scope or grants authority.
-	ContextSelectionSnapshot string     `json:"context_selection_snapshot,omitempty"`
-	AssignmentID             string     `json:"assignment_id"`
-	RunID                    string     `json:"run_id"`
-	Generation               int64      `json:"generation"`
-	Profile                  MCPProfile `json:"profile"`
-	Subject                  string     `json:"subject"`
-	Repository               int64      `json:"repository"`
-	Project                  string     `json:"project"`
-	PreparationDigest        string     `json:"preparation_digest"`
-	SourceDigest             string     `json:"source_digest"`
-	AcceptedRevision         string     `json:"accepted_revision"`
-	Authority                string     `json:"authority"`
-	DeadlineUnix             int64      `json:"deadline_unix"`
-	State                    string     `json:"state"`
+	ContextSelectionSnapshot string                    `json:"context_selection_snapshot,omitempty"`
+	ContextCurrentResolution *ContextCurrentResolution `json:"context_current_resolution,omitempty"`
+	AssignmentID             string                    `json:"assignment_id"`
+	RunID                    string                    `json:"run_id"`
+	Generation               int64                     `json:"generation"`
+	Profile                  MCPProfile                `json:"profile"`
+	Subject                  string                    `json:"subject"`
+	Repository               int64                     `json:"repository"`
+	Project                  string                    `json:"project"`
+	PreparationDigest        string                    `json:"preparation_digest"`
+	SourceDigest             string                    `json:"source_digest"`
+	AcceptedRevision         string                    `json:"accepted_revision"`
+	Authority                string                    `json:"authority"`
+	DeadlineUnix             int64                     `json:"deadline_unix"`
+	State                    string                    `json:"state"`
 }
 
 // Validate checks the immutable identity and scope of a capability.

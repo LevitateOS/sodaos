@@ -161,6 +161,39 @@ export interface FactoryRunDetail {
   summary?: string;
   view?: FactoryRunView;
   state?: FactoryRunState;
+  context_selection?: FactoryContextSelection;
+}
+export interface FactoryContextSelection {
+  fingerprint: string;
+  scope_digest: string;
+  required_digest?: string;
+  availability: string;
+  reason: string;
+  action: 'hold' | 'serve' | 'stop';
+  can_use_current: boolean;
+}
+function factoryContextSelection(value: unknown): FactoryContextSelection {
+  const row = object(value);
+  const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  check(digest(row.fingerprint) && digest(row.scope_digest));
+  check(row.required_digest === undefined || digest(row.required_digest));
+  check(
+    typeof row.availability === 'string' &&
+      row.availability.length <= 64 &&
+      typeof row.reason === 'string' &&
+      row.reason.length <= 128
+  );
+  check(row.action === 'hold' || row.action === 'serve' || row.action === 'stop');
+  check(typeof row.can_use_current === 'boolean');
+  return {
+    fingerprint: row.fingerprint,
+    scope_digest: row.scope_digest,
+    ...(row.required_digest === undefined ? {} : {required_digest: row.required_digest}),
+    availability: row.availability,
+    reason: row.reason,
+    action: row.action,
+    can_use_current: row.can_use_current,
+  };
 }
 const factoryPhase = (value: unknown): value is string =>
   value === 'approved' ||
@@ -284,6 +317,9 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
     ...factoryRecordProvenance(record),
     ...(data.view === undefined ? {} : {view: factoryRunDetailView(data.view, repositoryId)}),
     ...(data.state === undefined ? {} : {state: factoryRunDetailState(data.state)}),
+    ...(data.context_selection === undefined
+      ? {}
+      : {context_selection: factoryContextSelection(data.context_selection)}),
   };
 }
 export interface FactoryStatus {

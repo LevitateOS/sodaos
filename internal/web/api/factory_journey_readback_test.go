@@ -33,7 +33,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/config"
@@ -68,10 +70,11 @@ func (f *journeyAcceptanceSource) ReadAcceptanceEvidence(_ context.Context, _, _
 }
 
 type journeyHTTPFixture struct {
-	api *API
-	db  *store.Store
-	raw *sql.DB
-	mux *http.ServeMux
+	api        *API
+	db         *store.Store
+	raw        *sql.DB
+	mux        *http.ServeMux
+	permission *atomic.Value
 }
 
 // journeyMux builds the real registered product mux on an ephemeral PG
@@ -80,6 +83,8 @@ type journeyHTTPFixture struct {
 func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixture, func(method, path, body string) (int, []byte)) {
 	t.Helper()
 	suffix := "journey-" + strconv.Itoa(os.Getpid())
+	permission := &atomic.Value{}
+	permission.Store("admin")
 	callbackPath := "@soda-journey-" + suffix
 	callbackListener, err := net.Listen("unix", callbackPath)
 	if err != nil {
@@ -99,7 +104,7 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 				http.Error(w, "not visible", http.StatusNotFound)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "Alpha", Permission: "admin"}})
+			_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "Alpha", Permission: permission.Load().(string)}})
 		default:
 			http.Error(w, "denied", http.StatusForbidden)
 		}
@@ -136,7 +141,7 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 		t.Helper()
 		return journeyCall(t, mux, method, path, body, "generation-1", "generation-1", true)
 	}
-	return &journeyHTTPFixture{api: product, db: s, raw: raw, mux: mux}, call
+	return &journeyHTTPFixture{api: product, db: s, raw: raw, mux: mux, permission: permission}, call
 }
 
 func journeyCall(t *testing.T, mux http.Handler, method, path, body, authorityGen, sessionGen string, withAuthority bool) (int, []byte) {
@@ -458,6 +463,87 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	}
 	if code, body := call(http.MethodGet, path+"?limit=1", ""); code != http.StatusBadRequest || journeyErrorCode(t, body) != "invalid_request" {
 		t.Fatalf("query status=%d body=%s", code, body)
+	}
+	// Registered owner-route authentication and immutable lost-reply recovery.
+	// The completed decision below is an explicit persisted fixture; fresh
+	// complete-Builder admission is exercised by the controller integration.
+	ctx := context.Background()
+	if err := fx.db.UpsertUser(ctx, store.User{ID: 1, Login: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+	capability := fakeCatalogCapability()
+	capability.ID, capability.RunID, capability.AssignmentID = factory.NewID(), factory.NewID(), factory.NewID()
+	capability.ID = capability.RunID
+	capability.State = factory.MCPCapabilityStaged
+	capability.ContextSelectionSnapshot = strings.Repeat("e", 64)
+	if err := fx.db.CreateProject(ctx, store.Project{ID: capability.Project, Name: "Held context", RepositoryID: 7, OwnerID: 1, Repository: "alice/Alpha"}); err != nil {
+		t.Fatal(err)
+	}
+	run := factory.Run{ID: capability.RunID, ProjectID: capability.Project, Role: project.RoleCoder, ContextPending: true, Deadline: time.Unix(capability.DeadlineUnix, 0)}
+	raw, _ := json.Marshal(run)
+	if _, err := fx.raw.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, run.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	request := factory.ContextCurrentRequest{Fingerprint: capability.ContextSelectionSnapshot, ScopeDigest: capability.ScopeDigest(), RequiredDigest: strings.Repeat("f", 64)}
+	resolution := factory.ContextCurrentResolution{CommandID: factory.NewID(), RunID: run.ID, AssignmentID: capability.AssignmentID, Fingerprint: request.Fingerprint, ScopeDigest: request.ScopeDigest, RequiredDigest: request.RequiredDigest, Bundle: factory.ContextBundleCurrent, RecordedUnix: time.Now().Unix()}
+	capability.ContextCurrentResolution = &resolution
+	if err := fx.db.StageMCPCapability(ctx, capability); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(request)
+	command := factory.Command{ID: resolution.CommandID, Type: factory.CommandContextCurrent, Target: "run/" + run.ID, Principal: "native:1", Payload: string(payload)}
+	command.Digest = factory.SettingsDigest(command.Type, command.Target, command.Payload)
+	if _, _, err := fx.db.RecordFactoryCommand(ctx, command, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	outcome, _ := json.Marshal(resolution)
+	if err := fx.db.FinishFactoryCommand(ctx, command.ID, string(outcome), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	actionPath := "/api/factory/runs/" + run.ID + "/actions"
+	body, _ := json.Marshal(factoryRunActionsRequest{CommandID: command.ID, Action: factory.ActionContextCurrent, Context: &request})
+	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(body), "", "", false); code != 403 {
+		t.Fatal("context owner action accepted missing native authority", code)
+	}
+	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(body), "generation-1", "generation-2", true); code != 409 {
+		t.Fatal("context owner action accepted a stale session", code)
+	}
+	foreign := actorCall(t, fx.api, "2", "bob")
+	if code, _ := foreign(http.MethodPost, actionPath, string(body)); code < 400 {
+		t.Fatal("foreign actor recovered an owner context decision")
+	}
+	fx.permission.Store("read")
+	if code, reply := call(http.MethodPost, actionPath, string(body)); code != 403 || journeyErrorCode(t, reply) != "repository_write_required" {
+		t.Fatalf("context owner action accepted read-only repository authority: %d %s", code, reply)
+	}
+	fx.permission.Store("admin")
+	unknown := strings.TrimSuffix(string(body), "}") + `,"unknown":true}`
+	if code, _ := call(http.MethodPost, actionPath, unknown); code != 400 {
+		t.Fatal("context owner action accepted unknown JSON fields", code)
+	}
+	unknownContext := strings.Replace(string(body), `"context":{`, `"context":{"unknown":true,`, 1)
+	if code, _ := call(http.MethodPost, actionPath, unknownContext); code != 400 {
+		t.Fatal("context owner action accepted unknown context fields", code)
+	}
+	for i := 0; i < 2; i++ {
+		code, reply := call(http.MethodPost, actionPath, string(body))
+		var observed factory.ContextCurrentResolution
+		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed != resolution {
+			t.Fatalf("context owner exact receipt recovery: %d %s", code, reply)
+		}
+	}
+	changed := request
+	changed.ScopeDigest = strings.Repeat("0", 64)
+	conflict, _ := json.Marshal(factoryRunActionsRequest{CommandID: command.ID, Action: factory.ActionContextCurrent, Context: &changed})
+	if code, reply := call(http.MethodPost, actionPath, string(conflict)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
+		t.Fatalf("context owner changed scope replay: %d %s", code, reply)
+	}
+	var commands, choices int
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil {
+		t.Fatal(err)
+	}
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || commands != 1 || choices != 0 {
+		t.Fatal("HTTP context recovery/refusals refilled work or choices", commands, choices, err)
 	}
 }
 

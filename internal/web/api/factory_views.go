@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
@@ -103,9 +104,10 @@ func factoryRunLiveDTO(out project.FactoryState) *factoryRunLive {
 }
 
 type factoryRunStatus struct {
-	Run   factoryRunRecord   `json:"run"`
-	View  *factoryRunBinding `json:"view,omitempty"`
-	State *factoryRunLive    `json:"state,omitempty"`
+	Run              factoryRunRecord              `json:"run"`
+	View             *factoryRunBinding            `json:"view,omitempty"`
+	State            *factoryRunLive               `json:"state,omitempty"`
+	ContextSelection *control.ContextSelectionView `json:"context_selection,omitempty"`
 }
 
 // apiFactoryRun maps one recorded run to its display status: recorded facts,
@@ -122,6 +124,14 @@ func (s *API) apiFactoryRun(w http.ResponseWriter, r *http.Request, v store.Sess
 		return
 	}
 	status := factoryRunStatus{Run: factoryRunRecordDTO(run)}
+	if run.ContextPending {
+		selection, selectionErr := control.ContextSelectionStatus(r.Context(), s.Store, run)
+		if selectionErr != nil {
+			auth.JSONError(w, 503, "context_unavailable", "Could not read the saved context hold.")
+			return
+		}
+		status.ContextSelection = selection
+	}
 	if view, err := s.Store.FactoryRunView(r.Context(), run.ID); err == nil {
 		if view.Repository != p.RepositoryID {
 			auth.JSONError(w, 409, "view_conflict", "Run binding names another repository; refresh the inventory.")

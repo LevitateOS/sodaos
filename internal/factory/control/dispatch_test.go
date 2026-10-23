@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
@@ -195,6 +198,25 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if len(held.Launched) != 0 || waitReason(held, child.Issue) != "context_selection_hold" || len(fx.host.launches) != beforeLaunch || uncertain.calls != 1 {
 		t.Fatalf("low confidence selection started work: %+v calls=%d", held, uncertain.calls)
 	}
+	childCapability, err := db.GetMCPCapability(ctx, childRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	childState, ownEligible, lineageEligible, err := loadContextBundleState(ctx, db, childCapability, child, nil)
+	if err != nil || ownEligible || !lineageEligible || childState.Current.Required == nil || childState.Current.Required.Acceptance == nil || childState.Current.Required.Plan == nil {
+		t.Fatalf("builder comparison lost its actual required inputs: %+v %v", childState, err)
+	}
+	coverage := childState.Current.Required
+	if coverage.Acceptance.ID != oldHead.ID || !coverage.Acceptance.ObjectivePresent || !coverage.Acceptance.RepositoryContext || coverage.Plan.ID != plan.ID || coverage.Plan.Digest != plan.Digest || coverage.Plan.Tasks != len(plan.Tasks) || coverage.Plan.Checks != len(plan.Checks) || coverage.Plan.CurrentHead == nil || coverage.Plan.CurrentHead.PlanID != plan.ID {
+		t.Fatalf("builder comparison differs from its admitted current plan: %+v", coverage)
+	}
+	if len(childState.HistoryPreview) != 1 || childState.HistoryPreview[0].Phase != project.ExecutionInvestigate || childState.HistoryPreview[0].Profile != factory.MCPProfileArchitect || childState.HistoryPreview[0].PlanInCurrent == nil || !*childState.HistoryPreview[0].PlanInCurrent || childState.Bundles[factory.ContextBundleAttempt].HistoryRecords != 0 || len(childState.Bundles[factory.ContextBundleLineage].AdditionalFields) != 3 {
+		t.Fatalf("builder comparison blurred parent disposition with required plan: %+v", childState)
+	}
+	comparison, err := json.Marshal(childState)
+	if err != nil || strings.Contains(string(comparison), child.AcceptedContext.Body) || strings.Contains(string(comparison), "plan ready") {
+		t.Fatal("context comparison disclosed private objective or parent result prose")
+	}
 	for pass := 0; pass < 4; pass++ {
 		recovered := RecoverDispatch(ctx, guarded)
 		current, err := db.Assignment(ctx, child.ID)
@@ -202,6 +224,52 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		if err != nil || runErr != nil || current.Run != childRun.ID || current.Attempts != 1 || len(current.RunHistory) != 1 || current.Stage != factory.AssignmentAssigned || !currentRun.ContextPending || currentRun.Reconciled || len(recovered.Launched) != 0 || len(fx.host.launches) != beforeLaunch || uncertain.calls != 1 {
 			t.Fatalf("context hold consumed a native attempt or refilled choice on pass %d: assignment=%+v run=%+v report=%+v calls=%d errors=%v/%v", pass, current, currentRun, recovered, uncertain.calls, err, runErr)
 		}
+	}
+	// A separate explicit owner decision can select complete current
+	// requirements on this same held packet. It never changes the model's
+	// uncertain answer, buys another call, creates a run or extends time.
+	heldRun, _ := db.FactoryRun(ctx, childRun.ID)
+	selectionView, err := ContextSelectionStatus(ctx, db, heldRun)
+	if err != nil || selectionView == nil || !selectionView.CanUseCurrent || selectionView.Action != "hold" {
+		t.Fatalf("owner cannot inspect the exact context hold: %+v %v", selectionView, err)
+	}
+	request := factory.ContextCurrentRequest{Fingerprint: selectionView.Fingerprint, ScopeDigest: selectionView.ScopeDigest, RequiredDigest: selectionView.RequiredDigest}
+	ownerCoord := NewCoordinator(db, fx.host, fx.broker)
+	ownerCoord.DispatchReads = fx.reads
+	ownerCoord.MCPKey = guarded.MCPKey
+	commandID := factory.NewID()
+	wrong := request
+	wrong.RequiredDigest = strings.Repeat("e", 64)
+	if _, err := ownerCoord.UseCurrentContext(ctx, commandID, "native:7", childRun.ID, wrong); !errors.Is(err, store.ErrContextResolutionIneligible) {
+		t.Fatalf("changed required context admitted: %v", err)
+	}
+	beforeReceipt, _ := db.PriorityJudgment(ctx, selectionView.Fingerprint)
+	beforeJSON, _ := json.Marshal(beforeReceipt)
+	resolution, err := ownerCoord.UseCurrentContext(ctx, commandID, "native:7", childRun.ID, request)
+	if err != nil || resolution.Bundle != factory.ContextBundleCurrent || resolution.RunID != childRun.ID {
+		t.Fatalf("owner current choice refused: %+v %v", resolution, err)
+	}
+	if replay, err := ownerCoord.UseCurrentContext(ctx, commandID, "native:7", childRun.ID, request); err != nil || replay != resolution {
+		t.Fatalf("owner choice replay changed: %+v %v", replay, err)
+	}
+	if _, err := ownerCoord.UseCurrentContext(ctx, commandID, "native:7", childRun.ID, wrong); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatalf("owner choice identity accepted changed bytes: %v", err)
+	}
+	afterReceipt, _ := db.PriorityJudgment(ctx, selectionView.Fingerprint)
+	afterJSON, _ := json.Marshal(afterReceipt)
+	if string(beforeJSON) != string(afterJSON) || uncertain.calls != 1 {
+		t.Fatal("owner resolution rewrote or re-funded the original uncertain judgment")
+	}
+	resolved := RecoverDispatch(ctx, guarded)
+	if len(resolved.Launched) != 1 || len(fx.host.launches) != beforeLaunch+1 || uncertain.calls != 1 {
+		t.Fatalf("owner choice did not resume the exact existing run: %+v calls=%d", resolved, uncertain.calls)
+	}
+	afterRun, _ := db.FactoryRun(ctx, childRun.ID)
+	if afterRun.ContextPending || !afterRun.Deadline.Equal(heldRun.Deadline) {
+		t.Fatal("owner context choice changed its deadline or pending identity")
+	}
+	if _, err := ownerCoord.UseCurrentContext(ctx, factory.NewID(), "native:7", childRun.ID, request); !errors.Is(err, store.ErrContextResolutionIneligible) {
+		t.Fatalf("active context accepted a new owner choice: %v", err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
 	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {

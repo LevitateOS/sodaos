@@ -87,7 +87,7 @@ func SettingsCommandType(typ string) bool {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
-		CommandPause, CommandResume, CommandRetry, CommandTakeover, CommandPlanIntent,
+		CommandPause, CommandResume, CommandRetry, CommandTakeover, CommandPlanIntent, CommandContextCurrent,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge:
 		return true
 	default:

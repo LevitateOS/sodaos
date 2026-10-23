@@ -25,11 +25,20 @@ func (s *Store) FactoryCurrentContext(ctx context.Context, cap factory.MCPCapabi
 		return out, err
 	}
 	defer tx.Rollback()
+	out, err = factoryCurrentContextTx(ctx, tx, cap, now)
+	if err != nil {
+		return out, err
+	}
+	return out, tx.Commit()
+}
+
+func factoryCurrentContextTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, now time.Time) (factory.CurrentContext, error) {
+	var out factory.CurrentContext
 	var recorded factory.MCPCapability
 	var assignment factory.Assignment
 	var capabilityJSON []byte
 	var capabilityState string
-	err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1`, cap.ID).Scan(&capabilityState, &capabilityJSON)
+	err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1`, cap.ID).Scan(&capabilityState, &capabilityJSON)
 	if err != nil || json.Unmarshal(capabilityJSON, &recorded) != nil {
 		return out, errors.New("current context capability is unavailable")
 	}
@@ -117,7 +126,7 @@ func (s *Store) FactoryCurrentContext(ctx context.Context, cap factory.MCPCapabi
 	if len(out.Evidence.MissingReasons) == 0 {
 		out.Evidence.Availability = "complete"
 	}
-	return out, tx.Commit()
+	return out, nil
 }
 
 func contextJSONRow(ctx context.Context, tx *sql.Tx, out any, query string, args ...any) error {

@@ -547,6 +547,46 @@ test('work detail renders evidence links and runs all six interventions', async 
   const page = await openView(t, 'detail', [
     {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
     {
+      method: 'GET',
+      path: `factory/runs/${RUN}`,
+      status: 200,
+      json: {
+        run: {
+          id: RUN,
+          project_id: PROJECT,
+          role: 'soda-coder',
+          harness: 'codex-fixture',
+          model: 'fixture',
+          input_sha: HEAD,
+          reconciled: false,
+        },
+        context_selection: {
+          fingerprint: SNAPSHOT,
+          scope_digest: SNAPSHOT,
+          required_digest: SNAPSHOT,
+          availability: 'complete',
+          reason: 'context_selection_attention',
+          action: 'hold',
+          can_use_current: true,
+        },
+      },
+    },
+    {
+      method: 'POST',
+      path: `factory/runs/${RUN}/actions`,
+      action: 'use_current_context',
+      status: 200,
+      echoCommand: true,
+      json: {
+        command_id: '',
+        run_id: RUN,
+        bundle: 'current',
+        scope_digest: SNAPSHOT,
+        fingerprint: SNAPSHOT,
+        required_digest: SNAPSHOT,
+      },
+    },
+    {
       method: 'POST',
       path: 'repositories/7/factory/actions',
       action: 'pause',
@@ -619,6 +659,17 @@ test('work detail renders evidence links and runs all six interventions', async 
     },
   ]);
   const detail = page.locator('soda-factory-work-detail');
+  const contextChoice = detail.getByRole('region', {name: 'Context choice needs attention'});
+  await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).waitFor();
+  assert.equal(
+    (await workCalls(page)).filter((call) => call.method === 'POST').length,
+    0,
+    'a context hold must not choose on read'
+  );
+  await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).click();
+  await contextChoice
+    .getByText('Current required context selected. Factory will recheck this run before starting.', {exact: true})
+    .waitFor();
   assert.equal(
     await detail.getByRole('link', {name: 'Native issue'}).getAttribute('href'),
     '/soda-tester/demo/issues/12'
@@ -645,7 +696,13 @@ test('work detail renders evidence links and runs all six interventions', async 
 
   const calls = await workCalls(page);
   const posts = calls.filter((call) => call.method === 'POST');
-  assert.equal(posts.length, 6);
+  assert.equal(posts.length, 7);
+  const currentChoice = posts.find((call) => (call.body as {action?: string}).action === 'use_current_context');
+  assert.deepEqual((currentChoice?.body as {context: unknown}).context, {
+    fingerprint: SNAPSHOT,
+    scope_digest: SNAPSHOT,
+    required_digest: SNAPSHOT,
+  });
   const pause = posts.find((call) => (call.body as {action?: string}).action === 'pause');
   const pauseBody = pause?.body as {command_id: string} | undefined;
   assert(pauseBody !== undefined);

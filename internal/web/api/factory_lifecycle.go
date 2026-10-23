@@ -28,6 +28,8 @@ func lifecycleControlError(w http.ResponseWriter, err error) {
 		auth.JSONError(w, 409, "takeover_conflict", "Takeover identity reused for different content.")
 	case errors.Is(err, store.ErrExplicitRetryIneligible):
 		auth.JSONError(w, 409, "retry_ineligible", "The prior attempt is not eligible for retry; refresh its settlement and current inputs.")
+	case errors.Is(err, store.ErrContextResolutionIneligible):
+		auth.JSONError(w, 409, "context_resolution_ineligible", "The held current context changed or cannot be selected; refresh this run.")
 	default:
 		factoryCommandError(w, err)
 	}
@@ -84,8 +86,9 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 }
 
 type factoryRunActionsRequest struct {
-	CommandID string `json:"command_id"`
-	Action    string `json:"action"`
+	CommandID string                         `json:"command_id"`
+	Action    string                         `json:"action"`
+	Context   *factory.ContextCurrentRequest `json:"context,omitempty"`
 }
 
 // factoryActionRun resolves the path run under current code-write
@@ -137,8 +140,12 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
 		return
 	}
-	if !factory.ValidRunAction(in.Action) {
+	if !factory.ValidRunAction(in.Action) && in.Action != factory.ActionContextCurrent {
 		auth.JSONError(w, 400, "invalid_action", "Choose stop, retry or takeover.")
+		return
+	}
+	if (in.Action == factory.ActionContextCurrent) != (in.Context != nil) {
+		auth.JSONError(w, 400, "invalid_request", "Current context selection requires its exact saved scope and fingerprint.")
 		return
 	}
 	if s.Coordinator == nil {
@@ -146,6 +153,13 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		return
 	}
 	switch in.Action {
+	case factory.ActionContextCurrent:
+		receipt, err := s.Coordinator.UseCurrentContext(r.Context(), in.CommandID, factoryPrincipal(v), run.ID, *in.Context)
+		if err != nil {
+			lifecycleControlError(w, err)
+			return
+		}
+		auth.JSONResponse(w, 200, receipt)
 	case factory.ActionStop:
 		cmd := factory.Command{ID: in.CommandID, Type: factory.CommandStop, Target: run.ID, Principal: factoryPrincipal(v), Digest: factory.CommandDigest(factory.CommandStop, run.ID)}
 		receipt, err := s.Coordinator.Stop(r.Context(), cmd)

@@ -1,5 +1,6 @@
 import {LitElement, html} from 'lit';
 import './sodaspaces-factory-acceptance.js';
+import './sodaspaces-factory-context-resolution.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {id, projectId, readSodaJSON} from './sodaspaces-api.js';
 import {decisionID, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
@@ -1288,6 +1289,7 @@ export class SodaFactoryWorkDetail extends LitElement {
         ${this.runs.map(
           (entry) => html`<li>
             ${runRowText(entry)}
+            ${entry.detail ? html`<soda-factory-context-resolution .context=${{transport: context.transport, run: entry.detail}} @soda-context-resolved=${() => this.load()}></soda-factory-context-resolution>` : ''}
             <button type="button" class="ui button" ?disabled=${!watchable} @click=${() => this.requestWatch(entry.id)}>
               Watch output
             </button>
@@ -1330,11 +1332,10 @@ async function readDetailIssue(context: WorkDetailContext): Promise<{detail?: Fa
 }
 
 async function readDetailRuns(context: WorkDetailContext): Promise<RunEntry[]> {
-  const settled = await Promise.allSettled(
-    context.runIDs.map((runID) => getJSON(context.transport, `factory/runs/${runID}`))
-  );
+  const runIDs = [...new Set([...context.runIDs, ...(context.runID ? [context.runID] : [])])];
+  const settled = await Promise.allSettled(runIDs.map((runID) => getJSON(context.transport, `factory/runs/${runID}`)));
   return settled.map((result, index) => {
-    const runID = context.runIDs[index] ?? '';
+    const runID = runIDs[index] ?? '';
     if (result.status !== 'fulfilled' || runID === '')
       return {id: runID, detail: undefined, state: 'unavailable' as SourceState};
     try {

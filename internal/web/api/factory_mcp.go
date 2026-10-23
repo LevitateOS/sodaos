@@ -752,6 +752,21 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 // foregroundReadBundle is read-only. Missing, failed or uncertain selections
 // retain the deterministic snapshot and an explicit hold.
 func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *readContext, attemptEligible, lineageEligible bool) (string, string, string) {
+	if resolution := read.capability.ContextCurrentResolution; resolution != nil {
+		source, ok := s.deps.Submissions.(factoryMCPCurrentContextSource)
+		if !ok {
+			return factory.ContextBundleSnapshotHold, "required_current_unavailable", read.capability.ContextSelectionSnapshot
+		}
+		current, err := source.FactoryCurrentContext(ctx, read.capability, s.now())
+		if err != nil || current.Evidence.Availability != "complete" {
+			return factory.ContextBundleSnapshotHold, "required_current_unavailable", read.capability.ContextSelectionSnapshot
+		}
+		digest, err := factory.CurrentRequiredSemanticDigest(current.Role)
+		if err != nil || resolution.ValidateFor(read.capability) != nil || digest != resolution.RequiredDigest {
+			return factory.ContextBundleSnapshotHold, "context_selection_stale", read.capability.ContextSelectionSnapshot
+		}
+		return factory.ContextBundleCurrent, "", read.capability.ContextSelectionSnapshot
+	}
 	priority := s.deps.PriorityJudgments
 	if priority == nil {
 		priority, _ = s.deps.Submissions.(FactoryMCPPriorityJudgmentSource)
