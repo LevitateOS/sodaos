@@ -305,7 +305,10 @@ fn options(args: &[String]) -> Result<Options, String> {
 fn no_other_repairs() -> Result<(), String> {
     for entry in fs::read_dir(admission::DIRECTORY).map_err(|_| CLOSED)? {
         let entry = entry.map_err(|_| CLOSED)?;
-        if entry.file_name() != RECORD && entry.path().extension().is_some_and(|v| v == "json") {
+        if entry.file_name() != RECORD
+            && entry.file_name() != crate::importer_custody::CUSTODY
+            && entry.path().extension().is_some_and(|v| v == "json")
+        {
             return Err("a Project repair must be reconciled before release maintenance".into());
         }
     }
@@ -542,6 +545,11 @@ fn resume_previous_operation(
     previous: &Option<Operation>,
     deadline: Instant,
 ) -> Result<Option<()>, String> {
+    if o.recover {
+        // Consume acquisition custody before either a staged retry or a
+        // booted-target finalize. The importer record is not a Project repair.
+        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
+    }
     if let Some(record) = previous {
         if record.rollback {
             return rollback(deadline).map(|()| Some(()));
@@ -551,11 +559,6 @@ fn resume_previous_operation(
             verify_active(record, deadline)?;
             return finish(record.clone(), deadline).map(|()| Some(()));
         }
-    }
-    if o.recover {
-        // Recovery consumes the same importer custody the run recorded: an
-        // outstanding acquisition retires here or fences recovery.
-        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
     }
     Ok(None)
 }
