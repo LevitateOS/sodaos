@@ -49,10 +49,47 @@ fn warm_go_caches(storage: &Storage, go_mod: &str, go_build_cache: &str) -> Resu
 /// Warm the locked Cargo cache.
 fn warm_cargo_cache(
     storage: &Storage,
+    owned: &str,
     rust_bin: &str,
     cargo_home: &str,
     cargo_target: &str,
 ) -> Result<(), Exit> {
+    // Cargo resolves the full manifest path, so an inherited cwd does not
+    // make an operator's private home traversable by the worker. Fetch from
+    // committed source in worker scratch without broadening home access.
+    let source = tempfile::Builder::new()
+        .prefix("setup-cargo.")
+        .tempdir_in(&storage.scratch)
+        .map_err(|_| Exit::Propagate(1))?
+        .keep();
+    let source = source.to_string_lossy().into_owned();
+    let result = warm_cargo_source(storage, owned, rust_bin, cargo_home, cargo_target, &source);
+    let cleanup = run("sudo", &["rm", "-rf", "--", &source]);
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(primary), _) => Err(primary),
+        (Ok(()), Err(cleanup)) => Err(cleanup),
+    }
+}
+
+fn warm_cargo_source(
+    storage: &Storage,
+    owned: &str,
+    rust_bin: &str,
+    cargo_home: &str,
+    cargo_target: &str,
+    source: &str,
+) -> Result<(), Exit> {
+    let archive = format!("{source}/source.tar");
+    run(
+        "git",
+        &["archive", "--format=tar", "--output", &archive, "HEAD"],
+    )?;
+    run(
+        "tar",
+        &["--extract", "--file", &archive, "--directory", source],
+    )?;
+    run("sudo", &["chown", "-R", owned, source])?;
     let rust_path = format!("{rust_bin}:/usr/sbin:/usr/bin:/sbin:/bin");
     let cargo_user_home = format!("HOME={}", storage.home);
     let cargo_home_env = format!("CARGO_HOME={cargo_home}");
@@ -74,7 +111,15 @@ fn warm_cargo_cache(
         "--manifest-path",
         "Cargo.toml",
     ];
-    if run_in_dir("sudo", &cargo_warm, ".", false, "cannot warm Cargo cache").is_err() {
+    if run_in_dir(
+        "sudo",
+        &cargo_warm,
+        source,
+        false,
+        "cannot warm Cargo cache",
+    )
+    .is_err()
+    {
         return fail("cannot warm locked Rust dependency cache");
     }
     Ok(())
@@ -198,7 +243,7 @@ pub(super) fn warm_worker_caches(
     )?;
     run("sudo", &["chown", "-R", owned, &cargo_home, &cargo_target])?;
     warm_go_caches(storage, &go_mod, &go_build_cache)?;
-    warm_cargo_cache(storage, rust_bin, &cargo_home, &cargo_target)?;
+    warm_cargo_cache(storage, owned, rust_bin, &cargo_home, &cargo_target)?;
     lock_go_offline(storage)?;
     let bun_template = format!("{}/setup-bun.XXXXXXXX", storage.scratch);
     let tmpw = match capture("mktemp", &["-d", &bun_template], false) {
