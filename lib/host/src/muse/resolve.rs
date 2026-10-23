@@ -24,6 +24,8 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             codex_harness: String::new(),
             codex_harness_sha256: String::new(),
             codex_harness_version: String::new(),
+            codex_model_catalog: String::new(),
+            codex_model_catalog_sha256: String::new(),
             muse_harness: String::new(),
             muse_harness_sha256: String::new(),
             muse_harness_version: String::new(),

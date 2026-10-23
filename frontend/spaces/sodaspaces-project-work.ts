@@ -7,6 +7,8 @@ import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
 import './sodaspaces-factory-feed.js';
 import './soda-providers.js';
+import './sodaspaces-factory-acceptance.js';
+import {nativePath} from './sodaspaces-factory-activity.js';
 
 export interface ProjectWorkContext {
   transport: PreparedExtensionMount;
@@ -46,6 +48,9 @@ export class SodaProjectWork extends LitElement {
     busy: {state: true},
     error: {state: true},
     next: {state: true},
+    requirementsIssue: {state: true},
+    issueInput: {state: true},
+    issueError: {state: true},
   };
   declare active: boolean;
   declare private plans: SavedRequest[];
@@ -53,6 +58,9 @@ export class SodaProjectWork extends LitElement {
   declare private busy: boolean;
   declare private error: string;
   declare private next: string | undefined;
+  declare private requirementsIssue: string | undefined;
+  declare private issueInput: string;
+  declare private issueError: string;
   private current: ProjectWorkContext | undefined;
   private request: AbortController | undefined;
 
@@ -63,6 +71,8 @@ export class SodaProjectWork extends LitElement {
     this.loaded = this.busy = false;
     this.error = '';
     this.next = undefined;
+    this.issueInput = '';
+    this.issueError = '';
   }
 
   protected createRenderRoot() {
@@ -75,6 +85,9 @@ export class SodaProjectWork extends LitElement {
     if (changed) {
       this.cancelRead();
       this.clearPlans();
+      this.requirementsIssue = undefined;
+      this.issueInput = '';
+      this.issueError = '';
     }
     this.requestUpdate();
     if (changed) void this.load(false);
@@ -204,12 +217,57 @@ export class SodaProjectWork extends LitElement {
     );
   }
 
+  private openRequirements() {
+    const issue = this.issueInput.trim();
+    if (!id(issue)) {
+      this.issueError = 'Enter the native issue number from this repository.';
+      return;
+    }
+    this.issueError = '';
+    this.requirementsIssue = issue;
+  }
+
+  private renderRequirements(context: ProjectWorkContext) {
+    const repository = context.repository;
+    if (context.mode !== 'project' || !repository) return '';
+    const repositoryPath = repository.name.startsWith('/') ? repository.name : `/${repository.name}`;
+    if (!nativePath(repositoryPath) || repositoryPath.split('/').length !== 3) return '';
+    return html`<details class="soda-project-issue-acceptance">
+      <summary>Adopt or reaccept an issue</summary>
+      <p>Review an imported issue or accept edited requirements before Factory continues its work.</p>
+      <label
+        >Native issue number
+        <input
+          inputmode="numeric"
+          .value=${this.issueInput}
+          ?disabled=${!this.active}
+          @input=${(event: Event) => {
+            this.issueInput = (event.target as HTMLInputElement).value;
+          }}
+      /></label>
+      <button type="button" class="ui button" ?disabled=${!this.active} @click=${() => this.openRequirements()}>
+        Open requirements review
+      </button>
+      <p role="status">${this.issueError}</p>
+      ${
+        this.requirementsIssue
+          ? html`<soda-factory-requirements-acceptance
+              .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
+            ></soda-factory-requirements-acceptance>`
+          : ''
+      }
+    </details>`;
+  }
+
   protected render() {
     const context = this.current;
     if (!context) return html``;
-    const feed = context.mode === 'project' && context.repository
-      ? html`<soda-factory-feed .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}></soda-factory-feed>`
-      : '';
+    const feed =
+      context.mode === 'project' && context.repository
+        ? html`<soda-factory-feed
+            .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}
+          ></soda-factory-feed>`
+        : '';
     const plans = renderProjectWork({
       mode: context.mode,
       repositoryName: context.repository?.name || 'this project',
@@ -229,7 +287,14 @@ export class SodaProjectWork extends LitElement {
         void this.load(true);
       },
     });
-    return html`${feed}${context.mode === 'project' ? html`<details class="soda-project-plans"><summary>My plans</summary>${plans}</details>` : plans}`;
+    return html`${feed}${this.renderRequirements(context)}${
+      context.mode === 'project'
+        ? html`<details class="soda-project-plans">
+            <summary>My plans</summary>
+            ${plans}
+          </details>`
+        : plans
+    }`;
   }
 }
 

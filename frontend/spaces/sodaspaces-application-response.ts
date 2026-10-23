@@ -29,6 +29,24 @@ export interface ApplicationRecord {
   administrator_id: string;
   observation: ApplicationObservation | null;
   operator: boolean;
+  restore?: ApplicationRestoreOperation;
+}
+export interface ApplicationRestoreOperation {
+  id: string;
+  snapshot: string;
+  previous: ApplicationSpec;
+  next: ApplicationSpec;
+  expected_container: string;
+  state: 'pending';
+}
+export interface ApplicationSnapshot {
+  id: string;
+  created_at: number;
+  application: ApplicationSpec;
+}
+export interface ApplicationSnapshotInventory {
+  snapshots: ApplicationSnapshot[];
+  complete: boolean;
 }
 const appID = (v: unknown): v is string => typeof v === 'string' && /^a[0-9a-f]{24}$/.test(v);
 const sha = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
@@ -126,7 +144,7 @@ export function applicationResponse(value: unknown, expected?: ApplicationSpec):
   const v = object(value),
     application = spec(v.application);
   check(
-    (Object.keys(v).length === 4 || Object.keys(v).length === 5) &&
+    Object.keys(v).every(key => ['application', 'administrator_id', 'observation', 'operator', 'project', 'restore'].includes(key)) &&
       id(v.administrator_id) &&
       typeof v.operator === 'boolean'
   );
@@ -143,12 +161,21 @@ export function applicationResponse(value: unknown, expected?: ApplicationSpec):
     project = {repository: p.repository, name: p.name, path: p.path};
   }
   if (expected) check(JSON.stringify(application) === JSON.stringify(expected));
+  let restore: ApplicationRestoreOperation | undefined;
+  if (v.restore !== undefined) {
+    const row = object(v.restore), previous = spec(row.previous), next = spec(row.next);
+    check(Object.keys(row).length === 6 && appID(row.id) && appID(row.snapshot) && sha(row.expected_container) && row.state === 'pending');
+    check(JSON.stringify(previous) === JSON.stringify(application) && next.revision === previous.revision + 1 && next.data !== previous.data);
+    check(JSON.stringify({...next, revision: previous.revision, data: previous.data}) === JSON.stringify(previous));
+    restore = {id: row.id, snapshot: row.snapshot, previous, next, expected_container: row.expected_container, state: 'pending'};
+  }
   return {
     application,
     administrator_id: v.administrator_id,
     operator: v.operator,
     observation: observation(v.observation, application),
     ...(project ? {project} : {}),
+    ...(restore ? {restore} : {}),
   };
 }
 export function applicationsResponse(value: unknown): {applications: ApplicationRecord[]; complete: boolean} {
@@ -157,4 +184,17 @@ export function applicationsResponse(value: unknown): {applications: Application
   const applications = v.applications.map((item) => applicationResponse(item));
   check(new Set(applications.map((item) => item.application.id)).size === applications.length);
   return {applications, complete: v.complete};
+}
+
+export function applicationSnapshotsResponse(value: unknown, expected: ApplicationSpec): ApplicationSnapshotInventory {
+  const v = object(value);
+  check(Object.keys(v).length === 2 && Array.isArray(v.snapshots) && v.snapshots.length <= 64 && typeof v.complete === 'boolean');
+  const snapshots = v.snapshots.map((item) => {
+    const row = object(item), application = spec(row.application);
+    check(Object.keys(row).length === 3 && appID(row.id) && typeof row.created_at === 'number' && Number.isSafeInteger(row.created_at) && row.created_at > 0);
+    check(application.id === expected.id && application.name === expected.name && application.owner_team === expected.owner_team && application.origin === expected.origin && application.port === expected.port);
+    return {id: row.id, created_at: row.created_at, application};
+  });
+  check(new Set(snapshots.map(row => row.id)).size === snapshots.length);
+  return {snapshots, complete: v.complete};
 }

@@ -57,6 +57,7 @@ type CompletionIntentScope struct {
 	GenerationState   string                    `json:"generation_state,omitempty"`
 	OperationID       string                    `json:"operation_id,omitempty"`
 	LatestAccepted    bool                      `json:"latest_accepted,omitempty"`
+	LocalOnly         bool                      `json:"local_only,omitempty"`
 	Repository        int64                     `json:"repository,string"`
 }
 
@@ -197,6 +198,9 @@ func (s CompletionIntentScope) validateSubmitted(kept map[string]bool, tasks map
 
 func (s CompletionIntentScope) validateGenerationState() error {
 	if s.OperationID == "" {
+		if s.LocalOnly && s.GenerationState == "completed" && len(s.SubmittedTasks) > 0 && len(s.Bindings) == len(s.SubmittedTasks) {
+			return nil
+		}
 		if s.GenerationState != "" || len(s.SubmittedTasks) != 0 || len(s.Delivered) != 0 {
 			return errors.New("completion scope generation lacks its operation")
 		}
@@ -375,6 +379,7 @@ func admitScopeGeneration(revision IntentRevision, generation *IntentGeneration,
 	}
 	scope.GenerationState = generation.State
 	scope.OperationID = generation.OperationID
+	scope.LocalOnly = generation.LocalOnly
 	scope.SubmittedTasks = append([]IntentTask(nil), generation.SubmittedTasks...)
 	if len(generation.Delivered) > 0 {
 		scope.Delivered = make(map[string]DeliveredIssue, len(generation.Delivered))

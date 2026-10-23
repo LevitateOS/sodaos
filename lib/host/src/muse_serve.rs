@@ -23,8 +23,8 @@
 //!   case (`d.Muse == nil`) has no free form here; the daemon simply does
 //!   not call this without a runtime.
 
-use std::os::fd::{FromRawFd, IntoRawFd};
-use std::os::unix::fs::PermissionsExt;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixListener;
 use std::time::{Duration, Instant};
 
@@ -35,12 +35,50 @@ use crate::muse::{
 use crate::project::Executor;
 use crate::terminal::Delivery;
 
+#[path = "muse_listener_state.rs"]
+mod listener_state;
+
 /// Post-spawn custody-return horizon: Go's 30s `Finish` context.
 const CLEANUP_SECS: u64 = 30;
 /// Child wait-poll slice while watching the session deadline.
 const WAIT_POLL_MS: u64 = 50;
 /// Listen backlog for the launch socket.
 const LISTEN_BACKLOG: i32 = 128;
+
+/// Own the listener and only the filesystem socket this invocation bound.
+/// Existing Projects bind the public directory, so systemd cannot always
+/// remove it on stop. Close and unlink the exact inode after child retirement.
+#[derive(Debug)]
+pub struct MuseListener {
+    _singleton: std::fs::File,
+    listener: Option<UnixListener>,
+    path: String,
+    device: u64,
+    inode: u64,
+}
+
+impl AsRawFd for MuseListener {
+    fn as_raw_fd(&self) -> RawFd {
+        self.listener
+            .as_ref()
+            .expect("live Muse listener")
+            .as_raw_fd()
+    }
+}
+
+impl Drop for MuseListener {
+    fn drop(&mut self) {
+        drop(self.listener.take());
+        if let Ok(metadata) = std::fs::symlink_metadata(&self.path) {
+            if metadata.file_type().is_socket()
+                && metadata.dev() == self.device
+                && metadata.ino() == self.inode
+            {
+                let _ = std::fs::remove_file(&self.path);
+            }
+        }
+    }
+}
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// Attested launch to supervised execution to exit encoding.
@@ -165,7 +203,8 @@ fn wait_bounded(
 /// Mirrors Go `OpenMuseListener` check order exactly: mkdir -p, empty-dir
 /// gate, occupied-socket refusal (via `prepare_muse_listener_dir`), bind,
 /// listen, chmod 0666 (closing the socket on chmod failure like Go).
-pub fn open_muse_listener(socket_path: &str) -> Result<UnixListener, String> {
+pub fn open_muse_listener(socket_path: &str) -> Result<MuseListener, String> {
+    let singleton = listener_state::prepare(socket_path)?;
     prepare_muse_listener_dir(socket_path)?;
     let bytes = socket_path.as_bytes();
     if bytes.contains(&0) {
@@ -192,5 +231,13 @@ pub fn open_muse_listener(socket_path: &str) -> Result<UnixListener, String> {
     std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o666))
         .map_err(|err| format!("muse launch socket unavailable: {err}"))?;
     // SAFETY: rustix owns an open listening socket and ownership moves once.
-    Ok(unsafe { UnixListener::from_raw_fd(socket.into_raw_fd()) })
+    let metadata = std::fs::symlink_metadata(socket_path)
+        .map_err(|_| "muse launch socket identity unavailable".to_string())?;
+    Ok(MuseListener {
+        _singleton: singleton,
+        listener: Some(unsafe { UnixListener::from_raw_fd(socket.into_raw_fd()) }),
+        path: socket_path.to_string(),
+        device: metadata.dev(),
+        inode: metadata.ino(),
+    })
 }

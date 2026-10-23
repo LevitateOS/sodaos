@@ -169,7 +169,9 @@ func (c *Coordinator) loadIntentDeltaBuild(ctx context.Context, r factory.Intent
 		return nil, err
 	}
 	var receipt sdk.IssueGraphReceipt
-	if json.Unmarshal(generation.Receipt, &receipt) != nil || receipt.ActorID != generation.ActorID || receipt.RepositoryID != r.Repository {
+	if generation.LocalOnly && generation.State == "completed" && generation.ProtectedGraphCycle() != "" {
+		receipt.ActorID, receipt.RepositoryID = generation.ActorID, r.Repository
+	} else if json.Unmarshal(generation.Receipt, &receipt) != nil || receipt.ActorID != generation.ActorID || receipt.RepositoryID != r.Repository {
 		return nil, errors.New("previous graph receipt is unavailable")
 	}
 	oldIssues, err := intentReceiptIssues(generation.SubmittedTasks, generation, receipt)
@@ -402,6 +404,18 @@ func intentReceiptIssues(tasks []factory.IntentTask, g factory.IntentGeneration,
 			return nil, errors.New("native graph edit receipt missing reused task")
 		}
 		issues[key] = entry
+	}
+	for _, binding := range g.RetainedBindings {
+		if g.ProtectedGraphCycle() == "" || binding.RevisionID != g.RevisionID || g.TaskIssueIDs[binding.TaskKey] != 0 {
+			return nil, errors.New("retained native identity lacks its reassessment owner")
+		}
+		if observed, ok := byID[binding.IssueID]; ok && (observed.IssueIndex != binding.IssueIndex || observed.ContentVersion != binding.ContentVersion || (observed.Key != "" && observed.Key != binding.TaskKey)) {
+			return nil, errors.New("native graph receipt changed a retained task")
+		}
+		if issues[binding.TaskKey].IssueID != 0 && issues[binding.TaskKey].IssueID != binding.IssueID {
+			return nil, errors.New("retained task conflicts with native graph receipt")
+		}
+		issues[binding.TaskKey] = sdk.IssueGraphIssueReceipt{Key: binding.TaskKey, IssueID: binding.IssueID, IssueIndex: binding.IssueIndex, ContentVersion: binding.ContentVersion}
 	}
 	for key, ref := range g.Delivered {
 		if issues[key].IssueID != 0 || byID[ref.IssueID].IssueID != 0 {

@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
@@ -41,7 +43,8 @@ func TestFactoryLiveMCPActivatesAndPublishesBoundFeed(t *testing.T) {
 	cap.State = factory.MCPCapabilityStaged
 	cap.DeadlineUnix = time.Now().Add(time.Hour).Unix()
 	prepID := "f" + strings.Repeat("1", 24)
-	assignment := factory.Assignment{ID: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, Issue: 42, Role: project.RoleCoder, Phase: project.ExecutionImplement, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, SourceCommit: strings.Repeat("a", 40)}
+	assignment := factory.Assignment{ID: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, Issue: 42, Role: project.RoleCoder, Phase: project.ExecutionImplement, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, SourceCommit: strings.Repeat("a", 40), RunHistory: []string{cap.RunID}, NativeRev: 3, Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24)}}}
+	cap.SourceDigest, cap.AcceptedRevision, cap.Subject = assignment.SourceCommit, "3", assignment.Subject.SubjectKey(assignment.Repository)
 	if err := st.UpsertUser(ctx, store.User{ID: 7, Login: "worker-test"}); err != nil {
 		t.Fatal(err)
 	}
@@ -60,10 +63,37 @@ func TestFactoryLiveMCPActivatesAndPublishesBoundFeed(t *testing.T) {
 	raw, _ = json.Marshal(prep)
 	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleCoder, string(raw))
 	write(`INSERT INTO factory_dispatch(repository,revision,open,data) VALUES(7,1,true,'{}')`)
-	raw, _ = json.Marshal(factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleCoder})
+	raw, _ = json.Marshal(factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleCoder, InputSHA: assignment.SourceCommit})
 	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, cap.RunID, string(raw))
 	if err := st.StageMCPCapability(ctx, cap); err != nil {
 		t.Fatal(err)
+	}
+
+	fingerprint, err := control.ContextBundleFingerprint(cap, assignment, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var admitted atomic.Int32
+	var reservations sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		reservations.Add(1)
+		go func() {
+			defer reservations.Done()
+			ok, err := st.ReserveContextBundleSelection(ctx, cap, fingerprint)
+			if err != nil {
+				t.Error(err)
+			}
+			if ok {
+				admitted.Add(1)
+			}
+		}()
+	}
+	reservations.Wait()
+	if admitted.Load() != 1 {
+		t.Fatal("concurrent capability selection admitted more than one call")
+	}
+	if ok, err := st.ReserveContextBundleSelection(ctx, cap, strings.Repeat("f", 64)); err != nil || ok {
+		t.Fatal("changed selection inputs refilled capability consultation", err)
 	}
 	var live atomic.Bool
 	live.Store(true)
@@ -78,7 +108,7 @@ func TestFactoryLiveMCPActivatesAndPublishesBoundFeed(t *testing.T) {
 	product := &API{Store: st, Host: &host.Client{HTTP: &http.Client{Transport: applicationNativeTransport{native.URL}}}}
 	key := []byte(strings.Repeat("k", 32))
 	secret, _ := factory.DeriveMCPCapabilitySecret(key, cap)
-	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, Runs: st, Prepare: product.prepareFactoryWorkerMCP}, key))
+	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, Runs: st, PriorityJudgments: st, Prepare: product.prepareFactoryWorkerMCP}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "live-worker-test"}, nil)
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
@@ -90,6 +120,46 @@ func TestFactoryLiveMCPActivatesAndPublishesBoundFeed(t *testing.T) {
 	if err != nil || active.State != factory.MCPCapabilityActive {
 		t.Fatal("authenticated live worker did not activate")
 	}
+
+	assertHeldRead := func() {
+		t.Helper()
+		var countBefore, countAfter, spentBefore, spentAfter int
+		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countBefore); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRowContext(ctx, "SELECT spent FROM factory_judgment_budget WHERE id=1").Scan(&spentBefore); err != nil {
+			t.Fatal(err)
+		}
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
+		if catalogRefused(result, err) {
+			t.Fatalf("held snapshot refused: %v %v", result, err)
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(catalogText(t, result)), &body); err != nil {
+			t.Fatal(err)
+		}
+		selection, ok := body["context_selection"].(map[string]any)
+		if !ok || selection["action"] != "hold" || body["attempt"] != nil || body["lineage"] != nil {
+			t.Fatal("missing or uncertain receipt broadened history", body)
+		}
+		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countAfter); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRowContext(ctx, "SELECT spent FROM factory_judgment_budget WHERE id=1").Scan(&spentAfter); err != nil {
+			t.Fatal(err)
+		}
+		if countAfter != countBefore || spentAfter != spentBefore {
+			t.Fatal("context read wrote rows or spent a consultation")
+		}
+	}
+	assertHeldRead()
+	request := factory.PriorityRequest{Snapshot: fingerprint, Candidates: []factory.PriorityCandidate{{ID: factory.ContextBundleCurrent}, {ID: factory.ContextBundleSnapshotHold}, {ID: factory.ContextBundleAttempt}}}
+	answer := factory.PriorityAnswer{Selected: factory.ContextBundleAttempt, Model: "fixture", Confidence: 0.6, Probabilities: map[string]float64{factory.ContextBundleCurrent: 0.2, factory.ContextBundleSnapshotHold: 0.2, factory.ContextBundleAttempt: 0.6}}
+	receipt := factory.PriorityReceipt{Candidates: request.Candidates, Snapshot: fingerprint, Purpose: factory.JudgmentContextBundle, Outcome: "context-bundle", Selected: answer.Selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}, CreatedUnix: time.Now().Unix()}
+	if err := st.RecordPriorityJudgment(ctx, receipt); err != nil {
+		t.Fatal(err)
+	}
+	assertHeldRead()
 	submissionID := factory.NewID()
 	args := map[string]any{"submission_id": submissionID, "payload": map[string]any{"title": "Access helper found", "summary": "The existing helper already checks task ownership.", "scope": "Task access routes", "evidence_refs": []string{"src/access.go:12"}}}
 	args["payload"].(map[string]any)["source"] = map[string]any{"path": "src/access.go", "start_line": 12, "code": "return task.Owner == staff.ID", "highlight_lines": []int{12}}

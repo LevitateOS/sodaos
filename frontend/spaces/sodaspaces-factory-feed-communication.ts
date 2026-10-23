@@ -29,6 +29,7 @@ export function renderFeedCommunication(c: FeedCommunication, entryKey: string, 
     ${['brief', 'knowledge', 'discussion', 'result'].includes(action) || c.summary === c.title ? '' : html`<p class="soda-feed-component-summary">${c.summary}</p>`}
     ${c.severity && action !== 'finding' ? html`<p class="soda-feed-severity" data-severity=${c.severity}>${c.severity === 'critical' ? 'Critical concern' : c.severity === 'warning' ? 'Attention needed' : 'For your information'}</p>` : ''}
     ${renderFeedAction(c, presentation, entryKey)}
+    ${c.dispositionReason ? html`<p class="soda-feed-disposition-reason" data-post-resolution=${c.disposition ?? ''}>${c.dispositionReason}</p>` : ''}
     ${c.source && !['finding', 'correction', 'comparison', 'investigation'].includes(action) ? html`<div class="soda-feed-action">${sourceExcerpt(c.source)}</div>` : ''}
     ${c.commits?.length ? html`<div class="soda-feed-action" data-action="commits">${commitTrail(c.commits)}</div>` : ''}
     ${c.artifacts?.length ? html`<div class="soda-feed-artifacts">${c.artifacts.map((artifact) => html`<soda-feed-artifact .artifact=${artifact} .request=${request}></soda-feed-artifact>`)}</div>` : ''}

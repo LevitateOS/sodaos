@@ -119,6 +119,8 @@ fn make_service(exec: FakeExec) -> Service<FakeExec> {
         codex_harness: "/opt/harness".to_string(),
         codex_harness_sha256: String::new(),
         codex_harness_version: String::new(),
+        codex_model_catalog: String::new(),
+        codex_model_catalog_sha256: String::new(),
         muse_harness: String::new(),
         muse_harness_sha256: String::new(),
         muse_harness_version: String::new(),

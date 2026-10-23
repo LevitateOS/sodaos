@@ -318,6 +318,45 @@ func TestPlanTaskReceiptLifecycle(t *testing.T) {
 	}
 }
 
+// A journal cursor is carried by its affected task receipts. A later invalid
+// transition must roll back every earlier transition in that same native page.
+func TestPlanTaskReceiptPageAtomicity(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	root := strings.Repeat("a", 32)
+	plan := planRevisionFixture(root, strings.Repeat("b", 32), 0, "Implement behind checks.")
+	if err := s.SaveInvestigationPlan(ctx, plan); err != nil {
+		t.Fatal(err)
+	}
+	first := PlanTaskReceipt{AttemptRoot: root, PlanID: plan.ID, TaskID: "design", State: PlanTaskPending}
+	second := PlanTaskReceipt{AttemptRoot: root, PlanID: plan.ID, TaskID: "docs", State: PlanTaskPending}
+	if err := s.SavePlanTaskReceipts(ctx, []PlanTaskReceipt{first, second}); err != nil {
+		t.Fatal(err)
+	}
+	first.State, first.Reason, first.Events = PlanTaskCancelled, "native run stopped", []string{"run_stopped@7"}
+	second.State, second.Reason, second.Events = PlanTaskCancelled, "native run stopped", []string{"run_stopped@7"}
+	second.Revision = 1 // An intervening writer makes the final CAS stale.
+	if err := s.SavePlanTaskReceipts(ctx, []PlanTaskReceipt{first, second}); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("stale page did not refuse: %v", err)
+	}
+	for _, key := range []string{"design", "docs"} {
+		receipt, err := s.PlanTaskReceipt(ctx, root, plan.ID, key)
+		if err != nil || receipt.State != PlanTaskPending || receipt.Revision != 0 || len(receipt.Events) != 0 {
+			t.Fatalf("partial page committed its cursor: %+v (%v)", receipt, err)
+		}
+	}
+	second.Revision = 0
+	if err := s.SavePlanTaskReceipts(ctx, []PlanTaskReceipt{first, second}); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"design", "docs"} {
+		receipt, err := s.PlanTaskReceipt(ctx, root, plan.ID, key)
+		if err != nil || receipt.State != PlanTaskCancelled || receipt.Revision != 1 || len(receipt.Events) != 1 {
+			t.Fatalf("complete stop page did not commit: %+v (%v)", receipt, err)
+		}
+	}
+}
+
 // T11 (FW07 scope): only a fresh, complete head admits; stale source,
 // prerequisite or preparation bindings refuse, as do unresolved plans.
 func TestAdmitPlanHeadBindings(t *testing.T) {

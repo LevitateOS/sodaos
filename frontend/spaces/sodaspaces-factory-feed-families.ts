@@ -1215,8 +1215,9 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
   const family = selectFeedFamily(entry);
   const text = familyText[family];
   const communication = entry.payload?.communication;
+  const resolved = communication?.disposition !== undefined || communication?.questionState === 'incorporated';
   const statusClass: FeedStatusClass = communication && communication.kind !== 'system' && communication.kind !== 'library_maintenance'
-    ? ['blocked', 'stuck', 'finish_incomplete'].includes(communication.kind) || (communication.kind === 'flag' && communication.severity !== 'info') ? 'failure' : 'waiting'
+    ? resolved ? 'settled' : ['blocked', 'stuck', 'finish_incomplete'].includes(communication.kind) || (communication.kind === 'flag' && communication.severity !== 'info') ? 'failure' : 'waiting'
     : classifyFeedStatus(entry.status);
   const project = entry.project ?? repository.label;
   const payload = entry.payload;

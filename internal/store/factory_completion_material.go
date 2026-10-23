@@ -282,7 +282,7 @@ func checkCompletionGeneration(generation factory.IntentGeneration, revision fac
 	if generation.RevisionID != revision.ID || generation.IntentID != revision.Intent {
 		return errors.New("completion material generation names another revision")
 	}
-	if generation.OperationID == "" || generation.State == "" || len(generation.State) > 64 {
+	if (generation.OperationID == "" && !(generation.LocalOnly && generation.State == "completed" && factory.ValidID(generation.ReassessmentCycle))) || generation.State == "" || len(generation.State) > 64 {
 		return errors.New("completion material generation lacks its identity")
 	}
 	if len(generation.SubmittedTasks) == 0 {
@@ -365,7 +365,7 @@ func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, 
 		if err = stored.Validate(); err != nil {
 			return nil, nil, nil, errors.New("completion material assignment is invalid")
 		}
-		if stored.Subject.Kind == factory.SubjectCompletion {
+		if stored.Subject.Kind == factory.SubjectCompletion || stored.Subject.Kind == factory.SubjectStall {
 			continue
 		}
 		if stored.ProjectID != projectID {

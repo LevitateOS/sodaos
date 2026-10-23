@@ -16,10 +16,19 @@ type bundleGapChooser struct {
 	calls      int
 	sawLineage bool
 	pick       string
+	confidence float64
+	sawFacts   bool
+	sawAttempt bool
+	history    int
 }
 
-func (f *bundleGapChooser) Select(_ context.Context, _ any, _ string, options map[string]any) (factory.PriorityAnswer, error) {
+func (f *bundleGapChooser) Select(_ context.Context, state any, _ string, options map[string]any) (factory.PriorityAnswer, error) {
 	f.calls++
+	if current, ok := state.(contextBundleState); ok {
+		f.sawFacts = current.Current.Availability == "complete" && factory.ValidDigest(current.Current.RequiredDigest) && current.Current.RequiredBytes > 0 && len(current.Bundles) == 4
+		f.history = len(current.HistoryPreview)
+	}
+	_, f.sawAttempt = options[factory.ContextBundleAttempt]
 	if _, ok := options[factory.ContextBundleLineage]; ok {
 		f.sawLineage = true
 	}
@@ -27,12 +36,20 @@ func (f *bundleGapChooser) Select(_ context.Context, _ any, _ string, options ma
 	if _, ok := options[selected]; !ok {
 		selected = factory.ContextBundleCurrent
 	}
-	answer := factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: 1, Probabilities: map[string]float64{}}
+	confidence := f.confidence
+	if confidence == 0 {
+		confidence = 1
+	}
+	answer := factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: confidence, Probabilities: map[string]float64{}}
 	for id := range options {
 		answer.Probabilities[id] = 0
 	}
 	answer.Probabilities[selected] = 1
 	return answer, nil
+}
+
+func (f *bundleGapChooser) Choose(ctx context.Context, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
+	return f.Select(ctx, nil, request.Rubric, request.Criteria)
 }
 
 func bundleGapCapability(t *testing.T, assignment factory.Assignment, run factory.Run) factory.MCPCapability {

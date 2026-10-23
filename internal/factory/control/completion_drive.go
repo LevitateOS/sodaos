@@ -51,17 +51,20 @@ func SealEvidenceFingerprint(inventoryDigest, completionID, cycleID string) stri
 // repository and generation order. Collecting cycles seal their full
 // inventory; deciding cycles take exactly one funded decision each;
 // valid continue decisions release after freshness, recheck and
-// snapshot invalidation; valid reassess decisions rest recorded for
-// the FW32 coder admission. Attention and superseded cycles are never
+// snapshot invalidation; valid reassess decisions dispatch their one
+// funded coder. Attention and superseded cycles are never
 // touched: no poll, input edit or policy edit resumes them, and no
-// automatic re-run ever starts. Reassessing, assessing and applying
-// cycles belong to FW32 and rest reported. Every failure holds with
+// automatic re-run ever starts. Reassessing consumes the typed result,
+// assessing funds the proposal judgment, and applying advances the
+// exact serial adoption journal. Every failure holds with
 // its resumable step; a later drive retries from persisted progress.
 func (c *Coordinator) DriveCompletions(ctx context.Context, deps CompletionDriveDeps) CompletionDriveReport {
 	var report CompletionDriveReport
 	if c.Store == nil {
 		return report
 	}
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	// The drive owns no new budget: it reuses the caller's readiness
 	// pass when one exists (the production advanceProgressPage pass) and
 	// creates it when called standalone, so the bracket's fixed-8
@@ -86,7 +89,16 @@ func (c *Coordinator) DriveCompletions(ctx context.Context, deps CompletionDrive
 			case driveDecide:
 				c.driveDeciding(ctx, deps, record, &report)
 			case driveCoder:
-				report.AwaitingCoder = append(report.AwaitingCoder, record.Cycle.CycleID)
+				switch record.Cycle.State {
+				case factory.ReassessmentReassessing:
+					c.driveReassessmentCoder(ctx, record, &report)
+				case factory.ReassessmentAssessing:
+					c.driveReassessmentProposal(ctx, deps, record, &report)
+				case factory.ReassessmentApplying:
+					c.driveReassessmentAdoption(ctx, deps, record, &report)
+				default:
+					report.Held = append(report.Held, record.Cycle.CycleID+":reassessment_adoption_pending")
+				}
 			default:
 				report.Held = append(report.Held, record.Cycle.CycleID+":awaiting-retry")
 			}
@@ -96,8 +108,8 @@ func (c *Coordinator) DriveCompletions(ctx context.Context, deps CompletionDrive
 }
 
 // driveRoute names one cycle's handling in a drive. Collecting seals,
-// deciding decides, reassessing and later rest for the FW32 coder
-// admission, and attention and superseded rest for explicit Retry:
+// deciding decides, reassessing and later advance the typed proposal
+// and its serial adoption, and attention rests for explicit Retry:
 // the drive never resumes them and never starts an automatic re-run.
 type driveRoute int
 
@@ -299,9 +311,8 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 }
 
 // driveDeciding takes one funded decision for an undecided cycle,
-// records a reassess decision for the FW32 coder admission, or
-// releases a fresh continue decision. A recorded reassess decision
-// rests: the sole run admission is FW32's joint.
+// dispatches the recorded reassess decision through the sole-run packet,
+// or releases a fresh continue decision.
 func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDeps, record store.ReassessmentRecord, report *CompletionDriveReport) {
 	d := &decidingDrive{c: c, ctx: ctx, deps: deps, record: record, report: report, cycleID: record.Cycle.CycleID}
 	d.drive()
@@ -310,11 +321,11 @@ func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDep
 // decidingDrive carries the shared state behind one deciding drive
 // so each duty reads through one small check.
 type decidingDrive struct {
-	c      *Coordinator
-	ctx    context.Context
-	deps   CompletionDriveDeps
-	record store.ReassessmentRecord
-	report *CompletionDriveReport
+	c       *Coordinator
+	ctx     context.Context
+	deps    CompletionDriveDeps
+	record  store.ReassessmentRecord
+	report  *CompletionDriveReport
 	cycleID string
 }
 
@@ -338,7 +349,7 @@ func (d *decidingDrive) attend(reason string) {
 
 func (d *decidingDrive) drive() {
 	if d.record.Cycle.Decision == factory.ReassessmentOptionReassess {
-		d.report.AwaitingCoder = append(d.report.AwaitingCoder, d.cycleID)
+		d.dispatchCoder()
 		return
 	}
 	if d.record.Cycle.Decision == "" {
@@ -396,7 +407,8 @@ func (d *decidingDrive) decideFreshOption() bool {
 			return true
 		}
 		d.report.Decided = append(d.report.Decided, d.cycleID)
-		d.report.AwaitingCoder = append(d.report.AwaitingCoder, d.cycleID)
+		d.record = decided
+		d.dispatchCoder()
 		return true
 	}
 	d.record = decided
@@ -555,13 +567,15 @@ func (d *decidingDrive) deferRelease(out bracketResult) {
 // need only the attention state, the expected prior identity and
 // reconciled decision calls: when the record carries an evidence
 // fingerprint, its receipt must exist (completed or charged-failed);
-// cycles with admitted coder runs refuse so FW32 reconciles runs and
-// native operations first. Command replay reuses the recorded
+// admitted coder runs must be settled and fully charged, and any staged
+// adoption must be fully materialized first. Command replay reuses the recorded
 // successor; no ordinary poll, input edit or policy edit creates one.
 func (c *Coordinator) StartCompletionRetry(ctx context.Context, retry factory.ReassessmentRetry) (string, error) {
 	if c.Store == nil {
 		return "", store.ErrNotFound
 	}
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	record, err := c.Store.ReassessmentRecord(ctx, retry.ExpectedPriorCycle)
 	if err != nil {
 		return "", err
@@ -572,16 +586,41 @@ func (c *Coordinator) StartCompletionRetry(ctx context.Context, retry factory.Re
 	if record.Cycle.State != factory.ReassessmentAttention {
 		return "", errors.New("only an attention cycle waits for retry")
 	}
-	if len(record.Cycle.Ledger.CoderRuns) != 0 {
-		return "", errors.New("reassessment runs reconcile before retry")
+	for _, runID := range record.Cycle.Ledger.CoderRuns {
+		run, err := c.Store.FactoryRun(ctx, runID)
+		if err != nil || !run.Reconciled || run.Outcome == "" {
+			return "", errors.New("reassessment runs reconcile before retry")
+		}
+		assignment, err := c.Store.AssignmentByRun(ctx, runID)
+		if err != nil || assignment.Stage != factory.AssignmentFinished || assignment.Subject.Completion == nil || assignment.Subject.Completion.CycleID != record.Cycle.CycleID {
+			return "", errors.New("reassessment assignment reconciles before retry")
+		}
+		allowance, err := c.Store.ReassessmentAttemptAllowance(ctx, record.Cycle.Repository, *assignment.Subject.Completion, assignment.AttemptRoot)
+		if err != nil || allowance.Active || !allowance.Closed {
+			return "", errors.New("reassessment funding reconciles before retry")
+		}
 	}
-	if record.EvidenceFingerprint != "" {
+	if len(record.AdoptionProgress) != 0 {
+		progress, err := loadReassessmentAdoption(record)
+		if err != nil || progress.Journal.Releasable() != nil {
+			return "", errors.New("reassessment adoption materializes before retry")
+		}
+	}
+	if len(record.Cycle.Ledger.DecisionCalls) > 0 {
 		state, err := DecisionStateFromRecord(record)
 		if err != nil {
 			return "", err
 		}
 		if _, err := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); err != nil {
 			return "", errors.New("reassessment calls reconcile before retry")
+		}
+	}
+	if len(record.Cycle.Ledger.DecisionCalls) > 1 {
+		if record.ProposalFingerprint == "" {
+			return "", errors.New("reassessment proposal call reconciles before retry")
+		}
+		if _, err := c.Store.PriorityJudgment(ctx, record.ProposalFingerprint); err != nil {
+			return "", errors.New("reassessment proposal call reconciles before retry")
 		}
 	}
 	return c.Store.StartReassessmentRetry(ctx, retry)

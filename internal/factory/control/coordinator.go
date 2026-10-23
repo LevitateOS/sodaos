@@ -84,6 +84,7 @@ type Coordinator struct {
 	DispatchReads   DispatchReads
 	Publication     PublicationExecutor
 	Reviews         ReviewExecutor
+	Resolutions     ResolutionExecutor
 	Checks          CheckObserver
 	Merges          MergeExecutor
 	Lifecycle       LifecycleExecutor

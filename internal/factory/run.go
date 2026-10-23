@@ -18,24 +18,29 @@ func ValidDigest(value string) bool { return digest.MatchString(value) }
 // The supervisor reconciles its lease/binding/credential facts against host
 // and broker truth; Reconciled marks the settled run exactly once.
 type Run struct {
-	Admission           *RunAdmission     `json:"admission,omitempty"`
-	CredentialDelegated bool              `json:"credential_delegated"`
-	CredentialReturned  bool              `json:"credential_returned"`
-	IdentityLeaseID     string            `json:"identity_lease_id,omitempty"`
-	IdentityGeneration  int64             `json:"identity_generation,omitempty"`
-	IdentityBinding     *identity.Binding `json:"identity_binding,omitempty"`
-	ID                  string            `json:"id"`
-	ProjectID           string            `json:"project_id"`
-	Role                string            `json:"role"`
-	InputSHA            string            `json:"input_sha"`
-	Started             time.Time         `json:"started"`
-	Deadline            time.Time         `json:"deadline"`
-	Outcome             Outcome           `json:"outcome,omitempty"`
-	Summary             string            `json:"summary,omitempty"`
-	Reconciled          bool              `json:"reconciled"`
-	Image               string            `json:"image"`
-	Harness             string            `json:"harness"`
-	Model               string            `json:"model"`
+	// ContextPending records a staged dispatch packet whose context has not
+	// admitted its first native launch. It is cleared durably before that call.
+	ContextPending      bool                                `json:"context_pending,omitempty"`
+	Admission           *RunAdmission                       `json:"admission,omitempty"`
+	ExecutionManifest   []byte                              `json:"execution_manifest,omitempty"`
+	FinalCheckpoint     *project.FactoryTaskCheckpointState `json:"final_checkpoint,omitempty"`
+	CredentialDelegated bool                                `json:"credential_delegated"`
+	CredentialReturned  bool                                `json:"credential_returned"`
+	IdentityLeaseID     string                              `json:"identity_lease_id,omitempty"`
+	IdentityGeneration  int64                               `json:"identity_generation,omitempty"`
+	IdentityBinding     *identity.Binding                   `json:"identity_binding,omitempty"`
+	ID                  string                              `json:"id"`
+	ProjectID           string                              `json:"project_id"`
+	Role                string                              `json:"role"`
+	InputSHA            string                              `json:"input_sha"`
+	Started             time.Time                           `json:"started"`
+	Deadline            time.Time                           `json:"deadline"`
+	Outcome             Outcome                             `json:"outcome,omitempty"`
+	Summary             string                              `json:"summary,omitempty"`
+	Reconciled          bool                                `json:"reconciled"`
+	Image               string                              `json:"image"`
+	Harness             string                              `json:"harness"`
+	Model               string                              `json:"model"`
 }
 
 // RunAdmission is the immutable authorization and execution profile captured
@@ -59,6 +64,18 @@ func (r Run) Validate() error {
 	}
 	if err := r.validateAdmission(); err != nil {
 		return err
+	}
+	if len(r.ExecutionManifest) > 0 {
+		manifest, err := project.ParseExecutionManifest(r.ExecutionManifest)
+		if err != nil || manifest.Run != r.ID || !manifest.Deadline.Equal(r.Deadline) {
+			return errors.New("execution manifest does not bind its recorded run")
+		}
+	}
+	if r.FinalCheckpoint != nil {
+		request := r.FinalCheckpoint.Request
+		if request.ID != r.ID || request.Project != r.ProjectID || request.ManifestDigest != project.ExecutionManifestDigest(r.ExecutionManifest) || r.FinalCheckpoint.ValidateFor(request, true) != nil {
+			return errors.New("final checkpoint does not bind its recorded run")
+		}
 	}
 	if err := r.validateProvenance(); err != nil {
 		return err

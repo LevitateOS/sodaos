@@ -79,6 +79,7 @@ func publicationRegistration(previous, p factory.Publication) (bool, []int64, er
 	registering := previous.Publish.Work == nil && p.Publish.Work != nil ||
 		previous.PRCreate.Work == nil && p.PRCreate.Work != nil ||
 		len(p.Corrections) > len(previous.Corrections) ||
+		len(p.ResolutionOperations) > len(previous.ResolutionOperations) ||
 		len(p.ReviewOperations) > len(previous.ReviewOperations)
 	var newDeadlines []int64
 	if previous.Publish.Work == nil && p.Publish.Work != nil {
@@ -95,6 +96,9 @@ func publicationRegistration(previous, p factory.Publication) (bool, []int64, er
 	}
 	for i := len(previous.ReviewOperations); i < len(p.ReviewOperations); i++ {
 		newDeadlines = append(newDeadlines, p.ReviewOperations[i].Work.NotAfter)
+	}
+	for i := len(previous.ResolutionOperations); i < len(p.ResolutionOperations); i++ {
+		newDeadlines = append(newDeadlines, p.ResolutionOperations[i].Work.NotAfter)
 	}
 	if registering && (previous.WithdrawRequested || p.WithdrawRequested) {
 		return false, nil, ErrDispatchClosed
@@ -278,6 +282,16 @@ func publicationCorrectionsStable(old, next factory.Publication) bool {
 }
 
 func publicationReviewsStable(old, next factory.Publication) bool {
+	if len(next.ResolutionOperations) < len(old.ResolutionOperations) {
+		return false
+	}
+	for i, prior := range old.ResolutionOperations {
+		updated := next.ResolutionOperations[i]
+		if prior.AcceptanceID != updated.AcceptanceID || prior.FindingKey != updated.FindingKey || prior.ResolvedDigest != updated.ResolvedDigest || prior.Work != updated.Work || prior.Confirmed && !updated.Confirmed ||
+			!reviewOperationUpdateAllowed(factory.ReviewOperation{Outcome: prior.Outcome}, factory.ReviewOperation{Outcome: updated.Outcome}) {
+			return false
+		}
+	}
 	if len(next.ReviewOperations) < len(old.ReviewOperations) {
 		return false
 	}
@@ -491,6 +505,11 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+			) OR EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+				WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+				   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
 			)))
 		) ORDER BY seq LIMIT $2`, repository, limit)
 	if err != nil {
@@ -529,6 +548,11 @@ func requestPublicationWithdrawalsTx(ctx context.Context, tx *sql.Tx, repository
 				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+			) OR EXISTS (
+				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+				WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+				   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+				   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
 			)))
 		) ORDER BY seq LIMIT $2 FOR UPDATE`, repository, storePublicationLimit+1)
 	if err != nil {
@@ -597,6 +621,11 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 			WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 			   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 			   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
+		) OR EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+			WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
+			   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
+			   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
 		))) ORDER BY seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err

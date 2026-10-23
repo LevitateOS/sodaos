@@ -4,9 +4,59 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
+	ctx := context.Background()
+	chooser := &native92ReassessChooser{}
+	fx, deps := native92DrivePGFixture(t, chooser)
+	db, coord := fx.publish.db, fx.publish.coord
+	coord.Host, coord.Broker = fx.publish.seed.host, fx.publish.seed.broker
+	cycleID := pendingCycleID(t, fx)
+	coord.DriveCompletions(ctx, deps)
+	coord.DriveCompletions(ctx, deps)
+	record, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil || len(record.Cycle.Ledger.CoderRuns) != 1 {
+		t.Fatalf("reassessment was not admitted: %+v %v", record.Cycle, err)
+	}
+	run, err := db.FactoryRun(ctx, record.Cycle.Ledger.CoderRuns[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Failed, "native coder failed", true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	assignment, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+	if !ok || assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Failed {
+		t.Fatalf("failed coder not reconciled: stage=%s outcome=%s recorded=%v", assignment.Stage, assignment.Outcome, ok)
+	}
+	coord.DriveCompletions(ctx, deps)
+	attended, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil || attended.Cycle.State != factory.ReassessmentAttention {
+		t.Fatalf("failed coder did not hold for attention: %+v %v", attended.Cycle, err)
+	}
+	successor, err := coord.StartCompletionRetry(ctx, factory.ReassessmentRetry{
+		SuccessorCycleID: factory.NewID(), ExpectedPriorCycle: cycleID,
+		CommandID: factory.NewID(), EventID: record.Cycle.EventID,
+	})
+	if err != nil {
+		t.Fatalf("explicit retry refused a reconciled failed coder: %v", err)
+	}
+	prior, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil || prior.Cycle.State != factory.ReassessmentSuperseded || len(prior.Cycle.Ledger.CoderRuns) != 1 || len(prior.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("retry lost the charged prior: %+v %v", prior.Cycle, err)
+	}
+	coord.DriveCompletions(ctx, deps)
+	coord.DriveCompletions(ctx, deps)
+	next, err := db.ReassessmentRecord(ctx, successor)
+	if err != nil || next.Cycle.State != factory.ReassessmentReassessing || len(next.Cycle.Ledger.CoderRuns) != 1 || next.Cycle.Ledger.CoderRuns[0] == run.ID || chooser.calls != 2 {
+		t.Fatalf("retry did not admit its one fresh run: %+v %v calls=%d", next.Cycle, err, chooser.calls)
+	}
+}
 
 // This supplement proves the Store-backed completion drive on the
 // disposable PG fixture (SODA_PG_*; skips without it): a merged

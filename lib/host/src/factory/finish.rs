@@ -121,12 +121,12 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let _ = deadline;
         let cleanup = cleanup_deadline();
         let bound = lease.with_binding(binding);
-        let _ = self.terminal.stop(&bound, cleanup);
+        let native_uncertain = self.stop_native(receipt, cleanup);
         let mut receipt = receipt.clone();
         if self.launch_yielded(&receipt, cleanup) {
             return self.record_stop_outcome(&receipt, false, "stopped", false, cleanup);
         }
-        let mut uncertain = false;
+        let mut uncertain = native_uncertain;
         match self.terminal.capture(&bound, cleanup) {
             Ok(auth) => {
                 let auth = Secret(auth);
@@ -166,7 +166,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let cleanup = cleanup_deadline();
         let bound = lease.with_binding(binding);
         let mut uncertain = false;
-        if self.terminal.stop(&bound, cleanup).is_err() {
+        if self.stop_native(receipt, cleanup) {
             uncertain = true;
         }
         let mut receipt = receipt.clone();
@@ -220,7 +220,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         receipt.output = output;
         // The CLI exited, but descendants may linger: retire the boundary
         // before capturing, so the captured bytes are final.
-        if self.terminal.stop(&bound, cleanup).is_err() {
+        if self.stop_native(&receipt, cleanup) {
             self.broker.reconcile_lease(&lease.id, cleanup);
             let _ = self
                 .broker

@@ -1,43 +1,12 @@
 // Oracle + loopback tests for the muse launch/serve loop (muse_serve.rs).
 //
-// `muse_serve` is NOT wired into lib.rs yet (the integrator owns that
-// one-liner, same as the gmux skeleton), so this harness pulls the module
-// closure directly. If these includes compile, the module compiles against
-// the already-ported runtime; if these tests pass, the daemon-called
-// surface matches Go.
+// Exercise the public library used by the daemon rather than compiling a
+// second copy of its private module graph.
 //
 // Scratch sockets live under the package target dir inside the worktree,
 // never under /tmp.
 
-#[path = "../src/account/mod.rs"]
-#[allow(dead_code)]
-mod account;
-#[path = "../src/domain/mod.rs"]
-#[allow(dead_code)]
-mod domain;
-#[path = "../src/json/mod.rs"]
-#[allow(dead_code)]
-mod json;
-#[path = "../src/muse/mod.rs"]
-#[allow(dead_code)]
-mod muse;
-#[path = "../src/muse_serve.rs"]
-mod muse_serve;
-#[path = "../src/net.rs"]
-#[allow(dead_code)]
-mod net;
-#[path = "../src/project/mod.rs"]
-#[allow(dead_code)]
-mod project;
-#[path = "../src/sha256.rs"]
-#[allow(dead_code)]
-mod sha256;
-#[path = "../src/ssh/mod.rs"]
-#[allow(dead_code)]
-mod ssh;
-#[path = "../src/terminal/mod.rs"]
-#[allow(dead_code)]
-mod terminal;
+use soda_host::{muse, muse_serve, project, terminal};
 
 use muse::{
     muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseHooks,
@@ -45,7 +14,6 @@ use muse::{
 };
 use muse_serve::open_muse_listener;
 use project::Executor;
-use soda_host::factory;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
@@ -434,6 +402,7 @@ fn muse_validate_stale_on_invocation_mismatch() {
 fn muse_stop_ok_without_custody_return() {
     let delivery = delivery_fixture();
     let rt = runtime(FakeExec::new(vec![
+        ok("active\n"), // Already-retired probe: this fixture is still live.
         ok(&format!("{IID}\n")),
         ok("active\n"),
         ok(""),
@@ -448,37 +417,36 @@ fn muse_stop_ok_without_custody_return() {
 
 #[test]
 fn muse_start_action_denied_like_go() {
-    // Go `projectOperation` serves only validate/stop; start denies after
-    // the invocation and active-state checks.
+    // Only validate/stop are admitted; unsupported actions do not touch a unit.
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
+    let rt = runtime(FakeExec::new(vec![]));
     assert_eq!(
         rt.muse("start", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 2);
+    assert!(rt.exec.calls().is_empty());
 }
 
 #[test]
 fn muse_finish_action_denied_like_go() {
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
+    let rt = runtime(FakeExec::new(vec![]));
     assert_eq!(
         rt.muse("finish", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 2);
+    assert!(rt.exec.calls().is_empty());
 }
 
 #[test]
-fn muse_unknown_action_denied_after_invocation_check() {
+fn muse_unknown_action_denied_without_native_calls() {
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
+    let rt = runtime(FakeExec::new(vec![]));
     assert_eq!(
         rt.muse("launch", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 2);
+    assert!(rt.exec.calls().is_empty());
 }
 
 #[test]
@@ -781,8 +749,8 @@ fn oracle_muse_arguments_vectors() {
         v(&["exec", "--provider", "meta"])
     );
     assert_eq!(
-        muse_arguments(&v(&["serve", "--agents", "3"])).unwrap(),
-        v(&["serve", "--provider", "meta", "--agents", "3"])
+        muse_arguments(&v(&["serve", "--no-session-log"])).unwrap(),
+        v(&["serve", "--no-session-log"])
     );
     assert_eq!(
         muse_arguments(&v(&["config", "get"])).unwrap(),

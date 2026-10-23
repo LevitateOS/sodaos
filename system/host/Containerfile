@@ -9,7 +9,12 @@ FROM ${BASE_IMAGE} AS selinux-policy-build
 COPY selinux/ /run/soda-build/selinux/
 RUN rpm-ostree install selinux-policy-devel && \
     make -f /usr/share/selinux/devel/Makefile \
-      -C /run/soda-build/selinux soda_dashboard.pp
+      -C /run/soda-build/selinux soda_dashboard.pp && \
+    checkmodule -M -m -o /run/soda-build/selinux/soda_factory_io.mod \
+      /run/soda-build/selinux/soda_factory_io.te && \
+    semodule_package -o /run/soda-build/selinux/soda_factory_io.pp \
+      -m /run/soda-build/selinux/soda_factory_io.mod \
+      -f /run/soda-build/selinux/soda_factory_io.fc
 
 FROM ${BASE_IMAGE}
 
@@ -27,8 +32,11 @@ RUN rpm-ostree install $(cat /run/soda-build/packages.list) && \
 COPY --from=selinux-policy-build \
      /run/soda-build/selinux/soda_dashboard.pp \
      /run/soda-build/soda_dashboard.pp
-RUN semodule --noreload -i /run/soda-build/soda_dashboard.pp && \
-    rm -f /run/soda-build/soda_dashboard.pp
+COPY --from=selinux-policy-build \
+     /run/soda-build/selinux/soda_factory_io.pp \
+     /run/soda-build/soda_factory_io.pp
+RUN semodule --noreload -i /run/soda-build/soda_dashboard.pp /run/soda-build/soda_factory_io.pp && \
+    rm -f /run/soda-build/soda_dashboard.pp /run/soda-build/soda_factory_io.pp
 
 COPY rootfs/ /
 # Native rpm-ostree container finalization. Keep Fedora's update ownership;

@@ -39,7 +39,7 @@ pub(crate) fn setup(
         external.trim_end_matches('/'),
         internal.trim_end_matches('/'),
         &dsn_path.to_string_lossy(),
-        "/run/soda/host.sock",
+        "/run/soda/host/host.sock",
         "",
         user.id,
     );

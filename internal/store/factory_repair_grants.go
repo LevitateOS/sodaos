@@ -97,6 +97,9 @@ func (s *Store) ApplyRepairGrantCommand(ctx context.Context, cmd factory.Command
 		return factory.Command{}, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, factory.RepairTarget(grant.Repository)); err != nil {
+		return factory.Command{}, false, err
+	}
 	receipt, err := json.Marshal(factory.GrantReceipt{CommandID: cmd.ID, Revision: grant.Revision + 1})
 	if err != nil {
 		return factory.Command{}, false, err
@@ -255,6 +258,19 @@ type repairChargeReceipt struct {
 // request identity before launch. Replaying the same charge returns
 // the recorded receipt without spending again. Failure stays charged.
 func (s *Store) RecordRepairCharge(ctx context.Context, repository int64, charge factory.RepairCharge, now time.Time) (repairChargeReceipt, bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	defer tx.Rollback()
+	receipt, created, err := recordRepairChargeTx(ctx, tx, repository, charge, now)
+	if err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	return receipt, created, tx.Commit()
+}
+
+func recordRepairChargeTx(ctx context.Context, tx *sql.Tx, repository int64, charge factory.RepairCharge, now time.Time) (repairChargeReceipt, bool, error) {
 	if err := charge.Validate(); err != nil {
 		return repairChargeReceipt{}, false, err
 	}
@@ -262,7 +278,7 @@ func (s *Store) RecordRepairCharge(ctx context.Context, repository int64, charge
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
-	lineage, err := grantLineage(ctx, s.db, factory.RepairTarget(repository))
+	lineage, err := grantLineage(ctx, tx, factory.RepairTarget(repository))
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
@@ -283,11 +299,6 @@ func (s *Store) RecordRepairCharge(ctx context.Context, repository int64, charge
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return repairChargeReceipt{}, false, err
-	}
-	defer func() { _ = tx.Rollback() }()
 	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
@@ -304,15 +315,9 @@ func (s *Store) RecordRepairCharge(ctx context.Context, repository int64, charge
 			}
 			receipt = recorded
 		}
-		if err = tx.Commit(); err != nil {
-			return repairChargeReceipt{}, false, err
-		}
 		return receipt, false, nil
 	}
 	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(outcome), now); err != nil {
-		return repairChargeReceipt{}, false, err
-	}
-	if err = tx.Commit(); err != nil {
 		return repairChargeReceipt{}, false, err
 	}
 	return receipt, true, nil
@@ -322,7 +327,11 @@ func (s *Store) RecordRepairCharge(ctx context.Context, repository int64, charge
 // grant scope in spend order, across all grant revisions. An explicit
 // increase preserves this history; nothing is orphaned by a raise.
 func (s *Store) RepairCharges(ctx context.Context, repository int64) ([]factory.RepairCharge, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM factory_commands WHERE type='repair-charge' AND target=$1 AND finished<>'' ORDER BY created ASC, id ASC`, repairChargeTarget(repository))
+	return repairCharges(ctx, s.db, repository)
+}
+
+func repairCharges(ctx context.Context, q grantCommandSQL, repository int64) ([]factory.RepairCharge, error) {
+	rows, err := q.QueryContext(ctx, `SELECT payload FROM factory_commands WHERE type='repair-charge' AND target=$1 AND finished<>'' ORDER BY created ASC, id ASC`, repairChargeTarget(repository))
 	if err != nil {
 		return nil, err
 	}
@@ -352,38 +361,57 @@ func (s *Store) RepairCharges(ctx context.Context, repository int64) ([]factory.
 // hash changes, issue replacement, graph reshuffles and retries never
 // replenish room. The charge persists before the caller launches.
 func (s *Store) AdmitStallInvestigation(ctx context.Context, repository int64, charge factory.RepairCharge, now time.Time) (repairChargeReceipt, bool, error) {
-	grant, err := s.RepairGrantCommand(ctx, repository)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
-	charges, err := s.RepairCharges(ctx, repository)
+	defer tx.Rollback()
+	// All grant reads and charge admission share one repository lock and transaction.
+	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, factory.RepairTarget(repository)); err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	heads, err := finishedCommands(ctx, tx, factory.CommandRepairGrant, factory.RepairTarget(repository))
+	if err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	head, err := headRepairGrant(heads)
+	if err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	var grant factory.RepairGrant
+	if err = json.Unmarshal([]byte(head.Payload), &grant); err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	charges, err := repairCharges(ctx, tx, repository)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
 	account := factory.RepairAccount{Grant: grant, Charges: charges}
-	next, spent, err := account.AdmitCharge(charge)
+	_, spent, err := account.AdmitCharge(charge)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
 	if !spent {
-		return s.readRepairReceipt(ctx, repository, charge)
+		var outcome, payload string
+		if err = tx.QueryRowContext(ctx, `SELECT payload,outcome FROM factory_commands WHERE id=$1 AND type=$2 AND target=$3 AND finished<>''`, charge.ID, factory.CommandRepairCharge, repairChargeTarget(repository)).Scan(&payload, &outcome); err != nil {
+			return repairChargeReceipt{}, false, err
+		}
+		var prior factory.RepairCharge
+		var receipt repairChargeReceipt
+		if json.Unmarshal([]byte(payload), &prior) != nil || json.Unmarshal([]byte(outcome), &receipt) != nil {
+			return repairChargeReceipt{}, false, ErrCommandConflict
+		}
+		prior.SpentUnix = charge.SpentUnix
+		if prior != charge {
+			return repairChargeReceipt{}, false, ErrCommandConflict
+		}
+		return receipt, false, tx.Commit()
 	}
-	_ = next
-	return s.RecordRepairCharge(ctx, repository, charge, now)
-}
-
-// readRepairReceipt returns the recorded receipt for a replayed charge.
-func (s *Store) readRepairReceipt(ctx context.Context, repository int64, charge factory.RepairCharge) (repairChargeReceipt, bool, error) {
-	var outcome string
-	err := s.db.QueryRowContext(ctx, `SELECT outcome FROM factory_commands WHERE id=$1`, charge.ID).Scan(&outcome)
+	receipt, created, err := recordRepairChargeTx(ctx, tx, repository, charge, now)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
-	var receipt repairChargeReceipt
-	if err := json.Unmarshal([]byte(outcome), &receipt); err != nil {
-		return repairChargeReceipt{}, false, err
-	}
-	return receipt, false, nil
+	return receipt, created, tx.Commit()
 }
 
 // ApplyIntentExecutionLimitCommand records one origin intent's

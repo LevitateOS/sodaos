@@ -40,6 +40,25 @@ fn cv_slice_to_factory(
 // -- seam implementations --
 
 impl factory::FactoryTerminal for TerminalSeam {
+    fn take_native_channels(
+        &self,
+        run: &str,
+    ) -> Result<Option<terminal::factory::native_io::NativeChannels>, factory::FactoryError> {
+        self.native_channels
+            .lock()
+            .map_err(|_| factory::FactoryError::Msg("native channel owner poisoned".into()))
+            .map(|mut channels| channels.remove(run))
+    }
+    fn write_native_output(
+        &self,
+        lease: &factory::Lease,
+        output: &[u8],
+        deadline: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        self.service()
+            .factory_codex_native_output(&cv_lease_to_texec(lease), output, deadline)
+            .map_err(factory::FactoryError::Msg)
+    }
     fn harness_pin(&self, family: &str) -> Result<factory::FactoryHarnessPin, String> {
         let (binary, version, sha256) = match family {
             factory::FACTORY_HARNESS_CODEX => {
@@ -73,14 +92,58 @@ impl factory::FactoryTerminal for TerminalSeam {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
         let tlease = cv_lease_to_texec(lease);
+        if run.harness == factory::FACTORY_HARNESS_CODEX
+            && run.execution_phase == factory::EXECUTION_IMPLEMENT
+            && (self.model_catalog.is_empty() || self.model_catalog_sha256.is_empty())
+        {
+            return Err(factory::FactoryError::Msg(
+                "qualified native Codex task profile is not configured".into(),
+            ));
+        }
         let out = if run.harness == factory::FACTORY_HARNESS_MUSE {
             service
                 .factory_muse_reserve(&trun, &tlease, pin, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
         } else {
-            service
-                .factory_codex_reserve(&trun, &tlease, pin, max_secs, deadline)
-                .map(|(binding, _paths)| binding)
+            let channels = terminal::factory::native_io::NativeChannels::create(
+                &self.state_dir,
+                &run.project,
+                &run.id,
+            )
+            .map_err(factory::FactoryError::Msg)?;
+            match service.factory_codex_controlled_reserve(
+                &trun, &tlease, pin, max_secs, &channels, deadline,
+            ) {
+                Ok((binding, paths)) => {
+                    if let Some(profile) = paths.native_profile {
+                        let retained =
+                            factory::PrivateState::open(&self.state_dir).and_then(|state| {
+                                state.retain_native_profile(run, &binding.invocation_id, profile)
+                            });
+                        if retained.is_err() {
+                            if service.factory_codex_stop_unbound(&trun, deadline).is_ok() {
+                                let _ = channels.retire();
+                            }
+                            return Err(factory::FactoryError::Msg(
+                                "native profile retention unconfirmed".into(),
+                            ));
+                        }
+                    }
+                    self.native_channels
+                        .lock()
+                        .map_err(|_| {
+                            factory::FactoryError::Msg("native channel owner poisoned".into())
+                        })?
+                        .insert(run.id.clone(), channels);
+                    Ok(binding)
+                }
+                Err(reason) => {
+                    if service.factory_codex_stop_unbound(&trun, deadline).is_ok() {
+                        let _ = channels.retire();
+                    }
+                    Err(reason)
+                }
+            }
         };
         out.map_err(factory::FactoryError::Msg)
     }
@@ -95,6 +158,16 @@ impl factory::FactoryTerminal for TerminalSeam {
             .map_err(|_| factory::FactoryError::Msg("invalid Factory MCP staging".to_string()))?;
         self.service()
             .factory_stage_mcp(&cv_lease_to_texec(lease), &data, deadline)
+            .map_err(factory::FactoryError::Msg)
+    }
+    fn stage_execution_manifest(
+        &self,
+        lease: &factory::Lease,
+        manifest: &[u8],
+        deadline: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        self.service()
+            .factory_stage_execution_manifest(&cv_lease_to_texec(lease), manifest, deadline)
             .map_err(factory::FactoryError::Msg)
     }
     fn start(
@@ -146,7 +219,8 @@ impl factory::FactoryTerminal for TerminalSeam {
         } else {
             service
                 .factory_codex_stop(&tlease, deadline)
-                .map_err(factory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)?;
+            self.retire_native_channels(&lease.execution_id)
         }
     }
     fn stop_unbound(
@@ -163,7 +237,8 @@ impl factory::FactoryTerminal for TerminalSeam {
         } else {
             service
                 .factory_codex_stop_unbound(&trun, deadline)
-                .map_err(factory::FactoryError::Msg)
+                .map_err(factory::FactoryError::Msg)?;
+            self.retire_native_channels(&run.id)
         }
     }
     fn capture(
@@ -254,6 +329,18 @@ fn muse_scoped_lease(lease: &terminal::Lease) -> bool {
 }
 
 impl TerminalSeam {
+    fn retire_native_channels(&self, run: &str) -> Result<(), factory::FactoryError> {
+        let channels = self
+            .native_channels
+            .lock()
+            .map_err(|_| factory::FactoryError::Msg("native channel owner poisoned".into()))?
+            .remove(run);
+        if let Some(channels) = channels {
+            channels.retire().map_err(factory::FactoryError::Msg)?;
+        }
+        Ok(())
+    }
+
     /// The seam owns no service state: it rebuilds the value service (pure
     /// configuration + the shared executor shape) per call. Service methods
     /// take `&self` and hold no interior state, so this is free.
@@ -263,6 +350,8 @@ impl TerminalSeam {
             codex_harness: self.harness.clone(),
             codex_harness_sha256: self.harness_sha256.clone(),
             codex_harness_version: self.harness_version.clone(),
+            codex_model_catalog: self.model_catalog.clone(),
+            codex_model_catalog_sha256: self.model_catalog_sha256.clone(),
             muse_harness: self.muse_harness.clone(),
             muse_harness_sha256: self.muse_harness_sha256.clone(),
             muse_harness_version: self.muse_harness_version.clone(),

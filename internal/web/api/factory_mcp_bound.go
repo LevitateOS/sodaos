@@ -100,6 +100,9 @@ func factoryToolDescription(tool factory.MCPTool) string {
 	if description := researchToolDescription(tool); description != "" {
 		return description
 	}
+	if description := resolvePostToolDescription(tool); description != "" {
+		return description
+	}
 	descriptions := map[factory.MCPTool]string{
 		factory.MCPToolVerificationEvidence: "Read the approved application-verification manifest and independently observed native check evidence for your exact delivery and integrated source.",
 		factory.MCPToolPublishArtifact:      "Upload an artifact in chunks. The final chunk publishes a feed card with authenticated preview/download. Reuse upload_id and advance offset; use a new submission_id per chunk.",
@@ -132,6 +135,7 @@ func factoryToolDescription(tool factory.MCPTool) string {
 // The same shared service exposes a separately filtered interface for each run.
 // Stateless requests reuse one rate limiter, not a new allowance per connection.
 func factoryBoundCatalogHandler(deps FactoryMCPDeps, key []byte) http.Handler {
+	deps.ContextCursorKey = append([]byte(nil), key...)
 	deps.Limiter = newMCPRateLimiter()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != FactoryMCPRoute {

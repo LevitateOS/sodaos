@@ -80,7 +80,7 @@ func (c *Coordinator) consultPurposeChoice(ctx context.Context, advice PurposeAd
 }
 
 func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (factory.PriorityAnswer, bool, error) {
-	if c.Planning == nil || c.Planning.Chooser == nil || c.Store == nil || advice.Reserve == nil || advice.Outcome == "" {
+	if c.Store == nil || advice.Reserve == nil || advice.Outcome == "" {
 		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 	}
 	request, fingerprint, err := buildPurposeRequest(advice)
@@ -97,6 +97,9 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return factory.PriorityAnswer{}, false, err
+	}
+	if c.Planning == nil || c.Planning.Chooser == nil {
+		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 	}
 	reserved, err := advice.Reserve(ctx, fingerprint)
 	if err != nil {

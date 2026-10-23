@@ -778,3 +778,87 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 		t.Fatalf("unknown assignment terminal = %v, err = %v, want false", ok, err)
 	}
 }
+
+// TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects proves the
+// R31.4 read contract against real PostgreSQL: inbox, discussion,
+// comment and receipt reads return current observed state and
+// original operation outcomes without recording anything — paging
+// answers never marks them incorporated. Missing receipts and posts
+// refuse explicitly instead of returning empty success.
+func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
+	db, _ := postgresFixture(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+	post := func(tool factory.MCPTool, payload string) factory.MCPReceipt {
+		t.Helper()
+		submission := testMCPSubmissionRow(capability, tool, []byte(payload))
+		receipt, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		if err != nil {
+			t.Fatalf("%s: %v", tool, err)
+		}
+		if !factory.ValidID(receipt.FeedPostID) {
+			t.Fatalf("%s recorded no post: %+v", tool, receipt)
+		}
+		return receipt
+	}
+	ask := post(factory.MCPToolAsk, `{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view?"}`)
+	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only owners may view.","reply_to":"`+ask.FeedPostID+`"}`)
+	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the file is slow.","rationale":"Cache at dispatch."}`)
+	read := func() {
+		t.Helper()
+		if _, err := db.MCPInbox(ctx, capability, ""); err != nil {
+			t.Fatalf("inbox: %v", err)
+		}
+		if _, err := db.MCPDiscussion(ctx, capability, ask.FeedPostID, ""); err != nil {
+			t.Fatalf("discussion: %v", err)
+		}
+		if _, err := db.FeedComment(ctx, ask.FeedPostID); err != nil {
+			t.Fatalf("comment: %v", err)
+		}
+		if _, err := db.FeedPostDetails(ctx, []string{answer.FeedPostID, suggest.FeedPostID}); err != nil {
+			t.Fatalf("details: %v", err)
+		}
+	}
+	read()
+	read()
+	var resolutions int
+	if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_post_resolutions`).Scan(&resolutions); err != nil {
+		t.Fatal(err)
+	}
+	if resolutions != 0 {
+		t.Fatalf("reads recorded dispositions: %d", resolutions)
+	}
+	question, err := db.FeedComment(ctx, ask.FeedPostID)
+	if err != nil || question.Payload.Communication.QuestionState != "answered" {
+		t.Fatalf("question state misreported: %+v %v", question, err)
+	}
+	if question.Payload.Communication.Disposition != "" {
+		t.Fatalf("unresolved question carries disposition: %+v", question)
+	}
+	for _, tc := range []struct {
+		name string
+		post string
+	}{
+		{"answer", answer.FeedPostID},
+		{"suggestion", suggest.FeedPostID},
+	} {
+		detail, err := db.FeedComment(ctx, tc.post)
+		if err != nil || detail.Payload.Communication.Disposition != "" {
+			t.Fatalf("%s misreported: %+v %v", tc.name, detail, err)
+		}
+	}
+	answerReceipt, err := db.MCPReceipt(ctx, capability.AssignmentID, answer.SubmissionID)
+	if err != nil || answerReceipt.State != factory.MCPReceiptRecorded || answerReceipt.FeedPostID != answer.FeedPostID {
+		t.Fatalf("receipt lost its original outcome: %+v %v", answerReceipt, err)
+	}
+	if _, err := db.MCPReceipt(ctx, capability.AssignmentID, factory.NewID()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing receipt not explicit: %v", err)
+	}
+	if _, err := db.FeedComment(ctx, factory.NewID()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing post not explicit: %v", err)
+	}
+	if _, err := db.MCPReceipt(ctx, factory.NewID(), answer.SubmissionID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign receipt disclosed: %v", err)
+	}
+}

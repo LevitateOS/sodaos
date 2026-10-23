@@ -87,7 +87,17 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 	fx.queue(t, 3, head.ID)
 	deps := fx.deps()
 	deps.MCPKey = []byte(strings.Repeat("k", 32))
-	report := DispatchPass(ctx, deps)
+	deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
+	queued, err := db.QueuedControls(ctx, 1)
+	if err != nil || len(queued) != 1 {
+		t.Fatal("maintenance readiness unavailable", err)
+	}
+	occupancy, err := snapshotOccupancy(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := newDispatchReport()
+	dispatchOne(ctx, deps, &occupancy, queued[0], &report)
 	if len(report.Errors) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("dispatch: %+v", report)
 	}
@@ -114,6 +124,14 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 	}
 	if err = db.ActivateMCPCapability(ctx, cap.ID, cap.Generation, cap.RunID, cap.AssignmentID, cap.Authority, time.Now().Unix(), false); err != nil {
 		t.Fatal(err)
+	}
+	cap, err = db.GetMCPCapability(ctx, cap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := db.FactoryCurrentContext(ctx, cap, time.Now())
+	if err != nil || current.Role.Library == nil || !current.Role.Library.Complete || current.Role.Library.Scope != a.Subject.SubjectKey(a.Repository) || len(current.Role.Library.Operations) == 0 || len(current.Role.Library.Inventory) != 1 || !current.Role.Library.Inventory[0].Complete {
+		t.Fatalf("required library scope and complete empty inventory unavailable: %v", err)
 	}
 	raw := []byte(`{"title":"Library maintained","summary":"No duplicate entries remained.","completed":["Reviewed the available library"]}`)
 	sub := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), CapabilityID: cap.ID, Tool: factory.MCPToolFinishLibraryMaintenance, ExpectedInputDigest: cap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}

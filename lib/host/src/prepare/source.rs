@@ -112,7 +112,15 @@ impl<E: Executor> Runtime<E> {
         let out = self
             .role_exec(
                 prep,
-                &["/usr/bin/git", "-C", checkout, "rev-parse", "HEAD"],
+                &[
+                    "/usr/bin/git",
+                    "-c",
+                    &format!("safe.directory={checkout}"),
+                    "-C",
+                    checkout,
+                    "rev-parse",
+                    "HEAD",
+                ],
                 deadline,
             )
             .map_err(|_| "preparation source identity unconfirmed".to_string())?;
@@ -503,6 +511,8 @@ impl<E: Executor> Runtime<E> {
             "GIT_TERMINAL_PROMPT=0".to_string(),
             "GIT_OPTIONAL_LOCKS=0".to_string(),
             "/usr/bin/git".to_string(),
+            "-c".to_string(),
+            format!("safe.directory={checkout}"),
             "-c".to_string(),
             "core.hooksPath=/dev/null".to_string(),
             "-c".to_string(),

@@ -16,6 +16,8 @@ use super::websocket::websocket_upgrade_response;
 /// 9 project, 6 prepare, and 9 factory.
 pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/application"),
+    ("POST", "/application/setup"),
+    ("POST", "/application/snapshots"),
     ("POST", "/identity/launch"),
     ("POST", "/identity/validate"),
     ("POST", "/identity/stop"),
@@ -39,6 +41,7 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/access-keys"),
     ("POST", "/account"),
     ("POST", "/project-access"),
+    ("POST", "/member-access"),
     ("POST", "/terminal-support"),
     ("POST", "/prepare"),
     ("POST", "/prepare-candidate"),
@@ -52,6 +55,10 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/factory-takeover"),
     ("POST", "/factory-output"),
     ("POST", "/factory-task-events"),
+    ("POST", "/factory-task-checkpoint"),
+    ("POST", "/factory-final-candidate"),
+    ("POST", "/factory-task-checkpoint-receipt"),
+    ("POST", "/factory-final-candidate-receipt"),
     ("POST", "/factory-harness"),
     ("POST", "/factory-export"),
     ("POST", "/factory-candidate-inspect"),
@@ -187,6 +194,8 @@ fn invoke_native_core<B: ExecBackend + ?Sized>(
 ) -> Option<Result<Vec<u8>, BackendError>> {
     match path {
         "/application" => Some(backend.application(body)),
+        "/application/setup" => Some(backend.application_setup(body)),
+        "/application/snapshots" => Some(backend.application_snapshots(body)),
         "/profile" => Some(backend.profile(body)),
         "/create" => Some(backend.create(body)),
         "/inspect" => Some(backend.inspect(body)),
@@ -206,6 +215,7 @@ fn invoke_native_project<B: ExecBackend + ?Sized>(
         "/access-keys" => Some(backend.access_keys(body)),
         "/account" => Some(backend.account(body)),
         "/project-access" => Some(backend.project_access(body)),
+        "/member-access" => Some(backend.member_access(body)),
         "/terminal-support" => Some(backend.terminal_support(body)),
         _ => None,
     }
@@ -240,6 +250,10 @@ fn invoke_native_factory<B: ExecBackend + ?Sized>(
         "/factory-takeover" => Some(backend.factory_takeover(body)),
         "/factory-output" => Some(backend.factory_output(body)),
         "/factory-task-events" => Some(backend.factory_task_events(body)),
+        "/factory-task-checkpoint" => Some(backend.factory_task_checkpoint(body, false)),
+        "/factory-final-candidate" => Some(backend.factory_task_checkpoint(body, true)),
+        "/factory-task-checkpoint-receipt" => Some(backend.factory_checkpoint_receipt(body, false)),
+        "/factory-final-candidate-receipt" => Some(backend.factory_checkpoint_receipt(body, true)),
         "/factory-harness" => Some(backend.factory_harness(body, &config.image)),
         "/factory-export" => Some(backend.factory_export(body)),
         "/factory-candidate-inspect" => Some(backend.factory_candidate_inspect(body)),

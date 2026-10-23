@@ -49,6 +49,8 @@ type attemptPlan struct {
 	parent               string
 	prompt               []byte
 	promptSHA            string
+	acceptedContext      *factory.AcceptedContext
+	reviewContext        *factory.CurrentReviewContext
 	deadline             time.Time
 	requirement          string
 	approval             string
@@ -442,7 +444,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 		}
 		planPrerequisites = bindings.Prerequisites
 	}
-	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
+	promptInputs := factory.PromptInputs{
 		Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		Phase: plan.phase, PlanPrerequisites: planPrerequisites,
 		AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
@@ -461,7 +463,8 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
 		RepositoryContext: repositoryContext,
-	})
+	}
+	prompt, err := factory.BuildDispatchPrompt(promptInputs)
 	if err != nil {
 		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
 			return waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
@@ -477,6 +480,7 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	}
 	plan.prompt = prompt
 	plan.promptSHA = project.FactoryPromptDigest(prompt)
+	plan.acceptedContext = factory.CaptureAcceptedContext(promptInputs)
 	return nil, nil
 }
 

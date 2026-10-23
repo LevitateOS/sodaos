@@ -1,0 +1,16 @@
+module soda_factory_io 1.0;
+
+require {
+    type init_t;
+    type container_runtime_t;
+    attribute file_type;
+    class fifo_file { open read write getattr ioctl };
+}
+
+# The admitted unit receives only its exact host-owned FIFO stdio. Neither
+# domain gains access to private Factory receipt/journal regular files.
+# The host labels new descriptor-verified FIFOs before systemd opens them.
+type soda_factory_io_t;
+typeattribute soda_factory_io_t file_type;
+allow init_t soda_factory_io_t:fifo_file { open read write getattr ioctl };
+allow container_runtime_t soda_factory_io_t:fifo_file { read write getattr ioctl };

@@ -2,7 +2,7 @@
 Description=Restricted Soda project operations
 
 [Socket]
-ListenStream=/run/soda/host.sock
+ListenStream=/run/soda/host/host.sock
 SocketUser=root
 SocketGroup=soda
 SocketMode=0660

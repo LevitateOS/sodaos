@@ -31,6 +31,20 @@ func checkSubmittedGenerationGraph(g factory.IntentGeneration) error {
 		}
 		seen[task.Key] = true
 	}
+	if g.ProtectedGraphCycle() != "" {
+		if !factory.ValidID(g.ProtectedGraphCycle()) || g.PlanAssignment != "" {
+			return errors.New("invalid reassessment generation owner")
+		}
+		for _, bindings := range [][]factory.IntentTaskBinding{g.RetainedBindings, g.CopiedBindings} {
+			bound := map[string]bool{}
+			for _, binding := range bindings {
+				if !seen[binding.TaskKey] || bound[binding.TaskKey] || binding.RevisionID != g.RevisionID || binding.IssueID <= 0 || binding.IssueIndex <= 0 || !project.ValidDecisionID(binding.AcceptanceID) {
+					return errors.New("invalid reassessment retained binding")
+				}
+				bound[binding.TaskKey] = true
+			}
+		}
+	}
 	for key, ref := range g.Delivered {
 		if !seen[key] || g.TaskIssueIDs[key] != 0 || ref.IssueID <= 0 || ref.IssueIndex <= 0 || ref.ContentVersion < 0 {
 			return errors.New("invalid delivered reuse")
@@ -57,7 +71,14 @@ func checkSubmittedGenerationGraph(g factory.IntentGeneration) error {
 }
 
 func checkGenerationIdentity(g factory.IntentGeneration) error {
-	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 || len(g.SubmittedTasks) == 0 {
+	if (g.ReassessmentCycle != "" || g.RepairCycle != "") && !factory.ValidID(g.ProtectedGraphCycle()) {
+		return errors.New("ambiguous protected graph owner")
+	}
+	localOnly := g.LocalOnly && factory.ValidID(g.ProtectedGraphCycle()) && g.OperationID == "" && g.State == "completed" && len(g.CopiedBindings) == len(g.SubmittedTasks)
+	if g.LocalOnly && !localOnly {
+		return errors.New("invalid local reassessment generation")
+	}
+	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || (!localOnly && g.OperationID == "") || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || (!localOnly && g.State != "pending") || len(g.Receipt) > 0 || len(g.SubmittedTasks) == 0 {
 		return errors.New("invalid intent generation")
 	}
 	return nil
@@ -135,6 +156,9 @@ func insertGenerationRecordTx(ctx context.Context, tx *sql.Tx, g factory.IntentG
 }
 
 func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
+	if g.ReassessmentCycle != "" || g.RepairCycle != "" || g.LocalOnly || len(g.CopiedBindings) != 0 || len(g.RetainedBindings) != 0 {
+		return errors.New("reassessment generations require their atomic cycle activation")
+	}
 	if err := checkSubmittedGenerationGraph(g); err != nil {
 		return err
 	}
@@ -261,15 +285,22 @@ func (s *Store) BindIntentTaskAcceptance(ctx context.Context, b factory.IntentTa
 	if !project.ValidDecisionID(b.RevisionID) || !project.ValidDecisionID(b.TaskKey) || !project.ValidDecisionID(b.AcceptanceID) || b.IssueID <= 0 || b.IssueIndex <= 0 || b.ContentVersion < 0 || b.CreatedUnix < 0 {
 		return errors.New("invalid generated task binding")
 	}
-	raw, err := json.Marshal(b)
-	if err != nil {
-		return err
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := bindIntentTaskAcceptanceTx(ctx, tx, b); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func bindIntentTaskAcceptanceTx(ctx context.Context, tx *sql.Tx, b factory.IntentTaskBinding) error {
+	raw, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
 	var head string
 	var intent string
 	if err = tx.QueryRowContext(ctx, `SELECT intent FROM factory_intent_revisions WHERE id=$1`, b.RevisionID).Scan(&intent); err != nil {
@@ -296,7 +327,7 @@ func (s *Store) BindIntentTaskAcceptance(ctx context.Context, b factory.IntentTa
 	if !same {
 		return ErrCommandConflict
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Store) IntentTaskBindings(ctx context.Context, revision string) ([]factory.IntentTaskBinding, error) {

@@ -33,6 +33,8 @@ const (
 	TaskEventChildStartIntent = "child_start_intent"
 	TaskEventChildStarted     = "child_started"
 	TaskEventChildReported    = "child_reported"
+	TaskEventParentStarted    = "parent_task_started"
+	TaskEventParentOutput     = "parent_output_observed"
 	TaskEventCheckpointReady  = "checkpoint_prepared"
 	TaskEventTaskCommitted    = "task_committed"
 	TaskEventTaskFailed       = "task_failed"
@@ -43,7 +45,7 @@ const (
 func ValidTaskEventType(eventType string) bool {
 	switch eventType {
 	case TaskEventChildStartIntent, TaskEventChildStarted,
-		TaskEventChildReported, TaskEventCheckpointReady,
+		TaskEventChildReported, TaskEventParentStarted, TaskEventParentOutput, TaskEventCheckpointReady,
 		TaskEventTaskCommitted, TaskEventTaskFailed,
 		TaskEventRunStopped:
 		return true
@@ -136,7 +138,7 @@ func (e TaskEvent) validateTaskKey() error {
 }
 
 func (e TaskEvent) validatePayload() error {
-	if e.ChildID != "" && !ValidFactoryRunID(e.ChildID) {
+	if e.ChildID != "" && !validNativeTaskChild(e.ChildID) {
 		return errors.New("task event child identity is invalid")
 	}
 	if !validManifestInvocation(e.Invocation) {
@@ -149,6 +151,19 @@ func (e TaskEvent) validatePayload() error {
 		return errors.New("task event detail exceeds its bound")
 	}
 	return nil
+}
+
+func validNativeTaskChild(id string) bool {
+	if len(id) == 0 || len(id) > 128 {
+		return false
+	}
+	for _, c := range []byte(id) {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.' || c == ':' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (e TaskEvent) Validate() error {

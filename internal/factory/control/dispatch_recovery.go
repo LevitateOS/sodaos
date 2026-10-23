@@ -52,6 +52,9 @@ func recoverOne(ctx context.Context, deps DispatchDeps, a factory.Assignment, re
 		recoverSettled(ctx, deps, a, reservation, report)
 		return
 	}
+	if active.ContextPending && recoverPendingContext(ctx, deps, a, reservation, *active, report) {
+		return
+	}
 	unused, fenced := confirmUnused(ctx, deps, a, *active)
 	switch {
 	case fenced:

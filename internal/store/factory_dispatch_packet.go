@@ -186,6 +186,8 @@ func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 			return insertIntentAttemptAllowanceTx(ctx, tx, a, grants.policy.IntentMinutes, run.Deadline, now)
 		case factory.SubjectDelivery:
 			return insertDeliveryAttemptAllowanceTx(ctx, tx, a, grants.policy.AttemptLimits.ActiveMinutes, run.Deadline, now)
+		case factory.SubjectStall:
+			return insertStallAttemptAllowanceTx(ctx, tx, a, run.Deadline, now)
 		default:
 			return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
 		}
@@ -347,6 +349,8 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 		return validateReassessRootTx(ctx, tx, a)
 	case project.ExecutionVerify:
 		return validateDeliveryRootTx(ctx, tx, a)
+	case project.ExecutionRepair:
+		return validateStallRootTx(ctx, tx, a)
 	case project.ExecutionReview:
 		return validateReviewChildTx(ctx, tx, a)
 	case project.ExecutionCorrect:
@@ -605,7 +609,7 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	// the reassessment CAS lock ordering (state,data FOR UPDATE by
 	// cycle): concurrent admissions serialize on the row instead of
 	// racing the seal. The locked record must carry the reassess
-	// decision in its reassessing state and bind this root's exact
+	// decision in its deciding state and bind this root's exact
 	// sealed inventory and source commit: an unsealed or collecting
 	// cycle, a mismatched digest or source, or any other
 	// decision/state refuses with no packet or charge rows. Released
@@ -614,7 +618,32 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	if err != nil {
 		return err
 	}
-	return checkReassessmentCycleSealed(record, a)
+	if err := checkReassessmentCycleSealed(record, a); err != nil {
+		return err
+	}
+	// The sole-run ledger and transition commit with the packet and its
+	// allowance. A refused packet leaves the cycle deciding; concurrent
+	// admissions cannot record a second run, even after the first settles.
+	ledger, err := record.Cycle.Ledger.AdmitCoderRun(a.Run, record.Cycle.Decision)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrAttemptRootMismatch, err)
+	}
+	record.Cycle.Ledger = ledger
+	if err := record.Cycle.AdvanceTo(factory.ReassessmentReassessing); err != nil {
+		return err
+	}
+	record.Cycle.State = factory.ReassessmentReassessing
+	record.WaitReason = ""
+	if err := factory.AdmitReassessmentCoder(record.Cycle, a, record.Cycle.Decision); err != nil {
+		return err
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE factory_reassessments SET state=$1,data=$2 WHERE cycle=$3`,
+		record.Cycle.State, string(data), record.Cycle.CycleID)
+	return err
 }
 
 func loadReassessmentEventTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.CompletionEvent, error) {
@@ -654,8 +683,13 @@ func loadReassessmentCycleTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	if err := record.Validate(); err != nil {
 		return ReassessmentRecord{}, err
 	}
-	if cycleState != factory.ReassessmentReassessing || record.Cycle.State != factory.ReassessmentReassessing ||
-		record.Cycle.Decision != factory.ReassessmentOptionReassess {
+	if len(record.Cycle.Ledger.CoderRuns) != 0 {
+		if err := refuseDuplicateReassessmentAttemptTx(ctx, tx, a.Repository, a.ID, *a.Subject.Completion); err != nil {
+			return ReassessmentRecord{}, err
+		}
+	}
+	if cycleState != factory.ReassessmentDeciding || record.Cycle.State != factory.ReassessmentDeciding ||
+		record.Cycle.Decision != factory.ReassessmentOptionReassess || len(record.Cycle.Ledger.CoderRuns) != 0 {
 		return ReassessmentRecord{}, fmt.Errorf("%w: reassessment answers a cycle without its reassess decision", ErrAttemptRootMismatch)
 	}
 	if record.Cycle.EventID != event.ID || record.Cycle.CycleID != a.Subject.Completion.CycleID || record.Cycle.Repository != a.Repository {

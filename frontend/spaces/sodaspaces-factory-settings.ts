@@ -11,6 +11,7 @@ import type {
 } from './sodaspaces-factory-access-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import './sodaspaces-factory-work.js';
+import './sodaspaces-factory-repair.js';
 import './soda-providers.js';
 
 type FactoryContext = {
@@ -67,6 +68,19 @@ function safeDetail(value: unknown) {
 
 function safeNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isSafeInteger(value) ? value : fallback;
+}
+
+const policyActorSlots = [
+  {field: 'publish_actor', label: 'Publisher', kind: 'git.ref.publish'},
+  {field: 'create_actor', label: 'Pull request creator', kind: 'pull_request.create'},
+  {field: 'review_actor', label: 'Reviewer', kind: 'pull_request.review.submit'},
+  {field: 'resolve_actor', label: 'Thread resolver', kind: 'pull_request.review.thread.resolve'},
+  {field: 'merge_actor', label: 'Merger', kind: 'pull_request.merge'},
+] as const;
+
+function nativeBindingKey(binding: Record<string, unknown>) {
+  const actor = safeText(binding.actor_id), token = safeText(binding.token_id);
+  return /^[1-9]\d*$/.test(actor) && /^[1-9]\d*$/.test(token) ? `${actor}:${token}` : '';
 }
 
 function accessReasonText(reason: string | undefined): string {
@@ -908,10 +922,12 @@ export class SodaFactorySettings extends LitElement {
   };
 
   private policyInput(form: HTMLFormElement, policy: Record<string, unknown>) {
-    const publish = asObject(policy.publish_actor || {});
-    const create = asObject(policy.create_actor || {});
-    const review = asObject(policy.review_actor || {});
-    const merge = asObject(policy.merge_actor || {});
+    const selected = (field: string) => {
+      const slot = policyActorSlots.find((slot) => slot.field === field);
+      return slot ? this.policyActorChoices(policy, slot).find((ref) => nativeBindingKey(ref) === inputValue(form, field)) || {} : {};
+    };
+    const publish = selected('publish_actor'), create = selected('create_actor'), review = selected('review_actor');
+    const resolve = selected('resolve_actor'), merge = selected('merge_actor');
     const roles = {
       'soda-coder': {
         harness: inputValue(form, 'coder_harness'),
@@ -940,6 +956,9 @@ export class SodaFactorySettings extends LitElement {
       publish_actor: {actor_id: publish.actor_id, token_id: publish.token_id},
       create_actor: {actor_id: create.actor_id, token_id: create.token_id},
       review_actor: {actor_id: review.actor_id, token_id: review.token_id},
+      ...(nativeBindingKey(resolve)
+        ? {resolve_actor: {actor_id: resolve.actor_id, token_id: resolve.token_id}}
+        : {}),
       merge_actor: {actor_id: merge.actor_id, token_id: merge.token_id},
       attempt_limits: {
         ...asObject(policy.attempt_limits || {}),
@@ -997,6 +1016,7 @@ export class SodaFactorySettings extends LitElement {
     }}></soda-providers>${this.renderSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       <soda-factory-optional-effects .context=${this.effectsContext()}></soda-factory-optional-effects>
+      <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
       ${this.renderProviderControls()} ${this.renderPlanningCalls()} ${this.renderExecutionUsage()}`;
@@ -1340,8 +1360,8 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     const limits = asObject(policy.attempt_limits || {});
     return html`<fieldset>
       <legend>Repository policy</legend>
-      ${this.renderPolicyBindings(policy)}
       <form data-action="policy" @submit=${this.submit}><fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('policy')}>
+        ${this.renderPolicyBindings(policy)}
         ${this.textInput('Target branch ref', 'target_branch', safeText(policy.target_branch))}
         ${this.textInput('Required checks (comma separated)', 'required_checks', Array.isArray(policy.required_checks) ? policy.required_checks.join(', ') : '')}
         ${this.textInput('Coder harness', 'coder_harness', safeText(coder.harness || 'codex'))}
@@ -1363,17 +1383,25 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     </fieldset>`;
   }
 
+  private policyActorChoices(policy: Record<string, unknown>, slot: typeof policyActorSlots[number]) {
+    const rows = this.view.status?.native_bindings;
+    const choices = (Array.isArray(rows) ? rows.map(asObject) : []).filter((ref) => ref.kind === slot.kind && nativeBindingKey(ref));
+    const current = asObject(policy[slot.field] || {});
+    if (nativeBindingKey(current) && !choices.some((ref) => nativeBindingKey(ref) === nativeBindingKey(current))) choices.unshift(current);
+    return choices.filter((ref, index) => choices.findIndex((other) => nativeBindingKey(ref) === nativeBindingKey(other)) === index);
+  }
+
   private renderPolicyBindings(policy: Record<string, unknown>) {
-    const publish = asObject(policy.publish_actor || {});
-    const create = asObject(policy.create_actor || {});
-    const review = asObject(policy.review_actor || {});
-    const merge = asObject(policy.merge_actor || {});
-    return html`<p>
-      Current native bindings: publish ${safeText(publish.actor_id)} / token ${safeText(publish.token_id)}, create
-      ${safeText(create.actor_id)} / token ${safeText(create.token_id)}, review ${safeText(review.actor_id)} / token
-      ${safeText(review.token_id)}, merge ${safeText(merge.actor_id)} / token ${safeText(merge.token_id)}. Bindings come
-      from current policy and cannot be changed as raw IDs here.
-    </p>`;
+    const available = policyActorSlots.some((slot) => this.policyActorChoices(policy, slot).length);
+    return html`${!available ? html`<p>Native actors need host administrator enrollment before this policy can be saved.</p>` : nothing}
+      ${policyActorSlots.map((slot) => {
+        const choices = this.policyActorChoices(policy, slot);
+        const selected = nativeBindingKey(asObject(policy[slot.field] || {})) || (choices.length === 1 ? nativeBindingKey(choices[0]!) : '');
+        return html`<label>${slot.label}<select name=${slot.field} aria-label=${slot.label}>
+          <option value="" ?selected=${!selected}>Select enrolled actor</option>
+          ${choices.map((ref) => html`<option value=${nativeBindingKey(ref)} ?selected=${nativeBindingKey(ref) === selected}>Actor ${safeText(ref.actor_id)} · token ${safeText(ref.token_id)}</option>`)}
+        </select></label>`;
+      })}`;
   }
 
   private renderProviderControls() {

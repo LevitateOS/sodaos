@@ -119,6 +119,8 @@ impl<E: Executor> Service<E> {
             run.role.clone(),
             container.to_string(),
             "/usr/bin/git".to_string(),
+            "-c".to_string(),
+            format!("safe.directory={}", p.checkout),
             "-C".to_string(),
             p.checkout.clone(),
             "rev-parse".to_string(),

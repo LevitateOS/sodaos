@@ -331,7 +331,9 @@ export interface FeedCommunication {
   title: string;
   summary: string;
   question?: string;
-  questionState?: 'open' | 'answered' | 'replied';
+  questionState?: 'open' | 'answered' | 'replied' | 'incorporated';
+  disposition?: 'applied' | 'refused' | 'incorporated';
+  dispositionReason?: string;
   resolution?: string;
   scope?: string;
   severity?: 'info' | 'warning' | 'critical';
@@ -990,8 +992,15 @@ function parseCommunicationPayload(value: unknown): FeedCommunication {
   if (componentId !== undefined) parsed.componentId = componentId;
   if (replyTo !== undefined) parsed.replyTo = replyTo;
   if (data.question_state !== undefined) {
-    check(data.question_state === 'open' || data.question_state === 'answered' || data.question_state === 'replied');
+    check(data.question_state === 'open' || data.question_state === 'answered' || data.question_state === 'replied' || data.question_state === 'incorporated');
     parsed.questionState = data.question_state;
+  }
+  if (data.disposition !== undefined) {
+    check((kind === 'suggest' && (data.disposition === 'applied' || data.disposition === 'refused')) ||
+      (kind === 'answer' && data.disposition === 'incorporated'));
+    parsed.disposition = data.disposition;
+    const reason = communicationText(data.disposition_reason);
+    if (reason !== undefined) parsed.dispositionReason = reason;
   }
   if (data.severity !== undefined) {
     check(data.severity === 'info' || data.severity === 'warning' || data.severity === 'critical');

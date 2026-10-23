@@ -86,6 +86,46 @@ impl DaemonBackend {
 }
 
 impl ExecBackend for DaemonBackend {
+    fn application_setup(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let request: crate::application::SetupRequest =
+            json::decode_strict_as(body).map_err(|e| internal(e.0))?;
+        let runtime = crate::application::Runtime {
+            exec: project::Native,
+            release: self.canlang_runtime.clone(),
+        };
+        let result = runtime
+            .setup(&request, native_deadline())
+            .map_err(|reason| {
+                let safe: String = reason
+                    .chars()
+                    .take(256)
+                    .flat_map(char::escape_default)
+                    .collect();
+                eprintln!("native application setup failed: {safe}");
+                internal(reason)
+            })?;
+        serde_json::to_vec(&result).map_err(|_| BackendError::Internal)
+    }
+    fn application_snapshots(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let request: crate::application::SnapshotRequest =
+            json::decode_strict_as(body).map_err(|e| internal(e.0))?;
+        let runtime = crate::application::Runtime {
+            exec: project::Native,
+            release: self.canlang_runtime.clone(),
+        };
+        let inventory = runtime
+            .snapshots(&request, native_deadline())
+            .map_err(|reason| {
+                let safe: String = reason
+                    .chars()
+                    .take(256)
+                    .flat_map(char::escape_default)
+                    .collect();
+                eprintln!("native application snapshot failed: {safe}");
+                internal(reason)
+            })?;
+        serde_json::to_vec(&inventory).map_err(|_| BackendError::Internal)
+    }
     fn application(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let request: crate::application::Request =
             json::decode_strict_as(body).map_err(|e| internal(e.0))?;
@@ -205,6 +245,15 @@ impl ExecBackend for DaemonBackend {
             .project_access(&req, native_deadline())
             .map(String::into_bytes)
             .map_err(internal)
+    }
+
+    fn member_access(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let request: crate::account::member::files::Request =
+            crate::json::decode_strict_as(body).map_err(|e| internal(e.0))?;
+        let state = crate::account::member::operate(&self.project, &request, native_deadline())
+            .map_err(internal)?;
+        serde_json::to_vec(&state)
+            .map_err(|_| internal("member access encoding failed".to_string()))
     }
 
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
@@ -345,6 +394,34 @@ impl ExecBackend for DaemonBackend {
         req.validate().map_err(internal)?;
         let out = factory
             .task_events(&req, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        Ok(out.encode().into_bytes())
+    }
+
+    fn factory_checkpoint_receipt(
+        &self,
+        body: &[u8],
+        final_candidate: bool,
+    ) -> Result<Vec<u8>, BackendError> {
+        let factory = self.factory()?;
+        let req = factory::FactoryTaskCheckpoint::decode(body).map_err(internal)?;
+        req.validate(final_candidate).map_err(internal)?;
+        let out = factory
+            .checkpoint_receipt(&req, final_candidate, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        Ok(out.encode().into_bytes())
+    }
+
+    fn factory_task_checkpoint(
+        &self,
+        body: &[u8],
+        final_candidate: bool,
+    ) -> Result<Vec<u8>, BackendError> {
+        let factory = self.factory()?;
+        let req = factory::FactoryTaskCheckpoint::decode(body).map_err(internal)?;
+        req.validate(final_candidate).map_err(internal)?;
+        let out = factory
+            .task_checkpoint(&req, final_candidate, native_deadline())
             .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
         Ok(out.encode().into_bytes())
     }

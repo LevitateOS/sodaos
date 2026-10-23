@@ -271,6 +271,8 @@ func extensionRepositoryFactoryAction(parts []string, method string) bool {
 		return method == http.MethodGet || method == http.MethodPut
 	case "policy", "operator-grant", "environment-grant":
 		return method == http.MethodPut
+	case "repair":
+		return method == http.MethodGet || method == http.MethodPut
 	case "actions":
 		return method == http.MethodPost
 	}
@@ -366,6 +368,9 @@ func extensionEnvironmentRoute(parts []string, method string) bool {
 		return extensionProductID(parts[1]) && extensionEnvironmentActionRoute(parts[2], method)
 	case 4:
 		return extensionEnvironmentIdentityPath(parts, method) || extensionEnvironmentPreparationPath(parts, method)
+	case 5:
+		_, member := auth.PositiveID(parts[3])
+		return extensionProductID(parts[1]) && parts[2] == "members" && member && parts[4] == "access" && (method == http.MethodGet || method == http.MethodPost)
 	}
 	return false
 }

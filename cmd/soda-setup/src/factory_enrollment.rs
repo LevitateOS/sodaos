@@ -15,12 +15,13 @@ const DASHBOARD_PATH: &str = "/etc/soda/dashboard.json";
 const IDENTITY_PATH: &str = "/etc/soda/identity.json";
 const ADMIN_SOCKET: &str = "/run/soda/identity/admin.sock";
 const RUNTIME_SOCKET: &str = "/run/soda/identity/runtime.sock";
-const HOST_SOCKET: &str = "/run/soda/host.sock";
+const HOST_SOCKET: &str = "/run/soda/host/host.sock";
 const CALLBACK_SOCKET: &str = "/ipc/host.sock";
 const CALLBACK_SOURCE: &str = "/run/soda/extension/host.sock";
 const DASHBOARD_FACTORY_DIR: &str = "/etc/soda/factory";
 const PUBLISHER_PAT: &str = "/etc/soda/factory/publisher.pat";
 const REVIEWER_PAT: &str = "/etc/soda/factory/reviewer.pat";
+const RESOLVER_PAT: &str = "/etc/soda/factory/resolver.pat";
 const MERGER_PAT: &str = "/etc/soda/factory/merger.pat";
 const INTAKE_SECRET: &str = "/etc/soda/factory/intake.secret";
 const PUBLICATION_ROOT: &str = "/var/lib/soda/dashboard/publication";
@@ -109,7 +110,7 @@ pub(crate) struct NativeBindings {
     pub(crate) operations: Vec<NativeOperationBinding>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct NativeOperationBinding {
     pub(crate) token_id: i64,
@@ -135,6 +136,7 @@ pub(crate) struct DashboardInputs {
     pub(crate) forgejo_background_host_uid: u32,
     pub(crate) forgejo_background_credential_file: String,
     pub(crate) forgejo_review_credential_file: String,
+    pub(crate) forgejo_resolve_credential_file: String,
     pub(crate) forgejo_merge_credential_file: String,
     pub(crate) factory_intake_secret_file: String,
     pub(crate) factory_publication_root: String,
@@ -171,6 +173,8 @@ pub(crate) struct ProviderSettings {
 #[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 struct ExistingDashboard {
+    #[serde(default)]
+    factory_native_bindings: Vec<NativeOperationBinding>,
     #[serde(default = "default_listen")]
     listen: String,
     forgejo_url: String,
@@ -188,11 +192,23 @@ struct ExistingDashboard {
     #[serde(default)]
     forgejo_review_credential_file: String,
     #[serde(default)]
+    forgejo_resolve_credential_file: String,
+    #[serde(default)]
     forgejo_merge_credential_file: String,
     #[serde(default)]
     factory_intake_secret_file: String,
     #[serde(default)]
     factory_publication_root: String,
+    #[serde(default)]
+    typesafe_api_key_file: String,
+    #[serde(default)]
+    typesafe_model: String,
+    #[serde(default)]
+    forgejo_graph_credential_file: String,
+    #[serde(default)]
+    forgejo_graph_actor_id: i64,
+    #[serde(default)]
+    forgejo_lifecycle_credential_file: String,
 }
 
 fn default_listen() -> String {
@@ -453,6 +469,7 @@ fn validate_factory_mounts(
         && (dashboard.forgejo_background_socket != CALLBACK_SOCKET
             || dashboard.forgejo_background_credential_file != PUBLISHER_PAT
             || dashboard.forgejo_review_credential_file != REVIEWER_PAT
+            || dashboard.forgejo_resolve_credential_file != RESOLVER_PAT
             || dashboard.forgejo_merge_credential_file != MERGER_PAT
             || dashboard.factory_intake_secret_file != INTAKE_SECRET
             || dashboard.factory_publication_root != PUBLICATION_ROOT)
@@ -480,6 +497,10 @@ fn validate_factory_mounts(
         (
             "review credential",
             dashboard.forgejo_review_credential_file.as_str(),
+        ),
+        (
+            "resolve credential",
+            dashboard.forgejo_resolve_credential_file.as_str(),
         ),
         (
             "merge credential",
@@ -661,6 +682,11 @@ fn preflight_factory_actors(
             "reviewer",
             &manifest.dashboard.forgejo_review_credential_file,
             &["pull_request.review.submit"][..],
+        ),
+        (
+            "resolver",
+            &manifest.dashboard.forgejo_resolve_credential_file,
+            &["pull_request.review.thread.resolve"][..],
         ),
         (
             "merger",
@@ -1399,6 +1425,13 @@ fn apply_at(
     let dashboard_path = Path::new(&manifest.target.dashboard_config);
     let identity_path = Path::new(&manifest.target.identity_config);
     let dsn = existing.database_dsn_file;
+    let policy_bindings: Vec<_> = manifest
+        .bindings
+        .operations
+        .iter()
+        .filter(|binding| binding.kind != "issue.graph.mutate")
+        .cloned()
+        .collect();
     let dashboard = crate::config::encode_enrolled_dashboard_config(
         &existing.listen,
         &manifest.target.forgejo_url,
@@ -1411,9 +1444,16 @@ fn apply_at(
         manifest.dashboard.forgejo_background_host_uid,
         &manifest.dashboard.forgejo_background_credential_file,
         &manifest.dashboard.forgejo_review_credential_file,
+        &manifest.dashboard.forgejo_resolve_credential_file,
         &manifest.dashboard.forgejo_merge_credential_file,
         &manifest.dashboard.factory_intake_secret_file,
         &manifest.dashboard.factory_publication_root,
+        &existing.typesafe_api_key_file,
+        &existing.typesafe_model,
+        &existing.forgejo_graph_credential_file,
+        existing.forgejo_graph_actor_id,
+        &existing.forgejo_lifecycle_credential_file,
+        &policy_bindings,
     );
     let identity = serde_json::to_vec(&manifest.identity)
         .map_err(|_| "could not encode identity configuration".to_string())?;
@@ -1550,6 +1590,8 @@ fn validate_bindings(bindings: &NativeBindings) -> Result<(), String> {
                 "git.ref.publish"
                     | "pull_request.create"
                     | "pull_request.review.submit"
+                    | "pull_request.review.thread.resolve"
+                    | "issue.graph.mutate"
                     | "pull_request.merge"
             )
         {
@@ -1614,6 +1656,8 @@ fn parse_native_bindings(output: &str) -> Result<Vec<ExistingNativeBinding>, Str
                         "git.ref.publish"
                             | "pull_request.create"
                             | "pull_request.review.submit"
+                            | "pull_request.review.thread.resolve"
+                            | "issue.graph.mutate"
                             | "pull_request.merge"
                     )
                 })

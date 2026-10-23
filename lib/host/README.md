@@ -9,8 +9,10 @@ execution. This Cargo package supplies the `soda-host` and
 
 Install the service through the [installation guide](../../docs/guides/installation.md).
 On an installed appliance, systemd activates `soda-host` through the restricted
-`/run/soda/host.sock` socket. It is owned by `root:soda` with mode `0660`;
+`/run/soda/host/host.sock` socket. It is owned by `root:soda` with mode `0660`;
 the daemon runs as root. Product clients call its fixed private operation surface.
+The dashboard mounts only the root-owned `/run/soda/host` directory read-only,
+so replacement of the socket remains visible without exposing other runtime IPC.
 
 Read the daemon's available flags or inspect service health:
 
@@ -33,6 +35,16 @@ the appliance's selected runtime changes. Fixture install/replacement requires
 both `--fixture-canlang-runtime sha256:ID` and `--fixture-canlang-tools SHA256`,
 accepted only with `--release=`. The fixed reference guard does not interpret
 application semantics or provider configuration.
+
+Factory Codex can select an explicit native backend catalog with
+`codex_model_catalog` and `codex_model_catalog_sha256` in the host configuration.
+The catalog must be a root-owned, non-writable regular file matching its digest;
+the assigned model must select the native `v1` child backend. The host stages
+the exact catalog read-only outside the checkout and binds its digest, selected
+model/backend and native invocation in private run state before credentials are
+delivered. This is a distinct native profile requiring installed qualification.
+The stock `v2` child stream does not currently expose the accepted task input
+needed for trusted task correlation, so it remains unqualified for task writes.
 
 The `--tailnet-action run|stop --project ID` form operates a project's companion
 lifecycle and is used by the installed service wiring. Preparation failures exit

@@ -48,17 +48,21 @@ func ParseApprovedAppCheck(script []byte) (ApprovedAppCheck, error) {
 	if !found {
 		return manifest, errors.New("approved check does not declare application outcomes")
 	}
+	return manifest, manifest.Validate()
+}
+
+func (manifest ApprovedAppCheck) Validate() error {
 	if !project.ValidDecisionID(manifest.IntentID) || !project.ValidDecisionID(manifest.AcceptedRevision) || len(manifest.Outcomes) == 0 || len(manifest.Outcomes) > MCPMaxManifestOutcomes {
-		return manifest, errors.New("approved app verification manifest lacks its accepted scope")
+		return errors.New("approved app verification manifest lacks its accepted scope")
 	}
 	seen := map[string]bool{}
 	for _, outcome := range manifest.Outcomes {
 		if !project.ValidDecisionID(outcome) || seen[outcome] {
-			return manifest, errors.New("invalid or duplicate approved application outcome")
+			return errors.New("invalid or duplicate approved application outcome")
 		}
 		seen[outcome] = true
 	}
-	return manifest, nil
+	return nil
 }
 
 func (m ApprovedAppCheck) Digest() string {

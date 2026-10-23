@@ -162,6 +162,7 @@ type AttemptAllowance struct {
 	// on positive issues and alongside Completion.
 	Intent         *IntentAttemptScope `json:"intent,omitempty"`
 	Delivery       *DeliverySubject    `json:"delivery,omitempty"`
+	Stall          *StallSubject       `json:"stall,omitempty"`
 	RootAssignment string              `json:"root_assignment"`
 	Repository     int64               `json:"repository,string"`
 	Issue          int64               `json:"issue,string"`
@@ -177,6 +178,12 @@ func (a AttemptAllowance) Validate() error {
 		return errors.New("invalid attempt allowance binding")
 	}
 	if a.Issue == 0 {
+		if a.Stall != nil {
+			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+				return errors.New("stall repair allowance carries only its bounded investigator time")
+			}
+			return nil
+		}
 		if a.Delivery != nil {
 			if a.Intent != nil || a.Completion != nil || a.Delivery.Validate() != nil {
 				return errors.New("delivery allowance requires its single exact delivery subject")
@@ -196,6 +203,9 @@ func (a AttemptAllowance) Validate() error {
 	}
 	if a.Completion != nil {
 		return errors.New("issue attempt allowance carries no completion subject")
+	}
+	if a.Stall != nil {
+		return errors.New("issue allowance carries no stall repair subject")
 	}
 	if a.Delivery != nil {
 		return errors.New("issue attempt allowance carries no delivery subject")

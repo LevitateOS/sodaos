@@ -15,6 +15,7 @@
 
 #[path = "../project_account.rs"]
 mod project_account;
+use project_account::member_access as project_member_access;
 
 use project_account::{
     parse_privilege_request, parse_request, project_privilege_status, provision, Config,
@@ -149,7 +150,31 @@ fn run() -> i32 {
     // fixed status argument selects a read-only path; every other argument
     // refuses before it can reach the provisioning path.
     let mut args = std::env::args_os().skip(1);
-    let status_mode = match args.next() {
+    let first = args.next();
+    if first.as_deref() == Some(std::ffi::OsStr::new("--access")) && args.next().is_none() {
+        if unsafe { libc::geteuid() } != 0 {
+            return fail();
+        }
+        let Some(body) = read_request(4096) else {
+            return fail();
+        };
+        let request: project_member_access::Request = match serde_json::from_slice(&body) {
+            Ok(v) => v,
+            Err(_) => return fail(),
+        };
+        let result = project_member_access::operate(std::path::Path::new("/"), &request, true);
+        let Ok(state) = result else { return fail() };
+        let Ok(mut line) = serde_json::to_vec(&state) else {
+            return fail();
+        };
+        line.push(b'\n');
+        return if std::io::stdout().lock().write_all(&line).is_ok() {
+            0
+        } else {
+            fail()
+        };
+    }
+    let status_mode = match first {
         None => false,
         Some(first) if first == "--status" && args.next().is_none() => true,
         Some(_) => return fail(),

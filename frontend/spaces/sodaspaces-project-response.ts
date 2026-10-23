@@ -52,6 +52,8 @@ export function environmentResponse(value: unknown, repositoryId: string): Envir
   };
 }
 export interface Detail {
+  access_held?: boolean;
+  rejoin_required?: boolean;
   terminal_support: SupportState;
   environment: Environment & {provisioned: boolean};
   login: string;
@@ -81,6 +83,8 @@ export function detailResponse(value: unknown, environment: Environment): Detail
     observed = {id: environment.id, running: state.running};
   }
   return {
+    access_held: data.access_held === true,
+    rejoin_required: data.rejoin_required === true,
     terminal_support: supportObservation(data.terminal_support),
     environment: {...environmentResponse(env, environment.repository_id), provisioned: env.provisioned},
     login: data.login,

@@ -71,6 +71,11 @@ func (c *Coordinator) reconcilePublishedPublication(ctx context.Context, p facto
 		return
 	}
 	c.reconcileRecordedReviews(ctx, &p, report)
+	for index := range p.ResolutionOperations {
+		if err := c.reconcileDeliveryResolution(ctx, &p, index, false); err != nil {
+			publicationWait(report, p.ID, "resolution_pending")
+		}
+	}
 	corrections := CorrectionReport{}
 	c.reconcileRecordedCorrection(ctx, &p, a, &corrections)
 	reportCorrectionOutcomes(report, &corrections)

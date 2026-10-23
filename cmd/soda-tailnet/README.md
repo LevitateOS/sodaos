@@ -23,7 +23,7 @@ go run ./cmd/soda-tailnet
 
 The command takes no options and ignores extra arguments. It queries
 the existing private `soda-host` settings view with a two-second deadline.
-The caller needs access to `/run/soda/host.sock`.
+The caller needs access to `/run/soda/host/host.sock`.
 
 ## Read the output
 

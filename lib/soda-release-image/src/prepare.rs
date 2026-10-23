@@ -115,6 +115,18 @@ impl PreparedWriter {
             0o644,
             false,
         )?;
+        self.copy_file(
+            "system/host/selinux/soda_factory_io.te",
+            "selinux/soda_factory_io.te",
+            0o644,
+            false,
+        )?;
+        self.copy_file(
+            "system/host/selinux/soda_factory_io.fc",
+            "selinux/soda_factory_io.fc",
+            0o644,
+            false,
+        )?;
         // Bare names only: the install floats on current repositories and the
         // built image's inventory is recorded as the bill-of-materials.
         // Nothing here pins versions. The thin host carries no Tailscale

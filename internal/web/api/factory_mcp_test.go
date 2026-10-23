@@ -72,7 +72,7 @@ type fakeCatalogSink struct {
 
 func newFakeCatalogSink() *fakeCatalogSink {
 	capability := fakeCatalogCapability()
-	return &fakeCatalogSink{
+	sink := &fakeCatalogSink{
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
 		receipts:    map[string]factory.PriorityReceipt{},
@@ -86,6 +86,18 @@ func newFakeCatalogSink() *fakeCatalogSink {
 			},
 		},
 	}
+	assignment := sink.assignments[capability.AssignmentID]
+	request, _ := control.ContextBundleRequest(capability, assignment, false, false)
+	sink.capability.ContextSelectionSnapshot = request.Snapshot
+	answer := factory.PriorityAnswer{Selected: factory.ContextBundleCurrent, Confidence: 1, Model: "qualified-http-fixture", Probabilities: map[string]float64{factory.ContextBundleCurrent: 1, factory.ContextBundleSnapshotHold: 0}}
+	sink.receipts[request.Snapshot] = factory.PriorityReceipt{Snapshot: request.Snapshot, Purpose: factory.JudgmentContextBundle, Outcome: "context-bundle", Selected: answer.Selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
+	return sink
+}
+
+// HTTP catalog fixtures model an already-qualified upstream input owner.
+// Real source/grant/producer cases use *store.Store in the bound PG fixture.
+func (f *fakeCatalogSink) FactoryCurrentContext(_ context.Context, cap factory.MCPCapability, _ time.Time) (factory.CurrentContext, error) {
+	return factory.CurrentContext{Version: "context-current-v1", Evidence: factory.CurrentContextEvidence{RequiredStreams: []string{"required_current"}, Availability: "complete", MissingReasons: []string{}}, Role: factory.CurrentRoleContext{Kind: cap.Profile, Submissions: []factory.CurrentSubmissionReceipt{}}}, nil
 }
 
 func (f *fakeCatalogSink) FactoryRun(_ context.Context, id string) (factory.Run, error) {
@@ -703,8 +715,9 @@ func TestFactoryCatalogContextServesAttemptBundle(t *testing.T) {
 	stored := sink.assignments[sink.capability.AssignmentID]
 	stored.RunHistory = []string{"run-1", "run-2"}
 	sink.assignments[sink.capability.AssignmentID] = stored
+	storeSelectionReceipt(t, sink, stored, true, false, factory.ContextBundleAttempt)
 	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink},
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
@@ -747,12 +760,16 @@ func TestFactoryCatalogContextServesLineageBundle(t *testing.T) {
 	parentID := factory.NewID()
 	stored := sink.assignments[sink.capability.AssignmentID]
 	stored.ParentAssignment = parentID
+	stored.ActorID = 7
+	stored.Repository, stored.ProjectID = sink.capability.Repository, sink.capability.Project
+	stored.AttemptRoot = stored.ID
 	sink.assignments[sink.capability.AssignmentID] = stored
 	sink.assignments[parentID] = factory.Assignment{
-		ID: parentID, Outcome: factory.Succeeded, Reason: "parent settled",
+		ID: parentID, ActorID: 7, Repository: stored.Repository, ProjectID: stored.ProjectID, AttemptRoot: stored.AttemptRoot, Outcome: factory.Succeeded, Reason: "parent settled",
 	}
+	storeSelectionReceipt(t, sink, stored, false, true, factory.ContextBundleLineage)
 	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
+		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink},
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
@@ -846,14 +863,25 @@ func serveContextBody(t *testing.T, sink *fakeCatalogSink) map[string]any {
 
 func storeSelectionReceipt(t *testing.T, sink *fakeCatalogSink, assignment factory.Assignment, attemptEligible, lineageEligible bool, selected string) {
 	t.Helper()
-	fingerprint, err := control.ContextBundleFingerprint(sink.capability, assignment, attemptEligible, lineageEligible)
+	request, err := control.ContextBundleRequest(sink.capability, assignment, attemptEligible, lineageEligible)
 	if err != nil {
 		t.Fatalf("selection fingerprint: %v", err)
 	}
-	sink.receipts[fingerprint] = factory.PriorityReceipt{
-		Snapshot: fingerprint, Purpose: factory.JudgmentContextBundle,
-		Outcome: "context-bundle", Selected: selected,
+	fingerprint := request.Snapshot
+	sink.capability.ContextSelectionSnapshot = fingerprint
+	options := []string{factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold}
+	if attemptEligible {
+		options = append(options, factory.ContextBundleAttempt)
 	}
+	if lineageEligible {
+		options = append(options, factory.ContextBundleLineage)
+	}
+	answer := factory.PriorityAnswer{Selected: selected, Model: "fixture", Confidence: 1, Probabilities: map[string]float64{}}
+	for _, option := range options {
+		answer.Probabilities[option] = 0
+	}
+	answer.Probabilities[selected] = 1
+	sink.receipts[fingerprint] = factory.PriorityReceipt{Snapshot: fingerprint, Purpose: factory.JudgmentContextBundle, Outcome: "context-bundle", Selected: selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
 }
 
 // TestFactoryCatalogContextForegroundsRecordedCurrent proves a
@@ -900,8 +928,11 @@ func TestFactoryCatalogContextForegroundsRecordedLineage(t *testing.T) {
 	parentID := factory.NewID()
 	stored := sink.assignments[sink.capability.AssignmentID]
 	stored.ParentAssignment = parentID
+	stored.ActorID = 7
+	stored.Repository, stored.ProjectID = sink.capability.Repository, sink.capability.Project
+	stored.AttemptRoot = stored.ID
 	sink.assignments[sink.capability.AssignmentID] = stored
-	sink.assignments[parentID] = factory.Assignment{ID: parentID, Outcome: factory.Succeeded}
+	sink.assignments[parentID] = factory.Assignment{ID: parentID, ActorID: 7, Repository: stored.Repository, ProjectID: stored.ProjectID, AttemptRoot: stored.AttemptRoot, Outcome: factory.Succeeded}
 	storeSelectionReceipt(t, sink, stored, false, true, factory.ContextBundleLineage)
 	body := serveContextBody(t, sink)
 	if _, ok := body["lineage"]; !ok {
@@ -914,7 +945,7 @@ func TestFactoryCatalogContextForegroundsRecordedLineage(t *testing.T) {
 
 // TestFactoryCatalogContextIgnoresForeignReceipt proves a receipt
 // recorded for another purpose never foregrounds context: the widest
-// eligible bundle serves instead.
+// eligible history is withheld with a hold instead.
 func TestFactoryCatalogContextIgnoresForeignReceipt(t *testing.T) {
 	sink := newFakeCatalogSink()
 	stored := sink.assignments[sink.capability.AssignmentID]
@@ -929,11 +960,11 @@ func TestFactoryCatalogContextIgnoresForeignReceipt(t *testing.T) {
 		Outcome: "consolidation", Selected: "a",
 	}
 	body := serveContextBody(t, sink)
-	if _, ok := body["attempt"]; !ok {
-		t.Fatalf("foreign receipt narrowed context: %v", body)
+	if _, ok := body["attempt"]; ok {
+		t.Fatalf("foreign receipt broadened context: %v", body)
 	}
-	if body["bundle"] != factory.ContextBundleAttempt {
-		t.Fatalf("bundle=%v, want attempt", body["bundle"])
+	if body["bundle"] != factory.ContextBundleCurrent {
+		t.Fatalf("bundle=%v, want current", body["bundle"])
 	}
 }
 
@@ -946,11 +977,11 @@ func TestFactoryCatalogContextIgnoresUnknownSelection(t *testing.T) {
 	sink.assignments[sink.capability.AssignmentID] = stored
 	storeSelectionReceipt(t, sink, stored, true, false, "invented")
 	body := serveContextBody(t, sink)
-	if _, ok := body["attempt"]; !ok {
-		t.Fatalf("unknown selection narrowed context: %v", body)
+	if _, ok := body["attempt"]; ok {
+		t.Fatalf("unknown selection broadened context: %v", body)
 	}
-	if body["bundle"] != factory.ContextBundleAttempt {
-		t.Fatalf("bundle=%v, want attempt", body["bundle"])
+	if body["bundle"] != factory.ContextBundleCurrent {
+		t.Fatalf("bundle=%v, want current", body["bundle"])
 	}
 }
 
@@ -1134,6 +1165,7 @@ func TestFactoryCatalogEvidenceRefusesUnresolvableRun(t *testing.T) {
 func TestFactoryCatalogManifestGate(t *testing.T) {
 	sink := newFakeCatalogSink()
 	sink.capability.Profile = factory.MCPProfileProductLead
+	storeSelectionReceipt(t, sink, sink.assignments[sink.capability.AssignmentID], false, false, factory.ContextBundleCurrent)
 	server := &factoryCatalogServer{
 		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
 		limiter: newMCPRateLimiter(),

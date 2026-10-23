@@ -14,9 +14,12 @@ pub const BODY_LIMIT_IDENTITY: usize = 384 << 10;
 /// Native paths that MUST arrive without query string or escapes
 /// (Go: `r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""`).
 pub const NATIVE_CLEAN_PATHS: &[&str] = &[
+    "/application/snapshots",
     "/application",
+    "/application/setup",
     "/lifecycle",
     "/project-access",
+    "/member-access",
     "/terminal-support",
     "/access-keys",
     "/profile",
@@ -34,6 +37,10 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/factory-takeover",
     "/factory-output",
     "/factory-task-events",
+    "/factory-task-checkpoint",
+    "/factory-final-candidate",
+    "/factory-task-checkpoint-receipt",
+    "/factory-final-candidate-receipt",
     "/factory-harness",
     "/factory-export",
     "/factory-candidate-inspect",
@@ -43,7 +50,10 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
 /// (Go: `isAdmittedMutationPath`). `/create` owns the same gate inside its
 /// dispatch instead, and factory routes stay off it (per-run locks govern).
 pub const ADMITTED_MUTATION_PATHS: &[&str] = &[
+    "/application/snapshots",
+    "/member-access",
     "/application",
+    "/application/setup",
     "/lifecycle",
     "/access-keys",
     "/account",

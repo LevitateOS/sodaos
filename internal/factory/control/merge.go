@@ -105,6 +105,9 @@ func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
 		return report
 	}
 	for _, p := range mergeable {
+		if updated, _, err := c.recordCleanDeliveryAcceptance(ctx, p); err == nil {
+			p = updated
+		}
 		// Merge rows open only behind a passing verdict on the exact
 		// current head and base (the review-cycle rule): opening one
 		// early would strand the publication, since assessed checks

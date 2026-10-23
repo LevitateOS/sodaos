@@ -312,6 +312,12 @@ func (c *Coordinator) recheckPlanChoiceAfterComparison(ctx context.Context, r fa
 // re-prove the binding after slow external reads. Generations without
 // a stamped binding fail closed; provenance cannot be attached later.
 func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.IntentGeneration) (*DispatchWait, error) {
+	if g.RepairCycle != "" {
+		return c.validateStallRepairGeneration(ctx, g)
+	}
+	if g.ReassessmentCycle != "" {
+		return c.validateReassessmentGeneration(ctx, g)
+	}
 	if g.PlanAssignment == "" {
 		return nil, errors.New("generation carries no recorded plan binding")
 	}

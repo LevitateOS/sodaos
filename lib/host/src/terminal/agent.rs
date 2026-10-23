@@ -21,6 +21,8 @@ pub struct Service<E> {
     pub codex_harness: String,
     pub codex_harness_sha256: String,
     pub codex_harness_version: String,
+    pub codex_model_catalog: String,
+    pub codex_model_catalog_sha256: String,
     pub muse_harness: String,
     pub muse_harness_sha256: String,
     pub muse_harness_version: String,

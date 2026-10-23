@@ -108,6 +108,7 @@ type PlanTaskReceipt struct {
 	Revision     int64    `json:"revision"`
 	State        string   `json:"state"`
 	Child        string   `json:"child,omitempty"`
+	Parent       bool     `json:"parent,omitempty"`
 	InputDigest  string   `json:"input_digest,omitempty"`
 	OutputDigest string   `json:"output_digest,omitempty"`
 	Events       []string `json:"events,omitempty"`
@@ -160,6 +161,12 @@ func (r PlanTaskReceipt) validateTaskIdentity() error {
 // child; every other active or terminal state carries its native child
 // identity.
 func (r PlanTaskReceipt) validateTaskChild() error {
+	if r.Parent {
+		if r.Child != "" {
+			return errors.New("singleton parent task cannot carry a child")
+		}
+		return nil
+	}
 	if r.State == PlanTaskPending {
 		if r.Child != "" {
 			return errors.New("pending plan task has no child")
@@ -463,14 +470,40 @@ func (s *Store) AdmitPlanHead(ctx context.Context, attemptRoot string, current P
 // zero. An identical replay commits nothing and succeeds; a write against a
 // superseded revision fails without touching the stored receipt.
 func (s *Store) SavePlanTaskReceipt(ctx context.Context, receipt PlanTaskReceipt) error {
-	if err := receipt.Validate(); err != nil {
-		return err
+	return s.SavePlanTaskReceipts(ctx, []PlanTaskReceipt{receipt})
+}
+
+// SavePlanTaskReceipts commits one verified journal page as a single unit.
+// In particular run_stopped must not advance its receipt-derived cursor until
+// every affected task cancellation has committed. Revisions are the CAS bases
+// of each ordered transition, including repeated changes to the same task.
+func (s *Store) SavePlanTaskReceipts(ctx context.Context, receipts []PlanTaskReceipt) error {
+	if len(receipts) == 0 {
+		return nil
+	}
+	if len(receipts) > 3*factory.MaxPlanTasks+64 {
+		return errors.New("task receipt page exceeds its bound")
+	}
+	for _, receipt := range receipts {
+		if err := receipt.Validate(); err != nil {
+			return err
+		}
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	for _, receipt := range receipts {
+		if err := savePlanTaskReceiptTx(ctx, tx, receipt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func savePlanTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskReceipt) error {
+	var err error
 	if err = planForTaskReceiptTx(ctx, tx, receipt); err != nil {
 		return err
 	}
@@ -519,7 +552,7 @@ func insertPendingTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTas
 		receipt.AttemptRoot, receipt.PlanID, receipt.TaskID, receipt.Revision, receipt.State, string(data)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 // advanceTaskReceiptTx moves one recorded task receipt forward under
@@ -535,10 +568,13 @@ func advanceTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskRecei
 	if stored.Revision != storedRevision {
 		return errors.New("plan task receipt revision mismatch")
 	}
+	if stored.Parent != receipt.Parent || stored.Child != "" && stored.Child != receipt.Child {
+		return ErrPlanTaskTransition
+	}
 	replay := receipt
 	replay.Revision = storedRevision
 	if reflect.DeepEqual(stored, replay) {
-		return tx.Commit()
+		return nil
 	}
 	if !validPlanTaskTransition(stored.State, receipt.State) {
 		return ErrPlanTaskTransition
@@ -564,7 +600,7 @@ func advanceTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskRecei
 	if n != 1 {
 		return ErrStaleRevision
 	}
-	return tx.Commit()
+	return nil
 }
 
 // checkPlanTaskRefs verifies the receipt names a task the stored plan

@@ -20,6 +20,7 @@ factory credentials or run authority to a human project configuration.
 | `host_socket` | Unix socket path for the privileged host helper |
 | `identity_socket` | Private identity broker administration socket |
 | `operator_id` | Stable Forgejo user ID recorded at setup |
+| `factory_native_bindings` | Nonsecret repository/token/actor/operation references selected and verified by native Factory enrollment. The repository settings form offers these references before a first policy exists. They supply no grant; native operation admission still checks current binding and permissions. |
 | `forgejo_graph_credential_file`, `forgejo_graph_actor_id` | Paired absolute restricted secret-file path and separately enrolled native service actor for bounded issue graph operations. Requires the existing background service admission inputs. Current human intent-owner code-write permission remains independently checked. The native token must grant `read:user`, `write:repository` and `read:issue`: submission and owner proofs need the first two, adoption snapshot reads need `read:issue`, and snapshot reads ride only enrolled token bindings. |
 | `typesafe_api_key_file` | Absolute server-only key file, regular and accessible only to its owner; never delivered to Projects or browser inputs. |
 | `typesafe_model` | System One classifier model; defaults to `jev-latest`. |

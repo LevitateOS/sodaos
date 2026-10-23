@@ -81,16 +81,20 @@ func (s *Store) LibrarySearch(ctx context.Context, repository int64, query, kind
 // complete inventory. Stale inputs refuse: an invalid cursor, kind or
 // repository errors instead of returning a silently partial page.
 func (s *Store) LibraryInventory(ctx context.Context, repository int64, kind, cursor string, includeRemoved bool) (factory.LibraryInventory, error) {
+	return libraryInventory(ctx, s.db, repository, kind, cursor, includeRemoved)
+}
+
+func libraryInventory(ctx context.Context, q libraryQuerier, repository int64, kind, cursor string, includeRemoved bool) (factory.LibraryInventory, error) {
 	out := factory.LibraryInventory{Items: []factory.LibraryItem{}, Complete: true}
 	if repository < 1 || (cursor != "" && !factory.ValidID(cursor)) || (kind != "" && kind != "knowledge" && kind != "decision") {
 		return out, errors.New("invalid library inventory")
 	}
 	var total int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3)`, repository, includeRemoved, kind).Scan(&total); err != nil {
+	if err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3)`, repository, includeRemoved, kind).Scan(&total); err != nil {
 		return out, err
 	}
 	out.Total = total
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3) AND id>$4 ORDER BY id LIMIT 51`, repository, includeRemoved, kind, cursor)
+	rows, err := q.QueryContext(ctx, `SELECT data FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3) AND id>$4 ORDER BY id LIMIT 51`, repository, includeRemoved, kind, cursor)
 	if err != nil {
 		return out, err
 	}
@@ -119,7 +123,7 @@ func (s *Store) LibraryInventory(ctx context.Context, repository int64, kind, cu
 	if len(out.Items) == 0 {
 		return out, nil
 	}
-	revRows, err := s.db.QueryContext(ctx, `SELECT item,COUNT(*) FROM factory_library_revisions WHERE repository=$1 GROUP BY item`, repository)
+	revRows, err := q.QueryContext(ctx, `SELECT item,COUNT(*) FROM factory_library_revisions WHERE repository=$1 GROUP BY item`, repository)
 	if err != nil {
 		return out, err
 	}
@@ -136,7 +140,7 @@ func (s *Store) LibraryInventory(ctx context.Context, repository int64, kind, cu
 	if err = revRows.Err(); err != nil {
 		return out, err
 	}
-	idRows, err := s.db.QueryContext(ctx, `SELECT id,removed FROM factory_library_items WHERE repository=$1`, repository)
+	idRows, err := q.QueryContext(ctx, `SELECT id,removed FROM factory_library_items WHERE repository=$1`, repository)
 	if err != nil {
 		return out, err
 	}
@@ -474,10 +478,20 @@ func recordMCPLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabili
 		content.Items = append(content.Items, factory.FeedCommunicationItem{Label: item.Title, Detail: item.ID + " · revision " + strconv.FormatInt(item.Revision, 10), State: state})
 	}
 	if len(items) > 0 {
-		content.LibraryItemID = items[0].ID
-		content.LibraryRevision = items[0].Revision
-		receipt.LibraryItemID = items[0].ID
-		receipt.LibraryRevision = items[0].Revision
+		primary := items[0]
+		// Split and consolidate retain removed source revisions alongside
+		// active replacements. The primary receipt links an active result;
+		// random item-ID ordering must not sometimes select its retired source.
+		for _, item := range items {
+			if !item.Removed {
+				primary = item
+				break
+			}
+		}
+		content.LibraryItemID = primary.ID
+		content.LibraryRevision = primary.Revision
+		receipt.LibraryItemID = primary.ID
+		receipt.LibraryRevision = primary.Revision
 		refs := make([]factory.LibraryRef, 0, len(items))
 		changed := make(map[string]bool, len(items))
 		for _, item := range items {

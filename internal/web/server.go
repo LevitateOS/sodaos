@@ -99,6 +99,9 @@ func New(c config.Config, db *store.Store) *Server {
 		if c.ForgejoReviewCredentialFile != "" {
 			s.Coordinator.Reviews = forgejo.NewReviewer(background, client, c.ForgejoReviewCredentialFile)
 		}
+		if c.ForgejoResolveCredentialFile != "" {
+			s.Coordinator.Resolutions = forgejo.NewResolver(background, client, c.ForgejoResolveCredentialFile)
+		}
 		if c.ForgejoMergeCredentialFile != "" {
 			s.Coordinator.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile)
 			s.Coordinator.Checks = forgejo.NewCheckAssessor(background, client, c.ForgejoMergeCredentialFile)

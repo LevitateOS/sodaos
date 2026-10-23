@@ -812,6 +812,10 @@ type ReassessmentCoverage struct {
 }
 
 func (v ReassessmentCoverage) validate() error {
+	return v.validateCoverage(false)
+}
+
+func (v ReassessmentCoverage) validateCoverage(repair bool) error {
 	if !project.ValidDecisionID(v.IntentID) || !project.ValidDecisionID(v.OutcomeID) {
 		return errors.New("invalid reassessment coverage identity")
 	}
@@ -825,7 +829,7 @@ func (v ReassessmentCoverage) validate() error {
 		}
 		seen[key] = true
 	}
-	if len(v.DeliveredAcceptanceIDs) == 0 || len(v.DeliveredAcceptanceIDs) > MaxPlanTasks {
+	if (!repair && len(v.DeliveredAcceptanceIDs) == 0) || len(v.DeliveredAcceptanceIDs) > MaxPlanTasks {
 		return errors.New("reassessment coverage acceptances outside their bound")
 	}
 	for _, id := range v.DeliveredAcceptanceIDs {
@@ -1050,33 +1054,46 @@ func sortedUniqueIndexes(indexes []int64) bool {
 }
 
 // AccountingHolds enforces the exactly-once inventory rule: with a
-// sealed inventory of inventorySize issues (1-based indexes, possibly
-// zero for an empty inventory), every issue appears exactly once in the
+// sealed inventory of exact native issue indexes, every issue appears exactly once in the
 // retained set or the deterministically derived changed/retired set from
 // the proposed graphs, and every referenced issue belongs to that sealed
 // inventory or its explicit delivered context. FW32 derives changed from
 // the applied native packets; this joint checks the accounting.
-func (r ReassessmentReport) AccountingHolds(inventorySize int, changed []int64) error {
-	if inventorySize < 0 || inventorySize > MaxReassessmentIssues {
+func (r ReassessmentReport) AccountingHolds(inventory []int64, changed []int64) error {
+	return repairAccountingHolds(r.RetainedIssueIndexes, r.Attention, inventory, changed)
+}
+
+func (r StallRepairReport) AccountingHolds(inventory []int64, changed []int64) error {
+	return repairAccountingHolds(r.RetainedIssueIndexes, r.Attention, inventory, changed)
+}
+
+func repairAccountingHolds(retained []int64, attention []ReassessmentAttentionEntry, inventory []int64, changed []int64) error {
+	if len(inventory) > MaxReassessmentIssues || !sortedUniqueIndexes(inventory) {
 		return errors.New("invalid reassessment inventory size")
+	}
+	for _, index := range inventory {
+		if index < 1 {
+			return errors.New("invalid reassessment inventory issue")
+		}
 	}
 	if !sortedUniqueIndexes(changed) {
 		return errors.New("reassessment changed issues are not sorted unique")
 	}
-	if len(r.RetainedIssueIndexes)+len(changed) != inventorySize {
+	if len(retained)+len(changed) != len(inventory) {
 		return errors.New("reassessment accounting misses inventory issues")
 	}
-	merged := make([]int64, 0, inventorySize)
-	merged = append(merged, r.RetainedIssueIndexes...)
+	merged := make([]int64, 0, len(inventory))
+	merged = append(merged, retained...)
 	merged = append(merged, changed...)
 	sort.Slice(merged, func(i, j int) bool { return merged[i] < merged[j] })
 	for i, index := range merged {
-		if index != int64(i+1) {
+		if index != inventory[i] {
 			return errors.New("reassessment accounting misses inventory issues")
 		}
 	}
-	for _, item := range r.Attention {
-		if item.IssueIndex > int64(inventorySize) {
+	for _, item := range attention {
+		i := sort.Search(len(inventory), func(i int) bool { return inventory[i] >= item.IssueIndex })
+		if i == len(inventory) || inventory[i] != item.IssueIndex {
 			return errors.New("reassessment attention names an unsealed issue")
 		}
 	}

@@ -348,6 +348,7 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	if err := cycle.Validate(); err != nil {
 		t.Fatalf("child cycle invalid: %v", err)
 	}
+	a.ReviewContext = &factory.CurrentReviewContext{Publication: factory.CurrentPublicationContext{ID: stored.ID, AssignmentID: stored.AssignmentID, Revision: stored.Revision, PRID: stored.PRID, PRNumber: stored.PRNumber, Stage: stored.Stage}, AdmittedTuple: factory.CandidateTuple{Head: source, Base: stored.PRCreate.BaseOID, DiffBase: stored.CurrentDiffBase(), Revision: stored.NativeRev}, Cycle: cycle, CarriedFindings: []factory.Finding{}}
 	stored.ReviewCycles = append(stored.ReviewCycles, cycle)
 	stored.Revision++
 	if err := fx.db.UpdatePublication(ctx, stored); err != nil {

@@ -13,6 +13,92 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
+// The authenticated correction terminal must retain its whole typed report
+// through the PostgreSQL finish/receipt transaction. Changed or omitted keys
+// fence rather than silently dropping dispositions through the legacy mapper.
+func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
+	db, dsn := postgresFixture(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	sqlDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	for index, malformed := range []bool{false, true} {
+		a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, false)
+		a.Issue, a.Subject.Issue.Issue = int64(11+index), int64(11+index)
+		finding := correctionTestFinding(1, true, factory.FindingFixCode)
+		digest, err := factory.FindingSetDigest([]string{finding.Key})
+		if err != nil {
+			t.Fatal(err)
+		}
+		cycle := factory.ReviewCycle{PublicationID: factory.NewID(), AttemptRoot: a.AttemptRoot, Phase: project.ExecutionCorrect, Head: a.SourceCommit, BaseOID: strings.Repeat("b", 40), FindingDigest: digest, ReviewerAssignment: factory.NewID(), CorrectionAssignment: a.ID, Round: 1, TriggerDecision: "correction", TriggerReason: "answer the observed finding"}
+		cycle.ID = factory.ReviewCycleID(cycle.PublicationID, cycle.AttemptRoot, cycle.Round, cycle.Phase)
+		a.ReviewContext = &factory.CurrentReviewContext{Publication: factory.CurrentPublicationContext{ID: cycle.PublicationID, AssignmentID: a.PublicationAssignment}, AdmittedTuple: factory.CandidateTuple{Head: a.SourceCommit, Base: cycle.BaseOID, DiffBase: cycle.BaseOID, Revision: 1}, Cycle: cycle, CarriedFindings: []factory.Finding{finding}}
+		if err := a.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sqlDB.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		run := phaseTestRun(a, "")
+		run.Image = "sha256:" + strings.Repeat("c", 64)
+		if err := db.RecordFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		staged := testMCPCapability()
+		staged.AssignmentID, staged.Profile, staged.State = a.ID, factory.MCPProfileFixer, factory.MCPCapabilityStaged
+		if err := db.StageMCPCapability(ctx, staged); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.ActivateMCPCapability(ctx, staged.ID, staged.Generation, staged.RunID, staged.AssignmentID, staged.Authority, time.Now().Unix(), false); err != nil {
+			t.Fatal(err)
+		}
+		capability, err := db.GetMCPCapability(ctx, staged.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key, candidate := finding.Key, strings.Repeat("8", 40)
+		if malformed {
+			key = factory.NewID()
+		}
+		evidence := []factory.CorrectionFixEvidence{{Key: finding.Key, ChangedPaths: []string{"native-proof.txt"}, Commits: []string{candidate}}}
+		payload, err := json.Marshal(map[string]any{"finding_digest": digest, "candidate": candidate, "dispositions": []factory.CorrectionDisposition{{Key: key, Disposition: factory.DispositionFixed}}, "fix_evidence": evidence, "evidence_refs": []string{"native checkpoint"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		submission := testMCPSubmission(capability, factory.MCPToolFinishCorrection, factory.NewID(), payload)
+		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+			t.Fatal(err)
+		}
+		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
+			mapped, note, handled, mapErr := mapMCPTerminalFinish(a, submission, time.Now())
+			receipt, found, receiptErr := db.TerminalMCPProposal(ctx, a.ID)
+			t.Fatalf("correction case=%d settlement=%v err=%v map=%v/%v/%s outcome=%s result=%+v receipt=%+v/%v/%v", index, settled, err, handled, mapErr, note, mapped.Outcome, mapped.Result, receipt, found, receiptErr)
+		}
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if malformed {
+			if finished.Outcome != factory.NeedsHuman {
+				t.Fatal("foreign finding key did not fence")
+			}
+		} else if finished.Outcome != factory.Succeeded || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Correction == nil || finished.Result.Candidate != candidate || len(finished.Result.PhaseResult.Output.Correction.Evidence) != 1 || finished.Result.PhaseResult.Output.Correction.Findings[0].Defect != finding.Defect {
+			t.Fatalf("typed correction report lost: %+v", finished)
+		}
+		receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+		if err != nil || receipt.State != factory.MCPReceiptAccepted {
+			t.Fatalf("correction receipt: %+v err=%v", receipt, err)
+		}
+	}
+}
+
 // TestSettleMCPTerminalsPGDrive proves the coordinator drive against
 // real PostgreSQL (SODA_PG_*; skips without it): a recorded FW40
 // review terminal behind a persisted assigned assignment finishes

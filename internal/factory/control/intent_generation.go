@@ -280,6 +280,10 @@ func (c *Coordinator) submitAcceptedGeneration(ctx context.Context, r factory.In
 	} else if record, g, err = c.submitUnobservedGeneration(ctx, r, g, validate, lookup); err != nil {
 		return g, err
 	}
+	return c.recordAcceptedGenerationOutcome(ctx, g, record)
+}
+
+func (c *Coordinator) recordAcceptedGenerationOutcome(ctx context.Context, g factory.IntentGeneration, record sdk.OperationRecord) (factory.IntentGeneration, error) {
 	switch record.EffectState {
 	case sdk.EffectCommitted:
 		g.State = "committed"
@@ -290,7 +294,7 @@ func (c *Coordinator) submitAcceptedGeneration(ctx context.Context, r factory.In
 	default:
 		return g, errors.New("native graph effect is unresolved")
 	}
-	if err = c.Store.RecordIntentGeneration(ctx, g); err != nil {
+	if err := c.Store.RecordIntentGeneration(ctx, g); err != nil {
 		return g, err
 	}
 	if g.State == "refused" {
@@ -564,6 +568,17 @@ func (a *intentAdoption) adoptExistingBindings() error {
 	for _, b := range existing {
 		decision, e := a.c.Store.AcceptanceDecision(a.ctx, b.AcceptanceID)
 		if e == nil {
+			copied := false
+			for _, frozen := range a.g.CopiedBindings {
+				if frozen.TaskKey == b.TaskKey && frozen == b && a.g.ProtectedGraphCycle() != "" {
+					copied = true
+					break
+				}
+			}
+			if copied {
+				a.adopted[b.TaskKey] = b
+				continue
+			}
 			if !adoptionBindingMatches(a.r, b, decision, a.issues[b.TaskKey]) {
 				return store.ErrCommandConflict
 			}
@@ -646,6 +661,16 @@ func (a *intentAdoption) checkAdoptedIssue(evidence adoptEvidence) error {
 	// history it no longer matches.
 	if ref, delivered := a.g.Delivered[evidence.task.Key]; delivered {
 		return a.checkDeliveredRecord(evidence, ref)
+	}
+	for _, retained := range a.g.RetainedBindings {
+		if retained.TaskKey != evidence.task.Key || a.g.ProtectedGraphCycle() == "" {
+			continue
+		}
+		prior, err := a.c.Store.AcceptanceDecision(a.ctx, retained.AcceptanceID)
+		if err != nil || issue.TitleDigest != prior.TitleDigest || issue.ContentDigest != prior.ContentDigest || issue.ContentVersion != retained.ContentVersion || issue.ID != strconv.FormatInt(retained.IssueID, 10) {
+			return refuseAcceptance(RefusalObjectiveChanged)
+		}
+		return nil
 	}
 	if issue.Title != intentTaskTitle(evidence.task) || issue.Content != intentTaskBody(a.scoped, evidence.task) || issue.ContentVersion != entry.ContentVersion {
 		return refuseAcceptance(RefusalObjectiveChanged)

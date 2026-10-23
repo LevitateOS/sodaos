@@ -30,6 +30,7 @@ interface StubRoute {
   readonly status: number;
   readonly json: unknown;
   readonly echoCommand?: boolean;
+  readonly echoAcceptance?: boolean;
 }
 interface WorkCall {
   readonly method: string;
@@ -76,6 +77,7 @@ type WorkView = 'overview' | 'detail' | 'plan' | 'direction' | 'effects';
 
 async function openView(t: TestContext, view: WorkView, routes: StubRoute[]): Promise<Page> {
   const page = await browser.newPage();
+  page.setDefaultTimeout(5000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(async () => {
@@ -299,6 +301,225 @@ const requestOverviewRoute = {
   state: 'accepted',
   observed_unix: 1720000300,
 };
+
+const acceptanceAccess = {
+  repository: '7',
+  observed_unix: 1720000300,
+  viewer: {
+    code_write: true,
+    session_current: true,
+    owner_or_admin: true,
+    environment_owner: false,
+    operator: false,
+    member: true,
+  },
+  effective: {effective: true, dispatch_open: false, missing: []},
+  required_actions: [],
+  planning: [],
+  planning_truncated: false,
+};
+const requirementsPreview = {
+  repository: '7',
+  issue: '12',
+  title_digest: 'a'.repeat(64),
+  title_occurrence: 'original',
+  body_digest: 'b'.repeat(64),
+  content_version: 3,
+  native_revision: 41,
+  comments: [
+    {id: '21', digest: 'c'.repeat(64), content_version: 2},
+    {id: '22', digest: 'd'.repeat(64), content_version: 1},
+  ],
+  dependencies: [{occurrence: '23', depends_on: '90'}],
+};
+
+test('maintainer reaccepts exact reviewed requirements and code prerequisite on a real engine', async (t) => {
+  const prior = 'd' + '2'.repeat(24),
+    prerequisite = 'd' + '3'.repeat(24);
+  const page = await openView(t, 'detail', [
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: acceptanceAccess},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/12',
+      status: 200,
+      json: {
+        ...issueDetail,
+        status: {
+          valid: false,
+          revision: 4,
+          reasons: ['objective_changed'],
+          acceptance: {id: prior, issue_index: '12', approver: '1', native_revision: 40, content_version: 2},
+        },
+      },
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/12/acceptance-preview?comment_id=21&comment_id=22',
+      status: 200,
+      json: requirementsPreview,
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/11',
+      status: 200,
+      json: {
+        ...issueDetail,
+        issue: '11',
+        status: {
+          valid: true,
+          revision: 2,
+          acceptance: {id: prerequisite, issue_index: '11', approver: '1', native_revision: 40, content_version: 1},
+        },
+      },
+    },
+    {
+      method: 'POST',
+      path: 'repositories/7/factory/issues/12/acceptances',
+      status: 201,
+      json: {depth: 2},
+      echoAcceptance: true,
+    },
+  ]);
+  const panel = page.getByRole('region', {name: 'Issue requirements acceptance'});
+  await panel.getByLabel('Requirement comment IDs', {exact: true}).fill('21');
+  await panel.getByLabel('Resolution comment IDs', {exact: true}).fill('22');
+  await panel.getByRole('button', {name: 'Review current requirements', exact: true}).click();
+  await page.waitForSelector('[data-requirements-preview]');
+  assert.equal(
+    await panel.getByRole('link', {name: 'Review comment 21', exact: true}).getAttribute('href'),
+    '/soda-tester/demo/issues/12#issuecomment-21'
+  );
+  await panel.getByLabel('Prerequisite repository ID', {exact: true}).fill('7');
+  await panel.getByLabel('Prerequisite issue number', {exact: true}).fill('11');
+  await panel.getByLabel('Required outcome', {exact: true}).selectOption('code');
+  const save = panel.getByRole('button', {name: 'Accept revised requirements', exact: true});
+  assert.equal(await save.isDisabled(), true);
+  await panel.getByRole('checkbox').check();
+  await save.click();
+  await panel
+    .getByRole('status')
+    .filter({hasText: 'Requirements accepted.'})
+    .waitFor({timeout: 5000})
+    .catch(async () => {
+      throw Error(await panel.innerText());
+    });
+  const writes = (await workCalls(page)).filter((call) => call.method === 'POST');
+  assert.equal(writes.length, 1);
+  const body = writes[0]?.body as Record<string, unknown>;
+  assert.match(String(body.command_id), /^[a-f0-9]{32}$/);
+  assert.match(String(body.decision_id), /^d[a-f0-9]{24}$/);
+  assert.equal(body.predecessor, prior);
+  assert.equal(body.content_digest, requirementsPreview.body_digest);
+  assert.equal(body.title_occurrence, 'original');
+  assert.equal(body.native_revision, 41);
+  assert.deepEqual(body.sources, [requirementsPreview.comments[0]]);
+  assert.deepEqual(body.resolutions, [requirementsPreview.comments[1]]);
+  assert.deepEqual(body.prerequisites, [
+    {
+      occurrence: '23',
+      depends_on: '90',
+      endpoint_repository: '7',
+      endpoint_issue: '11',
+      outcome: 'code',
+      prerequisite_acceptance: prerequisite,
+    },
+  ]);
+});
+
+test('requirements preview changes and explicit stale refusal require a new review', async (t) => {
+  const page = await openView(t, 'detail', [
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: acceptanceAccess},
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/12/acceptance-preview',
+      status: 200,
+      json: {...requirementsPreview, comments: [], dependencies: []},
+    },
+    {
+      method: 'POST',
+      path: 'repositories/7/factory/issues/12/acceptances',
+      status: 409,
+      json: {error: 'objective_changed', message: 'The issue title or body changed; accept the new revision.'},
+    },
+  ]);
+  const panel = page.getByRole('region', {name: 'Issue requirements acceptance'});
+  await panel.getByRole('button', {name: 'Review current requirements', exact: true}).click();
+  await page.waitForSelector('[data-requirements-preview]');
+  await panel.getByLabel('Requirement comment IDs', {exact: true}).fill('21');
+  assert.equal(await panel.locator('[data-requirements-preview]').count(), 0);
+  await panel.getByLabel('Requirement comment IDs', {exact: true}).fill('');
+  await panel.getByRole('button', {name: 'Review current requirements', exact: true}).click();
+  await panel.getByRole('checkbox').check();
+  await panel.getByRole('button', {name: 'Accept requirements', exact: true}).click();
+  await panel.getByRole('status').filter({hasText: 'The issue title or body changed'}).waitFor();
+  assert.equal(await panel.locator('[data-requirements-preview]').count(), 0);
+  assert.equal(await panel.getByRole('button', {name: 'Retry same acceptance'}).count(), 0);
+  assert.equal((await workCalls(page)).filter((call) => call.method === 'POST').length, 1);
+});
+
+test('unconfirmed acceptance retries its exact command and payload', async (t) => {
+  const routes: StubRoute[] = [
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: acceptanceAccess},
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/12/acceptance-preview',
+      status: 200,
+      json: {...requirementsPreview, comments: [], dependencies: []},
+    },
+    {
+      method: 'POST',
+      path: 'repositories/7/factory/issues/12/acceptances',
+      status: 503,
+      json: {message: 'Native evidence unavailable.'},
+    },
+  ];
+  const page = await openView(t, 'detail', routes);
+  const panel = page.getByRole('region', {name: 'Issue requirements acceptance'});
+  await panel.getByRole('button', {name: 'Review current requirements', exact: true}).click();
+  await panel.getByRole('checkbox').check();
+  await panel.getByRole('button', {name: 'Accept requirements', exact: true}).click();
+  const retry = panel.getByRole('button', {name: 'Retry same acceptance', exact: true});
+  await retry.waitFor();
+  const original = (await workCalls(page)).find((call) => call.method === 'POST');
+  assert(original);
+  await page.evaluate(
+    (next) => window.factoryWork.setRoutes(next),
+    [
+      ...routes.filter((route) => route.method !== 'POST'),
+      {
+        method: 'POST',
+        path: 'repositories/7/factory/issues/12/acceptances',
+        status: 201,
+        json: {depth: 1},
+        echoAcceptance: true,
+      },
+    ]
+  );
+  await retry.click();
+  await panel.getByRole('status').filter({hasText: 'Requirements accepted.'}).waitFor();
+  assert.deepEqual((await workCalls(page)).find((call) => call.method === 'POST')?.body, original.body);
+});
+
+test('read-only viewer cannot preview or accept requirements', async (t) => {
+  const page = await openView(t, 'detail', [
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/access',
+      status: 200,
+      json: {...acceptanceAccess, viewer: {...acceptanceAccess.viewer, code_write: false}},
+    },
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+  ]);
+  const panel = page.getByRole('region', {name: 'Issue requirements acceptance'});
+  await panel.getByRole('status').filter({hasText: 'needs current repository code-write authority'}).waitFor();
+  assert.equal(await panel.getByRole('button', {name: 'Review current requirements', exact: true}).isDisabled(), true);
+  assert.equal(
+    (await workCalls(page)).some((call) => call.path.includes('acceptance-preview') || call.method === 'POST'),
+    false
+  );
+});
 
 test('work overview renders the authoritative request overview on a real engine', async (t) => {
   const page = await openView(t, 'overview', [

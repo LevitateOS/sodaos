@@ -187,13 +187,34 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if err := st.ActivateMCPCapability(ctx, capability.ID, capability.Generation, capability.RunID, capability.AssignmentID, capability.Authority, time.Now().Unix(), false); err != nil {
 		t.Fatal(err)
 	}
+	// This case isolates the real paid journal from the independently
+	// qualified role producer exercised in the bound current PG case.
+	qualified := newFakeCatalogSink()
+	assignment := qualified.assignments[qualified.capability.AssignmentID]
+	assignment.ID = capability.AssignmentID
+	qualified.capability = capability
+	qualified.assignments = map[string]factory.Assignment{assignment.ID: assignment}
+	storeSelectionReceipt(t, qualified, assignment, false, false, factory.ContextBundleCurrent)
+	selection := qualified.receipts[qualified.capability.ContextSelectionSnapshot]
+	selection.CreatedUnix = time.Now().Unix()
+	if reserved, err := st.ReservePriorityJudgment(ctx, selection.Snapshot, 1); err != nil || !reserved {
+		t.Fatal("cannot reserve qualified preparation selection", err)
+	}
+	if err := st.RecordPriorityJudgment(ctx, selection); err != nil {
+		t.Fatal(err)
+	}
+	capability.ContextSelectionSnapshot = selection.Snapshot
+	capability.State = factory.MCPCapabilityActive
+	// The auth fixture supplies the saved selection pointer and qualified
+	// projection; PostgreSQL owns the paid reservation and answer journal.
+	qualified.capability = capability
 	provider := &fakeSystemOne{}
 	key := []byte(strings.Repeat("k", 32))
 	secret, err := factory.DeriveMCPCapabilitySecret(key, capability)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, PriorityJudgments: st, Runs: st, SystemOne: provider}, key))
+	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: qualified, Submissions: qualified, Assignments: qualified, PriorityJudgments: st, Runs: qualified, SystemOne: provider}, key))
 	defer srv.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "funding-pg-test"}, nil)
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{capability.ID, secret}}}, nil)

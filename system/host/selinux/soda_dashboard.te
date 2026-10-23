@@ -84,6 +84,7 @@ allow soda_dashboard_t soda_project_maintenance_t:dir { getattr open read search
 allow soda_dashboard_t soda_project_maintenance_t:file getattr;
 allow soda_dashboard_t soda_project_maintenance_t:lnk_file getattr;
 
+
 # Fountain's package/intent mutations share the existing maintenance inode.
 # Its read-only bind is deliberately not relabelled; it may lock/enumerate and
 # inspect marker metadata, but cannot read or modify root-owned journals.

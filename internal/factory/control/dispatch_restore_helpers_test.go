@@ -493,6 +493,10 @@ type stubSettleStore struct {
 	byRun        map[string]factory.Assignment
 }
 
+func (s *stubSettleStore) FactoryRun(_ context.Context, id string) (factory.Run, error) {
+	return factory.Run{ID: id}, nil
+}
+
 // ResolveArtifactDigest serves the finish revalidation joint: the
 // stub records no artifacts, so every citation is unknown.
 func (s *stubSettleStore) ResolveArtifactDigest(context.Context, int64, string, string) (string, error) {

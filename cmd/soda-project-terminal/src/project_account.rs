@@ -19,6 +19,9 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::{Path, PathBuf};
 
+#[path = "project_member_access.rs"]
+pub(crate) mod member_access;
+
 /// Validated `{'login', 'identity', 'admin', 'keys'}` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
@@ -778,7 +781,20 @@ pub fn provision(config: &Config, request: &Request) -> Result<Response, String>
         return Err("project-local root required".to_string());
     }
     let _keys_fd = admit_managed_dirs(config)?;
+    let rejoin = if config.require_root {
+        member_access::join_state(Path::new("/"), &request.login, request.identity)?
+    } else {
+        false
+    };
     let home = resolve_account_home(config, request)?;
-    sync_account_keys(config, request)?;
-    finish_provision(config, request, &home)
+    if rejoin {
+        member_access::replace_join_keys(Path::new("/"), &request.login, &request.keys)?;
+    } else {
+        sync_account_keys(config, request)?;
+    }
+    let response = finish_provision(config, request, &home)?;
+    if rejoin {
+        member_access::complete_join(Path::new("/"), &request.login, request.identity)?;
+    }
+    Ok(response)
 }

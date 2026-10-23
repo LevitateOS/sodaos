@@ -17,6 +17,7 @@ type factoryQueueView struct {
 }
 
 type factoryStatusView struct {
+	NativeBindings   []factory.ActorBindingRef  `json:"native_bindings"`
 	Policy           *factory.RepositoryPolicy  `json:"policy"`
 	OperatorGrant    *factory.OperatorGrant     `json:"operator_grant"`
 	Appliance        *factory.Capacity          `json:"capacity"`
@@ -45,7 +46,12 @@ func (s *API) apiFactoryStatus(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	ctx := r.Context()
-	view := factoryStatusView{Repository: strconv.FormatInt(repository, 10), Sponsorships: []factory.Sponsorship{}}
+	view := factoryStatusView{Repository: strconv.FormatInt(repository, 10), Sponsorships: []factory.Sponsorship{}, NativeBindings: []factory.ActorBindingRef{}}
+	for _, binding := range s.Config.FactoryNativeBindings {
+		if binding.RepositoryID == repository {
+			view.NativeBindings = append(view.NativeBindings, factory.ActorBindingRef{TokenID: binding.TokenID, ActorID: binding.ActorID, Kind: binding.Kind})
+		}
+	}
 	if policy, err := s.Store.RepositoryPolicy(ctx, repository); err == nil {
 		view.Policy = &policy
 	} else if !errors.Is(err, store.ErrNotFound) {

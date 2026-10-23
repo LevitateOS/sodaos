@@ -184,9 +184,14 @@ func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedC
 	if len(ids) == 0 {
 		return nil
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,bool_or(c.data->'communication'->>'kind'='answer')
+	// The incorporated flag rides the same derivation: an answer the
+	// worker adopted moves its question past answered without
+	// claiming anything about unrecorded replies.
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,bool_or(c.data->'communication'->>'kind'='answer'),
+ bool_or(c.data->'communication'->>'kind'='answer' AND r.resolution='incorporated')
  FROM factory_feed_comments p JOIN factory_feed_comments c ON c.repository=p.repository
  AND (c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id))
+ LEFT JOIN factory_post_resolutions r ON r.post=c.id
  WHERE p.id=ANY($1) AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
  GROUP BY p.id`, ids)
 	if err != nil {
@@ -195,14 +200,17 @@ func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedC
 	defer rows.Close()
 	for rows.Next() {
 		var id string
-		var answered sql.NullBool
-		if err := rows.Scan(&id, &answered); err != nil {
+		var answered, incorporated sql.NullBool
+		if err := rows.Scan(&id, &answered, &incorporated); err != nil {
 			return err
 		}
 		detail := details[id]
 		state := "replied"
 		if answered.Valid && answered.Bool {
 			state = "answered"
+		}
+		if incorporated.Valid && incorporated.Bool {
+			state = "incorporated"
 		}
 		detail.Payload.Communication.QuestionState = state
 	}

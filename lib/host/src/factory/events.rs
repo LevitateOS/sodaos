@@ -22,6 +22,8 @@ use super::run::valid_factory_run_id;
 pub const TASK_EVENT_CHILD_START_INTENT: &str = "child_start_intent";
 pub const TASK_EVENT_CHILD_STARTED: &str = "child_started";
 pub const TASK_EVENT_CHILD_REPORTED: &str = "child_reported";
+pub const TASK_EVENT_PARENT_STARTED: &str = "parent_task_started";
+pub const TASK_EVENT_PARENT_OUTPUT: &str = "parent_output_observed";
 pub const TASK_EVENT_CHECKPOINT_PREPARED: &str = "checkpoint_prepared";
 pub const TASK_EVENT_TASK_COMMITTED: &str = "task_committed";
 pub const TASK_EVENT_TASK_FAILED: &str = "task_failed";
@@ -31,7 +33,9 @@ pub const TASK_EVENT_RUN_STOPPED: &str = "run_stopped";
 pub fn valid_task_event_type(event_type: &str) -> bool {
     matches!(
         event_type,
-        "child_start_intent"
+        "parent_task_started"
+            | "parent_output_observed"
+            | "child_start_intent"
             | "child_started"
             | "child_reported"
             | "checkpoint_prepared"
@@ -183,7 +187,7 @@ impl TaskEvent {
         if !valid_task_key(&self.task_key) {
             return Err("task event task key is invalid".to_string());
         }
-        if !self.child_id.is_empty() && !valid_factory_run_id(&self.child_id) {
+        if !self.child_id.is_empty() && !valid_native_task_child(&self.child_id) {
             return Err("task event child identity is invalid".to_string());
         }
         if self.invocation.is_empty()
@@ -200,6 +204,14 @@ impl TaskEvent {
         }
         Ok(())
     }
+}
+
+fn valid_native_task_child(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b':'))
 }
 
 /// `project.FactoryTaskEvents`: page one admitted run's typed journal.

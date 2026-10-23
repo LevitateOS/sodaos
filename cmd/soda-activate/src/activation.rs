@@ -139,7 +139,9 @@ fn admit_dashboard_identity(
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty())
         .unwrap_or("/run/soda/identity/admin.sock");
-    if host_socket != "/run/soda/host.sock" || identity_socket != "/run/soda/identity/admin.sock" {
+    if host_socket != "/run/soda/host/host.sock"
+        || identity_socket != "/run/soda/identity/admin.sock"
+    {
         return Err(usage(
             "bundled isolated service mounts require the standard private file and socket paths",
         ));

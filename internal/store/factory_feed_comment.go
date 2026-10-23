@@ -313,6 +313,13 @@ func (s *Store) FeedComment(ctx context.Context, id string) (FeedCommentDetail, 
 		}
 		out = details[out.Record.ID]
 	}
+	if out.Payload != nil && out.Payload.Communication != nil {
+		details := map[string]FeedCommentDetail{out.Record.ID: out}
+		if err := s.feedPostResolutions(ctx, details); err != nil {
+			return FeedCommentDetail{}, err
+		}
+		out = details[out.Record.ID]
+	}
 	return out, nil
 }
 
@@ -546,6 +553,9 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		return nil, err
 	}
 	if err := s.feedQuestionStates(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := s.feedPostResolutions(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil

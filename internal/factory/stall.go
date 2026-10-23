@@ -664,7 +664,7 @@ func validateRepairCoverage(coverage []ReassessmentCoverage, attention []Reasses
 	}
 	covered := make(map[string]bool, len(coverage))
 	for _, entry := range coverage {
-		if err := entry.validate(); err != nil {
+		if err := entry.validateCoverage(true); err != nil {
 			return err
 		}
 		key := entry.IntentID + "\x00" + entry.OutcomeID

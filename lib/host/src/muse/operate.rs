@@ -43,13 +43,20 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if !muse_project_credential_root(binding) {
             return Err(terminal::err_denied());
         }
-        self.validate_muse_binding(binding, deadline)?;
         if action == "validate" {
-            return Ok(());
+            return self.validate_muse_binding(binding, deadline);
         }
         if action != "stop" {
             return Err(terminal::err_denied());
         }
+        // A normal shell exit retires locally before returning its broker
+        // lease. The broker then confirms retirement through this same stop
+        // route. A collected inactive unit is no longer an active binding;
+        // accept it only when its exact cgroup and credential root are gone.
+        if self.muse_execution_retired(binding, deadline) {
+            return Ok(());
+        }
+        self.validate_muse_binding(binding, deadline)?;
         self.stop_execution(
             binding,
             delivery.lease.actor_id,
@@ -57,6 +64,58 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             false,
             deadline,
         )
+    }
+
+    fn muse_execution_retired(&self, binding: &Binding, deadline: Instant) -> bool {
+        if binding.validate().is_err() {
+            return false;
+        }
+        let unit = format!("soda-muse-{}.service", binding.id);
+        let inactive = self
+            .guest(
+                &binding.project,
+                &[],
+                &super::unit_active_argv(&unit),
+                deadline,
+            )
+            .is_ok_and(|state| state.len() <= 32 && state.trim_ascii() == b"inactive");
+        if !inactive {
+            return false;
+        }
+        let same_or_collected = self
+            .guest(
+                &binding.project,
+                &[],
+                &super::unit_invocation_argv(&unit),
+                deadline,
+            )
+            .is_ok_and(|invocation| {
+                invocation.len() <= 128
+                    && (invocation.trim_ascii().is_empty()
+                        || invocation.trim_ascii() == binding.invocation_id.as_bytes())
+            });
+        same_or_collected
+            && self
+                .guest_refs(
+                    &binding.project,
+                    &[],
+                    &[
+                        "/usr/bin/test",
+                        "!",
+                        "-d",
+                        &format!("/sys/fs/cgroup/system.slice/{unit}"),
+                    ],
+                    deadline,
+                )
+                .is_ok()
+            && self
+                .guest_refs(
+                    &binding.project,
+                    &[],
+                    &["/usr/bin/test", "!", "-e", &binding.credential_root],
+                    deadline,
+                )
+                .is_ok()
     }
 
     // ---------- state cleanup (muse_state_linux.go) ----------

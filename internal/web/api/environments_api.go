@@ -150,6 +150,11 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 	if !s.requireListedSession(w, r, v) {
 		return
 	}
+	accessState, accessErr := s.Store.MemberAccess(r.Context(), p.ID, v.User.ID)
+	if accessErr != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect Project access.")
+		return
+	}
 	auth.JSONResponse(w, 200, struct {
 		TerminalSupport      host.TerminalSupport `json:"terminal_support"`
 		AuthorityUnavailable bool                 `json:"authority_unavailable"`
@@ -159,7 +164,9 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 		NativeUnavailable    bool                 `json:"native_unavailable"`
 		Login                string               `json:"login"`
 		Administrator        bool                 `json:"environment_administrator"`
-	}{terminalSupport, reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
+		AccessHeld           bool                 `json:"access_held"`
+		RejoinRequired       bool                 `json:"rejoin_required"`
+	}{terminalSupport, reader.authorityUnavailable, reader.executionAllowed && !accessState.Held, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator, accessState.Held, accessState.RequiresJoin})
 }
 
 func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -168,8 +175,9 @@ func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	type memberView struct {
-		UserID string `json:"user_id"`
-		Login  string `json:"login"`
+		UserID string             `json:"user_id"`
+		Login  string             `json:"login"`
+		Access store.MemberAccess `json:"access"`
 	}
 	items := []memberView{}
 	reader, allowed := s.authorizeEnvironmentRead(w, r, v, p)
@@ -183,10 +191,15 @@ func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v st
 			return
 		}
 		for _, member := range members {
-			items = append(items, memberView{strconv.FormatInt(member.UserID, 10), member.Login})
+			access, err := s.Store.MemberAccess(r.Context(), p.ID, member.UserID)
+			if err != nil {
+				auth.JSONError(w, 503, "store_unavailable", "Could not inspect Project member access.")
+				return
+			}
+			items = append(items, memberView{strconv.FormatInt(member.UserID, 10), member.Login, access})
 		}
 	} else if reader.login != "" {
-		items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), reader.login})
+		items = append(items, memberView{UserID: strconv.FormatInt(v.User.ID, 10), Login: reader.login})
 	}
 	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
@@ -195,7 +208,8 @@ func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v st
 	auth.JSONResponse(w, 200, struct {
 		Items                []memberView `json:"items"`
 		AuthorityUnavailable bool         `json:"authority_unavailable"`
-	}{items, reader.authorityUnavailable})
+		CanManage            bool         `json:"can_manage"`
+	}{items, reader.authorityUnavailable, reader.administrator && !reader.authorityUnavailable})
 }
 
 func (s *API) apiConnection(w http.ResponseWriter, r *http.Request, v store.Session) {

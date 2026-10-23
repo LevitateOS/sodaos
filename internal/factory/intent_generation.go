@@ -41,7 +41,31 @@ type IntentGeneration struct {
 	// was resolved from. It is immutable from creation; submission and
 	// adoption refuse missing or stale provenance.
 	PlanAssignment string `json:"plan_assignment,omitempty"`
+	// ReassessmentCycle is the alternative recorded owner for an approved
+	// serial reassessment delta. Retained bindings supply native identity
+	// for unchanged issues absent from a mutation receipt; copied bindings
+	// additionally retain their exact earlier acceptance without re-admission.
+	ReassessmentCycle string `json:"reassessment_cycle,omitempty"`
+	// RepairCycle names a genuine stall cycle using the same protected serial
+	// graph owner. It never manufactures a completion event or coder ledger.
+	RepairCycle      string              `json:"repair_cycle,omitempty"`
+	RetainedBindings []IntentTaskBinding `json:"retained_bindings,omitempty"`
+	CopiedBindings   []IntentTaskBinding `json:"copied_bindings,omitempty"`
+	LocalOnly        bool                `json:"local_only,omitempty"`
 }
+
+// ProtectedGraphCycle names the distinct completion or stall owner. Ambiguous
+// provenance returns empty and is refused by both activation boundaries.
+func (g IntentGeneration) ProtectedGraphCycle() string {
+	if g.ReassessmentCycle != "" && g.RepairCycle == "" {
+		return g.ReassessmentCycle
+	}
+	if g.RepairCycle != "" && g.ReassessmentCycle == "" {
+		return g.RepairCycle
+	}
+	return ""
+}
+
 type IntentTaskBinding struct {
 	RevisionID     string `json:"revision_id"`
 	TaskKey        string `json:"task_key"`

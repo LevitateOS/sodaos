@@ -101,7 +101,11 @@ export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryR
 function readableStatus(entry: FeedEntry): string {
   const communication = entry.payload?.communication;
   if (communication) {
+    if (communication.disposition === 'applied') return 'Suggestion applied';
+    if (communication.disposition === 'refused') return 'Suggestion declined';
+    if (communication.disposition === 'incorporated') return 'Answer incorporated';
     if (communication.kind === 'ask') {
+      if (communication.questionState === 'incorporated') return 'Answer incorporated';
       if (communication.questionState === 'answered') return 'Answer recorded';
       if (communication.questionState === 'replied') return 'Reply received';
     }

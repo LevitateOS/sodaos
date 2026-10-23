@@ -1,5 +1,6 @@
 import {html} from 'lit';
 import './sodaspaces-factory-settings.js';
+import './sodaspaces-project-members.js';
 import type {TemplateResult} from 'lit';
 import {supportMessage} from './sodaspaces-terminal-error.js';
 import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
@@ -307,6 +308,18 @@ export function renderAccessView(input: SettingsViewInput) {
     aria-label="Access"
     ?hidden=${input.readSelected() !== 'access'}
   >
+    ${input.readDetail()?.access_held ? html`<p>Your Project access is revoked or its native effects are pending. The repository owner or Soda operator must explicitly restore access before you can Join again. Your account and files remain.</p>` : ''}
+    ${
+      input.readDetail()?.rejoin_required
+        ? html`<p>
+              Your Project access was restored. Open Overview, explicitly Join again and choose whether to install your
+              saved SSH keys.
+            </p>
+            <button type="button" class="ui button" @click=${() => input.selectView('environment')}>
+              Open Overview to Join
+            </button>`
+        : ''
+    }
     ${renderConnection(
       input.readConnection(),
       input.readBindingRepository(),
@@ -337,6 +350,7 @@ export function renderAccessView(input: SettingsViewInput) {
       }
     )}
     ${renderForgejoKeyReview(input)}
+    ${input.readEnvironment() && input.readFactoryTransport() ? html`<soda-project-members .context=${{project: input.readEnvironment()!.id, transport: input.readFactoryTransport()!, active: input.readSelected() === 'access' && !input.isStale()}}></soda-project-members>` : ''}
   </section>`;
 }
 

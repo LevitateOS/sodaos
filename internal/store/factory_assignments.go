@@ -204,7 +204,7 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 		// fails the finish instead of committing without
 		// accounting. Ordinary issue paths keep the historical
 		// absent-row tolerance.
-		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectDelivery && a.Subject.Kind != factory.SubjectResearch && errors.Is(err, sql.ErrNoRows) {
+		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectStall && a.Subject.Kind != factory.SubjectDelivery && a.Subject.Kind != factory.SubjectResearch && errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -213,7 +213,7 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 }
 
 func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, isCompletion, isIntent bool) error {
-	if a.Subject.Kind == factory.SubjectDelivery {
+	if a.Subject.Kind == factory.SubjectDelivery || a.Subject.Kind == factory.SubjectStall {
 		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
 	}
 	if a.Phase == project.ExecutionMaintainLibrary {

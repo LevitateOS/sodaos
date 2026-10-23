@@ -6,7 +6,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": true,
@@ -22,9 +22,10 @@
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_lifecycle_credential_file": "",
         "forgejo_merge_credential_file": "",
+        "forgejo_resolve_credential_file": "",
         "forgejo_review_credential_file": "",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "identity_socket": "/run/soda/identity/admin.sock",
         "listen": "127.0.0.1:8080",
         "operator_id": 7,
@@ -43,9 +44,10 @@
         "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
         "forgejo_internal_url": "http://127.0.0.1:3000/",
         "forgejo_merge_credential_file": "/etc/soda/merge.cred",
+        "forgejo_resolve_credential_file": "/etc/soda/resolve.cred",
         "forgejo_review_credential_file": "/etc/soda/review.cred",
         "forgejo_url": "https://forgejo.example.test/",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "identity_socket": "/run/custom/identity.sock",
         "listen": "127.0.0.2:9090",
         "operator_id": 9
@@ -63,9 +65,10 @@
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_lifecycle_credential_file": "",
         "forgejo_merge_credential_file": "/etc/soda/merge.cred",
+        "forgejo_resolve_credential_file": "/etc/soda/resolve.cred",
         "forgejo_review_credential_file": "/etc/soda/review.cred",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "identity_socket": "/run/custom/identity.sock",
         "listen": "127.0.0.2:9090",
         "operator_id": 9,
@@ -79,7 +82,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "listen": "0.0.0.0:8080",
         "operator_id": 7
       },
@@ -92,7 +95,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "listen": "nope",
         "operator_id": 7
       },
@@ -105,7 +108,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "http://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -117,7 +120,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test/soda",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -129,7 +132,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 0
       },
       "ok": false,
@@ -141,7 +144,7 @@
         "database_dsn_file": "relative/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -153,7 +156,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "identity_socket": "relative.sock",
         "operator_id": 7
       },
@@ -167,7 +170,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -198,7 +201,7 @@
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_review_credential_file": "/etc/soda/review.cred",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -212,7 +215,7 @@
         "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -227,7 +230,7 @@
         "forgejo_background_socket": "relative.sock",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7
       },
       "ok": false,
@@ -239,7 +242,7 @@
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "forgejo_internal_url": "http://127.0.0.1:3000",
         "forgejo_url": "https://forgejo.example.test",
-        "host_socket": "/run/soda/host.sock",
+        "host_socket": "/run/soda/host/host.sock",
         "operator_id": 7,
         "grant_key_file": "/etc/soda/grant.key"
       },

@@ -67,6 +67,7 @@ pub fn factory_codex_guest(version: &str) -> Option<String> {
 /// Fixed container paths for one supervised Codex run.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryCodexPaths {
+    pub native_profile: Option<serde_json::Value>,
     pub checkout: String,
     pub run_dir: String,
     pub home: String,
@@ -89,6 +90,7 @@ pub fn factory_codex_paths(run: &FactoryRun) -> Result<FactoryCodexPaths, String
         factory_run_paths(&run.role, &run.preparation, &run.id).ok_or_else(terminal::err_denied)?;
     let guest = factory_codex_guest(&run.harness_vers).ok_or_else(terminal::err_denied)?;
     Ok(FactoryCodexPaths {
+        native_profile: None,
         checkout,
         run_dir: run_dir.clone(),
         home,
@@ -155,6 +157,7 @@ pub fn factory_codex_binding(lease: &Lease) -> Result<FactoryCodexPaths, String>
         factory_run_paths,
     )?;
     Ok(FactoryCodexPaths {
+        native_profile: None,
         checkout,
         run_dir: run_dir.clone(),
         home,
@@ -239,6 +242,20 @@ pub fn start_gate_script(p: &FactoryCodexPaths) -> String {
 // ---------- executor ----------
 
 impl<E: Executor> Service<E> {
+    pub fn factory_codex_native_output(
+        &self,
+        lease: &Lease,
+        output: &[u8],
+        deadline: Instant,
+    ) -> Result<(), String> {
+        if output.len() > crate::factory::MAX_FACTORY_OUTPUT {
+            return Err(terminal::err_denied());
+        }
+        let paths = factory_codex_binding(lease)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
+        self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)?;
+        self.factory_stage_file(&binding.project, binding, &paths.output, output, deadline)
+    }
     /// `Service.FactoryCodexReserve`: prepare run directories, stage the
     /// verified harness, start the waiting supervisor unit. No credentials.
     pub fn factory_codex_reserve(
@@ -249,7 +266,38 @@ impl<E: Executor> Service<E> {
         max_secs: i64,
         deadline: Instant,
     ) -> Result<(Binding, FactoryCodexPaths), String> {
-        let p = factory_codex_paths(run)?;
+        self.factory_codex_reserve_with_channels(run, lease, pin_sha256, max_secs, None, deadline)
+    }
+
+    pub fn factory_codex_controlled_reserve(
+        &self,
+        run: &FactoryRun,
+        lease: &Lease,
+        pin_sha256: &str,
+        max_secs: i64,
+        channels: &super::native_io::NativeChannels,
+        deadline: Instant,
+    ) -> Result<(Binding, FactoryCodexPaths), String> {
+        self.factory_codex_reserve_with_channels(
+            run,
+            lease,
+            pin_sha256,
+            max_secs,
+            Some(channels),
+            deadline,
+        )
+    }
+
+    fn factory_codex_reserve_with_channels(
+        &self,
+        run: &FactoryRun,
+        lease: &Lease,
+        pin_sha256: &str,
+        max_secs: i64,
+        channels: Option<&super::native_io::NativeChannels>,
+        deadline: Instant,
+    ) -> Result<(Binding, FactoryCodexPaths), String> {
+        let mut p = factory_codex_paths(run)?;
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
             return Err(terminal::err_denied());
         }
@@ -267,9 +315,21 @@ impl<E: Executor> Service<E> {
         let (uid, gid) = self.factory_role_ids(&container, &run.role, deadline)?;
         self.factory_codex_setup(&container, run, &p, uid, gid, deadline)?;
         let guest = self.factory_codex_stage(&container, &run.harness_vers, deadline)?;
+        p.native_profile = self.factory_stage_codex_catalog(&container, run, deadline)?;
+        if p.native_profile.is_some() && channels.is_none() {
+            return Err("configured native Codex profile requires controlled transport".into());
+        }
         let unit = factory_unit_name_or_denied(&run.id)?;
-        let mut args = reserve_run_argv(&unit, max_secs);
-        args.extend(reserve_exec_argv(&container, run, &p, &guest));
+        let mut args = if let Some(channels) = channels {
+            super::codex_control::reserve_argv(&unit, max_secs, channels)
+        } else {
+            reserve_run_argv(&unit, max_secs)
+        };
+        args.extend(if channels.is_some() {
+            super::codex_control::exec_argv(&container, run, &p, &guest)
+        } else {
+            reserve_exec_argv(&container, run, &p, &guest)
+        });
         if self.factory_systemd_run(&args, deadline).is_err() {
             return Err("factory unit start unconfirmed".to_string());
         }
@@ -307,6 +367,11 @@ impl<E: Executor> Service<E> {
         deadline: Instant,
     ) -> Result<(), String> {
         let setup = codex_setup_script(p, uid, gid);
+        let setup = format!(
+            "{setup}mkdir -p -m 700 {tmp} {cache}\nchown {uid}:{gid} {tmp} {cache}\n",
+            tmp = shell_quote(&format!("{}/tmp", p.home)),
+            cache = shell_quote(&format!("{}/cache", p.home))
+        );
         let argv = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
@@ -325,6 +390,8 @@ impl<E: Executor> Service<E> {
             run.role.clone(),
             container.to_string(),
             "/usr/bin/git".to_string(),
+            "-c".to_string(),
+            format!("safe.directory={}", p.checkout),
             "-C".to_string(),
             p.checkout.clone(),
             "rev-parse".to_string(),

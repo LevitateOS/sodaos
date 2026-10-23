@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -131,7 +132,39 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 			break
 		}
 		state, err := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: run.ProjectID, ID: run.ID})
-		if err != nil || state.ID != run.ID || state.Project != run.ProjectID || state.Live {
+		if err != nil || state.ID != run.ID || state.Project != run.ProjectID {
+			continue
+		}
+		if len(run.ExecutionManifest) > 0 {
+			if !budget.reserveNativeRPC(1) {
+				break
+			}
+			drained, stop, importErr := c.importRunTaskEvents(ctx, run, state)
+			if importErr == nil && stop {
+				if !budget.reserveNativeRPC(1) {
+					break
+				}
+				_ = c.recoverFinalCheckpoint(ctx, run, state)
+				if !budget.reserveNativeRPC(5) {
+					break
+				}
+				c.settleRun(ctx, run)
+				continue
+			}
+			if importErr == nil && drained {
+				if !budget.reserveNativeRPC(1) {
+					break
+				}
+				if errors.Is(c.driveRunCheckpoints(ctx, run, state), errCheckpointFailed) {
+					if !budget.reserveNativeRPC(5) {
+						break
+					}
+					c.settleRun(ctx, run)
+					continue
+				}
+			}
+		}
+		if state.Live {
 			continue
 		}
 		if _, terminal := settleOutcome(state); terminal {

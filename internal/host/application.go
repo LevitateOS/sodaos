@@ -50,12 +50,12 @@ func (c *Client) Application(ctx context.Context, in application.Request) (appli
 
 func applicationGenerationConfirmed(in application.Request, out application.Observation) bool {
 	if out.Container == "" {
-		return false
+		return in.Action == "inspect" && in.ExpectedContainer == "" && !out.Running && !out.Ready
 	}
 	if in.Action == "install" {
 		return true
 	}
-	if in.Action == "replace" {
+	if in.Action == "replace" || in.Action == "restore" {
 		return out.Container != in.ExpectedContainer
 	}
 	return in.ExpectedContainer == "" || out.Container == in.ExpectedContainer
@@ -63,7 +63,7 @@ func applicationGenerationConfirmed(in application.Request, out application.Obse
 
 func applicationActionConfirmed(action string, out application.Observation) bool {
 	switch action {
-	case "install", "stop", "replace":
+	case "install", "stop", "replace", "restore", "restore_abort":
 		return !out.Running && !out.Ready
 	case "start":
 		return out.Running

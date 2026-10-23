@@ -25,20 +25,41 @@ func (s *Store) CreateApplication(ctx context.Context, r application.Record) err
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := lockApplicationAdmissions(ctx, tx); err != nil {
+		return err
+	}
+	var provisional bool
+	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM application_setups WHERE application_id=$1 OR data_id=$2 OR origin=$3 OR hostname=$4 OR port=$5)`, r.Application.ID, r.Application.Data, r.Application.Origin, mustHostname(r.Application.Origin), r.Application.Port).Scan(&provisional)
+	if err != nil {
+		return err
+	}
+	if provisional {
+		return errors.New("application namespace is reserved for setup")
+	}
+	if err := insertApplicationRecord(ctx, tx, r); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func insertApplicationRecord(ctx context.Context, tx *sql.Tx, r application.Record) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
 	u, err := url.Parse(r.Application.Origin)
 	if err != nil {
 		return err
 	}
 	a := r.Application
-	_, err = tx.ExecContext(ctx, `INSERT INTO applications(id,administrator_id,name,data_id,owner_team,origin,hostname,port,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		a.ID, r.AdministratorID, a.Name, a.Data, a.OwnerTeam, a.Origin, u.Hostname(), a.Port, a.Revision)
+	observed, err := applicationObservationValue(r.Observation, a)
 	if err != nil {
 		return err
 	}
-	if err := insertApplicationRevision(ctx, tx, a); err != nil {
+	_, err = tx.ExecContext(ctx, `INSERT INTO applications(id,administrator_id,name,data_id,owner_team,origin,hostname,port,revision,observation) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, a.ID, r.AdministratorID, a.Name, a.Data, a.OwnerTeam, a.Origin, u.Hostname(), a.Port, a.Revision, observed)
+	if err != nil {
 		return err
 	}
-	return tx.Commit()
+	return insertApplicationRevision(ctx, tx, a)
 }
 
 func insertApplicationRevision(ctx context.Context, tx *sql.Tx, a application.Spec) error {

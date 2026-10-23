@@ -1,11 +1,16 @@
 pub mod artifacts;
 pub mod binding;
 pub mod children;
+mod codex_control;
+mod execution_manifest;
 pub mod lifecycle;
 pub mod mcp_relay;
 mod mcp_stage;
+mod model_catalog;
+pub mod msp;
 pub mod muse;
 pub mod native;
+pub mod native_io;
 pub mod output;
 pub mod prompt_entry;
 pub mod run;

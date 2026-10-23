@@ -13,11 +13,12 @@ import (
 )
 
 type applicationView struct {
-	Application     application.Spec         `json:"application"`
-	AdministratorID string                   `json:"administrator_id"`
-	Observation     *application.Observation `json:"observation"`
-	Operator        bool                     `json:"operator"`
-	Project         *applicationProjectView  `json:"project,omitempty"`
+	Application     application.Spec              `json:"application"`
+	AdministratorID string                        `json:"administrator_id"`
+	Observation     *application.Observation      `json:"observation"`
+	Operator        bool                          `json:"operator"`
+	Project         *applicationProjectView       `json:"project,omitempty"`
+	Restore         *application.RestoreOperation `json:"restore,omitempty"`
 }
 
 type applicationProjectView struct {
@@ -28,6 +29,9 @@ type applicationProjectView struct {
 
 func (s *API) applicationView(r *http.Request, v store.Session, record application.Record, operator bool) applicationView {
 	view := appView(record, operator)
+	if pending, err := s.Store.PendingApplicationRestore(r.Context(), record.Application.ID); err == nil {
+		view.Restore = pending
+	}
 	if repository, err := s.Store.ApplicationProject(r.Context(), record.Application.ID); err == nil && repository > 0 {
 		if access, err := s.visibleRepository(r, v, repository); err == nil {
 			view.Project = &applicationProjectView{Repository: strconv.FormatInt(repository, 10), Name: access.repository.FullName, Path: "/" + access.repository.FullName}

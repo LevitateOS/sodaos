@@ -46,6 +46,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
         let (receipt, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
         if !exists {
+            self.store_execution_manifest(&req.run, &req.execution_manifest)?;
             let receipt = FactoryReceipt {
                 run: req.run.clone(),
                 phase: FACTORY_APPROVED.to_string(),
@@ -145,6 +146,24 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 return self.stop_failed_start(&receipt, &lease, &binding, deadline);
             }
         }
+        if !req.execution_manifest.is_empty()
+            && self
+                .terminal
+                .stage_execution_manifest(
+                    &lease.with_binding(&binding),
+                    &req.execution_manifest,
+                    run_deadline,
+                )
+                .is_err()
+        {
+            return self.stop_failed_start(&receipt, &lease, &binding, deadline);
+        }
+        if self
+            .guard_checkpoint_checkout(&receipt, run_deadline)
+            .is_err()
+        {
+            return self.stop_failed_start(&receipt, &lease, &binding, deadline);
+        }
         if let Some(stopped) = self.consume_start(&mut receipt, deadline)? {
             let _ = self
                 .terminal
@@ -169,14 +188,61 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         receipt.delivered = true;
         self.update_receipt(&mut receipt, deadline)?;
+        let mut channels = self.terminal.take_native_channels(&req.run.id)?;
+        let native = if let Some(owned_channels) = channels.as_mut() {
+            match self.control_native(
+                &receipt,
+                &req.prompt,
+                owned_channels,
+                execution_deadline(deadline_nanos),
+            ) {
+                Ok(output) => Some(output),
+                Err(cause) => {
+                    eprintln!("factory run {} native control refused: {cause}", req.run.id);
+                    let result = self.stop_failed_start(&receipt, &lease, &binding, deadline);
+                    if result
+                        .as_ref()
+                        .is_ok_and(|state| state.retirement == "confirmed")
+                    {
+                        if let Some(channels) = channels.take() {
+                            let _ = channels.retire();
+                        }
+                    }
+                    return result;
+                }
+            }
+        } else {
+            None
+        };
         match self.terminal.wait(
             &lease.with_binding(&binding),
             execution_deadline(deadline_nanos),
         ) {
             Ok((exit, output)) => {
-                self.finish_run(&receipt, &lease, &binding, exit, output, deadline)
+                let (exit, output) = native.unwrap_or((exit, output));
+                let result = self.finish_run(&receipt, &lease, &binding, exit, output, deadline);
+                if result
+                    .as_ref()
+                    .is_ok_and(|state| state.retirement == "confirmed")
+                {
+                    if let Some(channels) = channels.take() {
+                        let _ = channels.retire();
+                    }
+                }
+                result
             }
-            Err(_) => self.stop_timed_out(&receipt, &lease, &binding, deadline),
+            Err(_) => {
+                let result = self.stop_timed_out(&receipt, &lease, &binding, deadline);
+                if result
+                    .as_ref()
+                    .is_ok_and(|state| state.retirement == "confirmed")
+                {
+                    if let Some(channels) = channels.take() {
+                        let _ = channels.retire();
+                    }
+                }
+                result
+            }
         }
     }
 

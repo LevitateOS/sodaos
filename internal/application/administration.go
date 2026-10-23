@@ -34,9 +34,10 @@ func (r Record) Authorize(actorID int64) error {
 // Request is the native operation transport. The executor independently checks
 // admitted image labels, private data and the current container generation.
 type Request struct {
-	Application       Spec   `json:"application"`
-	Action            string `json:"action"`
-	ExpectedContainer string `json:"expected_container"`
+	Application       Spec              `json:"application"`
+	Action            string            `json:"action"`
+	ExpectedContainer string            `json:"expected_container"`
+	Restore           *RestoreOperation `json:"restore,omitempty"`
 }
 
 func (r Request) Validate() error {
@@ -44,12 +45,26 @@ func (r Request) Validate() error {
 		return err
 	}
 	switch r.Action {
-	case "install", "inspect", "start", "stop", "replace":
+	case "install", "inspect", "start", "stop", "replace", "restore", "restore_abort":
 	default:
 		return errors.New("invalid application operation")
 	}
 	if !r.validGeneration() {
 		return errors.New("invalid application container generation")
+	}
+	if r.Action == "restore" || r.Action == "restore_abort" {
+		if r.Restore == nil || r.Restore.Validate() != nil || r.Restore.State != "pending" || r.ExpectedContainer != r.Restore.ExpectedContainer {
+			return errors.New("invalid application restore intent")
+		}
+		expected := r.Restore.Next
+		if r.Action == "restore_abort" {
+			expected = r.Restore.Previous
+		}
+		if r.Application != expected {
+			return errors.New("application differs from restore intent")
+		}
+	} else if r.Restore != nil {
+		return errors.New("restore intent is not valid for this operation")
 	}
 	return nil
 }

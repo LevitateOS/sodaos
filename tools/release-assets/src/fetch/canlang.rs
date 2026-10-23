@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 #[derive(Deserialize)]
@@ -113,6 +114,104 @@ fn verify_staged_tree(root: &Path, source_revision: &str) -> Result<(), String> 
             .map_err(|e| e.to_string())?;
     if tools["schema"] != "canlang.tools.v1" || tools["sourceRevision"] != source_revision {
         return Err("Canlang producer identity mismatch".into());
+    }
+    verify_runtime(root, &tools)?;
+    Ok(())
+}
+
+fn runtime_paths(
+    root: &Path,
+    directory: &Path,
+    paths: &mut HashSet<PathBuf>,
+) -> Result<(), String> {
+    for entry in std::fs::read_dir(directory).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let kind = entry.file_type().map_err(|e| e.to_string())?;
+        if kind.is_dir() {
+            runtime_paths(root, &path, paths)?;
+        } else if kind.is_file() {
+            let relative = path.strip_prefix(root).map_err(|e| e.to_string())?;
+            if relative != Path::new("runtime.json") {
+                paths.insert(relative.to_path_buf());
+            }
+        } else {
+            return Err("Canlang runtime contains a link or special file".into());
+        }
+    }
+    Ok(())
+}
+
+fn verify_runtime(root: &Path, tools: &serde_json::Value) -> Result<(), String> {
+    let runtime = root.join("runtime");
+    let manifest: serde_json::Value = serde_json::from_reader(
+        File::open(runtime.join("runtime.json"))
+            .map_err(|e| format!("Canlang production runtime missing: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if tools["runtime"]["path"] != "runtime"
+        || tools["runtime"]["schema"] != "canlang.soda.runtime.v1"
+        || manifest["schema"] != "canlang.soda.runtime.v1"
+        || manifest["platform"] != "linux-x86_64"
+        || manifest["command"] != "bin/can-soda"
+        || manifest["workerd"] != tools["versions"]["workerd"]
+        || manifest["files"] != tools["runtime"]["files"]
+    {
+        return Err("Canlang production runtime inventory differs from its tools archive".into());
+    }
+    let files = manifest["files"]
+        .as_array()
+        .filter(|files| !files.is_empty() && files.len() <= 100_000)
+        .ok_or("Canlang runtime file inventory missing or exceeds bound")?;
+    let mut expected = HashSet::new();
+    for file in files {
+        let path = Path::new(
+            file["path"]
+                .as_str()
+                .ok_or("Canlang runtime file path missing")?,
+        );
+        if path.components().count() == 0
+            || path
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_)))
+            || !expected.insert(path.to_path_buf())
+        {
+            return Err("Canlang runtime file path invalid or duplicated".into());
+        }
+        let digest = file["sha256"]
+            .as_str()
+            .filter(|digest| valid_hex(digest, 64))
+            .ok_or("Canlang runtime file checksum invalid")?;
+        let mut input = File::open(runtime.join(path)).map_err(|e| e.to_string())?;
+        let metadata = input.metadata().map_err(|e| e.to_string())?;
+        if !metadata.is_file()
+            || file["bytes"].as_u64() != Some(metadata.len())
+            || file["mode"].as_u64() != Some(u64::from(metadata.permissions().mode() & 0o777))
+            || super::sha256_hex_stream(&mut input)? != digest
+        {
+            return Err(format!("Canlang runtime file differs: {}", path.display()));
+        }
+    }
+    for path in [
+        "bin/can-soda",
+        "bin/node",
+        "libexec/node",
+        "lib/node_modules/@canlang/cloudflare/dist/cli/soda-runtime.js",
+        "lib/node_modules/@canlang/cloudflare/dist/host/can-workerd-exec",
+        "lib/node_modules/@canlang/cloudflare/dist/host/soda-admin.worker.js",
+        "lib/node_modules/@cloudflare/workerd-linux-64/bin/workerd",
+        "licenses/Node-LICENSE",
+        "licenses/Miniflare-D1-LICENSE",
+        "licenses/workerd-LICENSE",
+    ] {
+        if !expected.contains(Path::new(path)) {
+            return Err(format!("Canlang production runtime is missing {path}"));
+        }
+    }
+    let mut actual = HashSet::new();
+    runtime_paths(&runtime, &runtime, &mut actual)?;
+    if actual != expected {
+        return Err("Canlang runtime tree has files outside its inventory".into());
     }
     Ok(())
 }

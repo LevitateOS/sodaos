@@ -48,6 +48,7 @@ var _ DeliveryFunding = (*store.Store)(nil)
 // consults through this same path with its empty finding set.
 type DeliveryAdvice struct {
 	Input                  factory.DeliveryFingerprintInput
+	State                  any
 	Repository             int64
 	Issue                  int64
 	AttemptRoot            string
@@ -71,6 +72,15 @@ type DeliveryAdvice struct {
 func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice) (factory.DeliveryDecision, bool, error) {
 	if advice.Chooser == nil || advice.Funding == nil {
 		return factory.DeliveryDecision{}, false, ErrDeliveryUnavailable
+	}
+	state := advice.State
+	if state == nil {
+		state = advice.Input
+	}
+	if validator, ok := advice.Chooser.(interface{ ValidateDeliveryState(any) error }); ok {
+		if err := validator.ValidateDeliveryState(state); err != nil {
+			return factory.DeliveryDecision{}, false, err
+		}
 	}
 	fingerprint, err := factory.DeliveryFingerprint(advice.Input)
 	if err != nil {
@@ -98,7 +108,7 @@ func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice)
 	}
 	options := factory.DeliveryOptions()
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
-	answer, callErr := advice.Chooser.SelectDelivery(bounded, advice.Input, factory.DeliveryRubric, options)
+	answer, callErr := advice.Chooser.SelectDelivery(bounded, state, factory.DeliveryRubric, options)
 	cancel()
 	if callErr == nil {
 		callErr = answer.Validate()

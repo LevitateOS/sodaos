@@ -198,6 +198,8 @@ const (
 	// needs_attention over the sealed evidence, proposal and
 	// validation report.
 	JudgmentReassessmentProposal JudgmentPurpose = "post-completion-proposal-v1"
+	// JudgmentStallRepairProposal is the distinct finite D15 proposal choice.
+	JudgmentStallRepairProposal JudgmentPurpose = "stall-repair-proposal-v1"
 	// JudgmentContextBundle selects one prebuilt context bundle
 	// (R31): Jev returns exactly one eligible bundle ID from the
 	// fixed current/attempt/lineage/snapshot_hold set. Low
@@ -206,12 +208,12 @@ const (
 	JudgmentContextBundle JudgmentPurpose = "context-bundle-v1"
 )
 
-// JudgmentPurposes lists the eleven purposes in owning-doc order: the
+// JudgmentPurposes lists the twelve purposes in owning-doc order: the
 // eight planning/delivery purposes, the two D13 post-completion
 // purposes the FW31 fence and FW32 adoption consume, and the R31
-// context-bundle selection.
+// context-bundle selection and distinct stall-repair proposal choice.
 func JudgmentPurposes() []JudgmentPurpose {
-	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal, JudgmentContextBundle}
+	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal, JudgmentContextBundle, JudgmentStallRepairProposal}
 }
 
 func (p JudgmentPurpose) valid() bool {
@@ -300,6 +302,7 @@ type DeliveryAnswer struct {
 	Fingerprint   string             `json:"fingerprint"`
 	Selected      string             `json:"selected"`
 	Model         string             `json:"model"`
+	ProviderModel string             `json:"provider_model,omitempty"`
 	Failure       string             `json:"failure,omitempty"`
 	Probability   float64            `json:"probability"`
 	Confidence    float64            `json:"confidence"`

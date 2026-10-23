@@ -1,6 +1,33 @@
 # Production workerd contract and integration recipes
 
-This describes a proposed runtime replacement. [Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes) tracks the unfinished work; the owner's current request determines what to implement.
+This owns the direct-workerd runtime contract and its integration recipes.
+[Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes)
+tracks unfinished work; the owner's current request determines implementation.
+
+**23 October implementation:** Canlang now has the direct renderer/transport,
+owned D1 provider, Linux inherited-lock/parent-death exec guard, private Worker
+administration, protected first-owner setup and production-only archive subtree.
+The real native gates `scripts/verify-soda-direct.mjs`,
+`scripts/verify-soda-host.mjs` and `scripts/verify-soda-runtime-closure.mjs` pass
+the storage, lifecycle, app HTTP/MCP/Files/work and setup/replay subjects they
+exercise. Native Soda backup/fresh restore of the populated tree also passes
+real login, File bytes and scheduled-work receipt replay. A clean committed
+source archive with optimized native tools passes exact Soda admission, including
+the production subtree inventory. The final native runtime image passes the
+adopted 1 GiB/two-CPU/128-process envelope, read-only UID10000 isolation, real
+HTTPS login/MCP/Files/work, normal restart and abrupt replacement; observed app
+memory peak is 619356160 bytes. PID/CPU/OOM pressure was separately exercised
+against the same serving CLI, guard and native workerd bytes. Soda now has a
+separate provisional setup record, native generation/receipt settlement and
+Chromium-checked operator controls. The retained development VM also passes the
+real first-owner form, ordinary-route exclusion, exact-generation refusal,
+stopped receipt settlement, explicit Start, created-owner sign-in/team match,
+acknowledged application write and final Stop. Both retained applications then
+passed standard stopped replacement to the exact clean-source candidate tools,
+runtime and application images, retaining owners/data and reopening their real
+MCP records, seeded File bytes and scheduled-work state. These local gates do not establish
+immutable appliance publication or an installed matching-release qualification. The setup CLI and receipt fields
+are documented in [Canlang's runtime guide](../../../../canlang/docs/soda-runtime.md#protected-browser-setup).
 
 Investigated 18 October 2026. This document owns the proposed runtime/provider,
 process-lifetime and packaging contracts and their technical substeps. It does
@@ -13,10 +40,10 @@ and do not qualify the replacement. Operator procedures live in the
 | Decision | Current owner decision | Required by |
 | --- | --- | --- |
 | Production ownership | Appliance-managed application, independent of its Project | P01 and P20 |
-| Production runtime replacement | Proposed direct-workerd/provider closure from the 18 October investigation; historical Miniflare implementation retained as baseline until qualified cutover | P14–P16 and affected P25–P29 |
+| Production runtime replacement | Direct runtime, native serving image and clean archive admission pass local gates; immutable publication and installed matching-release cutover remain gated; retained old runtime remains inspectable/startable/stoppable | P14–P16 and affected P25–P29 |
 | Artifact packaging | Admitted generic runtime base plus exact app image | P01 and P02 |
 | Required service set | D1/auth/MCP/browser plus files and durable scheduled work for the first complete app; other requirements explicit | P01 and P04 |
-| App owner and identity | Explicit Canlang owner bootstrap; no automatic Forgejo principal substitution | P01 and P07 |
+| App owner and identity | App-owned first-owner form with stopped receipt settlement, or explicit stopped Canlang bootstrap; no automatic Forgejo principal substitution | P01 and P07 |
 | Private endpoint and TLS | Separate app hostnames, existing Caddy internal/supplied TLS; operator DNS/client trust, real LAN/Tailnet qualification open | P01 and P22 |
 | Maintenance and recovery targets | Explicit stopped backups adopted; automatic frequency, tolerated data loss and recovery objectives unset | P01 and P25 |
 | Retained Project tooling | Explicit maintenance in the same root, never installation on Open | P18 and P28 |
@@ -484,10 +511,12 @@ capability. Canlang accepts the account credentials directly and atomically
 claims only an empty Identity store under exclusive writer ownership. Soda
 never collects those credentials. Bind the capability to the exact app/data
 and intended administrator, protect origin/CSRF and retries, and keep secret
-material out of logs, URLs and retained operation records. Only a confirmed
+material out of logs, query strings and retained operation records. The transient
+fragment link is removed from browser history when its app-owned form loads.
+Only a confirmed
 owner-team receipt advances the provisional record to normal registration.
-Close setup access, stop the setup generation and enable normal Install, which
-leaves the application stopped until explicit Start.
+Close setup access, stop the setup generation and verify the stopped normal
+generation before atomic registration. It stays stopped until explicit Start.
 
 Concurrent claims have one winner. Lost replies, partial state or already
 provisioned storage require inspecting the existing claim/signing in, never
@@ -497,6 +526,12 @@ and recovery use, with the existing exclusive-writer and no-silent-reset
 constraints. Browser first-owner setup does not imply configured invitation,
 verification or password-reset email delivery.
 
+The installed setup journey recovered the same operation after a lost ingress
+activation response. Inspect/Open reused its exact generation and original
+capability. One orphaned development-VM port-forward rule was removed after
+direct bridge HTTP proved the running app healthy; no identity or data reset
+was used. Cancelled setup data and its namespace remain reserved.
+
 P14.4 owns Canlang provisioning and its narrow receipt/admission contract;
 P26 owns Soda's provisional records, authorized API, host generation and
 Applications UI joins. They release implemented component behavior before
@@ -505,7 +540,7 @@ installed browser journey.
 
 ### Restore the same application to fresh data
 
-Add a separate operator-only **Restore** operation; normal **Replace** keeps
+The separate operator-only **Restore** operation is implemented; normal **Replace** keeps
 its prohibition on changing data identity. Choose a host-inventoried snapshot
 by opaque identity, not a client-supplied filesystem path. Show its timestamp,
 application/bundle and expected loss of writes after the snapshot before
@@ -529,26 +564,33 @@ P25 owns the Go application-record/API and Rust snapshot/host operation;
 P26 adds its Applications control and native journey; P29/P30 own instructions
 and the installed same-address recovery result.
 
-**HB13 source finding (20 October):** P25 must reconcile the snapshot helper
-with the actual producer's retained-storage identity before claiming this
-backup/restore path. Canlang
-`packages/cloudflare/src/deploy/soda-run.ts::prepareStorage` writes
-`canlang.soda.storage.v2` and promotes only the exact matching legacy identity.
-Soda `lib/host/src/application/snapshot.rs::backup` currently admits only
-`canlang.soda.storage.v1`, so current v2 storage is refused as an invalid
-identity before copying. Preserve the producer's fingerprint, resource and
-legacy-admission rules; do not repair a backup by editing its marker or
-weakening checks. Qualify a real current-image stopped backup and fresh reopen,
-including refusal of incompatible identities, under P25.1.
+**HB13 resolved component finding (23 October):** The native snapshot helper
+now validates the producer's actual `canlang.soda.storage.v2` fingerprint and
+resource identities under its writer lock. It does not edit storage markers or
+invent legacy admission. Current seeded storage passed native backup/fresh reopen
+with actual owner/CRUD/File/work readback, and tampered snapshots were refused
+before output creation. The installed CoreOS path also proved the trusted
+`/home` → `/var/home` alias through the native owner rather than accepting
+application-controlled links.
 
-The current snapshot manifest contains file/directory checksums, not the
-trusted timestamp/application/bundle inventory required for browser selection.
-P25/P26 must bind that inventory to the selected snapshot and complete the
-durable Restore operation and revision transition; the current application
-identity guard forbids changing `data_id`, and ordinary Replace retains it.
-Keep the selected same-address behavior in the handbook while these producers
-and the P30 installed witness remain open. A successful unbound directory copy
-does not establish this operation.
+The snapshot seal now carries the trusted timestamp/application/bundle inventory
+used by browser selection. The application identity guard allows data rebinding
+only through the matching pending Restore operation. A retained development VM
+passed UI/API/native backup, an acknowledged later write, fresh Restore at the
+same address, revision advancement, reopened records/files/work and preservation
+of both data trees. An actual dashboard kill after the native prepared journal
+also passed: native replacement finished, the restarted dashboard retained the
+same pending operation and original binding, lifecycle writes stayed disabled,
+and UI reconciliation admitted the reserved fresh data exactly once. Completed
+replay preserved its stopped generation and both trees. Real database/HTTP checks
+cover uncertain native outcomes and replay. The final Canlang image also passed native-host SIGKILL during copy: recovery
+retained the exact incomplete directory privately, recopied under the same intent,
+and UI reconciliation/replay settled once. Actual owner/MCP/File/work reopened
+and the app stopped. The native launch listener now recovers its own stale socket,
+and dashboard native IPC mounts a dedicated stable directory rather than a socket
+inode. Full matching-appliance lifecycle/candidate qualification remains open
+under P26/P30.
+These development overrides do not qualify G4 or an installed release.
 
 ### Fixed initial runtime envelope
 

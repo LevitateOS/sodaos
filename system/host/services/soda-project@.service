@@ -5,6 +5,7 @@ Wants=network-online.target soda-host.service
 
 [Service]
 Type=simple
+ExecStartPre=/usr/bin/test ! -d /var/lib/soda/dashboard/member-access/%i
 ExecStart=/usr/bin/podman start --attach soda-%i
 ExecStartPost=/usr/local/libexec/soda/soda-project-maintain muse --bind-only --project %i
 ExecStartPost=/usr/local/libexec/soda/soda-project-maintain factory-mcp --project %i

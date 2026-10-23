@@ -30,6 +30,8 @@ func identityError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, identity.ErrDenied):
 		auth.JSONError(w, 403, "identity_denied", "This connection operation is not authorized.")
+	case errors.Is(err, identity.ErrNotFound):
+		auth.JSONError(w, 404, "identity_not_found", "This connection or execution is no longer available. Refresh its current state.")
 	case errors.Is(err, identity.ErrBusy), errors.Is(err, identity.ErrStale), errors.Is(err, identity.ErrUncertain):
 		auth.JSONError(w, 409, "identity_unavailable", "Connection use is unavailable. Refresh status or reconnect before retrying.")
 	default:

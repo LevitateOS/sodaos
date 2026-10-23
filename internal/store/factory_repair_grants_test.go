@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,50 @@ func repairChargeFixture(id, grant, episode string, cycle int, kind, evidence st
 // materially new evidence; repository bounds hold with a separate
 // sponsor scope.
 func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
+	t.Run("concurrent episodes cannot overspend one grant", func(t *testing.T) {
+		ctx := context.Background()
+		db := dispatchStoreFixture(t)
+		now := time.Now().UTC()
+		grantID := factory.NewID()
+		cmd, grant := repairGrantFixture(grantID, "", 0, 991, 7, 4, 4, 120, "")
+		if _, _, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, now); err != nil {
+			t.Fatal(err)
+		}
+		start := make(chan struct{})
+		results := make(chan error, 8)
+		spent := make(chan bool, 8)
+		var jobs sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			jobs.Add(1)
+			go func() {
+				defer jobs.Done()
+				<-start
+				charge := repairChargeFixture(factory.NewID(), grantID, factory.NewID(), 1, factory.RepairChargeRun, "a", 1, false)
+				_, created, err := db.AdmitStallInvestigation(ctx, 991, charge, now)
+				results <- err
+				spent <- created
+			}()
+		}
+		close(start)
+		jobs.Wait()
+		close(results)
+		close(spent)
+		for err := range results {
+			if err != nil && !errors.Is(err, factory.ErrRepairRunsExhausted) {
+				t.Fatal(err)
+			}
+		}
+		count := 0
+		for created := range spent {
+			if created {
+				count++
+			}
+		}
+		charges, err := db.RepairCharges(ctx, 991)
+		if err != nil || count != 4 || len(charges) != 4 {
+			t.Fatalf("concurrent grant overspent or lost charges: spent=%d retained=%d %v", count, len(charges), err)
+		}
+	})
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()

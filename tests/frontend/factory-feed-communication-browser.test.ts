@@ -63,3 +63,34 @@ test('findings show supplied source literally and corrections retain before and 
   assert.equal(await feed.locator('.soda-action-commits code').innerText(), 'bbbbbbbb');
   assert.equal(await feed.locator('.soda-action-commits li > span').innerText(), 'Restrict access to owner');
 });
+
+test('recorded suggestion and answer resolutions remain readable in the feed', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.api.setPresentation('settings');
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/factory/feed/subscription')) return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+      if (call.url.includes('/api/repositories?q=')) return Response.json({items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false}], next_cursor: ''});
+      if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [
+        {kind: 'post', id: 'a'.repeat(32), repository: 7, seq: 45, actor: 'architect', payload: {communication: {kind: 'suggest', title: 'Cache the policy', summary: 'Avoid repeated reads.', disposition: 'applied', disposition_reason: 'Cached only within the assignment.'}}},
+        {kind: 'post', id: 'b'.repeat(32), repository: 7, seq: 44, actor: 'architect', payload: {communication: {kind: 'suggest', title: 'Share the cache', summary: 'Share reads between assignments.', disposition: 'refused', disposition_reason: '<script>window.untrustedResolutionRan = true</script> would cross assignment scope.'}}},
+        {kind: 'post', id: 'c'.repeat(32), repository: 7, seq: 43, actor: 'architect', payload: {communication: {kind: 'ask', title: 'Who can read tasks?', summary: 'The access policy needs clarification.', question_state: 'incorporated'}}},
+        {kind: 'post', id: 'd'.repeat(32), repository: 7, seq: 42, actor: 'builder', payload: {communication: {kind: 'answer', title: 'Only the owner', summary: 'The owner alone can read their tasks.', disposition: 'incorporated'}}},
+        {kind: 'post', id: 'e'.repeat(32), repository: 7, seq: 41, actor: 'architect', payload: {communication: {kind: 'suggest', title: 'Consider a bounded cache', summary: 'Still awaiting a decision.'}}}
+      ], truncated: false});
+      return null;
+    });
+  });
+  await refresh(page);
+  await page.evaluate(() => window.drawerFixture.mountFeed());
+  const feed = page.locator('soda-factory-feed');
+  await feed.getByRole('heading', {name: 'Cache the policy', exact: true}).waitFor();
+  assert.equal(await feed.getByText('Suggestion applied', {exact: true}).count(), 1);
+  assert.equal(await feed.getByText('Suggestion declined', {exact: true}).count(), 1);
+  assert.equal(await feed.getByText('Answer incorporated', {exact: true}).count(), 2);
+  assert.equal(await feed.getByText('Proposed', {exact: true}).count(), 1);
+  assert.equal(await feed.getByText('Recorded detail unavailable', {exact: true}).count(), 0);
+  assert.equal(await feed.locator('[data-post-resolution="applied"]').innerText(), 'Cached only within the assignment.');
+  assert.match(await feed.locator('[data-post-resolution="refused"]').innerText(), /<script>window.untrustedResolutionRan/);
+  assert.equal(await feed.locator('[data-post-resolution] script').count(), 0);
+});

@@ -68,6 +68,7 @@ type FactoryMCPRunSource interface {
 // D16 proposal validation; nil names the unwired catalog honestly
 // (FW40 wires the approved check catalog).
 type FactoryMCPDeps struct {
+	ContextCursorKey []byte
 	// BoundCapability is supplied by the authenticated transport, never tool
 	// arguments. Its immutable scope supplies identity and default revisions.
 	BoundCapability      *factory.MCPCapability
@@ -142,6 +143,12 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	}
 	if payload := researchPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
+	if payload := resolvePostPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
+	if tool == factory.MCPToolContext {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = contextPayloadSchema()
 	}
 	if tool == factory.MCPToolPublishArtifact {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = artifactPayloadSchema()
@@ -430,6 +437,9 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if tool == factory.MCPToolRecordResearch {
 		return checkResearchPayload(tool, payload)
 	}
+	if tool == factory.MCPToolResolvePost {
+		return checkResolvePostPayload(tool, payload)
+	}
 	if tool == factory.MCPToolPublishArtifact {
 		return checkArtifactPayload(payload)
 	}
@@ -484,7 +494,7 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 	case factory.MCPToolFinishResearch:
 		return key == "findings" || key == "evidence" || key == "uncertainty"
 	case factory.MCPToolFinishCorrection:
-		return key == "candidate"
+		return key == "candidate" || key == "fix_evidence"
 	default:
 		return false
 	}
@@ -559,6 +569,10 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
 	if err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission); err != nil {
+		release()
+		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
+	}
+	if err := s.requireNewSubmissionContext(ctx, capability, submission); err != nil {
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
@@ -660,8 +674,23 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	}
 	defer read.release()
 	attemptEligible, lineageEligible := factory.BundleEligibility(read.assignment, read.parentLoaded)
-	foregrounded := s.foregroundReadBundle(ctx, read, attemptEligible, lineageEligible)
-	return mcpJSONResult(buildReadBody(read, attemptEligible, lineageEligible, foregrounded))
+	foregrounded, selectionReason, selectionFingerprint := s.foregroundReadBundle(ctx, read, attemptEligible, lineageEligible)
+	body := buildReadBody(read, attemptEligible, lineageEligible, foregrounded)
+	action := "serve"
+	if selectionReason != "" {
+		action = "hold"
+	}
+	if read.frozen {
+		action = "stop"
+	}
+	body["context_selection"] = map[string]any{"bundle": foregrounded, "action": action, "reason_code": selectionReason, "fingerprint": selectionFingerprint}
+	if err := s.addCheckpointContext(ctx, read, body); err != nil {
+		return nil, nil, err
+	}
+	if err := s.addCurrentContext(ctx, read, body, args); err != nil {
+		return nil, nil, err
+	}
+	return mcpJSONResult(body)
 }
 
 // readContext binds one admitted read to its terminal, count and
@@ -708,7 +737,7 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 		return nil, err
 	}
 	if read.assignment.ParentAssignment != "" {
-		if loaded, err := s.deps.Assignments.Assignment(ctx, read.assignment.ParentAssignment); err == nil {
+		if loaded, err := s.deps.Assignments.Assignment(ctx, read.assignment.ParentAssignment); err == nil && factory.ContextParentVisible(read.assignment, loaded) {
 			read.parent, read.parentLoaded = loaded, true
 		}
 	}
@@ -716,43 +745,34 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 	return read, nil
 }
 
-// foregroundReadBundle narrows the served sections to a recorded
-// preparation-time bundle selection; the lookup never consults, so
-// reads still spend nothing. A missing, mismatched or no-longer-
-// eligible receipt falls back to the widest eligible bundle.
-func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *readContext, attemptEligible, lineageEligible bool) string {
-	if s.deps.PriorityJudgments == nil {
-		return ""
+// foregroundReadBundle is read-only. Missing, failed or uncertain selections
+// retain the deterministic snapshot and an explicit hold.
+func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *readContext, attemptEligible, lineageEligible bool) (string, string, string) {
+	priority := s.deps.PriorityJudgments
+	if priority == nil {
+		priority, _ = s.deps.Submissions.(FactoryMCPPriorityJudgmentSource)
 	}
-	fingerprint, err := control.ContextBundleFingerprint(read.capability, read.assignment, attemptEligible, lineageEligible)
+	if priority == nil {
+		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
+	}
+	fingerprint := read.capability.ContextSelectionSnapshot
+	if !factory.ValidDigest(fingerprint) {
+		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
+	}
+	receipt, err := priority.PriorityJudgment(ctx, fingerprint)
 	if err != nil {
-		return ""
+		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
 	}
-	receipt, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, fingerprint)
-	if err != nil || receipt.Purpose != factory.JudgmentContextBundle || receipt.Outcome != "context-bundle" {
-		return ""
-	}
-	switch receipt.Selected {
-	case factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold:
-		return receipt.Selected
-	case factory.ContextBundleAttempt:
-		if attemptEligible {
-			return receipt.Selected
-		}
-	case factory.ContextBundleLineage:
-		if lineageEligible {
-			return receipt.Selected
-		}
-	}
-	return ""
+	bundle, reason := control.ContextBundleFromReceipt(receipt, read.capability, read.assignment, attemptEligible, lineageEligible)
+	return bundle, reason, fingerprint
 }
 
 // buildReadBody renders one read's projection with its eligible
 // attempt and lineage sections.
 func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, foregrounded string) map[string]any {
 	capability, assignment := read.capability, read.assignment
-	serveAttempt := attemptEligible && (foregrounded == "" || foregrounded == factory.ContextBundleAttempt || foregrounded == factory.ContextBundleLineage)
-	serveLineage := lineageEligible && (foregrounded == "" || foregrounded == factory.ContextBundleLineage)
+	serveAttempt := attemptEligible && (foregrounded == factory.ContextBundleAttempt || foregrounded == factory.ContextBundleLineage)
+	serveLineage := lineageEligible && foregrounded == factory.ContextBundleLineage
 	bundle := factory.ContextBundleCurrent
 	body := map[string]any{
 		"assignment":            capability.AssignmentID,

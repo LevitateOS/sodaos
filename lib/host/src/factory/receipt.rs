@@ -1,5 +1,5 @@
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::time::{Duration, Instant};
 
 use super::{
     factory_unit_name, valid_factory_phase, Factory, FactoryBroker, FactoryError, FactoryRun,
@@ -336,10 +336,6 @@ pub(in crate::factory) fn receipt_state(receipt: &FactoryReceipt, live: bool) ->
 }
 
 impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
-    fn receipt_path(&self, project: &str, run: &str) -> String {
-        format!("{}/{project}-{run}.json", self.state_dir)
-    }
-
     fn lock_path(&self, project: &str, run: &str) -> String {
         format!("{}/{project}-{run}.lock", self.state_dir)
     }
@@ -356,14 +352,26 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if Instant::now() >= deadline {
             return Err(FactoryError::DeadlineExceeded);
         }
+        super::checkpoint::PrivateState::open(&self.state_dir).map_err(FactoryError::msg)?;
         let file = std::fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .read(true)
             .write(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
             .mode(0o600)
             .open(self.lock_path(project, run))
             .map_err(|e| FactoryError::msg(e.to_string()))?;
+        let metadata = file
+            .metadata()
+            .map_err(|e| FactoryError::msg(e.to_string()))?;
+        if !metadata.is_file()
+            || metadata.nlink() != 1
+            || metadata.uid() != unsafe { libc::geteuid() }
+            || metadata.permissions().mode() & 0o077 != 0
+        {
+            return Err(FactoryError::msg("unsafe native run lock"));
+        }
         loop {
             // SAFETY: flock on an owned open fd with no timeout side effects.
             let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
@@ -394,12 +402,16 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         project: &str,
         run: &str,
     ) -> Result<(FactoryReceipt, bool), FactoryError> {
-        let data = match std::fs::read(self.receipt_path(project, run)) {
-            Ok(data) => data,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+        let state =
+            super::checkpoint::PrivateState::open(&self.state_dir).map_err(FactoryError::msg)?;
+        let data = match state
+            .read_bytes(&format!("{project}-{run}.json"))
+            .map_err(FactoryError::msg)?
+        {
+            Some(data) => data,
+            None => {
                 return Ok((FactoryReceipt::default(), false));
             }
-            Err(e) => return Err(FactoryError::msg(e.to_string())),
         };
         if data.len() > 128 << 10 {
             return Err(FactoryError::msg("run receipt exceeds bounds"));
@@ -446,47 +458,13 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     }
 
     fn write_receipt_file(&self, receipt: &FactoryReceipt) -> Result<(), FactoryError> {
-        use std::io::Write;
         let data = receipt.encode();
-        let path = self.receipt_path(&receipt.run.project, &receipt.run.id);
-        // Unique temporary sibling, like `os.CreateTemp(stateDir, ".receipt-")`.
-        let mut counter = 0u32;
-        let tmp_path = loop {
-            counter += 1;
-            let candidate = format!(
-                "{}/.receipt-{}-{}-{counter}",
-                self.state_dir,
-                std::process::id(),
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0)
-            );
-            match std::fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(&candidate)
-            {
-                Ok(_) => break candidate,
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && counter < 100 => {
-                    continue
-                }
-                Err(e) => return Err(FactoryError::msg(e.to_string())),
-            }
-        };
-        let write_result = (|| -> std::io::Result<()> {
-            let mut tmp = std::fs::OpenOptions::new().write(true).open(&tmp_path)?;
-            tmp.write_all(data.as_bytes())?;
-            tmp.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-            drop(tmp);
-            std::fs::rename(&tmp_path, &path)?;
-            Ok(())
-        })();
-        if let Err(e) = write_result {
-            let _ = std::fs::remove_file(&tmp_path);
-            return Err(FactoryError::msg(e.to_string()));
-        }
-        Ok(())
+        super::checkpoint::PrivateState::open(&self.state_dir)
+            .map_err(FactoryError::msg)?
+            .write_bytes(
+                &format!("{}-{}.json", receipt.run.project, receipt.run.id),
+                data.as_bytes(),
+            )
+            .map_err(FactoryError::msg)
     }
 }

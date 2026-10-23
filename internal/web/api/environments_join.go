@@ -121,6 +121,15 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 		auth.ProviderError(w, auth.ErrNativeSessionChanged)
 		return
 	}
+	memberAccess, err := s.Store.MemberAccess(r.Context(), p.ID, v.User.ID)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect Project access.")
+		return
+	}
+	if memberAccess.Held {
+		auth.JSONError(w, 403, "project_access_revoked", "Project access was revoked. Its owner or the Soda operator must explicitly restore access before you can Join.")
+		return
+	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	if err == nil {
 		s.writeJoinLogin(w, login)
@@ -133,6 +142,13 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 	login, public, ok := s.admitNewJoin(w, r, v, p, access, input.SSHKeys)
 	if !ok {
 		return
+	}
+	if memberAccess.RequiresJoin {
+		login, err = s.Store.MemberIdentity(r.Context(), p.ID, v.User.ID)
+		if err != nil {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read retained Project identity.")
+			return
+		}
 	}
 	// Fresh admission after provider/state I/O, not rollback after dispatch.
 	s.reportJoinPersist(w, login, s.persistEnvironmentJoin(r.Context(), r, v, p, login, public))

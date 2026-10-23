@@ -24,6 +24,9 @@ func collectWithdrawalOperations(p *factory.Publication, result *factory.Publica
 			result.Operations = append(result.Operations, op.Work.OperationID)
 		}
 	}
+	for _, op := range p.ResolutionOperations {
+		result.Operations = append(result.Operations, op.Work.OperationID)
+	}
 }
 
 func (c *Coordinator) withdrawOnePublication(ctx context.Context, p *factory.Publication, result *factory.PublicationWithdrawal) {
@@ -192,7 +195,17 @@ func (c *Coordinator) withdrawPublication(ctx context.Context, a factory.Assignm
 	primary := c.cancelPrimaryWithdrawOps(ctx, p)
 	corrections := c.cancelCorrectionWithdrawOps(ctx, p)
 	reviews := c.cancelReviewWithdrawOps(ctx, p)
-	confirmed := primary && corrections && reviews
+	resolutions := true
+	for index := range p.ResolutionOperations {
+		if err := c.reconcileDeliveryResolution(ctx, p, index, true); err != nil {
+			resolutions = false
+		}
+		outcome := p.ResolutionOperations[index].Outcome
+		if outcome.Effect != factory.OpEffectCommitted && outcome.Effect != factory.OpEffectNotCommitted {
+			resolutions = false
+		}
+	}
+	confirmed := primary && corrections && reviews && resolutions
 	if !c.storePublication(ctx, p, report) {
 		return
 	}

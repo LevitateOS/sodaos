@@ -16,6 +16,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // Capability states. Only active capabilities admit calls; expiry,
@@ -31,20 +33,23 @@ const (
 // re-deliveries of the same run: exact restart delivery reproduces
 // the same capability, never a new deadline or allowance.
 type MCPCapability struct {
-	ID                string     `json:"id"`
-	AssignmentID      string     `json:"assignment_id"`
-	RunID             string     `json:"run_id"`
-	Generation        int64      `json:"generation"`
-	Profile           MCPProfile `json:"profile"`
-	Subject           string     `json:"subject"`
-	Repository        int64      `json:"repository"`
-	Project           string     `json:"project"`
-	PreparationDigest string     `json:"preparation_digest"`
-	SourceDigest      string     `json:"source_digest"`
-	AcceptedRevision  string     `json:"accepted_revision"`
-	Authority         string     `json:"authority"`
-	DeadlineUnix      int64      `json:"deadline_unix"`
-	State             string     `json:"state"`
+	ID string `json:"id"`
+	// ContextSelectionSnapshot is controller-owned reservation metadata.
+	// It never changes the immutable credential scope or grants authority.
+	ContextSelectionSnapshot string     `json:"context_selection_snapshot,omitempty"`
+	AssignmentID             string     `json:"assignment_id"`
+	RunID                    string     `json:"run_id"`
+	Generation               int64      `json:"generation"`
+	Profile                  MCPProfile `json:"profile"`
+	Subject                  string     `json:"subject"`
+	Repository               int64      `json:"repository"`
+	Project                  string     `json:"project"`
+	PreparationDigest        string     `json:"preparation_digest"`
+	SourceDigest             string     `json:"source_digest"`
+	AcceptedRevision         string     `json:"accepted_revision"`
+	Authority                string     `json:"authority"`
+	DeadlineUnix             int64      `json:"deadline_unix"`
+	State                    string     `json:"state"`
 }
 
 // Validate checks the immutable identity and scope of a capability.
@@ -201,21 +206,27 @@ func (s MCPSubmission) Validate() error {
 
 // MCPReceipt is the durable terminal record for one submission.
 type MCPReceipt struct {
-	ArtifactID      string  `json:"artifact_id,omitempty"`
-	ArtifactDigest  string  `json:"artifact_digest,omitempty"`
-	LibraryItemID   string  `json:"library_item_id,omitempty"`
-	LibraryRevision int64   `json:"library_revision,omitempty"`
-	FeedPostID      string  `json:"feed_post_id,omitempty"`
-	SubmissionID    string  `json:"submission_id"`
-	Tool            MCPTool `json:"tool"`
-	State           string  `json:"state"`
-	InputDigest     string  `json:"input_digest"`
-	Reason          string  `json:"reason,omitempty"`
+	Checkpoint      *project.FactoryTaskCheckpointState `json:"checkpoint,omitempty"`
+	ArtifactID      string                              `json:"artifact_id,omitempty"`
+	ArtifactDigest  string                              `json:"artifact_digest,omitempty"`
+	LibraryItemID   string                              `json:"library_item_id,omitempty"`
+	LibraryRevision int64                               `json:"library_revision,omitempty"`
+	FeedPostID      string                              `json:"feed_post_id,omitempty"`
+	SubmissionID    string                              `json:"submission_id"`
+	Tool            MCPTool                             `json:"tool"`
+	State           string                              `json:"state"`
+	InputDigest     string                              `json:"input_digest"`
+	Reason          string                              `json:"reason,omitempty"`
 }
 
 // ValidateReceipt bounds refusal diagnostics: bounded reason text,
 // never unbounded new receipt rows.
 func (r MCPReceipt) Validate() error {
+	if r.Checkpoint != nil {
+		if r.Tool != MCPToolSubmitTaskOutput || r.Checkpoint.FinalCandidate || r.Checkpoint.ValidateFor(r.Checkpoint.Request, false) != nil {
+			return errors.New("invalid task checkpoint receipt")
+		}
+	}
 	if !ValidID(r.SubmissionID) {
 		return errors.New("invalid receipt submission")
 	}

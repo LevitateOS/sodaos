@@ -103,17 +103,21 @@ password-reset delivery and external identity federation are not configured.
 Storage locks exclude concurrent
 bootstrap, runtime and backup writers. Files requires a fixed backend port and
 an actual HTTPS proxy at the configured public origin; direct plaintext URLs
-are rejected. SIGTERM drains and disposes Miniflare/workerd with a bounded
-shutdown deadline.
+are rejected. SIGTERM drains the Node gateway and direct workerd with a bounded
+shutdown deadline. The native exec guard preserves the checked writer lock and
+retires workerd if its gateway dies.
 
 ## Package and administer
 
 The [runtime recipe](../../system/containers/canlang/Containerfile) consumes the
-admitted offline tool closure. The [application recipe](../../system/containers/canlang/Application.Containerfile)
+admitted offline tools archive's production-only `runtime/` subtree. Miniflare,
+Wrangler, compiler, Bun and development fixtures stay in Project tools. The [application recipe](../../system/containers/canlang/Application.Containerfile)
 adds the exact read-only bundle and labels its existing artifact, bundle, tools,
 runtime and origin references. Build-time inputs belong under `/home`; startup
 does not compile or download packages. The runtime uses UID/GID `10000`, a
-read-only root, bounded memory/CPU/processes and app-only writable storage. It
+read-only root, 1 GiB memory, up to two CPUs' worth of CPU time, 128 processes
+or threads, and app-only writable storage. These fixed limits also appear in
+Applications. They are limits rather than reserved CPUs. It
 does not inherit Project homes, SSH, sudo, an engine socket or Forgejo credentials.
 
 For production, build the application layer over the exact selected runtime
@@ -124,7 +128,36 @@ checking bytes. Transfer the resulting OCI archive through the operator's
 trusted path and load it into the appliance's Podman store before registration.
 There is no browser image-upload endpoint or build during Install.
 
-Provision production storage as an operator, with a new `a` plus 24 lowercase
+The operator can instead open **Set up a new application** in Applications,
+provide the admitted image references and choose the Soda administrator. Soda
+reserves a separate provisional record and fresh data identity. **Begin owner
+setup** starts only Canlang's first-owner form at the exact application origin;
+normal application and MCP routes remain unavailable. This explicit admission
+installs its private route and restarts the shared proxy. This can close the
+calling browser connection: Refresh owner setups, Inspect the same setup and
+choose Open owner setup again. An exact already ready route/generation reuses
+its private credential without restarting the proxy. An unactivated partial
+route still requires explicit activation.
+
+Open **Create application owner** and choose the application's email and
+password there. Soda keeps the opaque setup credential in a private native file;
+the browser receives a temporary fragment link which the form removes from its
+history. Passwords never enter Soda's records. After the form succeeds, choose
+**Confirm owner and finish**. The native host stops and verifies that exact
+setup container, checks the receipt against the admitted artifact, bundle and
+storage identity, and installs an ordinary stopped container for its confirmed
+owner. Soda atomically registers its administrator and owner. Refresh
+Applications and explicitly Start it.
+
+A lost reply remains provisional: Inspect and finish the same setup. The link
+expires after 30 minutes; an already written matching receipt can still finish.
+An expired link cannot create a new owner, extend itself or replace a missing
+credential on existing data. If no owner was created, **Stop and cancel setup**
+retains its data and address reservation for operator recovery. Cancelling an
+uncreated setup also checks native absence before settling it. No ordinary
+application admission accepts an absent owner team.
+
+For explicit stopped terminal provisioning instead, provision production storage as an operator, with a new `a` plus 24 lowercase
 hex digit data ID. Set `APP_IMAGE` to the exact loaded image ID, `APP_DATA` to
 `/home/soda-applications/data/DATA_ID`, and `OWNER_CREDENTIALS` to a separate
 private production credential file. Write that file privately with the format
@@ -190,6 +223,24 @@ The runtime blocks development/control routes from public serving.
 
 ## Stopped backup and fresh restore
 
+The operator can open **Backups and recovery** in Applications, stop and inspect
+the app, then choose **Back up**. **Refresh backups** reads the native inventory,
+including each snapshot's timestamp and bundle identity. Opening this section
+does not create a snapshot.
+
+To recover, select a compatible backup, confirm that writes after that backup
+will be absent, and choose **Restore**. The native host copies into fresh data
+and installs a stopped generation. Soda advances the same application's
+revision while retaining its ID, address, administrator, owner and previous
+data. Explicitly Start after checking the result. Ordinary image replacement
+continues to preserve the current data identity.
+
+An interrupted Restore remains pending with writes disabled. Refresh
+Applications and choose **Reconcile Restore** to resume the same recorded
+operation. **Cancel Restore** succeeds only while the original stopped native
+generation remains; a changed generation must be reconciled. Neither path
+overwrites retained data. The inventory shows the newest 64 matching snapshots.
+
 Stop the application and confirm the writer is stopped before copying storage.
 The native storage helper independently takes the existing writer lock. From an
 operator terminal with the installed helper:
@@ -210,8 +261,9 @@ files, refuses links/special files and cannot overwrite an occupied restore
 target. Restore verifies the snapshot before writing and assigns runtime
 ownership when run as root. Reopen the restored app with the matching bundle,
 owner and public origin; verify records, authorized file bytes and work receipts
-before allowing ordinary writes. A fresh restore is a separate data identity,
-not an in-place rollback or a retargeting of an existing application record.
+before allowing ordinary writes. This low-level helper creates a separate data
+tree; it does not update Soda's application record. Use the explicit Applications
+Restore operation when recovering the same application at its existing address.
 
 Backups are operator-triggered. Automatic frequency, tolerated data loss and
 recovery targets remain unset. Restoring an older backup omits acknowledged

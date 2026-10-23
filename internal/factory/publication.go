@@ -114,40 +114,41 @@ const (
 // the current attempt bound, and the exact linked PR once creation commits.
 // Finished work keeps its receipts for inspection.
 type Publication struct {
-	WithdrawRequested   bool                 `json:"withdraw_requested,omitempty"`
-	Publish             PublicationOperation `json:"publish"`
-	PRCreate            PublicationOperation `json:"pr_create"`
-	Corrections         CorrectionOps        `json:"corrections,omitempty"`
-	ReviewOperations    []ReviewOperation    `json:"review_operations,omitempty"`
-	ReviewCycles        []ReviewCycle        `json:"review_cycles,omitempty"`
-	CorrectionJournals  []CorrectionJournal  `json:"correction_journals,omitempty"`
-	DeliveryAcceptances []DeliveryAcceptance `json:"delivery_acceptances,omitempty"`
-	Authority           AuthorityRef         `json:"authority"`
-	ID                  string               `json:"id"`
-	AssignmentID        string               `json:"assignment_id"`
-	ProjectID           string               `json:"project_id"`
-	Role                string               `json:"role"`
-	Acceptance          string               `json:"acceptance"`
-	Preparation         string               `json:"preparation"`
-	Run                 string               `json:"run"`
-	Candidate           string               `json:"candidate"`
-	BaseSHA             string               `json:"base_sha"`
-	TargetBranch        string               `json:"target_branch"`
-	Comparison          string               `json:"comparison_oid,omitempty"`
-	TargetTip           string               `json:"target_tip,omitempty"`
-	Tuple               *CandidateTuple      `json:"candidate_tuple,omitempty"`
-	Stage               string               `json:"stage"`
-	Outcome             Outcome              `json:"outcome,omitempty"`
-	Reason              string               `json:"reason,omitempty"`
-	Repository          int64                `json:"repository,string"`
-	Issue               int64                `json:"issue,string"`
-	Revision            int64                `json:"revision"`
-	NativeRev           int64                `json:"native_revision"`
-	PRNumber            int64                `json:"pr_number,omitempty"`
-	PRID                int64                `json:"pr_id,omitempty"`
-	CreatedUnix         int64                `json:"created_unix"`
-	ObservedUnix        int64                `json:"observed_unix,omitempty"`
-	FinishedUnix        int64                `json:"finished_unix,omitempty"`
+	WithdrawRequested    bool                          `json:"withdraw_requested,omitempty"`
+	Publish              PublicationOperation          `json:"publish"`
+	PRCreate             PublicationOperation          `json:"pr_create"`
+	Corrections          CorrectionOps                 `json:"corrections,omitempty"`
+	ReviewOperations     []ReviewOperation             `json:"review_operations,omitempty"`
+	ReviewCycles         []ReviewCycle                 `json:"review_cycles,omitempty"`
+	CorrectionJournals   []CorrectionJournal           `json:"correction_journals,omitempty"`
+	DeliveryAcceptances  []DeliveryAcceptance          `json:"delivery_acceptances,omitempty"`
+	ResolutionOperations []DeliveryResolutionOperation `json:"resolution_operations,omitempty"`
+	Authority            AuthorityRef                  `json:"authority"`
+	ID                   string                        `json:"id"`
+	AssignmentID         string                        `json:"assignment_id"`
+	ProjectID            string                        `json:"project_id"`
+	Role                 string                        `json:"role"`
+	Acceptance           string                        `json:"acceptance"`
+	Preparation          string                        `json:"preparation"`
+	Run                  string                        `json:"run"`
+	Candidate            string                        `json:"candidate"`
+	BaseSHA              string                        `json:"base_sha"`
+	TargetBranch         string                        `json:"target_branch"`
+	Comparison           string                        `json:"comparison_oid,omitempty"`
+	TargetTip            string                        `json:"target_tip,omitempty"`
+	Tuple                *CandidateTuple               `json:"candidate_tuple,omitempty"`
+	Stage                string                        `json:"stage"`
+	Outcome              Outcome                       `json:"outcome,omitempty"`
+	Reason               string                        `json:"reason,omitempty"`
+	Repository           int64                         `json:"repository,string"`
+	Issue                int64                         `json:"issue,string"`
+	Revision             int64                         `json:"revision"`
+	NativeRev            int64                         `json:"native_revision"`
+	PRNumber             int64                         `json:"pr_number,omitempty"`
+	PRID                 int64                         `json:"pr_id,omitempty"`
+	CreatedUnix          int64                         `json:"created_unix"`
+	ObservedUnix         int64                         `json:"observed_unix,omitempty"`
+	FinishedUnix         int64                         `json:"finished_unix,omitempty"`
 }
 
 // Validate rejects malformed publications. Open work carries no outcome;
@@ -174,6 +175,9 @@ func (p Publication) Validate() error {
 		return err
 	}
 	if err := p.validateDeliveryAcceptances(); err != nil {
+		return err
+	}
+	if err := p.validateDeliveryResolutions(); err != nil {
 		return err
 	}
 	if err := checkPublicationPRLinks(p, initial); err != nil {

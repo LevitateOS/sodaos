@@ -23,6 +23,7 @@ export interface WorkRoute {
   readonly status: number;
   readonly json: unknown;
   readonly echoCommand?: boolean;
+  readonly echoAcceptance?: boolean;
 }
 
 export const INTENT = 'd' + 'e'.repeat(24);
@@ -64,7 +65,16 @@ function stubTransport(): PreparedExtensionMount {
       const hit = routes.find((route) => route.method === method && route.path === path && matchBody(route, body));
       if (!hit) return Response.json({error: {code: 'not_found', message: 'No stub reply.'}}, {status: 404});
       const json = hit.echoCommand ? withCommand(hit.json, body) : hit.json;
-      return Response.json(json, {status: hit.status});
+      const acceptance =
+        hit.echoAcceptance && typeof body === 'object' && body !== null
+          ? {
+              ...(json as Record<string, unknown>),
+              command_id: (body as Record<string, unknown>).command_id,
+              decision_id: (body as Record<string, unknown>).decision_id,
+              head: (body as Record<string, unknown>).decision_id,
+            }
+          : json;
+      return Response.json(acceptance, {status: hit.status});
     }) as PreparedExtensionMount['request'],
   } as unknown as PreparedExtensionMount;
 }
@@ -95,7 +105,8 @@ function mount(view: WorkView): void {
   else if (view === 'plan')
     mountFactoryWorkPlan(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issues: ['12']});
   else if (view === 'direction') mountFactoryDirectionRevision(root, {transport, intentID: INTENT});
-  else mountFactoryOptionalEffects(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issue: '12'});
+  else
+    mountFactoryOptionalEffects(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issue: '12'});
 }
 
 declare global {

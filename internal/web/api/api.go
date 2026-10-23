@@ -31,8 +31,12 @@ type API struct {
 	// ProjectCreationAdmission holds native maintenance exclusion before any
 	// durable reservation. Tests with a fake native host supply an explicit gate.
 	ProjectCreationAdmission func() (func(), error)
+	// MemberAccessFence publishes the retained startup fence before access
+	// changes. Tests substitute an isolated real filesystem root.
+	MemberAccessFence func(string, int64, bool) error
 
 	terminalMu         sync.Mutex
+	memberAccessMu     sync.Mutex
 	applicationMu      sync.Mutex
 	applicationPending map[string]bool
 	SpacesSlots        chan struct{}
@@ -55,5 +59,6 @@ func New(cfg *config.Config, db *store.Store, client *forgejo.Client, hostClient
 		Config: cfg, Store: db, Forgejo: client, Host: hostClient, Auth: auth,
 		SpacesSlots: make(chan struct{}, 4), RepositorySlots: make(chan struct{}, 4),
 		ProjectCreationAdmission: host.AcquireProjectCreation,
+		MemberAccessFence:        host.SetMemberAccessFence,
 	}
 }

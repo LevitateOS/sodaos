@@ -49,7 +49,7 @@ fn muse_provider_arguments(args: &[String]) -> Vec<String> {
         return vec!["--provider".to_string(), "meta".to_string()];
     }
     match args[0].as_str() {
-        "exec" | "resume" | "serve" => {
+        "exec" | "resume" => {
             let mut out = vec![
                 args[0].clone(),
                 "--provider".to_string(),
@@ -58,8 +58,10 @@ fn muse_provider_arguments(args: &[String]) -> Vec<String> {
             out.extend(args[1..].iter().cloned());
             out
         }
-        "config" | "export" | "trace" | "skills" | "sandbox" | "schema" | "session-message"
-        | "mcp" | "init" => args.to_vec(),
+        // MSP selects its provider in session/start. `serve` has no provider
+        // CLI option; the native Factory client binds that request to meta.
+        "serve" | "config" | "export" | "trace" | "skills" | "sandbox" | "schema"
+        | "session-message" | "mcp" | "init" => args.to_vec(),
         _ => {
             let mut out = vec!["--provider".to_string(), "meta".to_string()];
             out.extend(args.iter().cloned());

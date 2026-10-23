@@ -160,6 +160,19 @@ impl<E: Executor> Runtime<E> {
         if !valid_lifecycle_action(&input.action) {
             return Err("invalid lifecycle operation".to_string());
         }
+        if input.action == "start" {
+            match std::fs::symlink_metadata(format!(
+                "/var/lib/soda/dashboard/member-access/{}",
+                input.project
+            )) {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => {
+                    return Err(
+                        "member access operation pending; reconcile before Project start".into(),
+                    )
+                }
+            }
+        }
         let cid = self.project_container(&input.project, false, deadline)?;
         let unit = format!("soda-project@{}.service", input.project);
         self.read_project_unit(&unit, deadline)?;

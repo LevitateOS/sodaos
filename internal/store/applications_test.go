@@ -15,6 +15,93 @@ func applicationFixture() application.Record {
 	return application.Record{Application: application.Spec{ID: "a" + strings.Repeat("1", 24), Revision: 1, Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("7", 24), OwnerTeam: "12345678-1234-1234-1234-123456789abc", Origin: "https://app.example.test", Port: 20001}, AdministratorID: 41}
 }
 
+func TestApplicationRestorePreservesIdentityAndDurablePendingState(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	record := applicationFixture()
+	if err := s.CreateApplication(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	before := application.Observation{ID: record.Application.ID, Revision: 1, Container: strings.Repeat("a", 64), Image: record.Application.Image, Origin: record.Application.Origin}
+	if err := s.ObserveApplication(ctx, record.Application.ID, 41, 1, nil, &before); err != nil {
+		t.Fatal(err)
+	}
+	op := application.RestoreOperation{ID: "a" + strings.Repeat("8", 24), Snapshot: "a" + strings.Repeat("9", 24), Previous: record.Application, Next: record.Application, ExpectedContainer: before.Container, State: "pending"}
+	op.Next.Revision++
+	op.Next.Data = "a" + strings.Repeat("b", 24)
+	if _, err := s.db.ExecContext(ctx, `UPDATE applications SET data_id=$1 WHERE id=$2`, op.Next.Data, record.Application.ID); err == nil {
+		t.Fatal("data changed outside restore")
+	}
+	if err := s.BeginApplicationRestore(ctx, 42, op); err == nil {
+		t.Fatal("foreign administrator reserved restore")
+	}
+	if err := s.BeginApplicationRestore(ctx, 41, op); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	pending, err := reopened.PendingApplicationRestore(ctx, record.Application.ID)
+	if err != nil || pending == nil || *pending != op {
+		t.Fatalf("pending restore lost on restart: %+v %v", pending, err)
+	}
+	current, err := reopened.Application(ctx, record.Application.ID, 41)
+	if err != nil || current.Application != record.Application || current.Observation != nil {
+		t.Fatalf("uncertain restore changed binding: %+v %v", current, err)
+	}
+	other := op
+	other.ID = "a" + strings.Repeat("c", 24)
+	other.Next.Data = "a" + strings.Repeat("d", 24)
+	if err := s.BeginApplicationRestore(ctx, 41, other); err == nil {
+		t.Fatal("second pending restore admitted")
+	}
+	observed := before
+	observed.Revision = op.Next.Revision
+	if err := s.SettleApplicationRestore(ctx, 41, record.Application.ID, op.ID, observed, false); err == nil {
+		t.Fatal("old container accepted as restored")
+	}
+	observed.Container = strings.Repeat("b", 64)
+	if err := s.SettleApplicationRestore(ctx, 41, record.Application.ID, op.ID, observed, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SettleApplicationRestore(ctx, 41, record.Application.ID, op.ID, observed, false); err != nil {
+		t.Fatalf("completion replay: %v", err)
+	}
+	current, err = s.Application(ctx, record.Application.ID, 41)
+	if err != nil || current.Application != op.Next || !application.SameObservation(current.Observation, &observed) {
+		t.Fatalf("same-address restore not committed: %+v %v", current, err)
+	}
+	old, err := s.ApplicationRevision(ctx, record.Application.ID, 41, 1)
+	if err != nil || old != record.Application {
+		t.Fatalf("old data/reference lost: %+v %v", old, err)
+	}
+	if pending, err := s.PendingApplicationRestore(ctx, record.Application.ID); err != nil || pending != nil {
+		t.Fatalf("completed restore remained pending: %+v %v", pending, err)
+	}
+	second := op
+	second.ID = "a" + strings.Repeat("e", 24)
+	second.Previous, second.Next = op.Next, op.Next
+	second.Next.Revision++
+	second.Next.Data = record.Application.Data
+	second.ExpectedContainer = observed.Container
+	if err := s.BeginApplicationRestore(ctx, 41, second); err == nil {
+		t.Fatal("restore reused retained historical data")
+	}
+	second.Next.Data = "a" + strings.Repeat("f", 24)
+	if err := s.BeginApplicationRestore(ctx, 41, second); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SettleApplicationRestore(ctx, 41, record.Application.ID, second.ID, observed, true); err != nil {
+		t.Fatal(err)
+	}
+	current, err = s.Application(ctx, record.Application.ID, 41)
+	if err != nil || current.Application != op.Next || !application.SameObservation(current.Observation, &observed) {
+		t.Fatalf("aborted restore changed current data: %+v %v", current, err)
+	}
+}
+
 func TestApplicationProjectAssociationNeedsTheApplicationAdministrator(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()

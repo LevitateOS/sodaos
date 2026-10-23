@@ -31,9 +31,9 @@
 //   - T39: source, scope and authority freshness invalidates before
 //     effects; release covers only its own event.
 //
-// Deterministic fixtures only: the Jev proposal judgment arrives as
-// caller-supplied option/probability/confidence inputs. There is no live
-// Jev consultation from this path.
+// This deterministic preflight receives the typed proposal judgment.
+// completion_proposal.go owns its funded serving consultation and
+// completion_adoption.go owns the durable serial execution.
 package control
 
 import (
@@ -65,10 +65,12 @@ const (
 // task edge. Protected means delivered, active, PR-linked, manually
 // changed since the recorded generation, or not factory-authorized.
 type ReassessmentPrior struct {
-	Revision         factory.IntentRevision
-	Bindings         map[string]factory.IntentTaskBinding
-	Protected        map[string]bool
-	PrereqAcceptance map[string]map[string]string
+	Revision             factory.IntentRevision
+	SubmittedTasks       []factory.IntentTask
+	SuccessorCreatedUnix int64
+	Bindings             map[string]factory.IntentTaskBinding
+	Protected            map[string]bool
+	PrereqAcceptance     map[string]map[string]string
 }
 
 // ReassessmentAuthority carries the current-authority inputs the proposal
@@ -134,6 +136,7 @@ type ReassessmentJournalStep struct {
 type ReassessmentJournal struct {
 	Steps           []ReassessmentJournalStep
 	CompletionID    string
+	StallID         string
 	CycleID         string
 	InventoryDigest string
 	Cursor          int
@@ -152,7 +155,7 @@ func ValidateReassessmentAdoption(
 	judgment ReassessmentProposalJudgment,
 	freshness ReassessmentFreshness,
 	sealedInventoryDigest string,
-	inventorySize int,
+	inventory []int64,
 	changedIssueIndexes []int64,
 	completionID, cycleID string,
 ) ([]ReassessmentIntentPacket, factory.ReassessmentValidationReport, ReassessmentJournal, error) {
@@ -166,7 +169,7 @@ func ValidateReassessmentAdoption(
 	if !factory.ValidDigest(sealedInventoryDigest) || report.InventoryDigest != sealedInventoryDigest {
 		return nil, empty, ReassessmentJournal{}, errors.New("reassessment inventory is not the sealed inventory")
 	}
-	if err := report.AccountingHolds(inventorySize, changedIssueIndexes); err != nil {
+	if err := report.AccountingHolds(inventory, changedIssueIndexes); err != nil {
 		return nil, empty, ReassessmentJournal{}, err
 	}
 	if len(report.Attention) > 0 {
@@ -186,7 +189,7 @@ func ValidateReassessmentAdoption(
 	}
 	packets := make([]ReassessmentIntentPacket, 0, len(report.IntentChanges))
 	for _, change := range report.IntentChanges {
-		packet, err := preflightReassessmentIntent(change, priors, authority, report)
+		packet, err := preflightReassessmentIntent(change, priors, authority, report.Coverage)
 		if err != nil {
 			return nil, empty, ReassessmentJournal{}, err
 		}
@@ -210,7 +213,7 @@ func preflightReassessmentIntent(
 	change factory.ReassessmentIntentChange,
 	priors map[string]ReassessmentPrior,
 	authority ReassessmentAuthority,
-	report factory.ReassessmentReport,
+	coverage []factory.ReassessmentCoverage,
 ) (ReassessmentIntentPacket, error) {
 	var empty ReassessmentIntentPacket
 	prior, err := admitReassessmentPrior(change, priors)
@@ -221,13 +224,16 @@ func preflightReassessmentIntent(
 	if err != nil {
 		return empty, err
 	}
-	if err := checkReassessmentCoverage(change, report.Coverage, authority); err != nil {
+	if err := checkReassessmentCoverage(change, coverage, authority); err != nil {
 		return empty, err
 	}
-	changedKeys, _ := diffReassessmentTasks(priorTasks, proposedTasks)
+	changedKeys, retiredKeys := diffReassessmentTasks(priorTasks, proposedTasks)
 	affected, err := transitivelyAffectedTasks(proposedTasks, changedKeys, prior)
 	if err != nil {
 		return empty, err
+	}
+	for _, key := range retiredKeys {
+		affected[key] = true
 	}
 	if err := checkReassessmentProtected(prior, priorTasks, proposedTasks, affected); err != nil {
 		return empty, err
@@ -269,8 +275,8 @@ func admitReassessmentScope(
 	if effective == nil {
 		return nil, nil, errors.New("reassessment intent lacks its effective accepted scope")
 	}
-	priorTasks := make(map[string]factory.IntentTask, len(prior.Revision.Tasks))
-	for _, task := range prior.Revision.Tasks {
+	priorTasks := make(map[string]factory.IntentTask, len(prior.SubmittedTasks))
+	for _, task := range prior.SubmittedTasks {
 		priorTasks[task.Key] = task
 	}
 	proposedTasks := make(map[string]factory.IntentTask, len(change.Tasks))
@@ -507,14 +513,15 @@ func buildReassessmentPacket(
 	affected map[string]bool,
 ) (ReassessmentIntentPacket, error) {
 	packet := ReassessmentIntentPacket{IntentID: change.IntentID, SuccessorRevision: change.ExpectedRevision}
-	proposedRev := prior.Revision
-	proposedRev.ID = change.ExpectedRevision
-	proposedRev.Predecessor = prior.Revision.ID
 	tasks := make([]factory.IntentTask, 0, len(proposedTasks))
 	for _, task := range proposedTasks {
 		tasks = append(tasks, task)
 	}
 	sort.Slice(tasks, func(i, j int) bool { return tasks[i].Key < tasks[j].Key })
+	proposedRev, err := SuccessorIntentRevision(prior.Revision, change, prior.SuccessorCreatedUnix)
+	if err != nil {
+		return ReassessmentIntentPacket{}, err
+	}
 	proposedRev.Tasks = tasks
 	var payload sdk.IssueGraphPayload
 	protectedIssues := make(map[int64]bool)
@@ -581,10 +588,12 @@ func planReassessmentWrites(
 				Key: task.Key, Title: intentTaskTitle(task), Body: intentTaskBody(proposedRev, task),
 			})
 		case changed[key]:
+			priorWork := prior.Revision
+			priorWork.Tasks = prior.SubmittedTasks
 			payload.Edits = append(payload.Edits, sdk.IssueGraphEdit{
 				IssueID:                binding.IssueID,
 				ExpectedTitle:          intentTaskTitle(priorTask),
-				ExpectedBody:           intentTaskBody(prior.Revision, priorTask),
+				ExpectedBody:           intentTaskBody(priorWork, priorTask),
 				ExpectedContentVersion: binding.ContentVersion,
 				Title:                  intentTaskTitle(task),
 				Body:                   intentTaskBody(proposedRev, task),
@@ -697,19 +706,23 @@ func reassessmentValidationReport(
 	report factory.ReassessmentReport,
 	packets []ReassessmentIntentPacket,
 ) (factory.ReassessmentValidationReport, error) {
+	return graphRepairValidation(report, report.InventoryDigest, report.Coverage, report.IntentChanges, report.RetainedIssueIndexes, packets)
+}
+
+func graphRepairValidation(proposal any, inventoryDigest string, coverage []factory.ReassessmentCoverage, changes []factory.ReassessmentIntentChange, retained []int64, packets []ReassessmentIntentPacket) (factory.ReassessmentValidationReport, error) {
 	var empty factory.ReassessmentValidationReport
-	proposalBytes, err := json.Marshal(report)
+	proposalBytes, err := json.Marshal(proposal)
 	if err != nil {
 		return empty, errors.New("reassessment proposal is not digestible")
 	}
 	proposalSum := sha256.Sum256(proposalBytes)
-	coverageSum := sha256.Sum256([]byte(coverageDigestInput(report.Coverage)))
+	coverageSum := sha256.Sum256([]byte(coverageDigestInput(coverage)))
 	validation := factory.ReassessmentValidationReport{
-		InventoryDigest: report.InventoryDigest,
+		InventoryDigest: inventoryDigest,
 		ProposalDigest:  hex.EncodeToString(proposalSum[:]),
 		CoverageDigest:  hex.EncodeToString(coverageSum[:]),
 	}
-	for _, change := range report.IntentChanges {
+	for _, change := range changes {
 		validation.ScopeDigests = append(validation.ScopeDigests, factory.IntentDigest{
 			IntentID: change.IntentID, Digest: change.ScopeDigest,
 		})
@@ -728,7 +741,7 @@ func reassessmentValidationReport(
 			}
 		}
 	}
-	for _, index := range report.RetainedIssueIndexes {
+	for _, index := range retained {
 		if !seen[index] {
 			seen[index] = true
 			validation.MutableIssueIndexes = append(validation.MutableIssueIndexes, index)

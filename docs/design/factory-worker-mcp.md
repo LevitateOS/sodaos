@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 48 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 49 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -57,7 +57,7 @@ not automatically become permanent knowledge.
 ### Verified starting points
 
 - The [source catalog](../../internal/factory/mcp_profile.go) now contains 45
-  tools filtered by eight roles: 45 Factory tools plus generic `systemone.noul`, `systemone.choice` and `systemone.score`. Shared communication, library search/read and artifact upload precede role-specific tools in discovery. Library Admin operations apply actual revisioned knowledge and decision changes.
+  tools filtered by eight roles: 46 Factory tools plus generic `systemone.noul`, `systemone.choice` and `systemone.score`. Shared communication, library search/read and artifact upload precede role-specific tools in discovery. Library Admin operations apply actual revisioned knowledge and decision changes.
 - [D14](../development/factory-workflow-contracts.md#d14--one-factory-mcp-implementation-and-seven-profiles)
   already defines one Factory MCP implementation, scoped admission, receipts,
   role finishes and separate native execution tools.
@@ -314,6 +314,33 @@ is possible. An answer arriving after retirement follows existing fresh admissio
 it does not revive the old process or capability. Reporting during a context hold
 needs an explicitly permitted reporting path and cannot bypass the work gate.
 
+The current implementation checks the prepared selection and required inputs
+before an authenticated native launch, a new work proposal or a new paid worker
+System One call. Missing inputs, absent receipts and uncertain choices hold
+those actions. A prepared choice records the actual scoped input digest, bounded
+own-run and authorized parent previews, and fixed bundle descriptions; later
+status changes reuse that frozen request without another consultation. Packet
+staging and its start timestamp supply no execution history: the attempt
+bundle requires a retained native observation, credential delegation or final
+checkpoint. A never-launched or confirmed-unused run cannot make it eligible.
+Existing immutable action replays, receipt reads, communication reports and
+`factory.finish_incomplete` remain available. A later context hold preserves
+reconciliation and adoption of already admitted durable proposals; their normal
+authority, prerequisite and native evidence checks still apply. A new child
+launch passes its own context gate.
+
+`factory.context` supplies typed required role inputs independently of optional
+history selection. Large role fields travel as ordered UTF-8 JSON fragments in
+`current_role_page`: concatenate a field's parts and decode its JSON. The complete
+collection is bounded to 1 MiB, 512 records and 64 pages; exceeding a bound is
+explicitly unavailable and never clipped. Each page is at most 32 KiB and 50
+records. Continuations use the private worker MCP key for authentication, bind
+the capability, stream and complete input snapshot, and expire at the earlier
+of five minutes or the capability deadline. Every page repeats the source grant
+checks. Current SQL activity is distinct from confirmed native observation, and
+the admitted integration commit is distinct from a committed native final
+checkpoint's verified integration commit.
+
 ### Knowledge and artifacts
 
 | Proposed tool | Worker use | Result |
@@ -566,6 +593,21 @@ knowledge entry or every product decision.
 
 **Done means:** the reassessment/repair result is submitted. Actual graph adoption
 and newly ready work appear only after their consumers confirm them.
+
+The stall path now supplies `current.role.repair` from its retained genuine
+episode/cycle: exact complete native issue bodies and accepted local material,
+source/preparation, sole-run charge, prior cycle outcomes and remaining finite
+grant budget. The ordinary dispatcher records sponsorship, allowance and MCP
+before launch. A checked settled `StallRepairReport` receives its distinct
+`stall-repair-proposal-v1` judgment once; the protected graph owner then activates
+one recorded successor at a time and confirms exact readback. A submission does
+not itself clear the stall. No-change holds for attention, and fresh readiness
+retires obsolete diagnosis. A second automatic cycle needs materially new facts;
+graph rewrites and replacement identifiers cannot buy another investigation.
+Grant withdrawal blocks new paid calls and graph operations while preserving
+receipt recovery of already admitted operations. Real PostgreSQL integration
+covers these paths with explicit chooser/native endpoint fixtures; installed
+funded Strategist qualification remains separate.
 
 ### Test Pilot
 

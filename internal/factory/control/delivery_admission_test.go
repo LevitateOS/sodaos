@@ -79,6 +79,8 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 	}
 	deps := fx.deps()
 	deps.MCPKey = []byte("test-delivery-key-32-bytes-long!!")
+	deps.ContextVerification = c.ApplicationVerificationEvidence
+	deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
 	occupancy, err := snapshotOccupancy(ctx, db)
 	if err != nil {
 		t.Fatal(err)

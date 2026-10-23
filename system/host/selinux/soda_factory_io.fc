@@ -1,0 +1,1 @@
+/var/lib/soda/host/factory/native-p[a-f0-9]{24}-[a-f0-9]{32}\.(in|out) -p system_u:object_r:soda_factory_io_t:s0

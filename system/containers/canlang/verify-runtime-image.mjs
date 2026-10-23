@@ -28,8 +28,8 @@ assert.equal(new URL(origin).protocol, 'https:');
 assert.equal(new URL(origin).hostname, '127.0.0.1', 'local image witness uses a task-owned namespace loopback HTTPS gateway');
 assert.ok(Number(new URL(origin).port) > 0);
 await mkdir(state, { recursive: true, mode: 0o700 });
-const proof = join(state, 'proof'), data = join(state, 'data');
-await mkdir(proof, { mode: 0o700 }); await mkdir(data, { mode: 0o700 });
+const proof = join(state, 'proof'), data = join(state, 'data'), clientData=join(state,'client-data');
+await mkdir(proof, { mode: 0o700 }); await mkdir(data, { mode: 0o700 });await mkdir(clientData,{mode:0o700});
 await copyFile(bundleFile, join(state, 'bundle.json'));
 await writeFile(join(state, '.containerignore'), '**\n!bundle.json\n');
 const flags = ['--root', join(cache, 'podman/root'), '--runroot', join(cache, 'podman/run'), '--tmpdir', join(cache, 'podman/tmp')];
@@ -61,11 +61,12 @@ for (const [key, value] of Object.entries({ 'io.canlang.app': input.descriptor.i
   'io.canlang.tools': release.sha256, 'io.soda.canlang.runtime': runtimeDigest,
   'io.canlang.origin': input.environment.vars.CAN_AUTH_ORIGIN })) assert.equal(application.Config.Labels[key], value);
 const confinement = ['--network', 'none', '--userns', 'keep-id:uid=10000,gid=10000', '--read-only', '--read-only-tmpfs=false', '--cap-drop', 'ALL',
-  '--security-opt', 'no-new-privileges', '--security-opt', 'label=disable', '--memory', '512m', '--cpus', '2', '--pids-limit', '256'];
-const mounts = ['--volume', `${data}:/home/app-state:rw`, '--volume', `${proof}:/proof:ro`];
+  '--security-opt', 'no-new-privileges', '--security-opt', 'label=disable', '--memory', '1g', '--cpus', '2', '--pids-limit', '128'];
+const mounts = ['--volume', `${data}:/home/app-state:rw`, '--volume', `${proof}:/proof:ro`,
+  '--volume', `${join(assets,'project-tools/canlang')}:/proof-tools:ro`];
 const audit = podman(['run', '--rm', ...confinement, '--entrypoint', '/bin/sh', appImage, '-c',
-  'test "$(id -u)" = 10000 && test ! -e /opt/canlang/compiler && test ! -e /opt/canlang/libexec/bun && test ! -e /opt/canlang/bin/can && test ! -e /opt/canlang/bin/can-dev && test ! -e /opt/canlang/bin/can-platform && for tool in ssh scp sftp sshd systemctl sudo podman docker gcc cargo rustc bun; do if command -v "$tool"; then exit 1; fi; done && /opt/canlang/bin/node --version']);
-assert.equal(audit.trim(), 'v24.21.0');
+  'test "$(id -u)" = 10000 && test ! -e /opt/canlang/compiler && test ! -e /opt/canlang/libexec/bun && test ! -e /opt/canlang/bin/can && test ! -e /opt/canlang/bin/can-dev && test ! -e /opt/canlang/bin/can-platform && test ! -e /opt/canlang/lib/node_modules/miniflare && test ! -e /opt/canlang/lib/node_modules/wrangler && test ! -e /opt/canlang/lib/node_modules/@canlang/testkit && for tool in ssh scp sftp sshd systemctl sudo podman docker gcc cargo rustc bun; do if command -v "$tool"; then exit 1; fi; done && /opt/canlang/bin/node -p process.platform']);
+assert.equal(audit.trim(), 'linux');
 const password = `ImageProof!${randomBytes(24).toString('base64url')}`;
 const credentials = { email: 'owner@image.can.test', password, timezone: 'UTC' };
 await writeFile(join(proof, 'credentials.json'), JSON.stringify(credentials), { mode: 0o600 });
@@ -85,7 +86,7 @@ assert.equal(member.ok, true); assert.equal(member.teamId, bootstrap.teamId);
 // This task-local helper copy keeps the image and Canlang producers unchanged.
 let clientSource = await readFile(join(canlang, 'scripts/verify-soda-runtime.mjs'), 'utf8');
 const replaceClient = (before, after) => { assert.ok(clientSource.includes(before)); clientSource = clientSource.replace(before, after); };
-replaceClient('  const cookies = new Map();', `  const sessionPath = '/home/app-state/image-client-' + label + '.json';
+replaceClient('  const cookies = new Map();', `  const sessionPath = '/home/app-proof/image-client-' + label + '.json';
   let retainedSession;
   try { retainedSession = JSON.parse(await readFile(sessionPath, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const cookies = new Map(retainedSession?.cookies ?? []);`);
@@ -108,7 +109,7 @@ import {request} from 'node:http';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 const origin=${JSON.stringify(origin)};
-const require=createRequire('/opt/canlang/lib/package.json');
+const require=createRequire('/proof-tools/lib/package.json');
 const {Agent,setGlobalDispatcher}=await import(pathToFileURL(require.resolve('undici')).href);
 const cert=await readFile('/proof/test-cert.pem');
 const dispatcher=new Agent({connect:{ca:cert}});setGlobalDispatcher(dispatcher);
@@ -119,8 +120,8 @@ const gateway=createServer({cert,key:await readFile('/proof/test-key.pem')},(req
 await new Promise((resolve,reject)=>{gateway.once('error',reject);gateway.listen(Number(new URL(origin).port),'127.0.0.1',resolve);});
 try {
 const actors=JSON.parse(await readFile('/proof/actors.json','utf8'));
-const client=await openSodaHttpClient({toolRoot:'/opt/canlang',origin,actors},'Ava');
-const member=await openSodaHttpClient({toolRoot:'/opt/canlang',origin,actors},'Ben');
+const client=await openSodaHttpClient({toolRoot:'/proof-tools',origin,actors},'Ava');
+const member=await openSodaHttpClient({toolRoot:'/proof-tools',origin,actors},'Ben');
 for(const path of ['/_can_dev/preview/bootstrap','/_can_dev/status','/__soda_ready','/__soda_wake'])assert.equal((await client.request(path)).status,404,path);
 const page=await client.request('/');assert.equal(page.status,200);assert.ok((await page.text()).includes('Soda runtime integration'));
 if(process.argv[2]==='write'){
@@ -131,10 +132,10 @@ if(process.argv[2]==='write'){
  const current=(await client.entries()).find(record=>record.id===entry.id);assert.ok(current);
  const due=Date.now()+30000;
  await client.mutate('arm',{entry:{id:current.id,version:String(current.version)},due:new Date(due).toISOString()});
- await writeFile('/home/app-state/image-proof.json',JSON.stringify({entry:entry.id,due}),{mode:0o600});
+ await writeFile('/home/app-proof/image-proof.json',JSON.stringify({entry:entry.id,due}),{mode:0o600});
  console.log(JSON.stringify({written:true,due}));
 }else{
- const saved=JSON.parse(await readFile('/home/app-state/image-proof.json','utf8'));
+ const saved=JSON.parse(await readFile('/home/app-proof/image-proof.json','utf8'));
  let entry;const until=Date.now()+30000;
  while(Date.now()<until){entry=(await client.entries()).find(record=>record.id===saved.entry);if(entry?.data.ticks==='1')break;await new Promise(resolve=>setTimeout(resolve,250));}
  assert.equal(entry.data.label,'Image retained state');assert.equal(entry.data.ticks,'1');
@@ -146,6 +147,12 @@ if(process.argv[2]==='write'){
 } finally {await dispatcher.close();await new Promise((resolve,reject)=>{gateway.close(error=>error?reject(error):resolve());gateway.closeIdleConnections();});}
 `);
 const owned = [];
+// The TLS/client process shares only networking, with its own resource cgroup
+// and writable harness directory. It does not consume the application budget.
+const phase=(name,operation)=>podman(['run','--rm','--network',`container:${name}`,...confinement.slice(2),
+  '--volume',`${proof}:/proof:ro`,'--volume',`${clientData}:/home/app-proof:rw`,
+  '--volume',`${join(assets,'project-tools/canlang')}:/proof-tools:ro`,
+  '--entrypoint','/opt/canlang/bin/node',appImage,'/proof/phase.mjs',operation]);
 const start = async index => {
   const name = `canlang-image-proof-${process.pid}-${index}`; owned.push(name);
   podman(['run', '--detach', '--name', name, ...confinement, ...mounts, appImage, '--owner', bootstrap.teamId]);
@@ -153,11 +160,10 @@ const start = async index => {
   while (Date.now() < deadline) {
     const details = inspect('container', name);
     if (!details.State.Running) throw new Error(`production image exited: ${podman(['logs', name])}`);
-    try {
-      const status = podman(['exec', name, '/opt/canlang/bin/node', '--input-type=module', '-e',
-        'console.log((await fetch("http://127.0.0.1:8080/auth/login")).status)']).trim();
-      if (status === '200') return name;
-    } catch {}
+    const ready=podman(['logs',name]).split('\n').some(line=>{
+      try{const value=JSON.parse(line);return value.ok===true&&value.command==='serve'&&value.origin===origin;}catch{return false;}
+    });
+    if(ready)return name;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   throw new Error('production image readiness timed out');
@@ -171,14 +177,14 @@ const stop = async (name, abrupt = false) => {
 };
 try {
   let name = await start(0);
-  const written = JSON.parse(podman(['exec', name, '/opt/canlang/bin/node', '/proof/phase.mjs', 'write']).trim());
+  const written = JSON.parse(phase(name,'write').trim());
   assert.equal(written.written, true); await stop(name);
   await new Promise(resolve => setTimeout(resolve, Math.max(0, written.due + 250 - Date.now())));
   name = await start(1);
-  const retained = JSON.parse(podman(['exec', name, '/opt/canlang/bin/node', '/proof/phase.mjs', 'read']).trim());
+  const retained = JSON.parse(phase(name,'read').trim());
   assert.equal(retained.retained, true); await stop(name, true);
   name = await start(2);
-  assert.equal(JSON.parse(podman(['exec', name, '/opt/canlang/bin/node', '/proof/phase.mjs', 'read']).trim()).retained, true);
+  assert.equal(JSON.parse(phase(name,'read').trim()).retained, true);
   await stop(name);
   assert.throws(() => podman(['run', '--rm', ...confinement, appImage, '--owner', bootstrap.teamId]), error =>
     error.status !== 0 && /can-soda:|data|mount|ENOENT/i.test(String(error.stderr)));

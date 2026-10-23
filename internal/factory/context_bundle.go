@@ -55,5 +55,21 @@ func ApplyContextBundleAnswer(answer PriorityAnswer, eligible map[string]bool) (
 	if answer.Confidence < MinContextBundleConfidence || answer.Probabilities[answer.Selected] < MinContextBundleProbability {
 		return ContextBundleSnapshotHold, ContextBundleHoldLowConfidence
 	}
+	for option, probability := range answer.Probabilities {
+		if option != answer.Selected && answer.Probabilities[answer.Selected] <= probability+0.000001 {
+			return ContextBundleSnapshotHold, ContextBundleHoldLowConfidence
+		}
+	}
 	return answer.Selected, ""
+}
+
+// ContextParentVisible grants only the two bounded parent disposition fields
+// across an explicit same-actor, same-project/repository attempt relation. It
+// grants no prompt, conversation, arbitrary history or evidence access.
+func ContextParentVisible(child, parent Assignment) bool {
+	return child.ParentAssignment != "" && parent.ID == child.ParentAssignment &&
+		child.ActorID > 0 && parent.ActorID == child.ActorID && child.Repository > 0 &&
+		parent.Repository == child.Repository && ValidProjectID(child.ProjectID) &&
+		parent.ProjectID == child.ProjectID && ValidID(child.AttemptRoot) &&
+		parent.AttemptRoot == child.AttemptRoot
 }

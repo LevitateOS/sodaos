@@ -6,6 +6,13 @@ import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
 type PlanSeed = {objective: string; repository: string; state: 'draft' | 'accepted' | 'abandoned'};
+async function openProjectPlans(page: Page) {
+  const work = page.locator('soda-project-work:visible');
+  const plans = work.locator('details.soda-project-plans');
+  if ((await plans.count()) && !(await plans.evaluate((details) => (details as HTMLDetailsElement).open)))
+    await plans.locator('summary').click();
+  return work;
+}
 async function seedPlans(page: Page, plans: PlanSeed[]) {
   const ids = await page.evaluate(async (plans) => {
     const fixture = window.workspaceFixture;
@@ -27,13 +34,36 @@ async function seedPlans(page: Page, plans: PlanSeed[]) {
     await fixture.api.refresh();
     return ids;
   }, plans);
-  await page.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  const work = await openProjectPlans(page);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
   return ids;
 }
 
 async function writes(page: Page) {
   return page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length);
 }
+
+test('Project Work opens explicit requirements review for an imported native issue without creating work', async (t) => {
+  const page = await fixture(t);
+  const work = page.locator('soda-project-work:visible');
+  await work.getByText('Adopt or reaccept an issue', {exact: true}).click().catch(async () => { throw Error(await page.locator('.soda-workspace').innerText()); });
+  await work.getByLabel('Native issue number', {exact: true}).fill('13');
+  await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();
+  const acceptance = work.getByRole('region', {name: 'Issue requirements acceptance'});
+  assert.equal(
+    await acceptance
+      .getByRole('link', {name: 'Review issue #13 in the native forge', exact: true})
+      .getAttribute('href'),
+    '/alice/Alpha/issues/13'
+  );
+  const requests = await page.evaluate(() => window.workspaceFixture.calls.map((call) => call.path));
+  assert(requests.some((path) => path.endsWith('/api/repositories/7/factory/access')));
+  assert.equal(await writes(page), 0, 'opening review must not accept an issue or create a plan');
+  await work.getByLabel('Native issue number', {exact: true}).fill('not-an-issue');
+  await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();
+  await work.getByRole('status').filter({hasText: 'Enter the native issue number'}).waitFor();
+  assert.equal(await writes(page), 0);
+});
 
 test('cold Project entry loads scoped work, keeps the directory quiet, and opens planning explicitly', async (t) => {
   const page = await fixture(t);
@@ -143,8 +173,7 @@ test('native page entry opens Work once and preserves a deliberately selected te
     await window.workspaceFixture.api.refresh();
     window.workspaceFixture.presentRoute('/workspace');
   });
-  await page
-    .locator('soda-project-work:visible')
+  await (await openProjectPlans(page))
     .getByRole('heading', {name: 'What would you like to change?', exact: true})
     .waitFor();
   await page.getByRole('button', {name: 'Terminals', exact: true}).click();
@@ -170,8 +199,7 @@ test('compact Projects navigation opens another Project work view without starti
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
-  await page
-    .locator('soda-project-work:visible')
+  await (await openProjectPlans(page))
     .getByRole('heading', {name: 'What would you like to change?', exact: true})
     .waitFor();
   assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Beta');

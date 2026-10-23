@@ -17,7 +17,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range spec.required {
 		props[key] = &jsonschema.Schema{Description: "Required result field."}
 	}
-	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "uncertainty", "verification_manifest_proposal", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest"} {
+	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "uncertainty", "verification_manifest_proposal", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
 		if mcpOptionalPayloadKey(tool, key) {
 			props[key] = &jsonschema.Schema{}
 		}
@@ -63,6 +63,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolFinishCorrection:
 		set("finding_digest", "Digest of the complete canonical finding set being answered.", text)
 		set("dispositions", "A structured disposition for each input finding; do not silently omit unresolved findings.", mcpCarrier[[]factory.CorrectionDisposition]())
+		set("fix_evidence", "Relevant changed paths and exact commits for each fixed code finding. Verification-only findings use passing native check evidence instead. These are nominations, independently verified before publication.", mcpCarrier[[]factory.CorrectionFixEvidence]())
 	case factory.MCPToolFinishReassessment:
 		set("subject", "The admitted reassessment/repair subject from context.", text)
 		report := &jsonschema.Schema{AnyOf: []*jsonschema.Schema{mcpCarrier[factory.ReassessmentReport](), mcpCarrier[factory.StallRepairReport](), mcpCarrier[factory.DeliveryRepairReport]()}}

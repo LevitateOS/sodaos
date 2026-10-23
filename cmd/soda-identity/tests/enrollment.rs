@@ -72,4 +72,61 @@ fn enrollment_to_lease_lifecycle() {
     assert_eq!(connections[0].generation, 2);
     let execution = broker.get_execution("factory", "execution-1").unwrap();
     assert_eq!(execution.state, "terminal");
+
+    // A retained actor/Project grant survives ordinary Codex credential
+    // maintenance between Factory roles. Each new execution leases the current
+    // generation; no owner grant or sponsorship rewrite is needed.
+    let grant = broker
+        .create_grant(
+            1,
+            &GrantRequest {
+                connection_id: conn.id.clone(),
+                user_id: 2,
+                project_id: "project".into(),
+                confirm_subscription: true,
+                confirm_credential_exposure: true,
+            },
+        )
+        .unwrap();
+    for (role, generation, id) in [
+        ("soda-coder", 2, "grant-coder"),
+        ("soda-reviewer", 3, "grant-reviewer"),
+    ] {
+        let lease = broker
+            .acquire(&AcquireRequest {
+                repository_id: 7,
+                provider_id: "codex".into(),
+                execution_id: id.into(),
+                actor_id: 2,
+                connection_id: conn.id.clone(),
+                project_id: "project".into(),
+                kind: "factory".into(),
+                deadline,
+                role: role.into(),
+            })
+            .unwrap();
+        assert_eq!(lease.generation, generation);
+        assert_eq!(lease.grant_id, grant.id);
+        assert_eq!(lease.grant_revision, grant.revision);
+        let mut native = binding("factory", generation);
+        native.id = id.into();
+        broker.register(&lease.id, &native).unwrap();
+        broker
+            .return_lease(&lease.id, &native, &subscription())
+            .unwrap();
+        assert_eq!(
+            broker.get_execution("factory", id).unwrap().state,
+            "terminal"
+        );
+    }
+    let grants: Vec<Grant> = serde_json::from_slice(&broker.grants(1, &conn.id).unwrap()).unwrap();
+    assert_eq!(grants.len(), 1);
+    assert_eq!(grants[0].id, grant.id);
+    assert_eq!(grants[0].revision, grant.revision);
+    assert!(!grants[0].revoked);
+    let connections: Vec<Connection> =
+        serde_json::from_slice(&broker.connections(1).unwrap()).unwrap();
+    assert_eq!(connections[0].generation, 4);
+    let leases: Vec<Lease> = serde_json::from_slice(&broker.leases(1, &conn.id).unwrap()).unwrap();
+    assert!(leases.is_empty());
 }

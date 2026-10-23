@@ -88,6 +88,8 @@ function createWorkspaceFixture(
           pageRepositoryId: '7',
         };
   let api = mountSodaspaces(model.root, context);
+  // Match the production entry's explicit initial inventory read.
+  void api.refresh();
   window.addEventListener('popstate', () => presentRoute());
   return {
     get api() {

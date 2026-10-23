@@ -76,14 +76,11 @@ func (c *Coordinator) CheckPass(ctx context.Context) CheckReport {
 }
 
 // checkCurrent reports whether the latest stored assessment already passes
-// on the publication's exact current head and base.
+// on the exact native target and current adopted policy. A head/base match
+// alone must not strand a publication behind an obsolete check definition.
 func (c *Coordinator) checkCurrent(ctx context.Context, p factory.Publication) bool {
-	assessment, err := c.Store.CheckAssessment(ctx, p.Repository, p.PRNumber)
-	if err != nil {
-		return false
-	}
-	return assessment.Verdict == factory.CheckPass &&
-		assessment.HeadOID == p.Candidate && assessment.BaseOID == p.PRCreate.BaseOID
+	assessment, ok := c.currentChildCheckAssessment(ctx, p)
+	return ok && assessment.Verdict == factory.CheckPass
 }
 
 // progressAfterPublish advances one published assignment toward merge: a
@@ -95,6 +92,9 @@ func (c *Coordinator) progressAfterPublish(ctx context.Context, assignmentID str
 	p, err := c.Store.PublicationByAssignment(ctx, assignmentID)
 	if err != nil || p.Stage != factory.PublicationPublished {
 		return
+	}
+	if updated, _, err := c.recordCleanDeliveryAcceptance(ctx, p); err == nil {
+		p = updated
 	}
 	if c.Checks != nil {
 		if policy, err := c.Store.RepositoryPolicy(ctx, p.Repository); err == nil && !c.checkCurrent(ctx, p) {

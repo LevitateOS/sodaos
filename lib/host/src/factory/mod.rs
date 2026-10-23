@@ -34,14 +34,19 @@ use crate::terminal::Binding;
 
 mod artifacts;
 mod candidate;
+mod checkpoint;
+pub(crate) use checkpoint::PrivateState;
 mod confirmation;
 mod deadline;
 mod events;
+mod execution_state;
 mod finish;
 mod identity;
 mod inspect;
 mod launch;
 mod manifest;
+mod native_control;
+mod native_tasks;
 mod receipt;
 mod requests;
 mod run;
@@ -51,6 +56,9 @@ mod task_events;
 mod tasks;
 
 pub use self::candidate::CANDIDATE_INSPECT_SCRIPT;
+pub use self::checkpoint::{
+    CheckpointCheckResult, FactoryTaskCheckpoint, FactoryTaskCheckpointState,
+};
 pub use self::confirmation::{
     confirm_factory_candidate_inspect, confirm_factory_export, confirm_factory_harness,
     confirm_factory_inspect, confirm_factory_launch, confirm_factory_output, confirm_factory_stop,
@@ -65,8 +73,8 @@ pub use self::events::{
     MAX_TASK_EVENTS_PER_READ, MAX_TASK_EVENT_BYTES, MAX_TASK_JOURNAL_BYTES,
     MAX_TASK_JOURNAL_EVENTS, MIN_TASK_EVENTS_BYTES, TASK_EVENT_CHECKPOINT_PREPARED,
     TASK_EVENT_CHILD_REPORTED, TASK_EVENT_CHILD_STARTED, TASK_EVENT_CHILD_START_INTENT,
-    TASK_EVENT_RUN_STOPPED, TASK_EVENT_TASK_COMMITTED, TASK_EVENT_TASK_FAILED,
-    TASK_JOURNAL_RESERVED_TERMINAL,
+    TASK_EVENT_PARENT_OUTPUT, TASK_EVENT_PARENT_STARTED, TASK_EVENT_RUN_STOPPED,
+    TASK_EVENT_TASK_COMMITTED, TASK_EVENT_TASK_FAILED, TASK_JOURNAL_RESERVED_TERMINAL,
 };
 pub use self::identity::{AcquireRequest, Lease};
 pub use self::manifest::{valid_task_effort, ExecutionManifest};
@@ -96,6 +104,20 @@ pub use self::tasks::TaskRunner;
 /// Supervised native boundary: the `terminal.Service` methods the factory
 /// orchestrator calls. Ported with the terminal lane; tests script fakes.
 pub trait FactoryTerminal {
+    fn take_native_channels(
+        &self,
+        _run: &str,
+    ) -> Result<Option<crate::terminal::factory::native_io::NativeChannels>, FactoryError> {
+        Ok(None)
+    }
+    fn write_native_output(
+        &self,
+        _lease: &Lease,
+        _output: &[u8],
+        _deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        Ok(())
+    }
     fn harness_pin(&self, family: &str) -> Result<FactoryHarnessPin, String>;
     fn reserve(
         &self,
@@ -113,6 +135,16 @@ pub trait FactoryTerminal {
     ) -> Result<(), FactoryError> {
         Err(FactoryError::Msg(
             "Factory MCP staging is unavailable".to_string(),
+        ))
+    }
+    fn stage_execution_manifest(
+        &self,
+        _lease: &Lease,
+        _manifest: &[u8],
+        _deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        Err(FactoryError::msg(
+            "native execution-manifest staging unavailable",
         ))
     }
     fn start(

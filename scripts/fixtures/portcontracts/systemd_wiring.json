@@ -6,7 +6,7 @@
     {
       "file": "system/host/services/soda-host.socket",
       "lines": [
-        "ListenStream=/run/soda/host.sock"
+        "ListenStream=/run/soda/host/host.sock"
       ]
     },
     {
@@ -62,6 +62,7 @@
       "lines": [
         "User=2000:2000",
         "Volume=/etc/soda/factory:/etc/soda/factory:ro,Z",
+        "Volume=/run/soda/host:/run/soda/host:ro",
         "Volume=/run/soda/extension:/ipc:z"
       ]
     },

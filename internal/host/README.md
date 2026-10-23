@@ -12,7 +12,7 @@ For example, inside a function in this module:
 ```go
 import "github.com/levitateos/sodaos/internal/host"
 
-client := host.NewClient("/run/soda/host.sock")
+client := host.NewClient("/run/soda/host/host.sock")
 environment, err := client.Inspect(ctx, "p0123456789abcdef01234567")
 if err != nil {
     return err

@@ -14,6 +14,7 @@ use crate::ssh;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+pub(crate) mod member;
 
 /// Fixed in-container terminal agent, mirroring Go `terminal.AgentProgram`.
 pub const AGENT_PROGRAM: &str = "/usr/libexec/soda/project-terminal";

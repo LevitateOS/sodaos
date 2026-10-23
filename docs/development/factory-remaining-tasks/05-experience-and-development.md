@@ -294,7 +294,21 @@ sessions, prove denied reconnect/Join and stopped target processes, retain the
 other member and files, then restore and explicitly rejoin. Include stale
 authority, lost reply and stopped-Project recovery. Update the existing
 Project/trust/API owners and handbook access guide with the implemented
-interface; the selected control names above are not claims of existing UI.
+interface. The implementation progress below records the exercised scope.
+
+**Implemented and installed component progress, 23 October:** The owner/operator
+Project Access member controls, revisioned durable hold, native keys/login/process
+effects and explicit Restore/Join path are implemented. A real two-member retained
+Project passed running and stopped-root revoke/restore (revisions1–4), existing
+SSH retirement, new SSH/Join denial while held, stable UID/files after explicit
+Join, and preservation of the other member's processes/files and native Forgejo
+access. A pending member fence prevented root-systemd startup. Existing real
+PostgreSQL/API checks cover restart/lost-response retry, stale authority and
+independent membership. The complete mutation lifetime is serialized so an older
+completion cannot remove a newer startup fence. The canonical service contains
+the fence inline. This development VM uses an additional service drop-in, which
+strict normal lifecycle admission deliberately refuses; matching candidate-unit
+lifecycle qualification remains open. Production unit validation was preserved.
 
 **Immediate implementation — default Providers dialog (R44.2):** Implement the
 [provider UX](../../design/factory-feed-and-ralph-integration.md#factory-providers-dialog)
@@ -318,6 +332,16 @@ login start returning its verification link/code. The browser test covers
 completion polling, close/reopen without another attempt, expiry/retry,
 cancellation and retained connection readback. A new successful human provider
 authorization through this dialog is still required to close R44.2 fully.
+
+**Native provider continuation, 23 October:** A source-schema-compatible broker
+was configured on the retained VM, and human-approved native Muse enrollment and
+reconnect retained a ready connection. Actual MSP initialize/session/catalog and
+graceful retirement passed normal credential custody with zero retained leases.
+This exposed and repaired real serve-argument, socket-retirement and duplicate
+stop behavior. No credential was extracted or manually copied to set up the
+fixture, and no connection state was reset through SQL.
+The full dialog-led current candidate witness and Factory child execution remain
+separate R44/R48/R49 consumers.
 
 **Shared Filetree/library consumers:** Retain completed identity, SQL, HTTP/WS
 and library cuts. The remaining L08/LA-G4 and Q1/Q2/Q3/Q9 witnesses use actual

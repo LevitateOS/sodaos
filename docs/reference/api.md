@@ -38,6 +38,7 @@ repository and Project permissions.
 | PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
+| GET, PUT | `/api/repositories/{repositoryID}/factory/repair` | Explicit owner-funded finite repair grant; current revision, immutable charges and bounded cycle/run facts |
 | GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Optional-effect configuration with capability proof |
 | PUT | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Save effect configuration with revision CAS (owner/admin) |
 | GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}/actions?issue=N` | Bounded durable action results for one issue/event |
@@ -71,12 +72,17 @@ repository and Project permissions.
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/applications` | Stored application inventory / operator-admitted initial references and administrator grant |
+| GET/POST | `/api/applications/setups` | Operator provisional owner-setup inventory / admitted initial references without an owner |
+| POST | `/api/applications/setups/{setup}/actions` | Operator explicit Begin/Inspect/Complete/Cancel of the exact setup generation |
 | GET | `/api/applications/{id}` | Administrator/operator stored application references and last observation |
 | POST | `/api/applications/{id}/actions` | Explicit operator Install/image replacement or administrator/operator Inspect/Start/confirmed Stop |
+| GET/POST | `/api/applications/{id}/snapshots` | Operator native snapshot inventory / stopped backup |
+| POST | `/api/applications/{id}/restores` | Operator confirmed fresh-data Restore, reconcile or abort |
 | GET/POST | `/api/environments` | List / create environments |
 | GET | `/api/environments/{id}` | Environment detail |
 | POST | `/api/environments/{id}/join` | Explicit Join |
 | GET | `/api/environments/{id}/members` | Members |
+| GET/POST | `/api/environments/{id}/members/{member}/access` | Owner/operator native member-access preview / revision-bound Revoke or Restore |
 | GET | `/api/environments/{id}/connection` | Connection details |
 | GET | `/api/environments/{id}/os` | OS/profile observation |
 | GET/POST | `/api/environments/{id}/lifecycle` | Lifecycle read / coordinated Start/Stop (dispatch withdrawal, run stop, maintenance hold, no-revive verification) |
@@ -98,6 +104,19 @@ Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
 
+### Project member access
+
+Project member-access GET previews the stable Linux account, installed public
+keys and affected processes. POST accepts `{action: "revoke"|"restore",
+revision, confirm: true}`. Revocation retains files and identity while removing
+installed keys, disabling login and ending the selected account's processes.
+The durable hold blocks Join and managed access before native effects. A202
+response reports pending or uncertain effects; inspect and retry the same
+revision before restoring access. Restore preserves the disabled account until
+the member explicitly Joins again with current repository permission and chosen
+keys. Forgejo permissions, provider connections and app-local accounts remain
+separate authorities.
+
 ### Application administration
 
 Initial POST accepts `{application: Spec, administrator_id: positive Forgejo ID}`.
@@ -110,6 +129,29 @@ passwords, provider secrets or app-local users are accepted here.
 
 GET returns `{application, administrator_id: string, observation: null|Observation,
 operator: boolean}`; the string preserves the stable administrator ID exactly.
+Owner setup uses a separate provisional admission. `POST /api/applications/setups`
+accepts `{application, administrator_id}`; `administrator_id` is a positive decimal
+string, and `application` contains the ordinary initial reference fields except
+`revision` and `owner_team`. Its `id` and `data` are fresh opaque application IDs.
+The server fixes a 30-minute expiry and returns `{id, application,
+administrator_id, expires_at, state, observation}`. This record's administrator
+is numeric; it is not an ordinary registered application. GET returns
+`{setups: [...]}` containing pending records and invokes no native operation.
+
+`POST /api/applications/setups/{setup}/actions` accepts
+`{action, expected_container, confirm}`. Actions are `begin`, `inspect`,
+`complete` and `abort`; completion/cancellation require `confirm:true`. Begin
+and Inspect may use an empty generation only while none is known. Completion
+requires the exact setup container; Abort may use empty only when native absence
+is confirmed. Responses are `{setup,result}`, where result includes the checked
+observation and, for Begin, a transient `setup_url` with the credential only in
+its fragment. These responses are `Cache-Control:no-store`. Soda persists no
+setup token or owner password. Expiry blocks Begin, while Inspect, matching
+receipt completion and Abort remain usable. Completion requires a stopped
+setup generation, exact Canlang receipt, and fresh stopped owner-bound normal
+container before the provisional record and ordinary admission settle atomically.
+Repeated settled actions return `{setup}` without replaying native effects.
+
 Inventory is `{applications: [...], complete: boolean}` with at most32 rows.
 Only assigned administrators see their records; the configured operator sees
 the bounded appliance inventory. Reads do not inspect/install/start native
@@ -122,10 +164,11 @@ operator-only, revision1, empty expected container, unobserved initial record.
 Inspect is explicit and accepts an empty generation only while state is unknown.
 Start/Stop require the exact current observed container. Stop requires
 `confirm_stop: true`; other actions require false except image replacement.
-Replacement requires the operator, `confirm_stop: true`, next revision, unchanged
-identity/admin/data/team/origin/port and the same artifact/bundle. It creates a
-stopped new container; Start remains separate. Semantic upgrades are refused
-before native effects pending migration qualification.
+Replacement requires the operator, `confirm_stop: true`, next revision and
+unchanged identity/admin/data/team/origin/port. Changed artifact/bundle bytes
+require identical nonempty storage fingerprints on the old generation and new
+image; changed storage schemas are refused before stopping the writer. It
+creates a stopped new container; Start remains separate.
 
 Before an admitted native call, the last observation becomes durably unknown.
 Only exact matching native references/generation can restore it through CAS.
@@ -134,6 +177,23 @@ stored uncertainty and never retries. Explicit Inspect can recover current
 native evidence. Previous immutable Specs remain available to operator recovery;
 failed replacement never fabricates a rollback or readiness. Local HTTP and
 browser tests do not certify an installed appliance.
+
+Operator snapshot GET returns `{snapshots: [{id, created_at, application}],
+complete}` with Unix-second timestamps and at most64 native snapshots. POST
+accepts `{id, revision, expected_container}` for a stopped backup. Snapshot IDs
+are opaque `a` plus24 lowercase hexadecimal digits; filesystem paths are never
+accepted. Retrying the same backup ID confirms its original immutable snapshot.
+
+Restore POST accepts `{action: "restore"|"abort", id, snapshot, revision,
+expected_container, confirm: true}`. It reserves an immutable pending operation
+and a fresh data identity before native effects. An uncertain result preserves
+the current binding and both data trees, exposes the pending `restore` in the
+application view, and blocks ordinary lifecycle writes. Reconcile with the same
+payload and operation ID. Only matching stopped native readback advances the
+application revision and data binding; its identity, administrator, address,
+owner and bundle remain unchanged. Abort is admitted only before replacement
+of the original stopped native generation. Previous data and revisions remain
+retained. Replaying a completed operation creates no further native effects.
 
 ### Terminal readiness and errors
 
@@ -199,3 +259,19 @@ The feed contains at most 60 local facts, ordered newest first: completed durabl
 Product intent routes use the admitted native actor; body ownership cannot select another principal. Department POST accepts the department object and attributes ownership to the current actor; GET returns only that actor’s departments. Intent POST accepts an `IntentRevision` with immutable `id`, `intent`, `predecessor`, objective, reviewed ideas/tasks, repository, finite `max_issues` and `planning_calls`; the server attributes owner and creation time. A changed predecessor returns 412. Accepted scope must include a repository and tasks, and any selected repository requires current native owner/admin authority. GET is owner-scoped.
 
 Exploration POST accepts `{revision}` for the exact current draft; mismatched inputs return 412. It reserves one planning call against the intent’s independent allowance head (409 when unfunded), records typed advice, and returns a saved successor proposal revision: revision fields stay flat with one added `exploration` object, supported/reversible choices settle autonomously, and only consequential assumptions interrupt. Cumulative usage is recorded without an operator-wide admission ceiling. Failed consultations keep the draft and retain the consumed allowance. Advice grants no acceptance or execution permission. Generation POST requires the actor’s current accepted intent, native repository owner/admin and a current lifecycle session; it uses the enrolled conditional native graph actor, immutable generation identity and durable receipts. Recovery reconciles the existing operation rather than creating a replacement. Generation GET returns the durable outcome, or `{state:"pending",revision_id}` before creation begins. Execution funding remains separate from consultation credit.
+
+Repository repair funding uses `PUT /api/repositories/{repositoryID}/factory/repair`
+with `command_id`, `expected_revision`, `investigator_runs`, `proposal_judgments`,
+`active_minutes`, `active` and `effect`. The current native owner/admin session
+supplies the sponsor identity. Revision0 creates the first grant; subsequent
+changes use the revision returned by GET or the last command receipt. Limits
+are at most4 runs,4 proposal judgments and120 active minutes, with at most2
+cycles and30 minutes per cycle. An explicit increase states its effect and
+retains every prior charge. An exact command replay returns its original receipt;
+changed replay and stale revision refuse. This grant supplies no Project,
+subscription membership or native graph permission by itself. GET exposes safe
+cycle state, reason and exact worker IDs without private collector/source bytes.
+The repository's Factory settings include these repair limits, an explicit
+spending checkbox, retained charge usage and episode reasons. An unconfirmed
+save retains its exact command for retry; changing or refreshing the view never
+silently issues another grant or replenishes consumption.

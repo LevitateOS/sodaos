@@ -5,14 +5,12 @@
 //! 0600 temporary sibling and atomic rename under the existing run lock,
 //! exactly like run receipts. Reads are free of checkpoint mutations.
 
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::time::Instant;
 
 use crate::project::Executor;
 
 use super::events::{
     EventJournal, FactoryTaskEvents, FactoryTaskEventsState, JournalFile, TaskEvent,
-    MAX_TASK_JOURNAL_BYTES,
 };
 use super::run::execution_manifest_required;
 use super::{
@@ -21,10 +19,6 @@ use super::{
 };
 
 impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
-    fn journal_path(&self, project: &str, run: &str) -> String {
-        format!("{}/{project}-{run}.task-events.json", self.state_dir)
-    }
-
     /// Load and re-verify one journal. Absent reads succeed empty; corrupt
     /// journals fence the run instead of serving partial history.
     pub(in crate::factory) fn load_journal(
@@ -32,18 +26,15 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         project: &str,
         run: &str,
     ) -> Result<EventJournal, FactoryError> {
-        let data = match std::fs::read(self.journal_path(project, run)) {
-            Ok(data) => data,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(EventJournal::default())
-            }
-            Err(e) => return Err(FactoryError::msg(e.to_string())),
+        let state =
+            super::checkpoint::PrivateState::open(&self.state_dir).map_err(FactoryError::msg)?;
+        let file = match state
+            .read_bytes(&format!("{project}-{run}.task-events.json"))
+            .map_err(FactoryError::msg)?
+        {
+            Some(bytes) => JournalFile::decode(&bytes).map_err(FactoryError::msg)?,
+            None => JournalFile { events: Vec::new() },
         };
-        if data.len() > MAX_TASK_JOURNAL_BYTES + 4096 {
-            return Err(FactoryError::msg("task journal exceeds bounds"));
-        }
-        let file =
-            JournalFile::decode(&data).map_err(|_| FactoryError::msg("invalid task journal"))?;
         let mut journal = EventJournal::default();
         for event in &file.events {
             journal
@@ -59,50 +50,18 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         run: &str,
         events: &[TaskEvent],
     ) -> Result<(), FactoryError> {
-        use std::io::Write;
+        let state =
+            super::checkpoint::PrivateState::open(&self.state_dir).map_err(FactoryError::msg)?;
         let data = JournalFile {
             events: events.to_vec(),
         }
         .encode();
-        let path = self.journal_path(project, run);
-        let mut counter = 0u32;
-        let tmp_path = loop {
-            counter += 1;
-            let candidate = format!(
-                "{}/.task-events-{}-{}-{counter}",
-                self.state_dir,
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0)
-            );
-            match std::fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(&candidate)
-            {
-                Ok(_) => break candidate,
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && counter < 100 => {
-                    continue
-                }
-                Err(e) => return Err(FactoryError::msg(e.to_string())),
-            }
-        };
-        let write_result = (|| -> std::io::Result<()> {
-            let mut tmp = std::fs::OpenOptions::new().write(true).open(&tmp_path)?;
-            tmp.write_all(data.as_bytes())?;
-            tmp.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-            drop(tmp);
-            std::fs::rename(&tmp_path, &path)?;
-            Ok(())
-        })();
-        if let Err(e) = write_result {
-            let _ = std::fs::remove_file(&tmp_path);
-            return Err(FactoryError::msg(e.to_string()));
-        }
-        Ok(())
+        state
+            .write_bytes(
+                &format!("{project}-{run}.task-events.json"),
+                data.as_bytes(),
+            )
+            .map_err(FactoryError::msg)
     }
 
     /// Record one typed child observation under the run lock. The run must
@@ -130,6 +89,26 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             return Err(FactoryError::msg(
                 "non-implement run records no task events",
             ));
+        }
+        let parent_event = matches!(
+            event.event_type.as_str(),
+            "parent_task_started" | "parent_output_observed"
+        );
+        if parent_event
+            && (receipt.run.execution_phase != super::EXECUTION_CORRECT
+                || !event.child_id.is_empty())
+        {
+            return Err(FactoryError::msg(
+                "parent task event requires the correction singleton",
+            ));
+        }
+        if receipt.run.execution_phase == super::EXECUTION_CORRECT
+            && matches!(
+                event.event_type.as_str(),
+                "child_started" | "child_reported" | "child_stopped"
+            )
+        {
+            return Err(FactoryError::msg("correction cannot admit native children"));
         }
         if event.plan_digest != receipt.run.manifest_digest {
             return Err(FactoryError::msg("task event plan digest refuses"));

@@ -186,3 +186,100 @@ func TestMCPFinishComponentUsesCanonicalRecord(t *testing.T) {
 		t.Fatalf("finish duplicated canonical record: %+v %v", page, err)
 	}
 }
+
+// TestPostResolutionDispositionPersistsAndExposes proves the R32.2 and
+// R32.3 disposition route against real PostgreSQL: a recorded answer
+// incorporates, moving its question past answered; a suggestion
+// applies with its reason and refuses twice; refused resolutions must
+// explain themselves; questions, status signals and missing posts
+// refuse; dispositions surface on discussion reads beside the
+// immutable posts; and recording partial, suggest or answer finishes
+// nothing and grants no readiness.
+func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	cap := testMCPCapabilityRow()
+	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
+	insertJourneyAssignment(t, journeySQL(t, dsn), assignment, "assigned", 1)
+	cap = activateMCPCapability(t, ctx, s, cap)
+	post := func(tool factory.MCPTool, payload string) factory.MCPReceipt {
+		t.Helper()
+		submission := testMCPSubmissionRow(cap, tool, []byte(payload))
+		receipt, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		if err != nil {
+			t.Fatalf("%s: %v", tool, err)
+		}
+		if !factory.ValidID(receipt.FeedPostID) {
+			t.Fatalf("%s recorded no post: %+v", tool, receipt)
+		}
+		return receipt
+	}
+	ask := post(factory.MCPToolAsk, `{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view other people's tasks?"}`)
+	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only task owners may view their tasks.","reply_to":"`+ask.FeedPostID+`"}`)
+	question, err := s.FeedComment(ctx, ask.FeedPostID)
+	if err != nil || question.Payload.Communication.QuestionState != "answered" {
+		t.Fatalf("answer not reflected: %+v %v", question, err)
+	}
+	resolve := func(payload string) error {
+		t.Helper()
+		submission := testMCPSubmissionRow(cap, factory.MCPToolResolvePost, []byte(payload))
+		_, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		return err
+	}
+	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"incorporated"} {}`); err == nil {
+		t.Fatal("trailing resolution object accepted")
+	}
+	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"incorporated"}`); err != nil {
+		t.Fatalf("incorporate: %v", err)
+	}
+	adopted, err := s.FeedComment(ctx, answer.FeedPostID)
+	if err != nil || adopted.Payload.Communication.Disposition != "incorporated" {
+		t.Fatalf("incorporation not exposed: %+v %v", adopted, err)
+	}
+	question, err = s.FeedComment(ctx, ask.FeedPostID)
+	if err != nil || question.Payload.Communication.QuestionState != "incorporated" {
+		t.Fatalf("question hid its adoption: %+v %v", question, err)
+	}
+	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the policy file on every task is slow.","rationale":"Cache ownership at assignment start."}`)
+	if err := resolve(`{"post":"` + suggest.FeedPostID + `","resolution":"applied","reason":"Cached at dispatch"}`); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	applied, err := s.FeedComment(ctx, suggest.FeedPostID)
+	if err != nil || applied.Payload.Communication.Disposition != "applied" || applied.Payload.Communication.DispositionReason != "Cached at dispatch" {
+		t.Fatalf("applied disposition lost: %+v %v", applied, err)
+	}
+	if err := resolve(`{"post":"` + suggest.FeedPostID + `","resolution":"refused","reason":"Second thoughts"}`); err == nil {
+		t.Fatal("second disposition accepted")
+	}
+	other := post(factory.MCPToolSuggest, `{"title":"Skip the cache","summary":"Caching adds staleness risk.","rationale":"Read the file every time."}`)
+	if err := resolve(`{"post":"` + other.FeedPostID + `","resolution":"refused"}`); err == nil {
+		t.Fatal("unexplained refusal accepted")
+	}
+	if err := resolve(`{"post":"` + other.FeedPostID + `","resolution":"incorporated"}`); err == nil {
+		t.Fatal("suggestion incorporated")
+	}
+	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"applied","reason":"Wrong kind"}`); err == nil {
+		t.Fatal("answer applied")
+	}
+	if err := resolve(`{"post":"` + ask.FeedPostID + `","resolution":"applied","reason":"Answering is not resolving"}`); err == nil {
+		t.Fatal("question resolved")
+	}
+	partial := post(factory.MCPToolPartial, `{"title":"Halfway","summary":"First half done.","completed":["Read the policy"],"remaining":["Apply it"]}`)
+	if err := resolve(`{"post":"` + partial.FeedPostID + `","resolution":"applied","reason":"Status is not a proposal"}`); err == nil {
+		t.Fatal("status signal resolved")
+	}
+	if err := resolve(`{"post":"` + factory.NewID() + `","resolution":"applied","reason":"Ghost post"}`); err == nil {
+		t.Fatal("missing post resolved")
+	}
+	// Recording questions, answers, suggestions, partials and their
+	// dispositions finishes nothing: the assignment carries no result
+	// and no readiness path runs outside assignment finish.
+	still, err := s.Assignment(ctx, assignment.ID)
+	if err != nil || still.Result != nil {
+		t.Fatalf("discussion traffic finished the role: %+v %v", still, err)
+	}
+	again, err := s.FeedComment(ctx, other.FeedPostID)
+	if err != nil || again.Payload.Communication.Disposition != "" {
+		t.Fatalf("refused dispositions leaked state: %+v %v", again, err)
+	}
+}

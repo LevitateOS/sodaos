@@ -259,6 +259,12 @@ func collectPriorityCandidates(scan store.PriorityScanState, report DispatchRepo
 			return selection, report, false
 		}
 		if observation.Exclusion != "" {
+			// Actual admission waits belong to the same dispatch report the
+			// stall classifier consumes. A queued source/context wait is not
+			// fresh ready work and must not retire an admitted diagnosis.
+			if observation.Exclusion != "control_missing" && observation.Exclusion != "not_eligible" {
+				report.Waits = append(report.Waits, DispatchWait{Repository: subject.Repository, Issue: subject.Issue, Reason: observation.Exclusion, Detail: "Current priority admission is waiting."})
+			}
 			continue
 		}
 		var candidate factory.PriorityCandidate
@@ -347,6 +353,20 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 	}
 	candidates := selection.candidates
 	if len(candidates) == 0 {
+		// Native availability can recover without changing either the
+		// repository revision or local authority. A completed empty scan
+		// must retry these reads, rather than retaining a transient refusal
+		// forever. The next scan still observes the complete inventory
+		// within the existing per-pass cursor and RPC bounds.
+		for _, observation := range scan.Observations {
+			switch observation.Exclusion {
+			case WaitSource, WaitHarness, WaitInputsUnavailable, WaitInputsBusy, WaitInputsStale, WaitInputsIncomplete:
+				if err := deps.Store.DeletePriorityScan(ctx); err != nil {
+					report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "transient priority scan unretired"})
+				}
+				return report
+			}
+		}
 		return report
 	}
 	// D13 completion fence (FW31): a pending event excludes its

@@ -38,11 +38,13 @@ const (
 // has answered this head yet), and whether a policy-required review is
 // owed for a missing approval.
 type deliveryFeedback struct {
-	HasReview          bool
-	ReviewVerdict      string
-	ChecksVerdict      string
-	NewestDispositions []string
-	PolicyOwed         bool
+	HasReview            bool
+	ReviewVerdict        string
+	ChecksVerdict        string
+	NewestDispositions   []string
+	PolicyOwed           bool
+	OptionalOnly         bool
+	NewUnfixedActionable bool
 }
 
 // routeDeliveryFeedback applies the D08 route-before-spending table. An
@@ -64,6 +66,12 @@ func routeDeliveryFeedback(in deliveryFeedback) deliveryRoute {
 		// defect regardless of disposition history; the caller already
 		// returns when an approval covers passing checks.
 		return routeCorrection
+	}
+	if in.NewUnfixedActionable {
+		return routeCorrection
+	}
+	if in.OptionalOnly {
+		return routeJev
 	}
 	if in.NewestDispositions == nil {
 		// No correction has answered this head yet: the feedback is new.
@@ -91,6 +99,38 @@ func routeDeliveryFeedback(in deliveryFeedback) deliveryRoute {
 	// coder run; all-fixed feedback that the reviewer still rejects is
 	// repetitive, so the decision precedes another run either way.
 	return routeJev
+}
+
+func publicationDeliveryFeedback(p factory.Publication, review ResolvedReviewVerdict, checks *factory.CheckAssessment) deliveryFeedback {
+	out := deliveryFeedback{HasReview: true, ReviewVerdict: review.Verdict, NewestDispositions: newestCurrentHeadDispositions(p)}
+	if checks != nil {
+		out.ChecksVerdict = checks.Verdict
+	}
+	if review.Review == nil {
+		return out
+	}
+	answered := map[string]bool{}
+	for _, journal := range p.CorrectionJournals {
+		if journal.Report.NewCandidate != p.Candidate {
+			continue
+		}
+		for _, disposition := range journal.Report.Dispositions {
+			answered[disposition.Key] = true
+		}
+	}
+	out.OptionalOnly = len(review.Review.NewFindings) > 0
+	for _, finding := range review.Review.NewFindings {
+		if finding.Actionable {
+			out.OptionalOnly = false
+			out.NewUnfixedActionable = out.NewUnfixedActionable || !answered[finding.Key]
+		}
+	}
+	for _, assessment := range review.Review.Assessments {
+		if assessment.Status == factory.FindingStillOpen {
+			out.OptionalOnly = false
+		}
+	}
+	return out
 }
 
 // policyReviewDecision is the separately recorded cause of a

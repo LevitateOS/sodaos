@@ -44,8 +44,9 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 	}
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
-		Authority: authority,
-		ID:        assignmentID, AttemptRoot: attemptRoot, PublicationAssignment: publication,
+		AcceptedContext: plan.acceptedContext,
+		Authority:       authority,
+		ID:              assignmentID, AttemptRoot: attemptRoot, PublicationAssignment: publication,
 		Subject: plan.subject, Phase: plan.phase, ParentAssignment: plan.parent,
 		ProjectID: plan.projectID, Role: role,
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
@@ -208,8 +209,9 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 	authority := plan.effective.Authority
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
-		Authority: authority,
-		ID:        childID, AttemptRoot: parent.AttemptRoot, ParentAssignment: parent.ID,
+		AcceptedContext: plan.acceptedContext,
+		Authority:       authority,
+		ID:              childID, AttemptRoot: parent.AttemptRoot, ParentAssignment: parent.ID,
 		PublicationAssignment: parent.PublicationAssignment,
 		Subject:               plan.subject, Phase: project.ExecutionImplement,
 		ProjectID: plan.projectID, Role: project.RoleCoder,
@@ -662,7 +664,26 @@ const launchObservationTimeout = 5 * time.Second
 // the run's effects; the host and broker decide what is unused. The native
 // run retains its admitted deadline after this observation ends.
 func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run, launch project.FactoryLaunch, report *DispatchReport) {
+	if len(deps.MCPKey) > 0 {
+		recorded, err := deps.Store.FactoryRun(ctx, run.ID)
+		if err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prelaunch run unavailable"})
+			return
+		}
+		recorded.ContextPending = true
+		if err := deps.Store.SaveFactoryRun(ctx, recorded); err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prelaunch context hold unrecorded"})
+			return
+		}
+		run = recorded
+	}
 	if deps.Store != nil {
+		if len(launch.ExecutionManifest) > 0 {
+			if err := deps.Store.BindFactoryExecutionManifest(ctx, launch); err != nil {
+				report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "execution manifest could not be retained"})
+				return
+			}
+		}
 		if err := ProduceMCPCapabilityForLaunch(ctx, deps.Store, a, run); err != nil {
 			if len(deps.MCPKey) > 0 {
 				recordLaunchFailure(ctx, deps, a, run, errors.New("worker MCP could not be prepared"), report)
@@ -682,20 +703,30 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 			launch.MCP = &project.FactoryMCPBinding{Capability: capability.ID, Secret: secret}
 		}
 	}
+	// One paid choice belongs to this capability. A held or incomplete
+	// context preserves the packet and its exact identity without starting
+	// new native work; retry reads the same selection receipt.
+	bundle, reason := factory.ContextBundleSnapshotHold, "context_selection_unavailable"
+	var contextChooser ProductJudgment
+	if deps.Priority != nil {
+		contextChooser, _ = deps.Priority.Chooser.(ProductJudgment)
+	}
+	bundle, reason, _ = PrepareContextBundleSelection(ctx, deps.Store, contextChooser, a, run, deps.ContextVerification)
+	if len(deps.MCPKey) > 0 && (bundle == factory.ContextBundleSnapshotHold || reason != "") {
+		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: "context_selection_hold", Detail: reason})
+		return
+	}
+	if run.ContextPending {
+		run.ContextPending = false
+		if err := deps.Store.SaveFactoryRun(ctx, run); err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prelaunch context admission unrecorded"})
+			return
+		}
+	}
 	launchCtx, cancel := context.WithTimeout(ctx, launchObservationTimeout)
 	defer cancel()
 	state, err := deps.Host.FactoryLaunch(launchCtx, launch)
 	if err == nil {
-		// R31 preparation-time bundle selection: one funded Choice
-		// per capability before the first read. Best-effort like
-		// staging — refusal or an unavailable consultation never
-		// fails the launch; reads fall back to the widest eligible
-		// bundle.
-		if deps.Priority != nil && deps.Priority.Journal != nil && deps.Priority.Chooser != nil {
-			if chooser, ok := deps.Priority.Chooser.(ProductJudgment); ok {
-				_, _, _ = PrepareContextBundleSelection(ctx, deps.Store, deps.Priority.Journal, chooser, a, run)
-			}
-		}
 		report.Launched = append(report.Launched, DispatchLaunch{
 			Repository: a.Repository, Issue: a.Issue,
 			AssignmentID: a.ID, RunID: run.ID, Phase: state.Phase,

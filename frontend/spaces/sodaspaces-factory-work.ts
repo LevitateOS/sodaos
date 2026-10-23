@@ -1,4 +1,5 @@
 import {LitElement, html} from 'lit';
+import './sodaspaces-factory-acceptance.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {id, projectId, readSodaJSON} from './sodaspaces-api.js';
 import {decisionID, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
@@ -1278,6 +1279,10 @@ export class SodaFactoryWorkDetail extends LitElement {
       <p data-work-message aria-live="polite">${this.message}</p>
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh detail</button>
       ${this.detail ? renderWorkDetail(describeIssueDetail(this.detail, context.repositoryPath)) : this.busy ? html`<p>Loading work detail…</p>` : ''}
+      <soda-factory-requirements-acceptance
+        .context=${{transport: context.transport, repository: context.repository, repositoryPath: context.repositoryPath, issue: context.issue}}
+        @soda-factory-requirements-accepted=${() => this.load()}
+      ></soda-factory-requirements-acceptance>
       ${this.watchNote() ? html`<p>${this.watchNote()}</p>` : ''}
       <ul>
         ${this.runs.map(

@@ -124,6 +124,9 @@ func (s *API) admitApplicationOperation(w http.ResponseWriter, r *http.Request, 
 	if !s.authorizeApplicationAction(w, r, v, in.Action) {
 		return empty, noRequest, false
 	}
+	if !s.noApplicationRestore(w, r, record.Application.ID) {
+		return empty, noRequest, false
+	}
 	request, err := admitApplicationAction(record, in)
 	if err != nil {
 		auth.JSONError(w, 409, "application_action_conflict", "Use the current revision/container, and explicitly confirm Stop or image replacement.")

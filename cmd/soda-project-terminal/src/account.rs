@@ -120,6 +120,12 @@ pub fn account_for(login: &str, identity: i64) -> Result<Account, String> {
     }
     let fd = open_account_chain()?;
     read_identity_marker(fd, login, identity)?;
+    // Restoration deliberately leaves login disabled until explicit Join.
+    // Any retained access marker refuses managed terminals and key changes.
+    match std::fs::symlink_metadata(format!("/var/lib/soda/accounts/{login}.access")) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        _ => return Err("Project access held; explicit restore and Join required".into()),
+    }
     validate_account(login)
 }
 

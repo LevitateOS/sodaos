@@ -19,7 +19,17 @@ const stallEpisodeActiveMinutes = 30
 // cycle-1 charge through the explicit repair-grant joint. Any store
 // failure fails the round closed instead of spending blind.
 func (c *Coordinator) ServeStallRound(ctx context.Context, report DispatchReport) (StallClassification, error) {
-	if c.Store == nil || len(report.Launched) > 0 {
+	if c.Store == nil {
+		return StallClassification{}, nil
+	}
+	if len(report.Launched) > 0 {
+		ready := map[int64]bool{}
+		for _, launch := range report.Launched {
+			if launch.Issue > 0 {
+				ready[launch.Repository] = true
+			}
+		}
+		c.retireReadyStallRepairs(ctx, ready)
 		return StallClassification{}, nil
 	}
 	generation, err := c.Store.StallRoundGeneration(ctx)
@@ -47,7 +57,15 @@ func (c *Coordinator) ServeStallRound(ctx context.Context, report DispatchReport
 		return StallClassification{}, err
 	}
 	now := time.Now()
+	ready := map[int64]bool{}
+	stalled := map[int64]bool{}
 	for _, result := range classified.Repositories {
+		if result.Kind == StallRepositoryReady {
+			ready[result.Repository] = true
+		}
+		if result.Kind == StallRepositoryStall {
+			stalled[result.Repository] = true
+		}
 		if result.Event == nil {
 			continue
 		}
@@ -60,6 +78,11 @@ func (c *Coordinator) ServeStallRound(ctx context.Context, report DispatchReport
 		if _, err := AdmitStallEpisodeRun(ctx, c.Store, result, generation, stallEpisodeActiveMinutes, now); err != nil {
 			return StallClassification{}, err
 		}
+		if err := c.stageStallRepair(ctx, *result.Event); err != nil {
+			return StallClassification{}, err
+		}
 	}
+	c.retireReadyStallRepairs(ctx, ready)
+	c.driveStallRepairs(ctx, stalled)
 	return classified, nil
 }

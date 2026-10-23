@@ -45,6 +45,7 @@ import (
 // MCPTerminalSettleStore is the narrow settlement joint. *store.Store
 // implements it; tests stub it.
 type MCPTerminalSettleStore interface {
+	FactoryRun(ctx context.Context, id string) (factory.Run, error)
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
 	AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error)
 	TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error)
@@ -127,6 +128,16 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if !ok {
 		return false, nil
 	}
+	ready, refusal, err := checkpointTerminalReady(ctx, st, finished)
+	if err != nil {
+		return false, err
+	}
+	if refusal != "" {
+		finished = fenceMCPTerminal(assigned, submission, now, refusal)
+		note = "native final-candidate evidence refused"
+	} else if !ready {
+		return false, nil
+	}
 	// Cited artifacts revalidate before persistence: the fence only
 	// shape-checked the refs, so an unknown, foreign or unfinished
 	// digest fences here with the proposal preserved for inspection.
@@ -203,7 +214,12 @@ func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSub
 		if err != nil || !ok {
 			return factory.Assignment{}, "", ok, err
 		}
-	case factory.MCPToolFinishIncomplete, factory.MCPToolFinishImplement, factory.MCPToolFinishCorrection:
+	case factory.MCPToolFinishCorrection:
+		built, note, ok, err = settleCorrectionFinish(assigned, submission, now)
+		if err != nil || !ok {
+			return factory.Assignment{}, "", ok, err
+		}
+	case factory.MCPToolFinishIncomplete, factory.MCPToolFinishImplement:
 		payload, derr := decodeMCPTerminalPayload(submission)
 		if derr != nil {
 			built, note = fenceMCPTerminal(assigned, submission, now, "terminal payload refused: "+derr.Error()), "unparseable terminal fenced for human attention"

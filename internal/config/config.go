@@ -13,17 +13,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 // SodaPath is the fixed browser namespace on the configured Forgejo origin.
 // Caddy forwards this prefix unchanged; the Go service owns its routing.
 const SodaPath = "/-/soda"
 
+// FactoryNativeBinding is the nonsecret operation selection verified by the
+// operator enrollment CLI. Policy can select these references; current native
+// operation admission still owns their actual authority.
+type FactoryNativeBinding struct {
+	TokenID      int64  `json:"token_id"`
+	ActorID      int64  `json:"actor_id"`
+	RepositoryID int64  `json:"repository_id"`
+	Kind         string `json:"kind"`
+}
+
 type Config struct {
-	ForgejoGraphCredentialFile string `json:"forgejo_graph_credential_file"`
-	ForgejoGraphActorID        int64  `json:"forgejo_graph_actor_id"`
-	TypeSafeAPIKeyFile         string `json:"typesafe_api_key_file"`
-	TypeSafeModel              string `json:"typesafe_model"`
+	FactoryNativeBindings        []FactoryNativeBinding `json:"factory_native_bindings,omitempty"`
+	ForgejoResolveCredentialFile string                 `json:"forgejo_resolve_credential_file"`
+	ForgejoGraphCredentialFile   string                 `json:"forgejo_graph_credential_file"`
+	ForgejoGraphActorID          int64                  `json:"forgejo_graph_actor_id"`
+	TypeSafeAPIKeyFile           string                 `json:"typesafe_api_key_file"`
+	TypeSafeModel                string                 `json:"typesafe_model"`
 
 	Listen             string `json:"listen"`
 	ForgejoURL         string `json:"forgejo_url"`
@@ -151,6 +165,17 @@ func validateCredentialFiles(c Config) error {
 }
 
 func validateFactoryPaths(c Config) error {
+	if len(c.FactoryNativeBindings) > 64 {
+		return errors.New("factory native binding inventory exceeds 64 operations")
+	}
+	seen := make(map[FactoryNativeBinding]bool, len(c.FactoryNativeBindings))
+	for _, binding := range c.FactoryNativeBindings {
+		ref := factory.ActorBindingRef{TokenID: binding.TokenID, ActorID: binding.ActorID, Kind: binding.Kind}
+		if binding.RepositoryID <= 0 || ref.Validate() != nil || seen[binding] {
+			return errors.New("factory native binding inventory is invalid")
+		}
+		seen[binding] = true
+	}
 	if c.FactoryIntakeSecretFile != "" && !filepath.IsAbs(c.FactoryIntakeSecretFile) {
 		return errors.New("factory_intake_secret_file must be an absolute path")
 	}
@@ -161,6 +186,14 @@ func validateFactoryPaths(c Config) error {
 }
 
 func validateReviewCredentials(c Config) error {
+	if c.ForgejoResolveCredentialFile != "" {
+		if !filepath.IsAbs(c.ForgejoResolveCredentialFile) {
+			return errors.New("forgejo_resolve_credential_file must be an absolute path")
+		}
+		if !c.BackgroundServiceConfigured() {
+			return errors.New("forgejo_resolve_credential_file requires background service inputs")
+		}
+	}
 	if c.ForgejoReviewCredentialFile != "" {
 		if !filepath.IsAbs(c.ForgejoReviewCredentialFile) {
 			return errors.New("forgejo_review_credential_file must be an absolute path")

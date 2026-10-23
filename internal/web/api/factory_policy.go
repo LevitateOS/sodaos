@@ -14,6 +14,7 @@ type factoryPolicyRequest struct {
 	PublishActor        actorRefRequest                  `json:"publish_actor"`
 	CreateActor         actorRefRequest                  `json:"create_actor"`
 	ReviewActor         actorRefRequest                  `json:"review_actor"`
+	ResolveActor        *actorRefRequest                 `json:"resolve_actor,omitempty"`
 	MergeActor          actorRefRequest                  `json:"merge_actor"`
 	CommandID           string                           `json:"command_id"`
 	TargetBranch        string                           `json:"target_branch"`
@@ -56,11 +57,19 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 400, "invalid_actor_binding", "Merger must reference an enrolled native merge binding.")
 		return
 	}
+	var resolve factory.ActorBindingRef
+	if in.ResolveActor != nil {
+		resolve, ok = in.ResolveActor.resolve(factory.OpThreadResolve)
+		if !ok || resolve.ActorID != review.ActorID {
+			auth.JSONError(w, 400, "invalid_actor_binding", "Resolver must reference its separately enrolled binding on the independent reviewer account.")
+			return
+		}
+	}
 	policy := factory.RepositoryPolicy{
 		Repository: repository, Revision: in.ExpectedRevision, GrantedBy: v.User.ID,
 		Enabled: in.Enabled, Paused: in.Paused, TargetBranch: in.TargetBranch, Roles: in.Roles,
 		Checks: in.RequiredChecks, MergeMethod: in.MergeMethod,
-		Publish: publish, Create: create, Review: review, Merge: merge, MaxConcurrent: in.MaxConcurrent,
+		Publish: publish, Create: create, Review: review, Resolve: resolve, Merge: merge, MaxConcurrent: in.MaxConcurrent,
 		AttemptLimits: factory.EffectiveAttemptLimits(in.AttemptLimits),
 		// Omission resolves to the D13 default so the stored record always
 		// carries its admitted reassessment allowance explicitly.

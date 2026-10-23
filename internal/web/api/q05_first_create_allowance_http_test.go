@@ -29,7 +29,7 @@ import (
 // none consulted (TypeSafe key absent, so the funded gate is proven by the
 // consumed reservation, not a live model answer).
 func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
-	_, s, call, errorCode := q05Mux(t, "")
+	product, s, call, errorCode := q05Mux(t, "")
 
 	const draftID = "d111111111111111111111111"
 	const intentID = "d222222222222222222222222"
@@ -93,6 +93,64 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 	if _, err := s.IntentGeneration(context.Background(), draftID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("generation state err=%v", err)
 	}
+	t.Run("explicit repository repair funding through authenticated HTTP", func(t *testing.T) {
+		path := "/api/repositories/7/factory/repair"
+		if code, body := call(http.MethodGet, path, ""); code != 200 || !strings.Contains(string(body), `"revision":0`) {
+			t.Fatalf("unfunded read: %d %s", code, body)
+		}
+		first := factoryRepairGrantRequest{CommandID: factory.NewID(), InvestigatorRuns: 1, ProposalJudgments: 1, ActiveMinutes: 30, Active: true}
+		encoded, _ := json.Marshal(first)
+		for i := 0; i < 2; i++ {
+			if code, body := call(http.MethodPut, path, string(encoded)); code != 200 {
+				t.Fatalf("grant/replay: %d %s", code, body)
+			}
+		}
+		grant, err := s.RepairGrantCommand(context.Background(), 7)
+		if err != nil || grant.Sponsor != 1 || grant.Revision != 0 || grant.ID != first.CommandID {
+			t.Fatal("grant lost authenticated sponsor", err)
+		}
+		charge := factory.RepairCharge{ID: factory.NewID(), GrantID: grant.ID, Kind: factory.RepairChargeRun, EpisodeID: factory.NewID(), Cycle: 1, EvidenceDigest: strings.Repeat("a", 64), ActiveMinutes: 10, SpentUnix: time.Now().Unix()}
+		if _, spent, err := s.AdmitStallInvestigation(context.Background(), 7, charge, time.Now()); err != nil || !spent {
+			t.Fatal("canonical charge", err)
+		}
+		conflict := first
+		conflict.ActiveMinutes = 29
+		bad, _ := json.Marshal(conflict)
+		if code, body := call(http.MethodPut, path, string(bad)); code != 409 || errorCode(body) != "command_conflict" {
+			t.Fatalf("changed replay: %d %s", code, body)
+		}
+		stale := first
+		stale.CommandID = factory.NewID()
+		bad, _ = json.Marshal(stale)
+		if code, body := call(http.MethodPut, path, string(bad)); code != 412 {
+			t.Fatalf("stale head: %d %s", code, body)
+		}
+		raised := factoryRepairGrantRequest{CommandID: factory.NewID(), ExpectedRevision: 1, InvestigatorRuns: 2, ProposalJudgments: 2, ActiveMinutes: 60, Effect: "Owner explicitly funds one additional bounded investigation without refilling spent work.", Active: true}
+		more, _ := json.Marshal(raised)
+		if code, body := call(http.MethodPut, path, string(more)); code != 200 {
+			t.Fatalf("explicit raise: %d %s", code, body)
+		}
+		if code, body := call(http.MethodPut, path, string(encoded)); code != 200 {
+			t.Fatalf("old exact receipt replay: %d %s", code, body)
+		}
+		code, body := call(http.MethodGet, path, "")
+		var view struct {
+			Revision int64                  `json:"revision"`
+			Grant    factory.RepairGrant    `json:"grant"`
+			Charges  []factory.RepairCharge `json:"charges"`
+		}
+		if json.Unmarshal(body, &view) != nil || code != 200 || view.Revision != 2 || view.Grant.Sponsor != 1 || len(view.Charges) != 1 || view.Charges[0].ID != charge.ID {
+			t.Fatalf("funding/readback refilled history: %d %s", code, body)
+		}
+		foreign := actorCall(t, product, "2", "bob")
+		if code, _ := foreign(http.MethodPut, path, string(more)); code < 400 {
+			t.Fatal("foreign actor funded repair")
+		}
+		charges, err := s.RepairCharges(context.Background(), 7)
+		if err != nil || len(charges) != 1 {
+			t.Fatal("read/refusal charged work", err)
+		}
+	})
 }
 
 // q05Mux builds the real product mux on an ephemeral PG store with a fake

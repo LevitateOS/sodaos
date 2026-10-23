@@ -35,8 +35,8 @@ for command in soda-host soda-setup soda-forgejo-tailnet soda-tailnet; do
   [[ $(stat -c '%u:%g:%a' "$file") == 0:0:755 ]]
   matchpathcon -V "$file"
 done
-[[ -S /run/soda/host.sock ]]
-[[ $(stat -c '%u:%g:%a' /run/soda/host.sock) == 0:2000:660 ]]
+[[ -S /run/soda/host/host.sock ]]
+[[ $(stat -c '%u:%g:%a' /run/soda/host/host.sock) == 0:2000:660 ]]
 [[ $(stat -c '%u:%g:%a' /var/lib/soda/dashboard) == 2000:2000:700 ]]
 for file in /etc/cockpit/cockpit.conf /etc/pam.d/cockpit; do
   [[ $(stat -c '%u:%g:%a' "$file") == 0:0:644 ]]

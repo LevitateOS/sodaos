@@ -121,6 +121,7 @@ const (
 	MCPToolFinishResearch           MCPTool = "factory.finish_research"
 	MCPToolResearchScope            MCPTool = "factory.research_scope"
 	MCPToolRecordResearch           MCPTool = "factory.record_research"
+	MCPToolResolvePost              MCPTool = "factory.resolve_post"
 	MCPToolFinishAppVerify          MCPTool = "factory.finish_app_verification"
 	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
 	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
@@ -176,6 +177,7 @@ var MCPTools = []MCPTool{
 	MCPToolFinishResearch,
 	MCPToolResearchScope,
 	MCPToolRecordResearch,
+	MCPToolResolvePost,
 }
 
 // D14 byte/count bounds. Tool schemas reject unknown fields and
@@ -287,6 +289,7 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolFinishResearch:           singleMCPProfile(MCPProfileResearcher),
 	MCPToolResearchScope:            singleMCPProfile(MCPProfileResearcher),
 	MCPToolRecordResearch:           singleMCPProfile(MCPProfileResearcher),
+	MCPToolResolvePost:              allMCPProfiles(),
 	MCPToolSubmitTaskOutput: {
 		MCPProfileBuilder: true,
 		MCPProfileFixer:   true,

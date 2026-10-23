@@ -28,38 +28,43 @@ func MCPIsCommunication(tool MCPTool) bool {
 // FeedCommunication carries content only. Attribution, repository, issue, run,
 // assignment and time come from the authenticated capability and stored work.
 type FeedCommunication struct {
-	Commits          []FeedCommit            `json:"commits,omitempty"`
-	Source           *FeedSourceExcerpt      `json:"source,omitempty"`
-	LibraryItemID    string                  `json:"library_item_id,omitempty"`
-	LibraryRevision  int64                   `json:"library_revision,omitempty"`
-	LibraryItems     []LibraryRef            `json:"library_items,omitempty"`
-	AffectedRefs     []LibraryAffectedRef    `json:"affected_refs,omitempty"`
-	Artifacts        []FeedArtifact          `json:"artifacts,omitempty"`
-	QuestionState    string                  `json:"question_state,omitempty"`
-	Kind             string                  `json:"kind"`
-	ComponentID      string                  `json:"component_id,omitempty"`
-	Title            string                  `json:"title"`
-	Summary          string                  `json:"summary"`
-	Question         string                  `json:"question,omitempty"`
-	Resolution       string                  `json:"resolution,omitempty"`
-	Scope            string                  `json:"scope,omitempty"`
-	Severity         string                  `json:"severity,omitempty"`
-	EvidenceRefs     []string                `json:"evidence_refs,omitempty"`
-	Options          []string                `json:"options,omitempty"`
-	Completed        []string                `json:"completed,omitempty"`
-	Remaining        []string                `json:"remaining,omitempty"`
-	Attempts         []string                `json:"attempts,omitempty"`
-	Decision         string                  `json:"decision,omitempty"`
-	DecisionOwner    string                  `json:"decision_owner,omitempty"`
-	Rationale        string                  `json:"rationale,omitempty"`
-	Alternatives     []string                `json:"alternatives,omitempty"`
-	ReplyTo          string                  `json:"reply_to,omitempty"`
-	RevisesItem      string                  `json:"revises_item,omitempty"`
-	ExpectedRevision int64                   `json:"expected_revision,omitempty"`
-	Challenge        bool                    `json:"challenge,omitempty"`
-	Items            []FeedCommunicationItem `json:"items,omitempty"`
-	Before           string                  `json:"before,omitempty"`
-	After            string                  `json:"after,omitempty"`
+	Commits         []FeedCommit         `json:"commits,omitempty"`
+	Source          *FeedSourceExcerpt   `json:"source,omitempty"`
+	LibraryItemID   string               `json:"library_item_id,omitempty"`
+	LibraryRevision int64                `json:"library_revision,omitempty"`
+	LibraryItems    []LibraryRef         `json:"library_items,omitempty"`
+	AffectedRefs    []LibraryAffectedRef `json:"affected_refs,omitempty"`
+	Artifacts       []FeedArtifact       `json:"artifacts,omitempty"`
+	QuestionState   string               `json:"question_state,omitempty"`
+	// Disposition and DispositionReason are server-assigned from the
+	// recorded disposition beside the post; worker payloads carrying
+	// them refuse like question_state.
+	Disposition       string                  `json:"disposition,omitempty"`
+	DispositionReason string                  `json:"disposition_reason,omitempty"`
+	Kind              string                  `json:"kind"`
+	ComponentID       string                  `json:"component_id,omitempty"`
+	Title             string                  `json:"title"`
+	Summary           string                  `json:"summary"`
+	Question          string                  `json:"question,omitempty"`
+	Resolution        string                  `json:"resolution,omitempty"`
+	Scope             string                  `json:"scope,omitempty"`
+	Severity          string                  `json:"severity,omitempty"`
+	EvidenceRefs      []string                `json:"evidence_refs,omitempty"`
+	Options           []string                `json:"options,omitempty"`
+	Completed         []string                `json:"completed,omitempty"`
+	Remaining         []string                `json:"remaining,omitempty"`
+	Attempts          []string                `json:"attempts,omitempty"`
+	Decision          string                  `json:"decision,omitempty"`
+	DecisionOwner     string                  `json:"decision_owner,omitempty"`
+	Rationale         string                  `json:"rationale,omitempty"`
+	Alternatives      []string                `json:"alternatives,omitempty"`
+	ReplyTo           string                  `json:"reply_to,omitempty"`
+	RevisesItem       string                  `json:"revises_item,omitempty"`
+	ExpectedRevision  int64                   `json:"expected_revision,omitempty"`
+	Challenge         bool                    `json:"challenge,omitempty"`
+	Items             []FeedCommunicationItem `json:"items,omitempty"`
+	Before            string                  `json:"before,omitempty"`
+	After             string                  `json:"after,omitempty"`
 }
 
 type FeedCommit struct {
@@ -101,6 +106,11 @@ func DecodeMCPCommunication(tool MCPTool, payload []byte) (FeedCommunication, er
 	}
 	if _, exists := fields["question_state"]; exists {
 		return out, errors.New("question state comes from recorded replies")
+	}
+	for _, field := range []string{"disposition", "disposition_reason"} {
+		if _, exists := fields[field]; exists {
+			return out, errors.New("post resolution comes from its recorded disposition")
+		}
 	}
 	for _, field := range []string{"library_item_id", "library_revision"} {
 		if _, exists := fields[field]; exists {

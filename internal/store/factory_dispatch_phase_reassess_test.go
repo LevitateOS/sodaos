@@ -52,7 +52,8 @@ func reassessCycleFixture(t *testing.T, db *Store) (eventID, cycleID, merged str
 // sealReassessmentCycle drives one collecting cycle to a sealed,
 // decided outcome through the production CAS joint: the collecting
 // seal (local bindings, inventory digest, one body), the deciding
-// decision, then reassessing. Every write carries the expected state,
+// decision. The packet owns the reassessing transition and sole-run
+// ledger atomically with its funding. Every write carries the expected state,
 // so the fixture exercises the same ordering the packet guard relies
 // on. A continue decision stays in deciding: only reassess advances a
 // coder root.
@@ -86,17 +87,6 @@ func sealReassessmentCycle(t *testing.T, ctx context.Context, db *Store, cycleID
 	decided.Cycle.State = factory.ReassessmentDeciding
 	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentCollecting, decided); err != nil {
 		t.Fatalf("decision not recorded: %v", err)
-	}
-	if decision != factory.ReassessmentOptionReassess {
-		return
-	}
-	advancing, err := db.ReassessmentRecord(ctx, cycleID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	advancing.Cycle.State = factory.ReassessmentReassessing
-	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, advancing); err != nil {
-		t.Fatalf("reassessing not recorded: %v", err)
 	}
 }
 
@@ -177,6 +167,10 @@ func TestReassessRootAdmitsThroughReassessGuard(t *testing.T) {
 	}
 	if allowance.Limits.ActiveMinutes != factory.DefaultReassessmentMinutes || !allowance.Active || allowance.Closed {
 		t.Fatalf("reassessment allowance mis-funded: %+v", allowance)
+	}
+	cycle, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil || cycle.Cycle.State != factory.ReassessmentReassessing || len(cycle.Cycle.Ledger.CoderRuns) != 1 || cycle.Cycle.Ledger.CoderRuns[0] != run.ID {
+		t.Fatalf("packet did not admit its sole coder: %+v %v", cycle, err)
 	}
 }
 

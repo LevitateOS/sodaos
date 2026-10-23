@@ -21,18 +21,18 @@ const IMAGE_FORMAT: &str =
     "{\"image\":{{json .ID}},\"user\":{{json .Config.User}},\"labels\":{{json .Config.Labels}}}";
 
 #[derive(Deserialize)]
-struct NativeContainer {
-    container: String,
-    image: String,
-    running: bool,
-    labels: BTreeMap<String, String>,
+pub(super) struct NativeContainer {
+    pub(super) container: String,
+    pub(super) image: String,
+    pub(super) running: bool,
+    pub(super) labels: BTreeMap<String, String>,
 }
 
 #[derive(Deserialize)]
-struct NativeImage {
+pub(super) struct NativeImage {
     image: String,
     user: String,
-    labels: BTreeMap<String, String>,
+    pub(super) labels: BTreeMap<String, String>,
 }
 
 fn same_storage(current: Option<&String>, replacement: Option<&String>) -> bool {
@@ -61,14 +61,40 @@ impl ReleaseBinding {
 }
 
 impl<E: Executor> Runtime<E> {
-    fn command(&self, cmd: &str, args: &[String], deadline: Instant) -> Result<Vec<u8>, String> {
+    pub(super) fn container_id(&self, app: &str, deadline: Instant) -> Result<String, String> {
+        let bytes = self.command(
+            "podman",
+            &[
+                "ps".into(),
+                "--all".into(),
+                "--no-trunc".into(),
+                format!("--filter=name=^soda-canlang-{app}$"),
+                "--format={{.ID}}".into(),
+            ],
+            deadline,
+        )?;
+        let id = std::str::from_utf8(&bytes)
+            .map_err(|_| "invalid application inventory")?
+            .trim();
+        if !id.is_empty() && !hex(id, 64) {
+            return Err("application inventory is ambiguous".into());
+        }
+        Ok(id.into())
+    }
+
+    pub(super) fn command(
+        &self,
+        cmd: &str,
+        args: &[String],
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
         self.exec
             .run_bounded(&[], cmd, &args, deadline, 65536, 4096)
             .map_err(|_| "native application operation failed; inspect operator journal".into())
     }
 
-    fn systemd(&self, action: &str, id: &str, deadline: Instant) -> Result<(), String> {
+    pub(super) fn systemd(&self, action: &str, id: &str, deadline: Instant) -> Result<(), String> {
         self.command(
             "systemctl",
             &[action.into(), format!("soda-canlang@{id}.service")],
@@ -77,7 +103,7 @@ impl<E: Executor> Runtime<E> {
         .map(|_| ())
     }
 
-    fn inspect(
+    pub(super) fn inspect(
         &self,
         spec: &Spec,
         expected: &str,
@@ -110,7 +136,11 @@ impl<E: Executor> Runtime<E> {
         Ok(native)
     }
 
-    fn admit_image(&self, spec: &Spec, deadline: Instant) -> Result<NativeImage, String> {
+    pub(super) fn admit_image(
+        &self,
+        spec: &Spec,
+        deadline: Instant,
+    ) -> Result<NativeImage, String> {
         let bytes = self.command(
             "podman",
             &[
@@ -144,7 +174,7 @@ impl<E: Executor> Runtime<E> {
         Ok(image)
     }
 
-    fn create(&self, spec: &Spec, deadline: Instant) -> Result<String, String> {
+    pub(super) fn create(&self, spec: &Spec, deadline: Instant) -> Result<String, String> {
         self.admit_image(spec, deadline)?;
         let data = data_directory(&spec.data)?;
         let args = vec![
@@ -357,9 +387,26 @@ impl<E: Executor> Runtime<E> {
     pub fn operate(&self, request: &Request, deadline: Instant) -> Result<Observation, String> {
         request.validate()?;
         let spec = &request.application;
+        if matches!(request.action.as_str(), "restore" | "restore_abort") {
+            return self.restore_application(request, deadline);
+        }
         self.check_release(request)?;
         if request.action == "install" {
             return self.install(spec, deadline);
+        }
+        if request.action == "inspect"
+            && request.expected_container.is_empty()
+            && self.container_id(&spec.id, deadline)?.is_empty()
+        {
+            return Ok(Observation {
+                id: spec.id.clone(),
+                revision: spec.revision,
+                container: String::new(),
+                image: spec.image.clone(),
+                running: false,
+                ready: false,
+                origin: spec.origin.clone(),
+            });
         }
         let native = self.inspect(spec, &request.expected_container, deadline)?;
         if request.action == "start" && native.image != spec.image {
@@ -374,7 +421,7 @@ impl<E: Executor> Runtime<E> {
         }
     }
 
-    fn observe(
+    pub(super) fn observe(
         &self,
         spec: &Spec,
         native: NativeContainer,

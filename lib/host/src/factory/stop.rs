@@ -54,8 +54,14 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     }
 
     /// Retire the native boundary; true when retirement is uncertain.
-    fn stop_native(&self, receipt: &FactoryReceipt, deadline: Instant) -> bool {
-        match (&receipt.binding, &receipt.lease) {
+    pub(in crate::factory) fn stop_native(
+        &self,
+        receipt: &FactoryReceipt,
+        deadline: Instant,
+    ) -> bool {
+        let fence_uncertain = self.fence_checkpoint_retirement(receipt, deadline).is_err();
+        let checks_uncertain = self.retire_checkpoint_checks(receipt, deadline).is_err();
+        let parent_uncertain = match (&receipt.binding, &receipt.lease) {
             (Some(binding), Some(lease)) => self
                 .terminal
                 .stop(&lease.with_binding(binding), deadline)
@@ -64,7 +70,8 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 receipt.run.validate().is_ok()
                     && self.terminal.stop_unbound(&receipt.run, deadline).is_err()
             }
-        }
+        };
+        fence_uncertain || checks_uncertain || parent_uncertain
     }
 
     /// Retry the idempotent broker fence; true once the close confirms.

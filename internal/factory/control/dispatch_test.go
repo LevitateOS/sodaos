@@ -46,6 +46,9 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if a.Authority.Sponsorship != 1 || a.Authority.RequirementsID == "" || a.Authority.ApprovalID == "" {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
+	if a.AcceptedContext == nil || a.AcceptedContext.Title != "objective 3; inspect README.md" || a.AcceptedContext.Body != "body 3" || len(a.AcceptedContext.Sources) != 1 || a.AcceptedContext.Sources[0].Content != "answer 3" || a.AcceptedContext.RepositoryContext == nil || a.AcceptedContext.ValidateAcceptance(oldHead) != nil {
+		t.Fatal("atomic dispatch lost exact structured accepted context")
+	}
 	for _, want := range []string{
 		"Prompt template: " + factory.DispatchPromptTemplate, "Recorded attempt active-time limit: 120 minutes",
 		"synthetic approved setup instructions", "synthetic exact candidate diff",
@@ -97,6 +100,53 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if err != nil || reservation.State != factory.ReservationHeld || reservation.PlannedMinutes != 120 {
 		t.Fatalf("reservation = %+v %v", reservation, err)
 	}
+	// Actual packet/current inputs are mandatory at the authenticated
+	// launch boundary. An unavailable choice holds without a host call;
+	// the qualified frozen choice then admits exact delivery only once.
+	guarded := fx.deps()
+	guarded.MCPKey = []byte(strings.Repeat("k", 32))
+	beforeLaunch := len(fx.host.launches)
+	// Simulate a restart after the pending marker commits but before its
+	// deterministic capability production. No identity or attempt changes.
+	run.ContextPending = true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	held := RecoverDispatch(ctx, guarded)
+	if len(held.Launched) != 0 || waitReason(held, a.Issue) != "context_selection_hold" || len(fx.host.launches) != beforeLaunch {
+		t.Fatal("unavailable context selection started native work")
+	}
+	chooser := &bundleGapChooser{pick: factory.ContextBundleCurrent}
+	guarded.Priority = &PriorityJudgments{Journal: db, Chooser: chooser}
+	qualified := RecoverDispatch(ctx, guarded)
+	if len(qualified.Launched) != 1 || !chooser.sawFacts || chooser.calls != 1 {
+		t.Fatalf("actual current facts did not qualify launch: %+v facts=%t calls=%d", qualified, chooser.sawFacts, chooser.calls)
+	}
+	run, err = db.FactoryRun(ctx, run.ID)
+	if err != nil || run.ContextPending {
+		t.Fatalf("native launch did not clear durable context hold: %+v %v", run, err)
+	}
+	if chooser.sawAttempt || chooser.history != 0 {
+		t.Fatal("first staged run fabricated execution history for context selection")
+	}
+	capability, err := db.GetMCPCapability(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ActivateObservedMCPCapability(ctx, capability); err != nil {
+		t.Fatal(err)
+	}
+	capability, err = db.GetMCPCapability(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, attempt, _, err := loadContextBundleState(ctx, db, capability, a, nil)
+	if err != nil || !attempt || len(state.HistoryPreview) != 1 || state.HistoryPreview[0].ID != run.ID {
+		t.Fatalf("observed native execution lost its actual continuity: %+v attempt=%t err=%v", state.HistoryPreview, attempt, err)
+	}
+	if bundle, reason, err := PrepareContextBundleSelection(ctx, db, nil, a, run, nil); err != nil || bundle != factory.ContextBundleCurrent || reason != "" || chooser.calls != 1 {
+		t.Fatalf("frozen actual context choice was consulted again: %s %s %v", bundle, reason, err)
+	}
 
 	// Settlement releases the executing session. The reported
 	// investigation advances to its implementation child, which retains
@@ -129,6 +179,29 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	child, err := db.Assignment(ctx, second.Launched[0].AssignmentID)
 	if err != nil || child.ParentAssignment != a.ID || child.Phase != project.ExecutionImplement || child.AttemptRoot != a.AttemptRoot {
 		t.Fatalf("advanced child = %+v %v", child, err)
+	}
+	if child.AcceptedContext == nil || child.AcceptedContext.ValidateFor(child) != nil || child.AcceptedContext.ValidateAcceptance(oldHead) != nil {
+		t.Fatal("implementation child lost its verified accepted context")
+	}
+	childRun, err := db.FactoryRun(ctx, child.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uncertain := &bundleGapChooser{pick: factory.ContextBundleCurrent, confidence: 0.6}
+	guarded.Priority = &PriorityJudgments{Journal: db, Chooser: uncertain}
+	beforeLaunch = len(fx.host.launches)
+	held = newDispatchReport()
+	launchTail(ctx, guarded, child, childRun, fx.host.launches[beforeLaunch-1], &held)
+	if len(held.Launched) != 0 || waitReason(held, child.Issue) != "context_selection_hold" || len(fx.host.launches) != beforeLaunch || uncertain.calls != 1 {
+		t.Fatalf("low confidence selection started work: %+v calls=%d", held, uncertain.calls)
+	}
+	for pass := 0; pass < 4; pass++ {
+		recovered := RecoverDispatch(ctx, guarded)
+		current, err := db.Assignment(ctx, child.ID)
+		currentRun, runErr := db.FactoryRun(ctx, childRun.ID)
+		if err != nil || runErr != nil || current.Run != childRun.ID || current.Attempts != 1 || len(current.RunHistory) != 1 || current.Stage != factory.AssignmentAssigned || !currentRun.ContextPending || currentRun.Reconciled || len(recovered.Launched) != 0 || len(fx.host.launches) != beforeLaunch || uncertain.calls != 1 {
+			t.Fatalf("context hold consumed a native attempt or refilled choice on pass %d: assignment=%+v run=%+v report=%+v calls=%d errors=%v/%v", pass, current, currentRun, recovered, uncertain.calls, err, runErr)
+		}
 	}
 	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
 	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {

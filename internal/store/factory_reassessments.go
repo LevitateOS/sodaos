@@ -39,8 +39,10 @@ type ReassessmentRecord struct {
 	Evidence            []factory.CompletionIssueEvidence `json:"evidence,omitempty"`
 	InventoryDigest     string                            `json:"inventory_digest,omitempty"`
 	EvidenceFingerprint string                            `json:"evidence_fingerprint,omitempty"`
+	ProposalFingerprint string                            `json:"proposal_fingerprint,omitempty"`
 	WaitReason          string                            `json:"wait_reason,omitempty"`
 	CollectorProgress   json.RawMessage                   `json:"collector_progress,omitempty"`
+	AdoptionProgress    json.RawMessage                   `json:"adoption_progress,omitempty"`
 	Issue               int64                             `json:"issue,omitempty"`
 	EvidenceIssues      int                               `json:"evidence_issues,omitempty"`
 	EvidenceRevision    int64                             `json:"evidence_revision,omitempty"`
@@ -115,6 +117,9 @@ func (r ReassessmentRecord) Validate() error {
 	if r.EvidenceFingerprint != "" && !factory.ValidDigest(r.EvidenceFingerprint) {
 		return errors.New("invalid decision evidence fingerprint")
 	}
+	if r.ProposalFingerprint != "" && !factory.ValidDigest(r.ProposalFingerprint) {
+		return errors.New("invalid proposal evidence fingerprint")
+	}
 	if r.InventoryDigest != "" {
 		if r.Evidence == nil {
 			return errors.New("sealed reassessment lacks its issue bodies")
@@ -136,6 +141,9 @@ func (r ReassessmentRecord) Validate() error {
 	}
 	if len(r.WaitReason) > factory.MaxReassessmentReasonChars {
 		return errors.New("invalid reassessment wait reason")
+	}
+	if len(r.AdoptionProgress) != 0 && !json.Valid(r.AdoptionProgress) {
+		return errors.New("invalid reassessment adoption progress")
 	}
 	return nil
 }
@@ -411,8 +419,8 @@ func (s *Store) ReassessmentRecord(ctx context.Context, cycleID string) (Reasses
 // shorter or empty prefix is legitimate stale input and is replaced
 // here with a copy of the exact locked list, while an extra,
 // unreserved, forked or reordered ID refuses with no write. Only
-// DecisionCalls is resolved this way; CoderRuns pass through untouched
-// and the final Validate still guards them.
+// The same prefix rule preserves the sole coder run admitted by the
+// dispatch packet. Generic cycle writes cannot create or replace it.
 // admitCasRecord refuses CAS writes outside the admitted cycle
 // identity and completed issue.
 func admitCasRecord(cycleID string, record ReassessmentRecord) error {
@@ -442,6 +450,16 @@ func checkDecisionCallPrefix(current, record ReassessmentRecord) error {
 	for i, id := range incoming {
 		if id != locked[i] {
 			return errors.New("reassessment CAS forks the locked paid ledger")
+		}
+	}
+	incoming = record.Cycle.Ledger.CoderRuns
+	locked = current.Cycle.Ledger.CoderRuns
+	if len(incoming) > len(locked) {
+		return errors.New("reassessment CAS introduces an unadmitted coder run")
+	}
+	for i, id := range incoming {
+		if id != locked[i] {
+			return errors.New("reassessment CAS forks the admitted coder ledger")
 		}
 	}
 	return nil
@@ -521,6 +539,11 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 		return err
 	}
 	record.Cycle.Ledger.DecisionCalls = append([]string(nil), current.Cycle.Ledger.DecisionCalls...)
+	record.Cycle.Ledger.CoderRuns = append([]string(nil), current.Cycle.Ledger.CoderRuns...)
+	if record.ProposalFingerprint != "" && record.ProposalFingerprint != current.ProposalFingerprint {
+		return errors.New("reassessment CAS changes its reserved proposal fingerprint")
+	}
+	record.ProposalFingerprint = current.ProposalFingerprint
 	if err := record.Validate(); err != nil {
 		return err
 	}
@@ -610,6 +633,12 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 	ledger, err := record.Cycle.Ledger.ReserveDecisionCall(callID, purpose, decision)
 	if err != nil {
 		return false, err
+	}
+	if purpose == factory.ReassessmentProposalPurpose {
+		if record.ProposalFingerprint != "" && record.ProposalFingerprint != fingerprint {
+			return false, errors.New("reassessment proposal reservation changed its evidence")
+		}
+		record.ProposalFingerprint = fingerprint
 	}
 	var existing int
 	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, fingerprint).Scan(&existing); err != nil {

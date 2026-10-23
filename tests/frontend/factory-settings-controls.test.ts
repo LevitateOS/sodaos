@@ -105,6 +105,18 @@ test('Factory activity rejects foreign repository links instead of displaying th
 test('Factory settings render current authority and submit capacity through the native session mount', async (t) => {
   const page = await fixture(t);
   await page.evaluate(async () => {
+    let revision = 0;
+    let grant: Record<string, unknown> | null = null;
+    let loseReply = true;
+    window.drawerFixture.setReply(async (call) => {
+      if (!call.url.endsWith('/api/repositories/7/factory/repair')) return null;
+      if (call.method === 'GET') return Response.json({revision, grant, charges: revision ? [{id: 'charge', kind: 'run', episode_id: 'episode', cycle: 1, active_minutes: 30, failed: true}] : [], episodes: revision ? [{episode_id: 'episode', reason: 'missing_producer', cycles: [{id: 'cycle', number: 1, state: 'attention', reason: 'no_change', run_id: 'run'}]}] : []});
+      const body = JSON.parse(call.body || '{}');
+      revision = body.expected_revision + 1;
+      grant = {...body, id: body.command_id, repository: '7'};
+      if (loseReply) { loseReply = false; throw Error('Fixture lost committed reply'); }
+      return Response.json({command_id: body.command_id, revision});
+    });
     window.drawerFixture.api.setPresentation('settings');
   });
   await refresh(page);
@@ -136,6 +148,38 @@ test('Factory settings render current authority and submit capacity through the 
       max_queued: 8,
     }
   );
+
+  const repair = page.locator('soda-factory-repair');
+  await repair.getByText('No repair grant has been authorized.', {exact: false}).waitFor();
+  assert.equal((await writes(page)).filter((call) => call.url.endsWith('/factory/repair')).length, 0);
+  assert.equal(await repair.getByLabel('Authorize repository repair spending').isChecked(), false);
+  await repair.getByLabel('Investigator run limit').fill('1');
+  await repair.getByLabel('Proposal judgment limit').fill('1');
+  await repair.getByLabel('Active minute limit').fill('30');
+  await repair.getByLabel('Authorize repository repair spending').check();
+  await repair.getByRole('button', {name: 'Save repair grant', exact: true}).click();
+  await repair.locator('[data-repair-message]').filter({hasText: 'A repair change is unconfirmed.'}).waitFor();
+  assert.equal(await repair.getByLabel('Investigator run limit').isDisabled(), true);
+  await repair.getByRole('button', {name: 'Retry same repair change', exact: true}).click();
+  await repair.locator('[data-repair-message]').filter({hasText: 'Repair grant confirmed.'}).waitFor();
+  let repairWrites = (await writes(page)).filter((call) => call.url.endsWith('/factory/repair'));
+  assert.equal(repairWrites.length, 2);
+  assert.deepEqual(JSON.parse(repairWrites[0]!.body!), JSON.parse(repairWrites[1]!.body!));
+  assert.equal(JSON.parse(repairWrites[0]!.body!).expected_revision, 0);
+  assert.match(await repair.innerText(), /1 investigator runs, 0 proposal judgments, 30 active minutes reserved/);
+  await repair.getByText('Repair episodes (1)', {exact: true}).click();
+  await repair.getByText('Cycle 1: attention · no_change · Run run', {exact: true}).waitFor();
+  await repair.getByLabel('Investigator run limit').fill('2');
+  await repair.getByRole('button', {name: 'Save repair grant', exact: true}).click();
+  await repair.locator('[data-repair-message]').filter({hasText: 'Describe the effect'}).waitFor();
+  assert.equal((await writes(page)).filter((call) => call.url.endsWith('/factory/repair')).length, 2);
+  await repair.getByLabel('Effect of this change').fill('Authorize one additional investigation; preserve recorded consumption.');
+  await repair.getByRole('button', {name: 'Save repair grant', exact: true}).click();
+  await repair.locator('[data-repair-message]').filter({hasText: 'Repair grant confirmed.'}).waitFor();
+  repairWrites = (await writes(page)).filter((call) => call.url.endsWith('/factory/repair'));
+  assert.equal(repairWrites.length, 3);
+  assert.equal(JSON.parse(repairWrites[2]!.body!).expected_revision, 1);
+  assert.equal(JSON.parse(repairWrites[2]!.body!).investigator_runs, 2);
 });
 
 test('Factory settings expose stale authority without replaying a capacity command', async (t) => {
@@ -161,6 +205,37 @@ test('Factory settings expose stale authority without replaying a capacity comma
   assert.equal(sent.filter((call) => call.url.endsWith('/api/factory/capacity')).length, 1);
 });
 
+test('first repository policy selects enrolled actors before any policy exists', async (t) => {
+  const page = await fixture(t);
+  const bindings = [
+    {actor_id: '41', token_id: '51', kind: 'git.ref.publish'},
+    {actor_id: '45', token_id: '56', kind: 'git.ref.publish'},
+    {actor_id: '41', token_id: '51', kind: 'pull_request.create'},
+    {actor_id: '43', token_id: '53', kind: 'pull_request.review.submit'},
+    {actor_id: '43', token_id: '55', kind: 'pull_request.review.thread.resolve'},
+    {actor_id: '44', token_id: '54', kind: 'pull_request.merge'},
+  ];
+  await page.evaluate((bindings) => {
+    window.drawerFixture.setReply(async (call) => call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET'
+      ? Response.json({repository: '7', policy: null, native_bindings: bindings}) : null);
+    window.drawerFixture.api.setPresentation('settings');
+  }, bindings);
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const form = page.locator('soda-factory-settings form[data-action="policy"]');
+  await form.getByLabel('Publisher', {exact: true}).selectOption('45:56');
+  for (const [name, value] of Object.entries({target_branch: 'refs/heads/main', required_checks: 'native-ci/check', coder_harness_version: 'fixture', coder_model: 'fixture-coder', reviewer_harness_version: 'fixture', reviewer_model: 'fixture-reviewer'})) {
+    await form.locator(`input[name="${name}"]`).fill(value);
+  }
+  await form.getByRole('button', {name: 'Save repository policy', exact: true}).click();
+  await page.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const sent = (await writes(page)).filter((call) => call.url.endsWith('/api/repositories/7/factory/policy'));
+  assert.equal(sent.length, 1);
+  const body = JSON.parse(sent[0]!.body!);
+  assert.equal(body.expected_revision, 0);
+  for (const [field, expected] of Object.entries({publish_actor: {actor_id: '45', token_id: '56'}, create_actor: {actor_id: '41', token_id: '51'}, review_actor: {actor_id: '43', token_id: '53'}, resolve_actor: {actor_id: '43', token_id: '55'}, merge_actor: {actor_id: '44', token_id: '54'}})) assert.deepEqual(body[field], expected);
+});
+
 test('repository policy preserves canonical role selections and submits only actor and token IDs', async (t) => {
   const page = await fixture(t);
   const roles = {
@@ -171,6 +246,7 @@ test('repository policy preserves canonical role selections and submits only act
     publish_actor: {actor_id: '41', token_id: '51'},
     create_actor: {actor_id: '42', token_id: '52'},
     review_actor: {actor_id: '43', token_id: '53'},
+    resolve_actor: {actor_id: '43', token_id: '55'},
     merge_actor: {actor_id: '44', token_id: '54'},
   };
   await page.evaluate(
@@ -190,6 +266,7 @@ test('repository policy preserves canonical role selections and submits only act
                 publish_actor: {...actors.publish_actor, kind: 'git.ref.publish'},
                 create_actor: {...actors.create_actor, kind: 'pull_request.create'},
                 review_actor: {...actors.review_actor, kind: 'pull_request.review.submit'},
+                resolve_actor: {...actors.resolve_actor, kind: 'pull_request.review.thread.resolve'},
                 merge_actor: {...actors.merge_actor, kind: 'pull_request.merge'},
                 attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
                 intent_minutes: 9,

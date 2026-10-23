@@ -2,6 +2,7 @@ package control
 
 import (
 	"errors"
+	"reflect"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -361,8 +362,8 @@ func checkJevDecision(in JevAdmissionInput) error {
 // appendDeliveryAcceptance records one admitted acceptance as the
 // publication's next immutable journal entry: the acceptance validates,
 // belongs to this publication and carries a fresh derived identity. A
-// duplicate identity refuses; replay of an admission is identical, so a
-// retried admit rebuilds the same entry instead of appending twice.
+// replay reuses the identical entry; changed content under an already
+// consumed identity refuses instead of replacing its evidence.
 func appendDeliveryAcceptance(p *factory.Publication, acceptance factory.DeliveryAcceptance) error {
 	if err := acceptance.Validate(); err != nil {
 		return err
@@ -372,7 +373,10 @@ func appendDeliveryAcceptance(p *factory.Publication, acceptance factory.Deliver
 	}
 	for _, recorded := range p.DeliveryAcceptances {
 		if recorded.ID == acceptance.ID {
-			return errors.New("delivery acceptance already recorded")
+			if reflect.DeepEqual(recorded, acceptance) {
+				return nil
+			}
+			return errors.New("delivery acceptance identity carries different evidence")
 		}
 	}
 	p.DeliveryAcceptances = append(p.DeliveryAcceptances, acceptance)

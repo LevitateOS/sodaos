@@ -22,6 +22,42 @@ struct Snapshot {
     schema: String,
     directories: Vec<String>,
     files: Vec<Entry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    application: Option<SnapshotInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotInfo {
+    pub id: String,
+    pub created_at: u64,
+    pub application: super::Spec,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StorageIdentity {
+    schema: String,
+    app: String,
+    #[serde(rename = "storageFingerprint")]
+    storage_fingerprint: String,
+    resources: Vec<(String, String)>,
+}
+
+fn storage_identity(source: &Path) -> Result<StorageIdentity, String> {
+    let identity: StorageIdentity = serde_json::from_reader(regular(&source.join("storage.json"))?)
+        .map_err(|_| "Canlang storage identity is invalid")?;
+    let mut bindings = std::collections::BTreeSet::new();
+    if identity.schema != "canlang.soda.storage.v2"
+        || identity.app.is_empty()
+        || !super::wire::hex(&identity.storage_fingerprint, 64)
+        || identity.resources.iter().any(|(binding, resource)| {
+            binding.is_empty() || resource.is_empty() || !bindings.insert(binding)
+        })
+    {
+        return Err("Canlang storage identity is invalid".into());
+    }
+    Ok(identity)
 }
 
 fn directory(path: &Path) -> Result<(), String> {
@@ -119,6 +155,7 @@ fn scan(root: &Path) -> Result<Snapshot, String> {
         schema: "canlang.soda.snapshot.v1".into(),
         directories: vec![],
         files: vec![],
+        application: None,
     };
     inventory(root, Path::new(""), &mut snapshot)?;
     Ok(snapshot)
@@ -172,6 +209,28 @@ fn seal(root: &Path, snapshot: &Snapshot) -> Result<(), String> {
 }
 
 pub fn backup(source: &Path, out: &Path) -> Result<(), String> {
+    backup_with_identity(source, out, None, None)
+}
+
+pub fn backup_application(
+    source: &Path,
+    out: &Path,
+    info: SnapshotInfo,
+    expected_storage: &str,
+) -> Result<(), String> {
+    info.application.validate()?;
+    if !super::wire::id(&info.id) || info.created_at == 0 {
+        return Err("invalid application snapshot identity".into());
+    }
+    backup_with_identity(source, out, Some(info), Some(expected_storage))
+}
+
+fn backup_with_identity(
+    source: &Path,
+    out: &Path,
+    info: Option<SnapshotInfo>,
+    expected_storage: Option<&str>,
+) -> Result<(), String> {
     directory(source)?;
     let lock = OpenOptions::new()
         .read(true)
@@ -184,12 +243,16 @@ pub fn backup(source: &Path, out: &Path) -> Result<(), String> {
     {
         return Err("stop the Canlang writer before backing up".into());
     }
-    let marker: serde_json::Value = serde_json::from_reader(regular(&source.join("storage.json"))?)
-        .map_err(|_| "Canlang storage identity is invalid")?;
-    if marker["schema"] != "canlang.soda.storage.v1" {
-        return Err("Canlang storage identity is invalid".into());
+    let storage = storage_identity(source)?;
+    if let Some(info) = &info {
+        if storage.app != info.application.name
+            || Some(storage.storage_fingerprint.as_str()) != expected_storage
+        {
+            return Err("snapshot storage belongs to another application".into());
+        }
     }
-    let snapshot = scan(source)?;
+    let mut snapshot = scan(source)?;
+    snapshot.application = info;
     new_directory(out, source)?;
     // A failed output is retained for diagnosis but has no successful seal;
     // callers must select another fresh output rather than overwrite it.
@@ -197,7 +260,32 @@ pub fn backup(source: &Path, out: &Path) -> Result<(), String> {
     seal(out, &snapshot)
 }
 
-pub fn restore(source: &Path, out: &Path) -> Result<(), String> {
+pub fn application_info(source: &Path) -> Result<SnapshotInfo, String> {
+    directory(source)?;
+    let meta = fs::symlink_metadata(source).map_err(|_| "snapshot is unavailable")?;
+    if meta.uid() != 0 {
+        return Err("application snapshots must belong to the operator".into());
+    }
+    let file = regular(&source.join("snapshot.json"))?;
+    if file.metadata().map_err(|e| e.to_string())?.uid() != 0 {
+        return Err("application snapshot metadata must belong to the operator".into());
+    }
+    let snapshot: Snapshot =
+        serde_json::from_reader(file).map_err(|_| "snapshot manifest is invalid")?;
+    let info = snapshot
+        .application
+        .ok_or("snapshot has no admitted application identity")?;
+    info.application.validate()?;
+    if !super::wire::id(&info.id)
+        || info.created_at == 0
+        || source.file_name().and_then(|name| name.to_str()) != Some(&info.id)
+    {
+        return Err("invalid application snapshot identity".into());
+    }
+    Ok(info)
+}
+
+fn verified_snapshot(source: &Path) -> Result<Snapshot, String> {
     directory(source)?;
     let snapshot: Snapshot = serde_json::from_reader(regular(&source.join("snapshot.json"))?)
         .map_err(|_| "snapshot manifest is invalid")?;
@@ -208,6 +296,16 @@ pub fn restore(source: &Path, out: &Path) -> Result<(), String> {
     {
         return Err("snapshot checksum or inventory verification failed".into());
     }
+    storage_identity(source)?;
+    Ok(snapshot)
+}
+
+pub(super) fn verify_source(source: &Path) -> Result<(), String> {
+    verified_snapshot(source).map(|_| ())
+}
+
+pub fn restore(source: &Path, out: &Path) -> Result<(), String> {
+    let snapshot = verified_snapshot(source)?;
     new_directory(out, source)?;
     copy(source, out, &snapshot)?;
     fs::create_dir(out.join("tmp")).map_err(|e| e.to_string())?;
@@ -245,4 +343,15 @@ pub fn restore(source: &Path, out: &Path) -> Result<(), String> {
     File::open(out)
         .and_then(|file| file.sync_all())
         .map_err(|e| e.to_string())
+}
+
+pub(super) fn verify_restored(source: &Path, out: &Path) -> Result<(), String> {
+    let snapshot = verified_snapshot(source)?;
+    directory(out)?;
+    let restored = scan(out)?;
+    if snapshot.files != restored.files || snapshot.directories != restored.directories {
+        return Err("restored data does not match the selected snapshot".into());
+    }
+    storage_identity(out)?;
+    Ok(())
 }

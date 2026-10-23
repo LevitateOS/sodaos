@@ -143,14 +143,110 @@ operator recovery option. See the [release workflow](../development/release.md).
 
 ## Explicit factory enrollment
 
+### Prepare native accounts and credentials
+
+Sign in to native Forgejo as a site administrator and use **Site Administration
+→ User Accounts → Create User** to create dedicated, nonadministrator service
+accounts for publication, review, merge and issue-graph work. Use distinct
+accounts such as `factory-publisher`, `factory-reviewer`, `factory-merger` and
+`factory-graph`. The publisher also creates pull requests. The reviewer also
+resolves review threads, using a separate token for each operation.
+
+As each target repository's owner, open **Settings → Collaborators**, add only
+the selected service accounts and confirm **Write** access. Their native
+repository permissions remain required even after operation binding. Keep the
+graph account separate from the publication and review accounts.
+
+Run the following preparation in a root shell inside the Soda runtime. On an
+appliance, use host root; for Docker, first use `docker compose exec soda bash`
+from the deployment directory. These commands use the installed native Forgejo
+container and retain token output in private files. They prepare new inputs;
+inspect and reuse known existing files during maintenance instead of generating
+replacement tokens.
+
+```sh
+set +x
+umask 077
+enrollment_stage=$(mktemp -d /home/factory-enrollment.XXXXXX)
+forgejo() {
+  podman exec --user 1000 soda-forgejo /usr/local/bin/gitea \
+    -c /data/gitea/conf/app.ini "$@"
+}
+install -d -m 0700 -o 2000 -g 2000 /etc/soda/factory
+install -d -m 0700 -o 0 -g 0 /etc/soda/enrollment
+for role in publisher reviewer resolver merger graph; do
+  test ! -e "/etc/soda/factory/$role.pat" || exit 1
+done
+for role in publisher reviewer resolver merger graph; do
+  account="factory-$role"
+  test "$role" != resolver || account=factory-reviewer
+  forgejo admin user generate-access-token --username "$account" \
+    --token-name "soda-factory-$role" \
+    --scopes read:user,read:issue,write:repository --raw \
+    > "$enrollment_stage/$role.pat" || exit 1
+  test -s "$enrollment_stage/$role.pat" || exit 1
+  if test "$role" = graph; then
+    install -m 0640 -o 0 -g 2000 "$enrollment_stage/$role.pat" \
+      /etc/soda/factory/graph.pat
+  else
+    install -m 0600 -o 2000 -g 2000 "$enrollment_stage/$role.pat" \
+      "/etc/soda/factory/$role.pat"
+  fi
+done
+test ! -e /etc/soda/factory/intake.secret || exit 1
+head -c 48 /dev/urandom | base64 > "$enrollment_stage/intake.secret"
+install -m 0600 -o 2000 -g 2000 "$enrollment_stage/intake.secret" \
+  /etc/soda/factory/intake.secret
+install -d -m 0700 -o 2000 -g 2000 /var/lib/soda/dashboard/publication
+```
+
+The native token issuer selects all repository resources to permit `read:user`;
+the service account's own repository permissions and exact native bindings
+still limit operations. `read:user` permits identity confirmation, `read:issue`
+permits issue evidence, and `write:repository` includes repository reads and the
+selected repository operations. No administrator scope is needed for these
+service accounts. A browser-created token needs the same scopes and **All
+repositories** resource selection.
+
+For hook enrollment, use a token belonging to the existing native repository
+owner or administrator, with `read:user,write:repository`. Generate it through
+the same native command with a distinct token name and redirect `--raw` output
+to a private file. Install it as root:root, mode 0600, at
+`/etc/soda/enrollment/native-hooks.pat`. This token administers the selected
+repositories' hooks and is never mounted into the dashboard.
+
+Record actor and token IDs without reading token hashes or values:
+
+```sh
+forgejo admin user list
+podman exec soda-postgres psql -U postgres -d forgejo -c '
+  SELECT t.id AS token_id, t.uid AS actor_id, u.name AS account,
+         u.is_admin, t.name AS token_name, t.scope
+  FROM access_token t JOIN "user" u ON u.id = t.uid
+  WHERE u.name IN ('\''factory-publisher'\'', '\''factory-reviewer'\'',
+                   '\''factory-merger'\'', '\''factory-graph'\'')
+  ORDER BY t.id;'
+forgejo extensions installation soda
+```
+
+Use the returned stable installation UUID and the actual numeric repository,
+actor and token IDs in the manifest. The token names distinguish review and
+thread-resolution authority on the same review account. Enrollment confirms
+the selected repository ID against its owner/name through the native API.
+
+### Select native operations and enroll
+
 Basic browser activation does not enable factory work. After choosing and
 reviewing the provider pins, native actors, credentials and recovery inputs,
 write a mode-0600 `soda-factory-enrollment/v1` manifest and run
 `sudo /usr/bin/soda-setup --factory-enrollment-file /etc/soda/factory-enrollment.json`.
 The manifest must bind to the current `/etc/soda/dashboard.json` operator ID and
 Forgejo origins. It references restricted secret files; it never contains
-credential bytes. If `/etc/soda/identity.json` already exists, review the
-replacement and add `--maintenance`. The command validates all inputs before
+credential bytes. If `/etc/soda/identity.json` already exists, preserve its
+encryption key, credential database, provider roots and complete admitted
+binary pins in the manifest, review the replacement and add `--maintenance`.
+Pause dispatch and let active managed runs and credential leases retire before
+maintenance: the command restarts the broker and dashboard. It validates inputs before
 writing, enables the two broker sockets, starts/restarts the broker, and restarts
 the dashboard. Check the resulting service state before enabling factory policy.
 
@@ -167,13 +263,15 @@ forgejo extensions installation soda
 forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind git.ref.publish
 forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.create
 forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.review.submit
+forgejo extensions bind --installation INSTALLATION_UUID --token-id RESOLVE_TOKEN_ID --actor-id REVIEW_ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.review.thread.resolve
 forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.merge
+forgejo extensions bind --installation INSTALLATION_UUID --token-id GRAPH_TOKEN_ID --actor-id GRAPH_ACTOR_ID --repository-id REPOSITORY_ID --kind issue.graph.mutate
 forgejo extensions bindings --installation INSTALLATION_UUID
 ```
 
 Use the owner-selected actor and token IDs for each exact operation; these
 commands do not mint accounts or choose billing. The configured publisher,
-reviewer and merger PATs each need `read:user`: Soda resolves their native owners
+reviewer, thread resolver and merger PATs each need `read:user`: Soda resolves their native owners
 through `/api/v1/user` before background reads or operations. Factory enrollment
 checks each owner against the selected operation bindings before changing
 configuration or services. Forgejo permits `read:user` only on tokens with all
@@ -182,11 +280,52 @@ repository, token, actor and operation binding. Mixed native snapshot reads need
 both `read:issue` and `read:repository`. The issue-graph credential needs
 `read:issue` for adoption reads, and each background-read credential needs its
 own installation/token/actor/repository binding: snapshot reads ride only
-enrolled bindings, without granting mutation. Publisher, creator, reviewer and
-merger operation scopes remain separate from those read scopes. Install the
+enrolled bindings, without granting mutation. Thread resolution uses a separate
+token file and resolve-kind binding on the same review actor; the review-submit
+binding does not authorize it. Publisher, creator, reviewer, thread resolver and
+merger operation scopes remain separate from those read scopes.
+
+Graph tuples may be selected in the same manifest, but are kept outside the
+dashboard's five-role `factory_native_bindings` policy choices. Configure the
+separate paired fields `forgejo_graph_credential_file` and
+`forgejo_graph_actor_id` in the protected dashboard configuration using the
+Graph token file and its native owner ID. Enrollment preserves this pair and
+existing TypeSafe and lifecycle credential references. Keep the Graph PAT
+root:soda (0:2000), mode 0640; the dashboard reads it through its fixed read-only
+factory-directory mount. A new credential added while the dashboard is running
+needs the same SELinux context as its existing publisher credential:
+
+```sh
+chcon --reference=/etc/soda/factory/publisher.pat /etc/soda/factory/graph.pat
+```
+
+The [CLI manifest example](../../cmd/soda-setup/README.md#explicit-factory-enrollment)
+lists the fixed paths, complete provider-pin shape and hook selection. Install the
 repository-scoped issue-open hook before creating tasks:
 Fountain retains original creation facts for seven days, so missing hooks,
 expired events and deleted task records cannot support historical recovery.
+
+### Confirm enrollment and recover an interruption
+
+After a successful command, inspect `forgejo extensions bindings` and confirm
+the selected installation/token/actor/repository/operation tuples. Confirm
+`soda-identity.service`, `soda-dashboard.service`, `forgejo.service` and
+`soda-host.service` are active, then open Factory settings and refresh current
+authority. Each repository's five enrolled policy choices should be available.
+The root-only `/etc/soda/enrollment/hooks.json` receipt records repository names,
+IDs and hook IDs; the hook's public fields must match the receipt. Preserve
+that receipt and the intake secret. Provider sign-in, sponsorship and the
+remaining repository/capacity grants are separate steps.
+
+On failure, inspect the command's result before generating another token or
+editing the manifest. The CLI restores previous local configurations and
+attempts service recovery; native bindings already applied remain. Reuse the
+same selected tuples, credential files and hook receipt with `--maintenance`
+after resolving the reported cause. Maintenance must retain all repositories
+already owned by that hook receipt. An existing unowned or mismatched hook is
+preserved and refused. Do not delete it or change its secret to force adoption;
+establish its ownership first. A successful authenticated secret update confirms
+hook-secret installation because Forgejo deliberately omits secrets from reads.
 
 ## Offline native-mutation recovery
 

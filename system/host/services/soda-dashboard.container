@@ -18,11 +18,10 @@ Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
 Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z
 Volume=/etc/soda/factory:/etc/soda/factory:ro,Z
 Volume=/run/soda/postgres:/run/soda/postgres:ro,z
-# systemd owns the host and identity listener files (RemoveOnStop); a shared
-# relabel would break systemd's RemoveOnStop lifecycle. Keep the mount
-# unlabeled; the appliance policy assigns this socket its own type and grants
-# this dashboard domain only the access needed to connect to soda-host.
-Volume=/run/soda/host.sock:/run/soda/host.sock:ro
+# Share only the stable host IPC directory, so socket recreation remains
+# visible after a daemon failure. Keep it unlabeled: systemd owns the listener
+# and the appliance policy grants this dashboard only its socket access.
+Volume=/run/soda/host:/run/soda/host:ro
 Volume=/run/soda/identity:/run/soda/identity:ro
 Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
 # Only the authenticated worker MCP socket directory is shared with Projects.

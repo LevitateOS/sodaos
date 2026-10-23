@@ -110,7 +110,7 @@ func (c *Coordinator) advanceMergeOperation(ctx context.Context, p factory.Publi
 		return
 	}
 	op := &m.Operation
-	policy, revision, ok := c.admitMergeAuthority(ctx, m, p, op, report)
+	policy, revision, ok := c.admitMergeAuthority(ctx, &m, &p, op, report)
 	if !ok {
 		return
 	}
@@ -198,21 +198,25 @@ func mergeRebaseMatches(m factory.Merge, p factory.Publication) bool {
 
 // admitMergeAuthority resolves the authority bracket and union gate
 // behind one open merge operation.
-func (c *Coordinator) admitMergeAuthority(ctx context.Context, m factory.Merge, p factory.Publication, op *factory.MergeOperation, report *MergeReport) (factory.RepositoryPolicy, int64, bool) {
+func (c *Coordinator) admitMergeAuthority(ctx context.Context, m *factory.Merge, p *factory.Publication, op *factory.MergeOperation, report *MergeReport) (factory.RepositoryPolicy, int64, bool) {
 	var none factory.RepositoryPolicy
 	if p.Stage != factory.PublicationPublished {
-		c.finishMerge(ctx, m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
+		c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
 		return none, 0, false
 	}
-	policy, revision, allowed := c.mergeAuthority(ctx, m, report)
+	policy, revision, allowed := c.mergeAuthority(ctx, *m, report)
 	if !allowed {
+		return none, 0, false
+	}
+	if err := c.authorizeCleanDeliveryMerge(ctx, m, p, revision); err != nil {
+		c.mergeCallError(report, m.ID, err)
 		return none, 0, false
 	}
 	// The common merge union gate stands between authority and any new
 	// native mutation: unbound rows wait for their authorization, and
 	// stale bindings wait instead of merging another candidate. Recorded
 	// effects above already reconciled without entering it.
-	if err := mergeAuthorizationGate(m, p); err != nil {
+	if err := mergeAuthorizationGate(*m, *p); err != nil {
 		c.mergeCallError(report, m.ID, err)
 		return none, 0, false
 	}

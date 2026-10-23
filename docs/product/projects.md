@@ -275,6 +275,12 @@ confirmed native success.
   independent processes are not automatically revoked.
 - Stable Forgejo identity binds membership to its original Linux login. Native rename
   or transfer does not silently remap Linux users, ownership or installed keys.
+- Explicit owner/operator **Revoke Project access** separately holds re-entry,
+  removes that account's installed keys, disables login and ends its processes,
+  including on the stopped retained root. Restore requires the member to Join
+  again; both operations preserve identity and files. The
+  [people and access guide](../public/40-Configure/10-people-and-access.md#review-access-when-roles-change)
+  owns the member-specific procedure.
 
 Developers have Linux accounts **inside projects**, not human host accounts or homes.
 

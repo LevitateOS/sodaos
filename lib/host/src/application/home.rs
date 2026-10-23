@@ -58,5 +58,16 @@ fn resolve_at(path: &Path, home: &Path, coreos_home: &Path, owner: u32) -> Resul
 }
 
 pub(super) fn home_path(path: &Path) -> Result<PathBuf, String> {
-    resolve_at(path, Path::new("/home"), Path::new("/var/home"), 0)
+    let home = Path::new("/home");
+    let canonical = Path::new("/var/home");
+    if let Ok(relative) = path.strip_prefix(canonical) {
+        // Internal callers retain the resolved path. Admit that result only
+        // when resolving its lexical alias proves the same trusted CoreOS tree.
+        let resolved = resolve_at(&home.join(relative), home, canonical, 0)?;
+        if resolved != path {
+            return Err("application storage has an unsupported home alias".into());
+        }
+        return Ok(resolved);
+    }
+    resolve_at(path, home, canonical, 0)
 }

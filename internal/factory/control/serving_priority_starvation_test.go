@@ -125,6 +125,48 @@ func holdLaunchedRuns(fx dispatchFixture) {
 	}
 }
 
+// A host source read can recover after a source-host repair without any
+// native repository write or grant change. Exercise that actual empty-scan
+// refusal/retry boundary through PostgreSQL and the production dispatcher.
+func TestPriorityRetriesRecoveredNativeContextPG(t *testing.T) {
+	db, dsn := dispatchTestDB(t)
+	fixtureDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixtureDB.Close()
+	fx := dispatchSeed(t, db)
+	holdLaunchedRuns(fx)
+	seedPriorityQueue(t, fx, fixtureDB, 100, 1)
+	c := NewCoordinator(db, fx.host, fx.broker)
+	c.DispatchReads = fx.reads
+	c.Readiness = &countingObserver{revisions: []int64{41}}
+	c.Priority = &PriorityJudgments{Journal: db, Chooser: &priorityFixture{choose: priorityLast}, MaxCalls: 16}
+	fx.host.contextRead = func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+		return project.FactoryPreparationContext{}, errors.New("native source read refused")
+	}
+	ctx := context.Background()
+	first := DispatchPass(ctx, c.dispatchDeps())
+	if len(first.Launched) != 0 || len(first.Errors) != 0 {
+		t.Fatalf("source refusal admitted work: %+v", first)
+	}
+	if len(first.Waits) != 1 || first.Waits[0].Reason != WaitSource {
+		t.Fatalf("native source refusal disappeared from dispatch report: %+v", first.Waits)
+	}
+	classified, err := c.ServeStallRound(ctx, first)
+	if err != nil || len(classified.Repositories) != 1 || classified.Repositories[0].Kind != StallRepositoryZeroWait || classified.Repositories[0].Investigate {
+		t.Fatalf("source wait became fresh ready work or repair spend: %+v %v", classified, err)
+	}
+	if _, err := db.LoadPriorityScan(ctx); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("transient empty scan remained frozen: %v", err)
+	}
+	fx.host.contextRead = nil
+	second := DispatchPass(ctx, c.dispatchDeps())
+	if len(second.Launched) != 1 || len(second.Errors) != 0 {
+		t.Fatalf("recovered native read did not launch: %+v", second)
+	}
+}
+
 // TestServingPriorityDispatchCompletesBeyondReadinessBudget flips the P3
 // reproduction to bounded-progress completion: 170 unassigned ready issues
 // complete their durable scan on every production-budget pass and reach

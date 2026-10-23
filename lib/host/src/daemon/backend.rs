@@ -56,6 +56,12 @@ pub struct TerminalSession {
 // and the six tailnet actions share `tailnet` (Go's `dispatchTailnetAction`).
 // Everything takes opaque bodies so sibling wire types stay sibling-owned.
 pub trait ExecBackend: Send + Sync {
+    fn application_setup(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+    fn application_snapshots(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Internal)
+    }
     fn application(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
@@ -71,6 +77,9 @@ pub trait ExecBackend: Send + Sync {
     fn account(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     /// Read-only native Project privilege observation.
     fn project_access(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    fn member_access(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
 
     // -- prepare routes (daemon.go dispatchPrepare) --
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
@@ -90,6 +99,20 @@ pub trait ExecBackend: Send + Sync {
     /// never mutates checkpoints; the 64 KiB response cap from the read
     /// bound applies.
     fn factory_task_events(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    fn factory_task_checkpoint(
+        &self,
+        _body: &[u8],
+        _final_candidate: bool,
+    ) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+    fn factory_checkpoint_receipt(
+        &self,
+        _body: &[u8],
+        _final_candidate: bool,
+    ) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     /// `image` is the daemon config image Go stamps onto the harness pin
     /// (`factory.HarnessPin()` + `pin.Image = d.Config.Image`) before
     /// validation; the mux passes it so the backend need not read config.

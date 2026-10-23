@@ -2,8 +2,6 @@ package control
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"time"
 
@@ -16,8 +14,7 @@ import (
 // Redetecting the same episode replays the identical charge, so the
 // store spends once and replays return the recorded receipt.
 func repairEpisodeChargeID(episodeID string) string {
-	sum := sha256.Sum256([]byte("repair-charge-v1\x00" + episodeID + "\x00" + factory.RepairChargeRun + "\x001"))
-	return hex.EncodeToString(sum[:16])
+	return factory.RepairChargeID(episodeID, factory.RepairChargeRun, 1)
 }
 
 // AdmitStallEpisodeRun admits one cycle-1 investigator-run charge for a
@@ -43,6 +40,18 @@ func AdmitStallEpisodeRun(ctx context.Context, db *store.Store, result StallRepo
 	}
 	if event.ProgressGeneration != generation {
 		return false, errors.New("stall episode no longer matches its detection round: redetect before spending")
+	}
+	charges, err := db.RepairCharges(ctx, result.Repository)
+	if err != nil {
+		return false, err
+	}
+	for _, prior := range charges {
+		if prior.ID == repairEpisodeChargeID(event.EpisodeID) {
+			// Observation hashes and explicit grant revisions never rewrite the
+			// original admitted cycle or replenish its immutable receipt.
+			_, spent, err := db.AdmitStallInvestigation(ctx, result.Repository, prior, now)
+			return spent, err
+		}
 	}
 	grant, err := db.RepairGrantCommand(ctx, result.Repository)
 	if err != nil {

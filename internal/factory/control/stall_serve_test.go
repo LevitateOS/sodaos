@@ -3,10 +3,15 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	sdk "forgejo.org/extension-sdk"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // TestServeStallRoundAdmitsBoundedEpisode proves the R36 production
@@ -79,6 +84,325 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 	}
 	if len(skipped.Repositories) != 0 {
 		t.Fatalf("round=%+v, want no detection when the pass launched work", skipped)
+	}
+	t.Run("retained Strategist launch and required context", func(t *testing.T) {
+		serving, _ := dispatchTestDB(t)
+		fx := dispatchSeed(t, serving)
+		fx.accept(t, 3, "d333333333333333333333333")
+		stallSeedControl(t, serving, fx.repo, 3, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+		grant := factory.DefaultRepairGrant()
+		grant.ID, grant.Repository, grant.Sponsor, grant.Active, grant.CreatedUnix = factory.NewID(), fx.repo, 7, true, time.Now().Unix()
+		encoded, _ := json.Marshal(grant)
+		command := factory.Command{ID: grant.ID, Type: factory.CommandRepairGrant, Target: factory.RepairTarget(fx.repo), Principal: "soda-tester", Payload: string(encoded)}
+		command.Digest = factory.SettingsDigest(command.Type, command.Target, command.Payload)
+		if _, created, err := serving.ApplyRepairGrantCommand(ctx, command, grant, time.Now()); err != nil || !created {
+			t.Fatal("repair grant", err)
+		}
+		enumerator := &fixtureEnumerator{revision: 41, idle: true, pages: map[string]NativeInventoryPage{"": {Issues: []NativeInventoryIssue{inventoryIssue(t, 3)}, Complete: true}}}
+		worker := &Coordinator{Store: serving, Host: fx.host, Broker: fx.broker, DispatchReads: fx.reads, CompletionEnumerator: enumerator, CompletionLocalCapture: serving.CaptureCompletionLocal, MCPKey: []byte(strings.Repeat("k", 32)), Priority: &PriorityJudgments{Journal: serving, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}}
+		first, err := worker.ServeStallRound(ctx, DispatchReport{})
+		if err != nil || len(first.Repositories) != 1 || first.Repositories[0].Event == nil {
+			t.Fatal("bound repair episode", err)
+		}
+		event := *first.Repositories[0].Event
+		record, err := serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || len(record.Repair.Cycles) != 1 || record.Repair.Cycles[0].State != factory.RepairReady {
+			t.Fatalf("repair input not sealed: %+v %v", record.Repair, err)
+		}
+		if _, err = worker.ServeStallRound(ctx, DispatchReport{}); err != nil {
+			t.Fatal(err)
+		}
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || record.Repair.Cycles[0].State != factory.RepairInvestigating {
+			t.Fatalf("repair did not retain sole investigator: state=%s reason=%s %v", record.Repair.Cycles[0].State, record.Repair.Cycles[0].Reason, err)
+		}
+		cycle := record.Repair.Cycles[0]
+		if len(fx.host.launches) != 1 || fx.host.launches[0].Run.ID != cycle.RunID || fx.host.launches[0].Run.ExecutionPhase != project.ExecutionRepair || fx.host.launches[0].MCP == nil {
+			t.Fatalf("repair native launch missing or unbound: launches=%d cycle=%+v", len(fx.host.launches), cycle)
+		}
+		assignment, err := serving.Assignment(ctx, cycle.AssignmentID)
+		if err != nil || assignment.Subject.Stall == nil || assignment.Subject.Stall.CycleID != cycle.ID || assignment.Run != cycle.RunID {
+			t.Fatal("repair assignment lost cycle", err)
+		}
+		capability, err := serving.GetMCPCapability(ctx, cycle.RunID)
+		if err != nil || capability.Profile != factory.MCPProfileStrategist {
+			t.Fatal("repair MCP profile", err)
+		}
+		current, err := serving.FactoryCurrentContext(ctx, capability, time.Now())
+		if err != nil || current.Evidence.Availability != "complete" || current.Role.Repair == nil || !current.Role.Repair.Complete || current.Role.Repair.InventoryDigest != cycle.InventoryDigest || current.Allowance == nil || current.Allowance.MaxChildren != 0 {
+			t.Fatalf("repair current input incomplete: %+v %v", current.Evidence, err)
+		}
+		if current.Role.Repair.Budget == nil || current.Role.Repair.Budget.RunsRemaining != 3 || current.Role.Repair.Budget.ActiveMinutesRemaining != 90 || current.Role.Repair.Budget.CyclesRemaining != 1 || current.Role.Repair.State != factory.RepairInvestigating {
+			t.Fatal("repair current context lost canonical consumed grant budget")
+		}
+		for i := 0; i < 2; i++ {
+			if _, err = worker.ServeStallRound(ctx, DispatchReport{}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		charges, err := serving.RepairCharges(ctx, fx.repo)
+		if err != nil || len(charges) != 1 || len(fx.host.launches) != 1 {
+			t.Fatalf("redetection refilled repair: charges=%d launches=%d %v", len(charges), len(fx.host.launches), err)
+		}
+		run, err := serving.FactoryRun(ctx, cycle.RunID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair no-change result", true
+		if err = serving.SaveFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		proposal := factory.StallRepairReport{StallID: record.ID, CycleID: cycle.ID, InventoryDigest: cycle.InventoryDigest, SourceCommit: cycle.Local.SourceCommit, PreparationDigest: cycle.Local.PreparationDigest, Causes: []factory.CheckFailure{{CheckRef: "dependency_cycle", Detail: "The recorded dependency cycle still has no viable producer."}}, RetainedIssueIndexes: []int64{3}, Outcome: factory.RepairOutcomeNoChange}
+		output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "No graph change proposed; the real stall remains.", Output: &factory.PhaseOutput{Repair: &proposal}})
+		if a, ok := AccountSettledRun(ctx, serving, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+			t.Fatalf("repair typed finish refused: %s %s %v", a.Outcome, a.Reason, ok)
+		}
+		for i := 0; i < 3; i++ {
+			_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		}
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || len(record.Repair.Cycles) != 1 || record.Repair.Cycles[0].State != factory.RepairAttention {
+			t.Fatalf("no-change cleared or refilled real stall: cycles=%d state=%s %v", len(record.Repair.Cycles), record.Repair.Cycles[0].State, err)
+		}
+		// A native revision or replaced issue identity alone does not supply facts.
+		enumerator.revision++
+		_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		if charges, _ = serving.RepairCharges(ctx, fx.repo); len(charges) != 1 {
+			t.Fatal("native revision refilled repair")
+		}
+		changed := factory.CompletionIssueEvidence{Index: 3, Title: "New manual factual evidence", Body: "The missing producer can now be traced to a distinct external contract.", TitleDigest: evidenceDigest("New manual factual evidence"), ContentDigest: evidenceDigest("The missing producer can now be traced to a distinct external contract.")}
+		body, _ := changed.CanonicalData()
+		enumerator.revision++
+		enumerator.pages[""] = NativeInventoryPage{Issues: []NativeInventoryIssue{{Index: 3, Data: body}}, Complete: true}
+		_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || len(record.Repair.Cycles) != 2 || record.Repair.Cycles[1].State != factory.RepairReady {
+			t.Fatalf("material new evidence did not admit bounded next cycle: cycles=%d %v", len(record.Repair.Cycles), err)
+		}
+		if charges, _ = serving.RepairCharges(ctx, fx.repo); len(charges) != 2 {
+			t.Fatal("new evidence did not retain cumulative charges")
+		}
+		_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		second := record.Repair.Cycles[1]
+		if second.State != factory.RepairInvestigating || len(fx.host.launches) != 2 {
+			t.Fatalf("second bounded cycle did not launch: %s %s", second.State, second.Reason)
+		}
+		run, err = serving.FactoryRun(ctx, second.RunID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		run.Outcome, run.Reconciled = factory.Succeeded, true
+		if err = serving.SaveFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		proposal.CycleID, proposal.InventoryDigest = second.ID, second.InventoryDigest
+		output = fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Second diagnosis remains a real unresolved stall.", Output: &factory.PhaseOutput{Repair: &proposal}})
+		if a, ok := AccountSettledRun(ctx, serving, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+			t.Fatal("second cycle finish did not settle")
+		}
+		for i := 0; i < 3; i++ {
+			_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		}
+		changed.Body += " A further external fact cannot buy a third automatic run."
+		changed.ContentDigest = evidenceDigest(changed.Body)
+		body, _ = changed.CanonicalData()
+		enumerator.revision++
+		enumerator.pages[""] = NativeInventoryPage{Issues: []NativeInventoryIssue{{Index: 3, Data: body}}, Complete: true}
+		_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || len(record.Repair.Cycles) != 2 || record.Repair.Cycles[1].State != factory.RepairAttention {
+			t.Fatal("two unsuccessful cycles did not retain owner attention", err)
+		}
+		if charges, _ = serving.RepairCharges(ctx, fx.repo); len(charges) != 2 || len(fx.host.launches) != 2 {
+			t.Fatal("new facts refilled exhausted automatic cycles")
+		}
+		ready, err := serving.IssueControl(ctx, fx.repo, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ready.Readiness, ready.Reason, ready.Blockers, ready.Fingerprint = factory.ReadinessQueued, factory.ReasonEligible, nil, strings.Repeat("9", 64)
+		if _, _, err = serving.RecordIssueAssessment(ctx, ready, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = worker.ServeStallRound(ctx, DispatchReport{})
+		record, err = serving.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil || record.Repair.Cycles[1].State != factory.RepairStale || len(fx.host.launches) != 2 {
+			t.Fatal("ready work did not retire obsolete diagnosis", err)
+		}
+	})
+	t.Run("protected repair adoption recovers native lost reply", stallRepairGraphIntegration)
+}
+
+func stallRepairGraphIntegration(t *testing.T) {
+	for _, mode := range []string{"lost_reply", "grant_hold_new_effect", "grant_withdrawn_after_admission"} {
+		t.Run(mode, func(t *testing.T) { stallRepairGraphMode(t, mode) })
+	}
+}
+
+func stallRepairGraphMode(t *testing.T, mode string) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	graph := &generatedGraphFixture{revision: 41, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	coord := NewCoordinator(db, fx.host, fx.broker)
+	coord.DispatchReads = fx.reads
+	coord.Graph, coord.GraphActorID, coord.AcceptanceReads = graph, graph.actor, graph
+	revision := broadJoinAcceptedRevision()
+	revision.Repository, revision.Tasks, revision.Ideas = fx.repo, revision.Tasks[:2], revision.Ideas[:1]
+	if err := db.SaveIntentRevision(ctx, revision); err != nil {
+		t.Fatal(err)
+	}
+	if generation, err := generateChoiceMechanics(t, coord, ctx, revision.Intent, revision.Owner, chosenFor(revision)); err != nil || generation.State != "completed" {
+		t.Fatalf("initial accepted graph: state=%s %v", generation.State, err)
+	}
+	initial, err := db.IntentTaskBindings(ctx, revision.ID)
+	if err != nil || len(initial) != 2 {
+		t.Fatal("initial bindings", err)
+	}
+	graph.issues[2].Issue.Content += "\nRetained human note."
+	graph.issues[2].Issue.ContentDigest = evidenceDigest(graph.issues[2].Issue.Content)
+	graph.issues[2].Issue.ContentVersion++
+	graph.revision++
+	protectedBody := graph.issues[2].Issue.Content
+	baseline := graph.submissions
+	coord.Graph = &reassessmentLostReplyGraph{generatedGraphFixture: graph, loseReply: true}
+	enumerator := reassessmentGraphInventory{graph: graph}
+	coord.CompletionEnumerator, coord.CompletionLocalCapture = enumerator, db.CaptureCompletionLocal
+	chooser := &reassessmentLifecycleChooser{}
+	coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+	coord.MCPKey = []byte(strings.Repeat("k", 32))
+	coord.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
+	grant := factory.DefaultRepairGrant()
+	grant.ID, grant.Repository, grant.Sponsor, grant.Active, grant.CreatedUnix = factory.NewID(), fx.repo, 7, true, time.Now().Unix()
+	raw, _ := json.Marshal(grant)
+	command := factory.Command{ID: grant.ID, Type: factory.CommandRepairGrant, Target: factory.RepairTarget(fx.repo), Principal: "soda-tester", Payload: string(raw)}
+	command.Digest = factory.SettingsDigest(command.Type, command.Target, command.Payload)
+	if _, _, err = db.ApplyRepairGrantCommand(ctx, command, grant, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	for _, binding := range initial {
+		stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+	}
+	first, err := coord.ServeStallRound(ctx, DispatchReport{})
+	if err != nil || len(first.Repositories) != 1 || first.Repositories[0].Event == nil {
+		t.Fatal("stall observation", err)
+	}
+	event := *first.Repositories[0].Event
+	_, _ = coord.ServeStallRound(ctx, DispatchReport{})
+	record, err := db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+	if err != nil || len(record.Repair.Cycles) != 1 {
+		t.Fatal("repair stage", err)
+	}
+	cycle := record.Repair.Cycles[0]
+	if cycle.State != factory.RepairInvestigating {
+		t.Fatalf("repair launch state=%s reason=%s", cycle.State, cycle.Reason)
+	}
+	tasks := append([]factory.IntentTask(nil), revision.Tasks...)
+	tasks[0].Objective += " with the clarified validation boundary"
+	keys := []string{tasks[0].Key, tasks[1].Key}
+	successor := generatedDecisionID("revision", cycle.ID, revision.ID)
+	proposal := factory.StallRepairReport{StallID: record.ID, CycleID: cycle.ID, InventoryDigest: cycle.InventoryDigest, SourceCommit: cycle.Local.SourceCommit, PreparationDigest: cycle.Local.PreparationDigest, Causes: []factory.CheckFailure{{CheckRef: "dependency_cycle", Detail: "The idle task lacks its precise validation boundary."}}, RetainedIssueIndexes: []int64{2}, IntentChanges: []factory.ReassessmentIntentChange{{IntentID: revision.Intent, ExpectedRevision: successor, ScopeDigest: revision.Digest(), Reason: "Clarify the idle validation task while retaining protected human work.", Tasks: tasks}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: revision.Ideas[0].ID, TaskKeys: keys}}, Outcome: factory.RepairOutcomeRepair}
+	if err = proposal.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	run, err := db.FactoryRun(ctx, cycle.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair proposal ready", true
+	if err = db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Repair the idle accepted graph and preserve protected work.", Output: &factory.PhaseOutput{Repair: &proposal}})
+	if a, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+		t.Fatalf("repair finish outcome=%s reason=%s recorded=%v", a.Outcome, a.Reason, ok)
+	}
+	grantChanged := false
+	changeGrant := func(active bool) {
+		t.Helper()
+		prior := grant
+		grant.ID, grant.Predecessor, grant.Revision, grant.Active = factory.NewID(), prior.ID, prior.Revision+1, active
+		raw, _ := json.Marshal(grant)
+		command := factory.Command{ID: grant.ID, Type: factory.CommandRepairGrant, Target: factory.RepairTarget(fx.repo), Principal: "soda-tester", Payload: string(raw)}
+		command.Digest = factory.SettingsDigest(command.Type, command.Target, command.Payload)
+		if _, _, err := db.ApplyRepairGrantCommand(ctx, command, grant, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for pass := 0; pass < 14; pass++ {
+		coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+		record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cycle = record.Repair.Cycles[0]
+		if mode != "lost_reply" && !grantChanged && cycle.State == factory.RepairApplying {
+			progress, err := loadGraphRepairAdoption(cycle.AdoptionProgress, record.Repository, "", record.ID, cycle.ID, cycle.InventoryDigest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			step, _ := progress.Journal.CurrentStep()
+			if mode == "grant_hold_new_effect" && step.State == reassessmentStepStaged {
+				changeGrant(false)
+				coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+				held, err := db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+				if err != nil || held.Repair.Cycles[0].Reason != "repair_sponsor_grant_unavailable" || graph.submissions != baseline {
+					t.Fatal("withdrawn grant admitted new effect", err)
+				}
+				if _, err = db.IntentGeneration(ctx, successor); !errors.Is(err, store.ErrNotFound) {
+					t.Fatal("held successor activated")
+				}
+				changeGrant(true)
+				grantChanged = true
+			} else if mode == "grant_withdrawn_after_admission" && step.State == reassessmentStepActive {
+				changeGrant(false)
+				grantChanged = true
+			}
+		}
+		if cycle.State == factory.RepairAdopted {
+			break
+		}
+		// Restart from retained rows after the immutable current operation exists.
+		if pass == 5 {
+			fresh := NewCoordinator(db, coord.Host, coord.Broker)
+			fresh.Graph, fresh.GraphActorID, fresh.AcceptanceReads = coord.Graph, coord.GraphActorID, coord.AcceptanceReads
+			fresh.CompletionEnumerator, fresh.CompletionLocalCapture, fresh.Planning = enumerator, db.CaptureCompletionLocal, coord.Planning
+			coord = fresh
+		}
+	}
+	if cycle.State != factory.RepairAdopted {
+		charges, _ := db.RepairCharges(ctx, fx.repo)
+		t.Fatalf("repair adoption state=%s reason=%s charges=%d calls=%d reserved=%v", cycle.State, cycle.Reason, len(charges), chooser.calls, cycle.JudgmentFingerprint != "")
+	}
+	head, err := db.IntentRevision(ctx, revision.Intent, revision.Owner)
+	if err != nil || head.ID != successor {
+		t.Fatal("repair successor missing", err)
+	}
+	bindings, err := db.IntentTaskBindings(ctx, successor)
+	if err != nil || len(bindings) != 2 {
+		t.Fatal("repair readback missing", err)
+	}
+	for _, binding := range bindings {
+		if binding.TaskKey == tasks[1].Key && binding.AcceptanceID != initial[1].AcceptanceID {
+			t.Fatal("protected acceptance changed")
+		}
+	}
+	charges, err := db.RepairCharges(ctx, fx.repo)
+	if err != nil || len(charges) != 2 || chooser.calls != 1 || graph.submissions != baseline+1 || graph.issues[2].Issue.Content != protectedBody {
+		t.Fatalf("repair duplicated spend/effect or changed protected work: charges=%d calls=%d submissions=%d %v", len(charges), chooser.calls, graph.submissions, err)
+	}
+	if generation, e := db.IntentGeneration(ctx, successor); e != nil || generation.RepairCycle != cycle.ID || generation.ReassessmentCycle != "" || generation.State != "completed" {
+		t.Fatal("repair borrowed completion identity", e)
+	}
+	coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+	record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+	charges, _ = db.RepairCharges(ctx, fx.repo)
+	if err != nil || len(record.Repair.Cycles) != 1 || len(charges) != 2 {
+		t.Fatal("graph reshuffle alone refilled repair", err)
 	}
 }
 

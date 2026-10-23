@@ -107,19 +107,64 @@ impl Spec {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
     pub application: Spec,
     pub action: String,
     #[serde(default)]
     pub expected_container: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restore: Option<RestoreOperation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RestoreOperation {
+    pub id: String,
+    pub snapshot: String,
+    pub previous: Spec,
+    pub next: Spec,
+    pub expected_container: String,
+    pub state: String,
+}
+
+impl RestoreOperation {
+    pub fn validate(&self) -> Result<(), String> {
+        self.previous.validate()?;
+        self.next.validate()?;
+        let mut expected = self.previous.clone();
+        expected.revision = expected
+            .revision
+            .checked_add(1)
+            .ok_or("application revision exhausted")?;
+        expected.data = self.next.data.clone();
+        if !id(&self.id)
+            || !id(&self.snapshot)
+            || !hex(&self.expected_container, 64)
+            || self.state != "pending"
+            || self.previous.data == self.next.data
+            || expected != self.next
+        {
+            return Err("invalid application restore intent".into());
+        }
+        Ok(())
+    }
 }
 
 impl Request {
     pub fn validate(&self) -> Result<(), String> {
         self.application.validate()?;
-        if !["install", "inspect", "start", "stop", "replace"].contains(&self.action.as_str())
+        if ![
+            "install",
+            "inspect",
+            "start",
+            "stop",
+            "replace",
+            "restore",
+            "restore_abort",
+        ]
+        .contains(&self.action.as_str())
             || (self.action == "install" && !self.expected_container.is_empty())
             || (self.action != "install"
                 && self.action != "inspect"
@@ -127,6 +172,22 @@ impl Request {
             || (!self.expected_container.is_empty() && !hex(&self.expected_container, 64))
         {
             return Err("invalid application operation or generation".into());
+        }
+        if matches!(self.action.as_str(), "restore" | "restore_abort") {
+            let restore = self.restore.as_ref().ok_or("restore intent is required")?;
+            restore.validate()?;
+            let expected = if self.action == "restore" {
+                &restore.next
+            } else {
+                &restore.previous
+            };
+            if &self.application != expected
+                || self.expected_container != restore.expected_container
+            {
+                return Err("application differs from restore intent".into());
+            }
+        } else if self.restore.is_some() {
+            return Err("restore intent is not valid for this operation".into());
         }
         Ok(())
     }

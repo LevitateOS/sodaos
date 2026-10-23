@@ -10,6 +10,16 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// MCPRunWasObserved retains execution history after capability retirement.
+// Staging, revocation and confirmed-unused settlement do not set this fact.
+func (s *Store) MCPRunWasObserved(ctx context.Context, run, assignment, project string) (bool, error) {
+	var observed bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_mcp_capabilities
+WHERE data->>'run_id'=$1 AND data->>'assignment_id'=$2 AND data->>'project'=$3
+AND data->>'live_observed'='true')`, run, assignment, project).Scan(&observed)
+	return observed, err
+}
+
 // ActivateObservedMCPCapability is the production activation joint. The caller
 // has just observed the matching live native run; current stored stop intent is
 // rechecked under the same transaction that activates the capability.

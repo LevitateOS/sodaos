@@ -106,13 +106,18 @@ func assertNoSecrets(t *testing.T, body string) {
 
 func TestFactoryStatusShowsMissingAuthority(t *testing.T) {
 	s := factorySettingsServer(t)
+	s.Config.FactoryNativeBindings = []config.FactoryNativeBinding{
+		{TokenID: 11, ActorID: 12, RepositoryID: 7, Kind: factory.OpRefPublish},
+		{TokenID: 21, ActorID: 22, RepositoryID: 8, Kind: factory.OpRefPublish},
+	}
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodGet, "/api/repositories/7/factory", "", "alice"))
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	var view struct {
-		Effective struct {
+		NativeBindings []factory.ActorBindingRef `json:"native_bindings"`
+		Effective      struct {
 			Effective bool     `json:"effective"`
 			Missing   []string `json:"missing"`
 		} `json:"effective"`
@@ -124,6 +129,9 @@ func TestFactoryStatusShowsMissingAuthority(t *testing.T) {
 	decodeBody(t, w, &view)
 	if view.Effective.Effective || len(view.Effective.Missing) == 0 {
 		t.Fatalf("empty authority: %+v", view.Effective)
+	}
+	if len(view.NativeBindings) != 1 || view.NativeBindings[0] != (factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpRefPublish}) {
+		t.Fatalf("initial policy inventory crossed repository or omitted enrollment: %+v", view.NativeBindings)
 	}
 	assertNoSecrets(t, w.Body.String())
 }

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -18,12 +19,9 @@ import (
 // evidence against publication refuses without recording anything, so no PR
 // is ever fabricated and no duplicate write exists to replay.
 //
-// Two T17 clauses stay open joints and are NOT claimed here. Reported
-// commits existing in candidate ancestry needs a Git reader the control
-// package must not grow; the verdict collects the exact commit set that
-// future check consumes. Final exact-tree checks need the host/native check
-// owner; receipt check IDs are collected as evidence only. Review/correction
-// findings join in FW22 and are untouched by this gate.
+// Native final-candidate receipts attest task ancestry, the exact clean tree
+// and required integration checks. Go admits that receipt only for this run's
+// retained manifest, observed invocation and reported candidate.
 
 // Plan publication wait reasons. Both leave the assignment publishable for
 // a later pass; neither records nor publishes anything.
@@ -33,7 +31,9 @@ const (
 	PlanWaitEvidenceUnavailable = "plan_evidence_unavailable"
 	// PlanWaitTasksIncomplete reports tasks that are missing, pending,
 	// running or output-ready: descendants have not settled.
-	PlanWaitTasksIncomplete = "plan_tasks_incomplete"
+	PlanWaitTasksIncomplete    = "plan_tasks_incomplete"
+	PlanWaitFinalIntegration   = "final_integration_pending"
+	PlanRefuseFinalIntegration = "final_integration_failed"
 )
 
 // Plan publication refusal reasons. The assignment stays listed so a later
@@ -158,11 +158,13 @@ func collectPlanPublicationEvidence(plan factory.InvestigationPlan, candidate st
 		if receipt.Commit == "" && receipt.Tree == "" {
 			continue
 		}
-		if !factory.ValidCommit(receipt.Commit) || !factory.ValidCommit(receipt.Tree) {
+		if !factory.ValidCommit(receipt.Tree) || receipt.Commit != "" && !factory.ValidCommit(receipt.Commit) {
 			return refuse(PlanRefuseEvidence)
 		}
-		evidence.Commits = append(evidence.Commits, receipt.Commit)
 		evidence.Trees = append(evidence.Trees, receipt.Tree)
+		if receipt.Commit != "" {
+			evidence.Commits = append(evidence.Commits, receipt.Commit)
+		}
 	}
 	if len(evidence.Commits) == 0 {
 		evidence.VerificationOnly = true
@@ -185,6 +187,25 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 	if a.Phase != project.ExecutionImplement {
 		return true
 	}
+	run, err := c.Store.FactoryRun(ctx, a.Run)
+	if err != nil {
+		publicationError(report, a.ID, "store_unavailable")
+		return false
+	}
+	var nativeState project.FactoryState
+	if len(run.ExecutionManifest) > 0 {
+		state, err := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: run.ProjectID, ID: run.ID})
+		if err != nil {
+			publicationWait(report, a.ID, PlanWaitEvidenceUnavailable)
+			return false
+		}
+		nativeState = state
+		drained, _, err := c.importRunTaskEvents(ctx, run, state)
+		if err != nil || !drained {
+			publicationWait(report, a.ID, PlanWaitTasksIncomplete)
+			return false
+		}
+	}
 	headID, _, err := c.Store.PlanHead(ctx, a.AttemptRoot)
 	switch {
 	case err == nil:
@@ -204,6 +225,18 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 		publicationError(report, a.ID, "store_unavailable")
 		return false
 	}
+	// Completed receipts belong to the exact plan admitted to this run.
+	// A replacement head must never make an older candidate publishable.
+	if len(run.ExecutionManifest) > 0 {
+		manifest, err := project.ParseExecutionManifest(run.ExecutionManifest)
+		var admitted factory.InvestigationPlan
+		if err != nil || manifest.Phase != project.ExecutionImplement || manifest.Run != a.Run ||
+			json.Unmarshal(manifest.Plan, &admitted) != nil || admitted.AttemptRoot != a.AttemptRoot ||
+			admitted.ID != plan.ID || admitted.Digest != plan.Digest || admitted.SourceCommit != a.SourceCommit {
+			publicationWait(report, a.ID, PlanRefuseEvidence)
+			return false
+		}
+	}
 	receipts, err := c.Store.PlanTaskReceipts(ctx, a.AttemptRoot, headID)
 	if err != nil {
 		publicationError(report, a.ID, "store_unavailable")
@@ -211,6 +244,10 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 	}
 	verdict := judgePlanPublication(plan, receipts, a.Result.Candidate)
 	if verdict.Ready {
+		if reason := finalCheckpointGate(run, plan, nativeState, a.Result.Candidate); reason != "" {
+			publicationWait(report, a.ID, reason)
+			return false
+		}
 		return true
 	}
 	if verdict.RefuseReason != "" {
@@ -219,4 +256,31 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 	}
 	publicationWait(report, a.ID, verdict.WaitReason)
 	return false
+}
+
+func finalCheckpointGate(run factory.Run, plan factory.InvestigationPlan, state project.FactoryState, candidate string) string {
+	if len(run.ExecutionManifest) == 0 {
+		return ""
+	}
+	final := run.FinalCheckpoint
+	if final == nil || final.Status == "pending" || final.Status == "busy" {
+		return PlanWaitFinalIntegration
+	}
+	if final.Status == "failed" {
+		return PlanRefuseFinalIntegration
+	}
+	request := checkpointRequest(run, state, candidate)
+	if final.ValidateFor(request, true) != nil || final.Status != "committed" {
+		return PlanRefuseEvidence
+	}
+	passed := map[string]bool{}
+	for _, check := range final.Checks {
+		passed[check.ID] = check.Passed
+	}
+	for _, check := range plan.Checks {
+		if check.Scope == factory.CheckScopeIntegration && check.Required && !passed[check.ID] {
+			return PlanRefuseFinalIntegration
+		}
+	}
+	return ""
 }

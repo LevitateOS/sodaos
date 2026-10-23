@@ -109,6 +109,12 @@ func (s *factoryCatalogServer) addSystemOneTool(server *mcp.Server, tool factory
 		if err != nil {
 			return nil, nil, errors.New("System One question is not hashable")
 		}
+		if prior, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, snapshot); err == nil && prior.Outcome == systemOneAnswerOutcome && prior.Answer != nil {
+			return mcpJSONResult(prior.Answer)
+		}
+		if err := s.requireCurrentWork(ctx, capability); err != nil {
+			return nil, nil, err
+		}
 		reserved, err := s.deps.PriorityJudgments.ReservePriorityJudgment(ctx, snapshot, 1)
 		if err != nil {
 			return nil, nil, errors.New("priority consultation is unavailable")
@@ -160,6 +166,12 @@ func (s *factoryCatalogServer) serveSystemOneBatch(ctx context.Context, capabili
 	snapshot, err := factory.SystemOneWorkerBatchSnapshot(capability.ID, tool, args.State, questions)
 	if err != nil {
 		return nil, nil, errors.New("System One question is not hashable")
+	}
+	if prior, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, snapshot); err == nil && prior.Outcome == systemOneAnswerOutcome && prior.Answer != nil {
+		return mcpJSONResult(prior.Answer)
+	}
+	if err := s.requireCurrentWork(ctx, capability); err != nil {
+		return nil, nil, err
 	}
 	reserved, err := s.deps.PriorityJudgments.ReservePriorityJudgment(ctx, snapshot, 1)
 	if err != nil {

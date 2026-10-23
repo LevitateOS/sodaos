@@ -13,14 +13,7 @@ import (
 // VerifiedAppEvidence is independently read from the native helper's protected
 // approval snapshot and check receipt. It is also useful to Test Pilot when
 // constructing its finish report; the controller repeats the read on adoption.
-type VerifiedAppEvidence struct {
-	Manifest          factory.ApprovedAppCheck         `json:"manifest"`
-	ManifestDigest    string                           `json:"manifest_digest"`
-	PreparationDigest string                           `json:"preparation_digest"`
-	SourceCommit      string                           `json:"source_commit"`
-	Receipt           factory.VerificationCheckReceipt `json:"check_receipt"`
-	State             project.PrepareState             `json:"-"`
-}
+type VerifiedAppEvidence = factory.CurrentVerificationEvidence
 
 // ApplicationVerificationEvidence never executes model-provided commands. The
 // single local catalog entry is the exact approved check.sh already executed by

@@ -65,6 +65,19 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 	t.Cleanup(callback.Close)
 	t.Setenv(extensions.CallbackEnv, path)
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/application/snapshots" {
+			var request application.SnapshotRequest
+			if json.NewDecoder(r.Body).Decode(&request) != nil || request.Validate() != nil {
+				w.WriteHeader(400)
+				return
+			}
+			id := request.ID
+			if id == "" {
+				id = "a" + strings.Repeat("9", 24)
+			}
+			_ = json.NewEncoder(w).Encode(application.SnapshotInventory{Snapshots: []application.Snapshot{{ID: id, CreatedAt: 1, Application: request.Application}}, Complete: true})
+			return
+		}
 		if r.Method != http.MethodPost || r.URL.Path != "/application" || json.NewDecoder(r.Body).Decode(&fixture.last) != nil {
 			w.WriteHeader(400)
 			return
@@ -75,9 +88,15 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 			return
 		}
 		in := fixture.last
-		container := strings.Repeat("a", 64)
-		if in.Action == "replace" {
+		container := in.ExpectedContainer
+		if container == "" {
+			container = strings.Repeat("a", 64)
+		}
+		if in.Action == "replace" || in.Action == "restore" {
 			container = strings.Repeat("b", 64)
+			if container == in.ExpectedContainer {
+				container = strings.Repeat("c", 64)
+			}
 		}
 		running := in.Action == "start"
 		_ = json.NewEncoder(w).Encode(application.Observation{ID: in.Application.ID, Revision: in.Application.Revision, Container: container, Image: in.Application.Image, Origin: in.Application.Origin, Running: running, Ready: running})
@@ -126,6 +145,88 @@ func (t applicationNativeTransport) RoundTrip(r *http.Request) (*http.Response, 
 
 func applicationAPISpec() application.Spec {
 	return application.Spec{ID: "a" + strings.Repeat("1", 24), Revision: 1, Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("7", 24), OwnerTeam: "12345678-1234-1234-1234-123456789abc", Origin: "https://app.example.test", Port: 20001}
+}
+
+func TestApplicationRestoreHTTPFencesUncertainEffectsAndReplays(t *testing.T) {
+	f := applicationHTTPFixture(t)
+	spec := applicationAPISpec()
+	base := "/api/applications/" + spec.ID
+	if status, body := f.call(1, "POST", "/api/applications", applicationRegistration{Application: spec, AdministratorID: 41}); status != 201 {
+		t.Fatalf("register %d %s", status, body)
+	}
+	if status, body := f.call(1, "POST", base+"/actions", applicationAction{Action: "install", Revision: 1}); status != 200 {
+		t.Fatalf("install %d %s", status, body)
+	}
+	if status, _ := f.call(41, "GET", base+"/snapshots", nil); status != 403 {
+		t.Fatalf("administrator read operator snapshots: %d", status)
+	}
+	if status, body := f.call(1, "GET", base+"/snapshots", nil); status != 200 {
+		t.Fatalf("snapshot inventory %d %s", status, body)
+	}
+	input := applicationRestoreInput{Action: "restore", ID: "a" + strings.Repeat("8", 24), Snapshot: "a" + strings.Repeat("9", 24), Revision: 1, ExpectedContainer: strings.Repeat("a", 64), Confirm: true}
+	if status, _ := f.call(41, "POST", base+"/restores", input); status != 403 {
+		t.Fatalf("administrator restored: %d", status)
+	}
+	unconfirmed := input
+	unconfirmed.Confirm = false
+	if status, _ := f.call(1, "POST", base+"/restores", unconfirmed); status != 400 {
+		t.Fatalf("unconfirmed restore: %d", status)
+	}
+	f.fail.Store(true)
+	if status, body := f.call(1, "POST", base+"/restores", input); status != 502 {
+		t.Fatalf("failed native restore %d %s", status, body)
+	}
+	pending, err := f.store.PendingApplicationRestore(context.Background(), spec.ID)
+	if err != nil || pending == nil || pending.ID != input.ID {
+		t.Fatalf("uncertain restore not retained: %+v %v", pending, err)
+	}
+	effects := f.effects.Load()
+	if status, _ := f.call(1, "POST", base+"/actions", applicationAction{Action: "start", Revision: 1, ExpectedContainer: input.ExpectedContainer}); status != 409 {
+		t.Fatalf("start bypassed pending restore: %d", status)
+	}
+	if f.effects.Load() != effects {
+		t.Fatal("pending restore launched another native action")
+	}
+	if status, body := f.call(1, "GET", base, nil); status != 200 || !strings.Contains(string(body), `"restore"`) {
+		t.Fatalf("pending readback %d %s", status, body)
+	}
+	f.fail.Store(false)
+	if status, body := f.call(1, "POST", base+"/restores", input); status != 200 {
+		t.Fatalf("reconcile %d %s", status, body)
+	}
+	current, err := f.store.Application(context.Background(), spec.ID, 41)
+	if err != nil || current.Application.Revision != 2 || current.Application.Data == spec.Data || current.Application.Origin != spec.Origin {
+		t.Fatalf("restore binding %+v %v", current, err)
+	}
+	old, err := f.store.ApplicationRevision(context.Background(), spec.ID, 41, 1)
+	if err != nil || old != spec {
+		t.Fatalf("old reference lost: %+v %v", old, err)
+	}
+	effects = f.effects.Load()
+	if status, body := f.call(1, "POST", base+"/restores", input); status != 200 {
+		t.Fatalf("replay %d %s", status, body)
+	}
+	if f.effects.Load() != effects {
+		t.Fatal("completed restore replayed a native effect")
+	}
+	input.Action = "abort"
+	if status, _ := f.call(1, "POST", base+"/restores", input); status != 409 {
+		t.Fatalf("completed restore appeared aborted: %d", status)
+	}
+	input = applicationRestoreInput{Action: "restore", ID: "a" + strings.Repeat("f", 24), Snapshot: input.Snapshot, Revision: 2, ExpectedContainer: current.Observation.Container, Confirm: true}
+	f.fail.Store(true)
+	if status, _ := f.call(1, "POST", base+"/restores", input); status != 502 {
+		t.Fatalf("second pending restore: %d", status)
+	}
+	f.fail.Store(false)
+	input.Action = "abort"
+	if status, body := f.call(1, "POST", base+"/restores", input); status != 200 {
+		t.Fatalf("abort %d %s", status, body)
+	}
+	after, err := f.store.Application(context.Background(), spec.ID, 41)
+	if err != nil || after.Application != current.Application {
+		t.Fatalf("abort changed admitted data: %+v %v", after, err)
+	}
 }
 
 func TestApplicationAuthorityAndLifecycleHTTP(t *testing.T) {

@@ -333,6 +333,8 @@ fn open_backend(config: &config::Config) -> DaemonBackend {
             codex_harness: config.codex_harness.clone(),
             codex_harness_sha256: config.codex_harness_sha256.clone(),
             codex_harness_version: config.codex_harness_version.clone(),
+            codex_model_catalog: config.codex_model_catalog.clone(),
+            codex_model_catalog_sha256: config.codex_model_catalog_sha256.clone(),
             muse_harness: config.muse_harness.clone(),
             muse_harness_sha256: config.muse_harness_sha256.clone(),
             muse_harness_version: config.muse_harness_version.clone(),
@@ -381,7 +383,7 @@ fn open_host_listener(listen_path: &str) -> Result<std::os::unix::net::UnixListe
 
 fn open_muse_listener_opt(
     config: &config::Config,
-) -> Result<Option<std::os::unix::net::UnixListener>, MainError> {
+) -> Result<Option<muse_serve::MuseListener>, MainError> {
     // Muse launch listener (Go `startRuntimeLaunchers`): empty socket
     // skips the launcher; open failures abort before serving.
     if config.muse_socket.is_empty() {
@@ -394,7 +396,7 @@ fn open_muse_listener_opt(
 }
 
 fn spawn_muse_listener(
-    muse_listener: Option<std::os::unix::net::UnixListener>,
+    muse_listener: Option<muse_serve::MuseListener>,
     config: &config::Config,
     muse_shutdown: &Arc<AtomicBool>,
 ) -> Option<std::thread::JoinHandle<Result<(), String>>> {

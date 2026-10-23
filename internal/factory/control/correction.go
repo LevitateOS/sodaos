@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"time"
@@ -214,6 +215,12 @@ func checkCorrectionIdentity(admission *correctionAdmission, report *CorrectionR
 func (c *Coordinator) prepareCorrectionWork(ctx context.Context, admission *correctionAdmission, runID string, continuing bool, report *CorrectionReport) (factory.PublicationWork, bool) {
 	var work factory.PublicationWork
 	p := admission.p
+	if !continuing && len(admission.run.ExecutionManifest) > 0 {
+		if reason := c.correctionCheckpointGate(ctx, admission); reason != "" {
+			correctionWait(report, p.ID, reason)
+			return work, false
+		}
+	}
 	if err := recordConfirmedUsage(ctx, c.Store, admission.assignment, admission.run, time.Now()); err != nil {
 		correctionError(report, p.ID, "store_unavailable")
 		return work, false
@@ -253,6 +260,37 @@ func (c *Coordinator) prepareCorrectionWork(ctx context.Context, admission *corr
 		return work, false
 	}
 	return recorded, true
+}
+
+func (c *Coordinator) correctionCheckpointGate(ctx context.Context, admission *correctionAdmission) string {
+	run := admission.run
+	manifest, err := project.ParseExecutionManifest(run.ExecutionManifest)
+	var plan factory.InvestigationPlan
+	if err != nil || manifest.Phase != project.ExecutionCorrect || manifest.Run != run.ID ||
+		json.Unmarshal(manifest.Plan, &plan) != nil || plan.AttemptRoot != admission.assignment.AttemptRoot ||
+		plan.SourceCommit != admission.assignment.SourceCommit {
+		return PlanRefuseEvidence
+	}
+	state, err := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: run.ProjectID, ID: run.ID})
+	if err != nil {
+		return PlanWaitEvidenceUnavailable
+	}
+	drained, _, err := c.importRunTaskEvents(ctx, run, state)
+	if err != nil || !drained {
+		return PlanWaitTasksIncomplete
+	}
+	receipts, err := c.Store.PlanTaskReceipts(ctx, plan.AttemptRoot, plan.ID)
+	if err != nil {
+		return PlanWaitEvidenceUnavailable
+	}
+	verdict := judgePlanPublication(plan, receipts, admission.reported.Candidate)
+	if verdict.RefuseReason != "" {
+		return verdict.RefuseReason
+	}
+	if !verdict.Ready {
+		return verdict.WaitReason
+	}
+	return finalCheckpointGate(run, plan, state, admission.reported.Candidate)
 }
 
 // correctionAttemptWork builds the fresh correction work behind one

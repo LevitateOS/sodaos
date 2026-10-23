@@ -80,7 +80,7 @@ func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, o
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "occupancy unreadable"})
 		return report
 	}
-	DispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, head.Repository, subject, source, prompt, preparationID, &report)
+	dispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, head.Repository, subject, source, prompt, preparationID, &in, &report)
 	return report
 }
 
@@ -93,11 +93,15 @@ func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, o
 // preparation waits instead of funding stale input. Empty keeps the
 // standing match for callers without one.
 func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, report *DispatchReport) {
+	dispatchTimeOnlyRoot(ctx, deps, occupancy, repository, subject, source, prompt, preparationID, nil, report)
+}
+
+func dispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, planning *factory.SemanticPlannerInput, report *DispatchReport) {
 	// Truncated to the second like every packet caller: the funding
 	// check compares the deadline against a Unix-second horizon, so a
 	// sub-second skew on exact-horizon funding would refuse.
 	t := &timeOnlyLaunch{ctx: ctx, deps: deps, occupancy: occupancy, repository: repository,
-		subject: subject, source: source, prompt: prompt, preparationID: preparationID,
+		subject: subject, source: source, prompt: prompt, preparationID: preparationID, planning: planning,
 		report: report, now: time.Now().UTC().Truncate(time.Second)}
 	t.drive()
 }
@@ -113,6 +117,7 @@ type timeOnlyLaunch struct {
 	source        string
 	prompt        []byte
 	preparationID string
+	planning      *factory.SemanticPlannerInput
 	report        *DispatchReport
 	now           time.Time
 	phase         string
@@ -171,6 +176,12 @@ func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "verification requires its exact delivery source"})
 			return "", false
 		}
+	case factory.SubjectStall:
+		phase = project.ExecutionRepair
+		if t.subject.Stall == nil || t.subject.Stall.Validate() != nil {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "repair root lacks its exact stall cycle"})
+			return "", false
+		}
 	default:
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only dispatch needs its intent or completion subject"})
 		return "", false
@@ -179,7 +190,7 @@ func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root does not match its execution phase"})
 		return "", false
 	}
-	if len(t.prompt) == 0 || len(t.prompt) > project.MaxFactoryPrompt {
+	if len(t.prompt) == 0 || len(t.prompt) > project.MaxPromptForPhase(phase) {
 		t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitPrompt, Detail: "time-only prompt is empty or over its bound"})
 		return "", false
 	}
@@ -248,6 +259,13 @@ func (t *timeOnlyLaunch) selectSponsorship() bool {
 		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, waitFor(WaitAuthority, "sponsorship changed during time-only dispatch")))
 		return false
 	}
+	if t.subject.Kind == factory.SubjectStall {
+		grant, err := t.deps.Store.RepairGrantCommand(t.ctx, t.repository)
+		if err != nil || !grant.Active || grant.Sponsor != sponsorship.ActorID {
+			t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitSponsorship, Detail: "repair needs its explicit sponsor's admitted account"})
+			return false
+		}
+	}
 	t.plan.sponsorship = sponsorship
 	return true
 }
@@ -307,6 +325,7 @@ func (t *timeOnlyLaunch) submitPacket() {
 		return
 	}
 	deadline := t.plan.deadline
+	t.plan.planned = min(t.plan.planned, minutes)
 	if horizon := t.now.Add(time.Duration(minutes) * time.Minute); horizon.Before(deadline) {
 		deadline = horizon
 	}
@@ -340,9 +359,22 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 	var noRun factory.Run
 	promptSum := sha256.Sum256(t.prompt)
 	assignmentID, runID := factory.NewID(), factory.NewID()
+	if t.subject.Stall != nil {
+		record, err := t.deps.Store.StallRepairRecord(t.ctx, t.repository, t.subject.Stall.StallID)
+		if err != nil {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "repair cycle unavailable"})
+			return none, noRun, false
+		}
+		for _, cycle := range record.Repair.Cycles {
+			if cycle.ID == t.subject.Stall.CycleID {
+				assignmentID, runID = cycle.ID, factory.RepairChargeID(record.EpisodeID, factory.RepairChargeRun, cycle.Number)
+			}
+		}
+	}
 	assignment := factory.Assignment{
-		Authority: t.plan.effective.Authority,
-		ID:        assignmentID, AttemptRoot: assignmentID, PublicationAssignment: "", ParentAssignment: "",
+		PlanningContext: t.planning,
+		Authority:       t.plan.effective.Authority,
+		ID:              assignmentID, AttemptRoot: assignmentID, PublicationAssignment: "", ParentAssignment: "",
 		Subject: t.subject, Phase: t.phase,
 		ProjectID: t.projectID, ActorID: t.plan.sponsorship.ActorID, Role: t.role,
 		Repository: t.repository, Issue: 0, NativeRev: nativeRev, Acceptance: "", Preparation: t.plan.prep.Preparation.ID,
@@ -403,6 +435,30 @@ func timeOnlyScope(ctx context.Context, deps DispatchDeps, repository int64, sub
 		}
 		return 1, policy.AttemptLimits.ActiveMinutes, nil, nil
 	}
+	if subject.Kind == factory.SubjectStall && subject.Stall != nil {
+		record, err := deps.Store.StallRepairRecord(ctx, repository, subject.Stall.StallID)
+		if err != nil {
+			return fail("repair cycle unreadable")
+		}
+		charges, err := deps.Store.RepairCharges(ctx, repository)
+		if err != nil {
+			return fail("repair charges unreadable")
+		}
+		for _, cycle := range record.Repair.Cycles {
+			if cycle.ID != subject.Stall.CycleID {
+				continue
+			}
+			if cycle.State != factory.RepairReady || cycle.ValidateFor(record.StallEvent) != nil || cycle.InventoryDigest != subject.Stall.InventoryDigest {
+				return fail("repair cycle input changed")
+			}
+			for _, charge := range charges {
+				if charge.ID == factory.RepairChargeID(record.EpisodeID, factory.RepairChargeRun, cycle.Number) && charge.ActiveMinutes > 0 {
+					return cycle.NativeRevision, charge.ActiveMinutes, nil, nil
+				}
+			}
+		}
+		return fail("repair cycle has no admitted investigator charge")
+	}
 	record, err := deps.Store.ReassessmentRecord(ctx, subject.Completion.CycleID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -413,7 +469,7 @@ func timeOnlyScope(ctx context.Context, deps DispatchDeps, repository int64, sub
 	if err := record.Validate(); err != nil {
 		return fail("reassessment cycle invalid: " + err.Error())
 	}
-	if record.Cycle.State != factory.ReassessmentReassessing || record.Cycle.Decision != factory.ReassessmentOptionReassess {
+	if record.Cycle.State != factory.ReassessmentDeciding || record.Cycle.Decision != factory.ReassessmentOptionReassess || len(record.Cycle.Ledger.CoderRuns) != 0 {
 		return fail("reassessment answers a cycle without its reassess decision")
 	}
 	if !record.Local.Sealed() || record.InventoryDigest != subject.Completion.InventoryDigest {

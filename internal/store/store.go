@@ -100,10 +100,16 @@ func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, err
 		err = initializeResearchSchema(context.Background(), db)
 	}
 	if err == nil {
+		err = initializePostResolutionSchema(context.Background(), db)
+	}
+	if err == nil {
 		err = initializeArtifactSchema(context.Background(), db)
 	}
 	if err == nil {
 		err = initializeDeliverySchema(context.Background(), db)
+	}
+	if err == nil {
+		err = initializeRepairSchema(context.Background(), db)
 	}
 	if err == nil && cipher != nil {
 		err = s.initializeGrantKey(context.Background())
@@ -280,12 +286,40 @@ func (s *Store) ProjectByRepository(ctx context.Context, id int64) (Project, err
 }
 
 func (s *Store) Join(ctx context.Context, pid string, uid int64, login string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO memberships(project_id,user_id,login) VALUES($1,$2,$3)`, pid, uid, login)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var existing string
+	err = tx.QueryRowContext(ctx, `SELECT login FROM memberships WHERE project_id=$1 AND user_id=$2 FOR UPDATE`, pid, uid).Scan(&existing)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if err == nil && existing != login {
+		return ErrStaleRevision
+	}
+	var held bool
+	err = tx.QueryRowContext(ctx, `SELECT held FROM project_member_access WHERE project_id=$1 AND user_id=$2 FOR UPDATE`, pid, uid).Scan(&held)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if held {
+		return ErrProjectAccessHeld
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO memberships(project_id,user_id,login) VALUES($1,$2,$3) ON CONFLICT(project_id,user_id) DO UPDATE SET login=memberships.login WHERE memberships.login=EXCLUDED.login`, pid, uid, login)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE project_member_access SET rejoin=FALSE WHERE project_id=$1 AND user_id=$2 AND NOT held`, pid, uid)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) MemberLogin(ctx context.Context, pid string, uid int64) (string, error) {
 	var login string
-	err := s.db.QueryRowContext(ctx, `SELECT login FROM memberships WHERE project_id=$1 AND user_id=$2`, pid, uid).Scan(&login)
+	err := s.db.QueryRowContext(ctx, `SELECT login FROM memberships m WHERE project_id=$1 AND user_id=$2 AND NOT EXISTS(SELECT 1 FROM project_member_access a WHERE a.project_id=m.project_id AND a.user_id=m.user_id AND (a.held OR a.rejoin))`, pid, uid).Scan(&login)
 	return login, err
 }

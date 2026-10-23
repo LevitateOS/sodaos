@@ -24,9 +24,8 @@ import (
 // The fold is deterministic over (plan, stored receipts, event page), so a
 // restart observes receipts instead of redoing completed writes: an exact
 // replay emits no writes, and SavePlanTaskReceipt replays are no-ops
-// behind CAS. Polling and persistence stay with the future progress loop
-// (FW24 joint); this file takes loaded receipts in and returns exact
-// receipt writes out.
+// behind CAS. The progress loop persists each verified journal page atomically
+// before settlement and publication can consume the resulting receipts.
 
 // Task event import errors. Binding and order violations fence the run:
 // the caller refuses advancement instead of guessing past a gap or a
@@ -49,6 +48,7 @@ type TaskEventImport struct {
 	Invocation  string
 	PlanDigest  string
 	MaxChildren int
+	Phase       string
 	Events      []project.TaskEvent
 }
 
@@ -80,7 +80,17 @@ type TaskExecutionResult struct {
 // taskEventRef records one applied event on its receipt. The suffix keeps
 // the import cursor restart-safe without a second table.
 func taskEventRef(event project.TaskEvent) string {
-	return event.Type + "@" + strconv.FormatInt(event.Sequence, 10)
+	return event.Type + "@" + strconv.FormatInt(event.Sequence, 10) + ":" + project.TaskEventDigest(event)
+}
+
+func parseTaskEventRef(ref string) (int64, string, bool) {
+	typeName, suffix, found := strings.Cut(ref, "@")
+	if !found || !project.ValidTaskEventType(typeName) {
+		return 0, "", false
+	}
+	sequence, digest, found := strings.Cut(suffix, ":")
+	seq, err := strconv.ParseInt(sequence, 10, 64)
+	return seq, digest, found && err == nil && seq > 0 && factory.ValidDigest(digest)
 }
 
 // importCursor recovers the journal cursor from stored receipts: the
@@ -90,12 +100,8 @@ func importCursor(receipts []store.PlanTaskReceipt) int64 {
 	var cursor int64
 	for _, receipt := range receipts {
 		for _, ref := range receipt.Events {
-			at := strings.LastIndex(ref, "@")
-			if at < 0 {
-				continue
-			}
-			seq, err := strconv.ParseInt(ref[at+1:], 10, 64)
-			if err != nil || seq <= 0 {
+			seq, _, ok := parseTaskEventRef(ref)
+			if !ok {
 				continue
 			}
 			if seq > cursor {
@@ -134,6 +140,18 @@ func ImportTaskEvents(plan factory.InvestigationPlan, receipts []store.PlanTaskR
 	}
 	fold := &taskEventFold{plan: plan, imp: imp, pending: stored, byTask: byTask, result: &result,
 		next: importCursor(receipts), stopped: journalStopped(receipts)}
+	for _, receipt := range receipts {
+		for _, ref := range receipt.Events {
+			sequence, digest, ok := parseTaskEventRef(ref)
+			if !ok || sequence != fold.next {
+				continue
+			}
+			if fold.lastDigest != "" && fold.lastDigest != digest {
+				return result, ErrTaskEventBinding
+			}
+			fold.lastDigest = digest
+		}
+	}
 	if err := fold.seedPendingReceipts(); err != nil {
 		return result, err
 	}
@@ -155,7 +173,11 @@ func admitTaskEventImport(plan factory.InvestigationPlan, imp TaskEventImport) (
 		plan.AttemptRoot != imp.AttemptRoot || plan.ID != imp.PlanID {
 		return nil, errors.New("task event import names an unknown plan revision")
 	}
-	if imp.MaxChildren < project.MinTaskChildren || imp.MaxChildren > project.MaxTaskChildren {
+	if imp.Phase == project.ExecutionCorrect {
+		if imp.MaxChildren != 0 || len(plan.Tasks) != 1 {
+			return nil, errors.New("correction task import requires its singleton parent")
+		}
+	} else if imp.Phase != project.ExecutionImplement || imp.MaxChildren < project.MinTaskChildren || imp.MaxChildren > project.MaxTaskChildren {
 		return nil, errors.New("task event import child limit is outside its range")
 	}
 	if imp.Invocation == "" || len(imp.Invocation) > 128 {
@@ -181,6 +203,9 @@ func admitTaskEventReceipts(plan factory.InvestigationPlan, receipts []store.Pla
 		if _, ok := byTask[receipt.TaskID]; !ok {
 			return nil, ErrTaskEventUnknown
 		}
+		if receipt.Parent != (imp.Phase == project.ExecutionCorrect) {
+			return nil, ErrTaskEventBinding
+		}
 		if _, dup := stored[receipt.TaskID]; dup {
 			return nil, errors.New("task event import carries duplicate receipts")
 		}
@@ -191,13 +216,14 @@ func admitTaskEventReceipts(plan factory.InvestigationPlan, receipts []store.Pla
 
 // taskEventFold carries the shared state behind one task event import.
 type taskEventFold struct {
-	plan    factory.InvestigationPlan
-	imp     TaskEventImport
-	pending map[string]store.PlanTaskReceipt
-	byTask  map[string]int
-	result  *TaskExecutionResult
-	next    int64
-	stopped bool
+	plan       factory.InvestigationPlan
+	imp        TaskEventImport
+	pending    map[string]store.PlanTaskReceipt
+	byTask     map[string]int
+	result     *TaskExecutionResult
+	next       int64
+	lastDigest string
+	stopped    bool
 }
 
 // seedPendingReceipts seeds pending receipts for tasks the store
@@ -213,7 +239,8 @@ func (f *taskEventFold) seedPendingReceipts() error {
 		}
 		seed := store.PlanTaskReceipt{
 			AttemptRoot: f.imp.AttemptRoot, PlanID: f.imp.PlanID, TaskID: task.ID,
-			State: store.PlanTaskPending,
+			State:  store.PlanTaskPending,
+			Parent: f.imp.Phase == project.ExecutionCorrect,
 		}
 		if err := seed.Validate(); err != nil {
 			return err
@@ -232,8 +259,12 @@ func (f *taskEventFold) emit(next store.PlanTaskReceipt) {
 	if receiptsEqual(f.pending[next.TaskID], next) {
 		return
 	}
-	f.pending[next.TaskID] = next
 	f.result.Writes = append(f.result.Writes, next)
+	// Each write consumes its CAS base. Later events in this same page must
+	// use the revision the preceding write will commit, including changes
+	// that leave the lifecycle state unchanged (start intent and checks).
+	next.Revision++
+	f.pending[next.TaskID] = next
 }
 
 // foldEvent folds one fresh event into the pending receipts.
@@ -244,6 +275,11 @@ func (f *taskEventFold) foldEvent(event project.TaskEvent) error {
 	if event.Invocation != f.imp.Invocation || event.PlanDigest != f.imp.PlanDigest {
 		return ErrTaskEventBinding
 	}
+	parentEvent := event.Type == project.TaskEventParentStarted || event.Type == project.TaskEventParentOutput
+	childEvent := event.Type == project.TaskEventChildStartIntent || event.Type == project.TaskEventChildStarted || event.Type == project.TaskEventChildReported
+	if parentEvent && (f.imp.Phase != project.ExecutionCorrect || event.ChildID != "") || childEvent && f.imp.Phase == project.ExecutionCorrect {
+		return ErrTaskEventBinding
+	}
 	if event.Sequence <= f.next {
 		if !eventReplayed(f.pending, event) {
 			return ErrTaskEventGap
@@ -252,6 +288,9 @@ func (f *taskEventFold) foldEvent(event project.TaskEvent) error {
 	}
 	if event.Sequence != f.next+1 {
 		return ErrTaskEventGap
+	}
+	if event.PrevDigest != f.lastDigest {
+		return ErrTaskEventBinding
 	}
 	if f.stopped && event.Type != project.TaskEventRunStopped {
 		return ErrTaskEventTransition
@@ -267,6 +306,7 @@ func (f *taskEventFold) foldEvent(event project.TaskEvent) error {
 		f.stopped = true
 	}
 	f.next = event.Sequence
+	f.lastDigest = project.TaskEventDigest(event)
 	return nil
 }
 
@@ -311,6 +351,7 @@ func receiptsEqual(a, b store.PlanTaskReceipt) bool {
 	aa.Revision, bb.Revision = 0, 0
 	return aa.AttemptRoot == bb.AttemptRoot && aa.PlanID == bb.PlanID &&
 		aa.TaskID == bb.TaskID && aa.State == bb.State && aa.Child == bb.Child &&
+		aa.Parent == bb.Parent &&
 		aa.InputDigest == bb.InputDigest && aa.OutputDigest == bb.OutputDigest &&
 		aa.Tree == bb.Tree && aa.Commit == bb.Commit && aa.Reason == bb.Reason &&
 		strings.Join(aa.Events, "\x00") == strings.Join(bb.Events, "\x00") &&
@@ -363,7 +404,11 @@ func applyTaskEvent(plan factory.InvestigationPlan, pending map[string]store.Pla
 		return fold.noteStartIntent()
 	case project.TaskEventChildStarted:
 		return fold.startChild()
+	case project.TaskEventParentStarted:
+		return fold.startParent()
 	case project.TaskEventChildReported:
+		return fold.reportChild()
+	case project.TaskEventParentOutput:
 		return fold.reportChild()
 	case project.TaskEventCheckpointReady:
 		return fold.readyCheckpoint()
@@ -384,12 +429,14 @@ func cancelRunTasks(plan factory.InvestigationPlan, pending map[string]store.Pla
 	var writes []store.PlanTaskReceipt
 	for _, task := range plan.Tasks {
 		receipt := pending[task.ID]
-		if terminalReceipt(receipt.State) {
+		if terminalReceipt(receipt.State) && task.ID != event.TaskKey {
 			continue
 		}
 		next := receipt
-		next.State = store.PlanTaskCancelled
-		next.Reason = boundSummary(event.Detail, "run stopped")
+		if !terminalReceipt(receipt.State) {
+			next.State = store.PlanTaskCancelled
+			next.Reason = boundSummary(event.Detail, "run stopped")
+		}
 		next.Events = appendRef(next.Events, taskEventRef(event))
 		if err := next.Validate(); err != nil {
 			return nil, err
@@ -439,6 +486,13 @@ func (fold *taskEventCase) startChild() ([]store.PlanTaskReceipt, error) {
 		next.State = store.PlanTaskRunning
 		next.Child = fold.event.ChildID
 	})
+}
+
+func (fold *taskEventCase) startParent() ([]store.PlanTaskReceipt, error) {
+	if !fold.receipt.Parent || fold.event.ChildID != "" || fold.receipt.State != store.PlanTaskPending {
+		return nil, ErrTaskEventTransition
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) { next.State = store.PlanTaskRunning })
 }
 
 // reportChild records one running child's output digest.
@@ -702,7 +756,7 @@ func activeChildren(plan factory.InvestigationPlan, pending map[string]store.Pla
 	var children []string
 	for _, task := range plan.Tasks {
 		receipt := pending[task.ID]
-		if receipt.State == store.PlanTaskRunning || receipt.State == store.PlanTaskOutputReady {
+		if !receipt.Parent && (receipt.State == store.PlanTaskRunning || receipt.State == store.PlanTaskOutputReady) {
 			children = append(children, receipt.Child)
 		}
 	}
@@ -715,6 +769,9 @@ func overTaskLimits(plan factory.InvestigationPlan, pending map[string]store.Pla
 	active := 0
 	lanes := make(map[string]int)
 	for _, task := range plan.Tasks {
+		if pending[task.ID].Parent {
+			continue
+		}
 		switch pending[task.ID].State {
 		case store.PlanTaskRunning, store.PlanTaskOutputReady:
 			active++

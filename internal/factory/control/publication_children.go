@@ -107,26 +107,21 @@ func (c *Coordinator) gatePublicationChildAttempt(ctx context.Context, p factory
 }
 
 type childReviewInput struct {
-	review       ResolvedReviewVerdict
-	hasReview    bool
-	role         string
-	checks       *factory.CheckAssessment
-	policyReview bool
-	policyActor  int64
+	review              ResolvedReviewVerdict
+	hasReview           bool
+	role                string
+	checks              *factory.CheckAssessment
+	policyReview        bool
+	policyActor         int64
+	deliveryDecisionID  string
+	deliveryFingerprint string
 }
 
 func routePublicationChildCorrection(p factory.Publication, review ResolvedReviewVerdict, checks *factory.CheckAssessment, report *PublishReport) bool {
-	checksVerdict := ""
-	if checks != nil {
-		checksVerdict = checks.Verdict
-	}
 	// Correction-entry feedback routes only to a bounded correction
 	// or to the withheld Jev decision; any other route is a
 	// programming error, so it refuses loudly instead of spending.
-	if route := routeDeliveryFeedback(deliveryFeedback{
-		HasReview: true, ReviewVerdict: review.Verdict, ChecksVerdict: checksVerdict,
-		NewestDispositions: newestCurrentHeadDispositions(p),
-	}); route == routeJev {
+	if route := routeDeliveryFeedback(publicationDeliveryFeedback(p, review, checks)); route == routeJev {
 		publicationWait(report, p.ID, "delivery_judgment_required")
 		return true
 	} else if route != routeCorrection {
@@ -177,6 +172,27 @@ func (c *Coordinator) resolvePublicationChildReview(ctx context.Context, p facto
 	// advice never forces a correction. The policy-required cause is
 	// detected below for first inspections with passing checks.
 	if in.role == project.RoleCoder && hasReview && review.Verdict == "request-changes" {
+		if routeDeliveryFeedback(publicationDeliveryFeedback(p, review, in.checks)) == routeJev {
+			decision, decisionID, err := c.advisePublicationDelivery(ctx, p, review)
+			if err != nil {
+				publicationWait(report, p.ID, "delivery_judgment_unavailable")
+				return in, true
+			}
+			if decision.Effective != factory.DeliveryEffectiveReview {
+				reason := decision.Effective
+				if reason == factory.DeliveryEffectiveReady {
+					reason = "delivery_accepted"
+				}
+				publicationWait(report, p.ID, reason)
+				return in, true
+			}
+			in.role, in.deliveryDecisionID, in.deliveryFingerprint = project.RoleReviewer, decisionID, decision.Answer.Fingerprint
+			if c.Reviews == nil {
+				publicationWait(report, p.ID, "review_submission_unavailable")
+				return in, true
+			}
+			return in, false
+		}
 		if stop := routePublicationChildCorrection(p, review, in.checks, report); stop {
 			return in, true
 		}
@@ -228,7 +244,10 @@ func childCycleDigests(p factory.Publication, role string, in childReviewInput, 
 		shortHead = shortHead[:8]
 	}
 	if role == project.RoleReviewer {
-		if in.policyReview {
+		if in.deliveryDecisionID != "" {
+			digest = in.deliveryFingerprint
+			triggerDecision, triggerReason = "funded-review-again", "funded delivery decision "+in.deliveryDecisionID+" requests another independent inspection"
+		} else if in.policyReview {
 			// The bounded policy-required pass carries its separately
 			// recorded cause; the digest stays head/base-only so a
 			// replay reuses its round and never double-charges.
@@ -376,9 +395,9 @@ func (c *Coordinator) promptPublicationChild(ctx context.Context, plan *attemptP
 		publicationWait(report, p.ID, "attempt_deadline_exhausted")
 		return nil, true
 	}
-	// Full outstanding finding/correction evidence goes to corrections
-	// always, and to same-head re-reviews; fresh independent reviews stay
-	// evidence-free so distinct reviewer sessions cannot rubber-stamp.
+	// Prior verdict narratives go to corrections and same-head re-reviews.
+	// Fresh independent reviewers receive no prior narrative; the canonical
+	// carried finding set is separately retained as required typed context.
 	var typedReview *factory.ReviewCycleReport
 	var typedClear *factory.ClearReviewReport
 	var checksPrompt *factory.CheckAssessment
@@ -404,6 +423,16 @@ func (c *Coordinator) promptPublicationChild(ctx context.Context, plan *attemptP
 		return nil, true
 	}
 	plan.prompt, plan.promptSHA = prompt, project.FactoryPromptDigest(prompt)
+	carried, carriedErr := c.reviewCarriedFindings(ctx, p, cycle)
+	if carriedErr != nil {
+		publicationWait(report, p.ID, "required_carried_context_unavailable")
+		return nil, true
+	}
+	tuple := factory.CandidateTuple{Head: p.Candidate, Base: p.BaseSHA, DiffBase: p.CurrentDiffBase(), Revision: p.NativeRev}
+	if p.Tuple != nil {
+		tuple = *p.Tuple
+	}
+	plan.reviewContext = &factory.CurrentReviewContext{Publication: factory.CurrentPublicationContext{ID: p.ID, AssignmentID: p.AssignmentID, Revision: p.Revision, PRID: p.PRID, PRNumber: p.PRNumber, Stage: p.Stage}, AdmittedTuple: tuple, Cycle: cycle, CarriedFindings: carried}
 	// A phased corrector executes the controller-derived singleton plan,
 	// never a rebuilt or agent-selected one. An accepted-policy gap is a
 	// visible planning blocker; any other derivation failure refuses
@@ -947,8 +976,10 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 	authority := plan.effective.Authority
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
-		Authority: authority,
-		ID:        assignmentID, AttemptRoot: owner.AttemptRoot, PublicationAssignment: owner.ID,
+		AcceptedContext: plan.acceptedContext,
+		ReviewContext:   plan.reviewContext,
+		Authority:       authority,
+		ID:              assignmentID, AttemptRoot: owner.AttemptRoot, PublicationAssignment: owner.ID,
 		Subject: plan.subject, Phase: plan.phase, ParentAssignment: plan.parent,
 		ProjectID: owner.ProjectID, Role: role,
 		Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
@@ -1050,7 +1081,7 @@ func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner
 	if role == project.RoleReviewer {
 		phase = project.ExecutionReview
 	}
-	return factory.BuildDispatchPrompt(factory.PromptInputs{
+	inputs := factory.PromptInputs{
 		Project: plan.projectID, Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
 		Phase:        phase,
 		AcceptanceID: p.Acceptance, TargetBranch: plan.policy.TargetBranch,
@@ -1068,7 +1099,12 @@ func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
 		TypedReview: typedReview, TypedClear: typedClear, CheckAssessment: checks,
 		RepositoryContext: repositoryContext,
-	})
+	}
+	prompt, err := factory.BuildDispatchPrompt(inputs)
+	if err == nil {
+		plan.acceptedContext = factory.CaptureAcceptedContext(inputs)
+	}
+	return prompt, err
 }
 
 func (c *Coordinator) fenceChildPublication(ctx context.Context, p factory.Publication, report *PublishReport) {
