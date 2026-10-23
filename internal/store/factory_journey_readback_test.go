@@ -113,7 +113,7 @@ func TestJourneyReassignmentCyclesScopesPerIssue(t *testing.T) {
 	second := journeyCycleRecord(strings.Repeat("4", 32), strings.Repeat("d", 32), 7, 3, 3, factory.ReassessmentAttention)
 	insertJourneyCycle(t, raw, first)
 	insertJourneyCycle(t, raw, second)
-	// Terminal states are history, not work.
+	// The read includes terminal decision history without calling it work.
 	insertJourneyCycle(t, raw, journeyCycleRecord(strings.Repeat("5", 32), strings.Repeat("e", 32), 7, 3, 4, factory.ReassessmentReleased))
 	insertJourneyCycle(t, raw, journeyCycleRecord(strings.Repeat("6", 32), strings.Repeat("f", 32), 7, 3, 5, factory.ReassessmentSuperseded))
 
@@ -124,7 +124,8 @@ func TestJourneyReassignmentCyclesScopesPerIssue(t *testing.T) {
 	if truncated {
 		t.Fatalf("bounded read reported truncation: %+v", records)
 	}
-	if len(records) != 2 || records[0].Cycle.CycleID != first.Cycle.CycleID || records[1].Cycle.CycleID != second.Cycle.CycleID {
+	if len(records) != 4 || records[0].Cycle.CycleID != first.Cycle.CycleID || records[1].Cycle.CycleID != second.Cycle.CycleID ||
+		records[2].Cycle.State != factory.ReassessmentReleased || records[3].Cycle.State != factory.ReassessmentSuperseded {
 		t.Fatalf("per-issue cycles: %+v", records)
 	}
 	// The extra record past the render cap is the truncation signal.
@@ -132,7 +133,7 @@ func TestJourneyReassignmentCyclesScopesPerIssue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !truncated || len(records) != 1 || records[0].Cycle.CycleID != first.Cycle.CycleID {
+	if !truncated || len(records) != 1 || records[0].Cycle.CycleID != second.Cycle.CycleID {
 		t.Fatalf("truncation signal: truncated=%v %+v", truncated, records)
 	}
 	other, _, err := s.JourneyReassignmentCycles(ctx, 7, 888, 8)

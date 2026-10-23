@@ -72,6 +72,8 @@ export interface JourneyCorrection {
 }
 
 export interface JourneyJudgment {
+  readonly cycle_id?: string;
+  readonly cycle_state?: string;
   readonly kind: string;
   readonly selected: string;
   readonly wait: boolean;
@@ -207,10 +209,10 @@ function judgmentThreshold(kind: string, confidence: number, probability: number
   if (kind === 'reassessment-proposal') check(probability >= 0.8 && confidence >= 0.8);
 }
 
-function judgmentScores(kind: string, raw: Record<string, unknown>): {confidence?: number; probability?: number} {
+function judgmentScores(kind: string, raw: Record<string, unknown>, closed: boolean): {confidence?: number; probability?: number} {
   const confidence = raw.confidence === undefined ? undefined : fraction(raw.confidence);
   const probability = raw.probability === undefined ? undefined : fraction(raw.probability);
-  if (raw.wait !== true) judgmentThreshold(kind, confidence ?? 0, probability ?? 0);
+  if (raw.wait !== true && !closed) judgmentThreshold(kind, confidence ?? 0, probability ?? 0);
   return {
     ...(confidence === undefined ? {} : {confidence}),
     ...(probability === undefined ? {} : {probability}),
@@ -221,9 +223,17 @@ function journeyJudgment(value: unknown): JourneyJudgment {
   const raw = object(value);
   const kind = closedSet(raw.kind, judgmentKinds);
   const selected = judgmentChoice(kind, raw.selected);
-  const scores = judgmentScores(kind, raw);
+  const cycleID = optionalText(raw.cycle_id, 32), cycleState = optionalText(raw.cycle_state, 32);
+  check((cycleID === undefined) === (cycleState === undefined));
+  if (cycleID !== undefined) {
+    check(/^[a-f0-9]{32}$/.test(cycleID) && kind.startsWith('reassessment-'));
+    closedSet(cycleState, gateStates);
+  }
+  const closed = cycleState === 'superseded' || cycleState === 'released';
+  const scores = judgmentScores(kind, raw, closed);
   const model = optionalText(raw.model, 128);
   check(typeof raw.wait === 'boolean');
+  if (closed) check(raw.wait === false);
   const waitReason = optionalText(raw.wait_reason, 256);
   if (raw.wait === true) check(waitReason !== undefined);
   else check(waitReason === undefined);
@@ -231,6 +241,7 @@ function journeyJudgment(value: unknown): JourneyJudgment {
     kind,
     selected,
     wait: raw.wait as boolean,
+    ...(cycleID === undefined ? {} : {cycle_id: cycleID, cycle_state: cycleState!}),
     ...(model === undefined ? {} : {model}),
     ...scores,
     ...(waitReason === undefined ? {} : {wait_reason: waitReason}),
@@ -279,7 +290,7 @@ function gateVerdict(raw: Record<string, unknown>, state: string, retryable: boo
   const proposal = optionalText(raw.proposal, 32);
   if (proposal !== undefined) check(reassessProposals.includes(proposal));
   const waitReason = optionalText(raw.wait_reason, 256);
-  if (state === 'attention' || state === 'superseded') check(waitReason !== undefined);
+  if (state === 'attention') check(waitReason !== undefined);
   if (retryable) check(state === 'attention');
   return {
     ...(decision === undefined ? {} : {decision}),

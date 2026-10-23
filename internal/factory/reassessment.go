@@ -1220,7 +1220,7 @@ func (v ReassessmentView) Validate() error {
 			return errors.New("invalid reassessment view digest")
 		}
 	}
-	if v.WaitReason == "" && (v.State == ReassessmentAttention || (v.State == ReassessmentSuperseded)) {
+	if v.WaitReason == "" && v.State == ReassessmentAttention {
 		return errors.New("reassessment wait needs its reason")
 	}
 	if len(v.WaitReason) > MaxReassessmentReasonChars || strings.ContainsRune(v.WaitReason, 0) ||

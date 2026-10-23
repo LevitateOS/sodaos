@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -78,9 +79,11 @@ func (s *Store) LatestPhaseAttempts(ctx context.Context, repository, issue int64
 	return groups, false, nil
 }
 
-// JourneyReassignmentCycles returns up to limit unresolved reassessment
-// cycles naming one repository issue in stable generation order, oldest
-// first. Released and superseded cycles are history, not work. The
+// JourneyReassignmentCycles returns up to limit reassessment cycles for one
+// issue, including released and superseded decision history. Unresolved
+// cycles take precedence over recent history at the bound. The result has
+// stable generation/terminal-state/identity order, with current cycles last
+// within each generation; explicit cycle lineage remains authoritative. The
 // truncated flag reports whether more cycles name the issue than the
 // limit carries, so the caller marks its read incomplete instead of
 // rendering a cut set as the whole lineage. Rows that decode or validate
@@ -95,9 +98,9 @@ func (s *Store) JourneyReassignmentCycles(ctx context.Context, repository, issue
 	// out of the cast without failing the scoped read, and decoded
 	// records re-assert their scope below.
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_reassessments
-		WHERE repository=$1 AND state NOT IN ('released','superseded')
+		WHERE repository=$1
 		AND data->>'issue' ~ '^[0-9]+$' AND (data->>'issue')::bigint=$2
-		ORDER BY generation LIMIT $3`, repository, issue, limit+1)
+		ORDER BY (state NOT IN ('released','superseded')) DESC, generation DESC, cycle DESC LIMIT $3`, repository, issue, limit+1)
 	if err != nil {
 		return nil, false, err
 	}
@@ -123,10 +126,23 @@ func (s *Store) JourneyReassignmentCycles(ctx context.Context, repository, issue
 	if err = rows.Err(); err != nil {
 		return nil, false, err
 	}
-	if len(records) > limit {
-		return records[:limit], true, nil
+	truncated := len(records) > limit
+	if truncated {
+		records = records[:limit]
 	}
-	return records, false, nil
+	sort.Slice(records, func(i, j int) bool {
+		a, b := records[i].Cycle, records[j].Cycle
+		if a.Generation != b.Generation {
+			return a.Generation < b.Generation
+		}
+		aClosed := a.State == factory.ReassessmentReleased || a.State == factory.ReassessmentSuperseded
+		bClosed := b.State == factory.ReassessmentReleased || b.State == factory.ReassessmentSuperseded
+		if aClosed != bClosed {
+			return aClosed
+		}
+		return a.CycleID < b.CycleID
+	})
+	return records, truncated, nil
 }
 
 // journeyAdoptionLimit bounds one per-issue adoption listing; the

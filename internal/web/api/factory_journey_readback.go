@@ -215,7 +215,7 @@ func journeyDeliveryJudgment(acceptance factory.DeliveryAcceptance, receipts []f
 		}
 		answer := receipt.Decision.Answer
 		rendered, err := journeyJudgmentDTO(journeyJudgmentDelivery, answer.Selected, answer.Model,
-			answer.Confidence, answer.Probability, false, "")
+			answer.Confidence, answer.Probability, false, "", nil)
 		if err != nil {
 			return journeyJudgmentView{}, false
 		}
@@ -499,7 +499,7 @@ func (s *API) journeyCycleSections(ctx context.Context, view *factoryIssueJourne
 		}
 		wait := record.Cycle.State == factory.ReassessmentAttention
 		rendered, err := journeyJudgmentDTO(journeyJudgmentReassessDecision, answer.Selected, answer.Model,
-			answer.Confidence, probability, wait, record.WaitReason)
+			answer.Confidence, probability, wait, record.WaitReason, &record.Cycle)
 		if err != nil {
 			invalidJudgment = true
 			continue

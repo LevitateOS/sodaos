@@ -269,6 +269,8 @@ const (
 // the recorded choice, its uncertainty, and the bounded reason while it
 // waits. A non-waiting judgment carries no reason, never a guess.
 type journeyJudgmentView struct {
+	CycleID     string  `json:"cycle_id,omitempty"`
+	CycleState  string  `json:"cycle_state,omitempty"`
 	Selected    string  `json:"selected"`
 	Model       string  `json:"model,omitempty"`
 	WaitReason  string  `json:"wait_reason,omitempty"`
@@ -281,14 +283,15 @@ type journeyJudgmentView struct {
 // journeyJudgmentDTO validates one fixture judgment: a known kind, its
 // frozen choice vocabulary and actionable thresholds, and a required bounded
 // reason while it waits. Held judgments may carry scores below those thresholds.
-func journeyJudgmentDTO(kind, selected, model string, confidence, probability float64, wait bool, waitReason string) (journeyJudgmentView, error) {
+func journeyJudgmentDTO(kind, selected, model string, confidence, probability float64, wait bool, waitReason string, cycle *factory.ReassessmentCycle) (journeyJudgmentView, error) {
 	if err := validJourneyJudgmentChoice(kind, selected); err != nil {
 		return journeyJudgmentView{}, err
 	}
 	if model != "" && (len(model) > 128 || strings.ContainsFunc(model, func(r rune) bool { return r < ' ' || r == 0x7f })) {
 		return journeyJudgmentView{}, errors.New("journey judgment carries an invalid model")
 	}
-	if err := validJourneyScores(kind, confidence, probability, wait); err != nil {
+	closed := cycle != nil && (cycle.State == factory.ReassessmentSuperseded || cycle.State == factory.ReassessmentReleased)
+	if err := validJourneyScores(kind, confidence, probability, wait || closed); err != nil {
 		return journeyJudgmentView{}, err
 	}
 	if wait && (len(waitReason) == 0 || len(waitReason) > maxJourneyWaitChars || strings.TrimSpace(waitReason) == "") {
@@ -297,14 +300,21 @@ func journeyJudgmentDTO(kind, selected, model string, confidence, probability fl
 	if !wait && waitReason != "" {
 		return journeyJudgmentView{}, errors.New("journey judgment without a wait carries no reason")
 	}
-	return journeyJudgmentView{
+	view := journeyJudgmentView{
 		Selected: selected, Model: model,
 		WaitReason:  waitReason,
 		Kind:        kind,
 		Confidence:  confidence,
 		Probability: probability,
 		Wait:        wait,
-	}, nil
+	}
+	if cycle != nil {
+		if err := cycle.Validate(); err != nil || (kind != journeyJudgmentReassessDecision && kind != journeyJudgmentReassessProposal) || (closed && wait) {
+			return journeyJudgmentView{}, errors.New("journey judgment has invalid cycle context")
+		}
+		view.CycleID, view.CycleState = cycle.CycleID, cycle.State
+	}
+	return view, nil
 }
 
 func validJourneyJudgmentChoice(kind, selected string) error {

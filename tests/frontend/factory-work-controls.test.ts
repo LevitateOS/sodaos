@@ -213,10 +213,15 @@ const attentionIssueDetail = {
     findings: [],
     corrections: [],
     judgments: [{
+      kind: 'reassessment-decision', selected: 'continue', model: 'test-prior-low-confidence',
+      cycle_id: 'a'.repeat(32), cycle_state: 'superseded',
+      confidence: 0.28, probability: 0.9, wait: false,
+    }, {
       kind: 'reassessment-decision', selected: 'continue', model: 'test-low-confidence',
+      cycle_id: attentionCompletion.cycle_id, cycle_state: 'attention',
       confidence: 0.24, probability: 0.9, wait: true, wait_reason: 'decision_not_actionable',
     }],
-    gates: [attentionCompletion],
+    gates: [{...attentionCompletion, cycle_id: 'a'.repeat(32), state: 'superseded', retryable: false, wait_reason: ''}, attentionCompletion],
     adoptions: [],
   },
 };

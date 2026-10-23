@@ -70,6 +70,8 @@ const judgmentKindCopy: Record<string, string> = {
 export function describeJourneyJudgment(judgment: JourneyJudgment): string {
   const kind = judgmentKindCopy[judgment.kind] ?? 'Judgment';
   const choice = `${kind} selected ${judgment.selected}.`;
+  if (judgment.cycle_state === 'superseded') return `${choice} This recorded decision was superseded by an explicit retry; it is not a current wait.`;
+  if (judgment.cycle_state === 'released') return `${choice} This completion cycle was released.`;
   if (!judgment.wait) return `${choice} No wait recorded.`;
   return `${choice} Waiting: ${judgment.wait_reason}. This wait is not a confirmed new attempt.`;
 }

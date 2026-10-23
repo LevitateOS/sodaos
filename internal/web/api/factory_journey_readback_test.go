@@ -384,9 +384,17 @@ func seedJourneyPlan(t *testing.T, s *store.Store, root string) {
 // seedJourneyCycle records one decided reassessment cycle with its
 // funded decision receipt: the decision selects reassess at 0.87 under
 // the test model while the cycle waits for its coder run.
-func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID string, generation int64, waitReason string) {
+func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID string, generation int64, waitReason string, answers ...factory.PriorityAnswer) {
 	t.Helper()
 	ctx := context.Background()
+	answer := factory.PriorityAnswer{
+		Selected: factory.ReassessmentOptionReassess, Confidence: 0.87,
+		Probabilities: map[string]float64{factory.ReassessmentOptionReassess: 0.87, factory.ReassessmentOptionContinue: 0.13},
+		Model:         "test-reassessment-model",
+	}
+	if len(answers) == 1 {
+		answer = answers[0]
+	}
 	eventID := strings.Repeat("b", 32)
 	completion := factory.CompletionEvent{
 		ID: eventID, PublicationID: fmt.Sprintf("%032x", 7000+generation),
@@ -412,6 +420,9 @@ func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID 
 		WaitReason:      waitReason,
 	}
 	record.EvidenceFingerprint = control.SealEvidenceFingerprint(record.InventoryDigest, eventID, cycleID)
+	if !factory.ValidReassessmentDecision(answer.Selected, answer.Confidence) {
+		record.Cycle.Decision, record.WaitReason = "", "decision_not_actionable"
+	}
 	// The production receipt keys the complete decision state, purpose,
 	// rubric and options; the sealed evidence fingerprint is only one input.
 	fingerprint, err := control.DecisionFingerprintFromRecord(record)
@@ -430,12 +441,8 @@ func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID 
 		t.Fatalf("reserve judgment: %v %v", ok, err)
 	}
 	receipt := factory.PriorityReceipt{
-		Snapshot: fingerprint,
-		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{
-			Selected: factory.ReassessmentOptionReassess, Confidence: 0.87,
-			Probabilities: map[string]float64{factory.ReassessmentOptionReassess: 0.87, factory.ReassessmentOptionContinue: 0.13},
-			Model:         "test-reassessment-model",
-		}}},
+		Snapshot:    fingerprint,
+		Calls:       []factory.PriorityCall{{Answer: answer}},
 		CreatedUnix: 1700000000,
 	}
 	if err := fx.db.RecordPriorityJudgment(ctx, receipt); err != nil {
@@ -651,7 +658,7 @@ func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
 // with a newer child, publication with correction and journal,
 // admitted plan with receipts, and one decided reassessment cycle with
 // its funded receipt.
-func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptanceSource) (string, factory.Assignment, factory.Assignment) {
+func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptanceSource, answers ...factory.PriorityAnswer) (string, factory.Assignment, factory.Assignment) {
 	t.Helper()
 	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
 	fake.decision = journeyAcceptanceFor(acceptance)
@@ -661,14 +668,17 @@ func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptan
 	insertJourneyRow(t, fx.raw, child, factory.AssignmentFinished)
 	insertJourneyPublication(t, fx.raw, journeyPublicationFixture(root, factory.OpEffectCommitted, factory.FindingSeverityMajor))
 	seedJourneyPlan(t, fx.db, root.ID)
-	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder")
+	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder", answers...)
 	return acceptance, root, child
 }
 
 func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	fake := &journeyAcceptanceSource{}
 	fx, call := journeyMux(t, fake)
-	acceptance, root, child := seedRichJourney(t, fx, fake)
+	acceptance, root, child := seedRichJourney(t, fx, fake, factory.PriorityAnswer{
+		Selected: factory.ReassessmentOptionContinue, Confidence: 0.28, Model: "test-prior-low-confidence",
+		Probabilities: map[string]float64{factory.ReassessmentOptionContinue: 0.9, factory.ReassessmentOptionReassess: 0.1},
+	})
 
 	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
 	if code != http.StatusOK {
@@ -735,8 +745,8 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 		t.Fatalf("recorded findings: %+v", journey.Findings)
 	}
 	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision ||
-		journey.Judgments[0].Selected != factory.ReassessmentOptionReassess || !journey.Judgments[0].Wait ||
-		journey.Judgments[0].WaitReason != "awaiting_coder" || journey.Judgments[0].Probability != 0.87 {
+		journey.Judgments[0].Selected != factory.ReassessmentOptionContinue || !journey.Judgments[0].Wait ||
+		journey.Judgments[0].WaitReason != "decision_not_actionable" || journey.Judgments[0].Confidence != 0.28 || journey.Judgments[0].Probability != 0.9 {
 		t.Fatalf("recorded judgments: %+v", journey.Judgments)
 	}
 	if len(journey.Gates) != 1 || journey.Gates[0].CycleID != strings.Repeat("a", 32) ||
@@ -815,10 +825,14 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 			t.Fatalf("successor readback status=%d body=%s", code, body)
 		}
 		journey := journeyIssueView(t, body).Journey
-		if len(journey.Judgments) != 1 || journey.Judgments[0].Selected != factory.ReassessmentOptionContinue ||
-			journey.Judgments[0].Confidence != 0.24 || journey.Judgments[0].Probability != 0.9 ||
-			!journey.Judgments[0].Wait || journey.Judgments[0].WaitReason != "decision_not_actionable" ||
-			len(journey.Gates) != 1 || journey.Gates[0].CycleID != successorID || journey.Gates[0].State != factory.ReassessmentAttention {
+		if len(journey.Judgments) != 2 || journey.Judgments[0].CycleID != prior.Cycle.CycleID ||
+			journey.Judgments[0].CycleState != factory.ReassessmentSuperseded || journey.Judgments[0].Confidence != 0.28 ||
+			journey.Judgments[0].Wait || journey.Judgments[0].WaitReason != "" ||
+			journey.Judgments[1].CycleID != successorID || journey.Judgments[1].CycleState != factory.ReassessmentAttention ||
+			journey.Judgments[1].Selected != factory.ReassessmentOptionContinue || journey.Judgments[1].Confidence != 0.24 ||
+			journey.Judgments[1].Probability != 0.9 || !journey.Judgments[1].Wait || journey.Judgments[1].WaitReason != "decision_not_actionable" ||
+			len(journey.Gates) != 2 || journey.Gates[0].State != factory.ReassessmentSuperseded || journey.Gates[0].Retryable ||
+			journey.Gates[1].CycleID != successorID || journey.Gates[1].State != factory.ReassessmentAttention {
 			t.Fatalf("successor judgment lost its exact held receipt: %+v", journey)
 		}
 	}
