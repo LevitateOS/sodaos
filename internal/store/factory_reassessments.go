@@ -36,7 +36,7 @@ type ReassessmentRecord struct {
 	Cycle               factory.ReassessmentCycle         `json:"cycle"`
 	Completion          factory.CompletionEvent           `json:"completion,omitempty"`
 	Local               factory.CompletionLocal           `json:"local,omitempty"`
-	Evidence            []factory.CompletionIssueEvidence `json:"evidence,omitempty"`
+	Evidence            []factory.CompletionIssueEvidence `json:"evidence"`
 	InventoryDigest     string                            `json:"inventory_digest,omitempty"`
 	EvidenceFingerprint string                            `json:"evidence_fingerprint,omitempty"`
 	ProposalFingerprint string                            `json:"proposal_fingerprint,omitempty"`
@@ -121,7 +121,11 @@ func (r ReassessmentRecord) Validate() error {
 		return errors.New("invalid proposal evidence fingerprint")
 	}
 	if r.InventoryDigest != "" {
-		if r.Evidence == nil {
+		// A complete empty inventory was previously omitted by JSON's
+		// omitempty. Its recorded count, bracket and exact empty-set digest
+		// distinguish that representation from missing positive inventory.
+		if r.Evidence == nil && (r.EvidenceIssues != 0 || r.EvidenceRevision < 1 ||
+			r.InventoryDigest != factory.ReassessmentInventoryDigest(r.Cycle.Repository, r.Cycle.Generation, r.EvidenceRevision, [32]byte{}, nil)) {
 			return errors.New("sealed reassessment lacks its issue bodies")
 		}
 		if len(r.Evidence) != r.EvidenceIssues || len(r.Evidence) > factory.MaxReassessmentIssues {

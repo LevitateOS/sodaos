@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -79,7 +80,7 @@ func (f *continueChooser) Select(_ context.Context, state any, _ string, choices
 	if !ok {
 		return factory.PriorityAnswer{}, errReassessmentTestState
 	}
-	if len(decision.Evidence) == 0 || !decision.Local.Sealed() || decision.Completion.ID == "" {
+	if decision.Evidence == nil || decision.Issues != len(decision.Evidence) || !decision.Local.Sealed() || decision.Completion.ID == "" {
 		return factory.PriorityAnswer{}, errReassessmentTestBodiless
 	}
 	for _, body := range decision.Evidence {
@@ -198,6 +199,68 @@ func TestCompletionDriveReleasesContinuePG(t *testing.T) {
 	}
 	if !strings.Contains(string(receipt.Calls[0].Request.State), "title 2") {
 		t.Fatalf("receipt state=%s, want the retained issue bodies", receipt.Calls[0].Request.State)
+	}
+
+	// Closing the repository's last issue seals a complete empty set. Its
+	// persisted record must survive all readers and charge just one decision.
+	emptyFX, emptyChooser, emptyDeps := drivePGFixture(t)
+	emptyDB, emptyCoord := emptyFX.publish.db, emptyFX.publish.coord
+	emptyDeps.Enumerator = &fixtureEnumerator{revision: 41, idle: true,
+		pages: map[string]NativeInventoryPage{"": {Issues: []NativeInventoryIssue{}, Complete: true}}}
+	emptyID := pendingCycleID(t, emptyFX)
+	if got := emptyCoord.DriveCompletions(ctx, emptyDeps); len(got.Sealed) != 1 || got.Sealed[0] != emptyID {
+		t.Fatalf("empty inventory seal: %+v", got)
+	}
+	empty, err := emptyDB.ReassessmentRecord(ctx, emptyID)
+	if err != nil || empty.Evidence == nil || len(empty.Evidence) != 0 || empty.EvidenceIssues != 0 {
+		t.Fatalf("empty seal did not survive storage: %+v %v", empty, err)
+	}
+	raw, err := json.Marshal(empty)
+	if err != nil || !strings.Contains(string(raw), `"evidence":[]`) {
+		t.Fatalf("empty seal omitted its complete evidence list: %s %v", raw, err)
+	}
+	// A retained omitted/null list is the same complete empty inventory only
+	// under its exact recorded empty digest; losing a positive set still fails.
+	missing := sealed
+	missing.Evidence, missing.EvidenceIssues = nil, 0
+	if missing.Validate() == nil {
+		t.Fatal("missing positive inventory accepted as empty under its old digest")
+	}
+	if _, err := DecisionStateFromRecord(missing); err == nil {
+		t.Fatal("missing positive inventory admitted a funded decision")
+	}
+	empty.Evidence = nil
+	if err := emptyDB.CasReassessmentRecord(ctx, emptyID, factory.ReassessmentDeciding, empty); err != nil {
+		t.Fatalf("retained empty representation refused: %v", err)
+	}
+	journey, truncated, err := emptyDB.JourneyReassignmentCycles(ctx, emptyFX.publish.seed.repo, empty.Issue, 10)
+	if err != nil || truncated || len(journey) != 1 || journey[0].Cycle.CycleID != emptyID {
+		t.Fatalf("empty inventory broke issue journey: %+v %v %v", journey, truncated, err)
+	}
+	if got := emptyCoord.DriveCompletions(ctx, emptyDeps); len(got.Released) != 1 || got.Released[0] != emptyID {
+		t.Fatalf("empty inventory did not release: %+v", got)
+	}
+	emptyReleased, err := emptyDB.ReassessmentRecord(ctx, emptyID)
+	if err != nil || emptyReleased.Cycle.State != factory.ReassessmentReleased {
+		t.Fatalf("empty release not retained: %+v %v", emptyReleased, err)
+	}
+	emptyState, err := DecisionStateFromRecord(emptyReleased)
+	if err != nil || emptyState.Evidence == nil || len(emptyState.Evidence) != 0 {
+		t.Fatalf("empty decision lost its complete typed list: %+v %v", emptyState, err)
+	}
+	emptyReceipt, err := emptyDB.PriorityJudgment(ctx, fingerprintOf(emptyState))
+	if err != nil || len(emptyReceipt.Calls) != 1 {
+		t.Fatalf("empty decision receipt lost custody: %+v %v", emptyReceipt, err)
+	}
+	var recorded struct {
+		Evidence []json.RawMessage `json:"evidence"`
+	}
+	if err := json.Unmarshal(emptyReceipt.Calls[0].Request.State, &recorded); err != nil || recorded.Evidence == nil || len(recorded.Evidence) != 0 {
+		t.Fatalf("empty decision receipt did not retain the complete empty list: %v", err)
+	}
+	emptyCoord.DriveCompletions(ctx, emptyDeps)
+	if emptyChooser.calls != 1 {
+		t.Fatalf("empty inventory repeated its funded call: %d", emptyChooser.calls)
 	}
 }
 

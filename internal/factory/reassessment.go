@@ -15,11 +15,26 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
+
+// ReassessmentInventoryDigest binds the ordered issue indexes and folded
+// canonical body bytes to their repository, completion generation and native
+// revision. Storage uses the same primitive to recognize a sealed empty set.
+func ReassessmentInventoryDigest(repository, generation, revision int64, running [32]byte, indexes []int64) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%d\x00%d\x00%d\x00", repository, generation, revision)))
+	h.Write(running[:])
+	for _, index := range indexes {
+		h.Write([]byte(strconv.FormatInt(index, 10) + "\x00"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // D13 Jev purposes and options. The decision asks whether the delivered
 // change or current issue set warrants revising scope allocation,

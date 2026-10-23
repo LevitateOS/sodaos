@@ -3,9 +3,7 @@ package control
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -192,13 +190,7 @@ func foldInventoryPage(running [32]byte, repository, generation int64, issues []
 // sealInventoryDigest binds the sealed set: repository, generation,
 // bracket revision, ordered indexes and the folded evidence.
 func sealInventoryDigest(repository, generation, revision int64, running [32]byte, indexes []int64) string {
-	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%d\x00%d\x00%d\x00", repository, generation, revision)))
-	h.Write(running[:])
-	for _, index := range indexes {
-		h.Write([]byte(strconv.FormatInt(index, 10) + "\x00"))
-	}
-	return hex.EncodeToString(h.Sum(nil))
+	return factory.ReassessmentInventoryDigest(repository, generation, revision, running, indexes)
 }
 
 // Collect advances one bounded collection: it brackets an idle native

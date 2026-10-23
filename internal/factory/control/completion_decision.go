@@ -60,7 +60,7 @@ func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecis
 	if !factory.ValidDigest(record.InventoryDigest) || !factory.ValidDigest(record.EvidenceFingerprint) {
 		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed evidence")
 	}
-	if record.Evidence == nil {
+	if record.Evidence == nil && record.EvidenceIssues != 0 {
 		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed bodies")
 	}
 	if len(record.Evidence) != record.EvidenceIssues {
@@ -91,7 +91,8 @@ func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecis
 		return ReassessmentDecisionState{}, errors.New("reassessment decision bodies differ from their sealed digest")
 	}
 	state := ReassessmentDecisionState{
-		Completion: record.Completion, Local: record.Local, Evidence: record.Evidence,
+		Completion: record.Completion, Local: record.Local,
+		Evidence:     append([]factory.CompletionIssueEvidence{}, record.Evidence...),
 		CompletionID: record.Cycle.EventID, CycleID: record.Cycle.CycleID,
 		InventoryDigest: record.InventoryDigest, EvidenceFingerprint: record.EvidenceFingerprint,
 		Repository: record.Cycle.Repository, Generation: record.Cycle.Generation,
