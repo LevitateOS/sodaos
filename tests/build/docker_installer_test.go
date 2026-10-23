@@ -127,10 +127,12 @@ case ${0##*/} in
         [[ ${FIXTURE_MISSING_VOLUME:-} != all && ${FIXTURE_MISSING_VOLUME:-} != "${3#sodaos_}" ]] || exit 1
         jq -n --arg volume "${3#sodaos_}" --arg project "${FIXTURE_VOLUME_OWNER:-sodaos}" '[{Labels:{"com.docker.compose.project":$project,"com.docker.compose.volume":$volume}}]' ;;
       'container inspect retained')
-        jq --arg image "${FIXTURE_CONTAINER_IMAGE:-}" '[{
+        jq --arg image "${FIXTURE_CONTAINER_IMAGE:-}" --arg identity "${FIXTURE_IMAGE_IDENTITY:-config}" --arg descriptor "${FIXTURE_DESCRIPTOR_DIGEST:-}" '[{
           Config:{Image:(if $image == "" then "ghcr.io/levitateos/sodaos@" + .Image.Manifest else $image end),
             Labels:{"com.docker.compose.project":"sodaos","com.docker.compose.service":"soda"}},
-          Image:.Image.Config, HostConfig:{Privileged:true,NetworkMode:"host"},
+          Image:(if $identity == "manifest" then .Image.Manifest else .Image.Config end),
+          ImageManifestDescriptor:(if $identity == "manifest" then {digest:(if $descriptor == "" then .Image.Manifest else $descriptor end)} else null end),
+          HostConfig:{Privileged:true,NetworkMode:"host"},
           Mounts:[{Type:"volume",Name:"sodaos_config",Destination:"/etc"},
             {Type:"volume",Name:"sodaos_home",Destination:"/home"},{Type:"volume",Name:"sodaos_state",Destination:"/var"}]
         }]' "$root/docker.json" ;;
@@ -138,7 +140,7 @@ case ${0##*/} in
       'pull --platform linux/amd64 ghcr.io/levitateos/sodaos@sha256:'*)
         [[ $anonymous == true && ${FIXTURE_PULL_FAILURE:-} != true ]] ;;
       'image inspect '*)
-        jq '[{Id: .Image.Config, Os: "linux", Architecture: "amd64", RepoDigests: [("ghcr.io/levitateos/sodaos@" + .Image.Manifest)], Config: {Labels: {"org.opencontainers.image.revision": .SodaRevision}}}]' "$root/docker.json" ;;
+        jq --arg identity "${FIXTURE_IMAGE_IDENTITY:-config}" --arg descriptor "${FIXTURE_DESCRIPTOR_DIGEST:-}" '[{Id: (if $identity == "manifest" then .Image.Manifest else .Image.Config end), Descriptor: (if $identity == "manifest" then {digest:(if $descriptor == "" then .Image.Manifest else $descriptor end)} else null end), Os: "linux", Architecture: "amd64", RepoDigests: [("ghcr.io/levitateos/sodaos@" + .Image.Manifest)], Config: {Labels: {"org.opencontainers.image.revision": .SodaRevision}}}]' "$root/docker.json" ;;
       compose*)
         case " $* " in
           *' config --quiet '*) [[ ${FIXTURE_BAD_COMPOSE:-} != true ]] ;;
@@ -329,44 +331,49 @@ func TestDockerInstallerRejectsUnsupportedHosts(t *testing.T) {
 }
 
 func TestDockerInstallerStreamedRerunPreservesIdentityAndRefusesUpgrade(t *testing.T) {
-	f := newDockerInstallerFixture(t)
-	script := f.script(t)
-	var retained os.FileInfo
-	for attempt := 0; attempt < 2; attempt++ {
-		result := f.run(t, script)
-		if result.Code != 0 {
+	for _, identity := range []string{"config", "manifest"} {
+		t.Run(identity, func(t *testing.T) {
+			f := newDockerInstallerFixture(t)
+			f.env = SetEnv(f.env, "FIXTURE_IMAGE_IDENTITY", identity)
+			script := f.script(t)
+			var retained os.FileInfo
+			for attempt := 0; attempt < 2; attempt++ {
+				result := f.run(t, script)
+				if result.Code != 0 {
+					log, err := os.ReadFile(f.log)
+					t.Logf("Docker observations: %s (read error: %v)", log, err)
+				}
+				Require(t, result.Code == 0, "streamed install attempt %d: %s\n%s", attempt+1, result.Stdout, result.Stderr)
+				Check(t, strings.Contains(result.Stdout, "Browser setup is pending"), "unattended install must report pending browser setup")
+				identity, err := os.Stat(filepath.Join(f.install, "identity.json"))
+				Require(t, err == nil, "read identity stat: %v", err)
+				if retained != nil {
+					Check(t, os.SameFile(identity, retained) && identity.ModTime() == retained.ModTime(), "rerun replaced or rewrote retained identity")
+				}
+				retained = identity
+				files := map[string]string{".env": "SODA_IMAGE=ghcr.io/levitateos/sodaos@" + dockerInstallerManifest + "\nSODA_PROJECT_SUBNET=10.89.0.0/24\n", "compose.yaml": ReadFile(t, "system/docker/compose.yaml")}
+				for name, expected := range files {
+					path := filepath.Join(f.install, name)
+					data, err := os.ReadFile(path)
+					Require(t, err == nil && string(data) == expected, "retained %s differs: %v", name, err)
+					info, err := os.Stat(path)
+					Check(t, err == nil && info.Mode().Perm() == 0o600, "%s is not private", name)
+				}
+			}
+			identity, err := os.ReadFile(filepath.Join(f.install, "identity.json"))
+			Require(t, err == nil, "read identity: %v", err)
+			WriteFile(t, f.log, nil, 0o600)
+			f.metadata["ReleaseTag"] = "v0.3.0-docker-fixture"
+			f.writeMetadata(t)
+			f.writeRelease(t, false, true)
+			result := f.run(t, f.script(t))
+			Require(t, result.Code != 0 && strings.Contains(result.Stderr, "Cross-version upgrades"), "changed release was not refused: %+v", result)
+			after, err := os.ReadFile(filepath.Join(f.install, "identity.json"))
+			Check(t, err == nil && string(after) == string(identity), "changed release altered retained identity")
 			log, err := os.ReadFile(f.log)
-			t.Logf("Docker observations: %s (read error: %v)", log, err)
-		}
-		Require(t, result.Code == 0, "streamed install attempt %d: %s\n%s", attempt+1, result.Stdout, result.Stderr)
-		Check(t, strings.Contains(result.Stdout, "Browser setup is pending"), "unattended install must report pending browser setup")
-		identity, err := os.Stat(filepath.Join(f.install, "identity.json"))
-		Require(t, err == nil, "read identity stat: %v", err)
-		if retained != nil {
-			Check(t, os.SameFile(identity, retained) && identity.ModTime() == retained.ModTime(), "rerun replaced or rewrote retained identity")
-		}
-		retained = identity
-		files := map[string]string{".env": "SODA_IMAGE=ghcr.io/levitateos/sodaos@" + dockerInstallerManifest + "\nSODA_PROJECT_SUBNET=10.89.0.0/24\n", "compose.yaml": ReadFile(t, "system/docker/compose.yaml")}
-		for name, expected := range files {
-			path := filepath.Join(f.install, name)
-			data, err := os.ReadFile(path)
-			Require(t, err == nil && string(data) == expected, "retained %s differs: %v", name, err)
-			info, err := os.Stat(path)
-			Check(t, err == nil && info.Mode().Perm() == 0o600, "%s is not private", name)
-		}
+			Check(t, err == nil && !strings.Contains(string(log), " pull") && !strings.Contains(string(log), " up"), "changed release mutated Docker: %s", log)
+		})
 	}
-	identity, err := os.ReadFile(filepath.Join(f.install, "identity.json"))
-	Require(t, err == nil, "read identity: %v", err)
-	WriteFile(t, f.log, nil, 0o600)
-	f.metadata["ReleaseTag"] = "v0.3.0-docker-fixture"
-	f.writeMetadata(t)
-	f.writeRelease(t, false, true)
-	result := f.run(t, f.script(t))
-	Require(t, result.Code != 0 && strings.Contains(result.Stderr, "Cross-version upgrades"), "changed release was not refused: %+v", result)
-	after, err := os.ReadFile(filepath.Join(f.install, "identity.json"))
-	Check(t, err == nil && string(after) == string(identity), "changed release altered retained identity")
-	log, err := os.ReadFile(f.log)
-	Check(t, err == nil && !strings.Contains(string(log), " pull") && !strings.Contains(string(log), " up"), "changed release mutated Docker: %s", log)
 }
 
 func TestDockerInstallerRejectsReservedNetworks(t *testing.T) {
@@ -381,19 +388,23 @@ func TestDockerInstallerRejectsReservedNetworks(t *testing.T) {
 }
 
 func TestDockerInstallerRefusesChangedRuntimeBeforeMutation(t *testing.T) {
-	for _, fault := range []string{"image", "volume-owner", "partial-volumes", "lost-volumes"} {
+	for _, fault := range []string{"image", "manifest-descriptor", "volume-owner", "partial-volumes", "lost-volumes"} {
 		t.Run(fault, func(t *testing.T) {
 			f := newDockerInstallerFixture(t)
+			if fault == "manifest-descriptor" {
+				f.env = SetEnv(f.env, "FIXTURE_IMAGE_IDENTITY", "manifest")
+			}
 			script := f.script(t)
 			result := f.run(t, script)
 			Require(t, result.Code == 0, "fresh installation: %s", result.Stderr)
 			identity, err := os.ReadFile(filepath.Join(f.install, "identity.json"))
 			Require(t, err == nil, "read identity: %v", err)
 			settings := map[string][3]string{
-				"image":           {"FIXTURE_CONTAINER_IMAGE", "foreign", "Retained"},
-				"volume-owner":    {"FIXTURE_VOLUME_OWNER", "foreign", "Retained"},
-				"partial-volumes": {"FIXTURE_MISSING_VOLUME", "state", "missing"},
-				"lost-volumes":    {"FIXTURE_MISSING_VOLUME", "all", "missing"},
+				"image":               {"FIXTURE_CONTAINER_IMAGE", "foreign", "Retained"},
+				"manifest-descriptor": {"FIXTURE_DESCRIPTOR_DIGEST", "sha256:" + strings.Repeat("e", 64), "Retained"},
+				"volume-owner":        {"FIXTURE_VOLUME_OWNER", "foreign", "Retained"},
+				"partial-volumes":     {"FIXTURE_MISSING_VOLUME", "state", "missing"},
+				"lost-volumes":        {"FIXTURE_MISSING_VOLUME", "all", "missing"},
 			}[fault]
 			f.env = SetEnv(f.env, settings[0], settings[1])
 			WriteFile(t, f.log, nil, 0o600)

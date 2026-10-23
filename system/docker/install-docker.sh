@@ -106,8 +106,10 @@ check_runtime_identity() {
   while IFS= read -r id; do
     [[ -n $id ]] || continue
     docker_cmd container inspect "$id" > "$scratch/container.json"
-    jq -e --arg image "$image" --arg config "$config" '
-      length == 1 and .[0].Config.Image == $image and .[0].Image == $config and
+    jq -e --arg image "$image" --arg config "$config" --arg manifest "${image##*@}" '
+      length == 1 and .[0].Config.Image == $image and
+      (.[0].Image == $config or
+        (.[0].Image == $manifest and .[0].ImageManifestDescriptor.digest == $manifest)) and
       .[0].Config.Labels["com.docker.compose.project"] == "sodaos" and
       .[0].Config.Labels["com.docker.compose.service"] == "soda" and
       .[0].HostConfig.Privileged == true and .[0].HostConfig.NetworkMode == "host" and
@@ -343,8 +345,13 @@ main() {
   # or creating any runtime volumes. It may populate Docker's image cache.
   docker_cmd pull --platform linux/amd64 "$image"
   docker_cmd image inspect "$image" > "$scratch/image.json"
-  jq -e --arg config "$config" --arg image "$image" --arg revision "$source_revision" '
-    length == 1 and .[0].Id == $config and .[0].Os == "linux" and .[0].Architecture == "amd64" and
+  # Docker storage backends expose either the configuration or OCI manifest as
+  # the image ID. A manifest ID must carry its matching content descriptor;
+  # both forms still require the exact anonymously pulled digest reference.
+  jq -e --arg config "$config" --arg image "$image" --arg manifest "${image##*@}" --arg revision "$source_revision" '
+    length == 1 and
+    (.[0].Id == $config or (.[0].Id == $manifest and .[0].Descriptor.digest == $manifest)) and
+    .[0].Os == "linux" and .[0].Architecture == "amd64" and
     (.[0].RepoDigests | index($image) != null) and .[0].Config.Labels["org.opencontainers.image.revision"] == $revision
   ' "$scratch/image.json" >/dev/null || fail 'Pulled image identity differs from release metadata; runtime was not started.'
   if [[ $existing == false ]]; then
