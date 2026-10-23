@@ -156,6 +156,43 @@ fn rotate_fixture_authority(
     Ok(())
 }
 
+fn fixture_authority_present() -> Result<bool, Exit> {
+    // The authority directory is private to the worker, so the operator's
+    // metadata() cannot distinguish an existing key from an inaccessible path.
+    // Read only privileged file types, without following links or key contents.
+    let observed = capture(
+        "sudo",
+        &[
+            "find",
+            "-P",
+            AUTHORITY,
+            "-maxdepth",
+            "1",
+            "(",
+            "-path",
+            AUTHORITY,
+            "-o",
+            "-name",
+            "artifact.private",
+            ")",
+            "-printf",
+            "%d:%y\n",
+        ],
+        false,
+    );
+    match observed {
+        Captured::Done(0, out) if out == b"0:d\n" => Ok(false),
+        Captured::Done(0, out) if out == b"0:d\n1:f\n" => Ok(true),
+        Captured::Done(0, _) => Err(Exit::Fail(
+            "fixture authority must be a real directory with an absent or regular private key"
+                .to_owned(),
+        )),
+        _ => Err(Exit::Fail(
+            "cannot inspect protected fixture authority; refusing to replace it".to_owned(),
+        )),
+    }
+}
+
 /// Worker git exception, restricted worker config and the
 /// fixture-only media authority (never release keys).
 pub(super) fn admit_fixture_authority(
@@ -183,7 +220,7 @@ pub(super) fn admit_fixture_authority(
     let artifact_path = format!("{AUTHORITY}/artifact.private");
     let passphrase_path = format!("{AUTHORITY}/passphrase");
     let config_path = format!("{AUTHORITY}/config.json");
-    if is_file(&artifact_path) && refresh != "1" {
+    if fixture_authority_present()? && refresh != "1" {
         println!("-- fixture authority already exists; keeping it (SODA_REFRESH_AUTHORITY=1 to regenerate)");
     } else {
         rotate_fixture_authority(prefix, storage, cleanup)?;
