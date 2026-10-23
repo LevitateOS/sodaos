@@ -210,7 +210,7 @@ function judgmentThreshold(kind: string, confidence: number, probability: number
 function judgmentScores(kind: string, raw: Record<string, unknown>): {confidence?: number; probability?: number} {
   const confidence = raw.confidence === undefined ? undefined : fraction(raw.confidence);
   const probability = raw.probability === undefined ? undefined : fraction(raw.probability);
-  judgmentThreshold(kind, confidence ?? 0, probability ?? 0);
+  if (raw.wait !== true) judgmentThreshold(kind, confidence ?? 0, probability ?? 0);
   return {
     ...(confidence === undefined ? {} : {confidence}),
     ...(probability === undefined ? {} : {probability}),

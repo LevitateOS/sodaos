@@ -302,3 +302,19 @@ func fingerprintOf(state ReassessmentDecisionState) string {
 	}
 	return fingerprint
 }
+
+// DecisionFingerprintFromRecord identifies the funded decision receipt for a
+// sealed cycle. Readback uses the same complete state, purpose, rubric and
+// options as DecideReassessment; the evidence seal alone is not its cache key.
+// Reconstructing this identity never reserves funding or consults a provider.
+func DecisionFingerprintFromRecord(record store.ReassessmentRecord) (string, error) {
+	state, err := DecisionStateFromRecord(record)
+	if err != nil {
+		return "", err
+	}
+	fingerprint := fingerprintOf(state)
+	if fingerprint == "" {
+		return "", errors.New("reassessment decision fingerprint unavailable")
+	}
+	return fingerprint, nil
+}

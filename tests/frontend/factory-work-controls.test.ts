@@ -212,7 +212,10 @@ const attentionIssueDetail = {
     commits: [],
     findings: [],
     corrections: [],
-    judgments: [],
+    judgments: [{
+      kind: 'reassessment-decision', selected: 'continue', model: 'test-low-confidence',
+      confidence: 0.24, probability: 0.9, wait: true, wait_reason: 'decision_not_actionable',
+    }],
     gates: [attentionCompletion],
     adoptions: [],
   },

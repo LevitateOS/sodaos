@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -475,7 +476,12 @@ func (s *API) journeyCycleSections(ctx context.Context, view *factoryIssueJourne
 		if record.EvidenceFingerprint == "" {
 			continue
 		}
-		receipt, err := s.Store.PriorityJudgment(ctx, record.EvidenceFingerprint)
+		fingerprint, err := control.DecisionFingerprintFromRecord(record)
+		if err != nil {
+			invalidJudgment = true
+			continue
+		}
+		receipt, err := s.Store.PriorityJudgment(ctx, fingerprint)
 		if err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				continue

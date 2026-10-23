@@ -279,8 +279,8 @@ type journeyJudgmentView struct {
 }
 
 // journeyJudgmentDTO validates one fixture judgment: a known kind, its
-// frozen choice vocabulary and thresholds, and a required bounded
-// reason while it waits.
+// frozen choice vocabulary and actionable thresholds, and a required bounded
+// reason while it waits. Held judgments may carry scores below those thresholds.
 func journeyJudgmentDTO(kind, selected, model string, confidence, probability float64, wait bool, waitReason string) (journeyJudgmentView, error) {
 	if err := validJourneyJudgmentChoice(kind, selected); err != nil {
 		return journeyJudgmentView{}, err
@@ -288,7 +288,7 @@ func journeyJudgmentDTO(kind, selected, model string, confidence, probability fl
 	if model != "" && (len(model) > 128 || strings.ContainsFunc(model, func(r rune) bool { return r < ' ' || r == 0x7f })) {
 		return journeyJudgmentView{}, errors.New("journey judgment carries an invalid model")
 	}
-	if err := validJourneyScores(kind, confidence, probability); err != nil {
+	if err := validJourneyScores(kind, confidence, probability, wait); err != nil {
 		return journeyJudgmentView{}, err
 	}
 	if wait && (len(waitReason) == 0 || len(waitReason) > maxJourneyWaitChars || strings.TrimSpace(waitReason) == "") {
@@ -340,11 +340,14 @@ func validJourneyJudgmentChoice(kind, selected string) error {
 	}
 }
 
-func validJourneyScores(kind string, confidence, probability float64) error {
+func validJourneyScores(kind string, confidence, probability float64, wait bool) error {
 	for _, score := range []float64{confidence, probability} {
 		if score < 0 || score > 1 {
 			return errors.New("journey judgment score is outside its distribution")
 		}
+	}
+	if wait {
+		return nil
 	}
 	switch kind {
 	case journeyJudgmentReassessDecision:

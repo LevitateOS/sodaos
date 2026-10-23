@@ -384,7 +384,7 @@ func seedJourneyPlan(t *testing.T, s *store.Store, root string) {
 // seedJourneyCycle records one decided reassessment cycle with its
 // funded decision receipt: the decision selects reassess at 0.87 under
 // the test model while the cycle waits for its coder run.
-func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID string, generation int64, waitReason, fingerprint string) {
+func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID string, generation int64, waitReason string) {
 	t.Helper()
 	ctx := context.Background()
 	eventID := strings.Repeat("b", 32)
@@ -406,10 +406,17 @@ func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID 
 			State: factory.ReassessmentAttention, Decision: factory.ReassessmentOptionReassess,
 			Repository: journeyRepo, Generation: generation,
 		},
-		Completion:          completion,
-		Issue:               journeyIssue,
-		EvidenceFingerprint: fingerprint,
-		WaitReason:          waitReason,
+		Completion: completion, Local: completionTestLocal(), Issue: journeyIssue,
+		Evidence: []factory.CompletionIssueEvidence{}, EvidenceRevision: 41,
+		InventoryDigest: factory.ReassessmentInventoryDigest(journeyRepo, generation, 41, [32]byte{}, nil),
+		WaitReason:      waitReason,
+	}
+	record.EvidenceFingerprint = control.SealEvidenceFingerprint(record.InventoryDigest, eventID, cycleID)
+	// The production receipt keys the complete decision state, purpose,
+	// rubric and options; the sealed evidence fingerprint is only one input.
+	fingerprint, err := control.DecisionFingerprintFromRecord(record)
+	if err != nil || fingerprint == record.EvidenceFingerprint {
+		t.Fatal("decision receipt must have its own canonical fingerprint", err)
 	}
 	data, err := json.Marshal(record)
 	if err != nil {
@@ -551,7 +558,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	// result; fresh admission through the coordinator is covered by the real
 	// PG settled-completion integration.
 	priorCycle := factory.NewID()
-	seedJourneyCycle(t, fx, "daaaaaaaaaaaaaaaaaaaaaaa3", priorCycle, 1, "decision_not_actionable", strings.Repeat("6", 64))
+	seedJourneyCycle(t, fx, "daaaaaaaaaaaaaaaaaaaaaaa3", priorCycle, 1, "decision_not_actionable")
 	completion := factory.CompletionRetryRequest{EventID: strings.Repeat("b", 32), ExpectedPriorCycle: priorCycle}
 	completionCommand := factory.Command{ID: factory.NewID(), Type: factory.CommandCompletionRetry, Principal: "native:1", Target: "repository/7/completion/" + completion.EventID}
 	completionPayload, _ := json.Marshal(completion)
@@ -654,7 +661,7 @@ func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptan
 	insertJourneyRow(t, fx.raw, child, factory.AssignmentFinished)
 	insertJourneyPublication(t, fx.raw, journeyPublicationFixture(root, factory.OpEffectCommitted, factory.FindingSeverityMajor))
 	seedJourneyPlan(t, fx.db, root.ID)
-	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder", strings.Repeat("b", 64))
+	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder")
 	return acceptance, root, child
 }
 
@@ -742,6 +749,86 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	// The top-level attempt/publication read the same lineage.
 	if view.Attempt == nil || view.Attempt.ID != root.ID || view.Publication == nil || view.Publication.Candidate != journeyCandidate {
 		t.Fatalf("top-level lineage drift: %+v", body)
+	}
+
+	// An explicit successor keeps the original receipt while the current
+	// read renders its own low-confidence answer without treating continue
+	// as permission to release. The cached decision path must spend nothing.
+	ctx := context.Background()
+	prior, err := fx.db.ReassessmentRecord(ctx, strings.Repeat("a", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	successorID := factory.NewID()
+	if _, err := fx.db.StartReassessmentRetry(ctx, factory.ReassessmentRetry{
+		EventID: prior.Cycle.EventID, ExpectedPriorCycle: prior.Cycle.CycleID,
+		CommandID: successorID, SuccessorCycleID: successorID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	next, err := fx.db.ReassessmentRecord(ctx, successorID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next.Local, next.Evidence = prior.Local, prior.Evidence
+	next.InventoryDigest, next.EvidenceRevision = prior.InventoryDigest, prior.EvidenceRevision
+	next.EvidenceIssues = prior.EvidenceIssues
+	next.EvidenceFingerprint = control.SealEvidenceFingerprint(next.InventoryDigest, next.Cycle.EventID, successorID)
+	next.Cycle.State = factory.ReassessmentDeciding
+	if err := fx.db.CasReassessmentRecord(ctx, successorID, factory.ReassessmentCollecting, next); err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := control.DecisionFingerprintFromRecord(next)
+	if err != nil || fingerprint == next.EvidenceFingerprint {
+		t.Fatal("successor decision lost its distinct full-state identity", err)
+	}
+	if reserved, err := fx.db.ReserveReassessmentCall(ctx, successorID, factory.ReassessmentDeciding,
+		factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || !reserved {
+		t.Fatalf("reserve successor decision: %v %v", reserved, err)
+	}
+	if err := fx.db.RecordPriorityJudgment(ctx, factory.PriorityReceipt{
+		Snapshot: fingerprint, Purpose: factory.JudgmentPurpose(factory.ReassessmentDecisionPurpose),
+		Outcome: control.ReassessmentDecisionOutcome, CreatedUnix: 1700000001,
+		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{
+			Selected: factory.ReassessmentOptionContinue, Confidence: 0.24, Model: "test-low-confidence",
+			Probabilities: map[string]float64{factory.ReassessmentOptionContinue: 0.9, factory.ReassessmentOptionReassess: 0.1},
+		}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := control.DecisionStateFromRecord(next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coord := &control.Coordinator{Store: fx.db, Planning: &control.PlanningJudgments{Chooser: q05RefusingChooser{}}}
+	held, decisionErr := coord.DecideReassessment(ctx, next, state)
+	if decisionErr == nil || held.WaitReason != "decision_not_actionable" || held.Cycle.Decision != "" {
+		t.Fatalf("cached low-confidence continue became actionable: %+v %v", held.Cycle, decisionErr)
+	}
+	held.Cycle.State = factory.ReassessmentAttention
+	if err := fx.db.CasReassessmentRecord(ctx, successorID, factory.ReassessmentDeciding, held); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+		if code != http.StatusOK {
+			t.Fatalf("successor readback status=%d body=%s", code, body)
+		}
+		journey := journeyIssueView(t, body).Journey
+		if len(journey.Judgments) != 1 || journey.Judgments[0].Selected != factory.ReassessmentOptionContinue ||
+			journey.Judgments[0].Confidence != 0.24 || journey.Judgments[0].Probability != 0.9 ||
+			!journey.Judgments[0].Wait || journey.Judgments[0].WaitReason != "decision_not_actionable" ||
+			len(journey.Gates) != 1 || journey.Gates[0].CycleID != successorID || journey.Gates[0].State != factory.ReassessmentAttention {
+			t.Fatalf("successor judgment lost its exact held receipt: %+v", journey)
+		}
+	}
+	var receipts int
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&receipts); err != nil || receipts != 2 {
+		t.Fatalf("readback changed retained decision receipts: %d %v", receipts, err)
+	}
+	retained, err := fx.db.ReassessmentRecord(ctx, successorID)
+	if err != nil || len(retained.Cycle.Ledger.DecisionCalls) != 1 || retained.Cycle.State != factory.ReassessmentAttention {
+		t.Fatalf("readback changed successor allowance/state: %+v %v", retained.Cycle, err)
 	}
 }
 
@@ -1389,7 +1476,7 @@ func seedJourneyWithDelivery(t *testing.T, fx *journeyHTTPFixture, fake *journey
 	publication.DeliveryAcceptances = []factory.DeliveryAcceptance{journeyDeliveryAcceptanceFixture(root, kind)}
 	insertJourneyPublication(t, fx.raw, publication)
 	seedJourneyPlan(t, fx.db, root.ID)
-	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder", strings.Repeat("b", 64))
+	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder")
 	intent, revision := seedJourneyAdoption(t, fx.db, acceptance)
 	if withReceipt {
 		seedJourneyDeliveryReceipt(t, fx, root)
