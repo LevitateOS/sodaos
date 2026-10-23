@@ -1,6 +1,7 @@
 import {LitElement, html} from 'lit';
 import './sodaspaces-factory-acceptance.js';
 import './sodaspaces-factory-context-resolution.js';
+import './sodaspaces-factory-completion-retry.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {id, projectId, readSodaJSON} from './sodaspaces-api.js';
 import {decisionID, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
@@ -1284,6 +1285,10 @@ export class SodaFactoryWorkDetail extends LitElement {
         .context=${{transport: context.transport, repository: context.repository, repositoryPath: context.repositoryPath, issue: context.issue}}
         @soda-factory-requirements-accepted=${() => this.load()}
       ></soda-factory-requirements-acceptance>
+      <soda-factory-completion-retry
+        .context=${{transport: context.transport, repository: context.repository, issue: context.issue}}
+        @soda-completion-retry-queued=${() => this.load()}
+      ></soda-factory-completion-retry>
       ${this.watchNote() ? html`<p>${this.watchNote()}</p>` : ''}
       <ul>
         ${this.runs.map(

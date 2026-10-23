@@ -689,17 +689,34 @@ func (s *Store) StartReassessmentRetry(ctx context.Context, retry factory.Reasse
 		return "", err
 	}
 	defer func() { _ = tx.Rollback() }()
+	successor, err := startReassessmentRetryTx(ctx, tx, retry, 0)
+	if err != nil {
+		return "", err
+	}
+	return successor, tx.Commit()
+}
+
+func startReassessmentRetryTx(ctx context.Context, tx *sql.Tx, retry factory.ReassessmentRetry, repository int64) (string, error) {
 	var raw []byte
 	var state string
-	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, retry.ExpectedPriorCycle).Scan(&state, &raw); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, retry.ExpectedPriorCycle).Scan(&state, &raw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
 		return "", err
 	}
 	var prior ReassessmentRecord
-	if err = json.Unmarshal(raw, &prior); err != nil {
+	if err := json.Unmarshal(raw, &prior); err != nil {
 		return "", err
+	}
+	if err := prior.Validate(); err != nil {
+		return "", err
+	}
+	if repository > 0 && prior.Cycle.Repository != repository {
+		return "", ErrCompletionRetryIneligible
+	}
+	if prior.Cycle.EventID != retry.EventID {
+		return "", ErrCompletionRetryIneligible
 	}
 	if state == factory.ReassessmentSuperseded {
 		if prior.Cycle.Successor == "" || prior.Cycle.Successor != retry.SuccessorCycleID {
@@ -746,5 +763,5 @@ func (s *Store) StartReassessmentRetry(ctx context.Context, retry factory.Reasse
 		successor.EventID, successor.State, string(successorData)); err != nil {
 		return "", err
 	}
-	return successor.CycleID, tx.Commit()
+	return successor.CycleID, nil
 }

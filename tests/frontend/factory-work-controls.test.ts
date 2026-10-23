@@ -31,6 +31,8 @@ interface StubRoute {
   readonly json: unknown;
   readonly echoCommand?: boolean;
   readonly echoAcceptance?: boolean;
+  readonly loseReply?: boolean;
+  readonly receiptPending?: boolean;
 }
 interface WorkCall {
   readonly method: string;
@@ -187,6 +189,32 @@ const issueDetail = {
     revision: 1,
   },
   links: {issue_url: '/soda-tester/demo/issues/12', pull_url: '/soda-tester/demo/pulls/34'},
+};
+
+const attentionCompletion = {
+  completion_id: 'c'.repeat(32),
+  cycle_id: 'b'.repeat(32),
+  state: 'attention',
+  repository: '7',
+  generation: 1,
+  retryable: true,
+  wait_reason: 'decision_not_actionable',
+};
+const attentionIssueDetail = {
+  ...issueDetail,
+  journey: {
+    repository: '7',
+    issue: '12',
+    observed_unix: 1720000100,
+    phases: [],
+    tasks: [],
+    commits: [],
+    findings: [],
+    corrections: [],
+    judgments: [],
+    gates: [attentionCompletion],
+    adoptions: [],
+  },
 };
 
 const allowance = {
@@ -502,7 +530,7 @@ test('unconfirmed acceptance retries its exact command and payload', async (t) =
   assert.deepEqual((await workCalls(page)).find((call) => call.method === 'POST')?.body, original.body);
 });
 
-test('read-only viewer cannot preview or accept requirements', async (t) => {
+test('read-only viewer cannot preview requirements or retry completion review', async (t) => {
   const page = await openView(t, 'detail', [
     {
       method: 'GET',
@@ -510,11 +538,14 @@ test('read-only viewer cannot preview or accept requirements', async (t) => {
       status: 200,
       json: {...acceptanceAccess, viewer: {...acceptanceAccess.viewer, code_write: false}},
     },
-    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: attentionIssueDetail},
   ]);
   const panel = page.getByRole('region', {name: 'Issue requirements acceptance'});
   await panel.getByRole('status').filter({hasText: 'needs current repository code-write authority'}).waitFor();
   assert.equal(await panel.getByRole('button', {name: 'Review current requirements', exact: true}).isDisabled(), true);
+  const completion = page.getByRole('region', {name: 'Completion review needs attention'});
+  await completion.getByRole('button', {name: 'Retry completion review', exact: true}).waitFor();
+  assert.equal(await completion.getByRole('button', {name: 'Retry completion review', exact: true}).isDisabled(), true);
   assert.equal(
     (await workCalls(page)).some((call) => call.path.includes('acceptance-preview') || call.method === 'POST'),
     false
@@ -543,9 +574,27 @@ test('work overview renders the authoritative request overview on a real engine'
   );
 });
 
-test('work detail renders evidence links and runs all six interventions', async (t) => {
+test('work detail retries the same completion command after lost replies and runs all interventions', async (t) => {
   const page = await openView(t, 'detail', [
-    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: attentionIssueDetail},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {
+      method: 'POST',
+      path: 'repositories/7/factory/actions',
+      action: 'retry_completion',
+      status: 200,
+      echoCommand: true,
+      loseReply: true,
+      receiptPending: true,
+      json: {
+        command_id: '',
+        event_id: attentionCompletion.completion_id,
+        prior_cycle: attentionCompletion.cycle_id,
+        successor_cycle: '',
+        repository: '7',
+        queued: true,
+      },
+    },
     {
       method: 'GET',
       path: `factory/runs/${RUN}`,
@@ -659,11 +708,35 @@ test('work detail renders evidence links and runs all six interventions', async 
     },
   ]);
   const detail = page.locator('soda-factory-work-detail');
+  const completion = detail.getByRole('region', {name: 'Completion review needs attention'});
+  const retryCompletion = completion.getByRole('button', {name: 'Retry completion review', exact: true});
+  await retryCompletion.waitFor();
+  assert.equal((await workCalls(page)).filter((call) => call.method === 'POST').length, 0);
+  await retryCompletion.click();
+  await completion.getByText(/No retry was confirmed/).waitFor();
+  const firstRetry = (await workCalls(page)).find(
+    (call) => (call.body as {action?: string} | undefined)?.action === 'retry_completion'
+  );
+  await retryCompletion.click();
+  await completion
+    .getByText('Completion review retry queued. The original command receipt was recovered.', {exact: true})
+    .waitFor();
+  assert.equal(await retryCompletion.isDisabled(), true);
+  const retries = (await workCalls(page)).filter(
+    (call) => (call.body as {action?: string} | undefined)?.action === 'retry_completion'
+  );
+  assert.equal(retries.length, 2);
+  assert.deepEqual(retries[1]?.body, firstRetry?.body);
+  assert.deepEqual((firstRetry?.body as {completion: unknown}).completion, {
+    event_id: attentionCompletion.completion_id,
+    expected_prior_cycle: attentionCompletion.cycle_id,
+  });
+  assert.equal((await workCalls(page)).filter((call) => call.path.startsWith('factory/commands/')).length, 2);
   const contextChoice = detail.getByRole('region', {name: 'Context choice needs attention'});
   await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).waitFor();
   assert.equal(
     (await workCalls(page)).filter((call) => call.method === 'POST').length,
-    0,
+    2,
     'a context hold must not choose on read'
   );
   await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).click();
@@ -696,7 +769,7 @@ test('work detail renders evidence links and runs all six interventions', async 
 
   const calls = await workCalls(page);
   const posts = calls.filter((call) => call.method === 'POST');
-  assert.equal(posts.length, 7);
+  assert.equal(posts.length, 9);
   const currentChoice = posts.find((call) => (call.body as {action?: string}).action === 'use_current_context');
   assert.deepEqual((currentChoice?.body as {context: unknown}).context, {
     fingerprint: SNAPSHOT,

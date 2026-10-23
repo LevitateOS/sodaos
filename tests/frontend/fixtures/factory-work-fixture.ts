@@ -24,6 +24,8 @@ export interface WorkRoute {
   readonly json: unknown;
   readonly echoCommand?: boolean;
   readonly echoAcceptance?: boolean;
+  readonly loseReply?: boolean;
+  readonly receiptPending?: boolean;
 }
 
 export const INTENT = 'd' + 'e'.repeat(24);
@@ -36,6 +38,7 @@ export const ENVIRONMENT = 'p' + 'f'.repeat(24);
 
 let routes: WorkRoute[] = [];
 const calls: WorkCall[] = [];
+const receipts = new Map<string, {outcome: unknown; target: string; pending: boolean}>();
 
 function matchBody(route: WorkRoute, body: unknown): boolean {
   if (route.action === undefined) return true;
@@ -46,7 +49,12 @@ function matchBody(route: WorkRoute, body: unknown): boolean {
 function withCommand(json: unknown, body: unknown): unknown {
   if (typeof body !== 'object' || body === null || !('command_id' in body)) return json;
   if (typeof json !== 'object' || json === null) return json;
-  return {...json, command_id: (body as Record<string, unknown>).command_id};
+  const command = (body as Record<string, unknown>).command_id;
+  return {
+    ...json,
+    command_id: command,
+    ...('successor_cycle' in json ? {successor_cycle: command} : {}),
+  };
 }
 
 function stubTransport(): PreparedExtensionMount {
@@ -62,6 +70,22 @@ function stubTransport(): PreparedExtensionMount {
         }
       }
       calls.push({method, path, body});
+      const command = path.startsWith('factory/commands/') ? path.slice('factory/commands/'.length) : '';
+      const retained = receipts.get(command);
+      if (method === 'GET' && retained) {
+        if (retained.pending) {
+          retained.pending = false;
+          return Response.json({error: {code: 'pending'}}, {status: 404});
+        }
+        return Response.json({
+          id: command,
+          type: 'retry-completion',
+          principal: 'native:1',
+          digest: 'a'.repeat(64),
+          target: retained.target,
+          outcome: JSON.stringify(retained.outcome),
+        });
+      }
       const hit = routes.find((route) => route.method === method && route.path === path && matchBody(route, body));
       if (!hit) return Response.json({error: {code: 'not_found', message: 'No stub reply.'}}, {status: 404});
       const json = hit.echoCommand ? withCommand(hit.json, body) : hit.json;
@@ -74,6 +98,18 @@ function stubTransport(): PreparedExtensionMount {
               head: (body as Record<string, unknown>).decision_id,
             }
           : json;
+      if (hit.loseReply && typeof body === 'object' && body !== null && 'command_id' in body) {
+        const id = String((body as Record<string, unknown>).command_id);
+        if (!receipts.has(id)) {
+          const outcome = acceptance as Record<string, unknown>;
+          receipts.set(id, {
+            outcome: acceptance,
+            target: `repository/${outcome.repository}/completion/${outcome.event_id}`,
+            pending: hit.receiptPending === true,
+          });
+        }
+        throw new TypeError('The recorded command reply was lost.');
+      }
       return Response.json(acceptance, {status: hit.status});
     }) as PreparedExtensionMount['request'],
   } as unknown as PreparedExtensionMount;
@@ -124,6 +160,7 @@ window.factoryWork = {
   setRoutes: (next: WorkRoute[]) => {
     routes = next;
     calls.length = 0;
+    receipts.clear();
   },
   calls: () => [...calls],
 };

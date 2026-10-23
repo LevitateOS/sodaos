@@ -545,6 +545,68 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || commands != 1 || choices != 0 {
 		t.Fatal("HTTP context recovery/refusals refilled work or choices", commands, choices, err)
 	}
+
+	// The completion Retry has the same current native maintainer/session
+	// boundary. Its positive HTTP fixture recovers a canonical atomic writer
+	// result; fresh admission through the coordinator is covered by the real
+	// PG settled-completion integration.
+	priorCycle := factory.NewID()
+	seedJourneyCycle(t, fx, "daaaaaaaaaaaaaaaaaaaaaaa3", priorCycle, 1, "decision_not_actionable", strings.Repeat("6", 64))
+	completion := factory.CompletionRetryRequest{EventID: strings.Repeat("b", 32), ExpectedPriorCycle: priorCycle}
+	completionCommand := factory.Command{ID: factory.NewID(), Type: factory.CommandCompletionRetry, Principal: "native:1", Target: "repository/7/completion/" + completion.EventID}
+	completionPayload, _ := json.Marshal(completion)
+	completionCommand.Payload = string(completionPayload)
+	completionCommand.Digest = factory.SettingsDigest(completionCommand.Type, completionCommand.Target, completionCommand.Payload)
+	completionDecision, err := fx.db.RecordCompletionRetryCommand(ctx, completionCommand, 7, completion, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	completionPath := "/api/repositories/7/factory/actions"
+	completionBody, _ := json.Marshal(factoryActionsRequest{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &completion})
+	if code, _ := journeyCall(t, mux, http.MethodPost, completionPath, string(completionBody), "", "", false); code != 403 {
+		t.Fatal("completion retry accepted missing native authority", code)
+	}
+	if code, _ := journeyCall(t, mux, http.MethodPost, completionPath, string(completionBody), "generation-1", "generation-2", true); code != 409 {
+		t.Fatal("completion retry accepted stale session", code)
+	}
+	fx.permission.Store("read")
+	if code, reply := call(http.MethodPost, completionPath, string(completionBody)); code != 403 || journeyErrorCode(t, reply) != "repository_write_required" {
+		t.Fatalf("completion retry accepted read-only authority: %d %s", code, reply)
+	}
+	fx.permission.Store("admin")
+	if code, _ := foreign(http.MethodPost, completionPath, string(completionBody)); code < 400 {
+		t.Fatal("foreign actor recovered completion retry")
+	}
+	completionUnknown := strings.Replace(string(completionBody), `"completion":{`, `"completion":{"continue":true,`, 1)
+	if code, _ := call(http.MethodPost, completionPath, completionUnknown); code != 400 {
+		t.Fatal("completion retry admitted an unknown/override field", code)
+	}
+	if code, _ := call(http.MethodPost, completionPath, `{"command_id":"`+factory.NewID()+`","action":"retry_completion"}`); code != 400 {
+		t.Fatal("completion retry admitted missing exact scope", code)
+	}
+	for i := 0; i < 2; i++ {
+		code, reply := call(http.MethodPost, completionPath, string(completionBody))
+		var observed factory.CompletionRetryDecision
+		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed != completionDecision {
+			t.Fatalf("completion retry immutable replay: %d %s", code, reply)
+		}
+	}
+	changedCompletion := completion
+	changedCompletion.EventID = factory.NewID()
+	changedBody, _ := json.Marshal(factoryActionsRequest{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &changedCompletion})
+	if code, reply := call(http.MethodPost, completionPath, string(changedBody)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
+		t.Fatalf("completion retry changed scope did not conflict: %d %s", code, reply)
+	}
+	var cycles int
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_reassessments`).Scan(&cycles); err != nil {
+		t.Fatal(err)
+	}
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil {
+		t.Fatal(err)
+	}
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || cycles != 2 || commands != 2 || choices != 1 {
+		t.Fatal("completion retry replay refilled cycles or judgments", cycles, commands, choices, err)
+	}
 }
 
 func TestFactoryIssueJourneyNoAttempt(t *testing.T) {

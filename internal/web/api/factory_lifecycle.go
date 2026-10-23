@@ -30,19 +30,22 @@ func lifecycleControlError(w http.ResponseWriter, err error) {
 		auth.JSONError(w, 409, "retry_ineligible", "The prior attempt is not eligible for retry; refresh its settlement and current inputs.")
 	case errors.Is(err, store.ErrContextResolutionIneligible):
 		auth.JSONError(w, 409, "context_resolution_ineligible", "The held current context changed or cannot be selected; refresh this run.")
+	case errors.Is(err, store.ErrCompletionRetryIneligible):
+		auth.JSONError(w, 409, "completion_retry_ineligible", "The completion cycle changed or its prior work has not settled; refresh its details.")
 	default:
 		factoryCommandError(w, err)
 	}
 }
 
 type factoryActionsRequest struct {
-	CommandID string `json:"command_id"`
-	Action    string `json:"action"`
+	CommandID  string                          `json:"command_id"`
+	Action     string                          `json:"action"`
+	Completion *factory.CompletionRetryRequest `json:"completion,omitempty"`
 }
 
-// apiFactoryActions admits repository pause/resume from the current
-// code-write maintainer. Pause latches dispatch closed and stops
-// outstanding runs; resume reopens the gate after every run settles.
+// apiFactoryActions admits repository pause/resume and completion Retry from
+// the current code-write maintainer. Pause stops outstanding runs; resume
+// reopens dispatch; completion Retry retains its prior decision history.
 func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.Session) {
 	repository, ok := s.factoryRepository(w, r, v)
 	if !ok {
@@ -60,7 +63,12 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 		return
 	}
 	if !factory.ValidRepositoryAction(in.Action) {
-		auth.JSONError(w, 400, "invalid_action", "Choose pause or resume.")
+		auth.JSONError(w, 400, "invalid_action", "Choose pause, resume or retry completion review.")
+		return
+	}
+	if (in.Action == factory.ActionCompletionRetry) != (in.Completion != nil) ||
+		(in.Completion != nil && in.Completion.Validate() != nil) {
+		auth.JSONError(w, 400, "invalid_request", "Completion retry requires its exact event and prior cycle.")
 		return
 	}
 	if s.Coordinator == nil {
@@ -68,6 +76,13 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 		return
 	}
 	switch in.Action {
+	case factory.ActionCompletionRetry:
+		receipt, err := s.Coordinator.RetryCompletion(r.Context(), in.CommandID, factoryPrincipal(v), repository, *in.Completion)
+		if err != nil {
+			lifecycleControlError(w, err)
+			return
+		}
+		auth.JSONResponse(w, 200, receipt)
 	case factory.ActionPause:
 		receipt, err := s.Coordinator.PauseRepository(r.Context(), in.CommandID, factoryPrincipal(v), repository)
 		if err != nil {

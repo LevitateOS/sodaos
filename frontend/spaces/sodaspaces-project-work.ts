@@ -9,6 +9,7 @@ import './sodaspaces-factory-feed.js';
 import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
 import './sodaspaces-factory-context-resolution.js';
+import './sodaspaces-factory-completion-retry.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 
 export interface ProjectWorkContext {
@@ -257,7 +258,10 @@ export class SodaProjectWork extends LitElement {
               ></soda-factory-requirements-acceptance>
               <soda-factory-context-resolution
                 .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue} : undefined}
-              ></soda-factory-context-resolution>`
+              ></soda-factory-context-resolution>
+              <soda-factory-completion-retry
+                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue} : undefined}
+              ></soda-factory-completion-retry>`
           : ''
       }
     </details>`;

@@ -3,11 +3,13 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
@@ -40,12 +42,29 @@ func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
 	if err != nil || attended.Cycle.State != factory.ReassessmentAttention {
 		t.Fatalf("failed coder did not hold for attention: %+v %v", attended.Cycle, err)
 	}
-	successor, err := coord.StartCompletionRetry(ctx, factory.ReassessmentRetry{
-		SuccessorCycleID: factory.NewID(), ExpectedPriorCycle: cycleID,
-		CommandID: factory.NewID(), EventID: record.Cycle.EventID,
-	})
+	commandID := factory.NewID()
+	request := factory.CompletionRetryRequest{EventID: record.Cycle.EventID, ExpectedPriorCycle: cycleID}
+	decision, err := coord.RetryCompletion(ctx, commandID, "native:1", fx.publish.seed.repo, request)
 	if err != nil {
 		t.Fatalf("explicit retry refused a reconciled failed coder: %v", err)
+	}
+	successor := decision.SuccessorCycle
+	if decision.Validate() != nil || successor != commandID || decision.PriorCycle != cycleID {
+		t.Fatalf("owner command did not bind its one successor: %+v", decision)
+	}
+	if replay, err := coord.RetryCompletion(ctx, commandID, "native:1", fx.publish.seed.repo, request); err != nil || replay != decision {
+		t.Fatalf("owner retry lost-reply replay changed the successor: %+v %v", replay, err)
+	}
+	if _, err := coord.RetryCompletion(ctx, commandID, "native:2", fx.publish.seed.repo, request); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatalf("foreign principal replayed the owner retry: %v", err)
+	}
+	changed := request
+	changed.EventID = factory.NewID()
+	if _, err := coord.RetryCompletion(ctx, commandID, "native:1", fx.publish.seed.repo, changed); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatalf("changed event replay did not conflict: %v", err)
+	}
+	if _, err := coord.RetryCompletion(ctx, factory.NewID(), "native:1", fx.publish.seed.repo+1, request); !errors.Is(err, store.ErrCompletionRetryIneligible) {
+		t.Fatalf("another repository admitted the completion retry: %v", err)
 	}
 	prior, err := db.ReassessmentRecord(ctx, cycleID)
 	if err != nil || prior.Cycle.State != factory.ReassessmentSuperseded || len(prior.Cycle.Ledger.CoderRuns) != 1 || len(prior.Cycle.Ledger.DecisionCalls) != 1 {

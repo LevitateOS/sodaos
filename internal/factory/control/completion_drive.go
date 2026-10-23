@@ -576,52 +576,68 @@ func (c *Coordinator) StartCompletionRetry(ctx context.Context, retry factory.Re
 	}
 	ctx, unlock := c.progressPass(ctx)
 	defer unlock()
-	record, err := c.Store.ReassessmentRecord(ctx, retry.ExpectedPriorCycle)
-	if err != nil {
+	if err := c.checkCompletionRetry(ctx, retry); err != nil {
 		return "", err
 	}
+	return c.Store.StartReassessmentRetry(ctx, retry)
+}
+
+func (c *Coordinator) checkCompletionRetry(ctx context.Context, retry factory.ReassessmentRetry) error {
+	if err := retry.Validate(); err != nil {
+		return err
+	}
+	record, err := c.Store.ReassessmentRecord(ctx, retry.ExpectedPriorCycle)
+	if err != nil {
+		return err
+	}
+	if record.Cycle.EventID != retry.EventID {
+		return store.ErrCompletionRetryIneligible
+	}
 	if record.Cycle.State == factory.ReassessmentSuperseded {
-		return c.Store.StartReassessmentRetry(ctx, retry)
+		if record.Cycle.Successor != retry.SuccessorCycleID {
+			return store.ErrCompletionRetryIneligible
+		}
+		return nil
 	}
 	if record.Cycle.State != factory.ReassessmentAttention {
-		return "", errors.New("only an attention cycle waits for retry")
+		return store.ErrCompletionRetryIneligible
 	}
 	for _, runID := range record.Cycle.Ledger.CoderRuns {
 		run, err := c.Store.FactoryRun(ctx, runID)
 		if err != nil || !run.Reconciled || run.Outcome == "" {
-			return "", errors.New("reassessment runs reconcile before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 		assignment, err := c.Store.AssignmentByRun(ctx, runID)
 		if err != nil || assignment.Stage != factory.AssignmentFinished || assignment.Subject.Completion == nil || assignment.Subject.Completion.CycleID != record.Cycle.CycleID {
-			return "", errors.New("reassessment assignment reconciles before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 		allowance, err := c.Store.ReassessmentAttemptAllowance(ctx, record.Cycle.Repository, *assignment.Subject.Completion, assignment.AttemptRoot)
 		if err != nil || allowance.Active || !allowance.Closed {
-			return "", errors.New("reassessment funding reconciles before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 	}
 	if len(record.AdoptionProgress) != 0 {
 		progress, err := loadReassessmentAdoption(record)
 		if err != nil || progress.Journal.Releasable() != nil {
-			return "", errors.New("reassessment adoption materializes before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 	}
 	if len(record.Cycle.Ledger.DecisionCalls) > 0 {
 		state, err := DecisionStateFromRecord(record)
 		if err != nil {
-			return "", err
+			return err
 		}
 		if _, err := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); err != nil {
-			return "", errors.New("reassessment calls reconcile before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 	}
 	if len(record.Cycle.Ledger.DecisionCalls) > 1 {
 		if record.ProposalFingerprint == "" {
-			return "", errors.New("reassessment proposal call reconciles before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 		if _, err := c.Store.PriorityJudgment(ctx, record.ProposalFingerprint); err != nil {
-			return "", errors.New("reassessment proposal call reconciles before retry")
+			return store.ErrCompletionRetryIneligible
 		}
 	}
-	return c.Store.StartReassessmentRetry(ctx, retry)
+	return nil
 }
