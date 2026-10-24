@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/project"
@@ -456,7 +457,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	// Test Pilot evidence and paged current-context transports. A receipt alone
 	// supplies no semantic coverage, and reads must never settle the delivery.
 	idea := factory.ProductIdea{ID: "d" + strings.Repeat("3", 24), Description: "Save a task", Consequence: "The saved title persists", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
-	task := factory.IntentTask{Key: "d" + strings.Repeat("4", 24), Objective: "Persist tasks", Outcomes: []string{idea.Consequence}, IdeaIDs: []string{idea.ID}}
+	task := factory.IntentTask{Key: "d" + strings.Repeat("4", 24), Objective: "Persist tasks", Outcomes: []string{idea.Consequence, "Read back persisted fields"}, IdeaIDs: []string{idea.ID}}
 	accepted := factory.IntentRevision{ID: "d" + strings.Repeat("5", 24), Intent: "d" + strings.Repeat("6", 24), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 1, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{task}, EffectiveOutcomes: []string{idea.ID}}
 	if err := st.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
@@ -769,5 +770,61 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	conflicted, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIssuePlan), Arguments: map[string]any{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload}})
 	if !catalogRefused(conflicted, err) || !strings.Contains(catalogText(t, conflicted), store.ErrMCPSubmissionConflict.Error()) || counts() != beforeLegacyReplay {
 		t.Fatal("legacy rewrite did not reach the immutable conflict guard", err, catalogText(t, conflicted))
+	}
+
+	// The normal owner overview reports only controller-adopted evidence for
+	// the current accepted scope, independently of a successful worker finish.
+	ownerRead := actorCall(t, &API{Config: &config.Config{ForgejoURL: "https://soda.test"}, Store: st}, "7", "current-worker")
+	readOverview := func(want int) {
+		t.Helper()
+		before := verificationReadState()
+		code, body := ownerRead(http.MethodGet, "/api/factory/intents/"+accepted.Intent+"/overview", "")
+		var view factoryRequestOverviewView
+		if code != http.StatusOK || json.Unmarshal(body, &view) != nil || view.Intent != accepted.Intent || view.WorkItems.OutcomesTotal != len(accepted.EffectiveOutcomes) || view.WorkItems.OutcomesEvidenced != want {
+			t.Fatalf("owner overview evidence status=%d body=%s expected=%d", code, body, want)
+		}
+		if verificationReadState() != before {
+			t.Fatal("overview read changed verification history or spending")
+		}
+	}
+	readOverview(0)
+	pilot.Stage, pilot.Outcome = factory.AssignmentFinished, factory.Succeeded
+	pilot.Result = &factory.AssignmentResult{PhaseResult: &factory.PhaseResult{Output: &factory.PhaseOutput{Verification: &factory.AppVerificationReport{Outcome: factory.AppVerificationVerified}}}}
+	raw, _ = json.Marshal(pilot)
+	write(`UPDATE factory_assignments SET stage='finished',data=$2 WHERE id=$1`, pilot.ID, string(raw))
+	readOverview(0)
+	postID := factory.NewID()
+	post := map[string]any{"actor": "factory", "assignment": pilot.ID, "event_identity": pilot.Subject.Delivery.DeliveryID, "communication": map[string]any{"component_id": "F10"}}
+	raw, _ = json.Marshal(post)
+	write(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,8,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
+	readOverview(0)
+	postID = factory.NewID()
+	write(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,7,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
+	readOverview(len(accepted.EffectiveOutcomes))
+	pilot.Result.PhaseResult.Output.Verification.Outcome = factory.AppVerificationIncomplete
+	raw, _ = json.Marshal(pilot)
+	write(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, pilot.ID, string(raw))
+	readOverview(0)
+	pilot.Result.PhaseResult.Output.Verification.Outcome = factory.AppVerificationVerified
+	goodScope := *pilot.Subject.Delivery
+	wrongScope := goodScope
+	wrongScope.ScopeDigest = strings.Repeat("f", 64)
+	pilot.Subject.Delivery = &wrongScope
+	raw, _ = json.Marshal(pilot)
+	write(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, pilot.ID, string(raw))
+	readOverview(0)
+	pilot.Subject.Delivery = &goodScope
+	raw, _ = json.Marshal(pilot)
+	write(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, pilot.ID, string(raw))
+	previousAccepted := accepted
+	nextAccepted := accepted
+	nextAccepted.ID, nextAccepted.Predecessor = "d"+strings.Repeat("a", 24), accepted.ID
+	if err := st.SaveIntentRevision(ctx, nextAccepted); err != nil {
+		t.Fatal(err)
+	}
+	accepted = nextAccepted
+	readOverview(0)
+	if staleCount, err := st.VerifiedApplicationOutcomeCount(ctx, previousAccepted); err != nil || staleCount != 0 {
+		t.Fatal("old accepted revision lent its F10 to the current overview", staleCount, err)
 	}
 }

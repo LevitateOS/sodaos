@@ -242,8 +242,11 @@ func (s *API) apiFactoryRequestOverview(w http.ResponseWriter, r *http.Request, 
 		Intent: revision.Intent, Revision: revision.ID, State: revision.State,
 		ObservedUnix: time.Now().Unix(),
 	}
-	for _, task := range revision.Tasks {
-		view.WorkItems.OutcomesTotal += len(task.Outcomes)
+	view.WorkItems.OutcomesTotal = len(revision.EffectiveOutcomes)
+	view.WorkItems.OutcomesEvidenced, err = s.Store.VerifiedApplicationOutcomeCount(r.Context(), revision)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read application verification evidence.")
+		return
 	}
 	if generation, err := s.Store.IntentGeneration(r.Context(), revision.ID); err == nil {
 		view.Generation.State = generation.State

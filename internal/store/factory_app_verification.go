@@ -12,6 +12,38 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
+// VerifiedApplicationOutcomeCount is the spend-free overview read of the same
+// controller-owned F10 fact used by delivery admission. A worker finish or a
+// historical accepted revision never supplies current outcome evidence.
+func (s *Store) VerifiedApplicationOutcomeCount(ctx context.Context, revision factory.IntentRevision) (int, error) {
+	if revision.State != "accepted" || revision.Repository <= 0 {
+		return 0, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var head string
+	if err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 FOR SHARE`, revision.Intent).Scan(&head); err != nil {
+		return 0, err
+	}
+	if head != revision.ID {
+		return 0, nil
+	}
+	verified, err := verifiedAppRevisionTx(ctx, tx, revision)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	if verified {
+		return len(revision.EffectiveOutcomes), nil
+	}
+	return 0, nil
+}
+
 // PendingAppVerifications includes finished Test Pilot reports until a trusted
 // whole-app completion is recorded. Worker receipts alone never remove them.
 // The exclusive sequence cursor lets the controller revisit stale reports
