@@ -740,6 +740,9 @@ func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expecte
 		}
 		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data=data || jsonb_build_object('resume',true,'resumed',true,'resumed_at',$2::bigint,'detail','') WHERE comment=$1`, id, at)
 	} else if draft == factory.CommentDraftApplied {
+		if resumed {
+			return errors.New("this resumed request exhausted its continuation; inspect the original issue creation")
+		}
 		if body != oldBody {
 			return errors.New("check the previous issue creation before changing this request")
 		}

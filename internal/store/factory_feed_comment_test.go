@@ -622,6 +622,18 @@ func TestRetryFeedCommentPreservesPostAndReconcilesUncertainEffect(t *testing.T)
 	if err := s.RetryFeedComment(ctx, prelaunch, "42", 0, "", 1729000052); err == nil {
 		t.Fatal("second prelaunch recovery permission admitted")
 	}
+	failedEffect := failed
+	failedEffect.Draft, failedEffect.Effect = factory.CommentDraftApplied, factory.CommentEffectFailed
+	if err := s.AdvanceCommentPipeline(ctx, failed, failedEffect); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryFeedComment(ctx, prelaunch, "42", 0, "", 1729000053); err == nil {
+		t.Fatal("native-effect retry reset a resumed request's historical failures")
+	}
+	retainedEffect, _ := s.CommentPipeline(ctx, prelaunch)
+	if retainedEffect != failedEffect {
+		t.Fatalf("refused native-effect retry changed history: %+v", retainedEffect)
+	}
 	requests, err := s.PendingCommentPipelines(ctx, 64)
 	if err != nil {
 		t.Fatal(err)
