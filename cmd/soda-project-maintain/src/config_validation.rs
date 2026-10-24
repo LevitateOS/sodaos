@@ -30,6 +30,13 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
 }
 
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {
+    if (!c.codex_model_catalog.is_empty() || !c.codex_model_catalog_sha256.is_empty())
+        && (c.codex_harness.is_empty()
+            || !soda_host::terminal::is_clean_absolute_path(&c.codex_model_catalog)
+            || !soda_host::preparation::valid_digest(&c.codex_model_catalog_sha256))
+    {
+        return Err(String::from("explicit pinned Codex model catalog required"));
+    }
     for (harness, digest, version) in [
         (
             &c.codex_harness,

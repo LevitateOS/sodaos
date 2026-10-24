@@ -84,6 +84,8 @@ const HOST_FIELDS: &[&str] = &[
     "network",
     "subnet",
     "bridge",
+    "codex_model_catalog",
+    "codex_model_catalog_sha256",
 ];
 
 fn set_early_field<'de, A>(map: &mut A, config: &mut Config, slot: usize) -> Result<bool, A::Error>
@@ -116,6 +118,8 @@ where
         11 => &mut config.network,
         12 => &mut config.subnet,
         13 => &mut config.bridge,
+        14 => &mut config.codex_model_catalog,
+        15 => &mut config.codex_model_catalog_sha256,
         _ => return Ok(false),
     };
     set_string(map, target)?;

@@ -10,6 +10,8 @@ pub(crate) struct Config {
     pub(crate) codex_harness: String,
     pub(crate) codex_harness_sha256: String,
     pub(crate) codex_harness_version: String,
+    pub(crate) codex_model_catalog: String,
+    pub(crate) codex_model_catalog_sha256: String,
     pub(crate) muse_harness: String,
     pub(crate) muse_harness_sha256: String,
     pub(crate) muse_harness_version: String,
