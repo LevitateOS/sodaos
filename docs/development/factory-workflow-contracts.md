@@ -861,14 +861,23 @@ decision remains unresolved. Its issue-zero `delivery` subject must still bind
 the current accepted intent, actually delivered tasks, exact source and ready
 reviewer preparation through the atomic delivery guard. Verification neither
 releases the completion fence nor changes its recorded decision; new issue work
-continues to wait.
+that investigates or changes code continues to wait.
+
+Accepted Researcher inquiries and Library Admin maintenance may also use their
+granted slot while a completion remains held. They require the reviewer native
+principal and an exact research/issue subject bound to the current issue and
+acceptance. They do not request an implementation plan, edit code, publish a PR,
+release the fence or change its decision. Priority selection, launch and atomic
+dispatch/Retry enforce the same phase/role/subject binding; missing or mismatched
+bindings stay fenced. Preparation, source, sponsorship and spending checks still
+apply.
 
 Enforce the pending-event/generation comparison in the final dispatch packet
 transaction, including Retry and automatic investigation-to-implementation
 advancement; an earlier priority check is insufficient. Include this generation
-in the D02 semantic snapshot. A pending event for one repository excludes that
-repository from selection; it must not turn the whole global tournament into a
-wait. Continue observing recoverable effects instead of launching new work through
+in the D02 semantic snapshot. A pending event excludes that repository's code
+candidates from selection; it must not turn the whole global tournament into a
+wait. Continue observing recoverable effects instead of launching new code through
 `dispatchAfterIntake`. Completion insertion and packet admission lock the same
 repository control row; whichever commits first defines ordering.
 

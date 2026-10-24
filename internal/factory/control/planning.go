@@ -28,6 +28,8 @@ type PlanningJudgments struct {
 	Chooser ProductJudgment
 }
 
+var errNonCodePlanning = errors.New("accepted non-code work has no implementation plan")
+
 // PlanningPass records bounded implementation approaches over stable accepted
 // scope, even while visible prerequisite outcomes are pending. Classification
 // does not invent source changes or execute work; blocked portions stay explicit.
@@ -77,16 +79,24 @@ func (c *Coordinator) planningInput(ctx context.Context, control factory.IssueCo
 	if err != nil {
 		return factory.PlanningInput{}, err
 	}
+	plan := &attemptPlan{control: control, acceptance: *status.Acceptance, effective: authority, projectID: p.ID, policy: policy}
+	if wait, failed := readAttemptInputs(ctx, deps, plan, control.Repository, control.Issue); wait != nil || failed != nil {
+		return factory.PlanningInput{}, ErrPriorityUnavailable
+	}
+	block, err := factory.ParseSodaIssueBlock(plan.inputs.Issue.Body)
+	if err != nil {
+		return factory.PlanningInput{}, err
+	}
+	if block.Role == factory.SodaRoleResearch || block.Role == factory.SodaRoleLibraryAdmin {
+		return factory.PlanningInput{}, errNonCodePlanning
+	}
 	sponsorship, wait, failed := selectSponsorship(ctx, deps, control.Repository, authority, project.RoleCoder)
 	if wait != nil || failed != nil || sponsorship.ProjectID != p.ID {
 		return factory.PlanningInput{}, ErrIneffectiveAuthority
 	}
-	plan := &attemptPlan{control: control, acceptance: *status.Acceptance, effective: authority, projectID: p.ID, policy: policy, sponsorship: sponsorship}
+	plan.sponsorship = sponsorship
 	if wait, failed := selectPreparationFor(ctx, deps, plan, project.RoleCoder, ""); wait != nil || failed != nil {
 		return factory.PlanningInput{}, ErrIneffectiveAuthority
-	}
-	if wait, failed := readAttemptInputs(ctx, deps, plan, control.Repository, control.Issue); wait != nil || failed != nil {
-		return factory.PlanningInput{}, ErrPriorityUnavailable
 	}
 	if plan.inputs.Revision != evidence.Revision {
 		return factory.PlanningInput{}, ErrPriorityUnavailable
@@ -167,7 +177,7 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 		return nil
 	}
 	input, err := c.planningInput(ctx, control)
-	if errors.Is(err, ErrIneffectiveAuthority) {
+	if errors.Is(err, ErrIneffectiveAuthority) || errors.Is(err, errNonCodePlanning) {
 		return nil
 	}
 	if err != nil {

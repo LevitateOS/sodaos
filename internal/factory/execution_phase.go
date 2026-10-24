@@ -37,6 +37,23 @@ func ValidPhaseRole(phase, role string) bool {
 	return err == nil && want == role
 }
 
+// NonCodeIssueWork identifies only the accepted inquiry/maintenance route.
+// It grants no authority: packet admission still checks the current acceptance,
+// source, preparation and spending. Unknown or mixed subjects remain fenced.
+func NonCodeIssueWork(phase, role string, subject ExecutionSubject, issue int64, acceptance string) bool {
+	if role != project.RoleReviewer || issue <= 0 || !project.ValidDecisionID(acceptance) || subject.Validate() != nil {
+		return false
+	}
+	switch phase {
+	case project.ExecutionResearch:
+		return subject.Kind == SubjectResearch && subject.Research != nil && subject.Research.Issue == issue && subject.Research.Acceptance == acceptance
+	case project.ExecutionMaintainLibrary:
+		return subject.Kind == SubjectIssue && subject.Issue != nil && subject.Issue.Issue == issue && subject.Issue.Acceptance == acceptance
+	default:
+		return false
+	}
+}
+
 // SubjectKindAllowed reports whether a subject kind may enter phase. Intent
 // subjects enter only through decompose; issue subjects never decompose,
 // reassess, repair or verify; D13 completion subjects enter only through

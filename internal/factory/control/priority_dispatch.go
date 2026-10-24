@@ -405,7 +405,7 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 }
 
 func priorityCandidate(plan *attemptPlan) factory.PriorityCandidate {
-	return factory.PriorityCandidate{
+	candidate := factory.PriorityCandidate{
 		ID:      fmt.Sprintf("%d/%d", plan.control.Repository, plan.control.Issue),
 		Control: plan.control, Objective: plan.inputs.Issue.Title + "\n" + plan.inputs.Issue.Body,
 		Acceptance:       plan.acceptance,
@@ -414,6 +414,11 @@ func priorityCandidate(plan *attemptPlan) factory.PriorityCandidate {
 		PreparationRevision: plan.prep.Preparation.Revision, Source: plan.inputs.Tip, GateRevision: plan.gateRev, PlannedMinutes: plan.planned,
 		PromptDigest: plan.promptSHA,
 	}
+	if factory.NonCodeIssueWork(plan.phase, plan.prep.Preparation.Role, plan.subject, plan.control.Issue, plan.acceptance.ID) {
+		subject := plan.subject
+		candidate.Phase, candidate.Role, candidate.Subject = plan.phase, plan.prep.Preparation.Role, &subject
+	}
+	return candidate
 }
 
 func priorityExactSnapshot(candidates []factory.PriorityCandidate) (string, error) {

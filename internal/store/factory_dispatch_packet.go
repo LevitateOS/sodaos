@@ -211,10 +211,13 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	// the integrated work while that cycle remains held. Its owning guard
 	// below binds the current accepted intent, delivered tasks, source and
 	// ready reviewer preparation; it grants no new issue implementation.
+	// Accepted reviewer inquiries and maintenance also carry no code
+	// publication; their exact issue/acceptance binding stays mandatory.
 	deliveryVerification := a.Subject.Kind == factory.SubjectDelivery && a.Subject.Delivery != nil &&
 		a.Phase == project.ExecutionVerify && a.Role == project.RoleReviewer && a.Issue == 0
 	deliveryRepair := a.Subject.Kind == factory.SubjectDeliveryRepair && a.Subject.DeliveryRepair != nil && a.Phase == project.ExecutionRepair && a.Role == project.RoleCoder && a.Issue == 0
-	if a.Phase != project.ExecutionReassess && !deliveryVerification && !deliveryRepair {
+	nonCode := factory.NonCodeIssueWork(a.Phase, a.Role, a.Subject, a.Issue, a.Acceptance)
+	if a.Phase != project.ExecutionReassess && !deliveryVerification && !deliveryRepair && !nonCode {
 		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
 			return err
 		}

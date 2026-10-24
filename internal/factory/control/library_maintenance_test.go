@@ -1,7 +1,11 @@
 package control
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -79,8 +83,41 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 	} {
 		t.Run(work.role, func(t *testing.T) {
 			ctx := context.Background()
-			db, _ := dispatchTestDB(t)
-			fx := dispatchSeed(t, db)
+			// A real merged completion and paid, low-confidence decision
+			// retain Attention. Non-code inquiry must neither buy a code
+			// plan nor release that old decision to enter this repository.
+			completionChooser := &native92LowConfidenceChooser{}
+			merged, completionDeps := native92DrivePGFixture(t, completionChooser)
+			coord, fx := merged.publish.coord, &merged.publish.seed
+			db := merged.publish.db
+			cycleID := pendingCycleID(t, merged)
+			if report := coord.DriveCompletions(ctx, completionDeps); len(report.Sealed) != 1 {
+				t.Fatalf("completion seal: %+v", report)
+			}
+			if report := coord.DriveCompletions(ctx, completionDeps); !native92ReportHas(report.Held, cycleID+":decision_not_actionable") {
+				t.Fatalf("completion Attention: %+v", report)
+			}
+			attention, err := db.ReassessmentRecord(ctx, cycleID)
+			if err != nil || attention.Cycle.State != factory.ReassessmentAttention || completionChooser.calls != 1 {
+				t.Fatalf("retained Attention: %+v %v", attention, err)
+			}
+			attentionBefore, err := json.Marshal(attention)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Observe the old control at the same current native revision;
+			// its completed assignment/closed allowance still excludes it.
+			fx.queue(t, 3, fx.decision[3].ID)
+			decision := fx.accept(t, 9, "d999999999999999999999999", "Inspect the recorded task ownership evidence.\n\n```soda\n{\"role\":\""+work.role+"\"}\n```")
+			fx.queue(t, 9, decision.ID)
+			input := fx.reads.inputs[fmt.Sprintf("%d/9", fx.repo)]
+			coord.AcceptanceReads = &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
+				fmt.Sprintf("%d/9", fx.repo): {Revision: input.Revision, Issue: AcceptanceIssueView{Index: "9", TitleOccurrence: input.Issue.TitleOccurrence, TitleDigest: input.Issue.TitleDigest, ContentDigest: input.Issue.ContentDigest, ContentVer: input.Issue.ContentVer, Visible: true}, Comments: []AcceptanceComment{{ID: "11", Digest: input.Comments[0].Digest, Visible: true}}},
+			}}
+			coord.DispatchReads, coord.Host, coord.Broker = fx.reads, fx.host, fx.broker
+			coord.Publication, coord.Checks, coord.Merges = nil, nil, nil
+			planning := &planningChooser{}
+			coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: planning}
 			sponsorship, err := db.Sponsorship(ctx, fx.repo, "conn")
 			if err != nil {
 				t.Fatal(err)
@@ -89,34 +126,70 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 			if err = db.SaveSponsorship(ctx, sponsorship); err != nil {
 				t.Fatal(err)
 			}
-			head := fx.accept(t, 3, "d333333333333333333333333", "Inspect the recorded task ownership evidence.\n\n```soda\n{\"role\":\""+work.role+"\"}\n```")
-			fx.queue(t, 3, head.ID)
-			deps := fx.deps()
-			deps.MCPKey = []byte(strings.Repeat("k", 32))
-			deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
-			queued, err := db.QueuedControls(ctx, 1)
-			if err != nil || len(queued) != 1 {
+			coord.MCPKey = []byte(strings.Repeat("k", 32))
+			coord.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
+			coord.Readiness = &fakeObserver{revision: 41, idle: true}
+			deps := coord.dispatchDeps()
+			control, err := db.IssueControl(ctx, fx.repo, 9)
+			if err != nil {
 				t.Fatal("maintenance readiness unavailable", err)
 			}
-			occupancy, err := snapshotOccupancy(ctx, db)
-			if err != nil {
-				t.Fatal(err)
-			}
-			report := newDispatchReport()
-			dispatchOne(ctx, deps, &occupancy, queued[0], &report)
+			report := coord.Dispatch(ctx)
 			if len(report.Errors) != 0 || len(report.Launched) != 1 {
 				t.Fatalf("dispatch: %+v", report)
+			}
+			if planning.calls != 0 {
+				t.Fatal("non-code inquiry bought an implementation-planning judgment")
 			}
 			a, err := db.Assignment(ctx, report.Launched[0].AssignmentID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			// A definitely unused launch restages this same non-code root with
-			// a new run, retaining reviewer preparation and original allowance.
+			candidate := factory.PriorityCandidate{Control: control, Acceptance: decision, Phase: a.Phase, Role: a.Role, Subject: &a.Subject}
+			wrongSubject := factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: 8, Acceptance: decision.ID}}
+			if work.role == "research" {
+				wrongSubject = factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 8, Acceptance: decision.ID}}
+			}
+			if open, wait := splitFencedCandidates([]factory.PriorityCandidate{candidate}, map[int64]bool{fx.repo: true}); len(open) != 1 || len(wait) != 0 {
+				t.Fatal("accepted reviewer inquiry remained fenced at priority")
+			}
+			for _, invalid := range []factory.PriorityCandidate{
+				{Control: candidate.Control, Acceptance: decision},
+				{Control: candidate.Control, Acceptance: decision, Phase: a.Phase, Role: project.RoleCoder, Subject: &a.Subject},
+				{Control: candidate.Control, Acceptance: decision, Phase: project.ExecutionReview, Role: a.Role, Subject: &a.Subject},
+				{Control: candidate.Control, Acceptance: decision, Phase: a.Phase, Role: a.Role, Subject: &wrongSubject},
+				{Control: candidate.Control, Acceptance: factory.Acceptance{ID: decision.ID, Repository: fx.repo, IssueIndex: "8"}, Phase: a.Phase, Role: a.Role, Subject: &a.Subject},
+			} {
+				if open, wait := splitFencedCandidates([]factory.PriorityCandidate{invalid}, map[int64]bool{fx.repo: true}); len(open) != 0 || len(wait) != 1 || wait[0].Reason != WaitReassessmentPending {
+					t.Fatal("unknown or mismatched inquiry escaped the priority fence")
+				}
+			}
 			run, err := db.FactoryRun(ctx, a.Run)
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The atomic gate still refuses code work even when it carries
+			// the exact same accepted issue; no new packet rows survive.
+			code := a
+			code.ID, code.Run = factory.NewID(), factory.NewID()
+			code.AttemptRoot, code.PublicationAssignment = code.ID, code.ID
+			code.AcceptedContext, code.RunHistory = nil, []string{code.Run}
+			code.Stage, code.Outcome, code.Reason, code.Result, code.FinishedUnix = factory.AssignmentAssigned, "", "", nil, 0
+			code.Role, code.Phase, code.Preparation = project.RoleCoder, project.ExecutionInvestigate, "f111111111111111111111111"
+			code.Subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: code.Issue, Acceptance: code.Acceptance}}
+			codeRun := run
+			codeRun.ID, codeRun.Role = code.Run, code.Role
+			codeRun.Outcome, codeRun.Reconciled = "", false
+			codeReservation := factory.Reservation{AssignmentID: code.ID, Repository: code.Repository, Connection: code.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}
+			codeView := factory.RunView{RunID: code.Run, Repository: code.Repository, Issue: code.Issue, Attempt: code.ID}
+			if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: code.ID, Repository: code.Repository, Authority: code.Authority}, control, code, codeReservation, codeRun, codeView); !errors.Is(err, store.ErrCompletionFenced) {
+				t.Fatalf("code packet escaped retained Attention: %v", err)
+			}
+			if _, err := db.Assignment(ctx, code.ID); !errors.Is(err, store.ErrNotFound) {
+				t.Fatal("fenced code packet left an assignment")
+			}
+			// A definitely unused launch restages this same non-code root with
+			// a new run, retaining reviewer preparation and original allowance.
 			reservation, err := db.Reservation(ctx, a.ID)
 			if err != nil {
 				t.Fatal(err)
@@ -194,6 +267,11 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 			actor, author := store.RecordAuthor(a.Phase, a.Role)
 			if actor != work.profile || (work.role == "research" && author != "Researcher") {
 				t.Fatalf("native reviewer masked semantic profile: %s/%s", actor, author)
+			}
+			retained, err := db.ReassessmentRecord(ctx, cycleID)
+			attentionAfter, marshalErr := json.Marshal(retained)
+			if err != nil || marshalErr != nil || !bytes.Equal(attentionBefore, attentionAfter) || completionChooser.calls != 1 {
+				t.Fatal("non-code dispatch/restage/finish altered the held completion or paid judgment")
 			}
 		})
 	}

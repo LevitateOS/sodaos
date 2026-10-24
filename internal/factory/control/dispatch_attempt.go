@@ -182,7 +182,8 @@ func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passO
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
-	if deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
+	nonCode := factory.NonCodeIssueWork(plan.phase, plan.prep.Preparation.Role, plan.subject, issue, plan.acceptance.ID)
+	if !nonCode && deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: "plan_not_current", Detail: "implementation planning must refresh against current outputs"})
 		return
 	}
@@ -198,7 +199,7 @@ func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passO
 	// observation and probes continue; only admission waits. Retry and
 	// automatic advancement funnel through the same packet gate below,
 	// which refuses authoritatively through ErrCompletionFenced.
-	if checkDispatchFence(ctx, deps, repository, issue, report) {
+	if !nonCode && checkDispatchFence(ctx, deps, repository, issue, report) {
 		return
 	}
 	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report, retry)
