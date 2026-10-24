@@ -148,9 +148,13 @@ with R32/R33/R34/R40 and R42, preserving one canonical record per fact.
   current code-write maintainer inspect the exact title/body, selected source
   comments and prerequisite outcomes, then record their authorized acceptance
   and inspect its result. Distinguish a role reply, comment-intake clarification,
-  Project setup acceptance and issue-requirement acceptance. The current Work
-  detail displays acceptance status but does not provide this complete human
-  action. Cover imported work, changed requirements, selected answers and
+  Project setup acceptance and issue-requirement acceptance. Project Work now
+  exposes **Adopt or reaccept an issue**: enter the native issue number and select
+  **Open requirements review** to use the revision-bound acceptance component.
+  The imported-issue entry and exact reviewed reacceptance have existing browser
+  coverage and installed development proof; this does not close the broader
+  structured issue/editor scope. Retain qualification for imported work, changed
+  requirements, selected answers and
   non-code prerequisite confirmation, including stale preview, authority loss
   and uncertain-response readback. This completes R43.8/R43.9's existing
   ownership and unblocks the [HB12 reader walkthrough](../public-handbook/cutover.md#hb12-follow-the-daily-author-and-contributor-journeys);
