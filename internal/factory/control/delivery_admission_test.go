@@ -20,9 +20,10 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 		early  bool
 		state  string
 		failed bool
-	}{{false, factory.ReassessmentCollecting, false}, {true, factory.ReassessmentCollecting, false}, {false, factory.ReassessmentAttention, false}, {true, factory.ReassessmentAttention, false}, {true, factory.ReassessmentCollecting, true}, {true, factory.ReassessmentAttention, true}} {
+		spent  int64
+	}{{false, factory.ReassessmentCollecting, false, 0}, {true, factory.ReassessmentCollecting, false, 0}, {false, factory.ReassessmentAttention, false, 0}, {true, factory.ReassessmentAttention, false, 0}, {true, factory.ReassessmentCollecting, true, 0}, {true, factory.ReassessmentAttention, true, 0}, {true, factory.ReassessmentCollecting, false, 3540}, {true, factory.ReassessmentCollecting, false, 3600}} {
 		early := fixture.early
-		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t", fixture.state, early, fixture.failed), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t/spent-%d", fixture.state, early, fixture.failed, fixture.spent), func(t *testing.T) {
 			ctx := context.Background()
 			db, dsn := dispatchTestDB(t)
 			fx := dispatchSeed(t, db)
@@ -144,7 +145,9 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				}
 			}
 			report := newDispatchReport()
+			launches := 0
 			fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
+				launches++
 				a, err := db.AssignmentByRun(ctx, in.Run.ID)
 				if err != nil || a.Role != project.RoleReviewer || a.Phase != project.ExecutionVerify || in.MCP == nil || in.Run.ExecutionPhase != project.ExecutionVerify {
 					t.Fatalf("unbound Test Pilot: role=%s phase=%s mcp=%t error=%v", a.Role, a.Phase, in.MCP != nil, err)
@@ -156,6 +159,22 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				var allowance factory.AttemptAllowance
 				if err = json.Unmarshal(data, &allowance); err != nil || allowance.Delivery == nil || allowance.Delivery.DeliveryID != subject.Delivery.DeliveryID {
 					t.Fatalf("delivery unfunded: %+v %v", allowance, err)
+				}
+				if allowance.Limits.ActiveMinutes > factory.MaxAppVerificationRunMinutes || in.Run.Deadline.After(time.Unix(allowance.CheckpointUnix, 0).Add(factory.MaxAppVerificationRunMinutes*time.Minute)) {
+					t.Fatal("Test Pilot exceeded its per-run 30-minute ceiling", allowance.Limits, in.Run.Deadline)
+				}
+				if fixture.spent == 3540 && launches > 1 && allowance.Limits.ActiveMinutes != 1 {
+					t.Fatal("successor did not inherit the remaining stable-intent minute", allowance.Limits)
+				}
+				if launches == 1 {
+					at := time.Unix(allowance.CheckpointUnix+120, 0)
+					if remaining, err := db.RemainingAppVerificationSeconds(ctx, 7, revision.Intent, at); err != nil || remaining != 3480 {
+						t.Fatal("live native interval was omitted from aggregate time", remaining, err)
+					}
+					var untouched []byte
+					if err := sqlDB.QueryRow(`SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, a.ID).Scan(&untouched); err != nil || string(untouched) != string(data) {
+						t.Fatal("spend-free allowance read rewrote its live root", err)
+					}
 				}
 				return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
 			}
@@ -261,6 +280,17 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
+				if fixture.spent > 0 {
+					// Retained roots from before the fixed cap remain readable and
+					// charged. Seed their historical observed time before taking the
+					// immutable snapshot; admission must never reset these rows.
+					after.Limits.ActiveMinutes = factory.DefaultAppVerificationActiveMinutes
+					after.ActiveSeconds = fixture.spent
+					raw, _ := json.Marshal(after)
+					if _, err := sqlDB.Exec(`UPDATE factory_attempt_allowances SET data=$2 WHERE root_assignment=$1`, a.ID, string(raw)); err != nil {
+						t.Fatal(err)
+					}
+				}
 				retained := func() string {
 					var rows string
 					if err := sqlDB.QueryRow(`SELECT jsonb_build_object(
@@ -275,6 +305,21 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					return rows
 				}
 				oldRows := retained()
+				if fixture.spent == 3600 {
+					if remaining, err := db.RemainingAppVerificationSeconds(ctx, 7, revision.Intent, time.Now()); err != nil || remaining != 0 {
+						t.Fatal("historical active time did not exhaust the stable intent", remaining, err)
+					}
+					if available, err := c.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
+						t.Fatal("exhausted verifier advertised Retry", available, err)
+					}
+					if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
+						t.Fatal("exhausted verifier queued Retry", err)
+					}
+					if retained() != oldRows {
+						t.Fatal("exhaustion check rewrote retained spending")
+					}
+					return
+				}
 				if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || !available {
 					t.Fatal("retired verifier Retry unavailable", available, err)
 				}
@@ -361,6 +406,104 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
 					t.Fatal("old verifier remained retryable after successor", err)
 				}
+				successor, err := db.Assignment(ctx, command)
+				if err != nil {
+					t.Fatal(err)
+				}
+				successorRun, err := db.FactoryRun(ctx, successor.Run)
+				if err != nil {
+					t.Fatal(err)
+				}
+				capability, err = db.GetMCPCapability(ctx, successor.Run)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := db.ActivateObservedMCPCapability(ctx, capability); err != nil {
+					t.Fatal(err)
+				}
+				capability, err = db.GetMCPCapability(ctx, successor.Run)
+				if err != nil {
+					t.Fatal(err)
+				}
+				submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Second verification remains incomplete."}`))
+				if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+					t.Fatal(err)
+				}
+				if settled, err := SettleMCPTerminalProposal(ctx, db, successor.ID, time.Now()); err != nil || !settled {
+					t.Fatal("second Test Pilot terminal did not settle", settled, err)
+				}
+				successorRun.Outcome, successorRun.Reconciled = factory.Succeeded, true
+				if err := db.SaveFactoryRun(ctx, successorRun); err != nil {
+					t.Fatal(err)
+				}
+				secondReservation, err := db.Reservation(ctx, successor.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := db.RunUsage(ctx, successor.Run); errors.Is(err, store.ErrNotFound) && secondReservation.State != factory.ReservationReleased {
+					if err := db.RecordRunUsage(ctx, factory.Usage{RunID: successor.Run, Repository: 7, Connection: successor.Connection, Minutes: 1, StartedAt: successorRun.Started, EndedAt: successorRun.Started.Add(time.Millisecond)}); err != nil {
+						t.Fatal(err)
+					}
+				} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+					t.Fatal(err)
+				}
+				if secondReservation.State == factory.ReservationHeld {
+					if err := db.ConsumeReservation(ctx, successor.ID); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if remaining, err := db.RemainingAppVerificationSeconds(ctx, 7, revision.Intent, time.Now()); err != nil || remaining != 0 {
+					t.Fatal("two retained runs did not exhaust the stable intent", remaining, err)
+				}
+				if available, err := c.DeliveryRetryAvailable(ctx, successor.Run); err != nil || available {
+					t.Fatal("third verification Retry advertised", available, err)
+				}
+				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", successor.Run); !errors.Is(err, store.ErrExplicitRetryIneligible) {
+					t.Fatal("third verification Retry queued", err)
+				}
+				// A changed accepted version still shares the same two spent run
+				// identities. Exercise planning and then the atomic packet owner
+				// directly, as if a caller retained an earlier planning snapshot.
+				nextRevision := revision
+				nextRevision.ID, nextRevision.Predecessor = phasedDecisionID(42), revision.ID
+				if err := db.SaveIntentRevision(ctx, nextRevision); err != nil {
+					t.Fatal(err)
+				}
+				nextBinding := binding
+				nextBinding.RevisionID = nextRevision.ID
+				if err := db.BindIntentTaskAcceptance(ctx, nextBinding); err != nil {
+					t.Fatal(err)
+				}
+				fresh := payload
+				fresh.AcceptedRevision, fresh.ScopeDigest = nextRevision.ID, nextRevision.Digest()
+				fresh.DeliveryID = factory.DeliveryID(fresh)
+				subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &fresh}
+				occupancy, err = snapshotOccupancy(ctx, db)
+				if err != nil {
+					t.Fatal(err)
+				}
+				third := newDispatchReport()
+				DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, subject, fx.tip, retryPrompt, preparation, &third)
+				if len(third.Launched) != 0 || len(third.Waits) != 1 || third.Waits[0].Reason != WaitAllowance {
+					t.Fatal("revision change refilled verification allowance", third)
+				}
+				successor.ID, successor.Run = factory.NewID(), factory.NewID()
+				successor.AttemptRoot, successor.RunHistory, successor.Subject = successor.ID, []string{successor.Run}, subject
+				successorRun.ID, successorRun.Outcome, successorRun.Reconciled = successor.Run, "", false
+				successorRun.Started = time.Now().UTC().Truncate(time.Second)
+				successorRun.Deadline = successorRun.Started.Add(time.Minute)
+				reservation = factory.Reservation{AssignmentID: successor.ID, Repository: 7, Connection: successor.Connection, State: factory.ReservationHeld, PlannedMinutes: 1}
+				expected := factory.IssueControl{Repository: 7, Issue: 0, NativeRev: successor.NativeRev}
+				err = db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: successor.ID, Repository: 7, Authority: successor.Authority}, expected, successor, reservation, successorRun, factory.RunView{RunID: successor.Run, Repository: 7, Issue: 0, Attempt: successor.ID})
+				if !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+					t.Fatal("atomic packet gate refilled stable-intent runs", err)
+				}
+				if _, err := db.Assignment(ctx, successor.ID); !errors.Is(err, store.ErrNotFound) {
+					t.Fatal("refused third packet left an assignment", err)
+				}
+				if retained() != oldRows {
+					t.Fatal("exhaustion or revision change modified the prior charged root")
+				}
 				return
 			}
 			run.Outcome, run.Reconciled = factory.Succeeded, true
@@ -375,6 +518,60 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			}
 			if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
 				t.Fatal("verified delivery advertised Retry", available, err)
+			}
+			if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 1 {
+				t.Fatal("worker report alone suppressed an unverified scope", candidates, err)
+			}
+			// Pending reports still invalidate against an unrelated current
+			// source change. Only the independently adopted F10 is stable.
+			c.DispatchReads = &appVerificationReads{tip: strings.Repeat("e", 40)}
+			if err := c.verifyApplicationReport(ctx, a); err == nil {
+				t.Fatal("pending verification survived changed current source")
+			}
+			c.DispatchReads = &appVerificationReads{tip: fx.tip}
+			if err := c.verifyApplicationReport(ctx, a); err != nil {
+				t.Fatal("trusted F10 adoption", err)
+			}
+			c.DispatchReads = &appVerificationReads{tip: strings.Repeat("e", 40)}
+			fx.host.contextRead = func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+				t.Fatal("verified current accepted revision requested another native preparation")
+				return project.FactoryPreparationContext{}, nil
+			}
+			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 0 {
+				t.Fatal("authoritative verified current revision was rediscovered", candidates, err)
+			}
+			var waitsBefore, waitsAfter int
+			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsBefore); err != nil {
+				t.Fatal(err)
+			}
+			c.driveDeliveryVerifications(ctx)
+			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsAfter); err != nil || waitsAfter != waitsBefore {
+				t.Fatal("verified revision emitted another preparation wait", waitsBefore, waitsAfter, err)
+			}
+			other := revision
+			other.ID, other.Intent = phasedDecisionID(43), phasedDecisionID(60)
+			if err := db.SaveIntentRevision(ctx, other); err != nil {
+				t.Fatal(err)
+			}
+			otherBinding := binding
+			otherBinding.RevisionID = other.ID
+			if err := db.BindIntentTaskAcceptance(ctx, otherBinding); err != nil {
+				t.Fatal(err)
+			}
+			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 1 || candidates[0].Revision.Intent != other.Intent {
+				t.Fatal("verified page prefix starved a different delivered intent", candidates, err)
+			}
+			nextRevision := revision
+			nextRevision.ID, nextRevision.Predecessor = phasedDecisionID(42), revision.ID
+			if err := db.SaveIntentRevision(ctx, nextRevision); err != nil {
+				t.Fatal(err)
+			}
+			binding.RevisionID = nextRevision.ID
+			if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {
+				t.Fatal(err)
+			}
+			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 1 || candidates[0].Revision.ID != nextRevision.ID {
+				t.Fatal("historical F10 suppressed a changed accepted revision", candidates, err)
 			}
 			var closed bool
 			if err = sqlDB.QueryRow(`SELECT (data->>'closed')::boolean FROM factory_attempt_allowances WHERE root_assignment=$1`, a.ID).Scan(&closed); err != nil || !closed {

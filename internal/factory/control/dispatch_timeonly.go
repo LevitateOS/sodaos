@@ -449,7 +449,15 @@ func timeOnlyScope(ctx context.Context, deps DispatchDeps, repository int64, sub
 		if err != nil {
 			return fail("policy unreadable")
 		}
-		return 1, policy.AttemptLimits.ActiveMinutes, nil, nil
+		remaining, err := deps.Store.RemainingAppVerificationSeconds(ctx, repository, subject.Delivery.IntentID, time.Now())
+		if err != nil {
+			return fail("application verification allowance unreadable")
+		}
+		minutes := min(policy.AttemptLimits.ActiveMinutes, factory.MaxAppVerificationRunMinutes, int(remaining/60))
+		if minutes < 1 {
+			return 0, 0, waitFor(WaitAllowance, "application verification intent allowance is exhausted (2 runs / 60 active minutes)"), nil
+		}
+		return 1, minutes, nil, nil
 	}
 	if subject.Kind == factory.SubjectStall && subject.Stall != nil {
 		record, err := deps.Store.StallRepairRecord(ctx, repository, subject.Stall.StallID)

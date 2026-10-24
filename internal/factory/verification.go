@@ -18,6 +18,14 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
+// The fixed approved-check route shares one allowance across every accepted
+// revision and explicit Retry of the same stable intent.
+const (
+	DefaultAppVerificationRuns          = 2
+	DefaultAppVerificationActiveMinutes = 60
+	MaxAppVerificationRunMinutes        = 30
+)
+
 // DeliverySubject binds one app verification to its accepted intent
 // version: the delivery identity, the accepted intent revision and scope,
 // the source and preparation it was admitted against, and the approved
