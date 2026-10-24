@@ -326,7 +326,7 @@ impl<E: Executor> Service<E> {
             reserve_run_argv(&unit, max_secs)
         };
         args.extend(if channels.is_some() {
-            super::codex_control::exec_argv(&container, run, &p, &guest)
+            super::codex_control::exec_argv(&container, run, &p, &guest, max_secs)
         } else {
             reserve_exec_argv(&container, run, &p, &guest)
         });

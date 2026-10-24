@@ -25,6 +25,7 @@ pub(crate) fn exec_argv(
     run: &FactoryRun,
     p: &FactoryCodexPaths,
     guest: &str,
+    max_secs: i64,
 ) -> Vec<String> {
     let mut args = reserve_exec_argv(container, run, p, guest);
     args.insert(2, "--interactive".into());
@@ -44,11 +45,12 @@ pub(crate) fn exec_argv(
             format!("GIT_CONFIG_VALUE_0={}", p.checkout),
         ],
     );
-    *args.last_mut().expect("fixed supervisor payload") = systemd_escape(&supervisor(p, guest));
+    *args.last_mut().expect("fixed supervisor payload") =
+        systemd_escape(&supervisor(p, guest, max_secs));
     args
 }
 
-fn supervisor(p: &FactoryCodexPaths, guest: &str) -> String {
+fn supervisor(p: &FactoryCodexPaths, guest: &str, max_secs: i64) -> String {
     let mut command=format!("{} app-server --listen stdio:// -c 'cli_auth_credentials_store=\"file\"' -c 'features.multi_agent=true'",shell_quote(guest));
     if let Some(profile) = &p.native_profile {
         let path = profile["guest_path"]
@@ -64,7 +66,9 @@ fn supervisor(p: &FactoryCodexPaths, guest: &str) -> String {
         "exec 2>>\"$RUNDIR/stdout.log\"".into(),
         "STAT=$(cat /proc/$$/stat); REST=${STAT##*)}; set -- $REST; echo \"$$ ${20}\" >\"$RUNDIR/supervisor.pid\"".into(),
         "fail() { echo \"$1\" >\"$RUNDIR/exit\"; exit \"$1\"; }".into(),
-        "i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt 600 ] && fail 42; sleep 1; done".into(),
+        // The unit RuntimeMaxSec independently enforces this same admitted
+        // lifetime while approved checks run before releasing the marker.
+        format!("i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt {max_secs} ] && fail 42; sleep 1; done"),
         "mv \"$RUNDIR/marker\" \"$RUNDIR/started\" || fail 43".into(),
         command,
         "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".into(),
