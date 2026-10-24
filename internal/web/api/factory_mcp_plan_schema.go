@@ -58,7 +58,7 @@ func investigationPlanSchema() *jsonschema.Schema {
 	minimum, maximum := float64(factory.MinCheckTimeoutSec), float64(factory.MaxCheckTimeoutSec)
 	check.Properties["timeout_seconds"].Minimum, check.Properties["timeout_seconds"].Maximum = &minimum, &maximum
 	check.Properties["argv"].MinItems, check.Properties["argv"].MaxItems = ptrInt(1), ptrInt(factory.MaxCheckArgv)
-	check.Properties["argv"].Description = "Direct executable and arguments. Declare a script interpreter explicitly when needed."
+	check.Properties["argv"].Description = "Direct executable and arguments justified by inspected prepared source, for example [\"/bin/sh\",\"check.sh\"] for an inspected script. Declare an interpreter explicitly when needed. This plan-local CheckSpec does not require Product Lead's whole-application verification_catalog or verification_manifest_proposal."
 	check.Properties["cwd"].MinLength = ptrInt(1)
 	check.Properties["cwd"].Description = "A clean repository-relative working directory, or . for the checkout root."
 	schema.Properties["checks"].Items = check

@@ -395,6 +395,10 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 			if err = json.Unmarshal(raw, &schema); err != nil {
 				t.Fatal(err)
 			}
+			planSchema := schema.Properties["payload"].Properties["tasks"]
+			if planSchema == nil || !strings.Contains(planSchema.Description, "Architect context intentionally omits verification_catalog") || !strings.Contains(planSchema.Description, "preserve all accepted task outcomes and source/check constraints") || !strings.Contains(planSchema.Properties["checks"].Items.Properties["argv"].Description, "plan-local CheckSpec") {
+				t.Fatal("discovered Architect schema confuses issue checks with Product Lead catalog authority")
+			}
 			resolved, err := schema.Resolve(nil)
 			if err != nil {
 				t.Fatal(err)
@@ -421,7 +425,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 			if err = resolved.Validate(valid); err != nil {
 				t.Fatalf("discovered Architect schema refused a complete typed plan: %v", err)
 			}
-			for _, field := range []string{"id", "integration_commit", "check_id", "check_scope"} {
+			for _, field := range []string{"id", "integration_commit", "check_id", "check_scope", "verification_manifest_proposal", "catalog_id"} {
 				var invalid map[string]any
 				_ = json.Unmarshal(raw, &invalid)
 				proposal := invalid["payload"].(map[string]any)["tasks"].(map[string]any)
@@ -434,6 +438,10 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 					proposal["checks"].([]any)[0].(map[string]any)["id"] = "rc-native/check.sh"
 				case "check_scope":
 					proposal["checks"].([]any)[0].(map[string]any)["scope"] = "proof"
+				case "verification_manifest_proposal":
+					invalid["payload"].(map[string]any)[field] = map[string]any{"checks": []any{}}
+				case "catalog_id":
+					proposal["checks"].([]any)[0].(map[string]any)[field] = factory.ApprovedAppCheckID
 				}
 				if err = resolved.Validate(invalid); err == nil {
 					t.Fatalf("discovered Architect schema accepted the installed invalid %s", field)

@@ -26,11 +26,11 @@ func (f *planningChooser) Select(_ context.Context, _ any, _ string, choices map
 	return a, nil
 }
 
-func planningCoordinator(t *testing.T) (*Coordinator, *planningChooser, dispatchFixture) {
+func planningCoordinator(t *testing.T, body ...string) (*Coordinator, *planningChooser, dispatchFixture) {
 	t.Helper()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	decision := fx.accept(t, 3, "d333333333333333333333333")
+	decision := fx.accept(t, 3, "d333333333333333333333333", body...)
 	fx.queue(t, 3, decision.ID)
 	input := fx.reads.inputs[fmt.Sprintf("%d/3", fx.repo)]
 	evidence := AcceptanceEvidence{Revision: input.Revision, Issue: AcceptanceIssueView{Index: "3", TitleOccurrence: input.Issue.TitleOccurrence, TitleDigest: input.Issue.TitleDigest, ContentDigest: input.Issue.ContentDigest, ContentVer: input.Issue.ContentVer, Visible: true}, Comments: []AcceptanceComment{{ID: "11", Digest: input.Comments[0].Digest, Visible: true}}}
@@ -43,7 +43,11 @@ func planningCoordinator(t *testing.T) (*Coordinator, *planningChooser, dispatch
 }
 
 func TestPlanningRecordsOnceAndFeedsFreshLaunch(t *testing.T) {
-	c, chooser, fx := planningCoordinator(t)
+	// Generate preserves product-scoped directions in the accepted task body.
+	// The Architect still plans this issue with source-inspected local checks;
+	// Product Lead's whole-app catalog does not become its missing prerequisite.
+	const productDirection = "For the normal product plan, use the current approved verification catalog and propose its canonical project.check check for every effective outcome through the typed verification-manifest proposal."
+	c, chooser, fx := planningCoordinator(t, "Update USAGE.md and README.md with the requested usage example.\n"+productDirection)
 	ctx := context.Background()
 	if err := c.PlanningPass(ctx); err != nil {
 		t.Fatal(err)
@@ -66,7 +70,7 @@ func TestPlanningRecordsOnceAndFeedsFreshLaunch(t *testing.T) {
 	// bound to the exact source and preparation, never generic fixed
 	// steps. The recorded investigation plan stages on implementation.
 	prompt := string(fx.host.launches[0].Prompt)
-	for _, want := range []string{"# Soda factory investigation assignment", "## Investigation", fx.tip, "f111111111111111111111111"} {
+	for _, want := range []string{"# Soda factory investigation assignment", "## Investigation", fx.tip, "f111111111111111111111111", productDirection, "direct executable argv justified by inspected prepared source", `argv may be ["/bin/sh","check.sh"]`, "ProductLead-scoped directions embedded in accepted task text remain with that owning role", "Architect context intentionally omits verification_catalog", "preserve all accepted task outcomes and source/check constraints", "native CI status context names, not executable commands"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("investigation prompt lacks %q", want)
 		}
