@@ -96,8 +96,16 @@ func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
 		"internal/store/nested/deep/plan.go",
 	}
 	db, _ := dispatchTestDB(t)
-	fx := dispatchSeed(t, db, assemblySourceInputs(t, paths))
-	fx.host.contextRead = nativeExpandingContextRead(assemblyContents(paths))
+	contents := assemblyContents(paths)
+	// A native-approved source file may legitimately exceed the prose-report
+	// limit. Carry every UTF-8 byte at the native file boundary, without a
+	// shortened excerpt or a synthetic replacement source.
+	contents[paths[0]] = strings.Repeat("é", project.MaxFactoryContextFileBytes/2)
+	inputs := assemblySourceInputs(t, paths)
+	fullDigest := sha256.Sum256([]byte(contents[paths[0]]))
+	inputs[paths[0]] = hex.EncodeToString(fullDigest[:])
+	fx := dispatchSeed(t, db, inputs)
+	fx.host.contextRead = nativeExpandingContextRead(contents)
 	coord := &Coordinator{Store: db, Host: fx.host}
 	head := assemblyHead(fx.repo)
 	in, prep, wait, err := coord.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose)
@@ -122,13 +130,32 @@ func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
 		t.Fatalf("inspected carries %d entries, want %d", len(in.Inspected), len(paths))
 	}
 	for i, ref := range in.Inspected {
-		if ref.Path != paths[i] || ref.Commit != strings.Repeat("c", 40) || ref.Evidence != "native bytes: "+paths[i] {
+		if ref.Path != paths[i] || ref.Commit != strings.Repeat("c", 40) || ref.Evidence != contents[paths[i]] {
 			t.Fatalf("inspected entry not exact: %+v", ref)
 		}
 	}
 	if in.Operation != factory.IntentPlanningPropose || in.Head.ID != head.ID {
 		t.Fatalf("assembled input not bound: %+v", in.Operation)
 	}
+	oversized := in
+	oversized.Inspected = append([]factory.InspectedSource(nil), in.Inspected...)
+	oversized.Inspected[0].Evidence += "x"
+	if err := oversized.Validate(); err == nil {
+		t.Fatal("planner input accepted source evidence beyond the native file limit")
+	}
+	fx.host.contextRead = nativeExpandingContextRead(map[string]string{paths[0]: contents[paths[0]] + "x"})
+	if _, _, _, err := coord.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose); err == nil {
+		t.Fatal("assembly accepted a native file beyond its existing context limit")
+	}
+	aggregate := make(map[string]string, len(paths))
+	for _, path := range paths {
+		aggregate[path] = contents[paths[0]]
+	}
+	fx.host.contextRead = nativeExpandingContextRead(aggregate)
+	if _, _, _, err := coord.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose); err == nil {
+		t.Fatal("assembly accepted source files beyond the existing native aggregate limit")
+	}
+	fx.host.contextRead = nativeExpandingContextRead(contents)
 	// The production catalog consumes the same approved native preparation,
 	// without executing or trusting a check selected by Product Lead.
 	a := factory.Assignment{Repository: fx.repo, ProjectID: fx.proj, Phase: project.ExecutionDecompose, Role: project.RoleCoder, Preparation: prep.ID, SourceCommit: prep.SourceCommit,

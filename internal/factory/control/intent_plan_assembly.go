@@ -188,7 +188,7 @@ func mergePlanningContextFiles(prep project.Preparation, files []project.Factory
 		if hex.EncodeToString(sum[:]) != want {
 			return errors.New("preparation context does not match its approval")
 		}
-		if len(file.Content) > factory.MaxPlanTextBytes {
+		if len(file.Content) > project.MaxFactoryContextFileBytes {
 			return errors.New("approved source file exceeds its evidence bound")
 		}
 		merged[file.Path] = file.Content

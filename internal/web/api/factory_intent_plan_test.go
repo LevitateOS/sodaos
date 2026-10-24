@@ -26,8 +26,10 @@ import (
 // the requested paths, so the test approves their digest.
 const planSourcePath = "internal/factory/intent.go"
 
+var planSourceContent = "synthetic selected source: " + planSourcePath + strings.Repeat("x", project.MaxFactoryContextFileBytes-len("synthetic selected source: "+planSourcePath))
+
 func planSourceDigest() string {
-	sum := sha256.Sum256([]byte("synthetic selected source: " + planSourcePath))
+	sum := sha256.Sum256([]byte(planSourceContent))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -62,7 +64,11 @@ func (h *planStubHost) FactoryHarness(_ context.Context, family string) (project
 func (h *planStubHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
 	files := make([]project.FactoryContextFile, 0, len(in.Paths))
 	for _, path := range in.Paths {
-		files = append(files, project.FactoryContextFile{Path: path, Content: []byte("synthetic selected source: " + path)})
+		content := "synthetic selected source: " + path
+		if path == planSourcePath {
+			content = planSourceContent
+		}
+		files = append(files, project.FactoryContextFile{Path: path, Content: []byte(content)})
 	}
 	return project.FactoryPreparationContext{
 		Project: in.Project, ID: in.ID, Role: role,
@@ -275,6 +281,10 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	}
 	if launched.Subject.Intent == nil || launched.Subject.Intent.ScopeDigest != head.Digest() {
 		t.Fatalf("launched subject not bound to its head: %+v", launched.Subject)
+	}
+	stagedInput, planningStaged, err := control.ParseStagedPlanningInput(launched.Prompt)
+	if err != nil || !planningStaged || len(stagedInput.Inspected) != 1 || stagedInput.Inspected[0].Evidence != planSourceContent {
+		t.Fatalf("authenticated planning lost complete native-bound source evidence: %v", err)
 	}
 	for _, want := range []string{"Sync only on explicit manager request", "Delete requests automatically", head.Digest(), "synthetic selected source: " + planSourcePath} {
 		if !strings.Contains(string(launched.Prompt), want) {

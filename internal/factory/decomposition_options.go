@@ -376,7 +376,9 @@ func (in SemanticPlannerInput) Validate() error {
 		if !ValidCommit(ref.Commit) {
 			return errors.New("inspected source lacks its commit")
 		}
-		if ref.Evidence == "" || len(ref.Evidence) > MaxPlanTextBytes {
+		// Server-assembled planning input carries the complete approved
+		// native file; the separate report/prose bound does not truncate it.
+		if ref.Evidence == "" || len(ref.Evidence) > project.MaxFactoryContextFileBytes {
 			return errors.New("inspected evidence outside its bound")
 		}
 	}
