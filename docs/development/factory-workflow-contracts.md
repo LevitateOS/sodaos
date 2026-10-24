@@ -190,6 +190,11 @@ judgment ledger retains paid history. Continuously changing inputs can yield
 `priority_snapshot_changing`; eventual stable inputs must make progress. Native
 unavailability is `priority_incomplete`, not a subset election.
 
+Native preparation can become ready without changing the repository revision or
+local authority. Retire a completed empty scan containing a preparation wait so
+the next bounded pass observes that readiness; a cached exclusion cannot hold an
+already authorized Retry forever.
+
 ## D03 — Plan, result and storage schemas
 
 Replace fixed `PlanningRecord.Steps` with immutable `InvestigationPlan` containing:
@@ -542,6 +547,11 @@ triggering decision/reason, exact head/base, input finding digest and fresh revi
 correction assignment IDs. IDs derive from publication, attempt root, round and
 phase. New round on the same head is distinct; replay of a round is identical.
 
+Prepare the exact candidate before awaiting its current native check assessment,
+so CI can use the prepared source. Missing, pending or stale checks hold paid
+reviewer admission. A settled failure is valid review evidence; only passing
+checks can authorize merge.
+
 A report carries new findings plus explicit `verified|still_open` assessments for
 every carried actionable finding, with evidence. It cannot silently omit them.
 Corrections receive the whole current finding set; output has exactly one
@@ -640,6 +650,12 @@ answers give `judgment_unavailable`; an already reserved fingerprint without a
 completed answer stays charged and is not automatically retried. Successful
 unchanged decisions are reused. Explicit authorized Retry creates a new attempt;
 clock ticks and incidental polling do not create new request identities.
+
+A confirmed native stop of a Retry command's exact owned coder preparation ends
+that command's admission. Preserve its command, preparation result and spent
+allowance while allowing a later authorized Retry with a fresh identity. An
+uncertain stop or a receipt bound to another preparation or owner cannot retire
+the command.
 
 Fingerprint schema/version, rubric/options, configured model, attempt/publication/
 round, head/base, accepted scope/policy, reviews, semantic conversation content,
