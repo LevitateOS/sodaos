@@ -198,11 +198,17 @@ copy, not a compromised administrator or disk plus key. A wrong/missing key fail
 startup instead of generating a replacement.
 
 Host configuration selects `identity_socket` and a verified `codex_harness` release
-package with `codex_harness_sha256`. The host stages the supplied package into a
-managed session's private tmpfs. Supervised factory runs stage the proved harness
-version selected by their run record with its actual executable digest; the only
-proved factory harness is Codex CLI `0.157.1`. Provider credentials must not be
-embedded in that package, images, persistent project homes or exported artifacts.
+package with `codex_harness_sha256`. The supplied package root contains
+`bin/codex` and its `bin/codex-code-mode-host` companion. Store operator-supplied
+public packages and the pinned model catalog in root-owned retained storage, such
+as `/var/lib/soda/providers/`, with no group or other write permission. This path
+survives both appliance reboots and Docker container recreation; Docker's
+`/usr/local` is outside its retained volumes. The host stages the supplied package
+into a managed session's private tmpfs. Supervised factory runs stage the harness
+tuple selected by their run record and verify its actual executable digest. Retain
+native qualification evidence for the chosen harness, model and backend.
+Provider credentials must not be embedded in that package, images, persistent
+project homes or exported artifacts.
 
 Provision configuration and a fresh key explicitly, then enable the broker sockets
 and service. `soda-setup` does not invent a Codex account, choose an external package

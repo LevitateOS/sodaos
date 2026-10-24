@@ -246,6 +246,11 @@ Project roots, broker custody, Tailnet state, application data and backups.
 starts select the same volumes. Run lifecycle commands from the protected
 installation directory with the same `compose.yaml` and `.env`.
 
+Store operator-supplied public provider packages and model catalogs under
+root-owned `/var/lib/soda/providers/` and configure their exact paths and pins.
+Files added to `/usr/local` belong to the outer container layer and disappear
+when it is recreated, while retained host configuration still references them.
+
 ```sh
 cd /home/sodaos
 docker compose stop

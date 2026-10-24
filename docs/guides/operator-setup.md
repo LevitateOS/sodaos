@@ -253,8 +253,10 @@ the dashboard. Check the resulting service state before enabling factory policy.
 For Codex native child tasks, select the qualified model/backend catalog in the
 host configuration using `codex_model_catalog` and `codex_model_catalog_sha256`.
 Keep the reviewed catalog in a root-owned regular file with no group or other
-write permission. The host checks its digest and assigned model, then stages the
-exact catalog read-only for each run. Follow the
+write permission. Keep the catalog and the public harness package under retained
+`/var/lib/soda/providers/`; set `codex_harness` to the package root containing
+`bin/codex` and `bin/codex-code-mode-host`. The host checks its digest and assigned
+model, then stages the exact catalog read-only for each run. Follow the
 [native profile requirements](../../lib/host/README.md#codex-child-profile) and retain
 installed proof for the selected harness, model and backend before enabling task
 writes. Pause dispatch and retire managed runs and leases before changing the
