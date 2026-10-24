@@ -159,6 +159,7 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
       ask: 'question', answer: 'answer', reply: 'discussion', flag: 'flag', learned: 'knowledge',
       suggest: 'proposal', partial: 'progress', blocked: 'blocked', stuck: 'stuck',
       record_decision: 'decision', finish_incomplete: 'incomplete', system: 'integration', library_maintenance: 'maintenance', artifact: 'work',
+      journey: 'verification', diagnosis: 'reassessment', repair_draft: 'reassessment',
     };
     const component = feedComponent(communication.componentId);
     if (communication.kind === 'partial' && component && feedFamilies.some((family) => family === component.family))

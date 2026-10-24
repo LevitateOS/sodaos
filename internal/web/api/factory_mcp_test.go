@@ -50,6 +50,7 @@ func fakeCatalogCapability() factory.MCPCapability {
 }
 
 type fakeCatalogRecord struct {
+	payload  []byte
 	tool     factory.MCPTool
 	input    string
 	hash     string
@@ -190,7 +191,8 @@ func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt facto
 		}
 	}
 	f.submissions[key] = fakeCatalogRecord{
-		tool: submission.Tool, input: submission.ExpectedInputDigest,
+		payload: append([]byte{}, submission.Payload...),
+		tool:    submission.Tool, input: submission.ExpectedInputDigest,
 		hash: submission.PayloadHash, receipt: receipt,
 		terminal: factory.MCPIsTerminal(submission.Tool),
 	}

@@ -524,7 +524,25 @@ active/current cause checks still apply. Existing real PostgreSQL completion,
 stall and failed-delivery paths cover full typed feed content, replay/conflict,
 foreign scope/artifact refusals, record bounds, paging and unchanged workflow
 spending; authenticated HTTP exercises discovery, schema, context continuation
-and receipt recovery. Durable draft tools and native qualification remain open.
+and receipt recovery. Installed native qualification remains open.
+
+**Strategist draft/recovery slice:** `factory.draft_repair` now records the
+complete admitted cause's typed proposal and optional canonical diagnosis
+references under the same assignment/capability/input/source/inventory. Draft
+and ST06 receipt/post commit together; the bounded preview explicitly names
+abbreviated graph text/rows while preserving the full immutable JSON. Each
+assignment has 32 draft slots within the 64 KiB payload bound, independently of
+diagnosis and terminal slots. A draft grants no model consultation, terminal
+result, graph operation, readiness or paid-adoption authority. Selected
+`reassessment_scope` record reads recover at most 4 KiB of UTF-8-safe original
+JSON per byte offset, with canonical payload hash and continuation; missing,
+foreign, out-of-range and mid-rune reads refuse. Recovery does not automatically
+finish or promote a draft. Existing PostgreSQL cases cover complete Unicode
+roundtrip, reference binding, replay/conflict, limits and retained paid adoption;
+authenticated HTTP covers the same tool/read wire and context hold. The existing
+browser feed case renders journey, diagnosis and proposed-draft kinds with
+reported status and no invented positive verification or actions. Native tool
+qualification and broader instruction/experience closure remain separate.
 
 **Full role interfaces:** Implement Strategist `reassessment_scope`,
 `record_diagnosis`, `draft_repair`, `preview_repair` and its finish for the admitted

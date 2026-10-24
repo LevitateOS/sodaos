@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
@@ -844,6 +845,119 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		_, refused := db.ReassessmentScope(ctx, repairCapability, firstSequence)
 		if _, e := previewDB.Exec(`UPDATE factory_feed_comments SET data=$1 WHERE id=$2`, string(originalPost), receipt.FeedPostID); e != nil || refused == nil {
 			t.Fatal("paged scope hid an incomplete canonical feed projection", e, refused)
+		}
+		var expanded map[string]any
+		_ = json.Unmarshal(encoded, &expanded)
+		changeForDraft := expanded["intent_changes"].([]any)[0].(map[string]any)
+		changeForDraft["reason"] = strings.Repeat("é漢🧪", 400)
+		changeForDraft["tasks"].([]any)[0].(map[string]any)["objective"] = strings.Repeat("αβ", 200)
+		unicodeReport, _ := json.Marshal(expanded)
+		draft := factory.RepairDraft{Report: unicodeReport, DiagnosisRefs: []string{"diagnosis:" + submission.SubmissionID}}
+		draftBody, _ := json.Marshal(draft)
+		draftSubmission := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
+		draftProposedReceipt := factory.MCPReceipt{SubmissionID: draftSubmission.SubmissionID, Tool: draftSubmission.Tool, State: factory.MCPReceiptRecorded, InputDigest: draftSubmission.PayloadHash}
+		draftReceipt, e := db.RecordMCPSubmission(ctx, draftSubmission, draftProposedReceipt)
+		if e != nil || draftReceipt.FeedPostID == "" {
+			t.Fatal("cause-bound draft was not recorded", e)
+		}
+		draftPost, e := db.FeedComment(ctx, draftReceipt.FeedPostID)
+		if e != nil || draftPost.Payload == nil || draftPost.Payload.Communication == nil || draftPost.Payload.Communication.ComponentID != "ST06" || len(draftPost.Payload.Communication.Items) != len(tasks)+1 || !strings.Contains(draftPost.Payload.Communication.Summary, "Not submitted") || draftPost.Payload.Communication.Items[1].ID != tasks[0].Key {
+			t.Fatal("draft lost its typed proposed graph or authority boundary", e)
+		}
+		if len(draftPost.Payload.Communication.Remaining) < 2 || len([]rune(draftPost.Payload.Communication.Items[0].Detail)) > store.FeedSummaryLimit {
+			t.Fatal("large draft preview hid its abbreviation or exceeded the feed bound")
+		}
+		var recovered strings.Builder
+		offset, fragments := 0, 0
+		for {
+			page, e := db.ReadRepairObservation(ctx, repairCapability, draftSubmission.SubmissionID, offset)
+			if e != nil || page.ID != draftSubmission.SubmissionID || page.Tool != factory.MCPToolDraftRepair || page.PayloadHash != draftSubmission.PayloadHash || page.InputDigest != repairCapability.ScopeDigest() || page.Encoding != "utf8-json-fragment" || page.Offset != offset || len(page.Content) > factory.RepairObservationFragmentBytes || !utf8.ValidString(page.Content) {
+				t.Fatalf("exact draft fragment: %+v %v", page, e)
+			}
+			recovered.WriteString(page.Content)
+			fragments++
+			if page.Complete {
+				break
+			}
+			if page.NextOffset <= offset {
+				t.Fatal("draft fragment did not advance")
+			}
+			offset = page.NextOffset
+		}
+		if fragments < 2 || recovered.String() != string(draftBody) || factory.MCPInputDigest([]byte(recovered.String())) != draftSubmission.PayloadHash {
+			t.Fatal("immutable Unicode draft did not recover byte-for-byte")
+		}
+		midRune := 0
+		for i := range draftBody {
+			if !utf8.RuneStart(draftBody[i]) {
+				midRune = i
+				break
+			}
+		}
+		for _, invalidOffset := range []int{-1, len(draftBody), midRune} {
+			if _, e := db.ReadRepairObservation(ctx, repairCapability, draftSubmission.SubmissionID, invalidOffset); e == nil {
+				t.Fatal("draft read admitted an invalid byte offset", invalidOffset)
+			}
+		}
+		if _, e := db.ReadRepairObservation(ctx, repairCapability, factory.NewID(), 0); e == nil {
+			t.Fatal("draft read supplied missing or foreign content")
+		}
+		foreignCap := repairCapability
+		foreignCap.Project = "p" + strings.Repeat("9", 24)
+		if _, e := db.ReadRepairObservation(ctx, foreignCap, draftSubmission.SubmissionID, 0); e == nil {
+			t.Fatal("draft read admitted a foreign capability tuple")
+		}
+		if replay, e := db.RecordMCPSubmission(ctx, draftSubmission, draftProposedReceipt); e != nil || replay.FeedPostID != draftReceipt.FeedPostID {
+			t.Fatal("draft replay lost its original receipt", e)
+		}
+		for _, kind := range []string{"missing_diagnosis", "duplicate_diagnosis", "foreign_input", "unknown_report_field"} {
+			bad := draft
+			switch kind {
+			case "missing_diagnosis":
+				bad.DiagnosisRefs = []string{"diagnosis:" + factory.NewID()}
+			case "duplicate_diagnosis":
+				bad.DiagnosisRefs = []string{draft.DiagnosisRefs[0], draft.DiagnosisRefs[0]}
+			default:
+				var report map[string]any
+				_ = json.Unmarshal(encoded, &report)
+				if kind == "unknown_report_field" {
+					report["apply"] = true
+				} else if deliveryMode {
+					report["input_digest"] = strings.Repeat("9", 64)
+				} else {
+					report["inventory_digest"] = strings.Repeat("9", 64)
+				}
+				bad.Report, _ = json.Marshal(report)
+			}
+			payload, _ := json.Marshal(bad)
+			sub := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), payload)
+			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+				t.Fatal("draft admitted " + kind)
+			}
+		}
+		conflictingDraft := draftSubmission
+		draftWithoutRef := draft
+		draftWithoutRef.DiagnosisRefs = nil
+		conflictingDraft.Payload, _ = json.Marshal(draftWithoutRef)
+		conflictingDraft.PayloadHash = factory.MCPInputDigest(conflictingDraft.Payload)
+		conflictingReceipt := draftProposedReceipt
+		conflictingReceipt.InputDigest = conflictingDraft.PayloadHash
+		if _, e := db.RecordMCPSubmission(ctx, conflictingDraft, conflictingReceipt); !errors.Is(e, store.ErrMCPSubmissionConflict) {
+			t.Fatal("draft identity accepted different content", e)
+		}
+		for count := 1; count < factory.MaxRepairObservations; count++ {
+			sub := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
+			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e != nil {
+				t.Fatal("bounded draft recording", count, e)
+			}
+		}
+		overflow = testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
+		if _, e := db.RecordMCPSubmission(ctx, overflow, factory.MCPReceipt{SubmissionID: overflow.SubmissionID, Tool: overflow.Tool, State: factory.MCPReceiptRecorded, InputDigest: overflow.PayloadHash}); e == nil {
+			t.Fatal("draft limit did not preserve its terminal slot")
+		}
+		view, e := db.ReassessmentScope(ctx, repairCapability, 0)
+		if e != nil || view.Total != 2*factory.MaxRepairObservations || snapshot() != before || chooser.calls != 0 || graph.submissions != baseline {
+			t.Fatal("drafts granted adoption or changed funding/workflow rows", e)
 		}
 	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair proposal ready", true

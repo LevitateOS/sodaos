@@ -1086,6 +1086,7 @@
       "strategist"
     ],
     "outlets": [
+      "factory.draft_repair",
       "factory.suggest"
     ],
     "authority": "worker",

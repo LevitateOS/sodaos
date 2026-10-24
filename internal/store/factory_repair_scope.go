@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -105,5 +106,45 @@ func (s *Store) ReassessmentScope(ctx context.Context, cap factory.MCPCapability
 		return out, err
 	}
 	out.Complete = out.NextAfter == 0
+	return out, tx.Commit()
+}
+
+// ReadRepairObservation recovers only this active investigator's immutable
+// diagnosis or draft. The submission and its attributed feed post must still
+// agree with the current admitted cause; a reference grants no broader read.
+func (s *Store) ReadRepairObservation(ctx context.Context, cap factory.MCPCapability, id string, offset int) (factory.RepairObservationPage, error) {
+	var out factory.RepairObservationPage
+	if !factory.ValidID(id) || offset < 0 {
+		return out, errors.New("invalid repair observation reference or offset")
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return out, err
+	}
+	defer tx.Rollback()
+	a, _, err := repairObservationScopeTx(ctx, tx, cap)
+	if err != nil {
+		return out, err
+	}
+	var capability string
+	var raw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT s.tool,s.capability,s.input_digest,s.payload_hash,s.payload FROM factory_mcp_submissions s JOIN factory_feed_comments p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.submission=$3 AND s.tool IN ($4,$5) FOR SHARE OF s,p`, a.ID, a.Repository, id, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Tool, &capability, &out.InputDigest, &out.PayloadHash, &raw); err != nil {
+		return out, err
+	}
+	if capability != cap.ID || out.InputDigest != cap.ScopeDigest() || len(raw) == 0 || len(raw) > factory.MCPMaxSubmissionPayload || !utf8.Valid(raw) || !json.Valid(raw) || factory.MCPInputDigest(raw) != out.PayloadHash {
+		return factory.RepairObservationPage{}, errors.New("repair observation differs from its canonical admitted report")
+	}
+	if offset >= len(raw) || !utf8.RuneStart(raw[offset]) {
+		return factory.RepairObservationPage{}, errors.New("repair observation offset is outside its UTF-8 content")
+	}
+	end := min(len(raw), offset+factory.RepairObservationFragmentBytes)
+	for end < len(raw) && !utf8.RuneStart(raw[end]) {
+		end--
+	}
+	out.ID, out.Offset, out.TotalBytes, out.Encoding = id, offset, len(raw), "utf8-json-fragment"
+	out.Content, out.Complete = string(raw[offset:end]), end == len(raw)
+	if !out.Complete {
+		out.NextOffset = end
+	}
 	return out, tx.Commit()
 }

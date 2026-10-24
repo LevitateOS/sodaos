@@ -45,6 +45,9 @@ test('findings show supplied source literally and corrections retain before and 
       if (call.url.endsWith('/api/factory/feed/subscription')) return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q=')) return Response.json({items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false}], next_cursor: ''});
       if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [
+        {kind: 'post', id: 'c'.repeat(32), repository: 7, seq: 46, actor: 'test_pilot', author: 'Test Pilot', payload: {communication: {kind: 'journey', component_id: 'TP03', title: 'Task journey observed', summary: 'Recorded journey observation: passed. Application verification is unchanged.', before: 'The task remains after refresh.', after: 'The same task was visible after refresh.', items: [{label: 'Refresh the task board', state: 'reported'}]}}},
+        {kind: 'post', id: 'd'.repeat(32), repository: 7, seq: 45, actor: 'strategist', author: 'Strategist', payload: {communication: {kind: 'diagnosis', component_id: 'ST02', title: 'Missing producer diagnosed', summary: 'Recorded diagnosis (supported). Graph and readiness are unchanged.', items: [{label: 'Missing fixture producer', detail: 'The complete sealed inventory has no authorized producer. '.repeat(14), state: 'reported_supported'}], alternatives: ['Renaming an issue does not supply the missing result.'], remaining: ['The owner must independently accept the fixture.']}}},
+        {kind: 'post', id: 'e'.repeat(32), repository: 7, seq: 44, actor: 'strategist', author: 'Strategist', payload: {communication: {kind: 'repair_draft', component_id: 'ST06', title: 'Fixture producer proposed', summary: 'Recorded draft (repair). Not submitted for judgment or adopted; graph and readiness are unchanged.', before: 'Current protected graph', after: 'Proposed fixture producer', items: [{id: 'producer', label: 'Add the missing fixture', state: 'proposed'}], remaining: ['Preview shows 1 of 1 proposed graph rows. The complete immutable report remains available.']}}},
         {kind: 'post', id: 'a'.repeat(32), repository: 7, seq: 43, actor: 'fixer', author: 'Fixer', payload: {communication: {kind: 'partial', component_id: 'FX04', title: 'Ownership corrected', summary: 'Compare the person making the request.', source: {path: 'router.ts', start_line: 12, code: 'return !!task.ownerId;', after: 'return task.ownerId === staff.id;'}, commits: [{revision: 'b'.repeat(40), summary: 'Restrict access to owner'}]}}},
         {kind: 'post', id: 'b'.repeat(32), repository: 7, seq: 42, actor: 'inspector', author: 'Inspector', payload: {communication: {kind: 'flag', component_id: 'IN03', title: 'Ownership defect', summary: 'Another employee can open the task.', source: {path: 'router.ts', start_line: 12, code: '<script>window.untrustedSourceRan = true</script>\nreturn !!task.ownerId;', highlight_lines: [13]}, items: [{label: 'Other employee access', state: 'not passed'}]}}}
       ], truncated: false});
@@ -62,6 +65,16 @@ test('findings show supplied source literally and corrections retain before and 
   assert.equal(await feed.locator('[data-action="correction"] pre').count(), 2);
   assert.equal(await feed.locator('.soda-action-commits code').innerText(), 'bbbbbbbb');
   assert.equal(await feed.locator('.soda-action-commits li > span').innerText(), 'Restrict access to owner');
+  for (const [id, kind, action] of [['c', 'journey', 'journey'], ['d', 'diagnosis', 'diagnosis'], ['e', 'repair_draft', 'comparison']] as const) {
+    const card = feed.locator(`#feed-post-${id.repeat(32)}`);
+    assert.equal(await card.locator(`[data-communication="${kind}"] [data-action="${action}"]`).count(), 1);
+    assert.equal(await card.locator('[data-tone="positive"]').count(), 0);
+  }
+  assert.equal(await feed.getByText('Recorded detail unavailable', {exact: true}).count(), 0);
+  assert.equal(await feed.getByText('Journey observation recorded', {exact: true}).count(), 1);
+  assert.equal(await feed.getByText('Diagnosis recorded', {exact: true}).count(), 1);
+  assert.equal(await feed.getByText('Repair proposed', {exact: true}).count(), 1);
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
 test('recorded suggestion and answer resolutions remain readable in the feed', async (t) => {

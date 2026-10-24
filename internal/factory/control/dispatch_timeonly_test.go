@@ -491,6 +491,16 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	if string(before) != string(afterJSON) || chooser.calls != 1 || len(fx.publish.seed.host.launches) != 1 {
 		t.Fatal("recording completion diagnosis granted effects or judgment")
 	}
+	reportJSON, _ := json.Marshal(proposal)
+	draftJSON, _ := json.Marshal(factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + submission.SubmissionID}})
+	draft := testMCPSubmission(cap, factory.MCPToolDraftRepair, factory.NewID(), draftJSON)
+	if receipt, err := db.RecordMCPSubmission(ctx, draft, factory.MCPReceipt{SubmissionID: draft.SubmissionID, Tool: draft.Tool, State: factory.MCPReceiptRecorded, InputDigest: draft.PayloadHash}); err != nil || receipt.FeedPostID == "" {
+		t.Fatal("completion no-change draft was not durable", err)
+	}
+	scope, err = db.ReassessmentScope(ctx, cap, 0)
+	if err != nil || scope.Total != 2 || len(scope.Records) != 2 || scope.Records[1].Tool != factory.MCPToolDraftRepair || chooser.calls != 1 {
+		t.Fatal("completion scope did not retain separate diagnosis/draft stages", err)
+	}
 	run, err := db.FactoryRun(ctx, launched)
 	if err != nil {
 		t.Fatal(err)

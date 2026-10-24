@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 54 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 55 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -617,8 +617,21 @@ Exact replay returns the original identity; changed bytes, foreign cause/input/
 source/inventory, unowned artifacts and inactive workers refuse. Payloads are
 at most 8 KiB and each assignment has 32 diagnosis slots while retaining its
 terminal slot. Diagnosis can report under a context-selection hold; it never
-supplies missing work authority, paid assessment or native truth. Durable drafts
-and installed native qualification remain separate work.
+supplies missing work authority, paid assessment or native truth.
+
+`factory.draft_repair` records the complete cause-specific typed report and
+optional `diagnosis:<submission ID>` references belonging to the exact same
+assignment/input. Its ST06 post is a bounded proposed-graph preview with explicit
+abbreviation notices; the canonical submission retains every byte. Both diagnosis
+and draft references can be recovered through `reassessment_scope` using
+`record` and byte `offset`: concatenate UTF-8 JSON fragments of at most 4 KiB,
+verify the canonical payload hash, then decode the full original report. Missing,
+foreign, stale or mid-rune reads refuse. There are 32 draft slots per assignment,
+within the 64 KiB payload bound, independently of diagnosis slots and the terminal
+slot. A draft does not pass graph preflight or a paid judgment by being recorded.
+The final finish still carries its complete typed report; recovery does not finish
+by reference or automatically promote a draft. Installed native qualification
+remains separate.
 
 The feed needs a before/after view and the concrete reason each change helps.
 The library can retain a recurring stall pattern and an evidence-backed recovery

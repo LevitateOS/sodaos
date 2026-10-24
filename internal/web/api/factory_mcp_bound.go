@@ -94,6 +94,9 @@ func workerFeedComponents(profile factory.MCPProfile) []map[string]any {
 }
 
 func factoryToolDescription(tool factory.MCPTool) string {
+	if tool == factory.MCPToolDraftRepair {
+		return "Record the complete typed repair/reassessment proposal for your admitted cause, optionally citing exact diagnosis:<submission ID> observations of this assignment. Returns an immutable draft receipt and proposed ST06 graph post. This does not finish, call a model, stage adoption, change a graph/readiness or spend; preview and the real paid finish/adoption process remain separate."
+	}
 	if tool == factory.MCPToolReassessmentScope {
 		return "Read your current admitted completion, stall or failed-delivery cause, complete sealed inventory and remaining allowance through the canonical context pages, plus paged own diagnosis/draft references. Missing/stale inputs remain explicit. This read does not launch, judge, spend, apply a graph or change readiness."
 	}

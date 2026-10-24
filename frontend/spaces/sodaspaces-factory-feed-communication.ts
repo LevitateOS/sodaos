@@ -16,6 +16,7 @@ const defaultPresentation: Record<FeedCommunication['kind'], string> = {
   learned: 'knowledge', suggest: 'proposal', partial: 'progress', blocked: 'blocker',
   stuck: 'diagnosis', record_decision: 'decision', finish_incomplete: 'incomplete',
   system: 'brief', library_maintenance: 'maintenance', artifact: 'artifact',
+  journey: 'journey', diagnosis: 'diagnosis', repair_draft: 'comparison',
 };
 
 export function renderFeedCommunication(c: FeedCommunication, entryKey: string, request?: FeedArtifactRequest): TemplateResult {

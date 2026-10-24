@@ -155,6 +155,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	if tool == factory.MCPToolRecordDiagnosis {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairDiagnosisPayloadSchema()
 	}
+	if tool == factory.MCPToolDraftRepair {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairDraftPayloadSchema()
+	}
 	if tool == factory.MCPToolReassessmentScope {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairScopePayloadSchema()
 	}
@@ -447,6 +450,9 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	}
 	if tool == factory.MCPToolRecordDiagnosis {
 		return checkRepairDiagnosisPayload(payload)
+	}
+	if tool == factory.MCPToolDraftRepair {
+		return checkRepairDraftPayload(payload)
 	}
 	if factory.MCPIsLibraryMutation(tool) {
 		return checkLibraryPayload(tool, payload)

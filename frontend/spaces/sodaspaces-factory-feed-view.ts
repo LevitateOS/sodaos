@@ -114,6 +114,7 @@ function readableStatus(entry: FeedEntry): string {
       learned: 'Observation recorded', suggest: 'Proposed', partial: 'Progress reported',
       blocked: 'Blocked', stuck: 'Diagnosis needed', record_decision: 'Decision recorded',
       finish_incomplete: 'Incomplete', system: (entry.status ?? 'Factory update').replaceAll(':', ' · ').replaceAll('_', ' '), library_maintenance: (entry.status ?? 'Library updated').replaceAll(':', ' · ').replaceAll('_', ' '), artifact: 'Artifact available',
+      journey: 'Journey observation recorded', diagnosis: 'Diagnosis recorded', repair_draft: 'Repair proposed',
     };
     return labels[communication.kind];
   }

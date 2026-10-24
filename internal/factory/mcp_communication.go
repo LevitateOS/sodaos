@@ -19,7 +19,7 @@ var MCPCommunicationTools = []MCPTool{MCPToolAsk, MCPToolAnswer, MCPToolReply, M
 func MCPIsCommunication(tool MCPTool) bool {
 	// Typed journey/diagnosis observations have their own bounded decoders and
 	// durable recorders, but carry the same report-only authority as these outlets.
-	if tool == MCPToolRecordJourneyResult || tool == MCPToolRecordDiagnosis {
+	if tool == MCPToolRecordJourneyResult || tool == MCPToolRecordDiagnosis || tool == MCPToolDraftRepair {
 		return true
 	}
 	for _, known := range MCPCommunicationTools {

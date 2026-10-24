@@ -21,7 +21,7 @@ export const feedPayloadCap = 24;
 // events served as their own record entries instead of status
 // suffixes. A milestone entry names its bound assignment in
 // `assignment` when available and receives its own order key when recorded.
-export const feedCommunicationKinds = ['ask', 'answer', 'reply', 'flag', 'learned', 'suggest', 'partial', 'blocked', 'stuck', 'record_decision', 'finish_incomplete', 'system', 'library_maintenance', 'artifact'] as const;
+export const feedCommunicationKinds = ['ask', 'answer', 'reply', 'flag', 'learned', 'suggest', 'partial', 'blocked', 'stuck', 'record_decision', 'finish_incomplete', 'system', 'library_maintenance', 'artifact', 'journey', 'diagnosis', 'repair_draft'] as const;
 export type FeedCommunicationKind = (typeof feedCommunicationKinds)[number];
 export const feedActivities = ['merged', 'completed', 'judgment', ...feedCommunicationKinds] as const;
 export type FeedActivity = (typeof feedActivities)[number];
@@ -947,7 +947,7 @@ function parseCommunicationPayload(value: unknown): FeedCommunication {
       const itemID = payloadOptionalID(item.id);
       if (itemID !== undefined) row.id = itemID;
       if (item.depends_on !== undefined) row.dependsOn = payloadStrings(item.depends_on);
-      const detail = payloadText(item.detail), state = payloadText(item.state);
+      const detail = communicationText(item.detail), state = payloadText(item.state);
       if (detail !== undefined) row.detail = detail;
       if (state !== undefined) row.state = state;
       return row;
