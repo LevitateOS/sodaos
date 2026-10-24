@@ -277,7 +277,7 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 }
 
 func stallRepairGraphIntegration(t *testing.T) {
-	for _, mode := range []string{"lost_reply", "grant_hold_new_effect", "grant_withdrawn_after_admission"} {
+	for _, mode := range []string{"lost_reply", "grant_hold_new_effect", "grant_withdrawn_after_admission", "append_producer"} {
 		t.Run(mode, func(t *testing.T) { stallRepairGraphMode(t, mode) })
 	}
 }
@@ -307,6 +307,39 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	graph.issues[2].Issue.ContentVersion++
 	graph.revision++
 	protectedBody := graph.issues[2].Issue.Content
+	protectedHeads := map[int64]string{}
+	var protectedDependencies []byte
+	if mode == "append_producer" {
+		manual := &sdk.SnapshotIssue{ID: "103", Index: "3", Title: "Supply the requested fixture", Content: "A maintainer must accept the exact fixture result.", Visible: true, Complete: true, Provenance: sdk.SnapshotCreationProvenance{PosterID: "8"}}
+		manual.TitleDigest, manual.ContentDigest = evidenceDigest(manual.Title), evidenceDigest(manual.Content)
+		graph.issues[3] = sdk.NativeSnapshot{Issue: manual, Dependencies: &sdk.SnapshotDependencyPage{IssueID: "103", Complete: true, Items: []sdk.SnapshotDependency{}}}
+		// These ordinary human edges and their readopted result requirements
+		// protect both existing consumers. The missing manual producer has no
+		// factory acceptance; adoption may add work but cannot claim its result.
+		for _, binding := range initial {
+			index := binding.IssueIndex
+			endpoint, native := int64(2), "102"
+			if index == 2 {
+				endpoint, native = 3, "103"
+			}
+			snapshot := graph.issues[index]
+			snapshot.Dependencies.Items = []sdk.SnapshotDependency{{OccurrenceID: "801", IssueID: snapshot.Issue.ID, DependencyID: native, Visible: true, Complete: true}}
+			snapshot.Dependencies.Total = 1
+			graph.issues[index] = snapshot
+			decision, err := db.AcceptanceDecision(ctx, binding.AcceptanceID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision.ID, decision.Predecessor = generatedDecisionID("human-result", revision.ID, binding.TaskKey), decision.ID
+			decision.NativeRev, decision.ContentDigest, decision.ContentVersion = graph.revision, snapshot.Issue.ContentDigest, snapshot.Issue.ContentVersion
+			decision.Prerequisites = []factory.AcceptedPrerequisite{{Occurrence: "801", DependsOn: native, EndpointRepo: fx.repo, EndpointIssue: endpoint, Outcome: factory.PrereqResult}}
+			if _, err = coord.AdmitAcceptance(ctx, factory.NewID(), "soda-tester", decision); err != nil {
+				t.Fatal("human result requirement", err)
+			}
+			protectedHeads[index] = decision.ID
+		}
+		protectedDependencies, _ = json.Marshal([]*sdk.SnapshotDependencyPage{graph.issues[1].Dependencies, graph.issues[2].Dependencies, graph.issues[3].Dependencies})
+	}
 	baseline := graph.submissions
 	coord.Graph = &reassessmentLostReplyGraph{generatedGraphFixture: graph, loseReply: true}
 	enumerator := reassessmentGraphInventory{graph: graph}
@@ -324,7 +357,11 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	for _, binding := range initial {
-		stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+		if mode == "append_producer" {
+			stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerResultPending, stallBlocker(factory.BlockerResultPending, fx.repo, binding.IssueIndex+1))
+		} else {
+			stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+		}
 	}
 	first, err := coord.ServeStallRound(ctx, DispatchReport{})
 	if err != nil || len(first.Repositories) != 1 || first.Repositories[0].Event == nil {
@@ -341,10 +378,20 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		t.Fatalf("repair launch state=%s reason=%s", cycle.State, cycle.Reason)
 	}
 	tasks := append([]factory.IntentTask(nil), revision.Tasks...)
-	tasks[0].Objective += " with the clarified validation boundary"
-	keys := []string{tasks[0].Key, tasks[1].Key}
+	retained := []int64{2}
+	if mode == "append_producer" {
+		tasks = append(tasks, factory.IntentTask{Key: choiceTaskKey(3), Objective: "Supply the missing in-scope validation fixture", Outcomes: []string{"The requested fixture is available for independent maintainer acceptance"}, IdeaIDs: []string{revision.Ideas[0].ID}})
+		retained = []int64{1, 2, 3}
+	} else {
+		tasks[0].Objective += " with the clarified validation boundary"
+	}
+	keys := submittedKeys(tasks)
 	successor := generatedDecisionID("revision", cycle.ID, revision.ID)
-	proposal := factory.StallRepairReport{StallID: record.ID, CycleID: cycle.ID, InventoryDigest: cycle.InventoryDigest, SourceCommit: cycle.Local.SourceCommit, PreparationDigest: cycle.Local.PreparationDigest, Causes: []factory.CheckFailure{{CheckRef: "dependency_cycle", Detail: "The idle task lacks its precise validation boundary."}}, RetainedIssueIndexes: []int64{2}, IntentChanges: []factory.ReassessmentIntentChange{{IntentID: revision.Intent, ExpectedRevision: successor, ScopeDigest: revision.Digest(), Reason: "Clarify the idle validation task while retaining protected human work.", Tasks: tasks}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: revision.Ideas[0].ID, TaskKeys: keys}}, Outcome: factory.RepairOutcomeRepair}
+	proposal := factory.StallRepairReport{StallID: record.ID, CycleID: cycle.ID, InventoryDigest: cycle.InventoryDigest, SourceCommit: cycle.Local.SourceCommit, PreparationDigest: cycle.Local.PreparationDigest, Causes: []factory.CheckFailure{{CheckRef: "dependency_cycle", Detail: "The idle task lacks its precise validation boundary."}}, RetainedIssueIndexes: retained, IntentChanges: []factory.ReassessmentIntentChange{{IntentID: revision.Intent, ExpectedRevision: successor, ScopeDigest: revision.Digest(), Reason: "Clarify the idle validation task while retaining protected human work.", Tasks: tasks}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: revision.Ideas[0].ID, TaskKeys: keys}}, Outcome: factory.RepairOutcomeRepair}
+	if mode == "append_producer" {
+		proposal.Causes = []factory.CheckFailure{{CheckRef: "missing_producer", Detail: "The manual fixture requirement has no accepted producer."}}
+		proposal.IntentChanges[0].Reason = "Add the missing fixture producer within the accepted scope; preserve both human prerequisite routes."
+	}
 	if err = proposal.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +426,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal(err)
 		}
 		cycle = record.Repair.Cycles[0]
-		if mode != "lost_reply" && !grantChanged && cycle.State == factory.RepairApplying {
+		if (mode == "grant_hold_new_effect" || mode == "grant_withdrawn_after_admission") && !grantChanged && cycle.State == factory.RepairApplying {
 			progress, err := loadGraphRepairAdoption(cycle.AdoptionProgress, record.Repository, "", record.ID, cycle.ID, cycle.InventoryDigest)
 			if err != nil {
 				t.Fatal(err)
@@ -422,12 +469,32 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		t.Fatal("repair successor missing", err)
 	}
 	bindings, err := db.IntentTaskBindings(ctx, successor)
-	if err != nil || len(bindings) != 2 {
+	if err != nil || len(bindings) != len(tasks) {
 		t.Fatal("repair readback missing", err)
 	}
 	for _, binding := range bindings {
 		if binding.TaskKey == tasks[1].Key && binding.AcceptanceID != initial[1].AcceptanceID {
 			t.Fatal("protected acceptance changed")
+		}
+	}
+	if mode == "append_producer" {
+		for _, binding := range initial {
+			head, err := db.AcceptanceHead(ctx, fx.repo, binding.IssueIndex)
+			if err != nil || head != protectedHeads[binding.IssueIndex] {
+				t.Fatal("repair replaced human result acceptance", err)
+			}
+		}
+		if _, err := db.AcceptanceHead(ctx, fx.repo, 3); !errors.Is(err, store.ErrNotFound) {
+			t.Fatal("repair invented an acceptance for the manual result", err)
+		}
+		after, _ := json.Marshal([]*sdk.SnapshotDependencyPage{graph.issues[1].Dependencies, graph.issues[2].Dependencies, graph.issues[3].Dependencies})
+		if string(after) != string(protectedDependencies) || len(graph.issues) != 4 {
+			t.Fatal("repair changed protected prerequisite routes or omitted the new producer")
+		}
+		generation, err := db.IntentGeneration(ctx, successor)
+		var payload sdk.IssueGraphPayload
+		if err != nil || json.Unmarshal(generation.Payload, &payload) != nil || len(payload.Creates) != 1 || len(payload.Edits) != 0 || len(payload.Dependencies) != 0 {
+			t.Fatal("append producer did not remain one independent create", err)
 		}
 	}
 	charges, err := db.RepairCharges(ctx, fx.repo)
