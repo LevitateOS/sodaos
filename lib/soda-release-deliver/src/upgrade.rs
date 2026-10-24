@@ -12,6 +12,8 @@ use crate::payload::Payload;
 use crate::Error;
 
 pub const QUALIFICATION_FILE: &str = "upgrade-qualification.json";
+pub const SUMMARY_START: &str = "\n<!-- soda-qualification-summary-v1 -->\n```json\n";
+pub const SUMMARY_END: &str = "\n```\n<!-- /soda-qualification-summary-v1 -->\n";
 const KINDS: [&str; 3] = ["transition", "interrupted_recovery", "stopped_project"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +36,75 @@ pub struct Qualification {
     pub target_deployment_commit: String,
     pub rootfs_sha256: String,
     pub evidence: BTreeMap<String, EvidenceFile>,
+}
+
+/// The same exact receipt consumed by maintenance, carried by the authenticated
+/// promoted release rather than appended to its already immutable asset set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublishedQualification {
+    pub format: u32,
+    pub tag: String,
+    pub soda_revision: String,
+    pub candidate_sha256: String,
+    pub payload_sha256: String,
+    pub qualification: Qualification,
+}
+
+pub fn render_summary(
+    summaries: &serde_json::Map<String, serde_json::Value>,
+) -> Result<String, Error> {
+    let body = serde_json::to_string_pretty(summaries).map_err(|_| refused())?;
+    if body.len() > 64 << 10 {
+        return Err(Error::msg("qualification summary exceeds bound"));
+    }
+    Ok(format!("{SUMMARY_START}{body}{SUMMARY_END}"))
+}
+
+pub fn published_from_notes(
+    notes: &str,
+    tag: &str,
+    soda_revision: &str,
+    candidate_sha256: &str,
+    payload_sha256: &str,
+) -> Result<Qualification, Error> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Summary {
+        #[serde(default)]
+        appliance: Option<serde_json::Value>,
+        #[serde(default)]
+        docker: Option<serde_json::Value>,
+        upgrade: PublishedQualification,
+    }
+    if notes.len() > 128 << 10
+        || notes.matches(SUMMARY_START).count() != 1
+        || notes.matches(SUMMARY_END).count() != 1
+    {
+        return Err(Error::msg(
+            "one bounded authenticated upgrade summary required",
+        ));
+    }
+    let (_, suffix) = notes.split_once(SUMMARY_START).ok_or_else(refused)?;
+    let (body, _) = suffix.split_once(SUMMARY_END).ok_or_else(refused)?;
+    let summary: Summary = crate::json_serde::strict(body.as_bytes()).map_err(|_| refused())?;
+    let _ = (summary.appliance, summary.docker);
+    let bound = summary.upgrade;
+    if bound.format != 1
+        || bound.tag != tag
+        || bound.soda_revision != soda_revision
+        || !crate::buildx::is_revision(soda_revision)
+        || !is_digest(candidate_sha256)
+        || !is_digest(payload_sha256)
+        || bound.candidate_sha256 != candidate_sha256
+        || bound.payload_sha256 != payload_sha256
+        || bound.qualification.target_payload_sha256 != payload_sha256
+    {
+        return Err(Error::msg(
+            "promoted upgrade summary differs from exact release inputs",
+        ));
+    }
+    Ok(bound.qualification)
 }
 
 /// Concrete readbacks emitted by the native journey, never an operator's
@@ -65,6 +136,7 @@ pub struct NativeEvidence {
     pub project_state_before: String,
     pub project_state_after: String,
     pub interruption_checkpoint: String,
+    pub authentication: String,
 }
 
 fn refused() -> Error {
@@ -142,7 +214,8 @@ impl NativeEvidence {
     }
 
     fn validate_deployment_admission(&self) -> Result<(), Error> {
-        if !is_digest(&self.source_deployment)
+        if self.authentication != "github_immutable_prerelease"
+            || !is_digest(&self.source_deployment)
             || self.source_deployment == self.target_deployment_commit
             || self.observed_deployment != self.target_deployment_commit
             || self.staged_deployment != self.target_deployment_commit
@@ -331,8 +404,8 @@ pub struct AdmittedCandidate {
     pub rootfs: PathBuf,
 }
 
-/// Development qualification uses exact target bytes before a receipt exists.
-/// This read-only admission makes no supported-upgrade assertion.
+/// Qualification uses exact target bytes before a receipt exists. Authentication
+/// stays with the caller; this read-only admission makes no supported claim.
 pub fn admit_candidate_directory(directory: &Path) -> Result<AdmittedCandidate, Error> {
     let (payload, candidate, media) = target(directory)?;
     let expected = format!("{}-rootfs.img", media.rootfs.sha256);
@@ -370,6 +443,7 @@ pub fn admit_directory(
     directory: &Path,
     source_release: &str,
     source_support_sha256: &str,
+    qualification: Qualification,
 ) -> Result<AdmittedUpgrade, Error> {
     let admitted = admit_candidate_directory(directory)?;
     let AdmittedCandidate {
@@ -378,7 +452,6 @@ pub fn admit_directory(
         media,
         rootfs,
     } = admitted;
-    let qualification = load(&directory.join(QUALIFICATION_FILE))?;
     qualification.validate(
         &payload,
         &candidate,

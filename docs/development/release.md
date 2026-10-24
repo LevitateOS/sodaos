@@ -322,15 +322,21 @@ After the actual native journey has emitted its transition, interrupted recovery
 and stopped-Project observations, stamp the unchanged candidate:
 
 ```sh
-soda-release qualify-upgrade --candidate /BUILD/artifacts --evidence /PRIVATE/native-upgrade-evidence
+soda-release qualify-upgrade --input /PRIVATE/prepared-release --evidence /PRIVATE/native-upgrade-evidence
 ```
 
 The evidence directory contains `transition.json`, `interrupted_recovery.json`
 and `stopped_project.json` using the shared `NativeEvidence` contract in
 `lib/soda-release-deliver/src/upgrade.rs`. Stamping checks concrete source/target
 deployment identities, the native finalization lock, closed admission, preserved
-container and protected-state identities, observed support and stopped state. It
-hashes those files and writes a new `upgrade-qualification.json` beside the candidate.
+container and protected-state identities, observed support and stopped state.
+The public qualification journey must also record
+`authentication: "github_immutable_prerelease"`; development fixture observations
+cannot satisfy it. Stamping hashes those files and writes a new
+`upgrade-qualification.json` beside the candidate.
+Keep that receipt and its private collector locator locally; neither is a staged
+asset. Promotion rechecks the protected production observations and places the
+typed receipt in the authenticated release promotion summary.
 The interrupted checkpoint is `support_verified_host_locked`, after support
 readback and before releasing native finalization. Matching support is a no-op;
 its evidence records verification without claiming a file replacement.
@@ -343,9 +349,15 @@ fixture does not qualify first install; the target requires complete production
 media. Task-owned development executables or manual native metadata repairs
 produce development evidence, not a qualifying journey.
 
-Staging a declared upgrade source requires that receipt and includes it in the
-same immutable GitHub release. Fresh-install promotion retains its separate smoke
-receipt. Operator maintenance selects one complete downloaded release directory;
+Staging a declared prospective upgrade source does not require a receipt for a
+journey that has not run. Qualify the exact immutable prerelease through the
+explicit `soda-project-maintain release --qualification-public` mode, then collect
+the native observations and stamp the receipt before promotion. That mode authenticates the selected public
+assets and retains native source checks; it makes no supported-upgrade claim.
+The development fixture path remains non-qualifying. Normal maintenance requires
+the promoted release's exact typed receipt from its authenticated promotion
+summary. Fresh-install promotion retains its separate smoke receipt.
+Operator maintenance selects one complete downloaded release directory;
 the existing hash-named rootfs carries the host, component metadata and maintenance
 support. Project images are acquired separately from the payload's immutable
 references. Its `DeploymentCommit` is read back during media assembly together with
@@ -439,7 +451,8 @@ soda-release prepare --candidate /BUILD/artifacts \
 ```
 
 This checks and copies the complete bound asset set using the same preparation
-as `stage`, including asset limits and any required upgrade qualification receipt.
+as `stage`, including asset limits. A prospective upgrade source stays unqualified
+until its separate native receipt passes promotion checks.
 It does not contact GitHub, create a tag, publish, or qualify the release.
 
 To publish, enable immutable releases once in the repository settings. With the

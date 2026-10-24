@@ -248,24 +248,14 @@ fn build_admission_matrix_preserves_release_boundaries() {
                     first
                 );
                 assert_eq!(fs::read(out.join("request.json")).unwrap(), request_bytes);
-                let refused = run(
-                    controller,
-                    parent,
-                    &[
-                        "qualify-upgrade",
-                        "--candidate",
-                        candidate,
-                        "--evidence",
-                        sealed.to_str().unwrap(),
-                    ],
-                );
-                assert_ne!(refused.0, 0);
+                // Qualification now requires a prepared public release. Check
+                // the shared stamp boundary directly against this actual
+                // sealed development result, without a GitHub request.
+                let refused = soda_release_deliver::upgrade::stamp(Path::new(candidate), &sealed)
+                    .expect_err("development evidence cannot stamp a production upgrade");
                 assert!(
-                    refused
-                        .2
-                        .contains("production-bound protected collector evidence required"),
-                    "{}",
-                    refused.2
+                    refused.0.contains("production-bound protected collector evidence required"),
+                    "{refused}"
                 );
                 let check = sealed.join("native-check.json");
                 let bytes = fs::read(&check).unwrap();

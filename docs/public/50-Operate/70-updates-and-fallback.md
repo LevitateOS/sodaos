@@ -17,7 +17,7 @@ Appliance release transitions and Docker container recreation have separate life
 
 Before an admitted appliance transition, review the selected release pair, preserve backups, allow managed Factory work to finish and stop retained Project work that the procedure identifies. As appliance root, download the complete selected release into a root-owned directory not writable by other users. Replace `DIRECTORY` below with that protected directory.
 
-Record the installed source release and selected target release, and match both to the release's exact `upgrade-qualification.json` receipt. Use the installed source release's maintenance helper; copying in a newer helper does not qualify an older source. A candidate's declared upgrade source alone is not qualification.
+Record the installed source release and selected target release. Maintenance authenticates the promoted release's upgrade receipt from its promotion summary and matches that exact pair; a local receipt file cannot substitute. Use the installed source release's maintenance helper; copying in a newer helper does not qualify an older source. A candidate's declared upgrade source alone is not qualification.
 
 From an appliance root session with the documented GitHub CLI available, replace `TAG` with that target's exact release tag and `DIRECTORY` with a new protected directory under `/home`:
 

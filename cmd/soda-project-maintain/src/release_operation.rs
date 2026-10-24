@@ -45,6 +45,8 @@ struct Operation {
     target_project_image: String,
     release_directory: String,
     qualification_fixture: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    qualification_public: bool,
     rollback: bool,
     phase: String,
     projects: Vec<Project>,
@@ -94,7 +96,8 @@ impl Operation {
 
     fn validate_release_shape(&self) -> Result<(), String> {
         use crate::release::is_hex_string;
-        if self.source_release == self.target_release
+        if self.qualification_fixture && self.qualification_public
+            || self.source_release == self.target_release
             || self.source_deployment == self.target_deployment
             || ![
                 &self.source_deployment,
@@ -261,6 +264,8 @@ fn finish(mut record: Operation, deadline: Instant) -> Result<(), String> {
         record.expected().0,
         if record.qualification_fixture {
             " (development qualification fixture; no supported release claim)"
+        } else if record.qualification_public {
+            " (authenticated immutable prerelease qualification; unqualified, no supported upgrade claim)"
         } else {
             ""
         }
@@ -274,6 +279,7 @@ struct Options {
     recover: bool,
     rollback: bool,
     fixture: bool,
+    public: bool,
 }
 fn options(args: &[String]) -> Result<Options, String> {
     let mut out = Options {
@@ -282,6 +288,7 @@ fn options(args: &[String]) -> Result<Options, String> {
         recover: false,
         rollback: false,
         fixture: false,
+        public: false,
     };
     let mut args = args.iter();
     while let Some(arg) = args.next() {
@@ -291,11 +298,13 @@ fn options(args: &[String]) -> Result<Options, String> {
             "--recover"=>out.recover=true,
             "--rollback"=>out.rollback=true,
             "--qualification-fixture"=>out.fixture=true,
-            _=>return Err("release accepts --release-dir PATH, --check, --recover, --rollback and --qualification-fixture".into()),
+            "--qualification-public"=>out.public=true,
+            _=>return Err("release accepts --release-dir PATH, --check, --recover, --rollback, --qualification-fixture and --qualification-public".into()),
         }
     }
     if out.check && (out.recover || out.rollback)
-        || out.rollback && (out.directory.is_some() || out.fixture)
+        || out.rollback && (out.directory.is_some() || out.fixture || out.public)
+        || out.fixture && out.public
     {
         return Err("select one release operation".into());
     }
@@ -616,6 +625,7 @@ fn start_operation_record(
             .ok_or("invalid release path")?
             .into(),
         qualification_fixture: fixture,
+        qualification_public: target.qualification_public,
         rollback: false,
         phase: "admitted".into(),
         projects: entries
@@ -666,10 +676,16 @@ fn admit_operation_run(
     let fixture = previous
         .as_ref()
         .map_or(o.fixture, |r| r.qualification_fixture);
+    let public = previous
+        .as_ref()
+        .map_or(o.public, |r| r.qualification_public);
     if o.fixture && !fixture {
         return Err("recovery cannot change qualification mode".into());
     }
-    let target = crate::release_target::admit(&directory, fixture, deadline)?;
+    if o.public && !public {
+        return Err("recovery cannot change qualification mode".into());
+    }
+    let target = crate::release_target::admit(&directory, fixture, public, deadline)?;
     let state = release_stage::inspect(deadline)?;
     if state.booted.checksum != target.source.deployment
         || state.booted.checksum == target.media.deployment_commit
@@ -785,7 +801,7 @@ fn run_operation(args: &[String]) -> Result<(), String> {
     );
     let content = preview_operation_content(&o, &admitted, &mut record, deadline)?;
     if o.check {
-        println!("Release {} preflight: {} exact Projects idle; native activation, support replacement and image acquisition have not run{}",record.target_release,admitted.entries.len(),if record.qualification_fixture { "; qualification fixture only" } else { "" });
+        println!("Release {} preflight: {} exact Projects idle; native activation, support replacement and image acquisition have not run{}",record.target_release,admitted.entries.len(),if record.qualification_fixture { "; qualification fixture only" } else if record.qualification_public { "; authenticated immutable prerelease qualification only, unqualified" } else { "" });
         return content.close(deadline);
     }
     execute_operation_run(&o, &admitted, &mut record, content, deadline)

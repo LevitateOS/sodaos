@@ -169,19 +169,24 @@ impl Manifest {
             .ok_or_else(|| failure("required release asset missing"))
     }
     pub(super) fn validate(&self) -> Result<(), Error> {
-        let has_upgrade = self.validate_manifest_header()?;
+        self.validate_manifest_header()?;
         self.validate_asset_inventory()?;
-        self.validate_appliance_binding(has_upgrade)?;
+        self.validate_appliance_binding()?;
         self.validate_docker_binding()?;
         self.validate_required_assets()?;
         Ok(())
     }
 
-    fn validate_manifest_header(&self) -> Result<bool, Error> {
+    fn validate_manifest_header(&self) -> Result<(), Error> {
         let has_upgrade = self
             .assets
             .iter()
             .any(|asset| asset.name == crate::upgrade::QUALIFICATION_FILE);
+        if has_upgrade {
+            return Err(failure(
+                "upgrade qualification belongs to the poststage promoted summary",
+            ));
+        }
         if self.format != 1
             || !valid_tag(&self.tag)
             || !crate::buildx::is_revision(&self.soda_revision)
@@ -192,11 +197,10 @@ impl Manifest {
                     + 2
                     + 3 * usize::from(self.has_appliance())
                     + 4 * usize::from(self.docker.is_some())
-                    + usize::from(has_upgrade)
         {
             return Err(failure("release manifest refused"));
         }
-        Ok(has_upgrade)
+        Ok(())
     }
 
     fn validate_asset_inventory(&self) -> Result<(), Error> {
@@ -214,7 +218,7 @@ impl Manifest {
         Ok(())
     }
 
-    fn validate_appliance_binding(&self, has_upgrade: bool) -> Result<(), Error> {
+    fn validate_appliance_binding(&self) -> Result<(), Error> {
         if self.has_appliance() {
             if self.iso != ISO_NAME {
                 return Err(failure("installer asset required"));
@@ -225,7 +229,7 @@ impl Manifest {
             if rootfs.name != format!("{}-rootfs.img", rootfs.sha256) {
                 return Err(failure("rootfs asset must be hash-named"));
             }
-        } else if !self.iso.is_empty() || !self.rootfs.is_empty() || has_upgrade {
+        } else if !self.iso.is_empty() || !self.rootfs.is_empty() {
             return Err(failure("Docker-only release cannot carry appliance assets"));
         }
         Ok(())
@@ -468,36 +472,6 @@ fn check_release_sources(
     Ok(())
 }
 
-fn stage_upgrade_receipt(
-    candidate: &Path,
-    payload: &crate::payload::Payload,
-    c: &crate::model::Candidate,
-    media: &Option<(MediaBinding, String)>,
-    out: &Path,
-    assets: &mut Vec<Asset>,
-) -> Result<(), Error> {
-    if !payload.upgrade_from.is_empty() {
-        let path = candidate.join(crate::upgrade::QUALIFICATION_FILE);
-        let receipt = crate::upgrade::verify_collected(candidate)?;
-        receipt.validate(
-            payload,
-            c,
-            &media
-                .as_ref()
-                .ok_or_else(|| failure("upgrade requires appliance media"))?
-                .0,
-            &receipt.source_release,
-            &receipt.source_support_sha256,
-        )?;
-        assets.push(copy_asset(&path, out, crate::upgrade::QUALIFICATION_FILE)?);
-    } else if candidate.join(crate::upgrade::QUALIFICATION_FILE).exists() {
-        return Err(failure(
-            "upgrade qualification requires a declared prospective source",
-        ));
-    }
-    Ok(())
-}
-
 fn stage_docker_installer(
     out: &Path,
     tag: &str,
@@ -570,7 +544,9 @@ pub fn prepare(
     copy_media_assets(&media_path, &media, out, &mut assets)?;
     copy_release_payload(candidate, tag, out, &docker, &mut assets)?;
     check_release_sources(out, &assets, &payload, &c)?;
-    stage_upgrade_receipt(candidate, &payload, &c, &media, out, &mut assets)?;
+    if !payload.upgrade_from.is_empty() && media.is_none() {
+        return Err(failure("upgrade requires appliance media"));
+    }
     stage_docker_installer(out, tag, &payload, &docker, &mut assets)?;
     let manifest = Manifest {
         format: 1,

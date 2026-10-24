@@ -64,6 +64,8 @@ struct Release {
     immutable: bool,
     #[serde(default)]
     published_at: Option<String>,
+    #[serde(default)]
+    body: Option<String>,
     assets: Vec<RemoteAsset>,
 }
 #[derive(Deserialize)]
@@ -513,6 +515,44 @@ pub fn qualify_appliance(
     Ok(())
 }
 
+/// A prospective upgrade is qualified only after its exact immutable candidate
+/// is public. The private result will become the promoted release summary;
+/// neither this command nor qualification appends an immutable asset.
+pub fn qualify_upgrade(gh: &dyn GitHub, directory: &Path, evidence: &Path) -> Result<(), Error> {
+    let manifest = assets::load(directory)?;
+    if !manifest.has_appliance() {
+        return Err(Error::msg("appliance upgrade candidate required"));
+    }
+    let (payload, _, _) =
+        crate::admission::load_admitted_candidate(directory.to_str().ok_or_else(Error::refused)?)?;
+    if payload.upgrade_from.len() != 1 {
+        return Err(Error::msg("one declared upgrade source required"));
+    }
+    qualification::protected_for_manifest(&manifest, evidence)?;
+    check_tag(gh, &manifest, false)?;
+    check_ci(gh, &manifest)?;
+    let remote = release(gh, &manifest.tag)?;
+    if remote.draft || !remote.prerelease || !remote.immutable {
+        return Err(Error::msg(
+            "exact immutable unqualified prerelease required for upgrade qualification",
+        ));
+    }
+    check_inventory(&remote, &manifest, &inventory(&manifest, directory)?)?;
+    verify_release(gh, &manifest.tag)?;
+    let candidate = assets::candidate(directory, &manifest)?;
+    for name in ["candidate.json", "payload.json"] {
+        if &inspect(&candidate.join(name), name)? != manifest.asset(name)? {
+            return Err(Error::msg(
+                "upgrade candidate differs from prepared release",
+            ));
+        }
+    }
+    crate::upgrade::stamp(&candidate, evidence)?;
+    promotion_upgrade(directory, &manifest)?
+        .ok_or_else(|| Error::msg("declared upgrade source required"))?;
+    Ok(())
+}
+
 fn admit_image_staging<'a>(
     directory: &Path,
     auth: Option<&'a Path>,
@@ -615,20 +655,13 @@ fn collect_promotion_evidence(
     manifest: &Manifest,
     auth: Option<&Path>,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, Option<PathBuf>), Error> {
-    if manifest
-        .assets
-        .iter()
-        .any(|asset| asset.name == crate::upgrade::QUALIFICATION_FILE)
-    {
-        let candidate = assets::candidate(directory, manifest)?;
-        let actual = crate::upgrade::verify_collected(&candidate)?;
-        if crate::upgrade::load(&directory.join(crate::upgrade::QUALIFICATION_FILE))? != actual {
-            return Err(Error::msg(
-                "upgrade promotion differs from protected native evidence",
-            ));
-        }
-    }
     let mut summaries = serde_json::Map::new();
+    if let Some(upgrade) = promotion_upgrade(directory, manifest)? {
+        summaries.insert(
+            "upgrade".into(),
+            serde_json::to_value(upgrade).map_err(|_| Error::refused())?,
+        );
+    }
     let mut downloaded_iso = None;
     if manifest.has_appliance() {
         let (receipt, downloaded) = appliance_evidence(directory, manifest)?;
@@ -653,6 +686,35 @@ fn collect_promotion_evidence(
         }
     }
     Ok((summaries, downloaded_iso))
+}
+
+fn promotion_upgrade(
+    directory: &Path,
+    manifest: &Manifest,
+) -> Result<Option<crate::upgrade::PublishedQualification>, Error> {
+    let (payload, admitted, _) =
+        crate::admission::load_admitted_candidate(directory.to_str().ok_or_else(Error::refused)?)?;
+    if payload.upgrade_from.is_empty() {
+        return Ok(None);
+    }
+    let candidate = assets::candidate(directory, manifest)?;
+    let qualification = crate::upgrade::verify_collected(&candidate)?;
+    let media: crate::model::MediaBinding = read_json(&directory.join("media.json"))?;
+    qualification.validate(
+        &payload,
+        &admitted,
+        &media,
+        &qualification.source_release,
+        &qualification.source_support_sha256,
+    )?;
+    Ok(Some(crate::upgrade::PublishedQualification {
+        format: 1,
+        tag: manifest.tag.clone(),
+        soda_revision: manifest.soda_revision.clone(),
+        candidate_sha256: manifest.asset("candidate.json")?.sha256.clone(),
+        payload_sha256: manifest.asset("payload.json")?.sha256.clone(),
+        qualification,
+    }))
 }
 
 fn admit_release_for_promotion(
@@ -718,6 +780,13 @@ fn render_promotion_notes(
     summaries: &serde_json::Map<String, serde_json::Value>,
     ci_run: u64,
 ) -> Result<(PathBuf, String), Error> {
+    if manifest.notes.contains(crate::upgrade::SUMMARY_START)
+        || manifest.notes.contains(crate::upgrade::SUMMARY_END)
+    {
+        return Err(Error::msg(
+            "release notes already contain a qualification summary",
+        ));
+    }
     let notes = directory.join("qualified-release-notes.md");
     let summary = serde_json::to_string_pretty(summaries).map_err(|_| Error::refused())?;
     let docker_qualification = manifest
@@ -730,7 +799,26 @@ fn render_promotion_notes(
             )
         })
         .unwrap_or_default();
-    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n{docker_qualification}\n\x60\x60\x60json\n{summary}\n\x60\x60\x60\n", manifest.notes)).map_err(|_| Error::refused())?;
+    let receipt = crate::upgrade::render_summary(summaries)?;
+    let body = format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n{docker_qualification}{receipt}", manifest.notes);
+    if body.len() > 128 << 10 {
+        return Err(Error::msg("qualified release notes exceed bound"));
+    }
+    if let Some(value) = summaries.get("upgrade") {
+        let expected: crate::upgrade::PublishedQualification =
+            serde_json::from_value(value.clone()).map_err(|_| Error::refused())?;
+        let receipt = crate::upgrade::published_from_notes(
+            &body,
+            &manifest.tag,
+            &manifest.soda_revision,
+            &expected.candidate_sha256,
+            &expected.payload_sha256,
+        )?;
+        if receipt != expected.qualification {
+            return Err(Error::msg("rendered upgrade summary differs"));
+        }
+    }
+    std::fs::write(&notes, body).map_err(|_| Error::refused())?;
     Ok((notes, summary))
 }
 
@@ -740,6 +828,7 @@ fn check_promoted_release(
     current: &Release,
     assets: &[Asset],
     prior_appliance_latest: Option<u64>,
+    summaries: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<(), Error> {
     let after = release(gh, &manifest.tag)?;
     if after.id != current.id || after.draft || after.prerelease || !after.immutable {
@@ -748,6 +837,25 @@ fn check_promoted_release(
         ));
     }
     check_inventory(&after, manifest, assets)?;
+    if let Some(value) = summaries.get("upgrade") {
+        let expected: crate::upgrade::PublishedQualification =
+            serde_json::from_value(value.clone()).map_err(|_| Error::refused())?;
+        let receipt = crate::upgrade::published_from_notes(
+            after
+                .body
+                .as_deref()
+                .ok_or_else(|| Error::msg("promoted upgrade summary unavailable"))?,
+            &manifest.tag,
+            &manifest.soda_revision,
+            &expected.candidate_sha256,
+            &expected.payload_sha256,
+        )?;
+        if receipt != expected.qualification {
+            return Err(Error::msg(
+                "promoted upgrade summary differs; inspect partial promotion",
+            ));
+        }
+    }
     if manifest.has_appliance() {
         let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
         if latest.id != current.id {
@@ -786,7 +894,14 @@ fn record_promotion_outcome(
     }
     command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
         .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
-    check_promoted_release(gh, manifest, current, assets, prior_appliance_latest)?;
+    check_promoted_release(
+        gh,
+        manifest,
+        current,
+        assets,
+        prior_appliance_latest,
+        summaries,
+    )?;
     crate::buildx::write_new(
         directory
             .join("promotion-complete.json")
@@ -850,7 +965,12 @@ fn validate_qualifications(
     remote: &Result<Release, Error>,
     blockers: &mut Vec<String>,
 ) -> Result<(bool, bool), Error> {
-    let appliance = !manifest.has_appliance() || appliance_evidence(directory, manifest).is_ok();
+    let upgrade = promotion_upgrade(directory, manifest);
+    if upgrade.is_err() {
+        blockers.push("upgrade qualification missing or invalid".into());
+    }
+    let appliance = (!manifest.has_appliance() || appliance_evidence(directory, manifest).is_ok())
+        && upgrade.is_ok();
     let docker_qualified = manifest.docker.is_none()
         || (|| -> Result<(), Error> {
             qualification::verify(manifest, directory)?;

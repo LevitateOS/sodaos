@@ -34,6 +34,7 @@ pub(crate) struct Target {
     pub(crate) directory: PathBuf,
     pub(crate) source: InstalledSource,
     pub(crate) qualification_fixture: bool,
+    pub(crate) qualification_public: bool,
     _custody: Custody,
 }
 
@@ -49,6 +50,8 @@ impl Target {
     pub(crate) fn qualification_scope(&self) -> &'static str {
         if self.qualification_fixture {
             "development native qualification fixture; no supported upgrade claim"
+        } else if self.qualification_public {
+            "GitHub authenticated immutable prerelease qualification; unqualified, no supported upgrade claim"
         } else {
             "GitHub authenticated release with exact native upgrade qualification"
         }
@@ -329,16 +332,78 @@ fn verify_release_assets(
     deadline: Instant,
 ) -> Result<(), String> {
     let tag = release_tag(&media.rootfs_url, rootfs_name)?;
-    for name in [
-        "payload.json",
-        "candidate.json",
-        "media.json",
-        upgrade::QUALIFICATION_FILE,
-        rootfs_name,
-    ] {
+    for name in ["payload.json", "candidate.json", "media.json", rootfs_name] {
         verify_asset(&tag, &anchored.join(name), deadline)?;
     }
     Ok(())
+}
+
+fn authenticated_release(
+    directory: &Path,
+    media: &MediaBinding,
+    rootfs_name: &str,
+    public: bool,
+    deadline: Instant,
+) -> Result<Option<upgrade::Qualification>, String> {
+    #[derive(Deserialize)]
+    struct Release {
+        tag_name: String,
+        draft: bool,
+        prerelease: bool,
+        immutable: bool,
+        body: Option<String>,
+    }
+    let tag = release_tag(&media.rootfs_url, rootfs_name)?;
+    let bytes = crate::command::run(
+        "/usr/bin/gh",
+        &[
+            "api",
+            "--hostname",
+            "github.com",
+            &format!("repos/LevitateOS/sodaos/releases/tags/{tag}"),
+        ],
+        deadline,
+    )?;
+    if bytes.len() > 1 << 20 {
+        return Err("release metadata exceeds bound".into());
+    }
+    let release: Release = soda_host::json::decode_strict_as(&bytes)
+        .map_err(|_| "authenticated release metadata unavailable")?;
+    if release.tag_name != tag
+        || release.draft
+        || !release.immutable
+        || release.prerelease != public
+    {
+        return Err(if public {
+            "qualification requires the exact immutable unqualified prerelease"
+        } else {
+            "ordinary upgrade requires the exact immutable promoted release"
+        }
+        .into());
+    }
+    if public {
+        return Ok(None);
+    }
+    let (payload, _, _) = soda_release_deliver::admission::load_admitted_candidate(
+        directory.to_str().ok_or("release path unavailable")?,
+    )
+    .map_err(|e| e.to_string())?;
+    let candidate =
+        fs::read(directory.join("candidate.json")).map_err(|_| "candidate metadata unavailable")?;
+    let payload_bytes =
+        fs::read(directory.join("payload.json")).map_err(|_| "payload metadata unavailable")?;
+    upgrade::published_from_notes(
+        release
+            .body
+            .as_deref()
+            .ok_or("promoted upgrade summary missing")?,
+        &tag,
+        &payload.revision,
+        soda_release_deliver::hash_bytes(&candidate).trim_start_matches("sha256:"),
+        soda_release_deliver::hash_bytes(&payload_bytes).trim_start_matches("sha256:"),
+    )
+    .map(Some)
+    .map_err(|e| e.to_string())
 }
 
 /// Admit the upgrade target, fixture or qualified, against the source.
@@ -346,8 +411,10 @@ fn admit_target(
     anchored: &Path,
     source: &InstalledSource,
     qualification_fixture: bool,
+    qualification_public: bool,
+    receipt: Option<upgrade::Qualification>,
 ) -> Result<(Payload, Candidate, MediaBinding, PathBuf), String> {
-    if qualification_fixture {
+    if qualification_fixture || qualification_public {
         let target =
             upgrade::admit_candidate_directory(anchored).map_err(|error| error.to_string())?;
         if target.payload.upgrade_from.as_slice() != [source.release_id.clone()]
@@ -363,8 +430,13 @@ fn admit_target(
             target.rootfs,
         ))
     } else {
-        let target = upgrade::admit_directory(anchored, &source.release_id, &source.helper_sha256)
-            .map_err(|error| error.to_string())?;
+        let target = upgrade::admit_directory(
+            anchored,
+            &source.release_id,
+            &source.helper_sha256,
+            receipt.ok_or("promoted upgrade receipt required")?,
+        )
+        .map_err(|error| error.to_string())?;
         if target.media.deployment_commit == source.deployment {
             return Err("qualified upgrade requires a different native target deployment".into());
         }
@@ -380,8 +452,12 @@ fn admit_target(
 pub(crate) fn admit(
     directory: &Path,
     qualification_fixture: bool,
+    qualification_public: bool,
     deadline: Instant,
 ) -> Result<Target, String> {
+    if qualification_fixture && qualification_public {
+        return Err("qualification modes are mutually exclusive".into());
+    }
     if unsafe { libc::geteuid() } != 0 {
         return Err("release target admission requires root".into());
     }
@@ -389,11 +465,26 @@ pub(crate) fn admit(
     let (custody, anchored, media_name) = open_admission(directory, qualification_fixture)?;
     let (media, rootfs_name) = read_admitted_media(&custody, media_name)?;
     if !qualification_fixture {
-        custody.file(upgrade::QUALIFICATION_FILE, 0, 1 << 20)?;
         verify_release_assets(&anchored, &media, &rootfs_name, deadline)?;
     }
-    let (payload, candidate, media, rootfs) =
-        admit_target(&anchored, &source, qualification_fixture)?;
+    let receipt = if qualification_fixture {
+        None
+    } else {
+        authenticated_release(
+            &anchored,
+            &media,
+            &rootfs_name,
+            qualification_public,
+            deadline,
+        )?
+    };
+    let (payload, candidate, media, rootfs) = admit_target(
+        &anchored,
+        &source,
+        qualification_fixture,
+        qualification_public,
+        receipt,
+    )?;
     Ok(Target {
         payload,
         candidate,
@@ -402,6 +493,7 @@ pub(crate) fn admit(
         directory: custody.original.clone(),
         source,
         qualification_fixture,
+        qualification_public,
         _custody: custody,
     })
 }

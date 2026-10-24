@@ -56,7 +56,7 @@ pub(crate) fn command() -> Command {
                 .help("Check all release prerequisites without building or creating an attempt")
                 .action(ArgAction::SetTrue),
         );
-    let qualify_upgrade = ["candidate", "evidence"].into_iter().fold(
+    let qualify_upgrade = ["input", "evidence"].into_iter().fold(
         Command::new("qualify-upgrade")
             .about("Stamp exact native transition, recovery and stopped-Project observations"),
         |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
@@ -181,8 +181,9 @@ fn run_qualify(flags: &clap::ArgMatches) -> Result<(), String> {
 }
 
 fn run_qualify_upgrade(flags: &clap::ArgMatches) -> Result<(), String> {
-    soda_release_deliver::upgrade::stamp(
-        Path::new(required_input(flags, "candidate")?),
+    publish::qualify_upgrade(
+        &publish::Gh,
+        Path::new(required_input(flags, "input")?),
         Path::new(required_input(flags, "evidence")?),
     )
     .map(|_| ())

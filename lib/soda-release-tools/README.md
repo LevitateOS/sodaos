@@ -44,8 +44,11 @@ cancelled, incomplete and mismatched attempts stay unqualified. Development
 evidence can finalize but cannot qualify a production release. Docker, appliance
 and upgrade qualification all require the protected production receipt; appliance
 uses its sealed `appliance/native.json` rather than a smoke-pass flag. Upgrade
-stamping retains a private collector locator; preparation and promotion recheck
-that protected source against the public receipt. The locator is never published.
+stamping retains a private collector locator; promotion rechecks that protected
+source and incorporates the typed receipt into its authenticated release summary.
+Preparation and staging carry the prospective source and immutable target assets
+without claiming upgrade support. Neither the local receipt nor its locator is
+an immutable release attachment. The locator is never published.
 
 ## Produce a development candidate
 

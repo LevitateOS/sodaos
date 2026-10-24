@@ -105,7 +105,9 @@ packages from the release catalog. Maintenance verifies and caches both source
 and target content before activation, selecting optional Tailnet content only
 when its saved intent is enabled. There is no separate helper installation to
 assemble. Maintenance authenticates the selected assets against that same GitHub
-release before admitting the exact source-to-target qualification.
+release and reads its exact source-to-target receipt from the authenticated
+promotion summary. The target must be immutable and promoted; a local receipt
+file cannot supply qualification.
 
 Run `/usr/libexec/soda/soda-project-maintain release --release-dir DIRECTORY --check`
 to inspect every enrolled running or stopped Project, verify the candidate and
@@ -136,10 +138,12 @@ leaves admission closed; it is never deleted or replaced with an old database.
 Manual rpm-ostree rollback and ordinary upstream update activation are outside
 this coordinated workflow. Native FCOS ownership and Zincati remain in place.
 
-The command's explicit `--qualification-fixture` path admits an exact prospective
-candidate solely for the disposable native qualification journey, before its
-receipt exists. Its output makes no supported-upgrade claim. It is not a normal
-operator recovery option. See the [release workflow](../development/release.md).
+Release operators use explicit `--qualification-public` mode to exercise the
+exact authenticated immutable prerelease before its native receipt exists.
+Its output is unqualified until protected observations pass promotion checks.
+The separate `--qualification-fixture` path admits a development candidate and
+cannot qualify a production release. Neither mode is an ordinary recovery option.
+See the [release workflow](../development/release.md).
 
 ## Explicit factory enrollment
 

@@ -126,9 +126,12 @@ First-install evidence does not qualify an upgrade or recovery path. Those paths
 need their own evidence before being offered as supported release operations.
 
 An optional `UpgradeFrom` declares one prospective source release before the
-candidate is built. It is not qualification. A supported transition additionally
-requires `upgrade-qualification.json`, stamped after the native transition,
-interrupted recovery and stopped-Project observations exist. This external receipt
+candidate is built. It is not qualification. Stage publishes the unchanged target
+assets without an upgrade receipt. A supported transition additionally requires
+the typed upgrade receipt in the authenticated promotion summary, produced after
+the native transition, interrupted recovery and stopped-Project observations exist.
+The receipt is retained locally as `upgrade-qualification.json`; it is not an
+immutable release attachment. This external receipt
 binds source release and support digest to the exact target payload, host manifest,
 Project image, support digest, public rootfs and deployable OSTree commit, with
 hashes of the native observation files. It changes no baked host bytes.
@@ -147,9 +150,12 @@ for an imported container commit, otherwise the base OSTree commit. This rule al
 applies when that container commit came from the public rootfs repository.
 Media records `DeploymentCommit` from that rootfs's actual deployment separately
 from `AssemblerImportCommit`; an assembler import identity cannot select a host
-deployment. Development qualification admits the exact candidate without a receipt
-only through its explicit fixture path. Normal upgrade admission and release
-delivery require the bound native receipt.
+deployment. Explicit release qualification admits the authenticated immutable
+prerelease before its upgrade receipt exists, retaining exact asset and native
+source checks and making no supported-upgrade claim. Development qualification
+has its separate candidate fixture path and cannot qualify production. Normal
+upgrade admission requires a promoted release and its exact bound receipt from
+the authenticated promotion summary; local receipt files cannot substitute.
 
 The explicit `release` maintenance operation closes admission before applying
 support or releasing the native finalization lock. It fixes all enrolled container identities, includes
