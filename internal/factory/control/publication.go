@@ -280,9 +280,11 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 		publicationError(report, a.ID, "store_unavailable")
 		return
 	}
+	// A retried implementation supplies its fresh admission authority while
+	// the root keeps the publication identity and cumulative allowance.
 	p := factory.Publication{
 		Publish: factory.PublicationOperation{Kind: factory.OpRefPublish}, PRCreate: factory.PublicationOperation{Kind: factory.OpPRCreate},
-		Authority: a.Authority, ID: factory.NewID(), AssignmentID: a.ID, ProjectID: a.ProjectID, Role: a.Role,
+		Authority: owner.Authority, ID: factory.NewID(), AssignmentID: a.ID, ProjectID: a.ProjectID, Role: a.Role,
 		Acceptance: a.Acceptance, Preparation: preparation, Run: runID, Candidate: candidate,
 		BaseSHA: a.SourceCommit, TargetBranch: policy.TargetBranch, Stage: factory.PublicationOpen,
 		Repository: a.Repository, Issue: a.Issue, CreatedUnix: time.Now().Unix(),
