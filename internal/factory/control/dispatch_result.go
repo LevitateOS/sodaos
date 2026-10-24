@@ -21,6 +21,9 @@ func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, r
 	if current.Stage != factory.AssignmentAssigned {
 		return nil
 	}
+	if handled, err := settleRecordedMCPBeforeRun(ctx, db, current, run, now); handled || err != nil {
+		return err
+	}
 	finished, err := finishAssignmentFromRun(current, run, output, now)
 	if err != nil {
 		return err
@@ -30,6 +33,22 @@ func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, r
 		return err
 	}
 	return db.FinishAssignment(ctx, finished)
+}
+
+// A durable authenticated terminal owns the assignment result even when native
+// retirement arrives before the periodic MCP drive. Parked strict carriers and
+// pending final checkpoints keep their existing consumer; stdout cannot replace
+// them with a synthesized no-report result.
+func settleRecordedMCPBeforeRun(ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, now time.Time) (bool, error) {
+	if run.ID != a.Run || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit {
+		return false, nil
+	}
+	_, found, err := db.TerminalMCPProposal(ctx, a.ID)
+	if err != nil || !found {
+		return found, err
+	}
+	_, err = SettleMCPTerminalProposal(ctx, db, a.ID, now)
+	return true, err
 }
 
 // repairChainSubject reports whether one finished assignment needs its
@@ -520,6 +539,13 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 	}
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil && !errors.Is(err, store.ErrNotFound) {
 		return factory.Assignment{}, false
+	}
+	if handled, err := settleRecordedMCPBeforeRun(ctx, db, a, run, now); handled || err != nil {
+		if err != nil {
+			return factory.Assignment{}, false
+		}
+		finished, err := db.Assignment(ctx, a.ID)
+		return finished, err == nil && finished.Stage == factory.AssignmentFinished
 	}
 	finished, err := finishAssignmentFromRun(a, run, output, now)
 	if err != nil {

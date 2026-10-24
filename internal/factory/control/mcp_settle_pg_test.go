@@ -25,7 +25,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqlDB.Close()
-	for index, malformed := range []bool{false, true} {
+	for index, malformed := range []bool{false, true, false} {
 		a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, false)
 		a.Issue, a.Subject.Issue.Issue = int64(11+index), int64(11+index)
 		finding := correctionTestFinding(1, true, factory.FindingFixCode)
@@ -48,6 +48,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		}
 		run := phaseTestRun(a, "")
 		run.Image = "sha256:" + strings.Repeat("c", 64)
+		run.Started, run.Deadline = time.Now().Add(-time.Second), time.Now().Add(time.Hour)
 		if err := db.RecordFactoryRun(ctx, run); err != nil {
 			t.Fatal(err)
 		}
@@ -72,11 +73,30 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if index == 2 {
+			payload, _ = json.Marshal(map[string]any{"candidate": candidate})
+		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishCorrection, factory.NewID(), payload)
 		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
 			t.Fatal(err)
 		}
-		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
+		// Native completion may arrive before the periodic MCP drive. Its
+		// empty stdout must not consume an already-recorded typed terminal.
+		retired := run
+		retired.Outcome, retired.Reconciled = factory.Succeeded, true
+		foreign := retired
+		foreign.ID = factory.NewID()
+		if handled, err := settleRecordedMCPBeforeRun(ctx, db, a, foreign, time.Now()); err != nil || handled {
+			t.Fatalf("foreign retired run claimed terminal: %v/%v", handled, err)
+		}
+		if index != 1 {
+			if err := finishFromRun(ctx, db, a, retired, "", time.Now()); err != nil {
+				t.Fatal(err)
+			}
+		} else if _, accounted := AccountSettledRun(ctx, db, retired, "", time.Now()); !accounted {
+			t.Fatal("retired MCP run was not accounted through its terminal")
+		}
+		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || settled {
 			mapped, note, handled, mapErr := mapMCPTerminalFinish(a, submission, time.Now())
 			receipt, found, receiptErr := db.TerminalMCPProposal(ctx, a.ID)
 			t.Fatalf("correction case=%d settlement=%v err=%v map=%v/%v/%s outcome=%s result=%+v receipt=%+v/%v/%v", index, settled, err, handled, mapErr, note, mapped.Outcome, mapped.Result, receipt, found, receiptErr)
@@ -84,6 +104,13 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		finished, err := db.Assignment(ctx, a.ID)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if index == 2 {
+			receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+			if err != nil || finished.Stage != factory.AssignmentAssigned || receipt.State != factory.MCPReceiptRecorded {
+				t.Fatal("parked strict carrier was replaced by native no-report finish")
+			}
+			continue
 		}
 		if malformed {
 			if finished.Outcome != factory.NeedsHuman {
@@ -95,6 +122,13 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
 		if err != nil || receipt.State != factory.MCPReceiptAccepted {
 			t.Fatalf("correction receipt: %+v err=%v", receipt, err)
+		}
+		if err := finishFromRun(ctx, db, a, retired, "", time.Now()); err != nil {
+			t.Fatalf("retired finish replay: %v", err)
+		}
+		replayed, err := db.Assignment(ctx, a.ID)
+		if err != nil || factory.ResultDigest(*replayed.Result) != factory.ResultDigest(*finished.Result) {
+			t.Fatal("retired finish replay changed the original terminal")
 		}
 	}
 }
@@ -284,6 +318,68 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 	}
 	if settled := coordinator.settleMCPTerminals(ctx); settled != 0 {
 		t.Fatalf("second drive settled %d, want 0", settled)
+	}
+	// A real stall report arriving before native completion must survive the
+	// generic empty-stdout finish. A foreign sealed inventory still fences.
+	for _, foreign := range []bool{false, true} {
+		a := phaseTestAssignment(t, project.ExecutionRepair, project.RoleCoder, false)
+		a.Issue, a.Acceptance, a.PublicationAssignment = 0, "", ""
+		a.Subject = factory.ExecutionSubject{Kind: factory.SubjectStall, Stall: &factory.StallSubject{StallID: factory.NewID(), CycleID: a.ID, InventoryDigest: strings.Repeat("9", 64)}}
+		if err := a.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(a)
+		if _, err := sqlDB.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		allowance := factory.AttemptAllowance{Limits: factory.AttemptLimits{ActiveMinutes: 30}, Stall: a.Subject.Stall, RootAssignment: a.ID, Repository: a.Repository, CheckpointUnix: time.Now().Unix(), Active: true}
+		if err := allowance.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		raw, _ = json.Marshal(allowance)
+		if _, err := sqlDB.ExecContext(ctx, `INSERT INTO factory_attempt_allowances(repository,issue,root_assignment,revision,data) VALUES($1,$2,$3,$4,$5)`, a.Repository, a.Issue, a.ID, allowance.Revision, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		staged := testMCPCapability()
+		staged.AssignmentID, staged.RunID, staged.Profile, staged.State = a.ID, a.Run, factory.MCPProfileStrategist, factory.MCPCapabilityStaged
+		if err := db.StageMCPCapability(ctx, staged); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.ActivateMCPCapability(ctx, staged.ID, staged.Generation, staged.RunID, staged.AssignmentID, staged.Authority, time.Now().Unix(), false); err != nil {
+			t.Fatal(err)
+		}
+		capability, err := db.GetMCPCapability(ctx, staged.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		report := factory.StallRepairReport{StallID: a.Subject.Stall.StallID, CycleID: a.ID, InventoryDigest: a.Subject.Stall.InventoryDigest, SourceCommit: a.SourceCommit, PreparationDigest: strings.Repeat("8", 64), Inspected: []factory.InspectedSource{{Path: "native-proof.txt", Commit: a.SourceCommit, Evidence: "Inspected retained requirement evidence"}}, Causes: []factory.CheckFailure{{CheckRef: "manual-result", Detail: "No authorized producer or accepted resolution"}}, RetainedIssueIndexes: []int64{1, 2}, Outcome: factory.RepairOutcomeIncomplete}
+		if foreign {
+			report.InventoryDigest = strings.Repeat("7", 64)
+		}
+		payload, _ := json.Marshal(map[string]any{"subject": "stall:" + report.StallID, "report": report})
+		submission := testMCPSubmission(capability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
+		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+			t.Fatal(err)
+		}
+		run := phaseTestRun(a, factory.Succeeded)
+		run.Reconciled = true
+		if err := finishFromRun(ctx, db, a, run, "", time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if foreign {
+			if finished.Outcome != factory.NeedsHuman || finished.Result.Reported {
+				t.Fatal("foreign stall inventory did not fence")
+			}
+		} else if finished.Outcome != factory.Succeeded || !finished.Result.Reported || finished.Result.PhaseResult.Output.Repair == nil || finished.Result.PhaseResult.Output.Repair.Outcome != factory.RepairOutcomeIncomplete {
+			t.Fatalf("typed stall diagnosis lost behind native completion: %+v", finished.Result)
+		}
+		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || settled {
+			t.Fatalf("stall terminal replay changed finish: %v/%v", settled, err)
+		}
 	}
 }
 
