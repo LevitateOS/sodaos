@@ -250,6 +250,7 @@ impl<E: Executor> Runtime<E> {
         let mut selected = BTreeSet::new();
         selected.insert("AGENTS.md".to_string());
         selected.extend(input.paths.iter().cloned());
+        let mut changed_paths = BTreeSet::new();
         for raw_path in changed
             .split(|byte| *byte == 0)
             .filter(|path| !path.is_empty())
@@ -260,19 +261,29 @@ impl<E: Executor> Runtime<E> {
                 return Err("candidate changes a forbidden context path".into());
             }
             selected.insert(path.to_string());
+            changed_paths.insert(path.to_string());
         }
         let source_paths: Vec<String> = selected.iter().cloned().collect();
         for path in &source_paths {
             add_context_instruction_paths(&mut selected, path);
-        }
-        if selected.len() > MAX_CONTEXT_FILES {
-            return Err("preparation context selects too many files".into());
         }
         let selected: Vec<String> = selected.into_iter().collect();
         for path in &selected {
             if !preparation::valid_context_path(path) {
                 return Err("candidate changes a forbidden context path".into());
             }
+        }
+        // Issue prose may resemble a repository path. Only existing approved
+        // files consume the file budget, while every actual changed path
+        // remains selected, including additions absent from the approved base.
+        let tree = self.list_approved_tree(admitted, input, &selected)?;
+        let existing = Self::parse_approved_tree(&tree, &selected)?;
+        let selected: Vec<String> = selected
+            .into_iter()
+            .filter(|path| existing.contains(path) || changed_paths.contains(path))
+            .collect();
+        if selected.len() > MAX_CONTEXT_FILES {
+            return Err("preparation context selects too many files".into());
         }
         Ok(selected)
     }
