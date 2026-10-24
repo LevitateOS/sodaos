@@ -28,7 +28,9 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	if err := db.SaveIntentRevision(ctx, revision); err != nil {
 		t.Fatal(err)
 	}
-	binding := factory.IntentTaskBinding{RevisionID: revision.ID, TaskKey: task.Key, IssueID: 3, IssueIndex: 3, AcceptanceID: phasedDecisionID(33), CreatedUnix: 1}
+	nativeTask := task
+	nativeTask.Key = phasedDecisionID(34)
+	binding := factory.IntentTaskBinding{RevisionID: revision.ID, TaskKey: nativeTask.Key, IssueID: 103, IssueIndex: 3, AcceptanceID: phasedDecisionID(33), CreatedUnix: 1}
 	if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +54,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	zero := 0
 	state := project.PrepareState{ID: p.ID, Project: p.Project, Role: p.Role, SourceCommit: p.SourceCommit, SetupDigest: p.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}
 	report := factory.AppVerificationReport{DeliveryID: a.Subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified,
-		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{task.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}}
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}}
 	a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
 	a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Output: &factory.PhaseOutput{Verification: &report}}}
 	if err := a.Validate(); err != nil {
@@ -63,11 +65,18 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqlDB.Close()
-	raw, _ := json.Marshal(a)
+	generation := factory.IntentGeneration{RevisionID: revision.ID, IntentID: revision.Intent, IntentDigest: revision.Digest(), State: "completed", SubmittedTasks: []factory.IntentTask{nativeTask}}
+	raw, _ := json.Marshal(generation)
+	if _, err := sqlDB.Exec(`INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2)`, revision.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(a)
 	if _, err := sqlDB.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'finished',0,$3)`, a.ID, a.Run, string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 3, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: fx.tip, ClosingOccurrence: "1"}
+	// A normal later owner change advances the checked target, without
+	// rewriting the Factory's original native merge/closure prerequisite.
+	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 3, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: strings.Repeat("e", 40), ClosingOccurrence: "1"}
 	raw, _ = json.Marshal(event)
 	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw)); err != nil {
 		t.Fatal(err)
@@ -94,6 +103,15 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	}}
 	reads := &appVerificationReads{tip: fx.tip}
 	c := &Coordinator{Store: db, Host: host, DispatchReads: reads}
+	evidenceSnapshot := func() string {
+		t.Helper()
+		var digest string
+		if err := sqlDB.QueryRow(`SELECT md5(jsonb_build_array((SELECT jsonb_agg(data ORDER BY event) FROM factory_completions),(SELECT jsonb_agg(data ORDER BY id) FROM factory_assignments),(SELECT jsonb_agg(data ORDER BY id) FROM factory_runs),(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_commands c),(SELECT jsonb_agg(data ORDER BY root_assignment) FROM factory_attempt_allowances),(SELECT jsonb_agg(data ORDER BY assignment) FROM factory_reservations),(SELECT jsonb_agg(data ORDER BY run) FROM factory_usage))::text)`).Scan(&digest); err != nil {
+			t.Fatal(err)
+		}
+		return digest
+	}
+	beforeEvidence := evidenceSnapshot()
 	// A native pass receipt alone does not let Test Pilot assess assertions.
 	// Preserve the exact authorized script and source, as readable UTF-8, in
 	// the same evidence returned by the authenticated worker interface.
@@ -106,6 +124,20 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	var projected struct {
+		Delivery struct {
+			IntentID         string `json:"intent_id"`
+			AcceptedRevision string `json:"accepted_revision"`
+			ScopeDigest      string `json:"scope_digest"`
+			SourceCommit     string `json:"source_commit"`
+			Tasks            []struct {
+				TaskKey      string                  `json:"task_key"`
+				OutcomeIDs   []string                `json:"outcome_ids"`
+				IssueID      int64                   `json:"issue_id,string"`
+				IssueIndex   int64                   `json:"issue_index,string"`
+				AcceptanceID string                  `json:"acceptance_id"`
+				Completion   factory.CompletionEvent `json:"completion"`
+			} `json:"tasks"`
+		} `json:"delivery_prerequisites"`
 		Context struct {
 			Project, ID, Role string
 			SourceCommit      string `json:"source_commit"`
@@ -115,6 +147,13 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	}
 	if json.Unmarshal(encodedEvidence, &projected) != nil || projected.Context.Project != p.Project || projected.Context.ID != p.ID || projected.Context.Role != p.Role || projected.Context.SourceCommit != p.SourceCommit || projected.Context.Check != string(script) || len(projected.Context.Files) != 1 || projected.Context.Files[0].Path != "app.can" || !strings.Contains(projected.Context.Files[0].Content, "saved_task_persists") {
 		t.Fatal("native evidence omitted readable approved assertions", string(encodedEvidence))
+	}
+	if projected.Delivery.IntentID != revision.Intent || projected.Delivery.AcceptedRevision != revision.ID || projected.Delivery.ScopeDigest != revision.Digest() || projected.Delivery.SourceCommit != a.SourceCommit || len(projected.Delivery.Tasks) != 1 {
+		t.Fatal("native evidence omitted the current delivery prerequisite scope")
+	}
+	delivered := projected.Delivery.Tasks[0]
+	if delivered.TaskKey != nativeTask.Key || delivered.TaskKey == task.Key || len(delivered.OutcomeIDs) != 1 || delivered.OutcomeIDs[0] != idea.ID || delivered.IssueID != binding.IssueID || delivered.IssueIndex != binding.IssueIndex || delivered.AcceptanceID != binding.AcceptanceID || delivered.Completion != event || delivered.Completion.MergedCommit == projected.Delivery.SourceCommit {
+		t.Fatal("native evidence lost the canonical task/merge/closure bindings")
 	}
 	if strings.Contains(string(encodedEvidence), state.Output) {
 		t.Fatal("native evidence exposed unfiltered check output")
@@ -126,6 +165,9 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		}
 	}
 	contextFault = ""
+	if evidenceSnapshot() != beforeEvidence {
+		t.Fatal("verification evidence reads changed retained history or spending")
+	}
 	// Worker prose and a normal successful setup check are insufficient.
 	goodScript := script
 	script = []byte("#!/bin/sh\nexit 0\n")
@@ -177,5 +219,17 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	pending, err := db.PendingAppVerifications(ctx, 16)
 	if err != nil || len(pending) != 0 {
 		t.Fatalf("completed delivery still pending: %+v %v", pending, err)
+	}
+	// A malformed completion cannot lend an unrelated repository's history to
+	// the accepted task, even if its indexed issue and acceptance happen to match.
+	foreign := event
+	foreign.ID, foreign.PublicationID, foreign.Generation, foreign.Repository = factory.NewID(), factory.NewID(), 2, 8
+	raw, _ = json.Marshal(foreign)
+	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,2,$1,$2,'1',$3)`, foreign.ID, foreign.PublicationID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	beforeEvidence = evidenceSnapshot()
+	if _, err := c.ApplicationVerificationEvidence(ctx, a); err == nil || evidenceSnapshot() != beforeEvidence {
+		t.Fatal("foreign canonical completion was exposed or changed retained history")
 	}
 }

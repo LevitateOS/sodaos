@@ -6,16 +6,69 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// CurrentVerificationEvidence is the native supervisor's approved fixture and
-// receipt. State is for controller adoption only, never the model projection.
+// CurrentVerificationEvidence combines the native supervisor's approved fixture
+// and receipt with canonical Factory delivery prerequisites. State is for
+// controller adoption only, never the model projection.
 type CurrentVerificationEvidence struct {
-	Manifest          ApprovedAppCheck             `json:"manifest"`
-	ManifestDigest    string                       `json:"manifest_digest"`
-	PreparationDigest string                       `json:"preparation_digest"`
-	SourceCommit      string                       `json:"source_commit"`
-	Receipt           VerificationCheckReceipt     `json:"check_receipt"`
-	ApprovedContext   *ApprovedVerificationContext `json:"approved_context,omitempty"`
-	State             project.PrepareState         `json:"-"`
+	Manifest              ApprovedAppCheck                   `json:"manifest"`
+	ManifestDigest        string                             `json:"manifest_digest"`
+	PreparationDigest     string                             `json:"preparation_digest"`
+	SourceCommit          string                             `json:"source_commit"`
+	Receipt               VerificationCheckReceipt           `json:"check_receipt"`
+	ApprovedContext       *ApprovedVerificationContext       `json:"approved_context,omitempty"`
+	DeliveryPrerequisites *VerificationDeliveryPrerequisites `json:"delivery_prerequisites,omitempty"`
+	State                 project.PrepareState               `json:"-"`
+}
+
+// VerificationDeliveryPrerequisites exposes the canonical Factory merge/closure
+// records for the accepted task graph. These facts do not attest application
+// behavior or subsequent operator deployment. A prior merged commit can differ
+// from the current integrated source inspected by the approved assertions.
+type VerificationDeliveryPrerequisites struct {
+	IntentID         string                      `json:"intent_id"`
+	AcceptedRevision string                      `json:"accepted_revision"`
+	ScopeDigest      string                      `json:"scope_digest"`
+	SourceCommit     string                      `json:"source_commit"`
+	Tasks            []VerificationDeliveredTask `json:"tasks"`
+}
+
+type VerificationDeliveredTask struct {
+	TaskKey      string          `json:"task_key"`
+	OutcomeIDs   []string        `json:"outcome_ids"`
+	IssueID      int64           `json:"issue_id,string"`
+	IssueIndex   int64           `json:"issue_index,string"`
+	AcceptanceID string          `json:"acceptance_id"`
+	Completion   CompletionEvent `json:"completion"`
+}
+
+func (p VerificationDeliveryPrerequisites) ValidateFor(d DeliverySubject, outcomes []string) error {
+	if p.IntentID != d.IntentID || p.AcceptedRevision != d.AcceptedRevision || p.ScopeDigest != d.ScopeDigest || p.SourceCommit != d.SourceCommit || len(p.Tasks) < 1 || len(p.Tasks) > 64 {
+		return errors.New("delivery prerequisites differ from admitted scope")
+	}
+	allowed := make(map[string]bool, len(outcomes))
+	for _, outcome := range outcomes {
+		allowed[outcome] = true
+	}
+	tasks, issues := map[string]bool{}, map[int64]bool{}
+	var repository int64
+	for _, task := range p.Tasks {
+		if !project.ValidDecisionID(task.TaskKey) || tasks[task.TaskKey] || task.IssueID <= 0 || task.IssueIndex <= 0 || issues[task.IssueIndex] || !project.ValidDecisionID(task.AcceptanceID) || task.Completion.Validate() != nil || task.Completion.Issue != task.IssueIndex || task.Completion.AcceptanceID != task.AcceptanceID || len(task.OutcomeIDs) < 1 || len(task.OutcomeIDs) > len(outcomes) {
+			return errors.New("delivery prerequisite lacks its exact completed task")
+		}
+		if repository != 0 && repository != task.Completion.Repository {
+			return errors.New("delivery prerequisites cross repositories")
+		}
+		repository = task.Completion.Repository
+		tasks[task.TaskKey], issues[task.IssueIndex] = true, true
+		selected := map[string]bool{}
+		for _, outcome := range task.OutcomeIDs {
+			if !allowed[outcome] || selected[outcome] {
+				return errors.New("delivery prerequisite names a foreign outcome")
+			}
+			selected[outcome] = true
+		}
+	}
+	return nil
 }
 
 // ApprovedVerificationContext projects the native reader's bounded UTF-8 source
@@ -66,6 +119,9 @@ func (e CurrentVerificationEvidence) ValidateFor(d DeliverySubject) error {
 	manifest, err := ParseApprovedAppCheck([]byte(e.ApprovedContext.Check))
 	if err != nil || manifest.Digest() != d.VerificationManifestDigest {
 		return errors.New("approved verification assertions differ from admitted manifest")
+	}
+	if e.DeliveryPrerequisites == nil || e.DeliveryPrerequisites.ValidateFor(d, e.Manifest.Outcomes) != nil {
+		return errors.New("current verification lacks exact delivery prerequisites")
 	}
 	return nil
 }

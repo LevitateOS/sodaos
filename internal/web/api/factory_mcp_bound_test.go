@@ -482,6 +482,11 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	pilot.Issue, pilot.Role, pilot.Phase = 0, project.RoleReviewer, project.ExecutionVerify
 	pilot.Preparation = verificationEvidence.ApprovedContext.ID
 	pilot.Subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: accepted.Intent, AcceptedRevision: accepted.ID, ScopeDigest: accepted.Digest(), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, VerificationManifestDigest: manifest.Digest()}}
+	_, deliveryPrerequisites, err := st.ApplicationVerificationEvidenceInputs(ctx, pilot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificationEvidence.DeliveryPrerequisites = &deliveryPrerequisites
 	raw, _ = json.Marshal(pilot)
 	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',1,$3)`, pilot.ID, pilot.Run, string(raw))
 	pilotRun := factory.Run{ID: pilot.Run, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: a.SourceCommit}
@@ -513,6 +518,15 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	defer pilotSession.Close()
 	beforeVerification := counts()
+	verificationReadState := func() string {
+		t.Helper()
+		var digest string
+		if err := db.QueryRowContext(ctx, `SELECT md5(jsonb_build_array((SELECT jsonb_agg(data ORDER BY event) FROM factory_completions),(SELECT jsonb_agg(data ORDER BY id) FROM factory_assignments),(SELECT jsonb_agg(data ORDER BY id) FROM factory_runs),(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_commands c),(SELECT jsonb_agg(data ORDER BY root_assignment) FROM factory_attempt_allowances),(SELECT jsonb_agg(data ORDER BY assignment) FROM factory_reservations),(SELECT jsonb_agg(data ORDER BY run) FROM factory_usage))::text)`).Scan(&digest); err != nil {
+			t.Fatal(err)
+		}
+		return digest
+	}
+	beforeVerificationState := verificationReadState()
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
 	if catalogRefused(result, err) {
 		t.Fatal("approved verification evidence refused", err)
@@ -523,6 +537,10 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	if json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Evidence.ValidateFor(*pilot.Subject.Delivery) != nil || observedEvidence.Outcome != "native_check_passed" || observedEvidence.Evidence.ApprovedContext.Check != approvedCheck || observedEvidence.Evidence.ApprovedContext.Files[0].Content != assertions || strings.Contains(catalogText(t, result), "private native output") {
 		t.Fatal("authenticated evidence lost exact readable assertions or exposed logs")
+	}
+	prerequisites := observedEvidence.Evidence.DeliveryPrerequisites
+	if prerequisites.IntentID != accepted.Intent || prerequisites.AcceptedRevision != accepted.ID || prerequisites.ScopeDigest != accepted.Digest() || prerequisites.SourceCommit != a.SourceCommit || len(prerequisites.Tasks) != 1 || prerequisites.Tasks[0].TaskKey != binding.TaskKey || prerequisites.Tasks[0].IssueID != binding.IssueID || prerequisites.Tasks[0].IssueIndex != binding.IssueIndex || prerequisites.Tasks[0].AcceptanceID != binding.AcceptanceID || prerequisites.Tasks[0].Completion != event {
+		t.Fatal("authenticated evidence omitted canonical task/merge/closure prerequisites")
 	}
 	verificationJSON, nextVerificationPart, cursor := "", 0, ""
 	for pages := 0; ; pages++ {
@@ -558,12 +576,34 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		cursor = response.Page.NextCursor
 	}
 	var currentVerification factory.CurrentVerificationEvidence
-	if json.Unmarshal([]byte(verificationJSON), &currentVerification) != nil || currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || counts() != beforeVerification {
+	if json.Unmarshal([]byte(verificationJSON), &currentVerification) != nil || currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || len(currentVerification.DeliveryPrerequisites.Tasks) != 1 || currentVerification.DeliveryPrerequisites.Tasks[0].Completion != event || counts() != beforeVerification {
 		t.Fatal("required current context lost assertions or spent/settled during a read")
 	}
+	for _, fault := range []string{"missing-prerequisites", "stale-scope", "foreign-acceptance", "foreign-outcome", "duplicate-task"} {
+		badPrerequisites := deliveryPrerequisites
+		badPrerequisites.Tasks = append([]factory.VerificationDeliveredTask(nil), deliveryPrerequisites.Tasks...)
+		verificationEvidence.DeliveryPrerequisites = &badPrerequisites
+		switch fault {
+		case "missing-prerequisites":
+			verificationEvidence.DeliveryPrerequisites = nil
+		case "stale-scope":
+			badPrerequisites.ScopeDigest = strings.Repeat("e", 64)
+		case "foreign-acceptance":
+			badPrerequisites.Tasks[0].Completion.AcceptanceID = "d" + strings.Repeat("e", 24)
+		case "foreign-outcome":
+			badPrerequisites.Tasks[0].OutcomeIDs = []string{"d" + strings.Repeat("e", 24)}
+		case "duplicate-task":
+			badPrerequisites.Tasks = append(badPrerequisites.Tasks, badPrerequisites.Tasks[0])
+		}
+		result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
+		if !catalogRefused(result, err) || counts() != beforeVerification {
+			t.Fatal("invalid delivery prerequisites were projected or spent during refusal", fault)
+		}
+	}
+	verificationEvidence.DeliveryPrerequisites = &deliveryPrerequisites
 	verificationEvidence.ApprovedContext.Candidate = strings.Repeat("e", 40)
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
-	if !catalogRefused(result, err) || counts() != beforeVerification {
+	if !catalogRefused(result, err) || counts() != beforeVerification || verificationReadState() != beforeVerificationState {
 		t.Fatal("foreign verification source was projected or wrote during refusal")
 	}
 

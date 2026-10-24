@@ -2022,6 +2022,14 @@ retain consumed usage. This is a finite time bound, not a promised monetary cap.
 
 The controller discovers accepted intents whose bound tasks have real integrated issue-completion records. It reads the protected approved script and current native preparation receipt at the exact integrated target commit before admitting a readonly Test Pilot assignment. `factory.verification_evidence` exposes the bound declaration, readable approved setup/check scripts, maintainer-selected source files at that integrated commit, and native check receipt for that assignment. The context retains the native path/UTF-8/byte limits and exact source tuple; private native output is excluded. A passing native receipt is labeled `native_check_passed`; it does not establish semantic outcome coverage. After successful worker retirement, the controller independently reloads the native receipt, current accepted scope, approved preparation and repository target; the worker report must cover exactly the accepted outcomes and match the observed check-output digest. Only that join writes the Factory-owned F10 “Application outcomes verified” post. Missing, stale or failed native evidence produces an F09 wait; issue completion remains F06 and never substitutes for application verification. This fixed check route is implemented; the broader manifest executor and fixture catalog described below remain separate work.
 
+The same evidence also exposes `delivery_prerequisites`: the exact accepted
+Intent/revision/scope and current checked source, with at most 64 task bindings
+from the accepted native graph. Each includes its outcome IDs, native issue ID
+and index, acceptance, and canonical completion event: publication, merged commit
+and original closing occurrence. These are existing Factory merge/closure facts,
+not application assertions or operator deployment attestations. A later owner
+source change does not rewrite the original merged commit.
+
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 
 The fixed check route enforces the default stable-intent allowance of **2 admitted

@@ -43,73 +43,109 @@ func (s *Store) PendingAppVerifications(ctx context.Context, limit int) ([]facto
 }
 
 func applicationVerificationInputsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.IntentRevision, int64, error) {
+	revision, tasks, err := applicationVerificationPrerequisitesTx(ctx, tx, a)
+	if err != nil {
+		return revision, 0, err
+	}
+	return revision, tasks[0].IssueIndex, nil
+}
+
+func applicationVerificationPrerequisitesTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.IntentRevision, []factory.VerificationDeliveredTask, error) {
 	var revision factory.IntentRevision
 	if a.Phase != project.ExecutionVerify || a.Subject.Delivery == nil || a.Subject.Delivery.Validate() != nil || a.SourceCommit != a.Subject.Delivery.SourceCommit {
-		return revision, 0, errors.New("verification lacks its exact delivery subject")
+		return revision, nil, errors.New("verification lacks its exact delivery subject")
 	}
 	subject := a.Subject.Delivery
 	var raw []byte
 	if err := tx.QueryRowContext(ctx, `SELECT r.data FROM factory_intent_heads h JOIN factory_intent_revisions r ON r.id=h.revision WHERE h.id=$1 AND h.revision=$2 FOR SHARE OF h`, subject.IntentID, subject.AcceptedRevision).Scan(&raw); err != nil {
-		return revision, 0, err
+		return revision, nil, err
 	}
 	if err := json.Unmarshal(raw, &revision); err != nil {
-		return revision, 0, err
+		return revision, nil, err
 	}
 	if revision.Repository != a.Repository || revision.State != "accepted" || revision.Validate() != nil || revision.Digest() != subject.ScopeDigest {
-		return revision, 0, errors.New("accepted application scope changed")
+		return revision, nil, errors.New("accepted application scope changed")
 	}
-	firstIssue, err := deliveredIntentTasksTx(ctx, tx, revision)
-	return revision, firstIssue, err
+	tasks, err := deliveredIntentTaskEvidenceTx(ctx, tx, revision)
+	return revision, tasks, err
 }
 
 func deliveredIntentTasksTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision) (int64, error) {
+	tasks, err := deliveredIntentTaskEvidenceTx(ctx, tx, revision)
+	if err != nil {
+		return 0, err
+	}
+	return tasks[0].IssueIndex, nil
+}
+
+func deliveredIntentTaskEvidenceTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision) ([]factory.VerificationDeliveredTask, error) {
 	var raw []byte
 	tasks := revision.Tasks
 	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1 FOR SHARE`, revision.ID).Scan(&raw)
 	if err == nil {
 		var generation factory.IntentGeneration
 		if err := json.Unmarshal(raw, &generation); err != nil {
-			return 0, err
+			return nil, err
 		}
 		if generation.State != "completed" || generation.RevisionID != revision.ID || generation.IntentID != revision.Intent || generation.IntentDigest != revision.Digest() {
-			return 0, errors.New("accepted application generation is not complete and current")
+			return nil, errors.New("accepted application generation is not complete and current")
 		}
 		if err := factory.AssessProposedTasks(revision, generation.SubmittedTasks, revision.MaxIssues); err != nil {
-			return 0, err
+			return nil, err
 		}
 		// Native adoption binds the recorded assessed graph, whose task keys
 		// can differ from the owner's accepted planning sketch.
 		tasks = generation.SubmittedTasks
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		return 0, err
+		return nil, err
 	}
-	var firstIssue int64
+	if len(tasks) < 1 || len(tasks) > 64 {
+		return nil, errors.New("accepted application has no bounded delivered work")
+	}
+	delivered := make([]factory.VerificationDeliveredTask, 0, len(tasks))
 	for _, task := range tasks {
 		var binding factory.IntentTaskBinding
 		if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_tasks WHERE revision=$1 AND task=$2`, revision.ID, task.Key).Scan(&raw); err != nil {
-			return 0, err
+			return nil, err
 		}
 		if err := json.Unmarshal(raw, &binding); err != nil {
-			return 0, err
+			return nil, err
 		}
 		if binding.RevisionID != revision.ID || binding.TaskKey != task.Key || binding.IssueID <= 0 || binding.IssueIndex <= 0 || !project.ValidDecisionID(binding.AcceptanceID) {
-			return 0, errors.New("accepted application task lacks its exact native binding")
+			return nil, errors.New("accepted application task lacks its exact native binding")
 		}
-		var delivered bool
-		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_completions WHERE repository=$1 AND data->>'issue'=$2 AND data->>'acceptance_id'=$3)`, revision.Repository, fmt.Sprint(binding.IssueIndex), binding.AcceptanceID).Scan(&delivered); err != nil {
-			return 0, err
+		var event factory.CompletionEvent
+		var eventID, publicationID, occurrence string
+		var generation int64
+		if err := tx.QueryRowContext(ctx, `SELECT event,publication,occurrence,generation,data FROM factory_completions WHERE repository=$1 AND data->>'issue'=$2 AND data->>'acceptance_id'=$3 ORDER BY generation DESC LIMIT 1`, revision.Repository, fmt.Sprint(binding.IssueIndex), binding.AcceptanceID).Scan(&eventID, &publicationID, &occurrence, &generation, &raw); err != nil {
+			return nil, err
 		}
-		if !delivered {
-			return 0, errors.New("accepted application work is not integrated")
+		if err := json.Unmarshal(raw, &event); err != nil {
+			return nil, err
 		}
-		if firstIssue == 0 {
-			firstIssue = binding.IssueIndex
+		if event.Validate() != nil || event.ID != eventID || event.PublicationID != publicationID || event.ClosingOccurrence != occurrence || event.Generation != generation || event.Repository != revision.Repository || event.Issue != binding.IssueIndex || event.AcceptanceID != binding.AcceptanceID {
+			return nil, errors.New("accepted application task differs from its canonical completion")
 		}
+		delivered = append(delivered, factory.VerificationDeliveredTask{TaskKey: task.Key, OutcomeIDs: append([]string(nil), task.IdeaIDs...), IssueID: binding.IssueID, IssueIndex: binding.IssueIndex, AcceptanceID: binding.AcceptanceID, Completion: event})
 	}
-	if firstIssue == 0 {
-		return 0, errors.New("accepted application has no delivered work")
+	return delivered, nil
+}
+
+// ApplicationVerificationEvidenceInputs uses the same current accepted head and
+// canonical completion join as admission, without executing checks or writing.
+func (s *Store) ApplicationVerificationEvidenceInputs(ctx context.Context, a factory.Assignment) (factory.IntentRevision, factory.VerificationDeliveryPrerequisites, error) {
+	var prerequisites factory.VerificationDeliveryPrerequisites
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return factory.IntentRevision{}, prerequisites, err
 	}
-	return firstIssue, nil
+	defer tx.Rollback()
+	revision, tasks, err := applicationVerificationPrerequisitesTx(ctx, tx, a)
+	if err != nil {
+		return revision, prerequisites, err
+	}
+	prerequisites = factory.VerificationDeliveryPrerequisites{IntentID: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), SourceCommit: a.SourceCommit, Tasks: tasks}
+	return revision, prerequisites, tx.Commit()
 }
 
 func (s *Store) ApplicationVerificationInputs(ctx context.Context, a factory.Assignment) (factory.IntentRevision, int64, error) {

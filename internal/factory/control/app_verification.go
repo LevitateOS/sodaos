@@ -28,7 +28,7 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 	if a.Subject.Delivery == nil || a.Phase != project.ExecutionVerify || a.Role != project.RoleReviewer {
 		return evidence, errors.New("assignment is not application verification")
 	}
-	revision, issue, err := c.Store.ApplicationVerificationInputs(ctx, a)
+	revision, prerequisites, err := c.Store.ApplicationVerificationEvidenceInputs(ctx, a)
 	if err != nil {
 		return evidence, err
 	}
@@ -89,14 +89,14 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 	if err != nil {
 		return evidence, err
 	}
-	native, err := c.DispatchReads.ReadDispatchInputs(ctx, strconv.FormatInt(a.Repository, 10), strconv.FormatInt(issue, 10), nil, policy.TargetBranch)
+	native, err := c.DispatchReads.ReadDispatchInputs(ctx, strconv.FormatInt(a.Repository, 10), strconv.FormatInt(prerequisites.Tasks[0].IssueIndex, 10), nil, policy.TargetBranch)
 	if err != nil {
 		return evidence, err
 	}
 	if native.TipRef != policy.TargetBranch || native.Tip != a.SourceCommit {
 		return evidence, errors.New("integrated application source changed since verification admission")
 	}
-	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, ApprovedContext: factory.NewApprovedVerificationContext(material), State: state,
+	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, ApprovedContext: factory.NewApprovedVerificationContext(material), DeliveryPrerequisites: &prerequisites, State: state,
 		Receipt: factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "Native approved application check passed"}}
 	return evidence, evidence.ValidateFor(*a.Subject.Delivery)
 }
