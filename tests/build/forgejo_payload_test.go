@@ -103,15 +103,14 @@ func extensionPages(t *testing.T, manifest string) []any {
 	return pages
 }
 
-// The required soda package carries only the spaces page; the tailnet
-// page lives in the separately activatable optional package under its
-// admin-gated declaration, never in the core manifest.
+// The required soda package carries Workspace, Feed and Applications. Tailnet
+// lives in the separately activatable admin-gated optional package.
 func TestForgejoPayloadExtensionPagesDeclaredInNativePackage(t *testing.T) {
 	ids := map[string]bool{}
 	for _, entry := range extensionPages(t, "system/containers/extension/extension.json") {
 		ids[entry.(map[string]any)["id"].(string)] = true
 	}
-	Check(t, len(ids) == 1 && ids["spaces"], "core page ids = %v", ids)
+	Check(t, len(ids) == 4 && ids["spaces"] && ids["feed"] && ids["repository-feed"] && ids["applications"], "core page ids = %v", ids)
 	optional := map[string]any{}
 	for _, entry := range extensionPages(t, "system/containers/extension/tailnet-package/extension.json") {
 		page := entry.(map[string]any)

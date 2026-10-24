@@ -1,4 +1,4 @@
-// Port of test_candidate_gate.py: check-native.sh uses the Go validator.
+// check-native.sh delegates candidate admission to the canonical Rust owner.
 package build
 
 import (
@@ -37,7 +37,7 @@ func TestCandidateCheckUsesTheRustValidatorOwner(t *testing.T) {
 		`--arch "$arch"`,
 		`--soda-revision "$revision"`,
 		`--forgejo-revision "$forgejo_revision"`,
-		"git -C ../forgejo-ext rev-parse HEAD",
+		"< fountain-source.json",
 		"Exact Fountain source revision required",
 	} {
 		Check(t, strings.Contains(before, want), "missing before marker %q", want)
@@ -58,10 +58,10 @@ func TestCandidateNoIndependentPythonCandidateRules(t *testing.T) {
 func TestCandidateNativeGuardsStillSurroundTheOwnerCheck(t *testing.T) {
 	before, after := splitNative(t)
 	for _, want := range []string{
-		"Pinned native source-check tools required",
+		"Rust toolchain required for the candidate check",
 		"Check requires a clean exact-revision checkout",
 		"soda-build candidate artifacts directory required (payload.json, candidate.json, host.oci)",
-		`"$verifier" verify --source "$artifacts" --arch "$arch" --revision "$revision"`,
+		`cargo run --locked -p soda-release-tools --bin soda-candidate-check`,
 	} {
 		Check(t, strings.Contains(before, want), "missing before marker %q", want)
 	}

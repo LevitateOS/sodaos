@@ -10,6 +10,7 @@ internal/factory/control/acceptance_withdrawal_stop_test.go
 internal/factory/control/app_verification_test.go
 internal/factory/control/checks_native_fixture_test.go
 internal/factory/control/completion_serving_pg_test.go
+internal/factory/control/context_bundle_gap_test.go
 internal/factory/control/coordinator_test.go
 internal/factory/control/delivery_admission_test.go
 internal/factory/control/dispatch_accounting_test.go
@@ -73,6 +74,7 @@ internal/factory/control/st15_demo_stack_test.go
 internal/factory/control/staged_seed_test.go
 internal/factory/control/stall_detect_test.go
 internal/factory/control/stall_serve_test.go
+internal/factory/control/systemone_typesafe_test.go
 internal/factory/control/traversal_test.go
 internal/forgejo/actor_lookup_test.go
 internal/forgejo/background_test.go

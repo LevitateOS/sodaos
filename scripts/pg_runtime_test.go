@@ -124,7 +124,8 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 	)
 	service := readRuntimeFile(t, "system/host/services/soda-postgres-backup.service")
 	requireContains(t, service,
-		"After=soda-postgres-init.service",
+		"After=soda-postgres.service",
+		"Requires=soda-postgres.service",
 		"Type=oneshot",
 		"ExecStart=/usr/bin/soda-pg-backup",
 		"UMask=0077",

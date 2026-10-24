@@ -36,7 +36,14 @@ func forgejoMigrateBinary(t *testing.T) string {
 			forgejoMigrateBinDiag = string(out)
 			return
 		}
-		forgejoMigrateBinPath = filepath.Join(root, "target", "debug", "soda-forgejo-migrate")
+		target := os.Getenv("CARGO_TARGET_DIR")
+		if target == "" {
+			target = "target"
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(root, target)
+		}
+		forgejoMigrateBinPath = filepath.Join(target, "debug", "soda-forgejo-migrate")
 	})
 	if forgejoMigrateBinPath == "" {
 		t.Fatalf("build soda-forgejo-migrate: %s", forgejoMigrateBinDiag)

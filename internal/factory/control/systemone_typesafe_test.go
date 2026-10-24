@@ -2,31 +2,33 @@ package control
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// stubSystemOneTransport replays one canned provider response without
-// touching the network, exercising the adapter through
-// malformed-response integration fixtures.
+// The test transport directs only the real provider request to its private
+// loopback HTTP server. No credential or request leaves the test fixture.
 type stubSystemOneTransport struct {
-	status int
-	body   string
+	host string
 }
 
-func (s stubSystemOneTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
-	code := s.status
-	if code == 0 {
-		code = http.StatusOK
+func (s stubSystemOneTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Scheme != "https" || request.URL.Host != "api.typesafe.ai" || request.URL.Path != "/v1/systemone" {
+		return nil, errors.New("unexpected System One fixture endpoint")
 	}
-	return &http.Response{StatusCode: code, Body: io.NopCloser(strings.NewReader(s.body)), Header: make(http.Header)}, nil
+	request = request.Clone(request.Context())
+	request.URL.Scheme, request.URL.Host = "http", s.host
+	request.Host = ""
+	return http.DefaultTransport.RoundTrip(request)
 }
 
 func stubSystemOneProvider(t *testing.T, body string, status int) *TypeSafeSystemOne {
@@ -35,7 +37,27 @@ func stubSystemOneProvider(t *testing.T, body string, status int) *TypeSafeSyste
 	if err := os.WriteFile(keyPath, []byte("test-key"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return &TypeSafeSystemOne{APIKeyFile: keyPath, Client: &http.Client{Transport: stubSystemOneTransport{status: status, body: body}}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var envelope map[string]any
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/systemone" || r.Header.Get("Content-Type") != "application/json" || r.Header.Get("Authorization") != "Bearer test-key" || json.NewDecoder(io.LimitReader(r.Body, 65537)).Decode(&envelope) != nil {
+			t.Error("System One HTTP request does not match the provider contract")
+			http.Error(w, "invalid fixture request", http.StatusBadRequest)
+			return
+		}
+		questions, ok := envelope["questions"].(map[string]any)
+		if !ok || len(questions) == 0 || len(questions) > factory.SystemOneMaxBatchQuestions || len(envelope) != 3 || envelope["model"] == "" {
+			t.Error("System One HTTP request omitted its bounded question envelope")
+			http.Error(w, "invalid fixture envelope", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if status != 0 {
+			w.WriteHeader(status)
+		}
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(server.Close)
+	return &TypeSafeSystemOne{APIKeyFile: keyPath, Client: &http.Client{Transport: stubSystemOneTransport{host: server.Listener.Addr().String()}}}
 }
 
 // TestSystemOneAdapterAcceptsContractAnswers proves the three typed

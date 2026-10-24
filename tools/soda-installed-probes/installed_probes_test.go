@@ -75,5 +75,12 @@ func remoteProbeBinary(t *testing.T) string {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("cargo build soda-acceptance-remote: %v\n%s", err, stderr.String())
 	}
-	return filepath.Join(probeRoot, "target", "debug", "soda-acceptance-remote")
+	target := os.Getenv("CARGO_TARGET_DIR")
+	if target == "" {
+		target = "target"
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(probeRoot, target)
+	}
+	return filepath.Join(target, "debug", "soda-acceptance-remote")
 }

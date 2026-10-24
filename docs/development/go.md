@@ -255,6 +255,8 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | Existing fixture | Required direct database state |
 | --- | --- |
 | `internal/factory/control/dispatch_expiry_test.go` | Exhaust recorded roots before dispatch closure and explicit retry |
+| `internal/factory/control/dispatch_accounting_test.go` | Remove settlement/checkpoint metadata to exercise retained elapsed-time recovery and clamping without waiting for real deadlines |
+| `internal/factory/control/dispatch_restore_helpers_test.go` | Change a retained sponsorship receipt to challenge recovery without a public corruption writer |
 | `internal/factory/control/dispatch_preparation_test.go` | Consume an attempt, expire admission receipts, and temporarily hide a policy table to exercise operational failure |
 | `internal/factory/control/dispatch_source_preparation_test.go` | Expire a ready source receipt during admission and confirm that no admission rows remain |
 | `internal/factory/control/traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
@@ -265,6 +267,9 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | `internal/web/api/factory_completion_budget_test.go` | Seed completion/reassessment prefixes and observe budget/cursor rollback with scripted native RPC evidence |
 | `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
 | `internal/factory/control/mcp_settle_pg_test.go` | Seed a persisted review assignment to isolate terminal receipt settlement from admission and dispatch |
+| `internal/factory/control/intent_plan_choice_test.go` | Seed canonical merge evidence and alter generation/task bindings to challenge exact accepted outcome coverage |
+| `internal/factory/control/stall_serve_test.go` | Seed and corrupt protected repair evidence, compare immutable spending, and challenge atomic diagnosis/draft/feed recovery with complete native RPC fixtures |
+| `internal/web/api/factory_mcp_bound_test.go` | Seed exact active worker/cause/preparation tuples and corrupt attributed read projections through authenticated MCP transport |
 | `internal/web/api/factory_feed_route_test.go` | Seed finished assignment history to check feed enrichment without recreating a full execution lifecycle |
 | `internal/factory/control/delivery_admission_test.go` | Seed a merged completion event so delivered intent admits a scoped Test Pilot; no public writer records a standalone completion outside the merge flow |
 | `internal/factory/control/app_verification_test.go` | Seed a finished assignment with its merged completion to challenge application verification; no public writer records a standalone finished assignment outside dispatch |

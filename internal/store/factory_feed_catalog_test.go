@@ -26,6 +26,15 @@ func TestEveryWorkerFeedComponentHasDurableToolPath(t *testing.T) {
 				t.Fatal("component has no tool producer")
 			}
 			tool := factory.MCPTool(component.Outlets[0])
+			// These cards retain their ordinary communication outlet. Their
+			// typed diagnosis/draft producers need the exact active repair
+			// cause exercised by the existing control/HTTP integrations, not
+			// this presentation fixture's generic communication payload.
+			if tool == factory.MCPToolRecordDiagnosis {
+				tool = factory.MCPToolPartial
+			} else if tool == factory.MCPToolDraftRepair {
+				tool = factory.MCPToolSuggest
+			}
 			profile := factory.MCPProfileBuilder
 			if component.Roles[0] != "*" {
 				profile = factory.MCPProfile(component.Roles[0])

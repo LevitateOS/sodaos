@@ -20,7 +20,7 @@ func TestComplexityToolsFilesPassAsShipping(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			result := runGate(t, path)
 			Require(t, result.Code == 0, "gate failed: %s", result.Stdout+result.Stderr)
-			Check(t, strings.Contains(result.Stdout, "Complexity gate passed"), "stdout=%q", result.Stdout)
+			Check(t, strings.Contains(result.Stdout, "go:") && strings.Contains(result.Stdout, "above preferred 10"), "stdout=%q", result.Stdout)
 		})
 	}
 }
@@ -34,7 +34,7 @@ func TestComplexityScriptsStillOutOfScope(t *testing.T) {
 func TestComplexityMissingSelectedInputFails(t *testing.T) {
 	result := runGate(t, "internal/does-not-exist.go")
 	Require(t, result.Code != 0, "missing selected input passed: %s", result.Stdout+result.Stderr)
-	Check(t, strings.Contains(result.Stderr, "selected input is missing"), "stderr=%q", result.Stderr)
+	Check(t, strings.Contains(result.Stderr, "Selected input is missing"), "stderr=%q", result.Stderr)
 }
 
 func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
@@ -44,8 +44,8 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 		wantError            string
 	}{
 		{name: "parse failure", stderr: "gocyclo: fixture.go:1:1: expected package, found EOF\n", code: "1", wantError: "expected package, found EOF"},
-		{name: "missing path warning", stdout: "gocyclo: could not get file info for path fixture.go: stat fixture.go: no such file or directory\n", code: "0", wantError: "Complexity gate passed"},
-		{name: "valid violation", stdout: `[{"path":"fixture.go","name":"fixture","line":1,"score":25}]`, code: "0", wantError: "fixture complexity 25"},
+		{name: "missing path warning", stdout: "gocyclo: could not get file info for path fixture.go: stat fixture.go: no such file or directory\n", code: "0", wantError: "go:"},
+		{name: "valid violation", stdout: `[{"path":"fixture.go","name":"fixture","line":1,"score":25}]`, code: "0", wantError: "max 25 (fixture.go::fixture); 1 above preferred 10"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -57,8 +57,8 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 			env := SetEnv(os.Environ(), "PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 120 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"), "internal/factory/control/operator.go")
 			if tc.name == "valid violation" {
-				Require(t, result.Code != 0, "valid violation passed")
-				Check(t, strings.Contains(result.Stderr, tc.wantError), "stderr=%q", result.Stderr)
+				Require(t, result.Code == 0, "advisory finding failed the report: %s", result.Stdout+result.Stderr)
+				Check(t, strings.Contains(result.Stdout, tc.wantError), "stdout=%q", result.Stdout)
 			} else if tc.name == "missing path warning" {
 				Require(t, result.Code != 0, "analyzer failure passed: %s", result.Stdout+result.Stderr)
 				Check(t, !strings.Contains(result.Stdout, tc.wantError), "stdout=%q", result.Stdout)
@@ -83,7 +83,7 @@ func TestComplexityToolDownloadDiagnosticsAreNotFindings(t *testing.T) {
 	env := SetEnv(os.Environ(), "PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"), "internal/factory/control/operator.go")
 	Require(t, result.Code == 0, "download diagnostic failed gate: %s", result.Stdout+result.Stderr)
-	Check(t, strings.Contains(result.Stdout, "Complexity gate passed"), "stdout=%q", result.Stdout)
+	Check(t, strings.Contains(result.Stdout, "go: 0 functions; max 0"), "stdout=%q", result.Stdout)
 	Check(t, strings.Contains(result.Stderr, "go: downloading"), "download diagnostic lost: %q", result.Stderr)
 }
 
@@ -110,7 +110,8 @@ func shellQuote(s string) string {
 
 func TestComplexityPrecommitRoutesStagedToolsFiles(t *testing.T) {
 	hook := ReadFile(t, ".githooks/pre-commit")
-	Check(t, strings.Contains(hook, "scripts/check-complexity.sh --staged"), "pre-commit complexity gate=%q", hook)
+	Check(t, !strings.Contains(hook, "scripts/check-complexity.sh"), "advisory complexity reporting must not block a commit")
+	Check(t, strings.Contains(ReadFile(t, "scripts/check-complexity.sh"), "--report"), "explicit complexity command must remain an advisory report")
 }
 
 func TestTSComplexityGatePreservesAnalyzerFailureAndPaths(t *testing.T) {
@@ -147,9 +148,10 @@ func TestTSComplexityGatePreservesAnalyzerFailureAndPaths(t *testing.T) {
 		args       []string
 		wantPass   bool
 		wantStderr string
+		wantStdout string
 	}{
 		{name: "clean", args: []string{gate, cleanFile}, wantPass: true},
-		{name: "complexity violation", args: []string{gate, violation}, wantStderr: "complexity 22"},
+		{name: "complexity violation", args: []string{gate, violation}, wantPass: true, wantStdout: "max 22"},
 		{name: "parser failure", args: []string{gate, broken}, wantStderr: broken},
 		{name: "operational failure", args: []string{gate, cleanFile}, wantStderr: "bun unavailable"},
 		{name: "default spaced paths", args: []string{gate}, wantPass: true},
@@ -175,6 +177,9 @@ func TestTSComplexityGatePreservesAnalyzerFailureAndPaths(t *testing.T) {
 			}
 			if tc.wantStderr != "" && !strings.Contains(result.Stderr, tc.wantStderr) {
 				t.Fatalf("analyzer diagnostic lost: %q", result.Stderr)
+			}
+			if tc.wantStdout != "" && !strings.Contains(result.Stdout, tc.wantStdout) {
+				t.Fatalf("advisory finding lost: %q", result.Stdout)
 			}
 		})
 	}

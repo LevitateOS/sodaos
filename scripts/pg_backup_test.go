@@ -37,12 +37,18 @@ func pgMaintenanceBinary(t *testing.T, name string) string {
 			pgMaintBinDiag = string(out)
 			return
 		}
-		pgMaintBinRoot = root
+		pgMaintBinRoot = os.Getenv("CARGO_TARGET_DIR")
+		if pgMaintBinRoot == "" {
+			pgMaintBinRoot = "target"
+		}
+		if !filepath.IsAbs(pgMaintBinRoot) {
+			pgMaintBinRoot = filepath.Join(root, pgMaintBinRoot)
+		}
 	})
 	if pgMaintBinRoot == "" {
 		t.Fatalf("build soda-pg-maintenance: %s", pgMaintBinDiag)
 	}
-	return filepath.Join(pgMaintBinRoot, "target", "debug", name)
+	return filepath.Join(pgMaintBinRoot, "debug", name)
 }
 
 // Live proof that the shipped backup/restore tools round-trip both appliance

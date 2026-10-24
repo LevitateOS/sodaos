@@ -47,7 +47,7 @@ export function key(row: Row): string {
 export function measure(files: Source[]): Row[] {
   const rows = measureTypeScript(files.filter((f) => language(f.Path) === 'typescript'));
   const go = files.filter((f) => language(f.Path) === 'go');
-  if (go.length) rows.push(...JSON.parse(command(['go', 'run', './tools/source-complexity/go'], JSON.stringify(go))));
+  if (go.length) rows.push(...JSON.parse(command(['go', 'run', '-buildvcs=false', './tools/source-complexity/go'], JSON.stringify(go))));
   const rust = files.filter((f) => language(f.Path) === 'rust');
   if (rust.length) {
     command([

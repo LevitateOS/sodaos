@@ -31,7 +31,14 @@ func buildRustPortBinaryAs(t *testing.T, crate string, bin string) string {
 	if combined, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build rust/%s bin %s: %v\n%s", crate, bin, err, combined)
 	}
-	out := filepath.Join(root, "target", "debug", bin)
+	target := os.Getenv("CARGO_TARGET_DIR")
+	if target == "" {
+		target = "target"
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(root, target)
+	}
+	out := filepath.Join(target, "debug", bin)
 	if _, err := os.Stat(out); err != nil {
 		t.Fatalf("rust %s binary %s missing: %v", crate, bin, err)
 	}

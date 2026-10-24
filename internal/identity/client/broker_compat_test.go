@@ -58,7 +58,14 @@ func buildBroker(t *testing.T) string {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build soda-identity: %v\n%s", err, out)
 	}
-	return filepath.Join(root, "target", "debug", "soda-identity")
+	target := os.Getenv("CARGO_TARGET_DIR")
+	if target == "" {
+		target = "target"
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(root, target)
+	}
+	return filepath.Join(target, "debug", "soda-identity")
 }
 
 // tmpfsRoot rejects non-tmpfs parents: provider enrollment roots must be

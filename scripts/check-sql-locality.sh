@@ -23,6 +23,10 @@ while IFS= read -r -d '' file; do
     # docs/development/go.md. Never exempt a production file or all tests.
     # Force consumed clocks without waiting for real attempt deadlines.
     ./internal/factory/control/dispatch_expiry_test.go) continue ;;
+    # Exercise checkpoint recovery/clamping with retained elapsed-time facts.
+    ./internal/factory/control/dispatch_accounting_test.go) continue ;;
+    # Change a retained sponsor receipt without adding a public corruption API.
+    ./internal/factory/control/dispatch_restore_helpers_test.go) continue ;;
     # Expire private admission receipts and simulate an unavailable table.
     ./internal/factory/control/dispatch_preparation_test.go) continue ;;
     ./internal/factory/control/dispatch_source_preparation_test.go) continue ;;
@@ -56,6 +60,14 @@ while IFS= read -r -d '' file; do
     ./internal/web/api/factory_mcp_live_test.go) continue ;;
     # Seed a persisted review assignment to isolate MCP terminal settlement.
     ./internal/factory/control/mcp_settle_pg_test.go) continue ;;
+    # Seed canonical merge evidence and corrupt generation/coverage bindings.
+    ./internal/factory/control/intent_plan_choice_test.go) continue ;;
+    # Challenge protected repair, immutable spending and atomic report/feed
+    # recovery with complete native RPC fixtures and adversarial stored rows.
+    ./internal/factory/control/stall_serve_test.go) continue ;;
+    # Seed exact active worker/cause/preparation tuples and corrupt attributed
+    # read projections through the authenticated MCP transport.
+    ./internal/web/api/factory_mcp_bound_test.go) continue ;;
     # Seed finished assignment history to exercise feed projection directly.
     ./internal/web/api/factory_feed_route_test.go) continue ;;
   esac
