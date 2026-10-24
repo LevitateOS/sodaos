@@ -228,7 +228,7 @@ main() {
   local release_tag='@RELEASE_TAG@' source_revision='@SOURCE_REVISION@'
   local metadata_sha='@METADATA_SHA256@' metadata_bytes='@METADATA_BYTES@'
   local install_dir=/home/sodaos bind_ip= subnet= yes=false qualification=false existing=false reply=
-  local scratch= staging= temp_parent command info compose_version release_url image manifest config compose_sha compose_bytes marker
+  local scratch= staging= temp_parent home_root command info compose_version release_url image manifest config compose_sha compose_bytes marker
   local -a docker_prefix=() admin_prefix=()
   while (( $# )); do
     case $1 in
@@ -251,8 +251,11 @@ main() {
     command -v "$command" >/dev/null || missing+=("$command")
   done
   (( ${#missing[@]} == 0 )) || fail "Install required host tools first: ${missing[*]}. Docker Engine and its Compose plugin must already be installed."
-  [[ $install_dir == /home/* && $(realpath -m -- "$install_dir") == "$install_dir" && ! -L $install_dir ]] ||
-    fail 'Use an absolute installation directory below /home without symlinks or traversal.'
+  # Fedora CoreOS maps /home to /var/home. Preserve the requested spelling for
+  # Compose, while rejecting traversal and symlinks below that system home root.
+  home_root=$(realpath -e -- /home)
+  [[ -d $home_root && $install_dir == /home/* && $(realpath -m -- "$install_dir") == "$home_root/${install_dir#/home/}" && ! -L $install_dir ]] ||
+    fail 'Use an absolute installation directory below /home without nested symlinks or traversal.'
   if ! docker_cmd info --format '{{json .}}' >/dev/null 2>&1; then
     say 'Administrative access is needed to use the local rootful Docker daemon.'
     admit_sudo
