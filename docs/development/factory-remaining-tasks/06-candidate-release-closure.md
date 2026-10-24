@@ -28,6 +28,17 @@ second schedule. This documentation restructuring starts no runtime work.
 
 **Principal source owners:** [lib/soda-release-tools](../../../lib/soda-release-tools), [tools/release-assets](../../../tools/release-assets), [docs/development/native-support.md](../../../docs/development/native-support.md), [docs/development/release.md](../../../docs/development/release.md).
 
+The protected collector owner is `soda-release collect` / `finalize-evidence` in
+`lib/soda-release-tools/src/qualification.rs`. It uses the existing isolated
+`soda-qualifier` Worker and exact-unit retirement owner, snapshots only admitted
+public artifacts, and retains a root-only executed receipt before sealing the
+exact observation inventory. Root-owned files beneath writable ancestors do not
+establish authority. Failed, cancelled, incomplete or mismatched observations
+cannot seal; recovery never reruns a collector. Development finalization remains
+non-qualifying. Docker, appliance and upgrade qualification consume that same
+protected production binding. Native mechanism proof is separate from R52's
+future shipping-byte observations.
+
 <a id="r51"></a>
 ## R51 — Produce one coherent current x86_64 candidate
 

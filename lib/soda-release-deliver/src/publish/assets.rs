@@ -478,7 +478,7 @@ fn stage_upgrade_receipt(
 ) -> Result<(), Error> {
     if !payload.upgrade_from.is_empty() {
         let path = candidate.join(crate::upgrade::QUALIFICATION_FILE);
-        let receipt = crate::upgrade::load(&path)?;
+        let receipt = crate::upgrade::verify_collected(candidate)?;
         receipt.validate(
             payload,
             c,

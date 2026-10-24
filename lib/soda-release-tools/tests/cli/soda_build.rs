@@ -131,6 +131,264 @@ fn build_admission_matrix_preserves_release_boundaries() {
         assert_eq!(out, "", "{args:?}");
         assert_eq!(err, want, "{args:?}");
     }
+
+    // Explicit native integration mode: the operator admits a separate root
+    // controller/config/collector and existing completed development candidate.
+    // Ordinary CLI runs do not claim to exercise the protected systemd boundary.
+    if let Some(path) = std::env::var_os("SODA_NATIVE_QUALIFICATION_FIXTURE") {
+        use std::{fs, os::unix::fs::MetadataExt, path::Path, process::Command};
+        assert_eq!(unsafe { libc::getuid() }, 0, "native fixture requires root");
+        let fixture: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        let controller = Path::new(fixture["controller"].as_str().unwrap());
+        let candidate = fixture["candidate"].as_str().unwrap();
+        assert!(
+            Path::new(candidate)
+                .join("producer-private-extra")
+                .is_file(),
+            "native input fixture includes an excluded private sentinel"
+        );
+        let parent = Path::new(fixture["output_parent"].as_str().unwrap());
+        let mut receipts = serde_json::Map::new();
+        // Independent native attempts have disjoint snapshots, output roots and
+        // transient units; archive admission need not serialize their I/O.
+        let mut attempts = std::thread::scope(|scope| {
+            let mut jobs = Vec::new();
+            for mode in ["valid", "failed", "incomplete", "cancelled", "recovery"] {
+                let config = fixture["configs"][mode].as_str().unwrap();
+                let out = parent.join(format!("{mode}-{}", std::process::id()));
+                jobs.push((
+                    mode,
+                    scope.spawn(move || {
+                        run(
+                            controller,
+                            parent,
+                            &[
+                                "collect",
+                                "--config",
+                                config,
+                                "--candidate",
+                                candidate,
+                                "--out",
+                                out.to_str().unwrap(),
+                            ],
+                        )
+                    }),
+                ));
+            }
+            jobs.into_iter()
+                .map(|(mode, job)| (mode, job.join().unwrap()))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        });
+        for mode in ["valid", "failed", "incomplete", "cancelled", "recovery"] {
+            let config = fixture["configs"][mode].as_str().unwrap();
+            let out = parent.join(format!("{mode}-{}", std::process::id()));
+            let out_text = out.to_str().unwrap();
+            let args = [
+                "collect",
+                "--config",
+                config,
+                "--candidate",
+                candidate,
+                "--out",
+                out_text,
+            ];
+            let (code, stdout, stderr) = attempts.remove(mode).unwrap();
+            let request_bytes = fs::read(out.join("request.json")).unwrap_or_else(|error| {
+                panic!("{mode} request missing: {error}; code={code}; {stdout}{stderr}")
+            });
+            let request: serde_json::Value = serde_json::from_slice(&request_bytes).unwrap();
+            let unit = request["unit"].as_str().unwrap();
+            let native = Command::new("/usr/bin/systemctl")
+                .args([
+                    "show",
+                    unit,
+                    "--property=LoadState",
+                    "--property=ActiveState",
+                    "--property=MainPID",
+                ])
+                .output()
+                .unwrap();
+            assert!(native.status.success());
+            let native_state = String::from_utf8(native.stdout).unwrap();
+            assert!(
+                native_state.contains("MainPID=0\n"),
+                "{mode}: {native_state}"
+            );
+            assert!(
+                native_state.contains("ActiveState=inactive\n")
+                    || native_state.contains("ActiveState=failed\n"),
+                "{mode}: {native_state}"
+            );
+            let sealed = out.join("observations");
+            if mode == "valid" {
+                assert_eq!(code, 0, "{stdout}{stderr}");
+                let first = fs::read(sealed.join("release-evidence.json")).unwrap();
+                let binding =
+                    soda_release_deliver::publish::qualification::read_protected(&sealed).unwrap();
+                assert_eq!(binding.purpose, "development");
+                assert_eq!(binding.exit_code, 0);
+                assert_eq!(binding.native_retirement, "confirmed");
+                assert_eq!(binding.unit, unit);
+                assert!(
+                    fs::symlink_metadata(sealed.join("collector.json"))
+                        .unwrap()
+                        .uid()
+                        == 0
+                );
+                let native_check: serde_json::Value =
+                    serde_json::from_slice(&fs::read(sealed.join("native-check.json")).unwrap())
+                        .unwrap();
+                assert!(native_check["uid"].as_u64().unwrap() > 0);
+                assert_eq!(native_check["candidate_read_only"], true);
+                assert!(!out.join("input/producer-private-extra").exists());
+                let replay = run(controller, parent, &args);
+                assert_eq!(replay.0, 0, "{}{}", replay.1, replay.2);
+                assert_eq!(
+                    fs::read(sealed.join("release-evidence.json")).unwrap(),
+                    first
+                );
+                assert_eq!(fs::read(out.join("request.json")).unwrap(), request_bytes);
+                let refused = run(
+                    controller,
+                    parent,
+                    &[
+                        "qualify-upgrade",
+                        "--candidate",
+                        candidate,
+                        "--evidence",
+                        sealed.to_str().unwrap(),
+                    ],
+                );
+                assert_ne!(refused.0, 0);
+                assert!(
+                    refused
+                        .2
+                        .contains("production-bound protected collector evidence required"),
+                    "{}",
+                    refused.2
+                );
+                let check = sealed.join("native-check.json");
+                let bytes = fs::read(&check).unwrap();
+                fs::write(&check, b"changed after finalization").unwrap();
+                assert!(
+                    soda_release_deliver::publish::qualification::read_protected(&sealed).is_err()
+                );
+                fs::write(check, bytes).unwrap();
+                soda_release_deliver::publish::qualification::read_protected(&sealed).unwrap();
+            } else if mode == "recovery" {
+                assert_ne!(code, 0, "deliberately occupied final record must refuse");
+                assert!(out.join("executed.json").is_file());
+                let executed = fs::read(out.join("executed.json")).unwrap();
+                let before: serde_json::Value =
+                    serde_json::from_slice(&fs::read(sealed.join("native-check.json")).unwrap())
+                        .unwrap();
+                assert_eq!(
+                    fs::read(sealed.join("release-evidence.json")).unwrap(),
+                    b"retained fixture finalization interruption\n"
+                );
+                fs::remove_file(sealed.join("release-evidence.json")).unwrap();
+                let recovered = run(
+                    controller,
+                    parent,
+                    &["finalize-evidence", "--out", out_text],
+                );
+                assert_eq!(recovered.0, 0, "{}{}", recovered.1, recovered.2);
+                assert_eq!(fs::read(out.join("executed.json")).unwrap(), executed);
+                let after: serde_json::Value =
+                    serde_json::from_slice(&fs::read(sealed.join("native-check.json")).unwrap())
+                        .unwrap();
+                assert_eq!(before, after, "recovery must not rerun collector");
+                assert_eq!(
+                    fs::read(sealed.join("release-evidence.json")).unwrap(),
+                    executed
+                );
+                soda_release_deliver::publish::qualification::read_protected(&sealed).unwrap();
+            } else {
+                assert_ne!(code, 0, "{mode} must not seal");
+                assert!(!sealed.join("release-evidence.json").exists());
+                assert!(!out.join("executed.json").exists());
+                assert!(
+                    out.join("attempt/started").is_file(),
+                    "{mode} ran an actual collector"
+                );
+                if mode == "failed" {
+                    assert_eq!(
+                        fs::read(out.join("attempt/failure")).unwrap(),
+                        b"intentional native collector failure\n"
+                    );
+                }
+                let refused = run(
+                    controller,
+                    parent,
+                    &["finalize-evidence", "--out", out_text],
+                );
+                assert_ne!(refused.0, 0, "partial native output cannot be finalized");
+                assert_eq!(fs::read(out.join("request.json")).unwrap(), request_bytes);
+            }
+            receipts.insert(mode.to_owned(), serde_json::json!({"controller_exit":code,"unit":unit,"native_state":native_state,"request_sha256":soda_release_deliver::hash_bytes(&request_bytes),"output":out}));
+        }
+        for mode in ["mismatched", "forged", "changed-public-input"] {
+            let config = fixture["configs"][mode].as_str().unwrap();
+            let out = parent.join(format!("{mode}-{}", std::process::id()));
+            let result = run(
+                controller,
+                parent,
+                &[
+                    "collect",
+                    "--config",
+                    config,
+                    "--candidate",
+                    candidate,
+                    "--out",
+                    out.to_str().unwrap(),
+                ],
+            );
+            assert_ne!(result.0, 0);
+            assert!(
+                !out.join("request.json").exists(),
+                "{mode} must refuse before native attempt"
+            );
+            if mode != "changed-public-input" {
+                assert!(!out.exists(), "{mode} must refuse before output creation");
+            } else {
+                assert!(
+                    result
+                        .2
+                        .contains("public artifact differs from admitted collector input"),
+                    "{}",
+                    result.2
+                );
+            }
+            receipts.insert(
+                mode.to_owned(),
+                serde_json::json!({"controller_exit":result.0,"refused_before_attempt":true}),
+            );
+        }
+        // A root-owned config under a caller-writable ancestor is still forged.
+        let forged = scratch.path.join("root-leaf.json");
+        fs::copy(fixture["configs"]["valid"].as_str().unwrap(), &forged).unwrap();
+        let out = parent.join(format!("writable-parent-{}", std::process::id()));
+        let result = run(
+            controller,
+            parent,
+            &[
+                "collect",
+                "--config",
+                forged.to_str().unwrap(),
+                "--candidate",
+                candidate,
+                "--out",
+                out.to_str().unwrap(),
+            ],
+        );
+        assert_ne!(result.0, 0);
+        assert!(!out.exists());
+        fs::write(
+            parent.join(format!("native-result-{}.json", std::process::id())),
+            serde_json::to_vec_pretty(&receipts).unwrap(),
+        )
+        .unwrap();
+    }
 }
 
 #[test]

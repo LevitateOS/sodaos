@@ -255,9 +255,10 @@ Docker qualification verifies immutable remote inventory, anonymous image identi
 GitHub verification of the exact downloaded assets, native readbacks and finalized
 observation hashes. It creates a bound local `docker-qualification.json` receipt;
 it never deploys or replaces failed observations. Repeating qualification verifies
-the same retained evidence; changed evidence requires investigation. Appliance/all supply
-`--downloaded-iso`, `--observed-revision` and the existing `--smoke-passed`
-confirmation as well, creating their separate appliance receipt. All requires both.
+the same retained evidence; changed evidence requires investigation. Every target
+requires the root-controlled collector's sealed `release-evidence.json` inventory
+bound to these production bytes. Appliance/all also supply `--downloaded-iso`;
+their native receipt comes from sealed `appliance/native.json`. All requires both.
 
 ### 6. Promote the unchanged qualified digest
 
@@ -467,17 +468,19 @@ image identities in the candidate are locally available. Keep temporary files an
 VM storage on the workspace disk. Do not substitute a retained appliance or an
 injected preinstalled disk for this installation.
 
-After that smoke passes, supply the full Soda revision actually read from the
-installed guest. `--smoke-passed` confirms that this downloaded ISO installed,
-the guest booted without installation media, and all candidate images were present.
-The command derives the release identities and hashes and writes
-`appliance-qualification.json` in the prepared release directory; no hand-written receipt
-is needed.
+After that smoke passes, the admitted native collector records the actual installed
+revision, installation, boot and image observations in `appliance/native.json`.
+The protected controller binds those files to the completed candidate and seals
+them only after exit zero and confirmed native retirement. See the
+[collector contract](../../lib/soda-release-tools/README.md) for root-owned input
+admission and exact executed-receipt recovery. Caller-written observations and
+pass flags cannot substitute. Qualification writes `appliance-qualification.json`
+in the prepared release directory from that sealed native result.
 
 ```sh
 soda-release qualify --input /PRIVATE/new-release \
   --downloaded-iso /PRIVATE/sodaos-x86_64.iso \
-  --observed-revision FULL_REVISION_READ_FROM_INSTALLED_GUEST --smoke-passed
+  --evidence /home/RELEASE-AUTHORITY/OBSERVATIONS/observations
 soda-release promote --input /PRIVATE/new-release
 ```
 

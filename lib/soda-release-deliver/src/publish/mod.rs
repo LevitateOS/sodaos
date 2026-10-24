@@ -285,6 +285,7 @@ fn record_verified(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 #[serde(deny_unknown_fields)]
 struct ApplianceEvidence {
     downloaded: std::path::PathBuf,
+    evidence_directory: std::path::PathBuf,
 }
 
 fn appliance_evidence(
@@ -293,6 +294,15 @@ fn appliance_evidence(
 ) -> Result<(Qualification, std::path::PathBuf), Error> {
     let receipt: Qualification = read_json(&directory.join("appliance-qualification.json"))?;
     let input: ApplianceEvidence = read_json(&directory.join("appliance-evidence.json"))?;
+    qualification::protected_for_manifest(manifest, &input.evidence_directory)?;
+    let native: Qualification = read_json(&input.evidence_directory.join("appliance/native.json"))?;
+    if serde_json::to_vec(&native).map_err(|_| Error::refused())?
+        != serde_json::to_vec(&receipt).map_err(|_| Error::refused())?
+    {
+        return Err(Error::msg(
+            "retained appliance receipt differs from protected native evidence",
+        ));
+    }
     if !input.downloaded.is_absolute() {
         return Err(Error::msg(
             "absolute downloaded appliance evidence path required",
@@ -441,6 +451,7 @@ fn record_appliance_outcome(
     directory: &Path,
     tag: &str,
     downloaded_iso: std::path::PathBuf,
+    evidence_directory: std::path::PathBuf,
     receipt: &Qualification,
 ) -> Result<(), Error> {
     command(
@@ -456,6 +467,7 @@ fn record_appliance_outcome(
     )?;
     let bytes = serde_json::to_vec(&ApplianceEvidence {
         downloaded: downloaded_iso,
+        evidence_directory,
     })
     .map_err(|_| Error::refused())?;
     record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
@@ -470,30 +482,14 @@ pub fn qualify_appliance(
     gh: &dyn GitHub,
     directory: &Path,
     downloaded_iso: &Path,
-    observed_revision: &str,
-    smoke_passed: bool,
+    evidence_directory: &Path,
 ) -> Result<(), Error> {
-    if !smoke_passed {
-        return Err(Error::msg(
-            "explicit native install/boot/image smoke confirmation required",
-        ));
-    }
     let manifest = assets::load(directory)?;
+    qualification::protected_for_manifest(&manifest, evidence_directory)?;
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
     let downloaded_iso = std::fs::canonicalize(downloaded_iso)
         .map_err(|_| Error::msg("downloaded ISO unavailable"))?;
-    let receipt = Qualification {
-        format: 1,
-        soda_revision: manifest.soda_revision.clone(),
-        forgejo_revision: manifest.forgejo_revision.clone(),
-        iso_sha256: manifest.asset(&manifest.iso)?.sha256.clone(),
-        rootfs_sha256: manifest.asset(&manifest.rootfs)?.sha256.clone(),
-        downloaded_iso_sha256: downloaded.sha256.clone(),
-        observed_soda_revision: observed_revision.to_owned(),
-        install: "passed".to_owned(),
-        boot: "passed".to_owned(),
-        applications: "passed".to_owned(),
-    };
+    let receipt: Qualification = read_json(&evidence_directory.join("appliance/native.json"))?;
     receipt.validate(&manifest, &downloaded)?;
     check_tag(gh, &manifest, false)?;
     check_ci(gh, &manifest)?;
@@ -506,7 +502,14 @@ pub fn qualify_appliance(
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
     verify_release(gh, &manifest.tag)?;
-    record_appliance_outcome(gh, directory, &manifest.tag, downloaded_iso, &receipt)?;
+    record_appliance_outcome(
+        gh,
+        directory,
+        &manifest.tag,
+        downloaded_iso,
+        evidence_directory.to_owned(),
+        &receipt,
+    )?;
     Ok(())
 }
 
@@ -612,6 +615,19 @@ fn collect_promotion_evidence(
     manifest: &Manifest,
     auth: Option<&Path>,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, Option<PathBuf>), Error> {
+    if manifest
+        .assets
+        .iter()
+        .any(|asset| asset.name == crate::upgrade::QUALIFICATION_FILE)
+    {
+        let candidate = assets::candidate(directory, manifest)?;
+        let actual = crate::upgrade::verify_collected(&candidate)?;
+        if crate::upgrade::load(&directory.join(crate::upgrade::QUALIFICATION_FILE))? != actual {
+            return Err(Error::msg(
+                "upgrade promotion differs from protected native evidence",
+            ));
+        }
+    }
     let mut summaries = serde_json::Map::new();
     let mut downloaded_iso = None;
     if manifest.has_appliance() {
@@ -1109,6 +1125,7 @@ pub fn qualify_docker(
     directory: &Path,
     evidence: &Path,
 ) -> Result<(), Error> {
+    qualification::protected_for_manifest(manifest, evidence)?;
     check_tag(gh, manifest, false)?;
     let ci = check_ci(gh, manifest)?;
     let remote = release(gh, &manifest.tag)?;

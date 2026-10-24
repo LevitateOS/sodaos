@@ -20,6 +20,7 @@ pub mod exitcode;
 pub mod fountain_pin;
 pub mod pipeline;
 pub mod progress;
+mod qualification;
 pub mod worker;
 
 pub mod release_cli;

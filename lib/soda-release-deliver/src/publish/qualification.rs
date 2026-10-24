@@ -12,6 +12,193 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Controller-owned completion of an admitted collector, distinct from build output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProtectedEvidence {
+    pub format: u32,
+    pub purpose: String,
+    pub source_revision: String,
+    pub architecture: String,
+    pub candidate_sha256: String,
+    pub payload_sha256: String,
+    pub build_sha256: String,
+    pub target: String,
+    pub controller_sha256: String,
+    pub collector_sha256: String,
+    pub authority_sha256: String,
+    pub unit: String,
+    pub exit_code: i32,
+    pub native_retirement: String,
+    pub files: BTreeMap<String, FileIdentity>,
+}
+
+/// Every ancestor must be controlled by root; a root-owned leaf in a user's
+/// writable directory does not establish release authority.
+pub fn protected_path(path: &Path, directory: bool) -> Result<(), Error> {
+    use std::os::unix::fs::MetadataExt;
+    if !path.is_absolute()
+        || path.components().any(|p| {
+            matches!(
+                p,
+                std::path::Component::ParentDir | std::path::Component::CurDir
+            )
+        })
+    {
+        return Err(Error::msg("absolute protected release path required"));
+    }
+    for (index, ancestor) in path.ancestors().enumerate() {
+        let meta = std::fs::symlink_metadata(ancestor).map_err(|_| refused())?;
+        if meta.uid() != 0
+            || meta.mode() & 0o022 != 0
+            || meta.file_type().is_symlink()
+            || (index > 0 && !meta.is_dir())
+            || (index == 0
+                && if directory {
+                    !meta.is_dir() || meta.mode() & 0o777 != 0o700
+                } else {
+                    !meta.is_file() || meta.mode() & 0o777 != 0o600 || meta.nlink() != 1
+                })
+        {
+            return Err(Error::msg(
+                "root-owned private release path and trusted ancestors required",
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn protected_files(directory: &Path) -> Result<BTreeMap<String, FileIdentity>, Error> {
+    fn walk(
+        root: &Path,
+        directory: &Path,
+        files: &mut BTreeMap<String, FileIdentity>,
+        total: &mut u64,
+    ) -> Result<(), Error> {
+        protected_path(directory, true)?;
+        for entry in std::fs::read_dir(directory).map_err(|_| refused())? {
+            let path = entry.map_err(|_| refused())?.path();
+            let meta = std::fs::symlink_metadata(&path).map_err(|_| refused())?;
+            if meta.is_dir() {
+                walk(root, &path, files, total)?;
+                continue;
+            }
+            protected_path(&path, false)?;
+            let name = path
+                .strip_prefix(root)
+                .ok()
+                .and_then(Path::to_str)
+                .ok_or_else(refused)?;
+            if name == "release-evidence.json" {
+                continue;
+            }
+            *total = total.checked_add(meta.len()).ok_or_else(refused)?;
+            if files.len() >= 1024 || meta.len() > 16 << 20 || *total > 64 << 20 {
+                return Err(refused());
+            }
+            let asset = assets::inspect(
+                &path,
+                path.file_name()
+                    .and_then(|s| s.to_str())
+                    .ok_or_else(refused)?,
+            )?;
+            files.insert(
+                name.to_owned(),
+                FileIdentity {
+                    sha256: asset.sha256,
+                    bytes: asset.bytes,
+                },
+            );
+        }
+        Ok(())
+    }
+    let mut files = BTreeMap::new();
+    walk(directory, directory, &mut files, &mut 0)?;
+    if files.is_empty() {
+        return Err(Error::msg("collector evidence is incomplete"));
+    }
+    Ok(files)
+}
+
+pub fn read_protected(directory: &Path) -> Result<ProtectedEvidence, Error> {
+    protected_path(&directory.join("release-evidence.json"), false)?;
+    let record: ProtectedEvidence = assets::read_json(&directory.join("release-evidence.json"))?;
+    if record.format != 1
+        || !matches!(record.purpose.as_str(), "development" | "production")
+        || !crate::buildx::is_revision(&record.source_revision)
+        || record.architecture != "x86_64"
+        || record.target.is_empty()
+        || record.target.len() > 512
+        || record.target.contains(['\0', '\n', '\r'])
+        || record.exit_code != 0
+        || record.native_retirement != "confirmed"
+        || record
+            .unit
+            .strip_prefix("soda-qualify-")
+            .and_then(|s| s.strip_suffix(".service"))
+            .is_none_or(|s| {
+                s.len() != 32
+                    || !s
+                        .bytes()
+                        .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+            })
+        || [
+            &record.candidate_sha256,
+            &record.payload_sha256,
+            &record.build_sha256,
+            &record.controller_sha256,
+            &record.collector_sha256,
+            &record.authority_sha256,
+        ]
+        .iter()
+        .any(|s| !is_digest(s))
+        || protected_files(directory)? != record.files
+    {
+        return Err(Error::msg(
+            "protected collector completion or exact evidence binding refused",
+        ));
+    }
+    Ok(record)
+}
+
+pub fn protected_for_manifest(
+    manifest: &Manifest,
+    evidence: &Path,
+) -> Result<ProtectedEvidence, Error> {
+    let record = read_protected(evidence)?;
+    if record.purpose != "production"
+        || record.source_revision != manifest.soda_revision
+        || record.candidate_sha256 != manifest.asset("candidate.json")?.sha256
+        || record.payload_sha256 != manifest.asset("payload.json")?.sha256
+    {
+        return Err(Error::msg(
+            "production-bound protected collector evidence required",
+        ));
+    }
+    Ok(record)
+}
+
+pub fn protected_for_candidate(
+    candidate: &Path,
+    evidence: &Path,
+) -> Result<ProtectedEvidence, Error> {
+    let record = read_protected(evidence)?;
+    let (payload, _, _) =
+        crate::admission::load_admitted_candidate(candidate.to_str().ok_or_else(refused)?)?;
+    if record.purpose != "production"
+        || record.source_revision != payload.revision
+        || record.candidate_sha256
+            != assets::inspect(&candidate.join("candidate.json"), "candidate.json")?.sha256
+        || record.payload_sha256
+            != assets::inspect(&candidate.join("payload.json"), "payload.json")?.sha256
+    {
+        return Err(Error::msg(
+            "production-bound protected collector evidence required",
+        ));
+    }
+    Ok(record)
+}
+
 const KINDS: [&str; 4] = ["installation", "browser_project", "factory", "persistence"];
 pub(super) const DOWNLOADS: [&str; 5] = [
     "docker.json",
@@ -336,7 +523,11 @@ fn collect(
     release: &Path,
     evidence: &Path,
 ) -> Result<DockerQualification, Error> {
+    let protected = protected_for_manifest(manifest, evidence)?;
     let native = read_native(evidence)?;
+    if native.target != protected.target {
+        return Err(refused());
+    }
     let root = Root::open(evidence.to_str().ok_or_else(refused)?)?;
     let factory: NativeFactory =
         crate::json_serde::strict(&read_at(&root, "factory/native.json", 1 << 20)?)

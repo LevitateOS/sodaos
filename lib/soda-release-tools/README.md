@@ -23,9 +23,29 @@ for setup and input admission; a direct `cargo run` does not admit a controller.
 For the source-to-download path, follow the [release workflow](../../docs/development/release.md).
 The default build produces unqualified release media; staging and promotion are
 explicit subsequent commands. Staging derives the media path from the candidate
-and creates its exact tag when missing. Promotion takes the revision read from
-the installed guest and `--smoke-passed`; it generates the bound qualification
-receipt from the existing release metadata and downloaded ISO.
+and creates its exact tag when missing. Qualification consumes a protected native
+collector result bound to the candidate, source, and downloaded ISO. An operator
+pass flag or caller-authored observation does not establish release authority.
+
+`soda-release collect --config /home/RELEASE-AUTHORITY/collector.json --candidate /BUILD/artifacts
+--out /home/RELEASE-AUTHORITY/observations-attempt` runs the admitted collector as `soda-qualifier`
+with an explicit public candidate snapshot read-only and a separate writable
+attempt. The root-only configuration binds both executable hashes, completed
+build/candidate/payload hashes, exact public-input hash/size inventory, purpose,
+target, output parent and timeout. Every
+configuration/executable/evidence ancestor must be root-controlled; a root-owned
+file below a caller-writable directory is refused. The collector receives only
+`--candidate`, `--out` and `--target` and emits exact-bound `collector.json` plus
+the distribution's native observations. Only exit zero and confirmed native-unit
+retirement produce `executed.json` and a sealed `release-evidence.json` inventory.
+`soda-release finalize-evidence --out /home/RELEASE-AUTHORITY/observations-attempt` recovers that
+exact executed receipt without rerunning the collector or build. Failed,
+cancelled, incomplete and mismatched attempts stay unqualified. Development
+evidence can finalize but cannot qualify a production release. Docker, appliance
+and upgrade qualification all require the protected production receipt; appliance
+uses its sealed `appliance/native.json` rather than a smoke-pass flag. Upgrade
+stamping retains a private collector locator; preparation and promotion recheck
+that protected source against the public receipt. The locator is never published.
 
 ## Produce a development candidate
 

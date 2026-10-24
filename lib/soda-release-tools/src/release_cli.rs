@@ -38,15 +38,7 @@ pub(crate) fn command() -> Command {
     let qualify = Command::new("qualify")
         .about("Validate exact installed evidence for every selected target")
         .arg(Arg::new("input").long("input").required(true).num_args(1))
-        .args(
-            ["evidence", "downloaded-iso", "observed-revision"]
-                .map(|name| Arg::new(name).long(name).num_args(1)),
-        )
-        .arg(
-            Arg::new("smoke-passed")
-                .long("smoke-passed")
-                .action(ArgAction::SetTrue),
-        );
+        .args(["evidence", "downloaded-iso"].map(|name| Arg::new(name).long(name).num_args(1)));
     let start = Command::new("start")
         .about("Guide a production build and local preparation; never publish or deploy")
         .args(
@@ -69,6 +61,13 @@ pub(crate) fn command() -> Command {
             .about("Stamp exact native transition, recovery and stopped-Project observations"),
         |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
     );
+    let collect = ["config", "candidate", "out"].into_iter().fold(
+        Command::new("collect").about("Run one admitted native collector; never build or publish"),
+        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    );
+    let finalize = Command::new("finalize-evidence")
+        .about("Finalize or recover a retired collector's exact evidence without rerunning it")
+        .arg(Arg::new("out").long("out").required(true).num_args(1));
     Command::new("soda-release")
         .subcommand_required(true)
         .subcommand(prepare)
@@ -79,6 +78,8 @@ pub(crate) fn command() -> Command {
         .subcommand(status)
         .subcommand(qualify)
         .subcommand(qualify_upgrade)
+        .subcommand(collect)
+        .subcommand(finalize)
 }
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
     let cli = match command().try_get_matches_from(args) {
@@ -100,6 +101,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         "qualify" => run_qualify(flags),
         "qualify-upgrade" => run_qualify_upgrade(flags),
         "prepare" => run_prepare(flags),
+        "collect" => crate::qualification::collect(
+            Path::new(required_input(flags, "config")?),
+            Path::new(required_input(flags, "candidate")?),
+            Path::new(required_input(flags, "out")?),
+        ),
+        "finalize-evidence" => {
+            crate::qualification::finalize(Path::new(required_input(flags, "out")?))
+        }
         _ => Err("unknown release action".to_owned()),
     }
 }
@@ -163,8 +172,7 @@ fn run_qualify(flags: &clap::ArgMatches) -> Result<(), String> {
             &publish::Gh,
             input,
             Path::new(required_input(flags, "downloaded-iso")?),
-            required_input(flags, "observed-revision")?,
-            flags.get_flag("smoke-passed"),
+            Path::new(required_input(flags, "evidence")?),
         )
         .map_err(|error| error.to_string())?;
     }
@@ -202,12 +210,9 @@ fn qualification_inputs(
     distribution: soda_release_deliver::model::Distribution,
 ) -> Result<(), String> {
     use soda_release_deliver::model::Distribution;
-    let mut required = Vec::new();
-    if distribution != Distribution::Appliance {
-        required.push("evidence");
-    }
+    let mut required = vec!["evidence"];
     if distribution != Distribution::Docker {
-        required.extend(["downloaded-iso", "observed-revision"]);
+        required.push("downloaded-iso");
     }
     for name in required {
         if flags
@@ -218,9 +223,6 @@ fn qualification_inputs(
                 "--{name} required for the selected distribution before qualification"
             ));
         }
-    }
-    if distribution != Distribution::Docker && !flags.get_flag("smoke-passed") {
-        return Err("--smoke-passed required after the actual appliance installation smoke".into());
     }
     Ok(())
 }

@@ -1,0 +1,533 @@
+//! Protected collector execution and exact-byte evidence finalization.
+use crate::worker::{self, Worker, WorkerUnitCustody, WORKER_CONTROLLER};
+use serde::{Deserialize, Serialize};
+use soda_release_deliver::publish::qualification::{self as evidence, ProtectedEvidence};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Write,
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
+const INPUT: &str = "/run/soda-qualification-candidate";
+const OUTPUT: &str = "/run/soda-qualification-output";
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Authority {
+    controller: String,
+    controller_sha256: String,
+    collector: String,
+    collector_sha256: String,
+    output_parent: PathBuf,
+    candidate_sha256: String,
+    payload_sha256: String,
+    build_sha256: String,
+    source_revision: String,
+    purpose: String,
+    target: String,
+    timeout_seconds: u64,
+    public_inputs: BTreeMap<String, soda_release_deliver::model::FileIdentity>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Request {
+    authority: PathBuf,
+    candidate: PathBuf,
+    authority_sha256: String,
+    unit: String,
+    attempt: PathBuf,
+    binding: ProtectedEvidence,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CollectorResult {
+    candidate_sha256: String,
+    payload_sha256: String,
+    source_revision: String,
+    purpose: String,
+    target: String,
+    complete: bool,
+}
+fn hash(path: &Path) -> Result<String, String> {
+    crate::digest::hash_file(path.to_str().ok_or("UTF-8 release path required")?)
+}
+fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
+    soda_release_deliver::document::read_json(path.to_str().ok_or("UTF-8 release path required")?)
+        .map_err(|e| e.to_string())
+}
+fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let mut file = tempfile::NamedTempFile::new_in(path.parent().ok_or("parent required")?)
+        .map_err(|e| e.to_string())?;
+    file.as_file()
+        .set_permissions(fs::Permissions::from_mode(0o600))
+        .map_err(|e| e.to_string())?;
+    file.write_all(&serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?)
+        .and_then(|_| file.as_file().sync_all())
+        .map_err(|e| e.to_string())?;
+    file.persist_noclobber(path).map_err(|e| e.to_string())?;
+    fs::File::open(path.parent().ok_or("parent required")?)
+        .and_then(|f| f.sync_all())
+        .map_err(|e| e.to_string())
+}
+fn authority(path: &Path) -> Result<Authority, String> {
+    if worker::euid() != 0 {
+        return Err("trusted root release controller required".into());
+    }
+    evidence::protected_path(path, false).map_err(|e| e.to_string())?;
+    let a: Authority = read(path)?;
+    for (path, expected) in [
+        (&a.controller, &a.controller_sha256),
+        (&a.collector, &a.collector_sha256),
+    ] {
+        worker::trusted_executable(path)?;
+        if hash(Path::new(path))? != *expected {
+            return Err("admitted release executable changed".into());
+        }
+    }
+    worker::worker_executable_matches(&a.controller)?;
+    evidence::protected_path(&a.output_parent, true).map_err(|e| e.to_string())?;
+    if !matches!(a.purpose.as_str(), "development" | "production")
+        || a.target.is_empty()
+        || a.target.len() > 512
+        || a.target.contains(['\0', '\n', '\r'])
+        || a.timeout_seconds == 0
+        || a.timeout_seconds > 86400
+    {
+        return Err("bounded collector identity and duration required".into());
+    }
+    Ok(a)
+}
+fn secure_tree(path: &Path, private: bool) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if meta.file_type().is_symlink() || (!meta.is_dir() && (!meta.is_file() || meta.nlink() != 1)) {
+        return Err("unshared regular collector files required".into());
+    }
+    let c =
+        std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).map_err(|e| e.to_string())?;
+    if unsafe { libc::chown(c.as_ptr(), 0, 0) } != 0 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    fs::set_permissions(
+        path,
+        fs::Permissions::from_mode(if private {
+            if meta.is_dir() {
+                0o700
+            } else {
+                0o600
+            }
+        } else if meta.is_dir() || meta.mode() & 0o111 != 0 {
+            0o755
+        } else {
+            0o644
+        }),
+    )
+    .map_err(|e| e.to_string())?;
+    if meta.is_dir() {
+        for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+            secure_tree(&entry.map_err(|e| e.to_string())?.path(), private)?;
+        }
+    }
+    Ok(())
+}
+fn input_binding(a: &Authority, candidate: &Path) -> Result<(), String> {
+    let (payload, c, _) = soda_release_deliver::admission::load_admitted_candidate(
+        candidate.to_str().ok_or("candidate path required")?,
+    )
+    .map_err(|e| e.to_string())?;
+    if payload.architecture != "x86_64"
+        || payload.revision != a.source_revision
+        || hash(&candidate.join("candidate.json"))? != a.candidate_sha256
+        || hash(&candidate.join("payload.json"))? != a.payload_sha256
+    {
+        return Err("exact candidate/source/architecture binding required".into());
+    }
+    if c.forgejo_revision != payload.fountain.source_revision {
+        return Err("candidate Fountain identity differs".into());
+    }
+    Ok(())
+}
+
+fn snapshot_inputs(a: &Authority, candidate: &Path, input: &Path) -> Result<(), String> {
+    // Only the existing public artifact inventory crosses the worker boundary.
+    // In particular, no recursive producer tree, authority, logs or private extras.
+    let (payload, _, _) = soda_release_deliver::admission::load_admitted_candidate(
+        candidate.to_str().ok_or("candidate path required")?,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut files: Vec<String> = [
+        "candidate.json",
+        "payload.json",
+        "host.oci",
+        "images/dashboard.oci",
+        "images/forgejo.oci",
+        "images/project-os.oci",
+        "images/canlang-runtime.oci",
+        "source.tar",
+        "forgejo-source.tar",
+        "app-inputs.json",
+        "packages.txt",
+        "image-config.json",
+        "fountain-release.json",
+        "forgejo-context/presentation.json",
+        "packages/catalog.json",
+        "tools.json",
+        "tools/soda-acceptance",
+        "tools/soda-acceptance-remote",
+        "tools/soda-artifacts",
+        "tools/soda-installed-probes",
+        "tools/soda-installer",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    if candidate.join("docker").exists() {
+        files.extend(
+            [
+                "docker/docker.json",
+                "docker/image.oci",
+                "docker/compose.yaml",
+                "docker/packages.txt",
+            ]
+            .into_iter()
+            .map(str::to_owned),
+        );
+    }
+    for package in &payload.extension_catalog.packages {
+        let url = url::Url::parse(&package.url).map_err(|_| "invalid public package URL")?;
+        let name = url
+            .path_segments()
+            .and_then(|mut p| p.next_back())
+            .filter(|n| {
+                !n.is_empty()
+                    && n.bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+            })
+            .ok_or("public package basename required")?;
+        let path = format!("packages/{name}");
+        if hash(&candidate.join(&path))? != package.sha256
+            || fs::metadata(candidate.join(&path))
+                .map_err(|e| e.to_string())?
+                .len()
+                != package.size
+        {
+            return Err("public package differs from payload".into());
+        }
+        files.push(path);
+    }
+    if candidate.join("media/media.json").exists() {
+        let media: soda_release_deliver::model::MediaBinding =
+            read(&candidate.join("media/media.json"))?;
+        files.push("media/media.json".into());
+        for file in [&media.iso, &media.rootfs] {
+            if file.path.contains('/')
+                || file.path.contains('\\')
+                || !(file.path == "installer.iso"
+                    || file.path == format!("{}-rootfs.img", file.sha256))
+            {
+                return Err("public media basename required".into());
+            }
+            let name = format!("media/{}", file.path);
+            if hash(&candidate.join(&name))? != file.sha256
+                || fs::metadata(candidate.join(&name))
+                    .map_err(|e| e.to_string())?
+                    .len()
+                    != u64::try_from(file.bytes).map_err(|_| "public media size required")?
+            {
+                return Err("public media hash differs".into());
+            }
+            files.push(name);
+        }
+    }
+    files.sort();
+    files.dedup();
+    if files.iter().ne(a.public_inputs.keys()) {
+        return Err("exact admitted public artifact inventory required".into());
+    }
+    fs::create_dir(input).map_err(|e| e.to_string())?;
+    for name in files {
+        let from = candidate.join(&name);
+        let meta = fs::symlink_metadata(&from).map_err(|e| e.to_string())?;
+        if !meta.is_file()
+            || meta.file_type().is_symlink()
+            || fs::canonicalize(&from).map_err(|e| e.to_string())? != from
+        {
+            return Err("symlink-free regular public artifact required".into());
+        }
+        let to = input.join(&name);
+        fs::create_dir_all(to.parent().ok_or("artifact parent required")?)
+            .map_err(|e| e.to_string())?;
+        let status = std::process::Command::new("/usr/bin/cp")
+            .args(["--reflink=auto", "--no-clobber", "--"])
+            .arg(&from)
+            .arg(&to)
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("public candidate snapshot failed".into());
+        }
+        let expected = &a.public_inputs[&name];
+        if fs::metadata(&to).map_err(|e| e.to_string())?.len() != expected.bytes
+            || hash(&to)? != expected.sha256
+        {
+            return Err("public artifact differs from admitted collector input".into());
+        }
+    }
+    secure_tree(input, false)
+}
+fn completed_input(a: &Authority, candidate: &Path) -> Result<(), String> {
+    let parent = candidate.parent().ok_or("candidate parent required")?;
+    let build = parent.join("evidence/build.json");
+    let completion: soda_build_tools::reader::build::BuildCompletion =
+        read(&parent.join("evidence/completed.json"))?;
+    let result: soda_build_tools::reader::build::BuildResult = read(&build)?;
+    if hash(&build)? != a.build_sha256
+        || completion.build_sha256 != a.build_sha256
+        || result.purpose != a.purpose
+        || result.revision != a.source_revision
+        || result.architecture != "x86_64"
+        || result.candidate_sha256 != a.candidate_sha256
+        || result.payload_sha256 != a.payload_sha256
+        || result.checks.is_empty()
+        || result.requested_target.is_empty()
+        || result.completed_target.is_empty()
+    {
+        return Err("unchanged completed producer input required".into());
+    }
+    Ok(())
+}
+fn lock(out: &Path) -> Result<fs::File, String> {
+    use std::os::fd::AsRawFd;
+    evidence::protected_path(out, true).map_err(|e| e.to_string())?;
+    let path = out.join("controller.lock");
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .mode(0o600)
+        .open(&path)
+        .map_err(|e| e.to_string())?;
+    evidence::protected_path(&path, false).map_err(|e| e.to_string())?;
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err("release evidence controller already active".into());
+    }
+    Ok(file)
+}
+fn retained_request(out: &Path) -> Result<(Request, Authority), String> {
+    evidence::protected_path(&out.join("request.json"), false).map_err(|e| e.to_string())?;
+    let request: Request = read(&out.join("request.json"))?;
+    let a = authority(&request.authority)?;
+    if hash(&request.authority)? != request.authority_sha256
+        || request.binding.authority_sha256 != request.authority_sha256
+        || request.binding.controller_sha256 != a.controller_sha256
+        || request.binding.collector_sha256 != a.collector_sha256
+        || request.binding.target != a.target
+        || request.binding.purpose != a.purpose
+        || request.binding.source_revision != a.source_revision
+        || request.binding.candidate_sha256 != a.candidate_sha256
+        || request.binding.payload_sha256 != a.payload_sha256
+        || request.binding.build_sha256 != a.build_sha256
+        || out.parent() != Some(a.output_parent.as_path())
+        || request.binding.unit != request.unit
+        || request.attempt != out.join("attempt")
+    {
+        return Err("retained release request binding refused".into());
+    }
+    input_binding(&a, &out.join("input"))?;
+    Ok((request, a))
+}
+fn result_binding(path: &Path, a: &Authority) -> Result<(), String> {
+    let r: CollectorResult = read(&path.join("collector.json"))?;
+    if !r.complete
+        || r.candidate_sha256 != a.candidate_sha256
+        || r.payload_sha256 != a.payload_sha256
+        || r.source_revision != a.source_revision
+        || r.purpose != a.purpose
+        || r.target != a.target
+    {
+        return Err("collector output incomplete or mismatched".into());
+    }
+    Ok(())
+}
+pub(crate) fn finalize(out: &Path) -> Result<(), String> {
+    let _lock = lock(out)?;
+    let (request, a) = retained_request(out)?;
+    let sealed = out.join("observations");
+    if sealed.join("release-evidence.json").exists() {
+        let actual = evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
+        let mut expected = request.binding;
+        expected.exit_code = 0;
+        expected.native_retirement = "confirmed".into();
+        expected.files = actual.files.clone();
+        if actual != expected {
+            return Err("completed release evidence replay changed".into());
+        }
+        return Ok(());
+    }
+    evidence::protected_path(&out.join("executed.json"), false).map_err(|e| e.to_string())?;
+    let executed: ProtectedEvidence = read(&out.join("executed.json"))?;
+    let mut expected = request.binding;
+    expected.exit_code = 0;
+    expected.native_retirement = "confirmed".into();
+    expected.files = executed.files.clone();
+    if executed != expected
+        || executed.files.is_empty()
+        || evidence::protected_files(&sealed).map_err(|e| e.to_string())? != executed.files
+    {
+        return Err("successful retired collector receipt required".into());
+    }
+    result_binding(&sealed, &a)?;
+    write_new(&sealed.join("release-evidence.json"), &executed)?;
+    evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
+    println!(
+        "Protected {} evidence finalized at {}; no publication.",
+        a.purpose,
+        sealed.display()
+    );
+    Ok(())
+}
+pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(), String> {
+    let a = authority(config)?;
+    if out.parent() != Some(a.output_parent.as_path())
+        || out.file_name().is_none()
+        || out.starts_with(candidate)
+        || candidate.starts_with(out)
+        || fs::canonicalize(candidate).map_err(|e| e.to_string())? != candidate
+    {
+        return Err("fresh disjoint evidence output required".into());
+    }
+    if out.exists() {
+        let (r, _) = retained_request(out)?;
+        if r.authority != config || r.candidate != candidate || hash(config)? != r.authority_sha256
+        {
+            return Err("different collector request already exists".into());
+        }
+        return finalize(out);
+    }
+    input_binding(&a, candidate)?;
+    completed_input(&a, candidate)?;
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(out)
+        .map_err(|e| e.to_string())?;
+    let _lock = lock(out)?;
+    let input = out.join("input");
+    snapshot_inputs(&a, candidate, &input)?;
+    input_binding(&a, &input)?;
+    let (_, c, _) = soda_release_deliver::admission::load_admitted_candidate(
+        input.to_str().ok_or("candidate path required")?,
+    )
+    .map_err(|e| e.to_string())?;
+    soda_release_deliver::check::check_candidate(
+        input.to_str().ok_or("candidate path required")?,
+        "x86_64",
+        &a.source_revision,
+        &c.forgejo_revision,
+    )
+    .map_err(|e| e.to_string())?;
+    let (uid, gid) = worker::lookup_user("soda-qualifier")?;
+    if uid == 0 {
+        return Err("separate qualifier identity required".into());
+    }
+    let attempt = out.join("attempt");
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&attempt)
+        .map_err(|e| e.to_string())?;
+    let c = std::ffi::CString::new(attempt.as_os_str().as_encoded_bytes())
+        .map_err(|e| e.to_string())?;
+    if unsafe { libc::chown(c.as_ptr(), uid, gid) } != 0 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    let mut nonce = [0; 16];
+    getrandom::fill(&mut nonce).map_err(|e| e.to_string())?;
+    let name = format!(
+        "soda-qualify-{}",
+        nonce.iter().map(|v| format!("{v:02x}")).collect::<String>()
+    );
+    let binding = ProtectedEvidence {
+        format: 1,
+        purpose: a.purpose.clone(),
+        source_revision: a.source_revision.clone(),
+        architecture: "x86_64".into(),
+        candidate_sha256: a.candidate_sha256.clone(),
+        payload_sha256: a.payload_sha256.clone(),
+        build_sha256: a.build_sha256.clone(),
+        target: a.target.clone(),
+        controller_sha256: a.controller_sha256.clone(),
+        collector_sha256: a.collector_sha256.clone(),
+        authority_sha256: hash(config)?,
+        unit: format!("{name}.service"),
+        exit_code: -1,
+        native_retirement: "pending".into(),
+        files: BTreeMap::new(),
+    };
+    let request = Request {
+        authority: config.to_owned(),
+        candidate: candidate.to_owned(),
+        authority_sha256: hash(config)?,
+        unit: binding.unit.clone(),
+        attempt: attempt.clone(),
+        binding,
+    };
+    write_new(&out.join("request.json"), &request)?;
+    let worker = Worker {
+        name,
+        user: "soda-qualifier".into(),
+        executable: a.collector.clone(),
+        controller: WORKER_CONTROLLER.into(),
+        directory: OUTPUT.into(),
+        read_only: vec![
+            format!("{}:{WORKER_CONTROLLER}", a.collector),
+            format!("{}:{INPUT}", input.display()),
+        ],
+        writable: vec![format!("{}:{OUTPUT}", attempt.display())],
+        environment: vec![
+            "PATH=/usr/sbin:/usr/bin:/sbin:/bin".into(),
+            format!("HOME={OUTPUT}"),
+            format!("TMPDIR={OUTPUT}"),
+        ],
+        arguments: vec![
+            "--candidate".into(),
+            INPUT.into(),
+            "--out".into(),
+            OUTPUT.into(),
+            "--target".into(),
+            a.target.clone(),
+        ],
+    };
+    crate::build_cli::watch_build_signals();
+    let start = Instant::now();
+    let mut custody = WorkerUnitCustody::NeverDispatched;
+    let outcome = worker::run_worker(
+        &worker,
+        &mut std::io::sink(),
+        &mut std::io::sink(),
+        &|| crate::exitcode::has_interrupt() || start.elapsed().as_secs() >= a.timeout_seconds,
+        &mut custody,
+    );
+    if let Err(e) = outcome {
+        let text = match e {
+            worker::WorkerError::Failed(s) | worker::WorkerError::Cancelled(s) => s,
+        };
+        return Err(format!(
+            "{text}; collector evidence retained without finalization"
+        ));
+    }
+    if custody != WorkerUnitCustody::ExactUnitTerminal || crate::exitcode::has_interrupt() {
+        return Err("collector retirement or completion unconfirmed".into());
+    }
+    input_binding(&a, &input)?;
+    result_binding(&attempt, &a)?;
+    secure_tree(&attempt, true)?;
+    let sealed = out.join("observations");
+    fs::rename(&attempt, &sealed).map_err(|e| e.to_string())?;
+    let mut executed = request.binding;
+    executed.exit_code = 0;
+    executed.native_retirement = "confirmed".into();
+    executed.files = evidence::protected_files(&sealed).map_err(|e| e.to_string())?;
+    write_new(&out.join("executed.json"), &executed)?;
+    drop(_lock);
+    finalize(out)
+}

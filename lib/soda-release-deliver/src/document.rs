@@ -148,7 +148,7 @@ pub fn read_file(path: &str, maximum: i64) -> Result<Vec<u8>, Error> {
 }
 
 /// `ReadJSON`: strict-decode a bounded JSON file.
-pub fn read_json<T: DeserializeOwned + Default>(path: &str) -> Result<T, Error> {
+pub fn read_json<T: DeserializeOwned>(path: &str) -> Result<T, Error> {
     let data = read_file(path, 1 << 20)?;
     crate::json_serde::strict(&data)
 }

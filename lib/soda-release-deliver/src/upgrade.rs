@@ -204,10 +204,11 @@ fn target(directory: &Path) -> Result<(Payload, Candidate, MediaBinding), Error>
 
 /// Stamp only after all fixed native evidence files exist and their concrete
 /// observations agree. The receipt does not alter any shipping host bytes.
-pub fn stamp(
-    candidate_directory: &Path,
-    evidence_directory: &Path,
-) -> Result<Qualification, Error> {
+fn collect(candidate_directory: &Path, evidence_directory: &Path) -> Result<Qualification, Error> {
+    crate::publish::qualification::protected_for_candidate(
+        candidate_directory,
+        evidence_directory,
+    )?;
     let AdmittedCandidate {
         payload,
         candidate,
@@ -250,6 +251,57 @@ pub fn stamp(
         &first.source_release,
         &first.source_support_sha256,
     )?;
+    Ok(receipt)
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RetainedEvidence {
+    directory: PathBuf,
+}
+
+/// The private collector locator never becomes a public release asset. It
+/// permits preparation and promotion to recheck the protected producer rather
+/// than accepting a caller-authored public upgrade receipt.
+pub fn verify_collected(candidate_directory: &Path) -> Result<Qualification, Error> {
+    let retained: RetainedEvidence = crate::document::read_json(
+        candidate_directory
+            .join(".upgrade-evidence.json")
+            .to_str()
+            .ok_or_else(refused)?,
+    )?;
+    let observed = collect(candidate_directory, &retained.directory)?;
+    if load(&candidate_directory.join(QUALIFICATION_FILE))? != observed {
+        return Err(refused());
+    }
+    Ok(observed)
+}
+
+pub fn stamp(
+    candidate_directory: &Path,
+    evidence_directory: &Path,
+) -> Result<Qualification, Error> {
+    let receipt = collect(candidate_directory, evidence_directory)?;
+    let retained = RetainedEvidence {
+        directory: fs::canonicalize(evidence_directory).map_err(|_| refused())?,
+    };
+    let locator = candidate_directory.join(".upgrade-evidence.json");
+    if locator.exists() {
+        let previous: RetainedEvidence =
+            crate::document::read_json(locator.to_str().ok_or_else(refused)?)?;
+        if previous.directory != retained.directory {
+            return Err(refused());
+        }
+    } else {
+        crate::buildx::write_new(
+            locator.to_str().ok_or_else(refused)?,
+            &serde_json::to_vec(&retained).map_err(|_| refused())?,
+            0o600,
+        )?;
+    }
+    if candidate_directory.join(QUALIFICATION_FILE).exists() {
+        return verify_collected(candidate_directory);
+    }
     let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| refused())?;
     let mut output = fs::OpenOptions::new()
         .create_new(true)

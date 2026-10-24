@@ -645,7 +645,7 @@ fn check_worker_completion(
     }
 }
 
-pub(super) fn run_worker(
+pub(crate) fn run_worker(
     w: &Worker,
     out: &mut dyn std::io::Write,
     err_out: &mut dyn std::io::Write,
