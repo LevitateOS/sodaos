@@ -1028,6 +1028,7 @@
       "strategist"
     ],
     "outlets": [
+      "factory.record_diagnosis",
       "factory.partial",
       "factory.stuck"
     ],

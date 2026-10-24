@@ -66,6 +66,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	}
 	t.Run("Strategist read-only repair preview transport", func(t *testing.T) {
 		strategist := newFakeCatalogSink()
+		strategist.receipts = map[string]factory.PriorityReceipt{}
 		strategist.capability.Profile, strategist.capability.Subject = factory.MCPProfileStrategist, "stall:7:preview"
 		a := strategist.assignments[strategist.capability.AssignmentID]
 		a.Phase = "repair"
@@ -122,8 +123,41 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		if calls != 2 || len(strategist.submissions) != 0 || len(strategist.reserved) != 0 {
 			t.Fatal("preview wrote a submission or reserved a judgment", calls)
 		}
+		result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: map[string]any{}})
+		if catalogRefused(result, err) || !strings.Contains(catalogText(t, result), strategist.capability.ScopeDigest()) || !strings.Contains(catalogText(t, result), "current_role_page") {
+			t.Fatal("named scope lost authenticated binding or canonical context paging", err)
+		}
+		var held map[string]any
+		if err := json.Unmarshal([]byte(catalogText(t, result)), &held); err != nil || held["context_selection"].(map[string]any)["action"] != "hold" {
+			t.Fatal("diagnosis fixture did not preserve an actual optional-context hold", err)
+		}
+		diagnosis := factory.RepairDiagnosis{Subject: strategist.capability.Subject, InputDigest: strategist.capability.ScopeDigest(), SourceCommit: strings.Repeat("4", 40), InventoryDigest: strings.Repeat("3", 64), Title: "Missing producer", Summary: "The sealed prerequisite has no authorized producer.", State: "supported", Causes: report.Causes, EvidenceRefs: []string{"sealed inventory"}, Alternatives: []string{"An ordinary capacity wait does not supply the missing result."}, Uncertainty: []string{"The owner must confirm the result after a producer is added."}}
+		diagnosisArgs := map[string]any{"submission_id": strings.Repeat("8", 32), "payload": diagnosis}
+		firstDiagnosis := ""
+		for i := 0; i < 2; i++ {
+			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordDiagnosis), Arguments: diagnosisArgs})
+			if catalogRefused(result, err) {
+				t.Fatal("typed diagnosis transport refused", err)
+			}
+			if i > 0 && catalogText(t, result) != firstDiagnosis {
+				t.Fatal("diagnosis exact replay changed the acknowledged receipt")
+			}
+			firstDiagnosis = catalogText(t, result)
+		}
+		for _, args := range []map[string]any{{"payload": map[string]any{"after": -1}}, {"payload": map[string]any{"after": 0, "repository": 8}}, {"payload": map[string]any{"cursor": "unbound cursor"}}} {
+			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: args})
+			if !catalogRefused(result, err) {
+				t.Fatal("scope admitted invalid continuation", args)
+			}
+		}
+		badDiagnosis := diagnosis
+		badDiagnosis.State = "adopted"
+		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordDiagnosis), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": badDiagnosis}})
+		if !catalogRefused(result, err) || len(strategist.submissions) != 1 || len(strategist.reserved) != 0 {
+			t.Fatal("diagnosis claimed adoption, duplicated a row or reserved judgment")
+		}
 		strategist.capability.State = factory.MCPCapabilityRevoked
-		result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": report}}})
+		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": report}}})
 		if !catalogRefused(result, err) || calls != 2 {
 			t.Fatal("revoked preview worker reached the reader")
 		}
@@ -174,6 +208,12 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	if _, err = session.ListTools(ctx, nil); err == nil {
 		t.Fatal("revoked worker still discovers tools")
 	}
+}
+
+// This HTTP fixture supplies an already-qualified read producer. The real
+// Store producer, paging and immutable feed join run in the owning PG cases.
+func (f *fakeCatalogSink) ReassessmentScope(_ context.Context, cap factory.MCPCapability, after int64) (factory.RepairScopeView, error) {
+	return factory.RepairScopeView{Assignment: cap.AssignmentID, Run: cap.RunID, InputDigest: cap.ScopeDigest(), Subject: cap.Subject, SourceCommit: strings.Repeat("4", 40), InventoryDigest: strings.Repeat("3", 64), Records: []factory.RepairScopeRecord{}, Limit: factory.RepairObservationPageSize, MaximumPerTool: factory.MaxRepairObservations, Complete: true}, nil
 }
 
 // TestFactoryBoundMCPResearcherDiscoveryAndRefusal proves the R30.1

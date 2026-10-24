@@ -475,6 +475,22 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	if err != nil || string(before) != string(afterJSON) || string(oldAllowance) != string(newAllowance) || chooser.calls != 1 || len(fx.publish.seed.host.launches) != 1 {
 		t.Fatal("preview spent or changed canonical completion state", err)
 	}
+	diagnosis := factory.RepairDiagnosis{Subject: cap.Subject, InputDigest: cap.ScopeDigest(), SourceCommit: current.Local.SourceCommit, InventoryDigest: current.InventoryDigest, Title: "Completed inventory remains coherent", Summary: "No graph change is justified by the current completion evidence.", State: "supported", Causes: []factory.CheckFailure{{CheckRef: "completion_inventory", Detail: "The complete sealed inventory remains accounted for."}}, EvidenceRefs: []string{current.InventoryDigest}, Alternatives: []string{}, Uncertainty: []string{}}
+	encoded, _ = json.Marshal(diagnosis)
+	submission := testMCPSubmission(cap, factory.MCPToolRecordDiagnosis, factory.NewID(), encoded)
+	receipt, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash})
+	if err != nil || receipt.FeedPostID == "" {
+		t.Fatal("completion diagnosis lacked atomic receipt/feed", err)
+	}
+	scope, err := db.ReassessmentScope(ctx, cap, 0)
+	if err != nil || !scope.Complete || scope.Total != 1 || len(scope.Records) != 1 || scope.Records[0].ID != submission.SubmissionID || scope.InventoryDigest != current.InventoryDigest {
+		t.Fatal("completion named scope lost its own diagnosis", err)
+	}
+	after, _ = db.ReassessmentRecord(ctx, cycleID)
+	afterJSON, _ = json.Marshal(after)
+	if string(before) != string(afterJSON) || chooser.calls != 1 || len(fx.publish.seed.host.launches) != 1 {
+		t.Fatal("recording completion diagnosis granted effects or judgment")
+	}
 	run, err := db.FactoryRun(ctx, launched)
 	if err != nil {
 		t.Fatal(err)

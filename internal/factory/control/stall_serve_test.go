@@ -754,6 +754,97 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if after := snapshot(); before != after || chooser.calls != 0 || graph.submissions != baseline {
 			t.Fatal("read-only repair preview spent, recorded or changed a native graph")
 		}
+		// Intermediate diagnosis is an immutable report with its own attributed
+		// feed outlet. It cannot turn suspected causation into graph authority.
+		diagnosis := factory.RepairDiagnosis{Subject: repairCapability.Subject, InputDigest: repairCapability.ScopeDigest(), SourceCommit: cycle.Local.SourceCommit, InventoryDigest: cycle.InventoryDigest, Title: "Missing fixture producer", Summary: "The sealed inventory records no authorized producer for the required fixture.", State: "supported", Causes: proposal.Causes, EvidenceRefs: []string{"sealed-inventory:" + cycle.InventoryDigest}, Alternatives: []string{"A renamed graph alone would leave the prerequisite unsatisfied."}, Uncertainty: []string{"The maintainer must independently accept the fixture result."}}
+		body, _ := json.Marshal(diagnosis)
+		submission := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
+		proposedReceipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}
+		receipt, e := db.RecordMCPSubmission(ctx, submission, proposedReceipt)
+		if e != nil || receipt.FeedPostID == "" {
+			t.Fatal("cause-bound diagnosis was not recorded with feed receipt", e)
+		}
+		post, e := db.FeedComment(ctx, receipt.FeedPostID)
+		if e != nil || post.Actor != "strategist" || post.Assignment != cycle.AssignmentID || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.ComponentID != "ST02" || len(post.Payload.Communication.Items) != len(diagnosis.Causes) || len(post.Payload.Communication.Alternatives) != 1 || len(post.Payload.Communication.Remaining) != 1 || !strings.Contains(post.Payload.Communication.Summary, "unchanged") {
+			t.Fatal("diagnosis lost typed evidence, attribution or uncertainty", e)
+		}
+		if replay, e := db.RecordMCPSubmission(ctx, submission, proposedReceipt); e != nil || replay.FeedPostID != receipt.FeedPostID {
+			t.Fatal("diagnosis lost-reply replay duplicated its observation", e)
+		}
+		conflict := submission
+		changedDiagnosis := diagnosis
+		changedDiagnosis.Summary = "Changed bytes cannot reuse the diagnosis identity."
+		conflict.Payload, _ = json.Marshal(changedDiagnosis)
+		conflict.PayloadHash = factory.MCPInputDigest(conflict.Payload)
+		changedReceipt := proposedReceipt
+		changedReceipt.InputDigest = conflict.PayloadHash
+		if _, e := db.RecordMCPSubmission(ctx, conflict, changedReceipt); !errors.Is(e, store.ErrMCPSubmissionConflict) {
+			t.Fatal("changed diagnosis bytes did not conflict", e)
+		}
+		for _, field := range []string{"subject", "input", "source", "inventory", "artifact", "state"} {
+			bad := diagnosis
+			switch field {
+			case "subject":
+				bad.Subject += ":foreign"
+			case "input":
+				bad.InputDigest = strings.Repeat("9", 64)
+			case "source":
+				bad.SourceCommit = strings.Repeat("9", 40)
+			case "inventory":
+				bad.InventoryDigest = strings.Repeat("9", 64)
+			case "artifact":
+				bad.ArtifactIDs = []string{factory.NewID()}
+			case "state":
+				bad.State = "adopted"
+			}
+			payload, _ := json.Marshal(bad)
+			sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), payload)
+			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+				t.Fatal("diagnosis admitted invalid " + field)
+			}
+		}
+		for count := 1; count < factory.MaxRepairDiagnoses; count++ {
+			sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
+			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e != nil {
+				t.Fatal("bounded diagnosis record", count, e)
+			}
+		}
+		overflow := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
+		if _, e := db.RecordMCPSubmission(ctx, overflow, factory.MCPReceipt{SubmissionID: overflow.SubmissionID, Tool: overflow.Tool, State: factory.MCPReceiptRecorded, InputDigest: overflow.PayloadHash}); e == nil {
+			t.Fatal("diagnosis limit did not preserve the terminal slot")
+		}
+		seen := map[string]bool{}
+		var after int64
+		for page := 0; page < 4; page++ {
+			view, e := db.ReassessmentScope(ctx, repairCapability, after)
+			if e != nil || view.Total != factory.MaxRepairDiagnoses || len(view.Records) != factory.RepairObservationPageSize || view.InputDigest != repairCapability.ScopeDigest() || view.InventoryDigest != cycle.InventoryDigest || view.MaximumPerTool != factory.MaxRepairDiagnoses || view.Complete != (page == 3) {
+				t.Fatalf("diagnosis scope page: %+v %v", view, e)
+			}
+			for _, record := range view.Records {
+				if seen[record.ID] || record.Sequence <= after || record.Tool != factory.MCPToolRecordDiagnosis || record.FeedPostID == "" {
+					t.Fatal("diagnosis scope lost canonical own sequence or identity")
+				}
+				seen[record.ID] = true
+			}
+			after = view.NextAfter
+		}
+		if len(seen) != factory.MaxRepairDiagnoses || snapshot() != before || chooser.calls != 0 || graph.submissions != baseline {
+			t.Fatal("diagnosis report/scope changed graphs, workflow ledgers or spending")
+		}
+		// Fault-inject one missing canonical feed projection only in this
+		// disposable fixture. A continuation must refuse the incomplete log.
+		var originalPost []byte
+		var firstSequence int64
+		if e := previewDB.QueryRow(`SELECT data,seq FROM factory_feed_comments WHERE id=$1`, receipt.FeedPostID).Scan(&originalPost, &firstSequence); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := previewDB.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}','"foreign"'::jsonb) WHERE id=$1`, receipt.FeedPostID); e != nil {
+			t.Fatal(e)
+		}
+		_, refused := db.ReassessmentScope(ctx, repairCapability, firstSequence)
+		if _, e := previewDB.Exec(`UPDATE factory_feed_comments SET data=$1 WHERE id=$2`, string(originalPost), receipt.FeedPostID); e != nil || refused == nil {
+			t.Fatal("paged scope hid an incomplete canonical feed projection", e, refused)
+		}
 	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair proposal ready", true
 	if err = db.SaveFactoryRun(ctx, run); err != nil {
@@ -790,6 +881,17 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		}
 	} else if a, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
 		t.Fatalf("repair finish outcome=%s reason=%s recorded=%v", a.Outcome, a.Reason, ok)
+	}
+	if mode == "append_producer" || mode == "delivery_repair" {
+		if _, e := db.ReassessmentScope(ctx, repairCapability, 0); e == nil {
+			t.Fatal("finished investigator retained active repair scope")
+		}
+		late := factory.RepairDiagnosis{Subject: repairCapability.Subject, InputDigest: repairCapability.ScopeDigest(), SourceCommit: cycle.Local.SourceCommit, InventoryDigest: cycle.InventoryDigest, Title: "Late diagnosis", Summary: "A finished worker has no authority to append another report.", State: "incomplete", Causes: proposal.Causes}
+		payload, _ := json.Marshal(late)
+		sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), payload)
+		if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+			t.Fatal("finished investigator appended a late diagnosis", e)
+		}
 	}
 	grantChanged := false
 	changeGrant := func(active bool) {

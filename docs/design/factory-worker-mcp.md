@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 52 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 54 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -605,8 +605,20 @@ graphs, readiness, allowances or charges. `valid` describes adoption preflight:
 a no-change completion may have no effects; a real stall or failed delivery still
 needs changed work or attention. A valid no-change diagnosis is not thereby an
 invalid terminal report. Actual adoption retains its independent funded judgment
-and fresh validation. Draft/diagnosis tools and installed native preview
-qualification remain separate work.
+and fresh validation. Installed native preview qualification remains separate.
+
+`factory.reassessment_scope` reuses canonical required-context pages for the
+complete admitted cause/inventory and remaining allowance, plus eight own
+diagnosis/draft receipt references per feed-sequence page. Reads reserve nothing.
+`factory.record_diagnosis` persists a cause-bound report with reported causal
+state, evidence, alternatives and uncertainty. Its immutable submission ID is the
+diagnosis ID, and its receipt and attributed ST02 feed post commit together.
+Exact replay returns the original identity; changed bytes, foreign cause/input/
+source/inventory, unowned artifacts and inactive workers refuse. Payloads are
+at most 8 KiB and each assignment has 32 diagnosis slots while retaining its
+terminal slot. Diagnosis can report under a context-selection hold; it never
+supplies missing work authority, paid assessment or native truth. Durable drafts
+and installed native qualification remain separate work.
 
 The feed needs a before/after view and the concrete reason each change helps.
 The library can retain a recurring stall pattern and an evidence-backed recovery

@@ -509,8 +509,22 @@ no-change diagnosis can remain ineligible to repair a real stall or failed app.
 Existing PostgreSQL completion/protected-stall/failed-delivery cases cover
 deterministic repeat reads, no-effect/refusal/current-authority cases and unchanged
 retained rows; authenticated HTTP covers role discovery, schema, revocation and
-no-write reads. Diagnosis/draft tools and installed native qualification remain
-open.
+no-write reads. Installed native preview qualification remains open.
+
+**Strategist diagnosis/scope slice:** `factory.reassessment_scope` now serves
+the canonical required-context pages for the exact cause, complete inventory and
+remaining allowance, with own diagnosis/draft references paged eight at a time in
+feed sequence. `factory.record_diagnosis` records up to 32 immutable cause-bound
+observations per assignment within 8 KiB each, including causal evidence,
+alternatives, uncertainty and complete owned artifacts. Submission, receipt and
+ST02 post commit atomically; replay recovers that same identity. Reported causal
+state does not assert native truth or grant repair/readiness authority. Like
+other report-only outlets, a diagnosis can explain a context-selection hold while
+active/current cause checks still apply. Existing real PostgreSQL completion,
+stall and failed-delivery paths cover full typed feed content, replay/conflict,
+foreign scope/artifact refusals, record bounds, paging and unchanged workflow
+spending; authenticated HTTP exercises discovery, schema, context continuation
+and receipt recovery. Durable draft tools and native qualification remain open.
 
 **Full role interfaces:** Implement Strategist `reassessment_scope`,
 `record_diagnosis`, `draft_repair`, `preview_repair` and its finish for the admitted

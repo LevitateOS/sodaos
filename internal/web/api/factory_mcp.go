@@ -152,6 +152,12 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairPreviewPayloadSchema()
 		definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
 	}
+	if tool == factory.MCPToolRecordDiagnosis {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairDiagnosisPayloadSchema()
+	}
+	if tool == factory.MCPToolReassessmentScope {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairScopePayloadSchema()
+	}
 	if payload := resolvePostPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
 	}
@@ -439,6 +445,9 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if tool == factory.MCPToolRecordJourneyResult {
 		return checkVerificationJourneyPayload(payload)
 	}
+	if tool == factory.MCPToolRecordDiagnosis {
+		return checkRepairDiagnosisPayload(payload)
+	}
 	if factory.MCPIsLibraryMutation(tool) {
 		return checkLibraryPayload(tool, payload)
 	}
@@ -704,6 +713,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveVerificationScope(ctx, args)
 	case factory.MCPToolPreviewRepair:
 		return s.serveRepairPreview(ctx, args)
+	case factory.MCPToolReassessmentScope:
+		return s.serveReassessmentScope(ctx, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
 	case factory.MCPToolReceipt:
