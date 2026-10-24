@@ -77,7 +77,7 @@ can lead to a bounded funded repair and fresh verification; it does not reset
 the allowance or make uncovered outcomes optional. If the allowance is
 exhausted, follow the named owner and next action in [Factory intervention](80-factory-intervention.md).
 
-To increase it, open **Project Work → My plans**, find the accepted plan and
+To increase it, find the accepted plan in **Project Work** and
 expand **Verification limits**. The plan owner, with repository administrator
 access, can change **Total verification runs** or **Total active minutes**, then
 select **Increase verification limits**. Neither limit may decrease, and at
