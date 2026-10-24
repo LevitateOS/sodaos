@@ -121,7 +121,47 @@ func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
 
 func TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry(t *testing.T) {
 	ctx := context.Background()
-	fx, producer, owner, _ := publishedChildProducerSeed(t, 27)
+	fx, producer, owner, publication := publishedChildProducerSeed(t, 27)
+	// Preparation must be available to native CI before a paid reviewer
+	// starts. Missing, pending and stale CI must not consume a model run.
+	if len(producer.preparations) != 1 || len(producer.launches) != 0 {
+		t.Fatalf("reviewer launched before exact candidate CI: preparations=%d launches=%d", len(producer.preparations), len(producer.launches))
+	}
+	policy, err := fx.db.RepositoryPolicy(ctx, owner.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := factory.CheckAssessment{
+		Results: []factory.CheckResult{{Context: "ci", State: "pending"}},
+		Checks:  policy.Checks, Repository: publication.Repository, PRNumber: publication.PRNumber,
+		PRID: publication.PRID, IssueID: publication.PRCreate.IssueID, PolicyRevision: policy.Revision,
+		NativeRev: 9, AssessedUnix: time.Now().Unix(), ObservedContexts: 1,
+		HeadRef: publication.PRCreate.HeadRef, BaseRef: publication.PRCreate.BaseRef,
+		HeadOID: publication.Candidate, BaseOID: publication.PRCreate.BaseOID,
+		ChecksDigest: factory.ChecksDigest(policy.Checks), Verdict: factory.CheckPending, Reason: factory.CheckReasonPending,
+	}
+	if _, err := fx.db.RecordCheckAssessment(ctx, checks); err != nil {
+		t.Fatal(err)
+	}
+	fx.pass(t)
+	if len(producer.launches) != 0 {
+		t.Fatal("pending CI launched a paid reviewer")
+	}
+	checks.Results = []factory.CheckResult{{Context: "ci", State: "failure"}}
+	checks.Verdict, checks.Reason = factory.CheckFailed, factory.CheckReasonFailed
+	checks.PolicyRevision--
+	if _, err := fx.db.RecordCheckAssessment(ctx, checks); err != nil {
+		t.Fatal(err)
+	}
+	fx.pass(t)
+	if len(producer.launches) != 0 {
+		t.Fatal("stale-policy CI launched a paid reviewer")
+	}
+	checks.PolicyRevision = policy.Revision
+	if _, err := fx.db.RecordCheckAssessment(ctx, checks); err != nil {
+		t.Fatal(err)
+	}
+	fx.pass(t)
 	if len(producer.launches) != 1 {
 		t.Fatalf("initial production did not launch one reviewer: %+v", producer.launches)
 	}

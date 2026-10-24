@@ -510,6 +510,16 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if stop {
 		return
 	}
+	// CI needs the prepared candidate, but a paid reviewer needs its
+	// settled exact-tuple assessment. Keep preparation ahead of this
+	// wait so missing or pending CI cannot deadlock its own inputs.
+	if role == project.RoleReviewer {
+		current, ok := c.currentChildCheckAssessment(ctx, p)
+		if in.checks == nil || !ok || current.Revision != in.checks.Revision {
+			publicationWait(report, p.ID, "review_checks_pending")
+			return
+		}
+	}
 	correctionPlan, stop := c.promptPublicationChild(ctx, plan, p, owner, preparationID, contextPreparation, role, in, cycle, phasedChild, report)
 	if stop {
 		return
