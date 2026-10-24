@@ -284,12 +284,12 @@ func validateOwnerAttemptRootTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 }
 
 // validateResearchRootTx admits one research root or its retry: a
-// researcher-owned inquiry bound to its native issue, current acceptance
+// reviewer-account inquiry bound to its native issue, current acceptance
 // and granted sources. Research carries no code candidate, publication
 // slot or children; the standard attempt allowance bounds its follow-up.
 func validateResearchRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
-	if a.Role != project.RoleResearcher || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
-		return errors.New("research requires a researcher root")
+	if a.Role != project.RoleReviewer || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
+		return errors.New("research requires a reviewer root")
 	}
 	if a.Subject.Kind != factory.SubjectResearch || a.Subject.Research == nil {
 		return errors.New("research requires its research subject")

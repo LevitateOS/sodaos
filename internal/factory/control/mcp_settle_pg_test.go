@@ -388,7 +388,14 @@ func TestSettleResearchTerminalPGDrive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	a := phaseTestAssignment(t, project.ExecutionResearch, project.RoleResearcher, true)
+	a := phaseTestAssignment(t, project.ExecutionResearch, project.RoleReviewer, true)
+	// Native exit and a stdout research block cannot replace the durable
+	// Researcher finish, even though the execution principal is reviewer.
+	stdout := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionResearch, Status: "completed", Summary: "Research completed", Output: &factory.PhaseOutput{Research: &factory.ResearchReport{Questions: []string{"What restarts the worker?"}, Findings: []string{"The supervisor."}, Evidence: []string{"ops.runbooks#3"}, Conclusion: "Use the supervisor."}}})
+	unreported, err := finishAssignmentFromRun(a, phaseTestRun(a, factory.Succeeded), stdout, time.Now())
+	if err != nil || unreported.Outcome != factory.NeedsHuman || unreported.Result.Reported || unreported.Result.Candidate != "" {
+		t.Fatalf("research accepted stdout without its MCP terminal: %+v %v", unreported.Result, err)
+	}
 	raw, err := json.Marshal(a)
 	if err != nil {
 		t.Fatal(err)

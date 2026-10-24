@@ -245,6 +245,9 @@ func reportPhasedReviewerResult(a factory.Assignment, run factory.Run, output, s
 	if a.Phase == project.ExecutionMaintainLibrary {
 		return refusePhasedAttempt(a, recordedUnix, "library maintenance requires its durable MCP finish receipt")
 	}
+	if a.Phase == project.ExecutionResearch {
+		return refusePhasedAttempt(a, recordedUnix, "research requires its durable MCP finish receipt")
+	}
 	if a.Phase == project.ExecutionVerify {
 		return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
 	}

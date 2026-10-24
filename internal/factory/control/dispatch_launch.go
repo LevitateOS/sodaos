@@ -39,7 +39,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		publication = ""
 	}
 	if plan.phase == project.ExecutionResearch {
-		role = project.RoleResearcher
+		role = project.RoleReviewer
 		publication = ""
 	}
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
@@ -324,7 +324,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	if !ok {
 		return
 	}
-	child := a.PublicationAssignment != a.ID && a.Phase != project.ExecutionMaintainLibrary
+	child := a.PublicationAssignment != a.ID && a.Phase != project.ExecutionMaintainLibrary && a.Phase != project.ExecutionResearch
 	publicationTarget := ""
 	if child {
 		var parentOK bool
@@ -492,7 +492,7 @@ func checkPublishedParent(ctx context.Context, deps DispatchDeps, a factory.Assi
 // terminal waits to the report.
 func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, a factory.Assignment, child bool, report *DispatchReport) (*attemptPlan, bool) {
 	role, exactPreparation := project.RoleCoder, ""
-	if a.Phase == project.ExecutionMaintainLibrary {
+	if a.Phase == project.ExecutionMaintainLibrary || a.Phase == project.ExecutionResearch {
 		role, exactPreparation = a.Role, a.Preparation
 	}
 	if child {

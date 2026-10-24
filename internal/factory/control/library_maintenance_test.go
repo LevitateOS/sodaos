@@ -8,6 +8,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestLibraryMaintenanceIssueRoutingAndTerminal(t *testing.T) {
@@ -72,87 +73,129 @@ func TestLibraryMaintenanceIssueRoutingAndTerminal(t *testing.T) {
 }
 
 func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
-	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
-	fx := dispatchSeed(t, db)
-	sponsorship, err := db.Sponsorship(ctx, fx.repo, "conn")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sponsorship.Roles = []string{project.RoleReviewer}
-	if err = db.SaveSponsorship(ctx, sponsorship); err != nil {
-		t.Fatal(err)
-	}
-	head := fx.accept(t, 3, "d333333333333333333333333", "Consolidate duplicate task ownership notes.\n\n```soda\n{\"role\":\"library_admin\"}\n```")
-	fx.queue(t, 3, head.ID)
-	deps := fx.deps()
-	deps.MCPKey = []byte(strings.Repeat("k", 32))
-	deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
-	queued, err := db.QueuedControls(ctx, 1)
-	if err != nil || len(queued) != 1 {
-		t.Fatal("maintenance readiness unavailable", err)
-	}
-	occupancy, err := snapshotOccupancy(ctx, db)
-	if err != nil {
-		t.Fatal(err)
-	}
-	report := newDispatchReport()
-	dispatchOne(ctx, deps, &occupancy, queued[0], &report)
-	if len(report.Errors) != 0 || len(report.Launched) != 1 {
-		t.Fatalf("dispatch: %+v", report)
-	}
-	a, err := db.Assignment(ctx, report.Launched[0].AssignmentID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if a.Role != project.RoleReviewer || a.Phase != project.ExecutionMaintainLibrary || a.PublicationAssignment != "" || a.ParentAssignment != "" || a.AttemptRoot != a.ID {
-		t.Fatalf("wrong maintenance assignment: %+v", a)
-	}
-	if len(fx.host.launches) != 1 {
-		t.Fatal("maintenance was not launched")
-	}
-	launch := fx.host.launches[0]
-	if launch.Run.ExecutionPhase != project.ExecutionMaintainLibrary || launch.Run.Role != project.RoleReviewer || launch.MCP == nil {
-		t.Fatalf("wrong native launch: %+v", launch.Run)
-	}
-	cap, err := db.GetMCPCapability(ctx, launch.MCP.Capability)
-	if err != nil || cap.Profile != factory.MCPProfileLibraryAdmin {
-		t.Fatalf("bound library capability: %+v %v", cap, err)
-	}
-	if !strings.Contains(string(launch.Prompt), "factory.finish_library_maintenance") || strings.Contains(string(launch.Prompt), "Review the exact candidate") {
-		t.Fatal("maintenance prompt still asks for code review")
-	}
-	if err = db.ActivateMCPCapability(ctx, cap.ID, cap.Generation, cap.RunID, cap.AssignmentID, cap.Authority, time.Now().Unix(), false); err != nil {
-		t.Fatal(err)
-	}
-	cap, err = db.GetMCPCapability(ctx, cap.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	current, err := db.FactoryCurrentContext(ctx, cap, time.Now())
-	if err != nil || current.Role.Library == nil || !current.Role.Library.Complete || current.Role.Library.Scope != a.Subject.SubjectKey(a.Repository) || len(current.Role.Library.Operations) == 0 || len(current.Role.Library.Inventory) != 1 || !current.Role.Library.Inventory[0].Complete {
-		t.Fatalf("required library scope and complete empty inventory unavailable: %v", err)
-	}
-	raw := []byte(`{"title":"Library maintained","summary":"No duplicate entries remained.","completed":["Reviewed the available library"]}`)
-	sub := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), CapabilityID: cap.ID, Tool: factory.MCPToolFinishLibraryMaintenance, ExpectedInputDigest: cap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
-	receipt, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, InputDigest: sub.PayloadHash, State: factory.MCPReceiptRecorded})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !ok {
-		t.Fatalf("settlement=%v %v", ok, err)
-	}
-	finished, err := db.Assignment(ctx, a.ID)
-	if err != nil || finished.Outcome != factory.Succeeded {
-		t.Fatalf("finished=%+v %v", finished, err)
-	}
-	after, err := db.MCPReceipt(ctx, a.ID, sub.SubmissionID)
-	if err != nil || after.State != factory.MCPReceiptAccepted || after.FeedPostID != receipt.FeedPostID {
-		t.Fatalf("settled receipt lost feed identity: %+v %v", after, err)
-	}
-	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || !allowance.Closed {
-		t.Fatalf("finished maintenance left its allowance open: %+v %v", allowance, err)
+	for _, work := range []struct{ role, phase, profile, finish string }{
+		{"library_admin", project.ExecutionMaintainLibrary, string(factory.MCPProfileLibraryAdmin), string(factory.MCPToolFinishLibraryMaintenance)},
+		{"research", project.ExecutionResearch, string(factory.MCPProfileResearcher), string(factory.MCPToolFinishResearch)},
+	} {
+		t.Run(work.role, func(t *testing.T) {
+			ctx := context.Background()
+			db, _ := dispatchTestDB(t)
+			fx := dispatchSeed(t, db)
+			sponsorship, err := db.Sponsorship(ctx, fx.repo, "conn")
+			if err != nil {
+				t.Fatal(err)
+			}
+			sponsorship.Roles = []string{project.RoleReviewer}
+			if err = db.SaveSponsorship(ctx, sponsorship); err != nil {
+				t.Fatal(err)
+			}
+			head := fx.accept(t, 3, "d333333333333333333333333", "Inspect the recorded task ownership evidence.\n\n```soda\n{\"role\":\""+work.role+"\"}\n```")
+			fx.queue(t, 3, head.ID)
+			deps := fx.deps()
+			deps.MCPKey = []byte(strings.Repeat("k", 32))
+			deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
+			queued, err := db.QueuedControls(ctx, 1)
+			if err != nil || len(queued) != 1 {
+				t.Fatal("maintenance readiness unavailable", err)
+			}
+			occupancy, err := snapshotOccupancy(ctx, db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			report := newDispatchReport()
+			dispatchOne(ctx, deps, &occupancy, queued[0], &report)
+			if len(report.Errors) != 0 || len(report.Launched) != 1 {
+				t.Fatalf("dispatch: %+v", report)
+			}
+			a, err := db.Assignment(ctx, report.Launched[0].AssignmentID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A definitely unused launch restages this same non-code root with
+			// a new run, retaining reviewer preparation and original allowance.
+			run, err := db.FactoryRun(ctx, a.Run)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reservation, err := db.Reservation(ctx, a.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recovery := newDispatchReport()
+			recoverUnused(ctx, deps, a, reservation, run, &recovery)
+			if len(recovery.Errors) != 0 || len(recovery.Launched) != 1 {
+				t.Fatalf("non-code restage: %+v", recovery)
+			}
+			original := a
+			a, err = db.Assignment(ctx, a.ID)
+			if err != nil || a.Run == original.Run || a.AttemptRoot != original.AttemptRoot || a.Preparation != original.Preparation || a.Role != original.Role || a.PublicationAssignment != "" {
+				t.Fatalf("non-code restage changed authority: %+v %v", a, err)
+			}
+			if a.Role != project.RoleReviewer || a.Phase != work.phase || a.PublicationAssignment != "" || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.Preparation != "f222222222222222222222222" {
+				t.Fatalf("wrong maintenance assignment: %+v", a)
+			}
+			wrongRole := a
+			wrongRole.Role = project.RoleCoder
+			if wrongRole.Validate() == nil || project.ValidFactoryRole("soda-researcher") {
+				t.Fatal("non-code work admitted a coding or third native principal")
+			}
+			if len(fx.host.launches) != 2 {
+				t.Fatal("maintenance was not launched")
+			}
+			launch := fx.host.launches[1]
+			if launch.Run.ExecutionPhase != work.phase || launch.Run.Role != project.RoleReviewer || launch.MCP == nil || launch.Validate() != nil {
+				t.Fatalf("wrong native launch: %+v", launch.Run)
+			}
+			cap, err := db.GetMCPCapability(ctx, launch.MCP.Capability)
+			if err != nil || string(cap.Profile) != work.profile || factory.MCPToolAdmitted(cap.Profile, factory.MCPToolFinishImplement) {
+				t.Fatalf("bound library capability: %+v %v", cap, err)
+			}
+			if !strings.Contains(string(launch.Prompt), work.finish) || strings.Contains(string(launch.Prompt), "Review the exact candidate") || strings.Contains(string(launch.Prompt), "separate prepared reviewer checkout") {
+				t.Fatal("maintenance prompt still asks for code review")
+			}
+			if err = db.ActivateMCPCapability(ctx, cap.ID, cap.Generation, cap.RunID, cap.AssignmentID, cap.Authority, time.Now().Unix(), false); err != nil {
+				t.Fatal(err)
+			}
+			cap, err = db.GetMCPCapability(ctx, cap.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			current, err := db.FactoryCurrentContext(ctx, cap, time.Now())
+			if work.role == "library_admin" && (err != nil || current.Role.Library == nil || !current.Role.Library.Complete || current.Role.Library.Scope != a.Subject.SubjectKey(a.Repository) || len(current.Role.Library.Operations) == 0 || len(current.Role.Library.Inventory) != 1 || !current.Role.Library.Inventory[0].Complete) {
+				t.Fatalf("required library scope and complete empty inventory unavailable: %v", err)
+			}
+			raw := []byte(`{"title":"Library maintained","summary":"No duplicate entries remained.","completed":["Reviewed the available library"]}`)
+			if work.role == "research" {
+				if err != nil || a.Subject.Kind != factory.SubjectResearch || current.Role.Research == nil {
+					t.Fatalf("research scope unavailable: %v", err)
+				}
+				raw = []byte(`{"questions":["What governs task ownership?"],"findings":["The accepted task evidence governs ownership."],"evidence":["native-proof.txt"],"conclusion":"Retain the accepted owner.","uncertainty":"No external sources were inspected."}`)
+			}
+			sub := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), CapabilityID: cap.ID, Tool: factory.MCPTool(work.finish), ExpectedInputDigest: cap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
+			receipt, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, InputDigest: sub.PayloadHash, State: factory.MCPReceiptRecorded})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ok, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !ok {
+				t.Fatalf("settlement=%v %v", ok, err)
+			}
+			finished, err := db.Assignment(ctx, a.ID)
+			if err != nil || finished.Outcome != factory.Succeeded {
+				t.Fatalf("finished=%+v %v", finished, err)
+			}
+			after, err := db.MCPReceipt(ctx, a.ID, sub.SubmissionID)
+			if err != nil || after.State != factory.MCPReceiptAccepted || after.FeedPostID != receipt.FeedPostID {
+				t.Fatalf("settled receipt lost feed identity: %+v %v", after, err)
+			}
+			allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+			if err != nil || !allowance.Closed {
+				t.Fatalf("finished maintenance left its allowance open: %+v %v", allowance, err)
+			}
+			actor, author := store.RecordAuthor(a.Phase, a.Role)
+			if actor != work.profile || (work.role == "research" && author != "Researcher") {
+				t.Fatalf("native reviewer masked semantic profile: %s/%s", actor, author)
+			}
+		})
 	}
 }
 

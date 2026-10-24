@@ -753,15 +753,7 @@ func phasedReportContract(phase string) string {
 		return phasedReportMarker + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
 	}
 	if phase == project.ExecutionResearch {
-		var b strings.Builder
-		b.WriteString(phasedReportMarker)
-		b.WriteString("Close your work with exactly one fenced block:\n\n")
-		b.WriteString("```" + factory.ResultFence + "\n")
-		b.WriteString(`{"version":2,"phase":"research","status":"completed|blocked|failed|cancelled","summary":"...","output":{"research":{"questions":["..."],"findings":["..."],"evidence":["..."],"conclusion":"...","uncertainty":"..."}}}` + "\n")
-		b.WriteString("```\n\n")
-		b.WriteString("Report \"completed\" only with the answered research report in \"output.research\": the declared questions, findings with evidence refs, and a conclusion naming the useful outcome plus open uncertainty. Research names no candidate, publishes nothing and changes no code, issue or product policy. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
-		b.WriteString("Any other shape, unknown field or trailing JSON is refused. Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
-		return b.String()
+		return phasedReportMarker + factory.ResearchReportGuidance
 	}
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)

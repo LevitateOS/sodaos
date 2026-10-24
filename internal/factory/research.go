@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+// ResearchReportGuidance is the durable report contract for the Researcher
+// profile, independent of its shared reviewer execution account.
+const ResearchReportGuidance = "Begin with factory.context and factory.research_scope. Read the bound inquiry, prepared source and granted evidence. Use factory.record_research for question-indexed findings and limitations. Finish through factory.finish_research with questions, findings, evidence, conclusion and uncertainty; poll its immutable receipt before ending. Controller acceptance of that typed report completes the assignment. Do not substitute stdout or a code-review verdict, name a candidate, create a PR, edit source or change issue/product policy. If required evidence is unavailable, use factory.finish_incomplete with the concrete gap.\n"
+
 // Research bounds (R10.2). A research report answers declared questions
 // with findings and evidence, not code. Counts stay small so reports
 // remain reviewable; prose stays within finding bounds.

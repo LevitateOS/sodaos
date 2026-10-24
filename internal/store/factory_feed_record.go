@@ -255,6 +255,8 @@ func recordPersona(profile factory.MCPProfile) string {
 		return "Test Pilot"
 	case factory.MCPProfileLibraryAdmin:
 		return "Library Admin"
+	case factory.MCPProfileResearcher:
+		return "Researcher"
 	default:
 		return ""
 	}

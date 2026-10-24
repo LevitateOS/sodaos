@@ -15,19 +15,17 @@ import (
 )
 
 // PhaseRole returns the single factory account role admitted for phase.
-// Review and D16 verify use the reviewer account; every other phase uses
-// coder, including D13 reassess and D15/D16 repair. Do not infer phase
-// from role.
+// Review, verification, library maintenance and research use the reviewer
+// account; other phases use coder, including reassess and repair.
+// Semantic profiles remain phase-bound. Do not infer phase from role.
 func PhaseRole(phase string) (string, error) {
 	switch phase {
 	case project.ExecutionDecompose, project.ExecutionInvestigate,
 		project.ExecutionImplement, project.ExecutionCorrect,
 		project.ExecutionReassess, project.ExecutionRepair:
 		return project.RoleCoder, nil
-	case project.ExecutionReview, project.ExecutionVerify, project.ExecutionMaintainLibrary:
+	case project.ExecutionReview, project.ExecutionVerify, project.ExecutionMaintainLibrary, project.ExecutionResearch:
 		return project.RoleReviewer, nil
-	case project.ExecutionResearch:
-		return project.RoleResearcher, nil
 	default:
 		return "", errors.New("unknown execution phase")
 	}

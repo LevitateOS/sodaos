@@ -145,16 +145,16 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 		return err
 	}
 	if role == project.RoleReviewer {
+		if r.Phase == project.ExecutionResearch {
+			if r.Reported {
+				return checkReportedResearchResult(r)
+			}
+			return checkSynthesizedResearchResult(r)
+		}
 		if r.Reported {
 			return checkReportedReviewerResult(r, sourceCommit)
 		}
 		return checkSynthesizedReviewerResult(r)
-	}
-	if role == project.RoleResearcher {
-		if r.Reported {
-			return checkReportedResearchResult(r)
-		}
-		return checkSynthesizedResearchResult(r)
 	}
 	if r.Review != nil {
 		return errors.New("non-reviewer result carries a review report")

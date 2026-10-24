@@ -346,10 +346,13 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 		b.WriteString("Recorded active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. The accepted objective and selected sources below define the authorized maintenance scope.\n")
 		return
 	}
+	if in.Phase == project.ExecutionResearch {
+		b.WriteString("Permitted actions: read the prepared checkout, granted sources and library records to answer the declared inquiry; report questions, findings with evidence refs, the useful conclusion and open uncertainty. Do not modify or publish anything, change grants, select another provider or model, or expose credentials. The checkout is context only: research produces no candidate, plan or publication.\n")
+		b.WriteString("Recorded active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. Answer only the accepted inquiry and disclose evidence you could not inspect.\n")
+		return
+	}
 	if in.Role == project.RoleReviewer {
 		b.WriteString("Permitted actions: inspect the exact candidate and its diff against the verified base in the separate prepared reviewer checkout; run relevant checks; report concrete findings. Do not modify or publish the candidate, merge pull requests, change grants, select another provider or model, or expose credentials. The coding conversation and its claimed approval are not review evidence.\n")
-	} else if in.Phase == project.ExecutionResearch {
-		b.WriteString("Permitted actions: read the prepared checkout, granted sources and library records to answer the declared inquiry; report questions, findings with evidence refs, the useful conclusion and open uncertainty. Do not modify or publish anything, change grants, select another provider or model, or expose credentials. The checkout is context only: research produces no candidate, plan or publication.\n")
 	} else {
 		b.WriteString("Permitted actions: inspect and modify the prepared checkout to implement the accepted objective; run relevant local checks; report the resulting candidate and evidence. Do not change grants, select another provider or model, publish refs, create or merge pull requests, or expose credentials.\n")
 	}
@@ -367,8 +370,6 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 		b.WriteString("\nCorrect the current candidate using the consolidated review and check evidence below. Identify actionable failures; infrastructure failures or concrete disagreement require maintainer intervention. Do not weaken checks or change accepted requirements to obtain a pass. ")
 	} else if in.Phase == project.ExecutionInvestigate {
 		b.WriteString("\nInvestigate the accepted requirements below and report a validated plan. ")
-	} else if in.Phase == project.ExecutionResearch {
-		b.WriteString("\nAnswer the declared inquiry below and report the research findings. ")
 	} else {
 		b.WriteString("\nImplement the accepted requirements below in the prepared checkout. ")
 	}
@@ -393,6 +394,10 @@ func writePromptObjective(b *strings.Builder, in PromptInputs) {
 // completion reminder.
 func writePromptReport(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Report\n\n")
+	if in.Phase == project.ExecutionResearch {
+		b.WriteString(ResearchReportGuidance)
+		return
+	}
 	if in.Role == project.RoleReviewer {
 		if in.Phase == project.ExecutionReview {
 			writePromptMCPReviewContract(b)

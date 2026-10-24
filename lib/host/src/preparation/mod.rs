@@ -27,7 +27,6 @@ pub use self::state::{
 
 pub const ROLE_CODER: &str = "soda-coder";
 pub const ROLE_REVIEWER: &str = "soda-reviewer";
-pub const ROLE_RESEARCHER: &str = "soda-researcher";
 
 pub const FACTORY_DIR: &str = "/var/lib/soda/factory";
 pub const FACTORY_PREPARATIONS_DIR: &str = "/var/lib/soda/factory/preparations";

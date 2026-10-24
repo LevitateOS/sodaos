@@ -345,7 +345,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	cap.Profile, cap.Subject, cap.State = factory.MCPProfileResearcher, "research:7:42", factory.MCPCapabilityStaged
 	cap.SourceDigest, cap.AcceptedRevision = strings.Repeat("a", 40), "3"
 	prepID := "f" + strings.Repeat("2", 24)
-	a := factory.Assignment{ID: cap.AssignmentID, AttemptRoot: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, ActorID: 7, Issue: 42, Role: project.RoleResearcher, Phase: project.ExecutionResearch, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, Revision: 1, NativeRev: 3, SourceCommit: cap.SourceDigest, Prompt: []byte("private prompt never projected"), Subject: factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24), Sources: []string{"accepted-source"}}}}
+	a := factory.Assignment{ID: cap.AssignmentID, AttemptRoot: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, ActorID: 7, Issue: 42, Role: project.RoleReviewer, Phase: project.ExecutionResearch, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, Revision: 1, NativeRev: 3, SourceCommit: cap.SourceDigest, Prompt: []byte("private prompt never projected"), Subject: factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24), Sources: []string{"accepted-source"}}}}
 	if err := st.UpsertUser(ctx, store.User{ID: 7, Login: "current-worker"}); err != nil {
 		t.Fatal(err)
 	}
@@ -360,11 +360,11 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	raw, _ := json.Marshal(a)
 	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,$2,'assigned',1,$3)`, a.ID, cap.RunID, string(raw))
-	prep := project.StoredPreparation{Preparation: project.Preparation{ID: prepID, Project: cap.Project, Role: project.RoleResearcher, SetupDigest: cap.PreparationDigest}}
+	prep := project.StoredPreparation{Preparation: project.Preparation{ID: prepID, Project: cap.Project, Role: project.RoleReviewer, SetupDigest: cap.PreparationDigest}}
 	raw, _ = json.Marshal(prep)
-	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleResearcher, string(raw))
+	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleReviewer, string(raw))
 	write(`INSERT INTO factory_dispatch(repository,revision,open,data) VALUES(7,1,true,'{}')`)
-	run := factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleResearcher, InputSHA: cap.SourceDigest}
+	run := factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: cap.SourceDigest}
 	raw, _ = json.Marshal(run)
 	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, cap.RunID, string(raw))
 	log := factory.ResearchLog{Questions: []string{"Does the retained source support this requirement?"}, Findings: []factory.ResearchRecordFinding{{Question: 0, Finding: "Recorded supported observation", Evidence: []string{"accepted-source"}}}, Records: 1}

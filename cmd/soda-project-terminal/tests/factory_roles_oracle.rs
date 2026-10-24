@@ -124,6 +124,7 @@ struct NativeFactoryFixture {
     events: Arc<Mutex<Vec<String>>>,
     crash: Arc<AtomicU8>,
     refuse_stop: Arc<AtomicBool>,
+    requires_verification: bool,
 }
 
 impl Executor for NativeFactoryFixture {
@@ -225,11 +226,18 @@ impl FactoryBroker for NativeFactoryFixture {
             .join(PID)
             .join("verifications")
             .join(run);
-        let finished: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(dir.join("finished.json")).unwrap()).unwrap();
-        assert_eq!(finished["setup_exit"], 0);
-        assert_eq!(finished["check_exit"], 0);
-        assert!(!dir.join("work").exists() && !dir.join("home").exists());
+        if self.requires_verification {
+            let finished: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(dir.join("finished.json")).unwrap()).unwrap();
+            assert_eq!(finished["setup_exit"], 0);
+            assert_eq!(finished["check_exit"], 0);
+            assert!(!dir.join("work").exists() && !dir.join("home").exists());
+        } else {
+            assert!(
+                !dir.exists(),
+                "research must not stage an execution manifest"
+            );
+        }
         self.events.lock().unwrap().push("register".into());
         Ok(b"local-provider-boundary".to_vec())
     }
@@ -710,8 +718,17 @@ fn oracle_start_runs_detached_to_ready() {
     verified.ok("{\"op\":\"hold\",\"revision\":1}");
     verified.refused(b"{\"op\":\"release\",\"revision\":1}");
     request["op"] = "verify_stop".into();
-    let stopped: serde_json::Value =
+    let mut stopped: serde_json::Value =
         serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    eprintln!("initial native fixture Stop receipt: {stopped}");
+    // Stop may conservatively observe an unfinished child/supervisor join.
+    // Reconcile only this same tuple; never start another check or relax
+    // confirmed retirement, cleanup or the immutable stopped replay below.
+    let until = Instant::now() + Duration::from_secs(2);
+    while stopped["retirement"] == "unconfirmed" && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(20));
+        stopped = serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    }
     assert_eq!(stopped["phase"], "stopped");
     assert_eq!(stopped["retirement"], "confirmed");
     assert!(!stopped_dir.join("work").exists());
@@ -765,12 +782,13 @@ fn oracle_start_runs_detached_to_ready() {
     assert_eq!(replay, expired);
     // Drive the actual Host orchestration against the same native helper.
     // The observed external boundary records order/custody calls only.
-    for (digit, crash, parent_uncertain) in [
-        ('b', 0, false),
-        ('c', 0, false),
-        ('d', 2, false),
-        ('e', 1, false),
-        ('f', 2, true),
+    for (digit, crash, parent_uncertain, phase) in [
+        ('a', 0, false, "research"),
+        ('b', 0, false, "verify"),
+        ('c', 0, false, "verify"),
+        ('d', 2, false, "verify"),
+        ('e', 1, false, "verify"),
+        ('f', 2, true, "verify"),
     ] {
         let run_id = digit.to_string().repeat(32);
         let host_state = verified.root.join(format!("host-{digit}"));
@@ -782,6 +800,7 @@ fn oracle_start_runs_detached_to_ready() {
             events: Arc::new(Mutex::new(Vec::new())),
             crash: Arc::new(AtomicU8::new(crash)),
             refuse_stop: Arc::new(AtomicBool::new(parent_uncertain)),
+            requires_verification: phase == "verify",
         };
         let mut manifest = soda_host::factory::VerificationManifest {
             version: "project-check-v1".into(),
@@ -822,13 +841,17 @@ fn oracle_start_runs_detached_to_ready() {
                 assignment: soda_host::sha256::hex_lower(&soda_host::sha256::digest(&prompt)),
                 source_commit: commit.clone(),
                 connection: "local-observed-boundary".into(),
-                execution_phase: "verify".into(),
-                verification_manifest_digest: digest.clone(),
+                execution_phase: phase.into(),
+                verification_manifest_digest: if phase == "verify" {
+                    digest.clone()
+                } else {
+                    String::new()
+                },
                 ..Default::default()
             },
             prompt,
             harness_sha256: "a".repeat(64),
-            verification_manifest: bytes,
+            verification_manifest: if phase == "verify" { bytes } else { Vec::new() },
             ..Default::default()
         };
         let open = || {
@@ -840,12 +863,35 @@ fn oracle_start_runs_detached_to_ready() {
             )
             .unwrap()
         };
+        if phase == "research" {
+            assert!(launch.validate().is_ok());
+            for wrong in ["soda-coder", "soda-researcher"] {
+                let mut invalid = launch.clone();
+                invalid.run.role = wrong.into();
+                assert!(invalid.validate().is_err(), "research admitted {wrong}");
+            }
+        }
         if crash == 0 {
             let began = Instant::now();
             let state = open()
                 .launch(&launch, Instant::now() + Duration::from_millis(250))
                 .unwrap();
-            if digit == 'b' {
+            if phase == "research" {
+                assert_eq!(state.phase, "completed");
+                assert!(state.credential_returned);
+                assert!(state.verification_checks.is_none());
+                let replay = open()
+                    .launch(&launch, Instant::now() + Duration::from_secs(10))
+                    .unwrap();
+                assert_eq!(replay.phase, "completed");
+                let events = fixture.events.lock().unwrap();
+                assert_eq!(events.iter().filter(|e| *e == "cli-start").count(), 1);
+                assert_eq!(events.iter().filter(|e| *e == "register").count(), 1);
+                assert!(
+                    events.iter().any(|e| e == "capture") && events.iter().any(|e| e == "return")
+                );
+                assert!(!events.iter().any(|e| e.starts_with("helper:verify")));
+            } else if digit == 'b' {
                 assert!(
                     began.elapsed() >= Duration::from_secs(1),
                     "check did not exceed short observation deadline"
@@ -929,7 +975,7 @@ fn oracle_start_runs_detached_to_ready() {
             );
             assert!(events.iter().any(|e| e == "reconcile") && events.iter().any(|e| e == "close"));
         }
-        if digit != 'b' {
+        if phase == "verify" && digit != 'b' {
             let events = fixture.events.lock().unwrap();
             for forbidden in ["register", "cli-start", "capture", "return"] {
                 assert!(

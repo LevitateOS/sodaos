@@ -627,7 +627,7 @@ func TestResearchRecordsAndScopeCoverage(t *testing.T) {
 		Subject: factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 7, Acceptance: acceptance, Sources: []string{"ops.runbooks"}}},
 		Prompt:  []byte("research prompt"), RunHistory: []string{runID},
 		ID: assignmentID, AttemptRoot: assignmentID,
-		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleResearcher, Phase: project.ExecutionResearch,
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer, Phase: project.ExecutionResearch,
 		Acceptance: acceptance, Preparation: "f" + strings.Repeat("d", 24),
 		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "test-model", Connection: "conn",
 		SourceCommit: strings.Repeat("c", 40), PromptSHA: researchPromptSHA(),

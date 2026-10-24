@@ -75,8 +75,8 @@ const (
 	// (D16). It accepts only the repair phase and the coder role.
 	SubjectDeliveryRepair = "delivery_repair"
 	// SubjectResearch names one research inquiry on a native issue (R10.2).
-	// It accepts only the research phase and the researcher role, and
-	// carries no code candidate at any stage.
+	// Research and independent report review use the reviewer account;
+	// neither carries a code candidate.
 	SubjectResearch = "research"
 	// SubjectCollection names one library collection for maintenance
 	// (R10.2). It accepts only the maintain_library phase and the

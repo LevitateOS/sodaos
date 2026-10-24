@@ -43,7 +43,7 @@ func selectInitialIssuePhase(ctx context.Context, deps DispatchDeps, repository,
 	case factory.SodaRoleLibraryAdmin:
 		return project.ExecutionMaintainLibrary, project.RoleReviewer, nil, nil
 	case factory.SodaRoleResearch:
-		return project.ExecutionResearch, project.RoleResearcher, nil, nil
+		return project.ExecutionResearch, project.RoleReviewer, nil, nil
 	}
 	return project.ExecutionInvestigate, project.RoleCoder, nil, nil
 }

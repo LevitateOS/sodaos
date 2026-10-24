@@ -1897,6 +1897,9 @@ Project admission. Before that, retain the existing private product draft and
 bounded exploration service. This refinement does not introduce a non-Project
 generative runtime or API-billed fallback. Native coder/reviewer accounts remain
 the two execution identities; profile names do not become additional native actors.
+Researcher and Library Admin use the reviewer preparation, model selection and
+sponsorship. Their explicit accepted issue roles select their own semantic
+profile and durable typed finish; neither grants source edits, publication or a PR.
 
 ### Required production wiring
 
