@@ -18,7 +18,8 @@ func (c *Client) PrepareCandidate(ctx context.Context, in project.FactoryCandida
 	if err := ctx.Err(); err != nil {
 		return out, err
 	}
-	in.Deadline, _ = ctx.Deadline()
+	// The RPC may end before the admitted asynchronous worker. Preserve the
+	// recorded worker deadline on the wire; ctx still bounds this HTTP call.
 	err := c.callLimit(ctx, "/prepare-candidate", in, &out, prepareResponseLimit)
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return out, ctxErr

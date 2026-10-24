@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func hostApplicationSpec() application.Spec {
@@ -57,6 +59,44 @@ func TestApplicationNativeClient(t *testing.T) {
 			}
 		})
 	}
+	t.Run("candidate_worker_deadline_survives_short_rpc", func(t *testing.T) {
+		digest, commit := strings.Repeat("a", 64), strings.Repeat("b", 40)
+		prep := project.Preparation{
+			ID: "f" + strings.Repeat("1", 24), Project: "p" + strings.Repeat("2", 24), Role: project.RoleReviewer,
+			Requirements: project.RequirementAcceptance{ID: "d" + strings.Repeat("3", 24), Approver: 1, SourceCommit: commit, Digest: digest},
+			Approval:     project.AdminApproval{ID: "d" + strings.Repeat("4", 24), Approver: 1, EffectsDigest: digest},
+			SourceCommit: commit, SetupDigest: digest, Tools: []string{"git", "can"},
+		}
+		admittedDeadline := time.Now().Add(10 * time.Minute).UTC()
+		input := project.FactoryCandidate{Preparation: prep, SourcePreparation: "f" + strings.Repeat("5", 24), Bundle: []byte("source"), Deadline: admittedDeadline}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" || r.URL.Path != "/prepare-candidate" {
+				t.Error("wrong candidate route")
+				w.WriteHeader(500)
+				return
+			}
+			var wire project.FactoryCandidate
+			if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
+				t.Error(err)
+				return
+			}
+			if !wire.Deadline.Equal(admittedDeadline) {
+				t.Errorf("async worker deadline became RPC deadline: got %v want %v", wire.Deadline, admittedDeadline)
+			}
+			_ = json.NewEncoder(w).Encode(project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, Container: container, SourceCommit: commit, SetupDigest: digest, Phase: project.PrepareRunning})
+		}))
+		defer server.Close()
+		client := &Client{HTTP: &http.Client{Transport: applicationTestTransport{server.URL}}}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if state, err := client.PrepareCandidate(ctx, input); err != nil || state.Phase != project.PrepareRunning {
+			t.Fatalf("bounded candidate admission: %+v %v", state, err)
+		}
+		cancel()
+		if _, err := client.PrepareCandidate(ctx, input); err != context.Canceled {
+			t.Fatalf("expired RPC was not refused: %v", err)
+		}
+	})
 }
 
 type applicationTestTransport struct{ target string }
