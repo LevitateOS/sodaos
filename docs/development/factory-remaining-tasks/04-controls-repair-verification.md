@@ -243,6 +243,15 @@ discovery, prompt/tool contracts and consumers together for the selected outlets
 
 **Discussion-to-effect recovery:** The [accepted discussion contract](../../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work) now settles the trigger: submitted human comment → JEV assessment → Product Lead LLM authoring if new work is selected → native issue creation. Bind one immutable comment revision and request ID through funded judgment, authoring and the existing dispatch/native operation journals in `intent_generation.go`, `factory_intent_generation.go` and `factory_planning_revisions.go`. Validate title/body, acceptance criteria and Soda work metadata before R13 applies the issue. Exercise discussion-only, existing-work and clarification outcomes, edits/deletion or access loss before application, missing allowance, malformed LLM output, an unavailable consumer and a lost native-effect reply after commit. Finite acceptance: stale/refused/pending/unknown results remain visible; retry reuses recorded judgments/drafts and recovers the original native operation, never a duplicate or a relabeled newer comment. Provider timeouts do not establish zero spending or permission for blind retries. Confirmed results retain the source link; explicit edited submissions bind a new revision to earlier work, and deletion does not erase an already created issue. R31/R42/R43 expose the same outcome with current access checks. Existing readiness/pause/grant rules govern subsequent execution; ordinary authorized issue creation needs no new approval per comment.
 
+For an exhausted `new_issue` request whose draft and effect are still pending,
+the author's unchanged-body Retry may resume once after a producer repair only
+when no planning assignment or attempt allowance was admitted. This preserves
+the original comment revision, applied judgment, derived intent and six recorded
+failures. A further failure consumes the permission; replay cannot rearm it.
+Saving the authored draft retains that recovery metadata. An admitted model
+attempt never receives this prelaunch permission, and ordinary planning funding
+and native issue reconciliation still govern the resumed work.
+
 **Principal source owners:** [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/intent_generation.go](../../../internal/factory/control/intent_generation.go), [internal/store/factory_planning_revisions.go](../../../internal/store/factory_planning_revisions.go).
 
 <a id="r33"></a>

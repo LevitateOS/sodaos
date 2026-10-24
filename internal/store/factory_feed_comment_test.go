@@ -570,6 +570,93 @@ func TestRetryFeedCommentPreservesPostAndReconcilesUncertainEffect(t *testing.T)
 	if err := s.RetryFeedComment(ctx, id, "42", 1, "Duplicate", 1729000040); err == nil {
 		t.Fatal("confirmed issue was duplicated")
 	}
+	// Same-content recovery after a prelaunch failure retains the original
+	// source, route and attempts; one further failure consumes the permission.
+	prelaunch := saveTestComment(t, s, 7, "42", "Original prelaunch request", "retry-prelaunch")
+	if err := s.RecordCommentIntake(ctx, prelaunch, 0); err != nil {
+		t.Fatal(err)
+	}
+	original, _ := s.CommentPipeline(ctx, prelaunch)
+	routed := original
+	routed.Judgment, routed.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+	if err := s.AdvanceCommentPipeline(ctx, original, routed); err != nil {
+		t.Fatal(err)
+	}
+	for range factory.CommentAttemptLimit {
+		if err := s.NoteCommentAttempt(ctx, prelaunch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stopped, _ := s.CommentPipeline(ctx, prelaunch)
+	if err := s.RetryFeedComment(ctx, prelaunch, "42", 0, "", 1729000050); err != nil {
+		t.Fatal(err)
+	}
+	continued, err := s.CommentPipeline(ctx, prelaunch)
+	if err != nil || !continued.Resume || continued.Attempts != factory.CommentAttemptLimit || continued.Revision != 0 || continued.Judgment != routed.Judgment || continued.Route != routed.Route || !continued.AdmitCommentDraft() || PostStatus(&continued) != "draft:pending" {
+		t.Fatalf("prelaunch recovery replaced original state: %+v %v", continued, err)
+	}
+	if err := s.AdvanceCommentPipeline(ctx, stopped, stopped); err != ErrStaleRevision {
+		t.Fatalf("old pipeline write replaced resumption: %v", err)
+	}
+	if err := s.RetryFeedComment(ctx, prelaunch, "42", 0, "", 1729000051); err == nil {
+		t.Fatal("duplicate recovery request admitted")
+	}
+	if err := s.NoteCommentAttempt(ctx, prelaunch); err != nil {
+		t.Fatal(err)
+	}
+	failed, _ := s.CommentPipeline(ctx, prelaunch)
+	if failed.Resume || failed.Attempts != factory.CommentAttemptLimit || failed.Revision != 0 || failed.AdmitCommentDraft() {
+		t.Fatalf("recovery failure lost original attempts or kept running: %+v", failed)
+	}
+	if err := s.DiscardCommentDraftData(ctx, prelaunch); err != nil {
+		t.Fatal(err)
+	}
+	var recoveryAudit []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_feed_comment_requests WHERE comment=$1`, prelaunch).Scan(&recoveryAudit); err != nil {
+		t.Fatal(err)
+	}
+	var audit map[string]any
+	if err := json.Unmarshal(recoveryAudit, &audit); err != nil || audit["resumed"] != true || audit["resumed_at"] != float64(1729000050) {
+		t.Fatalf("discarding draft erased recovery history: %s %v", recoveryAudit, err)
+	}
+	if err := s.RetryFeedComment(ctx, prelaunch, "42", 0, "", 1729000052); err == nil {
+		t.Fatal("second prelaunch recovery permission admitted")
+	}
+	requests, err := s.PendingCommentPipelines(ctx, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range requests {
+		if request.Comment == prelaunch {
+			t.Fatal("failed recovery kept consuming service slots")
+		}
+	}
+	admittedID := saveTestComment(t, s, 7, "42", "Admitted request", "retry-admitted")
+	if err := s.RecordCommentIntake(ctx, admittedID, 0); err != nil {
+		t.Fatal(err)
+	}
+	original, _ = s.CommentPipeline(ctx, admittedID)
+	routed = original
+	routed.Judgment, routed.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+	if err := s.AdvanceCommentPipeline(ctx, original, routed); err != nil {
+		t.Fatal(err)
+	}
+	for range factory.CommentAttemptLimit {
+		if err := s.NoteCommentAttempt(ctx, admittedID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assignment := insertTestAssignmentRow(t, s, ctx, 7, 1)
+	if _, err := s.db.ExecContext(ctx, `UPDATE factory_assignments SET data=data || jsonb_build_object('subject',jsonb_build_object('kind','intent','intent',jsonb_build_object('intent_id',$2::text))) WHERE id=$1`, assignment, factory.CommentDecisionID("intent", admittedID, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryFeedComment(ctx, admittedID, "42", 0, "", 1729000060); err == nil {
+		t.Fatal("admitted planning attempt received prelaunch recovery permission")
+	}
+	admittedPipe, _ := s.CommentPipeline(ctx, admittedID)
+	if admittedPipe.Resume || admittedPipe.Revision != 0 || admittedPipe.Attempts != factory.CommentAttemptLimit || admittedPipe.Judgment != routed.Judgment {
+		t.Fatalf("admitted request history changed: %+v", admittedPipe)
+	}
 }
 
 func TestPendingCommentRequestsRotatePastWaitingWork(t *testing.T) {

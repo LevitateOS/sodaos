@@ -225,6 +225,32 @@ func TestDriveCommentNewIssueToVerified(t *testing.T) {
 	if judge.calls != 1 || drafter.calls != 1 || creator.creates != 1 {
 		t.Fatalf("replay spent: judge=%d draft=%d creates=%d", judge.calls, drafter.calls, creator.creates)
 	}
+	// Exhausted prelaunch authoring resumes through the normal service driver,
+	// keeping the applied routing receipt and source identity unchanged.
+	resumeID := saveDriveComment(t, s, ctx, "please fix the login redirect", "prelaunch-recovery")
+	failedDrafter := &fakeCommentDrafter{err: errors.New("source assembly unavailable")}
+	resumeJudge := &fakeCommentJudge{judgment: CommentJudgment{Route: factory.CommentRouteNewIssue}}
+	resumeCreator := &fakeCommentCreator{next: 200, issues: map[string]int64{}}
+	resumeWired := &CommentCollaborators{Judge: resumeJudge, Drafter: failedDrafter, Creator: resumeCreator}
+	for range factory.CommentAttemptLimit {
+		if _, err := driveCommentPipeline(ctx, s, resumeWired, resumeID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RetryFeedComment(ctx, resumeID, "42", 0, "", 1729000050); err != nil {
+		t.Fatal(err)
+	}
+	failedDrafter.err, failedDrafter.draft = nil, validTestDraft(resumeID)
+	if driven := drivePendingComments(ctx, s, resumeWired, 4); driven != 1 {
+		t.Fatalf("resumed request missing from service continuation: %d", driven)
+	}
+	settled, err := s.CommentPipeline(ctx, resumeID)
+	if err != nil || settled.Revision != 0 || settled.Attempts != factory.CommentAttemptLimit || settled.Resume || settled.Effect != factory.CommentEffectVerified || settled.Issue != 201 {
+		t.Fatalf("same-source recovery did not settle: %+v %v", settled, err)
+	}
+	if resumeJudge.calls != 1 || failedDrafter.calls != factory.CommentAttemptLimit+1 || resumeCreator.creates != 1 {
+		t.Fatalf("recovery rejudged or duplicated effect: judge=%d draft=%d creates=%d", resumeJudge.calls, failedDrafter.calls, resumeCreator.creates)
+	}
 }
 
 func TestDriveCommentDiscussionCreatesNothing(t *testing.T) {
@@ -251,16 +277,26 @@ func TestDriveCommentMalformedDraftBlocksEffect(t *testing.T) {
 	id := saveDriveComment(t, s, ctx, "fix it", "key-1")
 	broken := validTestDraft(id)
 	broken.Acceptance = ""
+	drafter := &fakeCommentDrafter{err: errors.New("source assembly unavailable")}
 	wired := &CommentCollaborators{
 		Judge:   &fakeCommentJudge{judgment: CommentJudgment{Route: factory.CommentRouteNewIssue}},
-		Drafter: &fakeCommentDrafter{draft: broken},
+		Drafter: drafter,
 		Creator: &fakeCommentCreator{next: 100, issues: map[string]int64{}},
 	}
+	for range factory.CommentAttemptLimit {
+		if _, err := driveCommentPipeline(ctx, s, wired, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RetryFeedComment(ctx, id, "42", 0, "", 1729000050); err != nil {
+		t.Fatal(err)
+	}
+	drafter.err, drafter.draft = nil, broken
 	response, err := driveCommentPipeline(ctx, s, wired, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.Draft != factory.CommentDraftInvalid || response.Effect != factory.CommentEffectBlocked {
+	if response.Draft != factory.CommentDraftInvalid || response.Effect != factory.CommentEffectBlocked || response.Resume || response.Attempts != factory.CommentAttemptLimit || response.Revision != 0 {
 		t.Fatalf("malformed response: %+v", response)
 	}
 	if _, err := s.CommentDraft(ctx, id, 0); err == nil {

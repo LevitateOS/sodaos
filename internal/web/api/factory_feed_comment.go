@@ -390,6 +390,7 @@ func feedCommentResponse(detail store.FeedCommentDetail, pipe factory.CommentPip
 		"draft": pipe.Draft, "effect": pipe.Effect, "issue": pipe.Issue,
 		"existing_issue": commentExistingIssue(pipe), "source": detail.Source,
 		"attempts": pipe.Attempts, "attempt_limit": factory.CommentAttemptLimit,
+		"resume":    pipe.Resume,
 		"detail":    progress,
 		"can_retry": detail.Record.Author == actor && !detail.Record.Deleted && !detail.Record.Revoked && pipe.RetryAllowed(),
 	}
@@ -962,7 +963,7 @@ func commentExistingIssue(pipe factory.CommentPipeline) int64 {
 // commentResponse renders one stored pipeline row as the POST answer.
 func commentResponse(pipe factory.CommentPipeline) factory.CommentResponse {
 	return factory.CommentResponse{
-		Attempts: pipe.Attempts, AttemptLimit: factory.CommentAttemptLimit,
+		Attempts: pipe.Attempts, AttemptLimit: factory.CommentAttemptLimit, Resume: pipe.Resume,
 		Comment: pipe.Comment, Revision: pipe.Revision, Intake: pipe.Intake,
 		Judgment: pipe.Judgment, Route: pipe.Route, Draft: pipe.Draft,
 		Effect: pipe.Effect, Issue: pipe.Issue, ExistingIssue: commentExistingIssue(pipe),

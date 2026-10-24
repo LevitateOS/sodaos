@@ -1197,6 +1197,7 @@ export interface CommentPipelineState {
   canRetry?: boolean;
   attempts?: number;
   attemptLimit?: number;
+  resume?: boolean;
   commentId: string;
   revision: number;
   intake: string;
@@ -1269,6 +1270,7 @@ export function parseCommentPipelineState(value: unknown): CommentPipelineState 
   check(attempts === undefined || (typeof attempts === 'number' && Number.isSafeInteger(attempts) && attempts >= 0));
   check(attemptLimit === undefined || (typeof attemptLimit === 'number' && Number.isSafeInteger(attemptLimit) && attemptLimit > 0));
   check(attempts === undefined || attemptLimit === undefined || attempts <= attemptLimit);
+  check(data.resume === undefined || typeof data.resume === 'boolean');
   const parsed: CommentPipelineState = {
     commentId: comment,
     revision,
@@ -1281,6 +1283,7 @@ export function parseCommentPipelineState(value: unknown): CommentPipelineState 
     existingIssue: typeof selected === 'number' ? selected : 0,
     ...(typeof data.detail === 'string' && data.detail ? {detail: data.detail} : {}),
     ...(typeof data.can_retry === 'boolean' ? {canRetry: data.can_retry} : {}),
+    ...(typeof data.resume === 'boolean' ? {resume: data.resume} : {}),
   };
   if (source !== undefined) parsed.source = source;
   if (typeof attempts === 'number') parsed.attempts = attempts;
@@ -1391,7 +1394,7 @@ export function newIdempotencyKey(): string {
 // outcomes (verified/applied/blocked/failed/discussion/clarify) need no
 // polling; reads never drive them further.
 export function commentAttemptsExhausted(state: CommentPipelineState): boolean {
-  return state.attempts !== undefined && state.attemptLimit !== undefined && state.attempts >= state.attemptLimit;
+  return !state.resume && state.attempts !== undefined && state.attemptLimit !== undefined && state.attempts >= state.attemptLimit;
 }
 
 export function commentUnsettled(state: CommentPipelineState): boolean {

@@ -632,6 +632,78 @@ test('Designed blocks render recorded segments; durable continuation lands witho
   );
   assert.equal(durable?.posts, 1);
   assert.ok((durable?.reads ?? 0) >= 2);
+  // A separately resumed new-work request retains six historical failures.
+  // Its explicit permission must keep polling and show pending authoring.
+  const resumedPage = await fixture(t);
+  await resumedPage.evaluate(
+    ({commentId}) => {
+      window.drawerFixture.api.setPresentation('settings');
+      const state = {reads: 0, released: false};
+      (window as unknown as {resumeFeedState?: unknown}).resumeFeedState = state;
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.endsWith('/api/factory/feed/subscription'))
+          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        if (call.url.includes('/api/repositories?q='))
+          return Response.json({
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
+            next_cursor: '',
+          });
+        if (call.url.includes('/api/factory/feed?'))
+          return Response.json({
+            entries: [{kind: 'post', id: commentId, repository: 7, seq: 71, actor: '1', status: 'draft:pending'}],
+            truncated: false,
+          });
+        if (call.url.endsWith(`/api/factory/feed/comments/${commentId}`)) {
+          state.reads++;
+          return Response.json({
+            comment_id: commentId,
+            revision: 0,
+            repository: 7,
+            author: '1',
+            author_name: 'alice',
+            at: 1720000000,
+            body: 'Please add substitute approvers.',
+            intake: 'recorded',
+            judgment: 'applied',
+            route: 'new_issue',
+            draft: state.released ? 'applied' : 'pending',
+            effect: state.released ? 'verified' : 'pending',
+            issue: state.released ? 10 : 0,
+            attempts: 6,
+            attempt_limit: 6,
+            resume: !state.released,
+            can_retry: false,
+          });
+        }
+        return null;
+      });
+    },
+    {commentId}
+  );
+  await refresh(resumedPage);
+  await resumedPage.evaluate(() => window.drawerFixture.mountFeed());
+  const resumedFeed = resumedPage.locator('soda-factory-feed');
+  await resumedFeed.getByText('Please add substitute approvers.', {exact: true}).waitFor();
+  await resumedFeed.locator(`[data-feed-drawer-toggle="post:${commentId}"]`).click();
+  assert.match(await resumedFeed.innerText(), /Routed to new work\. Product Lead issue authoring pending\./);
+  assert.equal(await resumedFeed.getByText(/stopped — attempts exhausted/).count(), 0);
+  await resumedPage.evaluate(() => {
+    (window as unknown as {resumeFeedState: {released: boolean}}).resumeFeedState.released = true;
+  });
+  await resumedFeed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+  assert.match(await resumedFeed.innerText(), /Issue #10 created\./);
+  assert.equal(
+    await resumedPage.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length),
+    0
+  );
 });
 
 test('a project comment works before the first worker post', async (t) => {

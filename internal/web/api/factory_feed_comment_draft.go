@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,14 +80,6 @@ type IntentCommentDrafter struct {
 	Now func() time.Time
 }
 
-// commentDecisionID derives one deterministic decision identity for
-// a comment-bound record, so replays converge on the same intent,
-// revision and idea instead of minting new ones.
-func commentDecisionID(kind, comment string, revision int64) string {
-	sum := sha256.Sum256([]byte("soda-comment-intent-v1:" + kind + ":" + comment + ":" + strconv.FormatInt(revision, 10)))
-	return "d" + hex.EncodeToString(sum[:])[:24]
-}
-
 // commentSourceContext renders the recorded work context one
 // comment was submitted in — its resolved source snapshot and/or its
 // bound issue scope — as planner-facing evidence text. Only
@@ -134,7 +124,7 @@ func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUn
 		return factory.IntentRevision{}, errors.New("comment body exceeds the planning idea bound")
 	}
 	commentID, revision := comment.Record.ID, comment.Record.Revision
-	ideaID := commentDecisionID("idea", commentID, revision)
+	ideaID := factory.CommentDecisionID("idea", commentID, revision)
 	ideas := []factory.ProductIdea{{
 		ID: ideaID, Description: body,
 		Consequence: "The requested change is tracked as work and completed.",
@@ -142,14 +132,14 @@ func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUn
 	}}
 	if context := commentSourceContext(comment); context != "" {
 		ideas = append(ideas, factory.ProductIdea{
-			ID: commentDecisionID("source", commentID, revision), Description: context,
+			ID: factory.CommentDecisionID("source", commentID, revision), Description: context,
 			Consequence: "Authored work fits alongside this existing tracked work.",
 			Decision:    "pending", Source: "supported", Provenance: "autonomous", Evidence: context,
 		})
 	}
 	head := factory.IntentRevision{
-		ID:         commentDecisionID("revision", commentID, revision),
-		Intent:     commentDecisionID("intent", commentID, revision),
+		ID:         factory.CommentDecisionID("revision", commentID, revision),
+		Intent:     factory.CommentDecisionID("intent", commentID, revision),
 		Owner:      author,
 		Repository: comment.Record.Repository,
 		Objective:  body,
@@ -168,7 +158,7 @@ func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUn
 // concurrent save of the identical deterministic revision replays
 // through the read-back instead of failing the drive.
 func (d *IntentCommentDrafter) ensureCommentDraftIntent(ctx context.Context, comment store.FeedCommentDetail, author int64) (factory.IntentRevision, error) {
-	intentID := commentDecisionID("intent", comment.Record.ID, comment.Record.Revision)
+	intentID := factory.CommentDecisionID("intent", comment.Record.ID, comment.Record.Revision)
 	if head, err := d.Store.IntentRevision(ctx, intentID, author); err == nil {
 		return head, nil
 	} else if !errors.Is(err, store.ErrNotFound) && !isNoRowsIntent(err) {

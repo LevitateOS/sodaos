@@ -338,9 +338,9 @@ func (s *Store) RecordCommentIntake(ctx context.Context, commentID string, revis
 // CommentPipeline reads the durable request behind one comment.
 func (s *Store) CommentPipeline(ctx context.Context, commentID string) (factory.CommentPipeline, error) {
 	var pipe factory.CommentPipeline
-	err := s.db.QueryRowContext(ctx, `SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts
+	err := s.db.QueryRowContext(ctx, `SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts,COALESCE((data->>'resume')::boolean,false)
 		FROM factory_feed_comment_requests WHERE comment=$1`, commentID).
-		Scan(&pipe.Comment, &pipe.Revision, &pipe.Intake, &pipe.Judgment, &pipe.Route, &pipe.Draft, &pipe.Effect, &pipe.Issue, &pipe.Attempts)
+		Scan(&pipe.Comment, &pipe.Revision, &pipe.Intake, &pipe.Judgment, &pipe.Route, &pipe.Draft, &pipe.Effect, &pipe.Issue, &pipe.Attempts, &pipe.Resume)
 	if err != nil {
 		return factory.CommentPipeline{}, err
 	}
@@ -364,10 +364,11 @@ func (s *Store) AdvanceCommentPipeline(ctx context.Context, expected, next facto
 	defer tx.Rollback()
 	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests
 		SET revision=$2,intake=$3,judgment=$4,route=$5,draft=$6,effect=$7,issue=$8,attempts=$9,
-		data=CASE WHEN $12='pending' AND $4='applied' AND $5='existing_work' THEN data || jsonb_build_object('feedback_revision',$2::bigint) ELSE data END
-		WHERE comment=$1 AND revision=$10 AND intake=$11 AND judgment=$12 AND route=$13 AND draft=$14 AND effect=$15 AND issue=$16 AND attempts=$17`,
+		data=(CASE WHEN $12='pending' AND $4='applied' AND $5='existing_work' THEN data || jsonb_build_object('feedback_revision',$2::bigint) ELSE data END)
+			|| jsonb_build_object('resume',CASE WHEN $7 IN ('applied','verified','blocked') OR $6='invalid' THEN false ELSE $18 END)
+		WHERE comment=$1 AND revision=$10 AND intake=$11 AND judgment=$12 AND route=$13 AND draft=$14 AND effect=$15 AND issue=$16 AND attempts=$17 AND COALESCE((data->>'resume')::boolean,false)=$18`,
 		next.Comment, next.Revision, next.Intake, next.Judgment, next.Route, next.Draft, next.Effect, next.Issue, next.Attempts,
-		expected.Revision, expected.Intake, expected.Judgment, expected.Route, expected.Draft, expected.Effect, expected.Issue, expected.Attempts)
+		expected.Revision, expected.Intake, expected.Judgment, expected.Route, expected.Draft, expected.Effect, expected.Issue, expected.Attempts, expected.Resume)
 	if err != nil {
 		return err
 	}
@@ -397,8 +398,9 @@ func (s *Store) AdvanceCommentPipeline(ctx context.Context, expected, next facto
 // retry against the bounded attempt count. Exhaustion refuses instead
 // of spending blindly.
 func (s *Store) NoteCommentAttempt(ctx context.Context, commentID string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET attempts=attempts+1
-		WHERE comment=$1 AND attempts<$2`, commentID, factory.CommentAttemptLimit)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+		SET attempts=LEAST(attempts+1,$2),data=CASE WHEN attempts=$2 THEN data || '{"resume":false}'::jsonb ELSE data END
+		WHERE comment=$1 AND (attempts<$2 OR COALESCE((data->>'resume')::boolean,false))`, commentID, factory.CommentAttemptLimit)
 	if err != nil {
 		return err
 	}
@@ -466,7 +468,7 @@ func (s *Store) RecordCommentDraft(ctx context.Context, draft factory.IssueDraft
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data=$2
+	_, err = s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data=data || $2::jsonb
 		WHERE comment=$1 AND revision=$3`, draft.Comment, string(raw), draft.Revision)
 	return err
 }
@@ -475,7 +477,8 @@ func (s *Store) RecordCommentDraft(ctx context.Context, draft factory.IssueDraft
 // is refused as malformed: a refused draft must never stay servable
 // behind its pipeline row.
 func (s *Store) DiscardCommentDraftData(ctx context.Context, commentID string) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data='{}' WHERE comment=$1`, commentID)
+	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+		SET data=data - ARRAY['comment','revision','title','body','objective','acceptance','metadata'] WHERE comment=$1`, commentID)
 	return err
 }
 
@@ -514,7 +517,7 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		COALESCE((c.data->>'edited')::boolean,false),COALESCE((c.data->>'deleted')::boolean,false),
 		COALESCE((c.data->>'revoked')::boolean,false),COALESCE(c.data->>'author_name',''),
 		COALESCE((c.data->>'at')::bigint,0),
-		COALESCE(r.judgment,''),COALESCE(r.route,''),COALESCE(r.draft,''),COALESCE(r.effect,''),COALESCE(r.issue,0),COALESCE(r.attempts,0),c.data
+		COALESCE(r.judgment,''),COALESCE(r.route,''),COALESCE(r.draft,''),COALESCE(r.effect,''),COALESCE(r.issue,0),COALESCE(r.attempts,0),COALESCE((r.data->>'resume')::boolean,false),c.data
 		FROM factory_feed_comments c LEFT JOIN factory_feed_comment_requests r ON r.comment=c.id
 		WHERE c.id = ANY($1)`, ids)
 	if err != nil {
@@ -526,11 +529,12 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		var judgment, route, draft, effect string
 		var issue int64
 		var attempts int
+		var resume bool
 		var dataRaw []byte
 		if err := rows.Scan(&detail.Record.ID, &detail.Record.Repository, &detail.Record.Revision,
 			&detail.Record.Author, &detail.Body, &detail.Record.ReplyTo, &detail.Record.Issue,
 			&detail.Record.Edited, &detail.Record.Deleted, &detail.Record.Revoked,
-			&detail.AuthorName, &detail.At, &judgment, &route, &draft, &effect, &issue, &attempts, &dataRaw); err != nil {
+			&detail.AuthorName, &detail.At, &judgment, &route, &draft, &effect, &issue, &attempts, &resume, &dataRaw); err != nil {
 			return nil, err
 		}
 		if detail.Record.Deleted || detail.Record.Revoked {
@@ -541,7 +545,7 @@ func (s *Store) FeedPostDetails(ctx context.Context, ids []string) (map[string]F
 		} else {
 			detail.Status = PostStatus(&factory.CommentPipeline{
 				Comment: detail.Record.ID, Intake: factory.CommentIntakeRecorded,
-				Judgment: judgment, Route: route, Draft: draft, Effect: effect, Issue: issue, Attempts: attempts,
+				Judgment: judgment, Route: route, Draft: draft, Effect: effect, Issue: issue, Attempts: attempts, Resume: resume,
 			})
 		}
 		if err := applyFeedCommunicationDetail(&detail, dataRaw); err != nil {
@@ -635,12 +639,12 @@ func (s *Store) PendingCommentPipelines(ctx context.Context, limit int) ([]facto
 	if limit <= 0 || limit > 64 {
 		return nil, errors.New("invalid pending comment listing limit")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT r.comment,r.revision,r.intake,r.judgment,r.route,r.draft,r.effect,r.issue,r.attempts
+	rows, err := s.db.QueryContext(ctx, `SELECT r.comment,r.revision,r.intake,r.judgment,r.route,r.draft,r.effect,r.issue,r.attempts,COALESCE((r.data->>'resume')::boolean,false)
 		FROM factory_feed_comment_requests r
 		JOIN factory_feed_comments c ON c.id=r.comment
 		WHERE COALESCE((c.data->>'deleted')::boolean,false)=false
 		AND COALESCE((c.data->>'revoked')::boolean,false)=false
-		AND r.attempts<$2
+		AND (r.attempts<$2 OR COALESCE((r.data->>'resume')::boolean,false))
 		AND (r.judgment='pending'
 			OR (r.judgment='applied' AND r.route='new_issue'
 				AND (r.draft='pending' OR (r.draft='applied' AND r.effect IN ('pending','failed'))))
@@ -653,7 +657,7 @@ func (s *Store) PendingCommentPipelines(ctx context.Context, limit int) ([]facto
 	var out []factory.CommentPipeline
 	for rows.Next() {
 		var pipe factory.CommentPipeline
-		if err := rows.Scan(&pipe.Comment, &pipe.Revision, &pipe.Intake, &pipe.Judgment, &pipe.Route, &pipe.Draft, &pipe.Effect, &pipe.Issue, &pipe.Attempts); err != nil {
+		if err := rows.Scan(&pipe.Comment, &pipe.Revision, &pipe.Intake, &pipe.Judgment, &pipe.Route, &pipe.Draft, &pipe.Effect, &pipe.Issue, &pipe.Attempts, &pipe.Resume); err != nil {
 			return nil, err
 		}
 		if err := pipe.Validate(); err != nil {
@@ -705,10 +709,11 @@ func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expecte
 	}
 	var draft, effect, route, judgment string
 	var attempts int
-	if err := tx.QueryRowContext(ctx, `SELECT draft,effect,route,judgment,attempts FROM factory_feed_comment_requests WHERE comment=$1 FOR UPDATE`, id).Scan(&draft, &effect, &route, &judgment, &attempts); err != nil {
+	var resume, resumed bool
+	if err := tx.QueryRowContext(ctx, `SELECT draft,effect,route,judgment,attempts,COALESCE((data->>'resume')::boolean,false),COALESCE((data->>'resumed')::boolean,false) FROM factory_feed_comment_requests WHERE comment=$1 FOR UPDATE`, id).Scan(&draft, &effect, &route, &judgment, &attempts, &resume, &resumed); err != nil {
 		return err
 	}
-	if !(factory.CommentPipeline{Draft: draft, Effect: effect, Route: route, Judgment: judgment, Attempts: attempts}).RetryAllowed() {
+	if !(factory.CommentPipeline{Draft: draft, Effect: effect, Route: route, Judgment: judgment, Attempts: attempts, Resume: resume}).RetryAllowed() {
 		return errors.New("this request is still processing or has already completed")
 	}
 	if effect == factory.CommentEffectApplied || effect == factory.CommentEffectVerified {
@@ -720,7 +725,21 @@ func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expecte
 	if err := (factory.CommentRequest{Repository: 1, Body: body, IdempotencyKey: "retry"}).Validate(); err != nil {
 		return err
 	}
-	if draft == factory.CommentDraftApplied {
+	if body == oldBody && judgment == factory.CommentJudgmentApplied && route == factory.CommentRouteNewIssue && draft == factory.CommentDraftPending && effect == factory.CommentEffectPending && attempts == factory.CommentAttemptLimit {
+		// A producer failure before admission can resume once after repair.
+		// Keep all six failures, the source revision and the applied judgment.
+		// This permission never replaces or retries an admitted model attempt.
+		intent := factory.CommentDecisionID("intent", id, revision)
+		var admitted bool
+		if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE data->'subject'->'intent'->>'intent_id'=$1)
+			OR EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE data->'intent'->>'intent_id'=$1)`, intent).Scan(&admitted); err != nil {
+			return err
+		}
+		if resumed || admitted {
+			return errors.New("this request already resumed or admitted its planning attempt")
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET data=data || jsonb_build_object('resume',true,'resumed',true,'resumed_at',$2::bigint,'detail','') WHERE comment=$1`, id, at)
+	} else if draft == factory.CommentDraftApplied {
 		if body != oldBody {
 			return errors.New("check the previous issue creation before changing this request")
 		}
@@ -800,7 +819,7 @@ func PostStatus(pipe *factory.CommentPipeline) string {
 		return "open"
 	}
 	if pipe.Judgment == factory.CommentJudgmentPending {
-		if pipe.Attempts >= factory.CommentAttemptLimit {
+		if pipe.Attempts >= factory.CommentAttemptLimit && !pipe.Resume {
 			return "judgment:failed"
 		}
 		return "judgment:pending"
@@ -821,7 +840,7 @@ func PostStatus(pipe *factory.CommentPipeline) string {
 		return "open"
 	}
 	if pipe.Draft == factory.CommentDraftPending {
-		if pipe.Attempts >= factory.CommentAttemptLimit {
+		if pipe.Attempts >= factory.CommentAttemptLimit && !pipe.Resume {
 			return "draft:failed"
 		}
 		return "draft:pending"
@@ -839,7 +858,7 @@ func PostStatus(pipe *factory.CommentPipeline) string {
 	case factory.CommentEffectFailed:
 		return "effect:failed"
 	default:
-		if pipe.Attempts >= factory.CommentAttemptLimit {
+		if pipe.Attempts >= factory.CommentAttemptLimit && !pipe.Resume {
 			return "effect:unconfirmed"
 		}
 		return "effect:pending"
