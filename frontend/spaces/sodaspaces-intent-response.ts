@@ -662,17 +662,30 @@ export async function runPlanWork(
   check(launched.revision === revision);
   const status = intentPlanStatus(await fetchPlan());
   check(status.revision === revision);
-  return {notice: 'Planning is running. The status below follows the run.', status};
+  return {
+    notice:
+      launched.launchConfirmed === false
+        ? 'Planning was accepted, but its start response was not confirmed. The status below follows the existing run.'
+        : 'Planning is running. The status below follows the run.',
+    status,
+  };
 }
 export interface IntentPlanLaunch {
   assignment: string;
   run: string;
   revision: string;
+  launchConfirmed?: boolean;
 }
 export function intentPlanLaunch(value: unknown): IntentPlanLaunch {
   const raw = object(value);
   check(runID(raw.assignment_id) && runID(raw.run_id) && decisionID(raw.revision_id));
-  return {assignment: String(raw.assignment_id), run: String(raw.run_id), revision: String(raw.revision_id)};
+  check(raw.launch_confirmed === undefined || typeof raw.launch_confirmed === 'boolean');
+  return {
+    assignment: String(raw.assignment_id),
+    run: String(raw.run_id),
+    revision: String(raw.revision_id),
+    ...(raw.launch_confirmed === undefined ? {} : {launchConfirmed: raw.launch_confirmed}),
+  };
 }
 export type IntentPlanState = 'none' | 'pending' | 'completed' | 'attention' | 'failed' | 'cancelled';
 const planState = (value: unknown): value is IntentPlanState =>

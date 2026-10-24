@@ -19,6 +19,7 @@ interface IntentStore {
   exploreFundingRequired: boolean;
   allowanceCalls: {method: string; path: string; body: Record<string, unknown> | null}[];
   planCalls: {revision: string; operation: string}[];
+  planReplyUnconfirmed: boolean;
   seedAllowance(entry: Record<string, unknown>): void;
 }
 // Test-local private intent peer: records saved revisions, serves the declared
@@ -155,6 +156,7 @@ async function installIntentStore(page: Page) {
       exploreFundingRequired: false,
       allowanceCalls: [] as {method: string; path: string; body: Record<string, unknown> | null}[],
       planCalls: [] as {revision: string; operation: string}[],
+      planReplyUnconfirmed: false,
       seedAllowance(entry: Record<string, unknown>) {
         allowances.set(String(entry.intent), entry);
       },
@@ -236,8 +238,13 @@ async function installIntentStore(page: Page) {
             store.planCalls.push(body);
             plans.set(String(record.id), {revision: String(record.id), state: 'completed', candidates: 1});
             return Response.json(
-              {assignment_id: 'a'.repeat(32), run_id: 'b'.repeat(32), revision_id: record.id},
-              {status: 201}
+              {
+                assignment_id: 'a'.repeat(32),
+                run_id: 'b'.repeat(32),
+                revision_id: record.id,
+                ...(store.planReplyUnconfirmed ? {launch_confirmed: false} : {}),
+              },
+              {status: store.planReplyUnconfirmed ? 202 : 201}
             );
           }
           return Response.json(plans.get(String(record.id)) || {revision: record.id, state: 'none'});
@@ -361,14 +368,27 @@ async function updateProposal(page: Page) {
 }
 // The declared planning peer settles a bounded proposal; all actions below
 // use the emitted workspace's ordinary route and visible controls.
-async function planBoundIntent(page: Page) {
+async function planBoundIntent(page: Page, launchUnconfirmed = false) {
   const draft = await lastPostedBody(page, 'draft');
   assert.equal(draft.repository, '7');
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   const planning = page.locator('section[aria-label="Draft planning"]');
+  if (launchUnconfirmed)
+    await page.evaluate(() => {
+      (window as unknown as {intentStore: IntentStore}).intentStore.planReplyUnconfirmed = true;
+    });
   await planning.getByRole('combobox', {name: 'Planning operation', exact: true}).selectOption('propose_intent');
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
+  if (launchUnconfirmed) {
+    await planning
+      .getByText(
+        'Planning was accepted, but its start response was not confirmed. The status below follows the existing run.',
+        {exact: true}
+      )
+      .waitFor();
+    assert.equal(await planning.getByText(/No work was started/).count(), 0);
+  }
   await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
   await planning
     .getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true})
@@ -447,7 +467,7 @@ test('intent-first entry binds a draft before native planning and accepted gener
     await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length),
     0
   );
-  await planBoundIntent(page);
+  await planBoundIntent(page, true);
   const accepted = await lastPostedBody(page, 'accepted');
   assert.equal(accepted.predecessor, bound.body.id);
   assert.equal(accepted.repository, bound.body.repository);

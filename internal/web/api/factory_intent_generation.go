@@ -61,12 +61,13 @@ func (s *API) apiIntentGenerate(w http.ResponseWriter, r *http.Request, v store.
 	auth.JSONResponse(w, 200, generation)
 }
 
-// intentPlanResponse answers a started draft planning run: the exact
-// launched assignment and run under the current head revision.
+// intentPlanResponse names the admitted assignment and run under the current
+// head. LaunchConfirmed is false when the native start observation was lost.
 type intentPlanResponse struct {
-	AssignmentID string `json:"assignment_id"`
-	RunID        string `json:"run_id"`
-	RevisionID   string `json:"revision_id"`
+	AssignmentID    string `json:"assignment_id"`
+	RunID           string `json:"run_id"`
+	RevisionID      string `json:"revision_id"`
+	LaunchConfirmed *bool  `json:"launch_confirmed,omitempty"`
 }
 
 // apiIntentPlan starts one draft planning run through the shared
@@ -124,6 +125,17 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 	}
 	report := s.Coordinator.DispatchIntentPlan(r.Context(), current.Intent, v.User.ID, in.Operation, plan, prep.SourceCommit, prep.ID)
 	if len(report.Errors) != 0 {
+		// A lost launch observation does not undo the funded packet. Return
+		// that exact admitted identity so the caller reads its status instead
+		// of treating an existing worker as a failed storage operation.
+		if report.Errors[0].Reason == control.DispatchErrHost || report.Errors[0].Reason == control.DispatchErrFence {
+			a, readErr := s.Store.IntentPlanAttempt(r.Context(), current.Intent, current.ID)
+			if readErr == nil && a.Validate() == nil && a.Subject.Intent != nil && a.Subject.Intent.OwnerID == v.User.ID && a.Subject.Intent.IntentID == current.Intent && a.Subject.Intent.RevisionID == current.ID && a.Subject.Intent.ScopeDigest == current.Digest() && a.SourceCommit == prep.SourceCommit && a.Preparation == prep.ID && a.PlanningContext != nil && a.PlanningContext.Operation == in.Operation {
+				confirmed := false
+				auth.JSONResponse(w, http.StatusAccepted, intentPlanResponse{AssignmentID: a.ID, RunID: a.Run, RevisionID: current.ID, LaunchConfirmed: &confirmed})
+				return
+			}
+		}
 		factoryCommandError(w, errors.New(report.Errors[0].Detail))
 		return
 	}

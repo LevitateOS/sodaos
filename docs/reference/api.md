@@ -55,6 +55,8 @@ repository and Project permissions.
 | GET | `/api/factory/intents/{intentID}/revisions?limit=1..5` | Recent scope revisions with structural deltas and affected work states |
 | POST | `/api/factory/intent-allowances` | Save allowance revision with head CAS (body-carried intent) |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `settled`, `recommendation`, `consistency`); supported/reversible choices settle autonomously, only consequential assumptions interrupt |
+| POST | `/api/factory/intents/{intentID}/plan` | Plan the exact current draft and operation; 201 names the launched assignment/run/revision. An uncertain start returns 202 with those same admitted identities and `launch_confirmed:false`; inspect the existing run instead of submitting another plan. |
+| GET | `/api/factory/intents/{intentID}/plan` | Read the current draft's retained planning status and canonical result; never funds or launches work. |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |

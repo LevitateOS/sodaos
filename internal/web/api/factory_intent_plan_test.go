@@ -35,16 +35,23 @@ func planSourceDigest() string {
 // consumer proof: it records launches and answers nothing itself, so
 // no provider call or native activation happens in the test.
 type planStubHost struct {
-	launches    []project.FactoryLaunch
-	preparation *project.PrepareState
+	launches          []project.FactoryLaunch
+	preparation       *project.PrepareState
+	launchUnconfirmed bool
 }
 
 func (h *planStubHost) FactoryLaunch(_ context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	h.launches = append(h.launches, in)
+	if h.launchUnconfirmed {
+		return project.FactoryState{}, context.DeadlineExceeded
+	}
 	return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
 }
 
-func (h *planStubHost) FactoryInspect(_ context.Context, _ project.FactoryInspect) (project.FactoryState, error) {
+func (h *planStubHost) FactoryInspect(_ context.Context, in project.FactoryInspect) (project.FactoryState, error) {
+	if h.launchUnconfirmed {
+		return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryRunning, Live: true}, nil
+	}
 	return project.FactoryState{}, host.ErrRunNotFound
 }
 
@@ -579,7 +586,7 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 		t.Fatalf("save: %d %s", code, body)
 	}
 	seedPlanFunding(t, ctx, s)
-	stub := &planStubHost{}
+	stub := &planStubHost{launchUnconfirmed: true}
 	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
 	const statusURL = "/api/factory/intents/d777777777777777777777777/plan"
 	if code, body := call(http.MethodGet, statusURL, ""); code != http.StatusOK {
@@ -597,14 +604,21 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 		}
 	}
 	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
-	if code != http.StatusCreated {
+	if code != http.StatusAccepted {
 		t.Fatalf("plan status=%d body=%s", code, body)
 	}
 	var launched struct {
-		RunID string `json:"run_id"`
+		RunID           string `json:"run_id"`
+		LaunchConfirmed *bool  `json:"launch_confirmed"`
 	}
 	if err := json.Unmarshal(body, &launched); err != nil {
 		t.Fatal(err)
+	}
+	if launched.LaunchConfirmed == nil || *launched.LaunchConfirmed || len(stub.launches) != 1 {
+		t.Fatalf("uncertain launch did not retain exactly one admitted run: %s", body)
+	}
+	if replayCode, replayBody := call(http.MethodPost, statusURL, planRequestBody("d888888888888888888888888")); replayCode != http.StatusAccepted || len(stub.launches) != 1 {
+		t.Fatalf("uncertain launch replay duplicated work or failed recovery: %d %s launches=%d", replayCode, replayBody, len(stub.launches))
 	}
 	if code, body := call(http.MethodGet, statusURL, ""); code != http.StatusOK {
 		t.Fatalf("pending status=%d body=%s", code, body)
