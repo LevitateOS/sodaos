@@ -856,6 +856,13 @@ cancellation and native-effect reconciliation may finish. Reassessment waits
 for the existing repository execution slot, without holding a broker lease while
 waiting for Jev or evidence. Other repositories continue normally.
 
+Independent D16 delivery verification may use that slot while a completion
+decision remains unresolved. Its issue-zero `delivery` subject must still bind
+the current accepted intent, actually delivered tasks, exact source and ready
+reviewer preparation through the atomic delivery guard. Verification neither
+releases the completion fence nor changes its recorded decision; new issue work
+continues to wait.
+
 Enforce the pending-event/generation comparison in the final dispatch packet
 transaction, including Retry and automatic investigation-to-implementation
 advancement; an earlier priority check is insufficient. Include this generation

@@ -15,8 +15,12 @@ import (
 )
 
 func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
-	for _, early := range []bool{false, true} {
-		t.Run(fmt.Sprintf("early-terminal-%t", early), func(t *testing.T) {
+	for _, fixture := range []struct {
+		early bool
+		state string
+	}{{false, factory.ReassessmentCollecting}, {true, factory.ReassessmentCollecting}, {false, factory.ReassessmentAttention}, {true, factory.ReassessmentAttention}} {
+		early := fixture.early
+		t.Run(fmt.Sprintf("%s/early-terminal-%t", fixture.state, early), func(t *testing.T) {
 			ctx := context.Background()
 			db, dsn := dispatchTestDB(t)
 			fx := dispatchSeed(t, db)
@@ -51,6 +55,32 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			raw, _ := json.Marshal(event)
 			if _, err = sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw)); err != nil {
 				t.Fatal(err)
+			}
+			// A real merge also seeds its reassessment cycle. Verification of the
+			// delivered application must not require changing that independent
+			// cycle or repeating its already-recorded judgment to open the fence.
+			cycle := factory.ReassessmentCycle{CycleID: factory.NewID(), EventID: event.ID, Repository: 7, Generation: 1, State: fixture.state}
+			if fixture.state == factory.ReassessmentAttention {
+				cycle.Decision = factory.ReassessmentOptionContinue
+				cycle.Ledger.DecisionCalls = []string{factory.NewID()}
+			}
+			reassessment := store.ReassessmentRecord{Cycle: cycle, Completion: event, Issue: event.Issue}
+			if fixture.state == factory.ReassessmentAttention {
+				reassessment.WaitReason = "decision_not_actionable"
+			}
+			if err = reassessment.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			raw, _ = json.Marshal(reassessment)
+			if _, err = sqlDB.Exec(`INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data) VALUES($1,7,1,$2,$3,$4)`, cycle.CycleID, event.ID, cycle.State, string(raw)); err != nil {
+				t.Fatal(err)
+			}
+			var originalCycle string
+			if err = sqlDB.QueryRow(`SELECT data::text FROM factory_reassessments WHERE cycle=$1`, cycle.CycleID).Scan(&originalCycle); err != nil {
+				t.Fatal(err)
+			}
+			if pending, err := db.CompletionPending(ctx, 7); err != nil || len(pending) != 1 || pending[0] != 1 {
+				t.Fatal("real completion must keep its fence closed", pending, err)
 			}
 			candidates, err = db.DeliveredIntentCandidates(ctx, 16)
 			if err != nil || len(candidates) != 1 {
@@ -88,6 +118,29 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			for _, invalid := range []struct {
+				name string
+				edit func(*factory.DeliverySubject)
+			}{
+				{"foreign-intent", func(s *factory.DeliverySubject) { s.IntentID = phasedDecisionID(61) }},
+				{"stale-accepted-head", func(s *factory.DeliverySubject) { s.AcceptedRevision = phasedDecisionID(62) }},
+				{"changed-accepted-scope", func(s *factory.DeliverySubject) { s.ScopeDigest = strings.Repeat("e", 64) }},
+				{"changed-ready-preparation", func(s *factory.DeliverySubject) { s.PreparationDigest = strings.Repeat("d", 64) }},
+			} {
+				wrong := subject
+				payload := *subject.Delivery
+				wrong.Delivery = &payload
+				invalid.edit(wrong.Delivery)
+				refused := newDispatchReport()
+				DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, wrong, fx.tip, prompt, preparation, &refused)
+				if len(refused.Launched) != 0 || len(refused.Errors)+len(refused.Waits) == 0 {
+					t.Fatalf("%s admitted an unbound verifier: %+v", invalid.name, refused)
+				}
+				var recorded int
+				if err = sqlDB.QueryRow(`SELECT count(*) FROM factory_assignments WHERE data->>'phase'='verify'`).Scan(&recorded); err != nil || recorded != 0 {
+					t.Fatalf("%s wrote a verification packet: %d %v", invalid.name, recorded, err)
+				}
+			}
 			report := newDispatchReport()
 			fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
 				a, err := db.AssignmentByRun(ctx, in.Run.ID)
@@ -107,6 +160,13 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, subject, fx.tip, prompt, preparation, &report)
 			if len(report.Launched) != 1 || len(report.Errors) != 0 || len(report.Waits) != 0 {
 				t.Fatalf("verification dispatch: %+v", report)
+			}
+			var retainedCycle string
+			if err = sqlDB.QueryRow(`SELECT data::text FROM factory_reassessments WHERE cycle=$1`, cycle.CycleID).Scan(&retainedCycle); err != nil || retainedCycle != originalCycle {
+				t.Fatal("verification changed the completion cycle or its judgment", err)
+			}
+			if pending, err := db.CompletionPending(ctx, 7); err != nil || len(pending) != 1 || pending[0] != 1 {
+				t.Fatal("verification released the independent completion fence", pending, err)
 			}
 			seen, err := db.DeliveryAlreadyAssigned(ctx, 7, subject.Delivery.DeliveryID)
 			if err != nil || !seen {

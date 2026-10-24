@@ -205,8 +205,13 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	// earlier priority check alone is insufficient. Reassessment roots
 	// are exempt: the guard below binds the exact pending event and open
 	// cycle they answer, and fencing them would deadlock the cycle they
-	// are admitted to work.
-	if a.Phase != project.ExecutionReassess {
+	// are admitted to work. Independent delivery verification also needs
+	// the integrated work while that cycle remains held. Its owning guard
+	// below binds the current accepted intent, delivered tasks, source and
+	// ready reviewer preparation; it grants no new issue implementation.
+	deliveryVerification := a.Subject.Kind == factory.SubjectDelivery && a.Subject.Delivery != nil &&
+		a.Phase == project.ExecutionVerify && a.Role == project.RoleReviewer && a.Issue == 0
+	if a.Phase != project.ExecutionReassess && !deliveryVerification {
 		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
 			return err
 		}
