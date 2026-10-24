@@ -103,6 +103,13 @@ fn append_worker_env(mut args: Vec<String>, environment: &[String]) -> Result<Ve
 /// argv for one admitted worker dispatch.
 pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     valid_worker_identity(w)?;
+    if !w.credentials.is_empty()
+        && (w.user != "soda-qualifier"
+            || w.credentials.keys().map(String::as_str).collect::<Vec<_>>()
+                != ["guest-ssh-key", "workspace-owner-password"])
+    {
+        return Err("only the two fixed qualification credentials are permitted".into());
+    }
     let mut args = vec![
         "--quiet".to_owned(),
         "--wait".to_owned(),
@@ -127,6 +134,17 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     ];
     args = append_bind_paths(args, "BindReadOnlyPaths", &w.read_only)?;
     args = append_bind_paths(args, "BindPaths", &w.writable)?;
+    for (name, path) in &w.credentials {
+        soda_release_deliver::publish::qualification::protected_path(
+            std::path::Path::new(path),
+            false,
+        )
+        .map_err(|_| "protected qualification credential required")?;
+        if path.contains([':', '\n', '\r', '\t', ' ', '%']) {
+            return Err("qualification credential path refused".into());
+        }
+        args.push(format!("--property=LoadCredential={name}:{path}"));
+    }
     args = append_worker_env(args, &w.environment)?;
     args.push("--".to_owned());
     // systemd-run resolves its executable before applying the unit's binds.

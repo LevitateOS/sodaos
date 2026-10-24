@@ -13,6 +13,21 @@ use std::{
 
 const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
+const RUNTIME: &str = "/run/soda-qualification-runtime";
+const CREDENTIALS: [&str; 2] = ["guest-ssh-key", "workspace-owner-password"];
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Runtime {
+    directory: PathBuf,
+    manifest: PathBuf,
+    manifest_sha256: String,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Credential {
+    path: PathBuf,
+    sha256: String,
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Authority {
@@ -29,6 +44,10 @@ struct Authority {
     target: String,
     timeout_seconds: u64,
     public_inputs: BTreeMap<String, soda_release_deliver::model::FileIdentity>,
+    #[serde(default)]
+    runtime: Option<Runtime>,
+    #[serde(default)]
+    credentials: BTreeMap<String, Credential>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -71,6 +90,122 @@ fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
         .and_then(|f| f.sync_all())
         .map_err(|e| e.to_string())
 }
+fn runtime_files(
+    root: &Path,
+    path: &Path,
+    files: &mut BTreeMap<String, soda_release_deliver::model::FileIdentity>,
+    total: &mut u64,
+) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path).map_err(|_| "qualification runtime unavailable")?;
+    let mode = meta.mode() & 0o7777;
+    if meta.uid() != 0 || meta.file_type().is_symlink() {
+        return Err("root-owned symlink-free qualification runtime required".into());
+    }
+    if meta.is_dir() {
+        if !matches!(mode, 0o555 | 0o755) {
+            return Err("readable nonwritable qualification runtime directory required".into());
+        }
+        for entry in fs::read_dir(path).map_err(|_| "qualification runtime unavailable")? {
+            runtime_files(
+                root,
+                &entry
+                    .map_err(|_| "qualification runtime unavailable")?
+                    .path(),
+                files,
+                total,
+            )?;
+        }
+    } else {
+        *total = total
+            .checked_add(meta.len())
+            .ok_or("qualification runtime too large")?;
+        if !meta.is_file()
+            || meta.nlink() != 1
+            || !matches!(mode, 0o444 | 0o644 | 0o555 | 0o755)
+            || meta.len() > 1 << 30
+            || *total > 2 << 30
+            || files.len() >= 4096
+        {
+            return Err("bounded unshared qualification runtime files required".into());
+        }
+        let name = path
+            .strip_prefix(root)
+            .ok()
+            .and_then(Path::to_str)
+            .ok_or("qualification runtime filename refused")?;
+        files.insert(
+            name.to_owned(),
+            soda_release_deliver::model::FileIdentity {
+                sha256: hash(path)?,
+                bytes: meta.len(),
+            },
+        );
+    }
+    Ok(())
+}
+fn runtime_binding(runtime: &Runtime) -> Result<(), String> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Manifest {
+        format: u32,
+        files: BTreeMap<String, soda_release_deliver::model::FileIdentity>,
+    }
+    evidence::protected_path(&runtime.manifest, false)
+        .map_err(|_| "protected runtime manifest required")?;
+    worker::valid_worker_path(runtime.directory.to_str().ok_or("runtime path refused")?)?;
+    if hash(&runtime.manifest)? != runtime.manifest_sha256
+        || !runtime.directory.is_absolute()
+        || fs::canonicalize(&runtime.directory).map_err(|_| "qualification runtime unavailable")?
+            != runtime.directory
+        || runtime.manifest.starts_with(&runtime.directory)
+    {
+        return Err("qualification runtime identity refused".into());
+    }
+    for ancestor in runtime.directory.ancestors().skip(1) {
+        let meta = fs::symlink_metadata(ancestor)
+            .map_err(|_| "qualification runtime ancestor unavailable")?;
+        if !meta.is_dir()
+            || meta.uid() != 0
+            || meta.mode() & 0o022 != 0
+            || meta.file_type().is_symlink()
+        {
+            return Err("trusted qualification runtime ancestors required".into());
+        }
+    }
+    let manifest: Manifest = read(&runtime.manifest)?;
+    let mut actual = BTreeMap::new();
+    runtime_files(&runtime.directory, &runtime.directory, &mut actual, &mut 0)?;
+    if manifest.format != 1 || actual.is_empty() || manifest.files != actual {
+        return Err("qualification runtime differs from admitted inventory".into());
+    }
+    Ok(())
+}
+fn access_binding(path: &Path, a: &Authority) -> Result<(), String> {
+    if let Some(runtime) = &a.runtime {
+        runtime_binding(runtime)?;
+    }
+    if (!a.credentials.is_empty() || a.purpose == "production")
+        && a.credentials.keys().map(String::as_str).collect::<Vec<_>>() != CREDENTIALS
+    {
+        return Err("the two fixed qualification credentials are required".into());
+    }
+    if a.purpose == "production" && a.runtime.is_none() {
+        return Err("production qualification runtime required".into());
+    }
+    let parent = path
+        .parent()
+        .ok_or("authority parent required")?
+        .join("credentials");
+    for (name, credential) in &a.credentials {
+        worker::valid_worker_path(credential.path.to_str().ok_or("credential path refused")?)?;
+        evidence::protected_path(&credential.path, false)
+            .map_err(|_| "protected qualification credential required")?;
+        if credential.path != parent.join(name) || hash(&credential.path)? != credential.sha256 {
+            return Err("qualification credential identity refused".into());
+        }
+    }
+    Ok(())
+}
 fn authority(path: &Path) -> Result<Authority, String> {
     if worker::euid() != 0 {
         return Err("trusted root release controller required".into());
@@ -97,6 +232,7 @@ fn authority(path: &Path) -> Result<Authority, String> {
     {
         return Err("bounded collector identity and duration required".into());
     }
+    access_binding(path, &a)?;
     Ok(a)
 }
 fn secure_tree(path: &Path, private: bool) -> Result<(), String> {
@@ -350,6 +486,37 @@ fn result_binding(path: &Path, a: &Authority) -> Result<(), String> {
     }
     Ok(())
 }
+fn private_work(attempt: &Path, uid: u32, gid: u32) -> Result<(), String> {
+    for child in [".work", ".work/home", ".work/tmp", ".work/profile"] {
+        let path = attempt.join(child);
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&path)
+            .map_err(|e| e.to_string())?;
+        let path = std::ffi::CString::new(path.as_os_str().as_encoded_bytes())
+            .map_err(|e| e.to_string())?;
+        if unsafe { libc::chown(path.as_ptr(), uid, gid) } != 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+    }
+    Ok(())
+}
+fn remove_private_work(attempt: &Path) -> Result<(), String> {
+    // No native process remains at this point. Reclaim the fixed parent before
+    // inspecting/removing its child; remove_dir_all does not follow symlinks.
+    let parent = std::ffi::CString::new(attempt.as_os_str().as_encoded_bytes())
+        .map_err(|e| e.to_string())?;
+    if unsafe { libc::chown(parent.as_ptr(), 0, 0) } != 0 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    fs::set_permissions(attempt, fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
+    let path = attempt.join(".work");
+    let meta = fs::symlink_metadata(&path).map_err(|_| "private collector work missing")?;
+    if !meta.is_dir() || meta.file_type().is_symlink() {
+        return Err("private collector work directory substituted".into());
+    }
+    fs::remove_dir_all(path).map_err(|_| "private collector work cleanup failed".to_owned())
+}
 pub(crate) fn finalize(out: &Path) -> Result<(), String> {
     let _lock = lock(out)?;
     let (request, a) = retained_request(out)?;
@@ -440,6 +607,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
     if unsafe { libc::chown(c.as_ptr(), uid, gid) } != 0 {
         return Err(std::io::Error::last_os_error().to_string());
     }
+    private_work(&attempt, uid, gid)?;
     let mut nonce = [0; 16];
     getrandom::fill(&mut nonce).map_err(|e| e.to_string())?;
     let name = format!(
@@ -472,7 +640,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         binding,
     };
     write_new(&out.join("request.json"), &request)?;
-    let worker = Worker {
+    let mut worker = Worker {
         name,
         user: "soda-qualifier".into(),
         executable: a.collector.clone(),
@@ -485,8 +653,8 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         writable: vec![format!("{}:{OUTPUT}", attempt.display())],
         environment: vec![
             "PATH=/usr/sbin:/usr/bin:/sbin:/bin".into(),
-            format!("HOME={OUTPUT}"),
-            format!("TMPDIR={OUTPUT}"),
+            format!("HOME={OUTPUT}/.work/home"),
+            format!("TMPDIR={OUTPUT}/.work/tmp"),
         ],
         arguments: vec![
             "--candidate".into(),
@@ -496,7 +664,17 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
             "--target".into(),
             a.target.clone(),
         ],
+        credentials: a
+            .credentials
+            .iter()
+            .map(|(name, value)| (name.clone(), value.path.to_string_lossy().into_owned()))
+            .collect(),
     };
+    if let Some(runtime) = &a.runtime {
+        worker
+            .read_only
+            .push(format!("{}:{RUNTIME}", runtime.directory.display()));
+    }
     crate::build_cli::watch_build_signals();
     let start = Instant::now();
     let mut custody = WorkerUnitCustody::NeverDispatched;
@@ -507,6 +685,9 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         &|| crate::exitcode::has_interrupt() || start.elapsed().as_secs() >= a.timeout_seconds,
         &mut custody,
     );
+    if custody == WorkerUnitCustody::ExactUnitTerminal {
+        remove_private_work(&attempt)?;
+    }
     if let Err(e) = outcome {
         let text = match e {
             worker::WorkerError::Failed(s) | worker::WorkerError::Cancelled(s) => s,
@@ -518,6 +699,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
     if custody != WorkerUnitCustody::ExactUnitTerminal || crate::exitcode::has_interrupt() {
         return Err("collector retirement or completion unconfirmed".into());
     }
+    access_binding(config, &a)?;
     input_binding(&a, &input)?;
     result_binding(&attempt, &a)?;
     secure_tree(&attempt, true)?;

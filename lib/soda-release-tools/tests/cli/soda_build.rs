@@ -219,6 +219,10 @@ fn build_admission_matrix_preserves_release_boundaries() {
                     || native_state.contains("ActiveState=failed\n"),
                 "{mode}: {native_state}"
             );
+            assert!(
+                !out.join("attempt/.work").exists(),
+                "retired private work must be removed"
+            );
             let sealed = out.join("observations");
             if mode == "valid" {
                 assert_eq!(code, 0, "{stdout}{stderr}");
@@ -240,6 +244,18 @@ fn build_admission_matrix_preserves_release_boundaries() {
                         .unwrap();
                 assert!(native_check["uid"].as_u64().unwrap() > 0);
                 assert_eq!(native_check["candidate_read_only"], true);
+                if fixture["runtime_access"] == true {
+                    assert_eq!(native_check["runtime_read_only"], true);
+                    assert_eq!(native_check["masked_home"], true);
+                    assert_eq!(native_check["chromium_sandbox"], true);
+                    assert_eq!(native_check["offline_requests"], 0);
+                    assert_eq!(
+                        native_check["credential_names"],
+                        serde_json::json!(["guest-ssh-key", "workspace-owner-password"])
+                    );
+                }
+                assert!(!sealed.join(".work").exists());
+                assert!(!binding.files.keys().any(|name| name.starts_with(".work/")));
                 assert!(!out.join("input/producer-private-extra").exists());
                 let replay = run(controller, parent, &args);
                 assert_eq!(replay.0, 0, "{}{}", replay.1, replay.2);
@@ -254,7 +270,9 @@ fn build_admission_matrix_preserves_release_boundaries() {
                 let refused = soda_release_deliver::upgrade::stamp(Path::new(candidate), &sealed)
                     .expect_err("development evidence cannot stamp a production upgrade");
                 assert!(
-                    refused.0.contains("production-bound protected collector evidence required"),
+                    refused
+                        .0
+                        .contains("production-bound protected collector evidence required"),
                     "{refused}"
                 );
                 let check = sealed.join("native-check.json");
@@ -353,6 +371,34 @@ fn build_admission_matrix_preserves_release_boundaries() {
                 mode.to_owned(),
                 serde_json::json!({"controller_exit":result.0,"refused_before_attempt":true}),
             );
+        }
+        if fixture["runtime_access"] == true {
+            for mode in [
+                "unknown-credential",
+                "changed-runtime",
+                "credential-mismatch",
+                "production-missing-runtime",
+            ] {
+                let out = parent.join(format!("{mode}-{}", std::process::id()));
+                let result = run(
+                    controller,
+                    parent,
+                    &[
+                        "collect",
+                        "--config",
+                        fixture["configs"][mode].as_str().unwrap(),
+                        "--candidate",
+                        candidate,
+                        "--out",
+                        out.to_str().unwrap(),
+                    ],
+                );
+                assert_ne!(result.0, 0);
+                assert!(
+                    !out.exists(),
+                    "invalid access must refuse before output/native attempt"
+                );
+            }
         }
         // A root-owned config under a caller-writable ancestor is still forged.
         let forged = scratch.path.join("root-leaf.json");

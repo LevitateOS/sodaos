@@ -37,6 +37,14 @@ finalized observations; it does not supply the missing collector commands.
 Prove those commands with component/development checks before producing final
 bytes. Debugging a collector does not require rebuilding unchanged shipping bytes.
 
+Production collection uses a root-admitted runtime inventory and the fixed
+`guest-ssh-key` and `workspace-owner-password` systemd credentials. Its browser
+runtime and public target trust are read-only; private browser state stays in
+the attempt's `.work/` directory until confirmed unit retirement and removal
+before sealing. Never mount a developer checkout or credential directory into
+the collector. The exact configuration and recovery boundary live in the
+[release tools guide](../../lib/soda-release-tools/README.md).
+
 An active workflow reserves the paths in its `request.json`: build output, prepared
 bundle and required worker caches. Cleanup must inspect that request and preserve
 these inputs while building, awaiting publication or qualification, or awaiting

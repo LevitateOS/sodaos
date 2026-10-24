@@ -38,6 +38,29 @@ file below a caller-writable directory is refused. The collector receives only
 `--candidate`, `--out` and `--target` and emits exact-bound `collector.json` plus
 the distribution's native observations. Only exit zero and confirmed native-unit
 retirement produce `executed.json` and a sealed `release-evidence.json` inventory.
+Production authority also requires `runtime` with `directory`, `manifest` and
+`manifest_sha256`, plus the two fixed `credentials` entries `guest-ssh-key` and
+`workspace-owner-password`, each with a protected source `path` and private
+`sha256` pin. Credential sources are root-owned 0600 single-link files in the
+authority file's sibling `credentials/` directory. Keep credential values and
+their pins out of public observations. Systemd supplies private read-only copies
+through `LoadCredential`; build workers receive no credentials.
+On SELinux hosts, apply the installed policy's standard `/etc/credstore` mapping
+to these admitted credential copies and their directory. A preserved home-file
+label can prevent systemd's credential helper from reading them even when their
+root ownership and 0600 permissions are correct.
+
+The root-owned runtime manifest has `format: 1` and a `files` map of relative
+names to exact SHA-256/byte identities. It stays outside the runtime tree. Every
+runtime file must match that complete inventory, with no extra or symlinked
+files, shared hard links or writable ancestors. Only that tree is mounted at
+`/run/soda-qualification-runtime`; developer source and dependency directories
+remain inaccessible. The collector keeps browser profiles, cookies and temporary
+files in the attempt's fixed `.work/` tree. After confirmed unit retirement the
+controller removes that exact private tree before sealing any observations.
+Unknown retirement or cleanup failure prevents sealing. Development fixtures can
+exercise this access path or use the standalone collector boundary.
+
 `soda-release finalize-evidence --out /home/RELEASE-AUTHORITY/observations-attempt` recovers that
 exact executed receipt without rerunning the collector or build. Failed,
 cancelled, incomplete and mismatched attempts stay unqualified. Development

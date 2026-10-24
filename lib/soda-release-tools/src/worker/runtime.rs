@@ -160,6 +160,7 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
     );
     let start_ns = std::env::var("SODA_BUILD_START_NS").unwrap_or_default();
     let mut w = Worker {
+        credentials: Default::default(),
         name,
         user: "soda-build-worker".to_owned(),
         executable: c.executable.clone(),

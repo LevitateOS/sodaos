@@ -46,6 +46,8 @@ pub struct Worker {
     pub writable: Vec<String>,
     pub environment: Vec<String>,
     pub arguments: Vec<String>,
+    /// Only qualification workers receive the two fixed systemd credentials.
+    pub credentials: std::collections::BTreeMap<String, String>,
 }
 
 pub fn euid() -> u32 {
