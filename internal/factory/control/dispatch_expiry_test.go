@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
@@ -228,9 +230,34 @@ func TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry(t *tes
 		t.Fatalf("retry command replay diverged or launched: replay=%+v err=%v launches=%d", replay, err, len(producer.launches))
 	}
 
+	// A fresh Retry prepares asynchronously. Native readiness alone must
+	// retire the empty priority scan and resume this same command, without
+	// a repository write, Store observation or another Retry.
+	producer.prepPhase = project.PrepareRunning
+	deps.PrepareRetry, deps.RetireRetry = fx.coord.prepareRetryCoder, fx.coord.retireRetryCoder
+	deps.Priority = &PriorityJudgments{Journal: fx.db, Chooser: &priorityFixture{choose: priorityLast}}
+	deps.ObserveRevision = func(context.Context) (int64, bool, error) { return 41, true, nil }
+	pending := DispatchPass(ctx, deps)
+	for pass := 0; pass < 3 && len(pending.Errors) == 1 && pending.Errors[0].Reason == PrioritySnapshotChanging && len(pending.Launched) == 0; pass++ {
+		pending = DispatchPass(ctx, deps)
+	}
+	if len(pending.Launched) != 0 || len(pending.Errors) != 0 || waitReason(pending, owner.Issue) != WaitPreparation {
+		t.Fatalf("asynchronous retry preparation did not wait: %+v", pending)
+	}
+	if _, err := fx.db.LoadPriorityScan(ctx); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("asynchronous preparation froze the empty priority scan: %v", err)
+	}
+	preparationsBeforeReady := len(producer.preparations)
+	producer.prepPhase = project.PrepareReady
 	fresh := DispatchPass(ctx, deps)
+	for pass := 0; pass < 3 && len(fresh.Errors) == 1 && fresh.Errors[0].Reason == PrioritySnapshotChanging && len(fresh.Launched) == 0; pass++ {
+		fresh = DispatchPass(ctx, deps)
+	}
 	if len(fresh.Launched) != 1 || len(fresh.Errors) != 0 || len(producer.launches) != launchCount+1 {
 		t.Fatalf("explicit retry did not produce one fresh launch: %+v launches=%d", fresh, len(producer.launches))
+	}
+	if len(producer.preparations) != preparationsBeforeReady {
+		t.Fatal("native readiness replayed asynchronous preparation")
 	}
 	assignment, err := fx.db.Assignment(ctx, commandID)
 	if err != nil || assignment.ID != commandID || assignment.AttemptRoot != commandID || assignment.PublicationAssignment != commandID || assignment.Run == priorRun.ID {

@@ -361,13 +361,15 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 	candidates := selection.candidates
 	if len(candidates) == 0 {
 		// Native availability can recover without changing either the
-		// repository revision or local authority. A completed empty scan
+		// repository revision or local authority. Asynchronous preparation
+		// readiness can likewise advance only on its next native read.
+		// A completed empty scan
 		// must retry these reads, rather than retaining a transient refusal
 		// forever. The next scan still observes the complete inventory
 		// within the existing per-pass cursor and RPC bounds.
 		for _, observation := range scan.Observations {
 			switch observation.Exclusion {
-			case WaitSource, WaitHarness, WaitInputsUnavailable, WaitInputsBusy, WaitInputsStale, WaitInputsIncomplete:
+			case WaitSource, WaitHarness, WaitPreparation, WaitInputsUnavailable, WaitInputsBusy, WaitInputsStale, WaitInputsIncomplete:
 				if err := deps.Store.DeletePriorityScan(ctx); err != nil {
 					report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "transient priority scan unretired"})
 				}

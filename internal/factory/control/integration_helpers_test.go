@@ -586,6 +586,16 @@ func (h *producerFlowHost) PrepareCandidate(_ context.Context, in project.Factor
 
 func (h *producerFlowHost) InspectPreparation(_ context.Context, in project.PrepareInspect) (project.PrepareState, error) {
 	h.prepInspects = append(h.prepInspects, in)
+	if h.prepPhase != "" {
+		for _, candidate := range h.preparations {
+			prep := candidate.Preparation
+			if prep.ID == in.ID && prep.Project == in.Project {
+				return project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role,
+					Phase: h.prepPhase, Container: strings.Repeat("d", 64), SourceCommit: prep.SourceCommit,
+					SetupDigest: prep.SetupDigest, Ready: h.prepPhase == project.PrepareReady}, nil
+			}
+		}
+	}
 	return project.PrepareState{}, project.ErrPreparationNotFound
 }
 
