@@ -16,61 +16,56 @@ type DeliveredIntentCandidate struct {
 	FirstIssue int64
 }
 
-func (s *Store) DeliveredIntentCandidates(ctx context.Context, limit int) ([]DeliveredIntentCandidate, error) {
-	if limit < 1 || limit > 64 {
-		return nil, errors.New("invalid delivery page")
+// DeliveredIntentCandidates examines one bounded accepted-head page. The cursor
+// advances even when every intent is verified, undelivered or waiting, so the
+// controller can rotate past it without dropping retained state.
+func (s *Store) DeliveredIntentCandidates(ctx context.Context, after string, limit int) ([]DeliveredIntentCandidate, string, error) {
+	if limit < 1 || limit > 64 || after != "" && !project.ValidDecisionID(after) {
+		return nil, after, errors.New("invalid delivery page")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT h.id,r.data FROM factory_intent_heads h JOIN factory_intent_revisions r ON r.id=h.revision WHERE r.data->>'state'='accepted' AND h.id>$2 ORDER BY h.id LIMIT $1`, limit, after)
+	if err != nil {
+		return nil, after, err
+	}
+	var revisions []factory.IntentRevision
+	next := ""
+	for rows.Next() {
+		var raw []byte
+		var revision factory.IntentRevision
+		if err = rows.Scan(&next, &raw); err == nil {
+			err = json.Unmarshal(raw, &revision)
+		}
+		if err != nil {
+			rows.Close()
+			return nil, after, err
+		}
+		revisions = append(revisions, revision)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, after, err
 	}
 	var candidates []DeliveredIntentCandidate
-	cursor := ""
-	for len(candidates) < limit {
-		rows, err := s.db.QueryContext(ctx, `SELECT h.id,r.data FROM factory_intent_heads h JOIN factory_intent_revisions r ON r.id=h.revision WHERE r.data->>'state'='accepted' AND h.id>$2 ORDER BY h.id LIMIT $1`, limit, cursor)
+	for _, revision := range revisions {
+		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
-			return nil, err
+			return nil, after, err
 		}
-		var revisions []factory.IntentRevision
-		for rows.Next() {
-			var raw []byte
-			var revision factory.IntentRevision
-			if err = rows.Scan(&cursor, &raw); err == nil {
-				err = json.Unmarshal(raw, &revision)
-			}
-			if err != nil {
-				rows.Close()
-				return nil, err
-			}
-			revisions = append(revisions, revision)
-		}
-		err = rows.Err()
-		rows.Close()
+		verified, err := verifiedAppRevisionTx(ctx, tx, revision)
 		if err != nil {
-			return nil, err
-		}
-		for _, revision := range revisions {
-			tx, err := s.db.BeginTx(ctx, nil)
-			if err != nil {
-				return nil, err
-			}
-			verified, err := verifiedAppRevisionTx(ctx, tx, revision)
-			if err != nil {
-				tx.Rollback()
-				return nil, err
-			}
-			if !verified {
-				issue, err := deliveredIntentTasksTx(ctx, tx, revision)
-				if err == nil {
-					candidates = append(candidates, DeliveredIntentCandidate{Revision: revision, FirstIssue: issue})
-				}
-			}
 			tx.Rollback()
-			if len(candidates) == limit {
-				return candidates, nil
+			return nil, after, err
+		}
+		if !verified {
+			issue, err := deliveredIntentTasksTx(ctx, tx, revision)
+			if err == nil {
+				candidates = append(candidates, DeliveredIntentCandidate{Revision: revision, FirstIssue: issue})
 			}
 		}
-		if len(revisions) < limit {
-			break
-		}
+		tx.Rollback()
 	}
-	return candidates, nil
+	return candidates, next, nil
 }
 
 func (s *Store) DeliveryAlreadyAssigned(ctx context.Context, repository int64, delivery string) (bool, error) {

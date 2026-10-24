@@ -684,7 +684,7 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	if err != nil || len(bindings) != 1 || bindings[0].TaskKey != generated.SubmittedTasks[0].Key {
 		t.Fatalf("recorded graph adoption is unbound: %+v %v", bindings, err)
 	}
-	if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+	if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 0 {
 		t.Fatalf("unmerged generated graph admitted delivery: %+v %v", candidates, err)
 	}
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -698,7 +698,7 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	if _, err = sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,1,$2,$3,'1',$4)`, fx.repo, event.ID, event.PublicationID, string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	candidates, err := db.DeliveredIntentCandidates(ctx, 16)
+	candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16)
 	if err != nil || len(candidates) != 1 || candidates[0].Revision.ID != accepted.ID || candidates[0].FirstIssue != binding.IssueIndex {
 		t.Fatalf("merged recorded graph lost application verification: %+v %v", candidates, err)
 	}
@@ -717,7 +717,7 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 		if _, err := sqlDB.Exec(`UPDATE factory_intent_generations SET data=$2 WHERE revision=$1`, accepted.ID, string(raw)); err != nil {
 			t.Fatal(err)
 		}
-		if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+		if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 0 {
 			t.Fatalf("%s graph admitted application verification: %+v %v", invalid, candidates, err)
 		}
 	}
@@ -731,7 +731,7 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	if _, err := sqlDB.Exec(`UPDATE factory_intent_tasks SET data=$3 WHERE revision=$1 AND task=$2`, accepted.ID, binding.TaskKey, string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 0 {
+	if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 0 {
 		t.Fatalf("mismatched native task binding admitted application verification: %+v %v", candidates, err)
 	}
 }

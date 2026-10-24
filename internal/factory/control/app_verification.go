@@ -141,10 +141,17 @@ func (c *Coordinator) driveAppVerifications(ctx context.Context) {
 	if c == nil || c.Store == nil {
 		return
 	}
-	assignments, err := c.Store.PendingAppVerifications(ctx, 16)
+	assignments, next, err := c.Store.PendingAppVerifications(ctx, c.appVerificationCursor, 16)
 	if err != nil {
 		return
 	}
+	if next == 0 && c.appVerificationCursor != 0 {
+		assignments, next, err = c.Store.PendingAppVerifications(ctx, 0, 16)
+		if err != nil {
+			return
+		}
+	}
+	c.appVerificationCursor = next
 	for _, a := range assignments {
 		if ctx.Err() != nil {
 			return

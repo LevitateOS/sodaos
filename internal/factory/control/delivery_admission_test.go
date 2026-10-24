@@ -45,7 +45,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err = db.BindIntentTaskAcceptance(ctx, binding); err != nil {
 				t.Fatal(err)
 			}
-			candidates, err := db.DeliveredIntentCandidates(ctx, 16)
+			candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16)
 			if err != nil || len(candidates) != 0 {
 				t.Fatalf("undelivered work admitted: %+v %v", candidates, err)
 			}
@@ -85,7 +85,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if pending, err := db.CompletionPending(ctx, 7); err != nil || len(pending) != 1 || pending[0] != 1 {
 				t.Fatal("real completion must keep its fence closed", pending, err)
 			}
-			candidates, err = db.DeliveredIntentCandidates(ctx, 16)
+			candidates, _, err = db.DeliveredIntentCandidates(ctx, "", 16)
 			if err != nil || len(candidates) != 1 {
 				t.Fatalf("delivered work missing: %+v %v", candidates, err)
 			}
@@ -591,7 +591,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
 				t.Fatal("verified delivery advertised Retry", available, err)
 			}
-			if candidates, err := db.DeliveredIntentCandidates(ctx, 16); err != nil || len(candidates) != 1 {
+			if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 1 {
 				t.Fatal("worker report alone suppressed an unverified scope", candidates, err)
 			}
 			// Pending reports still invalidate against an unrelated current
@@ -609,7 +609,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				t.Fatal("verified current accepted revision requested another native preparation")
 				return project.FactoryPreparationContext{}, nil
 			}
-			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 0 {
+			if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 1); err != nil || len(candidates) != 0 {
 				t.Fatal("authoritative verified current revision was rediscovered", candidates, err)
 			}
 			var waitsBefore, waitsAfter int
@@ -630,7 +630,11 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err := db.BindIntentTaskAcceptance(ctx, otherBinding); err != nil {
 				t.Fatal(err)
 			}
-			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 1 || candidates[0].Revision.Intent != other.Intent {
+			candidates, next, err := db.DeliveredIntentCandidates(ctx, "", 1)
+			if err != nil || len(candidates) != 0 || next != revision.Intent {
+				t.Fatal("verified page did not advance its bounded cursor", candidates, next, err)
+			}
+			if candidates, _, err := db.DeliveredIntentCandidates(ctx, next, 1); err != nil || len(candidates) != 1 || candidates[0].Revision.Intent != other.Intent {
 				t.Fatal("verified page prefix starved a different delivered intent", candidates, err)
 			}
 			nextRevision := revision
@@ -642,7 +646,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {
 				t.Fatal(err)
 			}
-			if candidates, err := db.DeliveredIntentCandidates(ctx, 1); err != nil || len(candidates) != 1 || candidates[0].Revision.ID != nextRevision.ID {
+			if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 1); err != nil || len(candidates) != 1 || candidates[0].Revision.ID != nextRevision.ID {
 				t.Fatal("historical F10 suppressed a changed accepted revision", candidates, err)
 			}
 			var closed bool
@@ -660,4 +664,71 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			}
 		})
 	}
+	t.Run("waiting-prefix-does-not-starve-seventeenth-delivery", func(t *testing.T) {
+		ctx := context.Background()
+		db, dsn := dispatchTestDB(t)
+		fx := dispatchSeed(t, db)
+		sponsor, err := db.Sponsorship(ctx, fx.repo, "conn")
+		if err != nil {
+			t.Fatal(err)
+		}
+		sponsor.Roles = []string{project.RoleCoder, project.RoleReviewer}
+		if err := db.SaveSponsorship(ctx, sponsor); err != nil {
+			t.Fatal(err)
+		}
+		sqlDB, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sqlDB.Close()
+		idea := factory.ProductIdea{ID: phasedDecisionID(51), Description: "Save tasks", Consequence: "Tasks persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+		task := factory.IntentTask{Key: phasedDecisionID(52), Objective: "Save tasks", Outcomes: []string{"Tasks persist"}, IdeaIDs: []string{idea.ID}}
+		var ready factory.IntentRevision
+		for i := 0; i < 17; i++ {
+			revision := factory.IntentRevision{ID: phasedDecisionID(200 + i), Intent: phasedDecisionID(100 + i), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 10, CreatedUnix: int64(i + 1), Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{task}, EffectiveOutcomes: []string{idea.ID}}
+			if err := db.SaveIntentRevision(ctx, revision); err != nil {
+				t.Fatal(err)
+			}
+			binding := factory.IntentTaskBinding{RevisionID: revision.ID, TaskKey: task.Key, IssueID: 3, IssueIndex: 3, AcceptanceID: phasedDecisionID(53), CreatedUnix: 1}
+			if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {
+				t.Fatal(err)
+			}
+			ready = revision
+		}
+		event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 3, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: phasedDecisionID(53), MergedCommit: fx.tip, ClosingOccurrence: "1"}
+		raw, _ := json.Marshal(event)
+		if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		prep, err := db.Preparation(ctx, "f222222222222222222222222")
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest := factory.ApprovedAppCheck{IntentID: ready.Intent, AcceptedRevision: ready.ID, Outcomes: ready.EffectiveOutcomes}
+		encoded, _ := json.Marshal(manifest)
+		fx.host.contextRead = func(request project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+			material := fixturePreparationContext(request, role)
+			material.Check = append([]byte("#!/bin/sh\n"+factory.ApprovedAppCheckPrefix), append(encoded, []byte("\nexit 0\n")...)...)
+			return material, nil
+		}
+		zero := 0
+		fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
+			return project.PrepareState{ID: prep.Preparation.ID, Project: fx.proj, Role: project.RoleReviewer, SourceCommit: fx.tip, SetupDigest: prep.Preparation.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}, nil
+		}
+		c := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: &appVerificationReads{tip: fx.tip}, MCPKey: []byte("test-delivery-key-32-bytes-long!!"), Priority: &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}}
+		c.driveDeliveryVerifications(ctx)
+		if len(fx.host.launches) != 0 {
+			t.Fatal("delivery drive exceeded its bounded waiting page")
+		}
+		c.driveDeliveryVerifications(ctx)
+		var attempts int
+		if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_assignments WHERE data->'subject'->'delivery'->>'intent_id'=$1`, ready.Intent).Scan(&attempts); err != nil || attempts != 1 || len(fx.host.launches) != 1 {
+			t.Fatal("waiting intents starved ready seventeenth delivery", attempts, len(fx.host.launches), err)
+		}
+		c.driveDeliveryVerifications(ctx) // wrap without admitting another root.
+		var total int
+		if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_assignments`).Scan(&total); err != nil || total != 1 {
+			t.Fatal("waiting prefix spent or queue wrap duplicated delivery", total, err)
+		}
+	})
 }

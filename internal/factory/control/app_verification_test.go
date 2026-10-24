@@ -34,6 +34,12 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {
 		t.Fatal(err)
 	}
+	secondTask := nativeTask
+	secondTask.Key = phasedDecisionID(35)
+	secondBinding := factory.IntentTaskBinding{RevisionID: revision.ID, TaskKey: secondTask.Key, IssueID: 104, IssueIndex: 4, AcceptanceID: phasedDecisionID(36), CreatedUnix: 1}
+	if err := db.BindIntentTaskAcceptance(ctx, secondBinding); err != nil {
+		t.Fatal(err)
+	}
 	manifest := factory.ApprovedAppCheck{IntentID: revision.Intent, AcceptedRevision: revision.ID, Outcomes: []string{idea.ID}}
 	encoded, _ := json.Marshal(manifest)
 	script := []byte("#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(encoded) + "\nexit 0\n")
@@ -54,7 +60,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	zero := 0
 	state := project.PrepareState{ID: p.ID, Project: p.Project, Role: p.Role, SourceCommit: p.SourceCommit, SetupDigest: p.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}
 	report := factory.AppVerificationReport{DeliveryID: a.Subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified,
-		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}}
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, secondTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, secondBinding.AcceptanceID}}}}
 	a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
 	a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Output: &factory.PhaseOutput{Verification: &report}}}
 	if err := a.Validate(); err != nil {
@@ -65,7 +71,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqlDB.Close()
-	generation := factory.IntentGeneration{RevisionID: revision.ID, IntentID: revision.Intent, IntentDigest: revision.Digest(), State: "completed", SubmittedTasks: []factory.IntentTask{nativeTask}}
+	generation := factory.IntentGeneration{RevisionID: revision.ID, IntentID: revision.Intent, IntentDigest: revision.Digest(), State: "completed", SubmittedTasks: []factory.IntentTask{nativeTask, secondTask}}
 	raw, _ := json.Marshal(generation)
 	if _, err := sqlDB.Exec(`INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2)`, revision.ID, string(raw)); err != nil {
 		t.Fatal(err)
@@ -79,6 +85,13 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 3, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: strings.Repeat("e", 40), ClosingOccurrence: "1"}
 	raw, _ = json.Marshal(event)
 	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	secondEvent := event
+	secondEvent.ID, secondEvent.PublicationID, secondEvent.Generation = factory.NewID(), factory.NewID(), 2
+	secondEvent.Issue, secondEvent.AcceptanceID = secondBinding.IssueIndex, secondBinding.AcceptanceID
+	raw, _ = json.Marshal(secondEvent)
+	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,2,$1,$2,'1',$3)`, secondEvent.ID, secondEvent.PublicationID, string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	contextFault := ""
@@ -148,12 +161,15 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	if json.Unmarshal(encodedEvidence, &projected) != nil || projected.Context.Project != p.Project || projected.Context.ID != p.ID || projected.Context.Role != p.Role || projected.Context.SourceCommit != p.SourceCommit || projected.Context.Check != string(script) || len(projected.Context.Files) != 1 || projected.Context.Files[0].Path != "app.can" || !strings.Contains(projected.Context.Files[0].Content, "saved_task_persists") {
 		t.Fatal("native evidence omitted readable approved assertions", string(encodedEvidence))
 	}
-	if projected.Delivery.IntentID != revision.Intent || projected.Delivery.AcceptedRevision != revision.ID || projected.Delivery.ScopeDigest != revision.Digest() || projected.Delivery.SourceCommit != a.SourceCommit || len(projected.Delivery.Tasks) != 1 {
+	if projected.Delivery.IntentID != revision.Intent || projected.Delivery.AcceptedRevision != revision.ID || projected.Delivery.ScopeDigest != revision.Digest() || projected.Delivery.SourceCommit != a.SourceCommit || len(projected.Delivery.Tasks) != 2 {
 		t.Fatal("native evidence omitted the current delivery prerequisite scope")
 	}
 	delivered := projected.Delivery.Tasks[0]
 	if delivered.TaskKey != nativeTask.Key || delivered.TaskKey == task.Key || len(delivered.OutcomeIDs) != 1 || delivered.OutcomeIDs[0] != idea.ID || delivered.IssueID != binding.IssueID || delivered.IssueIndex != binding.IssueIndex || delivered.AcceptanceID != binding.AcceptanceID || delivered.Completion != event || delivered.Completion.MergedCommit == projected.Delivery.SourceCommit {
 		t.Fatal("native evidence lost the canonical task/merge/closure bindings")
+	}
+	if second := projected.Delivery.Tasks[1]; second.TaskKey != secondTask.Key || second.AcceptanceID != secondBinding.AcceptanceID || second.Completion != secondEvent {
+		t.Fatal("native evidence omitted another contributor to the same outcome")
 	}
 	if strings.Contains(string(encodedEvidence), state.Output) {
 		t.Fatal("native evidence exposed unfiltered check output")
@@ -198,6 +214,35 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal("unknown outcome was accepted as delivered scope")
 	}
 	report.Coverage = []factory.ReassessmentCoverage{acceptedCoverage}
+	// These are syntactically valid worker claims, persisted just like a real
+	// finish. Only the current canonical task/acceptance join can reject them.
+	for _, foreign := range []factory.ReassessmentCoverage{
+		{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, phasedDecisionID(98)}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, secondBinding.AcceptanceID}},
+		{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, secondTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, phasedDecisionID(99)}},
+		{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, secondTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, binding.AcceptanceID}},
+		{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}},
+	} {
+		report.Coverage = []factory.ReassessmentCoverage{foreign}
+		if err := a.Validate(); err != nil {
+			t.Fatal("foreign reference fixture was not a valid worker report", err)
+		}
+		raw, _ = json.Marshal(a)
+		if _, err := sqlDB.Exec(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, a.ID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.verifyApplicationReport(ctx, a); err == nil {
+			t.Fatal("foreign or repeated delivery reference authorized F10", foreign)
+		}
+		var completed int
+		if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10'`).Scan(&completed); err != nil || completed != 0 {
+			t.Fatal("refused coverage wrote application completion", completed, err)
+		}
+	}
+	report.Coverage = []factory.ReassessmentCoverage{acceptedCoverage}
+	raw, _ = json.Marshal(a)
+	if _, err := sqlDB.Exec(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, a.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
 	if err := c.verifyApplicationReport(ctx, a); err != nil {
 		t.Fatal(err)
 	}
@@ -216,16 +261,58 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	if err != nil || post.Actor != "factory" || post.Status != "application:verified" || post.Payload.Communication.ComponentID != "F10" {
 		t.Fatalf("completion projection: %+v %v", post, err)
 	}
-	pending, err := db.PendingAppVerifications(ctx, 16)
+	pending, _, err := db.PendingAppVerifications(ctx, 0, 16)
 	if err != nil || len(pending) != 0 {
 		t.Fatalf("completed delivery still pending: %+v %v", pending, err)
+	}
+	// A full stale prefix must not prevent a later, valid report's F10 join.
+	// Keep every stale report as history; only queue rotation may skip it.
+	ready := ""
+	for i := 0; i < 17; i++ {
+		var queued factory.Assignment
+		if err := json.Unmarshal(raw, &queued); err != nil {
+			t.Fatal(err)
+		}
+		queued.ID, queued.Run = factory.NewID(), factory.NewID()
+		queued.RunHistory = []string{queued.Run}
+		queued.AttemptRoot = queued.ID
+		queued.Subject.Delivery.DeliveryID = factory.NewID()
+		queued.Result.AssignmentID, queued.Result.RunID = queued.ID, queued.Run
+		queued.Result.PhaseResult.Output.Verification.DeliveryID = queued.Subject.Delivery.DeliveryID
+		if i < 16 {
+			queued.SourceCommit = strings.Repeat("f", 40)
+			queued.Subject.Delivery.SourceCommit = queued.SourceCommit
+		} else {
+			ready = queued.Subject.Delivery.DeliveryID
+		}
+		if err := queued.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		encoded, _ := json.Marshal(queued)
+		if _, err := sqlDB.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'finished',0,$3)`, queued.ID, queued.Run, string(encoded)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c.driveAppVerifications(ctx)
+	var readyPosts int
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 0 {
+		t.Fatal("report drive exceeded its bounded page", readyPosts, err)
+	}
+	c.driveAppVerifications(ctx)
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 1 {
+		t.Fatal("stale report prefix starved ready seventeenth report", readyPosts, err)
+	}
+	c.driveAppVerifications(ctx) // wrap and reconcile the retained stale prefix.
+	var retained int
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_assignments WHERE data->'subject'->'delivery'->>'source_commit'=$1`, strings.Repeat("f", 40)).Scan(&retained); err != nil || retained != 16 {
+		t.Fatal("queue rotation changed stale report history", retained, err)
 	}
 	// A malformed completion cannot lend an unrelated repository's history to
 	// the accepted task, even if its indexed issue and acceptance happen to match.
 	foreign := event
-	foreign.ID, foreign.PublicationID, foreign.Generation, foreign.Repository = factory.NewID(), factory.NewID(), 2, 8
+	foreign.ID, foreign.PublicationID, foreign.Generation, foreign.Repository = factory.NewID(), factory.NewID(), 3, 8
 	raw, _ = json.Marshal(foreign)
-	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,2,$1,$2,'1',$3)`, foreign.ID, foreign.PublicationID, string(raw)); err != nil {
+	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,3,$1,$2,'1',$3)`, foreign.ID, foreign.PublicationID, string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	beforeEvidence = evidenceSnapshot()

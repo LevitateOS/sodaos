@@ -14,32 +14,35 @@ import (
 
 // PendingAppVerifications includes finished Test Pilot reports until a trusted
 // whole-app completion is recorded. Worker receipts alone never remove them.
-func (s *Store) PendingAppVerifications(ctx context.Context, limit int) ([]factory.Assignment, error) {
-	if limit < 1 || limit > 64 {
-		return nil, errors.New("invalid verification page")
+// The exclusive sequence cursor lets the controller revisit stale reports
+// without keeping later adoptable reports behind the same waiting prefix.
+func (s *Store) PendingAppVerifications(ctx context.Context, after int64, limit int) ([]factory.Assignment, int64, error) {
+	if limit < 1 || limit > 64 || after < 0 {
+		return nil, after, errors.New("invalid verification page")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT a.data FROM factory_assignments a WHERE a.stage='finished'
+	rows, err := s.db.QueryContext(ctx, `SELECT a.seq,a.data FROM factory_assignments a WHERE a.stage='finished' AND a.seq>$2
 		AND a.data->>'phase'='verify' AND a.data->>'outcome'='succeeded'
 		AND a.data->'result'->'phase_result'->'output'->'verification'->>'outcome'='verified'
 		AND NOT EXISTS(SELECT 1 FROM factory_feed_comments p WHERE p.repository=a.repository AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id' AND p.data->'communication'->>'component_id'='F10')
-		ORDER BY a.seq LIMIT $1`, limit)
+		ORDER BY a.seq LIMIT $1`, limit, after)
 	if err != nil {
-		return nil, err
+		return nil, after, err
 	}
 	defer rows.Close()
 	var assignments []factory.Assignment
+	var next int64
 	for rows.Next() {
 		var raw []byte
 		var a factory.Assignment
-		if err = rows.Scan(&raw); err != nil {
-			return nil, err
+		if err = rows.Scan(&next, &raw); err != nil {
+			return nil, after, err
 		}
 		if err = json.Unmarshal(raw, &a); err != nil {
-			return nil, err
+			return nil, after, err
 		}
 		assignments = append(assignments, a)
 	}
-	return assignments, rows.Err()
+	return assignments, next, rows.Err()
 }
 
 func applicationVerificationInputsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (factory.IntentRevision, int64, error) {
@@ -170,7 +173,7 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 		return err
 	}
 	defer tx.Rollback()
-	revision, _, err := applicationVerificationInputsTx(ctx, tx, a)
+	revision, tasks, err := applicationVerificationPrerequisitesTx(ctx, tx, a)
 	if err != nil {
 		return err
 	}
@@ -184,6 +187,44 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 	}
 	if current.Result == nil || a.Result == nil || factory.ResultDigest(*current.Result) != factory.ResultDigest(*a.Result) || current.Run != a.Run {
 		return ErrStaleRevision
+	}
+	if current.Result.PhaseResult == nil || current.Result.PhaseResult.Output == nil || current.Result.PhaseResult.Output.Verification == nil {
+		return errors.New("application verification has no bound coverage report")
+	}
+	// Rejoin the persisted worker claims under this transaction's current
+	// accepted head. All contributors to each outcome must be named; valid ID
+	// syntax, planning-sketch keys or a subset of delivered work is insufficient.
+	coverage := current.Result.PhaseResult.Output.Verification.Coverage
+	if len(coverage) != len(revision.EffectiveOutcomes) {
+		return errors.New("application coverage differs from accepted outcomes")
+	}
+	covered := map[string]bool{}
+	for _, entry := range coverage {
+		expectedTasks, expectedAcceptances := map[string]bool{}, map[string]bool{}
+		for _, task := range tasks {
+			for _, outcome := range task.OutcomeIDs {
+				if outcome == entry.OutcomeID {
+					expectedTasks[task.TaskKey] = true
+					expectedAcceptances[task.AcceptanceID] = true
+				}
+			}
+		}
+		if entry.IntentID != revision.Intent || covered[entry.OutcomeID] || len(expectedTasks) == 0 || len(entry.TaskKeys) != len(expectedTasks) || len(entry.DeliveredAcceptanceIDs) != len(expectedAcceptances) {
+			return errors.New("application coverage differs from canonical delivered tasks")
+		}
+		covered[entry.OutcomeID] = true
+		for _, key := range entry.TaskKeys {
+			if !expectedTasks[key] {
+				return errors.New("application coverage names a foreign or repeated delivered task")
+			}
+			delete(expectedTasks, key)
+		}
+		for _, id := range entry.DeliveredAcceptanceIDs {
+			if !expectedAcceptances[id] {
+				return errors.New("application coverage names a foreign or repeated acceptance")
+			}
+			delete(expectedAcceptances, id)
+		}
 	}
 	if err = tx.QueryRowContext(ctx, `SELECT p.data FROM project_preparations p JOIN project_requirement_heads r ON r.project_id=p.project_id AND r.decision=p.requirements JOIN project_approval_heads h ON h.project_id=p.project_id AND h.decision=p.approval WHERE p.id=$1 FOR SHARE OF p,r,h`, a.Preparation).Scan(&currentRaw); err != nil {
 		return err

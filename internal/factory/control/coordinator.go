@@ -117,9 +117,11 @@ type Coordinator struct {
 	progressDone   chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
-	// progressMu protects the fair retained-creation repository cursor.
+	// progressMu protects the bounded recovery and verification cursors below.
 	creationRepositoryCursor int64
 	intentGenerationCursor   string
+	deliveryIntentCursor     string
+	appVerificationCursor    int64
 }
 
 func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *Coordinator {

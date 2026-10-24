@@ -92,10 +92,17 @@ func (c *Coordinator) driveDeliveryVerifications(ctx context.Context) {
 	if c == nil || c.Store == nil || c.Host == nil || c.DispatchReads == nil {
 		return
 	}
-	candidates, err := c.Store.DeliveredIntentCandidates(ctx, 16)
+	candidates, next, err := c.Store.DeliveredIntentCandidates(ctx, c.deliveryIntentCursor, 16)
 	if err != nil {
 		return
 	}
+	if next == "" && c.deliveryIntentCursor != "" {
+		candidates, next, err = c.Store.DeliveredIntentCandidates(ctx, "", 16)
+		if err != nil {
+			return
+		}
+	}
+	c.deliveryIntentCursor = next
 	occupancy, err := snapshotOccupancy(ctx, c.Store)
 	if err != nil {
 		return
