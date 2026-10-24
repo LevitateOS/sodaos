@@ -1,5 +1,6 @@
 [Unit]
 Description=Verify an explicitly requested Project release transition
+ConditionPathExists=/etc/soda/activated
 After=systemd-tmpfiles-setup.service soda-image-import.service soda-dashboard.service
 Requires=soda-image-import.service
 StartLimitIntervalSec=15min
