@@ -62,6 +62,47 @@ func TestPlanningRecordsOnceAndFeedsFreshLaunch(t *testing.T) {
 	if err != nil || r.Provisional || r.Outcome != "planned" {
 		t.Fatalf("plan=%+v %v", r, err)
 	}
+	// Same-terms lifecycle changes must not buy a new semantic planning call.
+	policy, err := c.Store.RepositoryPolicy(ctx, fx.repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Store.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+	sponsor, err := c.Store.Sponsorship(ctx, fx.repo, "conn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Store.SaveSponsorship(ctx, sponsor); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal, err := c.Store.WithdrawDispatch(ctx, fx.repo, factory.CauseControlPaused, "native:7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if open, _, err := c.Store.ReopenDispatch(ctx, fx.repo, withdrawal.Revision); err != nil || !open {
+		t.Fatalf("resume: open=%v error=%v", open, err)
+	}
+	if err := c.PlanningPass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := c.Store.PlanningRecord(ctx, fx.repo, 3)
+	if err != nil || retained.Snapshot != r.Snapshot || retained.CreatedUnix != r.CreatedUnix || chooser.calls != 1 {
+		t.Fatalf("lifecycle change replaced planning result: %+v calls=%d error=%v", retained, chooser.calls, err)
+	}
+	control, err := c.Store.IssueControl(ctx, fx.repo, 3)
+	if err != nil || !c.planningCurrent(ctx, control) {
+		t.Fatalf("same work lost its planning result: %v", err)
+	}
+	material, err := c.planningInput(ctx, control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material.Candidate.Source = strings.Repeat("a", 40)
+	if planningRecordCurrent(r, material) {
+		t.Fatal("changed source reused an old planning result")
+	}
 	report := c.Dispatch(ctx)
 	if len(report.Launched) != 1 {
 		t.Fatalf("dispatch=%+v", report)

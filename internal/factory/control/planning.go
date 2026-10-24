@@ -178,7 +178,7 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 		return err
 	}
 	prior, err := c.Planning.Journal.PlanningRecord(ctx, control.Repository, control.Issue)
-	if err == nil && prior.Snapshot == snapshot {
+	if err == nil && planningRecordCurrent(prior, input) {
 		return nil
 	}
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -257,10 +257,33 @@ func (c *Coordinator) planningCurrent(ctx context.Context, control factory.Issue
 	if err != nil {
 		return false
 	}
-	snapshot, err := factory.PlanningSnapshot(input)
+	record, err := c.Planning.Journal.PlanningRecord(ctx, control.Repository, control.Issue)
+	return err == nil && planningRecordCurrent(record, input) && record.Outcome == "planned" && !record.Provisional
+}
+
+// A recorded implementation approach is not an authority grant. Pause/Resume
+// and credential returns change authorization revisions without changing the
+// work it judged. Keep the original receipt and compare its material inputs;
+// planningInput and atomic dispatch still require current effective authority.
+func planningRecordCurrent(record factory.PlanningRecord, input factory.PlanningInput) bool {
+	if record.Validate() != nil {
+		return false
+	}
+	for _, candidate := range []*factory.PriorityCandidate{&record.Input.Candidate, &input.Candidate} {
+		candidate.Control.Revision = 0
+		candidate.Control.Fingerprint = ""
+		candidate.Control.Authority = ""
+		candidate.Authority = factory.AuthorityRef{
+			RequirementsID:        candidate.Authority.RequirementsID,
+			ApprovalID:            candidate.Authority.ApprovalID,
+			SponsorshipConnection: candidate.Authority.SponsorshipConnection,
+		}
+		candidate.GateRevision = 0
+	}
+	prior, err := factory.PlanningSnapshot(record.Input)
 	if err != nil {
 		return false
 	}
-	record, err := c.Planning.Journal.PlanningRecord(ctx, control.Repository, control.Issue)
-	return err == nil && record.Snapshot == snapshot && record.Outcome == "planned" && !record.Provisional
+	current, err := factory.PlanningSnapshot(input)
+	return err == nil && prior == current
 }
