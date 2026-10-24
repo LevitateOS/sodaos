@@ -109,6 +109,8 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 // PendingExplicitRetry returns one finished retry command for the latest
 // finished assignment on the issue's unchanged acceptance. Its command ID
 // becomes the fresh assignment identity, so a recorded packet consumes it.
+// Its exact coder preparation's confirmed native stop also ends that command's
+// admission; retained command/preparation history cannot hide a later Retry.
 func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int64, acceptance string) (factory.RetryDecision, error) {
 	return pendingExplicitRetry(ctx, s.db, repository, issue, acceptance)
 }
@@ -137,6 +139,21 @@ func pendingExplicitRetry(ctx context.Context, q explicitRetryQuerier, repositor
 				AND COALESCE((allowance.data->>'closed')::boolean,FALSE)
 				AND NOT COALESCE((allowance.data->>'active')::boolean,FALSE)))
 		AND NOT EXISTS(SELECT 1 FROM factory_assignments consumed WHERE consumed.id=c.id)
+		AND NOT EXISTS(SELECT 1 FROM project_preparations p
+			WHERE p.project_id=source.data->>'project_id' AND p.role=$8
+			AND p.data#>>'{preparation,id}'=p.id
+			AND p.data#>>'{preparation,project}'=p.project_id
+			AND p.data#>>'{preparation,role}'=$8
+			AND p.data#>>'{factory_admission,repository}'=$2::text
+			AND p.data#>>'{factory_admission,issue}'=$3::text
+			AND p.data#>>'{factory_admission,project}'=p.project_id
+			AND p.data#>>'{factory_admission,owner_assignment}'=c.id
+			AND p.data#>>'{factory_admission,child_assignment}'=c.id
+			AND p.data#>>'{factory_admission,attempt_root}'=c.id
+			AND p.data#>>'{factory_admission,publication_id}'=''
+			AND p.data#>>'{factory_admission,control,acceptance}'=$4
+			AND p.data#>'{factory_admission,stopped}'='true'::jsonb
+			AND p.data#>>'{factory_admission,retirement}'='confirmed')
 		ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetry, repository, issue, acceptance,
 		string(factory.Succeeded), string(factory.Failed), string(factory.Cancelled), project.RoleCoder).Scan(&id, &outcome)
 	if err != nil {

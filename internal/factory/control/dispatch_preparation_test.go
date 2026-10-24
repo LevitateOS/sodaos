@@ -185,7 +185,7 @@ func TestRetryRetiresPendingPreparationBeforeEarlyPlanningWait(t *testing.T) {
 	for _, change := range []string{"paused", "gate", "requirements", "approval", "expiry"} {
 		t.Run(change, func(t *testing.T) {
 			ctx := context.Background()
-			fx, c, command, _, dsn := consumedCoderRetry(t)
+			fx, c, command, original, dsn := consumedCoderRetry(t)
 			fx.host.prepare = func(in project.FactoryCandidate) (project.PrepareState, error) {
 				return project.PrepareState{}, errors.New("lost native reply")
 			}
@@ -199,6 +199,10 @@ func TestRetryRetiresPendingPreparationBeforeEarlyPlanningWait(t *testing.T) {
 			pending, err := fx.db.PendingRetryPreparations(ctx, 64)
 			if err != nil || len(pending) != 1 || pending[0].Admission.OwnerAssignment != command {
 				t.Fatalf("pending setup: %+v %v", pending, err)
+			}
+			selected, err := fx.db.PendingExplicitRetry(ctx, fx.repo, 3, pending[0].Admission.Control.Acceptance)
+			if err != nil || selected.CommandID != command {
+				t.Fatalf("live setup lost its pending Retry: %+v %v", selected, err)
 			}
 			switch change {
 			case "paused":
@@ -249,6 +253,92 @@ func TestRetryRetiresPendingPreparationBeforeEarlyPlanningWait(t *testing.T) {
 			}
 			if _, err := fx.db.Assignment(ctx, command); !errors.Is(err, store.ErrNotFound) {
 				t.Fatalf("invalid pending setup admitted run: %v", err)
+			}
+			if change != "expiry" {
+				return
+			}
+			// A confirmed native stop permanently retires this preparation
+			// identity. Keep its command/history, but do not let the oldest
+			// unconsumed command starve a later explicit owner Retry.
+			if selected, err = fx.db.PendingExplicitRetry(ctx, fx.repo, 3, pending[0].Admission.Control.Acceptance); !errors.Is(err, store.ErrNotFound) {
+				t.Fatalf("confirmed-retired setup still selects its Retry: %+v %v", selected, err)
+			}
+			oldCommand, err := fx.db.FactoryCommand(ctx, command)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fixtureDB, err := sql.Open("pgx", dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fixtureDB.Close()
+			prepID := pending[0].Preparation.Preparation.ID
+			var tombstone []byte
+			if err = fixtureDB.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, prepID).Scan(&tombstone); err != nil {
+				t.Fatal(err)
+			}
+			// A stop from an uncertain or foreign owner is not evidence
+			// that this command can be skipped. These disposable PG
+			// mutations exercise the read boundary, then restore its exact
+			// canonical native-stop record before normal recovery.
+			for _, mismatch := range []struct {
+				path  string
+				value any
+			}{
+				{"factory_admission.stopped", false},
+				{"factory_admission.retirement", "uncertain"},
+				{"factory_admission.repository", fx.repo + 1},
+				{"factory_admission.issue", int64(4)},
+				{"factory_admission.project", "p" + strings.Repeat("e", 24)},
+				{"factory_admission.owner_assignment", factory.NewID()},
+				{"factory_admission.child_assignment", factory.NewID()},
+				{"factory_admission.attempt_root", factory.NewID()},
+				{"factory_admission.publication_id", factory.NewID()},
+				{"factory_admission.control.acceptance", "d" + strings.Repeat("e", 24)},
+				{"preparation.project", "p" + strings.Repeat("e", 24)},
+				{"preparation.role", project.RoleReviewer},
+			} {
+				value, _ := json.Marshal(mismatch.value)
+				if _, err = fixtureDB.ExecContext(ctx, `UPDATE project_preparations SET data=jsonb_set($2::jsonb,string_to_array($3,'.'),$4::jsonb) WHERE id=$1`, prepID, string(tombstone), mismatch.path, string(value)); err != nil {
+					t.Fatal(err)
+				}
+				if selected, err = fx.db.PendingExplicitRetry(ctx, fx.repo, 3, pending[0].Admission.Control.Acceptance); err != nil || selected.CommandID != command {
+					t.Fatalf("%s retired a foreign or uncertain Retry: %+v %v", mismatch.path, selected, err)
+				}
+			}
+			if _, err = fixtureDB.ExecContext(ctx, `UPDATE project_preparations SET data=$2 WHERE id=$1`, prepID, string(tombstone)); err != nil {
+				t.Fatal(err)
+			}
+			var prior factory.RetryDecision
+			if err = json.Unmarshal([]byte(oldCommand.Outcome), &prior); err != nil {
+				t.Fatal(err)
+			}
+			newCommand := factory.NewID()
+			if decision, retryErr := c.RetryRun(ctx, newCommand, "native:7", prior.Prior); retryErr != nil || decision.CommandID != newCommand || !decision.Queued {
+				t.Fatalf("normal successor Retry refused: %+v %v", decision, retryErr)
+			}
+			if selected, err = fx.db.PendingExplicitRetry(ctx, fx.repo, 3, pending[0].Admission.Control.Acceptance); err != nil || selected.CommandID != newCommand {
+				t.Fatalf("successor Retry remains hidden by retired setup: %+v %v", selected, err)
+			}
+			fx.host.prepare = nil
+			c.advanceProgress(ctx)
+			fresh, err := fx.db.Assignment(ctx, newCommand)
+			if err != nil || fresh.AttemptRoot != newCommand || fresh.Preparation == prepID || len(fx.host.preparations) != 2 || len(fx.host.launches) != before+1 || stops != 1 {
+				t.Fatalf("successor Retry did not prepare/launch once: %+v stops=%d setups=%d launches=%d err=%v", fresh, stops, len(fx.host.preparations), len(fx.host.launches), err)
+			}
+			if retained, readErr := fx.db.FactoryCommand(ctx, command); readErr != nil || retained != oldCommand {
+				t.Fatalf("retired Retry command history changed: %+v %v", retained, readErr)
+			}
+			var retained []byte
+			if err = fixtureDB.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, prepID).Scan(&retained); err != nil || string(retained) != string(tombstone) {
+				t.Fatalf("native-stop history changed: %v", err)
+			}
+			if err = fixtureDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, original.RootAssignment).Scan(&retained); err != nil {
+				t.Fatal(err)
+			}
+			var old factory.AttemptAllowance
+			if err = json.Unmarshal(retained, &old); err != nil || old.RootAssignment != original.RootAssignment || old.Limits != original.Limits || old.ActiveSeconds != original.ActiveSeconds || !old.Closed || old.Active {
+				t.Fatalf("successor Retry refilled the original allowance: %+v %v", old, err)
 			}
 		})
 	}
