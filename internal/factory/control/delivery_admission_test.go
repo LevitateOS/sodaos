@@ -229,6 +229,11 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			var native project.FactoryState
 			fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
 				launches++
+				for _, guidance := range []string{"factory.verification_scope", "factory.record_journey_result", "journey:<submission ID>", "observations you actually made or inspected", "Do not change code"} {
+					if !strings.Contains(string(in.Prompt), guidance) {
+						t.Fatal("Test Pilot initial/retry lost R40 observation guidance", launches, guidance)
+					}
+				}
 				a, err := db.AssignmentByRun(ctx, in.Run.ID)
 				if err != nil || a.Role != project.RoleReviewer || a.Phase != project.ExecutionVerify || in.MCP == nil || in.Run.ExecutionPhase != project.ExecutionVerify {
 					t.Fatalf("unbound Test Pilot: role=%s phase=%s mcp=%t error=%v", a.Role, a.Phase, in.MCP != nil, err)

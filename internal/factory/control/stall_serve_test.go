@@ -625,6 +625,16 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	if cycle.State != factory.RepairInvestigating {
 		t.Fatalf("repair launch state=%s reason=%s", cycle.State, cycle.Reason)
 	}
+	for _, launch := range fx.host.launches {
+		if launch.Run.ID != cycle.RunID {
+			continue
+		}
+		for _, guidance := range []string{"factory.reassessment_scope", "factory.record_diagnosis", "factory.draft_repair", "factory.preview_repair", "payload_hash", "no extra model consultation", "Finish once"} {
+			if !strings.Contains(string(launch.Prompt), guidance) {
+				t.Fatal("repair Strategist lost R40 tool guidance", guidance)
+			}
+		}
+	}
 	tasks := append([]factory.IntentTask(nil), revision.Tasks...)
 	retained := []int64{2}
 	if mode == "append_producer" || deliveryMode {

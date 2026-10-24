@@ -1008,6 +1008,8 @@ type ReassessmentPromptInventory struct {
 // never implements issues, writes no source and publishes nothing.
 const reassessmentCoderRubric = "Review the complete sealed inventory below and propose one coherent revision set through the typed reassessment report: full outcome coverage, frozen scope and identities, protected bindings preserved. Do not implement any issue, write source, spawn children or publish."
 
+const reassessmentWorkGuidance = "Use factory.reassessment_scope for the admitted cause, complete inventory, allowance and report references; follow its continuation rather than treating missing pages as empty. When useful, record material causal findings once with factory.record_diagnosis. For justified graph changes, save one coherent factory.draft_repair and inspect factory.preview_repair; revise only for a concrete refusal or new evidence. Recover a saved record using scope record/offset and verify payload_hash, retaining the original submission ID for uncertain writes. These tools require no extra model consultation and confirm no graph or readiness change. Finish once with the full typed report; no draft is automatically submitted or adopted."
+
 // RenderReassessmentPrompt renders the single coder's assignment prompt
 // with the COMPLETE sealed inventory inline. An incomplete collection,
 // unordered indexes, or a prompt past the reassess-only 320 KiB bound
@@ -1063,6 +1065,7 @@ func RenderReassessmentPrompt(in ReassessmentPromptInventory) ([]byte, error) {
 	prompt.WriteString("Material: " + string(materialRaw) + "\n")
 	prompt.WriteString("Issues: " + strconv.Itoa(len(in.Issues)) + " (complete, ordered by index)\n")
 	prompt.WriteString(reassessmentCoderRubric + "\n")
+	prompt.WriteString(reassessmentWorkGuidance + "\n")
 	for _, issue := range in.Issues {
 		prompt.WriteString("issue " + strconv.FormatInt(issue.Index, 10) + ":\n")
 		prompt.WriteString(issue.Data + "\n")

@@ -389,6 +389,11 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	}
 	var launched string
 	fx.publish.seed.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
+		for _, guidance := range []string{"factory.reassessment_scope", "factory.record_diagnosis", "factory.draft_repair", "factory.preview_repair", "payload_hash", "no extra model consultation", "Finish once"} {
+			if !strings.Contains(string(in.Prompt), guidance) {
+				t.Fatal("completion Strategist lost R40 tool guidance", guidance)
+			}
+		}
 		record, err := db.ReassessmentRecord(ctx, cycleID)
 		if err != nil || record.Cycle.State != factory.ReassessmentReassessing || len(record.Cycle.Ledger.CoderRuns) != 1 || record.Cycle.Ledger.CoderRuns[0] != in.Run.ID {
 			t.Fatalf("launch preceded sole-run admission: %+v %v", record, err)

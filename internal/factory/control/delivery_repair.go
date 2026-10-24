@@ -176,7 +176,7 @@ func (c *Coordinator) dispatchDeliveryRepair(ctx context.Context, record store.D
 	if err != nil {
 		return err
 	}
-	prompt := append([]byte("You are Strategist for this explicitly requested failed-application repair. Inspect factory.context and the exact failed delivery/outcomes. Propose only idle in-scope follow-up work using the accepted intent, preserve all delivered/manual/active/PR-bound work and origin funding. Do not change code or claim verification. A material product decision or missing authorization needs owner attention. Finish factory.finish_reassessment with DeliveryRepairReport bound to this subject; causes must name the recorded failed outcomes. No-change never verifies the failed app.\n\n"), raw...)
+	prompt := append([]byte("You are Strategist for this explicitly requested failed-application repair. Inspect factory.context and the exact failed delivery/outcomes. Propose only idle in-scope follow-up work using the accepted intent, preserve all delivered/manual/active/PR-bound work and origin funding. Do not change code or claim verification. A material product decision or missing authorization needs owner attention. Finish factory.finish_reassessment with DeliveryRepairReport bound to this subject; causes must name the recorded failed outcomes. No-change never verifies the failed app.\n\n"+reassessmentWorkGuidance+"\n\n"), raw...)
 	occupancy, err := snapshotOccupancy(ctx, c.Store)
 	if err != nil {
 		return err
