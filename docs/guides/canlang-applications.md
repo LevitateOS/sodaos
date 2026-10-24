@@ -294,15 +294,20 @@ support. Full Files retention/cleanup, wider Files/provider failure modes,
 provider-side external delivery and semantic upgrades need separate
 qualification before support.
 
-Fresh CoreOS component checks passed actual native lifecycle, Project-stop
-independence, reboot retention, trusted private-host HTTPS and stopped restore.
-The retained Project passed installed compiler/preview/examples and explicit
-same-root maintenance. Those CoreOS checks used older public media plus current
-components. The complete current Project image separately passed fresh offline
-ordinary-account compilation, check/lint/format, persistent authenticated preview,
-isolated examples and LSP. A full matching-source appliance candidate and its
-Project Create/boot, physical LAN/Tailnet clients and installed UI/API/runtime
-journey remain unqualified. Runtime release integration is checked separately in its
-existing owners. No candidate was published or deployed to an existing appliance.
+An installed matching-source development CoreOS candidate passed Project Create,
+Join, native lifecycle guards, a real browser terminal and retained home after
+cold boot. Its application journey passed first-owner setup, owner MCP and Files
+access, durable work, stopped backup/fresh restore and stopped reboot retention
+through trusted private-host HTTPS. A later candidate's tools-aware Application
+Replace retained the same owner, data, file bytes and work receipt. Its appliance
+upgrade needed a separately measured development helper to reconcile
+the same operation; subsequent Factory and Project checks also used declared
+development components. These results do not qualify those fixes as shipped bytes.
+The complete Project image separately passed fresh offline ordinary-account
+compilation, check/lint/format, persistent authenticated preview, isolated examples
+and LSP. The final matching candidate's complete Factory-to-application journey,
+two-user installed use, physical LAN/Tailnet clients and complete cold recovery
+remain qualification work. Runtime release integration is checked separately in
+its existing owners. No candidate has been publicly published.
 Eventually requested Cloudflare service breadth remains an owner decision,
 independent of this first-app scope.
