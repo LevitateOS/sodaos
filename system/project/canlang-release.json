@@ -1,9 +1,9 @@
 {
-  "sourceRevision": "22f4e15b1f4ea5da1f7060e4b1f75a2ea4caa0e3",
+  "sourceRevision": "61eefbe46bec85d67ab6f07b811cdff6bb835117",
   "archiveFilename": "canlang-tools-linux-x86_64.tar.gz",
-  "sha256": "b8494409189292d32332de87da70640d77109d20af6a1e048a3b907a2fcab154",
+  "sha256": "f73acbb9bf201924c341e620b7306bcd14e277f0e50f9c426e305525bee6a86e",
   "versions": {
-    "compiler": "can 0.1.1 (commit d010bc80; language 1.0; schema 1)",
+    "compiler": "can 0.1.1 (commit 61eefbe4; language 1.0; schema 1)",
     "devServer": "can-dev 0.1.1 (can.dev.control.v1)",
     "node": "v24.22.1",
     "bun": "1.4.2",
