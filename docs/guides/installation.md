@@ -14,6 +14,33 @@ explains how authorized issues progress to verified results. The
 [factory operator interface](../reference/factory.md) documents the existing
 command surface.
 
+The [deployment capacity guide](../public/60-Install/10-deployment-options.md#select-capacity-for-your-workload)
+owns the measured basic and small-team allocations and storage planning.
+
+The October 24 development measurement used a dedicated appliance VM with four
+vCPUs, 8 GiB RAM, a 96 GiB disk and no swap. A one-hour window contained 720
+five-second samples with no collection failures. Two native Builder units ran
+simultaneously across separate Projects and distinct bound Codex leases for
+235 seconds, alongside a real browser terminal and a retained private Canlang
+application. Peak sampled host memory in use was 3.58 GiB, with at least 4.16 GiB
+available; peak five-second average CPU use was 2.38 cores. These sampled values
+do not bound shorter spikes or larger workloads.
+
+The retained filesystem reached 13.76 GiB used with 81.68 GiB available. The
+application's sampled cgroup usage reached 551 MiB; the two active Projects
+reached 2.33 GiB and 704 MiB respectively, including their processes and cache.
+Container PID 1 RSS does not include descendant workers, and cgroup peaks must
+not be summed as independent host requirements. The 96 GiB disk allocation
+includes headroom rather than a measured minimum installation footprint.
+
+This measurement used the T5 installed payload with separately measured Go,
+native Host and Project-maintenance development components. It establishes the
+development sizing procedure; the complete frozen release must qualify the
+stated profiles through R52. The Docker Factory window used the same four-vCPU,
+8 GiB host allocation and one active issue; its application and terminal probes
+ran in a separate window. Their combined Docker workload and Docker two-issue
+support remain to be measured.
+
 Commands that write disks, mutate providers, publish artifacts or destroy fixtures
 require explicit task approval. This guide is not that approval.
 

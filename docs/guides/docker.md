@@ -16,6 +16,13 @@ later, including the [bounded startup wait](https://github.com/docker/compose/bl
 Rootless Docker and Docker Desktop are outside this deployment contract.
 Allow capacity for the runtime, retained Projects, nested workloads and backups.
 The complete payload occupies several gigabytes before Project data is created.
+Use the [measured deployment capacity guide](../public/60-Install/10-deployment-options.md#select-capacity-for-your-workload)
+for the four-CPU, 8 GiB RAM, 96 GiB disk starting allocation, measured workloads and
+update/backup reserve. Those resources cover the dedicated Linux/Docker host;
+they are not a memory reservation on the outer Soda container. The measured
+Docker Factory window had one active issue; application and terminal probes
+ran in a separate window. These measurements do not qualify their combined
+workload or two-issue concurrency for Docker.
 
 The runtime needs privileged execution for nested containers and systemd, and
 host networking for private browser endpoints, Project bridges and Tailnet.

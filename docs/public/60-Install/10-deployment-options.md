@@ -18,18 +18,44 @@ Docker runs Soda's runtime inside a privileged outer container while the operato
 
 ## Select capacity for your workload
 
-```doc-pending
-{
-  "id": "measured-host-sizing",
-  "title": "Measured hardware requirements",
-  "message": "CPU, RAM, disk and update/backup reserve recommendations for basic and small-team workloads will be added after those workloads are measured.",
-  "guidance": "Use the workload and storage factors below to plan what needs capacity. Per-application limits do not establish a minimum host size."
-}
-```
+Use the following measured allocations to plan a dedicated host. Match the
+workload and concurrency to the selected release's qualification material;
+installation or a successful boot alone does not establish capacity.
 
-Choose CPU, RAM and disk capacity for the intended workload and concurrency: active Factory issues, human terminals, running Projects and private applications. A basic workload and a small-team workload need separate measurements; a successful boot does not establish capacity for either. A measured profile must identify its qualified release, resource allocation and supported workload together.
+| Profile | CPU | RAM | Persistent disk | Measured workload |
+| --- | --- | --- | --- | --- |
+| Basic appliance | 4 CPU cores or vCPUs | 8 GiB | 96 GiB | One active Factory issue, a browser terminal and one small private application. |
+| Small-team appliance | 4 CPU cores or vCPUs | 8 GiB | 96 GiB | Two native Factory issues executing across separate Projects, a browser terminal and one small private application. |
+| Docker starting allocation | 4 CPU cores or vCPUs | 8 GiB | 96 GiB | One native Factory issue; the application and browser terminal were measured in a separate window. |
 
-Allow storage for retained repositories, Project roots and homes, application data and container images, plus free-space reserve for updates, rollback and backups. A backup written to the same host consumes additional space and does not protect against losing that host. For Docker, account separately for the outer host and its other workloads. Per-application resource caps do not reserve host capacity or imply that an unlimited number of applications can run together.
+These are the smallest allocations exercised for these workloads, rather than
+measurements of every smaller configuration. The two-issue profile requires two
+independently authorized Codex connections: each connection admits one native
+Factory execution at a time. Raising appliance capacity does not increase a
+connection's concurrency. The Docker windows do not establish the combined
+Factory, terminal and application profile or two-issue concurrency. Match any
+such Docker workload to its own release qualification.
+
+The application in these profiles uses the normal 1 GiB memory, two-CPU and
+128-process limits. Those limits cap an individual application; they do not
+reserve memory or CPU for the rest of the host. Larger builds, repositories,
+application data or additional concurrent services need additional capacity.
+For Docker, the allocation also needs to cover Linux, Docker and nested
+containers. Add capacity for unrelated workloads on the outer host.
+
+Allow storage for repositories, Project roots and homes, application data and
+container images. Before an update, check free space on the filesystem holding
+`/var` and container storage. Keep the current deployment and selected target,
+including downloaded archives and their unpacked images, until verification and
+fallback are complete; compressed download sizes alone do not size that reserve.
+
+Size a separate backup destination for the complete stopped recovery set. A raw
+copy of a 96 GiB virtual disk needs 96 GiB plus every additional retained disk;
+sparse-copy storage depends on actual allocation and the destination's support.
+For Docker, measure and capture all three retained volumes and the matching
+deployment files together. A backup on the same host consumes additional space
+and does not protect against losing that host. Follow
+[backups and restoration](../50-Operate/50-backups-and-restoration.md).
 
 ## Private network planning
 
