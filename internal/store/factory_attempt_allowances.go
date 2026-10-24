@@ -350,6 +350,16 @@ func transitionAttemptAssignmentTx(ctx context.Context, tx *sql.Tx, assignmentID
 		}
 		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
 	}
+	if assignment.Subject.Kind == factory.SubjectDeliveryRepair {
+		typed, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, 0, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		if typed.DeliveryRepair == nil || assignment.Subject.DeliveryRepair == nil || *typed.DeliveryRepair != *assignment.Subject.DeliveryRepair {
+			return ErrAttemptRootMismatch
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -498,6 +508,13 @@ func deactivateReleasedAttemptTx(ctx context.Context, tx *sql.Tx, assignmentID s
 // snapshots such as RevisionID and ScopeDigest are never copied here and
 // pointer identity never decides.
 func sameAttemptAllowanceScope(stored, next factory.AttemptAllowance) bool {
+	if stored.DeliveryRepair == nil || next.DeliveryRepair == nil {
+		if stored.DeliveryRepair != nil || next.DeliveryRepair != nil {
+			return false
+		}
+	} else if *stored.DeliveryRepair != *next.DeliveryRepair {
+		return false
+	}
 	if stored.Stall == nil || next.Stall == nil {
 		if stored.Stall != nil || next.Stall != nil {
 			return false

@@ -134,12 +134,14 @@ type ReassessmentJournalStep struct {
 // data: exact successor revisions, native packet digests and readback
 // expectations in intent-ID order with a durable cursor.
 type ReassessmentJournal struct {
-	Steps           []ReassessmentJournalStep
-	CompletionID    string
-	StallID         string
-	CycleID         string
-	InventoryDigest string
-	Cursor          int
+	Steps                   []ReassessmentJournalStep
+	CompletionID            string
+	StallID                 string
+	DeliveryID              string
+	FailedVerificationRunID string
+	CycleID                 string
+	InventoryDigest         string
+	Cursor                  int
 }
 
 // ValidateReassessmentAdoption validates one coherent proposal against

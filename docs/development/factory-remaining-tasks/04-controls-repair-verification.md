@@ -406,10 +406,23 @@ preparation-head checks. Exact immutable finish replay survives later approval o
 draft movement; new wrong-scope/catalog/fixture/artifact/parameter/native-receipt
 claims refuse before writing a receipt. Existing real PostgreSQL and authenticated
 HTTP planning integrations exercise these production readers, canonical graph
-adoption and replay. This does not complete R38: a newly adopted manifest has an
-explicit executor wait, while the nil-manifest fixed check route remains as
-described in D16. The entire trusted manifest, disposable fixture custody,
-pre-CLI ordering and native P9 qualification are still required.
+adoption and replay.
+
+**Executor source integration:** An adopted manifest now produces immutable,
+run-bound bytes in the atomic dispatch packet. The current bounded catalog
+coalesces all outcome references into one approved `project.check` execution.
+The existing native preparation supervisor runs the protected setup/check in an
+isolated clone and HOME without model credentials, before the CLI starts. Its
+durable receipt binds the run, reserved invocation, manifest, source, preparation
+and check digests; terminal evidence survives stale observer saves and cannot be
+replaced. Uncertain custody holds; a failed check settles a Factory failure and
+accounting without inventing a Test Pilot report. Final F10 adoption independently
+requires the passing per-run receipt, exact report coverage and credential return.
+Preparation output cannot substitute for that receipt. PostgreSQL and
+authenticated HTTP tests cover these Go producer/consumer joins; native P9
+composition and installed cleanup/CLI-ordering qualification remain required.
+The nil-manifest fixed check route remains available under its existing D16
+declaration and receipt contract.
 
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs).
 
@@ -423,6 +436,16 @@ pre-CLI ordering and native P9 qualification are still required.
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R38](04-controls-repair-verification.md#r38), [R13](02-prompt-to-pr.md#r13), [R29](03-review-merge-reassessment.md#r29), [R37](04-controls-repair-verification.md#r37).
 
 **Recorded baseline:** Verified app completion and bounded delivery-repair chain. The catalog owns the remaining prerequisites and release condition.
+
+**Source qualification:** The existing PostgreSQL protected-repair journey now
+consumes authenticated failed-verification and Strategist terminal submissions,
+one explicit owner request, finite repair funding and one proposal judgment
+through protected graph adoption and lost-reply recovery. It covers incomplete
+reports, changed input/failure scope, no-change, grant withdrawal, retained
+verification manifests and unchanged original spending. The stable two-run
+intent ceiling is checked across distinct retained failed-verification roots.
+The API/owner-control browser cases are qualified separately; an installed
+failed-verification repair journey remains a release qualification.
 
 **Deliver:** Complete an intent only from all accepted delivered outcomes plus its exact verification receipts. Route real verification failure through the distinct bounded delivery-repair cause, stable intent ledger and protected graph owner.
 

@@ -11,19 +11,22 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 	for _, fixture := range []struct {
-		early  bool
-		state  string
-		failed bool
-		spent  int64
-	}{{false, factory.ReassessmentCollecting, false, 0}, {true, factory.ReassessmentCollecting, false, 0}, {false, factory.ReassessmentAttention, false, 0}, {true, factory.ReassessmentAttention, false, 0}, {true, factory.ReassessmentCollecting, true, 0}, {true, factory.ReassessmentAttention, true, 0}, {true, factory.ReassessmentCollecting, false, 3540}, {true, factory.ReassessmentCollecting, false, 3600}} {
+		early       bool
+		state       string
+		failed      bool
+		spent       int64
+		adopted     bool
+		checkFailed bool
+	}{{state: factory.ReassessmentCollecting}, {early: true, state: factory.ReassessmentCollecting}, {state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentCollecting, failed: true}, {early: true, state: factory.ReassessmentAttention, failed: true}, {early: true, state: factory.ReassessmentCollecting, spent: 3540}, {early: true, state: factory.ReassessmentCollecting, spent: 3600}, {state: factory.ReassessmentAttention, adopted: true}, {state: factory.ReassessmentAttention, adopted: true, failed: true}, {state: factory.ReassessmentAttention, adopted: true, checkFailed: true}} {
 		early := fixture.early
-		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t/spent-%d", fixture.state, early, fixture.failed, fixture.spent), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t/spent-%d/adopted-%t/check-failed-%t", fixture.state, early, fixture.failed, fixture.spent, fixture.adopted, fixture.checkFailed), func(t *testing.T) {
 			ctx := context.Background()
 			db, dsn := dispatchTestDB(t)
 			fx := dispatchSeed(t, db)
@@ -96,6 +99,27 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			manifest := factory.ApprovedAppCheck{IntentID: revision.Intent, AcceptedRevision: revision.ID, Outcomes: []string{idea.ID}}
 			encoded, _ := json.Marshal(manifest)
 			script := []byte("#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(encoded) + "\nexit 0\n")
+			if fixture.adopted {
+				// Catalog/adoption itself is exercised by the production PL/Generate
+				// integrations. This fixture supplies its recorded authority to the
+				// actual delivery packet and native-receipt consumer.
+				script = []byte("#!/bin/sh\n# approved deterministic task assertions\nexit 0\n")
+				coder, err := db.Preparation(ctx, "f111111111111111111111111")
+				if err != nil {
+					t.Fatal(err)
+				}
+				catalog := factory.ApprovedProjectCheckCatalog{Project: fx.proj, Preparation: coder.Preparation.ID, Requirements: coder.Preparation.Requirements.ID, Approval: coder.Preparation.Approval.ID, SourceCommit: fx.tip, PreparationDigest: factory.DeliveryPreparationDigest(coder.Preparation), CheckDigest: factory.MCPInputDigest(script)}
+				proposal := factory.VerificationManifestProposal{Outcomes: revision.EffectiveOutcomes, Checks: []factory.ManifestCheckRef{{Outcome: idea.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}
+				adopted := &factory.AdoptedVerificationManifest{Intent: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), Proposal: proposal, Catalog: catalog}
+				if err := adopted.ValidateFor(revision); err != nil {
+					t.Fatal(err)
+				}
+				generation := factory.IntentGeneration{RevisionID: revision.ID, IntentID: revision.Intent, IntentDigest: revision.Digest(), State: "completed", SubmittedTasks: revision.Tasks, VerificationManifest: adopted, VerificationManifestDigest: adopted.Digest()}
+				raw, _ := json.Marshal(generation)
+				if _, err := sqlDB.Exec(`INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2)`, revision.ID, string(raw)); err != nil {
+					t.Fatal(err)
+				}
+			}
 			zero := 0
 			fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
 				return project.PrepareState{ID: prep.Preparation.ID, Project: fx.proj, Role: project.RoleReviewer, SourceCommit: fx.tip, SetupDigest: prep.Preparation.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}, nil
@@ -106,6 +130,14 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				return material, nil
 			}
 			c := &Coordinator{Store: db, Host: fx.host, DispatchReads: &appVerificationReads{tip: fx.tip}}
+			if fixture.adopted && !fixture.checkFailed {
+				good := script
+				script = append(append([]byte(nil), script...), []byte("# changed approved assertions\n")...)
+				if _, _, _, err := c.deliveryAdmission(ctx, candidates[0]); err == nil {
+					t.Fatal("changed protected definitions reached delivery admission")
+				}
+				script = good
+			}
 			subject, preparation, prompt, err := c.deliveryAdmission(ctx, candidates[0])
 			if err != nil {
 				t.Fatal(err)
@@ -116,6 +148,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			deps := fx.deps()
 			deps.MCPKey = []byte("test-delivery-key-32-bytes-long!!")
 			deps.ContextVerification = c.ApplicationVerificationEvidence
+			deps.VerificationManifest = c.stageDeliveryVerificationManifest
 			deps.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
 			occupancy, err := snapshotOccupancy(ctx, db)
 			if err != nil {
@@ -144,8 +177,47 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					t.Fatalf("%s wrote a verification packet: %d %v", invalid.name, recorded, err)
 				}
 			}
+			if fixture.adopted && !fixture.checkFailed {
+				for _, fault := range []string{"missing-manifest", "unknown-outcome", "omitted-outcome", "changed-check"} {
+					badDeps := deps
+					badDeps.VerificationManifest = func(ctx context.Context, a factory.Assignment, r factory.Run) ([]byte, error) {
+						raw, err := c.stageDeliveryVerificationManifest(ctx, a, r)
+						if err != nil {
+							return nil, err
+						}
+						if fault == "missing-manifest" {
+							return nil, nil
+						}
+						m, err := project.ParseVerificationManifest(raw)
+						if err != nil {
+							return nil, err
+						}
+						switch fault {
+						case "unknown-outcome":
+							m.Outcomes = []string{phasedDecisionID(99)}
+							m.Checks[0].Outcomes = m.Outcomes
+						case "omitted-outcome":
+							m.Outcomes = nil
+							m.Checks[0].Outcomes = nil
+						case "changed-check":
+							m.CheckDigest = strings.Repeat("f", 64)
+						}
+						return project.MarshalVerificationManifest(m)
+					}
+					refused := newDispatchReport()
+					DispatchTimeOnlyRoot(ctx, badDeps, &occupancy, 7, subject, fx.tip, prompt, preparation, &refused)
+					if len(refused.Launched) != 0 || len(refused.Errors)+len(refused.Waits) == 0 {
+						t.Fatal("invalid manifest admitted before CLI", fault, refused)
+					}
+					var count int
+					if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_assignments`).Scan(&count); err != nil || count != 0 {
+						t.Fatal("manifest refusal left a dispatch packet", fault, count, err)
+					}
+				}
+			}
 			report := newDispatchReport()
 			launches := 0
+			var native project.FactoryState
 			fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
 				launches++
 				a, err := db.AssignmentByRun(ctx, in.Run.ID)
@@ -176,7 +248,24 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						t.Fatal("spend-free allowance read rewrote its live root", err)
 					}
 				}
-				return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+				native = project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}
+				if fixture.adopted {
+					m, err := project.ParseVerificationManifest(in.VerificationManifest)
+					stored, storeErr := db.FactoryRun(ctx, in.Run.ID)
+					if err != nil || m.ValidateForRun(in.Run) != nil || in.Run.VerificationManifestDigest != project.ExecutionManifestDigest(in.VerificationManifest) || storeErr != nil || string(stored.VerificationManifest) != string(in.VerificationManifest) {
+						t.Fatal("launch did not retain its exact approved manifest", err, storeErr)
+					}
+					native.Invocation, native.LeaseID, native.Generation, native.Delivered, native.CredentialReturned, native.Retirement = strings.Repeat("b", 32), "native-manifest-lease", 1, true, true, "confirmed"
+					checks := &project.FactoryVerificationChecksState{Project: in.Run.Project, Run: in.Run.ID, Incarnation: native.Invocation, ManifestDigest: in.Run.VerificationManifestDigest, Phase: "passed", SourceCommit: m.SourceCommit, Preparation: m.Preparation, CheckDigest: m.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("per-run native manifest assertions passed")), Retirement: "confirmed"}
+					if fixture.checkFailed {
+						code := 1
+						checks.Phase, checks.ExitCode, checks.Reason = "failed", &code, "required_check_failed"
+						checks.OutputDigest = factory.MCPInputDigest([]byte("per-run assertions failed"))
+						native.Phase, native.Delivered, native.Reason = project.FactoryFailed, false, "verification_checks_failed"
+					}
+					native.VerificationChecks = checks
+				}
+				return native, nil
 			}
 			DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, subject, fx.tip, prompt, preparation, &report)
 			if len(report.Launched) != 1 || len(report.Errors) != 0 || len(report.Waits) != 0 {
@@ -204,6 +293,48 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			run, err := db.FactoryRun(ctx, a.Run)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if fixture.adopted {
+				fx.host.inspect = func(project.FactoryInspect) (project.FactoryState, error) { return native, nil }
+				if err := c.observeVerificationChecks(ctx, run, native); err != nil {
+					t.Fatal("native manifest receipt observation", err)
+				}
+				// A stale supervisor save cannot erase the packet or a terminal
+				// receipt, and a terminal receipt cannot acquire different bytes.
+				stale := run
+				stale.VerificationManifest, stale.VerificationChecks = nil, nil
+				if err := db.SaveFactoryRun(ctx, stale); err != nil {
+					t.Fatal("stale observer failed to retain native manifest receipt", err)
+				}
+				retained, err := db.FactoryRun(ctx, run.ID)
+				if err != nil || string(retained.VerificationManifest) != string(run.VerificationManifest) || retained.VerificationChecks == nil || retained.VerificationChecks.OutputDigest != native.VerificationChecks.OutputDigest {
+					t.Fatal("stale observer erased immutable verification evidence", err)
+				}
+				changed := *retained.VerificationChecks
+				changed.OutputDigest = strings.Repeat("f", 64)
+				retained.VerificationChecks = &changed
+				if err := db.SaveFactoryRun(ctx, retained); err == nil {
+					t.Fatal("terminal native receipt accepted changed output")
+				}
+				binding := identity.Binding{Kind: identity.Factory, ID: run.ID, Project: strings.Repeat("c", 64), Login: project.RoleReviewer, Generation: 1, InvocationID: native.Invocation, ChildID: preparation}
+				if err := adoptExecutionFacts(&run, native, identity.Execution{Binding: &binding}); err != nil {
+					t.Fatal(err)
+				}
+				if fixture.checkFailed {
+					run.Outcome, run.Reconciled, run.Summary = factory.Failed, true, "verification checks failed before worker startup"
+					if err := db.SaveFactoryRun(ctx, run); err != nil {
+						t.Fatal(err)
+					}
+					finished, settled := AccountSettledRun(ctx, db, run, "", time.Now())
+					if !settled || finished.Outcome != factory.Failed || finished.Result == nil || finished.Result.Reported || finished.Result.PhaseResult != nil && finished.Result.PhaseResult.Output != nil && finished.Result.PhaseResult.Output.Verification != nil {
+						t.Fatal("pre-CLI check failure invented a Test Pilot report", settled, finished.Outcome)
+					}
+					var posts int
+					if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10'`).Scan(&posts); err != nil || posts != 0 {
+						t.Fatal("failed manifest verified application", posts, err)
+					}
+					return
+				}
 			}
 			if early {
 				capability, err := db.GetMCPCapability(ctx, run.ID)
@@ -583,10 +714,34 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 			verification := factory.AppVerificationReport{DeliveryID: subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified, CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("task storage passed")), LogExcerpt: "Native assertions passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{task.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}}
+			if fixture.adopted {
+				verification.CheckReceipts[0].ArtifactDigest = native.VerificationChecks.OutputDigest
+				if fixture.failed {
+					capability, err := db.GetMCPCapability(ctx, run.ID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					verification.InputDigest, verification.Outcome, verification.Coverage = capability.ScopeDigest(), factory.AppVerificationFailed, nil
+					verification.Failures = []factory.CheckFailure{{CheckRef: idea.ID, Detail: "Approved assertions leave a required outcome uncovered."}}
+				}
+			}
 			a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
 			a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Output: &factory.PhaseOutput{Verification: &verification}}}
 			if err = db.FinishAssignment(ctx, a); err != nil {
 				t.Fatal("delivery settlement", err)
+			}
+			if fixture.adopted && fixture.failed {
+				cause, err := c.deliveryRepairCause(ctx, run.ID)
+				if err != nil || len(cause.Report.CheckReceipts) != 1 || cause.Report.CheckReceipts[0].ArtifactDigest != native.VerificationChecks.OutputDigest {
+					t.Fatal("repair cause lost exact per-run verification receipt", err)
+				}
+				checks := *native.VerificationChecks
+				native.VerificationChecks.OutputDigest = factory.MCPInputDigest([]byte("task storage passed"))
+				if _, err := c.deliveryRepairCause(ctx, run.ID); err == nil {
+					t.Fatal("repair cause substituted preparation output for run receipt")
+				}
+				native.VerificationChecks = &checks
+				return
 			}
 			if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
 				t.Fatal("verified delivery advertised Retry", available, err)

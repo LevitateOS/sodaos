@@ -20,27 +20,29 @@ func ValidDigest(value string) bool { return digest.MatchString(value) }
 type Run struct {
 	// ContextPending records a staged dispatch packet whose context has not
 	// admitted its first native launch. It is cleared durably before that call.
-	ContextPending      bool                                `json:"context_pending,omitempty"`
-	Admission           *RunAdmission                       `json:"admission,omitempty"`
-	ExecutionManifest   []byte                              `json:"execution_manifest,omitempty"`
-	FinalCheckpoint     *project.FactoryTaskCheckpointState `json:"final_checkpoint,omitempty"`
-	CredentialDelegated bool                                `json:"credential_delegated"`
-	CredentialReturned  bool                                `json:"credential_returned"`
-	IdentityLeaseID     string                              `json:"identity_lease_id,omitempty"`
-	IdentityGeneration  int64                               `json:"identity_generation,omitempty"`
-	IdentityBinding     *identity.Binding                   `json:"identity_binding,omitempty"`
-	ID                  string                              `json:"id"`
-	ProjectID           string                              `json:"project_id"`
-	Role                string                              `json:"role"`
-	InputSHA            string                              `json:"input_sha"`
-	Started             time.Time                           `json:"started"`
-	Deadline            time.Time                           `json:"deadline"`
-	Outcome             Outcome                             `json:"outcome,omitempty"`
-	Summary             string                              `json:"summary,omitempty"`
-	Reconciled          bool                                `json:"reconciled"`
-	Image               string                              `json:"image"`
-	Harness             string                              `json:"harness"`
-	Model               string                              `json:"model"`
+	ContextPending       bool                                    `json:"context_pending,omitempty"`
+	Admission            *RunAdmission                           `json:"admission,omitempty"`
+	ExecutionManifest    []byte                                  `json:"execution_manifest,omitempty"`
+	VerificationManifest []byte                                  `json:"verification_manifest,omitempty"`
+	VerificationChecks   *project.FactoryVerificationChecksState `json:"verification_checks,omitempty"`
+	FinalCheckpoint      *project.FactoryTaskCheckpointState     `json:"final_checkpoint,omitempty"`
+	CredentialDelegated  bool                                    `json:"credential_delegated"`
+	CredentialReturned   bool                                    `json:"credential_returned"`
+	IdentityLeaseID      string                                  `json:"identity_lease_id,omitempty"`
+	IdentityGeneration   int64                                   `json:"identity_generation,omitempty"`
+	IdentityBinding      *identity.Binding                       `json:"identity_binding,omitempty"`
+	ID                   string                                  `json:"id"`
+	ProjectID            string                                  `json:"project_id"`
+	Role                 string                                  `json:"role"`
+	InputSHA             string                                  `json:"input_sha"`
+	Started              time.Time                               `json:"started"`
+	Deadline             time.Time                               `json:"deadline"`
+	Outcome              Outcome                                 `json:"outcome,omitempty"`
+	Summary              string                                  `json:"summary,omitempty"`
+	Reconciled           bool                                    `json:"reconciled"`
+	Image                string                                  `json:"image"`
+	Harness              string                                  `json:"harness"`
+	Model                string                                  `json:"model"`
 }
 
 // RunAdmission is the immutable authorization and execution profile captured
@@ -76,6 +78,24 @@ func (r Run) Validate() error {
 		if request.ID != r.ID || request.Project != r.ProjectID || request.ManifestDigest != project.ExecutionManifestDigest(r.ExecutionManifest) || r.FinalCheckpoint.ValidateFor(request, true) != nil {
 			return errors.New("final checkpoint does not bind its recorded run")
 		}
+	}
+	if len(r.VerificationManifest) > 0 {
+		manifest, err := project.ParseVerificationManifest(r.VerificationManifest)
+		if err != nil || manifest.Run != r.ID || manifest.Project != r.ProjectID || manifest.SourceCommit != r.InputSHA || !manifest.Deadline.Equal(r.Deadline) || r.Role != project.RoleReviewer || len(r.ExecutionManifest) > 0 {
+			return errors.New("verification manifest does not bind its recorded run")
+		}
+		if r.VerificationChecks != nil {
+			state := r.VerificationChecks
+			request := project.FactoryVerificationChecks{Project: r.ProjectID, Run: r.ID, Incarnation: state.Incarnation, ManifestDigest: project.ExecutionManifestDigest(r.VerificationManifest)}
+			if state.ValidateFor(request) != nil || state.SourceCommit != manifest.SourceCommit || state.Preparation != manifest.Preparation || state.CheckDigest != manifest.CheckDigest {
+				return errors.New("verification checks do not bind their recorded manifest")
+			}
+			if r.IdentityBinding != nil && r.IdentityBinding.InvocationID != state.Incarnation {
+				return errors.New("verification checks differ from the native invocation")
+			}
+		}
+	} else if r.VerificationChecks != nil {
+		return errors.New("verification receipt has no recorded manifest")
 	}
 	if err := r.validateProvenance(); err != nil {
 		return err

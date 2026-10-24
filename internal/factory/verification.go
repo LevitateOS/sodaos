@@ -24,6 +24,7 @@ const (
 	DefaultAppVerificationRuns          = 2
 	DefaultAppVerificationActiveMinutes = 60
 	MaxAppVerificationRunMinutes        = 30
+	DefaultDeliveryRepairRuns           = 2
 )
 
 // DeliverySubject binds one app verification to its accepted intent
@@ -105,6 +106,59 @@ func (s DeliveryRepairSubject) Validate() error {
 		return errors.New("delivery repair subject must bind its failure evidence")
 	}
 	return nil
+}
+
+// DeliveryRepairCause is the exact authenticated failed verification retained
+// before its one explicitly requested repair. It never names an incomplete
+// report or derives a failure from a native process exit alone.
+type DeliveryRepairCause struct {
+	Repository              int64                 `json:"repository,string"`
+	ProjectID               string                `json:"project_id"`
+	FailedAssignmentID      string                `json:"failed_assignment_id"`
+	FailedVerificationRunID string                `json:"failed_verification_run_id"`
+	Delivery                DeliverySubject       `json:"delivery"`
+	Report                  AppVerificationReport `json:"report"`
+	FailureDigest           string                `json:"failure_digest"`
+}
+
+func DeliveryFailureDigest(report AppVerificationReport) string {
+	raw, _ := json.Marshal(report)
+	return MCPInputDigest(raw)
+}
+
+func DeliveryRepairCauseID(failedRun string) string {
+	sum := sha256.Sum256([]byte("delivery-repair-cause-v1\x00" + failedRun))
+	return hex.EncodeToString(sum[:16])
+}
+
+func DeliveryRepairCycleID(failedRun string) string {
+	sum := sha256.Sum256([]byte("delivery-repair-cycle-v1\x00" + failedRun))
+	return hex.EncodeToString(sum[:16])
+}
+
+func (c DeliveryRepairCause) Validate() error {
+	if c.Repository <= 0 || !project.ValidID(c.ProjectID) || !ValidID(c.FailedAssignmentID) || !ValidID(c.FailedVerificationRunID) || c.Delivery.Validate() != nil || c.Report.Validate() != nil || c.Report.Outcome != AppVerificationFailed || c.Report.DeliveryID != c.Delivery.DeliveryID || c.FailureDigest != DeliveryFailureDigest(c.Report) {
+		return errors.New("delivery repair requires its exact failed verification report")
+	}
+	return nil
+}
+
+type DeliveryRepairReceipt struct {
+	CommandID string `json:"command_id"`
+	RunID     string `json:"run_id"`
+	CauseID   string `json:"cause_id"`
+	CycleID   string `json:"cycle_id"`
+	State     string `json:"state"`
+}
+
+type CurrentDeliveryRepairContext struct {
+	Subject  DeliveryRepairSubject     `json:"subject"`
+	Cause    DeliveryRepairCause       `json:"cause"`
+	Local    CompletionLocal           `json:"local"`
+	Issues   []CompletionIssueEvidence `json:"issues"`
+	Complete bool                      `json:"complete"`
+	State    string                    `json:"state"`
+	Reason   string                    `json:"reason,omitempty"`
 }
 
 // CheckFailure names one exact failed check or outcome behind a repair

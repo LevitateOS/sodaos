@@ -109,6 +109,7 @@ type factoryRunStatus struct {
 	State             *factoryRunLive               `json:"state,omitempty"`
 	ContextSelection  *control.ContextSelectionView `json:"context_selection,omitempty"`
 	VerificationRetry *workCapabilityView           `json:"verification_retry,omitempty"`
+	DeliveryRepair    *workCapabilityView           `json:"delivery_repair,omitempty"`
 }
 
 // apiFactoryRun maps one recorded run to its display status: recorded facts,
@@ -181,6 +182,22 @@ func (s *API) apiFactoryRun(w http.ResponseWriter, r *http.Request, v store.Sess
 				available = false
 			}
 			status.VerificationRetry = &workCapabilityView{Available: available && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)}
+			status.DeliveryRepair = &workCapabilityView{}
+			if s.Coordinator != nil {
+				_, ownerErr := s.Store.IntentRevision(r.Context(), assignment.Subject.Delivery.IntentID, v.User.ID)
+				if ownerErr != nil && !errors.Is(ownerErr, store.ErrNotFound) {
+					auth.JSONError(w, 503, "store_unavailable", "Could not read application repair availability.")
+					return
+				}
+				if ownerErr == nil {
+					repairAvailable, err := s.Coordinator.DeliveryRepairAvailable(r.Context(), run.ID)
+					if err != nil {
+						auth.JSONError(w, 503, "store_unavailable", "Could not read application repair availability.")
+						return
+					}
+					status.DeliveryRepair.Available = repairAvailable && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)
+				}
+			}
 		}
 	}
 	auth.JSONResponse(w, 200, status)

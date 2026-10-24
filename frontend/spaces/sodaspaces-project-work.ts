@@ -15,7 +15,7 @@ import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {factoryCommandId, factoryRunStatusResponse} from './sodaspaces-factory-response.js';
 import type {FactoryRunDetail} from './sodaspaces-factory-response.js';
-import {factoryCommandRecord, retryDecision} from './sodaspaces-factory-work-response.js';
+import {deliveryRepairDecision, factoryCommandRecord, retryDecision} from './sodaspaces-factory-work-response.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 
 export interface ProjectWorkContext {
@@ -341,7 +341,7 @@ class SodaFactoryVerificationRetry extends LitElement {
   declare private busy: boolean;
   private current: VerificationRetryContext | undefined;
   private serial = 0;
-  private pending: {run: string; command: string} | undefined;
+  private pending: {run: string; command: string; action: 'retry' | 'repair_delivery'} | undefined;
   constructor() {
     super();
     this.entries = [];
@@ -391,18 +391,20 @@ class SodaFactoryVerificationRetry extends LitElement {
       read.value.reconciled &&
       read.value.view?.repository === context.repository &&
       read.value.view.issue === undefined &&
-      (read.value.verification_retry?.available || this.pending?.run === read.value.id)
+      (read.value.verification_retry?.available ||
+        read.value.delivery_repair?.available ||
+        this.pending?.run === read.value.id)
         ? [read.value]
         : []
     );
     if (reads.some((read) => read.status === 'rejected'))
       this.message = 'Could not read application verification availability. Refresh verification to try again.';
   }
-  private async retry(run: string) {
+  private async requestAction(run: string, action: 'retry' | 'repair_delivery') {
     const context = this.current;
     if (!context || this.busy || (!this.pending && !this.entries.some((entry) => entry.id === run))) return;
-    const pending = this.pending ?? {run, command: factoryCommandId()};
-    if (pending.run !== run) return;
+    const pending = this.pending ?? {run, command: factoryCommandId(), action};
+    if (pending.run !== run || pending.action !== action) return;
     this.pending = pending;
     const serial = this.serial;
     this.busy = true;
@@ -410,12 +412,14 @@ class SodaFactoryVerificationRetry extends LitElement {
       const response = await context.transport.request(`factory/runs/${run}/actions`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({command_id: pending.command, action: 'retry'}),
+        body: JSON.stringify({command_id: pending.command, action: pending.action}),
         signal: AbortSignal.timeout(90000),
       });
       check(response.ok);
-      retryDecision(await readSodaJSON(response), pending.command, run);
-      if (serial === this.serial) this.confirmed(run);
+      const value = await readSodaJSON(response);
+      if (action === 'retry') retryDecision(value, pending.command, run);
+      else deliveryRepairDecision(value, pending.command, run);
+      if (serial === this.serial) this.confirmed(run, action);
     } catch {
       try {
         const response = await context.transport.request(`factory/commands/${pending.command}`, {
@@ -423,28 +427,44 @@ class SodaFactoryVerificationRetry extends LitElement {
         });
         check(response.ok);
         const record = factoryCommandRecord(await readSodaJSON(response), pending.command);
-        check(record.type === 'retry' && record.target === `run/${run}` && typeof record.outcome === 'string');
-        retryDecision(JSON.parse(record.outcome), pending.command, run);
-        if (serial === this.serial) this.confirmed(run);
+        check(
+          record.type === (action === 'retry' ? 'retry' : 'request-delivery-repair') &&
+            record.target === `run/${run}` &&
+            typeof record.outcome === 'string'
+        );
+        if (action === 'retry') retryDecision(JSON.parse(record.outcome), pending.command, run);
+        else deliveryRepairDecision(JSON.parse(record.outcome), pending.command, run);
+        if (serial === this.serial) this.confirmed(run, action);
       } catch {
         if (serial === this.serial)
           this.message =
-            'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.';
+            action === 'retry'
+              ? 'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.'
+              : 'No repair request was confirmed. Retry this same request or refresh; the original verification is retained.';
       }
     } finally {
       if (serial === this.serial) this.busy = false;
     }
   }
-  private confirmed(run: string) {
+  private confirmed(run: string, action: 'retry' | 'repair_delivery') {
     this.pending = undefined;
     this.entries = this.entries.filter((entry) => entry.id !== run);
-    this.message = 'Verification Retry queued. The original result and spending are retained.';
+    this.message =
+      action === 'retry'
+        ? 'Verification Retry queued. The original result and spending are retained.'
+        : 'Application repair requested. Diagnosis is queued; the original result and spending are retained.';
   }
   protected render() {
     if (!this.entries.length && !this.message) return html``;
     return html`<section aria-label="Application verification needs attention">
-      ${this.entries.length ? html`<p>Test Pilot needs another explicit, bounded attempt. Its previous result stays recorded.</p>` : ''}
-      ${this.entries.map((entry) => html`<p>Verification run ${entry.id.slice(0, 8)} <button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && this.pending.run !== entry.id)} @click=${() => this.retry(entry.id)}>${this.pending?.run === entry.id ? 'Retry same verification request' : 'Retry application verification'}</button></p>`)}
+      ${this.entries.length ? html`<p>Choose an explicit next step. Previous verification results and spending stay recorded.</p>` : ''}
+      ${this.entries.map(
+        (entry) => html`<p>
+          Verification run ${entry.id.slice(0, 8)}
+          ${entry.verification_retry?.available || (this.pending?.run === entry.id && this.pending.action === 'retry') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'retry'))} @click=${() => this.requestAction(entry.id, 'retry')}>${this.pending?.run === entry.id && this.pending.action === 'retry' ? 'Retry same verification request' : 'Retry application verification'}</button>` : ''}
+          ${entry.delivery_repair?.available || (this.pending?.run === entry.id && this.pending.action === 'repair_delivery') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'repair_delivery'))} @click=${() => this.requestAction(entry.id, 'repair_delivery')}>${this.pending?.run === entry.id && this.pending.action === 'repair_delivery' ? 'Retry same repair request' : 'Request application repair'}</button>` : ''}
+        </p>`
+      )}
       <p role="status">${this.message}</p>
       <button
         type="button"

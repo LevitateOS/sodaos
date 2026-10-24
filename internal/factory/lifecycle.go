@@ -27,6 +27,9 @@ const (
 	// ActionRetry records a queued explicit retry after the prior run is
 	// reconciled. No launcher consumes it yet; it stays queued.
 	ActionRetry = "retry"
+	// ActionDeliveryRepair requests a bounded repair of an exact, retired
+	// application verification failure without repeating the verifier.
+	ActionDeliveryRepair = "repair_delivery"
 	// ActionTakeover copies a reconciled run's retained work into the
 	// admitted member's own checkout. It never transfers credentials.
 	ActionTakeover = "takeover"
@@ -39,7 +42,7 @@ func ValidRepositoryAction(action string) bool {
 
 // ValidRunAction reports whether action is a run control.
 func ValidRunAction(action string) bool {
-	return action == ActionStop || action == ActionRetry || action == ActionTakeover
+	return action == ActionStop || action == ActionRetry || action == ActionTakeover || action == ActionDeliveryRepair
 }
 
 // Withdrawal causes owned by lifecycle controls. Grant withdrawals keep

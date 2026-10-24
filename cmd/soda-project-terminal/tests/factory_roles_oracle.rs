@@ -309,6 +309,279 @@ fn oracle_start_runs_detached_to_ready() {
         "{state}"
     );
     assert!(state.contains("\"setup_log\": \"hello\\n\""), "{state}");
+
+    // The approved verification route runs real Git/source and shell checks
+    // in a distinct disposable clone, never the retained preparation tree.
+    let mut verified = Scratch::fresh();
+    verified.git = PathBuf::from("/usr/bin/git");
+    verified.ok("{\"op\":\"ensure\"}");
+    let source = verified.root.join("source");
+    std::fs::create_dir(&source).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec!["config", "user.email", "native@example.invalid"],
+        vec!["config", "user.name", "Native fixture"],
+    ] {
+        assert!(Command::new("/usr/bin/git")
+            .arg("-C")
+            .arg(&source)
+            .args(args)
+            .status()
+            .unwrap()
+            .success());
+    }
+    std::fs::write(source.join("record.txt"), "retained\n").unwrap();
+    assert!(Command::new("/usr/bin/git")
+        .arg("-C")
+        .arg(&source)
+        .args(["add", "record.txt"])
+        .status()
+        .unwrap()
+        .success());
+    assert!(Command::new("/usr/bin/git")
+        .arg("-C")
+        .arg(&source)
+        .args(["commit", "-qm", "native verification fixture"])
+        .status()
+        .unwrap()
+        .success());
+    let head = Command::new("/usr/bin/git")
+        .arg("-C")
+        .arg(&source)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
+    assert!(head.status.success());
+    let commit = String::from_utf8(head.stdout).unwrap().trim().to_string();
+    let bundle = verified.root.join("source.bundle");
+    assert!(Command::new("/usr/bin/git")
+        .arg("-C")
+        .arg(&source)
+        .args(["bundle", "create"])
+        .arg(&bundle)
+        .arg("HEAD")
+        .status()
+        .unwrap()
+        .success());
+    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*) exit 7;; 333*|666*|777*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; *) echo check-ok;; esac\n";
+    let mut approve: serde_json::Value = serde_json::from_str(&approve_request(
+        PID,
+        &[("setup.sh", b"true\n"), ("check.sh", check)],
+    ))
+    .unwrap();
+    approve["role"] = "soda-reviewer".into();
+    approve["source_commit"] = commit.clone().into();
+    approve["bundle"] = b64_encode(&std::fs::read(&bundle).unwrap()).into();
+    verified.ok(&approve.to_string());
+    let checkout = verified
+        .factory
+        .join("test-homes/soda-reviewer/checkouts")
+        .join(PID);
+    assert!(Command::new("/usr/bin/git")
+        .args(["clone", "-q", "--no-hardlinks"])
+        .arg(&source)
+        .arg(&checkout)
+        .status()
+        .unwrap()
+        .success());
+    verified.ok(&record_request(PID, "", None));
+    verified.ok(&format!("{{\"op\":\"start\",\"id\":\"{PID}\"}}"));
+    let prep = verified.factory.join("preparations").join(PID);
+    wait_for(&prep.join("finished.json"), 30);
+    assert!(verified
+        .ok(&format!("{{\"op\":\"inspect\",\"id\":\"{PID}\"}}"))
+        .contains("\"phase\": \"ready\""));
+    let retained = std::fs::read(checkout.join("record.txt")).unwrap();
+    let check_file = verified.root.join("check.digest");
+    std::fs::write(&check_file, check).unwrap();
+    let hashed = Command::new("sha256sum").arg(&check_file).output().unwrap();
+    assert!(hashed.status.success());
+    let check_digest = &String::from_utf8(hashed.stdout).unwrap()[..64];
+    let deadline = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 120;
+    let mut request = serde_json::json!({"op":"verify","id":PID,"run_id":"1".repeat(32),"invocation_id":"a".repeat(32),"manifest_digest":"b".repeat(64),"check_digest":check_digest,"source_commit":commit,"deadline":soda_wire_time::format(deadline,0).unwrap()});
+    let first = verified.ok(&request.to_string());
+    assert!(first.contains("\"phase\": \"running\""), "{first}");
+    let run_dir = prep.join("verifications").join("1".repeat(32));
+    wait_for(&run_dir.join("finished.json"), 30);
+    request["op"] = "verify_stop".into();
+    let passed: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(passed["phase"], "completed");
+    assert_eq!(passed["retirement"], "confirmed");
+    assert_eq!(passed["check_exit"], 0);
+    assert_eq!(passed["output"], "check-ok\n");
+    assert!(!run_dir.join("stopped.json").exists());
+    assert!(!run_dir.join("work").exists());
+    assert!(!run_dir.join("home").exists());
+    assert_eq!(
+        std::fs::read(checkout.join("record.txt")).unwrap(),
+        retained
+    );
+    request["op"] = "verify".into();
+    let replay: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(replay, passed);
+    request["invocation_id"] = "c".repeat(32).into();
+    verified.refused(request.to_string().as_bytes());
+    request["invocation_id"] = "a".repeat(32).into();
+    request["check_digest"] = "e".repeat(64).into();
+    request["run_id"] = "5".repeat(32).into();
+    verified.refused(request.to_string().as_bytes());
+    assert!(!prep.join("verifications").join("5".repeat(32)).exists());
+    request["check_digest"] = check_digest.to_string().into();
+    request["run_id"] = "2".repeat(32).into();
+    verified.ok(&request.to_string());
+    let failed_dir = prep.join("verifications").join("2".repeat(32));
+    wait_for(&failed_dir.join("finished.json"), 30);
+    request["op"] = "verify_stop".into();
+    let failed: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(failed["phase"], "failed");
+    assert_eq!(failed["check_exit"], 7);
+    assert_eq!(failed["retirement"], "confirmed");
+    // Stop the unfinished exact check; no source/fixture resurrection on replay.
+    request["op"] = "verify".into();
+    request["run_id"] = "3".repeat(32).into();
+    verified.ok(&request.to_string());
+    let stopped_dir = prep.join("verifications").join("3".repeat(32));
+    wait_for(&stopped_dir.join("check.log"), 30);
+    verified.ok("{\"op\":\"hold\",\"revision\":1}");
+    verified.refused(b"{\"op\":\"release\",\"revision\":1}");
+    request["op"] = "verify_stop".into();
+    let stopped: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(stopped["phase"], "stopped");
+    assert_eq!(stopped["retirement"], "confirmed");
+    assert!(!stopped_dir.join("work").exists());
+    verified.ok("{\"op\":\"release\",\"revision\":1}");
+    request["op"] = "verify".into();
+    let replay: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(replay, stopped);
+    assert_eq!(
+        std::fs::read(checkout.join("record.txt")).unwrap(),
+        retained
+    );
+    request["run_id"] = "4".repeat(32).into();
+    verified.ok(&request.to_string());
+    let capped_dir = prep.join("verifications").join("4".repeat(32));
+    wait_for(&capped_dir.join("finished.json"), 30);
+    request["op"] = "verify_stop".into();
+    let capped: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(capped["phase"], "completed");
+    assert_eq!(capped["truncated"], true);
+    assert_eq!(capped["output"].as_str().unwrap().len(), 65536);
+    let raw = std::fs::read(capped_dir.join("check.log")).unwrap();
+    std::fs::write(&check_file, &raw[..65536]).unwrap();
+    let digest = Command::new("sha256sum").arg(&check_file).output().unwrap();
+    assert_eq!(
+        capped["output_digest"],
+        &String::from_utf8(digest.stdout).unwrap()[..64]
+    );
+    // Deadline retirement is a retained failed check, not an implicit retry.
+    let expires = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 2;
+    request["deadline"] = soda_wire_time::format(expires, 0).unwrap().into();
+    request["run_id"] = "6".repeat(32).into();
+    request["op"] = "verify".into();
+    verified.ok(&request.to_string());
+    let expired_dir = prep.join("verifications").join("6".repeat(32));
+    wait_for(&expired_dir.join("finished.json"), 30);
+    request["op"] = "verify_stop".into();
+    let expired: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(expired["phase"], "failed");
+    assert_eq!(expired["check_exit"], 124);
+    assert_eq!(expired["retirement"], "confirmed");
+    request["op"] = "verify".into();
+    let replay: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(replay, expired);
+    // The enclosing preparation's ordinary Stop also joins verification work.
+    request["deadline"] = soda_wire_time::format(deadline, 0).unwrap().into();
+    request["run_id"] = "7".repeat(32).into();
+    verified.ok(&request.to_string());
+    let final_dir = prep.join("verifications").join("7".repeat(32));
+    wait_for(&final_dir.join("check.log"), 30);
+    let stop = verified.ok(&format!("{{\"op\":\"stop\",\"id\":\"{PID}\"}}"));
+    assert!(stop.contains("\"retirement\": \"confirmed\""), "{stop}");
+    request["op"] = "verify_inspect".into();
+    let final_state: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(final_state["phase"], "stopped");
+    assert_eq!(final_state["retirement"], "confirmed");
+    assert!(!final_dir.join("work").exists());
+    assert_eq!(
+        std::fs::read(checkout.join("record.txt")).unwrap(),
+        retained
+    );
+    // Stop before dispatch durably fences the exact tuple. A later delivery
+    // of the original start cannot launch or bind a different incarnation.
+    request["op"] = "verify_stop".into();
+    request["run_id"] = "9".repeat(32).into();
+    let absent: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(absent["phase"], "stopped");
+    assert_eq!(absent["retirement"], "confirmed");
+    request["op"] = "verify".into();
+    let delayed: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(delayed, absent);
+    assert!(!prep
+        .join("verifications")
+        .join("9".repeat(32))
+        .join("started.json")
+        .exists());
+    request["invocation_id"] = "f".repeat(32).into();
+    verified.refused(request.to_string().as_bytes());
+    request["invocation_id"] = "a".repeat(32).into();
+    // Retry also completes a stop which crashed after binding the request
+    // but before creating its absence marker. There was no launch or fixture.
+    request["run_id"] = "a".repeat(32).into();
+    let interrupted_stop = prep.join("verifications").join("a".repeat(32));
+    std::fs::create_dir(&interrupted_stop).unwrap();
+    let mut stored = request.clone();
+    stored.as_object_mut().unwrap().remove("op");
+    std::fs::write(interrupted_stop.join("request.json"), stored.to_string()).unwrap();
+    request["op"] = "verify_stop".into();
+    let stopped: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(stopped["phase"], "stopped");
+    assert_eq!(stopped["retirement"], "confirmed");
+    assert!(!interrupted_stop.join("started.json").exists());
+    // An unrecorded fixture is observable uncertainty. Replay never launches,
+    // and Stop cannot remove unknown data or pretend maintenance is safe.
+    request["op"] = "verify".into();
+    request["run_id"] = "8".repeat(32).into();
+    let partial = prep.join("verifications").join("8".repeat(32));
+    std::fs::create_dir(&partial).unwrap();
+    let mut stored = request.clone();
+    stored.as_object_mut().unwrap().remove("op");
+    std::fs::write(partial.join("request.json"), stored.to_string()).unwrap();
+    std::fs::create_dir(partial.join("work")).unwrap();
+    std::fs::write(partial.join("work/unknown-data"), "retain").unwrap();
+    let uncertain: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(uncertain["phase"], "uncertain");
+    assert_eq!(uncertain["retirement"], "unconfirmed");
+    assert!(!partial.join("started.json").exists());
+    request["op"] = "verify_stop".into();
+    verified.refused(request.to_string().as_bytes());
+    assert!(partial.join("request.json").exists());
+    assert_eq!(
+        std::fs::read_to_string(partial.join("work/unknown-data")).unwrap(),
+        "retain"
+    );
+    verified.ok("{\"op\":\"hold\",\"revision\":2}");
+    verified.refused(b"{\"op\":\"release\",\"revision\":2}");
 }
 
 #[test]

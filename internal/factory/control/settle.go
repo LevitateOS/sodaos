@@ -336,6 +336,9 @@ func settleReason(state project.FactoryState) string {
 // and broker observations. First-recorded facts never change; a conflict
 // fences the run instead of rewriting its identity.
 func adoptExecutionFacts(run *factory.Run, state project.FactoryState, execution identity.Execution) error {
+	if err := adoptVerificationChecks(run, state); err != nil {
+		return err
+	}
 	if run.IdentityLeaseID == "" {
 		run.IdentityLeaseID, run.IdentityGeneration = state.LeaseID, state.Generation
 	} else if run.IdentityLeaseID != state.LeaseID || run.IdentityGeneration != state.Generation {

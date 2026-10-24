@@ -111,6 +111,9 @@ func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, err
 	if err == nil {
 		err = initializeRepairSchema(context.Background(), db)
 	}
+	if err == nil {
+		err = initializeDeliveryRepairSchema(context.Background(), db)
+	}
 	if err == nil && cipher != nil {
 		err = s.initializeGrantKey(context.Background())
 	}

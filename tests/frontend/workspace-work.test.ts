@@ -94,6 +94,45 @@ test('Project Work opens explicit requirements review for an imported native iss
   assert.match(String(retryCalls[0]?.body?.command_id), /^[a-f0-9]{32}$/);
   assert.equal(retryCalls[0]?.body?.action, 'retry');
   assert.equal(await writes(page), 1, 'lost reply recovery must read the same command, never issue another Retry');
+  await page.evaluate(async () => {
+    window.workspaceFixture.calls.length = 0;
+    window.workspaceFixture.enableVerificationRetry(true);
+    await window.workspaceFixture.api.refresh();
+  });
+  await verification.getByRole('button', {name: 'Refresh verification', exact: true}).click();
+  await verification.getByRole('button', {name: 'Request application repair', exact: true}).waitFor();
+  assert.equal(
+    await verification.getByRole('button', {name: 'Retry application verification', exact: true}).count(),
+    0
+  );
+  assert.equal(await writes(page), 0, 'reading repair availability must not admit a diagnosis');
+  await verification.getByRole('button', {name: 'Request application repair', exact: true}).click();
+  await verification.getByRole('status').filter({hasText: 'No repair request was confirmed'}).waitFor();
+  assert.doesNotMatch(
+    await verification.innerText(),
+    /Application repair requested/,
+    'a foreign run receipt cannot acknowledge repair'
+  );
+  await page.evaluate(async () => {
+    window.workspaceFixture.allowRepairReceipt();
+    await window.workspaceFixture.api.refresh();
+  });
+  await verification.getByRole('button', {name: 'Refresh verification', exact: true}).click();
+  await verification.getByRole('button', {name: 'Retry same repair request', exact: true}).click();
+  await verification
+    .getByRole('status')
+    .filter({hasText: 'Application repair requested. Diagnosis is queued'})
+    .waitFor();
+  const repairCalls = await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method === 'POST'));
+  assert.equal(repairCalls.length, 2);
+  assert.deepEqual(
+    repairCalls[0]?.body,
+    repairCalls[1]?.body,
+    'uncertain repair retains the exact command and action across refresh'
+  );
+  assert.equal(repairCalls[0]?.body?.action, 'repair_delivery');
+  assert(repairCalls.every((call) => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}/actions`)));
+  assert.equal(await verification.getByRole('button', {name: 'Request application repair', exact: true}).count(), 0);
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   assert.equal(await page.getByRole('region', {name: 'Application verification needs attention'}).count(), 0);
 });

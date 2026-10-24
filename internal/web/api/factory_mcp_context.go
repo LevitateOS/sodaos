@@ -110,6 +110,9 @@ func (s *factoryCatalogServer) addCurrentVerification(ctx context.Context, cap f
 	if json.Unmarshal(raw, &evidence) != nil || evidence.ValidateFor(*current.Role.Delivery) != nil {
 		return errors.New("current native verification is malformed")
 	}
+	if e := evidence.Execution; e != nil && (e.Run != cap.RunID || e.Project != cap.Project) {
+		return errors.New("current native verification belongs to another worker")
+	}
 	current.Role.Verification = &evidence
 	missingReasons := []string{}
 	for _, reason := range current.Evidence.MissingReasons {

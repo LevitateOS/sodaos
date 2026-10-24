@@ -1082,6 +1082,10 @@ func (r StallRepairReport) AccountingHolds(inventory []int64, changed []int64) e
 	return repairAccountingHolds(r.RetainedIssueIndexes, r.Attention, inventory, changed)
 }
 
+func (r DeliveryRepairReport) AccountingHolds(inventory []int64, changed []int64) error {
+	return repairAccountingHolds(r.RetainedIssueIndexes, r.Attention, inventory, changed)
+}
+
 func repairAccountingHolds(retained []int64, attention []ReassessmentAttentionEntry, inventory []int64, changed []int64) error {
 	if len(inventory) > MaxReassessmentIssues || !sortedUniqueIndexes(inventory) {
 		return errors.New("invalid reassessment inventory size")

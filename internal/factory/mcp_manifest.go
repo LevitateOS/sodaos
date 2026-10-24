@@ -50,8 +50,8 @@ type ApprovedCheck struct {
 	Fixtures        []string `json:"fixtures"`
 }
 
-const ProjectCheckReceiptArtifact = "project.check.receipt"
-const ProjectCheckPreparedFixture = "project.preparation"
+const ProjectCheckReceiptArtifact = project.VerificationReceiptArtifact
+const ProjectCheckPreparedFixture = project.VerificationPreparedFixture
 
 // ApprovedProjectCheckCatalog binds the existing approved Project check to its
 // protected preparation. It grants no arbitrary executable, parameter, artifact

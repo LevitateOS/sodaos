@@ -15,13 +15,6 @@ import (
 func (c *Coordinator) deliveryAdmission(ctx context.Context, candidate store.DeliveredIntentCandidate) (factory.ExecutionSubject, string, []byte, error) {
 	var none factory.ExecutionSubject
 	revision := candidate.Revision
-	generation, generationErr := c.Store.IntentGeneration(ctx, revision.ID)
-	if generationErr != nil && !errors.Is(generationErr, store.ErrNotFound) {
-		return none, "", nil, generationErr
-	}
-	if generation.VerificationManifest != nil {
-		return none, "", nil, errors.New("The adopted verification manifest needs its trusted per-run executor before Test Pilot can start.")
-	}
 	policy, err := c.Store.RepositoryPolicy(ctx, revision.Repository)
 	if err != nil {
 		return none, "", nil, err
@@ -62,8 +55,11 @@ func (c *Coordinator) deliveryAdmission(ctx context.Context, candidate store.Del
 		if material.ValidateFor(request, p.Role) != nil {
 			continue
 		}
-		manifest, err := factory.ParseApprovedAppCheck(material.Check)
-		if err != nil || !manifest.BindsIntent(revision) {
+		manifest, _, err := c.adoptedDeliveryCheck(ctx, revision, material.Check)
+		if err != nil {
+			return none, "", nil, err
+		}
+		if !manifest.BindsIntent(revision) {
 			continue
 		}
 		subject := factory.DeliverySubject{IntentID: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), SourceCommit: native.Tip, PreparationDigest: factory.DeliveryPreparationDigest(p), VerificationManifestDigest: manifest.Digest()}

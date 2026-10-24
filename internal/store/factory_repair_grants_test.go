@@ -316,7 +316,7 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 	}
 	bumpAttemptSeconds(t, ctx, db, repo, 3, 300)
 	if err := db.BindIntentTaskAcceptance(ctx, factory.IntentTaskBinding{
-		RevisionID: rev1.ID, TaskKey: rev1.Tasks[0].Key, IssueID: 3, IssueIndex: 3,
+		RevisionID: rev1.ID, TaskKey: rev1.Tasks[0].Key, IssueID: 303, IssueIndex: 3,
 		AcceptanceID: "d555555555555555555555555",
 	}); err != nil {
 		t.Fatalf("bind issue 3: %v", err)
@@ -335,7 +335,7 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 		t.Fatalf("save rev2: %v", err)
 	}
 	if err := db.BindIntentTaskAcceptance(ctx, factory.IntentTaskBinding{
-		RevisionID: rev2.ID, TaskKey: rev2.Tasks[0].Key, IssueID: 4, IssueIndex: 4,
+		RevisionID: rev2.ID, TaskKey: rev2.Tasks[0].Key, IssueID: 404, IssueIndex: 4,
 		AcceptanceID: "d777777777777777777777777",
 	}); err != nil {
 		t.Fatalf("bind split issue 4: %v", err)
@@ -349,6 +349,45 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 	}
 	if len(aggregate.Issues) != 2 {
 		t.Fatalf("aggregate issues=%v, want both bound issues", aggregate.Issues)
+	}
+	// Verification and its distinct delivery-repair root carry issue zero, but
+	// their spent time still belongs to the same stable origin intent.
+	delivery := factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: rev1.Intent, AcceptedRevision: rev2.ID, ScopeDigest: rev2.Digest(), SourceCommit: a.SourceCommit, PreparationDigest: strings.Repeat("a", 64), VerificationManifestDigest: strings.Repeat("b", 64)}
+	verificationRun := factory.NewID()
+	for i, seconds := range []int64{30, 60} {
+		root := a
+		root.ID, root.Run, root.Issue, root.Acceptance = factory.NewID(), verificationRun, 0, ""
+		root.AttemptRoot, root.ParentAssignment, root.PublicationAssignment = root.ID, "", ""
+		root.RunHistory = []string{root.Run}
+		root.Phase, root.Role = "verify", "soda-reviewer"
+		root.Subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &delivery}
+		allowance := factory.AttemptAllowance{Limits: factory.AttemptLimits{ActiveMinutes: 30}, RootAssignment: root.ID, Repository: repo, Delivery: &delivery, ActiveSeconds: seconds, CheckpointUnix: now.Unix(), Closed: true}
+		if i == 1 {
+			root.ID = factory.DeliveryRepairCycleID(verificationRun)
+			root.AttemptRoot, root.Run, root.Phase, root.Role = root.ID, factory.NewID(), "repair", "soda-coder"
+			root.RunHistory = []string{root.Run}
+			subject := factory.DeliveryRepairSubject{DeliveryID: delivery.DeliveryID, FailedVerificationRunID: verificationRun, FailureDigest: strings.Repeat("c", 64), InventoryDigest: strings.Repeat("d", 64), CycleID: root.ID}
+			root.Subject = factory.ExecutionSubject{Kind: factory.SubjectDeliveryRepair, DeliveryRepair: &subject}
+			allowance.RootAssignment, allowance.Delivery, allowance.DeliveryRepair = root.ID, nil, &subject
+		}
+		if err := root.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		if err := allowance.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		encoded, _ := json.Marshal(root)
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',0,$3)`, root.ID, root.Run, string(encoded)); err != nil {
+			t.Fatal(err)
+		}
+		encoded, _ = json.Marshal(allowance)
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_attempt_allowances(repository,issue,root_assignment,revision,data) VALUES(7,0,$1,0,$2)`, root.ID, string(encoded)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	aggregate, err = db.IntentExecutionAggregateForIntent(ctx, rev1.Intent, 1)
+	if err != nil || aggregate.ConsumedMs != 390*1000 || len(aggregate.Roots) != 3 {
+		t.Fatalf("delivery/repair reset origin usage: %+v %v", aggregate, err)
 	}
 	// The aggregate bound records beside funding; an explicit increase
 	// retains spent time instead of refilling.
@@ -393,8 +432,49 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("aggregate after raise: %v", err)
 	}
-	if aggregate.ConsumedMs != 300*1000 || aggregate.LimitMs != raised.ActiveLimitMs {
+	if aggregate.ConsumedMs != 390*1000 || aggregate.LimitMs != raised.ActiveLimitMs {
 		t.Fatalf("raise reset usage: %+v", aggregate)
+	}
+	// A second failed verification at another accepted revision has the same
+	// origin repair ceiling. Retained roots count even before an allowance is
+	// installed; replay excludes only its own exact run, never a new cause.
+	secondDelivery := delivery
+	secondDelivery.DeliveryID, secondDelivery.AcceptedRevision, secondDelivery.ScopeDigest = factory.NewID(), rev1.ID, rev1.Digest()
+	secondFailedRun, secondRepairRun := factory.NewID(), factory.NewID()
+	for i := 0; i < 2; i++ {
+		root := a
+		root.ID, root.Run, root.Issue, root.Acceptance = factory.NewID(), secondFailedRun, 0, ""
+		root.AttemptRoot, root.ParentAssignment, root.PublicationAssignment = root.ID, "", ""
+		root.Phase, root.Role = "verify", "soda-reviewer"
+		root.Subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &secondDelivery}
+		if i == 1 {
+			root.ID, root.Run, root.Phase, root.Role = factory.DeliveryRepairCycleID(secondFailedRun), secondRepairRun, "repair", "soda-coder"
+			root.AttemptRoot = root.ID
+			subject := factory.DeliveryRepairSubject{DeliveryID: secondDelivery.DeliveryID, FailedVerificationRunID: secondFailedRun, FailureDigest: strings.Repeat("e", 64), InventoryDigest: strings.Repeat("f", 64), CycleID: root.ID}
+			root.Subject = factory.ExecutionSubject{Kind: factory.SubjectDeliveryRepair, DeliveryRepair: &subject}
+		}
+		root.RunHistory = []string{root.Run}
+		if err := root.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		encoded, _ := json.Marshal(root)
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',0,$3)`, root.ID, root.Run, string(encoded)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capRecord := DeliveryRepairRecord{Cause: factory.DeliveryRepairCause{Repository: repo, Delivery: secondDelivery}}
+	if err := checkDeliveryRepairRunsTx(ctx, tx, capRecord, factory.NewID()); !errors.Is(err, factory.ErrRepairRunsExhausted) {
+		t.Fatalf("third repair across failed runs/revisions: %v", err)
+	}
+	if err := checkDeliveryRepairRunsTx(ctx, tx, capRecord, secondRepairRun); err != nil {
+		t.Fatalf("exact retained repair replay was charged again: %v", err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
 	}
 	// A shrinking bound is refused.
 	shrunk := raised

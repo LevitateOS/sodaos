@@ -71,6 +71,21 @@ integrated intent version and does not install or deploy it.
 
 Missing preparation or an invalid fixture prevents a valid claim about the application behavior. A required check that fails before the Test Pilot can begin is reported as a Factory verification failure, not as an invented Test Pilot observation. Repairs and reruns remain bounded by their authorized allowances and must retain exact links to the failed outcome and tested delivery.
 
+For an eligible failed verification, **Project Work** offers **Request
+application repair**. This queues a bounded diagnosis of that exact failure;
+it does not claim the application is repaired or repeat verification. The
+original report, accepted outcomes and spending remain recorded. Incomplete
+reports need their missing inputs resolved before they can support repair.
+Current preparation, authority, repair funding and the original intent's
+remaining time still apply. At most two repair investigations share one stable
+intent across failed runs and revisions. Increasing verification limits does
+not increase that repair limit.
+
+If a reply is uncertain, **Retry same repair request** recovers the original
+request. Refreshing availability reads its state without creating another
+diagnosis. After a confirmed request, follow the recorded diagnosis and any
+adopted follow-up work before inspecting fresh verification evidence.
+
 The initial verification allowance is two runs and 60 active minutes per stable
 intent, with at most 30 active minutes per run. Retries and application-version changes share that allowance. A failure
 can lead to a bounded funded repair and fresh verification; it does not reset

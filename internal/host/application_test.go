@@ -97,6 +97,59 @@ func TestApplicationNativeClient(t *testing.T) {
 			t.Fatalf("expired RPC was not refused: %v", err)
 		}
 	})
+	t.Run("admitted_factory_verification_receipt", func(t *testing.T) {
+		request := project.FactoryVerificationChecks{Project: "p" + strings.Repeat("1", 24), Run: strings.Repeat("2", 32), Incarnation: strings.Repeat("3", 32), ManifestDigest: strings.Repeat("4", 64)}
+		zero := 0
+		good := project.FactoryVerificationChecksState{Project: request.Project, Run: request.Run, Incarnation: request.Incarnation, ManifestDigest: request.ManifestDigest, Phase: "passed", SourceCommit: strings.Repeat("5", 40), Preparation: "f" + strings.Repeat("6", 24), CheckDigest: strings.Repeat("7", 64), ExitCode: &zero, OutputDigest: strings.Repeat("8", 64), Retirement: "confirmed"}
+		fault := ""
+		calls := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			var got project.FactoryVerificationChecks
+			if r.Method != http.MethodPost || r.URL.Path != "/factory-verification-checks" || json.NewDecoder(r.Body).Decode(&got) != nil || got != request {
+				t.Error("native verification request changed admitted identity")
+				w.WriteHeader(400)
+				return
+			}
+			state := good
+			switch fault {
+			case "run":
+				state.Run = strings.Repeat("9", 32)
+			case "invocation":
+				state.Incarnation = strings.Repeat("9", 32)
+			case "manifest":
+				state.ManifestDigest = strings.Repeat("9", 64)
+			case "custody":
+				state.Retirement = "uncertain"
+			case "output":
+				state.OutputDigest = ""
+			case "pending":
+				state.Phase = "running"
+				state.ExitCode = nil
+				state.OutputDigest = ""
+				state.Retirement = ""
+			}
+			_ = json.NewEncoder(w).Encode(state)
+		}))
+		defer server.Close()
+		client := &Client{HTTP: &http.Client{Transport: applicationTestTransport{server.URL}}}
+		for _, variant := range []string{"", "run", "invocation", "manifest", "custody", "output", "pending"} {
+			fault = variant
+			state, err := client.FactoryVerificationChecks(context.Background(), request)
+			if (err == nil) != (variant == "" || variant == "pending") {
+				t.Fatalf("verification response %s accepted=%v", variant, err == nil)
+			}
+			if variant == "pending" && state.Phase != "running" {
+				t.Fatal("pending native checks were promoted to a pass")
+			}
+		}
+		before := calls
+		invalid := request
+		invalid.Incarnation = ""
+		if _, err := client.FactoryVerificationChecks(context.Background(), invalid); err == nil || calls != before {
+			t.Fatal("unbound verification reached native operation")
+		}
+	})
 }
 
 type applicationTestTransport struct{ target string }

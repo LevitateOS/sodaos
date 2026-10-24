@@ -22,6 +22,65 @@ func TestOpenCreatesOnlyTheCurrentSchema(t *testing.T) {
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO keys(user_id,public,fingerprint) VALUES(999,'x','y')`); err == nil {
 		t.Fatal("foreign key enforcement lost")
 	}
+	// Adopt only the exact prior scope checks, without replacing retained
+	// assignment/allowance rows. A forged extra alternative must stay refused.
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES('retained-scope',7,3,'retained-run','finished',0,'{"keep":true}')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_attempt_allowances(repository,issue,root_assignment,revision,data) VALUES(7,3,'retained-scope',0,'{"keep":true}')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"factory_assignments", "factory_attempt_allowances"} {
+		branch, end := deliveryRepairAssignmentScope, "), run TEXT NOT NULL"
+		if table == "factory_attempt_allowances" {
+			branch, end = deliveryRepairAllowanceScope, "), root_assignment TEXT PRIMARY KEY"
+		}
+		var old string
+		for _, statement := range schemaStatements {
+			if strings.HasPrefix(statement, "CREATE TABLE "+table+"(") {
+				_, tail, _ := strings.Cut(statement, "issue INTEGER NOT NULL CHECK(")
+				expression, _, _ := strings.Cut(tail, end)
+				old, _ = strings.CutSuffix(expression, " OR ("+branch+")")
+			}
+		}
+		var name string
+		if err := s.db.QueryRowContext(ctx, `SELECT conname FROM pg_constraint WHERE conrelid=$1::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%delivery_repair%'`, table).Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE `+table+` DROP CONSTRAINT `+name+`, ADD CONSTRAINT `+table+`_issue_scope_check CHECK(`+old+`)`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := initializeDeliveryRepairSchema(ctx, s.db); err != nil {
+		t.Fatalf("exact retained delivery repair scope adoption: %v", err)
+	}
+	if err := initializeDeliveryRepairSchema(ctx, s.db); err != nil {
+		t.Fatalf("delivery repair scope adoption replay: %v", err)
+	}
+	for _, table := range []string{"factory_assignments", "factory_attempt_allowances"} {
+		var retained bool
+		if err := s.db.QueryRowContext(ctx, `SELECT data->>'keep'='true' FROM `+table+` WHERE repository=7 AND issue=3`).Scan(&retained); err != nil || !retained {
+			t.Fatalf("%s retained row changed: %v", table, err)
+		}
+	}
+	var scope string
+	if err := s.db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='factory_assignments_issue_scope_check'`).Scan(&scope); err != nil {
+		t.Fatal(err)
+	}
+	unknown := scope[:len(scope)-1] + " OR true)"
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE factory_assignments DROP CONSTRAINT factory_assignments_issue_scope_check, ADD CONSTRAINT factory_assignments_issue_scope_check `+unknown); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='factory_assignments_issue_scope_check'`).Scan(&unknown); err != nil {
+		t.Fatal(err)
+	}
+	if err := initializeDeliveryRepairSchema(ctx, s.db); err == nil {
+		t.Fatal("unknown retained scope was silently adopted")
+	}
+	var after string
+	if err := s.db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='factory_assignments_issue_scope_check'`).Scan(&after); err != nil || after != unknown {
+		t.Fatalf("refused scope changed: %v", err)
+	}
 }
 
 // legacyFingerprint captures the staged legacy content a refused Open must

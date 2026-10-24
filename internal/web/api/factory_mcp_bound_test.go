@@ -249,7 +249,14 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		if bound.Profile != factory.MCPProfileTestPilot {
 			t.Fatal("verification evidence reached a foreign profile")
 		}
-		return map[string]any{"available": true, "evidence": verificationEvidence, "outcome": "native_check_passed"}, nil
+		outcome := "native_check_passed"
+		if verificationEvidence.ExecutionRequired {
+			outcome = "native_preparation_check_passed"
+			if verificationEvidence.ExecutionReceipt != nil {
+				outcome = "native_manifest_passed"
+			}
+		}
+		return map[string]any{"available": true, "evidence": verificationEvidence, "outcome": outcome}, nil
 	}, Now: func() time.Time { return time.Unix(clock.Load(), 0) }}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "current-context-pg"}, nil)
@@ -543,43 +550,77 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if prerequisites.IntentID != accepted.Intent || prerequisites.AcceptedRevision != accepted.ID || prerequisites.ScopeDigest != accepted.Digest() || prerequisites.SourceCommit != a.SourceCommit || len(prerequisites.Tasks) != 1 || prerequisites.Tasks[0].TaskKey != binding.TaskKey || prerequisites.Tasks[0].IssueID != binding.IssueID || prerequisites.Tasks[0].IssueIndex != binding.IssueIndex || prerequisites.Tasks[0].AcceptanceID != binding.AcceptanceID || prerequisites.Tasks[0].Completion != event {
 		t.Fatal("authenticated evidence omitted canonical task/merge/closure prerequisites")
 	}
-	verificationJSON, nextVerificationPart, cursor := "", 0, ""
-	for pages := 0; ; pages++ {
-		if pages >= maxContextPages {
-			t.Fatal("approved assertion context exceeded its finite page bound")
-		}
-		args := map[string]any{}
-		if cursor != "" {
-			args["payload"] = map[string]any{"cursor": cursor}
-		}
-		result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: args})
-		if catalogRefused(result, err) {
-			t.Fatal("approved assertion current context refused", err)
-		}
-		var response struct {
-			Page currentContextPage `json:"current_role_page"`
-		}
-		if json.Unmarshal([]byte(catalogText(t, result)), &response) != nil {
-			t.Fatal("invalid approved assertion page")
-		}
-		for _, record := range response.Page.Records {
-			if record.Field == "verification" {
-				if record.Part != nextVerificationPart {
-					t.Fatal("approved assertion context reordered fragments")
-				}
-				verificationJSON += record.Content
-				nextVerificationPart++
+	readCurrentVerification := func() factory.CurrentVerificationEvidence {
+		t.Helper()
+		verificationJSON, nextVerificationPart, cursor := "", 0, ""
+		for pages := 0; ; pages++ {
+			if pages >= maxContextPages {
+				t.Fatal("approved assertion context exceeded its finite page bound")
 			}
+			args := map[string]any{}
+			if cursor != "" {
+				args["payload"] = map[string]any{"cursor": cursor}
+			}
+			result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: args})
+			if catalogRefused(result, err) {
+				t.Fatal("approved assertion current context refused", err)
+			}
+			var response struct {
+				Page currentContextPage `json:"current_role_page"`
+			}
+			if json.Unmarshal([]byte(catalogText(t, result)), &response) != nil {
+				t.Fatal("invalid approved assertion page")
+			}
+			for _, record := range response.Page.Records {
+				if record.Field == "verification" {
+					if record.Part != nextVerificationPart {
+						t.Fatal("approved assertion context reordered fragments")
+					}
+					verificationJSON += record.Content
+					nextVerificationPart++
+				}
+			}
+			if response.Page.CollectionComplete {
+				break
+			}
+			cursor = response.Page.NextCursor
 		}
-		if response.Page.CollectionComplete {
-			break
+		var currentVerification factory.CurrentVerificationEvidence
+		if json.Unmarshal([]byte(verificationJSON), &currentVerification) != nil {
+			t.Fatal("invalid verification current context")
 		}
-		cursor = response.Page.NextCursor
+		return currentVerification
 	}
-	var currentVerification factory.CurrentVerificationEvidence
-	if json.Unmarshal([]byte(verificationJSON), &currentVerification) != nil || currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || len(currentVerification.DeliveryPrerequisites.Tasks) != 1 || currentVerification.DeliveryPrerequisites.Tasks[0].Completion != event || counts() != beforeVerification {
+	currentVerification := readCurrentVerification()
+	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || len(currentVerification.DeliveryPrerequisites.Tasks) != 1 || currentVerification.DeliveryPrerequisites.Tasks[0].Completion != event || counts() != beforeVerification {
 		t.Fatal("required current context lost assertions or spent/settled during a read")
 	}
+	// A catalog-adopted definition is truthful before launch with only its
+	// preparation receipt. The distinct per-run receipt becomes visible only
+	// after the trusted executor has passed under this worker's invocation.
+	verificationEvidence.AdoptedManifest = &factory.AdoptedVerificationManifest{Intent: accepted.Intent, AcceptedRevision: accepted.ID, ScopeDigest: accepted.Digest(), Catalog: factory.ApprovedProjectCheckCatalog{Project: cap.Project, Preparation: pilot.Preparation, Requirements: "d" + strings.Repeat("8", 24), Approval: "d" + strings.Repeat("9", 24), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, CheckDigest: factory.MCPInputDigest([]byte(approvedCheck))}, Proposal: factory.VerificationManifestProposal{Outcomes: accepted.EffectiveOutcomes, Checks: []factory.ManifestCheckRef{{Outcome: idea.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}}
+	verificationEvidence.ExecutionRequired = true
+	currentVerification = readCurrentVerification()
+	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || !currentVerification.ExecutionRequired || currentVerification.Execution != nil || currentVerification.ExecutionReceipt != nil {
+		t.Fatal("prelaunch context invented a manifest execution receipt")
+	}
+	zero := 0
+	verificationEvidence.Execution = &project.FactoryVerificationChecksState{Project: cap.Project, Run: pilot.Run, Incarnation: strings.Repeat("c", 32), ManifestDigest: strings.Repeat("d", 64), Phase: "passed", SourceCommit: a.SourceCommit, Preparation: pilot.Preparation, CheckDigest: verificationEvidence.AdoptedManifest.Catalog.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("native per-run output")), Retirement: "confirmed"}
+	verificationEvidence.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: verificationEvidence.Execution.OutputDigest, LogExcerpt: "Native admitted checks passed"}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
+	if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Outcome != "native_manifest_passed" || observedEvidence.Evidence.ExecutionReceipt == nil || observedEvidence.Evidence.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest {
+		t.Fatal("authenticated evidence lost per-run manifest receipt", err)
+	}
+	currentVerification = readCurrentVerification()
+	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ExecutionReceipt == nil || currentVerification.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest || currentVerification.Receipt.ArtifactDigest == currentVerification.ExecutionReceipt.ArtifactDigest {
+		t.Fatal("current context substituted preparation evidence for run receipt")
+	}
+	verificationEvidence.Execution.Run = factory.NewID()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
+	if !catalogRefused(result, err) || counts() != beforeVerification || verificationReadState() != beforeVerificationState {
+		t.Fatal("foreign-run execution receipt was projected or spent during refusal")
+	}
+	verificationEvidence.Execution.Run = pilot.Run
 	for _, fault := range []string{"missing-prerequisites", "stale-scope", "foreign-acceptance", "foreign-outcome", "duplicate-task"} {
 		badPrerequisites := deliveryPrerequisites
 		badPrerequisites.Tasks = append([]factory.VerificationDeliveredTask(nil), deliveryPrerequisites.Tasks...)

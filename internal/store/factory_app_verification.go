@@ -278,6 +278,13 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 	if !approval.Verified || approval.Requirement != preparation.Preparation.Requirements.ID {
 		return errors.New("application check approval is not current and verified")
 	}
+	outputDigest, err := checkVerifiedManifestExecutionTx(ctx, tx, current)
+	if err != nil {
+		return err
+	}
+	if outputDigest == "" {
+		outputDigest = factory.MCPInputDigest([]byte(state.Output))
+	}
 	items := make([]factory.FeedCommunicationItem, 0, len(manifest.Outcomes))
 	for _, outcome := range manifest.Outcomes {
 		label := outcome
@@ -294,7 +301,7 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 	}
 	if err = recordFactoryFeedEventTx(ctx, tx, a.Repository, 0, a.ID, a.Subject.Delivery.DeliveryID, "application:verified", factory.FeedCommunication{
 		ComponentID: "F10", Title: "Application outcomes verified", Summary: fmt.Sprintf("All %d accepted outcomes passed the approved application check at source %s.", len(manifest.Outcomes), a.SourceCommit[:12]), Items: items,
-		EvidenceRefs: []string{a.SourceCommit, manifest.Digest(), factory.MCPInputDigest([]byte(state.Output))},
+		EvidenceRefs: []string{a.SourceCommit, manifest.Digest(), outputDigest},
 	}, time.Now().Unix()); err != nil {
 		return err
 	}

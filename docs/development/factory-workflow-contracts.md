@@ -2018,9 +2018,34 @@ retain consumed usage. This is a finite time bound, not a promised monetary cap.
 
 ## D16 — Whole-app verification and honest completion
 
-**Current local implementation:** the trusted check catalog contains `project.check`, executed by the existing native preparation supervisor using the administrator-approved `check.sh` bytes. That script must include exactly one line `# soda-app-verification: {"intent_id":"<intent ID>","accepted_revision":"<accepted revision ID>","outcomes":["<accepted outcome ID>"]}` naming the current accepted intent revision and every effective outcome. The approved script's assertions must actually test those outcomes; an ordinary successful environment check without this declaration cannot verify the application. Changing the declaration or assertions changes approved setup bytes and uses the existing preparation approval path. Arbitrary generated shell commands and external fixture grants are unavailable through this catalog entry.
+**Current local implementation:** the trusted check catalog contains
+`project.check`, executed by the existing native preparation supervisor using
+the administrator-approved `check.sh` bytes. The original fixed check route
+requires exactly one line `# soda-app-verification: {"intent_id":"<intent ID>","accepted_revision":"<accepted revision ID>","outcomes":["<accepted outcome ID>"]}`
+naming the current accepted intent revision and every effective outcome. The
+catalog-adopted route instead binds those outcome IDs through the canonical
+accepted proposal and its protected check digest; it needs no future accepted-ID
+marker in draft-time scripts. Both routes require assertions that actually test
+the outcomes. Changing the assertions uses the existing preparation approval
+path. Arbitrary generated shell commands and external fixture grants are
+unavailable through this catalog entry.
 
-The controller discovers accepted intents whose bound tasks have real integrated issue-completion records. It reads the protected approved script and current native preparation receipt at the exact integrated target commit before admitting a readonly Test Pilot assignment. `factory.verification_evidence` exposes the bound declaration, readable approved setup/check scripts, maintainer-selected source files at that integrated commit, and native check receipt for that assignment. The context retains the native path/UTF-8/byte limits and exact source tuple; private native output is excluded. A passing native receipt is labeled `native_check_passed`; it does not establish semantic outcome coverage. After successful worker retirement, the controller independently reloads the native receipt, current accepted scope, approved preparation and repository target; the worker report must cover exactly the accepted outcomes and match the observed check-output digest. Only that join writes the Factory-owned F10 “Application outcomes verified” post. Missing, stale or failed native evidence produces an F09 wait; issue completion remains F06 and never substitutes for application verification. This fixed check route is implemented; the broader manifest executor and fixture catalog described below remain separate work.
+The controller discovers accepted intents whose bound tasks have real integrated
+issue-completion records. It reads the protected approved script and current
+native preparation receipt at the exact integrated target before admitting a
+readonly Test Pilot assignment. `factory.verification_evidence` exposes the
+bound definitions, readable approved setup/check scripts, selected integrated
+source files and native receipts. Context retains native path/UTF-8/byte limits;
+private native output is excluded. The fixed route labels its preparation
+receipt `native_check_passed`. The adopted route distinguishes
+`native_preparation_check_passed` from `native_manifest_passed`; a preparation
+pass cannot replace the required per-run receipt. None of these labels proves
+semantic coverage. After successful worker retirement and credential return,
+the controller independently reloads the native receipt, current accepted scope,
+approved preparation and repository target. The worker must cover the exact
+accepted outcomes and match the observed run-output digest. Only that join writes
+Factory-owned F10 “Application outcomes verified”. Missing, stale or failed
+evidence produces an F09 wait; issue completion remains F06.
 
 The same evidence also exposes `delivery_prerequisites`: the exact accepted
 Intent/revision/scope and current checked source, with at most 64 task bindings
@@ -2041,10 +2066,26 @@ source, preparation digest and protected check digest. The generation transactio
 locks the accepted head and rechecks the current preparation heads; native effects
 also repeat the approved catalog read. Recorded proposal/result replay preserves
 its original bytes after a later approval or draft change. Catalog or proposal
-changes cannot replace an adopted manifest. This is catalog lookup and durable
-adoption only: an adopted manifest explicitly waits for the trusted per-run
-executor rather than falling back to the fixed check route. The full executor,
-fixture lifecycle and CLI-start ordering below remain required.
+changes cannot replace an adopted manifest.
+
+The atomic delivery packet retains canonical `project-check-v1` manifest bytes
+(at most 64 KiB), binding the run, Project, preparation, integrated source,
+deadline, accepted Intent/revision/scope, adopted digest and current approval/check
+digests. Repeated outcome references coalesce into one fixed approved check;
+there are no model-selected commands. The Rust host uses the reserved native
+invocation as the incarnation and runs the manifest before releasing CLI startup.
+The existing preparation supervisor owns an isolated clone/HOME and empty
+credential environment, durable check state, deadline, stop and fixture retirement.
+The model lease stays unregistered until the checks pass and the CLI start marker
+is consumed; an unused lease can retire without capturing an unstaged credential.
+Authenticated `/factory-verification-checks` reads accept only Project/run/
+incarnation/manifest identity. Changed tuples refuse, uncertain cleanup holds,
+and lost replies inspect the same operation without rerunning it. A failed check
+records native failure/accounting without fabricating a worker verification
+report. Go persists terminal receipts immutably and requires the exact passing
+run receipt for F10 and any later failed-report repair cause. The nil-manifest
+fixed route is unchanged. Native installed P9 qualification remains separate from
+these local source and integration checks.
 
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 
@@ -2177,6 +2218,16 @@ retained_issue_indexes,intent_changes,coverage,attention,outcome}`; same D15
 limits, validators, graph journal and judgment rubric, with purpose
 `delivery-repair-v1`. Causes reference exact failed checks/outcomes. No-change
 cannot declare the failed app verified; only a new bound verification can do so.
+The current intent owner explicitly requests `repair_delivery` on the retired
+canonical failed verifier. Incomplete, unreported or stale verification cannot
+create a cause. At most two repair investigators belong to the stable intent
+across failed-run, revision and Retry identities; raising verification limits
+does not raise this separate bound. Repair also consumes the origin intent's
+retained active-time ledger. If that ledger has no limit yet, only this explicit
+owner action may record the canonical default; existing inactive limits and
+all consumption remain authoritative. The internal repair lifecycle command
+stays unfinished while its cycle advances, independently of the immutable
+finished owner acknowledgment. Completed-command immutability is unchanged.
 Do not change a completed issue; propose an idle in-scope follow-up while retaining
 delivered identities and current accepted outcome coverage. New ready work may
 continue after the repair's own fence resolves; no fabricated completion event.

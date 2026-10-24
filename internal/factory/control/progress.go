@@ -135,6 +135,9 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 		if err != nil || state.ID != run.ID || state.Project != run.ProjectID {
 			continue
 		}
+		if c.observeVerificationChecks(ctx, run, state) != nil {
+			continue
+		}
 		if len(run.ExecutionManifest) > 0 {
 			if !budget.reserveNativeRPC(1) {
 				break
@@ -200,6 +203,7 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
 	_ = c.DriveCompletions(ctx, deps)
 	c.driveDeliveryVerifications(ctx)
+	c.driveDeliveryRepairs(ctx)
 	// D15 stall detection (R36) runs inside this same progress pass,
 	// after observation, reconciliation and dispatch: a pass that
 	// selected no work classifies the sealed inventory and admits at

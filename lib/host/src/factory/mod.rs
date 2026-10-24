@@ -54,6 +54,12 @@ mod state;
 mod stop;
 mod task_events;
 mod tasks;
+mod verification;
+mod verification_execution;
+pub use verification::{
+    FactoryVerificationChecks, FactoryVerificationChecksState, VerificationManifest,
+    MAX_VERIFICATION_MANIFEST,
+};
 
 pub use self::candidate::CANDIDATE_INSPECT_SCRIPT;
 pub use self::checkpoint::{

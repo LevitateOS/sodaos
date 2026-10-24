@@ -10,6 +10,9 @@ import (
 )
 
 func currentStrategyTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
+	if a.Subject.DeliveryRepair != nil {
+		return currentDeliveryRepairContextTx(ctx, tx, a, out)
+	}
 	if a.Subject.Completion == nil {
 		return currentStallContextTx(ctx, tx, a, out)
 	}

@@ -264,6 +264,7 @@ pub struct FactoryRun {
     pub connection: String,
     pub execution_phase: String,
     pub manifest_digest: String,
+    pub verification_manifest_digest: String,
 }
 
 impl FactoryRun {
@@ -340,6 +341,13 @@ impl FactoryRun {
     }
 
     fn validate_run_manifest(&self) -> Result<(), String> {
+        if !self.verification_manifest_digest.is_empty()
+            && (self.execution_phase != EXECUTION_VERIFY
+                || self.role != preparation::ROLE_REVIEWER
+                || !preparation::valid_digest(&self.verification_manifest_digest))
+        {
+            return Err("invalid verification manifest run binding".into());
+        }
         if execution_manifest_required(&self.execution_phase) {
             if !preparation::valid_digest(&self.manifest_digest) {
                 if self.execution_phase == EXECUTION_CORRECT {
@@ -398,6 +406,10 @@ impl FactoryRun {
             out.push_str(",\"manifest_digest\":");
             out.push_str(&json::quote(&self.manifest_digest));
         }
+        if !self.verification_manifest_digest.is_empty() {
+            out.push_str(",\"verification_manifest_digest\":");
+            out.push_str(&json::quote(&self.verification_manifest_digest));
+        }
         out.push('}');
     }
 }
@@ -440,6 +452,7 @@ typed_run_fields!(FactoryRun, "a factory run object", {
     connection => "connection": String,
     execution_phase => "execution_phase": String,
     manifest_digest => "manifest_digest": String,
+    verification_manifest_digest => "verification_manifest_digest": String,
 });
 
 /// `project.FactoryLaunch`: the host run request. `execution_manifest`
@@ -452,6 +465,7 @@ pub struct FactoryLaunch {
     pub prompt: Vec<u8>,
     pub harness_sha256: String,
     pub execution_manifest: Vec<u8>,
+    pub verification_manifest: Vec<u8>,
     pub mcp: Option<FactoryMCPBinding>,
 }
 
@@ -573,6 +587,12 @@ impl<'de> Deserialize<'de> for FactoryLaunch {
                         out.mcp = map.next_value::<Option<FactoryMCPBinding>>()?;
                         continue;
                     }
+                    if key.eq_ignore_ascii_case("verification_manifest") {
+                        if let Some(v) = map.next_value::<Option<PromptBytes>>()? {
+                            out.verification_manifest = v.0;
+                        }
+                        continue;
+                    }
                     return Err(de::Error::unknown_field(
                         &key,
                         &[
@@ -580,6 +600,7 @@ impl<'de> Deserialize<'de> for FactoryLaunch {
                             "prompt",
                             "harness_sha256",
                             "execution_manifest",
+                            "verification_manifest",
                             "mcp",
                         ],
                     ));
@@ -613,6 +634,14 @@ impl FactoryLaunch {
         }
         if !preparation::valid_digest(&self.harness_sha256) {
             return Err("invalid harness pin".to_string());
+        }
+        if self.verification_manifest.is_empty() {
+            if !self.run.verification_manifest_digest.is_empty() {
+                return Err("verify run lacks its verification manifest".into());
+            }
+        } else {
+            let manifest = super::VerificationManifest::decode(&self.verification_manifest)?;
+            manifest.verify_for_run(&self.run, &self.verification_manifest)?;
         }
         if self.execution_manifest.len() > MAX_EXECUTION_MANIFEST {
             return Err("execution manifest exceeds its bound".to_string());

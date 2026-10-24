@@ -248,6 +248,9 @@ impl ExecBackend for ScriptBackend {
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
+    fn factory_verification_checks(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        self.replay(body)
+    }
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
@@ -330,7 +333,7 @@ impl ExecBackend for ScriptBackend {
 
 #[test]
 fn native_clean_paths_reject_query_and_escapes() {
-    assert_eq!(NATIVE_CLEAN_PATHS.len(), 23);
+    assert_eq!(NATIVE_CLEAN_PATHS.len(), 31);
     assert!(NATIVE_CLEAN_PATHS.contains(&"/application"));
     assert!(NATIVE_CLEAN_PATHS.contains(&"/terminal-support"));
     for path in NATIVE_CLEAN_PATHS {
@@ -384,7 +387,7 @@ fn native_method_check_runs_after_clean_path_check() {
 
 #[test]
 fn mutation_gate_covers_exactly_the_go_paths() {
-    assert_eq!(ADMITTED_MUTATION_PATHS.len(), 8);
+    assert_eq!(ADMITTED_MUTATION_PATHS.len(), 11);
     assert!(is_admitted_mutation_path("/application"));
     assert!(!is_admitted_mutation_path("/terminal-support"));
     for path in ADMITTED_MUTATION_PATHS {
@@ -399,6 +402,7 @@ fn mutation_gate_covers_exactly_the_go_paths() {
         "/project-access",
         "/prepare-inspect",
         "/factory-launch",
+        "/factory-verification-checks",
         "/factory-harness",
     ] {
         assert!(!is_admitted_mutation_path(path), "{path}");
@@ -532,7 +536,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 40);
+    assert_eq!(ROUTE_TABLE.len(), 48);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -551,6 +555,8 @@ fn route_table_has_every_go_route() {
     for path in [
         "/profile",
         "/application",
+        "/application/setup",
+        "/application/snapshots",
         "/terminal-support",
         "/create",
         "/inspect",
@@ -560,6 +566,7 @@ fn route_table_has_every_go_route() {
         "/access-keys",
         "/account",
         "/project-access",
+        "/member-access",
         "/prepare",
         "/prepare-candidate",
         "/prepare-context",
@@ -567,11 +574,16 @@ fn route_table_has_every_go_route() {
         "/prepare-stop",
         "/prepare-hold",
         "/factory-launch",
+        "/factory-verification-checks",
         "/factory-inspect",
         "/factory-stop",
         "/factory-takeover",
         "/factory-output",
         "/factory-task-events",
+        "/factory-task-checkpoint",
+        "/factory-final-candidate",
+        "/factory-task-checkpoint-receipt",
+        "/factory-final-candidate-receipt",
         "/factory-harness",
         "/factory-export",
         "/factory-candidate-inspect",
@@ -1454,6 +1466,27 @@ fn server_serves_stub_routes_and_parser_rejections() {
         response.header_value("connection").as_deref(),
         Some("close")
     );
+
+    // The native verification endpoint uses the same real socket transport,
+    // clean-path admission and POST-only dispatch as the supervised run.
+    for (method, target, expected) in [
+        ("POST", "/factory-verification-checks", 501),
+        ("POST", "/factory-verification-checks?run=other", 400),
+        ("GET", "/factory-verification-checks", 405),
+    ] {
+        let mut client = UnixStream::connect(&path).unwrap();
+        client
+            .write_all(
+                format!("{method} {target} HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\n{{}}")
+                    .as_bytes(),
+            )
+            .unwrap();
+        assert_eq!(
+            status_of(&read_all(&mut client)),
+            expected,
+            "{method} {target}"
+        );
+    }
 
     // Tailnet errors still carry no-store over the wire.
     let mut client = UnixStream::connect(&path).unwrap();

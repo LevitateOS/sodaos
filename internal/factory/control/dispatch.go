@@ -177,19 +177,20 @@ const (
 // carries fair-rotation progress across passes; a nil queue visits from
 // the beginning without advancing.
 type DispatchDeps struct {
-	MCPKey              []byte
-	ContextVerification currentVerificationSource
-	Store               *store.Store
-	Host                DispatchHost
-	Broker              DispatchBroker
-	Reads               DispatchReads
-	Authority           func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
-	Refresh             func(context.Context, factory.IssueControl) (factory.IssueControl, error)
-	PrepareRetry        func(context.Context, *attemptPlan, string) (bool, error)
-	PrepareSource       func(context.Context, *attemptPlan) (bool, error)
-	RetireRetry         func(context.Context, *attemptPlan) error
-	Queue               *DispatchQueueCursor
-	Priority            *PriorityJudgments
+	MCPKey               []byte
+	ContextVerification  currentVerificationSource
+	VerificationManifest func(context.Context, factory.Assignment, factory.Run) ([]byte, error)
+	Store                *store.Store
+	Host                 DispatchHost
+	Broker               DispatchBroker
+	Reads                DispatchReads
+	Authority            func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
+	Refresh              func(context.Context, factory.IssueControl) (factory.IssueControl, error)
+	PrepareRetry         func(context.Context, *attemptPlan, string) (bool, error)
+	PrepareSource        func(context.Context, *attemptPlan) (bool, error)
+	RetireRetry          func(context.Context, *attemptPlan) error
+	Queue                *DispatchQueueCursor
+	Priority             *PriorityJudgments
 	// ObserveRevision reports one idle native revision for the durable
 	// priority inventory. RefreshCandidate returns the observation-ready
 	// control for one inventory member at the scan revision.
@@ -285,7 +286,7 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 // dispatchDeps binds one pass to this coordinator's dependencies.
 func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
-		Store: c.Store, Host: c.Host, Broker: c.Broker, MCPKey: c.MCPKey, ContextVerification: c.ApplicationVerificationEvidence,
+		Store: c.Store, Host: c.Host, Broker: c.Broker, MCPKey: c.MCPKey, ContextVerification: c.ApplicationVerificationEvidence, VerificationManifest: c.stageDeliveryVerificationManifest,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
 		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
 		Queue:           &c.queue,

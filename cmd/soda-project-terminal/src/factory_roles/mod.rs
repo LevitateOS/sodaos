@@ -35,6 +35,8 @@ pub(crate) mod proc {
 pub(crate) mod records;
 pub(crate) mod sha;
 pub(crate) mod validate;
+pub(crate) mod verification;
+pub(crate) mod verification_execution;
 
 use crate::state_json::StateValue;
 use error::{fail, Error};
@@ -143,6 +145,9 @@ fn dispatch_op(ctx: &Ctx, op: &str, data: &StateValue) -> Result<StateValue, Err
         "stop" => ops_inspect::do_stop(ctx, data),
         "hold" => ops_inspect::do_hold(ctx, data),
         "release" => ops_inspect::do_release(ctx, data),
+        "verify" => verification::start(ctx, data),
+        "verify_inspect" => verification::inspect(ctx, data),
+        "verify_stop" => verification::stop(ctx, data),
         _ => fail("unsupported factory operation"),
     }
 }
@@ -164,7 +169,17 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
         Some(op)
             if matches!(
                 op,
-                "ensure" | "approve" | "record" | "start" | "inspect" | "stop" | "hold" | "release"
+                "ensure"
+                    | "approve"
+                    | "record"
+                    | "start"
+                    | "inspect"
+                    | "stop"
+                    | "hold"
+                    | "release"
+                    | "verify"
+                    | "verify_inspect"
+                    | "verify_stop"
             ) =>
         {
             op
@@ -174,14 +189,14 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
     fsx::ensure_layout(ctx)?;
     // Stop owns the lock while fencing and signalling the detached worker;
     // taking it here would deadlock its separate state-lock descriptor.
-    let lock_file = if op == "stop" {
+    let lock_file = if op == "stop" || op == "verify_stop" {
         None
     } else {
         // The state lock serializes mutating ops; `inspect` shares it.
         let lock_file = fsx::open_ro(&ctx.lock, false)?;
         use std::os::unix::io::AsRawFd;
         let fd = lock_file.as_raw_fd();
-        let flag = if op == "inspect" {
+        let flag = if op == "inspect" || op == "verify_inspect" {
             libc::LOCK_SH
         } else {
             libc::LOCK_EX

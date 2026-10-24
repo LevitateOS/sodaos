@@ -345,7 +345,7 @@ func completionTaskBindingsTx(ctx context.Context, tx *sql.Tx, revision string) 
 
 // completionAssignmentsTx projects repository-owned issue/intent work
 // with exact run, run-view, project and root joins. Completion-subject
-// workflow roots are excluded. A missing run or run-view row fails
+// workflow roots (including verification and its repair) are excluded. A missing run or run-view row fails
 // closed: settlement is never inferred. Assignment.Prompt,
 // account/lease/binding/credential data and run output never enter.
 func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, projectID string) ([]factory.CompletionAssignment, map[string]bool, map[string]bool, error) {
@@ -365,7 +365,7 @@ func completionAssignmentsTx(ctx context.Context, tx *sql.Tx, repository int64, 
 		if err = stored.Validate(); err != nil {
 			return nil, nil, nil, errors.New("completion material assignment is invalid")
 		}
-		if stored.Subject.Kind == factory.SubjectCompletion || stored.Subject.Kind == factory.SubjectStall {
+		if stored.Subject.Kind == factory.SubjectCompletion || stored.Subject.Kind == factory.SubjectStall || stored.Subject.Kind == factory.SubjectDelivery || stored.Subject.Kind == factory.SubjectDeliveryRepair {
 			continue
 		}
 		if stored.ProjectID != projectID {

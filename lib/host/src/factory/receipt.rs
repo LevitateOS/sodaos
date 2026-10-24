@@ -305,6 +305,7 @@ fn truncate_output(output: &str) -> String {
 
 pub(in crate::factory) fn receipt_state(receipt: &FactoryReceipt, live: bool) -> FactoryState {
     let mut state = FactoryState {
+        verification_checks: None,
         generation: receipt.generation,
         credential_returned: receipt.credential_returned,
         live,

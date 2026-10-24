@@ -163,6 +163,7 @@ export interface FactoryRunDetail {
   state?: FactoryRunState;
   context_selection?: FactoryContextSelection;
   verification_retry?: {available: boolean};
+  delivery_repair?: {available: boolean};
 }
 export interface FactoryContextSelection {
   fingerprint: string;
@@ -319,6 +320,12 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
     check(typeof retry.available === 'boolean');
     verificationRetry = {available: retry.available};
   }
+  let deliveryRepair: {available: boolean} | undefined;
+  if (data.delivery_repair !== undefined) {
+    const repair = object(data.delivery_repair);
+    check(typeof repair.available === 'boolean');
+    deliveryRepair = {available: repair.available};
+  }
   return {
     ...factoryRecordIdentity(record, runId),
     ...factoryRecordProvenance(record),
@@ -328,6 +335,7 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
       ? {}
       : {context_selection: factoryContextSelection(data.context_selection)}),
     ...(verificationRetry === undefined ? {} : {verification_retry: verificationRetry}),
+    ...(deliveryRepair === undefined ? {} : {delivery_repair: deliveryRepair}),
   };
 }
 export interface FactoryStatus {

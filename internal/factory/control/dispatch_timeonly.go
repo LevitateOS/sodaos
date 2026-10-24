@@ -191,6 +191,11 @@ func (t *timeOnlyLaunch) admitSubject() (string, bool) {
 			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "repair root lacks its exact stall cycle"})
 			return "", false
 		}
+	case factory.SubjectDeliveryRepair:
+		phase = project.ExecutionRepair
+		if t.subject.DeliveryRepair == nil || t.subject.DeliveryRepair.Validate() != nil {
+			return "", false
+		}
 	default:
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only dispatch needs its intent or completion subject"})
 		return "", false
@@ -268,7 +273,7 @@ func (t *timeOnlyLaunch) selectSponsorship() bool {
 		t.report.Waits = append(t.report.Waits, timeOnlyWait(t.repository, waitFor(WaitAuthority, "sponsorship changed during time-only dispatch")))
 		return false
 	}
-	if t.subject.Kind == factory.SubjectStall {
+	if t.subject.Kind == factory.SubjectStall || t.subject.Kind == factory.SubjectDeliveryRepair {
 		grant, err := t.deps.Store.RepairGrantCommand(t.ctx, t.repository)
 		if err != nil || !grant.Active || grant.Sponsor != sponsorship.ActorID {
 			t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitSponsorship, Detail: "repair needs its explicit sponsor's admitted account"})
@@ -387,6 +392,10 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 			}
 		}
 	}
+	if t.subject.DeliveryRepair != nil {
+		assignmentID = t.subject.DeliveryRepair.CycleID
+		runID = factory.RepairChargeID(factory.DeliveryRepairCauseID(t.subject.DeliveryRepair.FailedVerificationRunID), factory.RepairChargeRun, 1)
+	}
 	assignment := factory.Assignment{
 		PlanningContext: t.planning,
 		Authority:       t.plan.effective.Authority,
@@ -409,6 +418,14 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		ID: runID, ProjectID: t.projectID, Role: t.role, InputSHA: t.source,
 		Started: t.now, Deadline: deadline,
 		Image: "sha256:" + t.plan.pin.SHA256, Harness: t.selection.Harness + "-" + t.selection.HarnessVers, Model: t.selection.Model,
+	}
+	if t.deps.VerificationManifest != nil {
+		manifest, err := t.deps.VerificationManifest(t.ctx, assignment, run)
+		if err != nil {
+			t.report.Waits = append(t.report.Waits, DispatchWait{Repository: t.repository, Reason: WaitPreparation, Detail: err.Error()})
+			return none, noRun, false
+		}
+		run.VerificationManifest = manifest
 	}
 	return assignment, run, true
 }
@@ -483,6 +500,22 @@ func timeOnlyScope(ctx context.Context, deps DispatchDeps, repository int64, sub
 		}
 		return fail("repair cycle has no admitted investigator charge")
 	}
+	if subject.Kind == factory.SubjectDeliveryRepair && subject.DeliveryRepair != nil {
+		record, err := deps.Store.DeliveryRepairRecord(ctx, repository, subject.DeliveryRepair.FailedVerificationRunID)
+		if err != nil || record.Subject != *subject.DeliveryRepair || record.Cycle.State != factory.RepairReady {
+			return fail("delivery repair cycle changed or unavailable")
+		}
+		charges, err := deps.Store.RepairCharges(ctx, repository)
+		if err != nil {
+			return fail("delivery repair funding unavailable")
+		}
+		for _, charge := range charges {
+			if charge.ID == factory.RepairChargeID(factory.DeliveryRepairCauseID(record.Cause.FailedVerificationRunID), factory.RepairChargeRun, 1) && charge.ActiveMinutes > 0 {
+				return record.Cycle.NativeRevision, charge.ActiveMinutes, nil, nil
+			}
+		}
+		return fail("delivery repair has no admitted investigator charge")
+	}
 	record, err := deps.Store.ReassessmentRecord(ctx, subject.Completion.CycleID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -534,6 +567,10 @@ func stageTimeOnlyLaunch(plan *attemptPlan, model string, assignment factory.Ass
 			Deadline: deadline, ExecutionPhase: assignment.Phase,
 		},
 		Prompt: promptOf(plan, assignment), HarnessSHA256: plan.pin.SHA256,
+		VerificationManifest: run.VerificationManifest,
+	}
+	if len(run.VerificationManifest) > 0 {
+		launch.Run.VerificationManifestDigest = project.ExecutionManifestDigest(run.VerificationManifest)
 	}
 	if err := launch.Validate(); err != nil {
 		return project.FactoryLaunch{}, waitFor(DispatchErrStore, "reassessment launch invalid: "+err.Error())

@@ -14,7 +14,7 @@ import (
 // RecordFactoryRun stores a fresh supervised run before any host call. A
 // consumed run ID is never reused; only the supervisor mutates the record.
 func (s *Store) RecordFactoryRun(ctx context.Context, r factory.Run) error {
-	if r.Admission != nil || r.FinalCheckpoint != nil {
+	if r.Admission != nil || r.FinalCheckpoint != nil || len(r.VerificationManifest) > 0 || r.VerificationChecks != nil {
 		return errors.New("run admission requires an atomic dispatch packet")
 	}
 	if err := r.Validate(); err != nil {
@@ -62,9 +62,11 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 	result, err := tx.ExecContext(ctx, `UPDATE factory_runs SET active=$1,settled=$2,
-data=($3::jsonb - 'admission' - 'execution_manifest' - 'final_checkpoint' - 'settled_at') || jsonb_build_object('admission',data->'admission','execution_manifest',data->'execution_manifest','final_checkpoint',data->'final_checkpoint','settled_at',COALESCE(NULLIF(data->'settled_at','null'::jsonb),CASE WHEN $11 AND NOT settled THEN to_jsonb(clock_timestamp()) END)) WHERE id=$4
+data=($3::jsonb - 'admission' - 'execution_manifest' - 'verification_manifest' - 'verification_checks' - 'final_checkpoint' - 'settled_at') || jsonb_build_object('admission',data->'admission','execution_manifest',data->'execution_manifest','verification_manifest',data->'verification_manifest','verification_checks',COALESCE(NULLIF($3::jsonb->'verification_checks','null'::jsonb),data->'verification_checks'),'final_checkpoint',data->'final_checkpoint','settled_at',COALESCE(NULLIF(data->'settled_at','null'::jsonb),CASE WHEN $11 AND NOT settled THEN to_jsonb(clock_timestamp()) END)) WHERE id=$4
 AND (($7::jsonb->'admission') IS NULL OR (data->'admission')=($7::jsonb->'admission'))
 AND (($7::jsonb->'execution_manifest') IS NULL OR (data->'execution_manifest')=($7::jsonb->'execution_manifest'))
+AND (($7::jsonb->'verification_manifest') IS NULL OR (data->'verification_manifest')=($7::jsonb->'verification_manifest'))
+AND (($7::jsonb->'verification_checks') IS NULL OR coalesce(data#>>'{verification_checks,phase}','') NOT IN ('passed','failed','stopped') OR data->'verification_checks'=$7::jsonb->'verification_checks')
 AND (($7::jsonb->'final_checkpoint') IS NULL OR (data->'final_checkpoint')=($7::jsonb->'final_checkpoint'))
 AND (coalesce(data->>'identity_lease_id','')='' OR (data->>'identity_lease_id'=$5 AND (data->>'identity_generation')::bigint=$6))
 AND ((data->'identity_binding') IS NULL OR (data->'identity_binding')=($7::jsonb->'identity_binding'))
@@ -96,6 +98,10 @@ AND ((data->>'reconciled')::boolean=FALSE OR $11)`, r.Outcome == "", r.Reconcile
 			if r.Outcome != factory.Succeeded {
 				content.ComponentID, content.Title, content.Severity = "F09", "Worker run "+string(r.Outcome), "warning"
 				content.Summary = feedText(r.Summary)
+				if r.VerificationChecks != nil && (r.VerificationChecks.Phase == "failed" || r.VerificationChecks.Phase == "stopped") {
+					content.Title = "Application verification checks " + r.VerificationChecks.Phase
+					content.Summary = "The trusted native verification manifest did not permit worker startup. Its original run and spending remain recorded."
+				}
 			}
 			if r.Outcome == factory.Cancelled {
 				content.ComponentID, content.Title = "F08", "Worker run stopped"
@@ -475,8 +481,8 @@ func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command,
 // exactly this state; the coordinator settles what it can from durable
 // target state and leaves the rest running.
 func (s *Store) UnfinishedCommands(ctx context.Context, limit int) ([]factory.Command, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE finished='' ORDER BY created,id LIMIT $1`,
-		min(max(limit, 1), 101))
+	rows, err := s.db.QueryContext(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE finished='' AND type<>$2 ORDER BY created,id LIMIT $1`,
+		min(max(limit, 1), 101), factory.CommandDeliveryRepair)
 	if err != nil {
 		return nil, err
 	}

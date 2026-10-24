@@ -77,7 +77,9 @@ const (
 	// CommandRepairCharge records one immutable D15 repair charge by run
 	// or request identity on the shared idempotent ledger. Failure stays
 	// charged; replaying the identity spends nothing.
-	CommandRepairCharge = "repair-charge"
+	CommandRepairCharge          = "repair-charge"
+	CommandDeliveryRepair        = "delivery-repair"
+	CommandDeliveryRepairRequest = "request-delivery-repair"
 )
 
 // SettingsCommandType reports whether typ is a grant/settings command. The
@@ -90,7 +92,7 @@ func SettingsCommandType(typ string) bool {
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
-		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance:
+		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair, CommandDeliveryRepairRequest:
 		return true
 	default:
 		return false

@@ -92,6 +92,9 @@ pub trait ExecBackend: Send + Sync {
     // -- factory routes (daemon.go dispatchFactory) --
     fn factory_launch(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    fn factory_verification_checks(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_takeover(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
@@ -167,6 +170,9 @@ pub trait ExecBackend: Send + Sync {
 pub struct StubBackend;
 
 impl ExecBackend for StubBackend {
+    fn application_snapshots(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     fn profile(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -277,14 +278,15 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 }
 
 func stallRepairGraphIntegration(t *testing.T) {
-	for _, mode := range []string{"lost_reply", "grant_hold_new_effect", "grant_withdrawn_after_admission", "append_producer"} {
+	for _, mode := range []string{"lost_reply", "lost_reply_manifest", "grant_hold_new_effect", "grant_withdrawn_after_admission", "append_producer", "delivery_repair", "delivery_repair_tight", "delivery_repair_incomplete", "delivery_repair_wrong_failure", "delivery_repair_bad_input", "delivery_repair_nochange", "delivery_repair_withdrawn", "delivery_repair_grant_hold_new_effect", "delivery_repair_grant_withdrawn_after_admission"} {
 		t.Run(mode, func(t *testing.T) { stallRepairGraphMode(t, mode) })
 	}
 }
 
 func stallRepairGraphMode(t *testing.T, mode string) {
 	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
+	db, dsn := dispatchTestDB(t)
+	deliveryMode := strings.HasPrefix(mode, "delivery_repair")
 	fx := dispatchSeed(t, db)
 	graph := &generatedGraphFixture{revision: 41, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	coord := NewCoordinator(db, fx.host, fx.broker)
@@ -292,6 +294,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	coord.Graph, coord.GraphActorID, coord.AcceptanceReads = graph, graph.actor, graph
 	revision := broadJoinAcceptedRevision()
 	revision.Repository, revision.Tasks, revision.Ideas = fx.repo, revision.Tasks[:2], revision.Ideas[:1]
+	revision.EffectiveOutcomes = []string{revision.Ideas[0].ID}
 	if err := db.SaveIntentRevision(ctx, revision); err != nil {
 		t.Fatal(err)
 	}
@@ -301,6 +304,36 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	initial, err := db.IntentTaskBindings(ctx, revision.ID)
 	if err != nil || len(initial) != 2 {
 		t.Fatal("initial bindings", err)
+	}
+	var adoptedManifest *factory.AdoptedVerificationManifest
+	if mode == "lost_reply_manifest" {
+		// This retained adopted snapshot isolates protected-delta inheritance;
+		// the actual Product Lead/catalog producer has its separate integration.
+		prep, e := db.Preparation(ctx, "f222222222222222222222222")
+		if e != nil {
+			t.Fatal(e)
+		}
+		p := prep.Preparation
+		m := factory.AdoptedVerificationManifest{Intent: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), Catalog: factory.ApprovedProjectCheckCatalog{Project: p.Project, Preparation: p.ID, Requirements: p.Requirements.ID, Approval: p.Approval.ID, SourceCommit: p.SourceCommit, PreparationDigest: factory.DeliveryPreparationDigest(p), CheckDigest: strings.Repeat("7", 64)}, Proposal: factory.VerificationManifestProposal{Outcomes: revision.EffectiveOutcomes, Checks: []factory.ManifestCheckRef{{Outcome: revision.Ideas[0].ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}}
+		if e = m.ValidateFor(revision); e != nil {
+			t.Fatal(e)
+		}
+		g, e := db.IntentGeneration(ctx, revision.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		g.VerificationManifest = &m
+		g.VerificationManifestDigest = m.Digest()
+		body, _ := json.Marshal(g)
+		sqlDB, e := sql.Open("pgx", dsn)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer sqlDB.Close()
+		if _, e = sqlDB.Exec(`UPDATE factory_intent_generations SET data=$1 WHERE revision=$2`, string(body), revision.ID); e != nil {
+			t.Fatal(e)
+		}
+		adoptedManifest = &m
 	}
 	graph.issues[2].Issue.Content += "\nRetained human note."
 	graph.issues[2].Issue.ContentDigest = evidenceDigest(graph.issues[2].Issue.Content)
@@ -349,6 +382,9 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	coord.MCPKey = []byte(strings.Repeat("k", 32))
 	coord.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
 	grant := factory.DefaultRepairGrant()
+	if mode == "delivery_repair_tight" {
+		grant.ActiveMinutes = 2
+	}
 	grant.ID, grant.Repository, grant.Sponsor, grant.Active, grant.CreatedUnix = factory.NewID(), fx.repo, 7, true, time.Now().Unix()
 	raw, _ := json.Marshal(grant)
 	command := factory.Command{ID: grant.ID, Type: factory.CommandRepairGrant, Target: factory.RepairTarget(fx.repo), Principal: "soda-tester", Payload: string(raw)}
@@ -356,20 +392,231 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	if _, _, err = db.ApplyRepairGrantCommand(ctx, command, grant, time.Now()); err != nil {
 		t.Fatal(err)
 	}
+	var deliveryRecord store.DeliveryRepairRecord
+	var failedDeliveryRun string
+	var ownerRequest factory.Command
+	var failedVerifierJSON []byte
+	var failedLedger string
+	var deliverySQL *sql.DB
+	var failedVerifierAssignment string
+	if deliveryMode {
+		// The generated graph above is the ordinary accepted native graph.
+		// Its completed tasks provide this fixture's delivered prerequisites;
+		// the new verifier/repair below both use real packet and MCP owners.
+		sqlDB, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sqlDB.Close()
+		deliverySQL = sqlDB
+		for _, binding := range initial {
+			event := factory.CompletionEvent{ID: factory.NewID(), Repository: fx.repo, Issue: binding.IssueIndex, Generation: binding.IssueIndex, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: fx.tip, ClosingOccurrence: "1"}
+			body, _ := json.Marshal(event)
+			if _, err = sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,'1',$5)`, fx.repo, event.Generation, event.ID, event.PublicationID, string(body)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		sponsor, err := db.Sponsorship(ctx, fx.repo, "conn")
+		if err != nil {
+			t.Fatal(err)
+		}
+		sponsor.Roles = []string{project.RoleCoder, project.RoleReviewer}
+		if err = db.SaveSponsorship(ctx, sponsor); err != nil {
+			t.Fatal(err)
+		}
+		manifest := factory.ApprovedAppCheck{IntentID: revision.Intent, AcceptedRevision: revision.ID, Outcomes: []string{revision.Ideas[0].ID}}
+		encoded, _ := json.Marshal(manifest)
+		script := []byte("#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(encoded) + "\nexit 0\n")
+		zero := 0
+		fx.host.inspectPreparation = func(in project.PrepareInspect) (project.PrepareState, error) {
+			p, e := db.Preparation(ctx, in.ID)
+			if e != nil {
+				return project.PrepareState{}, e
+			}
+			return project.PrepareState{ID: in.ID, Project: fx.proj, Role: p.Preparation.Role, SourceCommit: fx.tip, SetupDigest: p.Preparation.SetupDigest, Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Output: "native application assertions passed"}, nil
+		}
+		for _, id := range []string{"f111111111111111111111111", "f222222222222222222222222"} {
+			state, e := fx.host.inspectPreparation(project.PrepareInspect{Project: fx.proj, ID: id})
+			if e != nil {
+				t.Fatal(e)
+			}
+			stored, e := db.Preparation(ctx, id)
+			if e != nil {
+				t.Fatal(e)
+			}
+			stored.State = state
+			if e = db.ObservePreparation(ctx, stored); e != nil {
+				t.Fatal(e)
+			}
+		}
+		fx.host.contextRead = func(in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+			m := fixturePreparationContext(in, role)
+			m.Check = script
+			return m, nil
+		}
+		coord.DispatchReads = &appVerificationReads{tip: fx.tip}
+		subject, preparation, prompt, e := coord.deliveryAdmission(ctx, store.DeliveredIntentCandidate{Revision: revision, FirstIssue: initial[0].IssueIndex})
+		if e != nil {
+			t.Fatal("failed-verifier admission inputs", e)
+		}
+		deps := coord.dispatchDeps()
+		occupancy, e := snapshotOccupancy(ctx, db)
+		if e != nil {
+			t.Fatal(e)
+		}
+		report := newDispatchReport()
+		DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, subject, fx.tip, prompt, preparation, &report)
+		if len(report.Launched) != 1 {
+			t.Fatalf("real verification packet: %+v", report)
+		}
+		a, e := db.Assignment(ctx, report.Launched[0].AssignmentID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		failedDeliveryRun = a.Run
+		failedVerifierAssignment = a.ID
+		capability, e := db.GetMCPCapability(ctx, a.Run)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = db.ActivateObservedMCPCapability(ctx, capability); e != nil {
+			t.Fatal(e)
+		}
+		capability, e = db.GetMCPCapability(ctx, a.Run)
+		if e != nil {
+			t.Fatal(e)
+		}
+		verification := factory.AppVerificationReport{DeliveryID: subject.Delivery.DeliveryID, InputDigest: capability.ScopeDigest(), Outcome: factory.AppVerificationFailed, CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("native application assertions passed")), LogExcerpt: "Native assertions passed"}}, Failures: []factory.CheckFailure{{CheckRef: revision.Ideas[0].ID, Detail: "The accepted application outcome requires an idle in-scope follow-up."}}}
+		verification.Coverage = []factory.ReassessmentCoverage{}
+		if mode == "delivery_repair_incomplete" {
+			verification.Outcome = factory.AppVerificationIncomplete
+		}
+		if mode == "delivery_repair_wrong_failure" {
+			verification.Failures[0].CheckRef = factory.NewID()
+		}
+		if mode == "delivery_repair_bad_input" {
+			verification.InputDigest = strings.Repeat("8", 64)
+		}
+		body, _ := json.Marshal(verification)
+		submission := testMCPSubmission(capability, factory.MCPToolFinishAppVerify, factory.NewID(), body)
+		if _, e = db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); e != nil {
+			t.Fatal(e)
+		}
+		if done, e := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); e != nil || !done {
+			t.Fatal("authenticated failed verification", done, e)
+		}
+		if _, e = coord.RequestDeliveryRepair(ctx, factory.NewID(), "native:7", a.Run); e == nil {
+			t.Fatal("repair requested before actual retirement")
+		}
+		fx.host.inspect = func(in project.FactoryInspect) (project.FactoryState, error) {
+			r, e := db.FactoryRun(ctx, in.ID)
+			if e != nil {
+				return project.FactoryState{}, e
+			}
+			return project.FactoryState{ID: in.ID, Project: r.ProjectID, Role: r.Role, Phase: project.FactoryCompleted, Retirement: "confirmed", CredentialReturned: true, LeaseID: "lease-" + in.ID, Generation: 3}, nil
+		}
+		r, e := db.FactoryRun(ctx, a.Run)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r.Outcome, r.Reconciled = factory.Succeeded, true
+		observed, e := fx.host.inspect(project.FactoryInspect{Project: fx.proj, ID: r.ID})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = adoptExecutionFacts(&r, observed, identity.Execution{Kind: identity.Factory, ExecutionID: r.ID, State: identity.ExecutionTerminal, LeaseID: observed.LeaseID, Binding: &identity.Binding{Kind: identity.Factory, ID: r.ID, Generation: observed.Generation, Project: fx.proj, ChildID: a.Preparation}}); e != nil {
+			t.Fatal(e)
+		}
+		if e = db.SaveFactoryRun(ctx, r); e != nil {
+			t.Fatal(e)
+		}
+		reservation, e := db.Reservation(ctx, a.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if reservation.State == factory.ReservationHeld {
+			if e = db.RecordRunUsage(ctx, factory.Usage{RunID: r.ID, Repository: fx.repo, Connection: a.Connection, Minutes: 1, StartedAt: r.Started, EndedAt: r.Started.Add(time.Millisecond)}); e != nil {
+				t.Fatal(e)
+			}
+			if e = db.ConsumeReservation(ctx, a.ID); e != nil {
+				t.Fatal(e)
+			}
+		}
+		if mode == "delivery_repair_incomplete" || mode == "delivery_repair_wrong_failure" || mode == "delivery_repair_bad_input" {
+			if _, e = coord.RequestDeliveryRepair(ctx, factory.NewID(), "native:7", a.Run); e == nil {
+				t.Fatal("unqualified report manufactured delivery repair cause")
+			}
+			if available, e := coord.DeliveryRepairAvailable(ctx, a.Run); e != nil || available {
+				t.Fatal("unqualified report offered repair", e)
+			}
+			if _, e = db.DeliveryRepairRecord(ctx, fx.repo, a.Run); !errors.Is(e, store.ErrNotFound) {
+				t.Fatal("unqualified report retained a cause", e)
+			}
+			if charges, e := db.RepairCharges(ctx, fx.repo); e != nil || len(charges) != 0 {
+				t.Fatal("unqualified report spent repair grant", e)
+			}
+			return
+		}
+		if available, e := coord.DeliveryRepairAvailable(ctx, a.Run); e != nil || !available {
+			t.Fatal("fresh qualified owner repair unavailable", e)
+		}
+		if e = sqlDB.QueryRow(`SELECT md5(to_jsonb(l)::text||to_jsonb(r)::text||to_jsonb(u)::text) FROM factory_attempt_allowances l JOIN factory_reservations r ON r.assignment=l.root_assignment JOIN factory_usage u ON u.run=$2 WHERE l.root_assignment=$1`, a.ID, a.Run).Scan(&failedLedger); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = db.IntentExecutionLimit(ctx, revision.Intent); !errors.Is(e, store.ErrNotFound) {
+			t.Fatal("fixture unexpectedly preconfigured origin limit", e)
+		}
+		requestID := factory.NewID()
+		receipt, e := coord.RequestDeliveryRepair(ctx, requestID, "native:7", a.Run)
+		if e != nil {
+			t.Fatal("explicit delivery repair request", e)
+		}
+		if replay, e := coord.RequestDeliveryRepair(ctx, requestID, "native:7", a.Run); e != nil || replay != receipt {
+			t.Fatal("delivery repair request replay", e)
+		}
+		ownerRequest, e = db.FactoryCommand(ctx, requestID)
+		if e != nil || ownerRequest.Finished == "" {
+			t.Fatal("owner request lacks immutable acknowledgment", e)
+		}
+		failedAssignment, e := db.Assignment(ctx, a.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		failedVerifierJSON, _ = json.Marshal(failedAssignment)
+		if limit, e := db.IntentExecutionLimit(ctx, revision.Intent); e != nil || !limit.Active || limit.OwnerID != revision.Owner || limit.RepositoryID != fx.repo || limit.ActiveLimitMs != factory.DefaultIntentExecutionAllowance().ActiveLimitMs {
+			t.Fatal("explicit owner request did not record canonical default origin", e)
+		}
+		for pass := 0; pass < 3; pass++ {
+			coord.driveDeliveryRepairs(ctx)
+		}
+		deliveryRecord, e = db.DeliveryRepairRecord(ctx, fx.repo, a.Run)
+		if e != nil || deliveryRecord.Cycle.State != factory.RepairInvestigating {
+			t.Fatal("delivery repair investigator", deliveryRecord.Cycle.State, deliveryRecord.Cycle.Reason, e)
+		}
+	}
 	for _, binding := range initial {
+		if deliveryMode {
+			continue
+		}
 		if mode == "append_producer" {
 			stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerResultPending, stallBlocker(factory.BlockerResultPending, fx.repo, binding.IssueIndex+1))
 		} else {
 			stallSeedControl(t, db, fx.repo, binding.IssueIndex, factory.ReadinessBlocked, factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
 		}
 	}
-	first, err := coord.ServeStallRound(ctx, DispatchReport{})
-	if err != nil || len(first.Repositories) != 1 || first.Repositories[0].Event == nil {
-		t.Fatal("stall observation", err)
+	var event factory.StallEvent
+	var record store.StallRepairRecord
+	if !deliveryMode {
+		first, e := coord.ServeStallRound(ctx, DispatchReport{})
+		if e != nil || len(first.Repositories) != 1 || first.Repositories[0].Event == nil {
+			t.Fatal("stall observation", e)
+		}
+		event = *first.Repositories[0].Event
+		_, _ = coord.ServeStallRound(ctx, DispatchReport{})
+		record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+	} else {
+		record.Repair.Cycles = []factory.StallRepairCycle{deliveryRecord.Cycle}
 	}
-	event := *first.Repositories[0].Event
-	_, _ = coord.ServeStallRound(ctx, DispatchReport{})
-	record, err := db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
 	if err != nil || len(record.Repair.Cycles) != 1 {
 		t.Fatal("repair stage", err)
 	}
@@ -379,9 +626,12 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	}
 	tasks := append([]factory.IntentTask(nil), revision.Tasks...)
 	retained := []int64{2}
-	if mode == "append_producer" {
+	if mode == "append_producer" || deliveryMode {
 		tasks = append(tasks, factory.IntentTask{Key: choiceTaskKey(3), Objective: "Supply the missing in-scope validation fixture", Outcomes: []string{"The requested fixture is available for independent maintainer acceptance"}, IdeaIDs: []string{revision.Ideas[0].ID}})
 		retained = []int64{1, 2, 3}
+		if deliveryMode {
+			retained = []int64{1, 2}
+		}
 	} else {
 		tasks[0].Objective += " with the clarified validation boundary"
 	}
@@ -392,19 +642,67 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		proposal.Causes = []factory.CheckFailure{{CheckRef: "missing_producer", Detail: "The manual fixture requirement has no accepted producer."}}
 		proposal.IntentChanges[0].Reason = "Add the missing fixture producer within the accepted scope; preserve both human prerequisite routes."
 	}
-	if err = proposal.Validate(); err != nil {
-		t.Fatal(err)
+	if !deliveryMode {
+		if err = proposal.Validate(); err != nil {
+			t.Fatal(err)
+		}
 	}
 	run, err := db.FactoryRun(ctx, cycle.RunID)
 	if err != nil {
 		t.Fatal(err)
 	}
+	var repairCapability factory.MCPCapability
+	if deliveryMode {
+		repairCapability, err = db.GetMCPCapability(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = db.ActivateObservedMCPCapability(ctx, repairCapability); err != nil {
+			t.Fatal(err)
+		}
+		repairCapability, err = db.GetMCPCapability(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		current, e := db.FactoryCurrentContext(ctx, repairCapability, time.Now())
+		if e != nil || current.Role.DeliveryRepair == nil || !current.Role.DeliveryRepair.Complete || current.Role.DeliveryRepair.Subject != deliveryRecord.Subject || current.Role.DeliveryRepair.Cause.FailureDigest != deliveryRecord.Cause.FailureDigest {
+			t.Fatal("native Strategist lacks exact mandatory repair context", e)
+		}
+	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair proposal ready", true
 	if err = db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Repair the idle accepted graph and preserve protected work.", Output: &factory.PhaseOutput{Repair: &proposal}})
-	if a, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+	phaseOutput := &factory.PhaseOutput{Repair: &proposal}
+	if deliveryMode {
+		cap, e := db.GetMCPCapability(ctx, run.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		phaseOutput = &factory.PhaseOutput{DeliveryRepair: &factory.DeliveryRepairReport{Subject: deliveryRecord.Subject, InputDigest: cap.ScopeDigest(), Causes: []factory.CheckFailure{{CheckRef: revision.Ideas[0].ID, Detail: "Add the bounded missing application behavior."}}, RetainedIssueIndexes: retained, IntentChanges: proposal.IntentChanges, Coverage: proposal.Coverage, Outcome: factory.RepairOutcomeRepair}}
+		if mode == "delivery_repair_nochange" {
+			phaseOutput.DeliveryRepair.Outcome = factory.RepairOutcomeNoChange
+			phaseOutput.DeliveryRepair.IntentChanges = nil
+			phaseOutput.DeliveryRepair.Coverage = nil
+		}
+		if err = phaseOutput.DeliveryRepair.Validate(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Repair the idle accepted graph and preserve protected work.", Output: phaseOutput})
+	if deliveryMode {
+		payload, _ := json.Marshal(map[string]any{"report": phaseOutput.DeliveryRepair})
+		submission := testMCPSubmission(repairCapability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
+		if _, e := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); e != nil {
+			t.Fatal(e)
+		}
+		if settled, e := SettleMCPTerminalProposal(ctx, db, cycle.AssignmentID, time.Now()); e != nil || !settled {
+			t.Fatal("authenticated repair proposal did not settle", settled, e)
+		}
+		if a, e := db.Assignment(ctx, cycle.AssignmentID); e != nil || a.Outcome != factory.Succeeded {
+			t.Fatal("authenticated repair finish", a.Outcome, a.Reason, e)
+		}
+	} else if a, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
 		t.Fatalf("repair finish outcome=%s reason=%s recorded=%v", a.Outcome, a.Reason, ok)
 	}
 	grantChanged := false
@@ -419,24 +717,50 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal(err)
 		}
 	}
+	if mode == "delivery_repair_withdrawn" {
+		changeGrant(false)
+	}
 	for pass := 0; pass < 14; pass++ {
-		coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
-		record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		if deliveryMode {
+			coord.driveDeliveryRepairs(ctx)
+			deliveryRecord, err = db.DeliveryRepairRecord(ctx, fx.repo, failedDeliveryRun)
+			record.Repair.Cycles = []factory.StallRepairCycle{deliveryRecord.Cycle}
+		} else {
+			coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+			record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
 		cycle = record.Repair.Cycles[0]
-		if (mode == "grant_hold_new_effect" || mode == "grant_withdrawn_after_admission") && !grantChanged && cycle.State == factory.RepairApplying {
+		if deliveryMode && cycle.State == factory.RepairAttention {
+			break
+		}
+		withdrawNew, withdrawActive := strings.HasSuffix(mode, "grant_hold_new_effect"), strings.HasSuffix(mode, "grant_withdrawn_after_admission")
+		if (withdrawNew || withdrawActive) && !grantChanged && cycle.State == factory.RepairApplying {
 			progress, err := loadGraphRepairAdoption(cycle.AdoptionProgress, record.Repository, "", record.ID, cycle.ID, cycle.InventoryDigest)
+			if deliveryMode {
+				progress, err = loadDeliveryRepairAdoption(deliveryRecord)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
 			step, _ := progress.Journal.CurrentStep()
-			if mode == "grant_hold_new_effect" && step.State == reassessmentStepStaged {
+			if withdrawNew && step.State == reassessmentStepStaged {
 				changeGrant(false)
-				coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
-				held, err := db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
-				if err != nil || held.Repair.Cycles[0].Reason != "repair_sponsor_grant_unavailable" || graph.submissions != baseline {
+				var heldReason string
+				if deliveryMode {
+					coord.driveDeliveryRepairs(ctx)
+					held, e := db.DeliveryRepairRecord(ctx, fx.repo, failedDeliveryRun)
+					err = e
+					heldReason = held.Cycle.Reason
+				} else {
+					coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+					held, e := db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+					err = e
+					heldReason = held.Repair.Cycles[0].Reason
+				}
+				if err != nil || heldReason != "repair_sponsor_grant_unavailable" || graph.submissions != baseline {
 					t.Fatal("withdrawn grant admitted new effect", err)
 				}
 				if _, err = db.IntentGeneration(ctx, successor); !errors.Is(err, store.ErrNotFound) {
@@ -444,7 +768,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 				}
 				changeGrant(true)
 				grantChanged = true
-			} else if mode == "grant_withdrawn_after_admission" && step.State == reassessmentStepActive {
+			} else if withdrawActive && step.State == reassessmentStepActive {
 				changeGrant(false)
 				grantChanged = true
 			}
@@ -459,6 +783,13 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			fresh.CompletionEnumerator, fresh.CompletionLocalCapture, fresh.Planning = enumerator, db.CaptureCompletionLocal, coord.Planning
 			coord = fresh
 		}
+	}
+	if mode == "delivery_repair_withdrawn" || mode == "delivery_repair_nochange" {
+		charges, e := db.RepairCharges(ctx, fx.repo)
+		if cycle.State != factory.RepairAttention || e != nil || len(charges) != 1 || chooser.calls != 0 || graph.submissions != baseline {
+			t.Fatal("delivery failure/withdrawal fabricated judgment or graph effects", cycle.State, cycle.Reason, e)
+		}
+		return
 	}
 	if cycle.State != factory.RepairAdopted {
 		charges, _ := db.RepairCharges(ctx, fx.repo)
@@ -501,11 +832,59 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	if err != nil || len(charges) != 2 || chooser.calls != 1 || graph.submissions != baseline+1 || graph.issues[2].Issue.Content != protectedBody {
 		t.Fatalf("repair duplicated spend/effect or changed protected work: charges=%d calls=%d submissions=%d %v", len(charges), chooser.calls, graph.submissions, err)
 	}
+	if mode == "delivery_repair_tight" {
+		for _, charge := range charges {
+			if charge.Kind == factory.RepairChargeRun && charge.ActiveMinutes != 2 {
+				t.Fatal("repair ignored tighter remaining grant", charge.ActiveMinutes)
+			}
+		}
+	}
 	if generation, e := db.IntentGeneration(ctx, successor); e != nil || generation.RepairCycle != cycle.ID || generation.ReassessmentCycle != "" || generation.State != "completed" {
 		t.Fatal("repair borrowed completion identity", e)
 	}
-	coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
-	record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+	if adoptedManifest != nil {
+		g, e := db.IntentGeneration(ctx, successor)
+		if e != nil || g.VerificationManifest == nil || g.VerificationManifest.Proposal.Digest() != adoptedManifest.Proposal.Digest() || g.VerificationManifest.Catalog != adoptedManifest.Catalog || g.VerificationManifest.ValidateFor(head) != nil || g.VerificationManifestDigest != g.VerificationManifest.Digest() {
+			t.Fatal("protected delta dropped or changed adopted verification", e)
+		}
+		omitted := g
+		omitted.VerificationManifest = nil
+		omitted.VerificationManifestDigest = ""
+		if e = db.RecordIntentGeneration(ctx, omitted); e == nil {
+			t.Fatal("recorded generation allowed manifest omission")
+		}
+		changed := head
+		changed.ID = factory.NewID()
+		changed.Predecessor = head.ID
+		changed.EffectiveOutcomes = []string{factory.NewID()}
+		if e = coord.inheritGraphVerification(ctx, changed, &factory.IntentGeneration{}); e == nil {
+			t.Fatal("protected delta silently changed effective verification outcomes")
+		}
+	}
+	if deliveryMode {
+		coord.driveDeliveryRepairs(ctx)
+		deliveryRecord, err = db.DeliveryRepairRecord(ctx, fx.repo, failedDeliveryRun)
+		record.Repair.Cycles = []factory.StallRepairCycle{deliveryRecord.Cycle}
+		ack, e := db.FactoryCommand(ctx, ownerRequest.ID)
+		if e != nil || ack != ownerRequest {
+			t.Fatal("repair cycle rewrote finished owner acknowledgment", e)
+		}
+		failed, e := db.AssignmentByRun(ctx, failedDeliveryRun)
+		body, _ := json.Marshal(failed)
+		if e != nil || string(body) != string(failedVerifierJSON) {
+			t.Fatal("repair changed original failed verification", e)
+		}
+		if replay, e := coord.RequestDeliveryRepair(ctx, ownerRequest.ID, "native:7", failedDeliveryRun); e != nil || replay.CycleID != cycle.ID {
+			t.Fatal("terminal repair lost immutable request replay", e)
+		}
+		var afterLedger string
+		if e := deliverySQL.QueryRow(`SELECT md5(to_jsonb(l)::text||to_jsonb(r)::text||to_jsonb(u)::text) FROM factory_attempt_allowances l JOIN factory_reservations r ON r.assignment=l.root_assignment JOIN factory_usage u ON u.run=$2 WHERE l.root_assignment=$1`, failedVerifierAssignment, failedDeliveryRun).Scan(&afterLedger); e != nil || afterLedger != failedLedger {
+			t.Fatal("repair rewrote closed verifier allowance or original spend", e)
+		}
+	} else {
+		coord.driveStallRepairs(ctx, map[int64]bool{fx.repo: true})
+		record, err = db.RepairEpisodeRecord(ctx, fx.repo, event.EpisodeID)
+	}
 	charges, _ = db.RepairCharges(ctx, fx.repo)
 	if err != nil || len(record.Repair.Cycles) != 1 || len(charges) != 2 {
 		t.Fatal("graph reshuffle alone refilled repair", err)

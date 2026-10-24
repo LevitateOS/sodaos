@@ -127,6 +127,10 @@ func pendingContextLaunch(ctx context.Context, deps DispatchDeps, a factory.Assi
 	if len(run.ExecutionManifest) > 0 {
 		launch.Run.ManifestDigest = project.ExecutionManifestDigest(run.ExecutionManifest)
 	}
+	launch.VerificationManifest = run.VerificationManifest
+	if len(run.VerificationManifest) > 0 {
+		launch.Run.VerificationManifestDigest = project.ExecutionManifestDigest(run.VerificationManifest)
+	}
 	if launch.Validate() != nil {
 		return project.FactoryLaunch{}, waitFor(DispatchErrStore, "pending launch differs from its admitted packet"), false
 	}

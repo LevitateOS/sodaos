@@ -183,7 +183,7 @@ fn terminate_child(pid: libc::pid_t) -> Option<libc::c_int> {
     }
 }
 
-fn state_lock(ctx: &crate::Ctx) -> Result<File, Error> {
+pub(crate) fn state_lock(ctx: &crate::Ctx) -> Result<File, Error> {
     let file = fsx::open_ro(&ctx.lock, false)?;
     use std::os::unix::io::AsRawFd;
     if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
@@ -199,7 +199,7 @@ fn wall_nanos_now() -> i128 {
     }
 }
 
-fn deadline_instant(wire: &str) -> Result<Instant, Error> {
+pub(crate) fn deadline_instant(wire: &str) -> Result<Instant, Error> {
     let deadline = soda_wire_time::parse_nanos(wire)
         .ok_or_else(|| Error::fail("invalid preparation deadline"))?;
     let remaining = deadline - wall_nanos_now();
@@ -1069,7 +1069,7 @@ pub fn proc_state_group(entry: &Path) -> (Option<String>, Option<String>) {
     (state, group)
 }
 
-fn proc_identity(entry: &Path) -> (Option<String>, Option<String>, Option<u64>) {
+pub(crate) fn proc_identity(entry: &Path) -> (Option<String>, Option<String>, Option<u64>) {
     let text = match std::fs::read_to_string(entry.join("stat")) {
         Ok(text) => text,
         Err(_) => return (None, None, None),
@@ -1183,7 +1183,7 @@ fn preparation_blocks_release(ctx: &crate::Ctx, dir: &Path, proot: &Path) -> boo
     }
 }
 
-fn retire_active_role_group(
+pub(crate) fn retire_active_role_group(
     ctx: &crate::Ctx,
     directory: &Path,
     role: &str,
@@ -1351,6 +1351,9 @@ fn retire_stopped_preparation(
     if child_retirement == "confirmed" && !wait_active_role_join(directory) {
         child_retirement = "uncertain".to_string();
     }
+    if !super::verification::stop_all(ctx, directory)? {
+        child_retirement = "uncertain".to_string();
+    }
     // P07-F1: a launch-error (or unreadable) receipt never
     // independently establishes retirement; verify the group.
     let finished_clean = match fsx::read_json(ctx, &directory.join("finished.json"), 1024) {
@@ -1419,6 +1422,9 @@ pub fn any_running(ctx: &crate::Ctx) -> Result<bool, Error> {
             continue;
         }
         let dir = ctx.preparations.join(&name);
+        if super::verification::blocks_release(ctx, &dir)? {
+            return Ok(true);
+        }
         if !fsx::lexists(&dir.join("started.json")) {
             continue;
         }

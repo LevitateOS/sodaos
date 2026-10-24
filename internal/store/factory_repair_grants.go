@@ -370,6 +370,14 @@ func (s *Store) AdmitStallInvestigation(ctx context.Context, repository int64, c
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, factory.RepairTarget(repository)); err != nil {
 		return repairChargeReceipt{}, false, err
 	}
+	receipt, created, err := admitRepairChargeTx(ctx, tx, repository, charge, now)
+	if err != nil {
+		return repairChargeReceipt{}, false, err
+	}
+	return receipt, created, tx.Commit()
+}
+
+func admitRepairChargeTx(ctx context.Context, tx *sql.Tx, repository int64, charge factory.RepairCharge, now time.Time) (repairChargeReceipt, bool, error) {
 	heads, err := finishedCommands(ctx, tx, factory.CommandRepairGrant, factory.RepairTarget(repository))
 	if err != nil {
 		return repairChargeReceipt{}, false, err
@@ -405,13 +413,13 @@ func (s *Store) AdmitStallInvestigation(ctx context.Context, repository int64, c
 		if prior != charge {
 			return repairChargeReceipt{}, false, ErrCommandConflict
 		}
-		return receipt, false, tx.Commit()
+		return receipt, false, nil
 	}
 	receipt, created, err := recordRepairChargeTx(ctx, tx, repository, charge, now)
 	if err != nil {
 		return repairChargeReceipt{}, false, err
 	}
-	return receipt, created, tx.Commit()
+	return receipt, created, nil
 }
 
 // ApplyIntentExecutionLimitCommand records one origin intent's
@@ -626,7 +634,7 @@ type IntentExecutionAggregate struct {
 func (s *Store) IntentExecutionAggregateForIntent(ctx context.Context, intent string, owner int64) (IntentExecutionAggregate, error) {
 	aggregate := IntentExecutionAggregate{Intent: intent, Owner: owner}
 	if limit, err := s.IntentExecutionLimit(ctx, intent); err == nil {
-		aggregate.LimitMs, aggregate.LimitActive = limit.ActiveLimitMs, true
+		aggregate.LimitMs, aggregate.LimitActive = limit.ActiveLimitMs, limit.Active
 	} else if !errors.Is(err, ErrNotFound) {
 		return IntentExecutionAggregate{}, err
 	}
@@ -642,12 +650,12 @@ func (s *Store) IntentExecutionAggregateForIntent(ctx context.Context, intent st
 			return IntentExecutionAggregate{}, err
 		}
 		for _, binding := range bindings {
-			key := intentIssueKey(revision.Repository, binding.IssueID)
+			key := intentIssueKey(revision.Repository, binding.IssueIndex)
 			if !seenIssue[key] {
 				seenIssue[key] = true
 				aggregate.Issues = append(aggregate.Issues, key)
 			}
-			allowances, err := s.AttemptAllowanceHistory(ctx, revision.Repository, binding.IssueID)
+			allowances, err := s.AttemptAllowanceHistory(ctx, revision.Repository, binding.IssueIndex)
 			if err != nil {
 				return IntentExecutionAggregate{}, err
 			}
@@ -655,6 +663,19 @@ func (s *Store) IntentExecutionAggregateForIntent(ctx context.Context, intent st
 				if seenRoot[allowance.RootAssignment] {
 					continue
 				}
+				seenRoot[allowance.RootAssignment] = true
+				aggregate.Roots = append(aggregate.Roots, allowance.RootAssignment)
+				aggregate.ConsumedMs += allowance.ActiveSeconds * 1000
+			}
+		}
+	}
+	if len(history) > 0 {
+		allowances, err := intentExecutionAllowances(ctx, s.db, history[0].Repository, intent)
+		if err != nil {
+			return IntentExecutionAggregate{}, err
+		}
+		for _, allowance := range allowances {
+			if !seenRoot[allowance.RootAssignment] {
 				seenRoot[allowance.RootAssignment] = true
 				aggregate.Roots = append(aggregate.Roots, allowance.RootAssignment)
 				aggregate.ConsumedMs += allowance.ActiveSeconds * 1000

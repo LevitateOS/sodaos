@@ -86,6 +86,10 @@ func (c *Coordinator) driveStallRepairAdoption(ctx context.Context, record store
 			return
 		}
 		generation := factory.IntentGeneration{RevisionID: entry.Revision.ID, IntentID: entry.Revision.Intent, OperationID: step.OperationID, ActorID: c.GraphActorID, NativeRev: nativeRev, AuthRevision: entry.Revision.ID + ":" + entry.Revision.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: payload, SubmittedTasks: entry.Revision.Tasks, TaskIssueIDs: entry.TaskIssueIDs, IntentDigest: entry.Revision.Digest(), State: "pending", RepairCycle: cycle.ID, CopiedBindings: entry.Packet.CopiedBindings, RetainedBindings: entry.RetainedBindings, LocalOnly: step.NoEffect}
+		if e = c.inheritGraphVerification(ctx, entry.Revision, &generation); e != nil {
+			c.holdRepair(ctx, record, cycle, "repair_verification_manifest_changed", false)
+			return
+		}
 		if generation.LocalOnly {
 			generation.State = "completed"
 		}
@@ -120,6 +124,11 @@ func (c *Coordinator) driveStallRepairAdoption(ctx context.Context, record store
 }
 
 func (c *Coordinator) validateStallRepairGeneration(ctx context.Context, generation factory.IntentGeneration) (*DispatchWait, error) {
+	if _, _, err := c.Store.DeliveryRepairCycle(ctx, generation.RepairCycle); err == nil {
+		return c.validateDeliveryRepairGeneration(ctx, generation)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
 	if generation.ReassessmentCycle != "" || generation.PlanAssignment != "" || !factory.ValidID(generation.RepairCycle) {
 		return nil, errors.New("ambiguous stall graph owner")
 	}

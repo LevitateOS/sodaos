@@ -33,6 +33,7 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/prepare-hold",
     "/factory-launch",
     "/factory-inspect",
+    "/factory-verification-checks",
     "/factory-stop",
     "/factory-takeover",
     "/factory-output",

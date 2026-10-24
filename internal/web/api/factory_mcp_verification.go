@@ -20,7 +20,14 @@ func (s *API) factoryVerificationEvidence(ctx context.Context, capability factor
 	}
 	evidence, err := s.Coordinator.ApplicationVerificationEvidence(ctx, assignment)
 	if err != nil {
-		return map[string]any{"available": false, "reason": err.Error(), "next_step": "Use an approved check.sh with a soda-app-verification header covering this accepted intent revision, prepare the exact integrated source for the reviewer, and resolve any missing delivered work or failed check."}, nil
+		return map[string]any{"available": false, "reason": err.Error(), "next_step": "Keep the adopted approved check definitions current, or supply the fixed check.sh soda-app-verification declaration; prepare the exact integrated source for the reviewer and resolve missing delivered work or failed checks."}, nil
 	}
-	return map[string]any{"available": true, "evidence": evidence, "delivery_id": assignment.Subject.Delivery.DeliveryID, "input_digest": capability.ScopeDigest(), "outcome": "native_check_passed"}, nil
+	outcome := "native_check_passed"
+	if evidence.ExecutionRequired {
+		outcome = "native_preparation_check_passed"
+		if evidence.ExecutionReceipt != nil {
+			outcome = "native_manifest_passed"
+		}
+	}
+	return map[string]any{"available": true, "evidence": evidence, "delivery_id": assignment.Subject.Delivery.DeliveryID, "input_digest": capability.ScopeDigest(), "outcome": outcome}, nil
 }

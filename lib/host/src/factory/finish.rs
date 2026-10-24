@@ -122,6 +122,44 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let cleanup = cleanup_deadline();
         let bound = lease.with_binding(binding);
         let native_uncertain = self.stop_native(receipt, cleanup);
+        if !self.verification_retirement_known(receipt) {
+            return self.record_stop_outcome(
+                receipt,
+                true,
+                "verification-stop-uncertain",
+                true,
+                cleanup,
+            );
+        }
+        if !receipt.run.verification_manifest_digest.is_empty()
+            && !receipt.started
+            && !receipt.delivered
+        {
+            // This route registers no model credential until the check has
+            // passed and its start marker is consumed. Retire its unused
+            // lease instead of trying to capture an auth file never staged.
+            if !native_uncertain {
+                self.broker.reconcile_lease(&lease.id, cleanup);
+                let closed = self
+                    .broker
+                    .close_execution(IDENTITY_FACTORY, &receipt.run.id, cleanup)
+                    .is_ok();
+                return self.record_stop_outcome(
+                    receipt,
+                    !closed,
+                    "verification-before-cli-failed",
+                    false,
+                    cleanup,
+                );
+            }
+            return self.record_stop_outcome(
+                receipt,
+                true,
+                "verification-stop-uncertain",
+                false,
+                cleanup,
+            );
+        }
         let mut receipt = receipt.clone();
         if self.launch_yielded(&receipt, cleanup) {
             return self.record_stop_outcome(&receipt, false, "stopped", false, cleanup);

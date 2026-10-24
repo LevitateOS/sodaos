@@ -73,11 +73,10 @@ func repairChainSubject(finished factory.Assignment) (factory.DeliveryRepairSubj
 // against the repair subject citing it: the loaded assignment must be
 // the cited run's delivery verification, and its recorded result must
 // report that same delivery as failed. Anything else means the repair
-// answers no recorded failure. The failure digest has no producer
-// equation yet, so digest-to-report linkage stays open; run,
-// assignment, delivery and failed-outcome linkage close here.
+// answers no recorded failure. Its digest is the canonical typed failed
+// report digest, not a worker-supplied cause identity.
 func checkRepairChain(failed factory.Assignment, runID string, subject factory.DeliveryRepairSubject) error {
-	if failed.Run != runID {
+	if failed.Run != runID || failed.Stage != factory.AssignmentFinished || failed.Outcome != factory.Succeeded {
 		return errors.New("repair cites a run outside its recorded assignment")
 	}
 	if failed.Subject.Kind != factory.SubjectDelivery || failed.Subject.Delivery == nil {
@@ -100,6 +99,9 @@ func checkRepairChain(failed factory.Assignment, runID string, subject factory.D
 	}
 	if phased.Output.Verification.DeliveryID != subject.DeliveryID {
 		return errors.New("cited verification covered another delivery")
+	}
+	if factory.DeliveryFailureDigest(*phased.Output.Verification) != subject.FailureDigest {
+		return errors.New("repair failure digest differs from recorded verification")
 	}
 	return nil
 }

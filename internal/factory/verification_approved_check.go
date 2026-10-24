@@ -23,7 +23,7 @@ type ApprovedAppCheck struct {
 }
 
 const ApprovedAppCheckPrefix = "# soda-app-verification: "
-const ApprovedAppCheckID = "project.check"
+const ApprovedAppCheckID = project.VerificationProjectCheck
 
 func ParseApprovedAppCheck(script []byte) (ApprovedAppCheck, error) {
 	var manifest ApprovedAppCheck

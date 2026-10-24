@@ -121,6 +121,7 @@ type Coordinator struct {
 	creationRepositoryCursor int64
 	intentGenerationCursor   string
 	deliveryIntentCursor     string
+	deliveryRepairCursor     string
 	appVerificationCursor    int64
 }
 

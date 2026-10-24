@@ -477,7 +477,8 @@ func (c *reassessmentLifecycleChooser) Select(_ context.Context, state any, _ st
 	c.calls++
 	selected := factory.ReassessmentOptionReassess
 	_, repair := state.(repairProposalState)
-	if _, ok := state.(ReassessmentProposalState); ok || repair {
+	_, deliveryRepair := state.(deliveryRepairProposalState)
+	if _, ok := state.(ReassessmentProposalState); ok || repair || deliveryRepair {
 		selected = factory.ReassessmentOptionAccept
 	} else if _, ok := state.(ReassessmentDecisionState); !ok {
 		return factory.PriorityAnswer{}, errReassessmentTestState

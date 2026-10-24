@@ -167,20 +167,21 @@ func MaxPromptForPhase(phase string) int {
 // staged execution manifest for implement and correct runs and stays empty
 // otherwise.
 type FactoryRun struct {
-	Deadline       time.Time `json:"deadline"`
-	Actor          int64     `json:"actor"`
-	ID             string    `json:"id"`
-	Project        string    `json:"project"`
-	Role           string    `json:"role"`
-	Preparation    string    `json:"preparation"`
-	Harness        string    `json:"harness"`
-	HarnessVers    string    `json:"harness_version"`
-	Model          string    `json:"model,omitempty"`
-	Assignment     string    `json:"assignment"`
-	SourceCommit   string    `json:"source_commit"`
-	Connection     string    `json:"connection"`
-	ExecutionPhase string    `json:"execution_phase,omitempty"`
-	ManifestDigest string    `json:"manifest_digest,omitempty"`
+	Deadline                   time.Time `json:"deadline"`
+	Actor                      int64     `json:"actor"`
+	ID                         string    `json:"id"`
+	Project                    string    `json:"project"`
+	Role                       string    `json:"role"`
+	Preparation                string    `json:"preparation"`
+	Harness                    string    `json:"harness"`
+	HarnessVers                string    `json:"harness_version"`
+	Model                      string    `json:"model,omitempty"`
+	Assignment                 string    `json:"assignment"`
+	SourceCommit               string    `json:"source_commit"`
+	Connection                 string    `json:"connection"`
+	ExecutionPhase             string    `json:"execution_phase,omitempty"`
+	ManifestDigest             string    `json:"manifest_digest,omitempty"`
+	VerificationManifestDigest string    `json:"verification_manifest_digest,omitempty"`
 }
 
 func (r FactoryRun) validateRunIdentity() error {
@@ -246,6 +247,9 @@ func (r FactoryRun) validateRunPhase() error {
 	} else if r.ManifestDigest != "" {
 		return errors.New("non-implement run carries a manifest digest")
 	}
+	if r.VerificationManifestDigest != "" && (r.ExecutionPhase != ExecutionVerify || !ValidDigest(r.VerificationManifestDigest)) {
+		return errors.New("non-verification run carries a verification manifest digest")
+	}
 	return nil
 }
 
@@ -276,11 +280,12 @@ type FactoryMCPBinding struct {
 }
 
 type FactoryLaunch struct {
-	MCP               *FactoryMCPBinding `json:"mcp,omitempty"`
-	Run               FactoryRun         `json:"run"`
-	Prompt            []byte             `json:"prompt"`
-	HarnessSHA256     string             `json:"harness_sha256"`
-	ExecutionManifest []byte             `json:"execution_manifest,omitempty"`
+	MCP                  *FactoryMCPBinding `json:"mcp,omitempty"`
+	Run                  FactoryRun         `json:"run"`
+	Prompt               []byte             `json:"prompt"`
+	HarnessSHA256        string             `json:"harness_sha256"`
+	ExecutionManifest    []byte             `json:"execution_manifest,omitempty"`
+	VerificationManifest []byte             `json:"verification_manifest,omitempty"`
 }
 
 // ExecutionManifestDigest returns the canonical digest over staged manifest
@@ -323,30 +328,37 @@ func (l FactoryLaunch) Validate() error {
 	} else if len(l.ExecutionManifest) != 0 {
 		return errors.New("non-implement run stages an execution manifest")
 	}
+	if len(l.VerificationManifest) > 0 || l.Run.VerificationManifestDigest != "" {
+		manifest, err := ParseVerificationManifest(l.VerificationManifest)
+		if err != nil || manifest.ValidateForRun(l.Run) != nil || ExecutionManifestDigest(l.VerificationManifest) != l.Run.VerificationManifestDigest {
+			return errors.New("verification manifest does not match its admitted run")
+		}
+	}
 	return nil
 }
 
 // FactoryState is the observed run outcome for one identity.
 type FactoryState struct {
-	ExitCode           *int   `json:"exit_code,omitempty"`
-	Generation         int64  `json:"generation"`
-	UID                int    `json:"uid"`
-	GID                int    `json:"gid"`
-	CredentialReturned bool   `json:"credential_returned"`
-	Live               bool   `json:"live"`
-	Delivered          bool   `json:"delivered"`
-	ID                 string `json:"id"`
-	Project            string `json:"project"`
-	Role               string `json:"role"`
-	Phase              string `json:"phase"`
-	Container          string `json:"container"`
-	Unit               string `json:"unit"`
-	Invocation         string `json:"invocation"`
-	Login              string `json:"login"`
-	LeaseID            string `json:"lease_id,omitempty"`
-	Output             string `json:"output,omitempty"`
-	Retirement         string `json:"retirement,omitempty"`
-	Reason             string `json:"reason,omitempty"`
+	ExitCode           *int                            `json:"exit_code,omitempty"`
+	Generation         int64                           `json:"generation"`
+	UID                int                             `json:"uid"`
+	GID                int                             `json:"gid"`
+	CredentialReturned bool                            `json:"credential_returned"`
+	Live               bool                            `json:"live"`
+	Delivered          bool                            `json:"delivered"`
+	ID                 string                          `json:"id"`
+	Project            string                          `json:"project"`
+	Role               string                          `json:"role"`
+	Phase              string                          `json:"phase"`
+	Container          string                          `json:"container"`
+	Unit               string                          `json:"unit"`
+	Invocation         string                          `json:"invocation"`
+	Login              string                          `json:"login"`
+	LeaseID            string                          `json:"lease_id,omitempty"`
+	Output             string                          `json:"output,omitempty"`
+	Retirement         string                          `json:"retirement,omitempty"`
+	Reason             string                          `json:"reason,omitempty"`
+	VerificationChecks *FactoryVerificationChecksState `json:"verification_checks,omitempty"`
 }
 
 // FactoryRunPaths derives the fixed container paths for one run. The checkout

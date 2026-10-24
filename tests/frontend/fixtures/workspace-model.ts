@@ -59,6 +59,9 @@ export function createWorkspaceModel(
   let factoryRunEnabled = false;
   let verificationEnabled = false,
     verificationAvailable = false,
+    verificationRepair = false,
+    repairAvailable = false,
+    repairReceiptAvailable = false,
     verificationCommand = '';
   alpha.terminals.push(
     metadata('a'.repeat(32), projectA, '7', 'Build'),
@@ -119,26 +122,37 @@ export function createWorkspaceModel(
       verificationEnabled &&
       path.endsWith(`/api/factory/runs/${factoryRunId}/actions`) &&
       method === 'POST' &&
-      body?.action === 'retry'
+      body?.action === (verificationRepair ? 'repair_delivery' : 'retry')
     ) {
       if (!verificationCommand) verificationCommand = String(body.command_id);
       if (body.command_id !== verificationCommand) return Response.json({}, {status: 409});
       verificationAvailable = false;
+      repairAvailable = false;
       throw new TypeError('Fixture lost the recorded Retry reply');
     }
     if (verificationCommand && path.endsWith(`/api/factory/commands/${verificationCommand}`))
       return Response.json({
         id: verificationCommand,
-        type: 'retry',
+        type: verificationRepair ? 'request-delivery-repair' : 'retry',
         principal: 'native:1',
         digest: 'a'.repeat(64),
         target: `run/${factoryRunId}`,
-        outcome: JSON.stringify({
-          command_id: verificationCommand,
-          prior_run: factoryRunId,
-          queued: true,
-          reason: 'New verification queued',
-        }),
+        outcome: JSON.stringify(
+          verificationRepair
+            ? {
+                command_id: verificationCommand,
+                run_id: repairReceiptAvailable ? factoryRunId : 'c'.repeat(32),
+                cause_id: 'a'.repeat(32),
+                cycle_id: 'b'.repeat(32),
+                state: 'queued',
+              }
+            : {
+                command_id: verificationCommand,
+                prior_run: factoryRunId,
+                queued: true,
+                reason: 'New verification queued',
+              }
+        ),
       });
     const factoryStatusPath = new URL(path, origin).pathname.match(/\/api\/factory\/runs\/([a-f0-9]{32})$/);
     if (factoryStatusPath) {
@@ -157,6 +171,7 @@ export function createWorkspaceModel(
           },
           view: {repository: alpha.environment.repository_id, attempt: 'f'.repeat(32)},
           verification_retry: {available: verificationAvailable},
+          delivery_repair: {available: repairAvailable},
         });
       return Response.json({
         run: {
@@ -408,15 +423,23 @@ export function createWorkspaceModel(
           reconciled: false,
         });
     },
-    enableVerificationRetry() {
-      factoryRunEnabled = verificationEnabled = verificationAvailable = true;
-      alpha.factory_runs.push({
-        id: factoryRunId,
-        role: 'soda-reviewer',
-        attempt: 'f'.repeat(32),
-        reconciled: true,
-        outcome: 'succeeded',
-      });
+    enableVerificationRetry(repair = false) {
+      factoryRunEnabled = verificationEnabled = true;
+      verificationAvailable = !repair;
+      verificationRepair = repairAvailable = repair;
+      verificationCommand = '';
+      repairReceiptAvailable = false;
+      if (!alpha.factory_runs.some((run) => run.id === factoryRunId))
+        alpha.factory_runs.push({
+          id: factoryRunId,
+          role: 'soda-reviewer',
+          attempt: 'f'.repeat(32),
+          reconciled: true,
+          outcome: 'succeeded',
+        });
+    },
+    allowRepairReceipt() {
+      repairReceiptAvailable = true;
     },
     setJoinFailure(value: boolean | string) {
       joinFailure = value === true ? 'account_incomplete' : value;

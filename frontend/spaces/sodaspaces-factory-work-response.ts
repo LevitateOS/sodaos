@@ -715,6 +715,19 @@ export function retryDecision(value: unknown, commandID: string, priorRun: strin
   check(data.command_id === commandID && data.prior_run === priorRun && data.queued === true);
   return {prior_run: priorRun, command_id: commandID, reason: text(data.reason, 256), queued: true};
 }
+// Acknowledgement queues a diagnosis; it does not claim a repaired application.
+export function deliveryRepairDecision(value: unknown, commandID: string, runID: string) {
+  const data = object(value);
+  check(data.command_id === commandID && data.run_id === runID && data.state === 'queued');
+  check(commandId(data.cause_id) && commandId(data.cycle_id));
+  return {
+    command_id: commandID,
+    run_id: runID,
+    cause_id: data.cause_id,
+    cycle_id: data.cycle_id,
+    state: 'queued' as const,
+  };
+}
 // takeoverRecord binds one takeover to its exact command, run and member checkout.
 export function takeoverRecord(value: unknown, commandID: string, runID: string): TakeoverRecord {
   const data = object(value);

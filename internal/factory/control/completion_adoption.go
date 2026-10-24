@@ -28,6 +28,42 @@ type reassessmentAdoptionProgress struct {
 	Intents    []reassessmentAdoptionIntent         `json:"intents"`
 }
 
+// Protected graph changes retain already adopted check definitions. Only the
+// accepted revision/scope binding changes; a different effective outcome needs
+// a new normal Product Lead proposal rather than a silent fixed-check fallback.
+func (c *Coordinator) inheritGraphVerification(ctx context.Context, revision factory.IntentRevision, generation *factory.IntentGeneration) error {
+	history, err := c.Store.IntentHistory(ctx, revision.Intent, revision.Owner, 50)
+	if err != nil {
+		return err
+	}
+	if len(history) == 0 || history[0].ID != revision.Predecessor {
+		return store.ErrStaleRevision
+	}
+	for i, prior := range history {
+		g, e := c.Store.IntentGeneration(ctx, prior.ID)
+		if e != nil && !errors.Is(e, store.ErrNotFound) {
+			return e
+		}
+		if e == nil && g.VerificationManifest != nil {
+			m := *g.VerificationManifest
+			if m.ValidateFor(prior) != nil || !reflect.DeepEqual(prior.EffectiveOutcomes, revision.EffectiveOutcomes) || !reflect.DeepEqual(prior.Ideas, revision.Ideas) {
+				return errors.New("protected graph changed adopted verification outcomes")
+			}
+			m.AcceptedRevision, m.ScopeDigest = revision.ID, revision.Digest()
+			if err = m.ValidateFor(revision); err != nil {
+				return err
+			}
+			generation.VerificationManifest = &m
+			generation.VerificationManifestDigest = m.Digest()
+			return nil
+		}
+		if i == len(history)-1 && prior.Predecessor != "" {
+			return errors.New("verification manifest ancestry exceeds its read bound")
+		}
+	}
+	return nil
+}
+
 func (c *Coordinator) stageReassessmentAdoption(ctx context.Context, record store.ReassessmentRecord, proposal factory.ReassessmentReport, priors map[string]ReassessmentPrior, packets []ReassessmentIntentPacket, validation factory.ReassessmentValidationReport, journal ReassessmentJournal, report *CompletionDriveReport) {
 	progress, err := buildGraphRepairAdoption(proposal.IntentChanges, priors, packets, validation, journal)
 	if err != nil {
@@ -51,7 +87,7 @@ func loadReassessmentAdoption(record store.ReassessmentRecord) (reassessmentAdop
 
 func loadGraphRepairAdoption(raw json.RawMessage, repository int64, completionID, stallID, cycleID, inventoryDigest string) (reassessmentAdoptionProgress, error) {
 	var progress reassessmentAdoptionProgress
-	if len(raw) == 0 || json.Unmarshal(raw, &progress) != nil || progress.Journal.CompletionID != completionID || progress.Journal.StallID != stallID || progress.Journal.CycleID != cycleID || progress.Journal.InventoryDigest != inventoryDigest || len(progress.Intents) != len(progress.Journal.Steps) {
+	if len(raw) == 0 || json.Unmarshal(raw, &progress) != nil || progress.Journal.CompletionID != completionID || progress.Journal.StallID != stallID || progress.Journal.CycleID != cycleID || progress.Journal.InventoryDigest != inventoryDigest || len(progress.Intents) != len(progress.Journal.Steps) || (completionID != "" || stallID != "") && (progress.Journal.DeliveryID != "" || progress.Journal.FailedVerificationRunID != "") {
 		return progress, errors.New("reassessment adoption journal invalid")
 	}
 	for i, entry := range progress.Intents {
@@ -132,6 +168,10 @@ func (c *Coordinator) driveReassessmentAdoption(ctx context.Context, deps Comple
 			TaskIssueIDs: entry.TaskIssueIDs, IntentDigest: entry.Revision.Digest(), State: "pending",
 			ReassessmentCycle: record.Cycle.CycleID, CopiedBindings: entry.Packet.CopiedBindings,
 			RetainedBindings: entry.RetainedBindings, LocalOnly: step.NoEffect,
+		}
+		if err = c.inheritGraphVerification(ctx, entry.Revision, &generation); err != nil {
+			c.holdCompletion(ctx, record, "reassessment_verification_manifest_changed", report, false)
+			return
 		}
 		if generation.LocalOnly {
 			generation.State = "completed"

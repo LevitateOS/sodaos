@@ -9,6 +9,26 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+func currentDeliveryRepairContextTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
+	if a.Subject.DeliveryRepair == nil {
+		return errors.New("delivery repair context lacks its subject")
+	}
+	record, err := deliveryRepairRecordTx(ctx, tx, a.Repository, a.Subject.DeliveryRepair.FailedVerificationRunID, false)
+	if err != nil {
+		return err
+	}
+	cycle := record.Cycle
+	if record.Subject != *a.Subject.DeliveryRepair || cycle.AssignmentID != a.ID || cycle.RunID != a.Run || cycle.NativeRevision != a.NativeRev || cycle.Local.SourceCommit != a.SourceCommit || record.Cause.ProjectID != a.ProjectID || cycle.State == factory.RepairStale {
+		return errors.New("delivery repair context differs from its sole admitted investigator")
+	}
+	grant, err := currentDeliveryRepairGrantTx(ctx, tx, a.Repository)
+	if err != nil || grant.Sponsor != a.ActorID {
+		return errors.New("delivery repair context sponsor grant is unavailable")
+	}
+	out.Role.DeliveryRepair = &factory.CurrentDeliveryRepairContext{Subject: record.Subject, Cause: record.Cause, Local: cycle.Local, Issues: cycle.Issues, Complete: true, State: cycle.State, Reason: cycle.Reason}
+	return nil
+}
+
 func currentStallContextTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
 	if a.Subject.Stall == nil {
 		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "sealed_repair_inputs_unavailable")

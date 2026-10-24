@@ -10,14 +10,18 @@ import (
 // and receipt with canonical Factory delivery prerequisites. State is for
 // controller adoption only, never the model projection.
 type CurrentVerificationEvidence struct {
-	Manifest              ApprovedAppCheck                   `json:"manifest"`
-	ManifestDigest        string                             `json:"manifest_digest"`
-	PreparationDigest     string                             `json:"preparation_digest"`
-	SourceCommit          string                             `json:"source_commit"`
-	Receipt               VerificationCheckReceipt           `json:"check_receipt"`
-	ApprovedContext       *ApprovedVerificationContext       `json:"approved_context,omitempty"`
-	DeliveryPrerequisites *VerificationDeliveryPrerequisites `json:"delivery_prerequisites,omitempty"`
-	State                 project.PrepareState               `json:"-"`
+	Manifest              ApprovedAppCheck                        `json:"manifest"`
+	ManifestDigest        string                                  `json:"manifest_digest"`
+	PreparationDigest     string                                  `json:"preparation_digest"`
+	SourceCommit          string                                  `json:"source_commit"`
+	Receipt               VerificationCheckReceipt                `json:"check_receipt"`
+	ApprovedContext       *ApprovedVerificationContext            `json:"approved_context,omitempty"`
+	DeliveryPrerequisites *VerificationDeliveryPrerequisites      `json:"delivery_prerequisites,omitempty"`
+	AdoptedManifest       *AdoptedVerificationManifest            `json:"adopted_manifest,omitempty"`
+	ExecutionRequired     bool                                    `json:"execution_required,omitempty"`
+	Execution             *project.FactoryVerificationChecksState `json:"verification_checks,omitempty"`
+	ExecutionReceipt      *VerificationCheckReceipt               `json:"manifest_check_receipt,omitempty"`
+	State                 project.PrepareState                    `json:"-"`
 }
 
 // VerificationDeliveryPrerequisites exposes the canonical Factory merge/closure
@@ -116,9 +120,26 @@ func (e CurrentVerificationEvidence) ValidateFor(d DeliverySubject) error {
 	if e.ApprovedContext == nil || e.ApprovedContext.nativeContext().ValidateContent(project.RoleReviewer) != nil || e.ApprovedContext.SourceCommit != d.SourceCommit || e.ApprovedContext.ApprovedBase != d.SourceCommit || e.ApprovedContext.DiffBase != d.SourceCommit || e.ApprovedContext.Candidate != d.SourceCommit {
 		return errors.New("approved verification assertions differ from admitted source")
 	}
-	manifest, err := ParseApprovedAppCheck([]byte(e.ApprovedContext.Check))
-	if err != nil || manifest.Digest() != d.VerificationManifestDigest {
-		return errors.New("approved verification assertions differ from admitted manifest")
+	if e.AdoptedManifest != nil {
+		m := e.AdoptedManifest
+		if !e.ExecutionRequired || m.Intent != d.IntentID || m.AcceptedRevision != d.AcceptedRevision || m.ScopeDigest != d.ScopeDigest || m.Catalog.Validate() != nil || m.Catalog.CheckDigest != MCPInputDigest([]byte(e.ApprovedContext.Check)) || m.Proposal.ValidateOutcomes(IntentRevision{EffectiveOutcomes: e.Manifest.Outcomes}) != nil || ValidateManifestProposal(m.Proposal, m.Catalog) != nil {
+			return errors.New("approved assertions differ from adopted verification definitions")
+		}
+		if e.Execution != nil {
+			s := e.Execution
+			r := project.FactoryVerificationChecks{Project: e.ApprovedContext.Project, Run: s.Run, Incarnation: s.Incarnation, ManifestDigest: s.ManifestDigest}
+			if s.ValidateFor(r) != nil || s.Preparation != e.ApprovedContext.ID || s.SourceCommit != d.SourceCommit || s.CheckDigest != m.Catalog.CheckDigest {
+				return errors.New("native verification execution differs from its admitted check")
+			}
+		}
+		if e.ExecutionReceipt != nil && (e.Execution == nil || e.Execution.Phase != "passed" || e.ExecutionReceipt.CheckID != ApprovedAppCheckID || e.ExecutionReceipt.Outcome != CheckReceiptPassed || e.ExecutionReceipt.ArtifactDigest != e.Execution.OutputDigest || e.ExecutionReceipt.Validate() != nil) {
+			return errors.New("verification execution receipt lacks a native passing check")
+		}
+	} else {
+		manifest, err := ParseApprovedAppCheck([]byte(e.ApprovedContext.Check))
+		if err != nil || manifest.Digest() != d.VerificationManifestDigest || e.ExecutionRequired || e.Execution != nil || e.ExecutionReceipt != nil {
+			return errors.New("approved verification assertions differ from admitted manifest")
+		}
 	}
 	if e.DeliveryPrerequisites == nil || e.DeliveryPrerequisites.ValidateFor(d, e.Manifest.Outcomes) != nil {
 		return errors.New("current verification lacks exact delivery prerequisites")

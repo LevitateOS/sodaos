@@ -78,7 +78,7 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 			return evidence, errors.New("approved verification context omits a selected source file")
 		}
 	}
-	manifest, err := factory.ParseApprovedAppCheck(material.Check)
+	manifest, adopted, err := c.adoptedDeliveryCheck(ctx, revision, material.Check)
 	if err != nil {
 		return evidence, err
 	}
@@ -96,8 +96,13 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 	if native.TipRef != policy.TargetBranch || native.Tip != a.SourceCommit {
 		return evidence, errors.New("integrated application source changed since verification admission")
 	}
-	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, ApprovedContext: factory.NewApprovedVerificationContext(material), DeliveryPrerequisites: &prerequisites, State: state,
+	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, ApprovedContext: factory.NewApprovedVerificationContext(material), DeliveryPrerequisites: &prerequisites, State: state, AdoptedManifest: adopted, ExecutionRequired: adopted != nil,
 		Receipt: factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "Native approved application check passed"}}
+	if adopted != nil {
+		if err := c.populateVerificationExecution(ctx, a, &evidence); err != nil {
+			return evidence, err
+		}
+	}
 	return evidence, evidence.ValidateFor(*a.Subject.Delivery)
 }
 
@@ -113,7 +118,14 @@ func (c *Coordinator) verifyApplicationReport(ctx context.Context, a factory.Ass
 	if err != nil {
 		return err
 	}
-	if report.Outcome != factory.AppVerificationVerified || len(report.CheckReceipts) != 1 || report.CheckReceipts[0].CheckID != factory.ApprovedAppCheckID || report.CheckReceipts[0].Outcome != factory.CheckReceiptPassed || report.CheckReceipts[0].ArtifactDigest != evidence.Receipt.ArtifactDigest {
+	receipt := evidence.Receipt
+	if evidence.ExecutionRequired {
+		if evidence.Execution == nil || evidence.Execution.Phase != "passed" || evidence.ExecutionReceipt == nil {
+			return errors.New("adopted verification manifest has no exact native run receipt")
+		}
+		receipt = *evidence.ExecutionReceipt
+	}
+	if report.Outcome != factory.AppVerificationVerified || len(report.CheckReceipts) != 1 || report.CheckReceipts[0].CheckID != factory.ApprovedAppCheckID || report.CheckReceipts[0].Outcome != factory.CheckReceiptPassed || report.CheckReceipts[0].ArtifactDigest != receipt.ArtifactDigest {
 		return errors.New("worker verification report differs from native check receipt")
 	}
 	covered := map[string]bool{}

@@ -53,6 +53,11 @@ func CurrentRequiredSemanticDigest(role CurrentRoleContext) (string, error) {
 		review.CheckAssessment = nil
 		role.Review = &review
 	}
+	if role.Verification != nil {
+		verification := *role.Verification
+		verification.Execution, verification.ExecutionReceipt = nil, nil
+		role.Verification = &verification
+	}
 	raw, err := json.Marshal(role)
 	if err != nil {
 		return "", err

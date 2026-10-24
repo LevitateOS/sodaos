@@ -346,6 +346,16 @@ impl ExecBackend for DaemonBackend {
         Ok(out.encode().into_bytes())
     }
 
+    fn factory_verification_checks(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let factory = self.factory()?;
+        let req = factory::FactoryVerificationChecks::decode(body).map_err(internal)?;
+        let _admission = project::admission::admit(Some(&req.project)).map_err(internal)?;
+        let state = factory
+            .verification_checks(&req, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        Ok(state.encode().map_err(internal)?.into_bytes())
+    }
+
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
         let req = factory::FactoryInspect::decode(body).map_err(internal)?;

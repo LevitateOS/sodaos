@@ -46,6 +46,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
         let (receipt, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
         if !exists {
+            self.store_verification_manifest(&req.run, &req.verification_manifest)?;
             self.store_execution_manifest(&req.run, &req.execution_manifest)?;
             let receipt = FactoryReceipt {
                 run: req.run.clone(),
@@ -55,10 +56,23 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             let stored = self.store_receipt(&receipt);
             drop(lock);
             stored?;
-            return self.drive(req, &receipt, deadline_nanos, deadline);
+            let mut state = self.drive(req, &receipt, deadline_nanos, deadline)?;
+            let (current, _) = self.load_receipt(&req.run.project, &req.run.id)?;
+            state.verification_checks = self.saved_verification_checks(&current)?;
+            return Ok(state);
+        }
+        if !req.verification_manifest.is_empty()
+            || !receipt.run.verification_manifest_digest.is_empty()
+        {
+            if req.run != receipt.run {
+                return Err(FactoryError::Stale);
+            }
+            self.store_verification_manifest(&req.run, &req.verification_manifest)?;
         }
         drop(lock);
-        Ok(receipt_state(&receipt, false))
+        let mut state = receipt_state(&receipt, false);
+        state.verification_checks = self.saved_verification_checks(&receipt)?;
+        Ok(state)
     }
 
     /// `drive`: broker acquisition, native reservation, attested delivery,
@@ -122,21 +136,28 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 .close_execution(IDENTITY_FACTORY, &req.run.id, deadline);
             return Ok(stopped);
         }
-        let credential = Secret(
-            match self.broker.register(&lease.id, &binding, run_deadline) {
-                Ok(credential) => credential,
-                Err(cause) => {
-                    eprintln!("factory run {} register refused: {cause:?}", req.run.id);
-                    let _ = self
-                        .terminal
-                        .stop(&lease.with_binding(&binding), run_deadline);
-                    let _ = self
-                        .broker
-                        .close_execution(IDENTITY_FACTORY, &req.run.id, deadline);
-                    return self.abandon_run(&receipt, "register-refused", deadline);
-                }
-            },
-        );
+        // Native verification checks run without model credentials. Keep this
+        // lease unregistered until they pass, so a failed/cancelled check can
+        // release an unused lease without requiring account reauthentication.
+        let credential = if req.run.verification_manifest_digest.is_empty() {
+            Some(Secret(
+                match self.broker.register(&lease.id, &binding, run_deadline) {
+                    Ok(credential) => credential,
+                    Err(cause) => {
+                        eprintln!("factory run {} register refused: {cause:?}", req.run.id);
+                        let _ = self
+                            .terminal
+                            .stop(&lease.with_binding(&binding), run_deadline);
+                        let _ =
+                            self.broker
+                                .close_execution(IDENTITY_FACTORY, &req.run.id, deadline);
+                        return self.abandon_run(&receipt, "register-refused", deadline);
+                    }
+                },
+            ))
+        } else {
+            None
+        };
         if let Some(mcp) = &req.mcp {
             if self
                 .terminal
@@ -164,22 +185,47 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         {
             return self.stop_failed_start(&receipt, &lease, &binding, deadline);
         }
-        if let Some(stopped) = self.consume_start(&mut receipt, deadline)? {
-            let _ = self
-                .terminal
-                .stop(&lease.with_binding(&binding), run_deadline);
-            let _ = self
-                .broker
-                .close_execution(IDENTITY_FACTORY, &req.run.id, deadline);
-            return Ok(stopped);
+        // The admitted check and CLI share the wire run lifetime. The short
+        // launch observation RPC must not cancel a valid longer native check.
+        let launch_deadline = if req.run.verification_manifest_digest.is_empty() {
+            deadline
+        } else {
+            execution_deadline(deadline_nanos)
+        };
+        let start_deadline = drive_deadline(launch_deadline, deadline_nanos);
+        if self
+            .await_verification_checks(&receipt, start_deadline)
+            .is_err()
+        {
+            return self.stop_failed_start(&receipt, &lease, &binding, deadline);
         }
+        match self.consume_start(&mut receipt, launch_deadline) {
+            Ok(Some(stopped)) => {
+                let _ = self
+                    .terminal
+                    .stop(&lease.with_binding(&binding), start_deadline);
+                let _ = self
+                    .broker
+                    .close_execution(IDENTITY_FACTORY, &req.run.id, deadline);
+                return Ok(stopped);
+            }
+            Ok(None) => {}
+            Err(_) => return self.stop_failed_start(&receipt, &lease, &binding, deadline),
+        }
+        let credential = match credential {
+            Some(credential) => credential,
+            None => match self.broker.register(&lease.id, &binding, start_deadline) {
+                Ok(credential) => Secret(credential),
+                Err(_) => return self.stop_failed_start(&receipt, &lease, &binding, deadline),
+            },
+        };
         if self
             .terminal
             .start(
                 &lease.with_binding(&binding),
                 &credential.0,
                 &req.prompt,
-                run_deadline,
+                start_deadline,
                 &req.run.execution_phase,
             )
             .is_err()
@@ -187,7 +233,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             return self.stop_failed_start(&receipt, &lease, &binding, deadline);
         }
         receipt.delivered = true;
-        self.update_receipt(&mut receipt, deadline)?;
+        self.update_receipt(&mut receipt, launch_deadline)?;
         let mut channels = self.terminal.take_native_channels(&req.run.id)?;
         let native = if let Some(owned_channels) = channels.as_mut() {
             match self.control_native(
@@ -261,6 +307,15 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         if receipt_stop_owned(&current.phase) || current.started {
             return Ok(Some(receipt_state(&current, false)));
+        }
+        if !current.run.verification_manifest_digest.is_empty()
+            && !self
+                .saved_verification_checks(&current)?
+                .is_some_and(|s| s.phase == "passed" && s.retirement == "confirmed")
+        {
+            return Err(FactoryError::msg(
+                "verification checks have not passed before CLI start",
+            ));
         }
         current.started = true;
         current.phase = FACTORY_RUNNING.to_string();

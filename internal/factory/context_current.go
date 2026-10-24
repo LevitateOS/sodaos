@@ -67,24 +67,25 @@ type CurrentContextEvidence struct {
 // CurrentRoleContext contains only registered, explicitly projected inputs.
 // New producers can fill their own role header without widening a parent grant.
 type CurrentRoleContext struct {
-	Submissions  []CurrentSubmissionReceipt   `json:"submission_receipts"`
-	Tools        []MCPTool                    `json:"tools,omitempty"`
-	ResultTool   MCPTool                      `json:"result_tool,omitempty"`
-	ResultSchema json.RawMessage              `json:"result_schema,omitempty"`
-	Review       *CurrentReviewContext        `json:"review,omitempty"`
-	RecordSource string                       `json:"record_source,omitempty"`
-	Accepted     *AcceptedContext             `json:"accepted,omitempty"`
-	Kind         MCPProfile                   `json:"kind"`
-	Plan         *CurrentPlanContext          `json:"plan,omitempty"`
-	Product      *CurrentProductContext       `json:"product,omitempty"`
-	Planning     *CurrentPlanningContext      `json:"planning,omitempty"`
-	Verification *CurrentVerificationEvidence `json:"verification,omitempty"`
-	Strategy     *CurrentStrategyContext      `json:"strategy,omitempty"`
-	Repair       *CurrentRepairContext        `json:"repair,omitempty"`
-	Library      *CurrentLibraryContext       `json:"library,omitempty"`
-	Research     *ResearchScopeView           `json:"research,omitempty"`
-	Delivery     *DeliverySubject             `json:"delivery,omitempty"`
-	Acceptance   *CurrentAcceptanceContext    `json:"acceptance,omitempty"`
+	Submissions    []CurrentSubmissionReceipt    `json:"submission_receipts"`
+	Tools          []MCPTool                     `json:"tools,omitempty"`
+	ResultTool     MCPTool                       `json:"result_tool,omitempty"`
+	ResultSchema   json.RawMessage               `json:"result_schema,omitempty"`
+	Review         *CurrentReviewContext         `json:"review,omitempty"`
+	RecordSource   string                        `json:"record_source,omitempty"`
+	Accepted       *AcceptedContext              `json:"accepted,omitempty"`
+	Kind           MCPProfile                    `json:"kind"`
+	Plan           *CurrentPlanContext           `json:"plan,omitempty"`
+	Product        *CurrentProductContext        `json:"product,omitempty"`
+	Planning       *CurrentPlanningContext       `json:"planning,omitempty"`
+	Verification   *CurrentVerificationEvidence  `json:"verification,omitempty"`
+	Strategy       *CurrentStrategyContext       `json:"strategy,omitempty"`
+	Repair         *CurrentRepairContext         `json:"repair,omitempty"`
+	DeliveryRepair *CurrentDeliveryRepairContext `json:"delivery_repair,omitempty"`
+	Library        *CurrentLibraryContext        `json:"library,omitempty"`
+	Research       *ResearchScopeView            `json:"research,omitempty"`
+	Delivery       *DeliverySubject              `json:"delivery,omitempty"`
+	Acceptance     *CurrentAcceptanceContext     `json:"acceptance,omitempty"`
 }
 
 // CurrentSubmissionReceipt exposes only this assignment's recovery metadata.

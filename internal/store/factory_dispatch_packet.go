@@ -188,6 +188,8 @@ func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 			return insertDeliveryAttemptAllowanceTx(ctx, tx, a, grants.policy.AttemptLimits.ActiveMinutes, run.Deadline, now)
 		case factory.SubjectStall:
 			return insertStallAttemptAllowanceTx(ctx, tx, a, run.Deadline, now)
+		case factory.SubjectDeliveryRepair:
+			return insertDeliveryRepairAttemptAllowanceTx(ctx, tx, a, run.Deadline, now)
 		default:
 			return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
 		}
@@ -211,7 +213,8 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	// ready reviewer preparation; it grants no new issue implementation.
 	deliveryVerification := a.Subject.Kind == factory.SubjectDelivery && a.Subject.Delivery != nil &&
 		a.Phase == project.ExecutionVerify && a.Role == project.RoleReviewer && a.Issue == 0
-	if a.Phase != project.ExecutionReassess && !deliveryVerification {
+	deliveryRepair := a.Subject.Kind == factory.SubjectDeliveryRepair && a.Subject.DeliveryRepair != nil && a.Phase == project.ExecutionRepair && a.Role == project.RoleCoder && a.Issue == 0
+	if a.Phase != project.ExecutionReassess && !deliveryVerification && !deliveryRepair {
 		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
 			return err
 		}
@@ -228,6 +231,9 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 		return err
 	}
 	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {
+		return err
+	}
+	if err := checkVerificationManifestPacketTx(ctx, tx, a, run); err != nil {
 		return err
 	}
 	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
@@ -355,6 +361,9 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	case project.ExecutionVerify:
 		return validateDeliveryRootTx(ctx, tx, a)
 	case project.ExecutionRepair:
+		if a.Subject.Kind == factory.SubjectDeliveryRepair {
+			return validateDeliveryRepairRootTx(ctx, tx, a)
+		}
 		return validateStallRootTx(ctx, tx, a)
 	case project.ExecutionReview:
 		return validateReviewChildTx(ctx, tx, a)

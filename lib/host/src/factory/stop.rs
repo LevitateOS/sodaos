@@ -61,6 +61,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     ) -> bool {
         let fence_uncertain = self.fence_checkpoint_retirement(receipt, deadline).is_err();
         let checks_uncertain = self.retire_checkpoint_checks(receipt, deadline).is_err();
+        let verification_uncertain = self.retire_verification_checks(receipt, deadline).is_err();
         let parent_uncertain = match (&receipt.binding, &receipt.lease) {
             (Some(binding), Some(lease)) => self
                 .terminal
@@ -71,7 +72,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                     && self.terminal.stop_unbound(&receipt.run, deadline).is_err()
             }
         };
-        fence_uncertain || checks_uncertain || parent_uncertain
+        fence_uncertain || checks_uncertain || verification_uncertain || parent_uncertain
     }
 
     /// Retry the idempotent broker fence; true once the close confirms.
@@ -116,7 +117,10 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             drop(lock);
             return self.close_before_start(&mut receipt, &req.id, deadline);
         }
-        if receipt_terminal(&receipt.phase) {
+        if receipt_terminal(&receipt.phase)
+            && (receipt.run.verification_manifest_digest.is_empty()
+                || receipt.retirement != "uncertain")
+        {
             // A tombstone whose broker fence never confirmed retries it;
             // every other terminal receipt is final.
             drop(lock);
@@ -126,6 +130,15 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         self.store_receipt(&receipt)?;
         drop(lock);
         let native_uncertain = self.stop_native(&receipt, deadline);
+        if !self.verification_retirement_known(&receipt) {
+            return self.record_stop_outcome(
+                &receipt,
+                true,
+                "verification-stop-uncertain",
+                true,
+                deadline,
+            );
+        }
         let credential_ok = self.reconcile_run_credential(&mut receipt, deadline);
         // The broker fence is idempotent: retry transient close failures
         // before declaring the stop uncertain.
@@ -136,7 +149,11 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         // so a confirmed fence settles it even when the native unit was
         // already absent (reserve race). The racing launch's own failure
         // path reaps any unit its reserve just created.
-        if closed && !receipt.started && !receipt.delivered {
+        if closed
+            && !receipt.started
+            && !receipt.delivered
+            && receipt.run.verification_manifest_digest.is_empty()
+        {
             uncertain = false;
         }
         if uncertain {

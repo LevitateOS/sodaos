@@ -51,6 +51,7 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/prepare-hold"),
     ("POST", "/factory-launch"),
     ("POST", "/factory-inspect"),
+    ("POST", "/factory-verification-checks"),
     ("POST", "/factory-stop"),
     ("POST", "/factory-takeover"),
     ("POST", "/factory-output"),
@@ -246,6 +247,7 @@ fn invoke_native_factory<B: ExecBackend + ?Sized>(
     match path {
         "/factory-launch" => Some(backend.factory_launch(body)),
         "/factory-inspect" => Some(backend.factory_inspect(body)),
+        "/factory-verification-checks" => Some(backend.factory_verification_checks(body)),
         "/factory-stop" => Some(backend.factory_stop(body)),
         "/factory-takeover" => Some(backend.factory_takeover(body)),
         "/factory-output" => Some(backend.factory_output(body)),

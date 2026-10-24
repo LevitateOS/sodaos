@@ -30,7 +30,9 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 live = self.terminal.live(binding, live_deadline(deadline));
             }
         }
-        Ok(receipt_state(&receipt, live))
+        let mut state = receipt_state(&receipt, live);
+        state.verification_checks = self.saved_verification_checks(&receipt)?;
+        Ok(state)
     }
 
     /// `Takeover`: copy one retired run's retained work into the admitted

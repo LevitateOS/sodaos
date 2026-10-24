@@ -19,6 +19,7 @@ pub struct OutputSlice {
 /// `project.FactoryState`: the observed run outcome for one identity.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryState {
+    pub verification_checks: Option<super::FactoryVerificationChecksState>,
     pub exit_code: Option<i64>,
     pub generation: i64,
     pub uid: i64,
@@ -94,6 +95,13 @@ impl FactoryState {
         }
         if !self.reason.is_empty() {
             field(&mut out, "reason", &json::quote(&self.reason));
+        }
+        if let Some(checks) = &self.verification_checks {
+            field(
+                &mut out,
+                "verification_checks",
+                &serde_json::to_string(checks).expect("typed verification receipt"),
+            );
         }
         out.push('}');
         out

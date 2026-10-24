@@ -160,17 +160,18 @@ type AttemptAllowance struct {
 	// ownership: store admission must still check the locked row. It is
 	// required exactly when Issue is zero without Completion, and forbidden
 	// on positive issues and alongside Completion.
-	Intent         *IntentAttemptScope `json:"intent,omitempty"`
-	Delivery       *DeliverySubject    `json:"delivery,omitempty"`
-	Stall          *StallSubject       `json:"stall,omitempty"`
-	RootAssignment string              `json:"root_assignment"`
-	Repository     int64               `json:"repository,string"`
-	Issue          int64               `json:"issue,string"`
-	Revision       int64               `json:"revision"`
-	ActiveSeconds  int64               `json:"active_seconds"`
-	CheckpointUnix int64               `json:"checkpoint_unix"`
-	Active         bool                `json:"active"`
-	Closed         bool                `json:"closed"`
+	Intent         *IntentAttemptScope    `json:"intent,omitempty"`
+	Delivery       *DeliverySubject       `json:"delivery,omitempty"`
+	DeliveryRepair *DeliveryRepairSubject `json:"delivery_repair,omitempty"`
+	Stall          *StallSubject          `json:"stall,omitempty"`
+	RootAssignment string                 `json:"root_assignment"`
+	Repository     int64                  `json:"repository,string"`
+	Issue          int64                  `json:"issue,string"`
+	Revision       int64                  `json:"revision"`
+	ActiveSeconds  int64                  `json:"active_seconds"`
+	CheckpointUnix int64                  `json:"checkpoint_unix"`
+	Active         bool                   `json:"active"`
+	Closed         bool                   `json:"closed"`
 }
 
 func (a AttemptAllowance) Validate() error {
@@ -178,6 +179,12 @@ func (a AttemptAllowance) Validate() error {
 		return errors.New("invalid attempt allowance binding")
 	}
 	if a.Issue == 0 {
+		if a.DeliveryRepair != nil {
+			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall != nil || a.DeliveryRepair.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+				return errors.New("delivery repair allowance carries only its exact bounded investigator time")
+			}
+			return nil
+		}
 		if a.Stall != nil {
 			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
 				return errors.New("stall repair allowance carries only its bounded investigator time")
@@ -200,6 +207,9 @@ func (a AttemptAllowance) Validate() error {
 			return a.validateIntentTimeOnly()
 		}
 		return a.validateCompletionTimeOnly()
+	}
+	if a.DeliveryRepair != nil {
+		return errors.New("issue allowance carries no delivery repair subject")
 	}
 	if a.Completion != nil {
 		return errors.New("issue attempt allowance carries no completion subject")
