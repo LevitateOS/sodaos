@@ -14,7 +14,7 @@ import './sodaspaces-factory-completion-retry.js';
 import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {factoryCommandId, factoryRunStatusResponse} from './sodaspaces-factory-response.js';
-import type {FactoryRunDetail} from './sodaspaces-factory-response.js';
+import type {DeliveryRepairProgress, FactoryRunDetail} from './sodaspaces-factory-response.js';
 import {deliveryRepairDecision, factoryCommandRecord, retryDecision} from './sodaspaces-factory-work-response.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 
@@ -342,6 +342,9 @@ class SodaFactoryVerificationRetry extends LitElement {
   private current: VerificationRetryContext | undefined;
   private serial = 0;
   private pending: {run: string; command: string; action: 'retry' | 'repair_delivery'} | undefined;
+  private repairs = new Map<string, {cause: string; cycle: string}>();
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  private reading = false;
   constructor() {
     super();
     this.entries = [];
@@ -359,10 +362,13 @@ class SodaFactoryVerificationRetry extends LitElement {
     )
       return;
     this.current = context;
+    clearTimeout(this.refreshTimer);
     this.serial++;
     this.entries = [];
     this.message = '';
     this.pending = undefined;
+    this.repairs.clear();
+    this.reading = false;
     this.busy = false;
     if (context) {
       check(context.runs.length <= 64 && context.runs.every(terminalID));
@@ -370,6 +376,7 @@ class SodaFactoryVerificationRetry extends LitElement {
     }
   }
   disconnectedCallback() {
+    clearTimeout(this.refreshTimer);
     super.disconnectedCallback();
     this.current = undefined;
     this.serial++;
@@ -377,28 +384,65 @@ class SodaFactoryVerificationRetry extends LitElement {
   refresh() {
     if (this.current) return this.load(this.current, this.serial);
   }
-  private async load(context: VerificationRetryContext, serial: number) {
+  private async load(context: VerificationRetryContext, serial: number, progressOnly = false) {
+    if (this.reading) return;
+    this.reading = true;
+    clearTimeout(this.refreshTimer);
+    const runs = progressOnly
+      ? context.runs.filter(
+          (run) =>
+            this.repairs.has(run) ||
+            this.entries.some((entry) => entry.id === run && this.unsettled(entry.delivery_repair?.progress))
+        )
+      : context.runs;
     const reads = await Promise.allSettled(
-      context.runs.map(async (run) => {
+      runs.map(async (run) => {
         const response = await context.transport.request(`factory/runs/${run}`, {signal: AbortSignal.timeout(15000)});
         check(response.ok);
-        return factoryRunStatusResponse(await readSodaJSON(response), run, context.repository);
+        const entry = factoryRunStatusResponse(await readSodaJSON(response), run, context.repository);
+        const acknowledged = this.repairs.get(run),
+          progress = entry.delivery_repair?.progress;
+        if (acknowledged && progress)
+          check(progress.cause_id === acknowledged.cause && progress.cycle_id === acknowledged.cycle);
+        if (acknowledged && !progress) entry.delivery_repair = {available: false};
+        return entry;
       })
     );
     if (serial !== this.serial) return;
-    this.entries = reads.flatMap((read) =>
+    this.reading = false;
+    const entries = reads.flatMap((read) =>
       read.status === 'fulfilled' &&
       read.value.reconciled &&
       read.value.view?.repository === context.repository &&
       read.value.view.issue === undefined &&
       (read.value.verification_retry?.available ||
         read.value.delivery_repair?.available ||
+        read.value.delivery_repair?.progress ||
+        this.repairs.has(read.value.id) ||
         this.pending?.run === read.value.id)
         ? [read.value]
         : []
     );
-    if (reads.some((read) => read.status === 'rejected'))
-      this.message = 'Could not read application verification availability. Refresh verification to try again.';
+    const retained = progressOnly
+      ? this.entries
+      : this.entries.filter((entry) => reads[runs.indexOf(entry.id)]?.status === 'rejected');
+    const current = new Map(retained.map((entry) => [entry.id, entry]));
+    for (const entry of entries) current.set(entry.id, entry);
+    this.entries = [...current.values()];
+    for (const entry of entries) if (entry.delivery_repair?.progress) this.repairs.delete(entry.id);
+    if (reads.some((read) => read.status === 'rejected')) {
+      this.message =
+        'Could not read current verification or repair progress. Last confirmed states are shown; refresh verification to try again.';
+      return;
+    }
+    if (entries.some((entry) => entry.delivery_repair?.progress)) this.message = '';
+    if (this.repairs.size || this.entries.some((entry) => this.unsettled(entry.delivery_repair?.progress)))
+      this.refreshTimer = setTimeout(() => {
+        if (this.current === context && this.isConnected) void this.load(context, serial, true);
+      }, 4000);
+  }
+  private unsettled(progress: DeliveryRepairProgress | undefined) {
+    return progress !== undefined && !['adopted', 'attention', 'stale'].includes(progress.state);
   }
   private async requestAction(run: string, action: 'retry' | 'repair_delivery') {
     const context = this.current;
@@ -417,9 +461,10 @@ class SodaFactoryVerificationRetry extends LitElement {
       });
       check(response.ok);
       const value = await readSodaJSON(response);
+      let repair: ReturnType<typeof deliveryRepairDecision> | undefined;
       if (action === 'retry') retryDecision(value, pending.command, run);
-      else deliveryRepairDecision(value, pending.command, run);
-      if (serial === this.serial) this.confirmed(run, action);
+      else repair = deliveryRepairDecision(value, pending.command, run);
+      if (serial === this.serial) this.confirmed(run, action, repair);
     } catch {
       try {
         const response = await context.transport.request(`factory/commands/${pending.command}`, {
@@ -432,9 +477,10 @@ class SodaFactoryVerificationRetry extends LitElement {
             record.target === `run/${run}` &&
             typeof record.outcome === 'string'
         );
+        let repair: ReturnType<typeof deliveryRepairDecision> | undefined;
         if (action === 'retry') retryDecision(JSON.parse(record.outcome), pending.command, run);
-        else deliveryRepairDecision(JSON.parse(record.outcome), pending.command, run);
-        if (serial === this.serial) this.confirmed(run, action);
+        else repair = deliveryRepairDecision(JSON.parse(record.outcome), pending.command, run);
+        if (serial === this.serial) this.confirmed(run, action, repair);
       } catch {
         if (serial === this.serial)
           this.message =
@@ -446,24 +492,61 @@ class SodaFactoryVerificationRetry extends LitElement {
       if (serial === this.serial) this.busy = false;
     }
   }
-  private confirmed(run: string, action: 'retry' | 'repair_delivery') {
+  private confirmed(
+    run: string,
+    action: 'retry' | 'repair_delivery',
+    repair?: ReturnType<typeof deliveryRepairDecision>
+  ) {
     this.pending = undefined;
-    this.entries = this.entries.filter((entry) => entry.id !== run);
+    if (repair) {
+      this.repairs.set(run, {cause: repair.cause_id, cycle: repair.cycle_id});
+      this.entries = this.entries.map((entry) =>
+        entry.id === run ? {...entry, delivery_repair: {available: false}} : entry
+      );
+    } else this.entries = this.entries.filter((entry) => entry.id !== run);
     this.message =
       action === 'retry'
         ? 'Verification Retry queued. The original result and spending are retained.'
         : 'Application repair requested. Diagnosis is queued; the original result and spending are retained.';
+    if (repair && this.current) void this.load(this.current, this.serial);
+  }
+  private renderRepair(progress: DeliveryRepairProgress) {
+    const states = {
+      collecting: 'Collecting the recorded failure and current work.',
+      ready: 'Strategist diagnosis is queued.',
+      investigating: 'Strategist diagnosis is in progress.',
+      assessing: 'Assessing the Strategist proposal.',
+      applying: 'Adopting the qualified repair graph.',
+      adopted: 'Repair graph adopted. Fresh readiness and application verification are still required.',
+      attention: 'Application repair needs attention.',
+      stale: 'Application repair inputs changed; the retained diagnosis is stale.',
+    };
+    return html`<section aria-label="Application repair progress">
+      <p role="status">${states[progress.state]}</p>
+      <p>
+        Cause ${progress.cause_id.slice(0, 8)} · failed verification ${progress.failed_run.slice(0, 8)} · source
+        ${progress.source_commit.slice(0, 8)}
+      </p>
+      ${progress.run_id ? html`<p>Strategist run ${progress.run_id.slice(0, 8)}</p>` : ''}
+      <ul>
+        ${progress.failures.map((failure) => html`<li>${failure.check_ref}: ${failure.detail}</li>`)}
+      </ul>
+      ${progress.failure_count > progress.failures.length ? html`<p>Showing ${progress.failures.length} of ${progress.failure_count} recorded failures.</p>` : ''}
+      ${progress.judgment ? html`<p>Judgment: ${progress.judgment.option}; acceptance probability ${progress.judgment.accept_probability}; confidence ${progress.judgment.confidence}.</p>` : ''}
+      ${progress.reason ? html`<p>${progress.reason}</p>` : ''}
+    </section>`;
   }
   protected render() {
     if (!this.entries.length && !this.message) return html``;
     return html`<section aria-label="Application verification needs attention">
-      ${this.entries.length ? html`<p>Choose an explicit next step. Previous verification results and spending stay recorded.</p>` : ''}
+      ${this.entries.length ? html`<p>Previous verification results and spending stay recorded.</p>` : ''}
       ${this.entries.map(
-        (entry) => html`<p>
+        (entry) => html`<div>
           Verification run ${entry.id.slice(0, 8)}
           ${entry.verification_retry?.available || (this.pending?.run === entry.id && this.pending.action === 'retry') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'retry'))} @click=${() => this.requestAction(entry.id, 'retry')}>${this.pending?.run === entry.id && this.pending.action === 'retry' ? 'Retry same verification request' : 'Retry application verification'}</button>` : ''}
           ${entry.delivery_repair?.available || (this.pending?.run === entry.id && this.pending.action === 'repair_delivery') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'repair_delivery'))} @click=${() => this.requestAction(entry.id, 'repair_delivery')}>${this.pending?.run === entry.id && this.pending.action === 'repair_delivery' ? 'Retry same repair request' : 'Request application repair'}</button>` : ''}
-        </p>`
+          ${entry.delivery_repair?.progress ? this.renderRepair(entry.delivery_repair.progress) : ''}
+        </div>`
       )}
       <p role="status">${this.message}</p>
       <button

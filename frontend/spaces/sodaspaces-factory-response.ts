@@ -163,7 +163,60 @@ export interface FactoryRunDetail {
   state?: FactoryRunState;
   context_selection?: FactoryContextSelection;
   verification_retry?: {available: boolean};
-  delivery_repair?: {available: boolean};
+  delivery_repair?: {available: boolean; progress?: DeliveryRepairProgress};
+}
+export interface DeliveryRepairProgress {
+  cause_id: string;
+  cycle_id: string;
+  failed_run: string;
+  source_commit: string;
+  state: 'collecting' | 'ready' | 'investigating' | 'assessing' | 'applying' | 'adopted' | 'attention' | 'stale';
+  reason?: string;
+  run_id?: string;
+  failures: {check_ref: string; detail: string}[];
+  failure_count: number;
+  judgment?: {option: 'accept' | 'needs_attention'; accept_probability: number; confidence: number};
+}
+function deliveryRepairProgress(value: unknown, run: string): DeliveryRepairProgress {
+  const data = object(value),
+    states = ['collecting', 'ready', 'investigating', 'assessing', 'applying', 'adopted', 'attention', 'stale'];
+  check(terminalID(data.cause_id) && terminalID(data.cycle_id) && data.failed_run === run);
+  check(typeof data.source_commit === 'string' && /^[a-f0-9]{40}$/.test(data.source_commit));
+  check(typeof data.state === 'string' && states.includes(data.state));
+  check(data.reason === undefined || (typeof data.reason === 'string' && data.reason.length <= 256));
+  check(data.run_id === undefined || terminalID(data.run_id));
+  check(Array.isArray(data.failures) && data.failures.length > 0 && data.failures.length <= 8);
+  check(Number.isSafeInteger(data.failure_count) && (data.failure_count as number) >= data.failures.length);
+  const failures = data.failures.map((value: unknown) => {
+    const failure = object(value);
+    check(typeof failure.check_ref === 'string' && failure.check_ref.length > 0 && failure.check_ref.length <= 1024);
+    check(typeof failure.detail === 'string' && failure.detail.length > 0 && failure.detail.length <= 4096);
+    return {check_ref: failure.check_ref, detail: failure.detail};
+  });
+  let judgment: DeliveryRepairProgress['judgment'];
+  if (data.judgment !== undefined) {
+    const row = object(data.judgment);
+    const probability = (value: unknown): value is number =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+    check(
+      (row.option === 'accept' || row.option === 'needs_attention') &&
+        probability(row.accept_probability) &&
+        probability(row.confidence)
+    );
+    judgment = {option: row.option, accept_probability: row.accept_probability, confidence: row.confidence};
+  }
+  return {
+    cause_id: data.cause_id,
+    cycle_id: data.cycle_id,
+    failed_run: run,
+    source_commit: data.source_commit,
+    state: data.state as DeliveryRepairProgress['state'],
+    failures,
+    failure_count: data.failure_count as number,
+    ...(data.reason === undefined ? {} : {reason: data.reason}),
+    ...(data.run_id === undefined ? {} : {run_id: data.run_id}),
+    ...(judgment ? {judgment} : {}),
+  };
 }
 export interface FactoryContextSelection {
   fingerprint: string;
@@ -320,11 +373,14 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
     check(typeof retry.available === 'boolean');
     verificationRetry = {available: retry.available};
   }
-  let deliveryRepair: {available: boolean} | undefined;
+  let deliveryRepair: FactoryRunDetail['delivery_repair'];
   if (data.delivery_repair !== undefined) {
     const repair = object(data.delivery_repair);
     check(typeof repair.available === 'boolean');
-    deliveryRepair = {available: repair.available};
+    deliveryRepair = {
+      available: repair.available,
+      ...(repair.progress === undefined ? {} : {progress: deliveryRepairProgress(repair.progress, runId)}),
+    };
   }
   return {
     ...factoryRecordIdentity(record, runId),

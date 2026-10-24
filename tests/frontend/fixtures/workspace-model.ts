@@ -3,6 +3,7 @@ import {object} from '../../../frontend/spaces/sodaspaces-api.js';
 import {createIntentModel} from './intent-model.js';
 import type {Space} from '../../../frontend/spaces/sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from '../../../frontend/spaces/sodaspaces-terminal-response.js';
+import type {DeliveryRepairProgress} from '../../../frontend/spaces/sodaspaces-factory-response.js';
 export const projectA = 'p' + '1'.repeat(24),
   projectB = 'p' + '2'.repeat(24);
 export function createWorkspaceModel(
@@ -63,6 +64,7 @@ export function createWorkspaceModel(
     repairAvailable = false,
     repairReceiptAvailable = false,
     verificationCommand = '';
+  let repairProgress: DeliveryRepairProgress | undefined;
   alpha.terminals.push(
     metadata('a'.repeat(32), projectA, '7', 'Build'),
     metadata('b'.repeat(32), projectA, '7', 'Edit')
@@ -171,7 +173,7 @@ export function createWorkspaceModel(
           },
           view: {repository: alpha.environment.repository_id, attempt: 'f'.repeat(32)},
           verification_retry: {available: verificationAvailable},
-          delivery_repair: {available: repairAvailable},
+          delivery_repair: {available: repairAvailable, ...(repairProgress ? {progress: repairProgress} : {})},
         });
       return Response.json({
         run: {
@@ -428,6 +430,7 @@ export function createWorkspaceModel(
       verificationAvailable = !repair;
       verificationRepair = repairAvailable = repair;
       verificationCommand = '';
+      repairProgress = undefined;
       repairReceiptAvailable = false;
       if (!alpha.factory_runs.some((run) => run.id === factoryRunId))
         alpha.factory_runs.push({
@@ -440,6 +443,32 @@ export function createWorkspaceModel(
     },
     allowRepairReceipt() {
       repairReceiptAvailable = true;
+    },
+    setRepairProgress(state: DeliveryRepairProgress['state'], foreign = false) {
+      repairAvailable = false;
+      repairProgress = {
+        cause_id: 'a'.repeat(32),
+        cycle_id: 'b'.repeat(32),
+        failed_run: foreign ? 'c'.repeat(32) : factoryRunId,
+        source_commit: 'e'.repeat(40),
+        state,
+        run_id: '9'.repeat(32),
+        failures: [{check_ref: 'priority-state', detail: 'Priority did not persist after the shared-state update.'}],
+        failure_count: 1,
+        ...(['attention', 'adopted'].includes(state)
+          ? {
+              judgment: {
+                option: 'accept' as const,
+                accept_probability: 0.87,
+                confidence: state === 'attention' ? 0.24 : 0.88,
+              },
+              reason:
+                state === 'attention'
+                  ? 'delivery repair proposal needs owner attention'
+                  : 'repair_graph_adopted_awaiting_fresh_readiness',
+            }
+          : {}),
+      };
     },
     setJoinFailure(value: boolean | string) {
       joinFailure = value === true ? 'account_incomplete' : value;

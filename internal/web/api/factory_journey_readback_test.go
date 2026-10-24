@@ -716,6 +716,93 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if err := fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands WHERE type=$1),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`, factory.CommandDeliveryRepair).Scan(&repairs, &allowances, &usage); err != nil || repairs != 0 || allowances != 0 || usage != 0 {
 		t.Fatal("receipt recovery admitted or spent repair work", repairs, allowances, usage, err)
 	}
+	// Existing internal-journal snapshots exercise only the registered owner
+	// read projection. Fresh cause admission, worker dispatch, judgment and
+	// protected adoption remain the separate composed controller PG journey.
+	intent, revision := seedJourneyAdoption(t, fx.db, "d"+strings.Repeat("0", 24))
+	accepted, err := fx.db.IntentRevision(ctx, intent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delivery := factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: intent, AcceptedRevision: revision, ScopeDigest: accepted.Digest(), SourceCommit: verifierRun.InputSHA, PreparationDigest: strings.Repeat("b", 64), VerificationManifestDigest: strings.Repeat("c", 64)}
+	verifier.Phase, verifier.Role, verifier.Subject = project.ExecutionVerify, project.RoleReviewer, factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &delivery}
+	raw, _ = json.Marshal(verifier)
+	if _, err = fx.raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(raw), verifier.ID); err != nil {
+		t.Fatal(err)
+	}
+	verifierRun.Reconciled, verifierRun.CredentialReturned, verifierRun.Outcome = true, true, factory.Succeeded
+	raw, _ = json.Marshal(verifierRun)
+	if _, err = fx.raw.Exec(`UPDATE factory_runs SET active=false,settled=true,data=$1 WHERE id=$2`, string(raw), verifierRun.ID); err != nil {
+		t.Fatal(err)
+	}
+	report := factory.AppVerificationReport{DeliveryID: delivery.DeliveryID, InputDigest: strings.Repeat("d", 64), Outcome: factory.AppVerificationFailed, CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "approved check completed"}}, Failures: []factory.CheckFailure{{CheckRef: "priority-state", Detail: "Priority did not persist after the shared-state update."}}}
+	cause := factory.DeliveryRepairCause{Repository: 7, ProjectID: verifier.ProjectID, FailedAssignmentID: verifier.ID, FailedVerificationRunID: verifier.Run, Delivery: delivery, Report: report, FailureDigest: factory.DeliveryFailureDigest(report)}
+	record := store.DeliveryRepairRecord{Cause: cause, Subject: factory.DeliveryRepairSubject{DeliveryID: delivery.DeliveryID, FailedVerificationRunID: verifier.Run, FailureDigest: cause.FailureDigest, CycleID: factory.DeliveryRepairCycleID(verifier.Run)}, Cycle: factory.StallRepairCycle{ID: factory.DeliveryRepairCycleID(verifier.Run), Number: 1, State: factory.RepairCollecting}}
+	journal := factory.Command{ID: factory.DeliveryRepairCauseID(verifier.Run), Type: factory.CommandDeliveryRepair, Target: "repository/7/delivery-repair/" + verifier.Run, Principal: "factory-delivery-repair", Payload: `{"failure_digest":"` + cause.FailureDigest + `"}`}
+	journal.Digest = factory.SettingsDigest(journal.Type, journal.Target, journal.Payload)
+	if _, _, err = fx.db.RecordFactoryCommand(ctx, journal, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{factory.RepairCollecting, factory.RepairInvestigating, factory.RepairAttention, factory.RepairAdopted} {
+		record.Cycle.State = state
+		if state != factory.RepairCollecting {
+			record.Subject.InventoryDigest = strings.Repeat("f", 64)
+			record.Cycle.InventoryDigest, record.Cycle.NativeRevision = record.Subject.InventoryDigest, 1
+			record.Cycle.Local, record.Cycle.Issues = completionTestLocal(), []factory.CompletionIssueEvidence{}
+			record.Cycle.AssignmentID, record.Cycle.RunID = record.Cycle.ID, factory.RepairChargeID(journal.ID, factory.RepairChargeRun, 1)
+		}
+		if state == factory.RepairAttention || state == factory.RepairAdopted {
+			record.Cycle.ProposalOption, record.Cycle.ProposalProbability, record.Cycle.ProposalConfidence = factory.ReassessmentOptionAccept, 0.87, 0.24
+			record.Cycle.Reason = "proposal_needs_attention"
+			if state == factory.RepairAdopted {
+				record.Cycle.ProposalConfidence = 0.88
+				record.Cycle.Reason = "repair_graph_adopted_awaiting_fresh_readiness"
+				record.Cycle.AdoptionProgress = json.RawMessage(`{"private_packet":"not a public progress field"}`)
+			}
+		}
+		if err := record.Validate(); err != nil {
+			t.Fatal("invalid read projection fixture", state, err)
+		}
+		raw, _ = json.Marshal(record)
+		if _, err = fx.raw.Exec(`UPDATE factory_commands SET outcome=$1 WHERE id=$2`, string(raw), journal.ID); err != nil {
+			t.Fatal(err)
+		}
+		code, reply := call(http.MethodGet, readPath, "")
+		var observed factoryRunStatus
+		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed.DeliveryRepair == nil || observed.DeliveryRepair.Available || observed.DeliveryRepair.Progress == nil {
+			t.Fatalf("owner repair progress %s: %d %s", state, code, reply)
+		}
+		progress := observed.DeliveryRepair.Progress
+		if progress.State != state || progress.CauseID != journal.ID || progress.CycleID != record.Cycle.ID || progress.FailedRun != verifier.Run || progress.SourceCommit != delivery.SourceCommit || progress.RunID != record.Cycle.RunID || progress.FailureCount != 1 || len(progress.Failures) != 1 || progress.Failures[0] != report.Failures[0] {
+			t.Fatalf("repair progress lost canonical bindings: %+v", progress)
+		}
+		if state == factory.RepairAttention || state == factory.RepairAdopted {
+			if progress.Judgment == nil || progress.Judgment.Option != record.Cycle.ProposalOption || progress.Judgment.Probability != 0.87 || progress.Judgment.Confidence != record.Cycle.ProposalConfidence || progress.Reason != record.Cycle.Reason {
+				t.Fatalf("repair judgment/Attention was omitted or promoted: %+v", progress)
+			}
+		}
+		if strings.Contains(string(reply), "private_packet") || strings.Contains(string(reply), `"local"`) || strings.Contains(string(reply), `"adoption_progress"`) || strings.Contains(string(reply), `"check_receipts"`) {
+			t.Fatal("repair read exposed private journal inputs", string(reply))
+		}
+		var retained string
+		if err = fx.raw.QueryRow(`SELECT outcome FROM factory_commands WHERE id=$1`, journal.ID).Scan(&retained); err != nil || retained != string(raw) {
+			t.Fatal("repair progress GET mutated the journal", err)
+		}
+	}
+	if code, reply := foreign(http.MethodGet, readPath, ""); code == 200 && strings.Contains(string(reply), `"progress"`) {
+		t.Fatal("another actor saw owner-private repair progress")
+	}
+	fx.permission.Store("read")
+	if code, _ := call(http.MethodGet, readPath, ""); code != 403 {
+		t.Fatal("read-only actor saw repair progress", code)
+	}
+	fx.permission.Store("admin")
+	if code, _ := journeyCall(t, mux, http.MethodGet, readPath, "", "generation-1", "generation-2", true); code != 409 {
+		t.Fatal("stale session saw repair progress", code)
+	}
+	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 4 || allowances != 0 || usage != 0 {
+		t.Fatal("repair progress reads admitted or spent work", commands, allowances, usage, err)
+	}
 }
 
 func TestFactoryIssueJourneyNoAttempt(t *testing.T) {

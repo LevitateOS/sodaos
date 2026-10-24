@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -109,7 +110,48 @@ type factoryRunStatus struct {
 	State             *factoryRunLive               `json:"state,omitempty"`
 	ContextSelection  *control.ContextSelectionView `json:"context_selection,omitempty"`
 	VerificationRetry *workCapabilityView           `json:"verification_retry,omitempty"`
-	DeliveryRepair    *workCapabilityView           `json:"delivery_repair,omitempty"`
+	DeliveryRepair    *factoryDeliveryRepairView    `json:"delivery_repair,omitempty"`
+}
+
+type factoryDeliveryRepairView struct {
+	Available bool                           `json:"available"`
+	Progress  *factoryDeliveryRepairProgress `json:"progress,omitempty"`
+}
+
+// Only bounded lifecycle/cause facts leave the private repair journal. Its
+// collector inputs, native source material and adoption packets stay private.
+type factoryDeliveryRepairProgress struct {
+	CauseID      string                         `json:"cause_id"`
+	CycleID      string                         `json:"cycle_id"`
+	FailedRun    string                         `json:"failed_run"`
+	SourceCommit string                         `json:"source_commit"`
+	State        string                         `json:"state"`
+	Reason       string                         `json:"reason,omitempty"`
+	RunID        string                         `json:"run_id,omitempty"`
+	Failures     []factory.CheckFailure         `json:"failures"`
+	FailureCount int                            `json:"failure_count"`
+	Judgment     *factoryDeliveryRepairJudgment `json:"judgment,omitempty"`
+}
+
+type factoryDeliveryRepairJudgment struct {
+	Option      string  `json:"option"`
+	Probability float64 `json:"accept_probability"`
+	Confidence  float64 `json:"confidence"`
+}
+
+func deliveryRepairProgressDTO(record store.DeliveryRepairRecord, assignment factory.Assignment) (*factoryDeliveryRepairProgress, error) {
+	cause, cycle := record.Cause, record.Cycle
+	if assignment.Subject.Delivery == nil || cause.FailedAssignmentID != assignment.ID || cause.FailedVerificationRunID != assignment.Run || cause.Repository != assignment.Repository || cause.ProjectID != assignment.ProjectID || cause.Delivery != *assignment.Subject.Delivery {
+		return nil, errors.New("repair progress differs from its failed verification")
+	}
+	view := &factoryDeliveryRepairProgress{CauseID: factory.DeliveryRepairCauseID(assignment.Run), CycleID: cycle.ID, FailedRun: assignment.Run, SourceCommit: cause.Delivery.SourceCommit, State: cycle.State, Reason: cycle.Reason, RunID: cycle.RunID, Failures: cause.Report.Failures[:min(8, len(cause.Report.Failures))], FailureCount: len(cause.Report.Failures)}
+	if cycle.ProposalOption != "" {
+		if cycle.ProposalOption != factory.ReassessmentOptionAccept && cycle.ProposalOption != factory.ReassessmentOptionNeedsAttention || math.IsNaN(cycle.ProposalProbability) || math.IsInf(cycle.ProposalProbability, 0) || cycle.ProposalProbability < 0 || cycle.ProposalProbability > 1 || math.IsNaN(cycle.ProposalConfidence) || math.IsInf(cycle.ProposalConfidence, 0) || cycle.ProposalConfidence < 0 || cycle.ProposalConfidence > 1 {
+			return nil, errors.New("repair progress has an invalid judgment")
+		}
+		view.Judgment = &factoryDeliveryRepairJudgment{Option: cycle.ProposalOption, Probability: cycle.ProposalProbability, Confidence: cycle.ProposalConfidence}
+	}
+	return view, nil
 }
 
 // apiFactoryRun maps one recorded run to its display status: recorded facts,
@@ -182,20 +224,28 @@ func (s *API) apiFactoryRun(w http.ResponseWriter, r *http.Request, v store.Sess
 				available = false
 			}
 			status.VerificationRetry = &workCapabilityView{Available: available && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)}
-			status.DeliveryRepair = &workCapabilityView{}
-			if s.Coordinator != nil {
+			status.DeliveryRepair = &factoryDeliveryRepairView{}
+			{
 				_, ownerErr := s.Store.IntentRevision(r.Context(), assignment.Subject.Delivery.IntentID, v.User.ID)
 				if ownerErr != nil && !errors.Is(ownerErr, store.ErrNotFound) {
 					auth.JSONError(w, 503, "store_unavailable", "Could not read application repair availability.")
 					return
 				}
 				if ownerErr == nil {
-					repairAvailable, err := s.Coordinator.DeliveryRepairAvailable(r.Context(), run.ID)
+					record, err := s.Store.DeliveryRepairRecord(r.Context(), p.RepositoryID, run.ID)
+					if err == nil {
+						status.DeliveryRepair.Progress, err = deliveryRepairProgressDTO(record, assignment)
+					} else if errors.Is(err, store.ErrNotFound) {
+						err = nil
+						if s.Coordinator != nil {
+							status.DeliveryRepair.Available, err = s.Coordinator.DeliveryRepairAvailable(r.Context(), run.ID)
+						}
+						status.DeliveryRepair.Available = status.DeliveryRepair.Available && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)
+					}
 					if err != nil {
 						auth.JSONError(w, 503, "store_unavailable", "Could not read application repair availability.")
 						return
 					}
-					status.DeliveryRepair.Available = repairAvailable && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)
 				}
 			}
 		}

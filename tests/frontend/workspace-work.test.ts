@@ -133,8 +133,51 @@ test('Project Work opens explicit requirements review for an imported native iss
   assert.equal(repairCalls[0]?.body?.action, 'repair_delivery');
   assert(repairCalls.every((call) => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}/actions`)));
   assert.equal(await verification.getByRole('button', {name: 'Request application repair', exact: true}).count(), 0);
+  // Authoritative progress survives the queued acknowledgment and advances
+  // through GET-only observation, without resubmitting or a manual refresh.
+  await page.evaluate(() => window.workspaceFixture.setRepairProgress('investigating'));
+  const progress = verification.getByRole('region', {name: 'Application repair progress'});
+  await progress.getByRole('status').filter({hasText: 'Strategist diagnosis is in progress.'}).waitFor();
+  await progress
+    .getByText('priority-state: Priority did not persist after the shared-state update.', {exact: true})
+    .waitFor();
+  assert.equal(await writes(page), 2, 'observing Strategist/judgment progress must not queue more work');
+  const beforeSwitch = await page.evaluate(() => window.workspaceFixture.calls.length);
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   assert.equal(await page.getByRole('region', {name: 'Application verification needs attention'}).count(), 0);
+  await page.waitForTimeout(4200);
+  const afterSwitch = await page.evaluate((start) => window.workspaceFixture.calls.slice(start), beforeSwitch);
+  assert(
+    !afterSwitch.some((call) => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}`)),
+    'context change must retire repair polling'
+  );
+  // A later visit reads the adopted graph, without claiming that the app
+  // itself has passed a new verification.
+  await page.evaluate(() => window.workspaceFixture.setRepairProgress('adopted'));
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+  await progress
+    .getByRole('status')
+    .filter({hasText: 'Repair graph adopted. Fresh readiness and application verification are still required.'})
+    .waitFor();
+  await page.evaluate(() => window.workspaceFixture.setRepairProgress('investigating', true));
+  await verification.getByRole('button', {name: 'Refresh verification', exact: true}).click();
+  await verification
+    .getByRole('status')
+    .filter({hasText: 'Could not read current verification or repair progress.'})
+    .waitFor();
+  await progress.getByRole('status').filter({hasText: 'Repair graph adopted.'}).waitFor();
+  // An independent retained Attention snapshot must show its actual low
+  // confidence judgment, rather than treating worker success as adoption.
+  const attentionPage = await fixture(t);
+  await attentionPage.evaluate(async () => {
+    window.workspaceFixture.enableVerificationRetry(true);
+    window.workspaceFixture.setRepairProgress('attention');
+    await window.workspaceFixture.api.refresh();
+  });
+  const attention = attentionPage.getByRole('region', {name: 'Application repair progress'});
+  await attention.getByRole('status').filter({hasText: 'Application repair needs attention.'}).waitFor();
+  await attention.getByText('Judgment: accept; acceptance probability 0.87; confidence 0.24.', {exact: true}).waitFor();
+  assert.equal(await writes(attentionPage), 0, 'reading an Attention diagnosis cannot queue work');
 });
 
 test('cold Project entry loads scoped work, keeps the directory quiet, and opens planning explicitly', async (t) => {
