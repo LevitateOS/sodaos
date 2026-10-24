@@ -515,6 +515,20 @@ function payloadIDs(value: unknown): string[] {
   });
 }
 
+// CheckSpec.Validate owns argv's 64-argument/16 KiB UTF-8 bound. An
+// argument is command data, not a 512-character feed summary or ID.
+function payloadCheckArgv(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  check(Array.isArray(value) && value.length > 0 && value.length <= 64);
+  let bytes = 0;
+  return value.map((argument) => {
+    check(typeof argument === 'string' && argument.length > 0 && argument.length <= 16 * 1024 && !argument.includes('\0'));
+    bytes += new TextEncoder().encode(argument).length;
+    check(bytes <= 16 * 1024);
+    return argument;
+  });
+}
+
 function payloadIssueList(value: unknown): number[] {
   if (value === undefined || value === null) return [];
   check(Array.isArray(value) && value.length <= 1024);
@@ -555,7 +569,7 @@ function parsePlanPayload(value: unknown): FeedPlan {
     return task;
   });
   const checks = payloadList(plan.checks, (row) => {
-    const planCheck: FeedPlanCheck = {id: payloadID(row.id), argv: payloadIDs(row.argv)};
+    const planCheck: FeedPlanCheck = {id: payloadID(row.id), argv: payloadCheckArgv(row.argv)};
     const scope = payloadText(row.scope);
     const required = payloadBool(row.required);
     if (scope !== undefined) planCheck.scope = scope;

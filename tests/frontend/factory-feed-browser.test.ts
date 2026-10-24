@@ -254,6 +254,7 @@ test('Factory-loop families render their own sections and failures stay in front
   page.setDefaultTimeout(5000);
   await page.evaluate(() => {
     window.drawerFixture.api.setPresentation('settings');
+    (window as unknown as {feedArgvVariant: string}).feedArgvVariant = 'valid';
   });
   await page.evaluate(async () => {
     window.drawerFixture.setReply(async (call) => {
@@ -341,6 +342,19 @@ test('Factory-loop families render their own sections and failures stay in front
               actor: 'architect',
               status: 'submitted',
               at: 1720000054,
+              payload: {plan: {
+                approach: 'Use the recorded direct argv without treating it as a summary.',
+                acceptance_coverage: ['docs'],
+                checks: [{id: 'canonical-check', required: true, scope: 'integration', argv: (() => {
+                  const variant = (window as unknown as {feedArgvVariant: string}).feedArgvVariant;
+                  (window as unknown as {feedArgvRead: string}).feedArgvRead = variant;
+                  if (variant === 'aggregate') return ['x'.repeat(8192), 'y'.repeat(8193)];
+                  if (variant === 'unicode') return ['😀'.repeat(4095), 'abcde'];
+                  if (variant === 'count') return Array.from({length: 65}, () => 'a');
+                  if (variant === 'nul') return ['node', 'bad\0argument'];
+                  return ['node', '-e', '<candidate>' + 'x'.repeat(1240)];
+                })()}],
+              }},
             },
             {
               kind: 'record',
@@ -378,6 +392,11 @@ test('Factory-loop families render their own sections and failures stay in front
               status: 'frobnicate',
               at: 1720000050,
             },
+            {
+              kind: 'record', id: 'c'.repeat(32), repository: 7, seq: 49,
+              actor: 'researcher', author: 'Researcher', status: 'research:finished:succeeded',
+              at: 1720000049, summary: 'Answered the bound repository inquiry.',
+            },
           ],
           truncated: false,
         });
@@ -403,11 +422,15 @@ test('Factory-loop families render their own sections and failures stay in front
     'knowledge',
     'fallback',
   ])
-    assert.equal(await feed.locator(`[data-feed-family="${family}"]`).count(), 1, family);
+    assert.equal(await feed.locator(`[data-feed-family="${family}"]`).count(), family === 'knowledge' ? 2 : 1, family);
   // Readable role authors, not canonical ids, in the outside-card headers.
   await feed.getByText('Test Pilot').first().waitFor();
   await feed.getByText('Product Lead').first().waitFor();
   await feed.getByText('Library Admin').first().waitFor();
+  const researcher = feed.locator('#feed-record-' + 'c'.repeat(32));
+  assert.equal(await researcher.locator('[data-feed-family="knowledge"]').count(), 1);
+  await researcher.locator('.soda-feed-header').getByText('Researcher', {exact: true}).waitFor();
+  assert.equal(await researcher.locator('.soda-feed-header').getByText('Inspector', {exact: true}).count(), 0);
   // The failed check leads in its headline/status; the unknown status never reads done.
   await feed.locator('details').evaluateAll((nodes) => {
     for (const node of nodes) (node as HTMLDetailsElement).open = true;
@@ -433,6 +456,28 @@ test('Factory-loop families render their own sections and failures stay in front
   await integration.locator('.soda-feed-rows').getByText('c'.repeat(40), {exact: true}).waitFor();
   // The summary is text, never markup.
   assert.equal(await feed.locator('candidate').count(), 0);
+  const investigation = feed.locator('#feed-record-' + '7'.repeat(32));
+  const command = investigation.locator('.soda-feed-checks tbody th').first();
+  await command.waitFor();
+  const preview = (await command.textContent()) ?? '';
+  assert(preview.startsWith('canonical-check — node -e <candidate>'));
+  assert(preview.endsWith('… (command preview)'));
+  assert([...preview].length < 560, 'long accepted argv must have a bounded, labelled preview');
+  assert.equal(await investigation.getByText('Recorded detail unavailable', {exact: true}).count(), 0);
+  // The actual accepted 1,251-byte argument is valid; the canonical total,
+  // argument-count and NUL fences still reject malformed records.
+  for (const variant of ['aggregate', 'unicode', 'count', 'nul']) {
+    await page.evaluate((variant) => {
+      (window as unknown as {feedArgvVariant: string}).feedArgvVariant = variant;
+    }, variant);
+    await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
+    await page.waitForFunction((variant) => {
+      const current = document.querySelector('soda-factory-feed') as unknown as {reading: boolean; view: {busy: boolean}};
+      return (window as unknown as {feedArgvRead: string}).feedArgvRead === variant && !current.reading && !current.view.busy;
+    }, variant);
+    await investigation.getByText('Recorded detail unavailable', {exact: true}).waitFor();
+    assert.equal(await investigation.locator('.soda-feed-checks').count(), 0, variant);
+  }
 });
 
 test('Designed blocks render recorded segments; durable continuation lands without resubmission', async (t) => {

@@ -1,6 +1,6 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import {feedEntryKey, feedPayloadCap, parseFeedStatusSegments} from './sodaspaces-factory-feed-response.js';
+import {feedEntryKey, feedPayloadCap, feedSummaryLimit, parseFeedStatusSegments} from './sodaspaces-factory-feed-response.js';
 import type {
   FeedCoverage,
   FeedCommunication,
@@ -68,6 +68,7 @@ const roleFamilies: Readonly<Record<string, FeedFamily>> = {
   strategist: 'reassessment',
   test_pilot: 'verification',
   library_admin: 'knowledge',
+  researcher: 'knowledge',
   jev: 'decision',
   systemone: 'decision',
   system_one: 'decision',
@@ -84,6 +85,7 @@ const roleLabels: Readonly<Record<string, string>> = {
   strategist: 'Strategist',
   test_pilot: 'Test Pilot',
   library_admin: 'Library Admin',
+  researcher: 'Researcher',
   jev: 'JEV',
   systemone: 'JEV',
   system_one: 'JEV',
@@ -747,6 +749,13 @@ function changeTasks(changes: readonly FeedIntentChange[]): {label: string; stat
   );
 }
 
+function commandPreview(argv: readonly string[]): string {
+  const characters = [...argv.join(' ')];
+  return characters.length <= feedSummaryLimit
+    ? characters.join('')
+    : characters.slice(0, feedSummaryLimit).join('') + '… (command preview)';
+}
+
 // payloadBlocks renders the typed Lane B3 content inside the existing
 // family components: plan steps and dependencies, check tables with
 // real outcomes, finding bodies joined to their dispositions,
@@ -813,7 +822,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
         kind: 'checks',
         heading: 'Planned checks (AR09)',
         rows: plan.checks.map((check) => ({
-          name: check.argv.length > 0 ? `${check.id} — ${check.argv.join(' ')}` : check.id,
+          name: check.argv.length > 0 ? `${check.id} — ${commandPreview(check.argv)}` : check.id,
           result: `${
             check.required === undefined ? 'requirement not recorded' : check.required ? 'required' : 'not required'
           }${check.scope ? `; scope ${check.scope}` : ''}; planned only — not run`,
