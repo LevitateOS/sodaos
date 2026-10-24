@@ -57,6 +57,9 @@ export function createWorkspaceModel(
       invocation: 'f'.repeat(32),
     };
   let factoryRunEnabled = false;
+  let verificationEnabled = false,
+    verificationAvailable = false,
+    verificationCommand = '';
   alpha.terminals.push(
     metadata('a'.repeat(32), projectA, '7', 'Build'),
     metadata('b'.repeat(32), projectA, '7', 'Edit')
@@ -112,9 +115,49 @@ export function createWorkspaceModel(
         items: spaces.map((space) => ({...space, terminals: space.terminals.filter((t) => t.state !== 'ended')})),
         complete,
       });
+    if (
+      verificationEnabled &&
+      path.endsWith(`/api/factory/runs/${factoryRunId}/actions`) &&
+      method === 'POST' &&
+      body?.action === 'retry'
+    ) {
+      if (!verificationCommand) verificationCommand = String(body.command_id);
+      if (body.command_id !== verificationCommand) return Response.json({}, {status: 409});
+      verificationAvailable = false;
+      throw new TypeError('Fixture lost the recorded Retry reply');
+    }
+    if (verificationCommand && path.endsWith(`/api/factory/commands/${verificationCommand}`))
+      return Response.json({
+        id: verificationCommand,
+        type: 'retry',
+        principal: 'native:1',
+        digest: 'a'.repeat(64),
+        target: `run/${factoryRunId}`,
+        outcome: JSON.stringify({
+          command_id: verificationCommand,
+          prior_run: factoryRunId,
+          queued: true,
+          reason: 'New verification queued',
+        }),
+      });
     const factoryStatusPath = new URL(path, origin).pathname.match(/\/api\/factory\/runs\/([a-f0-9]{32})$/);
     if (factoryStatusPath) {
       if (!factoryRunEnabled || factoryStatusPath[1] !== factoryRunId) return new Response(null, {status: 404});
+      if (verificationEnabled)
+        return Response.json({
+          run: {
+            id: factoryRunId,
+            project_id: alpha.environment.id,
+            role: 'soda-reviewer',
+            harness: 'fixture',
+            model: 'fixture',
+            input_sha: 'e'.repeat(40),
+            reconciled: true,
+            outcome: 'succeeded',
+          },
+          view: {repository: alpha.environment.repository_id, attempt: 'f'.repeat(32)},
+          verification_retry: {available: verificationAvailable},
+        });
       return Response.json({
         run: {
           started: new Date(now * 1000).toISOString(),
@@ -364,6 +407,16 @@ export function createWorkspaceModel(
           attempt: 'attempt-1',
           reconciled: false,
         });
+    },
+    enableVerificationRetry() {
+      factoryRunEnabled = verificationEnabled = verificationAvailable = true;
+      alpha.factory_runs.push({
+        id: factoryRunId,
+        role: 'soda-reviewer',
+        attempt: 'f'.repeat(32),
+        reconciled: true,
+        outcome: 'succeeded',
+      });
     },
     setJoinFailure(value: boolean | string) {
       joinFailure = value === true ? 'account_incomplete' : value;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -53,6 +54,19 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if err = decision.Validate(); err != nil {
 		return factory.RetryDecision{}, err
 	}
+	if assignment.Subject.Kind == factory.SubjectDelivery && assignment.Phase == project.ExecutionVerify && assignment.Issue == 0 {
+		if err := c.checkDeliveryRetrySource(bounded, assignment); err != nil {
+			return factory.RetryDecision{}, err
+		}
+		stored, created, err := c.Store.RecordDeliveryRetryCommand(bounded, cmd, decision, assignment.Repository, time.Now())
+		if err != nil {
+			return factory.RetryDecision{}, err
+		}
+		if !created {
+			return replayRetry(stored)
+		}
+		return decision, nil
+	}
 	head, view, err := c.admitRetryOwnership(bounded, run)
 	if err != nil {
 		return factory.RetryDecision{}, err
@@ -78,6 +92,52 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 		return replayRetry(stored)
 	}
 	return decision, nil
+}
+
+// DeliveryRetryAvailable also checks the live integrated source. A later owner
+// commit cannot leave an old verifier advertised as retryable indefinitely.
+func (c *Coordinator) DeliveryRetryAvailable(ctx context.Context, runID string) (bool, error) {
+	available, err := c.Store.DeliveryRetryAvailable(ctx, runID)
+	if err != nil || !available {
+		return false, err
+	}
+	view, err := c.Store.FactoryRunView(ctx, runID)
+	if err != nil {
+		return false, err
+	}
+	a, err := c.Store.Assignment(ctx, view.Attempt)
+	if err != nil {
+		return false, err
+	}
+	if err = c.checkDeliveryRetrySource(ctx, a); err != nil {
+		if errors.Is(err, store.ErrExplicitRetryIneligible) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (c *Coordinator) checkDeliveryRetrySource(ctx context.Context, a factory.Assignment) error {
+	if c.DispatchReads == nil {
+		return errors.New("current application source is unavailable")
+	}
+	_, issue, err := c.Store.ApplicationVerificationInputs(ctx, a)
+	if err != nil {
+		return err
+	}
+	policy, err := c.Store.RepositoryPolicy(ctx, a.Repository)
+	if err != nil {
+		return err
+	}
+	native, err := c.DispatchReads.ReadDispatchInputs(ctx, strconv.FormatInt(a.Repository, 10), strconv.FormatInt(issue, 10), nil, policy.TargetBranch)
+	if err != nil {
+		return err
+	}
+	if native.TipRef != policy.TargetBranch || native.Tip != a.SourceCommit {
+		return store.ErrExplicitRetryIneligible
+	}
+	return nil
 }
 
 // admitRetryRun binds one retry request to its reconciled prior run

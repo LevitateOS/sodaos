@@ -9,6 +9,9 @@
 package factory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -32,6 +35,21 @@ type DeliverySubject struct {
 
 // DeliveryKey names the delivery subject key space.
 func DeliveryKey(id string) string { return "delivery:" + id }
+
+// DeliveryID binds the initial verification to its immutable version inputs.
+func DeliveryID(subject DeliverySubject) string {
+	subject.DeliveryID = ""
+	raw, _ := json.Marshal(subject)
+	sum := sha256.Sum256(append([]byte("application-delivery\x00"), raw...))
+	return hex.EncodeToString(sum[:16])
+}
+
+// DeliveryRetryID names a separately authorized attempt without changing the
+// accepted version, preparation or manifest it verifies.
+func DeliveryRetryID(subject DeliverySubject, command string) string {
+	sum := sha256.Sum256([]byte("application-delivery-retry\x00" + DeliveryID(subject) + "\x00" + command))
+	return hex.EncodeToString(sum[:16])
+}
 
 func (s DeliverySubject) Validate() error {
 	if !ValidID(s.DeliveryID) {

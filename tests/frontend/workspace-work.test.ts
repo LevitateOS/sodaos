@@ -46,7 +46,12 @@ async function writes(page: Page) {
 test('Project Work opens explicit requirements review for an imported native issue without creating work', async (t) => {
   const page = await fixture(t);
   const work = page.locator('soda-project-work:visible');
-  await work.getByText('Adopt or reaccept an issue', {exact: true}).click().catch(async () => { throw Error(await page.locator('.soda-workspace').innerText()); });
+  await work
+    .getByText('Adopt or reaccept an issue', {exact: true})
+    .click()
+    .catch(async () => {
+      throw Error(await page.locator('.soda-workspace').innerText());
+    });
   await work.getByLabel('Native issue number', {exact: true}).fill('13');
   await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();
   const acceptance = work.getByRole('region', {name: 'Issue requirements acceptance'});
@@ -65,6 +70,32 @@ test('Project Work opens explicit requirements review for an imported native iss
   await work.getByRole('button', {name: 'Open requirements review', exact: true}).click();
   await work.getByRole('status').filter({hasText: 'Enter the native issue number'}).waitFor();
   assert.equal(await writes(page), 0);
+
+  // An issue-zero verifier is reachable from ordinary Project Work, without
+  // pretending it belongs to the imported issue or starting work on a read.
+  await page.evaluate(async () => {
+    window.workspaceFixture.enableVerificationRetry();
+    await window.workspaceFixture.api.refresh();
+  });
+  const verification = work.getByRole('region', {name: 'Application verification needs attention'});
+  await verification.getByRole('button', {name: 'Retry application verification', exact: true}).waitFor();
+  assert.equal(await writes(page), 0, 'reading verification availability must not queue work');
+  await verification.getByRole('button', {name: 'Retry application verification', exact: true}).click();
+  await verification.getByRole('status').filter({hasText: 'Verification Retry queued'}).waitFor();
+  assert.equal(
+    await verification.getByRole('button', {name: 'Retry application verification', exact: true}).count(),
+    0
+  );
+  const retryCalls = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.body?.action === 'retry')
+  );
+  assert.equal(retryCalls.length, 1);
+  assert(retryCalls[0]?.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}/actions`));
+  assert.match(String(retryCalls[0]?.body?.command_id), /^[a-f0-9]{32}$/);
+  assert.equal(retryCalls[0]?.body?.action, 'retry');
+  assert.equal(await writes(page), 1, 'lost reply recovery must read the same command, never issue another Retry');
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  assert.equal(await page.getByRole('region', {name: 'Application verification needs attention'}).count(), 0);
 });
 
 test('cold Project entry loads scoped work, keeps the directory quiet, and opens planning explicitly', async (t) => {
@@ -177,7 +208,9 @@ test('native page entry opens Work once and preserves a deliberately selected te
     await window.workspaceFixture.api.refresh();
     window.workspaceFixture.presentRoute('/workspace');
   });
-  await (await openProjectPlans(page))
+  await (
+    await openProjectPlans(page)
+  )
     .getByRole('heading', {name: 'What would you like to change?', exact: true})
     .waitFor();
   await page.getByRole('button', {name: 'Terminals', exact: true}).click();
@@ -205,7 +238,9 @@ test('compact Projects navigation opens another Project work view without starti
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   assert.equal(new URL(page.url()).pathname, '/workspace');
   assert.equal(new URL(page.url()).searchParams.get('repository'), '8');
-  await (await openProjectPlans(page))
+  await (
+    await openProjectPlans(page)
+  )
     .getByRole('heading', {name: 'What would you like to change?', exact: true})
     .waitFor();
   assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Beta');

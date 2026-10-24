@@ -447,7 +447,9 @@ export class SodaSpaces extends LitElement {
     const entered = pathname !== this.routePathname || kind !== this.binding.kind;
     this.routePathname = pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
-    const requestedProject = new URLSearchParams((route ? new URL(route, location.href) : new URL(location.href)).search).get('repository');
+    const requestedProject = new URLSearchParams(
+      (route ? new URL(route, location.href) : new URL(location.href)).search
+    ).get('repository');
     if (kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
     this.presentView(kind, entered, repositoryId);
     this.armNewRoute(kind, entered);
@@ -905,6 +907,10 @@ export class SodaSpaces extends LitElement {
             this.spaces.map((space) => [space.environment.repository_id, this.projectName(space)])
           ),
           account: this.actor.id,
+          verificationRuns:
+            this.selectedSpace?.factory_runs
+              .filter((run) => run.reconciled && run.issue === undefined)
+              .map((run) => run.id) ?? [],
         }
       : undefined;
   }

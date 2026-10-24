@@ -12,6 +12,10 @@ import './sodaspaces-factory-context-resolution.js';
 import './sodaspaces-factory-completion-retry.js';
 import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
+import {factoryCommandId, factoryRunStatusResponse} from './sodaspaces-factory-response.js';
+import type {FactoryRunDetail} from './sodaspaces-factory-response.js';
+import {factoryCommandRecord, retryDecision} from './sodaspaces-factory-work-response.js';
+import {terminalID} from './sodaspaces-terminal-response.js';
 
 export interface ProjectWorkContext {
   transport: PreparedExtensionMount;
@@ -19,6 +23,7 @@ export interface ProjectWorkContext {
   repository?: {id: string; name: string};
   repositoryNames: ReadonlyMap<string, string>;
   account?: string;
+  verificationRuns?: readonly string[];
 }
 
 function sameContext(a: ProjectWorkContext | undefined, b: ProjectWorkContext | undefined) {
@@ -116,6 +121,7 @@ export class SodaProjectWork extends LitElement {
 
   refresh() {
     this.loaded = false;
+    void this.querySelector<SodaFactoryVerificationRetry>('soda-factory-verification-retry')?.refresh();
     return this.load(false);
   }
 
@@ -299,15 +305,149 @@ export class SodaProjectWork extends LitElement {
         void this.load(true);
       },
     });
-    return html`${feed}${this.renderRequirements(context)}${
-      context.mode === 'project'
-        ? html`<details class="soda-project-plans">
-            <summary>My plans</summary>
-            ${plans}
-          </details>`
-        : plans
-    }`;
+    return html`${feed}${this.renderRequirements(context)}<soda-factory-verification-retry
+        .context=${this.active && context.mode === 'project' && context.repository ? {transport: context.transport, repository: context.repository.id, runs: context.verificationRuns ?? []} : undefined}
+      ></soda-factory-verification-retry
+      >${
+        context.mode === 'project'
+          ? html`<details class="soda-project-plans">
+              <summary>My plans</summary>
+              ${plans}
+            </details>`
+          : plans
+      }`;
   }
 }
 
 customElements.define('soda-project-work', SodaProjectWork);
+
+type VerificationRetryContext = {transport: PreparedExtensionMount; repository: string; runs: readonly string[]};
+
+// Only the selected Project's recorded issue-zero runs are read. The server's
+// exact delivery eligibility owns this control; a native exit alone is no verdict.
+class SodaFactoryVerificationRetry extends LitElement {
+  static properties = {entries: {state: true}, message: {state: true}, busy: {state: true}};
+  declare private entries: FactoryRunDetail[];
+  declare private message: string;
+  declare private busy: boolean;
+  private current: VerificationRetryContext | undefined;
+  private serial = 0;
+  private pending: {run: string; command: string} | undefined;
+  constructor() {
+    super();
+    this.entries = [];
+    this.message = '';
+    this.busy = false;
+  }
+  protected createRenderRoot() {
+    return this;
+  }
+  set context(context: VerificationRetryContext | undefined) {
+    if (
+      context?.transport === this.current?.transport &&
+      context?.repository === this.current?.repository &&
+      context?.runs.join('|') === this.current?.runs.join('|')
+    )
+      return;
+    this.current = context;
+    this.serial++;
+    this.entries = [];
+    this.message = '';
+    this.pending = undefined;
+    this.busy = false;
+    if (context) {
+      check(context.runs.length <= 64 && context.runs.every(terminalID));
+      void this.load(context, this.serial);
+    }
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.current = undefined;
+    this.serial++;
+  }
+  refresh() {
+    if (this.current) return this.load(this.current, this.serial);
+  }
+  private async load(context: VerificationRetryContext, serial: number) {
+    const reads = await Promise.allSettled(
+      context.runs.map(async (run) => {
+        const response = await context.transport.request(`factory/runs/${run}`, {signal: AbortSignal.timeout(15000)});
+        check(response.ok);
+        return factoryRunStatusResponse(await readSodaJSON(response), run, context.repository);
+      })
+    );
+    if (serial !== this.serial) return;
+    this.entries = reads.flatMap((read) =>
+      read.status === 'fulfilled' &&
+      read.value.reconciled &&
+      read.value.view?.repository === context.repository &&
+      read.value.view.issue === undefined &&
+      (read.value.verification_retry?.available || this.pending?.run === read.value.id)
+        ? [read.value]
+        : []
+    );
+    if (reads.some((read) => read.status === 'rejected'))
+      this.message = 'Could not read application verification availability. Refresh verification to try again.';
+  }
+  private async retry(run: string) {
+    const context = this.current;
+    if (!context || this.busy || (!this.pending && !this.entries.some((entry) => entry.id === run))) return;
+    const pending = this.pending ?? {run, command: factoryCommandId()};
+    if (pending.run !== run) return;
+    this.pending = pending;
+    const serial = this.serial;
+    this.busy = true;
+    try {
+      const response = await context.transport.request(`factory/runs/${run}/actions`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({command_id: pending.command, action: 'retry'}),
+        signal: AbortSignal.timeout(90000),
+      });
+      check(response.ok);
+      retryDecision(await readSodaJSON(response), pending.command, run);
+      if (serial === this.serial) this.confirmed(run);
+    } catch {
+      try {
+        const response = await context.transport.request(`factory/commands/${pending.command}`, {
+          signal: AbortSignal.timeout(15000),
+        });
+        check(response.ok);
+        const record = factoryCommandRecord(await readSodaJSON(response), pending.command);
+        check(record.type === 'retry' && record.target === `run/${run}` && typeof record.outcome === 'string');
+        retryDecision(JSON.parse(record.outcome), pending.command, run);
+        if (serial === this.serial) this.confirmed(run);
+      } catch {
+        if (serial === this.serial)
+          this.message =
+            'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.';
+      }
+    } finally {
+      if (serial === this.serial) this.busy = false;
+    }
+  }
+  private confirmed(run: string) {
+    this.pending = undefined;
+    this.entries = this.entries.filter((entry) => entry.id !== run);
+    this.message = 'Verification Retry queued. The original result and spending are retained.';
+  }
+  protected render() {
+    if (!this.entries.length && !this.message) return html``;
+    return html`<section aria-label="Application verification needs attention">
+      ${this.entries.length ? html`<p>Test Pilot needs another explicit, bounded attempt. Its previous result stays recorded.</p>` : ''}
+      ${this.entries.map((entry) => html`<p>Verification run ${entry.id.slice(0, 8)} <button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && this.pending.run !== entry.id)} @click=${() => this.retry(entry.id)}>${this.pending?.run === entry.id ? 'Retry same verification request' : 'Retry application verification'}</button></p>`)}
+      <p role="status">${this.message}</p>
+      <button
+        type="button"
+        class="ui button"
+        ?disabled=${this.busy}
+        @click=${() => {
+          if (this.current) void this.load(this.current, this.serial);
+        }}
+      >
+        Refresh verification
+      </button>
+    </section>`;
+  }
+}
+customElements.define('soda-factory-verification-retry', SodaFactoryVerificationRetry);

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -16,11 +17,12 @@ import (
 
 func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 	for _, fixture := range []struct {
-		early bool
-		state string
-	}{{false, factory.ReassessmentCollecting}, {true, factory.ReassessmentCollecting}, {false, factory.ReassessmentAttention}, {true, factory.ReassessmentAttention}} {
+		early  bool
+		state  string
+		failed bool
+	}{{false, factory.ReassessmentCollecting, false}, {true, factory.ReassessmentCollecting, false}, {false, factory.ReassessmentAttention, false}, {true, factory.ReassessmentAttention, false}, {true, factory.ReassessmentCollecting, true}, {true, factory.ReassessmentAttention, true}} {
 		early := fixture.early
-		t.Run(fmt.Sprintf("%s/early-terminal-%t", fixture.state, early), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t", fixture.state, early, fixture.failed), func(t *testing.T) {
 			ctx := context.Background()
 			db, dsn := dispatchTestDB(t)
 			fx := dispatchSeed(t, db)
@@ -196,12 +198,24 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Application evidence is incomplete."}`))
-				if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
-					t.Fatal(err)
+				if fixture.failed {
+					verification := factory.AppVerificationReport{DeliveryID: subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationFailed, CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("task storage passed")), LogExcerpt: "Native assertions passed"}}, Failures: []factory.CheckFailure{{CheckRef: idea.ID, Detail: "The approved assertions omit required task behavior."}}}
+					a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
+					a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application coverage failed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application coverage failed", Output: &factory.PhaseOutput{Verification: &verification}}}
+					if err := db.FinishAssignment(ctx, a); err != nil {
+						t.Fatal("reported application failure", err)
+					}
+				} else {
+					submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Application evidence is incomplete."}`))
+					if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+						t.Fatal(err)
+					}
+					if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
+						t.Fatal("early Test Pilot terminal did not settle", settled, err)
+					}
 				}
-				if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
-					t.Fatal("early Test Pilot terminal did not settle", settled, err)
+				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); err == nil {
+					t.Fatal("verification Retry admitted before native retirement")
 				}
 				var before factory.AttemptAllowance
 				var raw []byte
@@ -217,7 +231,11 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					t.Fatal("retired Test Pilot did not checkpoint the same closed allowance", err)
 				}
 				finished, err := db.Assignment(ctx, a.ID)
-				if err != nil || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Status != "blocked" {
+				wantOutcome, wantStatus := factory.NeedsHuman, "blocked"
+				if fixture.failed {
+					wantOutcome, wantStatus = factory.Succeeded, "completed"
+				}
+				if err != nil || finished.Outcome != wantOutcome || finished.Result == nil || finished.Result.Status != wantStatus {
 					t.Fatal("native retirement changed the recorded verification result", err)
 				}
 				if err := db.SaveFactoryRun(ctx, run); err != nil {
@@ -226,6 +244,122 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				var replayed factory.AttemptAllowance
 				if err := sqlDB.QueryRow(`SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, a.ID).Scan(&raw); err != nil || json.Unmarshal(raw, &replayed) != nil || replayed.Revision != after.Revision || replayed.ActiveSeconds != after.ActiveSeconds {
 					t.Fatal("native Test Pilot replay charged or reopened its root", err)
+				}
+				reservation, err := db.Reservation(ctx, a.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = db.RunUsage(ctx, run.ID); errors.Is(err, store.ErrNotFound) && reservation.State != factory.ReservationReleased {
+					if err = db.RecordRunUsage(ctx, factory.Usage{RunID: run.ID, Repository: 7, Connection: a.Connection, Minutes: 1, StartedAt: run.Started, EndedAt: run.Started.Add(time.Millisecond)}); err != nil {
+						t.Fatal(err)
+					}
+				} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+					t.Fatal(err)
+				}
+				if reservation.State == factory.ReservationHeld {
+					if err = db.ConsumeReservation(ctx, a.ID); err != nil {
+						t.Fatal(err)
+					}
+				}
+				retained := func() string {
+					var rows string
+					if err := sqlDB.QueryRow(`SELECT jsonb_build_object(
+						'assignment',(SELECT to_jsonb(x) FROM factory_assignments x WHERE id=$1),
+						'run',(SELECT to_jsonb(x) FROM factory_runs x WHERE id=$2),
+						'allowance',(SELECT to_jsonb(x) FROM factory_attempt_allowances x WHERE root_assignment=$1),
+						'reservation',(SELECT to_jsonb(x) FROM factory_reservations x WHERE assignment=$1),
+						'usage',(SELECT to_jsonb(x) FROM factory_usage x WHERE run=$2),
+						'cycle',(SELECT to_jsonb(x) FROM factory_reassessments x WHERE cycle=$3))::text`, a.ID, run.ID, cycle.CycleID).Scan(&rows); err != nil {
+						t.Fatal(err)
+					}
+					return rows
+				}
+				oldRows := retained()
+				if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || !available {
+					t.Fatal("retired verifier Retry unavailable", available, err)
+				}
+				c.DispatchReads = &appVerificationReads{tip: strings.Repeat("e", 40)}
+				if available, err := c.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
+					t.Fatal("old-source verifier advertised Retry", available, err)
+				}
+				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
+					t.Fatal("old-source verifier Retry queued", err)
+				}
+				c.DispatchReads = &appVerificationReads{tip: fx.tip}
+				if available, err := c.DeliveryRetryAvailable(ctx, run.ID); err != nil || !available {
+					t.Fatal("current-source verifier Retry unavailable", available, err)
+				}
+				unowned := subject
+				unownedPayload := *subject.Delivery
+				unownedPayload.DeliveryID = factory.NewID()
+				unowned.Delivery = &unownedPayload
+				unownedOccupancy, err := snapshotOccupancy(ctx, db)
+				if err != nil {
+					t.Fatal(err)
+				}
+				unownedReport := newDispatchReport()
+				DispatchTimeOnlyRoot(ctx, deps, &unownedOccupancy, 7, unowned, fx.tip, prompt, preparation, &unownedReport)
+				if len(unownedReport.Launched) != 0 || len(unownedReport.Waits)+len(unownedReport.Errors) == 0 {
+					t.Fatal("verification polled into an unrequested retry")
+				}
+				command := factory.NewID()
+				decision, err := c.RetryRun(ctx, command, "native:7", run.ID)
+				if err != nil || !decision.Queued {
+					t.Fatal("explicit verifier Retry refused", decision, err)
+				}
+				if replay, err := c.RetryRun(ctx, command, "native:7", run.ID); err != nil || replay != decision {
+					t.Fatal("verifier Retry lost-reply recovery", replay, err)
+				}
+				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
+					t.Fatal("duplicate queued verifier Retry", err)
+				}
+				if retained() != oldRows {
+					t.Fatal("queuing verification Retry changed old result, spending or completion decision")
+				}
+				if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
+					t.Fatal("queued verifier Retry still advertised", available, err)
+				}
+				pending, err := db.PendingDeliveryRetry(ctx, 7, *subject.Delivery)
+				if err != nil || pending != decision {
+					t.Fatal("verification Retry was not selected", pending, err)
+				}
+				foreign := *subject.Delivery
+				foreign.ScopeDigest = strings.Repeat("f", 64)
+				if _, err := db.PendingDeliveryRetry(ctx, 7, foreign); !errors.Is(err, store.ErrNotFound) {
+					t.Fatal("foreign version selected verification Retry", err)
+				}
+				payload := *subject.Delivery
+				payload.DeliveryID = factory.DeliveryRetryID(payload, command)
+				subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &payload}
+				retryPrompt, err := c.deliveryRetryPrompt(ctx, candidates[0], subject, preparation)
+				if err != nil || !strings.Contains(string(retryPrompt), payload.DeliveryID) {
+					t.Fatal("verification Retry prompt is unbound", err)
+				}
+				occupancy, err = snapshotOccupancy(ctx, db)
+				if err != nil {
+					t.Fatal(err)
+				}
+				retryReport := newDispatchReport()
+				dispatchTimeOnlyRetry(ctx, deps, &occupancy, 7, subject, fx.tip, retryPrompt, preparation, &decision, &retryReport)
+				if len(retryReport.Launched) != 1 || len(retryReport.Errors) != 0 || len(retryReport.Waits) != 0 || retryReport.Launched[0].AssignmentID != command {
+					t.Fatalf("explicit verifier successor: %+v", retryReport)
+				}
+				if retained() != oldRows {
+					t.Fatal("new verifier packet rewrote the old incomplete result or budget")
+				}
+				if replay, err := c.RetryRun(ctx, command, "native:7", run.ID); err != nil || replay != decision {
+					t.Fatal("consumed verifier Retry lost its immutable receipt", replay, err)
+				}
+				if _, err := db.PendingDeliveryRetry(ctx, 7, payload); !errors.Is(err, store.ErrNotFound) {
+					t.Fatal("consumed verifier Retry stayed pending", err)
+				}
+				repeated := newDispatchReport()
+				dispatchTimeOnlyRetry(ctx, deps, &occupancy, 7, subject, fx.tip, retryPrompt, preparation, &decision, &repeated)
+				if len(repeated.Launched) != 0 {
+					t.Fatal("verifier Retry launched twice")
+				}
+				if _, err := c.RetryRun(ctx, factory.NewID(), "native:7", run.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
+					t.Fatal("old verifier remained retryable after successor", err)
 				}
 				return
 			}
@@ -238,6 +372,9 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Output: &factory.PhaseOutput{Verification: &verification}}}
 			if err = db.FinishAssignment(ctx, a); err != nil {
 				t.Fatal("delivery settlement", err)
+			}
+			if available, err := db.DeliveryRetryAvailable(ctx, run.ID); err != nil || available {
+				t.Fatal("verified delivery advertised Retry", available, err)
 			}
 			var closed bool
 			if err = sqlDB.QueryRow(`SELECT (data->>'closed')::boolean FROM factory_attempt_allowances WHERE root_assignment=$1`, a.ID).Scan(&closed); err != nil || !closed {

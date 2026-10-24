@@ -104,10 +104,11 @@ func factoryRunLiveDTO(out project.FactoryState) *factoryRunLive {
 }
 
 type factoryRunStatus struct {
-	Run              factoryRunRecord              `json:"run"`
-	View             *factoryRunBinding            `json:"view,omitempty"`
-	State            *factoryRunLive               `json:"state,omitempty"`
-	ContextSelection *control.ContextSelectionView `json:"context_selection,omitempty"`
+	Run               factoryRunRecord              `json:"run"`
+	View              *factoryRunBinding            `json:"view,omitempty"`
+	State             *factoryRunLive               `json:"state,omitempty"`
+	ContextSelection  *control.ContextSelectionView `json:"context_selection,omitempty"`
+	VerificationRetry *workCapabilityView           `json:"verification_retry,omitempty"`
 }
 
 // apiFactoryRun maps one recorded run to its display status: recorded facts,
@@ -152,6 +153,35 @@ func (s *API) apiFactoryRun(w http.ResponseWriter, r *http.Request, v store.Sess
 	} else if !errors.Is(err, host.ErrRunNotFound) {
 		auth.JSONError(w, 503, "host_unavailable", "Run observation is unavailable.")
 		return
+	}
+	if status.View != nil && status.View.Issue == "" {
+		assignment, assignmentErr := s.Store.AssignmentByRun(r.Context(), run.ID)
+		if assignmentErr != nil && !errors.Is(assignmentErr, store.ErrNotFound) {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read verification assignment.")
+			return
+		}
+		if assignmentErr == nil && assignment.ID == status.View.Attempt && assignment.Run == run.ID && assignment.ProjectID == p.ID && assignment.Repository == p.RepositoryID && assignment.Issue == 0 && assignment.Phase == project.ExecutionVerify && assignment.Role == project.RoleReviewer && assignment.Subject.Kind == factory.SubjectDelivery && assignment.Subject.Delivery != nil {
+			available := false
+			var retryErr error
+			if s.Coordinator != nil {
+				available, retryErr = s.Coordinator.DeliveryRetryAvailable(r.Context(), run.ID)
+			}
+			if retryErr != nil {
+				auth.JSONError(w, 503, "store_unavailable", "Could not read verification Retry availability.")
+				return
+			}
+			if available && s.Coordinator != nil {
+				effective, authorityErr := s.Coordinator.EffectiveAuthority(r.Context(), p.RepositoryID)
+				if authorityErr != nil {
+					auth.JSONError(w, 503, "authority_unavailable", "Could not read current verification authority.")
+					return
+				}
+				available = effective.Effective || len(effective.Missing) == 1 && effective.Missing[0] == factory.MissingDispatch
+			} else if s.Coordinator == nil {
+				available = false
+			}
+			status.VerificationRetry = &workCapabilityView{Available: available && run.Reconciled && (status.State == nil || !status.State.Live && status.State.Terminal)}
+		}
 	}
 	auth.JSONResponse(w, 200, status)
 }

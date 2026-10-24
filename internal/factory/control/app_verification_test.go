@@ -44,6 +44,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	}
 	p := seedPreparation.Preparation
 	p.ID = a.Preparation
+	p.Requirements.SourceInputs = map[string]string{"app.can": factory.MCPInputDigest([]byte("original approved source"))}
 	if _, _, err := db.AdmitPreparation(ctx, project.StoredPreparation{Preparation: p}); err != nil {
 		t.Fatal(err)
 	}
@@ -71,13 +72,60 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw)); err != nil {
 		t.Fatal(err)
 	}
+	contextFault := ""
 	host := &fakeDispatchHost{inspectPreparation: func(project.PrepareInspect) (project.PrepareState, error) { return state, nil }, contextRead: func(request project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+		if len(request.Paths) != 1 || request.Paths[0] != "app.can" || request.ApprovedBase != a.SourceCommit {
+			t.Fatal("verification did not select the approved paths at integrated source", request)
+		}
 		material := fixturePreparationContext(request, role)
 		material.Check = script
+		material.Files = []project.FactoryContextFile{{Path: "app.can", Content: []byte("example saved_task_persists { save task; read task; expect title == saved title }")}}
+		switch contextFault {
+		case "foreign-preparation":
+			material.ID = "f" + strings.Repeat("e", 24)
+		case "stale-source":
+			material.Candidate = strings.Repeat("e", 40)
+		case "missing-source":
+			material.Files = nil
+		case "oversize-source":
+			material.Files[0].Content = []byte(strings.Repeat("x", project.MaxFactoryContextFileBytes+1))
+		}
 		return material, nil
 	}}
 	reads := &appVerificationReads{tip: fx.tip}
 	c := &Coordinator{Store: db, Host: host, DispatchReads: reads}
+	// A native pass receipt alone does not let Test Pilot assess assertions.
+	// Preserve the exact authorized script and source, as readable UTF-8, in
+	// the same evidence returned by the authenticated worker interface.
+	evidence, err := c.ApplicationVerificationEvidence(ctx, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedEvidence, err := json.Marshal(evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projected struct {
+		Context struct {
+			Project, ID, Role string
+			SourceCommit      string `json:"source_commit"`
+			Check             string
+			Files             []struct{ Path, Content string }
+		} `json:"approved_context"`
+	}
+	if json.Unmarshal(encodedEvidence, &projected) != nil || projected.Context.Project != p.Project || projected.Context.ID != p.ID || projected.Context.Role != p.Role || projected.Context.SourceCommit != p.SourceCommit || projected.Context.Check != string(script) || len(projected.Context.Files) != 1 || projected.Context.Files[0].Path != "app.can" || !strings.Contains(projected.Context.Files[0].Content, "saved_task_persists") {
+		t.Fatal("native evidence omitted readable approved assertions", string(encodedEvidence))
+	}
+	if strings.Contains(string(encodedEvidence), state.Output) {
+		t.Fatal("native evidence exposed unfiltered check output")
+	}
+	for _, fault := range []string{"foreign-preparation", "stale-source", "missing-source", "oversize-source"} {
+		contextFault = fault
+		if _, err := c.ApplicationVerificationEvidence(ctx, a); err == nil {
+			t.Fatal("verification exposed invalid assertion context", fault)
+		}
+	}
+	contextFault = ""
 	// Worker prose and a normal successful setup check are insufficient.
 	goodScript := script
 	script = []byte("#!/bin/sh\nexit 0\n")

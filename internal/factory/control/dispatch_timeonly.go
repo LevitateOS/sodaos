@@ -97,11 +97,19 @@ func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *pas
 }
 
 func dispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, planning *factory.SemanticPlannerInput, report *DispatchReport) {
+	dispatchTimeOnlyRootAttempt(ctx, deps, occupancy, repository, subject, source, prompt, preparationID, planning, nil, report)
+}
+
+func dispatchTimeOnlyRetry(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, retry *factory.RetryDecision, report *DispatchReport) {
+	dispatchTimeOnlyRootAttempt(ctx, deps, occupancy, repository, subject, source, prompt, preparationID, nil, retry, report)
+}
+
+func dispatchTimeOnlyRootAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, planning *factory.SemanticPlannerInput, retry *factory.RetryDecision, report *DispatchReport) {
 	// Truncated to the second like every packet caller: the funding
 	// check compares the deadline against a Unix-second horizon, so a
 	// sub-second skew on exact-horizon funding would refuse.
 	t := &timeOnlyLaunch{ctx: ctx, deps: deps, occupancy: occupancy, repository: repository,
-		subject: subject, source: source, prompt: prompt, preparationID: preparationID, planning: planning,
+		subject: subject, source: source, prompt: prompt, preparationID: preparationID, planning: planning, retry: retry,
 		report: report, now: time.Now().UTC().Truncate(time.Second)}
 	t.drive()
 }
@@ -118,6 +126,7 @@ type timeOnlyLaunch struct {
 	prompt        []byte
 	preparationID string
 	planning      *factory.SemanticPlannerInput
+	retry         *factory.RetryDecision
 	report        *DispatchReport
 	now           time.Time
 	phase         string
@@ -359,6 +368,13 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 	var noRun factory.Run
 	promptSum := sha256.Sum256(t.prompt)
 	assignmentID, runID := factory.NewID(), factory.NewID()
+	if t.retry != nil {
+		if t.subject.Kind != factory.SubjectDelivery || t.retry.Validate() != nil || t.subject.Delivery == nil || t.subject.Delivery.DeliveryID != factory.DeliveryRetryID(*t.subject.Delivery, t.retry.CommandID) {
+			t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "verification Retry does not bind its command"})
+			return none, noRun, false
+		}
+		assignmentID = t.retry.CommandID
+	}
 	if t.subject.Stall != nil {
 		record, err := t.deps.Store.StallRepairRecord(t.ctx, t.repository, t.subject.Stall.StallID)
 		if err != nil {

@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"sort"
 	"strconv"
 	"time"
 
@@ -46,13 +47,36 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 	if state.ID != p.ID || state.Project != p.Project || state.Role != p.Role || state.SourceCommit != p.SourceCommit || state.SetupDigest != p.SetupDigest || !state.Ready || state.Stopped || state.Phase != project.PrepareReady || state.CheckExit == nil || *state.CheckExit != 0 {
 		return evidence, errors.New("approved application check has no native passing receipt")
 	}
-	request := project.FactoryPreparationContextRequest{Project: p.Project, ID: p.ID, SourceCommit: p.SourceCommit, ApprovedBase: p.Requirements.SourceCommit, DiffBase: p.SourceCommit, Candidate: p.SourceCommit, NotAfter: time.Now().Add(20 * time.Second)}
+	// Keep the maintainer's selected paths, but inspect their actual integrated
+	// contents from this exact ready checkout. The protected setup/check scripts
+	// still come from the original native approval snapshot.
+	paths := make([]string, 0, len(p.Requirements.SourceInputs))
+	for path := range p.Requirements.SourceInputs {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	request := project.FactoryPreparationContextRequest{Project: p.Project, ID: p.ID, SourceCommit: p.SourceCommit, ApprovedBase: p.SourceCommit, DiffBase: p.SourceCommit, Candidate: p.SourceCommit, Paths: paths, NotAfter: time.Now().Add(20 * time.Second)}
+	if err := request.Validate(); err != nil {
+		return evidence, err
+	}
 	material, err := c.Host.ReadPreparationContext(ctx, request, p.Role)
 	if err != nil {
 		return evidence, err
 	}
 	if err = material.ValidateFor(request, p.Role); err != nil {
 		return evidence, err
+	}
+	selected := make(map[string]bool, len(material.Files))
+	for _, file := range material.Files {
+		if selected[file.Path] {
+			return evidence, errors.New("approved verification context repeats a source file")
+		}
+		selected[file.Path] = true
+	}
+	for _, path := range paths {
+		if !selected[path] {
+			return evidence, errors.New("approved verification context omits a selected source file")
+		}
 	}
 	manifest, err := factory.ParseApprovedAppCheck(material.Check)
 	if err != nil {
@@ -72,9 +96,9 @@ func (c *Coordinator) ApplicationVerificationEvidence(ctx context.Context, a fac
 	if native.TipRef != policy.TargetBranch || native.Tip != a.SourceCommit {
 		return evidence, errors.New("integrated application source changed since verification admission")
 	}
-	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, State: state,
+	evidence = VerifiedAppEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: factory.DeliveryPreparationDigest(p), SourceCommit: a.SourceCommit, ApprovedContext: factory.NewApprovedVerificationContext(material), State: state,
 		Receipt: factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "Native approved application check passed"}}
-	return evidence, nil
+	return evidence, evidence.ValidateFor(*a.Subject.Delivery)
 }
 
 func (c *Coordinator) verifyApplicationReport(ctx context.Context, a factory.Assignment) error {

@@ -86,6 +86,9 @@ func validateDeliveryRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
+	if err = validateDeliveryRetryPacketTx(ctx, tx, a); err != nil {
+		return err
+	}
 	var raw []byte
 	if err = tx.QueryRowContext(ctx, `SELECT p.data FROM project_preparations p JOIN project_requirement_heads r ON r.project_id=p.project_id AND r.decision=p.requirements JOIN project_approval_heads h ON h.project_id=p.project_id AND h.decision=p.approval WHERE p.id=$1 FOR SHARE OF p,r,h`, a.Preparation).Scan(&raw); err != nil {
 		return err

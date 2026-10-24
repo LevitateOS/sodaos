@@ -2,8 +2,6 @@ package control
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -62,9 +60,7 @@ func (c *Coordinator) deliveryAdmission(ctx context.Context, candidate store.Del
 			continue
 		}
 		subject := factory.DeliverySubject{IntentID: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), SourceCommit: native.Tip, PreparationDigest: factory.DeliveryPreparationDigest(p), VerificationManifestDigest: manifest.Digest()}
-		raw, _ := json.Marshal(subject)
-		sum := sha256.Sum256(append([]byte("application-delivery\x00"), raw...))
-		subject.DeliveryID = hex.EncodeToString(sum[:16])
+		subject.DeliveryID = factory.DeliveryID(subject)
 		execution := factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &subject}
 		// Repeat the native receipt join used by adoption before spending a worker
 		// session. Missing/failed assertions remain an actionable Factory event.
@@ -114,11 +110,26 @@ func (c *Coordinator) driveDeliveryVerifications(ctx context.Context) {
 			continue
 		}
 		seen, err := c.Store.DeliveryAlreadyAssigned(ctx, candidate.Revision.Repository, subject.Delivery.DeliveryID)
-		if err != nil || seen {
+		if err != nil {
 			continue
 		}
+		var retry *factory.RetryDecision
+		if seen {
+			decision, retryErr := c.Store.PendingDeliveryRetry(ctx, candidate.Revision.Repository, *subject.Delivery)
+			if retryErr != nil {
+				continue
+			}
+			retry = &decision
+			subject.Delivery.DeliveryID = factory.DeliveryRetryID(*subject.Delivery, decision.CommandID)
+			// The new subject changes only the explicit attempt identity. Keep
+			// the prompt bound to that identity, not the earlier incomplete run.
+			prompt, err = c.deliveryRetryPrompt(ctx, candidate, subject, preparation)
+			if err != nil {
+				continue
+			}
+		}
 		report := newDispatchReport()
-		DispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, candidate.Revision.Repository, subject, subject.Delivery.SourceCommit, prompt, preparation, &report)
+		dispatchTimeOnlyRetry(ctx, c.dispatchDeps(), &occupancy, candidate.Revision.Repository, subject, subject.Delivery.SourceCommit, prompt, preparation, retry, &report)
 		for _, wait := range report.Waits {
 			_ = c.Store.RecordDeliveryAdmissionWait(ctx, candidate.Revision, wait.Detail)
 		}
@@ -126,4 +137,25 @@ func (c *Coordinator) driveDeliveryVerifications(ctx context.Context) {
 			_ = c.Store.RecordDeliveryAdmissionWait(ctx, candidate.Revision, failure.Detail)
 		}
 	}
+}
+
+func (c *Coordinator) deliveryRetryPrompt(ctx context.Context, candidate store.DeliveredIntentCandidate, subject factory.ExecutionSubject, preparation string) ([]byte, error) {
+	proj, err := c.Store.ProjectByRepository(ctx, candidate.Revision.Repository)
+	if err != nil {
+		return nil, err
+	}
+	evidence, err := c.ApplicationVerificationEvidence(ctx, factory.Assignment{Repository: candidate.Revision.Repository, ProjectID: proj.ID, Phase: project.ExecutionVerify, Role: project.RoleReviewer, Subject: subject, SourceCommit: subject.Delivery.SourceCommit, Preparation: preparation})
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(struct {
+		Objective string                  `json:"objective"`
+		Revision  factory.IntentRevision  `json:"accepted_scope"`
+		Subject   factory.DeliverySubject `json:"delivery"`
+		Evidence  VerifiedAppEvidence     `json:"native_check_evidence"`
+	}{candidate.Revision.Objective, candidate.Revision, *subject.Delivery, evidence})
+	if err != nil || len(payload)+512 > project.MaxFactoryPrompt {
+		return nil, errors.New("application verification scope exceeds the worker prompt bound")
+	}
+	return append([]byte("You are Test Pilot for this integrated application. This is an explicit owner Retry after an incomplete or failed verification. Inspect the approved assertions and exact native evidence below against every accepted outcome. Read factory.context for the current input digest. Report findings truthfully through factory.finish_app_verification. Do not change code, claim deployment or infer missing coverage.\n\n"), payload...), nil
 }

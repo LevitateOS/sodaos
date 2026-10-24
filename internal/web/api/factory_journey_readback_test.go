@@ -41,6 +41,7 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -620,6 +621,45 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	}
 	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || cycles != 2 || commands != 2 || choices != 1 {
 		t.Fatal("completion retry replay refilled cycles or judgments", cycles, commands, choices, err)
+	}
+	// Registered run reads distinguish an issue-zero verifier from a Product
+	// Lead and never turn a live/unaccounted run into a Retry affordance.
+	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }))
+	defer native.Close()
+	fx.api.Host = &host.Client{HTTP: &http.Client{Transport: applicationNativeTransport{native.URL}}}
+	verifier := factory.Assignment{ID: factory.NewID(), Run: factory.NewID(), ProjectID: capability.Project, Repository: 7, Role: project.RoleReviewer, Phase: project.ExecutionVerify, Stage: factory.AssignmentAssigned, Subject: factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: "d" + strings.Repeat("3", 24), AcceptedRevision: "d" + strings.Repeat("4", 24)}}}
+	verifier.AttemptRoot = verifier.ID
+	verifierRun := factory.Run{ID: verifier.Run, ProjectID: capability.Project, Role: project.RoleReviewer, InputSHA: strings.Repeat("a", 40)}
+	raw, _ = json.Marshal(verifierRun)
+	if _, err := fx.raw.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, verifierRun.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(verifier)
+	if _, err := fx.raw.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',0,$3)`, verifier.ID, verifier.Run, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{RunID: verifier.Run, Repository: 7, Issue: 0, Attempt: verifier.ID}); err != nil {
+		t.Fatal(err)
+	}
+	readPath := "/api/factory/runs/" + verifier.Run
+	if code, reply := call(http.MethodGet, readPath, ""); code != 200 || !strings.Contains(string(reply), `"verification_retry":{"available":false}`) {
+		t.Fatalf("unsettled verifier Retry projection: %d %s", code, reply)
+	}
+	fx.permission.Store("read")
+	if code, _ := call(http.MethodGet, readPath, ""); code != 403 {
+		t.Fatal("read-only actor saw owner verification controls", code)
+	}
+	fx.permission.Store("admin")
+	if code, _ := journeyCall(t, mux, http.MethodGet, readPath, "", "generation-1", "generation-2", true); code != 409 {
+		t.Fatal("stale session read owner verification controls", code)
+	}
+	verifier.Phase, verifier.Role, verifier.Subject = project.ExecutionDecompose, project.RoleCoder, factory.ExecutionSubject{Kind: factory.SubjectIntent, Intent: &factory.IntentSubject{IntentID: "d" + strings.Repeat("3", 24), OwnerID: 1}}
+	raw, _ = json.Marshal(verifier)
+	if _, err := fx.raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(raw), verifier.ID); err != nil {
+		t.Fatal(err)
+	}
+	if code, reply := call(http.MethodGet, readPath, ""); code != 200 || strings.Contains(string(reply), "verification_retry") {
+		t.Fatalf("Product Lead acquired verification Retry: %d %s", code, reply)
 	}
 }
 

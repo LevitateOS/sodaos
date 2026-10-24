@@ -243,7 +243,13 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	var clock atomic.Int64
 	clock.Store(time.Now().Unix())
 	provider := &fakeSystemOne{}
-	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, Runs: st, PriorityJudgments: st, SystemOne: provider, Now: func() time.Time { return time.Unix(clock.Load(), 0) }}, key))
+	var verificationEvidence factory.CurrentVerificationEvidence
+	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, Runs: st, PriorityJudgments: st, SystemOne: provider, VerificationEvidence: func(_ context.Context, bound factory.MCPCapability) (map[string]any, error) {
+		if bound.Profile != factory.MCPProfileTestPilot {
+			t.Fatal("verification evidence reached a foreign profile")
+		}
+		return map[string]any{"available": true, "evidence": verificationEvidence, "outcome": "native_check_passed"}, nil
+	}, Now: func() time.Time { return time.Unix(clock.Load(), 0) }}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "current-context-pg"}, nil)
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{active.ID, secret}}}, nil)
@@ -445,6 +451,120 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
 	if !catalogRefused(result, err) {
 		t.Fatal("revoked capability read required context")
+	}
+	// The actual approved assertion bytes must survive the authenticated
+	// Test Pilot evidence and paged current-context transports. A receipt alone
+	// supplies no semantic coverage, and reads must never settle the delivery.
+	idea := factory.ProductIdea{ID: "d" + strings.Repeat("3", 24), Description: "Save a task", Consequence: "The saved title persists", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+	task := factory.IntentTask{Key: "d" + strings.Repeat("4", 24), Objective: "Persist tasks", Outcomes: []string{idea.Consequence}, IdeaIDs: []string{idea.ID}}
+	accepted := factory.IntentRevision{ID: "d" + strings.Repeat("5", 24), Intent: "d" + strings.Repeat("6", 24), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 1, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{task}, EffectiveOutcomes: []string{idea.ID}}
+	if err := st.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	binding := factory.IntentTaskBinding{RevisionID: accepted.ID, TaskKey: task.Key, IssueID: 43, IssueIndex: 43, AcceptanceID: "d" + strings.Repeat("7", 24), CreatedUnix: 1}
+	if err := st.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 43, Generation: 1, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: a.SourceCommit, ClosingOccurrence: "1"}
+	raw, _ = json.Marshal(event)
+	write(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,'1',$3)`, event.ID, event.PublicationID, string(raw))
+	manifest := factory.ApprovedAppCheck{IntentID: accepted.Intent, AcceptedRevision: accepted.ID, Outcomes: []string{idea.ID}}
+	manifestJSON, _ := json.Marshal(manifest)
+	approvedCheck := "#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(manifestJSON) + "\ncan test --artifact checked.can-artifact.json\n"
+	assertions := strings.Repeat("expect saved.title == requested.title // retained UTF-8: ✓\n", 100)
+	verificationEvidence = factory.CurrentVerificationEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: strings.Repeat("b", 64), SourceCommit: a.SourceCommit,
+		Receipt:         factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("private native output")), LogExcerpt: "Native approved application check passed"},
+		ApprovedContext: factory.NewApprovedVerificationContext(project.FactoryPreparationContext{Project: cap.Project, ID: "f" + strings.Repeat("3", 24), Role: project.RoleReviewer, SourceCommit: a.SourceCommit, ApprovedBase: a.SourceCommit, DiffBase: a.SourceCommit, Candidate: a.SourceCommit, Setup: []byte("#!/bin/sh\ncan check app.can\n"), Check: []byte(approvedCheck), Files: []project.FactoryContextFile{{Path: "app.can", Content: []byte(assertions)}}}),
+		State:           project.PrepareState{Output: "private native output"}}
+	pilot := a
+	pilot.ID, pilot.Run = factory.NewID(), factory.NewID()
+	pilot.AttemptRoot, pilot.PublicationAssignment = pilot.ID, ""
+	pilot.Issue, pilot.Role, pilot.Phase = 0, project.RoleReviewer, project.ExecutionVerify
+	pilot.Preparation = verificationEvidence.ApprovedContext.ID
+	pilot.Subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: accepted.Intent, AcceptedRevision: accepted.ID, ScopeDigest: accepted.Digest(), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, VerificationManifestDigest: manifest.Digest()}}
+	raw, _ = json.Marshal(pilot)
+	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',1,$3)`, pilot.ID, pilot.Run, string(raw))
+	pilotRun := factory.Run{ID: pilot.Run, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: a.SourceCommit}
+	raw, _ = json.Marshal(pilotRun)
+	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, pilot.Run, string(raw))
+	pilotCap := cap
+	pilotCap.ID, pilotCap.RunID, pilotCap.AssignmentID = factory.NewID(), pilot.Run, pilot.ID
+	pilotCap.Profile, pilotCap.Subject = factory.MCPProfileTestPilot, pilot.Subject.SubjectKey(7)
+	pilotPrep := project.StoredPreparation{Preparation: project.Preparation{ID: pilot.Preparation, Project: cap.Project, Role: project.RoleReviewer, SourceCommit: a.SourceCommit, SetupDigest: pilotCap.PreparationDigest}}
+	raw, _ = json.Marshal(pilotPrep)
+	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, pilot.Preparation, cap.Project, project.RoleReviewer, string(raw))
+	if err := st.StageMCPCapability(ctx, pilotCap); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ActivateObservedMCPCapability(ctx, pilotCap); err != nil {
+		t.Fatal(err)
+	}
+	pilotCap, err = st.GetMCPCapability(ctx, pilotCap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pilotSecret, err := factory.DeriveMCPCapabilitySecret(key, pilotCap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pilotSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{pilotCap.ID, pilotSecret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pilotSession.Close()
+	beforeVerification := counts()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
+	if catalogRefused(result, err) {
+		t.Fatal("approved verification evidence refused", err)
+	}
+	var observedEvidence struct {
+		Evidence factory.CurrentVerificationEvidence `json:"evidence"`
+		Outcome  string                              `json:"outcome"`
+	}
+	if json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Evidence.ValidateFor(*pilot.Subject.Delivery) != nil || observedEvidence.Outcome != "native_check_passed" || observedEvidence.Evidence.ApprovedContext.Check != approvedCheck || observedEvidence.Evidence.ApprovedContext.Files[0].Content != assertions || strings.Contains(catalogText(t, result), "private native output") {
+		t.Fatal("authenticated evidence lost exact readable assertions or exposed logs")
+	}
+	verificationJSON, nextVerificationPart, cursor := "", 0, ""
+	for pages := 0; ; pages++ {
+		if pages >= maxContextPages {
+			t.Fatal("approved assertion context exceeded its finite page bound")
+		}
+		args := map[string]any{}
+		if cursor != "" {
+			args["payload"] = map[string]any{"cursor": cursor}
+		}
+		result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: args})
+		if catalogRefused(result, err) {
+			t.Fatal("approved assertion current context refused", err)
+		}
+		var response struct {
+			Page currentContextPage `json:"current_role_page"`
+		}
+		if json.Unmarshal([]byte(catalogText(t, result)), &response) != nil {
+			t.Fatal("invalid approved assertion page")
+		}
+		for _, record := range response.Page.Records {
+			if record.Field == "verification" {
+				if record.Part != nextVerificationPart {
+					t.Fatal("approved assertion context reordered fragments")
+				}
+				verificationJSON += record.Content
+				nextVerificationPart++
+			}
+		}
+		if response.Page.CollectionComplete {
+			break
+		}
+		cursor = response.Page.NextCursor
+	}
+	var currentVerification factory.CurrentVerificationEvidence
+	if json.Unmarshal([]byte(verificationJSON), &currentVerification) != nil || currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || counts() != beforeVerification {
+		t.Fatal("required current context lost assertions or spent/settled during a read")
+	}
+	verificationEvidence.ApprovedContext.Candidate = strings.Repeat("e", 40)
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
+	if !catalogRefused(result, err) || counts() != beforeVerification {
+		t.Fatal("foreign verification source was projected or wrote during refusal")
 	}
 
 	// A real Architect report must remain correctable before terminal freeze.

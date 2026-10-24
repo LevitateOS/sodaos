@@ -162,6 +162,7 @@ export interface FactoryRunDetail {
   view?: FactoryRunView;
   state?: FactoryRunState;
   context_selection?: FactoryContextSelection;
+  verification_retry?: {available: boolean};
 }
 export interface FactoryContextSelection {
   fingerprint: string;
@@ -312,6 +313,12 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
     record = object(data.run);
   check(data.view === undefined || typeof data.view === 'object');
   check(data.state === undefined || typeof data.state === 'object');
+  let verificationRetry: {available: boolean} | undefined;
+  if (data.verification_retry !== undefined) {
+    const retry = object(data.verification_retry);
+    check(typeof retry.available === 'boolean');
+    verificationRetry = {available: retry.available};
+  }
   return {
     ...factoryRecordIdentity(record, runId),
     ...factoryRecordProvenance(record),
@@ -320,6 +327,7 @@ export function factoryRunStatusResponse(value: unknown, runId: string, reposito
     ...(data.context_selection === undefined
       ? {}
       : {context_selection: factoryContextSelection(data.context_selection)}),
+    ...(verificationRetry === undefined ? {} : {verification_retry: verificationRetry}),
   };
 }
 export interface FactoryStatus {
