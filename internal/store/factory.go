@@ -190,6 +190,25 @@ func settleClosedAttemptForRunTx(ctx context.Context, tx *sql.Tx, runID string, 
 	if assignment.Subject.Kind == factory.SubjectDelivery {
 		return settleTypedDeliveryRootTx(ctx, tx, repository, issue, assignment, now)
 	}
+	// Accepted inquiries and Library maintenance have no publication
+	// owner. Settle their own recorded issue root after its native effects
+	// retire, preserving the typed terminal's existing closed posture.
+	if factory.NonCodeIssueWork(assignment.Phase, assignment.Role, assignment.Subject, assignment.Issue, assignment.Acceptance) {
+		if err := assignment.Validate(); err != nil {
+			return err
+		}
+		if assignment.Repository != repository || assignment.Issue != issue {
+			return errors.New("non-code run view does not match its issue scope")
+		}
+		allowance, err := lockAttemptAllowanceRootTx(ctx, tx, repository, issue, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		if !allowance.Closed && assignment.Stage != factory.AssignmentFinished {
+			return nil
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, allowance, false, now)
+	}
 	allowance, owner, proceed, err := gateSettleRootTx(ctx, tx, repository, issue, assignment.AttemptRoot)
 	if err != nil || !proceed {
 		return err

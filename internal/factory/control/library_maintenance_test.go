@@ -264,6 +264,34 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 			if err != nil || !allowance.Closed {
 				t.Fatalf("finished maintenance left its allowance open: %+v %v", allowance, err)
 			}
+			// A typed finish may precede native retirement. Its issue root
+			// has no publication owner, but still owns readback and the
+			// final native/accounting transition.
+			root, err := db.LatestIssueAssignment(ctx, a.Repository, a.Issue)
+			if err != nil || root.ID != a.ID || root.PublicationAssignment != "" {
+				t.Errorf("non-code issue root unavailable: %s %v", root.ID, err)
+			}
+			settledRun, err := db.FactoryRun(ctx, a.Run)
+			if err != nil {
+				t.Fatal(err)
+			}
+			settledRun.Outcome, settledRun.Reconciled = factory.Succeeded, true
+			if err = db.SaveFactoryRun(ctx, settledRun); err != nil {
+				t.Fatalf("non-code native settlement: %v", err)
+			}
+			allowance, err = db.AttemptAllowance(ctx, a.Repository, a.Issue)
+			if err != nil || !allowance.Closed || allowance.Active {
+				t.Fatalf("non-code native retirement retained an active clock: %+v %v", allowance, err)
+			}
+			if err = db.SaveFactoryRun(ctx, settledRun); err != nil {
+				t.Fatalf("non-code settlement replay: %v", err)
+			}
+			replayed, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+			allowanceBytes, allowanceErr := json.Marshal(allowance)
+			replayBytes, replayErr := json.Marshal(replayed)
+			if err != nil || allowanceErr != nil || replayErr != nil || !bytes.Equal(allowanceBytes, replayBytes) {
+				t.Fatal("native settlement replay changed the retained non-code allowance", err)
+			}
 			actor, author := store.RecordAuthor(a.Phase, a.Role)
 			if actor != work.profile || (work.role == "research" && author != "Researcher") {
 				t.Fatalf("native reviewer masked semantic profile: %s/%s", actor, author)

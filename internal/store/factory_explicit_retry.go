@@ -14,14 +14,24 @@ import (
 // ErrExplicitRetryIneligible identifies a refused retry, rather than a storage failure.
 var ErrExplicitRetryIneligible = errors.New("explicit retry is no longer dispatchable")
 
-// LatestIssueAssignment reads the newest recorded assignment directly; old
-// issue history stays bounded and cannot hide a newer active or terminal row.
+// LatestIssueAssignment reads the newest issue root. Code roots own their
+// publication; accepted non-code roots own only their inquiry or maintenance.
+// Child history cannot hide a newer active or terminal root.
 func (s *Store) LatestIssueAssignment(ctx context.Context, repository, issue int64) (factory.Assignment, error) {
 	var assignment factory.Assignment
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 AND data->>'publication_assignment'=id ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&data)
+	var id string
+	err := s.db.QueryRowContext(ctx, `SELECT id,data FROM factory_assignments WHERE repository=$1 AND issue=$2
+AND (data->>'publication_assignment'=id OR (data->>'attempt_root'=id AND coalesce(data->>'publication_assignment','')=''))
+ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&id, &data)
 	if err == nil {
 		err = json.Unmarshal(data, &assignment)
+	}
+	if err == nil && assignment.PublicationAssignment == "" {
+		err = assignment.Validate()
+		if err == nil && (assignment.ID != id || assignment.Repository != repository || assignment.Issue != issue || !factory.NonCodeIssueWork(assignment.Phase, assignment.Role, assignment.Subject, issue, assignment.Acceptance)) {
+			err = errors.New("issue root lacks its bound publication or non-code subject")
+		}
 	}
 	return assignment, err
 }
