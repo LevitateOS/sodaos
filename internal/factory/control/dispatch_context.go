@@ -12,7 +12,7 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-var repositoryPathReference = regexp.MustCompile(`(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._-]+|[A-Za-z0-9_-]+\.(?:go|rs|py|js|ts|tsx|jsx|java|kt|c|h|cpp|md|toml|yaml|yml|json|sh|sql|html|css|lock)`)
+var repositoryPathReference = regexp.MustCompile(`(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._-]+|[A-Za-z0-9_-]+\.(?:can|go|rs|py|js|ts|tsx|jsx|java|kt|c|h|cpp|md|toml|yaml|yml|json|sh|sql|html|css|lock)\b`)
 
 func readRepositoryContext(ctx context.Context, host DispatchHost, plan *attemptPlan, preparation project.Preparation, role string, approvedBase, diffBase, candidate string, requirePreparedCandidate bool) (*project.FactoryPreparationContext, error) {
 	if host == nil || plan == nil || preparation.Validate() != nil || !time.Now().Before(plan.deadline) {

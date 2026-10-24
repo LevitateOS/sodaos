@@ -22,7 +22,8 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
 		t.Fatal(err)
 	}
-	oldHead := fx.accept(t, 3, "d333333333333333333333333")
+	const acceptedBody = "Implement app.can and client.jsx; app.cannot and notes.mdbackup are prose, not source files."
+	oldHead := fx.accept(t, 3, "d333333333333333333333333", acceptedBody)
 	youngHead := fx.accept(t, 5, "d555555555555555555555555")
 	now := time.Now()
 	fx.queueAt(t, 3, oldHead.ID, now.Add(-2*time.Hour))
@@ -50,7 +51,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if a.Authority.Sponsorship != 1 || a.Authority.RequirementsID == "" || a.Authority.ApprovalID == "" {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
-	if a.AcceptedContext == nil || a.AcceptedContext.Title != "objective 3; inspect README.md" || a.AcceptedContext.Body != "body 3" || len(a.AcceptedContext.Sources) != 1 || a.AcceptedContext.Sources[0].Content != "answer 3" || a.AcceptedContext.RepositoryContext == nil || a.AcceptedContext.ValidateAcceptance(oldHead) != nil {
+	if a.AcceptedContext == nil || a.AcceptedContext.Title != "objective 3; inspect README.md" || a.AcceptedContext.Body != acceptedBody || len(a.AcceptedContext.Sources) != 1 || a.AcceptedContext.Sources[0].Content != "answer 3" || a.AcceptedContext.RepositoryContext == nil || a.AcceptedContext.ValidateAcceptance(oldHead) != nil {
 		t.Fatal("atomic dispatch lost exact structured accepted context")
 	}
 	for _, want := range []string{
@@ -88,7 +89,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		if fx.host.contextRoles[0] != project.RoleCoder || contextRead.ID != a.Preparation ||
 			contextRead.SourceCommit != a.SourceCommit || contextRead.ApprovedBase != a.SourceCommit ||
 			contextRead.DiffBase != a.SourceCommit || contextRead.Candidate != fx.tip ||
-			!contextRead.NotAfter.Equal(run.Deadline) || len(contextRead.Paths) != 1 || contextRead.Paths[0] != "README.md" {
+			!contextRead.NotAfter.Equal(run.Deadline) || strings.Join(contextRead.Paths, ",") != "README.md,app.can,client.jsx" {
 			t.Fatalf("initial context changed approved source, role or run deadline: request=%+v role=%q run=%+v", contextRead, fx.host.contextRoles[0], run)
 		}
 	}
