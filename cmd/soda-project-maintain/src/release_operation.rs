@@ -503,15 +503,15 @@ pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), Failure> {
             return Err("release-reconcile takes no arguments".into());
         }
         let _guard = admission::exclusive()?;
+        let deadline = Instant::now() + Duration::from_secs(120);
+        // Custody may outlive the finalized operation. Its owner must
+        // reconcile it even when only the historical release remains.
+        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
         let record = match select_boot_record(Path::new(admission::DIRECTORY))? {
             Some(record) => record,
             None => return Ok(None),
         };
         no_other_repairs()?;
-        let deadline = Instant::now() + Duration::from_secs(120);
-        // Boot consumes the same importer custody: an acquisition that
-        // outlived its operation retires here or fences the finalize.
-        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
         verify_active(&record, deadline)?;
         finish(record.clone(), deadline)?;
         Ok(Some(record))

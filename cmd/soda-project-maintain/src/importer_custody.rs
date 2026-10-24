@@ -9,16 +9,18 @@
 //! anchor; persisted recovery never signals a group from a saved
 //! integer, however well it matches, and never turns a fence into an
 //! automatic retry or success.
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::fs::{self, DirBuilder, File, Metadata, OpenOptions};
+use std::io::{Read, Write};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::Path;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub(crate) const CUSTODY: &str = "importer-custody.json";
 const SCRATCH: &str = "importer-custody.next";
+const HISTORY: &str = "importer-history";
 const FORMAT: u32 = 1;
 const CLOSED: &str = "importer custody uncertain; inspect or recover this operation";
 
@@ -134,7 +136,7 @@ fn load_raw(directory: &Path) -> Result<Option<ImporterCustody>, String> {
 /// operation journal: an unsafe scratch entry is never replaced, the
 /// payload commits through a rename, and the directory fsyncs. A
 /// non-retired record already on disk fences the write: live custody is
-/// never overwritten, only retired custody is superseded by the next
+/// never overwritten. Retired custody is archived before the next
 /// acquisition.
 fn persist(directory: &Path, record: &ImporterCustody, owner: u32) -> Result<(), String> {
     record.validate()?;
@@ -142,13 +144,14 @@ fn persist(directory: &Path, record: &ImporterCustody, owner: u32) -> Result<(),
         if existing.state != RETIRED {
             return Err(CLOSED.into());
         }
+        archive_retired(directory, owner)?;
     }
     write_replace(directory, record, owner)
 }
 
 /// acquire binds one acquisition before importer launch: the exact payload
 /// digest and argv. A non-retired record fences; a retired record is
-/// superseded by the fresh acquisition.
+/// archived before the fresh acquisition.
 pub(crate) fn acquire(
     directory: &Path,
     payload_digest: &str,
@@ -200,6 +203,81 @@ pub(crate) fn launched(
     write_replace(directory, &next, owner)
 }
 
+fn private_record(path: &Path, owner: u32) -> Result<(File, Metadata, Vec<u8>), String> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|_| CLOSED)?;
+    let info = file.metadata().map_err(|_| CLOSED)?;
+    if !info.is_file() || info.uid() != owner || info.mode() & 0o077 != 0 {
+        return Err(CLOSED.into());
+    }
+    let mut bytes = Vec::new();
+    Read::by_ref(&mut file)
+        .take((1 << 20) + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| CLOSED)?;
+    if bytes.len() > 1 << 20 {
+        return Err(CLOSED.into());
+    }
+    Ok((file, info, bytes))
+}
+
+/// The live journal fences ordinary Project admission. Once retirement is
+/// proved, retain its exact bytes privately before clearing that fence.
+/// A crash before unlink leaves the live journal in place; replay verifies
+/// the same immutable history entry and completes the transition.
+fn archive_retired(directory: &Path, owner: u32) -> Result<(), String> {
+    let source = directory.join(CUSTODY);
+    let (file, info, bytes) = private_record(&source, owner)?;
+    let record: ImporterCustody = soda_host::json::decode_strict_as(&bytes).map_err(|_| CLOSED)?;
+    record.validate()?;
+    if record.state != RETIRED {
+        return Err(CLOSED.into());
+    }
+    let history = directory.join(HISTORY);
+    match DirBuilder::new().mode(0o700).create(&history) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(CLOSED.into()),
+    }
+    let history_directory = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&history)
+        .map_err(|_| CLOSED)?;
+    let history_info = history_directory.metadata().map_err(|_| CLOSED)?;
+    if history_info.uid() != owner || history_info.mode() & 0o077 != 0 {
+        return Err(CLOSED.into());
+    }
+    let archived = history.join(format!("{:x}.retired", Sha256::digest(&bytes)));
+    match fs::hard_link(&source, &archived) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(CLOSED.into()),
+    }
+    let (retained, _, retained_bytes) = private_record(&archived, owner)?;
+    if retained_bytes != bytes {
+        return Err(CLOSED.into());
+    }
+    retained.sync_all().map_err(|_| CLOSED)?;
+    history_directory.sync_all().map_err(|_| CLOSED)?;
+    let admission_directory = File::open(directory).map_err(|_| CLOSED)?;
+    // Persist the history directory's own parent entry before removing
+    // the live journal, including the first archive after installation.
+    admission_directory.sync_all().map_err(|_| CLOSED)?;
+    let current = fs::symlink_metadata(&source).map_err(|_| CLOSED)?;
+    if !current.is_file() || current.dev() != info.dev() || current.ino() != info.ino() {
+        return Err(CLOSED.into());
+    }
+    // Keep the source descriptor alive through unlink and the parent fsync.
+    fs::remove_file(&source).map_err(|_| CLOSED)?;
+    admission_directory.sync_all().map_err(|_| CLOSED)?;
+    drop(file);
+    Ok(())
+}
+
 /// retired records a group-verified retirement. The caller must have
 /// observed the empty group (the wait loop verifies it before success);
 /// this is the durable mark recovery consumes.
@@ -211,7 +289,8 @@ pub(crate) fn retired(directory: &Path, payload_digest: &str, owner: u32) -> Res
     let mut next = current;
     next.state = RETIRED.into();
     next.validate()?;
-    write_replace(directory, &next, owner)
+    write_replace(directory, &next, owner)?;
+    archive_retired(directory, owner)
 }
 
 /// write_replace commits one verified custody transition over the live
@@ -251,7 +330,7 @@ fn write_replace(directory: &Path, record: &ImporterCustody, owner: u32) -> Resu
 }
 
 /// reconcile consumes custody on the recover, rollback and boot paths. An
-/// absent or retired record proceeds. An acquired-but-never-launched
+/// absent record proceeds; a retired record is archived. An acquired-but-never-launched
 /// record fences: a group may exist with no recorded pgid, and nothing
 /// safe can be signaled. A launched record retires only with its leader
 /// identity pinned; a lost or reused identity with a live group fences
@@ -289,7 +368,8 @@ pub(crate) fn reconcile(directory: &Path, owner: u32, deadline: Instant) -> Resu
         RETIRED => Ok(()),
         ACQUIRED | LAUNCHED => reconcile_outstanding(directory, &current, owner),
         _ => Err(CLOSED.into()),
-    }
+    }?;
+    archive_retired(directory, owner)
 }
 
 /// reconcile_outstanding consumes one outstanding acquisition without
