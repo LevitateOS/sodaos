@@ -141,7 +141,9 @@ type ChosenIntentPlan struct {
 	// Attempt is the recorded planning assignment the choice was
 	// resolved from. Empty on hand-built choices; ResolveAcceptedPlanChoice
 	// always stamps it, and generation binds it to the operation.
-	Attempt string
+	Attempt                      string
+	VerificationManifestProposal *factory.VerificationManifestProposal
+	VerificationManifest         *factory.AdoptedVerificationManifest
 }
 
 // ChooseSingleCandidate reduces one planner answer to its single adopted
@@ -166,6 +168,7 @@ func ChooseSingleCandidate(in factory.SemanticPlannerInput, out factory.Semantic
 	chosen := ChosenIntentPlan{
 		Intent: in.Head.Intent, Revision: in.Head.ID, Operation: in.Operation,
 		Key: candidate.Key, Tasks: append([]factory.IntentTask(nil), candidate.Tasks...),
+		VerificationManifestProposal: out.VerificationManifestProposal,
 	}
 	if chosen.Key == "" {
 		return ChosenIntentPlan{}, errors.New("chosen planner candidate lacks its key")
@@ -263,5 +266,6 @@ func (c *Coordinator) ChoosePlannedCandidate(ctx context.Context, r factory.Inte
 	return ChosenIntentPlan{
 		Intent: in.Head.Intent, Revision: in.Head.ID, Operation: in.Operation,
 		Key: candidate.Key, Tasks: append([]factory.IntentTask(nil), candidate.Tasks...),
+		VerificationManifestProposal: out.VerificationManifestProposal,
 	}, nil
 }

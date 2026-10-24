@@ -501,7 +501,14 @@ func TestGenerateFromResolvedPlanChoiceAdoptsExactly(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	draft := choicePlanDraft(fx.repo)
-	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
+	out := choicePlannerOutput(draft, "cand-a")
+	proposal := &factory.VerificationManifestProposal{Outcomes: append([]string(nil), draft.EffectiveOutcomes...)}
+	for _, outcome := range proposal.Outcomes {
+		proposal.Checks = append(proposal.Checks, factory.ManifestCheckRef{Outcome: outcome, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}})
+	}
+	out.VerificationManifestProposal = proposal
+	answer := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "recorded graph and approved check proposal", Output: &factory.PhaseOutput{Decomposition: &out}})
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
 	accepted := choicePlanAccepted(t, fx.repo)
@@ -510,6 +517,24 @@ func TestGenerateFromResolvedPlanChoiceAdoptsExactly(t *testing.T) {
 	}
 	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
 	c := choicePlanCoordinator(t, db, fx, stub)
+	preparations, err := db.StandingProjectPreparations(ctx, fx.proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p project.Preparation
+	for _, preparation := range preparations {
+		if preparation.Preparation.Role == project.RoleCoder {
+			p = preparation.Preparation
+			break
+		}
+	}
+	if p.ID == "" {
+		t.Fatal("standing coder preparation missing")
+	}
+	zero := 0
+	fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
+		return project.PrepareState{ID: p.ID, Project: p.Project, Role: p.Role, SourceCommit: p.SourceCommit, SetupDigest: p.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}, nil
+	}
 	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
 	g, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7)
@@ -521,6 +546,48 @@ func TestGenerateFromResolvedPlanChoiceAdoptsExactly(t *testing.T) {
 	}
 	if keys := submittedKeys(g.SubmittedTasks); len(keys) == 0 || keys[0] != choiceTaskKey(1) {
 		t.Fatalf("submitted=%v want recorded candidate tasks", keys)
+	}
+	if g.VerificationManifest == nil || g.VerificationManifestDigest != g.VerificationManifest.Digest() || g.VerificationManifest.ValidateFor(accepted) != nil || g.VerificationManifest.Proposal.Digest() != proposal.Digest() || g.VerificationManifest.Catalog.CheckDigest != factory.MCPInputDigest([]byte("synthetic required checks")) {
+		t.Fatalf("adopted graph lost its exact approved manifest: %+v", g.VerificationManifest)
+	}
+	storedGeneration, err := db.IntentGeneration(ctx, g.RevisionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, _ := json.Marshal(storedGeneration)
+	replayed, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7)
+	current, _ := json.Marshal(replayed)
+	if err != nil || wait != nil || string(old) != string(current) {
+		t.Fatalf("graph/manifest replay changed adoption: state=%s wait=%+v err=%v", replayed.State, wait, err)
+	}
+	changed := g
+	manifest := *g.VerificationManifest
+	manifest.Catalog.CheckDigest = strings.Repeat("f", 64)
+	changed.VerificationManifest = &manifest
+	changed.VerificationManifestDigest = manifest.Digest()
+	if err := db.RecordIntentGeneration(ctx, changed); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatalf("adopted catalog was replaceable: %v", err)
+	}
+	fx.host.contextRead = func(request project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+		material := fixturePreparationContext(request, role)
+		material.Check = []byte("changed protected check")
+		return material, nil
+	}
+	if _, err := c.validateGenerationBinding(ctx, g); err == nil {
+		t.Fatal("changed protected check retained native effect authority")
+	}
+	next := accepted
+	next.ID, next.Predecessor = "d"+strings.Repeat("e", 24), accepted.ID
+	if err := db.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	omitted := g
+	omitted.RevisionID, omitted.IntentDigest, omitted.State, omitted.Receipt = next.ID, next.Digest(), "pending", nil
+	omitted.OperationID = "intent-" + next.ID
+	omitted.AuthRevision = next.ID + ":" + next.Digest()
+	omitted.VerificationManifest, omitted.VerificationManifestDigest = nil, ""
+	if err := db.BeginIntentGeneration(ctx, omitted); err == nil || !strings.Contains(err.Error(), "omitted its prior adopted") {
+		t.Fatalf("later graph silently dropped its adopted manifest: %v", err)
 	}
 }
 

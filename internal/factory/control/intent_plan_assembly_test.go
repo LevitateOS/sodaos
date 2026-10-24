@@ -129,6 +129,58 @@ func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
 	if in.Operation != factory.IntentPlanningPropose || in.Head.ID != head.ID {
 		t.Fatalf("assembled input not bound: %+v", in.Operation)
 	}
+	// The production catalog consumes the same approved native preparation,
+	// without executing or trusting a check selected by Product Lead.
+	a := factory.Assignment{Repository: fx.repo, ProjectID: fx.proj, Phase: project.ExecutionDecompose, Role: project.RoleCoder, Preparation: prep.ID, SourceCommit: prep.SourceCommit,
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectIntent, Intent: &factory.IntentSubject{IntentID: head.Intent, RevisionID: head.ID, OwnerID: head.Owner, ScopeDigest: head.Digest()}}}
+	zero, failed := 0, 1
+	state := project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}
+	fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) { return state, nil }
+	catalog, err := coord.ApprovedProjectCheckCatalog(ctx, a)
+	if err != nil || catalog.Project != prep.Project || catalog.Preparation != prep.ID || catalog.PreparationDigest != factory.DeliveryPreparationDigest(prep) || catalog.CheckDigest != factory.MCPInputDigest([]byte("native required checks")) {
+		t.Fatalf("production catalog omitted protected approval binding: %+v %v", catalog, err)
+	}
+	if _, ok := catalog.LookupCheck(factory.ApprovedAppCheckID); !ok {
+		t.Fatal("approved project check missing from production catalog")
+	}
+	if _, ok := catalog.LookupCheck("worker.chosen.shell"); ok {
+		t.Fatal("worker shell became an approved check")
+	}
+	validState := state
+	for _, fault := range []string{"source", "setup-digest", "stopped", "not-ready", "setup-failed", "check-failed", "check-unknown"} {
+		state = validState
+		switch fault {
+		case "source":
+			state.SourceCommit = strings.Repeat("e", 40)
+		case "setup-digest":
+			state.SetupDigest = strings.Repeat("e", 64)
+		case "stopped":
+			state.Stopped = true
+		case "not-ready":
+			state.Ready = false
+		case "setup-failed":
+			state.SetupExit = &failed
+		case "check-failed":
+			state.CheckExit = &failed
+		case "check-unknown":
+			state.CheckExit = nil
+		}
+		if _, err := coord.ApprovedProjectCheckCatalog(ctx, a); err == nil {
+			t.Fatalf("catalog accepted native %s", fault)
+		}
+	}
+	state = validState
+	fx.host.contextRead = func(request project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+		material := fixturePreparationContext(request, role)
+		material.Check = nil
+		return material, nil
+	}
+	if _, err := coord.ApprovedProjectCheckCatalog(ctx, a); err == nil {
+		t.Fatal("catalog accepted missing protected check")
+	}
+	if len(fx.host.launches) != 0 || len(fx.host.preparations) != 0 {
+		t.Fatal("catalog read launched native work")
+	}
 }
 
 // TestChunkApprovedSelectionsRejectsDeepPathAfterFlush proves the

@@ -61,7 +61,7 @@ Native child/lane presentation does not grant the parent's mutation capability.
 
 **Accept only when:** Cross-scope/expired/revoked/forbidden calls refuse server-side. Replay returns the same receipt, conflict refuses, restart/rebind cannot renew authority. No secrets in prompts/argv/logs or broad operator/extension socket exposure.
 
-**Implementation notes:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` now stages metadata before native launch; authenticated request preparation observes the live host worker and checks stored stop/assignment state before activation. Local tests refuse a cached observation across committed stop. The approved verification `Catalog` still needs its separate binding. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
+**Implementation notes:** Consume R08's OS/peer boundary, R09's actual relay contract and R10's typed scope. `BuildMCPCapability` now stages metadata before native launch; authenticated request preparation observes the live host worker and checks stored stop/assignment state before activation. Local tests refuse a cached observation across committed stop. The approved verification `Catalog` now binds the exact authenticated Product Lead assignment and approved preparation; R38 retains the separate executor gate. Then qualify reconnect/receipt recovery through the real CLI. Release live authority to R31 and formal finish consumers; R32 communication reuses it when its schema is ready. Human comments use authenticated user authority, never a borrowed agent capability. PG activation/withdrawal races and native peer/stop tests are required; staged metadata alone remains unavailable.
 
 **Principal source owners:** [cmd/soda-dashboard/factory_mcp.go](../../../cmd/soda-dashboard/factory_mcp.go), [internal/web/api/factory_mcp.go](../../../internal/web/api/factory_mcp.go), [internal/factory/control/mcp_admission.go](../../../internal/factory/control/mcp_admission.go), [internal/store/factory_mcp_capability.go](../../../internal/store/factory_mcp_capability.go), [lib/host/src/terminal/factory/mcp_relay.rs](../../../lib/host/src/terminal/factory/mcp_relay.rs).
 
@@ -396,6 +396,20 @@ the recording tool; missing fixtures or evidence remain explicit incomplete case
 **Accept only when:** P9 uses the actual approved fixture and current integrated bytes. Missing/stale/failed checks cannot pass; forged proposed evidence is not trusted check output. Lost replies and CLI-start ordering preserve identity and no deployment occurs.
 
 **Implementation notes:** Consume R10 delivery identity, R13 accepted outcome coverage, R18 exact integrated artifact and R27 verified delivery. Start at `internal/factory/mcp_manifest.go::ValidateManifestProposal`, `verification.go` and API `FactoryMCPDeps.Catalog`. First wire approved catalog lookup and durable adoption of the proposal; then launch its bounded readonly Test Pilot checks through existing host manifest/run owners. Bind trusted check output independently of submitted report digests. Release exact verification receipts to R39/R40. Test missing fixture, stale manifest/artifact, forged receipt and failed required check at the actual Store/handler join, then native P9 using R30/R44/R45. No deployment or agent-defined shell authority.
+
+**Catalog/adoption slice:** The production capability resolver now reads the
+current approved native preparation and protected check bytes. Product Lead sees
+the bounded `project.check` entry in context; authenticated finish retains the
+proposal in its typed result. Recorded graph selection and Generate preserve its
+exact outcome coverage and catalog snapshot, with atomic accepted-head and
+preparation-head checks. Exact immutable finish replay survives later approval or
+draft movement; new wrong-scope/catalog/fixture/artifact/parameter/native-receipt
+claims refuse before writing a receipt. Existing real PostgreSQL and authenticated
+HTTP planning integrations exercise these production readers, canonical graph
+adoption and replay. This does not complete R38: a newly adopted manifest has an
+explicit executor wait, while the nil-manifest fixed check route remains as
+described in D16. The entire trusted manifest, disposable fixture custody,
+pre-CLI ordering and native P9 qualification are still required.
 
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs).
 

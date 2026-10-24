@@ -266,8 +266,7 @@ func buildMCPReviewerResult(a factory.Assignment, parsed factory.PhaseResult, re
 // subject and its staged planning input), never from worker payload:
 // without a staged input there is no operation to bind, so the
 // proposal parks instead of inventing one. A verification manifest
-// proposal carried beside the candidates is not adopted here; its
-// bytes stay in the immutable submission for its own consumer.
+// proposal remains a typed proposal until exact accepted graph adoption.
 func settleProductPlan(assigned factory.Assignment, submission factory.MCPSubmission, fields map[string]json.RawMessage, now time.Time) (factory.Assignment, string, bool, error) {
 	raw, ok := rawField(fields, "candidates")
 	if !isObjectArrayRaw(raw, ok) {
@@ -290,6 +289,13 @@ func settleProductPlan(assigned factory.Assignment, submission factory.MCPSubmis
 	out := factory.SemanticPlannerOutput{
 		Intent: assigned.Subject.Intent.IntentID, Revision: assigned.Subject.Intent.RevisionID,
 		Operation: in.Operation, Candidates: candidates,
+	}
+	if raw, present := fields["verification_manifest_proposal"]; present {
+		proposal, err := factory.ParseVerificationManifestProposal(raw)
+		if err != nil || proposal.ValidateOutcomes(in.Head) != nil {
+			return fenceFW40(assigned, submission, now, "product plan verification manifest differs from its planning scope")
+		}
+		out.VerificationManifestProposal = &proposal
 	}
 	parsed := phaseResultFor(submission, project.ExecutionDecompose, "worker proposes product plan",
 		&factory.PhaseOutput{Decomposition: &out})

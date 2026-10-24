@@ -359,6 +359,10 @@ func (c *Coordinator) beginChosenIntentGeneration(ctx context.Context, r factory
 		return factory.IntentGeneration{}, e
 	}
 	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, Delivered: delivered, IntentDigest: r.Digest(), State: "pending", PlanAssignment: chosen.Attempt}
+	g.VerificationManifest = chosen.VerificationManifest
+	if g.VerificationManifest != nil {
+		g.VerificationManifestDigest = g.VerificationManifest.Digest()
+	}
 	if err := c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		// Concurrent callers must converge on the winner's exact native
 		// revision and deadline rather than invent a second operation.

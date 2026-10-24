@@ -335,11 +335,12 @@ type SemanticPlannerInput struct {
 // no candidates. Attention records the product decision the planner needs;
 // it never triggers another batch automatically.
 type SemanticPlannerOutput struct {
-	Intent     string              `json:"intent"`
-	Revision   string              `json:"revision"`
-	Operation  string              `json:"operation"`
-	Candidates []SemanticCandidate `json:"candidates,omitempty"`
-	Attention  string              `json:"attention,omitempty"`
+	Intent                       string                        `json:"intent"`
+	Revision                     string                        `json:"revision"`
+	Operation                    string                        `json:"operation"`
+	Candidates                   []SemanticCandidate           `json:"candidates,omitempty"`
+	Attention                    string                        `json:"attention,omitempty"`
+	VerificationManifestProposal *VerificationManifestProposal `json:"verification_manifest_proposal,omitempty"`
 }
 
 // Validate checks the planner input shape and bindings without running any
@@ -393,7 +394,7 @@ func (out SemanticPlannerOutput) Validate() error {
 		return errors.New("unknown intent planning operation")
 	}
 	if out.Attention != "" {
-		if len(out.Candidates) != 0 {
+		if len(out.Candidates) != 0 || out.VerificationManifestProposal != nil {
 			return errors.New("attention carries no new candidates")
 		}
 		if strings.TrimSpace(out.Attention) == "" || len(out.Attention) > 4000 {
@@ -436,6 +437,11 @@ func AssessSemanticOutput(in SemanticPlannerInput, out SemanticPlannerOutput) er
 	}
 	if out.Attention != "" {
 		return nil
+	}
+	if out.VerificationManifestProposal != nil {
+		if err := out.VerificationManifestProposal.ValidateOutcomes(in.Head); err != nil {
+			return err
+		}
 	}
 	for _, candidate := range out.Candidates {
 		if err := AssessProposedTasks(in.Head, candidate.Tasks, in.Head.MaxIssues); err != nil {

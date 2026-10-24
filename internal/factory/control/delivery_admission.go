@@ -15,6 +15,13 @@ import (
 func (c *Coordinator) deliveryAdmission(ctx context.Context, candidate store.DeliveredIntentCandidate) (factory.ExecutionSubject, string, []byte, error) {
 	var none factory.ExecutionSubject
 	revision := candidate.Revision
+	generation, generationErr := c.Store.IntentGeneration(ctx, revision.ID)
+	if generationErr != nil && !errors.Is(generationErr, store.ErrNotFound) {
+		return none, "", nil, generationErr
+	}
+	if generation.VerificationManifest != nil {
+		return none, "", nil, errors.New("The adopted verification manifest needs its trusted per-run executor before Test Pilot can start.")
+	}
 	policy, err := c.Store.RepositoryPolicy(ctx, revision.Repository)
 	if err != nil {
 		return none, "", nil, err

@@ -2030,6 +2030,22 @@ and original closing occurrence. These are existing Factory merge/closure facts,
 not application assertions or operator deployment attestations. A later owner
 source change does not rewrite the original merged commit.
 
+Product Lead now reads the capability-bound approved `project.check` catalog in
+`factory.context`. Its entry permits only the protected check, the
+`project.check.receipt` artifact and `project.preparation` fixture; it grants no
+parameters, arbitrary commands, paths or external fixtures. A proposal must name
+every exact effective outcome. The authenticated finish retains it in the typed
+planning result, and Generate binds the selected proposal to the current accepted
+Intent/revision/scope plus the exact Project/preparation, requirement/approval,
+source, preparation digest and protected check digest. The generation transaction
+locks the accepted head and rechecks the current preparation heads; native effects
+also repeat the approved catalog read. Recorded proposal/result replay preserves
+its original bytes after a later approval or draft change. Catalog or proposal
+changes cannot replace an adopted manifest. This is catalog lookup and durable
+adoption only: an adopted manifest explicitly waits for the trusted per-run
+executor rather than falling back to the fixed check route. The full executor,
+fixture lifecycle and CLI-start ordering below remain required.
+
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 
 The fixed check route enforces the default stable-intent allowance of **2 admitted

@@ -65,8 +65,8 @@ type FactoryMCPRunSource interface {
 // FactoryMCPDeps wires the catalog server. Observed supplies the
 // host-observed run state from outside SQL; nil keeps the recorded
 // binding only (FW39 plugs host observation here). Catalog backs
-// D16 proposal validation; nil names the unwired catalog honestly
-// (FW40 wires the approved check catalog).
+// D16 proposal validation from the authenticated capability's approved
+// preparation; nil keeps the catalog unavailable.
 type FactoryMCPDeps struct {
 	ContextCursorKey []byte
 	// BoundCapability is supplied by the authenticated transport, never tool
@@ -80,7 +80,7 @@ type FactoryMCPDeps struct {
 	PriorityJudgments    FactoryMCPPriorityJudgmentSource
 	Runs                 FactoryMCPRunSource
 	Observed             func(capability factory.MCPCapability) (control.MCPRunObservation, error)
-	Catalog              factory.ApprovedCatalog
+	Catalog              func(context.Context, factory.MCPCapability) (factory.ApprovedCatalog, error)
 	Now                  func() time.Time
 	SystemOne            FactorySystemOne
 	VerificationEvidence func(context.Context, factory.MCPCapability) (map[string]any, error)
@@ -394,9 +394,6 @@ func (s *factoryCatalogServer) checkPayloadOutcome(tool factory.MCPTool, payload
 		}
 	}
 	if tool == factory.MCPToolFinishProductPlan {
-		if err := s.checkManifestProposal(payload); err != nil {
-			return err
-		}
 		if candidates, ok := payload["candidates"].([]any); !ok || len(candidates) < 1 || len(candidates) > 3 {
 			return fmt.Errorf("product plan needs 1-3 graph candidates")
 		}
@@ -505,7 +502,7 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 // outcome coverage, approved catalog references, parameter bounds
 // and artifact/fixture requirements. FW40 adopts valid proposals;
 // FW45 verifies against adopted manifests.
-func (s *factoryCatalogServer) checkManifestProposal(payload map[string]any) error {
+func (s *factoryCatalogServer) checkManifestProposal(ctx context.Context, cap factory.MCPCapability, payload map[string]any) error {
 	raw, present := payload["verification_manifest_proposal"]
 	if !present {
 		return nil
@@ -517,14 +514,32 @@ func (s *factoryCatalogServer) checkManifestProposal(payload map[string]any) err
 	if len(encoded) > factory.MCPMaxManifestBytes {
 		return errors.New("manifest proposal exceeds 64 KiB")
 	}
-	var proposal factory.VerificationManifestProposal
-	if err := json.Unmarshal(encoded, &proposal); err != nil {
+	proposal, err := factory.ParseVerificationManifestProposal(encoded)
+	if err != nil {
 		return errors.New("manifest proposal shape refused")
 	}
-	if err := factory.ValidateManifestProposal(proposal, s.deps.Catalog); err != nil {
+	if s.deps.Catalog == nil {
+		return errors.New("no approved check catalog")
+	}
+	catalog, err := s.deps.Catalog(ctx, cap)
+	if err != nil {
 		return err
 	}
-	return nil
+	if err := factory.ValidateManifestProposal(proposal, catalog); err != nil {
+		return err
+	}
+	if s.deps.Assignments == nil {
+		return errors.New("planning scope is unavailable")
+	}
+	a, err := s.deps.Assignments.Assignment(ctx, cap.AssignmentID)
+	if err != nil || a.Subject.Intent == nil {
+		return errors.New("planning scope is unavailable")
+	}
+	in, staged, err := control.ParseStagedPlanningInput(a.Prompt)
+	if err != nil || !staged || in.Head.ID != a.Subject.Intent.RevisionID || in.Head.Digest() != a.Subject.Intent.ScopeDigest {
+		return errors.New("verification manifest has no recorded planning scope")
+	}
+	return proposal.ValidateOutcomes(in.Head)
 }
 
 // admitMutation runs the shared mutation gate after admitCall:
@@ -571,6 +586,23 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	if err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission); err != nil {
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
+	}
+	if tool == factory.MCPToolFinishProductPlan {
+		_, receiptErr := s.deps.Submissions.MCPReceipt(ctx, submission.AssignmentID, submission.SubmissionID)
+		if receiptErr != nil && !errors.Is(receiptErr, store.ErrNotFound) {
+			release()
+			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, receiptErr
+		}
+		if errors.Is(receiptErr, store.ErrNotFound) {
+			terminal, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, submission.AssignmentID)
+			if err == nil && !(frozen && terminal.Tool == tool && terminal.InputDigest == submission.PayloadHash) {
+				err = s.checkManifestProposal(ctx, capability, args.Payload)
+			}
+			if err != nil {
+				release()
+				return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
+			}
+		}
 	}
 	if err := s.requireNewSubmissionContext(ctx, capability, submission); err != nil {
 		release()
@@ -680,6 +712,17 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 	attemptEligible, lineageEligible := factory.BundleEligibility(read.assignment, read.parentLoaded)
 	foregrounded, selectionReason, selectionFingerprint := s.foregroundReadBundle(ctx, read, attemptEligible, lineageEligible)
 	body := buildReadBody(read, attemptEligible, lineageEligible, foregrounded)
+	if read.capability.Profile == factory.MCPProfileProductLead {
+		catalogView := map[string]any{"available": false, "reason": "approved check catalog is unavailable"}
+		if s.deps.Catalog != nil {
+			if catalog, err := s.deps.Catalog(ctx, read.capability); err == nil {
+				if check, ok := catalog.LookupCheck(factory.ApprovedAppCheckID); ok {
+					catalogView = map[string]any{"available": true, "entries": []factory.ApprovedCheck{check}, "binding": catalog}
+				}
+			}
+		}
+		body["verification_catalog"] = catalogView
+	}
 	action := "serve"
 	if selectionReason != "" {
 		action = "hold"
@@ -1038,6 +1081,7 @@ func (s *API) FactoryMCPHandler() http.Handler {
 		Prepare:              s.prepareFactoryWorkerMCP,
 		SystemOne:            &control.TypeSafeSystemOne{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel},
 		VerificationEvidence: s.factoryVerificationEvidence,
+		Catalog:              s.factoryApprovedVerificationCatalog,
 	}, key)
 }
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // planSourcePath is the approved source file the seeded preparation
@@ -33,7 +35,8 @@ func planSourceDigest() string {
 // consumer proof: it records launches and answers nothing itself, so
 // no provider call or native activation happens in the test.
 type planStubHost struct {
-	launches []project.FactoryLaunch
+	launches    []project.FactoryLaunch
+	preparation *project.PrepareState
 }
 
 func (h *planStubHost) FactoryLaunch(_ context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
@@ -82,6 +85,9 @@ func (h *planStubHost) PrepareCandidate(_ context.Context, in project.FactoryCan
 }
 
 func (h *planStubHost) InspectPreparation(_ context.Context, _ project.PrepareInspect) (project.PrepareState, error) {
+	if h.preparation != nil {
+		return *h.preparation, nil
+	}
 	return project.PrepareState{}, project.ErrPreparationNotFound
 }
 
@@ -267,6 +273,183 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		if !strings.Contains(string(launched.Prompt), want) {
 			t.Fatalf("staged prompt drops %q", want)
 		}
+	}
+	// The production catalog is reached through an authenticated live worker,
+	// not a test catalog or worker-selected executable. It binds the protected
+	// preparation, exact draft and native check receipt before any new finish.
+	preparation, err := s.Preparation(ctx, launched.Preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.FactoryRun(ctx, launched.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap, err := control.BuildMCPCapability(launched, run, preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection := newFakeCatalogSink()
+	selection.capability = cap
+	attemptEligible, lineageEligible := factory.BundleEligibility(launched, false)
+	storeSelectionReceipt(t, selection, launched, attemptEligible, lineageEligible, factory.ContextBundleCurrent)
+	cap = selection.capability
+	if err := s.StageMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	staged, err := s.GetMCPCapability(ctx, cap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if staged.ContextSelectionSnapshot == "" {
+		if reserved, err := s.ReserveContextBundleSelection(ctx, staged, cap.ContextSelectionSnapshot); err != nil || !reserved {
+			t.Fatalf("fixture context selection was not admitted once: %v/%v", reserved, err)
+		}
+	}
+	if err := s.ActivateObservedMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	cap, err = s.GetMCPCapability(ctx, cap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cap.ContextSelectionSnapshot != selection.capability.ContextSelectionSnapshot {
+		t.Fatal("activated fixture lost its exact context point")
+	}
+	zero := 0
+	stub.preparation = &project.PrepareState{ID: preparation.Preparation.ID, Project: preparation.Preparation.Project, Role: preparation.Preparation.Role, SourceCommit: preparation.Preparation.SourceCommit, SetupDigest: preparation.Preparation.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}
+	catalog, err := product.factoryApprovedVerificationCatalog(ctx, cap)
+	if err != nil {
+		t.Fatalf("production capability catalog: %v", err)
+	}
+	if _, ok := catalog.LookupCheck(factory.ApprovedAppCheckID); !ok {
+		t.Fatal("approved project.check absent")
+	}
+	for _, fault := range []string{"source", "setup", "subject", "revision", "project"} {
+		wrong := cap
+		switch fault {
+		case "source":
+			wrong.SourceDigest = strings.Repeat("f", 40)
+		case "setup":
+			wrong.PreparationDigest = strings.Repeat("f", 64)
+		case "subject":
+			wrong.Subject += "-foreign"
+		case "revision":
+			wrong.AcceptedRevision = "999"
+		case "project":
+			wrong.Project = "p" + strings.Repeat("f", 24)
+		}
+		if _, err := product.factoryApprovedVerificationCatalog(ctx, wrong); err == nil {
+			t.Fatalf("production catalog accepted wrong %s", fault)
+		}
+	}
+	key := []byte(strings.Repeat("k", 32))
+	secret, err := factory.DeriveMCPCapabilitySecret(key, cap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, Catalog: product.factoryApprovedVerificationCatalog}, key))
+	defer server.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "approved-pl-catalog-pg"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	contextResult, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
+	if catalogRefused(contextResult, err) {
+		t.Fatalf("catalog context read refused: %v", err)
+	}
+	var contextView struct {
+		Catalog struct {
+			Available bool                                `json:"available"`
+			Entries   []factory.ApprovedCheck             `json:"entries"`
+			Binding   factory.ApprovedProjectCheckCatalog `json:"binding"`
+		} `json:"verification_catalog"`
+	}
+	if err := json.Unmarshal([]byte(catalogText(t, contextResult)), &contextView); err != nil || !contextView.Catalog.Available || len(contextView.Catalog.Entries) != 1 || contextView.Catalog.Entries[0].ID != factory.ApprovedAppCheckID || contextView.Catalog.Binding.Preparation != launched.Preparation || contextView.Catalog.Binding.CheckDigest != factory.MCPInputDigest([]byte("synthetic required checks")) {
+		t.Fatal("worker context omitted the actual approved check catalog", err)
+	}
+	proposal := factory.VerificationManifestProposal{Outcomes: []string{head.Ideas[0].ID, head.Ideas[1].ID}}
+	for _, outcome := range proposal.Outcomes {
+		proposal.Checks = append(proposal.Checks, factory.ManifestCheckRef{Outcome: outcome, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}})
+	}
+	candidates := []factory.SemanticCandidate{{Key: "one", Rationale: "Preserve the reviewed product choices.", Tasks: []factory.IntentTask{{Key: "d" + strings.Repeat("9", 24), Objective: "Record requests with explicit legacy synchronization", Outcomes: []string{"Requests can be recorded", "Legacy synchronization is explicit"}, IdeaIDs: proposal.Outcomes}}}}
+	finish := func(id string, p any) (*mcp.CallToolResult, error) {
+		return session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishProductPlan), Arguments: map[string]any{"submission_id": id, "payload": map[string]any{"candidates": candidates, "coverage": "Every effective outcome uses the approved Project check.", "evidence_refs": []string{"approved preparation"}, "verification_manifest_proposal": p}}})
+	}
+	for _, fault := range []string{"catalog", "outcome", "artifact", "fixture", "missing-fixture", "parameter", "native-check"} {
+		badJSON, _ := json.Marshal(proposal)
+		var bad factory.VerificationManifestProposal
+		_ = json.Unmarshal(badJSON, &bad)
+		switch fault {
+		case "catalog":
+			bad.Checks[0].CatalogID = "worker.shell"
+		case "outcome":
+			bad.Outcomes[0] = "foreign"
+			bad.Checks[0].Outcome = "foreign"
+		case "artifact":
+			bad.Checks[0].Artifacts = []string{"/private/file"}
+		case "fixture":
+			bad.Checks[0].Fixtures = []string{"foreign-team"}
+		case "missing-fixture":
+			bad.Checks[0].Fixtures = nil
+		case "parameter":
+			bad.Checks[0].Params = map[string]string{"command": "arbitrary"}
+		case "native-check":
+			failed := 1
+			stub.preparation.CheckExit = &failed
+		}
+		id := factory.NewID()
+		result, err := finish(id, bad)
+		if !catalogRefused(result, err) {
+			t.Fatalf("new manifest admitted %s", fault)
+		}
+		if _, err := s.MCPReceipt(ctx, launched.ID, id); !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("refused %s wrote receipt: %v", fault, err)
+		}
+		stub.preparation.CheckExit = &zero
+	}
+	id := factory.NewID()
+	result, err := finish(id, proposal)
+	if catalogRefused(result, err) {
+		t.Fatalf("approved manifest finish refused: %v %v", catalogText(t, result), err)
+	}
+	if err := s.AdmitApprovalDecision(ctx, project.ApprovalDecision{ID: "d" + strings.Repeat("a", 24), Predecessor: preparation.Preparation.Approval.ID, Project: cap.Project, Requirement: preparation.Preparation.Requirements.ID, Approver: 1, EffectsDigest: strings.Repeat("d", 64), ReadinessDigest: strings.Repeat("d", 64), Verified: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := product.factoryApprovedVerificationCatalog(ctx, cap); err == nil {
+		t.Fatal("moved approval retained current catalog")
+	}
+	result, err = finish(id, proposal)
+	if catalogRefused(result, err) {
+		t.Fatalf("changed approval blocked exact immutable finish replay: %v", err)
+	}
+	changed := proposal
+	changed.Checks = append([]factory.ManifestCheckRef(nil), proposal.Checks...)
+	changed.Checks[0].CatalogID = "foreign"
+	result, err = finish(id, changed)
+	if !catalogRefused(result, err) {
+		t.Fatal("same submission identity accepted changed manifest bytes")
+	}
+	next := head
+	next.ID, next.Predecessor = "d"+strings.Repeat("f", 24), head.ID
+	if err := s.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := product.factoryApprovedVerificationCatalog(ctx, cap); err == nil || !strings.Contains(err.Error(), "draft changed") {
+		t.Fatal("moved draft retained planning catalog", err)
+	}
+	result, err = finish(id, proposal)
+	if catalogRefused(result, err) {
+		t.Fatalf("moved draft blocked immutable proposal replay: %v", err)
+	}
+	if settled, err := control.SettleMCPTerminalProposal(ctx, s, launched.ID, time.Now()); err != nil || !settled {
+		t.Fatalf("approved MCP plan did not settle: %v/%v", settled, err)
+	}
+	finished, err := s.Assignment(ctx, launched.ID)
+	if err != nil || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output == nil || finished.Result.PhaseResult.Output.Decomposition == nil || finished.Result.PhaseResult.Output.Decomposition.VerificationManifestProposal == nil || finished.Result.PhaseResult.Output.Decomposition.VerificationManifestProposal.Digest() != proposal.Digest() {
+		t.Fatal("actual MCP settlement dropped proposal", err)
 	}
 }
 

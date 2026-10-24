@@ -41,6 +41,10 @@ type IntentGeneration struct {
 	// was resolved from. It is immutable from creation; submission and
 	// adoption refuse missing or stale provenance.
 	PlanAssignment string `json:"plan_assignment,omitempty"`
+	// VerificationManifest is the selected proposal bound to its approved
+	// preparation. Execution requires its own trusted per-run consumer.
+	VerificationManifest       *AdoptedVerificationManifest `json:"verification_manifest,omitempty"`
+	VerificationManifestDigest string                       `json:"verification_manifest_digest,omitempty"`
 	// ReassessmentCycle is the alternative recorded owner for an approved
 	// serial reassessment delta. Retained bindings supply native identity
 	// for unchanged issues absent from a mutation receipt; copied bindings

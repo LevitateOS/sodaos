@@ -103,7 +103,116 @@ func checkGenerationHeadTx(ctx context.Context, tx *sql.Tx, g factory.IntentGene
 	if r.State != "accepted" || r.Digest() != g.IntentDigest {
 		return ErrStaleRevision
 	}
+	if err := checkGenerationManifestTx(ctx, tx, r, g); err != nil {
+		return err
+	}
 	return nil
+}
+
+// The head lock and preparation-head locks make proposal adoption atomic with
+// the exact accepted graph. Native receipt updates cannot replace this binding.
+func checkGenerationManifestTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, g factory.IntentGeneration) error {
+	prior, priorRevision, found, err := inheritedGenerationManifestTx(ctx, tx, r)
+	if err != nil {
+		return err
+	}
+	if g.ProtectedGraphCycle() != "" {
+		if !found {
+			if g.VerificationManifest != nil || g.VerificationManifestDigest != "" {
+				return errors.New("protected graph invented a verification manifest")
+			}
+			return nil
+		}
+		if prior.VerificationManifest.ValidateFor(priorRevision) != nil || g.VerificationManifest == nil || g.VerificationManifest.Proposal.Digest() != prior.VerificationManifest.Proposal.Digest() || g.VerificationManifest.Catalog != prior.VerificationManifest.Catalog || g.VerificationManifest.ValidateFor(r) != nil || g.VerificationManifestDigest != g.VerificationManifest.Digest() {
+			return errors.New("protected graph omitted or changed its adopted verification manifest")
+		}
+		return nil
+	}
+	if found && g.VerificationManifest == nil {
+		return errors.New("generation omitted its prior adopted verification manifest")
+	}
+	if g.VerificationManifest == nil && g.VerificationManifestDigest == "" && g.PlanAssignment == "" {
+		return nil
+	}
+	var a factory.Assignment
+	if err := contextJSONRow(ctx, tx, &a, `SELECT data FROM factory_assignments WHERE id=$1 FOR SHARE`, g.PlanAssignment); err != nil {
+		// The existing nil-manifest graph mechanics path has no proposal to
+		// adopt. Actual planning provenance is separately required by the
+		// coordinator before effects; this branch grants no manifest authority.
+		if errors.Is(err, sql.ErrNoRows) && g.VerificationManifest == nil && g.VerificationManifestDigest == "" && !found {
+			return nil
+		}
+		return err
+	}
+	var proposal *factory.VerificationManifestProposal
+	if a.Result != nil && a.Result.Reported && a.Result.PhaseResult != nil && a.Result.PhaseResult.Status == "completed" && a.Result.PhaseResult.Output != nil && a.Result.PhaseResult.Output.Decomposition != nil {
+		proposal = a.Result.PhaseResult.Output.Decomposition.VerificationManifestProposal
+	}
+	if (proposal == nil) != (g.VerificationManifest == nil) {
+		return errors.New("generation omitted or invented its recorded verification manifest")
+	}
+	if g.VerificationManifest == nil {
+		if g.VerificationManifestDigest != "" {
+			return errors.New("generation has an unbound verification manifest digest")
+		}
+		return nil
+	}
+	m := g.VerificationManifest
+	if err := m.ValidateFor(r); err != nil {
+		return err
+	}
+	if a.Stage != factory.AssignmentFinished || a.Subject.Intent == nil || a.Subject.Intent.IntentID != r.Intent || a.Subject.Intent.RevisionID != r.Predecessor || a.Subject.Intent.OwnerID != r.Owner || a.Repository != r.Repository || a.ProjectID != m.Catalog.Project || a.Preparation != m.Catalog.Preparation || a.SourceCommit != m.Catalog.SourceCommit || proposal.Digest() != m.Proposal.Digest() || g.VerificationManifestDigest != m.Digest() {
+		return errors.New("generation verification manifest differs from its recorded plan")
+	}
+	var raw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT p.data FROM project_preparations p JOIN project_requirement_heads r ON r.project_id=p.project_id AND r.decision=p.requirements JOIN project_approval_heads h ON h.project_id=p.project_id AND h.decision=p.approval WHERE p.id=$1 FOR SHARE OF p,r,h`, a.Preparation).Scan(&raw); err != nil {
+		return err
+	}
+	var stored project.StoredPreparation
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		return err
+	}
+	p := stored.Preparation
+	if p.Validate() != nil || p.Project != m.Catalog.Project || p.SourceCommit != m.Catalog.SourceCommit || p.Requirements.ID != m.Catalog.Requirements || p.Approval.ID != m.Catalog.Approval || factory.DeliveryPreparationDigest(p) != m.Catalog.PreparationDigest {
+		return errors.New("generation verification catalog approval changed")
+	}
+	return nil
+}
+
+// A protected delta can only rebind definitions already adopted in its actual
+// revision ancestry. Drafts between accepted heads do not erase that authority.
+func inheritedGenerationManifestTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision) (factory.IntentGeneration, factory.IntentRevision, bool, error) {
+	var generation factory.IntentGeneration
+	var revision factory.IntentRevision
+	if r.Predecessor == "" {
+		return generation, revision, false, nil
+	}
+	var generationRaw, revisionRaw []byte
+	err := tx.QueryRowContext(ctx, `WITH RECURSIVE lineage AS (
+	 SELECT id,data,1 AS depth FROM factory_intent_revisions WHERE id=$1 AND intent=$2
+	 UNION ALL SELECT p.id,p.data,l.depth+1 FROM factory_intent_revisions p JOIN lineage l ON p.id=l.data->>'predecessor' WHERE p.intent=$2 AND l.depth<64)
+	 SELECT g.data,l.data FROM lineage l LEFT JOIN factory_intent_generations g ON g.revision=l.id
+	 WHERE (g.data->'verification_manifest' IS NOT NULL AND g.data->'verification_manifest'<>'null'::jsonb)
+	 OR (l.depth=64 AND COALESCE(l.data->>'predecessor','')<>'') ORDER BY l.depth LIMIT 1`, r.Predecessor, r.Intent).Scan(&generationRaw, &revisionRaw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return generation, revision, false, nil
+	}
+	if err != nil {
+		return generation, revision, false, err
+	}
+	if len(generationRaw) == 0 {
+		return generation, revision, false, errors.New("verification manifest ancestry exceeds its read bound")
+	}
+	if err = json.Unmarshal(generationRaw, &generation); err != nil {
+		return generation, revision, false, err
+	}
+	if err = json.Unmarshal(revisionRaw, &revision); err != nil {
+		return generation, revision, false, err
+	}
+	if generation.VerificationManifest == nil || generation.IntentID != r.Intent || revision.Intent != r.Intent || revision.Repository != r.Repository || revision.Owner != r.Owner {
+		return generation, revision, false, errors.New("inherited verification manifest differs from product authority")
+	}
+	return generation, revision, true, nil
 }
 
 func checkDeliveredBindingTx(ctx context.Context, tx *sql.Tx, g factory.IntentGeneration, key string, ref factory.DeliveredIssue) error {

@@ -10,12 +10,18 @@ package factory
 // coverage and records the selected manifest digest with the accepted
 // intent revision. FW40 consumes this contract for adoption; FW45
 // consumes the adopted manifest for Test Pilot verification. This
-// file releases the proposal shape and its validation so adoption can
-// build against a frozen contract.
+// file owns the proposal, approved Project check snapshot and exact adopted
+// binding. The separate trusted per-run executor must consume that binding.
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"sort"
+	"strings"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // Catalog parameter bounds.
@@ -38,12 +44,70 @@ type ApprovedCheck struct {
 	// RequiredParams names the parameters a proposal must supply.
 	RequiredParams []string `json:"required_params,omitempty"`
 	// ParamValueChars bounds every parameter value length.
-	ParamValueChars int `json:"param_value_chars,omitempty"`
+	ParamValueChars int      `json:"param_value_chars,omitempty"`
+	AllowedParams   []string `json:"allowed_params,omitempty"`
+	Artifacts       []string `json:"artifacts"`
+	Fixtures        []string `json:"fixtures"`
+}
+
+const ProjectCheckReceiptArtifact = "project.check.receipt"
+const ProjectCheckPreparedFixture = "project.preparation"
+
+// ApprovedProjectCheckCatalog binds the existing approved Project check to its
+// protected preparation. It grants no arbitrary executable, parameter, artifact
+// path or external fixture authority.
+type ApprovedProjectCheckCatalog struct {
+	Project           string `json:"project"`
+	Preparation       string `json:"preparation"`
+	Requirements      string `json:"requirements"`
+	Approval          string `json:"approval"`
+	SourceCommit      string `json:"source_commit"`
+	PreparationDigest string `json:"preparation_digest"`
+	CheckDigest       string `json:"check_digest"`
+}
+
+func (c ApprovedProjectCheckCatalog) Validate() error {
+	if !project.ValidID(c.Project) || !project.ValidPreparationID(c.Preparation) || !project.ValidDecisionID(c.Requirements) || !project.ValidDecisionID(c.Approval) || !ValidCommit(c.SourceCommit) || !ValidDigest(c.PreparationDigest) || !ValidDigest(c.CheckDigest) {
+		return errors.New("approved Project check catalog lacks its exact preparation")
+	}
+	return nil
+}
+
+func (c ApprovedProjectCheckCatalog) LookupCheck(id string) (ApprovedCheck, bool) {
+	if c.Validate() != nil || id != ApprovedAppCheckID {
+		return ApprovedCheck{}, false
+	}
+	return ApprovedCheck{ID: ApprovedAppCheckID, Artifacts: []string{ProjectCheckReceiptArtifact}, Fixtures: []string{ProjectCheckPreparedFixture}}, true
+}
+
+// AdoptedVerificationManifest is recorded with the selected native graph. Its
+// catalog snapshot is authority from the approved preparation, never model text.
+// Native per-run execution must consume this binding before it can verify work.
+type AdoptedVerificationManifest struct {
+	Intent           string                       `json:"intent"`
+	AcceptedRevision string                       `json:"accepted_revision"`
+	ScopeDigest      string                       `json:"scope_digest"`
+	Proposal         VerificationManifestProposal `json:"proposal"`
+	Catalog          ApprovedProjectCheckCatalog  `json:"catalog"`
+}
+
+func (m AdoptedVerificationManifest) ValidateFor(r IntentRevision) error {
+	if r.State != "accepted" || r.Validate() != nil || m.Intent != r.Intent || m.AcceptedRevision != r.ID || m.ScopeDigest != r.Digest() || m.Catalog.Validate() != nil {
+		return errors.New("adopted verification manifest differs from accepted scope")
+	}
+	if err := m.Proposal.ValidateOutcomes(r); err != nil {
+		return err
+	}
+	return ValidateManifestProposal(m.Proposal, m.Catalog)
+}
+
+func (m AdoptedVerificationManifest) Digest() string {
+	raw, _ := json.Marshal(m)
+	return MCPInputDigest(raw)
 }
 
 // ApprovedCatalog resolves catalog IDs to their approved entries.
-// The Project's approved check catalog backs this interface; FW40
-// wires the real catalog, tests stub it.
+// The protected Project preparation backs this interface in production.
 type ApprovedCatalog interface {
 	LookupCheck(id string) (ApprovedCheck, bool)
 }
@@ -74,6 +138,51 @@ type VerificationManifestProposal struct {
 	FixtureGrants []string `json:"fixture_grants,omitempty"`
 }
 
+func ParseVerificationManifestProposal(raw []byte) (VerificationManifestProposal, error) {
+	var proposal VerificationManifestProposal
+	if len(raw) > MCPMaxManifestBytes {
+		return proposal, errors.New("manifest proposal exceeds its byte bound")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&proposal); err != nil {
+		return proposal, err
+	}
+	if decoder.Decode(new(any)) != io.EOF {
+		return proposal, errors.New("manifest proposal has trailing content")
+	}
+	return proposal, nil
+}
+
+func (p VerificationManifestProposal) Digest() string {
+	raw, _ := json.Marshal(p)
+	return MCPInputDigest(raw)
+}
+
+func (p VerificationManifestProposal) ValidateOutcomes(r IntentRevision) error {
+	want := map[string]bool{}
+	for _, outcome := range r.EffectiveOutcomes {
+		want[outcome] = true
+	}
+	if len(want) == 0 {
+		for _, idea := range r.Ideas {
+			if idea.Decision == "accept" || idea.Decision == "edit" {
+				want[idea.ID] = true
+			}
+		}
+	}
+	got, err := validateManifestOutcomes(p)
+	if err != nil || len(want) == 0 || len(want) != len(got) {
+		return errors.New("verification manifest does not cover the exact product outcomes")
+	}
+	for outcome := range got {
+		if !want[outcome] {
+			return errors.New("verification manifest names a foreign product outcome")
+		}
+	}
+	return nil
+}
+
 // ValidateManifestProposal checks the proposal against the approved
 // catalog and the accepted outcomes: complete outcome coverage with
 // no duplicate/unknown/missing outcome, approved catalog IDs,
@@ -99,7 +208,7 @@ func validateManifestOutcomes(proposal VerificationManifestProposal) (map[string
 	return accepted, nil
 }
 
-func validateManifestCheck(check *ManifestCheckRef) error {
+func validateManifestCheck(check *ManifestCheckRef, approved ApprovedCheck) error {
 	if len(check.Artifacts) == 0 {
 		return errors.New("manifest check names no artifact output")
 	}
@@ -107,13 +216,26 @@ func validateManifestCheck(check *ManifestCheckRef) error {
 		return errors.New("manifest check exceeds artifact bound")
 	}
 	for _, artifact := range check.Artifacts {
-		if artifact == "" || len(artifact) > MCPMaxRefChars {
+		if artifact == "" || len(artifact) > MCPMaxRefChars || strings.ContainsRune(artifact, 0) || !containsManifestRef(approved.Artifacts, artifact) {
 			return errors.New("invalid manifest artifact reference")
 		}
 	}
+	if len(check.Fixtures) > MCPMaxManifestFixtures {
+		return errors.New("manifest check exceeds fixture bound")
+	}
 	for _, fixture := range check.Fixtures {
-		if fixture == "" || len(fixture) > MCPMaxRefChars {
+		if fixture == "" || len(fixture) > MCPMaxRefChars || strings.ContainsRune(fixture, 0) || !containsManifestRef(approved.Fixtures, fixture) {
 			return errors.New("invalid manifest fixture requirement")
+		}
+	}
+	for _, fixture := range approved.Fixtures {
+		if !containsManifestRef(check.Fixtures, fixture) {
+			return errors.New("manifest check omits its approved fixture requirement")
+		}
+	}
+	for _, artifact := range approved.Artifacts {
+		if !containsManifestRef(check.Artifacts, artifact) {
+			return errors.New("manifest check omits its approved artifact output")
 		}
 	}
 	return nil
@@ -130,8 +252,8 @@ func ValidateManifestProposal(proposal VerificationManifestProposal, catalog App
 	if len(proposal.Checks) > MCPMaxManifestChecks {
 		return errors.New("manifest proposal exceeds check bound")
 	}
-	if len(proposal.FixtureGrants) > MCPMaxManifestFixtures {
-		return errors.New("manifest proposal exceeds fixture bound")
+	if len(proposal.FixtureGrants) != 0 {
+		return errors.New("external verification fixture grants are unavailable")
 	}
 	covered := make(map[string]bool, len(proposal.Outcomes))
 	for i := range proposal.Checks {
@@ -143,7 +265,8 @@ func ValidateManifestProposal(proposal VerificationManifestProposal, catalog App
 		if err := validateCatalogRef(check.CatalogID, check.Params, catalog); err != nil {
 			return err
 		}
-		if err := validateManifestCheck(check); err != nil {
+		approved, _ := catalog.LookupCheck(check.CatalogID)
+		if err := validateManifestCheck(check, approved); err != nil {
 			return err
 		}
 	}
@@ -174,7 +297,7 @@ func validateCatalogRef(id string, params map[string]string, catalog ApprovedCat
 		bound = MCPMaxCatalogParamChars
 	}
 	for key, value := range params {
-		if key == "" || len(key) > MCPMaxRefChars {
+		if key == "" || len(key) > MCPMaxRefChars || !containsManifestRef(approved.AllowedParams, key) {
 			return errors.New("invalid check parameter name")
 		}
 		if len(value) > bound {
@@ -187,6 +310,15 @@ func validateCatalogRef(id string, params map[string]string, catalog ApprovedCat
 		}
 	}
 	return nil
+}
+
+func containsManifestRef(refs []string, want string) bool {
+	for _, ref := range refs {
+		if ref == want {
+			return true
+		}
+	}
+	return false
 }
 
 // ManifestCoverage reports the outcomes covered by the proposal in

@@ -113,6 +113,17 @@ func (c *Coordinator) ResolveAcceptedPlanChoice(ctx context.Context, owner int64
 		return empty, nil, err
 	}
 	chosen.Attempt = a.ID
+	if out.VerificationManifestProposal != nil {
+		catalog, err := c.ApprovedProjectCheckCatalog(ctx, a)
+		if err != nil {
+			return empty, nil, err
+		}
+		manifest := factory.AdoptedVerificationManifest{Intent: r.Intent, AcceptedRevision: r.ID, ScopeDigest: r.Digest(), Proposal: *out.VerificationManifestProposal, Catalog: catalog}
+		if err := manifest.ValidateFor(r); err != nil {
+			return empty, nil, err
+		}
+		chosen.VerificationManifest = &manifest
+	}
 	if wait, err := c.recheckPlanChoiceAfterComparison(ctx, r, a, in); err != nil || wait != nil {
 		return empty, wait, err
 	}
@@ -207,6 +218,11 @@ func bindAcceptedScope(r, draft factory.IntentRevision) error {
 // longer authorizes refuses here, not after spending on a choice the
 // graph validation would reject.
 func bindRecordedScopeCoverage(r factory.IntentRevision, out *factory.SemanticPlannerOutput) error {
+	if out.VerificationManifestProposal != nil {
+		if err := out.VerificationManifestProposal.ValidateOutcomes(r); err != nil {
+			return fmt.Errorf("%w: recorded verification manifest exceeds accepted scope", ErrPlanChoiceStale)
+		}
+	}
 	for _, candidate := range out.Candidates {
 		work := r
 		work.Tasks = append([]factory.IntentTask(nil), candidate.Tasks...)
@@ -356,6 +372,15 @@ func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.I
 	if err := bindGenerationTasks(r, g, out); err != nil {
 		return nil, err
 	}
+	if g.VerificationManifest != nil {
+		catalog, err := c.ApprovedProjectCheckCatalog(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		if catalog != g.VerificationManifest.Catalog {
+			return nil, fmt.Errorf("%w: approved verification catalog changed", ErrPlanChoiceStale)
+		}
+	}
 	if wait, err := c.recheckPlanChoiceSource(ctx, r, a, in); err != nil || wait != nil {
 		return wait, err
 	}
@@ -368,6 +393,19 @@ func (c *Coordinator) validateGenerationBinding(ctx context.Context, g factory.I
 // bindGenerationTasks proves the immutable submitted graph is one of the
 // recorded candidates and remains inside the accepted scope.
 func bindGenerationTasks(r factory.IntentRevision, g factory.IntentGeneration, out *factory.SemanticPlannerOutput) error {
+	if (g.VerificationManifest == nil) != (out.VerificationManifestProposal == nil) {
+		return errors.New("generation omitted or invented its recorded verification manifest")
+	}
+	if g.VerificationManifest != nil {
+		if err := g.VerificationManifest.ValidateFor(r); err != nil {
+			return err
+		}
+		if g.VerificationManifest.Proposal.Digest() != out.VerificationManifestProposal.Digest() || g.VerificationManifestDigest != g.VerificationManifest.Digest() {
+			return errors.New("generation verification manifest differs from its recorded proposal")
+		}
+	} else if g.VerificationManifestDigest != "" {
+		return errors.New("generation has an unbound verification manifest digest")
+	}
 	matched := false
 	for _, candidate := range out.Candidates {
 		matched = matched || reflect.DeepEqual(candidate.Tasks, g.SubmittedTasks)
