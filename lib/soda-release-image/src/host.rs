@@ -201,6 +201,10 @@ pub fn build_host_image(
     // Flatten only the final sealed host consumed by native OSTree import.
     if flatten {
         args.insert(3, "--squash-all".to_string());
+    } else {
+        // Bare RPM names float: observe a fresh transaction, not an older
+        // cached package layer, before sealing the final build's fingerprint.
+        args.insert(3, "--no-cache".to_string());
     }
     production.execute(context, "podman", &args)?;
     read_host_image_id(&iid)
