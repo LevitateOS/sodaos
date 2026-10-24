@@ -28,22 +28,38 @@ fn rpc(path: &str, body: &[u8], cap: u64, deadline: Instant) -> Result<Vec<u8>, 
     if body.len() > 2 << 20 {
         return Err("extension request exceeds limit".into());
     }
-    let remaining = deadline
-        .checked_duration_since(Instant::now())
-        .ok_or("extension deadline expired")?;
-    let response = soda_unix_http::request(
-        Path::new(soda_host::tailnet_admission::OPERATOR_SOCKET),
-        "POST",
-        path,
-        "soda-operator",
-        body,
-        remaining.min(Duration::from_secs(cap)),
-        soda_unix_http::Limits {
-            header_bytes: 8192,
-            body_bytes: 128 << 10,
-        },
-    )
-    .map_err(|_| "Fountain extension operation unavailable")?;
+    let deadline = deadline.min(Instant::now() + Duration::from_secs(cap));
+    let response = loop {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .ok_or("extension deadline expired")?;
+        let response = soda_unix_http::request(
+            Path::new(soda_host::tailnet_admission::OPERATOR_SOCKET),
+            "POST",
+            path,
+            "soda-operator",
+            body,
+            remaining,
+            soda_unix_http::Limits {
+                header_bytes: 8192,
+                body_bytes: 128 << 10,
+            },
+        );
+        // Container readiness precedes the Dashboard and Fountain listeners.
+        // Only the read-only snapshot can wait; never retransmit an uncertain
+        // extension mutation, including a refused or disconnected reconcile.
+        if path == "/operator/extensions/snapshot"
+            && (matches!(response, Err(soda_unix_http::Error::Connect))
+                || matches!(&response, Ok(response) if response.status == 503))
+        {
+            let remaining = deadline
+                .checked_duration_since(Instant::now())
+                .ok_or("extension deadline expired")?;
+            std::thread::sleep(remaining.min(Duration::from_millis(100)));
+            continue;
+        }
+        break response.map_err(|_| "Fountain extension operation unavailable")?;
+    };
     if response.status != 200 {
         return Err(format!(
             "Fountain extension operation refused ({})",
