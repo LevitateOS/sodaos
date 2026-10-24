@@ -761,7 +761,8 @@ func TestCapAttemptDeadlineUsesExactRemainingRootTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes*60) - 30
-	allowance.CheckpointUnix = now.Unix()
+	// Admission may cross a second boundary after now was sampled. Keep
+	// its recorded checkpoint instead of rewinding the fixture's clock.
 	allowance.Revision++
 	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
