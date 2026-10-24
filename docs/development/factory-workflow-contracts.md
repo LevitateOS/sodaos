@@ -2024,7 +2024,36 @@ The controller discovers accepted intents whose bound tasks have real integrated
 
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 
-The fixed check route enforces the default stable-intent allowance of **2 admitted runs / 60 observed active minutes total**, with **at most 30 minutes per run** and any tighter policy or grant still applying. It sums retained root allowances, including an active root's elapsed interval, across accepted revisions and Retry identities; packet admission repeats the check under the intent-head lock. Failed or stale admitted runs remain charged. Retry eligibility and command admission use the same remaining allowance. A controller-owned F10 for the exact current accepted revision and scope suppresses further discovery before native preparation or another F09, even when an unrelated commit changes the repository tip. Pending reports still require the current source join; an old revision's F10 never verifies a new revision. Explicit owner increases to this verification allowance are not implemented; exhaustion remains a refusal. The broader manifest executor, fixture catalog and repair path below also remain separate work.
+The fixed check route enforces the default stable-intent allowance of **2 admitted
+runs / 60 observed active minutes total**, with **at most 30 minutes per new run**
+and any tighter policy or grant still applying. It sums retained root consumption,
+including an active root's elapsed interval, across accepted revisions and Retry
+identities; packet admission repeats the check under the intent-head lock. Failed
+or stale admitted runs remain charged. Retry eligibility and command admission
+use the same remaining allowance. Historical roots keep their original limits.
+
+The current Intent owner and repository administrator can explicitly increase
+verification limits through GET/POST
+`/api/factory/intents/{intentID}/verification-allowance`. The read exposes
+`intent`, `revision`, `limits{runs,active_minutes}`,
+`consumption{runs,active_seconds}`, `remaining{runs,active_seconds}` and
+`can_increase`. The default revision is an empty string. POST binds
+`command_id`, `expected_revision` and `limits`; each bound is monotone and at
+least one must increase. An immutable `verification-allowance` command becomes
+the new revision under the same stable Intent head lock used by packet admission.
+Exact replay returns its original acknowledged receipt, including its command ID
+and limits, before stale-head validation; a competing CAS refuses409. Consumption
+still derives from retained roots, so raising runs2→3 while keeping60 minutes
+adds no time, resets no charges, changes no historical root, and launches no run.
+Reads spend nothing. Explicit Retry and all current authority/funding gates remain
+separate requirements; repository, sponsorship and connection budgets are not
+increased by this control.
+
+A controller-owned F10 for the exact current accepted revision and scope suppresses
+further discovery before native preparation or another F09, even when an unrelated
+commit changes the repository tip. Pending reports still require the current
+source join; an old revision's F10 never verifies a new revision. The broader
+manifest executor, fixture catalog and repair path below remain separate work.
 
 Test Pilot verifies a delivered **accepted intent version**, not an empty queue.
 Persist `DeliverySubject{delivery_id,intent_id,accepted_revision,scope_digest,
@@ -2097,13 +2126,13 @@ all required checks/journeys passing for the same delivery, completed retirement
 and fresh inputs. A changed source/preparation invalidates verification; prior
 receipts remain history. Failure/incomplete never becomes `finished`.
 
-Verification allowance is **2 runs / 60 active minutes total**, each <=30 minutes,
+The default verification allowance is **2 runs / 60 active minutes total**, each <=30 minutes,
 under the stable intent aggregate and current grants. Version changes and Retry
 do not silently refill it. A failed journey may request one in-scope Strategist
 repair proposal per failed verification, using the repository repair grant and
 same protected-work/adoption checks as D15. Bind its cause to the delivery failure;
 do not manufacture a completion or call an existing ready issue a deadlock. The
-two-run verification ceiling still applies. A material product decision returns
+current owner-authorized verification run limit still applies. A material product decision returns
 to product review. Further runs require explicit owner-authorized allowance
 increase preserving consumption; no endless new verification/repair identities.
 

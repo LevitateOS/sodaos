@@ -5,6 +5,7 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {intentList} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
+import {SodaFactoryVerificationAllowance} from './sodaspaces-factory-verification-allowance.js';
 import './sodaspaces-factory-feed.js';
 import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
@@ -122,6 +123,10 @@ export class SodaProjectWork extends LitElement {
   refresh() {
     this.loaded = false;
     void this.querySelector<SodaFactoryVerificationRetry>('soda-factory-verification-retry')?.refresh();
+    for (const control of this.querySelectorAll<SodaFactoryVerificationAllowance>(
+      'soda-factory-verification-allowance'
+    ))
+      void control.refresh();
     return this.load(false);
   }
 
@@ -296,6 +301,10 @@ export class SodaProjectWork extends LitElement {
       error: this.error,
       more: this.next !== undefined,
       disabled: !this.active,
+      verificationContext:
+        this.active && context.mode === 'project' && context.repository
+          ? {transport: context.transport, repository: context.repository.id}
+          : undefined,
       newWork: () => this.newWork(),
       resume: (intent) => this.resume(intent),
       refresh: () => {

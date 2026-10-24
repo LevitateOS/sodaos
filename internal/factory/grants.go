@@ -57,6 +57,7 @@ const (
 	CommandResume                = "resume"
 	CommandRetry                 = "retry"
 	CommandRetryImplementation   = "retry_implementation"
+	CommandVerificationAllowance = "verification-allowance"
 	CommandTakeover              = "takeover"
 	// CommandPlanIntent authorizes planning of a draft intent whose
 	// effective ideas are accepted and attributed. It records the command,
@@ -89,7 +90,7 @@ func SettingsCommandType(typ string) bool {
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
-		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge:
+		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance:
 		return true
 	default:
 		return false

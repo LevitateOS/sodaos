@@ -151,6 +151,93 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 			t.Fatal("read/refusal charged work", err)
 		}
 	})
+	t.Run("owner verification allowance preserves immutable receipts", func(t *testing.T) {
+		ctx := context.Background()
+		idea := factory.ProductIdea{ID: "d121212121212121212121212", Description: "Store a task", Consequence: "Tasks remain readable", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}
+		task := factory.IntentTask{Key: "d232323232323232323232323", Objective: "Implement task storage", Outcomes: []string{idea.Consequence}, IdeaIDs: []string{idea.ID}}
+		head := factory.IntentRevision{ID: "d343434343434343434343434", Intent: "d454545454545454545454545", Owner: 1, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 1, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{task}, EffectiveOutcomes: []string{idea.ID}}
+		if err := s.SaveIntentRevision(ctx, head); err != nil {
+			t.Fatal(err)
+		}
+		path := "/api/factory/intents/" + head.Intent + "/verification-allowance"
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			if admitted, handled := extensionFactoryIntentsRoute(strings.Split("factory/intents/"+head.Intent+"/verification-allowance", "/"), method); !admitted || !handled {
+				t.Fatal("native bridge omitted verification allowance", method)
+			}
+		}
+		if admitted, _ := extensionFactoryIntentsRoute(strings.Split("factory/intents/"+head.Intent+"/verification-allowance", "/"), http.MethodPut); admitted {
+			t.Fatal("native bridge admitted another mutation method")
+		}
+		code, body := call(http.MethodGet, path, "")
+		var initial factory.AppVerificationAllowance
+		if code != 200 || json.Unmarshal(body, &initial) != nil || initial.Intent != head.Intent || initial.Revision != "" || initial.CommandID != "" || initial.Limits.Runs != 2 || initial.Limits.ActiveMinutes != 60 || initial.Consumption.Runs != 0 || initial.Remaining.Runs != 2 || initial.Remaining.ActiveSeconds != 3600 || !initial.CanIncrease {
+			t.Fatalf("default verification read: %d %s", code, body)
+		}
+		first := factory.AppVerificationAllowanceChange{CommandID: factory.NewID(), Limits: factory.AppVerificationLimits{Runs: 3, ActiveMinutes: 60}}
+		encoded, _ := json.Marshal(first)
+		code, originalReceipt := call(http.MethodPost, path, string(encoded))
+		var raised factory.AppVerificationAllowance
+		if code != 200 || json.Unmarshal(originalReceipt, &raised) != nil || raised.Revision != first.CommandID || raised.CommandID != first.CommandID || raised.Intent != head.Intent || raised.Limits.Runs != 3 || raised.Limits.ActiveMinutes != 60 || raised.Consumption != initial.Consumption {
+			t.Fatalf("owner increase: %d %s", code, originalReceipt)
+		}
+		second := first
+		second.CommandID, second.ExpectedRevision, second.Limits.Runs = factory.NewID(), first.CommandID, 4
+		more, _ := json.Marshal(second)
+		if code, body := call(http.MethodPost, path, string(more)); code != 200 {
+			t.Fatalf("second explicit increase: %d %s", code, body)
+		}
+		head.ID, head.Predecessor = "d565656565656565656565656", head.ID
+		if err := s.SaveIntentRevision(ctx, head); err != nil {
+			t.Fatal(err)
+		}
+		if code, body := call(http.MethodPost, path, string(encoded)); code != 200 || string(body) != string(originalReceipt) {
+			t.Fatalf("old command did not replay its exact receipt before CAS: %d %s", code, body)
+		}
+		stale := first
+		stale.CommandID, stale.Limits.Runs = factory.NewID(), 5
+		raw, _ := json.Marshal(stale)
+		if code, body := call(http.MethodPost, path, string(raw)); code != 409 || errorCode(body) != "stale_revision" {
+			t.Fatalf("stale verification CAS: %d %s", code, body)
+		}
+		if _, err := s.FactoryCommand(ctx, stale.CommandID); !errors.Is(err, store.ErrNotFound) {
+			t.Fatal("stale increase retained a command", err)
+		}
+		decrease := first
+		decrease.CommandID, decrease.ExpectedRevision = factory.NewID(), second.CommandID
+		raw, _ = json.Marshal(decrease)
+		if code, body := call(http.MethodPost, path, string(raw)); code != 409 || errorCode(body) != "increase_required" {
+			t.Fatalf("decrease admitted: %d %s", code, body)
+		}
+		conflict := first
+		conflict.Limits.Runs = 9
+		raw, _ = json.Marshal(conflict)
+		if code, body := call(http.MethodPost, path, string(raw)); code != 409 || errorCode(body) != "command_conflict" {
+			t.Fatalf("changed command replay: %d %s", code, body)
+		}
+		if code, body := call(http.MethodPost, path, `{"command_id":"`+factory.NewID()+`","expected_revision":"`+second.CommandID+`","limits":{"runs":5,"active_minutes":60,"invented":true}}`); code != 400 {
+			t.Fatalf("unknown limit field: %d %s", code, body)
+		}
+		if code, body := call(http.MethodPost, path, `{"command_id":"`+factory.NewID()+`","expected_revision":"`+second.CommandID+`","limits":{"runs":0,"active_minutes":60}}`); code != 400 {
+			t.Fatalf("nonfinite limit: %d %s", code, body)
+		}
+		foreign := actorCall(t, product, "2", "bob")
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			if code, body := foreign(method, path, string(more)); code != 403 {
+				t.Fatalf("foreign verification owner: %d %s", code, body)
+			}
+		}
+		if code, body := call(http.MethodGet, "/api/factory/commands/"+first.CommandID, ""); code != 200 || !strings.Contains(string(body), first.CommandID) {
+			t.Fatalf("immutable command readback: %d %s", code, body)
+		}
+		code, body = call(http.MethodGet, path, "")
+		var current factory.AppVerificationAllowance
+		if code != 200 || json.Unmarshal(body, &current) != nil || current.Revision != second.CommandID || current.CommandID != "" || current.Limits.Runs != 4 || current.Limits.ActiveMinutes != 60 || current.Consumption != initial.Consumption {
+			t.Fatalf("current status refilled consumption: %d %s", code, body)
+		}
+		if runs, err := s.FactoryRuns(ctx, 10); err != nil || len(runs) != 0 {
+			t.Fatal("allowance reads or increases launched work", runs, err)
+		}
+	})
 }
 
 // q05Mux builds the real product mux on an ephemeral PG store with a fake

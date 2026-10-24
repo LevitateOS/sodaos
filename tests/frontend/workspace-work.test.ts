@@ -123,10 +123,69 @@ test('cold Project entry loads scoped work, keeps the directory quiet, and opens
     document.documentElement.style.colorScheme = 'dark';
   });
   await captureSpacesComponent(page, 'project-work-dark');
+  const limits = work.locator('details.soda-verification-limits');
+  await limits.locator('summary').click();
+  const allowance = limits.getByRole('region', {name: 'Verification allowance'});
+  await allowance
+    .getByText('2 of 2 verification runs used; 148 active seconds used of 60 minutes.', {exact: true})
+    .waitFor();
+  assert.equal(await writes(page), 0, 'reading verification limits must not grant or start work');
+  await allowance.getByRole('button', {name: 'Increase verification limits', exact: true}).click();
+  await allowance.getByRole('status').filter({hasText: 'Increase at least one limit'}).waitFor();
+  assert.equal(await writes(page), 0, 'unchanged verification limits must not issue a command');
+  await allowance.getByLabel('Total verification runs', {exact: true}).fill('3');
+  await allowance.getByRole('button', {name: 'Increase verification limits', exact: true}).click();
+  await allowance.getByRole('status').filter({hasText: 'The current limits were not confirmed'}).waitFor();
+  assert.equal(await allowance.getByLabel('Total verification runs', {exact: true}).isDisabled(), true);
+  assert.equal(await allowance.getByLabel('Total active minutes', {exact: true}).isDisabled(), true);
+  await page.evaluate(async () => {
+    const fixture = window.workspaceFixture;
+    const first = fixture.calls.find((call) => call.method === 'POST' && call.path.endsWith('/verification-allowance'));
+    if (!first) throw Error('Missing first allowance change');
+    // Another owner tab advances the head while this tab retains its lost reply.
+    await fixture
+      .request(first.path, 'POST', {
+        command_id: 'e'.repeat(32),
+        expected_revision: first.body?.command_id,
+        limits: {runs: 4, active_minutes: 60},
+      })
+      .catch(() => undefined);
+  });
+  await allowance.getByRole('button', {name: 'Refresh verification limits', exact: true}).click();
+  await allowance
+    .getByText('2 of 4 verification runs used; 148 active seconds used of 60 minutes.', {exact: true})
+    .waitFor();
+  await allowance.getByRole('button', {name: 'Retry same limit change', exact: true}).click();
+  await allowance
+    .getByRole('status')
+    .filter({hasText: 'Verification limits saved. Previous usage is retained.'})
+    .waitFor();
+  await allowance
+    .getByText('2 of 4 verification runs used; 148 active seconds used of 60 minutes.', {exact: true})
+    .waitFor();
+  const limitCalls = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter(
+      (call) => call.method === 'POST' && call.path.endsWith('/verification-allowance')
+    )
+  );
+  assert.equal(limitCalls.length, 3);
+  assert.deepEqual(limitCalls[0], limitCalls[2], 'a lost reply must retry the same immutable allowance command');
+  assert.match(String(limitCalls[0]?.body?.command_id), /^[a-f0-9]{32}$/);
+  assert.equal(limitCalls[0]?.body?.expected_revision, '');
+  assert.deepEqual(limitCalls[0]?.body?.limits, {runs: 3, active_minutes: 60});
+  assert.equal(await allowance.getByLabel('Total verification runs', {exact: true}).inputValue(), '4');
+  assert.equal(await writes(page), 3, 'increasing limits must not launch verification');
+  await captureSpacesComponent(page, 'project-work-verification-limits');
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  assert.equal(
+    await page.getByRole('region', {name: 'Verification allowance'}).count(),
+    0,
+    'verification limits stay scoped to their accepted Project intent'
+  );
   await work.getByRole('button', {name: 'New work', exact: true}).click();
   await page.getByLabel('Describe what you want to build', {exact: true}).waitFor();
   assert.equal(new URL(page.url()).pathname, '/workspace/new');
-  assert.equal(await writes(page), 0, 'entering planning must not create a Project or work');
+  assert.equal(await writes(page), 3, 'entering planning must not create a Project or work');
 });
 
 test('Saved plans exposes unassigned and closed plans and resumes accepted progress through its original route', async (t) => {

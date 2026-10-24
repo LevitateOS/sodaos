@@ -170,46 +170,14 @@ func remainingAppVerificationSecondsTx(ctx context.Context, tx *sql.Tx, reposito
 	if repository <= 0 || !project.ValidDecisionID(intent) {
 		return 0, errors.New("invalid application verification allowance scope")
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND data->'delivery'->>'intent_id'=$2 ORDER BY root_assignment FOR SHARE`, repository, intent)
+	view, err := verificationAllowanceStatusTx(ctx, tx, intent, now)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
-	remaining := int64(factory.DefaultAppVerificationActiveMinutes * 60)
-	runs := 0
-	for rows.Next() {
-		var raw []byte
-		var allowance factory.AttemptAllowance
-		if err = rows.Scan(&raw); err != nil {
-			return 0, err
-		}
-		if err = json.Unmarshal(raw, &allowance); err != nil {
-			return 0, err
-		}
-		if allowance.Validate() != nil || allowance.Repository != repository || allowance.Delivery == nil || allowance.Delivery.IntentID != intent {
-			return 0, errors.New("invalid retained application verification allowance")
-		}
-		if now.Unix() < allowance.CheckpointUnix {
-			return 0, factory.ErrAllowanceClock
-		}
-		runs++
-		spent := allowance.ActiveSeconds
-		if spent >= remaining {
-			remaining = 0
-		} else {
-			remaining -= spent
-			if allowance.Active {
-				remaining = max(0, remaining-(now.Unix()-allowance.CheckpointUnix))
-			}
-		}
-	}
-	if err = rows.Err(); err != nil {
-		return 0, err
-	}
-	if runs >= factory.DefaultAppVerificationRuns {
+	if view.Remaining.Runs < 1 {
 		return 0, nil
 	}
-	return remaining, nil
+	return view.Remaining.ActiveSeconds, nil
 }
 
 // Only the controller-owned F10 join establishes a verified accepted scope.

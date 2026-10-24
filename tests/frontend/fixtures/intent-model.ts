@@ -6,6 +6,8 @@ export function createIntentModel() {
   const revisions = new Map<string, IntentRevision>();
   const departments: Record<string, unknown>[] = [];
   const allowances = new Map<string, Record<string, unknown>>();
+  const verificationHeads = new Map<string, Record<string, unknown>>();
+  const verificationCommands = new Map<string, {request: string; receipt: Record<string, unknown>}>();
   const plans = new Set<string>();
   let serial = 100;
   const nextID = () => 'd' + (++serial).toString(16).padStart(24, '0');
@@ -50,6 +52,49 @@ export function createIntentModel() {
       const next = all.length > intents.length ? intents.at(-1)?.intent : undefined;
       return Response.json({intents, ...(next ? {next_cursor: next} : {})});
     }
+    const verification = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/verification-allowance$/);
+    if (verification) {
+      const intent = verification[1] || '';
+      const head = [...revisions.values()].reverse().find((revision) => revision.intent === intent);
+      if (!head || head.state !== 'accepted') return new Response(null, {status: 409});
+      const current = verificationHeads.get(intent) ?? {
+        intent,
+        revision: '',
+        limits: {runs: 2, active_minutes: 60},
+        consumption: {runs: 2, active_seconds: 148},
+        remaining: {runs: 0, active_seconds: 3452},
+        can_increase: true,
+      };
+      if (method === 'GET') return Response.json(current);
+      if (method !== 'POST' || !body) return new Response(null, {status: 400});
+      const command = String(body.command_id || '');
+      const request = JSON.stringify({intent, body});
+      const prior = verificationCommands.get(command);
+      if (prior) return prior.request === request ? Response.json(prior.receipt) : new Response(null, {status: 409});
+      if (body.expected_revision !== current.revision) return new Response(null, {status: 409});
+      const limits = body.limits as {runs: number; active_minutes: number};
+      const previous = current.limits as {runs: number; active_minutes: number};
+      if (
+        !/^[a-f0-9]{32}$/.test(command) ||
+        !Number.isSafeInteger(limits?.runs) ||
+        !Number.isSafeInteger(limits?.active_minutes) ||
+        limits.runs < previous.runs ||
+        limits.active_minutes < previous.active_minutes ||
+        (limits.runs === previous.runs && limits.active_minutes === previous.active_minutes)
+      )
+        return new Response(null, {status: 400});
+      const receipt = {
+        ...current,
+        command_id: command,
+        revision: command,
+        limits,
+        remaining: {runs: limits.runs - 2, active_seconds: limits.active_minutes * 60 - 148},
+      };
+      verificationHeads.set(intent, receipt);
+      verificationCommands.set(command, {request, receipt});
+      // Persist first, then lose the reply: only the same immutable change may retry.
+      throw new TypeError('verification allowance reply lost');
+    }
     const planning = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/plan$/);
     if (planning) {
       const head = [...revisions.values()].reverse().find((revision) => revision.intent === planning[1]);
@@ -57,9 +102,16 @@ export function createIntentModel() {
       if (method === 'POST') {
         if (body?.revision !== head.id || body.operation !== 'propose_intent') return new Response(null, {status: 412});
         plans.add(head.id);
-        return Response.json({assignment_id: 'a'.repeat(32), run_id: 'b'.repeat(32), revision_id: head.id}, {status: 201});
+        return Response.json(
+          {assignment_id: 'a'.repeat(32), run_id: 'b'.repeat(32), revision_id: head.id},
+          {status: 201}
+        );
       }
-      return Response.json({revision: head.id, state: plans.has(head.id) ? 'completed' : 'none', candidates: plans.has(head.id) ? 1 : 0});
+      return Response.json({
+        revision: head.id,
+        state: plans.has(head.id) ? 'completed' : 'none',
+        candidates: plans.has(head.id) ? 1 : 0,
+      });
     }
     if (method === 'GET') {
       const allowance = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/allowance$/);

@@ -215,6 +215,20 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 // Targets without a repository stay undisclosed.
 func (s *API) commandRepository(w http.ResponseWriter, r *http.Request, v store.Session, cmd factory.Command) (int64, bool) {
 	target := cmd.Target
+	if cmd.Type == factory.CommandVerificationAllowance {
+		intent, ok := strings.CutPrefix(target, "intent/")
+		intent, suffix := strings.CutSuffix(intent, "/verification-allowance")
+		if !ok || !suffix || !factory.ValidVerificationAllowanceIntent(intent) {
+			auth.JSONError(w, 404, "not_found", "Command not found.")
+			return 0, false
+		}
+		head, err := s.Store.IntentRevision(r.Context(), intent, v.User.ID)
+		if err != nil {
+			auth.JSONError(w, 404, "not_found", "Command not found.")
+			return 0, false
+		}
+		return head.Repository, true
+	}
 	if rest, ok := strings.CutPrefix(target, "repository/"); ok {
 		id, _, _ := strings.Cut(rest, "/")
 		repository, valid := auth.PositiveID(id)

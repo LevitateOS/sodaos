@@ -504,6 +504,78 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				if retained() != oldRows {
 					t.Fatal("exhaustion or revision change modified the prior charged root")
 				}
+				if fixture.state == factory.ReassessmentCollecting && !fixture.failed && fixture.spent == 0 {
+					before, err := db.AppVerificationAllowance(ctx, revision.Intent, 7, time.Now())
+					if err != nil || before.Revision != "" || before.Limits.Runs != 2 || before.Limits.ActiveMinutes != 60 || before.Consumption.Runs != 2 || before.Remaining.Runs != 0 {
+						t.Fatal("default verification allowance read", before, err)
+					}
+					unchanged := func() string {
+						t.Helper()
+						var data string
+						if err := sqlDB.QueryRow(`SELECT json_build_object('roots',(SELECT jsonb_agg(to_jsonb(t) ORDER BY root_assignment) FROM factory_attempt_allowances t),'usage',(SELECT jsonb_agg(to_jsonb(t) ORDER BY run) FROM factory_usage t),'reservations',(SELECT jsonb_agg(to_jsonb(t) ORDER BY assignment) FROM factory_reservations t),'policy',(SELECT jsonb_agg(to_jsonb(t) ORDER BY repository) FROM factory_policies t),'sponsor',(SELECT jsonb_agg(to_jsonb(t) ORDER BY repository,connection) FROM factory_sponsorships t),'budget',(SELECT jsonb_agg(to_jsonb(t) ORDER BY connection) FROM factory_connection_usage_budgets t))::text`).Scan(&data); err != nil {
+							t.Fatal(err)
+						}
+						return data
+					}
+					originalFunding := unchanged()
+					type increaseResult struct {
+						view factory.AppVerificationAllowance
+						err  error
+					}
+					results := make(chan increaseResult, 2)
+					for range 2 {
+						change := factory.AppVerificationAllowanceChange{CommandID: factory.NewID(), Limits: factory.AppVerificationLimits{Runs: 3, ActiveMinutes: 60}}
+						go func() {
+							raw, _ := json.Marshal(change)
+							cmd := factory.Command{ID: change.CommandID, Type: factory.CommandVerificationAllowance, Target: factory.AppVerificationAllowanceTarget(revision.Intent), Principal: "native:7", Payload: string(raw)}
+							cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
+							view, err := db.IncreaseAppVerificationAllowance(ctx, revision.Intent, 7, cmd, change, time.Now())
+							results <- increaseResult{view, err}
+						}()
+					}
+					accepted, stale := 0, 0
+					for range 2 {
+						result := <-results
+						if errors.Is(result.err, store.ErrStaleRevision) {
+							stale++
+							continue
+						}
+						if result.err != nil || result.view.Revision == "" || result.view.CommandID != result.view.Revision || result.view.Limits.Runs != 3 || result.view.Limits.ActiveMinutes != 60 || result.view.Consumption != before.Consumption || result.view.Remaining.Runs != 1 {
+							t.Fatal("owner verification increase", result.view, result.err)
+						}
+						accepted++
+					}
+					if accepted != 1 || stale != 1 || unchanged() != originalFunding {
+						t.Fatal("concurrent increase forked or reset existing funding", accepted, stale)
+					}
+					if _, err := db.AppVerificationAllowance(ctx, revision.Intent, 8, time.Now()); !errors.Is(err, factory.ErrVerificationAllowanceOwner) {
+						t.Fatal("foreign owner read verification allowance", err)
+					}
+					occupancy, err = snapshotOccupancy(ctx, db)
+					if err != nil {
+						t.Fatal(err)
+					}
+					fundedThird := newDispatchReport()
+					DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, subject, fx.tip, retryPrompt, preparation, &fundedThird)
+					// The changed accepted revision has no prepared current-context
+					// receipt in this fixture. Its new packet may consume the one
+					// explicitly added admission while native launch remains held.
+					if len(fundedThird.Launched) != 0 || len(fundedThird.Errors) != 0 || len(fundedThird.Waits) != 1 || fundedThird.Waits[0].Reason != "context_selection_hold" {
+						t.Fatal("explicit count increase did not retain its normal context gate", fundedThird)
+					}
+					var thirdLimit int
+					var contextPending bool
+					if err := sqlDB.QueryRow(`SELECT (b.data->'limits'->>'active_minutes')::int,(r.data->>'context_pending')::boolean FROM factory_assignments a JOIN factory_attempt_allowances b ON b.root_assignment=a.id JOIN factory_runs r ON r.id=a.run WHERE a.data->'subject'->'delivery'->>'accepted_revision'=$1`, nextRevision.ID).Scan(&thirdLimit, &contextPending); err != nil || thirdLimit < 1 || thirdLimit > 30 || !contextPending {
+						t.Fatal("third packet lacked its bounded retained root", thirdLimit, contextPending, err)
+					}
+					if retained() != oldRows {
+						t.Fatal("new root rewrote the old charged result")
+					}
+					view, err := db.AppVerificationAllowance(ctx, revision.Intent, 7, time.Now())
+					if err != nil || view.Consumption.Runs != 3 || view.Limits.ActiveMinutes != 60 || view.Remaining.Runs != 0 {
+						t.Fatal("third admission did not retain the same total", view, err)
+					}
+				}
 				return
 			}
 			run.Outcome, run.Reconciled = factory.Succeeded, true

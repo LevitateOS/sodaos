@@ -206,6 +206,9 @@ func extensionFactoryIntentsRoute(parts []string, method string) (admitted, hand
 }
 
 func extensionIntentsRevisionRoute(parts []string, method string) (admitted, handled bool) {
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "verification-allowance" {
+		return method == http.MethodGet || method == http.MethodPost, true
+	}
 	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
 		return method == http.MethodGet || method == http.MethodPost, true
 	}
