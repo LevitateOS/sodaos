@@ -161,6 +161,27 @@ func ValidateReassessmentAdoption(
 	changedIssueIndexes []int64,
 	completionID, cycleID string,
 ) ([]ReassessmentIntentPacket, factory.ReassessmentValidationReport, ReassessmentJournal, error) {
+	packets, validation, journal, err := preflightReassessmentAdoption(report, priors, authority, freshness, sealedInventoryDigest, inventory, changedIssueIndexes, completionID, cycleID)
+	if err != nil {
+		return nil, factory.ReassessmentValidationReport{}, ReassessmentJournal{}, err
+	}
+	if !factory.ValidReassessmentProposal(judgment.Option, judgment.Probability, judgment.Confidence) {
+		return nil, factory.ReassessmentValidationReport{}, ReassessmentJournal{}, errors.New("reassessment proposal is not acceptable")
+	}
+	return packets, validation, journal, nil
+}
+
+// Deterministic preflight grants no adoption authority. Both the paid-proposal
+// producer and the read-only worker preview use it without inventing a judgment.
+func preflightReassessmentAdoption(
+	report factory.ReassessmentReport,
+	priors map[string]ReassessmentPrior,
+	authority ReassessmentAuthority,
+	freshness ReassessmentFreshness,
+	sealedInventoryDigest string,
+	inventory, changedIssueIndexes []int64,
+	completionID, cycleID string,
+) ([]ReassessmentIntentPacket, factory.ReassessmentValidationReport, ReassessmentJournal, error) {
 	var empty factory.ReassessmentValidationReport
 	if err := report.Validate(); err != nil {
 		return nil, empty, ReassessmentJournal{}, err
@@ -176,9 +197,6 @@ func ValidateReassessmentAdoption(
 	}
 	if len(report.Attention) > 0 {
 		return nil, empty, ReassessmentJournal{}, errors.New("reassessment attention holds the event")
-	}
-	if !factory.ValidReassessmentProposal(judgment.Option, judgment.Probability, judgment.Confidence) {
-		return nil, empty, ReassessmentJournal{}, errors.New("reassessment proposal is not acceptable")
 	}
 	if !freshness.AuthorityValid || !freshness.ScopeDigestValid {
 		return nil, empty, ReassessmentJournal{}, errors.New("reassessment inputs changed before effects")

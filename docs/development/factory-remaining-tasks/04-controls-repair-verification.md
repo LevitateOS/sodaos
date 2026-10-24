@@ -495,6 +495,23 @@ This consumes nominated references; it does not automatically infer coverage
 from all observations. Broader Strategist work tools and native qualification
 remain separate work.
 
+**Strategist preview slice:** `factory.preview_repair` now accepts the admitted
+cause's complete typed report as a read. It rechecks the active/current capability,
+allowance and sealed completion/stall/delivery-failure inputs, brackets complete
+native inventory and current accepted graph authority, and reuses the existing
+deterministic adoption preflight. Results describe coverage, protected/mutable
+issue indexes and bounded proposed graph effects with preserved/rebound/retired
+task keys. Structural refusals carry a reason; unavailable/stale/foreign inputs
+refuse instead of appearing empty. Preview records no draft or receipt, calls no
+model and changes no graph, readiness, command or spending ledger. The actual
+adoption path retains its paid proposal judgment and fresh validation. A valid
+no-change diagnosis can remain ineligible to repair a real stall or failed app.
+Existing PostgreSQL completion/protected-stall/failed-delivery cases cover
+deterministic repeat reads, no-effect/refusal/current-authority cases and unchanged
+retained rows; authenticated HTTP covers role discovery, schema, revocation and
+no-write reads. Diagnosis/draft tools and installed native qualification remain
+open.
+
 **Full role interfaces:** Implement Strategist `reassessment_scope`,
 `record_diagnosis`, `draft_repair`, `preview_repair` and its finish for the admitted
 completion/stall/delivery-repair cause. Use complete inventories, preserved

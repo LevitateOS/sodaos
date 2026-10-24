@@ -84,6 +84,7 @@ type FactoryMCPDeps struct {
 	Now                  func() time.Time
 	SystemOne            FactorySystemOne
 	VerificationEvidence func(context.Context, factory.MCPCapability) (map[string]any, error)
+	RepairPreview        func(context.Context, factory.MCPCapability, json.RawMessage) (factory.RepairPreview, error)
 }
 
 // mcpCallArgs is the tool envelope. Production supplies capability identity
@@ -146,6 +147,10 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	}
 	if payload := verificationJourneyPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
+	if tool == factory.MCPToolPreviewRepair {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = repairPreviewPayloadSchema()
+		definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
 	}
 	if payload := resolvePostPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
@@ -697,6 +702,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveResearchScope(ctx, tool, args)
 	case factory.MCPToolVerificationScope:
 		return s.serveVerificationScope(ctx, args)
+	case factory.MCPToolPreviewRepair:
+		return s.serveRepairPreview(ctx, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
 	case factory.MCPToolReceipt:
@@ -1089,6 +1096,7 @@ func (s *API) FactoryMCPHandler() http.Handler {
 		Prepare:              s.prepareFactoryWorkerMCP,
 		SystemOne:            &control.TypeSafeSystemOne{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel},
 		VerificationEvidence: s.factoryVerificationEvidence,
+		RepairPreview:        s.factoryRepairPreview,
 		Catalog:              s.factoryApprovedVerificationCatalog,
 	}, key)
 }

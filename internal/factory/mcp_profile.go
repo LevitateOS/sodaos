@@ -124,6 +124,7 @@ const (
 	MCPToolResolvePost              MCPTool = "factory.resolve_post"
 	MCPToolFinishAppVerify          MCPTool = "factory.finish_app_verification"
 	MCPToolVerificationScope        MCPTool = "factory.verification_scope"
+	MCPToolPreviewRepair            MCPTool = "factory.preview_repair"
 	MCPToolRecordJourneyResult      MCPTool = "factory.record_journey_result"
 	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
 	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
@@ -160,6 +161,7 @@ var MCPTools = []MCPTool{
 	MCPToolFinishReview,
 	MCPToolFinishCorrection,
 	MCPToolFinishReassessment,
+	MCPToolPreviewRepair,
 	MCPToolVerificationEvidence,
 	MCPToolVerificationScope,
 	MCPToolRecordJourneyResult,
@@ -206,6 +208,7 @@ const (
 // mcpReadTools are bound reads: they never launch work and never
 // freeze the assignment.
 var mcpReadTools = map[MCPTool]bool{
+	MCPToolPreviewRepair:         true,
 	MCPToolVerificationEvidence:  true,
 	MCPToolVerificationScope:     true,
 	MCPToolSearchLibrary:         true,
@@ -292,6 +295,7 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolFinishReview:             singleMCPProfile(MCPProfileInspector),
 	MCPToolFinishCorrection:         singleMCPProfile(MCPProfileFixer),
 	MCPToolFinishReassessment:       singleMCPProfile(MCPProfileStrategist),
+	MCPToolPreviewRepair:            singleMCPProfile(MCPProfileStrategist),
 	MCPToolFinishAppVerify:          singleMCPProfile(MCPProfileTestPilot),
 	MCPToolFinishResearch:           singleMCPProfile(MCPProfileResearcher),
 	MCPToolResearchScope:            singleMCPProfile(MCPProfileResearcher),

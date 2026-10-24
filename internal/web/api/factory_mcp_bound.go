@@ -94,6 +94,9 @@ func workerFeedComponents(profile factory.MCPProfile) []map[string]any {
 }
 
 func factoryToolDescription(tool factory.MCPTool) string {
+	if tool == factory.MCPToolPreviewRepair {
+		return "Read deterministic structural feedback for a complete typed repair report against your exact current cause, inventory and protected graph. Shows coverage and bounded proposed effects; no model consultation, recorded draft, graph mutation, readiness change, adoption or spending occurs. Actual submission still requires the existing independent judgment and fresh adoption validation."
+	}
 	if tool == factory.MCPToolVerificationScope {
 		return "Read your exact admitted application delivery, accepted outcome IDs and recorded journey observations with bounded continuation. Reads do not execute checks, spend, or verify an application."
 	}

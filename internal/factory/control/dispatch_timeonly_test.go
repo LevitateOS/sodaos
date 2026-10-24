@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strconv"
@@ -442,6 +443,37 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 		SourceCommit: current.Local.SourceCommit, PreparationDigest: current.Local.PreparationDigest,
 		LocalInputDigest: localDigest, Summary: "The complete inventory remains coherent; retain its current issues.",
 		RetainedIssueIndexes: retained,
+	}
+	// The worker can inspect a genuine no-change completion proposal without
+	// buying another judgment or mutating the retained cycle/allowance.
+	if err := db.ActivateObservedMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	cap, err = db.GetMCPCapability(ctx, launched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coord.CompletionEnumerator, coord.CompletionLocalCapture = enumerator, db.CaptureCompletionLocal
+	before, _ := json.Marshal(current)
+	previewSubject := factory.CompletionSubject{CompletionID: current.Cycle.EventID, CycleID: cycleID, InventoryDigest: current.InventoryDigest}
+	allowanceBefore, err := db.ReassessmentAttemptAllowance(ctx, fx.publish.seed.repo, previewSubject, cap.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(proposal)
+	for i := 0; i < 2; i++ {
+		preview, err := coord.PreviewRepair(ctx, cap, encoded)
+		if err != nil || !preview.Valid || preview.Validation == nil || len(preview.Effects) != 0 || preview.InputDigest != cap.ScopeDigest() {
+			t.Fatalf("complete no-effect preview: %+v %v", preview, err)
+		}
+	}
+	after, _ := db.ReassessmentRecord(ctx, cycleID)
+	afterJSON, _ := json.Marshal(after)
+	allowanceAfter, err := db.ReassessmentAttemptAllowance(ctx, fx.publish.seed.repo, previewSubject, cap.AssignmentID)
+	oldAllowance, _ := json.Marshal(allowanceBefore)
+	newAllowance, _ := json.Marshal(allowanceAfter)
+	if err != nil || string(before) != string(afterJSON) || string(oldAllowance) != string(newAllowance) || chooser.calls != 1 || len(fx.publish.seed.host.launches) != 1 {
+		t.Fatal("preview spent or changed canonical completion state", err)
 	}
 	run, err := db.FactoryRun(ctx, launched)
 	if err != nil {

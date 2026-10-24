@@ -652,7 +652,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	var repairCapability factory.MCPCapability
-	if deliveryMode {
+	if deliveryMode || mode == "append_producer" {
 		repairCapability, err = db.GetMCPCapability(ctx, run.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -665,8 +665,94 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal(err)
 		}
 		current, e := db.FactoryCurrentContext(ctx, repairCapability, time.Now())
-		if e != nil || current.Role.DeliveryRepair == nil || !current.Role.DeliveryRepair.Complete || current.Role.DeliveryRepair.Subject != deliveryRecord.Subject || current.Role.DeliveryRepair.Cause.FailureDigest != deliveryRecord.Cause.FailureDigest {
+		if deliveryMode && (e != nil || current.Role.DeliveryRepair == nil || !current.Role.DeliveryRepair.Complete || current.Role.DeliveryRepair.Subject != deliveryRecord.Subject || current.Role.DeliveryRepair.Cause.FailureDigest != deliveryRecord.Cause.FailureDigest) {
 			t.Fatal("native Strategist lacks exact mandatory repair context", e)
+		}
+	}
+	if mode == "append_producer" || mode == "delivery_repair" {
+		var report any = proposal
+		if deliveryMode {
+			report = factory.DeliveryRepairReport{Subject: deliveryRecord.Subject, InputDigest: repairCapability.ScopeDigest(), Causes: []factory.CheckFailure{{CheckRef: revision.Ideas[0].ID, Detail: "Add the bounded missing application behavior."}}, RetainedIssueIndexes: retained, IntentChanges: proposal.IntentChanges, Coverage: proposal.Coverage, Outcome: factory.RepairOutcomeRepair}
+		}
+		encoded, _ := json.Marshal(report)
+		previewDB, e := sql.Open("pgx", dsn)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer previewDB.Close()
+		snapshot := func() string {
+			t.Helper()
+			var all strings.Builder
+			for _, table := range []string{"factory_commands", "factory_assignments", "factory_runs", "factory_attempt_allowances", "factory_reservations", "factory_usage", "factory_priority_judgments", "factory_stall_events", "factory_intent_heads", "factory_intent_generations", "factory_intent_tasks", "issue_acceptance_heads", "issue_acceptance_decisions"} {
+				var body string
+				if e := previewDB.QueryRow(`SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text FROM ` + table + ` t`).Scan(&body); e != nil {
+					t.Fatal("preview retained row snapshot", table, e)
+				}
+				all.WriteString(body)
+			}
+			return all.String()
+		}
+		before := snapshot()
+		var first []byte
+		for i := 0; i < 2; i++ {
+			preview, e := coord.PreviewRepair(ctx, repairCapability, encoded)
+			if e != nil || !preview.Valid || preview.Validation == nil || len(preview.Effects) != 1 || preview.Effects[0].Creates != 1 || len(preview.Effects[0].PreservedTasks) != 2 || preview.InputDigest != repairCapability.ScopeDigest() {
+				t.Fatalf("bound protected graph preview: %+v %v", preview, e)
+			}
+			body, _ := json.Marshal(preview)
+			if i > 0 && string(body) != string(first) {
+				t.Fatal("same preview changed its deterministic result")
+			}
+			first = body
+		}
+		var altered map[string]any
+		_ = json.Unmarshal(encoded, &altered)
+		if deliveryMode {
+			altered["input_digest"] = strings.Repeat("9", 64)
+		} else {
+			altered["inventory_digest"] = strings.Repeat("9", 64)
+		}
+		foreign, _ := json.Marshal(altered)
+		if _, e = coord.PreviewRepair(ctx, repairCapability, foreign); e == nil {
+			t.Fatal("preview admitted another cause scope")
+		}
+		_ = json.Unmarshal(encoded, &altered)
+		change := altered["intent_changes"].([]any)[0].(map[string]any)
+		change["tasks"].([]any)[0].(map[string]any)["objective"] = "Rewrite protected delivered or human-accepted work"
+		invalid, _ := json.Marshal(altered)
+		preview, e := coord.PreviewRepair(ctx, repairCapability, invalid)
+		if e != nil || preview.Valid || preview.Reason == "" || len(preview.Effects) != 0 {
+			t.Fatalf("protected rewrite lacked a structural refusal: %+v %v", preview, e)
+		}
+		_ = json.Unmarshal(encoded, &altered)
+		altered["apply"] = true
+		invalid, _ = json.Marshal(altered)
+		if _, e = coord.PreviewRepair(ctx, repairCapability, invalid); e == nil {
+			t.Fatal("preview admitted an unknown effect field")
+		}
+		revoked := repairCapability
+		revoked.State = factory.MCPCapabilityRevoked
+		if _, e = coord.PreviewRepair(ctx, revoked, encoded); e == nil {
+			t.Fatal("preview admitted an inactive capability")
+		}
+		currentEnumerator := coord.CompletionEnumerator
+		coord.CompletionEnumerator = nil
+		if _, e = coord.PreviewRepair(ctx, repairCapability, encoded); e == nil {
+			t.Fatal("preview assumed unavailable native inventory was empty")
+		}
+		coord.CompletionEnumerator = currentEnumerator
+		capture := coord.CompletionLocalCapture
+		coord.CompletionLocalCapture = func(ctx context.Context, repo int64) (factory.CompletionLocal, error) {
+			current, err := capture(ctx, repo)
+			current.SourceCommit = strings.Repeat("9", 40)
+			return current, err
+		}
+		if _, e = coord.PreviewRepair(ctx, repairCapability, encoded); e == nil {
+			t.Fatal("preview accepted moved current source")
+		}
+		coord.CompletionLocalCapture = capture
+		if after := snapshot(); before != after || chooser.calls != 0 || graph.submissions != baseline {
+			t.Fatal("read-only repair preview spent, recorded or changed a native graph")
 		}
 	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "repair proposal ready", true

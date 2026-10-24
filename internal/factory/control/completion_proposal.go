@@ -148,8 +148,7 @@ func (c *Coordinator) driveReassessmentProposal(ctx context.Context, deps Comple
 	}
 	bindings := ReassessmentFreshness{SourceCommit: record.Local.SourceCommit, PreparationDigest: record.Local.PreparationDigest, ScopeDigestValid: true, AuthorityValid: true}
 	// Structural preflight happens before the proposal call is funded.
-	packets, validation, journal, err := ValidateReassessmentAdoption(*proposal, priors, authority,
-		ReassessmentProposalJudgment{Option: factory.ReassessmentOptionAccept, Probability: 1, Confidence: 1},
+	packets, validation, journal, err := preflightReassessmentAdoption(*proposal, priors, authority,
 		bindings, record.InventoryDigest, indexes, changed, record.Cycle.EventID, record.Cycle.CycleID)
 	if err != nil {
 		c.holdCompletion(ctx, record, "reassessment_proposal_invalid", report, true)

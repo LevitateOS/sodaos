@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 51 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 52 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -594,6 +594,19 @@ evidence within the cause's authorized lineage.
 | `factory.draft_repair` | Propose bounded graph/plan changes, a justified no-change result or a verified wait, using the admitted cause's schema. |
 | `factory.preview_repair` | Deterministically inspect effects on coverage, dependencies, protected work and readiness before submission. It does not apply the proposal or call Jev. |
 | `factory.finish_reassessment` | Seal the diagnosis and proposal for existing judgment/adoption consumers. |
+
+`factory.preview_repair` is implemented as a capability-bound read over the
+current sealed cause and complete inventory. It reuses the deterministic graph
+preflight and reports coverage, protected/mutable issue indexes and proposed
+create/edit/dependency counts with preserved/rebound/retired task keys. Missing
+inventory, changed source or authority and foreign causes refuse. Structural
+refusals return their reason without staging a draft, consulting Jev or changing
+graphs, readiness, allowances or charges. `valid` describes adoption preflight:
+a no-change completion may have no effects; a real stall or failed delivery still
+needs changed work or attention. A valid no-change diagnosis is not thereby an
+invalid terminal report. Actual adoption retains its independent funded judgment
+and fresh validation. Draft/diagnosis tools and installed native preview
+qualification remain separate work.
 
 The feed needs a before/after view and the concrete reason each change helps.
 The library can retain a recurring stall pattern and an evidence-backed recovery

@@ -58,6 +58,76 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	if !seen["factory.partial"] || !seen["factory.record_decision"] || !seen[string(factory.MCPToolFinishImplement)] || !seen[string(factory.MCPToolResolvePost)] {
 		t.Fatalf("incomplete worker catalog: %v", seen)
 	}
+	if seen[string(factory.MCPToolPreviewRepair)] {
+		t.Fatal("builder discovered a Strategist-only preview")
+	}
+	if result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": map[string]any{}}}}); !catalogRefused(result, err) {
+		t.Fatal("builder called a Strategist-only preview")
+	}
+	t.Run("Strategist read-only repair preview transport", func(t *testing.T) {
+		strategist := newFakeCatalogSink()
+		strategist.capability.Profile, strategist.capability.Subject = factory.MCPProfileStrategist, "stall:7:preview"
+		a := strategist.assignments[strategist.capability.AssignmentID]
+		a.Phase = "repair"
+		strategist.assignments[a.ID] = a
+		calls := 0
+		report := factory.StallRepairReport{StallID: strings.Repeat("1", 32), CycleID: strings.Repeat("2", 32), InventoryDigest: strings.Repeat("3", 64), SourceCommit: strings.Repeat("4", 40), PreparationDigest: strings.Repeat("5", 64), Inspected: []factory.InspectedSource{}, Causes: []factory.CheckFailure{{CheckRef: "missing_producer", Detail: "The manual prerequisite needs an authorized producer."}}, RetainedIssueIndexes: []int64{1}, IntentChanges: []factory.ReassessmentIntentChange{}, Coverage: []factory.ReassessmentCoverage{}, Attention: []factory.ReassessmentAttentionEntry{}, Outcome: factory.RepairOutcomeNoChange}
+		want, _ := json.Marshal(report)
+		secret, err := factory.DeriveMCPCapabilitySecret(key, strategist.capability)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: strategist, Submissions: strategist, Assignments: strategist, RepairPreview: func(_ context.Context, cap factory.MCPCapability, raw json.RawMessage) (factory.RepairPreview, error) {
+			var proposal factory.StallRepairReport
+			if err := json.Unmarshal(raw, &proposal); err != nil {
+				t.Fatal(err)
+			}
+			got, _ := json.Marshal(proposal)
+			if cap.ScopeDigest() != strategist.capability.ScopeDigest() || string(got) != string(want) {
+				t.Fatal("transport lost its authenticated scope or typed report")
+			}
+			calls++
+			return factory.RepairPreview{Subject: cap.Subject, InputDigest: cap.ScopeDigest(), Reason: "repair graph has no effect", Effects: []factory.RepairPreviewEffect{}, NextStep: "Submit diagnosis; the stall remains held."}, nil
+		}}, key))
+		defer server.Close()
+		worker := mcp.NewClient(&mcp.Implementation{Name: "preview-worker"}, nil)
+		bound, err := worker.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{strategist.capability.ID, secret}}}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer bound.Close()
+		tools, err := bound.ListTools(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, tool := range tools.Tools {
+			found = found || tool.Name == string(factory.MCPToolPreviewRepair)
+		}
+		if !found {
+			t.Fatal("Strategist preview absent from authenticated discovery")
+		}
+		for i := 0; i < 2; i++ {
+			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": report}}})
+			if catalogRefused(result, err) || !strings.Contains(catalogText(t, result), strategist.capability.ScopeDigest()) {
+				t.Fatal("bound preview read refused", err)
+			}
+		}
+		for _, args := range []map[string]any{{}, {"payload": map[string]any{"report": report, "apply": true}}, {"expected_input_digest": strings.Repeat("9", 64), "payload": map[string]any{"report": report}}, {"capability_id": strategist.capability.ID, "payload": map[string]any{"report": report}}} {
+			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: args})
+			if !catalogRefused(result, err) {
+				t.Fatal("invalid preview arguments reached a read", args)
+			}
+		}
+		if calls != 2 || len(strategist.submissions) != 0 || len(strategist.reserved) != 0 {
+			t.Fatal("preview wrote a submission or reserved a judgment", calls)
+		}
+		strategist.capability.State = factory.MCPCapabilityRevoked
+		result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": report}}})
+		if !catalogRefused(result, err) || calls != 2 {
+			t.Fatal("revoked preview worker reached the reader")
+		}
+	})
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
 	if catalogRefused(result, err) {
 		t.Fatalf("bound context: %v %v", result, err)
