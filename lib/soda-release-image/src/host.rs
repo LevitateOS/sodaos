@@ -173,6 +173,9 @@ pub fn build_host_image(
         "--remote=false".to_string(),
         "build".to_string(),
         "--pull=never".to_string(),
+        // Bare RPM names float. Refresh both transactions so the final bake
+        // cannot reuse older package metadata than the observed inventory.
+        "--no-cache".to_string(),
         "--unsetlabel=ostree.commit".to_string(),
         "--unsetlabel=ostree.final-diffid".to_string(),
         "--rm=true".to_string(),
@@ -201,10 +204,6 @@ pub fn build_host_image(
     // Flatten only the final sealed host consumed by native OSTree import.
     if flatten {
         args.insert(3, "--squash-all".to_string());
-    } else {
-        // Bare RPM names float: observe a fresh transaction, not an older
-        // cached package layer, before sealing the final build's fingerprint.
-        args.insert(3, "--no-cache".to_string());
     }
     production.execute(context, "podman", &args)?;
     read_host_image_id(&iid)
