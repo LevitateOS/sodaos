@@ -3,10 +3,18 @@
 //! Success stdout is asserted byte-exact; every refusal asserts the exit
 //! code plus the fixed stderr contract.
 
+use soda_host::factory::{self, FactoryBroker, FactoryTerminal};
+use soda_host::project::Executor;
+use soda_host::terminal::Binding;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU8},
+    Arc, Mutex,
+};
+use std::time::{Duration, Instant};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -105,6 +113,256 @@ impl Scratch {
 impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+// Real Host orchestration and native helper/Git/processes. Only the external
+// broker/provider boundary is observed locally; no account or model is used.
+#[derive(Clone)]
+struct NativeFactoryFixture {
+    factory: PathBuf,
+    events: Arc<Mutex<Vec<String>>>,
+    crash: Arc<AtomicU8>,
+    refuse_stop: Arc<AtomicBool>,
+}
+
+impl Executor for NativeFactoryFixture {
+    fn run(
+        &self,
+        input: &[u8],
+        command: &str,
+        args: &[&str],
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
+        self.run_bounded(input, command, args, deadline, 512 * 1024, 4096)
+    }
+    fn run_bounded(
+        &self,
+        input: &[u8],
+        command: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout: usize,
+        stderr: usize,
+    ) -> Result<Vec<u8>, String> {
+        assert_eq!(command, "podman");
+        assert_eq!(
+            args,
+            [
+                "--remote=false",
+                "exec",
+                "--interactive",
+                &"b".repeat(64),
+                soda_host::preparation::FACTORY_HELPER
+            ]
+        );
+        let request: serde_json::Value = serde_json::from_slice(input).unwrap();
+        let op = request["op"].as_str().unwrap();
+        let crash = if op == "verify" {
+            self.crash.swap(0, Ordering::SeqCst)
+        } else {
+            0
+        };
+        if crash == 1 {
+            panic!("fixture Host loss before native helper dispatch");
+        }
+        let raw = soda_host::project::Native.run_bounded(
+            input,
+            "/usr/bin/env",
+            &[
+                "-i",
+                "PATH=/usr/bin:/bin",
+                &format!("SODA_FACTORY_DIR={}", self.factory.display()),
+                "SODA_FACTORY_GIT=/usr/bin/git",
+                binary().to_str().unwrap(),
+            ],
+            deadline,
+            stdout,
+            stderr,
+        )?;
+        let response: serde_json::Value = serde_json::from_slice(&raw).unwrap();
+        self.events.lock().unwrap().push(format!(
+            "helper:{op}:{}",
+            response["phase"].as_str().unwrap()
+        ));
+        if crash == 2 {
+            panic!("fixture Host loss after actual native helper dispatch");
+        }
+        Ok(raw)
+    }
+}
+
+impl FactoryBroker for NativeFactoryFixture {
+    fn acquire(
+        &self,
+        request: &factory::AcquireRequest,
+        _: Instant,
+    ) -> Result<factory::Lease, factory::FactoryError> {
+        self.events.lock().unwrap().push("acquire".into());
+        Ok(factory::Lease {
+            id: request.execution_id.clone(),
+            execution_id: request.execution_id.clone(),
+            kind: "factory".into(),
+            generation: 1,
+            provider_id: "codex".into(),
+            actor_id: 1,
+            project_id: request.project_id.clone(),
+            connection_id: request.connection_id.clone(),
+            role: request.role.clone(),
+            deadline: request.deadline.clone(),
+            ..Default::default()
+        })
+    }
+    fn register(
+        &self,
+        run: &str,
+        _: &Binding,
+        _: Instant,
+    ) -> Result<Vec<u8>, factory::FactoryError> {
+        let dir = self
+            .factory
+            .join("preparations")
+            .join(PID)
+            .join("verifications")
+            .join(run);
+        let finished: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(dir.join("finished.json")).unwrap()).unwrap();
+        assert_eq!(finished["setup_exit"], 0);
+        assert_eq!(finished["check_exit"], 0);
+        assert!(!dir.join("work").exists() && !dir.join("home").exists());
+        self.events.lock().unwrap().push("register".into());
+        Ok(b"local-provider-boundary".to_vec())
+    }
+    fn return_lease(
+        &self,
+        _: &str,
+        _: &Binding,
+        _: &[u8],
+        _: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        self.events.lock().unwrap().push("return".into());
+        Ok(())
+    }
+    fn reconcile_lease(&self, _: &str, _: Instant) {
+        self.events.lock().unwrap().push("reconcile".into());
+    }
+    fn execution_is_terminal(
+        &self,
+        _: &str,
+        _: &str,
+        _: Instant,
+    ) -> Result<bool, factory::FactoryError> {
+        Ok(true)
+    }
+    fn close_execution(&self, _: &str, _: &str, _: Instant) -> Result<(), factory::FactoryError> {
+        self.events.lock().unwrap().push("close".into());
+        Ok(())
+    }
+}
+
+impl FactoryTerminal for NativeFactoryFixture {
+    fn harness_pin(&self, _: &str) -> Result<factory::FactoryHarnessPin, String> {
+        Ok(factory::FactoryHarnessPin {
+            harness: "codex".into(),
+            version: "native-fixture".into(),
+            sha256: "a".repeat(64),
+            image: String::new(),
+        })
+    }
+    fn reserve(
+        &self,
+        run: &factory::FactoryRun,
+        _: &factory::Lease,
+        _: &str,
+        _: i64,
+        _: Instant,
+    ) -> Result<Binding, factory::FactoryError> {
+        self.events.lock().unwrap().push("reserve".into());
+        Ok(Binding {
+            kind: "factory".into(),
+            id: run.id.clone(),
+            project: "b".repeat(64),
+            login: run.role.clone(),
+            uid: unsafe { libc::geteuid() }.into(),
+            gid: unsafe { libc::getegid() }.into(),
+            scope: "codex".into(),
+            invocation_id: "a".repeat(32),
+            generation: 1,
+            child_id: PID.into(),
+            credential_root: factory::factory_run_paths(&run.role, &run.preparation, &run.id).1,
+            ..Default::default()
+        })
+    }
+    fn start(
+        &self,
+        _: &factory::Lease,
+        _: &[u8],
+        _: &[u8],
+        _: Instant,
+        _: &str,
+    ) -> Result<(), factory::FactoryError> {
+        let mut events = self.events.lock().unwrap();
+        assert!(events.iter().any(|e| e == "register"));
+        events.push("cli-start".into());
+        Ok(())
+    }
+    fn wait(&self, _: &factory::Lease, _: Instant) -> Result<(i64, String), factory::FactoryError> {
+        Ok((0, String::new()))
+    }
+    fn stop(&self, _: &factory::Lease, _: Instant) -> Result<(), factory::FactoryError> {
+        self.events.lock().unwrap().push("native-stop".into());
+        if self.refuse_stop.load(Ordering::SeqCst) {
+            Err(factory::FactoryError::Uncertain)
+        } else {
+            Ok(())
+        }
+    }
+    fn stop_unbound(
+        &self,
+        _: &factory::FactoryRun,
+        _: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        Ok(())
+    }
+    fn capture(&self, _: &factory::Lease, _: Instant) -> Result<Vec<u8>, factory::FactoryError> {
+        self.events.lock().unwrap().push("capture".into());
+        Ok(b"local-provider-boundary".to_vec())
+    }
+    fn live(&self, _: &Binding, _: Instant) -> bool {
+        false
+    }
+    fn output(
+        &self,
+        _: &str,
+        _: &Binding,
+        _: i64,
+        _: i64,
+        _: Instant,
+    ) -> Result<factory::OutputSlice, factory::FactoryError> {
+        Err(factory::FactoryError::NotFound)
+    }
+    fn takeover_copy(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: Instant,
+    ) -> Result<(String, bool), factory::FactoryError> {
+        Err(factory::FactoryError::NotFound)
+    }
+    fn export_bundle(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: Instant,
+    ) -> Result<Vec<u8>, factory::FactoryError> {
+        Err(factory::FactoryError::NotFound)
     }
 }
 
@@ -363,7 +621,7 @@ fn oracle_start_runs_detached_to_ready() {
         .status()
         .unwrap()
         .success());
-    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*) exit 7;; 333*|666*|777*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; *) echo check-ok;; esac\n";
+    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*|ccc*) exit 7;; 333*|666*|777*|ddd*|eee*|fff*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; bbb*) sleep 1; echo long-check-ok;; *) echo check-ok;; esac\n";
     let mut approve: serde_json::Value = serde_json::from_str(&approve_request(
         PID,
         &[("setup.sh", b"true\n"), ("check.sh", check)],
@@ -505,6 +763,190 @@ fn oracle_start_runs_detached_to_ready() {
     let replay: serde_json::Value =
         serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
     assert_eq!(replay, expired);
+    // Drive the actual Host orchestration against the same native helper.
+    // The observed external boundary records order/custody calls only.
+    for (digit, crash, parent_uncertain) in [
+        ('b', 0, false),
+        ('c', 0, false),
+        ('d', 2, false),
+        ('e', 1, false),
+        ('f', 2, true),
+    ] {
+        let run_id = digit.to_string().repeat(32);
+        let host_state = verified.root.join(format!("host-{digit}"));
+        std::fs::create_dir(&host_state).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&host_state, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let fixture = NativeFactoryFixture {
+            factory: verified.factory.clone(),
+            events: Arc::new(Mutex::new(Vec::new())),
+            crash: Arc::new(AtomicU8::new(crash)),
+            refuse_stop: Arc::new(AtomicBool::new(parent_uncertain)),
+        };
+        let mut manifest = soda_host::factory::VerificationManifest {
+            version: "project-check-v1".into(),
+            run: run_id.clone(),
+            project: "p0123456789abcdef01234567".into(),
+            preparation: PID.into(),
+            source_commit: commit.clone(),
+            deadline: soda_wire_time::format(deadline, 0).unwrap(),
+            intent: "d0123456789abcdef01234567".into(),
+            accepted_revision: "d123456789abcdef012345678".into(),
+            scope_digest: "1".repeat(64),
+            adopted_manifest_digest: "2".repeat(64),
+            requirements: "d23456789abcdef0123456789".into(),
+            approval: "d3456789abcdef0123456789a".into(),
+            preparation_digest: canonical_digest(&[("setup.sh", b"true\n"), ("check.sh", check)]),
+            check_digest: check_digest.into(),
+            outcomes: vec!["d456789abcdef0123456789ab".into()],
+            checks: Vec::new(),
+        };
+        manifest.checks = serde_json::from_value(serde_json::json!([{
+            "catalog_id":"project.check", "outcomes":manifest.outcomes,
+            "artifacts":["project.check.receipt"], "fixtures":["project.preparation"]
+        }]))
+        .unwrap();
+        let bytes = serde_json::to_vec(&manifest).unwrap();
+        let digest = soda_host::sha256::hex_lower(&soda_host::sha256::digest(&bytes));
+        let prompt = b"Native approved check orchestration fixture; no model/provider.".to_vec();
+        let launch = factory::FactoryLaunch {
+            run: factory::FactoryRun {
+                deadline: manifest.deadline.clone(),
+                actor: 1,
+                id: run_id.clone(),
+                project: manifest.project.clone(),
+                role: "soda-reviewer".into(),
+                preparation: PID.into(),
+                harness: "codex".into(),
+                harness_vers: "native-fixture".into(),
+                assignment: soda_host::sha256::hex_lower(&soda_host::sha256::digest(&prompt)),
+                source_commit: commit.clone(),
+                connection: "local-observed-boundary".into(),
+                execution_phase: "verify".into(),
+                verification_manifest_digest: digest.clone(),
+                ..Default::default()
+            },
+            prompt,
+            harness_sha256: "a".repeat(64),
+            verification_manifest: bytes,
+            ..Default::default()
+        };
+        let open = || {
+            factory::Factory::open_factory(
+                host_state.to_str().unwrap(),
+                fixture.clone(),
+                fixture.clone(),
+                fixture.clone(),
+            )
+            .unwrap()
+        };
+        if crash == 0 {
+            let began = Instant::now();
+            let state = open()
+                .launch(&launch, Instant::now() + Duration::from_millis(250))
+                .unwrap();
+            if digit == 'b' {
+                assert!(
+                    began.elapsed() >= Duration::from_secs(1),
+                    "check did not exceed short observation deadline"
+                );
+                assert_eq!(state.phase, "completed");
+                assert!(state.credential_returned);
+                assert_eq!(state.verification_checks.unwrap().phase, "passed");
+                let events = fixture.events.lock().unwrap();
+                let registered = events.iter().position(|e| e == "register").unwrap();
+                assert!(events[..registered]
+                    .iter()
+                    .any(|e| e.ends_with(":completed")));
+                assert!(
+                    events.iter().any(|e| e == "cli-start")
+                        && events.iter().any(|e| e == "capture")
+                        && events.iter().any(|e| e == "return")
+                );
+            } else {
+                assert_eq!(state.phase, "failed");
+                assert_eq!(state.retirement, "confirmed");
+                assert!(!state.credential_returned);
+                assert_eq!(state.verification_checks.unwrap().phase, "failed");
+            }
+        } else {
+            let worker = open();
+            let request = launch.clone();
+            let lost = std::thread::spawn(move || {
+                worker.launch(&request, Instant::now() + Duration::from_millis(250))
+            })
+            .join();
+            assert!(lost.is_err(), "Host-loss boundary was not reached");
+            // A newly opened Factory uses the durable pending identity and
+            // only inspects/stops. It never submits a second verify start.
+            let fresh = open();
+            let request = factory::FactoryVerificationChecks {
+                project: manifest.project.clone(),
+                run: run_id.clone(),
+                incarnation: "a".repeat(32),
+                manifest_digest: digest,
+            };
+            let observed =
+                fresh.verification_checks(&request, Instant::now() + Duration::from_secs(10));
+            if crash == 2 {
+                assert_eq!(observed.unwrap().phase, "running");
+            } else {
+                assert!(observed.is_err());
+            }
+            let stop = factory::FactoryStop {
+                project: manifest.project.clone(),
+                id: run_id.clone(),
+            };
+            let stopped = fresh
+                .stop(&stop, Instant::now() + Duration::from_secs(10))
+                .unwrap();
+            if parent_uncertain {
+                assert_eq!(stopped.phase, "uncertain");
+                assert_eq!(stopped.retirement, "uncertain");
+                fixture.refuse_stop.store(false, Ordering::SeqCst);
+            } else {
+                assert_eq!(stopped.phase, "stopped");
+                assert_eq!(stopped.retirement, "confirmed");
+            }
+            let stopped = open()
+                .stop(&stop, Instant::now() + Duration::from_secs(10))
+                .unwrap();
+            assert_eq!(stopped.phase, "stopped");
+            assert_eq!(stopped.retirement, "confirmed");
+            assert!(!stopped.credential_returned);
+            let late = open()
+                .launch(&launch, Instant::now() + Duration::from_secs(10))
+                .unwrap();
+            assert_eq!(late.phase, "stopped");
+            assert!(!late.delivered);
+            let events = fixture.events.lock().unwrap();
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|e| e.starts_with("helper:verify:"))
+                    .count(),
+                usize::from(crash == 2)
+            );
+            assert!(events.iter().any(|e| e == "reconcile") && events.iter().any(|e| e == "close"));
+        }
+        if digit != 'b' {
+            let events = fixture.events.lock().unwrap();
+            for forbidden in ["register", "cli-start", "capture", "return"] {
+                assert!(
+                    !events.iter().any(|e| e == forbidden),
+                    "pre-CLI path invoked {forbidden}: {events:?}"
+                );
+            }
+        }
+        assert_eq!(
+            std::fs::read(checkout.join("record.txt")).unwrap(),
+            retained
+        );
+        let own = prep.join("verifications").join(run_id);
+        assert!(!own.join("active-child.json").exists());
+        assert!(!own.join("work").exists());
+        assert!(!own.join("home").exists());
+    }
     // The enclosing preparation's ordinary Stop also joins verification work.
     request["deadline"] = soda_wire_time::format(deadline, 0).unwrap().into();
     request["run_id"] = "7".repeat(32).into();
