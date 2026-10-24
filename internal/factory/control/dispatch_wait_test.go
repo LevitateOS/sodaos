@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -203,6 +204,41 @@ func TestDispatchWaitReasons(t *testing.T) {
 			}
 			if tc.launched == 0 && len(fx.host.launches) != 0 {
 				t.Fatal("host launched while waiting")
+			}
+			// The serving readback projects the actual wait, never Detail or
+			// another repository's reason. This observation admits nothing.
+			observer := NewCoordinator(fx.deps().Store, fx.host, fx.broker)
+			report.Waits = append(report.Waits, DispatchWait{Repository: fx.repo + 1, Issue: 99, Reason: WaitHarness, Detail: "foreign private detail"})
+			report.Errors = append(report.Errors, DispatchError{Reason: "private provider reason", Detail: "private provider output"})
+			observer.observeProgressStage("dispatch")
+			observer.observeDispatch(ctx, report)
+			observation := observer.LatestDispatchObservation(fx.repo)
+			if observation == nil || observation.Context != "active" || observation.Stage != "dispatch" || observation.DispatchAt.IsZero() || len(observation.Errors) != 1 || observation.Errors[0].Reason != "unavailable" {
+				t.Fatalf("missing safe dispatch observation: %+v", observation)
+			}
+			found := false
+			for _, wait := range observation.Waits {
+				if wait.Repository == fx.repo && wait.Issue == tc.waited && wait.Reason == tc.reason {
+					found = true
+				}
+				if wait.Repository != fx.repo && wait.Repository != 0 {
+					t.Fatal("foreign repository observation disclosed")
+				}
+			}
+			encoded, err := json.Marshal(observation)
+			if err != nil || !found || strings.Contains(string(encoded), "private") || strings.Contains(string(encoded), "detail") {
+				t.Fatalf("unsafe/missing observed wait: %s %v", encoded, err)
+			}
+			observation.Waits[0].Reason = "mutated client copy"
+			if observer.LatestDispatchObservation(fx.repo).Waits[0].Reason == "mutated client copy" {
+				t.Fatal("read mutated retained observation")
+			}
+			deadline, cancel := context.WithDeadline(ctx, time.Now().Add(-time.Second))
+			defer cancel()
+			observer.observeDispatch(deadline, DispatchReport{Errors: []DispatchError{{Reason: "priority_incomplete", Detail: "native revision unavailable"}}})
+			ended := observer.LatestDispatchObservation(fx.repo)
+			if ended.Context != "deadline" || len(ended.Errors) != 1 || ended.Errors[0].Stage != "native_revision" {
+				t.Fatalf("deadline/native stage: %+v", ended)
 			}
 		})
 	}

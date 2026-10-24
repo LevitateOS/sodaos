@@ -109,6 +109,8 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	defer unlock()
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
+	defer c.observeProgressStage("idle")
+	c.observeProgressStage("settlement")
 	budget := readinessBudgetFrom(ctx)
 	runs, err := c.Store.FactoryUnsettledRuns(ctx, MaxDispatchRecovery)
 	if err != nil {
@@ -184,11 +186,15 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	_ = c.settleMCPTerminals(ctx)
 	// Durable comment requests advance with the service, one bounded
 	// page per pass, independently of any browser request.
+	c.observeProgressStage("comments")
 	if c.CommentDrive != nil {
 		c.CommentDrive(ctx)
 	}
+	c.observeProgressStage("standing_preparation")
 	c.observeStandingPreparations(ctx, standingPreparationCursor)
+	c.observeProgressStage("intent_graphs")
 	_ = c.RecoverIntentGraphs(ctx)
+	c.observeProgressStage("creations")
 	_ = c.recoverCreations(ctx)
 	// D13 completion fence (FW31): best-effort single drive of every
 	// unresolved completion cycle — seal, decide, release — in
@@ -201,8 +207,11 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// automatic store-local fallback: a nil production callback holds
 	// with completion wiring, never with an unqualified capture.
 	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
+	c.observeProgressStage("completions")
 	_ = c.DriveCompletions(ctx, deps)
+	c.observeProgressStage("delivery_verification")
 	c.driveDeliveryVerifications(ctx)
+	c.observeProgressStage("delivery_repair")
 	c.driveDeliveryRepairs(ctx)
 	// D15 stall detection (R36) runs inside this same progress pass,
 	// after observation, reconciliation and dispatch: a pass that
@@ -211,8 +220,10 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// like the completion drive; a failed round keeps attention
 	// instead of spending.
 	report := c.Dispatch(ctx)
+	c.observeProgressStage("stall")
 	_, _ = c.ServeStallRound(ctx, report)
 	if ownsPass {
+		c.observeProgressStage("readiness")
 		_, _ = c.drainReadinessWork(ctx, "")
 	}
 }

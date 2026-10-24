@@ -104,17 +104,18 @@ type Coordinator struct {
 	// the coordinator owns only the service lifetime that drives them,
 	// so comment completion never depends on a browser request. Nil
 	// holds pending comment requests in their stored state.
-	CommentDrive   func(ctx context.Context)
-	planningQueue  DispatchQueueCursor
-	queue          DispatchQueueCursor
-	lock           *os.File
-	requestGate    sync.RWMutex
-	cascadeMu      sync.Mutex
-	closing        atomic.Bool
-	ownerMu        sync.Mutex
-	progressMu     sync.Mutex
-	progressCancel context.CancelFunc
-	progressDone   chan struct{}
+	CommentDrive        func(ctx context.Context)
+	planningQueue       DispatchQueueCursor
+	queue               DispatchQueueCursor
+	lock                *os.File
+	requestGate         sync.RWMutex
+	cascadeMu           sync.Mutex
+	closing             atomic.Bool
+	ownerMu             sync.Mutex
+	progressMu          sync.Mutex
+	dispatchObservation atomic.Pointer[DispatchObservation]
+	progressCancel      context.CancelFunc
+	progressDone        chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
 	// progressMu protects the bounded recovery and verification cursors below.

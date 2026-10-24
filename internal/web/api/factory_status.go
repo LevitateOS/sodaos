@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
@@ -17,16 +18,17 @@ type factoryQueueView struct {
 }
 
 type factoryStatusView struct {
-	NativeBindings   []factory.ActorBindingRef  `json:"native_bindings"`
-	Policy           *factory.RepositoryPolicy  `json:"policy"`
-	OperatorGrant    *factory.OperatorGrant     `json:"operator_grant"`
-	Appliance        *factory.Capacity          `json:"capacity"`
-	Sponsorships     []factory.Sponsorship      `json:"sponsorships"`
-	EnvironmentGrant *project.EnvironmentGrant  `json:"environment_grant"`
-	Preparation      *factoryPreparationView    `json:"preparation"`
-	Queue            factoryQueueView           `json:"queue"`
-	Effective        factory.EffectiveAuthority `json:"effective"`
-	Repository       string                     `json:"repository"`
+	NativeBindings      []factory.ActorBindingRef    `json:"native_bindings"`
+	Policy              *factory.RepositoryPolicy    `json:"policy"`
+	OperatorGrant       *factory.OperatorGrant       `json:"operator_grant"`
+	Appliance           *factory.Capacity            `json:"capacity"`
+	Sponsorships        []factory.Sponsorship        `json:"sponsorships"`
+	EnvironmentGrant    *project.EnvironmentGrant    `json:"environment_grant"`
+	Preparation         *factoryPreparationView      `json:"preparation"`
+	Queue               factoryQueueView             `json:"queue"`
+	Effective           factory.EffectiveAuthority   `json:"effective"`
+	DispatchObservation *control.DispatchObservation `json:"dispatch_observation,omitempty"`
+	Repository          string                       `json:"repository"`
 }
 
 type factoryPreparationView struct {
@@ -103,6 +105,17 @@ func (s *API) apiFactoryStatus(w http.ResponseWriter, r *http.Request, v store.S
 	for _, recorded := range controls {
 		if recorded.Readiness == factory.ReadinessQueued {
 			view.Queue.Queued++
+		}
+	}
+	// The transient diagnostic names accepted issue controls. Keep it on the
+	// current native owner/admin read boundary, never visibility alone.
+	if access, err := s.visibleRepository(r, v, repository); err == nil {
+		admin := access.repository.Permissions != nil && access.repository.Permissions.Admin
+		if !admin {
+			admin, _ = s.environmentAdministrator(r, access)
+		}
+		if admin {
+			view.DispatchObservation = s.Coordinator.LatestDispatchObservation(repository)
 		}
 	}
 	auth.JSONResponse(w, 200, view)

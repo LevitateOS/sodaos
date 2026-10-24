@@ -806,7 +806,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 }
 
 func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
-	_, call := journeyMux(t, &journeyAcceptanceSource{})
+	fx, call := journeyMux(t, &journeyAcceptanceSource{})
 	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
 	if code != http.StatusOK {
 		t.Fatalf("no-attempt status=%d body=%s", code, body)
@@ -833,6 +833,20 @@ func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
 	}
 	if view.Attempt != nil || view.Publication != nil {
 		t.Fatalf("no-attempt top-level sections present: %+v", body)
+	}
+	// A genuine serving dependency refusal is observable through the existing
+	// registered owner status GET, without collecting any run/provider body.
+	fx.api.Coordinator.Dispatch(context.Background())
+	statusCode, statusBody := call(http.MethodGet, "/api/repositories/7/factory", "")
+	var status factoryStatusView
+	if statusCode != http.StatusOK || json.Unmarshal(statusBody, &status) != nil || status.DispatchObservation == nil || len(status.DispatchObservation.Errors) != 1 || status.DispatchObservation.Errors[0].Reason != control.DispatchErrStore {
+		t.Fatalf("owner dispatch observation unavailable: %d %s", statusCode, statusBody)
+	}
+	if strings.Contains(string(statusBody), "detail") || strings.Contains(string(statusBody), "provider") {
+		t.Fatal("status diagnostic disclosed raw report material")
+	}
+	if rows, err := fx.db.IssueControls(context.Background(), 7, store.MaxIssueControls); err != nil || len(rows) != 0 {
+		t.Fatalf("diagnostic read changed queue: %+v %v", rows, err)
 	}
 }
 

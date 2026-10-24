@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
@@ -152,6 +153,141 @@ type DispatchReport struct {
 	Recovered []string         `json:"recovered"`
 	Waits     []DispatchWait   `json:"waits"`
 	Errors    []DispatchError  `json:"errors"`
+}
+
+// DispatchObservation is a transient, bounded diagnosis of the serving pass.
+// It contains no report Detail, prompts, run output or persisted authority.
+// A new process has no observation until its serving coordinator advances.
+type DispatchObservation struct {
+	Stage      string                      `json:"stage"`
+	StageAt    time.Time                   `json:"stage_at"`
+	DispatchAt time.Time                   `json:"dispatch_at,omitempty"`
+	Context    string                      `json:"context"`
+	Waits      []DispatchObservationReason `json:"waits"`
+	Errors     []DispatchObservationReason `json:"errors"`
+	Truncated  bool                        `json:"truncated"`
+}
+
+type DispatchObservationReason struct {
+	Repository int64  `json:"repository,string,omitempty"`
+	Issue      int64  `json:"issue,string,omitempty"`
+	Reason     string `json:"reason"`
+	Stage      string `json:"stage"`
+}
+
+// LatestDispatchObservation projects only the requested repository and global
+// infrastructure reasons. Reads neither drive the pass nor refresh its age.
+func (c *Coordinator) LatestDispatchObservation(repository int64) *DispatchObservation {
+	current := c.dispatchObservation.Load()
+	if current == nil || repository <= 0 {
+		return nil
+	}
+	out := *current
+	out.Waits, out.Errors = []DispatchObservationReason{}, []DispatchObservationReason{}
+	for _, entry := range current.Waits {
+		if entry.Repository == repository || entry.Repository == 0 {
+			out.Waits = append(out.Waits, entry)
+		}
+	}
+	for _, entry := range current.Errors {
+		if entry.Repository == repository || entry.Repository == 0 {
+			out.Errors = append(out.Errors, entry)
+		}
+	}
+	return &out
+}
+
+func (c *Coordinator) observeProgressStage(stage string) {
+	switch stage {
+	case "settlement", "comments", "standing_preparation", "intent_graphs", "creations", "completions", "delivery_verification", "delivery_repair", "retry_preparation", "planning", "dispatch", "publication", "stall", "readiness", "idle":
+	default:
+		stage = "unavailable"
+	}
+	var next DispatchObservation
+	if previous := c.dispatchObservation.Load(); previous != nil {
+		next = *previous
+	}
+	next.Stage, next.StageAt = stage, time.Now()
+	c.dispatchObservation.Store(&next)
+}
+
+func (c *Coordinator) observeDispatch(ctx context.Context, report DispatchReport) {
+	var next DispatchObservation
+	if previous := c.dispatchObservation.Load(); previous != nil {
+		next = *previous
+	}
+	next.DispatchAt, next.Context = time.Now(), "active"
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		next.Context = "deadline"
+	} else if ctx.Err() != nil {
+		next.Context = "cancelled"
+	}
+	next.Waits, next.Errors, next.Truncated = []DispatchObservationReason{}, []DispatchObservationReason{}, false
+	const limit = 64
+	for _, wait := range report.Waits {
+		if len(next.Waits)+len(next.Errors) == limit {
+			next.Truncated = true
+			break
+		}
+		next.Waits = append(next.Waits, dispatchObservationReason(wait.Repository, wait.Issue, wait.Reason, wait.Detail))
+	}
+	for _, failure := range report.Errors {
+		if len(next.Waits)+len(next.Errors) == limit {
+			next.Truncated = true
+			break
+		}
+		next.Errors = append(next.Errors, dispatchObservationReason(failure.Repository, failure.Issue, failure.Reason, failure.Detail))
+	}
+	c.dispatchObservation.Store(&next)
+}
+
+func dispatchObservationReason(repository, issue int64, reason, detail string) DispatchObservationReason {
+	// Reason is whitelisted too: an unexpected producer string must not turn
+	// this diagnostic into an indirect error/provider text channel.
+	stage := "admission"
+	switch reason {
+	case WaitAssigned, WaitAttemptRecorded, WaitAuthority, WaitDispatchClosed, WaitSponsorship, WaitSponsorshipRole, WaitAllowance, WaitIssueClosed, WaitIssueLocked, WaitReassessmentPending, WaitLaunchRefused, WaitLaunchExhausted, DispatchErrFence:
+	case WaitCapacity, WaitRepository:
+		stage = "capacity"
+	case WaitPreparation:
+		stage = "preparation"
+	case WaitHarness:
+		stage = "harness"
+	case WaitInputsUnavailable, WaitInputsBusy, WaitInputsStale, WaitInputsIncomplete, WaitInputsHidden, WaitInputsChanged:
+		stage = "read"
+	case WaitSource:
+		stage = "source"
+	case WaitPrompt:
+		stage = "prompt"
+	case "plan_not_current", "planning_deferred":
+		stage = "planning"
+	case "priority_incomplete", "priority_unavailable", PrioritySnapshotChanging:
+		stage = "priority"
+	case DispatchErrStore:
+		stage = "store"
+	case DispatchErrHost:
+		stage = "host"
+	default:
+		reason, stage = "unavailable", "unavailable"
+	}
+	// Only these fixed owning-source descriptions refine an ambiguous stage.
+	// The original Detail is never retained or serialized.
+	switch detail {
+	case "native revision unavailable", "native revision advanced during inventory capture", "native revision advanced after judgment":
+		stage = "native_revision"
+	case "priority inventory unavailable", "complete candidate inventory unavailable", "priority inventory unrecorded", "priority inventory changed; restarting durable scan", "priority inputs changed after judgment", "queued listing unavailable":
+		stage = "inventory"
+	case "priority scan unreadable", "priority progress unrecorded", "priority member unreadable", "candidate observation could not advance":
+		stage = "priority_read"
+	case "readiness refresh is unavailable":
+		stage = "refresh"
+	}
+	if repository <= 0 {
+		repository, issue = 0, 0
+	} else if issue < 0 {
+		issue = 0
+	}
+	return DispatchObservationReason{Repository: repository, Issue: issue, Reason: reason, Stage: stage}
 }
 
 func newDispatchReport() DispatchReport {
@@ -306,11 +442,15 @@ type activeDispatchKey struct{}
 func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 	ctx, unlock := c.progressPass(ctx)
 	defer unlock()
+	defer c.observeProgressStage("idle")
 	ctx = context.WithValue(ctx, activeDispatchKey{}, c)
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
+	c.observeProgressStage("retry_preparation")
 	preparationErr := c.reconcileRetryPreparations(ctx)
+	c.observeProgressStage("planning")
 	planningErr := c.PlanningPass(ctx)
+	c.observeProgressStage("dispatch")
 	report := DispatchPass(ctx, c.dispatchDeps())
 	if planningErr != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: "planning_deferred", Detail: "bounded planning could not complete this pass"})
@@ -318,6 +458,8 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 	if preparationErr != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrHost, Detail: "retry preparation retirement is unconfirmed"})
 	}
+	c.observeDispatch(ctx, report)
+	c.observeProgressStage("publication")
 	c.publishAfterDispatch(ctx, report)
 	if ownsPass {
 		drain, err := c.drainReadinessWork(ctx, "")
