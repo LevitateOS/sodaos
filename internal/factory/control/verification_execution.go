@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -106,7 +107,13 @@ func (c *Coordinator) populateVerificationExecution(ctx context.Context, a facto
 	}
 	e.Execution = checks
 	if checks.Phase == "passed" {
-		e.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: checks.OutputDigest, LogExcerpt: "Native admitted verification manifest passed before the worker started"}
+		excerpt := checks.OutputExcerpt
+		if excerpt == "" {
+			excerpt = "Native admitted verification manifest passed; no output captured."
+		} else if strings.TrimSpace(excerpt) == "" {
+			excerpt = "Native admitted verification manifest passed; captured output contains only whitespace (see verification_checks.output_excerpt)."
+		}
+		e.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: checks.OutputDigest, LogExcerpt: excerpt}
 	}
 	return nil
 }

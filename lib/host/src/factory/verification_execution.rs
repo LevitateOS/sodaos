@@ -175,7 +175,6 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         {
             return Err(FactoryError::Stale);
         }
-        let _ = helper.truncated; // Display truncation never determines the native output digest.
         let mut state = FactoryVerificationChecksState {
             project: receipt.run.project.clone(),
             run: receipt.run.id.clone(),
@@ -217,6 +216,27 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 state.reason = "approved-verification-check-did-not-pass".into();
             }
             _ => return Err(FactoryError::msg("unknown verification helper phase")),
+        }
+        // This is exclusively the approved check.log returned by the scoped
+        // helper. Provider/worker output has a different owner and is never read
+        // here. Preserve the helper's digest over captured bytes independently
+        // of the bounded, display-safe text exposed to Test Pilot.
+        if matches!(state.phase.as_str(), "passed" | "failed" | "stopped") {
+            state.output_truncated = helper.truncated;
+            for c in helper.output.chars() {
+                let text = if c.is_control() && c != '\n' && c != '\t' {
+                    c.escape_default().to_string()
+                } else {
+                    c.to_string()
+                };
+                if state.output_excerpt.len() + text.len()
+                    > super::verification::MAX_VERIFICATION_OUTPUT_EXCERPT
+                {
+                    state.output_truncated = true;
+                    break;
+                }
+                state.output_excerpt.push_str(&text);
+            }
         }
         state
             .validate_for(&FactoryVerificationChecks {

@@ -6,15 +6,19 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
-	VerificationManifestVersion = "project-check-v1"
-	MaxVerificationManifest     = 64 * 1024
-	VerificationProjectCheck    = "project.check"
-	VerificationReceiptArtifact = "project.check.receipt"
-	VerificationPreparedFixture = "project.preparation"
+	VerificationManifestVersion  = "project-check-v1"
+	MaxVerificationManifest      = 64 * 1024
+	VerificationProjectCheck     = "project.check"
+	VerificationReceiptArtifact  = "project.check.receipt"
+	VerificationPreparedFixture  = "project.preparation"
+	MaxVerificationOutputExcerpt = 4 * 1024
 )
 
 // VerificationManifest is the exact run-bound native execution specification.
@@ -131,17 +135,25 @@ type FactoryVerificationChecksState struct {
 	CheckDigest    string `json:"check_digest"`
 	ExitCode       *int   `json:"exit_code,omitempty"`
 	OutputDigest   string `json:"output_digest,omitempty"`
-	Retirement     string `json:"retirement,omitempty"`
-	Reason         string `json:"reason,omitempty"`
+	// Only the approved native check's output is projected. Control characters
+	// other than LF/TAB are escaped; the digest remains over native captured bytes.
+	OutputExcerpt   string `json:"output_excerpt,omitempty"`
+	OutputTruncated bool   `json:"output_truncated,omitempty"`
+	Retirement      string `json:"retirement,omitempty"`
+	Reason          string `json:"reason,omitempty"`
 }
 
 func (s FactoryVerificationChecksState) ValidateFor(request FactoryVerificationChecks) error {
 	if request.Validate() != nil || s.Project != request.Project || s.Run != request.Run || s.Incarnation != request.Incarnation || s.ManifestDigest != request.ManifestDigest || !ValidCommit(s.SourceCommit) || !ValidPreparationID(s.Preparation) || !ValidDigest(s.CheckDigest) || len(s.Reason) > 1024 {
 		return errors.New("verification checks receipt differs from its admitted identity")
 	}
+	unsafeControl := strings.ContainsFunc(s.OutputExcerpt, func(r rune) bool { return unicode.IsControl(r) && r != '\n' && r != '\t' })
+	if len(s.OutputExcerpt) > MaxVerificationOutputExcerpt || !utf8.ValidString(s.OutputExcerpt) || unsafeControl || (s.OutputExcerpt != "" || s.OutputTruncated) && !ValidDigest(s.OutputDigest) {
+		return errors.New("invalid verification checks output excerpt")
+	}
 	switch s.Phase {
 	case "preparing", "running":
-		if s.ExitCode != nil || s.OutputDigest != "" || s.Retirement != "" {
+		if s.ExitCode != nil || s.OutputDigest != "" || s.OutputExcerpt != "" || s.OutputTruncated || s.Retirement != "" {
 			return errors.New("pending verification checks carry terminal evidence")
 		}
 	case "passed":

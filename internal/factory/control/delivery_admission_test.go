@@ -24,7 +24,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 		spent       int64
 		adopted     bool
 		checkFailed bool
-	}{{state: factory.ReassessmentCollecting}, {early: true, state: factory.ReassessmentCollecting}, {state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentCollecting, failed: true}, {early: true, state: factory.ReassessmentAttention, failed: true}, {early: true, state: factory.ReassessmentCollecting, spent: 3540}, {early: true, state: factory.ReassessmentCollecting, spent: 3600}, {state: factory.ReassessmentAttention, adopted: true}, {state: factory.ReassessmentAttention, adopted: true, failed: true}, {state: factory.ReassessmentAttention, adopted: true, checkFailed: true}} {
+	}{{state: factory.ReassessmentCollecting}, {early: true, state: factory.ReassessmentCollecting}, {state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentAttention}, {early: true, state: factory.ReassessmentCollecting, failed: true}, {early: true, state: factory.ReassessmentAttention, failed: true}, {early: true, state: factory.ReassessmentCollecting, spent: 3540}, {early: true, state: factory.ReassessmentCollecting, spent: 3600}, {state: factory.ReassessmentCollecting, adopted: true}, {state: factory.ReassessmentAttention, adopted: true}, {state: factory.ReassessmentAttention, adopted: true, failed: true}, {state: factory.ReassessmentAttention, adopted: true, checkFailed: true}} {
 		early := fixture.early
 		t.Run(fmt.Sprintf("%s/early-terminal-%t/reported-failed-%t/spent-%d/adopted-%t/check-failed-%t", fixture.state, early, fixture.failed, fixture.spent, fixture.adopted, fixture.checkFailed), func(t *testing.T) {
 			ctx := context.Background()
@@ -270,7 +270,13 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						t.Fatal("launch did not retain its exact approved manifest", err, storeErr)
 					}
 					native.Invocation, native.LeaseID, native.Generation, native.Delivered, native.CredentialReturned, native.Retirement = strings.Repeat("b", 32), "native-manifest-lease", 1, true, true, "confirmed"
-					checks := &project.FactoryVerificationChecksState{Project: in.Run.Project, Run: in.Run.ID, Incarnation: native.Invocation, ManifestDigest: in.Run.VerificationManifestDigest, Phase: "passed", SourceCommit: m.SourceCommit, Preparation: m.Preparation, CheckDigest: m.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("per-run native manifest assertions passed")), Retirement: "confirmed"}
+					checks := &project.FactoryVerificationChecksState{Project: in.Run.Project, Run: in.Run.ID, Incarnation: native.Invocation, ManifestDigest: in.Run.VerificationManifestDigest, Phase: "passed", SourceCommit: m.SourceCommit, Preparation: m.Preparation, CheckDigest: m.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("per-run native manifest assertions passed")), OutputExcerpt: "full-name.expected=Hello, Ada Lovelace!\nfull-name.observed=Hello, Ada Lovelace!\n", Retirement: "confirmed"}
+					if fixture.failed {
+						// Older retained receipts carry a digest without captured text.
+						checks.OutputExcerpt = ""
+					} else if fixture.state == factory.ReassessmentCollecting {
+						checks.OutputExcerpt = "\n\t"
+					}
 					if fixture.checkFailed {
 						code := 1
 						checks.Phase, checks.ExitCode, checks.Reason = "failed", &code, "required_check_failed"
@@ -323,14 +329,43 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					t.Fatal("stale observer failed to retain native manifest receipt", err)
 				}
 				retained, err := db.FactoryRun(ctx, run.ID)
-				if err != nil || string(retained.VerificationManifest) != string(run.VerificationManifest) || retained.VerificationChecks == nil || retained.VerificationChecks.OutputDigest != native.VerificationChecks.OutputDigest {
+				if err != nil || string(retained.VerificationManifest) != string(run.VerificationManifest) || retained.VerificationChecks == nil || retained.VerificationChecks.OutputDigest != native.VerificationChecks.OutputDigest || retained.VerificationChecks.OutputExcerpt != native.VerificationChecks.OutputExcerpt {
 					t.Fatal("stale observer erased immutable verification evidence", err)
 				}
-				changed := *retained.VerificationChecks
-				changed.OutputDigest = strings.Repeat("f", 64)
-				retained.VerificationChecks = &changed
-				if err := db.SaveFactoryRun(ctx, retained); err == nil {
-					t.Fatal("terminal native receipt accepted changed output")
+				if !fixture.checkFailed {
+					evidence, err := c.ApplicationVerificationEvidence(ctx, a)
+					want := native.VerificationChecks.OutputExcerpt
+					if want == "" {
+						want = "Native admitted verification manifest passed; no output captured."
+					} else if strings.TrimSpace(want) == "" {
+						want = "Native admitted verification manifest passed; captured output contains only whitespace (see verification_checks.output_excerpt)."
+					}
+					if err != nil || evidence.ExecutionReceipt == nil || evidence.ExecutionReceipt.LogExcerpt != want || evidence.ExecutionReceipt.ArtifactDigest != native.VerificationChecks.OutputDigest {
+						t.Fatal("worker evidence lost actual approved check diagnostics", evidence.ExecutionReceipt, err)
+					}
+				}
+				for _, corrupt := range []string{strings.Repeat("x", project.MaxVerificationOutputExcerpt+1), "native\x00output", string([]byte{0xff})} {
+					invalid := *native.VerificationChecks
+					invalid.OutputExcerpt = corrupt
+					request := project.FactoryVerificationChecks{Project: invalid.Project, Run: invalid.Run, Incarnation: invalid.Incarnation, ManifestDigest: invalid.ManifestDigest}
+					if invalid.ValidateFor(request) == nil {
+						t.Fatal("unbounded or unsafe native check excerpt was accepted")
+					}
+				}
+				for _, field := range []string{"digest", "excerpt", "truncation"} {
+					changed := *native.VerificationChecks
+					switch field {
+					case "digest":
+						changed.OutputDigest = strings.Repeat("f", 64)
+					case "excerpt":
+						changed.OutputExcerpt = "changed runtime observation"
+					case "truncation":
+						changed.OutputTruncated = !changed.OutputTruncated
+					}
+					retained.VerificationChecks = &changed
+					if err := db.SaveFactoryRun(ctx, retained); err == nil {
+						t.Fatal("terminal native receipt accepted changed output", field)
+					}
 				}
 				binding := identity.Binding{Kind: identity.Factory, ID: run.ID, Project: strings.Repeat("c", 64), Login: project.RoleReviewer, Generation: 1, InvocationID: native.Invocation, ChildID: preparation}
 				if err := adoptExecutionFacts(&run, native, identity.Execution{Binding: &binding}); err != nil {

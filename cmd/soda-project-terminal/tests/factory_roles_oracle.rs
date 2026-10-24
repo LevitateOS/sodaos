@@ -629,10 +629,11 @@ fn oracle_start_runs_detached_to_ready() {
         .status()
         .unwrap()
         .success());
-    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*|ccc*) exit 7;; 333*|666*|777*|ddd*|eee*|fff*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; bbb*) sleep 1; echo long-check-ok;; *) echo check-ok;; esac\n";
+    let setup = b"echo setup-private-marker\n";
+    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*|ccc*) printf 'failed-check\\n'; exit 7;; 333*|666*|777*|ddd*|eee*|fff*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; bbb*) sleep 1; printf 'long-check-ok\\n\\tprobe\\033[31m\\r'; i=0; while [ \"$i\" -lt 3000 ]; do printf '\\303\\251'; i=$((i+1)); done;; *) echo check-ok;; esac\n";
     let mut approve: serde_json::Value = serde_json::from_str(&approve_request(
         PID,
-        &[("setup.sh", b"true\n"), ("check.sh", check)],
+        &[("setup.sh", setup), ("check.sh", check)],
     ))
     .unwrap();
     approve["role"] = "soda-reviewer".into();
@@ -815,7 +816,7 @@ fn oracle_start_runs_detached_to_ready() {
             adopted_manifest_digest: "2".repeat(64),
             requirements: "d23456789abcdef0123456789".into(),
             approval: "d3456789abcdef0123456789a".into(),
-            preparation_digest: canonical_digest(&[("setup.sh", b"true\n"), ("check.sh", check)]),
+            preparation_digest: canonical_digest(&[("setup.sh", setup), ("check.sh", check)]),
             check_digest: check_digest.into(),
             outcomes: vec!["d456789abcdef0123456789ab".into()],
             checks: Vec::new(),
@@ -898,7 +899,38 @@ fn oracle_start_runs_detached_to_ready() {
                 );
                 assert_eq!(state.phase, "completed");
                 assert!(state.credential_returned);
-                assert_eq!(state.verification_checks.unwrap().phase, "passed");
+                let checks = state.verification_checks.as_ref().unwrap();
+                assert_eq!(checks.phase, "passed");
+                let wire = serde_json::to_value(checks).unwrap();
+                let excerpt = wire["output_excerpt"]
+                    .as_str()
+                    .expect("approved CHECK excerpt");
+                assert!(excerpt.starts_with("long-check-ok\n\tprobe"));
+                assert!(excerpt.contains("\\u{1b}[31m\\r"));
+                assert!(!excerpt.contains("setup-private-marker"));
+                assert!(!excerpt
+                    .chars()
+                    .any(|c| c.is_control() && c != '\n' && c != '\t'));
+                assert!(excerpt.len() <= 4096 && excerpt.ends_with('é'));
+                assert_eq!(wire["output_truncated"], true);
+                let output = format!("long-check-ok\n\tprobe\u{1b}[31m\r{}", "é".repeat(3000));
+                assert_eq!(
+                    checks.output_digest,
+                    soda_host::sha256::hex_lower(&soda_host::sha256::digest(output.as_bytes()))
+                );
+                let reopened = open()
+                    .inspect(
+                        &factory::FactoryInspect {
+                            project: manifest.project.clone(),
+                            id: run_id.clone(),
+                        },
+                        Instant::now() + Duration::from_secs(10),
+                    )
+                    .unwrap();
+                assert_eq!(
+                    serde_json::to_value(reopened.verification_checks.unwrap()).unwrap(),
+                    wire
+                );
                 let events = fixture.events.lock().unwrap();
                 let registered = events.iter().position(|e| e == "register").unwrap();
                 assert!(events[..registered]
@@ -913,7 +945,28 @@ fn oracle_start_runs_detached_to_ready() {
                 assert_eq!(state.phase, "failed");
                 assert_eq!(state.retirement, "confirmed");
                 assert!(!state.credential_returned);
-                assert_eq!(state.verification_checks.unwrap().phase, "failed");
+                let checks = state.verification_checks.as_ref().unwrap();
+                assert_eq!(checks.phase, "failed");
+                let wire = serde_json::to_value(checks).unwrap();
+                assert_eq!(wire["output_excerpt"], "failed-check\n");
+                assert!(!checks.output_truncated);
+                assert_eq!(
+                    checks.output_digest,
+                    soda_host::sha256::hex_lower(&soda_host::sha256::digest(b"failed-check\n"))
+                );
+                let reopened = open()
+                    .inspect(
+                        &factory::FactoryInspect {
+                            project: manifest.project.clone(),
+                            id: run_id.clone(),
+                        },
+                        Instant::now() + Duration::from_secs(10),
+                    )
+                    .unwrap();
+                assert_eq!(
+                    serde_json::to_value(reopened.verification_checks.unwrap()).unwrap(),
+                    wire
+                );
             }
         } else {
             let worker = open();

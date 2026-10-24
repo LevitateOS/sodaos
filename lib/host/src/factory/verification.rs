@@ -8,6 +8,7 @@ use super::{valid_factory_run_id, FactoryRun, EXECUTION_VERIFY};
 use crate::{domain, json, preparation, sha256};
 
 pub const MAX_VERIFICATION_MANIFEST: usize = 64 * 1024;
+pub const MAX_VERIFICATION_OUTPUT_EXCERPT: usize = 4 * 1024;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -153,6 +154,12 @@ pub struct FactoryVerificationChecksState {
     pub exit_code: Option<i64>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub output_digest: String,
+    // Approved check output only, with display controls escaped. Its digest
+    // continues to identify the helper's captured bytes, not this text prefix.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub output_excerpt: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub output_truncated: bool,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub retirement: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -173,10 +180,22 @@ impl FactoryVerificationChecksState {
         {
             return Err("verification checks receipt differs from its admitted identity".into());
         }
+        if self.output_excerpt.len() > MAX_VERIFICATION_OUTPUT_EXCERPT
+            || self
+                .output_excerpt
+                .chars()
+                .any(|c| c.is_control() && c != '\n' && c != '\t')
+            || ((!self.output_excerpt.is_empty() || self.output_truncated)
+                && !preparation::valid_digest(&self.output_digest))
+        {
+            return Err("invalid verification checks output excerpt".into());
+        }
         match self.phase.as_str() {
             "preparing" | "running"
                 if self.exit_code.is_none()
                     && self.output_digest.is_empty()
+                    && self.output_excerpt.is_empty()
+                    && !self.output_truncated
                     && self.retirement.is_empty() => {}
             "passed"
                 if self.exit_code == Some(0)

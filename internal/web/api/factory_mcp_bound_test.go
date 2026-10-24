@@ -753,14 +753,16 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Fatal("prelaunch context invented a manifest execution receipt")
 	}
 	zero := 0
-	verificationEvidence.Execution = &project.FactoryVerificationChecksState{Project: cap.Project, Run: pilot.Run, Incarnation: strings.Repeat("c", 32), ManifestDigest: strings.Repeat("d", 64), Phase: "passed", SourceCommit: a.SourceCommit, Preparation: pilot.Preparation, CheckDigest: verificationEvidence.AdoptedManifest.Catalog.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("native per-run output")), Retirement: "confirmed"}
-	verificationEvidence.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: verificationEvidence.Execution.OutputDigest, LogExcerpt: "Native admitted checks passed"}
+	checkExcerpt := "full-name.observed=Hello, Ada Lovelace!\n"
+	checkExcerpt += strings.Repeat("é", (project.MaxVerificationOutputExcerpt-len(checkExcerpt))/2)
+	verificationEvidence.Execution = &project.FactoryVerificationChecksState{Project: cap.Project, Run: pilot.Run, Incarnation: strings.Repeat("c", 32), ManifestDigest: strings.Repeat("d", 64), Phase: "passed", SourceCommit: a.SourceCommit, Preparation: pilot.Preparation, CheckDigest: verificationEvidence.AdoptedManifest.Catalog.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("native per-run output")), OutputExcerpt: checkExcerpt, OutputTruncated: true, Retirement: "confirmed"}
+	verificationEvidence.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: verificationEvidence.Execution.OutputDigest, LogExcerpt: checkExcerpt}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
-	if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Outcome != "native_manifest_passed" || observedEvidence.Evidence.ExecutionReceipt == nil || observedEvidence.Evidence.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest {
+	if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Outcome != "native_manifest_passed" || observedEvidence.Evidence.ExecutionReceipt == nil || observedEvidence.Evidence.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest || observedEvidence.Evidence.ExecutionReceipt.LogExcerpt != checkExcerpt || observedEvidence.Evidence.Execution == nil || !observedEvidence.Evidence.Execution.OutputTruncated || observedEvidence.Evidence.Execution.OutputExcerpt != checkExcerpt {
 		t.Fatal("authenticated evidence lost per-run manifest receipt", err)
 	}
 	currentVerification = readCurrentVerification()
-	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ExecutionReceipt == nil || currentVerification.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest || currentVerification.Receipt.ArtifactDigest == currentVerification.ExecutionReceipt.ArtifactDigest {
+	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ExecutionReceipt == nil || currentVerification.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest || currentVerification.Receipt.ArtifactDigest == currentVerification.ExecutionReceipt.ArtifactDigest || currentVerification.ExecutionReceipt.LogExcerpt != checkExcerpt || currentVerification.Execution == nil || !currentVerification.Execution.OutputTruncated || currentVerification.Execution.OutputExcerpt != checkExcerpt {
 		t.Fatal("current context substituted preparation evidence for run receipt")
 	}
 	verificationEvidence.Execution.Run = factory.NewID()

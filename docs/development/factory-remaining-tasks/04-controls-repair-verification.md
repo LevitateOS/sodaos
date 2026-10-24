@@ -424,6 +424,15 @@ composition and installed cleanup/CLI-ordering qualification remain required.
 The nil-manifest fixed check route remains available under its existing D16
 declaration and receipt contract.
 
+The adopted run receipt projects the approved native check's captured output as
+an escaped, UTF-8 prefix of at most 4096 bytes, with explicit truncation metadata.
+Its digest still identifies the helper's captured bytes independently of that
+display prefix. Test Pilot receives the actual excerpt through verification
+evidence and current context; a retained receipt without text explicitly says
+no output was captured. Preparation output and model/provider logs remain
+separate. Passing execution and readable diagnostics do not establish coverage
+of behaviors that the approved assertions never exercise.
+
 **Principal source owners:** [internal/factory](../../../internal/factory), [internal/factory/control](../../../internal/factory/control), [internal/store](../../../internal/store), [lib/host/src/factory/manifest.rs](../../../lib/host/src/factory/manifest.rs), [lib/host/src/factory/finish.rs](../../../lib/host/src/factory/finish.rs).
 
 **Additional runtime/qualification gates:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R30](04-controls-repair-verification.md#r30), [R44](05-experience-and-development.md#r44), [R45](05-experience-and-development.md#r45). Source-only work cannot release these gates.
