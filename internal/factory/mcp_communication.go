@@ -17,6 +17,11 @@ const MCPMaxCommunicationBytes = 8192
 var MCPCommunicationTools = []MCPTool{MCPToolAsk, MCPToolAnswer, MCPToolReply, MCPToolFlag, MCPToolLearned, MCPToolSuggest, MCPToolPartial, MCPToolBlocked, MCPToolStuck, MCPToolRecordDecision}
 
 func MCPIsCommunication(tool MCPTool) bool {
+	// A typed journey observation has its own bounded decoder and durable
+	// recorder, but carries the same report-only authority as these outlets.
+	if tool == MCPToolRecordJourneyResult {
+		return true
+	}
 	for _, known := range MCPCommunicationTools {
 		if tool == known {
 			return true

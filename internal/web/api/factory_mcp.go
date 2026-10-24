@@ -144,6 +144,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	if payload := researchPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
 	}
+	if payload := verificationJourneyPayloadSchema(tool); payload != nil {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
+	}
 	if payload := resolvePostPayloadSchema(tool); payload != nil {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = payload
 	}
@@ -428,6 +431,9 @@ func checkReviewPayload(payload map[string]any) error {
 // checkPayload enforces the strict per-tool shape plus the D16
 // manifest-proposal contract on product plans.
 func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
+	if tool == factory.MCPToolRecordJourneyResult {
+		return checkVerificationJourneyPayload(payload)
+	}
 	if factory.MCPIsLibraryMutation(tool) {
 		return checkLibraryPayload(tool, payload)
 	}
@@ -689,6 +695,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveRead(ctx, tool, args)
 	case factory.MCPToolResearchScope:
 		return s.serveResearchScope(ctx, tool, args)
+	case factory.MCPToolVerificationScope:
+		return s.serveVerificationScope(ctx, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
 	case factory.MCPToolReceipt:

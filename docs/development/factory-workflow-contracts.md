@@ -1373,6 +1373,8 @@ reports incomplete evidence; it cannot become an empty successful collection.
 | `factory.finish_review` | `{conclusion:clear\|findings\|incomplete,tuple,coverage,carried_assessments,findings,evidence_refs}`. `clear` is the explicit “nothing found” control; D07 verifies it. | Inspector |
 | `factory.finish_correction` | Candidate/check receipts and `{finding_key,disposition,reason,evidence_refs}` for every canonical input finding, bound to complete finding digest. | Fixer |
 | `factory.finish_reassessment` | D13 completion report, D15 stall report or D16 delivery-repair report selected by admitted subject. Proposal/no-change/verified-wait is never direct graph mutation. | Strategist |
+| `factory.verification_scope` | Optional `{after}` feed-sequence continuation → exact admitted delivery/outcome IDs plus four canonical journey observations and total/next cursor. Read-only and capability-bound. | Test Pilot |
+| `factory.record_journey_result` | Exact delivery/input/source/preparation/manifest, accepted outcome IDs, name/steps, expected/observed behavior, reported passed/failed/incomplete, evidence, owned artifact IDs and limitations. Immutable submission ID is the journey ID; receipt and TP03 post are atomic. | Test Pilot |
 | `factory.finish_app_verification` | D16 exact delivery, complete outcome/journey coverage and observed check/artifact receipts; outcome verified/failed/incomplete. | Test Pilot |
 | `factory.submit_task_output` | `{task_id,manifest_digest,native_child_ref?,output_digest,evidence_refs}` → proposal awaiting trusted observation/checkpoint. Builder requires its observed child; Fixer must omit child and uses the bound parent singleton. Agent success text is not a receipt. | Builder/Fixer parent |
 | `factory.request_handoff` | `{predecessor_task,successor_task,manifest_digest,output_submission_id}` → request against the already approved DAG. Release only follows verified predecessor checkpoint. | Builder parent |
@@ -2086,6 +2088,21 @@ report. Go persists terminal receipts immutably and requires the exact passing
 run receipt for F10 and any later failed-report repair cause. The nil-manifest
 fixed route is unchanged. Native installed P9 qualification remains separate from
 these local source and integration checks.
+
+Test Pilot can save intermediate observations with
+`factory.record_journey_result` and page them through
+`factory.verification_scope`. The exact active worker, delivery, current accepted
+outcomes and source/preparation/manifest tuple bind every record; artifact IDs
+must name complete uploads from that same assignment/repository. At most 32
+records fit in the existing immutable MCP journal, each at most 8 KiB; scope
+reads use four-record keyset pages and expose total/continuation explicitly.
+The journal identity is also carried by the same transaction's TP03 feed post.
+These reports may describe passed, failed or incomplete observations but cannot
+claim Factory verification, execute a new journey or mutate the final result.
+They remain report-only communication during a context hold. New identities
+still refuse after terminal freeze/revocation; exact active receipt replay
+recovers the original post without a duplicate. Native execution/fixture grants
+and terminal F10 adoption keep their existing independent checks.
 
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 

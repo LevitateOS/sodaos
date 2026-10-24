@@ -94,6 +94,12 @@ func workerFeedComponents(profile factory.MCPProfile) []map[string]any {
 }
 
 func factoryToolDescription(tool factory.MCPTool) string {
+	if tool == factory.MCPToolVerificationScope {
+		return "Read your exact admitted application delivery, accepted outcome IDs and recorded journey observations with bounded continuation. Reads do not execute checks, spend, or verify an application."
+	}
+	if tool == factory.MCPToolRecordJourneyResult {
+		return "Record a bounded outcome-linked journey observation with exact delivery/source/fixture identity, steps, expected and observed behavior, evidence, owned artifacts and limitations. Passed/failed/incomplete are worker observations; this does not verify an application, launch a fixture, finish, or authorize repair/deployment. The immutable submission ID is the journey ID."
+	}
 	if description := libraryToolDescription(tool); description != "" {
 		return description
 	}

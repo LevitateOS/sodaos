@@ -17,7 +17,7 @@ var ErrMCPCommunicationCap = errors.New("assignment communication bound reached;
 // durable receipt can never claim a feed post that was not recorded. The
 // canonical communication table already owns identity, thread and feed order.
 func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factory.MCPCapability, submission factory.MCPSubmission, receipt *factory.MCPReceipt) error {
-	if !factory.MCPIsCommunication(submission.Tool) {
+	if !factory.MCPIsCommunication(submission.Tool) || submission.Tool == factory.MCPToolRecordJourneyResult {
 		return nil
 	}
 	content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)

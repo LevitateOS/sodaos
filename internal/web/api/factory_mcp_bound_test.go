@@ -147,8 +147,8 @@ func TestFactoryBoundMCPResearcherDiscoveryAndRefusal(t *testing.T) {
 			t.Fatalf("researcher catalog missing %s: %v", want, seen)
 		}
 	}
-	if seen[string(factory.MCPToolFinishImplement)] {
-		t.Fatalf("builder finish advertised to researcher: %v", seen)
+	if seen[string(factory.MCPToolFinishImplement)] || seen[string(factory.MCPToolVerificationScope)] || seen[string(factory.MCPToolRecordJourneyResult)] {
+		t.Fatalf("foreign work controls advertised to researcher: %v", seen)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishImplement), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"source_commit": strings.Repeat("c", 40)}}})
 	if !catalogRefused(result, err) {
@@ -621,6 +621,127 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Fatal("foreign-run execution receipt was projected or spent during refusal")
 	}
 	verificationEvidence.Execution.Run = pilot.Run
+	// The Test Pilot can retain intermediate observations without claiming
+	// application completion. Identity, outcome coverage and uploaded artifacts
+	// are checked again by the same transaction that records the feed post.
+	tools, err := pilotSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	available := map[string]bool{}
+	for _, tool := range tools.Tools {
+		available[tool.Name] = true
+	}
+	if !available[string(factory.MCPToolVerificationScope)] || !available[string(factory.MCPToolRecordJourneyResult)] {
+		t.Fatal("Test Pilot journey tools were not advertised")
+	}
+	readScope := func(after int64) factory.VerificationScopeView {
+		t.Helper()
+		before := counts()
+		result, err := pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationScope), Arguments: map[string]any{"payload": map[string]any{"after": after}}})
+		var view factory.VerificationScopeView
+		if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &view) != nil || view.Assignment != pilot.ID || view.Run != pilot.Run || view.InputDigest != pilotCap.ScopeDigest() || view.Delivery != *pilot.Subject.Delivery || counts() != before || verificationReadState() != beforeVerificationState {
+			t.Fatal("journey scope lost its exact binding or wrote during read", err)
+		}
+		return view
+	}
+	if scope := readScope(0); scope.Total != 0 || len(scope.Records) != 0 || !scope.Complete || scope.Maximum != factory.MaxVerificationJourneys {
+		t.Fatal("empty journey scope was incomplete or invented observations")
+	}
+	artifactID, foreignArtifact := factory.NewID(), factory.NewID()
+	write(`INSERT INTO factory_feed_artifacts(id,repository,assignment,name,media_type,content,complete,digest) VALUES($1,7,$2,'trace.txt','text/plain','fixture trace',true,$3),($4,7,$5,'foreign.txt','text/plain','foreign trace',true,$3)`, artifactID, pilot.ID, strings.Repeat("d", 64), foreignArtifact, a.ID)
+	observation := factory.VerificationJourneyResult{DeliveryID: pilot.Subject.Delivery.DeliveryID, InputDigest: pilotCap.ScopeDigest(), SourceCommit: pilot.SourceCommit, Preparation: pilot.Preparation, ManifestDigest: pilot.Subject.Delivery.VerificationManifestDigest, OutcomeIDs: accepted.EffectiveOutcomes, Name: "Persist a saved task", Steps: []string{"Create a task", "Read back its saved title"}, Expected: "The saved title matches the request.", Observed: "The native assertions read back the saved title.", Result: "passed", EvidenceRefs: []string{verificationEvidence.Execution.OutputDigest}, ArtifactIDs: []string{artifactID}, Limitations: []string{"This observation does not attest operator deployment."}}
+	journeyPayload := func(o factory.VerificationJourneyResult) map[string]any {
+		t.Helper()
+		raw, _ := json.Marshal(o)
+		var payload map[string]any
+		if json.Unmarshal(raw, &payload) != nil {
+			t.Fatal("invalid journey fixture")
+		}
+		return payload
+	}
+	journeyID := factory.NewID()
+	journeyArgs := map[string]any{"submission_id": journeyID, "payload": journeyPayload(observation)}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: journeyArgs})
+	if catalogRefused(result, err) {
+		t.Fatal("scoped journey observation refused", err, catalogText(t, result))
+	}
+	firstReceipt := catalogText(t, result)
+	afterJourney := counts()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: journeyArgs})
+	if catalogRefused(result, err) || catalogText(t, result) != firstReceipt || counts() != afterJourney {
+		t.Fatal("lost journey reply recovery duplicated or changed its receipt", err)
+	}
+	for _, fault := range []string{"foreign-delivery", "foreign-outcome", "foreign-source", "foreign-preparation", "foreign-manifest", "foreign-input", "foreign-artifact", "verified", "changed-replay"} {
+		bad := observation
+		switch fault {
+		case "foreign-delivery", "changed-replay":
+			bad.DeliveryID = factory.NewID()
+		case "foreign-outcome":
+			bad.OutcomeIDs = []string{"d" + strings.Repeat("e", 24)}
+		case "foreign-source":
+			bad.SourceCommit = strings.Repeat("e", 40)
+		case "foreign-preparation":
+			bad.Preparation = "f" + strings.Repeat("e", 24)
+		case "foreign-manifest":
+			bad.ManifestDigest = strings.Repeat("e", 64)
+		case "foreign-input":
+			bad.InputDigest = strings.Repeat("e", 64)
+		case "foreign-artifact":
+			bad.ArtifactIDs = []string{foreignArtifact}
+		case "verified":
+			bad.Result = "verified"
+		}
+		id := factory.NewID()
+		if fault == "changed-replay" {
+			id = journeyID
+		}
+		result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": id, "payload": journeyPayload(bad)}})
+		if !catalogRefused(result, err) || counts() != afterJourney || verificationReadState() != beforeVerificationState {
+			t.Fatal("invalid journey changed canonical work or recorded evidence", fault)
+		}
+	}
+	for i := 1; i < factory.MaxVerificationJourneys; i++ {
+		observation.Name = "Retained observation " + strings.Repeat("x", i)
+		raw, _ := json.Marshal(observation)
+		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, ExpectedInputDigest: pilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
+		if _, err := st.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+			t.Fatal("append retained journey observation", err)
+		}
+	}
+	var sequences int64
+	seenJourneys := map[string]bool{}
+	for {
+		scope := readScope(sequences)
+		if scope.Total != factory.MaxVerificationJourneys || len(scope.Records) > factory.VerificationJourneyPageSize {
+			t.Fatal("journey scope omitted its total or exceeded its page bound")
+		}
+		for _, record := range scope.Records {
+			if seenJourneys[record.ID] || record.Sequence <= sequences || record.Observation.DeliveryID != observation.DeliveryID || record.Observation.Observed != observation.Observed || record.FeedPostID == "" {
+				t.Fatal("journey paging lost identity, ordering or exact observations")
+			}
+			sequences, seenJourneys[record.ID] = record.Sequence, true
+		}
+		if scope.Complete {
+			break
+		}
+		if scope.NextAfter != sequences {
+			t.Fatal("journey continuation skipped observations")
+		}
+	}
+	if len(seenJourneys) != factory.MaxVerificationJourneys {
+		t.Fatal("bounded journey paging lost observations")
+	}
+	afterJourney = counts()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": journeyPayload(observation)}})
+	if !catalogRefused(result, err) || counts() != afterJourney {
+		t.Fatal("journey cap admitted another observation")
+	}
+	var recordedPost, verifiedPosts int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE data->'communication'->>'component_id'='TP03' AND data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'),count(*) FILTER(WHERE data->'communication'->>'component_id'='F10') FROM factory_feed_comments`, pilot.ID).Scan(&recordedPost, &verifiedPosts); err != nil || recordedPost != factory.MaxVerificationJourneys || verifiedPosts != 0 || verificationReadState() != beforeVerificationState {
+		t.Fatal("journey observations were missing or became verified work", recordedPost, verifiedPosts, err)
+	}
+	beforeVerification = counts()
 	for _, fault := range []string{"missing-prerequisites", "stale-scope", "foreign-acceptance", "foreign-outcome", "duplicate-task"} {
 		badPrerequisites := deliveryPrerequisites
 		badPrerequisites.Tasks = append([]factory.VerificationDeliveredTask(nil), deliveryPrerequisites.Tasks...)
@@ -647,6 +768,26 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
 	if !catalogRefused(result, err) || counts() != beforeVerification || verificationReadState() != beforeVerificationState {
 		t.Fatal("foreign verification source was projected or wrote during refusal")
+	}
+	// Observation capacity cannot consume the terminal slot. Terminal freeze
+	// rejects a new journey identity while preserving the old receipt exactly.
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"outcome": "blocked", "cause": "incomplete_coverage", "evidence_refs": []string{"journey:" + journeyID}, "affected_task_ids": []string{}, "requested_resolution": "Retain these observations for the exact admitted application."}}})
+	if catalogRefused(result, err) {
+		t.Fatal("journey observations consumed terminal capacity", err)
+	}
+	afterTerminal := counts()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": journeyPayload(observation)}})
+	if !catalogRefused(result, err) || counts() != afterTerminal {
+		t.Fatal("terminal Test Pilot admitted another journey observation")
+	}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: journeyArgs})
+	if catalogRefused(result, err) || catalogText(t, result) != firstReceipt || counts() != afterTerminal || verificationReadState() != beforeVerificationState {
+		t.Fatal("terminal freeze lost or repeated a recorded journey", err)
+	}
+	write(`UPDATE factory_mcp_capabilities SET state='revoked' WHERE id=$1`, pilotCap.ID)
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationScope), Arguments: map[string]any{}})
+	if !catalogRefused(result, err) || counts() != afterTerminal {
+		t.Fatal("revoked Test Pilot read journey scope")
 	}
 
 	// A real Architect report must remain correctable before terminal freeze.

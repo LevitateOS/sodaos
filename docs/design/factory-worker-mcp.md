@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 49 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 51 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -633,6 +633,15 @@ verification evidence.
 | `factory.verification_scope` | Read the exact delivery, required outcomes/journeys and existing check evidence. |
 | `factory.record_journey_result` | Record an outcome-linked journey observation with steps, expected/observed behavior, evidence, limitations and candidate identity. |
 | `factory.finish_app_verification` | Seal complete outcome coverage and verified/failed/incomplete with the required trusted receipts. |
+
+The first two tools now have a bounded local implementation. Scope reads return
+the exact admitted delivery/outcome IDs and pages of four recorded observations.
+One observation binds delivery/input/source/preparation/manifest, outcome IDs,
+steps, expected/observed behavior, limitations and assignment-owned artifacts.
+Its submission ID is the journey ID, with an atomic durable receipt and TP03
+feed post. The maximum is 32 observations at 8 KiB each. These are attributed
+reports, not trusted check receipts or automatic terminal coverage; the existing
+finish and independent F10 adoption retain their authority checks.
 
 Journey failures already have canonical identities; a feed issue links to that
 failure rather than asking the worker to retype it through Flag. Screenshots,

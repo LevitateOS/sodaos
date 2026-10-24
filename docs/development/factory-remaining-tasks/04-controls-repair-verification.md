@@ -466,6 +466,24 @@ failed-verification repair journey remains a release qualification.
 
 **Deliver:** Connect typed role prompts/results and observed retirement to the reassessment/repair and exact-artifact verification/app completion owners. Finish the seven-profile instruction/context matrix.
 
+**Test Pilot observation slice:** The capability-bound
+`factory.verification_scope` reads the exact admitted delivery, accepted outcome
+IDs and canonical journey observations. `factory.record_journey_result` records
+steps, expected/observed behavior, limitations and exact candidate/preparation/
+manifest/input identities, with complete artifacts owned by that assignment.
+Its immutable submission ID is the journey ID. The MCP receipt and TP03 feed
+post commit together; lost replies recover that same identity. A passed, failed
+or incomplete observation is a worker report and cannot assert `verified`,
+create F10, change an allowance, start a fixture or grant deployment authority.
+Like Flag, it can report under a context hold; active capability and exact
+current accepted-subject checks still apply. Payloads are at most 8 KiB, with
+32 observations per assignment and read pages of four; the terminal slot stays
+available. The existing authenticated PostgreSQL/HTTP case covers replay,
+foreign tuples/outcomes/artifacts, paging, terminal freeze and capability
+revocation with unchanged workflow/spending. The broader Strategist work tools,
+automatic journey incorporation into finishes/repair and native qualification
+remain separate work.
+
 **Full role interfaces:** Implement Strategist `reassessment_scope`,
 `record_diagnosis`, `draft_repair`, `preview_repair` and its finish for the admitted
 completion/stall/delivery-repair cause. Use complete inventories, preserved

@@ -123,6 +123,8 @@ const (
 	MCPToolRecordResearch           MCPTool = "factory.record_research"
 	MCPToolResolvePost              MCPTool = "factory.resolve_post"
 	MCPToolFinishAppVerify          MCPTool = "factory.finish_app_verification"
+	MCPToolVerificationScope        MCPTool = "factory.verification_scope"
+	MCPToolRecordJourneyResult      MCPTool = "factory.record_journey_result"
 	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
 	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
 )
@@ -159,6 +161,8 @@ var MCPTools = []MCPTool{
 	MCPToolFinishCorrection,
 	MCPToolFinishReassessment,
 	MCPToolVerificationEvidence,
+	MCPToolVerificationScope,
+	MCPToolRecordJourneyResult,
 	MCPToolFinishAppVerify,
 	MCPToolSubmitTaskOutput,
 	MCPToolRequestHandoff,
@@ -203,6 +207,7 @@ const (
 // freeze the assignment.
 var mcpReadTools = map[MCPTool]bool{
 	MCPToolVerificationEvidence:  true,
+	MCPToolVerificationScope:     true,
 	MCPToolSearchLibrary:         true,
 	MCPToolReadLibraryItem:       true,
 	MCPToolLibraryInventory:      true,
@@ -244,6 +249,8 @@ func MCPIsTerminal(tool MCPTool) bool { return mcpTerminalTools[tool] }
 // typed finishes, task output and handoff stay with their role.
 var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolVerificationEvidence:     singleMCPProfile(MCPProfileTestPilot),
+	MCPToolVerificationScope:        singleMCPProfile(MCPProfileTestPilot),
+	MCPToolRecordJourneyResult:      singleMCPProfile(MCPProfileTestPilot),
 	MCPToolSearchLibrary:            allMCPProfiles(),
 	MCPToolReadLibraryItem:          allMCPProfiles(),
 	MCPToolPublishArtifact:          allMCPProfiles(),

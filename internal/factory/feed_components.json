@@ -1197,7 +1197,8 @@
       "test_pilot"
     ],
     "outlets": [
-      "factory.partial"
+      "factory.partial",
+      "factory.record_journey_result"
     ],
     "authority": "worker",
     "availability": "worker"
