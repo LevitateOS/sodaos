@@ -63,6 +63,36 @@ func TestProjectMaintenanceWorkKeepsUncertainWorkVisible(t *testing.T) {
 	if count, preparations, err := s.ProjectMaintenanceWork(ctx); err != nil || count != 0 || preparations != 0 {
 		t.Fatalf("settled work still blocks: %d/%d %v", count, preparations, err)
 	}
+	// Retained candidate failures keep their original check result. Their
+	// separately recorded native stop receipt owns retirement, not that result.
+	checkExit := 124
+	preparation.State = project.PrepareState{ID: prepTestID, Project: prepTestProject, Role: preparation.Preparation.Role, Phase: project.PrepareFailed, CheckExit: &checkExit, Output: "retained failed check"}
+	meta := candidatePreparationRegistration{Repository: 7, Issue: 1, ActorID: 3, Project: prepTestProject, OwnerAssignment: factory.NewID(), ChildAssignment: factory.NewID(), AttemptRoot: factory.NewID(), PublicationID: factory.NewID(), Connection: "candidate-connection", NotAfter: time.Now().Add(time.Minute).Unix()}
+	retained, err := marshalCandidatePreparation(preparation, meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.ExecContext(ctx, `UPDATE project_preparations SET data=$1 WHERE id=$2`, string(retained), prepTestID); err != nil {
+		t.Fatal(err)
+	}
+	stop := project.PrepareState{ID: prepTestID, Project: prepTestProject, Role: preparation.Preparation.Role, Phase: project.PrepareStopped, Stopped: true, Retirement: "uncertain"}
+	if err = s.RecordCandidatePreparationStop(ctx, prepTestID, stop); err != nil {
+		t.Fatal(err)
+	}
+	if _, count, err := s.ProjectMaintenanceWork(ctx); err != nil || count != 1 {
+		t.Fatalf("uncertain candidate retirement disappeared: %d %v", count, err)
+	}
+	stop.Retirement = "confirmed"
+	if err = s.RecordCandidatePreparationStop(ctx, prepTestID, stop); err != nil {
+		t.Fatal(err)
+	}
+	if _, count, err := s.ProjectMaintenanceWork(ctx); err != nil || count != 0 {
+		t.Fatalf("confirmed candidate retirement still blocks maintenance: %d %v", count, err)
+	}
+	kept, err := s.CandidatePreparation(ctx, prepTestID)
+	if err != nil || !kept.Stopped || kept.Retirement != "confirmed" || kept.Preparation.State.Phase != project.PrepareFailed || kept.Preparation.State.Output != "retained failed check" || kept.Preparation.State.CheckExit == nil || *kept.Preparation.State.CheckExit != 124 {
+		t.Fatalf("native retirement rewrote the retained failure: %+v %v", kept, err)
+	}
 }
 
 func TestProjectMaintenanceWorkReportsSaturatedCount(t *testing.T) {
