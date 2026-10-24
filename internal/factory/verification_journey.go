@@ -145,3 +145,22 @@ func (o VerificationJourneyResult) ValidateFor(cap MCPCapability, a Assignment, 
 	}
 	return nil
 }
+
+// VerificationJourneyReferences reserves journey:<submission ID> for exact
+// recorded observations. Other evidence references keep their existing meaning.
+func VerificationJourneyReferences(refs []string) ([]string, error) {
+	var ids []string
+	seen := map[string]bool{}
+	for _, ref := range refs {
+		id, journey := strings.CutPrefix(ref, "journey:")
+		if !journey {
+			continue
+		}
+		if !ValidID(id) || seen[id] {
+			return nil, errors.New("journey reference is invalid or repeated")
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return ids, nil
+}

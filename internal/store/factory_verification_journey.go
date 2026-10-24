@@ -86,6 +86,81 @@ func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory
 	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)
 }
 
+// Validate new references only after immutable submission/terminal replay has
+// returned. A moved head cannot invalidate recovery of an admitted finish.
+func recordMCPVerificationJourneyReferencesTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission) error {
+	if sub.Tool != factory.MCPToolFinishAppVerify {
+		return nil
+	}
+	var references struct {
+		EvidenceRefs []string `json:"evidence_refs"`
+	}
+	if err := json.Unmarshal(sub.Payload, &references); err != nil {
+		return err
+	}
+	ids, err := factory.VerificationJourneyReferences(references.EvidenceRefs)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	var report factory.AppVerificationReport
+	if err := json.Unmarshal(sub.Payload, &report); err != nil {
+		return err
+	}
+	if err := report.Validate(); err != nil {
+		return err
+	}
+	a, _, err := verificationJourneyScopeTx(ctx, tx, cap)
+	if err != nil {
+		return err
+	}
+	return validateVerificationJourneyRefsTx(ctx, tx, a, report)
+}
+
+// Final adoption rechecks the same immutable observations after native
+// retirement. The original capability may now be retired; its exact scope
+// remains evidence, never renewed authority or a new observation admission.
+func validateVerificationJourneyRefsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, report factory.AppVerificationReport) error {
+	ids, err := factory.VerificationJourneyReferences(report.EvidenceRefs)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	if a.Subject.Delivery == nil || report.DeliveryID != a.Subject.Delivery.DeliveryID {
+		return errors.New("journey references lack their exact delivery report")
+	}
+	var cap factory.MCPCapability
+	if err := contextJSONRow(ctx, tx, &cap, `SELECT data FROM factory_mcp_capabilities WHERE assignment=$1 AND run=$2 FOR SHARE`, a.ID, a.Run); err != nil {
+		return err
+	}
+	if cap.Validate() != nil || cap.ScopeDigest() != report.InputDigest {
+		return errors.New("journey references differ from the report input scope")
+	}
+	var revision factory.IntentRevision
+	if err := contextJSONRow(ctx, tx, &revision, `SELECT data FROM factory_intent_revisions WHERE id=$1 FOR SHARE`, a.Subject.Delivery.AcceptedRevision); err != nil {
+		return err
+	}
+	if revision.Validate() != nil || revision.Intent != a.Subject.Delivery.IntentID || revision.Repository != a.Repository || revision.Digest() != a.Subject.Delivery.ScopeDigest {
+		return errors.New("journey references differ from their accepted outcome scope")
+	}
+	for _, id := range ids {
+		var raw []byte
+		var capability, input, digest string
+		if err := tx.QueryRowContext(ctx, `SELECT capability,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 AND tool=$3 FOR SHARE`, a.ID, id, string(factory.MCPToolRecordJourneyResult)).Scan(&capability, &input, &digest, &raw); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.New("journey reference is not a recorded observation of this assignment")
+			}
+			return err
+		}
+		o, err := factory.DecodeVerificationJourney(raw)
+		if err != nil || capability != cap.ID || input != report.InputDigest || digest != factory.MCPInputDigest(raw) || o.ValidateFor(cap, a, revision.EffectiveOutcomes) != nil {
+			return errors.New("journey reference differs from its canonical observation")
+		}
+		if report.Outcome == factory.AppVerificationVerified && o.Result != "passed" {
+			return errors.New("verified report cites a failed or incomplete journey")
+		}
+	}
+	return nil
+}
+
 // VerificationScope reads retained observations in canonical feed sequence.
 // Keyset pages do not run models, append records, or change workflow state.
 func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability, after int64) (factory.VerificationScopeView, error) {

@@ -125,6 +125,9 @@ func validateDeliveryRepairCauseTx(ctx context.Context, tx *sql.Tx, cause factor
 	if err := deliveryRepairReportScopeTx(ctx, tx, a, cause.Report.InputDigest); err != nil {
 		return err
 	}
+	if err := validateVerificationJourneyRefsTx(ctx, tx, a, cause.Report); err != nil {
+		return err
+	}
 	var run factory.Run
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 AND active=FALSE AND settled=TRUE FOR SHARE`, a.Run).Scan(&raw); err != nil {
 		return err

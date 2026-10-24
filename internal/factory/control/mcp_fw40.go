@@ -585,6 +585,11 @@ func settleAppVerification(assigned factory.Assignment, submission factory.MCPSu
 			return fenceFW40(assigned, submission, now, "verification artifact refs refused: "+err.Error())
 		}
 	}
+	if raw, present := rawField(fields, "evidence_refs"); present {
+		if err := strictDecodeField(raw, &report.EvidenceRefs); err != nil {
+			return fenceFW40(assigned, submission, now, "verification evidence refs refused: "+err.Error())
+		}
+	}
 	parsed := phaseResultFor(submission, project.ExecutionVerify, "worker reports app verification",
 		&factory.PhaseOutput{Verification: &report})
 	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "app verification settled", true, nil

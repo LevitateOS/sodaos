@@ -124,6 +124,15 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
 				return project.PrepareState{ID: prep.Preparation.ID, Project: fx.proj, Role: project.RoleReviewer, SourceCommit: fx.tip, SetupDigest: prep.Preparation.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}, nil
 			}
+			if fixture.adopted {
+				prep.State, err = fx.host.inspectPreparation(project.PrepareInspect{Project: fx.proj, ID: prep.Preparation.ID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := db.ObservePreparation(ctx, prep); err != nil {
+					t.Fatal("retain complete native preparation observation", err)
+				}
+			}
 			fx.host.contextRead = func(request project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
 				material := fixturePreparationContext(request, role)
 				material.Check = script
@@ -294,6 +303,8 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			journeyRef, alternateJourneyRef := "", ""
+			var verificationCapability factory.MCPCapability
 			if fixture.adopted {
 				fx.host.inspect = func(project.FactoryInspect) (project.FactoryState, error) { return native, nil }
 				if err := c.observeVerificationChecks(ctx, run, native); err != nil {
@@ -334,6 +345,31 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						t.Fatal("failed manifest verified application", posts, err)
 					}
 					return
+				}
+				verificationCapability, err = db.GetMCPCapability(ctx, run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := db.ActivateObservedMCPCapability(ctx, verificationCapability); err != nil {
+					t.Fatal(err)
+				}
+				verificationCapability, err = db.GetMCPCapability(ctx, run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, observationResult := range []string{"passed", "incomplete"} {
+					o := factory.VerificationJourneyResult{DeliveryID: subject.Delivery.DeliveryID, InputDigest: verificationCapability.ScopeDigest(), SourceCommit: fx.tip, Preparation: a.Preparation, ManifestDigest: subject.Delivery.VerificationManifestDigest, OutcomeIDs: []string{idea.ID}, Name: "Retained task readback", Steps: []string{"Save a task", "Read its title"}, Expected: "The requested title persists.", Observed: "The native assertion reports a saved title.", Result: observationResult, Limitations: []string{"Outcome coverage still needs a typed final report."}}
+					id := factory.NewID()
+					raw, _ := json.Marshal(o)
+					sub := testMCPSubmission(verificationCapability, factory.MCPToolRecordJourneyResult, id, raw)
+					if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: id, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+						t.Fatal("record verification journey", err)
+					}
+					if observationResult == "passed" {
+						journeyRef = "journey:" + id
+					} else {
+						alternateJourneyRef = "journey:" + id
+					}
 				}
 			}
 			if early {
@@ -716,24 +752,54 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			verification := factory.AppVerificationReport{DeliveryID: subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified, CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("task storage passed")), LogExcerpt: "Native assertions passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{task.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}}
 			if fixture.adopted {
 				verification.CheckReceipts[0].ArtifactDigest = native.VerificationChecks.OutputDigest
+				verification.InputDigest = verificationCapability.ScopeDigest()
+				verification.EvidenceRefs = []string{journeyRef}
 				if fixture.failed {
 					capability, err := db.GetMCPCapability(ctx, run.ID)
 					if err != nil {
 						t.Fatal(err)
 					}
-					verification.InputDigest, verification.Outcome, verification.Coverage = capability.ScopeDigest(), factory.AppVerificationFailed, nil
+					verification.InputDigest, verification.Outcome, verification.Coverage = capability.ScopeDigest(), factory.AppVerificationFailed, []factory.ReassessmentCoverage{}
 					verification.Failures = []factory.CheckFailure{{CheckRef: idea.ID, Detail: "Approved assertions leave a required outcome uncovered."}}
 				}
 			}
 			a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
 			a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application assertions passed", Output: &factory.PhaseOutput{Verification: &verification}}}
-			if err = db.FinishAssignment(ctx, a); err != nil {
+			if fixture.adopted {
+				for _, ref := range []string{"journey:invalid", "journey:" + factory.NewID(), alternateJourneyRef} {
+					bad := verification
+					bad.Outcome, bad.Failures = factory.AppVerificationVerified, nil
+					bad.Coverage = []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{task.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID}}}
+					bad.EvidenceRefs = []string{ref}
+					raw, _ := json.Marshal(bad)
+					sub := testMCPSubmission(verificationCapability, factory.MCPToolFinishAppVerify, factory.NewID(), raw)
+					if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err == nil {
+						t.Fatal("invalid journey evidence froze verification finish", ref)
+					}
+				}
+				raw, _ := json.Marshal(verification)
+				sub := testMCPSubmission(verificationCapability, factory.MCPToolFinishAppVerify, factory.NewID(), raw)
+				if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+					t.Fatal("bound journey finish admission", err)
+				}
+				if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
+					t.Fatal("bound journey finish settlement", settled, err)
+				}
+				a, err = db.Assignment(ctx, a.ID)
+				if err != nil || a.Result == nil || a.Result.PhaseResult == nil || a.Result.PhaseResult.Output == nil || a.Result.PhaseResult.Output.Verification == nil || len(a.Result.PhaseResult.Output.Verification.EvidenceRefs) != 1 || a.Result.PhaseResult.Output.Verification.EvidenceRefs[0] != journeyRef {
+					t.Fatal("typed finish dropped canonical journey reference", err)
+				}
+			} else if err = db.FinishAssignment(ctx, a); err != nil {
 				t.Fatal("delivery settlement", err)
 			}
 			if fixture.adopted && fixture.failed {
 				cause, err := c.deliveryRepairCause(ctx, run.ID)
 				if err != nil || len(cause.Report.CheckReceipts) != 1 || cause.Report.CheckReceipts[0].ArtifactDigest != native.VerificationChecks.OutputDigest {
 					t.Fatal("repair cause lost exact per-run verification receipt", err)
+				}
+				record, admitted, err := db.RecordDeliveryRepairCause(ctx, cause, time.Now())
+				if err != nil || !admitted || len(record.Cause.Report.EvidenceRefs) != 1 || record.Cause.Report.EvidenceRefs[0] != journeyRef {
+					t.Fatal("canonical repair cause lost original journey evidence", err)
 				}
 				checks := *native.VerificationChecks
 				native.VerificationChecks.OutputDigest = factory.MCPInputDigest([]byte("task storage passed"))

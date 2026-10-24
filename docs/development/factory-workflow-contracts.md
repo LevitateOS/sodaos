@@ -2104,6 +2104,18 @@ still refuse after terminal freeze/revocation; exact active receipt replay
 recovers the original post without a duplicate. Native execution/fixture grants
 and terminal F10 adoption keep their existing independent checks.
 
+The typed finish preserves `evidence_refs`, including explicit
+`journey:<submission ID>` citations. These resolve to immutable observations of
+the same assignment, capability scope, delivery, integrated source, preparation,
+manifest and accepted outcomes. A verified report can cite only passed journeys;
+missing, foreign, malformed or duplicate journey references refuse. Reference
+checks run inside new terminal admission, independently again for F10, and when
+recording the exact failed report as a delivery-repair cause. The original
+capability can be retired during those final joins; reading its immutable scope
+renews no authority. Existing terminal/receipt replay precedes new-head checks.
+Ordinary evidence references keep their existing reported meaning, and journey
+citations never replace the required native receipt or complete outcome coverage.
+
 Project Work exposes explicit Retry for an accounted, retired, terminal failed or incomplete Test Pilot run, including its issue-zero delivery subject. The ordinary owner run action records one immutable Retry command; the next dispatch uses that command as a fresh root identity for the same accepted version, preparation and manifest. It rechecks current source, grants, native preparation and funding. A newer same-version attempt, changed source, unsettled accounting or an already queued command refuses another Retry. Reads spend nothing; uncertain replies recover the exact command receipt. Normal polling never retries the old report automatically, and Retry preserves all old results, closed roots, completion decisions and spending.
 
 The fixed check route enforces the default stable-intent allowance of **2 admitted

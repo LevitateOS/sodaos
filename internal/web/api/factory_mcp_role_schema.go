@@ -17,7 +17,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range spec.required {
 		props[key] = &jsonschema.Schema{Description: "Required result field."}
 	}
-	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "uncertainty", "verification_manifest_proposal", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
+	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
 		if mcpOptionalPayloadKey(tool, key) {
 			props[key] = &jsonschema.Schema{}
 		}
@@ -78,6 +78,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		props["report"].Then = &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"outcome": outcome}, Required: []string{"outcome"}}
 	case factory.MCPToolFinishAppVerify:
 		set("delivery_id", "Exact assigned delivery identity.", text)
+		set("evidence_refs", "Inspected evidence; journey:<submission ID> must resolve to this assignment's exact recorded observation. Verified claims may cite only passed journeys. These references never replace trusted check receipts.", strings)
 		set("coverage", "Structured outcome coverage for the assigned delivery.", mcpCarrier[[]factory.ReassessmentCoverage]())
 		set("check_receipts", "Observed typed receipts for approved checks; required to settle verified or failed.", mcpCarrier[[]factory.VerificationCheckReceipt]())
 		set("artifact_refs", "Content digests from the publish response of this assignment's complete artifacts. Settlement resolves each digest back to the assignment and fences unknown, foreign or unfinished citations.", strings)

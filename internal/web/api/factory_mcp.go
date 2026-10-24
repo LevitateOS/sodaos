@@ -491,7 +491,7 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 	case factory.MCPToolSubmitTaskOutput:
 		return key == "native_child_ref"
 	case factory.MCPToolFinishAppVerify:
-		return key == "check_receipts" || key == "artifact_refs" || key == "failures" || key == "input_digest"
+		return key == "check_receipts" || key == "artifact_refs" || key == "failures" || key == "input_digest" || key == "evidence_refs"
 	case factory.MCPToolFinishReassessment:
 		return key == "input_digest"
 	case factory.MCPToolFinishResearch:

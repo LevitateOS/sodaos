@@ -480,8 +480,19 @@ current accepted-subject checks still apply. Payloads are at most 8 KiB, with
 32 observations per assignment and read pages of four; the terminal slot stays
 available. The existing authenticated PostgreSQL/HTTP case covers replay,
 foreign tuples/outcomes/artifacts, paging, terminal freeze and capability
-revocation with unchanged workflow/spending. The broader Strategist work tools,
-automatic journey incorporation into finishes/repair and native qualification
+revocation with unchanged workflow/spending.
+
+Typed `finish_app_verification` now retains its existing `evidence_refs` field.
+Explicit `journey:<submission ID>` references resolve to that assignment's exact
+recorded input/delivery/outcome scope. Missing, malformed, foreign or repeated
+references refuse; a verified finish cannot cite an incomplete or failed journey.
+New terminal admission, final F10 adoption and canonical failed-verification
+repair causes repeat the binding. Exact old finish replay remains ahead of new
+head checks. Existing real PostgreSQL cases exercise observed journey → typed
+MCP finish → F10 and failed finish → retained repair cause, while authenticated
+HTTP covers schema acceptance, context holds and immutable receipt recovery.
+This consumes nominated references; it does not automatically infer coverage
+from all observations. Broader Strategist work tools and native qualification
 remain separate work.
 
 **Full role interfaces:** Implement Strategist `reassessment_scope`,

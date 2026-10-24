@@ -771,11 +771,35 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	// Observation capacity cannot consume the terminal slot. Terminal freeze
 	// rejects a new journey identity while preserving the old receipt exactly.
-	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"outcome": "blocked", "cause": "incomplete_coverage", "evidence_refs": []string{"journey:" + journeyID}, "affected_task_ids": []string{}, "requested_resolution": "Retain these observations for the exact admitted application."}}})
-	if catalogRefused(result, err) {
+	finish := factory.AppVerificationReport{DeliveryID: observation.DeliveryID, InputDigest: pilotCap.ScopeDigest(), Outcome: factory.AppVerificationFailed, Coverage: []factory.ReassessmentCoverage{}, CheckReceipts: []factory.VerificationCheckReceipt{*verificationEvidence.ExecutionReceipt}, Failures: []factory.CheckFailure{{CheckRef: idea.ID, Detail: "The approved readback does not exercise every accepted behavior."}}, EvidenceRefs: []string{"journey:" + journeyID}}
+	finishJSON, _ := json.Marshal(finish)
+	var finishPayload map[string]any
+	if json.Unmarshal(finishJSON, &finishPayload) != nil {
+		t.Fatal("invalid finish fixture")
+	}
+	finishJSON, _ = json.Marshal(finishPayload)
+	finishID := factory.NewID()
+	finishArgs := map[string]any{"submission_id": finishID, "payload": finishPayload}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
+	if !catalogRefused(result, err) || !strings.Contains(catalogText(t, result), "context selection holds") || counts() != beforeVerification {
+		t.Fatal("new evidence reference escaped the required-context hold", err)
+	}
+	// Store exercises new terminal reference admission; authenticated HTTP
+	// then recovers that exact receipt while the changed context stays held.
+	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, ExpectedInputDigest: pilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
+	if _, err := st.RecordMCPSubmission(ctx, finishSub, factory.MCPReceipt{SubmissionID: finishID, Tool: finishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: finishSub.PayloadHash}); err != nil {
 		t.Fatal("journey observations consumed terminal capacity", err)
 	}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
+	if catalogRefused(result, err) {
+		t.Fatal("HTTP finish dropped its canonical evidence refs", err, catalogText(t, result))
+	}
 	afterTerminal := counts()
+	finishPayload["evidence_refs"] = []string{"journey:" + factory.NewID()}
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
+	if !catalogRefused(result, err) || counts() != afterTerminal {
+		t.Fatal("finish replay replaced its original journey reference")
+	}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": journeyPayload(observation)}})
 	if !catalogRefused(result, err) || counts() != afterTerminal {
 		t.Fatal("terminal Test Pilot admitted another journey observation")

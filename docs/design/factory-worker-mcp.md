@@ -643,6 +643,14 @@ feed post. The maximum is 32 observations at 8 KiB each. These are attributed
 reports, not trusted check receipts or automatic terminal coverage; the existing
 finish and independent F10 adoption retain their authority checks.
 
+The finish's `evidence_refs` can nominate `journey:<submission ID>` citations.
+They retain the same canonical identity through a typed report and any later
+failed-verification repair cause. Admission and final consumers reject foreign
+or missing records; a verified claim cannot cite a failed or incomplete journey.
+The worker still supplies full outcome coverage and matching native check
+receipts. Merely recording or citing observations establishes neither completion
+nor a new repair allowance.
+
 Journey failures already have canonical identities; a feed issue links to that
 failure rather than asking the worker to retype it through Flag. Screenshots,
 traces and recordings attach to the same journey. Reusable test recipes and

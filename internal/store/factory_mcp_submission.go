@@ -175,6 +175,9 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = recordMCPVerificationJourneyTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
+	if err = recordMCPVerificationJourneyReferencesTx(ctx, tx, capability, submission); err != nil {
+		return factory.MCPReceipt{}, err
+	}
 	if err = recordMCPPostResolutionTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}

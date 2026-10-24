@@ -223,6 +223,9 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 	if current.Result.PhaseResult == nil || current.Result.PhaseResult.Output == nil || current.Result.PhaseResult.Output.Verification == nil {
 		return errors.New("application verification has no bound coverage report")
 	}
+	if err := validateVerificationJourneyRefsTx(ctx, tx, current, *current.Result.PhaseResult.Output.Verification); err != nil {
+		return err
+	}
 	// Rejoin the persisted worker claims under this transaction's current
 	// accepted head. All contributors to each outcome must be named; valid ID
 	// syntax, planning-sketch keys or a subset of delivered work is insufficient.
