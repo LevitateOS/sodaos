@@ -204,6 +204,17 @@ SHA-256 `2a72ff5dbd5accf8c2f691bb682c6e9d04c1fdb04109647d7bc209f0fef04928`.
 An initial probe refused on stale generation/role assumptions; correcting those
 diagnostic assumptions made the read-only probe work.
 
+A further selected readback at `16:55:04Z` found the same admission marked
+`stopped: true`, `retirement: confirmed`, while its separately stored observation
+still had an empty phase and `ready: false`. Thus the 404 accompanies confirmed
+admission retirement. The observer's old `state.stopped` field alone missed this
+distinction. Evidence is
+`$RUN/r56-docker-supervision/review-preparation-admission-read-only/result.public.json`,
+SHA-256 `ef13c3bbd08c093444716c0a0ce07df2bf002730dd4ac09d8ed2e1163612da0a`.
+Production Store authorization already selects by owner assignment and separately
+checks canonical publication ID; it does not share the private observer's join
+bug. No product patch is justified there by these findings.
+
 Do not infer a product defect solely from the empty phase or 404. Do not create replacement
 setup, patch database state, publish fabricated CI, or rerun completed coding to
 work around an observer failure. An admitted running collector cannot be patched
@@ -212,9 +223,86 @@ in place and then presented as unchanged evidence.
 A minimal source correction is retained at
 `$RUN/r56-docker-collector-publication-identity/`: `factory-native.ts`,
 `factory-phase.ts`, and `factory-ci.ts`. It preserves separate publication and
-assignment identities and checks both in joins. Strict TypeScript checking passed;
-it has **not** been built or run against a live candidate. The frozen continuation
-source, binary and failed evidence remain unchanged.
+assignment identities and checks both in joins. Strict TypeScript checking passed.
+The corrected **initial-mode** composition then built successfully at
+`$RUN/r56-docker-collector-initial-corrected/public/soda-qualification-collector-docker`,
+SHA-256 `ad1f7717bbac537295db0199c1f05f293613be3054f77e0ff11ef32709c0e4c1`.
+Its composition receipt is
+`$RUN/r56-docker-collector-initial-corrected/composed-build.public.json`, SHA-256
+`d92ab100aef06dc779243ba6805edce52d514a200dfa04c50202dc3f6d59ef18`.
+Only the three identity modules and recorded composition inputs changed from the
+original initial collector; Project, witness, persistence and context modules
+remain byte-identical. It has **not run a new live trial**. The frozen earlier
+sources, binaries and failed evidence remain unchanged.
+
+Normal Retry after this closed root creates a new investigation/coding attempt;
+it does not resume only the pending review or deterministically reuse PR 2.
+The special same-root context retry applies to an unstarted context-pending run,
+which is a different case. Source starts are `lifecycle_retry.go`,
+`dispatch_attempt.go` and `internal/store/factory_explicit_retry.go`.
+Remaining sponsorship alone cannot make the original closed attempt eligible.
+
+The corrected snapshot was also exercised read-only against the retained real
+PostgreSQL state. Canonical publication ID, separate assignment ID, their
+inequality, and the candidate preparation's publication/owner/source joins all
+matched. There were zero completions and merges, so those joins remain untested
+on this attempt. An additional diagnostic that combined owner assignment and
+implementation run into one identity returned false; that stronger predicate is
+not the canonical contract. The collector proves owner/root lineage separately
+from the implementation run. This diagnostic did not trigger a rebuild or waive
+any actual required check.
+
+## Corrected trial prepared, not executed
+
+All unpaid setup completed for repository 2,
+`rc-public-docker-rc6-factory-corrected-20261025`, on the same Docker VM. Its
+Project is `pb91edd2cd64a1979876333c3`, source
+`f5d266757c4e5530ba2f7b8a30e1400628c9d4b9`, issue 1/native issue 3.
+Both ordinary role preparations are ready with setup/check exit 0, the genuine
+issue is accepted, and dispatch is paused. One preparation POST returned
+`preparation_unconfirmed`; supported GET reconciliation proved success without
+repeating that POST. Existing service actors, tokens, hooks and account were
+reused. No new sign-in, funding or model work occurred during this setup.
+
+The handoff is
+`$RUN/r56-public-factory-fixture-corrected/docker/unpaid-setup-handoff.public.json`,
+SHA-256 `a9fa5c3b9d735dc7bd392ea12fae9519a03388e9fc9814dc1c7fca963fb54af3`.
+The actual two Projects and all retired history remain; no data was erased to
+satisfy a stale one-Project or zero-history test assumption.
+
+Context deployment and admission preparation completed under
+`$RUN/r56-production-collector-admission/docker-rc6-corrected/`.
+Its `preparation.public.json` SHA-256 is
+`f79b325f515ccd13f4b7c0e6b8c8978a801d1f057150bce65e3a1aa57d6db623`.
+The public context helper binary was unchanged; the exact preceding scope and
+metadata were preserved before installing the new Project-bound scope. All
+execution controls are false, all active custody counters are zero, and no
+collector invocation is active.
+
+A new live test is awaiting explicit owner approval because the preceding test
+excluded automatic retries. The concrete proposed scope is
+`$RUN/r56-public-factory-fixture-corrected/setup-authorization.prepared.json`:
+one new Project member grant, 15 sponsored minutes, shared rolling limit raised
+from 15 to 25 minutes, max one active run, no automatic retry/refill/extra inquiry.
+The previous seven spent minutes, old sponsorship balance, closed attempt, PR and
+data remain. A 15-minute rolling limit does not have the full planned 15 minutes
+of remaining headroom after the earlier usage; it must not be reset to conceal
+that fact.
+
+The prepared commands, **only after that actual approval**, are:
+
+```sh
+node "$RUN/r56-public-factory-fixture-corrected/run-phase.cjs" funding
+node "$RUN/r56-public-factory-fixture-corrected/run-phase.cjs" emit
+```
+
+The runner also requires the recorded owner-approval control; do not flip it
+without the real reply. It obtains the real grant through the normal owner API,
+reads back its exact binding and emits `docker/consumer-config.json`. Then bind
+that actual consumer into a fresh funded baseline, runtime admission and one
+collector invocation. Do not invent a grant ID, copy the old Project's grant, or
+reuse a completed invocation journal. The new setup is not a successful live
+Factory result.
 
 ## Where another agent should resume
 
@@ -224,6 +312,8 @@ source, binary and failed evidence remain unchanged.
 | `r56-public-consumers/qualification-api/` | Small caller of unchanged canonical F1 qualification APIs; per-target controls, attempts and results |
 | `r56-public-factory-fixture/` | Actual owner/repository/setup/account/funding metadata and bounded-test authorization |
 | `r56-docker-collector-continuation/` | Selected private continuation source, binary and composition receipt |
+| `r56-docker-collector-initial-corrected/` | Built initial-mode collector with canonical publication/assignment joins; no new live result yet |
+| `r56-public-factory-fixture-corrected/` | Separate unpaid fixture preparation; existing repository/PR/accounting retained |
 | `r56-production-collector-admission/docker-rc6-continuation/` | Fresh native baseline and root-controlled collector admission |
 | `r56-docker-supervision/` | Selected safe metadata and read-only terminal reconciliation |
 | `r56-cold-restore/` | Native completed recovery and Docker prepared recovery tools |
