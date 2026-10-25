@@ -1,3 +1,4 @@
+import {diagnoseClosure, assertResourceInventory, type ResourceScope} from '../closure';
 import assert from 'node:assert/strict';
 import {check, sha, SHA} from './support';
 import {nativeReadScript, readDocker} from './docker-native';
@@ -46,7 +47,31 @@ export class PersistencePermits {
   private used = new Set<string>();
   constructor(private save: DockerIO['save']) {}
   arm(name: string, path: string, body: unknown) {
-    check(name === 'end-terminal' || /^stop-project-p[a-f0-9]{24}$/.test(name), 'fixed_lifecycle_action');
+    const terminal = name.match(/^end-terminal-([a-f0-9]{32})$/),
+      project = name.match(/^stop-project-(p[a-f0-9]{24})$/),
+      application = name.match(/^stop-application-(a[a-f0-9]{24})$/);
+    if (terminal) {
+      check(
+        new RegExp('/environments/p[a-f0-9]{24}/terminal-sessions/' + terminal[1] + '$').test(path),
+        'fixed_terminal_path'
+      );
+      assert.deepEqual(body, {action: 'end'});
+    } else if (project) {
+      check(path.endsWith('/environments/' + project[1] + '/lifecycle'), 'fixed_project_path');
+      assert.deepEqual(body, {action: 'stop', confirm_stop: true});
+    } else if (application) {
+      const v = body as any;
+      check(
+        path.endsWith('/applications/' + application[1] + '/actions') &&
+          Object.keys(v).sort().join(',') === 'action,confirm_stop,expected_container,revision' &&
+          v.action === 'stop' &&
+          v.confirm_stop === true &&
+          Number.isSafeInteger(v.revision) &&
+          v.revision > 0 &&
+          /^[a-f0-9]{64}$/.test(v.expected_container),
+        'fixed_application_stop'
+      );
+    } else check(false, 'fixed_lifecycle_action');
     check(!this.armed && !this.used.has(name), 'one_owned_lifecycle_request');
     this.armed = {name, path, body};
   }
@@ -66,36 +91,89 @@ export class PersistencePermits {
   }
 }
 
-// Uses the normal bound Soda transport; raw-run blockers and this permit must
-// already be active on the context before login. Every effect is once-only.
-export async function stopOwnedProject(
+// Normal owner transport only. Diagnose the entire set before the first action;
+// a permitted subset never hides an unowned writer or unknown native resource.
+export async function retireOwnedResources(
   page: any,
   apiBase: string,
   w: Witness,
   b: DockerBinding,
   io: DockerIO,
   permits: PersistencePermits,
-  configuredFactoryProject: string
+  scope: ResourceScope,
+  actor: string
 ) {
+  check(
+    !scope.scenario.authority.held && scope.scenario.authority.scope_receipt_file !== null,
+    'journey_execution_held'
+  );
   validateWitness(w);
   check(/^\/[^?#]*$/.test(apiBase) && !apiBase.endsWith('/'), 'canonical_transport_base');
-  check(/^p[a-f0-9]{24}$/.test(configuredFactoryProject), 'configured_factory_project');
-  const before = await readDocker(io, b, 'idle', w);
-  assert.deepEqual(
-    before.inner.facts.projects.map((p: any) => p.id).sort(),
-    [...new Set([w.project, configuredFactoryProject])].sort(),
-    'exact_factory_and_browser_project_scope'
-  );
+  const inspect = () => readDocker(io, b, 'idle', w, scope);
+  const before = await inspect();
+  const diagnose = (current: any) => {
+    assertResourceInventory(scope, current.inner.resource_inventory);
+    return diagnoseClosure(scope.scenario, scope.observation, current.inner);
+  };
+  const initial = diagnose(before);
+  await io.save('persistence/retirement-plan.json', initial);
+  check(initial.scope_ready, 'resource_retirement_scope_blocked');
   check(
-    before.inner.project.running === true &&
-      before.inner.project.unit === 'active' &&
-      before.inner.project.terminals.length === 1 &&
-      before.inner.project.terminals[0] === w.session,
-    'only_exact_owned_terminal'
+    initial.retirement_actions.every((a) =>
+      a.kind === 'terminal'
+        ? a.actor_id === actor
+        : a.kind !== 'project' || scope.observation.inventory.projects.find((p) => p.id === a.id)?.owner_id === actor
+    ),
+    'retirement_actor_outside_owner_session'
   );
-  await io.save('persistence/idle-before-stop.json', before);
-  const request = async (kind: string, route: string, body: unknown) => {
-    permits.arm(kind, apiBase + '/' + route, body);
+  const sameIncarnations = (current: any) => {
+    for (const kind of ['project_runtime', 'application_runtime']) {
+      assert.deepEqual(
+        current.inner[kind].map((r: any) => [r.id, r.container_id]).sort(),
+        before.inner[kind].map((r: any) => [r.id, r.container_id]).sort(),
+        'retained_native_incarnations'
+      );
+    }
+    assert.deepEqual(current.inner.facts.runs, before.inner.facts.runs, 'retained_run_history');
+    assert.deepEqual(current.inner.facts.policies, before.inner.facts.policies, 'retained_factory_policies');
+  };
+  const normalRead = (route: string) =>
+    page.evaluate(async (route: string) => {
+      const response = await (document.querySelector('soda-spaces') as any).binding.transport.request(route, {
+        method: 'GET',
+        signal: AbortSignal.timeout(20000),
+      });
+      if (response.status !== 200) throw Error('retirement_read_unconfirmed');
+      const view = await response.json();
+      return {application: view.application, observation: view.observation, restore: view.restore ?? null};
+    }, route);
+  const applicationStop = async (id: string, current: any) => {
+    const expected = scope.observation.inventory.applications.find((a) => a.id === id)!,
+      native = current.inner.application_runtime.find((a: any) => a.id === id),
+      view = await normalRead('applications/' + id),
+      app = view.application,
+      observed = view.observation;
+    check(
+      app?.id === expected.id &&
+        app.data === expected.data_id &&
+        app.owner_team === expected.owner_team &&
+        app.origin === expected.origin &&
+        Number.isSafeInteger(app.revision) &&
+        app.revision > 0 &&
+        observed?.id === app.id &&
+        observed.revision === app.revision &&
+        observed.container === native.container_id &&
+        view.restore === null,
+      'current_application_stop_binding'
+    );
+    return {action: 'stop', revision: app.revision, expected_container: observed.container, confirm_stop: true};
+  };
+  // Resolve every App's existing normal-owner generation before ending any
+  // terminal. Missing observations are held, never repaired by an Inspect POST.
+  for (const action of initial.retirement_actions)
+    if (action.kind === 'application') await applicationStop(action.id, before);
+  const request = async (name: string, route: string, body: unknown) => {
+    permits.arm(name, apiBase + '/' + route, body);
     const reply = await page.evaluate(
       async ({route, body}: any) => {
         const response = await (document.querySelector('soda-spaces') as any).binding.transport.request(route, {
@@ -104,41 +182,53 @@ export async function stopOwnedProject(
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(240000),
         });
-        // Lifecycle replies contain no Factory provider output. Retain only its
-        // HTTP acknowledgment; actual completion is independently native-read.
         return {status: response.status};
       },
       {route, body}
     );
-    await io.save('persistence/' + kind + '.receipt.json', reply);
+    await io.save('persistence/' + name + '.receipt.json', reply);
     check(reply.status === 200, 'normal_lifecycle_acknowledgment');
   };
-  await request('end-terminal', 'environments/' + w.project + '/terminal-sessions/' + w.session, {action: 'end'});
-  const ended = await readDocker(io, b, 'idle', w);
-  check(
-    ended.inner.project.container === before.inner.project.container &&
-      ended.inner.project.running &&
-      ended.inner.project.terminals.length === 0,
-    'owned_terminal_native_retirement'
-  );
-  await io.save('persistence/terminal-ended-native.json', ended);
-  for (const project of new Set([w.project, configuredFactoryProject])) {
-    const current = await readDocker(io, b, 'idle', w),
-      native = current.inner.projects.find((p: any) => p.project === project);
-    check(native && native.terminals.length === 0, 'no_foreign_or_owned_ttys_before_stop');
-    if (native.running)
-      await request('stop-project-' + project, 'environments/' + project + '/lifecycle', {
-        action: 'stop',
-        confirm_stop: true,
-      });
+  for (const action of initial.retirement_actions) {
+    const current = await inspect();
+    sameIncarnations(current);
+    const closure = diagnose(current);
+    check(closure.scope_ready, 'resource_retirement_scope_changed');
+    if (!closure.retirement_actions.some((a) => a.kind === action.kind && a.id === action.id)) continue;
+    const name = action.kind === 'terminal' ? 'end-terminal-' + action.id : 'stop-' + action.kind + '-' + action.id;
+    let route: string, body: unknown;
+    if (action.kind === 'terminal') {
+      route = 'environments/' + action.project_id + '/terminal-sessions/' + action.id;
+      body = {action: 'end'};
+    } else if (action.kind === 'project') {
+      route = 'environments/' + action.id + '/lifecycle';
+      body = {action: 'stop', confirm_stop: true};
+    } else {
+      route = 'applications/' + action.id + '/actions';
+      body = await applicationStop(action.id, current);
+    }
+    await request(name, route, body);
+    const after = await inspect();
+    sameIncarnations(after);
+    const confirmed = diagnose(after);
+    check(
+      confirmed.scope_ready &&
+        confirmed.resources.some((r) => r.kind === action.kind && r.id === action.id && r.state === 'stopped'),
+      'native_resource_retirement_unconfirmed'
+    );
+    await io.save('persistence/' + name + '.native.json', {
+      closure: confirmed,
+      project_runtime: after.inner.project_runtime,
+      application_runtime: after.inner.application_runtime,
+    });
   }
-  const stopped = await readDocker(io, b, 'snapshot', w);
-  check(stopped.inner.project.container === before.inner.project.container, 'same_stopped_project_incarnation');
-  await io.save('persistence/project-stopped-native.json', stopped);
+  const stopped = await readDocker(io, b, 'snapshot', w, scope);
+  sameIncarnations({...stopped, inner: {...stopped.inner, facts: stopped.inner.protected.facts}});
+  await io.save('persistence/resources-stopped-native.json', stopped);
   return stopped;
 }
 
-export function recreateScript(b: DockerBinding, w: Witness, before: any) {
+export function recreateScript(b: DockerBinding, w: Witness, before: any, scope: ResourceScope) {
   validateDockerHostPaths(b.host);
   validateWitness(w);
   check(
@@ -158,13 +248,25 @@ export function recreateScript(b: DockerBinding, w: Witness, before: any) {
     ';\nconst EXPECTED=' +
     JSON.stringify(expected) +
     ';\nconst READER=' +
-    JSON.stringify(nativeReadScript(b, 'snapshot', w)) +
+    JSON.stringify(nativeReadScript(b, 'snapshot', w, scope)) +
     ';\n' +
     RECREATE
   );
 }
 
-export async function exercisePersistence(b: DockerBinding, w: Witness, installationNative: any, io: DockerIO) {
+export async function exercisePersistence(
+  b: DockerBinding,
+  w: Witness,
+  installationNative: any,
+  io: DockerIO,
+  scope: ResourceScope
+) {
+  check(
+    !scope.scenario.authority.held &&
+      scope.scenario.authority.scope_receipt_file !== null &&
+      scope.scenario.permitted_effects.same_image_recreation,
+    'persistence_execution_held'
+  );
   validateWitness(w);
   check(
     installationNative.target === b.target &&
@@ -172,7 +274,7 @@ export async function exercisePersistence(b: DockerBinding, w: Witness, installa
       installationNative.registry_config === b.config,
     'installation_phase_binding'
   );
-  const before = await readDocker(io, b, 'snapshot', w);
+  const before = await readDocker(io, b, 'snapshot', w, scope);
   check(before.outer_id === installationNative.outer_id, 'original_installed_outer');
   await io.save('persistence/before.json', before);
   // Protected output save MUST be O_EXCL+fsync. A lost SSH response leaves the
@@ -188,12 +290,17 @@ export async function exercisePersistence(b: DockerBinding, w: Witness, installa
     volumes_sha256: sha(JSON.stringify(before.volumes)),
     automatic_retry: false,
   });
-  const action = JSON.parse(await io.sshRead(recreateScript(b, w, before), 1800000));
+  const action = JSON.parse(await io.sshRead(recreateScript(b, w, before, scope), 1800000));
   await io.save('persistence/action-result.json', action.result);
   const after = await readDocker(io, b, 'snapshot', w);
   check(after.outer_id === action.result.outer_after && after.outer_id !== before.outer_id, 'actual_new_outer');
   assert.deepEqual(after.volumes, before.volumes, 'all_three_original_volumes');
   assert.deepEqual(after.inner.protected, before.inner.protected, 'all_retained_state');
+  assert.deepEqual(
+    after.inner.application_runtime,
+    before.inner.application_runtime,
+    'retained_application_incarnations'
+  );
   check(
     after.inner.project.container === before.inner.project.container && after.inner.project.sha256 === w.sha256,
     'actual_project_file_retention'

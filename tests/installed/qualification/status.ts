@@ -26,11 +26,21 @@ const messages: Record<string, string> = {
   persistence_operation: 'The selected persistence operation is outside configured scope.',
   cold_operation: 'The selected cold recovery operation is outside configured scope.',
   selected_route_omits_retained_project:
-    'The selected Factory/browser route omits this retained Project; migrate the shared inventory before execution.',
+    'This saved check predates shared resource retirement; refresh the read-only check with the maintained driver.',
   project_stop_outside_scope:
     'This Project needs confirmed retirement before snapshot and is outside configured stop scope.',
   terminal_actor_unconfirmed: 'Resolve the retained terminal actor through its existing owner; do not infer ownership.',
   terminal_retirement_outside_scope: 'This retained terminal is outside configured retirement scope.',
+  terminal_actor_changed:
+    'The native terminal actor differs from its recorded binding; preserve it and reconcile ownership.',
+  terminal_custody_unconfirmed: 'The terminal custody type is unconfirmed; do not issue normal End.',
+  terminal_requires_subscription_owner:
+    'This terminal belongs to a subscription; reconcile it through that owner before snapshot.',
+  unregistered_native_resource:
+    'A native resource is outside the registered inventory; preserve it and reconcile its canonical owner.',
+  retained_inventory_changed:
+    'Retained Project or App identities changed; refresh discovery before any lifecycle action.',
+  runtime_inventory_unconfirmed: 'The complete native resource inventory has not been confirmed.',
 };
 function explanation(code: string): string {
   if (messages[code]) return messages[code];

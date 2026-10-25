@@ -4,6 +4,7 @@ import {object} from '../sodaspaces-input';
 import {FIXTURE_IDENTITIES_SQL, issueIdentitiesSQL} from './facts';
 import type {QualificationScenario} from './scenario';
 import {pinnedSSH} from './validate';
+import {RESOURCE_RUNTIME_READER} from './resource-runtime';
 
 function readinessSQL(s: QualificationScenario): string {
   const factory = s.factory.map(
@@ -55,31 +56,12 @@ const identity=sql('soda',IDENTITY_SQL),selected=sql('soda',READINESS_SQL),issue
 const ci_ids=REQUEST.factory.map(f=>f.subject.actors.ci);if(!ci_ids.every(id=>/^[1-9][0-9]*$/.test(id)))throw Error('actor identity');
 stage='ci_actors';
 const ci_actors=sql('forgejo',"BEGIN READ ONLY; SELECT coalesce(json_agg(json_build_object('id',id::text,'admin',is_admin)),'[]') FROM public.\"user\" WHERE id IN ("+(ci_ids.join(',')||'0')+"); COMMIT;");
-const active_units=[];
-const units=(cid=null)=>{
- const invoke=a=>cid?pod(['exec',cid,'/usr/bin/systemctl',...a]):run('/usr/bin/systemctl',a);
- for(const line of invoke(['list-units','--all','--plain','--no-legend','--no-pager','soda-factory-*.service','soda-prepare-*.service']).split('\n').filter(Boolean)){
-  const name=line.trim().split(/\s+/)[0];if(!/^soda-(factory|prepare)-[A-Za-z0-9_.-]+\.service$/.test(name))throw Error('native unit identity');
-  const fields=Object.fromEntries(invoke(['show',name,'-p','ActiveState','-p','MainPID','-p','ControlPID']).split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
-  if(['active','activating','deactivating','reloading'].includes(fields.ActiveState)||Number(fields.MainPID)!==0||Number(fields.ControlPID)!==0)active_units.push({project_container:cid,unit:name,state:fields.ActiveState});
- }
-};
-stage='unit_inventory';units();
+stage='unit_inventory';
+const runtime=readResourceRuntime(identity,run,pod);
 const projects=[];
-const unitState=name=>Object.fromEntries(run('/usr/bin/systemctl',['show',name,'-p','ActiveState','-p','MainPID','-p','ControlPID']).split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
-for(const p of selected.projects){
+for(const observed of runtime.project_runtime){
  stage='project_inventory';
- if(!/^p[a-f0-9]{24}$/.test(p.id))throw Error('project identity');
- const cid=pod(['inspect','--type','container','--format','{{.ID}}','soda-'+p.id]);
- if(!/^[a-f0-9]{64}$/.test(cid))throw Error('project container');
- const running=pod(['inspect','--type','container','--format','{{.State.Running}}',cid])==='true';
- const service=unitState('soda-project@'+p.id+'.service');
- let terminal_ids=[];
- if(running){
-  units(cid);
-  terminal_ids=pod(['exec',cid,'/bin/sh','-eu','-c','for d in /run/soda-terminals/*; do [ -e "$d" ] || [ -L "$d" ] || continue; [ -d "$d" ] && [ ! -L "$d" ] || exit 1; printf "%s\\n" "$d"; done']).split('\n').filter(Boolean).map(x=>x.slice('/run/soda-terminals/'.length));
-  if(!terminal_ids.every(id=>/^[a-f0-9]{32}$/.test(id)))throw Error('terminal identity');
- }
+ const p=selected.projects.find(p=>p.id===observed.id);if(!p)throw Error('registered project changed');
  let source=null,check_script_sha256=null;
  if(REQUEST.factory.some(f=>f.subject.repository_id===p.repository_id)){
   if(!/^[A-Za-z0-9_-][A-Za-z0-9_.-]*\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(p.repository)||p.repository.includes('..'))throw Error('repository identity');
@@ -92,12 +74,11 @@ for(const p of selected.projects){
   stage='check_script';
   if(scope.check_script_path!==undefined){const check=scope.check_script_path;if(!/^[A-Za-z0-9_][A-Za-z0-9_./-]*$/.test(check)||check.includes('..'))throw Error('check identity');const checkBytes=cp.execFileSync('/usr/bin/podman',['--remote=false',...git,'show',branch+':'+check],{timeout:30000,maxBuffer:1<<20,stdio:['ignore','pipe','pipe']});check_script_sha256=crypto.createHash('sha256').update(checkBytes).digest('hex');}
  }
- projects.push({id:p.id,container_id:cid,running,unit_state:service.ActiveState,main_pid:Number(service.MainPID),control_pid:Number(service.ControlPID),terminal_ids,source,check_script_sha256});
+ projects.push({...observed,source,check_script_sha256});
 }
-const application_runtime=identity.applications.map(a=>{if(!/^a[a-f0-9]{24}$/.test(a.id))throw Error('application identity');const service=unitState('soda-canlang@'+a.id+'.service');return{id:a.id,unit_state:service.ActiveState,main_pid:Number(service.MainPID),control_pid:Number(service.ControlPID)};});
 stage='loaded_images';
 const loaded_images={};for(const [role,image]of Object.entries(payload.Images))loaded_images[role]='sha256:'+pod(['image','inspect','--format','{{.ID}}',image.Config]).replace(/^sha256:/,'');
-console.log(JSON.stringify({...identity,issues,terminals:projects.every(p=>p.terminal_ids.length===0)?[]:null,observed_at:new Date().toISOString(),uuid:REQUEST.target.uuid,distribution:REQUEST.target.distribution,source_revision:payload.Revision,payload_sha256:crypto.createHash('sha256').update(bytes).digest('hex'),loaded_images,expected_images:payload.Images,custody:selected.custody,factory_readiness:selected.factory,ci_actors,history:selected.history,project_runtime:projects,application_runtime,active_units}));
+console.log(JSON.stringify({...identity,...runtime,issues,observed_at:new Date().toISOString(),uuid:REQUEST.target.uuid,distribution:REQUEST.target.distribution,source_revision:payload.Revision,payload_sha256:crypto.createHash('sha256').update(bytes).digest('hex'),loaded_images,expected_images:payload.Images,custody:selected.custody,factory_readiness:selected.factory,ci_actors,history:selected.history,project_runtime:projects}));
 }catch{console.error(JSON.stringify({stage}));process.exitCode=1;}
 `;
 
@@ -114,6 +95,7 @@ export async function observeNative(s: QualificationScenario): Promise<unknown> 
     ';\nconst ISSUE_SQL=' +
     JSON.stringify(issueIdentitiesSQL(s.factory)) +
     ';\n' +
+    RESOURCE_RUNTIME_READER +
     INNER;
   const program =
     'const REQUEST=' +

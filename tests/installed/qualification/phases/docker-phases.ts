@@ -1,3 +1,4 @@
+import type {ResourceScope} from '../closure';
 // Maintained composition of the selected installed Docker journey. The protected
 // collector owns transport, credentials, browser runtime and durable evidence.
 // Importing this module never launches it. journey run admission is separate.
@@ -22,7 +23,7 @@ import {
   type FileIdentity,
 } from './docker-binding';
 import {observeInstallation} from './docker-native';
-import {PersistencePermits, stopOwnedProject, exercisePersistence} from './docker-persistence';
+import {PersistencePermits, retireOwnedResources, exercisePersistence} from './docker-persistence';
 
 /** Public facts missing from the initial identity discovery, plus explicit file
  * locations. No duplicated source/target/resource IDs, paid limits or flags. The
@@ -366,21 +367,58 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
     finish('factory');
     check('native' in factory, 'factory_native_result_required');
     phases.factory = factory.native;
+    // The newly created, canonically returned browser terminal belongs to this
+    // journey. Preserve every preceding terminal and its existing scope; never
+    // adopt an unrelated native session by copying it into managed resources.
+    check(
+      projectResult.session.actor === cfg.project_phase.actor &&
+        projectResult.session.id === witness.session &&
+        projectResult.session.environment === witness.project,
+      'created_terminal_binding'
+    );
+    check(
+      !input.observation.inventory.terminals?.some((t) => t.id === witness.session),
+      'new_terminal_identity_required'
+    );
+    const retirementScope: ResourceScope = {
+      scenario: {
+        ...input.scenario,
+        managed: {...input.scenario.managed, terminal_ids: [...input.scenario.managed.terminal_ids, witness.session]},
+        permitted_effects: {
+          ...input.scenario.permitted_effects,
+          terminal_lifecycle: [...input.scenario.permitted_effects.terminal_lifecycle, witness.session],
+        },
+      },
+      observation: {
+        ...input.observation,
+        inventory: {
+          ...input.observation.inventory,
+          terminals:
+            input.observation.inventory.terminals === null
+              ? null
+              : [
+                  ...input.observation.inventory.terminals,
+                  {id: witness.session, project_id: witness.project, actor_id: projectResult.session.actor},
+                ],
+        },
+      },
+    };
     start('persistence');
     const mount = await mountedSpacesFacts(page);
-    await stopOwnedProject(
+    await retireOwnedResources(
       page,
       mount.apiBase,
       witness,
       b,
       io,
       persistencePermits,
-      cfg.factory_phase.repository.project
+      retirementScope,
+      cfg.project_phase.actor
     );
     await context.close();
     check(audit.raw_responses === 0, 'raw_provider_response_forbidden');
     await io.save('browser_project/network.json', audit);
-    const persistence = await exercisePersistence(b, witness, installation.native, io);
+    const persistence = await exercisePersistence(b, witness, installation.native, io, retirementScope);
     finish('persistence');
     phases.persistence = persistence.native;
     // Existing canonical collector owns observation envelopes and the seal.

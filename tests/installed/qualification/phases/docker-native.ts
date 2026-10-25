@@ -1,9 +1,13 @@
+import {RESOURCE_RUNTIME_READER} from '../resource-runtime';
+import {assertResourceInventory, diagnoseClosure, type ResourceScope} from '../closure';
 import {check, sha} from './support';
 import {nativeRequest, validateWitness, type DockerBinding, type DockerIO, type Witness} from './docker-binding';
 
 // Fixed inner program. Reads selected metadata only; never exports connection
 // credentials, Factory output/Summary, command outcomes, or arbitrary SQL.
-export const INNER_READER = String.raw`
+export const INNER_READER =
+  RESOURCE_RUNTIME_READER +
+  String.raw`
 const fs=require('node:fs'),cp=require('node:child_process'),crypto=require('node:crypto');
 const need=(x,r)=>{if(!x)throw Error(r)};
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -23,25 +27,29 @@ try{
  for(const role of ['dashboard','forgejo','postgres','proxy'])need(podman(['inspect','--type','container','--format','{{.Image}}','soda-'+role]).replace(/^sha256:/,'')===p.Images[role].Config.slice(7),'stock_service_image_'+role);
  const base={source:p.Revision,payload_sha256:hash(bytes),application_configs:configs,services,host_sha256:hash(fs.readFileSync('/proc/'+h.pid+'/exe')),maintain_sha256:hash(fs.readFileSync(maintain)),dashboard_sha256:podman(['exec','soda-dashboard','sha256sum','/proc/1/exe']).split(/\s+/)[0],profile_http:200};
  if(REQUEST.mode==='installation'){console.log(JSON.stringify(base));process.exit(0)}
- const facts=sql("SELECT json_build_object('projects',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,repository_id,owner_id,repository,ready FROM projects ORDER BY id)x),'memberships',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT project_id,user_id,login FROM memberships ORDER BY project_id,user_id)x),'applications',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,data_id,owner_team,origin,revision FROM applications ORDER BY id)x),'connections',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,owner_id,generation,state FROM identity_connections ORDER BY id)x),'runs',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,active,settled,data->>'outcome' outcome,data->>'reconciled' reconciled FROM factory_runs ORDER BY id)x),'policies',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT repository,revision,data->>'enabled' enabled,data->>'paused' paused FROM factory_policies ORDER BY repository)x),'leases',(SELECT count(*) FROM identity_leases),'nonterminal',(SELECT count(*) FROM identity_executions WHERE state<>'terminal'),'held',(SELECT count(*) FROM factory_reservations WHERE state='held'),'unsettled',(SELECT count(*) FROM factory_runs WHERE active OR NOT settled OR coalesce(data->>'reconciled','false')<>'true'),'preparations',(SELECT count(*) FROM project_preparations WHERE coalesce(data->'state'->>'phase','') IN ('preparing','running')),'restores',(SELECT count(*) FROM application_restores WHERE state='pending'),'setup',(SELECT count(*) FROM application_setups WHERE state IN ('pending','running')),'effective_dispatch',(SELECT count(*) FROM factory_dispatch d JOIN factory_policies p USING(repository) WHERE d.open AND (p.data->>'enabled')::boolean AND NOT (p.data->>'paused')::boolean))");
+ const facts=sql("SELECT json_build_object('projects',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,repository_id::text,owner_id::text,repository,ready FROM projects ORDER BY id)x),'memberships',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT project_id,user_id,login FROM memberships ORDER BY project_id,user_id)x),'applications',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,data_id,owner_team,origin,revision FROM applications ORDER BY id)x),'connections',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,owner_id::text,generation,state FROM identity_connections ORDER BY id)x),'runs',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT id,active,settled,data->>'outcome' outcome,data->>'reconciled' reconciled FROM factory_runs ORDER BY id)x),'policies',(SELECT coalesce(json_agg(row_to_json(x)),'[]') FROM (SELECT repository,revision,data->>'enabled' enabled,data->>'paused' paused FROM factory_policies ORDER BY repository)x),'leases',(SELECT count(*) FROM identity_leases),'nonterminal',(SELECT count(*) FROM identity_executions WHERE state<>'terminal'),'held',(SELECT count(*) FROM factory_reservations WHERE state='held'),'unsettled',(SELECT count(*) FROM factory_runs WHERE active OR NOT settled OR coalesce(data->>'reconciled','false')<>'true'),'preparations',(SELECT count(*) FROM project_preparations WHERE coalesce(data->'state'->>'phase','') IN ('preparing','running')),'restores',(SELECT count(*) FROM application_restores WHERE state='pending'),'setup',(SELECT count(*) FROM application_setups WHERE state IN ('pending','running')),'effective_dispatch',(SELECT count(*) FROM factory_dispatch d JOIN factory_policies p USING(repository) WHERE d.open AND (p.data->>'enabled')::boolean AND NOT (p.data->>'paused')::boolean))");
  need(['leases','nonterminal','held','unsettled','preparations','restores','setup','effective_dispatch'].every(k=>facts[k]===0),'all_native_custody_idle');
  need(facts.policies.every(x=>x.paused==='true')&&facts.runs.every(x=>!x.active&&x.settled&&x.reconciled==='true'),'all_factory_paused_retired');
  const operator=JSON.parse(run('/usr/bin/curl',['--fail','--silent','--show-error','--max-time','20','--unix-socket','/run/soda/operator/operator.sock','http://localhost/operator/projects']));need(operator.factory_work===0&&operator.preparation_work===0,'operator_idle');
- const activeUnits=(prefix=[])=>{const args=['list-units','--all','--plain','--no-legend','--no-pager','soda-factory-*.service','soda-prepare-*.service','soda-canlang@*.service'];const output=prefix.length?podman([...prefix,'/usr/bin/systemctl',...args]):run('/usr/bin/systemctl',args);const names=output.split('\n').filter(Boolean).map(x=>x.trim().split(/\s+/)[0]);need(names.length<=256,'bounded_native_units');for(const name of names){need(/^soda-(factory-|prepare-|canlang@)[A-Za-z0-9_.-]+\.service$/.test(name),'owned_native_unit');const args=['show',name,'-p','ActiveState','-p','MainPID','-p','ControlPID'];const out=prefix.length?podman([...prefix,'/usr/bin/systemctl',...args]):run('/usr/bin/systemctl',args);const v=Object.fromEntries(out.split('\n').map(x=>{const i=x.indexOf('=');return[x.slice(0,i),x.slice(i+1)]}));need(!['active','activating','deactivating','reloading'].includes(v.ActiveState)&&Number(v.MainPID)===0&&Number(v.ControlPID)===0,'native_work_units_idle')}};
- activeUnits();
- for(const a of facts.applications){const s=unit('soda-canlang@'+a.id+'.service');need(s.ActiveState==='inactive'&&Number(s.MainPID)===0,'application_stopped');}
- const w=REQUEST.witness;need(w&&facts.projects.some(x=>x.id===w.project)&&facts.memberships.some(x=>x.project_id===w.project&&x.login===w.login),'joined_project_witness');
+ const runtime=readResourceRuntime(facts,run,podman);
+ need(runtime.active_units.length===0,'native_work_units_idle');
+ const custody=Object.fromEntries(['leases','nonterminal','held','unsettled','preparations','restores','effective_dispatch'].map(k=>[k,facts[k]]));custody.setups=facts.setup;
+ const history={runs:facts.runs.length,charged_minutes:null};
+ const identities=(values,fields)=>values.map(x=>fields.map(k=>x[k])).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+ need(REQUEST.resources&&JSON.stringify(identities(runtime.resource_inventory.projects,['id','repository_id','owner_id']))===JSON.stringify(identities(REQUEST.resources.projects,['id','repository_id','owner_id']))&&JSON.stringify(identities(runtime.resource_inventory.applications,['id','data_id','owner_team','origin']))===JSON.stringify(identities(REQUEST.resources.applications,['id','data_id','owner_team','origin'])),'exact_shared_resource_inventory');
+ if(REQUEST.mode==='snapshot'){
+  need(runtime.runtime_orphans.length===0&&Array.isArray(runtime.terminals),'resource_inventory_confirmed');
+  need([...runtime.project_runtime,...runtime.application_runtime].every(x=>x.unit_state==='inactive'&&x.main_pid===0&&x.control_pid===0&&!x.running),'all_resources_stopped');
+ }
+ const w=REQUEST.witness;need((REQUEST.mode==='idle'&&!w)||w&&facts.projects.some(x=>x.id===w.project)&&facts.memberships.some(x=>x.project_id===w.project&&x.login===w.login),'joined_project_witness');
  const projects=[];for(const project of facts.projects){
   need(/^p[a-f0-9]{24}$/.test(project.id),'canonical_project_id');
-  const s=unit('soda-project@'+project.id+'.service'),cid=podman(['inspect','--type','container','--format','{{.ID}}','soda-'+project.id]);need(/^[a-f0-9]{64}$/.test(cid),'project_container');
-  const running=podman(['inspect','--type','container','--format','{{.State.Running}}',cid])==='true';
-  if(running)activeUnits(['exec',cid]);
+  const current=runtime.project_runtime.find(x=>x.id===project.id),s={ActiveState:current.unit_state,MainPID:current.main_pid,ControlPID:current.control_pid},cid=current.container_id,running=current.running;
   need(podman(['inspect','--type','container','--format','{{.Image}}',cid]).replace(/^sha256:/,'')===p.Images['project-os'].Config.slice(7),'stock_project_image');
-  const terminals=running?podman(['exec',cid,'/bin/sh','-eu','-c','for d in /run/soda-terminals/*; do [ -e "$d" ] || [ -L "$d" ] || continue; [ -d "$d" ] && [ ! -L "$d" ] || exit 1; printf "%s\\n" "$d"; done']).split('\n').filter(Boolean).map(x=>x.slice('/run/soda-terminals/'.length)):[];
-  need(terminals.every(x=>/^[a-f0-9]{32}$/.test(x)),'terminal_directory_identities');
-  const observed={project:project.id,container:cid,running,unit:s.ActiveState,terminals};
+  const terminals=current.terminal_ids;
+  const observed={project:project.id,container:cid,running,unit:s.ActiveState,main_pid:s.MainPID,control_pid:s.ControlPID,terminals};
   if(REQUEST.mode==='idle'){projects.push(observed);continue;}
-  need(REQUEST.mode==='snapshot'&&s.ActiveState==='inactive'&&Number(s.MainPID)===0&&!running,'all_projects_stopped');
+  need(REQUEST.mode==='snapshot'&&s.ActiveState==='inactive'&&Number(s.MainPID)===0&&Number(s.ControlPID)===0&&!running,'all_projects_stopped');
   const mounts=JSON.parse(podman(['inspect','--type','container','--format','{{json .Mounts}}',cid]));need(!mounts.some(x=>x.Destination==='/usr/libexec/soda/project-factory-roles'),'stock_project_helper_mounts');
   const root=podman(['mount',cid]);
   try{
@@ -61,8 +69,8 @@ try{
    projects.push({...observed,accounts,...sample,id_mappings_sha256:hash(map),helper_sha256:hash(fs.readFileSync(helper))});
   }finally{podman(['unmount',cid]);}
  }
- const sample=projects.find(x=>x.project===w.project);
- if(REQUEST.mode==='idle'){console.log(JSON.stringify({...base,facts,projects,project:sample}));process.exit(0);}
+ const sample=w?projects.find(x=>x.project===w.project):null;
+ if(REQUEST.mode==='idle'){console.log(JSON.stringify({...base,...runtime,custody,history,facts,projects,project:sample}));process.exit(0);}
  // Hash canonical retained rows server-side, excluding all credential/output
  // values from returned metadata. Only stable business tables are included.
  const ledgers={};for(const table of ['users','projects','memberships','applications','application_revisions','application_projects','factory_assignments','factory_attempt_allowances','factory_runs','factory_reservations','factory_usage','factory_policies','factory_dispatch','factory_sponsorships','factory_connection_usage_budgets','identity_grants','identity_executions']){
@@ -71,7 +79,7 @@ try{
  const identity=JSON.parse(fs.readFileSync('/etc/soda/identity.json','utf8'));const k=fs.statSync(identity.key_file);need(k.isFile()&&k.uid===2001&&(k.mode&511)===384,'broker_key_metadata');
  const key={uid:k.uid,gid:k.gid,mode:k.mode&511,inode:k.ino,bytes:k.size,mtime_ms:k.mtimeMs};
  const protectedState={payload_sha256:base.payload_sha256,application_configs:configs,facts,ledgers,projects,key_metadata:key,public_ca_sha256:hash(fs.readFileSync('/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt'))};
- console.log(JSON.stringify({...base,protected:protectedState,protected_sha256:hash(JSON.stringify(protectedState)),project:sample}));
+ console.log(JSON.stringify({...base,...runtime,custody,history,protected:protectedState,protected_sha256:hash(JSON.stringify(protectedState)),project:sample}));
 }catch(e){console.error(JSON.stringify({reason:e instanceof Error&&/^[a-z0-9_]+$/.test(e.message)?e.message:'inner_observation_unavailable'}));process.exitCode=1;}
 `;
 
@@ -109,11 +117,28 @@ try{
 }catch(e){console.error(JSON.stringify({reason:e instanceof Error&&/^[a-z0-9_]+$/.test(e.message)?e.message:'docker_observation_unavailable'}));process.exitCode=1;}
 `;
 
-export function nativeReadScript(b: DockerBinding, mode: 'installation' | 'idle' | 'snapshot', witness?: Witness) {
-  if (mode !== 'installation') validateWitness(witness!);
+export function nativeReadScript(
+  b: DockerBinding,
+  mode: 'installation' | 'idle' | 'snapshot',
+  witness?: Witness,
+  scope?: ResourceScope
+) {
+  if (mode !== 'installation') check(scope, 'shared_resource_scope_required');
+  if (mode === 'snapshot' || witness) validateWitness(witness!);
   return (
     'const REQUEST=' +
-    JSON.stringify({...nativeRequest(b, witness), mode}) +
+    JSON.stringify({
+      ...nativeRequest(b, witness),
+      mode,
+      ...(scope
+        ? {
+            resources: {
+              projects: scope.observation.inventory.projects,
+              applications: scope.observation.inventory.applications,
+            },
+          }
+        : {}),
+    }) +
     ';\nconst INNER=' +
     JSON.stringify(INNER_READER) +
     ';\n' +
@@ -124,10 +149,11 @@ export async function readDocker(
   io: DockerIO,
   b: DockerBinding,
   mode: 'installation' | 'idle' | 'snapshot',
-  witness?: Witness
+  witness?: Witness,
+  scope?: ResourceScope
 ) {
   check(b.executionReleased === true, 'docker_execution_held');
-  const value = JSON.parse(await io.sshRead(nativeReadScript(b, mode, witness)));
+  const value = JSON.parse(await io.sshRead(nativeReadScript(b, mode, witness, scope)));
   check(
     value.target === b.target &&
       value.registry_manifest === b.manifest &&
@@ -151,6 +177,15 @@ export async function readDocker(
     value.inner.dashboard_sha256 === b.candidate.ContentSHA256['dashboard:/usr/local/bin/soda-dashboard'],
     'stock_dashboard_bytes'
   );
+  if (mode !== 'installation') {
+    check(scope, 'shared_resource_scope_required');
+    assertResourceInventory(scope, value.inner.resource_inventory);
+    if (mode === 'snapshot')
+      check(
+        diagnoseClosure(scope.scenario, scope.observation, value.inner).snapshot_ready,
+        'shared_snapshot_closure_required'
+      );
+  }
   if (mode === 'snapshot')
     check(
       value.inner.protected_sha256 === sha(JSON.stringify(value.inner.protected)) &&

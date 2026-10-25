@@ -514,10 +514,45 @@ does not own product scenarios; do not move Factory orchestration into it.
   preserved. Evidence and reproduction commands/scripts:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j09/{check-migration.ts,migration-result.json,installation,check-browser-bridge.ts,browser-bridge-result.json,bundle}`.
 
-- [ ] **J10.** Replace independent global Project/App count assumptions with the same explicit
+- [x] **J10.** Replace independent global Project/App count assumptions with the same explicit
   inventory. Normal stop must cover every authorized resource required for a
   stopped snapshot and preserve unrelated state. Fixing the count alone is not
   sufficient. Keep strict unknown-resource and active-custody refusals.
+
+  Implemented one fixed `resource-runtime.ts` projection for readiness and Docker
+  collection: registered identities, all labeled/named Project and App containers,
+  unit/PID state, terminal directories, and protected terminal actor/account and
+  subscription bindings. Unknown native resources and unconfirmed ownership fail
+  closed. Running Apps are observable during idle; stopped snapshots still require
+  every retained Project/App inactive with both PIDs zero and no running container.
+
+  `diagnoseClosure` now plans the full explicit inventory rather than treating
+  another retained Project as an omitted route. Any unknown resource, active
+  custody, missing permission or unsupported subscription terminal suppresses the
+  entire action list. Stopped unrelated resources are preserved. Normal retirement
+  ends permitted owner terminals, stops Apps with their current normal-API
+  revision/container binding, then stops every permitted Project. It preflights
+  App bindings before the first effect, retains once-only requests/acknowledgments,
+  rechecks inventory/incarnations/history and native retirement after each action,
+  and uses the same scope for snapshot and recreation. The composed browser phase
+  adds only its exact returned new terminal; existing resources gain no authority.
+
+  Verification: strict installed TypeScript, Oxlint, formatting and both readiness
+  and composed-driver Bun bundles passed. Two pinned read-only RC7 observations
+  agreed on both Projects and the retained terminal; its protected binding now
+  proves actor `1`. The actual requested scope remains blocked for the extra
+  Project/terminal, with zero planned actions. A local scope comparison, still
+  held and never executed, plans that terminal followed by both actual Projects;
+  readiness and phase collection return the same plan. History remains three runs
+  and ten charged minutes; the existing Ready connection remains generation 3.
+  Offline Chromium used actual retained IDs and the maintained App UI fixture:
+  four exact End/Stop requests admitted once, nine changed-body/generation or
+  replay requests refused. This proves source/request integration, not actual
+  native retirement, App persistence or paid qualification; those remain held and
+  belong to later acceptance tasks. No guest mutation, provider call or spending.
+  Evidence/reproduction scripts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j10/{check-native-scope.ts,native-result.json,native.json,phase-idle.json,actual-closure.json,local-what-if-plan.json,check-browser-retirement.ts,browser-result.json,browser-requests.json,bundle,readiness-bundle}`.
+
 - [ ] **J11.** Preserve canonical publication versus owner identity, current-generation rules,
   native-success/retirement guards and exact per-run current-context eligibility.
 - [ ] **J12.** Verify that affected native/browser/request integrations work with retained
@@ -637,6 +672,17 @@ shared inventory/retirement and its integration. J13–J20 still own admitted
 execution, recovery and supplemental composition. J21–J23 and live native/paid
 extensions remain held. Existing dependencies and all task IDs are preserved;
 no new scope or additional trial/enrollment was introduced.
+
+Full list reviewed after the tenth completed task, J10, on 2026-10-25:
+J01–J10 are accepted at their recorded scope. J11 is next, followed by the retained
+integration/build check in J12. Shared inventory now removes the source-level
+one-Project contradiction; the current fixture's extra Project and terminal
+still need actual lifecycle scope before execution. Terminal actor discovery is
+now proven rather than unconfirmed. This changes the required observation/scope
+repair, not the execution hold or paid approval. J13–J20 retain admitted runtime,
+reconciliation and App/measurement/recovery composition; J21–J23 remain held live
+acceptance; J24–J26 keep their existing dependencies. No task IDs, scope, trial
+limits, source-push/publication authority or provider enrollments were added.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
