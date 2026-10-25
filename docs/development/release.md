@@ -267,11 +267,12 @@ not resume the held trial, change its budget, rebuild RC7, publish source/assets
 or remove retained fixtures. The implementation target is the existing RC7 Docker
 fixture first, then the native distribution through the same scenario contract.
 
-**Proposed operator interface:** add `soda-release journey check`, `run` and
-`status`. These commands do not exist yet. `check` reads selected target state and
-writes a local readiness result without guest mutation or provider inference;
-`status` derives the current result/next action without executing work; `run`
-executes only eligible authorized work and stops on a hold or missing authority.
+**Operator interface:** `soda-release journey check` and `status` now exist.
+`check` reads selected target state and writes a local readiness result without
+guest mutation or provider inference; `status` reports that last saved check
+without remote reads. Detailed next-action reporting remains J07. `run` is still
+proposed (J13); it must execute only eligible authorized work and stop on a hold
+or missing authority.
 Build, stage, collect, finalize and qualify retain their existing owners.
 The intended arguments are `check --scenario FILE --out RUN_DIR` and
 `status|run --run RUN_DIR`; secret values are never command-line arguments.
@@ -369,9 +370,32 @@ does not own product scenarios; do not move Factory orchestration into it.
 
 **2. Implement whole-scenario read-only readiness and status. Depends on 1.**
 
-- [ ] **J05.** Add `journey check/status` wiring and the shared validator. Check source/trust,
+- [x] **J05.** Add `journey check/status` wiring and the shared validator. Check source/trust,
   actual inventory and custody, current account, standing preparations, accepted
   inputs, command permits and the known persistence/cold resource closure.
+  Implemented the thin Rust `journey.rs` operator and maintained installed
+  `qualification/{main,validate,native,readiness}.ts` modules. The operator freezes
+  the scenario and verifies the exact driver; the driver validates inputs, pinned
+  TLS/SSH trust, installed source/payload/six images, selected identities, eight
+  custody counters/native units, accepted decisions/source/check bytes, standing
+  preparations, actual actor bindings and effect subsets. It checks persistence
+  and cold lifecycle scope without issuing any command permit or effect request.
+  App/capacity/cold route implementations and paid admission remain unknown until
+  their owning tasks implement them. Status performs only local reads.
+  On 2026-10-25 at 21:45:08Z, the maintained CLI checked RC7 `.165`: identity,
+  trust, custody, account generation3, accepted inputs and both preparations
+  passed; persistence resource scope and the user hold blocked readiness. Paid
+  authority remained unknown. Three old runs and ten charged minutes remain.
+  CLI integration also refused reused output, a stale executable pin, an inline
+  unknown credential field and a changed snapshot, preserving the original run.
+  No collector dispatch, guest mutation, model call or spending occurred.
+  Focused Rust compile/build, strict TypeScript and changed-file formatting passed.
+  Reproduction/build instructions are in `lib/soda-release-tools/README.md`.
+  Local inputs/receipts and CLI integration:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j05/scenario-v5.json`,
+  `run-5/`, `check-cli.ts` and `result.json`. The input records the source base
+  commit; its pinned driver was built from this working change. Earlier failed
+  read-only checks and their exact binaries remain available for diagnosis.
 - [ ] **J06.** Move the current two-Project/one-Project contradiction into an explicit
   pre-execution diagnostic. Distinguish historical resources from live work and
   state which owned terminals/Projects must be retired before a snapshot.
@@ -496,6 +520,15 @@ and actual live outcomes remain pending in their existing tasks. J21–J23 and
 paid/native extensions remain subject to the recorded execution holds. The
 existing Ready connection needs no replacement enrollment for the next read-only
 milestone. No new tasks or scope were added.
+
+Full list reviewed after the fifth completed task, J05: J06 is next; J07/J08
+still own actionable diagnostics and the exact real-request permit integration.
+J09–J20 still own phase composition/execution and its checks; J21–J23 remain held.
+The concrete J05 finding adds public trust pins and an explicit
+`check_script_path`: required CI status names are not repository paths. Missing
+pins/path cannot prove readiness; saved J04 representations remain historical
+input examples, not accepted current readiness. The existing dependency order
+and scope are unchanged, and unchanged accepted checks were not reopened.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next

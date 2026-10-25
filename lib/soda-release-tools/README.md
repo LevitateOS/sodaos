@@ -93,6 +93,61 @@ Preparation and staging carry the prospective source and immutable target assets
 without claiming upgrade support. Neither the local receipt nor its locator is
 an immutable release attachment. The locator is never published.
 
+## Read-only qualification readiness
+
+Build the operator and the maintained installed driver from this checkout:
+
+```sh
+cargo build --release -p soda-release-tools --bin soda-release
+bun build --compile tests/installed/qualification/main.ts \
+  --outfile /home/OPERATOR/soda-qualification-journey
+```
+
+Use the shared `QualificationScenario` in
+`tests/installed/qualification/scenario.ts`. Pin the public executable bytes in
+`driver.executable`; record the source revision independently from the shipping
+candidate. Keep any working-change provenance alongside local development
+checks; a driver base commit alone does not identify uncommitted source bytes.
+The driver has no imports from private per-attempt implementations.
+
+Supply `trust.known_hosts` and `trust.appliance_ca` as public path/SHA-256
+references. The single-host SSH configuration must name the selected target,
+explicit host, root user, protected operator key and pinned known-hosts file,
+with `IdentitiesOnly yes`, `StrictHostKeyChecking yes` and `ForwardAgent no`.
+No proxy, local command, include or wildcard configuration is executed. The
+reader builds its own restricted SSH arguments and performs only fixed reads.
+The CA is checked by a normal HTTPS login-page GET without authentication.
+Credential values and their hashes do not belong in this scenario.
+
+Keep `factory[].subject.required_checks` (native CI status names) separate from
+`check_script_path` (the approved repository file) and its SHA-256. For example,
+the retained fixture's status is `public-factory/check.sh`, while the file is
+`check.sh`. Missing trust or script-path inputs cannot establish readiness.
+
+```sh
+target/release/soda-release journey check \
+  --scenario /home/OPERATOR/scenario.json --out /home/OPERATOR/new-check
+target/release/soda-release journey status --run /home/OPERATOR/new-check
+```
+
+The output must be fresh. Rust creates a private 0700 directory and durable,
+read-only `scenario.json` and `request.json` bindings. The driver writes selected
+`observation.json` and `readiness.json`; status verifies the retained scenario
+and executable and reads the saved result without contacting the target. Use a
+new check directory to refresh it. Keep the referenced executable unchanged.
+The operator request is local invocation metadata; protected collector attempts
+still use their existing separate request/executed/sealed receipt path.
+
+A completed check exits zero even when `ready` is false; each check reports
+`pass`, `blocked` or `unknown`. Invalid inputs/invocations exit nonzero. Selected
+source/trust, inventory, custody, current connection generation, accepted inputs,
+standing preparations, actor bindings and permitted-effect subsets are checked
+without arming any effect request. Persistence/cold scope must cover the known
+resources; detailed closure diagnostics remain the next implementation task.
+Model outcomes, unimplemented supplemental routes and unvalidated paid authority
+stay unknown. A user hold remains a blocker. No check result admits execution or
+qualifies a release; `journey run` is not implemented yet.
+
 ## Produce a development candidate
 
 Replace the paths below with the admitted executable, restricted configuration

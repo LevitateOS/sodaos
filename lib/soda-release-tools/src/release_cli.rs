@@ -80,6 +80,7 @@ pub(crate) fn command() -> Command {
         .subcommand(qualify_upgrade)
         .subcommand(collect)
         .subcommand(finalize)
+        .subcommand(crate::journey::command())
 }
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
     let cli = match command().try_get_matches_from(args) {
@@ -95,6 +96,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         .ok_or_else(|| "release action required".to_owned())?;
     match action {
         "start" => crate::release_start::run(flags),
+        "journey" => crate::journey::run(flags),
         "stage" | "promote" => run_stage_or_promote(action, flags),
         "status" => run_status(flags),
         "verify-images" => run_verify_images(flags),

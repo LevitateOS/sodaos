@@ -114,6 +114,8 @@ export interface FactorySubject {
   };
   readonly required_checks: readonly string[];
   readonly check_script_sha256: string;
+  /** Repository path, distinct from required CI status/context names. */
+  readonly check_script_path?: string;
 }
 
 // These fields preserve internal/factory/publication.go's distinct identities.
@@ -168,6 +170,11 @@ export interface QualificationScenario {
   readonly candidate: CandidateReference;
   readonly driver: DriverReference;
   readonly target: TargetSelection;
+  /** Public trust pins. Missing pins block readiness before any remote read. */
+  readonly trust?: {
+    readonly known_hosts: PublicArtifact;
+    readonly appliance_ca: PublicArtifact;
+  };
   readonly cases: readonly JourneyCase[];
   readonly managed: ManagedResources;
   readonly factory: readonly FactoryCase[];

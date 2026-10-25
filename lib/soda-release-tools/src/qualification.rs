@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     time::Instant,
 };
-mod input;
+pub(crate) mod input;
 
 const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
