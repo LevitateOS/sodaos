@@ -269,8 +269,8 @@ fixture first, then the native distribution through the same scenario contract.
 
 **Operator interface:** `soda-release journey check` and `status` now exist.
 `check` reads selected target state and writes a local readiness result without
-guest mutation or provider inference; `status` reports that last saved check
-without remote reads. Detailed next-action reporting remains J07. `run` is still
+guest mutation or provider inference; `status` derives blockers, accounting and
+the next supported action from that saved check without remote reads. `run` is still
 proposed (J13); it must execute only eligible authorized work and stop on a hold
 or missing authority.
 Build, stage, collect, finalize and qualify retain their existing owners.
@@ -421,9 +421,30 @@ does not own product scenarios; do not move Factory orchestration into it.
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j06/{scenario.json,run,check-cli.ts,result.json}`.
   This diagnoses the current route assumption; J09/J10 still replace the phase's
   independent inventory/stop scope. No equality was relaxed or resource adopted.
-- [ ] **J07.** Return blockers, unknown future observations, last confirmed phase, accounting
+- [x] **J07.** Return blockers, unknown future observations, last confirmed phase, accounting
   fields and the next supported action. Missing paid authority reports a wait;
   it does not cause a sign-in, funding request or model launch.
+  Added the pure `qualification/status.ts` projection used by both check and
+  status over the existing frozen scenario/readiness paths. It returns named
+  blockers, separate local repairs, the last confirmed read-only observation,
+  explicitly unknown qualification/model/CI/review/delivery/persistence results,
+  requested versus observed accounting and a supported wait/repair/inspect action.
+  No new workflow journal or effect dispatcher was added.
+  At 22:03:24Z on 2026-10-25 the real RC7 read retained three runs/ten charged
+  minutes. New repository usage is zero, sponsorship is absent, the observed
+  rolling limit is 15 versus requested 25, and settled rolling usage is 472550938
+  microseconds. These fields are not authority or provider token billing.
+  The settled-window query follows Store's microsecond accounting; if held
+  reservations exist, total charge stays unknown rather than duplicating Store's
+  conservative admission calculation. The current next action is wait/user_hold.
+  CLI status integration returned the same saved facts without remote reads or
+  file changes. A clearly separate local reporting fixture, using the real
+  native/accounting observations with a varied hold input, returned
+  wait/paid_authority_missing; no operational hold or guest state changed.
+  All automatic action flags remained false. Strict TypeScript, standalone build,
+  CLI integration, formatting and diff checks passed; zero model calls, funding,
+  enrollment or guest mutations. Reproduction/evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j07/{scenario.json,run,check-cli.ts,result.json}`.
 - [ ] **J08.** Verify that the real current fixture reports the known persistence blocker with
   zero guest mutations, sponsored executions, JEV calls or budget changes. The
   affected real-request permit bridge must still refuse mismatched path/body/run

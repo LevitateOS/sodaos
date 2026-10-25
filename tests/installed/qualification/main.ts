@@ -5,6 +5,8 @@ import {readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {scenarioInput} from './validate';
 import {checkScenario} from './readiness';
+import {journeyStatus} from './status';
+import type {Readiness} from './readiness';
 
 async function main() {
   const [action, ...args] = process.argv.slice(2);
@@ -32,25 +34,16 @@ async function main() {
       flag: 'wx',
       mode: 0o600,
     });
-    console.log(
-      JSON.stringify({ready: result.ready, checks: result.checks, closure: result.closure, scope: result.scope})
-    );
+    console.log(JSON.stringify(journeyStatus(scenario, result)));
   } else if (action === 'status') {
     assert.equal([...flags.keys()].join(','), '--run');
     const run = flags.get('--run')!;
     assert(run.startsWith('/home/') && path.resolve(run) === run);
     // Status has no transport or effect call. It reports the last checked state.
-    const result = JSON.parse(await readFile(path.join(run, 'readiness.json'), 'utf8'));
+    const result = JSON.parse(await readFile(path.join(run, 'readiness.json'), 'utf8')) as Readiness;
     assert(result.format === 1 && typeof result.ready === 'boolean' && Array.isArray(result.checks));
-    console.log(
-      JSON.stringify({
-        checked_at: result.checked_at,
-        ready: result.ready,
-        checks: result.checks,
-        closure: result.closure ?? null,
-        scope: result.scope,
-      })
-    );
+    const scenario = scenarioInput(JSON.parse(await readFile(path.join(run, 'scenario.json'), 'utf8')));
+    console.log(JSON.stringify(journeyStatus(scenario, result)));
   } else throw Error('Unknown journey action');
 }
 await main().catch(() => {

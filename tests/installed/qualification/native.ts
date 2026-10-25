@@ -16,6 +16,14 @@ function readinessSQL(s: QualificationScenario): string {
     'review_actor',(SELECT data#>>'{review_actor,actor_id}' FROM factory_policies WHERE repository=${b.repository_id}),
     'required_checks',(SELECT data->'required_checks' FROM factory_policies WHERE repository=${b.repository_id}),
     'target_branch',(SELECT data->>'target_branch' FROM factory_policies WHERE repository=${b.repository_id}),
+    'accounting',json_build_object(
+      'sponsor_minutes',(SELECT data->'allowance_minutes' FROM factory_sponsorships WHERE repository=${b.repository_id} AND connection='${b.connection_id}'),
+      'sponsor_active',(SELECT data->'active' FROM factory_sponsorships WHERE repository=${b.repository_id} AND connection='${b.connection_id}'),
+      'sponsor_max_concurrent',(SELECT data->'max_concurrent' FROM factory_sponsorships WHERE repository=${b.repository_id} AND connection='${b.connection_id}'),
+      'rolling_limit_minutes',(SELECT data->'rolling_minutes' FROM factory_connection_usage_budgets WHERE connection='${b.connection_id}'),
+      'repository_charged_minutes',(SELECT coalesce(sum(minutes),0) FROM factory_usage WHERE repository=${b.repository_id} AND connection='${b.connection_id}'),
+      'held_reservations',(SELECT count(*) FROM factory_reservations WHERE connection='${b.connection_id}' AND state='held'),
+      'rolling_settled_micros',(SELECT LEAST(COALESCE(SUM(GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (LEAST(ended_at,transaction_timestamp())-GREATEST(started_at,transaction_timestamp()-interval '24 hours')))*1000000))),0),9223372036854775807)::bigint::text FROM factory_usage WHERE connection='${b.connection_id}' AND ended_at>transaction_timestamp()-interval '24 hours' AND started_at<transaction_timestamp())),
     'preparations',(SELECT coalesce(json_agg(json_build_object('id',id,'role',role,'requirements',requirements,'approval',approval,'source',data#>>'{preparation,source_commit}','ready',data#>'{state,ready}','stopped',data#>'{state,stopped}','setup_exit',data#>'{state,setup_exit}','check_exit',data#>'{state,check_exit}')),'[]') FROM project_preparations WHERE project_id='${b.project_id}'))`
   );
   return `BEGIN READ ONLY; SELECT json_build_object(

@@ -159,6 +159,25 @@ Model outcomes, unimplemented supplemental routes and unvalidated paid authority
 stay unknown. A user hold remains a blocker. No check result admits execution or
 qualifies a release; `journey run` is not implemented yet.
 
+Check and status use the same derived report: `blockers` names missing or
+unconfirmed requirements and resource IDs; `local_repairs` remains visible while
+`next_action` reports a wait for a user hold or missing/unvalidated paid authority.
+Those waits never request enrollment, funding, retry or a model launch. The
+`automatic_actions` fields remain false. `last_confirmed_phase` names only the
+confirmed read-only observation; `qualification_phase` and future model, head,
+PR, publication, CI/review/delivery and selected measurements remain unknown
+until their actual canonical receipts are available.
+
+`accounting` separates requested limits from observed sponsorship and rolling
+limits, repository charges, held reservations and settled rolling usage. Missing
+observations remain null. Rolling microseconds stay decimal strings to preserve
+int64 precision. With no held reservations, total rolling charge equals the
+settled observation; otherwise it remains unknown because canonical Store
+admission owns the conservative held charge. Charged minutes are model-session
+accounting, not provider token billing; neither an observed balance nor a saved
+approval path admits a new trial. Status reuses the saved observation time and
+does not silently refresh balances or alter allowances.
+
 ## Produce a development candidate
 
 Replace the paths below with the admitted executable, restricted configuration
