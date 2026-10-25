@@ -29,12 +29,16 @@ export type JourneyCase =
   | 'two_issue_capacity'
   | 'cold_recovery';
 
-export interface TargetReference {
+/** Requested target pins, checked against a separate runtime observation. */
+export interface TargetSelection {
   readonly distribution: 'appliance' | 'docker';
   readonly name: string;
   readonly uuid: string;
   readonly origin: string;
   readonly ssh_config_file: string;
+}
+
+export interface TargetReference extends TargetSelection {
   /** Null until an actual Docker deployment returns its identity. */
   readonly docker: {
     readonly container_id: string;
@@ -72,11 +76,12 @@ export interface ConnectionReference {
   readonly state: string;
 }
 
-/** Complete retained inventory, including resources from preceding attempts. */
+/** Returned inventory, including retained resources from preceding attempts. */
 export interface FixtureInventory {
   readonly projects: readonly ProjectReference[];
   readonly applications: readonly ApplicationReference[];
-  readonly terminals: readonly TerminalReference[];
+  /** Null means unobserved, not an empty inventory or permission to stop none. */
+  readonly terminals: readonly TerminalReference[] | null;
   readonly connections: readonly ConnectionReference[];
 }
 
@@ -88,6 +93,7 @@ export interface ManagedResources {
 }
 
 export interface FactorySubject {
+  // Requested selections/pins, not proof that the appliance currently has them.
   readonly repository_id: string;
   readonly project_id: string;
   readonly issue_number: number;
@@ -160,9 +166,8 @@ export interface QualificationScenario {
   readonly format: 1;
   readonly candidate: CandidateReference;
   readonly driver: DriverReference;
-  readonly target: TargetReference;
+  readonly target: TargetSelection;
   readonly cases: readonly JourneyCase[];
-  readonly inventory: FixtureInventory;
   readonly managed: ManagedResources;
   readonly factory: readonly FactoryCase[];
   readonly credentials: CredentialReferences;

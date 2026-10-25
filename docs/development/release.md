@@ -303,10 +303,28 @@ does not own product scenarios; do not move Factory orchestration into it.
   --exactOptionalPropertyTypes --target ES2022 --module ESNext
   --moduleResolution Bundler --types bun,node --skipLibCheck` against this file.
   This is the type contract only; discovery and runtime validation remain J02/J05.
-- [ ] **J02.** Keep requested intent separate from returned runtime facts. Discover actual
+- [x] **J02.** Keep requested intent separate from returned runtime facts. Discover actual
   IDs/current connection generation; leave future run/head/PR values unknown.
   The Rust operator owns its admission envelope, not a second manually maintained
   copy of every business-state field.
+  Implemented in `tests/installed/qualification/{scenario,facts}.ts`: requested
+  target/Factory pins remain input; inventory and resolved bindings are separate
+  returned observations. Fixed read-only Store/Identity and Forgejo projections
+  select identities without raw run bodies, issue prose or credentials. Missing
+  bindings and unobserved terminals remain unknown; discovery never infers future
+  run, candidate head, PR or publication. No Rust business-state mirror was added.
+  On 2026-10-25 at 21:18:56Z, one pinned read of RC7 Docker `.165` returned both
+  retained Projects, App0, native issue3 and the existing Ready connection at
+  generation3. The three old runs and ten charged minutes remain recorded. The
+  integration confirmed stale requested IDs do not override returned facts,
+  missing bindings stay null and unsafe numeric IDs are refused. Guest mutations
+  and model calls: zero. Strict focused TypeScript checking and formatting passed.
+  Reproduce the fixed projections through the existing pinned native transport;
+  pass their arrays plus `issues`, `observed_at` and genuine `terminals` (or null)
+  to `discoverFixture`. Local invocation/evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j02/check.ts`,
+  `selected.json`, `observation.json` and `result.json` in the same directory.
+  This checks identity discovery only; whole-scenario readiness remains J05–J08.
 - [ ] **J03.** Reuse existing request/receipt formats and observation paths. Before each
   admitted attempt, snapshot its resolved input immutably; never mutate active
   admitted inputs. Preserve old attempts and reference their provenance.
