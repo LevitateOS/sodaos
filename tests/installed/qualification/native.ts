@@ -58,12 +58,14 @@ const units=(cid=null)=>{
 };
 stage='unit_inventory';units();
 const projects=[];
+const unitState=name=>Object.fromEntries(run('/usr/bin/systemctl',['show',name,'-p','ActiveState','-p','MainPID','-p','ControlPID']).split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)]}));
 for(const p of selected.projects){
  stage='project_inventory';
  if(!/^p[a-f0-9]{24}$/.test(p.id))throw Error('project identity');
  const cid=pod(['inspect','--type','container','--format','{{.ID}}','soda-'+p.id]);
  if(!/^[a-f0-9]{64}$/.test(cid))throw Error('project container');
  const running=pod(['inspect','--type','container','--format','{{.State.Running}}',cid])==='true';
+ const service=unitState('soda-project@'+p.id+'.service');
  let terminal_ids=[];
  if(running){
   units(cid);
@@ -82,11 +84,12 @@ for(const p of selected.projects){
   stage='check_script';
   if(scope.check_script_path!==undefined){const check=scope.check_script_path;if(!/^[A-Za-z0-9_][A-Za-z0-9_./-]*$/.test(check)||check.includes('..'))throw Error('check identity');const checkBytes=cp.execFileSync('/usr/bin/podman',['--remote=false',...git,'show',branch+':'+check],{timeout:30000,maxBuffer:1<<20,stdio:['ignore','pipe','pipe']});check_script_sha256=crypto.createHash('sha256').update(checkBytes).digest('hex');}
  }
- projects.push({id:p.id,running,terminal_ids,source,check_script_sha256});
+ projects.push({id:p.id,container_id:cid,running,unit_state:service.ActiveState,main_pid:Number(service.MainPID),control_pid:Number(service.ControlPID),terminal_ids,source,check_script_sha256});
 }
+const application_runtime=identity.applications.map(a=>{if(!/^a[a-f0-9]{24}$/.test(a.id))throw Error('application identity');const service=unitState('soda-canlang@'+a.id+'.service');return{id:a.id,unit_state:service.ActiveState,main_pid:Number(service.MainPID),control_pid:Number(service.ControlPID)};});
 stage='loaded_images';
 const loaded_images={};for(const [role,image]of Object.entries(payload.Images))loaded_images[role]='sha256:'+pod(['image','inspect','--format','{{.ID}}',image.Config]).replace(/^sha256:/,'');
-console.log(JSON.stringify({...identity,issues,terminals:projects.every(p=>p.terminal_ids.length===0)?[]:null,observed_at:new Date().toISOString(),uuid:REQUEST.target.uuid,distribution:REQUEST.target.distribution,source_revision:payload.Revision,payload_sha256:crypto.createHash('sha256').update(bytes).digest('hex'),loaded_images,expected_images:payload.Images,custody:selected.custody,factory_readiness:selected.factory,ci_actors,history:selected.history,project_runtime:projects,active_units}));
+console.log(JSON.stringify({...identity,issues,terminals:projects.every(p=>p.terminal_ids.length===0)?[]:null,observed_at:new Date().toISOString(),uuid:REQUEST.target.uuid,distribution:REQUEST.target.distribution,source_revision:payload.Revision,payload_sha256:crypto.createHash('sha256').update(bytes).digest('hex'),loaded_images,expected_images:payload.Images,custody:selected.custody,factory_readiness:selected.factory,ci_actors,history:selected.history,project_runtime:projects,application_runtime,active_units}));
 }catch{console.error(JSON.stringify({stage}));process.exitCode=1;}
 `;
 

@@ -32,7 +32,9 @@ async function main() {
       flag: 'wx',
       mode: 0o600,
     });
-    console.log(JSON.stringify({ready: result.ready, checks: result.checks, scope: result.scope}));
+    console.log(
+      JSON.stringify({ready: result.ready, checks: result.checks, closure: result.closure, scope: result.scope})
+    );
   } else if (action === 'status') {
     assert.equal([...flags.keys()].join(','), '--run');
     const run = flags.get('--run')!;
@@ -41,7 +43,13 @@ async function main() {
     const result = JSON.parse(await readFile(path.join(run, 'readiness.json'), 'utf8'));
     assert(result.format === 1 && typeof result.ready === 'boolean' && Array.isArray(result.checks));
     console.log(
-      JSON.stringify({checked_at: result.checked_at, ready: result.ready, checks: result.checks, scope: result.scope})
+      JSON.stringify({
+        checked_at: result.checked_at,
+        ready: result.ready,
+        checks: result.checks,
+        closure: result.closure ?? null,
+        scope: result.scope,
+      })
     );
   } else throw Error('Unknown journey action');
 }

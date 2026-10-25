@@ -396,9 +396,31 @@ does not own product scenarios; do not move Factory orchestration into it.
   `run-5/`, `check-cli.ts` and `result.json`. The input records the source base
   commit; its pinned driver was built from this working change. Earlier failed
   read-only checks and their exact binaries remain available for diagnosis.
-- [ ] **J06.** Move the current two-Project/one-Project contradiction into an explicit
+- [x] **J06.** Move the current two-Project/one-Project contradiction into an explicit
   pre-execution diagnostic. Distinguish historical resources from live work and
   state which owned terminals/Projects must be retired before a snapshot.
+  Added `qualification/closure.ts` and exposed its diagnostic in check/status.
+  The native read now includes Project unit state/MainPID/ControlPID alongside
+  container state and terminal record IDs; Apps use the corresponding unit read.
+  The diagnostic distinguishes configured route coverage, requested management
+  and lifecycle scope, stopped/unknown resources, required retirement and live
+  custody. Settled run counts/charged minutes remain preserved history.
+  At 21:56:05Z on 2026-10-25, one read-only RC7 check found both Projects active.
+  Selected `p683bc93a2341173ca414e578` has a configured stop path before snapshot;
+  retained `pdf46bf52e38d8e2e0bb06c1f` is outside that route and stop scope.
+  Its terminal record `9e835706f492aa5530e16975f4fe5995` is outside retirement
+  scope and lacks a confirmed actor binding: observe/resolve it, never infer
+  ownership or issue an end request. The diagnostic names all four blockers.
+  Three retained runs/ten charged minutes coexist with all eight custody counters
+  zero; history itself is not a blocker. Older J05 evidence without unit/PID
+  fields correctly remains insufficient to prove stopped Projects. Status
+  returned the same diagnostic without remote reads or changes to saved files.
+  Strict focused TypeScript, standalone driver build, CLI integration and
+  formatting passed. Guest mutations, lifecycle actions and model calls: zero.
+  Inputs/build/evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j06/{scenario.json,run,check-cli.ts,result.json}`.
+  This diagnoses the current route assumption; J09/J10 still replace the phase's
+  independent inventory/stop scope. No equality was relaxed or resource adopted.
 - [ ] **J07.** Return blockers, unknown future observations, last confirmed phase, accounting
   fields and the next supported action. Missing paid authority reports a wait;
   it does not cause a sign-in, funding request or model launch.

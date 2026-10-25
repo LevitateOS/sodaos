@@ -4,6 +4,7 @@ import {discoverFixture, type FixtureObservation} from './facts';
 import {observeNative, NativeReadError} from './native';
 import {publicBytes} from './validate';
 import type {QualificationScenario} from './scenario';
+import {diagnoseClosure, type ClosureDiagnostic} from './closure';
 
 export interface ReadinessCheck {
   readonly name: string;
@@ -16,6 +17,7 @@ export interface Readiness {
   readonly checks: readonly ReadinessCheck[];
   readonly observation: FixtureObservation | null;
   readonly native: unknown;
+  readonly closure: ClosureDiagnostic | null;
   readonly scope: 'read-only readiness; no execution or qualification';
 }
 
@@ -85,6 +87,7 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
   );
   let native: Record<string, unknown> | null = null,
     observation: FixtureObservation | null = null;
+  let closure: ClosureDiagnostic | null = null;
   if (trust && candidateBound) {
     try {
       native = object(await observeNative(s));
@@ -210,19 +213,8 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
     }
     if (s.cases.includes('factory')) check('factory_selection', s.factory.length > 0);
     if (s.cases.some((c) => c === 'persistence' || c === 'cold_recovery')) {
-      check(
-        'persistence_resource_scope',
-        observation.inventory.terminals !== null &&
-          subset(
-            observation.inventory.projects.map((p) => p.id),
-            effects.project_lifecycle
-          ) &&
-          subset(
-            observation.inventory.applications.map((a) => a.id),
-            effects.application_lifecycle
-          ) &&
-          subset(observation.inventory.terminals?.map((t) => t.id) ?? [], effects.terminal_lifecycle)
-      );
+      closure = diagnoseClosure(s, observation, native);
+      check('persistence_resource_scope', closure.scope_ready);
       check('persistence_operation', s.target.distribution !== 'docker' || effects.same_image_recreation);
       if (s.cases.includes('cold_recovery')) check('cold_operation', effects.cold_restore);
     }
@@ -251,6 +243,7 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
     checks,
     observation,
     native,
+    closure,
     scope: 'read-only readiness; no execution or qualification',
   };
 }

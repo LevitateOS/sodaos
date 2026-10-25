@@ -142,8 +142,19 @@ A completed check exits zero even when `ready` is false; each check reports
 `pass`, `blocked` or `unknown`. Invalid inputs/invocations exit nonzero. Selected
 source/trust, inventory, custody, current connection generation, accepted inputs,
 standing preparations, actor bindings and permitted-effect subsets are checked
-without arming any effect request. Persistence/cold scope must cover the known
-resources; detailed closure diagnostics remain the next implementation task.
+without arming any effect request. Persistence/cold checks include a `closure`
+diagnostic in both check and status. It lists selected versus retained Projects,
+each resource's configured management/lifecycle scope and what must happen before
+a snapshot. `scope_ready` means the known route and retirement scope cover the
+resources; `snapshot_ready` also requires confirmed stopped state. Project
+confirmation requires an inactive unit, zero main/control PIDs and a stopped
+container. Missing observations stay unknown. A terminal record without a
+confirmed actor is a reason to observe, never an ownership guess or an end permit.
+Completed run counts and charged minutes are retained history, separate from
+leases, unsettled accounting and native work. These requirements describe a final
+state; they grant no authority or instruction to stop resources now. The current
+Factory/browser route still has an independent Project-scope guard pending its
+shared-inventory phase migration; the diagnostic does not relax that guard.
 Model outcomes, unimplemented supplemental routes and unvalidated paid authority
 stay unknown. A user hold remains a blocker. No check result admits execution or
 qualifies a release; `journey run` is not implemented yet.
