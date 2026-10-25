@@ -556,6 +556,9 @@ fn remove_private_work(attempt: &Path) -> Result<(), String> {
     fs::remove_dir_all(path).map_err(|_| "private collector work cleanup failed".to_owned())
 }
 pub(crate) fn finalize(out: &Path) -> Result<(), String> {
+    finalize_inner(out, true)
+}
+fn finalize_inner(out: &Path, announce: bool) -> Result<(), String> {
     let _lock = lock(out)?;
     let (request, a) = retained_request(out)?;
     let sealed = out.join("observations");
@@ -585,11 +588,13 @@ pub(crate) fn finalize(out: &Path) -> Result<(), String> {
     result_binding(&sealed, &a)?;
     write_new(&sealed.join("release-evidence.json"), &executed)?;
     evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
-    println!(
-        "Protected {} evidence finalized at {}; no publication.",
-        a.purpose,
-        sealed.display()
-    );
+    if announce {
+        println!(
+            "Protected {} evidence finalized at {}; no publication.",
+            a.purpose,
+            sealed.display()
+        );
+    }
     Ok(())
 }
 pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(), String> {
@@ -612,6 +617,69 @@ pub(crate) fn collect_journey(
         return Err("resolved journey input changed".into());
     }
     collect_inner(config, candidate, out, Some((resolved, collector_sha256)))
+}
+
+/// Reconcile only the immutable request of a previously admitted journey.
+/// This path cannot allocate an output, dispatch a worker or stop a unit. A
+/// terminal unit without a successful execution receipt stays incomplete.
+pub(crate) fn recover_journey(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    resolved: &input::FileReference,
+    collector_sha256: &str,
+    finish: bool,
+) -> Result<serde_json::Value, String> {
+    let (request, a) = retained_request(out)?;
+    if request.authority != config
+        || request.candidate != candidate
+        || a.collector_sha256 != collector_sha256
+        || request
+            .resolved_input
+            .as_ref()
+            .is_none_or(|snapshot| snapshot.sha256 != resolved.sha256)
+    {
+        return Err("retained journey collector binding changed".into());
+    }
+    let sealed = out.join("observations");
+    if finish
+        && (out.join("executed.json").exists() || sealed.join("release-evidence.json").exists())
+    {
+        // Existing finalization requires exact successful execution, native
+        // retirement and protected observations; it never calls the collector.
+        finalize_inner(out, false)?;
+    }
+    let completed = sealed.join("release-evidence.json").exists();
+    let (state, native_retirement) = if completed {
+        let actual = evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
+        let mut expected = request.binding;
+        expected.exit_code = 0;
+        expected.native_retirement = "confirmed".into();
+        expected.files = actual.files.clone();
+        if actual != expected {
+            return Err("completed release evidence replay changed".into());
+        }
+        ("complete", "confirmed")
+    } else {
+        match worker::systemctl_unit_terminal(&request.unit) {
+            Ok(false) => ("pending", "pending"),
+            Ok(true) => ("retired_incomplete", "confirmed"),
+            Err(_) => ("uncertain", "unknown"),
+        }
+    };
+    Ok(serde_json::json!({
+        "state": state,
+        "native_retirement": native_retirement,
+        "collection": collection_binding(out)?,
+        "finalized": completed,
+        "automatic_actions": false,
+        "next_action": match state {
+            "complete" => "Use the finalized protected evidence.",
+            "pending" => "Observe this exact unit and retained attempt until native retirement is confirmed; do not launch another collector.",
+            "retired_incomplete" => "Inspect the retained attempt and execution receipt. This run may only finalize an existing successful receipt; a new trial needs separate admission and fresh guest-custody checks.",
+            _ => "Inspect this exact unit and retained request; unknown custody does not authorize another collector.",
+        },
+    }))
 }
 
 fn collect_inner(

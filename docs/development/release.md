@@ -378,8 +378,9 @@ request/executed/sealed receipt ownership. No authority-file hash edit is needed
 An existing fixed `resolved_input` authority must still match; it is never
 silently replaced. A hold or unknown/revoked approval does no remote refresh,
 funding, enrollment or model launch. Status retains that admission separately
-from its original readiness observation. Resume/reconciliation and duplicate
-caller recovery continues in J15–J16; this command does not buy another attempt.
+from its original readiness observation. Repeating a held/blocked admission
+returns its original result. An interrupted admission is preserved; it is never
+overwritten to reconstruct a launch. This command does not buy another attempt.
 
 **Durable effects and target ownership:** before protected collection,
 `collector-intent.json` retains the exact scenario, approval, build, resolved
@@ -389,9 +390,11 @@ controller reply when that request exists. All resolved collector entrypoints
 share a root-controlled flock keyed by distribution/actual target UUID under
 `/home/.soda-qualification-targets`. Before worker dispatch an immutable claim
 binds its output/request/unit. A different output cannot start while a prior
-claim lacks its matching canonical executed/native-retirement receipt; releasing
-the process lock alone does not clear uncertainty. Existing collector outputs
-continue to finalize rather than redispatch.
+claim lacks confirmed exact local worker retirement; releasing the process lock
+alone does not clear uncertainty. Local collector retirement never settles guest
+leases, accounting or provider work: a new admission must independently observe
+the guest idle and match actual finite authority. Claims and failed data remain.
+Existing collector outputs continue to finalize rather than redispatch.
 
 Factory commands persist their request through the existing permit before
 transport. A lost or unusable reply reads only `factory/commands/ID`; type,
@@ -410,8 +413,39 @@ no create/join/enrollment/preparation request. The supported preparation helper
 can continue only the same approved/waiting IDs with explicitly admitted unpaid
 inputs: durable intent precedes the request, and the exact preparation read
 follows even a lost reply. Failed/stopped/interrupted or ambiguous state does not
-create replacements. Whole-run admission of partial setup remains J15; the
-current collector uses the ready-adoption path before any Factory command.
+create replacements. Whole-run admission may pass an unready preparation check
+only for these exact approved/waiting IDs with identical source, heads and setup
+digest and explicit `fixture_setup` scope. The protected runtime supplies the
+continuation inputs. The normal-owner helper must confirm both preparations
+ready before any Factory command; pending/unconfirmed setup ends the collector.
+
+**Supported recovery:** repeat `journey status --run RUN_DIR` to inspect saved
+readiness or the exact retained collector. Repeat `journey run` only to reconcile
+that existing attempt: it never re-enters an admitted collector, even after
+failure. Root recovery can inspect the retained collector when the original
+driver is unavailable; it does not select a replacement executable. Its recovery
+report distinguishes pending, uncertain, retired-incomplete and complete. Only
+the existing successful protected execution receipt can be finalized. A retained
+dispatch intent without a collector request, or a ready admission without an
+intent, remains uncertain rather than launching again. A per-run flock prevents
+two initial callers from passing this boundary together.
+
+| Observed condition | Supported next action |
+| --- | --- |
+| Pending operation/custody | Read the exact recorded operation through its existing owner and wait for confirmed settlement. |
+| Uncertain response | Look up its original command/preparation/recreation identity; never resend the effect or change its ID. |
+| Partial setup | Adopt ready state or continue the same explicitly scoped approved/waiting preparations once; preserve failed/interrupted work. |
+| Driver defect/interrupted admission | Preserve receipts and native custody, repair the affected driver, then make a fresh read-only check. Never re-enter the failed collector. |
+| Missing authentication | Inspect and repair the selected Identity connection through its supported owner flow; never automatically enroll a replacement. |
+| Expired run | Reconcile that same run through Factory/Identity. A passed deadline does not prove retirement or authorize extension. |
+| Closed/exhausted allowance | Preserve charged usage; wait for the rolling window or obtain finite authority for canonical explicit Retry/additional allowance. No automatic retry/refill. |
+| User hold | Wait with the original approval, accounts, data and charges preserved. |
+
+Saved readiness reports derive `supported_recovery` from selected native
+connection/preparation/run-deadline/allowance/accounting fields at the recorded
+observation time. They read no raw Factory run bodies or provider logs and grant
+no authority. Collector failures retain a bounded reason and repair category.
+Actual normal-API interruption/cancellation acceptance remains J16.
 
 Reproduce command reconciliation with `check-command.ts --module BUILT_PHASES
 --scenario ACTUAL_SCENARIO --out FRESH_HOME_DIRECTORY`: it reads a real retained
@@ -431,6 +465,11 @@ held run/status, then isolated local receipt fixtures for changed scope and
 revocation. It never invokes a released approved scope. Its fixture receipts
 are explicitly non-operative and user-owned; they cannot establish protected
 owner authority or qualify a release.
+The same check repeats retained admissions and interrupts a local admission
+between saved observation and result; neither boundary permits dispatch/replay.
+Run `check-recovery.ts --operator ABSOLUTE_SODA_RELEASE --out
+FRESH_DIRECT_HOME_CHILD` as root for actual retained-intent/driver-loss and
+per-run process-lock checks without a worker, guest effect or provider call.
 
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.

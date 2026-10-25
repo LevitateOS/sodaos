@@ -47,6 +47,85 @@ export interface ScopeReceipt {
   readonly approval_reference: string;
   readonly scope: ReturnType<typeof approvalScope>;
 }
+export interface RunAdmission {
+  readonly format: 1;
+  readonly state: 'held' | 'revoked' | 'blocked' | 'ready';
+  readonly held: boolean;
+  readonly approval_state: 'missing' | 'unvalidated' | 'approved' | 'revoked';
+  readonly blockers: readonly string[];
+  readonly approval: PublicArtifact | null;
+  readonly build_receipt: PublicArtifact | null;
+  readonly collector_sha256: string | null;
+  readonly collection: QualificationScenario['collection'] | null;
+  readonly resolved_input: PublicArtifact | null;
+}
+/** An admission is an immutable result, never permission to retry its effects. */
+export async function retainedAdmission(run: string): Promise<RunAdmission | null> {
+  const file = path.join(run, 'run-admission.json');
+  try {
+    const stat = await lstat(file);
+    assert(stat.isFile() && stat.nlink === 1 && (stat.mode & 0o222) === 0 && stat.size <= 1 << 20);
+    const value = JSON.parse(await readFile(file, 'utf8')) as RunAdmission;
+    assert(
+      value.format === 1 &&
+        ['held', 'revoked', 'blocked', 'ready'].includes(value.state) &&
+        typeof value.held === 'boolean' &&
+        ['missing', 'unvalidated', 'approved', 'revoked'].includes(value.approval_state) &&
+        Array.isArray(value.blockers) &&
+        value.blockers.every((b) => typeof b === 'string')
+    );
+    return value;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+}
+export async function interruptedAdmission(run: string): Promise<boolean> {
+  for (const name of ['run-readiness.json', 'resolved-input.json']) {
+    try {
+      await lstat(path.join(run, name));
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  return false;
+}
+
+/** The only unready setup admitted is continuation of the two exact waiting
+ * preparations. The protected normal-owner helper still validates its pinned
+ * setup inputs and must observe ready before any Factory command. */
+export function continuablePreparations(s: QualificationScenario, r: Readiness, index: number): boolean {
+  if (!s.permitted_effects.fixture_setup) return false;
+  const subject = s.factory[index]?.subject;
+  if (!subject) return false;
+  const native = r.native as {factory_readiness?: any[]} | null;
+  const state = native?.factory_readiness?.find(
+    (row) => row.repository_id === subject.repository_id && row.issue_number === subject.issue_number
+  );
+  if (!Array.isArray(state?.preparations)) return false;
+  const selected = [
+    [subject.coder_preparation, 'soda-coder'],
+    [subject.reviewer_preparation, 'soda-reviewer'],
+  ].map(([id, role]) => state.preparations.filter((p: any) => p.id === id && p.role === role));
+  if (!selected.every((rows) => rows.length === 1)) return false;
+  const preparations = selected.map((rows) => rows[0]);
+  return (
+    preparations.some((p) => p.phase === 'approved' || p.phase === 'waiting') &&
+    new Set(preparations.map((p) => p.setup_digest)).size === 1 &&
+    preparations.every(
+      (p) =>
+        p.source === subject.source_commit &&
+        p.requirements === subject.requirements &&
+        p.approval === subject.approval &&
+        /^[a-f0-9]{64}$/.test(p.setup_digest) &&
+        p.stopped === false &&
+        (p.phase === 'ready'
+          ? p.ready === true && p.setup_exit === 0 && p.check_exit === 0
+          : ['approved', 'waiting'].includes(p.phase) && p.ready === false)
+    )
+  );
+}
 export async function publicReference(file: string): Promise<PublicArtifact> {
   const stat = await lstat(file);
   assert(stat.isFile() && stat.nlink === 1 && stat.size <= 16 << 20 && path.resolve(file) === file);
@@ -84,7 +163,10 @@ async function writeNew(file: string, value: unknown, mode = 0o444) {
   }
 }
 
-export async function admitRun(s: QualificationScenario, saved: Readiness, run: string) {
+export async function admitRun(s: QualificationScenario, saved: Readiness, run: string): Promise<RunAdmission> {
+  const retained = await retainedAdmission(run);
+  if (retained) return retained;
+  assert(!(await interruptedAdmission(run)), 'admission_interrupted_preserve_run');
   const approval = await scopeApproval(s);
   const blockers: string[] = [];
   if (approval.state !== 'approved') blockers.push('paid_authority_' + approval.state);
@@ -99,7 +181,11 @@ export async function admitRun(s: QualificationScenario, saved: Readiness, run: 
   }
   blockers.push(
     ...readiness.checks
-      .filter((c) => c.state !== 'pass' && !['paid_authority', 'execution_released'].includes(c.name))
+      .filter((c) => {
+        if (c.state === 'pass' || ['paid_authority', 'execution_released'].includes(c.name)) return false;
+        const prep = /^factory_([0-9]+)_standing_preparations$/.exec(c.name);
+        return !(prep && continuablePreparations(s, readiness, Number(prep[1])));
+      })
       .map((c) => c.name)
   );
   if (s.target.distribution !== 'docker' || s.cases.join(',') !== 'installation,browser_project,factory,persistence')
@@ -144,7 +230,7 @@ export async function admitRun(s: QualificationScenario, saved: Readiness, run: 
     await writeNew(file, input, 0o600);
     resolved = await publicReference(file);
   }
-  const admission = {
+  const admission: RunAdmission = {
     format: 1,
     state,
     held: s.authority.held,

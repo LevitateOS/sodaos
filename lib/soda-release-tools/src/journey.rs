@@ -5,7 +5,10 @@ use clap::{Arg, ArgMatches, Command};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    os::unix::fs::{DirBuilderExt, MetadataExt},
+    os::{
+        fd::AsRawFd,
+        unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
+    },
     path::{Path, PathBuf},
     process::Stdio,
 };
@@ -130,6 +133,12 @@ fn read(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 fn driver(scenario: &Path) -> Result<FileReference, String> {
+    let reference = driver_reference(scenario)?;
+    verify_driver(&reference)?;
+    Ok(reference)
+}
+
+fn driver_reference(scenario: &Path) -> Result<FileReference, String> {
     let value = read(scenario)?;
     let reference: FileReference = serde_json::from_value(
         value
@@ -141,7 +150,6 @@ fn driver(scenario: &Path) -> Result<FileReference, String> {
     if !reference.path.is_absolute() {
         return Err("absolute journey driver path required".into());
     }
-    verify_driver(&reference)?;
     Ok(reference)
 }
 
@@ -227,7 +235,9 @@ fn retained(out: &Path) -> Result<Request, String> {
         return Err("journey request binding changed".into());
     }
     input::verify(&request.scenario)?;
-    let executable = driver(&request.scenario.path)?;
+    // Retained collection recovery does not execute the driver. Its removal or
+    // defect must not hide the exact collector operation already admitted.
+    let executable = driver_reference(&request.scenario.path)?;
     if executable.path != request.driver.path || executable.sha256 != request.driver.sha256 {
         return Err("journey driver binding changed".into());
     }
@@ -236,12 +246,43 @@ fn retained(out: &Path) -> Result<Request, String> {
 
 fn status(out: &Path) -> Result<(), String> {
     let out = private_run(out)?;
-    invoke("status", &retained(&out)?, &out)
+    let request = retained(&out)?;
+    if out.join("collector-intent.json").exists() {
+        return recover(&out, &request, false);
+    }
+    if out.join("run-admission.json").exists() {
+        let admission: Admission = serde_json::from_value(read(&out.join("run-admission.json"))?)
+            .map_err(|_| "journey admission invalid")?;
+        if admission.state == "ready" {
+            return report_uncertain("admission_retained_without_dispatch_intent");
+        }
+    }
+    if verify_driver(&request.driver).is_err() {
+        return report_uncertain("retained_driver_unavailable_or_changed");
+    }
+    invoke("status", &request, &out)
 }
 
 fn execute(out: &Path) -> Result<(), String> {
     let out = private_run(out)?;
+    let _lock = run_lock(&out)?;
     let request = retained(&out)?;
+    if out.join("collector-intent.json").exists() {
+        return recover(&out, &request, true);
+    }
+    if out.join("run-admission.json").exists() {
+        let admission: Admission = serde_json::from_value(read(&out.join("run-admission.json"))?)
+            .map_err(|_| "journey admission invalid")?;
+        if admission.format == 1
+            && matches!(admission.state.as_str(), "held" | "revoked" | "blocked")
+        {
+            if verify_driver(&request.driver).is_err() {
+                return report_uncertain("retained_driver_unavailable_or_changed");
+            }
+            return invoke("status", &request, &out);
+        }
+        return report_uncertain("admission_retained_without_dispatch_intent");
+    }
     invoke("run", &request, &out)?;
     let admission: Admission = serde_json::from_value(read(&out.join("run-admission.json"))?)
         .map_err(|_| "journey admission invalid")?;
@@ -328,6 +369,107 @@ fn execute(out: &Path) -> Result<(), String> {
         )?;
     }
     outcome
+}
+
+fn run_lock(out: &Path) -> Result<fs::File, String> {
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(out.join("journey-controller.lock"))
+        .map_err(|_| "journey controller lock unavailable")?;
+    let meta = file
+        .metadata()
+        .map_err(|_| "journey controller lock unavailable")?;
+    if !meta.is_file()
+        || meta.nlink() != 1
+        || meta.uid() != unsafe { libc::geteuid() }
+        || meta.mode() & 0o7777 != 0o600
+    {
+        return Err("owned private journey controller lock required".into());
+    }
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err("journey controller already active; inspect the retained run".into());
+    }
+    Ok(file)
+}
+
+fn report_uncertain(reason: &str) -> Result<(), String> {
+    println!(
+        "{}",
+        serde_json::json!({"recovery": {
+            "state": "uncertain", "reason": reason, "automatic_actions": false,
+            "next_action": "Inspect the retained run and exact operation. Preserve its inputs and attempts; do not redispatch this run or substitute a driver."
+        }})
+    );
+    Ok(())
+}
+
+fn recover(out: &Path, request: &Request, finalize: bool) -> Result<(), String> {
+    let path = out.join("collector-intent.json");
+    soda_release_deliver::publish::qualification::protected_path(&path, false)
+        .map_err(|_| "root-protected journey intent required")?;
+    let intent: DispatchIntent =
+        serde_json::from_value(read(&path)?).map_err(|_| "retained journey intent invalid")?;
+    if intent.format != 1
+        || intent.scenario.path != request.scenario.path
+        || intent.scenario.sha256 != request.scenario.sha256
+        || intent.resolved_input.path != out.join("resolved-input.json")
+        || intent.build_receipt.path != intent.collection.build_receipt_file
+    {
+        return Err("retained journey intent binding changed".into());
+    }
+    for reference in [
+        &intent.approval,
+        &intent.build_receipt,
+        &intent.resolved_input,
+    ] {
+        soda_release_deliver::publish::qualification::protected_path(&reference.path, false)
+            .map_err(|_| "root-protected retained journey input required")?;
+        if hash(&reference.path)? != reference.sha256 {
+            return Err("retained journey input changed".into());
+        }
+    }
+    let collection = &intent.collection.output_directory;
+    if !collection.join("request.json").exists() {
+        if out.join("collector-binding.json").exists() {
+            return Err("retained collector request disappeared".into());
+        }
+        return report_uncertain("dispatch_intent_retained_without_collector_request");
+    }
+    let binding = DispatchBinding {
+        format: 1,
+        intent: FileReference {
+            path: path.clone(),
+            sha256: hash(&path)?,
+        },
+        collection: crate::qualification::collection_binding(collection)?,
+    };
+    let binding_path = out.join("collector-binding.json");
+    if binding_path.exists() {
+        soda_release_deliver::publish::qualification::protected_path(&binding_path, false)
+            .map_err(|_| "root-protected collector binding required")?;
+        if read(&binding_path)?
+            != serde_json::to_value(&binding).map_err(|_| "collector binding encoding failed")?
+        {
+            return Err("retained collector binding changed".into());
+        }
+    }
+    let recovery = crate::qualification::recover_journey(
+        &intent.collection.authority_file,
+        &intent.collection.candidate_directory,
+        collection,
+        &intent.resolved_input,
+        &intent.collector_sha256,
+        finalize,
+    )?;
+    if finalize && !binding_path.exists() {
+        retain(&binding_path, &binding)?;
+    }
+    println!("{}", serde_json::json!({"recovery": recovery}));
+    Ok(())
 }
 
 fn invoke(action: &str, request: &Request, out: &Path) -> Result<(), String> {

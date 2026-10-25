@@ -243,7 +243,7 @@ fn stop_worker_unit(unit: &str) -> Option<String> {
     }
 }
 
-fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
+pub(crate) fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
     let mut child = Command::new("/usr/bin/systemctl")
         .args([
             "show",

@@ -2,6 +2,7 @@
 // own, inferred execution phase, authority grant or effect/retry dispatcher.
 import type {Readiness} from './readiness';
 import type {QualificationScenario} from './scenario';
+import {continuablePreparations} from './run';
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -96,6 +97,78 @@ export function journeyStatus(s: QualificationScenario, r: Readiness) {
       },
     };
   });
+  // Advice over selected canonical fields at the saved observation time. This
+  // does not refresh credentials, extend deadlines or infer native retirement.
+  const supported_recovery: {code: string; resource_id: string | null; next_action: string}[] = [];
+  const recovery = (code: string, resource_id: string | null, next_action: string) =>
+    supported_recovery.push({code, resource_id, next_action});
+  if (s.authority.held)
+    recovery('user_hold', null, 'Wait for the owner to release execution; preserve this immutable run.');
+  if (r.checks.some((c) => c.name === 'custody' && c.state !== 'pass'))
+    recovery(
+      'pending_operation',
+      null,
+      'Inspect the retained operation through its native owner; wait for confirmed custody/accounting.'
+    );
+  for (const [index, f] of s.factory.entries()) {
+    const b = f.subject,
+      connection = r.observation?.factory[index]?.connection,
+      row = states.find((v) => v.repository_id === b.repository_id && v.issue_number === b.issue_number),
+      preps = Array.isArray(row?.preparations) ? row.preparations.map(record) : [],
+      selected = preps.filter((p) => [b.coder_preparation, b.reviewer_preparation].includes(String(p.id)));
+    if (!connection || connection.state !== 'ready')
+      recovery(
+        'missing_authentication',
+        b.connection_id,
+        'Inspect this existing Identity connection; use its supported sign-in repair only when needed. Do not enroll a replacement automatically.'
+      );
+    if (selected.length !== 2 || selected.some((p) => p.ready !== true || p.stopped !== false))
+      recovery(
+        'partial_setup',
+        b.project_id,
+        continuablePreparations(s, r, index)
+          ? 'The same approved/waiting preparations may continue once through the protected helper after scope admission; Factory waits for confirmed ready state.'
+          : 'Inspect the exact selected preparation IDs through the Project owner; preserve partial/failed setup and create no replacements.'
+      );
+    const runs = Array.isArray(row?.runs) ? row.runs.map(record) : [];
+    for (const run of runs) {
+      const deadline = typeof run.deadline === 'string' ? Date.parse(run.deadline) : NaN;
+      if (run.active === true && Number.isFinite(deadline) && deadline <= Date.parse(r.checked_at))
+        recovery(
+          'expired_attempt',
+          typeof run.id === 'string' ? run.id : null,
+          'Reconcile the same expired run through Factory/Identity; elapsed time does not prove retirement. Preserve charges and never extend or relaunch it.'
+        );
+    }
+    const allowances = Array.isArray(row?.allowances) ? row.allowances.map(record) : [];
+    for (const allowance of allowances) {
+      const seconds = count(allowance.active_seconds),
+        minutes = count(allowance.active_minutes);
+      if (allowance.closed === true || (seconds !== null && minutes !== null && minutes > 0 && seconds >= minutes * 60))
+        recovery(
+          allowance.closed === true ? 'attempt_closed' : 'exhausted_allowance',
+          typeof allowance.root === 'string' ? allowance.root : null,
+          'Preserve the recorded allowance. A new attempt requires the canonical explicit Retry and actual finite authority; this runner does not retry or refill.'
+        );
+    }
+    const accounting = factory[index]!.observed;
+    if (
+      accounting.held_reservations === 0 &&
+      ((accounting.sponsor_active === true &&
+        accounting.sponsor_minutes !== null &&
+        accounting.repository_charged_minutes !== null &&
+        accounting.repository_charged_minutes >= accounting.sponsor_minutes) ||
+        (accounting.rolling_limit_minutes !== null &&
+          accounting.rolling_total_charge_micros !== null &&
+          BigInt(accounting.rolling_limit_minutes) * 60_000_000n - BigInt(accounting.rolling_total_charge_micros) <
+            60_000_000n))
+    )
+      recovery(
+        'exhausted_allowance',
+        b.connection_id,
+        'Wait for the rolling window or obtain actual authority for additional finite allowance; preserve usage and do not refill automatically.'
+      );
+  }
   const pass = (name: string) => r.checks.some((c) => c.name === name && c.state === 'pass');
   const authorityMissing = s.factory.length > 0 && !pass('paid_authority');
   const next_action = s.authority.held
@@ -168,5 +241,6 @@ export function journeyStatus(s: QualificationScenario, r: Readiness) {
       cases: s.cases.filter((c) => c !== 'factory').map((c) => ({case: c, completion: null, measurements: null})),
     },
     automatic_actions: {enrollment: false, funding: false, model_launch: false, retry: false},
+    supported_recovery,
   };
 }

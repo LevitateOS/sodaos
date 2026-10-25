@@ -115,8 +115,17 @@ impl Target {
             if claim.output == out {
                 continue;
             }
-            // Only the existing canonical native-retirement receipt releases
-            // this target for a different output; no timeout or PID guesses.
+            // A failed collector need not have a successful evidence receipt.
+            // Canonical exact-unit retirement releases only this host worker
+            // fence for a separately admitted output. Fresh journey readiness
+            // still owns guest custody and paid authority; none is inferred
+            // from local collector retirement. Never delete the old claim.
+            if !claim.output.join("executed.json").exists() {
+                if crate::worker::systemctl_unit_terminal(&request.unit)? {
+                    continue;
+                }
+                return Err("prior journey target operation requires reconciliation".into());
+            }
             evidence::protected_path(&claim.output.join("executed.json"), false)
                 .map_err(|_| "prior journey target operation requires reconciliation")?;
             let actual: evidence::ProtectedEvidence = read(&claim.output.join("executed.json"))?;

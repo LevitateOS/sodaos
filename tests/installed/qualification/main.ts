@@ -7,7 +7,7 @@ import {scenarioInput} from './validate';
 import {checkScenario} from './readiness';
 import {journeyStatus} from './status';
 import type {Readiness} from './readiness';
-import {admitRun} from './run';
+import {admitRun, retainedAdmission, interruptedAdmission} from './run';
 
 async function main() {
   const [action, ...args] = process.argv.slice(2);
@@ -58,14 +58,24 @@ async function main() {
       const execution = await admitRun(scenario, result, run);
       console.log(JSON.stringify({...journeyStatus(scenario, result), execution}));
     } else {
-      let execution;
-      try {
-        execution = JSON.parse(await readFile(path.join(run, 'run-admission.json'), 'utf8'));
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      }
+      const execution = await retainedAdmission(run);
+      const interrupted = execution === null && (await interruptedAdmission(run));
       console.log(
-        JSON.stringify({...journeyStatus(scenario, result), ...(execution === undefined ? {} : {execution})})
+        JSON.stringify({
+          ...journeyStatus(scenario, result),
+          ...(execution === null ? {} : {execution}),
+          ...(interrupted
+            ? {
+                recovery: {
+                  state: 'uncertain',
+                  reason: 'admission_interrupted',
+                  automatic_actions: false,
+                  next_action:
+                    'Preserve this run. Repair the driver and make a new read-only check; do not replay this admission.',
+                },
+              }
+            : {}),
+        })
       );
     }
   } else throw Error('Unknown journey action');

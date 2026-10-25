@@ -75,7 +75,8 @@ assert.deepEqual(status.execution, ran.execution);
 assert.deepEqual(status.accounting, checked.accounting);
 await absent(path.join(actualRun, 'resolved-input.json'));
 const admissionBytes = await readFile(path.join(actualRun, 'run-admission.json'));
-await execute([operator, 'journey', 'run', '--run', actualRun], false);
+const repeated = await execute([operator, 'journey', 'run', '--run', actualRun]);
+assert.deepEqual(repeated.execution, ran.execution);
 assert.deepEqual(await readFile(path.join(actualRun, 'run-admission.json')), admissionBytes);
 
 const scope = approvalScope(original);
@@ -155,7 +156,8 @@ for (const variant of variants) {
   assert.deepEqual(view.execution, response.execution);
   await absent(path.join(directory, 'resolved-input.json'));
   const retained = await readFile(path.join(directory, 'run-admission.json'));
-  await execute([driver.path, 'run', '--run', directory], false);
+  const repeated = await execute([driver.path, 'run', '--run', directory]);
+  assert.deepEqual(repeated.execution, response.execution);
   assert.deepEqual(await readFile(path.join(directory, 'run-admission.json')), retained);
   results.push({
     name: variant.name,
@@ -164,6 +166,22 @@ for (const variant of variants) {
     admission_sha256: sha256(retained),
   });
 }
+// An interrupted admission is a real filesystem boundary, not permission to
+// overwrite its saved read or reconstruct an effect. Use the actual saved
+// appliance observation as input; never fabricate a successful product result.
+const interruptedRun = path.join(out, 'interrupted-admission');
+await mkdir(interruptedRun, {mode: 0o700});
+await write(path.join(interruptedRun, 'scenario.json'), base);
+await write(path.join(interruptedRun, 'readiness.json'), saved);
+await write(path.join(interruptedRun, 'run-readiness.json'), saved);
+const interruptedBytes = await readFile(path.join(interruptedRun, 'run-readiness.json'));
+await execute([driver.path, 'run', '--run', interruptedRun], false);
+const interruptedStatus = await execute([driver.path, 'status', '--run', interruptedRun]);
+assert.equal(interruptedStatus.recovery.reason, 'admission_interrupted');
+assert.equal(interruptedStatus.recovery.automatic_actions, false);
+assert.deepEqual(await readFile(path.join(interruptedRun, 'run-readiness.json')), interruptedBytes);
+await absent(path.join(interruptedRun, 'run-admission.json'));
+await absent(path.join(interruptedRun, 'resolved-input.json'));
 assert.equal(sha256(await readFile(driver.path)), driver.sha256);
 assert.equal(sha256(await readFile(scenarioFile)), sha256(scenarioBytes));
 assert.equal(sha256(await readFile(readinessFile)), sha256(savedBytes));
@@ -180,7 +198,8 @@ const result = {
   retained_history: actual.native.history,
   ready_connections: generations(actual),
   actual_held_dispatch_refused: true,
-  duplicate_admissions_refused: true,
+  repeated_admissions_return_original_without_dispatch: true,
+  interrupted_admission_preserved_without_replay: true,
   fixtures_are_owner_authority: false,
   cases: results,
   resolved_inputs_created: 0,

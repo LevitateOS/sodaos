@@ -249,12 +249,26 @@ async function main() {
 }
 
 await main().catch(async (error: unknown) => {
+  const reason =
+    error instanceof Error && /^[a-z0-9_]+$/.test(error.message) ? error.message : 'collector_phase_unconfirmed';
   await save('failure.json', {
     complete: false,
     phase: 'docker_phases',
     noAutomaticRetry: true,
-    reason:
-      error instanceof Error && /^[a-z0-9_]+$/.test(error.message) ? error.message : 'collector_phase_unconfirmed',
+    reason,
+    recovery: {
+      kind:
+        error instanceof TypeError || error instanceof SyntaxError
+          ? 'driver_defect'
+          : reason === 'factory_command_requires_reconciliation'
+            ? 'uncertain_response'
+            : reason === 'existing_setup_adoption_unconfirmed'
+              ? 'partial_setup'
+              : 'inspect_retained_attempt',
+      next_action:
+        'Preserve this attempt and inspect its exact receipts and native custody. Repair only the affected owner/driver; an incomplete collector is never re-entered.',
+      automatic_retry: false,
+    },
   }).catch(() => {});
   console.error('Protected journey collection incomplete; evidence retained without retry or finalization.');
   process.exitCode = 1;
