@@ -277,6 +277,47 @@ Build, stage, collect, finalize and qualify retain their existing owners.
 The intended arguments are `check --scenario FILE --out RUN_DIR` and
 `status|run --run RUN_DIR`; secret values are never command-line arguments.
 
+**Build the maintained driver:** from a clean committed checkout with the
+installed Bun/Go tools, dependencies installed from `bun.lock`, and the SDK at
+the local replacement path selected by `go.mod`, run:
+
+```sh
+bun scripts/build-qualification.ts --out /home/soda-tester/journey-build
+```
+
+Use a fresh output directory with an existing canonical parent outside the
+checkout. The script builds `soda-qualification-journey`, the importable
+`phases.js` composition and `soda-installed-probes`. `build.json` records their
+hashes/sizes, clean full source revision, actual clean SDK subtree/revision,
+package/module lock hashes and build recipe. It reuses installed tools and warm
+caches; it does not install dependencies, copy predecessor scripts, read private
+keys or contact an appliance. The native probe embeds this same full driver
+revision; installed candidate source remains a separate input. This support
+build does not rebuild release media or deploy the probe.
+
+Set the scenario's `driver.source_revision` and `driver.executable` from this
+receipt. Keep candidate, target, trust, credentials-as-paths, retained resource
+scope and authority unchanged. Invoke the existing `soda-release journey check`
+and `status` commands with that scenario; `check` performs read-only target
+observations and `status` reuses its saved result. Fixture SSH/trust/private
+access remains an explicit external prerequisite.
+
+The maintained offline request integration takes the built module and a public
+saved current-context request as explicit data:
+
+```sh
+bun tests/installed/qualification/check-browser.ts \
+  --module /home/soda-tester/journey-build/phases.js \
+  --retained-request /home/soda-tester/bridge-request.public.json \
+  --out /home/soda-tester/browser-check
+```
+
+It uses the repository's installed Playwright/Chromium dependency and native
+browser bridge. Keep the fresh `/home` output short enough for the Unix socket
+limit. Every request is fulfilled locally with Chromium offline. Its result
+binds module/request hashes and exact-once action/refusal observations; it does
+not claim backend eligibility, context resumption or a paid outcome.
+
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
 
