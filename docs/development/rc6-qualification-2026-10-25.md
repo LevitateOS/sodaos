@@ -249,6 +249,19 @@ remains valid; do not ask for the same approval again when the owner resumes it.
 The [reusable procedure and tooling priorities](release.md#normalize-the-qualification-procedure)
 now distinguish product fixes, private driver fixes and installed qualification.
 
+The subsequent whole-process review found another deterministic driver mismatch:
+the corrected admission accepts two retained Projects, while
+`r57-docker-collector-context-aware/docker-persistence.ts::stopOwnedProject`
+expects only the unique browser/Factory Project (one in this fixture). Its native
+snapshot also requires all Projects stopped. Thus the compiled successor is
+**not ready for a complete paid journey** until persistence and owned-resource
+closure agree with the actual retained inventory. This was found before funding;
+no further trial ran and no state was cleared to satisfy the assertion.
+The owner selected compute, model usage and storage as the primary redesign
+objective. The expanded [process proposal](release.md#normalize-the-qualification-procedure)
+replaces the earlier outline with alternatives, a shared scenario, proof reuse,
+whole-route readiness, resource lifecycle and staged implementation.
+
 The RC7 App fixture was rebuilt against runtime config
 `4a03219464e996f8bb35771a091d98978f169172f6305e9c171348e5cf5ef438`.
 Its model-free local native run passed 27 checks; the container retired and no

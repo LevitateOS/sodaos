@@ -31,69 +31,266 @@ Each source-to-target pair requires its own native qualification receipt.
 
 ## Normalize the qualification procedure
 
-The RC6/RC7 work mixed product debugging, private collector development and
-shipping-byte qualification. Several failures belonged to the driver: terminal
-handling, publication/assignment identity, reviewer context and per-run command
-permits. RC6's native final-head failure was a real product defect. These need
-different recovery paths. The [qualification record](rc6-qualification-2026-10-25.md)
-retains the actual examples and evidence.
+This is a proposed redesign, not an implemented runner. Execution is held while
+the owner reviews it. The owner's first priority is **compute, model usage and
+storage**, ahead of elapsed time or fewer interruptions. The existing
+[RC6/RC7 record](rc6-qualification-2026-10-25.md) owns historical results;
+this section owns the replacement procedure.
 
-Use this operating procedure for the next campaign. It describes the intended
-use of existing owners; it does not advertise an implemented end-to-end runner.
+### Optimize for accepted proof
 
-| Stage | Standard procedure | Repetition to eliminate |
-| --- | --- | --- |
-| Select the outcome | Name the candidate, distributions and acceptance cases; record the finite model allowance and explicit holds together. Keep development proof, release qualification and capacity claims distinct. | Expanding the current run whenever another incomplete backlog item is discovered. |
-| Develop product and driver | Use a retained development fixture and account. Fix the responsible source, exercise the affected real boundary, and commit reusable driver changes in their existing source owner. | Debugging copied private drivers during each final qualification attempt. |
-| Freeze and produce | Run exact-source CI, build, prepare and stage once for changed shipping bytes. Identify driver revision separately from product revision. | Rebuilding or republishing an unchanged candidate for observer/configuration changes. |
-| Prepare the installed fixture | Record actual install/trust/owner/repository/Project/preparation/issue IDs from returned results. Complete unpaid setup and save private owner credentials before fragile browser assertions. | Hand-editing copied scripts or creating another resource after losing a local receipt. |
-| Establish account and allowance | Inspect the existing connection and current generation. Generate a device code only when an account is missing and the human is ready. Apply only the approved finite limits, preserving prior charges. | Signing in again after a normal lease return, asking again for covered key transport, or starting short-lived codes before setup is ready. |
-| Execute and qualify | Run the admitted collector; reconcile uncertain effects through canonical reads. Preserve successful phases at their actual scope and use supported continuation where eligible. Seal and qualify only actual successful observations. | Replaying completed coding, duplicating owner POSTs, or restarting the whole journey after a driver-only failure. |
-| Measure and recover | Run the selected App/terminal/Factory workload in one measured interval. Arrange the final retained state, including selected App data, before one stopped cold capture/restore. | Combining separate resource windows into a capacity claim, or doing App-free cold recovery before adding the App whose data needs proof. |
-| Retire and report | Release ended writers and consumed scratch; preserve required artifacts, provenance and retained data. Commit the source correction and useful reproduction instructions with a concise result. | Indefinite retention of every consumed build copy, or operational knowledge existing only in chat. |
+The useful output is an accepted, precisely scoped result. A short failed run,
+a smaller timeout that prevents completion, or an extra snapshot that never gets
+used can increase the total resources needed to obtain that result.
 
-### Classify a failure before repeating work
-
-| Observed failure | Next action |
+| Observed cost or defect | Consequence for the redesign |
 | --- | --- |
-| Shipping source, pin or packaged bytes must change | Produce a new candidate and repeat affected installed acceptance. Retain unrelated passing results at their original revision. |
-| Collector, selector, fixture binding or observer fails | Fix the versioned driver. Reuse unchanged public media, the existing VM/account and matching prior facts where the evidence contract permits. |
-| An owner POST may have succeeded but its receipt was lost | Read back the original operation/resource before issuing another mutation. Preserve command and resource identities. |
-| A staged native run is still eligible | Offer only its canonical available action with exact current bindings. |
-| A native run has expired or retired | Preserve the failure, code/PR and accounting. A new attempt needs authority within the existing approved envelope or an explicit additional allowance; it is not a continuation of that review. |
-| An active process, lease or retained writer remains | Reconcile or retire that exact owner before altering its target. |
+| RC7 production build took 23m11s; consumed media scratch later reclaimed 25.19 GiB of actual filesystem space. | Avoid unnecessary candidate builds; serialize them and release consumed scratch promptly. |
+| The RC7 Docker attempt recorded 10 sponsorship minutes without completing review or producing a qualification seal. | Find deterministic downstream failures before funding or starting another run. These minutes are local accounting, not a measurement of provider token billing. |
+| Admission accepts two retained Projects, but the current private persistence function expects only the witness/Factory Project, which are the same Project. | Check the entire scenario against one inventory. A green admission stage is insufficient. |
+| Native App-only and Docker Factory-only resource windows were measured separately. | Compose the real App, member terminal and Factory workload in one interval instead of buying another run to repair missing coverage. |
+| Current Docker cold preparation binds an App-free protected-state snapshot. | Create the selected App and its retained record before the final persistence/cold baseline. |
+| The existing Docker connection is Ready at generation 3. | Reuse it; generation changes after credential return are not a reason for another sign-in. |
 
-Reusing evidence means preserving its original invocation, revision, target and
-outcome. An admitted successor can adopt prior facts only where the canonical
-contract permits; a failed protected attempt is never edited into a successful
-one. Adding an App changes protected application/configuration/ledger state, so
-an earlier App-free persistence snapshot cannot serve as its cold baseline.
+"Unpaid setup" in older records means no sponsored Codex execution. Requirements,
+preview or acceptance operations may still invoke TypeSafe/JEV. Record those
+calls separately; reuse canonical accepted judgments when their bound inputs are
+unchanged. Do not invent total provider costs from incomplete historical records.
 
-### Smallest tooling changes to make this routine
+### Alternatives considered
 
-1. Consolidate the demonstrated private collector fixes into one versioned driver
-   under the existing `tests/installed` and `tools/acceptance` owners. Keep
-   privileged execution/sealing in `lib/soda-release-tools` and receipt validation
-   in `lib/soda-release-deliver`. Per-attempt directories should contain bindings,
-   requests, receipts and output, rather than another implementation copy.
-2. Generate fixture bindings from canonical returned IDs and current connection
-   state. Give each phase an explicit result and reconciliation action using the
-   existing workflow request/status and observation contracts. Resume only the
-   supported boundary whose inputs still match.
-3. Put affected driver integration checks before paid execution. For example,
-   the retained real context-action request exposed a permit-label mismatch
-   that compilation missed. Compilation alone cannot establish a working bridge;
-   actual provider/review execution still needs its bounded live observation.
-4. Keep one campaign scope and current result index. Record standing transport
-   and cleanup authority once, and distinguish it from finite spending and public
-   writes. For future campaigns the owner can authorize a total minute ceiling,
-   maximum attempts and concurrency together; this does not expand an existing
-   one-trial approval or permit automatic retries retroactively.
+| Approach | Benefit | Cost or limitation | Decision |
+| --- | --- | --- | --- |
+| Continue patching private per-attempt scripts | Smallest immediate edit | Fixture assumptions drift between phases; repeated model failures remain likely | Use existing code as the migration input, then maintain one implementation |
+| One shared scenario and durable phase results over existing tools | Reuses media, accounts, setup and useful proof; exposes downstream mismatches before spending | Requires consolidating the demonstrated driver behavior and explicit reuse rules | Recommended |
+| Snapshots and disposable overlays for every attempt | Could reduce repeated installation work | Physical savings are unmeasured; backing chains, secrets and external accounting complicate reuse | Optional later experiment if installation remains a measured bottleneck |
+| A general workflow service, scheduler and artifact database | Could automate a broad workload | Large implementation and qualification cost before the present scenario works | Exclude from the initial implementation |
+| Qualify everything privately before publication | Could reduce failed public candidate churn | Current contracts require public download/install observations; doing the live journey twice increases model use | Keep model-free development checks before publication and the qualifying live journey afterward |
 
-The current release tools already own build/stage/status and protected evidence;
-the missing integration is a maintained installed-journey driver. Normalize that
-path before expanding the qualification matrix. The detailed operator commands
-below remain authoritative for actions currently supported.
+Use stable development fixtures to debug changed boundaries. For a candidate,
+reuse its actual installed fixture through the remaining cases. After its required
+proof and retention obligations are complete, that fixture can become the next
+development fixture instead of retaining another permanent pair.
+
+Native ISO acceptance requires a real installation onto the selected fresh disk.
+The Docker contract requires a fresh deployment with new runtime volumes on a
+supported disposable host or VM; it does not require reinstalling Linux for every
+candidate. Reusing that host must follow the supported installer and preserve
+any retained deployment. Freshness is a proof requirement, not a default reaction
+to any failed script.
+
+The [current installer](../../system/docker/install-docker.sh) fixes the Compose
+project name to sodaos, refuses retained runtime volumes and cross-version
+adoption, and has no reset/project-isolation option. Host reuse therefore needs
+explicit, proven retirement of the prior disposable deployment; it is not an
+available installer switch. A new instance from a clean supported host image is
+the conservative alternative while that retirement path is unimplemented.
+
+### One shared scenario
+
+Keep one scenario input and one actual result index alongside the existing
+workflow request and observation journals. Each phase consumes the same typed
+bindings. Per-attempt directories contain data and evidence, not another driver
+implementation.
+
+The scenario contains:
+
+- Selected acceptance cases, immutable candidate/payload/artifact identities and
+  the independently identified driver/verifier revision.
+- Actual target, trust and installation identity; returned repository, Project,
+  actor, preparation, issue, App and terminal identities as they become known.
+- The complete retained inventory, the subset owned by this test, permitted
+  lifecycle actions and state that must remain untouched. Historical work is
+  distinct from live custody; expected counts are derived from these identities.
+- Existing authorization, sponsored and rolling limits, deadlines, concurrency
+  and allowed owner context actions. Paid limits are not inferred from setup.
+- Required phase results and their dependencies, including the intended final
+  App/Project/Factory state for persistence and cold recovery.
+
+Unknown future candidate heads, PRs, run IDs, reviewer preparations and measurements
+remain unknown until canonical operations return them. The plan can check the
+shape and compatibility of those transitions; it cannot predict model success.
+Private values remain in protected files and canonical stores; the scenario uses
+references and selected metadata.
+
+The current two-Project mismatch is a concrete acceptance case for this design:
+admission, terminal ownership, Project stop, native snapshot, recreation and cold
+capture must agree about both retained Projects. Merely relaxing an equality check
+would not establish that the extra Project is safely stopped and preserved.
+
+### The replacement flow
+
+```mermaid
+flowchart TD
+    A[Select cases and reuse matching proof] --> B[Check changed boundaries on retained development fixture]
+    B --> C{Shipping bytes changed?}
+    C -->|Yes| D[CI, build, prepare and stage once]
+    C -->|No| E[Reuse selected candidate]
+    D --> F[Acquire required clean installation and shared fixture state]
+    E --> F
+    F --> G[Check all known scenario requirements before spending]
+    G --> H[App and terminal active; start observers; run bounded Factory work]
+    H --> I[Reconcile delivery and accounting; stop owned writers]
+    I --> J[One persistence exercise and retained-state readback]
+    J --> K[One isolated cold capture and recovery]
+    K --> L[Finalize selected proofs; report; retire consumed resources]
+    G -->|Driver defect| B
+```
+
+1. **Select and reuse.** Choose the distribution and exact claims. Reuse passing
+   results whose actual dependencies still match. Preserve explicit deferred
+   cases; an all-backlog goal must not silently expand this campaign.
+2. **Develop cheaply.** Fix source/driver problems on a retained native or Docker
+   fixture. Exercise real Git, filesystem, native APIs and saved request/receipt
+   boundaries as appropriate. Replayed requests prove parser/transport behavior,
+   not real provider execution or independent review. Commit reusable fixes.
+3. **Produce only when necessary.** Use exact-source CI and the existing canonical
+   build/prepare/stage path for changed shipping bytes. Driver-only changes have
+   their own revision/digest and reuse the unchanged candidate. Use existing
+   input-aware caches; do not create an alternate build engine.
+4. **Prepare the whole scenario.** Establish trusted access and ordinary owner
+   setup; save generated private owner credentials before fragile assertions.
+   Create or adopt the intended App/record, Project/member/terminal, accepted
+   issue and role preparations. Reconcile an uncertain POST before repeating it.
+   Check every known later-stage assumption, action permit and output contract.
+   Inspect existing account state; enroll only a genuinely missing connection,
+   with the human present. This phase avoids sponsored execution, not necessarily
+   every TypeSafe call.
+5. **Spend once for several useful observations.** Leave the App and genuine
+   member terminal active, start the resource/response observers, then run the
+   approved Factory lifecycle. Use per-run canonical context actions for both
+   implementation and review while eligible. Reuse the recorded judgment and
+   exact digests. Observe native execution, actual CI, independent review,
+   integration, delivery and accounting; record partial results honestly.
+6. **Persist and recover the final state.** After intended mutations finish,
+   retire owned model/terminal/App/Project writers through normal controls and
+   capture current protected state. Exercise native reboot or Docker same-image
+   recreation as selected, reopen the same App owner/record and Project witness,
+   and verify Factory history. Quiesce again, then perform one consistent isolated
+   cold restore with this combined state. Preserve the original and retire the
+   clone/network according to the agreed retention policy.
+7. **Close at the actual scope.** Finalize and qualify the successful component
+   observations; report every open selected case. Promotion remains a separate
+   decision. Derive the result report from recorded facts and commit the useful
+   source/reproduction changes without copying private data into the repository.
+
+The existing Docker canonical receipt validates four ordered kinds:
+installation, browser_project, factory and persistence. It does not automatically
+validate App, capacity or cold-recovery claims. A maintained scenario must preserve
+those core contracts and explicitly validate supplemental cases through their
+existing owners. Extra files or one overall green label cannot add coverage.
+
+### Plan live work to avoid extra model runs
+
+Use one small real issue to obtain the necessary end-to-end Factory result and
+basic App/terminal/Factory measurement together. Do not start an extra coding task
+solely because the observer was missing during the first run.
+
+For two-issue support, choose before spending whether the claim requires execution
+overlap, two completed lifecycles, or both. Two distinct Ready connections permit
+two concurrent runs; they need not be two different provider accounts. Start
+observers first and use genuine independent issues. Where the driver is already
+proven and the exact scope permits it, one of those two issues can supply the
+primary delivery proof. Otherwise prove the basic route first and retain the
+additional two-issue case as a separate explicit extension.
+
+Two short tasks do not guarantee overlapping native execution. Do not pad tasks,
+add artificial sleeps or automatically buy another trial to manufacture overlap.
+Record actual PIDs, leases, Project/container/invocation joins, App/terminal
+responsiveness and the measured interval. Partial windows remain partial.
+
+Choose finite time limits from observed durations and the intended task. The
+retained attempt used seven sponsorship minutes for investigation and implementation
+before review; that does not support assuming a five-minute complete journey.
+Review duration and the next task's behavior remain uncertain. Distinguish the
+rolling usage clock, held reservations, root deadline and sponsorship rounding.
+A sufficient ceiling permits completion without requiring its full consumption.
+
+### Reuse and invalidation rules
+
+| Change or failure | Preserve | Repeat or reconcile |
+| --- | --- | --- |
+| Driver selector, request, binding or observer defect | Candidate, usable installation/account, matching prior phase facts | Affected driver integration and eligible downstream observation; create a new admitted attempt where required |
+| Lost or uncertain owner response | Original command/resource identity and history | Canonical readback before any duplicate mutation |
+| Same preparation only partly ready | Existing ready role and preparation IDs | Supported same-ID continuation for the missing work |
+| Pending unexpired context attention | Same run, recorded judgment and allowance | Only its canonical available owner action with exact current bindings |
+| Expired/retired review | Code/PR, account, setup, failed result and all charges | A genuinely new authorized attempt; current product has no same-review continuation after expiry |
+| Shipping source/image/pin change | Unaffected component evidence at its original scope | New candidate and affected installed proof |
+| App/configuration/record changes after a snapshot | Earlier proof as historical evidence | Fresh current protected-state baseline before persistence/cold claims |
+| Changed workload or resource allocation | Prior measured profile | The changed profile's actual measurement; peak samples do not establish a smaller supported minimum |
+
+Reuse preserves original invocation, source, target and outcome. It never edits a
+failed protected attempt into a pass or patches an active admitted binary.
+Sealed phase composition and supported continuation belong to the canonical
+qualification owners; do not assume today's private monolith already supports
+arbitrary resume.
+
+### Resource and artifact lifecycle
+
+- Default to one heavy build or one measured guest workload at a time. Parallelize
+  independent diagnosis only when it avoids rework; keep one writer per guest and
+  one owner per observer/caller. Two paid workers run together only for a selected
+  concurrency case or another explicit resource-justified scope.
+- Keep reusable compiler/package/image caches separate from disposable scratch.
+  Release consumed assembler work after successful check/prepare and provenance
+  preservation. After a failed attempt's diagnosis closes, retain decisive logs,
+  source identity and needed state rather than every generated disk forever.
+- Keep current release inputs, necessary support/upgrade baselines and unique
+  retained data. Historical public artifacts can be reacquired by immutable
+  identity when offline retention is not required. Private data, credentials and
+  unique source are never treated as recoverable public downloads.
+- Keep a cold clone only for its recovery exercise and explicitly chosen retention.
+  Do not retain original, clone, archive and successive full copies by default.
+  Preserve backing dependencies if overlays are used. Measure actual filesystem
+  space, not summed shared/reflink directory allocations.
+- Never roll back a funded database to erase local usage, and never duplicate OAuth
+  directories as an enrollment shortcut. Snapshot reuse needs a measured benefit
+  and correct identity/external-work isolation before becoming part of the path.
+
+### Minimal implementation and current rollout
+
+The first implementation is a shared scenario input, one maintained journey
+implementation and a derived next-action/result view over existing journals.
+Reuse tests/installed for browser journeys, tools/acceptance for execution/support,
+lib/soda-release-tools for protected execution/sealing and
+lib/soda-release-deliver for qualification. Existing Factory control owns lifecycle
+and context semantics. This design needs no new service, scheduler or database.
+
+Implement in this order:
+
+1. Unify the actual RC7 retained inventory across the existing driver. Resolve the
+   two-Project persistence mismatch and check later lifecycle/cold assumptions
+   before authorizing execution. Exercise changed request/lineage/state boundaries
+   without another sponsored task wherever real-system checks are available.
+2. Move that single working implementation into its source owners, replacing
+   release-specific source copies with scenario data. Keep old failed evidence
+   and its executable provenance as historical records.
+3. Record durable successful phase results and supported reconciliation paths.
+   Produce current phase, last confirmed effect, actual usage/remaining limits,
+   next action and required human input automatically; remove manual flag editing,
+   hash transcription and duplicated READY summaries from the normal operator path.
+   Start with boundaries the existing contracts support. General sealed-proof
+   composition is not a prerequisite for fixing the shared inventory or getting
+   the first maintained collector working.
+4. Add the deliberately combined App/terminal/Factory measurement and final-state
+   persistence/cold route. Keep its supplemental proof requirements explicit.
+   Extend to the two-issue case only when the basic driver is working and the
+   finite scope/connections are available.
+
+The currently approved RC7 one-trial scope remains valid for its unchanged bounds
+and remains **held**. This redesign authorizes no spending or operational resume.
+A materially changed paid scope or concurrency still needs its actual authority;
+standing setup/key transport/cleanup authority should not prompt again. Public
+publication and promotion retain their existing separate holds.
+
+Measure the redesign on subsequent selected work: sponsored minutes and TypeSafe
+calls per accepted case, paid failures caused by deterministic driver defects,
+rebuilds without changed shipping inputs, new fixtures/sign-ins, actual peak disk
+allocation and consumed scratch retained after completion. Seed the baseline from
+available receipts and mark unknown totals. Do not reconstruct every historical
+log or promise a percentage reduction before measuring it. The immediate check is
+concrete: a known two-Project/one-Project contradiction must be found before a
+model run can consume the approved allowance.
 
 ## Guided release operator flow
 
