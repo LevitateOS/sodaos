@@ -7,6 +7,7 @@ import {scenarioInput} from './validate';
 import {checkScenario} from './readiness';
 import {journeyStatus} from './status';
 import type {Readiness} from './readiness';
+import {admitRun} from './run';
 
 async function main() {
   const [action, ...args] = process.argv.slice(2);
@@ -35,18 +36,41 @@ async function main() {
       mode: 0o600,
     });
     console.log(JSON.stringify(journeyStatus(scenario, result)));
-  } else if (action === 'status') {
+  } else if (action === 'status' || action === 'run') {
     assert.equal([...flags.keys()].join(','), '--run');
     const run = flags.get('--run')!;
     assert(run.startsWith('/home/') && path.resolve(run) === run);
-    // Status has no transport or effect call. It reports the last checked state.
-    const result = JSON.parse(await readFile(path.join(run, 'readiness.json'), 'utf8')) as Readiness;
+    // Status has no transport or effect call. Run refreshes observations only
+    // after matching approval and release; Rust alone dispatches the collector.
+    let readinessFile = path.join(run, 'readiness.json');
+    if (action === 'status') {
+      try {
+        await readFile(path.join(run, 'run-readiness.json'));
+        readinessFile = path.join(run, 'run-readiness.json');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+    const result = JSON.parse(await readFile(readinessFile, 'utf8')) as Readiness;
     assert(result.format === 1 && typeof result.ready === 'boolean' && Array.isArray(result.checks));
     const scenario = scenarioInput(JSON.parse(await readFile(path.join(run, 'scenario.json'), 'utf8')));
-    console.log(JSON.stringify(journeyStatus(scenario, result)));
+    if (action === 'run') {
+      const execution = await admitRun(scenario, result, run);
+      console.log(JSON.stringify({...journeyStatus(scenario, result), execution}));
+    } else {
+      let execution;
+      try {
+        execution = JSON.parse(await readFile(path.join(run, 'run-admission.json'), 'utf8'));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      console.log(
+        JSON.stringify({...journeyStatus(scenario, result), ...(execution === undefined ? {} : {execution})})
+      );
+    }
   } else throw Error('Unknown journey action');
 }
 await main().catch(() => {
-  console.error('Journey input or read-only check failed; no execution admitted.');
+  console.error('Journey input, read-only check or admission failed; no collector dispatched by this driver.');
   process.exitCode = 1;
 });

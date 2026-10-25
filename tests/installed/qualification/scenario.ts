@@ -180,6 +180,14 @@ export interface QualificationScenario {
   readonly factory: readonly FactoryCase[];
   readonly credentials: CredentialReferences;
   readonly permitted_effects: PermittedEffects;
+  /** Existing root-admitted collector inputs; paths do not grant execution. */
+  readonly collection?: {
+    readonly authority_file: string;
+    readonly candidate_directory: string;
+    readonly output_directory: string;
+    readonly build_receipt_file: string;
+    readonly prior_attempts?: ResolvedQualificationInput['prior_attempts'];
+  };
   readonly authority: {
     /** A user hold survives even when a matching scope was already approved. */
     readonly held: boolean;
@@ -196,6 +204,8 @@ export interface ResolvedQualificationInput {
   readonly format: 1;
   readonly scenario: QualificationScenario;
   readonly observation: FixtureObservation;
+  /** Root verifies these small public files before protected collection. */
+  readonly admission?: {readonly approval: PublicArtifact; readonly build_receipt: PublicArtifact};
   readonly prior_attempts: readonly {
     readonly request: PublicArtifact;
     readonly executed: PublicArtifact | null;

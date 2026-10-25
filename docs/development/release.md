@@ -270,9 +270,10 @@ fixture first, then the native distribution through the same scenario contract.
 **Operator interface:** `soda-release journey check` and `status` now exist.
 `check` reads selected target state and writes a local readiness result without
 guest mutation or provider inference; `status` derives blockers, accounting and
-the next supported action from that saved check without remote reads. `run` is still
-proposed (J13); it must execute only eligible authorized work and stop on a hold
-or missing authority.
+the next supported action from that saved check without remote reads. `run`
+performs semantic admission and calls the existing protected collector only for
+an eligible, released scope. Holds, revoked/missing authority and readiness
+blockers return a saved admission without dispatch.
 Build, stage, collect, finalize and qualify retain their existing owners.
 The intended arguments are `check --scenario FILE --out RUN_DIR` and
 `status|run --run RUN_DIR`; secret values are never command-line arguments.
@@ -287,7 +288,8 @@ bun scripts/build-qualification.ts --out /home/soda-tester/journey-build
 
 Use a fresh output directory with an existing canonical parent outside the
 checkout. The script builds `soda-qualification-journey`, the importable
-`phases.js` composition and `soda-installed-probes`. `build.json` records their
+`phases.js` composition, `soda-installed-probes` and protected
+`soda-qualification-collector`. `build.json` records their
 hashes/sizes, clean full source revision, actual clean SDK subtree/revision,
 package/module lock hashes and build recipe. It reuses installed tools and warm
 caches; it does not install dependencies, copy predecessor scripts, read private
@@ -335,6 +337,53 @@ native metadata with database outcome/lease/generation bindings and verifies
 history, charges and connection metadata remain identical before/after. It uses
 read-only SQL and native Inspect; no provider output leaves the guest. Those
 fixture history prerequisites are not automatically created or repaired.
+
+**Run admission:** `soda-release journey run --run RUN_DIR` verifies the saved
+scenario/executable, writes `run-admission.json`, and reuses `collect` for a
+released matching scope. `authority.held` is independent of approval state.
+`ScopeReceipt` in `tests/installed/qualification/run.ts` records `format: 1`,
+`state: approved|revoked`, a nonempty `approval_reference` and the result of
+`approvalScope(scenario)`. Record actual existing authority; a prepared document
+or a non-null path is insufficient. Candidate/target, cases, managed resources,
+effects, exact Factory subjects/operation/connections and finite limits must
+match. Driver rebuilds, file paths and current credential generations do not
+revoke unchanged approval. The scope comparison normalizes set ordering.
+
+The optional scenario `collection` supplies only existing `authority_file`,
+`candidate_directory`, fresh `output_directory` and `build_receipt_file` paths,
+plus optional `prior_attempts` canonical receipt references. Collector identity
+comes from the build receipt; no executable hash is transcribed into a phase
+configuration. The maintained projection derives phase flags/IDs/limits from
+the shared scenario and actual observation. The current supported collector
+case order is installation, browser_project, factory, persistence on Docker.
+
+An unheld matching scope refreshes actual read-only readiness before dispatch.
+Root invocation requires a root-controlled run and driver; approval/build
+receipts must also be root-owned private files under trusted ancestors. Reuse
+the existing root collector authority, runtime inventory and credential sources.
+The runtime supplies `details.json` (`DockerPhaseDetails`), `public-docker/`,
+`trust/{known_hosts,appliance-ca.crt}` and `chromium/chrome`; package inputs come
+from the candidate snapshot. The adapter checks the scope, source and fixed
+mounts before credential reads or transport and uses only the two existing
+systemd credential names. It imports no per-attempt implementation.
+
+The driver derives a private resolved source with approval/build pins; `collect`
+freezes its exact bytes as the existing read-only worker snapshot, retaining
+request/executed/sealed receipt ownership. No authority-file hash edit is needed.
+An existing fixed `resolved_input` authority must still match; it is never
+silently replaced. A hold or unknown/revoked approval does no remote refresh,
+funding, enrollment or model launch. Status retains that admission separately
+from its original readiness observation. Resume/reconciliation and duplicate
+caller behavior remain J14–J16; this command does not buy another attempt.
+
+`tests/installed/qualification/check-run.ts` reproduces guarded admission using
+the built driver and Rust operator. Supply `--operator ABSOLUTE_SODA_RELEASE`,
+`--build BUILD_JSON`, `--scenario ACTUAL_SCENARIO`, `--readiness ACTUAL_READINESS`
+and `--out FRESH_HOME_DIRECTORY`. It performs one actual read-only check and a
+held run/status, then isolated local receipt fixtures for changed scope and
+revocation. It never invokes a released approved scope. Its fixture receipts
+are explicitly non-operative and user-owned; they cannot establish protected
+owner authority or qualify a release.
 
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.

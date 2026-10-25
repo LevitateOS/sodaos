@@ -61,9 +61,15 @@ await mkdir(out, {mode: 0o700});
 const driver = path.join(out, 'soda-qualification-journey');
 const phases = path.join(out, 'phases.js');
 const probe = path.join(out, 'soda-installed-probes');
+const collector = path.join(out, 'soda-qualification-collector');
 for (const config of [
   {entrypoints: [path.join(root, 'tests/installed/qualification/main.ts')], compile: {outfile: driver}},
   {entrypoints: [path.join(root, 'tests/installed/qualification/phases/index.ts')], outdir: out, naming: 'phases.js'},
+  {
+    entrypoints: [path.join(root, 'tests/installed/qualification/collector.ts')],
+    compile: {outfile: collector},
+    define: {COLLECTOR_TOOL_REVISION: JSON.stringify(source)},
+  },
 ]) {
   const built = await Bun.build({...config, target: 'bun', minify: false});
   assert(built.success, 'qualification bundle failed: ' + built.logs.join('\n'));
@@ -83,7 +89,8 @@ await command([
 assert.equal(await cleanSource(), source, 'source changed during build');
 assert.equal(await sdkSource(), sdkRevision, 'SDK changed during build');
 for (const input of inputs) assert.equal((await artifact(input.path)).sha256, input.sha256, 'dependency input changed');
-for (const executable of [driver, probe]) assert((await stat(executable)).mode & 0o111, 'built executable required');
+for (const executable of [driver, probe, collector])
+  assert((await stat(executable)).mode & 0o111, 'built executable required');
 const receipt = {
   format: 1,
   source_revision: source,
@@ -96,7 +103,7 @@ const receipt = {
   dependency_installation_performed: false,
   tool_paths: {bun: process.execPath, go: Bun.which('go')},
   go_build: {cgo_enabled: false, mod: 'readonly', trimpath: true, linker},
-  outputs: await Promise.all([driver, phases, probe].map(artifact)),
+  outputs: await Promise.all([driver, phases, probe, collector].map(artifact)),
   appliance_access: false,
   provider_calls: 0,
 };

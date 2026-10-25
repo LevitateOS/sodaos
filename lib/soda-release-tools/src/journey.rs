@@ -1,5 +1,5 @@
-//! Read-only installed-journey operator. The driver owns scenario validation
-//! and observed business state; Rust retains only exact invocation inputs.
+//! Installed-journey operator. The driver owns scenario validation and observed
+//! business state; Rust binds exact inputs and reuses protected collection.
 use crate::qualification::input::{self, FileReference};
 use clap::{Arg, ArgMatches, Command};
 use serde::{Deserialize, Serialize};
@@ -18,9 +18,34 @@ struct Request {
     scenario: FileReference,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Collection {
+    authority_file: PathBuf,
+    candidate_directory: PathBuf,
+    output_directory: PathBuf,
+    build_receipt_file: PathBuf,
+    #[serde(default, rename = "prior_attempts")]
+    _prior_attempts: Vec<serde_json::Value>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Admission {
+    format: u8,
+    state: String,
+    held: bool,
+    approval_state: String,
+    blockers: Vec<String>,
+    approval: Option<FileReference>,
+    build_receipt: Option<FileReference>,
+    collector_sha256: Option<String>,
+    collection: Option<Collection>,
+    resolved_input: Option<FileReference>,
+}
+
 pub(crate) fn command() -> Command {
     Command::new("journey")
-        .about("Inspect installed qualification readiness without target mutation")
+        .about("Inspect qualification readiness or dispatch its admitted protected collector")
         .subcommand_required(true)
         .subcommand(["scenario", "out"].into_iter().fold(
             Command::new("check").about("Snapshot scenario inputs and inspect readiness"),
@@ -29,6 +54,11 @@ pub(crate) fn command() -> Command {
         .subcommand(
             Command::new("status")
                 .about("Report the last read-only check using its retained scenario and driver")
+                .arg(Arg::new("run").long("run").required(true).num_args(1)),
+        )
+        .subcommand(
+            Command::new("run")
+                .about("Admit the saved exact scope, respect holds and reuse protected collection")
                 .arg(Arg::new("run").long("run").required(true).num_args(1)),
         )
 }
@@ -44,6 +74,7 @@ pub(crate) fn run(flags: &ArgMatches) -> Result<(), String> {
     match action {
         "check" => check(path("scenario")?, path("out")?),
         "status" => status(path("run")?),
+        "run" => execute(path("run")?),
         _ => Err("unknown journey action".into()),
     }
 }
@@ -143,8 +174,7 @@ fn check(scenario: &Path, out: &Path) -> Result<(), String> {
     invoke("check", &request, &out)
 }
 
-fn status(out: &Path) -> Result<(), String> {
-    let out = private_run(out)?;
+fn retained(out: &Path) -> Result<Request, String> {
     let request_path = out.join("request.json");
     let meta = fs::symlink_metadata(&request_path).map_err(|_| "journey request unavailable")?;
     if !meta.is_file()
@@ -164,11 +194,83 @@ fn status(out: &Path) -> Result<(), String> {
     if executable.path != request.driver.path || executable.sha256 != request.driver.sha256 {
         return Err("journey driver binding changed".into());
     }
-    invoke("status", &request, &out)
+    Ok(request)
+}
+
+fn status(out: &Path) -> Result<(), String> {
+    let out = private_run(out)?;
+    invoke("status", &retained(&out)?, &out)
+}
+
+fn execute(out: &Path) -> Result<(), String> {
+    let out = private_run(out)?;
+    let request = retained(&out)?;
+    invoke("run", &request, &out)?;
+    let admission: Admission = serde_json::from_value(read(&out.join("run-admission.json"))?)
+        .map_err(|_| "journey admission invalid")?;
+    if admission.format != 1 {
+        return Err("journey admission format refused".into());
+    }
+    if matches!(admission.state.as_str(), "held" | "revoked" | "blocked") {
+        return Ok(());
+    }
+    if admission.state != "ready"
+        || admission.held
+        || admission.approval_state != "approved"
+        || !admission.blockers.is_empty()
+    {
+        return Err("journey execution not admitted".into());
+    }
+    let collection = admission.collection.ok_or("collector inputs required")?;
+    let resolved = admission
+        .resolved_input
+        .ok_or("resolved journey input required")?;
+    let approval = admission.approval.ok_or("exact scope approval required")?;
+    let build = admission
+        .build_receipt
+        .ok_or("collector build receipt required")?;
+    if resolved.path != out.join("resolved-input.json")
+        || build.path != collection.build_receipt_file
+    {
+        return Err("journey dispatch input binding changed".into());
+    }
+    for reference in [&approval, &build] {
+        soda_release_deliver::publish::qualification::protected_path(&reference.path, false)
+            .map_err(|_| "root-protected journey approval and build receipt required")?;
+        if hash(&reference.path)? != reference.sha256 {
+            return Err("journey dispatch metadata changed".into());
+        }
+    }
+    // The source is private 0600; collect makes the immutable 0444 worker copy.
+    if hash(&resolved.path)? != resolved.sha256 {
+        return Err("resolved journey input changed".into());
+    }
+    crate::qualification::collect_journey(
+        &collection.authority_file,
+        &collection.candidate_directory,
+        &collection.output_directory,
+        &resolved,
+        &admission
+            .collector_sha256
+            .ok_or("selected collector hash required")?,
+    )
 }
 
 fn invoke(action: &str, request: &Request, out: &Path) -> Result<(), String> {
     verify_driver(&request.driver)?;
+    // Root dispatch must not execute a caller-owned driver or consume a run
+    // replaceable through a user-writable ancestor. Local user checks stay local.
+    if crate::worker::euid() == 0 {
+        soda_release_deliver::publish::qualification::protected_path(out, true)
+            .map_err(|_| "root-protected journey run required for root invocation")?;
+        crate::worker::trusted_executable(
+            request
+                .driver
+                .path
+                .to_str()
+                .ok_or("UTF-8 driver path required")?,
+        )?;
+    }
     let mut command = std::process::Command::new(&request.driver.path);
     command.arg(action);
     if action == "check" {

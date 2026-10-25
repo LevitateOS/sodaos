@@ -44,6 +44,7 @@ export function scenarioInput(value: unknown): QualificationScenario {
     'credentials',
     'permitted_effects',
     'authority',
+    'collection',
   ]);
   assert.equal(s.format, 1);
   const c = object(s.candidate),
@@ -163,6 +164,21 @@ export function scenarioInput(value: unknown): QualificationScenario {
   const auth = object(s.authority);
   keys(auth, ['held', 'scope_receipt_file']);
   assert(typeof auth.held === 'boolean' && (auth.scope_receipt_file === null || absolute(auth.scope_receipt_file)));
+  if (s.collection !== undefined) {
+    const collection = object(s.collection);
+    const fields = ['authority_file', 'candidate_directory', 'output_directory', 'build_receipt_file'];
+    keys(collection, [...fields, 'prior_attempts']);
+    assert(fields.every((name) => absolute(collection[name])));
+    if (collection.prior_attempts !== undefined) {
+      assert(Array.isArray(collection.prior_attempts));
+      for (const value of collection.prior_attempts) {
+        const prior = object(value);
+        keys(prior, ['request', 'executed', 'release_evidence']);
+        artifact(prior.request);
+        for (const name of ['executed', 'release_evidence']) if (prior[name] !== null) artifact(prior[name]);
+      }
+    }
+  }
   const creds = object(s.credentials);
   keys(creds, ['guest_ssh_key_file', 'workspace_owner_password_file', 'application_owner_files']);
   assert(

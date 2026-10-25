@@ -78,8 +78,11 @@ referenced runtime, credentials and old evidence are not duplicated. Recovery
 checks the frozen snapshot against the retained request and authority pin,
 without substituting a newer source document. A changed input needs a new output
 attempt; existing attempts remain intact. Standalone collectors without a journey
-document retain their existing request and observation formats. Journey command
-wiring and semantic admission remain separate implementation tasks.
+document retain their existing request and observation formats. The maintained
+`journey run` path below supplies its root-verified fresh resolved source directly;
+the request/snapshot remain the same and the existing authority need not be
+rewritten with a manually transcribed source hash. A fixed authority source,
+when present, must still match.
 
 `soda-release finalize-evidence --out /home/RELEASE-AUTHORITY/observations-attempt` recovers that
 exact executed receipt without rerunning the collector or build. Failed,
@@ -99,8 +102,7 @@ Build the operator and the maintained installed driver from this checkout:
 
 ```sh
 cargo build --release -p soda-release-tools --bin soda-release
-bun build --compile tests/installed/qualification/main.ts \
-  --outfile /home/OPERATOR/soda-qualification-journey
+bun scripts/build-qualification.ts --out /home/OPERATOR/journey-build
 ```
 
 Use the shared `QualificationScenario` in
@@ -153,11 +155,32 @@ confirmed actor is a reason to observe, never an ownership guess or an end permi
 Completed run counts and charged minutes are retained history, separate from
 leases, unsettled accounting and native work. These requirements describe a final
 state; they grant no authority or instruction to stop resources now. The current
-Factory/browser route still has an independent Project-scope guard pending its
-shared-inventory phase migration; the diagnostic does not relax that guard.
+Factory/browser route consumes the same shared inventory for actual retirement;
+the diagnostic itself grants no lifecycle permission.
 Model outcomes, unimplemented supplemental routes and unvalidated paid authority
 stay unknown. A user hold remains a blocker. No check result admits execution or
-qualifies a release; `journey run` is not implemented yet.
+qualifies a release.
+
+## Maintained journey execution admission
+
+`soda-release journey run --run RUN` admits the saved exact scope and calls the
+existing protected collector. The [release workflow](../../docs/development/release.md#implementation-plan)
+documents `ScopeReceipt`, scenario `collection` paths, generated build identities
+and the fixed runtime input layout. Root dispatch requires a root-controlled
+driver/run, private approval/build receipts and the existing admitted collector
+authority, candidate, runtime and fixed credentials. Local user invocations can
+record holds/missing authority without reaching that boundary.
+
+`run-admission.json` records `held` separately from `approval_state`; rebuilding
+the driver or holding execution does not revoke matching paid scope. Released
+matching authority refreshes read-only readiness. Holds, revoked/missing authority
+and other blockers write no resolved execution input and dispatch nothing.
+Status includes this saved admission without target access. Eligible dispatch
+derives the collector hash from `build.json` and phase flags from the shared
+scenario, freezes resolved bytes through existing `collect`, and retains normal
+worker custody/evidence sealing. It does not change budgets or enroll accounts.
+The local boundary does not claim live qualification; durable effect intent,
+reconciliation and supported retry remain the next implementation tasks.
 
 Check and status use the same derived report: `blockers` names missing or
 unconfirmed requirements and resource IDs; `local_repairs` remains visible while

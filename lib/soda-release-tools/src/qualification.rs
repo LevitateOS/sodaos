@@ -475,9 +475,11 @@ fn retained_request(out: &Path) -> Result<(Request, Authority), String> {
 fn resolved_binding(out: &Path, a: &Authority, request: &Request) -> Result<(), String> {
     match (&a.resolved_input, &request.resolved_input) {
         (None, None) => Ok(()),
-        (Some(source), Some(snapshot))
+        (source, Some(snapshot))
             if snapshot.path == out.join("resolved-input.json")
-                && snapshot.sha256 == source.sha256 =>
+                && source
+                    .as_ref()
+                    .is_none_or(|source| snapshot.sha256 == source.sha256) =>
         {
             // The request and output parent are already root-protected. The
             // individual snapshot is readable through its read-only worker bind.
@@ -572,7 +574,64 @@ pub(crate) fn finalize(out: &Path) -> Result<(), String> {
     Ok(())
 }
 pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(), String> {
+    collect_inner(config, candidate, out, None)
+}
+
+/// A trusted journey driver supplies fresh resolved bytes and the collector
+/// identity from its build receipt. Existing authority/credentials are reused;
+/// no authority hash or per-phase flag needs to be edited for that snapshot.
+pub(crate) fn collect_journey(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    resolved: &input::FileReference,
+    collector_sha256: &str,
+) -> Result<(), String> {
+    evidence::protected_path(&resolved.path, false)
+        .map_err(|_| "root-protected resolved journey input required")?;
+    if hash(&resolved.path)? != resolved.sha256 {
+        return Err("resolved journey input changed".into());
+    }
+    collect_inner(config, candidate, out, Some((resolved, collector_sha256)))
+}
+
+fn collect_inner(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    journey: Option<(&input::FileReference, &str)>,
+) -> Result<(), String> {
     let a = authority(config)?;
+    if let Some((resolved, collector_sha256)) = journey {
+        if a.collector_sha256 != collector_sha256
+            || !crate::digest::is_digest(collector_sha256)
+            || a.resolved_input.as_ref().is_some_and(|source| {
+                source.path != resolved.path || source.sha256 != resolved.sha256
+            })
+        {
+            return Err("journey collector or fixed resolved input differs from authority".into());
+        }
+        let selected: serde_json::Value = read(&resolved.path)?;
+        for (field, expected) in [
+            (
+                "/scenario/candidate/source_revision",
+                a.source_revision.as_str(),
+            ),
+            (
+                "/scenario/candidate/candidate_sha256",
+                a.candidate_sha256.as_str(),
+            ),
+            (
+                "/scenario/candidate/payload_sha256",
+                a.payload_sha256.as_str(),
+            ),
+            ("/scenario/target/name", a.target.as_str()),
+        ] {
+            if selected.pointer(field).and_then(serde_json::Value::as_str) != Some(expected) {
+                return Err("journey differs from collector candidate/target authority".into());
+            }
+        }
+    }
     if out.parent() != Some(a.output_parent.as_path())
         || out.file_name().is_none()
         || out.starts_with(candidate)
@@ -587,6 +646,13 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         {
             return Err("different collector request already exists".into());
         }
+        if journey.is_some_and(|(source, _)| {
+            r.resolved_input
+                .as_ref()
+                .is_none_or(|snapshot| snapshot.sha256 != source.sha256)
+        }) {
+            return Err("different resolved journey already retained".into());
+        }
         return finalize(out);
     }
     input_binding(&a, candidate)?;
@@ -596,9 +662,9 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         .create(out)
         .map_err(|e| e.to_string())?;
     let _lock = lock(out)?;
-    let resolved_input = a
-        .resolved_input
-        .as_ref()
+    let resolved_input = journey
+        .map(|(source, _)| source)
+        .or(a.resolved_input.as_ref())
         .map(|source| {
             evidence::protected_path(&source.path, false).map_err(|e| e.to_string())?;
             input::snapshot(source, &out.join("resolved-input.json"))
