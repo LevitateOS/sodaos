@@ -59,10 +59,9 @@ LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
 
 # Seal metadata onto the exact image whose RPM inventory was observed. A
 # second install from the base could select different repository metadata.
+# The observed image has already completed OSTree finalization and cleanup.
 FROM ${OBSERVED_HOST} AS host-sealed
 COPY rootfs/ /
-RUN ostree container commit && \
-    find /sysroot -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 
 ARG PAYLOAD_SCOPE=host-content-only
 LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
