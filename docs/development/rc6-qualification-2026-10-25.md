@@ -187,13 +187,59 @@ Neither exported raw run bodies, model text or provider logs.
 The expired review cannot be resumed through `use_current_context`. Normal Retry
 would open a fresh investigation; it is not review-only recovery. Exact supported
 actions and source gates are recorded in `$RUN/r57-review-recovery/READY.md`.
-A separate caller correction is being prepared with implementation and
-publication-bound reviewer projections, exact canonical lineage and per-run
-context resolution. Production source `9842e527` and the failed authority remain
-unchanged. A fresh unpaid repository/Project is being prepared on the same
-appliance, reusing the Ready sign-in and actors while preserving repository 1,
-its candidate/PR and all usage. Another paid trial requires a new finite approval;
-the prior approval explicitly excluded automatic retries.
+A separate caller correction compiled with implementation and publication-bound
+reviewer projections, exact canonical lineage and per-run context resolution.
+It reads the current canonical connection generation; it does not pin the initial
+enrollment generation. The normal owner action still requires canonical
+`can_use_current`, complete current context and all three exact selection digests.
+It uses the recorded judgment without another model inquiry. This action can
+resolve attention while eligible; the expired original review remains ineligible.
+
+An affected TypeScript check passed. A local integration using the retained real
+implementation command exercised the actual permit arm/admit bridge with its new
+per-run identity, exact request and one-use limit; changed path, body and label
+were refused. This caught and corrected an old exact-label rule before any paid
+successor ran. Results belong to `$RUN/r57-context-role-helper/` and
+`$RUN/r57-docker-collector-context-aware/correction-ready.public.json`.
+Eligible reviewer execution remains an unperformed live check, rather than a
+claim inferred from compilation. Production source `9842e527` and the failed
+authority remain unchanged.
+
+Fresh unpaid setup passed on the same appliance for repository 2,
+`rc-public-docker-rc7-factory-corrected-20261025`, Project
+`p683bc93a2341173ca414e578`, source
+`ab676d4cd92b85be10d2f06da61ef5bb2c38f20b`, issue 1/native issue 3.
+Both original preparation IDs are ready with setup/check exit 0; supported
+same-ID continuation completed the initially unconfirmed preparation. The issue's
+successful UI POST was reconciled without creating another issue. The existing
+Ready sign-in, seven service tokens and TypeSafe configuration were reused;
+repository 1, its candidate/PR and every charge remain intact.
+Handoff: `$RUN/r57-public-factory-fixture-corrected/docker/unpaid-setup-handoff.public.json`,
+SHA-256 `9106b572b41a87d853a2c4a4643dcea09222443be1dff154389443771037c801`.
+
+The separate unpaid reader passed at `20:22:46Z`: all eight custody counters
+zero, two Projects, zero Apps, no new-repository history and all three old runs/
+10 used minutes preserved. Only the new read-only role helper and its bound
+scope were then deployed, without a service restart. No model eligibility was
+invented from this idle check. Receipt:
+`$RUN/r57-production-collector-admission/docker-rc7-context-aware/unpaid-ready.public.json`.
+
+The proposed successor is one 15-minute sponsorship, rolling limit explicitly
+raised from 15 to 25 minutes while retaining previous usage, one active run and
+900 seconds. It includes ordinary saved-current actions for both roles only
+when canonically eligible, and excludes automatic retry, refill and extra inquiry.
+Its actual scope is
+`$RUN/r57-public-factory-fixture-corrected/setup-authorization.prepared.json`.
+The frozen scope SHA-256 is
+`6c703c528e1adb38232ec42dace08f5dc908841311a1b6ce0d990785e62d1fb3`.
+No new grant, funding, consumer emission or paid run has occurred. The prepared
+consumer has `grant: null`; it is not evidence of actual funding. Another paid
+trial requires a new finite approval because the prior approval explicitly
+excluded automatic retries. After that real approval, the held runner's exact
+commands are `node "$RUN/r57-public-factory-fixture-corrected/run-phase.cjs" funding`
+then the same command with `emit`. Both require the actual scoped approval
+receipt; an unapproved prepared scope is insufficient. Fresh funded baseline,
+runtime inventory and admission must bind the emitted consumer before launch.
 
 The RC7 App fixture was rebuilt against runtime config
 `4a03219464e996f8bb35771a091d98978f169172f6305e9c171348e5cf5ef438`.
@@ -726,7 +772,12 @@ distinct from permission to publish or promote.
 3. Complete Docker same-image recreation, canonical qualification and separate
    offline cold recovery. Cold tools are prepared but have not run successfully
    for this Docker target. Bind their inputs to the actual final container/head
-   and sealed proof; do not use initial values after recreation.
+   and sealed proof; do not use initial values after recreation. The current
+   Docker qualification fixture has zero Apps. Adding a model-free App and
+   proving its owner/record changes requires a fresh post-App native capture
+   binding before cold recovery; its full protected-state hash cannot equal the
+   earlier App-free baseline. Retain that earlier seal at its actual historical
+   scope rather than presenting it as App-data recovery proof.
 4. Measure the frozen release capacity profiles using the completed unpaid native
    fixture and an actual same-interval workload. Earlier T5/development sizing
    and separate RC7 resource windows do not prove App + terminal + Factory
