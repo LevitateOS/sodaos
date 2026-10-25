@@ -1,0 +1,19 @@
+# source	output	width	height	background
+assets/branding/source/soda-logo-horizontal.svg	assets/branding/installer/soda-logo-horizontal.png	512	128	none
+assets/branding/source/soda-logo-horizontal-dark.svg	assets/branding/installer/soda-logo-horizontal-dark.png	512	128	none
+assets/branding/source/soda-symbol.svg	assets/branding/installer/soda-symbol.png	256	256	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/16x16/apps/soda-os.png	16	16	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/24x24/apps/soda-os.png	24	24	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/32x32/apps/soda-os.png	32	32	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/48x48/apps/soda-os.png	48	48	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/64x64/apps/soda-os.png	64	64	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/128x128/apps/soda-os.png	128	128	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/256x256/apps/soda-os.png	256	256	none
+assets/branding/source/soda-symbol.svg	assets/branding/icons/hicolor/512x512/apps/soda-os.png	512	512	none
+assets/branding/source/soda-symbol.svg	assets/branding/web/favicon-16.png	16	16	none
+assets/branding/source/soda-symbol.svg	assets/branding/web/favicon-32.png	32	32	none
+assets/branding/source/soda-symbol-dark.svg	assets/branding/web/apple-touch-icon.png	180	180	#101010
+assets/branding/source/soda-symbol.svg	assets/branding/cockpit/favicon-16.png	16	16	none
+assets/branding/source/soda-symbol.svg	assets/branding/cockpit/favicon-32.png	32	32	none
+assets/branding/source/soda-symbol.svg	assets/branding/cockpit/favicon-48.png	48	48	none
+assets/branding/source/soda-symbol-dark.svg	assets/branding/cockpit/apple-touch-icon.png	180	180	#101010

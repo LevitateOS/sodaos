@@ -29,8 +29,8 @@ colors remain owned by Cockpit.
 - `../forgejo/apple-touch-icon.png` and an ICO container of the existing canonical
   16px/32px favicon PNGs. The pixels are copied, not redrawn.
 
-Older kit SVG backgrounds, wordmarks, favicon proofs and noninteractive previews
-remain preserved source/provenance, not active staging inputs or current screenshots.
+The preview and retained icon exports use the current offset-core emblem. Regenerate
+the PNGs with `scripts/render-branding.sh`; staging constructs its ICO from current PNGs.
 No retired workspace output is staged. The top-level `cockpit/` directory is
 removed; [`provenance/`](provenance/README.md) preserves its upstream inputs and
 licenses without making them active branding/build inputs.

@@ -6,11 +6,10 @@ Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3
 
 | Path | Contents |
 | --- | --- |
-| `branding/source/` | Canonical brutalist light/dark symbols plus shared legacy masters still consumed by Cockpit/installer |
-| `branding/soda-os-logo-concept-v3.png` | Approved visual reference |
+| `branding/source/` | Current offset-core light/dark symbols and wordmarks |
 | `branding/web/` | Web favicons and Apple touch icon |
 | `branding/icons/hicolor/` | System icons from 16px to 512px |
-| `branding/installer/` | Raster logo variants, export manifest, and Anaconda CSS |
+| `branding/installer/` | Current light/dark raster logos, export manifest, and Anaconda CSS |
 | `branding/cockpit/` | Stock Cockpit branding/theme CSS, retained images/static preview, and the retired workspace's upstream provenance archive |
 | `branding/fonts/` | Self-hosted Barlow Condensed, Barlow and IBM Plex Mono, plus retained Fraunces WOFF2 faces, CSS, exact-version provenance and OFL licenses |
 | `branding/forgejo/` | Four PNG exports, native theme review sheet, manifest and light/dark/automatic themes; no decorative artwork |
@@ -40,7 +39,7 @@ These styles have application-specific owners; they are not globally applied to 
 - `branding/forgejo/css/*.css`: Forgejo 15 themes and controls, from `packaging/rpm/forgejo/sources/custom/public/assets/css/`. Native `theme-forgejo-light.css` / `theme-forgejo-dark.css` are supplied by Forgejo, not this repository.
 - `branding/installer/soda.css`: Anaconda integration from `packaging/installer/branding/soda.css`; absolute image URLs refer to installed Anaconda paths.
 
-Palette imports now resolve to the single `branding/theme/palette.css` source. Future packaging must preserve these relative paths or rewrite imports when staging. Native Cockpit branding also expects installed wordmark paths; this import does not install or activate any themes.
+Palette imports now resolve to the single `branding/theme/palette.css` source. Future packaging must preserve these relative paths or rewrite imports when staging. Native Cockpit staging selects the current light/dark symbols.
 
 The READMEs in `branding/cockpit/` and `branding/theme/` retain original design context. Their descriptions of RPM staging and source-repository tests are historical, not claims about this project.
 
@@ -48,6 +47,6 @@ The READMEs in `branding/cockpit/` and `branding/theme/` retain original design 
 
 No application components, services, OS configuration, dependencies, caches, credentials, or build artifacts were imported. No standalone font files existed outside dependencies/build outputs; use the chosen frontend's fonts rather than copying vendored font infrastructure.
 
-Forgejo raster exports and manifest follow the current canonical symbol. Forgejo-only regeneration/check source is now ported as `scripts/render-forgejo-branding.sh` and `tools/png-equal/`, together with `scripts/check-forgejo-branding.ts` for the native component sheet. See [branding review](../docs/design/branding.md); current verification and deployment boundaries are recorded in the Forgejo redesign status. Other renderer source (`scripts/render-branding.*`, `scripts/render-installer-branding.sh`, `tools/render-cockpit-branding/`) remains in the predecessor; do not execute or modify that repository without separate authorization, or hand-edit derivative PNGs.
+Raster exports use the current offset-core masters. Run `scripts/render-branding.sh` to regenerate installer, desktop, web, Cockpit and Forgejo PNGs, or pass `--check` to compare pixels. The manifests record source files, dimensions and backgrounds.
 
 See [branding usage](../docs/design/branding.md) for mark selection and constraints.

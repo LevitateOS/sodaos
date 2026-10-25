@@ -14,7 +14,7 @@ p { margin: 8px 0; }
 .mark, .palette, .icons > div { color: var(--soda-text); background: var(--soda-surface); }
 .mark { border-radius: 12px; padding: 24px 32px 16px; }
 .mark img { display: block; width: min(100%, 380px); height: 95px; object-fit: contain; object-position: left; }
-.mark.pf-v6-theme-dark { background: #06245b; }
+.mark.pf-v6-theme-dark { background: #101010; }
 .mark p, .icons p { font-size: 12px; color: var(--soda-muted); }
 .login { display: grid; place-items: center; padding: 32px; min-height: 458px; border-radius: 12px; color: var(--soda-text); background: url('login-background-light.svg') center / cover; }
 .login.pf-v6-theme-dark { background-image: url('login-background-dark.svg'); }
