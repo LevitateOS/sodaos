@@ -4,6 +4,11 @@ How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).
 
+The [25 October RC6 qualification record](rc6-qualification-2026-10-25.md)
+retains the selected revisions, actual installed results, failed collector
+attempts, local evidence locations and remaining work. It records one attempt's
+history; the workflow below owns the reusable procedure.
+
 Payload v4 separates the host, application images and native extension packages.
 Fountain owns package acquisition and requested enablement; Soda supplies its
 packages and restricted host operations. See the
