@@ -99,7 +99,8 @@ export async function exerciseProjectPhase(
     'same_actual_prepared_factory_project'
   );
   stage = 'navigate_workspace';
-  await page.goto(origin + '/workspace?repository=' + r.id);
+  const workspace = origin + '/workspace?repository=' + r.id;
+  if (page.url() !== workspace) await page.goto(workspace);
   stage = 'mount_workspace';
   const generation = await nativeSpacesMount(page),
     mount = await mountedSpacesFacts(page);

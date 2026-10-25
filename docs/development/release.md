@@ -379,7 +379,49 @@ An existing fixed `resolved_input` authority must still match; it is never
 silently replaced. A hold or unknown/revoked approval does no remote refresh,
 funding, enrollment or model launch. Status retains that admission separately
 from its original readiness observation. Resume/reconciliation and duplicate
-caller behavior remain J14–J16; this command does not buy another attempt.
+caller recovery continues in J15–J16; this command does not buy another attempt.
+
+**Durable effects and target ownership:** before protected collection,
+`collector-intent.json` retains the exact scenario, approval, build, resolved
+input and output binding. The returned `collector-binding.json` records the
+canonical collector request hash and transient unit, including an uncertain
+controller reply when that request exists. All resolved collector entrypoints
+share a root-controlled flock keyed by distribution/actual target UUID under
+`/home/.soda-qualification-targets`. Before worker dispatch an immutable claim
+binds its output/request/unit. A different output cannot start while a prior
+claim lacks its matching canonical executed/native-retirement receipt; releasing
+the process lock alone does not clear uncertainty. Existing collector outputs
+continue to finalize rather than redispatch.
+
+Factory commands persist their request through the existing permit before
+transport. A lost or unusable reply reads only `factory/commands/ID`; type,
+target, session principal, normalized payload/digest and finished outcome must
+match before another mutation. Pending, absent or conflicting records stop;
+there is no automatic POST/PUT replay. CI reads its exact remote journal after
+an uncertain SSH reply. Resource retirement reads the same native incarnation
+after an uncertain stop, and Docker recreation reads its protected attempt/result
+journal. Explicit command denials do not become permission through observation.
+Terminal reservation replies retain their returned identity before reaching the
+browser's native-TTY handshake.
+
+`setup.ts` adopts the selected Project/member, exact preparations and current
+Ready Codex generation through the normal owner APIs; matching ready state sends
+no create/join/enrollment/preparation request. The supported preparation helper
+can continue only the same approved/waiting IDs with explicitly admitted unpaid
+inputs: durable intent precedes the request, and the exact preparation read
+follows even a lost reply. Failed/stopped/interrupted or ambiguous state does not
+create replacements. Whole-run admission of partial setup remains J15; the
+current collector uses the ready-adoption path before any Factory command.
+
+Reproduce command reconciliation with `check-command.ts --module BUILT_PHASES
+--scenario ACTUAL_SCENARIO --out FRESH_HOME_DIRECTORY`: it reads a real retained
+canonical command via pinned SSH and uses a local non-dispatching lost-reply
+callback, without claiming normal HTTP mutation acceptance. For the actual
+cross-directory process lock, run `check-target.ts --operator ABS_SODA_RELEASE
+--out FRESH_DIRECT_HOME_CHILD` as root. Its isolated development fixture uses
+an incomplete candidate and a real flock holder to prove both callers stop
+before worker/output allocation. These checks never launch a model or touch
+an appliance's logical state; live API interruption/custody acceptance stays J16.
 
 `tests/installed/qualification/check-run.ts` reproduces guarded admission using
 the built driver and Rust operator. Supply `--operator ABSOLUTE_SODA_RELEASE`,

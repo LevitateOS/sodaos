@@ -10,6 +10,7 @@ use std::{
     time::Instant,
 };
 pub(crate) mod input;
+mod target;
 
 const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
@@ -63,6 +64,24 @@ struct Request {
     binding: ProtectedEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resolved_input: Option<input::FileReference>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CollectionBinding {
+    pub request: input::FileReference,
+    pub unit: String,
+}
+
+pub(crate) fn collection_binding(out: &Path) -> Result<CollectionBinding, String> {
+    let (request, _) = retained_request(out)?;
+    Ok(CollectionBinding {
+        request: input::FileReference {
+            path: out.join("request.json"),
+            sha256: hash(&out.join("request.json"))?,
+        },
+        unit: request.unit,
+    })
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -640,6 +659,16 @@ fn collect_inner(
     {
         return Err("fresh disjoint evidence output required".into());
     }
+    // All entry points consuming a resolved journey share this target lock.
+    // An output-directory lock alone permits two runs against the same VM.
+    let target = journey
+        .map(|(resolved, _)| resolved)
+        .or(a.resolved_input.as_ref())
+        .map(target::Target::acquire)
+        .transpose()?;
+    if let Some(target) = &target {
+        target.check(out)?;
+    }
     if out.exists() {
         let (r, _) = retained_request(out)?;
         if r.authority != config || r.candidate != candidate || hash(config)? != r.authority_sha256
@@ -772,6 +801,9 @@ fn collect_inner(
         worker
             .read_only
             .push(format!("{}:{RESOLVED_INPUT}", snapshot.path.display()));
+    }
+    if let Some(target) = &target {
+        target.claim(out, &collection_binding(out)?)?;
     }
     crate::build_cli::watch_build_signals();
     let start = Instant::now();

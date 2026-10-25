@@ -179,8 +179,21 @@ Status includes this saved admission without target access. Eligible dispatch
 derives the collector hash from `build.json` and phase flags from the shared
 scenario, freezes resolved bytes through existing `collect`, and retains normal
 worker custody/evidence sealing. It does not change budgets or enroll accounts.
-The local boundary does not claim live qualification; durable effect intent,
-reconciliation and supported retry remain the next implementation tasks.
+The local boundary does not claim live qualification. Journey dispatch now
+retains `collector-intent.json` and exact request/unit `collector-binding.json`.
+All resolved collector invocations share a protected lock and immutable claims
+under `/home/.soda-qualification-targets`, keyed by distribution/actual UUID;
+uncertain prior claims fence new outputs until canonical native retirement is
+confirmed. The existing collector request still precedes worker dispatch and
+existing outputs only finalize. No timeout or vanished caller clears custody.
+
+The maintained phases retain requests and returned bindings before continuing.
+Uncertain Factory replies use the exact normal command lookup, CI/recreation
+use their existing remote journals, and lifecycle actions read the same native
+resource incarnation. Ready setup/Identity state is adopted through normal APIs;
+preparation continuation keeps its exact IDs. See the release workflow for the
+provider-free reproduction entrypoints and scope. Partial-setup admission,
+supported recovery/retry and live API interruption checks remain J15–J16.
 
 Check and status use the same derived report: `blockers` names missing or
 unconfirmed requirements and resource IDs; `local_repairs` remains visible while

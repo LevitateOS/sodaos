@@ -174,20 +174,28 @@ export async function retireOwnedResources(
     if (action.kind === 'application') await applicationStop(action.id, before);
   const request = async (name: string, route: string, body: unknown) => {
     permits.arm(name, apiBase + '/' + route, body);
-    const reply = await page.evaluate(
-      async ({route, body}: any) => {
-        const response = await (document.querySelector('soda-spaces') as any).binding.transport.request(route, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(240000),
-        });
-        return {status: response.status};
-      },
-      {route, body}
-    );
+    let reply: {status: number; transport_uncertain?: boolean};
+    try {
+      reply = await page.evaluate(
+        async ({route, body}: any) => {
+          const response = await (document.querySelector('soda-spaces') as any).binding.transport.request(route, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(240000),
+          });
+          return {status: response.status};
+        },
+        {route, body}
+      );
+    } catch {
+      reply = {status: 0, transport_uncertain: true};
+    }
     await io.save('persistence/' + name + '.receipt.json', reply);
-    check(reply.status === 200, 'normal_lifecycle_acknowledgment');
+    check(reply.status === 200 || reply.status === 0 || reply.status >= 500, 'normal_lifecycle_command_denied');
+    // The caller immediately reads this exact resource/native incarnation.
+    // An uncertain HTTP reply is never another normal stop request.
+    return reply;
   };
   for (const action of initial.retirement_actions) {
     const current = await inspect();
@@ -207,7 +215,7 @@ export async function retireOwnedResources(
       route = 'applications/' + action.id + '/actions';
       body = await applicationStop(action.id, current);
     }
-    await request(name, route, body);
+    const reply = await request(name, route, body);
     const after = await inspect();
     sameIncarnations(after);
     const confirmed = diagnose(after);
@@ -217,6 +225,8 @@ export async function retireOwnedResources(
       'native_resource_retirement_unconfirmed'
     );
     await io.save('persistence/' + name + '.native.json', {
+      http_status: reply.status,
+      recovered_after_uncertain_reply: reply.status !== 200,
       closure: confirmed,
       project_runtime: after.inner.project_runtime,
       application_runtime: after.inner.application_runtime,
@@ -290,9 +300,32 @@ export async function exercisePersistence(
     volumes_sha256: sha(JSON.stringify(before.volumes)),
     automatic_retry: false,
   });
-  const action = JSON.parse(await io.sshRead(recreateScript(b, w, before, scope), 1800000));
+  let action: any;
+  try {
+    action = JSON.parse(await io.sshRead(recreateScript(b, w, before, scope), 1800000));
+  } catch {
+    const recovered = JSON.parse(await io.sshRead(persistenceRecoveryScript(b.host)));
+    const attempted = recovered.attempt,
+      result = recovered.result;
+    check(
+      attempted?.target === b.target &&
+        attempted.source === b.source &&
+        attempted.outer_before === before.outer_id &&
+        attempted.protected_before_sha256 === before.inner.protected_sha256 &&
+        result?.target === b.target &&
+        result.source === b.source &&
+        result.outer_before === before.outer_id &&
+        result.registry_manifest === b.manifest &&
+        result.registry_config === b.config &&
+        result.volumes_sha256 === sha(JSON.stringify(before.volumes)) &&
+        result.exit_code === 0,
+      'persistence_exact_operation_unconfirmed'
+    );
+    action = {result};
+    await io.save('persistence/recreation-recovered.json', {result, automatic_retry: false});
+  }
   await io.save('persistence/action-result.json', action.result);
-  const after = await readDocker(io, b, 'snapshot', w);
+  const after = await readDocker(io, b, 'snapshot', w, scope);
   check(after.outer_id === action.result.outer_after && after.outer_id !== before.outer_id, 'actual_new_outer');
   assert.deepEqual(after.volumes, before.volumes, 'all_three_original_volumes');
   assert.deepEqual(after.inner.protected, before.inner.protected, 'all_retained_state');

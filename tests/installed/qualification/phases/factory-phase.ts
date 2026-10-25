@@ -4,6 +4,7 @@ import {validateFactoryPhase, snapshotScript, factoryCommandID} from './factory-
 import {nativeExecutionScript, nativeExecutionSucceeded} from './factory-execution';
 import {ciScript} from './factory-ci';
 import {contextStatusScript} from './context-status';
+import {issueFactoryCommand} from './factory-command';
 import {mountedSpacesFacts, nativeSpacesMount} from '../../sodaspaces-journey-evidence';
 
 let stage = 'not_started';
@@ -561,13 +562,21 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
   };
   const command = async (label: string, path: string, method: string, body: any) => {
     stage = 'journal_' + label;
-    await permits.arm(label, method, mount.apiBase + '/' + path, body);
-    stage = 'request_' + label;
-    const result = await request(path, method, body);
-    stage = 'receipt_' + label;
-    await io.save('commands/' + label + '.receipt.json', result);
-    check(result.status === 200, 'factory_owner_command_unconfirmed');
-    return result.body;
+    return issueFactoryCommand(
+      {label, path, method, body, repository: R, owner: cfg.project_phase.actor},
+      {
+        prepare: () => permits.arm(label, method, mount.apiBase + '/' + path, body),
+        send: () => {
+          stage = 'request_' + label;
+          return request(path, method, body);
+        },
+        lookup: (route) => {
+          stage = 'reconcile_' + label;
+          return request(route);
+        },
+        save: io.save,
+      }
+    );
   };
   await command('open-policy', base + '/policy', 'PUT', policyBody(policy, false));
   await command('resume', base + '/actions', 'POST', {command_id: commandID('resume'), action: 'resume'});
@@ -759,7 +768,12 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
       await io.save('ci-' + publication.candidate + '.request.json', body);
       published.add(publication.candidate);
       stage = 'candidate_native_ci';
-      const receipt = JSON.parse(await io.sshRead(ciScript(c, cfg.guest.origin, body), 90000));
+      let receipt;
+      try {
+        receipt = JSON.parse(await io.sshRead(ciScript(c, cfg.guest.origin, body), 90000));
+      } catch {
+        receipt = JSON.parse(await io.sshRead(ciScript(c, cfg.guest.origin, body, 'inspect'), 90000));
+      }
       await io.save('ci-' + publication.candidate + '.receipt.json', receipt);
       check(receipt.state === 'success', 'factory_ci_outcome_unconfirmed');
       ci.push(receipt);

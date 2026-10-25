@@ -8,12 +8,13 @@ import type {BrowserContext} from 'playwright';
 import type {ResolvedQualificationInput} from '../scenario';
 import {scenarioInput} from '../validate';
 import {loginNativeForgejo} from '../../sodaspaces-controls';
-import {mountedSpacesFacts} from '../../sodaspaces-journey-evidence';
+import {mountedSpacesFacts, nativeSpacesMount} from '../../sodaspaces-journey-evidence';
 import {check, sha, COMMIT, SHA, rawRun, networkGuard, packageAssetHashes, packageAssetName} from './support';
 import {ProjectPermits, exerciseProjectPhase, validateProjectPhase} from './project-phase';
 import {FactoryPermits, exerciseFactoryPhase} from './factory-phase';
 import {validateFactoryPhase, factoryCommandID} from './factory-native';
 import {contextStatusScript} from './context-status';
+import {adoptSetup, type SetupContinuation} from '../setup';
 import {writePersistenceWitness} from './project-persistence-witness';
 import {
   loadDockerBinding,
@@ -29,6 +30,7 @@ import {PersistencePermits, retireOwnedResources, exercisePersistence} from './d
  * locations. No duplicated source/target/resource IDs, paid limits or flags. The
  * controller must pin these dependencies in its admitted resolved input. */
 export interface DockerPhaseDetails {
+  readonly preparation_continuation?: SetupContinuation;
   readonly host: DockerHostPaths;
   readonly public_download_directory: string;
   readonly package_directory: string;
@@ -241,6 +243,7 @@ export async function collectDockerPhases(
   const audit = {requests: [] as any[], blocked_raw_runs: 0, blocked_other: 0, raw_responses: 0, login_posts: 0};
   const context = await runtime.openBrowser();
   let loginPhase = true;
+  let setupIntent: {path: string; body: unknown} | undefined;
   try {
     const guard = networkGuard(
       cfg.guest.origin,
@@ -249,10 +252,44 @@ export async function collectDockerPhases(
       async (request) =>
         (await projectPermits.admit(request)) ||
         (await factoryPermits.admit(request)) ||
-        (await persistencePermits.admit(request))
+        (await persistencePermits.admit(request)) ||
+        (() => {
+          const u = new URL(request.url());
+          if (!setupIntent || request.method() !== 'POST' || u.pathname !== setupIntent.path || u.search || u.hash)
+            return false;
+          assert.deepEqual(request.postDataJSON(), setupIntent.body);
+          setupIntent = undefined;
+          return true;
+        })()
     );
     await context.route('**/*', async (route) => {
       const request = route.request();
+      const url = new URL(request.url());
+      if (url.origin === cfg.guest.origin && !url.search && !url.hash && (await projectPermits.admit(request))) {
+        audit.requests.push({method: request.method(), path: url.pathname, blocked: false});
+        // Hold the reservation reply until its returned identity is durable.
+        // The browser cannot open a native TTY before this binding is saved.
+        try {
+          const response = await route.fetch({maxRedirects: 0, maxRetries: 0, timeout: 60000});
+          const reserved = await response.json();
+          check(response.status() === 201 && /^[a-f0-9]{32}$/.test(reserved.id), 'returned_terminal_reservation');
+          await io.save('browser_project/terminal.returned.json', {
+            status: response.status(),
+            id: reserved.id,
+            project: projectPermits.project,
+            actor: cfg.project_phase.actor,
+          });
+          return route.fulfill({response});
+        } catch {
+          await io.save('browser_project/terminal.uncertain.json', {
+            project: projectPermits.project,
+            actor: cfg.project_phase.actor,
+            path: url.pathname,
+            automatic_retry: false,
+          });
+          return route.abort('failed');
+        }
+      }
       if (await factoryPermits.admitRunAction(request)) {
         audit.requests.push({
           method: request.method(),
@@ -299,6 +336,55 @@ export async function collectDockerPhases(
     check(password.length > 0 && password.length <= 16384, 'owner_password_bound');
     await loginNativeForgejo(page, cfg.guest.origin, cfg.guest.workspace_user, password);
     loginPhase = false;
+    await page.goto(cfg.guest.origin + '/workspace?repository=' + cfg.factory_phase.repository.id);
+    await nativeSpacesMount(page);
+    const setupMount = await mountedSpacesFacts(page);
+    const setupRequest = async (route: string, method = 'GET', body?: unknown) => {
+      check(route.startsWith('/api/') && !route.includes('?'), 'normal_setup_api_path');
+      return page.evaluate(
+        async ({route, method, body}) => {
+          const response = await (document.querySelector('soda-spaces') as any).binding.transport.request(
+            route.slice(5),
+            {
+              method,
+              ...(body === undefined
+                ? {}
+                : {headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}),
+              signal: AbortSignal.timeout(240000),
+            }
+          );
+          if (!response.ok) throw Error('normal_setup_unconfirmed');
+          return response.json();
+        },
+        {route, method, body}
+      );
+    };
+    const setup = await adoptSetup(
+      {
+        subject: input.scenario.factory[0]!.subject,
+        owner_id: details.owner_actor,
+        connection_generation: cfg.factory_phase.connection.generation,
+        held: input.scenario.authority.held,
+        continuation: input.scenario.permitted_effects.fixture_setup
+          ? (details.preparation_continuation ?? null)
+          : null,
+      },
+      {
+        get: (route) => setupRequest(route),
+        continuePreparation: async (intent) => {
+          check(!setupIntent, 'one_preparation_continuation');
+          // adoptSetup durably saved this exact body before arming transport.
+          setupIntent = {path: setupMount.apiBase + intent.path.slice(4), body: intent.body};
+          try {
+            await setupRequest(intent.path, intent.method, intent.body);
+          } finally {
+            setupIntent = undefined;
+          }
+        },
+        save: io.save,
+      }
+    );
+    check(setup.state === 'ready', 'existing_setup_adoption_unconfirmed');
     const inspectProject = (project: string, r: any) => {
       check(project === '' || /^p[a-f0-9]{24}$/.test(project), 'owned_project_id');
       const program =

@@ -18,7 +18,7 @@ struct Request {
     scenario: FileReference,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Collection {
     authority_file: PathBuf,
@@ -27,6 +27,43 @@ struct Collection {
     build_receipt_file: PathBuf,
     #[serde(default, rename = "prior_attempts")]
     _prior_attempts: Vec<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DispatchIntent {
+    format: u8,
+    scenario: FileReference,
+    approval: FileReference,
+    build_receipt: FileReference,
+    resolved_input: FileReference,
+    collector_sha256: String,
+    collection: Collection,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DispatchBinding {
+    format: u8,
+    intent: FileReference,
+    collection: crate::qualification::CollectionBinding,
+}
+
+fn retain<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let expected = serde_json::to_value(value).map_err(|_| "journey intent encoding failed")?;
+    if path.exists() {
+        soda_release_deliver::publish::qualification::protected_path(path, false)
+            .map_err(|_| "root-protected journey intent required")?;
+        if read(path)? != expected {
+            return Err("journey dispatch intent or returned binding changed".into());
+        }
+        return Ok(());
+    }
+    input::write_new(
+        path,
+        &serde_json::to_vec_pretty(&expected).map_err(|_| "journey intent encoding failed")?,
+        0o600,
+    )
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -245,15 +282,52 @@ fn execute(out: &Path) -> Result<(), String> {
     if hash(&resolved.path)? != resolved.sha256 {
         return Err("resolved journey input changed".into());
     }
-    crate::qualification::collect_journey(
-        &collection.authority_file,
-        &collection.candidate_directory,
-        &collection.output_directory,
-        &resolved,
-        &admission
+    soda_release_deliver::publish::qualification::protected_path(&resolved.path, false)
+        .map_err(|_| "root-protected resolved journey input required")?;
+    let intent = DispatchIntent {
+        format: 1,
+        scenario: request.scenario,
+        approval,
+        build_receipt: build,
+        resolved_input: resolved,
+        collector_sha256: admission
             .collector_sha256
             .ok_or("selected collector hash required")?,
-    )
+        collection,
+    };
+    let intent_path = out.join("collector-intent.json");
+    retain(&intent_path, &intent)?;
+    let outcome = crate::qualification::collect_journey(
+        &intent.collection.authority_file,
+        &intent.collection.candidate_directory,
+        &intent.collection.output_directory,
+        &intent.resolved_input,
+        &intent.collector_sha256,
+    );
+    // A collector request binds its exact transient unit before dispatch. Even
+    // on an uncertain/failed response retain that identity for reconciliation;
+    // subsequent collection of that output only finalizes, never redispatches.
+    if intent
+        .collection
+        .output_directory
+        .join("request.json")
+        .exists()
+    {
+        retain(
+            &out.join("collector-binding.json"),
+            &DispatchBinding {
+                format: 1,
+                intent: FileReference {
+                    path: intent_path.clone(),
+                    sha256: hash(&intent_path)?,
+                },
+                collection: crate::qualification::collection_binding(
+                    &intent.collection.output_directory,
+                )?,
+            },
+        )?;
+    }
+    outcome
 }
 
 fn invoke(action: &str, request: &Request, out: &Path) -> Result<(), String> {
