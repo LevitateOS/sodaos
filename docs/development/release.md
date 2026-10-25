@@ -258,7 +258,10 @@ and context semantics. This design needs no new service, scheduler or database.
 
 #### Implementation plan
 
-This plan implements the maintained journey. All steps are pending. Planning does
+The 26 unchecked tasks below are the implementation task list. Group headings
+name dependencies; the ownership table names the code homes. Complete J01–J08
+first for the read-only readiness milestone. J21–J23 are live acceptance tasks
+and remain held until execution resumes. All tasks are pending. Planning does
 not resume the held trial, change its budget, rebuild RC7, publish source/assets
 or remove retained fixtures. The implementation target is the existing RC7 Docker
 fixture first, then the native distribution through the same scenario contract.
@@ -286,69 +289,69 @@ does not own product scenarios; do not move Factory orchestration into it.
 
 **1. Define the shared scenario and result boundary.**
 
-- Establish one typed fixture/scenario definition in the maintained installed
+- [ ] **J01.** Establish one typed fixture/scenario definition in the maintained installed
   driver: candidate/tool references, actual target, selected cases, retained and
   owned resources, protected credential references, permitted effects and paid
   limits. Reuse canonical domain identities instead of conflating publication,
   assignment, root and run IDs.
-- Keep requested intent separate from returned runtime facts. Discover actual
+- [ ] **J02.** Keep requested intent separate from returned runtime facts. Discover actual
   IDs/current connection generation; leave future run/head/PR values unknown.
   The Rust operator owns its admission envelope, not a second manually maintained
   copy of every business-state field.
-- Reuse existing request/receipt formats and observation paths. Before each
+- [ ] **J03.** Reuse existing request/receipt formats and observation paths. Before each
   admitted attempt, snapshot its resolved input immutably; never mutate active
   admitted inputs. Preserve old attempts and reference their provenance.
-- Done when a saved actual fresh-install record and the current retained
+- [ ] **J04.** Verify that a saved actual fresh-install record and the current retained
   two-Project RC7 fixture can be represented without changing driver source,
   creating another VM or clearing history.
 
 **2. Implement whole-scenario read-only readiness and status. Depends on 1.**
 
-- Add `journey check/status` wiring and the shared validator. Check source/trust,
+- [ ] **J05.** Add `journey check/status` wiring and the shared validator. Check source/trust,
   actual inventory and custody, current account, standing preparations, accepted
   inputs, command permits and the known persistence/cold resource closure.
-- Move the current two-Project/one-Project contradiction into an explicit
+- [ ] **J06.** Move the current two-Project/one-Project contradiction into an explicit
   pre-execution diagnostic. Distinguish historical resources from live work and
   state which owned terminals/Projects must be retired before a snapshot.
-- Return blockers, unknown future observations, last confirmed phase, accounting
+- [ ] **J07.** Return blockers, unknown future observations, last confirmed phase, accounting
   fields and the next supported action. Missing paid authority reports a wait;
   it does not cause a sign-in, funding request or model launch.
-- Done when the real current fixture reports the known persistence blocker with
+- [ ] **J08.** Verify that the real current fixture reports the known persistence blocker with
   zero guest mutations, sponsored executions, JEV calls or budget changes. The
   affected real-request permit bridge must still refuse mismatched path/body/run
   identities and accept its exact once-only request.
 
 **3. Consolidate the proven phase modules and fix inventory closure. Depends on 1–2.**
 
-- Migrate the selected RC7 private driver behavior into the maintained source
+- [ ] **J09.** Migrate the selected RC7 private driver behavior into the maintained source
   owner: installation readback, browser/TTY witness, canonical Factory observer,
   CI measurement, both role-context paths, persistence and relevant native reads.
   Parameterize target/tag/paths/IDs; eliminate active imports from per-attempt
   implementation copies. Keep historical binaries/evidence immutable.
-- Replace independent global Project/App count assumptions with the same explicit
+- [ ] **J10.** Replace independent global Project/App count assumptions with the same explicit
   inventory. Normal stop must cover every authorized resource required for a
   stopped snapshot and preserve unrelated state. Fixing the count alone is not
   sufficient. Keep strict unknown-resource and active-custody refusals.
-- Preserve canonical publication versus owner identity, current-generation rules,
+- [ ] **J11.** Preserve canonical publication versus owner identity, current-generation rules,
   native-success/retirement guards and exact per-run current-context eligibility.
-- Done when affected native/browser/request integrations work with retained
+- [ ] **J12.** Verify that affected native/browser/request integrations work with retained
   history and the selected driver builds from repository source plus explicit
   dependencies, without copying a predecessor's scripts or credentials.
 
 **4. Add bounded execution and reconciliation. Depends on 2–3.**
 
-- Wire `journey run` to existing protected collection. Reuse the approved scope
+- [ ] **J13.** Wire `journey run` to existing protected collection. Reuse the approved scope
   when target, paid actions and bounds match; record a user hold separately from
   revoked authority. Do not require manual phase-flag edits or hash transcription.
-- Persist command intent before a side effect, record returned bindings and own
+- [ ] **J14.** Persist command intent before a side effect, record returned bindings and own
   one caller per target. On an uncertain response, reconcile its exact operation
   before another mutation. Adopt ready setup, use same-ID preparation continuation
   and reuse Ready connections through normal APIs.
-- Implement only existing supported recovery: pending operation, uncertain
+- [ ] **J15.** Implement only existing supported recovery: pending operation, uncertain
   response, partial setup, driver defect, missing authentication, expired attempt,
   exhausted allowance and user hold. A second invocation must not replay paid
   work or re-enter an admitted collector merely because its earlier result failed.
-- Done when interruption/lost-response integration against actual normal APIs
+- [ ] **J16.** Verify that interruption/lost-response integration against actual normal APIs
   produces no duplicate resource or paid launch, and cancellation reports real
   remaining custody. Use non-sponsored effects for this check; retired model
   attempts are not made resumable by the runner.
@@ -356,32 +359,33 @@ does not own product scenarios; do not move Factory orchestration into it.
 **5. Compose the measured App/terminal/Factory and final-state recovery route.
 Depends on 3–4.**
 
-- Reuse the RC7-compatible App fixture and existing App owner/record behavior.
+- [ ] **J17.** Reuse the RC7-compatible App fixture and existing App owner/record behavior.
   Make Docker transport/owner handoff explicit; native helpers must not silently
   assume the same filesystem/container topology.
-- Start the genuine App/terminal probes and one existing resource/native observer
-  before the necessary Factory work. Record live CI/review/delivery separately
+- [ ] **J18.** Implement coordinated startup of genuine App/terminal probes and one
+  existing resource/native observer before Factory work. Record live CI/review/delivery separately
   from sampled resource/response results.
-- After accounting settles, stop owned writers, take current protected state,
-  perform the selected persistence operation, read back the same owner/record,
+- [ ] **J19.** Implement the final-state persistence/recovery sequence: after accounting
+  settles, stop owned writers, take current protected state, perform the selected
+  persistence operation, read back the same owner/record,
   Project witness and Factory history, then take one final cold set and restore
   it in isolation. Keep supplemental App/capacity/cold validation distinct from
   the four canonical Docker observation kinds.
-- Done before any sponsored demonstration when all known route assumptions,
-  App handoff, owned-resource closure and evidence shapes have been exercised
+- [ ] **J20.** Before any sponsored demonstration, verify known route assumptions,
+  App handoff, owned-resource closure and evidence shapes
   using available real-system checks. Future model/review/concurrency outcomes
   remain explicitly unobserved. No fake provider result substitutes for them.
 
 **6. Demonstrate the maintained path on the retained RC7 fixture. Depends on 1–5.**
 
-- This is an operational acceptance step, held until the owner resumes execution.
-  Compare the resolved paid target/actions/bounds with the existing approval.
+- [ ] **J21.** Once the owner resumes execution, compare the resolved paid
+  target/actions/bounds with the existing approval. This acceptance task is held.
   Reuse unchanged authority; require actual authority for any added paid trial,
   increased allowance or concurrency. Never silently change the frozen approval.
-- Use the existing Ready connection. Run one eligible bounded journey, observe
+- [ ] **J22.** Use the existing Ready connection. Run one eligible bounded journey, observe
   the actual result and produce its canonical qualification plus separately
   validated supplemental results. Preserve failed outcomes and every charge.
-- Done when the intended journey passes or reports its precise genuine blocker
+- [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
   blocker is a correct runner result, not a passing product qualification.
@@ -389,15 +393,15 @@ Depends on 3–4.**
 **7. Extend the working path to native and two-issue cases; automate retirement.
 Depends on the basic driver working.**
 
-- Reuse the contract for native transport and the retained native fixture. Add
+- [ ] **J24.** Reuse the contract for native transport and the retained native fixture. Add
   the explicitly selected two-issue extension only with two Ready connections
   and finite authority. Require real overlap/joins and preserve a no-overlap
   result honestly; do not buy another attempt automatically.
-- Derive the report from existing receipts. Add consumed-scratch and temporary
+- [ ] **J25.** Derive the report from existing receipts. Add consumed-scratch and temporary
   clone retirement at actual completion points, preserving provenance, active
   reservations, unique data and backing dependencies. Generic cache resets or
   broad pruning are not an automatic consequence of a failed run.
-- Done when a new source checkout can build/invoke the maintained path using
+- [ ] **J26.** Verify that a new source checkout can build/invoke the maintained path using
   documented fixture/access inputs, resource release records report actual
   outcomes, and active per-attempt driver copies/READY controls are unnecessary.
   Private appliance state and human enrollment remain external prerequisites.
