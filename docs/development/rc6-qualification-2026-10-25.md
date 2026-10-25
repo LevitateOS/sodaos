@@ -1,7 +1,7 @@
-# RC6 qualification record — 25 October 2026
+# RC6 and RC7 qualification record — 25 October 2026
 
 This is the retained account of the installed testing behind
-`v0.1.3-rc.20261025.3`, including failures and the next safe action. It exists so
+`v0.1.3-rc.20261025.3` and `.4`, including failures and the next safe action. It exists so
 another agent can find and resume this work. It does not change the acceptance
 contract in [Testing](testing.md), the [release workflow](release.md), or the
 [remaining-outcome catalog](factory-remaining-tasks.md).
@@ -17,8 +17,11 @@ The corrected Docker trial exposed a native finalization bug, now fixed and
 verified locally. Its failed observation stays failed; the unchanged published
 RC6 does not contain that fix. The corrected source is now on public main at
 `9842e527c89f120a26bcdb942b0e718eb86aa879`; its exact-source main and deep CI
-passed. Its local production build, independent candidate check and release
-preparation passed; publication and installed qualification remain separate gates.
+passed. Its local production build, independent candidate check, release
+preparation and unqualified publication passed. RC7 native installation, App
+qualification and cold recovery also passed. Its Docker Factory trial failed at
+a reviewer context decision; the reviewer never received model credentials.
+RC7 and RC6 outcomes remain separate.
 
 Times below are UTC unless an offset is shown. Results describe actual executions,
 not merely prepared commands. Paths beginning with `$RUN` are local to the
@@ -43,7 +46,7 @@ The receipt is `$RUN/r57-source-push/source-push-result.public.json`.
 The clean source is `/home/vince/Projects/sodaos-rc-final-20261025-rc7`, revision
 `9842e527c89f120a26bcdb942b0e718eb86aa879`, with qualified Fountain `a70dbdd4`
 unchanged. Local build instructions and results belong to
-`$RUN/r57-private-builder-rc7/README.md`; the proposed immutable unqualified tag
+`$RUN/r57-private-builder-rc7/README.md`; the published immutable unqualified tag
 is `v0.1.3-rc.20261025.4`. Build completion, publication and installed qualification
 are separate results; none can be inferred from successful source CI.
 
@@ -60,8 +63,8 @@ Canonical release preparation `79731` exited 0 at `18:46:12Z` and produced
 `/home/vince/Projects/sodaos-rc-final-20261025-rc7/.artifacts/releases/prepared/rc20261025-final/release.json`.
 Its receipt is `release-prepare-result.public.json` in the same builder directory;
 its log SHA-256 is `2facd6cdc7f858f77d4403ccdd3345db905d3f16ffa2c18b6517e495e432117d`.
-Public writes remain held until the concrete asset/image inventory is reviewed
-and authorized. Build, check and prepare execution flags are retired.
+The owner separately approved the concrete public batch. Build, check, prepare
+and publication execution flags are retired.
 
 The prepared batch contains 19 public files totaling 1,671,801,982 bytes and five
 image descriptors. Exact sizes, digests, completed receipts and the held scope
@@ -76,18 +79,160 @@ belong to `$RUN/r57-rc7-inputs/asset-image-inventory.public.json` and
 | ISO | `def608acaa5576adbd332677929f4f2b00e771d2232070cdb39bf42212a0c723` |
 | Docker manifest | `960935bc0baa43a4479199b7e225c04671c3cf090b38ca6a2c82390382ae4887` |
 
-These are prepared local bytes, not a published release or an installed pass.
+The canonical publisher ran once (`36206`) and exited 0 at `18:58:51Z`.
+[Immutable UNQUALIFIED RC7](https://github.com/LevitateOS/sodaos/releases/tag/v0.1.3-rc.20261025.4)
+is release `423597969`, published at `18:58:47Z`, with all 19 assets. The canonical
+stage also checked the anonymous component/Docker image identities. The actual
+approval and result are `$RUN/r57-rc7-inputs/publication-user-approval.public.json`
+and `publication-stage-result.public.json`. No source push, promotion or `latest`
+update was part of this publication.
+
+Anonymous download `67965` exited 0 after verifying all 19 files against the
+reviewed inventory, GitHub API digests, manifest and checksums. The retained
+directory is `$RUN/public-rc7-downloads-20261025-net`. Before releasing either
+installation, `gh release verify-asset` authenticated the actual ISO, rootfs,
+Docker installer, checksum manifest and release manifest (`84846`, all five
+exited 0). Exact commands and outcomes are in
+`$RUN/r57-public-consumers/asset-auth/asset-auth-result.public.json`.
+Public byte verification is separate from the installed results below.
+
+Native installation on `192.168.2.164` (UUID
+`3427ec8f-57d3-4ba7-830e-1ee5e3e63b13`) read back source `9842e527`, payload
+`d2addbba` and all six shipping images. Ordinary-owner setup, trusted HTTPS,
+key-only SSH and bootstrap-token revocation passed. The owner handoff is
+`$RUN/rc7-public-vm/owner-handoff.public.json`.
+Protected App collector `90197` exited 0: actual registration, record write,
+native reboot, same-owner readback and final stopped state passed. Its original
+protected observations are
+`/home/soda-rc-public-appliance-collector-authority-20261025-rc7/outputs/actual-installed-app-journey-rc7/observations`.
+Canonical appliance qualification `63749` then exited 0 at `19:28:46Z`, recorded
+in `$RUN/r57-public-consumers/qualification-api/appliance-qualification-result.public.json`.
+Native cold recovery then passed all seven callers: offline disk/UEFI capture,
+isolated clone boot, native readback, actual same-owner App record readback,
+final power-off and network retirement. The clone is
+`aaca91bc-c216-4e0f-bd7f-a2edae94a724`; the original disk and UEFI were unchanged.
+Both domains were off at completion, and the isolated network was retired.
+Result: `$RUN/r57-cold-restore/appliance/journey-result.public.json`, SHA-256
+`ae3c68a6d16c9d3cb894f82aabba977a12210319b7c233abc0f6e05852abd403`.
+The original was subsequently booted normally for the separate unpaid capacity
+fixture below; this does not alter the completed cold-recovery observation.
+
+Docker's supported public streamed installation `21745` exited 0 on
+`192.168.2.165` (UUID `4be9b314-8284-43f5-9acd-b1a9b28dc14d`), with source,
+payload, image/config and fresh-volume readback. Actual outer container:
+`75adde7d65c548a6c59ca37ac5877b69d4c766b995bea0469eb5455ed56a7cdc`.
+Ordinary-owner setup, trusted HTTPS and bootstrap-token revocation passed;
+handoff `$RUN/rc7-public-docker-vm/owner-handoff.public.json`. Its initial unpaid
+Factory fixture completed before the separately approved trial below.
 
 Native and Docker collector compositions compiled once against that source.
 Their sources and build receipts are in `$RUN/r57-appliance-collector` and
 `$RUN/r57-docker-collector`; the canonical qualification caller is in
-`$RUN/r57-public-consumers/qualification-api`. Fresh blank test VMs are prepared
-and shut off under `$RUN/rc7-public-vm` and `$RUN/rc7-public-docker-vm`.
+`$RUN/r57-public-consumers/qualification-api`. Fresh blank test VMs were prepared
+under `$RUN/rc7-public-vm` and `$RUN/rc7-public-docker-vm`; their actual installation
+lanes were released only after the public byte/authentication checks above.
 The unpaid Factory fixture, context helper and separate cold-recovery preparations
 are in `$RUN/r57-public-factory-fixture`, `$RUN/r57-context-status-helper` and
-`$RUN/r57-cold-restore`. Unknown installed identities, credentials, final image
-identities and protected journey seals remain unbound. No new live model trial
-or sign-in has occurred; its finite scope requires actual authorization.
+`$RUN/r57-cold-restore`. Installed identities and native proof were bound only at
+the actual handoffs above. Docker's failed trial has no final Factory proof;
+its canonical qualification and cold-recovery controls remain held.
+
+### RC7 Docker trial and correction
+
+The owner approved one trial with 15 sponsorship minutes, 15 rolling model
+minutes, one active run and 900 seconds, without automatic retry, refill or extra
+inquiry. Confirmed Codex enrollment produced connection
+`7caf661ee18cece2756739030a30fdea`. The existing sign-in is retained; collector
+failure does not require a new device code. Enrollment and funding receipts
+belong to `$RUN/r57-public-factory-fixture/`.
+
+The original fixture is repository 1, Project `pdf46bf52e38d8e2e0bb06c1f`,
+issue 1, initially at `0988255afa4492162546938cc38d229913cddceb`.
+Protected collector `77809` exited 1 at `19:54:22Z`. Installation, actual browser
+terminal attach/reload/HOME witness, investigation, implementation and candidate
+publication passed. Implementation's native result succeeded and retired; this
+attempt did not reproduce RC6's failed native finalization. Independent review,
+completion, merge, persistence and the final observation seal did not pass.
+
+The preserved authority is
+`/home/soda-rc-public-docker-collector-authority-20261025-rc7`, output
+`outputs/docker-rc7`. The collector binary SHA-256 is
+`766050d754750ae2752282cf479fc4c6f337554bd177ef0ae57b247b8f9884a2`.
+The result is
+`$RUN/r57-production-collector-admission/docker-rc7/collector-result.public.json`,
+SHA-256 `4d5767f56b4fd08d9e9247efe5acdb195a4e27d9863a910fcdcb2af8fc05ad69`.
+Its selected failure stage was `receipt_held-policy`; that label is not a raw
+provider error or evidence of a CLI exit failure.
+
+Reviewer `ac64ed9de3bd7c064a0030033c98449b` reached a normal context-attention
+decision with its candidate preparation ready. The private caller handled
+`use_current_context` only for implementation and tracked one resolved run
+globally. Its read-only helper was also bound only to the original coder
+preparation. It therefore did not handle this review decision. The review had no
+lease, delegated credentials, native binding or model execution. The caller
+stopped after its context wait; the review subsequently expired and settled as
+cancelled. A historical typed receipt showed confidence 0.69 and lineage
+probability 0.79, below the canonical 0.80 bounds: attention was the correct
+production decision, not grounds to bypass the context guard.
+
+At `20:03:41Z`, all eight custody counters were zero, policy paused and dispatch
+closed. Sponsorship usage was **10 of 15 minutes**, including the normally
+settled staged review, rather than the seven minutes observed before cancellation.
+Rolling usage was **472,550,938 of 900,000,000 microseconds**. These retained
+charges must not be reset or hidden. The selected readback is
+`$RUN/r57-context-review-diagnosis/diagnostic-r3-result.public.json`; the
+confidence-only readback is `confidence-result.public.json` in that directory.
+Neither exported raw run bodies, model text or provider logs.
+
+The expired review cannot be resumed through `use_current_context`. Normal Retry
+would open a fresh investigation; it is not review-only recovery. Exact supported
+actions and source gates are recorded in `$RUN/r57-review-recovery/READY.md`.
+A separate caller correction is being prepared with implementation and
+publication-bound reviewer projections, exact canonical lineage and per-run
+context resolution. Production source `9842e527` and the failed authority remain
+unchanged. A fresh unpaid repository/Project is being prepared on the same
+appliance, reusing the Ready sign-in and actors while preserving repository 1,
+its candidate/PR and all usage. Another paid trial requires a new finite approval;
+the prior approval explicitly excluded automatic retries.
+
+The RC7 App fixture was rebuilt against runtime config
+`4a03219464e996f8bb35771a091d98978f169172f6305e9c171348e5cf5ef438`.
+Its model-free local native run passed 27 checks; the container retired and no
+guest action occurred in that run. Image/archive/manifest/proof identities are in
+`$RUN/r57-appliance-app-fixture/handoff.public.json`. It is separate from RC6's
+fixture; its installed App journey is reported above.
+
+The native App-only resource window (`19:20:21Z`–`19:26:38Z`) retained 71 valid
+samples and four reconnect failures around the canonical reboot. Peak sampled
+whole-guest memory used was 1,584,980 KiB (about 1.51 GiB), minimum available
+6,527,844 KiB, with at most one App and zero Projects/Factory runs. CPU accounting
+spans a reboot and has that explicit limitation. This is partial App evidence,
+not combined or two-issue capacity qualification; the sampler is retired.
+Result: `$RUN/sizing/rc7-appliance/resources/window-result.public.json`, SHA-256
+`f8fbbb34c8bdd97ebcf6871609e67bdbd627ab2e97db8e7cf125b806ace6e089`.
+
+Docker's separate window (`19:46:04Z`–`19:54:39Z`) retained 104 valid samples,
+zero failed samples and a retired sampler. Peak sampled whole-guest memory used
+was 1,528,460 KiB (about 1.46 GiB), minimum available 6,584,356 KiB and maximum
+busy CPU about 1.155 cores. It had one Project and zero Apps, with at most one
+active Factory ledger run. Ledger rows alone do not prove simultaneous native
+execution. Evidence: `$RUN/sizing/rc7-docker/resources/`.
+These separate App-only and Docker Factory windows cannot be composed into a
+combined workload or two-issue capacity pass. Both guests have four vCPUs and
+8 GiB RAM; their allocation is not a measured supported minimum.
+
+The native unpaid capacity fixture is complete on the original `.164` appliance:
+two distinct Projects, ready coder/reviewer preparation pairs and genuine accepted
+issues, alongside retained App `aba31fc21ab6e4473a27cc277` and its existing record.
+The App is running and a real member terminal was verified. Policies remain
+paused and there are zero connections, runs, sponsorships, budgets and model
+minutes. Handoff:
+`$RUN/r57-native-capacity-fixture/unpaid-setup-handoff.public.json`, SHA-256
+`45021fba2fc2aa07e5f7e8d4bce90f7be33398b49d58479464b623f4ab0464db`.
+Two account approvals and finite model authorization are still needed before
+measurement. The proposed scope is at most five minutes per genuine issue,
+ten additional model minutes total, one run per connection and two concurrently,
+without automatic retry/refill. No native account or paid action has run.
 
 The RC6 results below retain their original source and scope. A local RC7 build
 or source fix does not turn the failed RC6 observations into successful ones.
@@ -507,6 +652,13 @@ SHA-256 `c0d0e28f8a308af0ee92ff0e76dbab6c5ab6170a0d5935a8a11d9e89e988636d`.
 
 | Location under `$RUN` | Purpose |
 | --- | --- |
+| `r57-rc7-inputs/` | Published RC7 inventory, exact approval and publication result |
+| `r57-public-consumers/qualification-api/` | RC7 canonical native qualification result; Docker held pending an actual seal |
+| `r57-production-collector-admission/docker-rc7/` | Closed, failed RC7 Docker trial; original baseline/admission/result |
+| `r57-context-review-diagnosis/` | Selected read-only expired-review lineage, accounting and historical confidence facts |
+| `r57-review-recovery/READY.md` | Exact supported recovery actions and why this review cannot resume |
+| `r57-cold-restore/appliance/` | Completed RC7 native offline recovery and final guest handoff |
+| `r57-native-capacity-fixture/` | Actual unpaid two-Project/App/terminal setup; held account/model scope |
 | `r56-rc6-inputs/` | Frozen release inputs, publication review and held promotion review |
 | `r56-public-consumers/qualification-api/` | Small caller of unchanged canonical F1 qualification APIs; per-target controls, attempts and results |
 | `r56-public-factory-fixture/` | Actual owner/repository/setup/account/funding metadata and bounded-test authorization |
@@ -561,26 +713,25 @@ distinct from permission to publish or promote.
 
 ## Remaining work
 
-1. Obtain authorization for the next candidate's concrete unqualified publication
-   batch after its completed build, check and preparation. The shared
-   native head reducer fix and qualification report are now on main with passing
-   exact-source CI. Local focused integration has passed. Observer publication identity was
-   corrected; the new live trial exposed the separate tree-only finalization
-   bug. Both attempts are closed and remain failed. Do not silently reopen them,
-   rewrite outcomes or rerun coding. Release publication and any further live
-   model trial need their actual task authorization; this report grants neither.
-2. Qualify the corrected candidate through real CI, review, conditional merge and
-   accounting. Only actual successful Factory evidence can permit persistence
-   and sealing. A local source fix cannot relabel the unchanged public F1 bytes
-   as fixed or reuse their failed observation as a pass.
+1. Finish the private RC7 reviewer-aware context caller, then bind it to the new
+   unpaid Docker fixture. Preserve both roles' canonical eligibility and exact
+   lineage/digest checks. Obtain a new finite approval before another paid trial,
+   reusing the existing Ready connection and preserving all old usage. Its
+   expired review cannot be reopened. Native App qualification and cold recovery
+   already passed; do not replay them because the Docker caller failed.
+2. Complete a genuine Docker Factory journey through real CI, independent review,
+   conditional merge and accounting. Only actual successful evidence permits
+   persistence and sealing. RC7 implementation succeeded, but no completion,
+   merge or final seal exists. Keep all failed RC6/RC7 attempts failed.
 3. Complete Docker same-image recreation, canonical qualification and separate
    offline cold recovery. Cold tools are prepared but have not run successfully
    for this Docker target. Bind their inputs to the actual final container/head
    and sealed proof; do not use initial values after recreation.
-4. Measure the frozen release capacity profiles. Earlier T5/development sizing
-   does not prove RC6 app + terminal + Factory together or two concurrent issues.
-   The existing sampler is reusable; additional live model work requires its own
-   explicit finite scope and must not refill this test.
+4. Measure the frozen release capacity profiles using the completed unpaid native
+   fixture and an actual same-interval workload. Earlier T5/development sizing
+   and separate RC7 resource windows do not prove App + terminal + Factory
+   together or two concurrent issues. The existing sampler is reusable;
+   two Ready connections and explicit finite scope are still needed.
 5. Reconcile the actual results into the existing R55/P32 closure work. Promotion
    and `latest` remain held until the owner releases those explicit holds.
 
@@ -599,6 +750,20 @@ Allocations of reflinked/shared files must not be added as though each were
 independent physical space.
 
 Source/Git, release artifacts, diagnostic logs, signature/provenance metadata,
-credentials and retained or unique VM/application state were preserved. Canlang
-coordination was queued, but no reply was received; its owned active trees were
-left untouched. Do not describe that as completed two-way cleanup coordination.
+credentials and retained or unique VM/application state were preserved. The
+Canlang agent subsequently replied at
+`/home/vince/Projects/ssd-prune-canlang-reply.txt`: it removed nine confirmed
+inactive Cargo debug trees and reported a net filesystem gain of 18,904,621,056
+bytes (17.61 GiB), preserving its active work and retained outputs. The receipt
+and current ownership boundary are recorded in
+`/home/vince/Projects/ssd-prune-coordination-20261025.json`. A subsequent `/home`
+check during VM population showed about 179 GiB free; these changing snapshots
+must not be added as independent reclaim totals.
+
+After the Canlang agent cleared the shared `go-runner` build cache, a privileged
+current-use scan found no references and no unknown scan results. Only
+`/home/vince/.cache/go-runner/build` was removed, reclaiming an actual
+8,283,168,768 bytes (7.71 GiB). Source, other caches and active work were preserved.
+Receipt: `$RUN/r57-go-runner-cache-cleanup.public.json`. No cleanup caller remains
+active. Space readings taken during later VM population describe that moment,
+not additional independent cleanup gains.
