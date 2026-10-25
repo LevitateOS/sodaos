@@ -473,11 +473,47 @@ does not own product scenarios; do not move Factory orchestration into it.
 
 **3. Consolidate the proven phase modules and fix inventory closure. Depends on 1–2.**
 
-- [ ] **J09.** Migrate the selected RC7 private driver behavior into the maintained source
+- [x] **J09.** Migrate the selected RC7 private driver behavior into the maintained source
   owner: installation readback, browser/TTY witness, canonical Factory observer,
   CI measurement, both role-context paths, persistence and relevant native reads.
   Parameterize target/tag/paths/IDs; eliminate active imports from per-attempt
   implementation copies. Keep historical binaries/evidence immutable.
+
+  Implemented in `tests/installed/qualification/phases/`: `docker-phases.ts`
+  composes installation, browser/member TTY and retained file, Factory, and
+  same-image persistence using repository-owned helpers. The selected native
+  readers, CI measurement and implement/review current-context paths are maintained
+  beside it. No maintained import resolves to an attempt directory or absolute
+  checkout. Release tag/image identities come from the hash-bound public metadata;
+  host installation/fixture paths, witness filename and helper/scope pins are
+  explicit inputs. The CI script path is explicit and distinct from its status
+  context. Contractual Docker Compose names and protected credential locations
+  remain fixed.
+
+  `dockerPhaseConfiguration` derives target/source/IDs/generation/limits from the
+  shared resolved scenario and actual discovery; `DockerPhaseDetails` supplies only
+  additional public phase dependencies. Importing the composition performs no
+  action. A held input refuses before reading phase files or invoking runtime
+  callbacks. This is a library migration, not `journey run` admission: J13 still
+  owns pinning these additional dependencies into the protected request, runtime
+  construction, canonical observation envelopes and dispatch. Runtime saves must
+  retain the existing no-clobber/fsync guarantees. J10 still owns the unchanged
+  retained-Project/global snapshot contradiction; J11/J12 own the remaining
+  lineage and composed integration acceptance. No live result is claimed here.
+
+  Verification: all test/installed TypeScript passed `tsc -p tsconfig.tests.json
+  --noEmit`; focused strict TypeScript, formatting, Oxlint and the composed Bun
+  bundle passed (18 repository modules, 151.46 kB). The migrated installation observer ran once over pinned SSH against
+  `192.168.2.165`, confirming shipping source `9842e527`, candidate/payload,
+  manifest/config, stock vendor bytes, six application images, installer execution
+  and the retained outer container. An offline real Chromium session exercised
+  seven requests through the maintained Factory guard: the saved exact action
+  admitted once, altered path/run/body/command/method and replay/rearm refused.
+  A held composed input called zero runtime callbacks. Guest mutations, provider
+  actions/model calls and paid admission: zero. Historical source/evidence was
+  preserved. Evidence and reproduction commands/scripts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j09/{check-migration.ts,migration-result.json,installation,check-browser-bridge.ts,browser-bridge-result.json,bundle}`.
+
 - [ ] **J10.** Replace independent global Project/App count assumptions with the same explicit
   inventory. Normal stop must cover every authorized resource required for a
   stopped snapshot and preserve unrelated state. Fixing the count alone is not
