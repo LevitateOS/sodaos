@@ -15,8 +15,10 @@ qualification are outside this selected fresh-install-only candidate
 
 The corrected Docker trial exposed a native finalization bug, now fixed and
 verified locally. Its failed observation stays failed; the unchanged published
-RC6 does not contain that fix. The next source candidate is being prepared from
-the frozen release base, with source push/CI still awaiting authorization.
+RC6 does not contain that fix. The corrected source is now on public main at
+`9842e527c89f120a26bcdb942b0e718eb86aa879`; its exact-source main and deep CI
+passed. Its local production build, independent candidate check and release
+preparation passed; publication and installed qualification remain separate gates.
 
 Times below are UTC unless an offset is shown. Results describe actual executions,
 not merely prepared commands. Paths beginning with `$RUN` are local to the
@@ -27,6 +29,68 @@ RUN=/home/vince/Projects/.sodaos-rc-20261023
 SOURCE=/home/vince/Projects/sodaos-rc-final-20261025-rc6
 PREPARED="$SOURCE/.artifacts/releases/prepared/rc20261025-final-r1"
 ```
+
+## RC7 continuation
+
+The owner approved the two-commit source push and CI. The canonical push completed
+once, first passing qualification-tag CI and then fast-forwarding main. No release,
+promotion or `latest` update was included. All three exact-source runs passed:
+[qualification CI](https://github.com/LevitateOS/sodaos/actions/runs/40219519473),
+[main CI](https://github.com/LevitateOS/sodaos/actions/runs/40219752691) and
+[deep CI](https://github.com/LevitateOS/sodaos/actions/runs/40219752650).
+The receipt is `$RUN/r57-source-push/source-push-result.public.json`.
+
+The clean source is `/home/vince/Projects/sodaos-rc-final-20261025-rc7`, revision
+`9842e527c89f120a26bcdb942b0e718eb86aa879`, with qualified Fountain `a70dbdd4`
+unchanged. Local build instructions and results belong to
+`$RUN/r57-private-builder-rc7/README.md`; the proposed immutable unqualified tag
+is `v0.1.3-rc.20261025.4`. Build completion, publication and installed qualification
+are separate results; none can be inferred from successful source CI.
+
+The production build ran once from `18:17:59Z` to `18:41:11Z` and exited 0
+(caller `65810`). The worker was subsequently confirmed retired, with no remaining
+controller process. Its receipt is
+`$RUN/r57-private-builder-rc7/production-build-result.public.json`; the build log
+SHA-256 is `f724e2a32a08938118e52b432d8fe8d722e1bf69a4f01128a75e503bbf234b34`.
+Independent candidate check `8946` exited 0 at `18:42:58Z`, recorded in
+`independent-candidate-check-result.public.json` in the same directory. Neither
+step retried automatically or performed public writes.
+
+Canonical release preparation `79731` exited 0 at `18:46:12Z` and produced
+`/home/vince/Projects/sodaos-rc-final-20261025-rc7/.artifacts/releases/prepared/rc20261025-final/release.json`.
+Its receipt is `release-prepare-result.public.json` in the same builder directory;
+its log SHA-256 is `2facd6cdc7f858f77d4403ccdd3345db905d3f16ffa2c18b6517e495e432117d`.
+Public writes remain held until the concrete asset/image inventory is reviewed
+and authorized. Build, check and prepare execution flags are retired.
+
+The prepared batch contains 19 public files totaling 1,671,801,982 bytes and five
+image descriptors. Exact sizes, digests, completed receipts and the held scope
+belong to `$RUN/r57-rc7-inputs/asset-image-inventory.public.json` and
+`$RUN/r57-rc7-inputs/PUBLICATION-REVIEW.md`. Selected new identities are:
+
+| RC7 prepared input | SHA-256 |
+| --- | --- |
+| Candidate | `4f2a9a890f0997c9ac3c807c7b2d9aece7aad1b25a584b9bb4a6eb9920074399` |
+| Payload | `d2addbba51e766e2851d80ccb3d26bce1eba9f8b59b20af38593a89a0d51cd83` |
+| Release manifest | `0c435f47ee82da7a3c0beccc4735473b4c2a588f89fae2bccc7e3a5aa43fa7bd` |
+| ISO | `def608acaa5576adbd332677929f4f2b00e771d2232070cdb39bf42212a0c723` |
+| Docker manifest | `960935bc0baa43a4479199b7e225c04671c3cf090b38ca6a2c82390382ae4887` |
+
+These are prepared local bytes, not a published release or an installed pass.
+
+Native and Docker collector compositions compiled once against that source.
+Their sources and build receipts are in `$RUN/r57-appliance-collector` and
+`$RUN/r57-docker-collector`; the canonical qualification caller is in
+`$RUN/r57-public-consumers/qualification-api`. Fresh blank test VMs are prepared
+and shut off under `$RUN/rc7-public-vm` and `$RUN/rc7-public-docker-vm`.
+The unpaid Factory fixture, context helper and separate cold-recovery preparations
+are in `$RUN/r57-public-factory-fixture`, `$RUN/r57-context-status-helper` and
+`$RUN/r57-cold-restore`. Unknown installed identities, credentials, final image
+identities and protected journey seals remain unbound. No new live model trial
+or sign-in has occurred; its finite scope requires actual authorization.
+
+The RC6 results below retain their original source and scope. A local RC7 build
+or source fix does not turn the failed RC6 observations into successful ones.
 
 ## Source and public bytes
 
@@ -497,12 +561,13 @@ distinct from permission to publish or promote.
 
 ## Remaining work
 
-1. Publish the prepared shared native head reducer fix and qualification report
-   through the authorized source/CI path, then build the next frozen candidate.
-   Local focused integration has passed. Observer publication identity was
+1. Obtain authorization for the next candidate's concrete unqualified publication
+   batch after its completed build, check and preparation. The shared
+   native head reducer fix and qualification report are now on main with passing
+   exact-source CI. Local focused integration has passed. Observer publication identity was
    corrected; the new live trial exposed the separate tree-only finalization
    bug. Both attempts are closed and remain failed. Do not silently reopen them,
-   rewrite outcomes or rerun coding. Source publication and any further live
+   rewrite outcomes or rerun coding. Release publication and any further live
    model trial need their actual task authorization; this report grants neither.
 2. Qualify the corrected candidate through real CI, review, conditional merge and
    accounting. Only actual successful Factory evidence can permit persistence
@@ -522,9 +587,16 @@ distinct from permission to publish or promote.
 ## Storage and retained work
 
 Build scratch, consumed archives, retired caches and disposable fixtures were
-pruned under the owner's cleanup authorization. The last `/home` space check
-recorded approximately 233 GiB available. Allocations of reflinked/shared files must
-not be added as though each were independent physical space.
+pruned under the owner's cleanup authorization. After RC7 build, check and prepare
+retired, only its completed assembler `work/media/work` directory was removed.
+Three provenance JSONs (61,406 bytes) were preserved under
+`$RUN/r57-private-builder-rc7-scratch/preserved-9842-cosa`. Actual filesystem
+available space increased by 27,045,171,200 bytes (25.19 GiB), leaving about
+206.31 GiB free. The receipt is
+`$RUN/r57-private-builder-rc7-scratch/cleanup-result.public.json`, SHA-256
+`e7bcc8dd16d333d504dcab802d0c419aa6ea71fa3c15a13273ce80d748e2174b`.
+Allocations of reflinked/shared files must not be added as though each were
+independent physical space.
 
 Source/Git, release artifacts, diagnostic logs, signature/provenance metadata,
 credentials and retained or unique VM/application state were preserved. Canlang
