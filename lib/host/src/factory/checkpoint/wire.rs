@@ -150,9 +150,9 @@ impl CheckpointPlan {
             }
         }
         for task in &plan.tasks {
+            // Go admits check-only tasks; an empty path list releases no files.
             if !valid_task_key(&task.id)
                 || !tasks.insert(task.id.as_str())
-                || task.owned_paths.is_empty()
                 || task.owned_paths.len() > 32
                 || task.owned_paths.iter().any(|p| !valid_owned_path(p))
                 || task
