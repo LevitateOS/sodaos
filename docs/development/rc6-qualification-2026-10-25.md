@@ -241,6 +241,14 @@ then the same command with `emit`. Both require the actual scoped approval
 receipt; an unapproved prepared scope is insufficient. Fresh funded baseline,
 runtime inventory and admission must bind the emitted consumer before launch.
 
+The owner subsequently approved this exact corrected trial, then requested a
+review and normalization of the entire procedure before further execution.
+**The trial is held and has not started.** No funding, actual consumer emission
+or new model call followed that approval. Its unchanged finite authorization
+remains valid; do not ask for the same approval again when the owner resumes it.
+The [reusable procedure and tooling priorities](release.md#normalize-the-qualification-procedure)
+now distinguish product fixes, private driver fixes and installed qualification.
+
 The RC7 App fixture was rebuilt against runtime config
 `4a03219464e996f8bb35771a091d98978f169172f6305e9c171348e5cf5ef438`.
 Its model-free local native run passed 27 checks; the container retired and no
@@ -275,10 +283,14 @@ paused and there are zero connections, runs, sponsorships, budgets and model
 minutes. Handoff:
 `$RUN/r57-native-capacity-fixture/unpaid-setup-handoff.public.json`, SHA-256
 `45021fba2fc2aa07e5f7e8d4bce90f7be33398b49d58479464b623f4ab0464db`.
-Two account approvals and finite model authorization are still needed before
-measurement. The proposed scope is at most five minutes per genuine issue,
+Two distinct Ready connections through supported enrollment and finite model
+authorization are still needed before measurement; they need not belong to two
+different provider accounts. The proposed scope is at most five minutes per genuine issue,
 ten additional model minutes total, one run per connection and two concurrently,
 without automatic retry/refill. No native account or paid action has run.
+The capacity-driver drafts are not a validated end-to-end runner. They remain
+held during the owner's procedure review; completing setup or compiling helper
+variants does not establish that runner's readiness.
 
 The RC6 results below retain their original source and scope. A local RC7 build
 or source fix does not turn the failed RC6 observations into successful ones.

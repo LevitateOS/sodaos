@@ -4,7 +4,7 @@ How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).
 
-The [25 October RC6 qualification record](rc6-qualification-2026-10-25.md)
+The [25 October RC6/RC7 qualification record](rc6-qualification-2026-10-25.md)
 retains the selected revisions, actual installed results, failed collector
 attempts, local evidence locations and remaining work. It records one attempt's
 history; the workflow below owns the reusable procedure.
@@ -28,6 +28,72 @@ Each source-to-target pair requires its own native qualification receipt.
 | Media/assemble wrong | `lib/soda-release-image` | `cmd/soda-install` |
 | Guest/fixture behavior | `tools/acceptance` | `tests/installed` |
 | Publish/promote | `lib/soda-release-deliver` | `soda-release` in `lib/soda-release-tools` |
+
+## Normalize the qualification procedure
+
+The RC6/RC7 work mixed product debugging, private collector development and
+shipping-byte qualification. Several failures belonged to the driver: terminal
+handling, publication/assignment identity, reviewer context and per-run command
+permits. RC6's native final-head failure was a real product defect. These need
+different recovery paths. The [qualification record](rc6-qualification-2026-10-25.md)
+retains the actual examples and evidence.
+
+Use this operating procedure for the next campaign. It describes the intended
+use of existing owners; it does not advertise an implemented end-to-end runner.
+
+| Stage | Standard procedure | Repetition to eliminate |
+| --- | --- | --- |
+| Select the outcome | Name the candidate, distributions and acceptance cases; record the finite model allowance and explicit holds together. Keep development proof, release qualification and capacity claims distinct. | Expanding the current run whenever another incomplete backlog item is discovered. |
+| Develop product and driver | Use a retained development fixture and account. Fix the responsible source, exercise the affected real boundary, and commit reusable driver changes in their existing source owner. | Debugging copied private drivers during each final qualification attempt. |
+| Freeze and produce | Run exact-source CI, build, prepare and stage once for changed shipping bytes. Identify driver revision separately from product revision. | Rebuilding or republishing an unchanged candidate for observer/configuration changes. |
+| Prepare the installed fixture | Record actual install/trust/owner/repository/Project/preparation/issue IDs from returned results. Complete unpaid setup and save private owner credentials before fragile browser assertions. | Hand-editing copied scripts or creating another resource after losing a local receipt. |
+| Establish account and allowance | Inspect the existing connection and current generation. Generate a device code only when an account is missing and the human is ready. Apply only the approved finite limits, preserving prior charges. | Signing in again after a normal lease return, asking again for covered key transport, or starting short-lived codes before setup is ready. |
+| Execute and qualify | Run the admitted collector; reconcile uncertain effects through canonical reads. Preserve successful phases at their actual scope and use supported continuation where eligible. Seal and qualify only actual successful observations. | Replaying completed coding, duplicating owner POSTs, or restarting the whole journey after a driver-only failure. |
+| Measure and recover | Run the selected App/terminal/Factory workload in one measured interval. Arrange the final retained state, including selected App data, before one stopped cold capture/restore. | Combining separate resource windows into a capacity claim, or doing App-free cold recovery before adding the App whose data needs proof. |
+| Retire and report | Release ended writers and consumed scratch; preserve required artifacts, provenance and retained data. Commit the source correction and useful reproduction instructions with a concise result. | Indefinite retention of every consumed build copy, or operational knowledge existing only in chat. |
+
+### Classify a failure before repeating work
+
+| Observed failure | Next action |
+| --- | --- |
+| Shipping source, pin or packaged bytes must change | Produce a new candidate and repeat affected installed acceptance. Retain unrelated passing results at their original revision. |
+| Collector, selector, fixture binding or observer fails | Fix the versioned driver. Reuse unchanged public media, the existing VM/account and matching prior facts where the evidence contract permits. |
+| An owner POST may have succeeded but its receipt was lost | Read back the original operation/resource before issuing another mutation. Preserve command and resource identities. |
+| A staged native run is still eligible | Offer only its canonical available action with exact current bindings. |
+| A native run has expired or retired | Preserve the failure, code/PR and accounting. A new attempt needs authority within the existing approved envelope or an explicit additional allowance; it is not a continuation of that review. |
+| An active process, lease or retained writer remains | Reconcile or retire that exact owner before altering its target. |
+
+Reusing evidence means preserving its original invocation, revision, target and
+outcome. An admitted successor can adopt prior facts only where the canonical
+contract permits; a failed protected attempt is never edited into a successful
+one. Adding an App changes protected application/configuration/ledger state, so
+an earlier App-free persistence snapshot cannot serve as its cold baseline.
+
+### Smallest tooling changes to make this routine
+
+1. Consolidate the demonstrated private collector fixes into one versioned driver
+   under the existing `tests/installed` and `tools/acceptance` owners. Keep
+   privileged execution/sealing in `lib/soda-release-tools` and receipt validation
+   in `lib/soda-release-deliver`. Per-attempt directories should contain bindings,
+   requests, receipts and output, rather than another implementation copy.
+2. Generate fixture bindings from canonical returned IDs and current connection
+   state. Give each phase an explicit result and reconciliation action using the
+   existing workflow request/status and observation contracts. Resume only the
+   supported boundary whose inputs still match.
+3. Put affected driver integration checks before paid execution. For example,
+   the retained real context-action request exposed a permit-label mismatch
+   that compilation missed. Compilation alone cannot establish a working bridge;
+   actual provider/review execution still needs its bounded live observation.
+4. Keep one campaign scope and current result index. Record standing transport
+   and cleanup authority once, and distinguish it from finite spending and public
+   writes. For future campaigns the owner can authorize a total minute ceiling,
+   maximum attempts and concurrency together; this does not expand an existing
+   one-trial approval or permit automatic retries retroactively.
+
+The current release tools already own build/stage/status and protected evidence;
+the missing integration is a maintained installed-journey driver. Normalize that
+path before expanding the qualification matrix. The detailed operator commands
+below remain authoritative for actions currently supported.
 
 ## Guided release operator flow
 
