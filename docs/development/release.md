@@ -31,8 +31,9 @@ Each source-to-target pair requires its own native qualification receipt.
 
 ## Normalize the qualification procedure
 
-This is a proposed redesign, not an implemented runner. Execution is held while
-the owner reviews it. The owner's first priority is **compute, model usage and
+The maintained readiness/admission path and phase composition are implemented;
+bounded recovery and the full measured live journey remain in the task list.
+Execution is held while the owner reviews it. The owner's first priority is **compute, model usage and
 storage**, ahead of elapsed time or fewer interruptions. The existing
 [RC6/RC7 record](rc6-qualification-2026-10-25.md) owns historical results;
 this section owns the replacement procedure.
@@ -742,9 +743,45 @@ does not own product scenarios; do not move Factory orchestration into it.
 
 **4. Add bounded execution and reconciliation. Depends on 2–3.**
 
-- [ ] **J13.** Wire `journey run` to existing protected collection. Reuse the approved scope
+- [x] **J13.** Wire `journey run` to existing protected collection. Reuse the approved scope
   when target, paid actions and bounds match; record a user hold separately from
   revoked authority. Do not require manual phase-flag edits or hash transcription.
+  The Rust operator now verifies the retained invocation, runs semantic admission
+  and directly reuses `qualification::collect_journey`/the existing protected
+  collector. Root invocation refuses user-controlled runs/drivers. Exact public
+  approval/build pins accompany the derived resolved input; existing authority,
+  runtime, fixed credentials, worker custody and request/executed/sealed receipts
+  retain their owners. Collector identity comes from `build.json`; the maintained
+  Docker projection derives phase flags and bindings. Existing fixed resolved
+  authority inputs must still match rather than being overwritten.
+
+  `run.ts` matches normalized target/candidate, cases/resources/effects, exact
+  Factory subjects and finite bounds independently from the hold and driver
+  revision. `collector.ts` supplies the maintained composition's protected worker
+  adapter, canonical observations and durable evidence. Its Playwright data root
+  uses the admitted runtime and initializes after admission. The first clean
+  build exposed absent optional BiDi dependencies; the demonstrated Chromium
+  bundle/data-root arrangement corrected that build without installing packages.
+  The failed attempt remains preserved.
+
+  Verification: clean support build at
+  `9f84c71f1a68c43af850c3e09f2d3532cdf867c3`, offline Rust operator build, strict
+  TypeScript, formatting and Oxlint passed. Maintained `check-run.ts` exercised
+  actual Rust check → held run → status and seven built-driver scope/hold/revoked
+  cases with explicitly non-operative local receipt fixtures. Matching scope
+  survived the tool rebuild/hold; target, allowance and lifecycle changes refused;
+  revoked authority stayed distinct from a hold. Repeated admissions refused
+  without overwriting their receipts. No guarded case created a resolved execution
+  input. The compiled collector also started/refused invalid arguments before
+  requiring browser runtime, and actual root invocation refused the user-owned
+  run before invoking its driver. The existing Ready generation 3, three retained
+  runs and ten charged minutes were unchanged. No released approved scope,
+  collector worker, guest mutation, credential transport, model call or release
+  qualification was exercised. Durable effect/reconciliation work remains J14–J16.
+
+  Reproduce with the documented `check-run.ts` inputs. Receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j13-build-r2/build.json` and
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j13-check/{result.json,collector-cli.json,root-boundary.json,operator-check}`.
 - [ ] **J14.** Persist command intent before a side effect, record returned bindings and own
   one caller per target. On an uncertain response, reconcile its exact operation
   before another mutation. Adopt ready setup, use same-ID preparation continuation
