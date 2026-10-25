@@ -1,4 +1,9 @@
-import {check, COMMIT, SHA} from './support';
+import {check, COMMIT, SHA, sha} from './support';
+
+export function factoryCommandID(operation: string, label: string) {
+  check(/^[a-f0-9]{32}$/.test(operation) && /^[a-z][a-z0-9-]{0,95}$/.test(label), 'factory_operation_command');
+  return sha('qualification-factory\0' + operation + '\0' + label).slice(0, 32);
+}
 
 export function validateFactoryPhase(c: any) {
   check(c?.execution_released === true && /^[a-f0-9]{32}$/.test(c.operation_id), 'factory_phase_held');
@@ -60,6 +65,10 @@ export function validateFactoryPhase(c: any) {
   check(
     /^d[a-f0-9]{24}$/.test(c.requirements) && /^d[a-f0-9]{24}$/.test(c.approval) && SHA.test(c.approved_check_sha256),
     'factory_current_approval'
+  );
+  check(
+    [c.coder_preparation, c.reviewer_preparation].every((p) => /^f[a-f0-9]{24}$/.test(p)),
+    'factory_exact_standing_preparations'
   );
   check(
     typeof c.check_script_path === 'string' &&
@@ -125,14 +134,14 @@ try{
  const units=[];for(const prefix of [[],...allProjects.map(id=>['exec',id])]){
   const lines=prefix.length?pod([...prefix,'systemctl','list-units','--all','--no-legend','--plain','soda-factory-*.service','soda-prepare-*.service']):run('/usr/bin/systemctl',['list-units','--all','--no-legend','--plain','soda-factory-*.service','soda-prepare-*.service']);
   const names=lines.split('\n').filter(Boolean).map(l=>l.trim().split(/\s+/)[0]);if(names.length>256)throw Error();
-  for(const name of names){if(!/^soda-(factory|prepare)-[A-Za-z0-9_.-]+\.service$/.test(name))throw Error();const args=['show',name,'--property=ActiveState,MainPID,ControlPID'];const text=prefix.length?pod([...prefix,'systemctl',...args]):run('/usr/bin/systemctl',args);const fields=Object.fromEntries(text.split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)];}));if(['active','activating','deactivating','reloading'].includes(fields.ActiveState)||Number(fields.MainPID)>0||Number(fields.ControlPID)>0)units.push({unit:name,container:prefix[1]||null,state:fields.ActiveState,pid:Number(fields.MainPID),control_pid:Number(fields.ControlPID)});}
+  for(const name of names){if(!/^soda-(factory|prepare)-[A-Za-z0-9_.-]+\.service$/.test(name))throw Error();const args=['show',name,'--property=ActiveState,MainPID,ControlPID'];const text=prefix.length?pod([...prefix,'systemctl',...args]):run('/usr/bin/systemctl',args);const fields=Object.fromEntries(text.split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)];}));if(!['active','inactive','failed','activating','deactivating','reloading','maintenance','refreshing'].includes(fields.ActiveState)||!/^(0|[1-9][0-9]*)$/.test(fields.MainPID)||!/^(0|[1-9][0-9]*)$/.test(fields.ControlPID)||!Number.isSafeInteger(Number(fields.MainPID))||!Number.isSafeInteger(Number(fields.ControlPID)))throw Error();if(!['inactive','failed'].includes(fields.ActiveState)||Number(fields.MainPID)>0||Number(fields.ControlPID)>0)units.push({unit:name,container:prefix[1]||null,state:fields.ActiveState,pid:Number(fields.MainPID),control_pid:Number(fields.ControlPID)});}
  }
  facts.global.native_units=units;facts.container=container;
  facts.integrated_source=pod(['exec','--user','1000','soda-forgejo','git','--no-optional-locks','--git-dir=/data/git/repositories/'+REQUEST.repository.owner+'/'+REQUEST.repository.name+'.git','rev-parse','--verify',REQUEST.target_branch]);if(!/^[a-f0-9]{40}$/.test(facts.integrated_source))throw Error();
  facts.native_issue=sql("SELECT json_build_object('id',id,'index',index,'repository',repo_id,'closed',is_closed,'pull',is_pull) FROM issue WHERE id="+REQUEST.issue.native_id+" AND repo_id="+R,"forgejo");
  for(const r of facts.runs.filter(r=>r.active)){
   const text=run('/usr/bin/systemctl',['show','soda-factory-'+r.id+'.service','--property=LoadState,ActiveState,SubState,MainPID,InvocationID']);r.unit=Object.fromEntries(text.split('\n').map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1)];}));
-  const b=r.binding;r.native_bound=r.context_pending!==true&&r.unit.LoadState==='loaded'&&r.unit.ActiveState==='active'&&r.unit.SubState==='running'&&Number(r.unit.MainPID)>0&&b.kind==='factory'&&b.id===r.id&&b.project===container&&b.invocation_id===r.unit.InvocationID&&b.generation===r.generation&&r.current_lease.connection===C&&r.current_lease.project===P&&r.current_lease.execution===r.id&&r.current_lease.kind==='factory'&&r.current_lease.generation===r.generation&&r.current_lease.binding_id===r.id&&r.current_lease.invocation_id===b.invocation_id;
+  const b=r.binding;r.native_bound=r.context_pending!==true&&r.unit.LoadState==='loaded'&&r.unit.ActiveState==='active'&&r.unit.SubState==='running'&&Number(r.unit.MainPID)>0&&b.kind==='factory'&&b.id===r.id&&b.project===container&&b.invocation_id===r.unit.InvocationID&&Number.isSafeInteger(r.generation)&&r.generation>0&&b.generation===r.generation&&facts.connection?.state==='ready'&&facts.connection.generation===r.generation&&r.execution.state==='live'&&r.execution.lease_id===r.lease&&r.execution.binding_id===r.id&&r.execution.invocation_id===b.invocation_id&&r.execution.project===container&&r.execution.child_id===b.child_id&&r.execution.generation===r.generation&&facts.assignments.some(a=>a.run===r.id&&a.project===P&&a.preparation===b.child_id&&a.source===r.source&&a.role===r.role)&&r.current_lease.connection===C&&r.current_lease.project===P&&r.current_lease.execution===r.id&&r.current_lease.kind==='factory'&&r.current_lease.generation===r.generation&&r.current_lease.binding_id===r.id&&r.current_lease.invocation_id===b.invocation_id;
  }
  console.log(JSON.stringify(facts));
 }catch{console.error('factory_selected_metadata_unavailable');process.exitCode=1;}

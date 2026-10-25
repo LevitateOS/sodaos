@@ -16,12 +16,31 @@ The implementation is in [internal/acceptance](../../internal/acceptance/README.
 | `personal-git unlock FIXTURE_DIR` | Perform the fixture's explicit key-unlock phase. |
 | `workload-access FIXTURE_DIR` | Exercise configured workload network/database access and write results. |
 | `workload-exec FIXTURE_DIR` | Exercise owner workload execution and member denial through SSH. |
+| `factory-context-status SCOPE_FILE` | Inside the selected guest, read protected Factory scope and return canonical context-selection metadata for one stdin run/assignment. No action, model call or database migration. |
 
 The fixture probes require their existing private request/configuration files,
 trusted SSH inputs and reachable target. Personal Git and workload probes also
 require `SODA_NATIVE_VALIDATE=soda-test` and their expected fixture identities.
 Read the selected probe's source and prepared fixture before invoking it;
 these commands can write local state and execute remote Git or workload actions.
+
+`factory-context-status` is a guest-side read-only observation. Its scope must be
+an absolute `/home` file, root-owned mode `0600`, in a root-owned `0700` directory
+with no symlink or writable ancestors. The bounded stdin object contains only
+`run_id` and `assignment_id`. Scope binds the owner, operation, exact opening
+policy command ID, repository/issue/Project, accepted input, initial source,
+standing coder/reviewer preparations, connection, installed source/payload and
+independent tool source. It uses canonical Store/control methods with read-only
+database transactions; raw run bodies, output and credentials are never returned.
+Implementation and review retain their exact parent, publication owner, candidate
+preparation and recorded context-choice bindings.
+
+Build with the selected full clean driver revision as the linker value
+`github.com/levitateos/sodaos/internal/acceptance.FactoryContextToolRevision`.
+An unpinned build refuses. The installed source/payload may differ from that tool
+revision. Collector runtime preparation pins the binary and scope bytes separately;
+this command does not deploy itself or grant current-context authority. Normal
+owner actions still pass canonical eligibility/admission through Factory control.
 
 ## Observe configured HTTPS
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {check, sha, SHA, COMMIT} from './support';
-import {validateFactoryPhase, snapshotScript} from './factory-native';
+import {validateFactoryPhase, snapshotScript, factoryCommandID} from './factory-native';
+import {nativeExecutionScript, nativeExecutionSucceeded} from './factory-execution';
 import {ciScript} from './factory-ci';
 import {contextStatusScript} from './context-status';
 import {mountedSpacesFacts, nativeSpacesMount} from '../../sodaspaces-journey-evidence';
@@ -70,7 +71,8 @@ export class FactoryPermits {
   async admit(request: any) {
     const a = this.armed,
       u = new URL(request.url());
-    if (!a || u.origin !== this.origin || u.pathname !== a.path || request.method() !== a.method) return false;
+    if (!a || u.origin !== this.origin || u.pathname !== a.path || u.search || u.hash || request.method() !== a.method)
+      return false;
     assert.deepEqual(request.postDataJSON(), a.body);
     this.armed = undefined;
     this.used.push(a.label);
@@ -164,6 +166,7 @@ export function validateFactoryBaseline(c: any, f: any) {
       f.preparations.some(
         (p: any) =>
           p.role === role &&
+          p.id === (role === 'soda-coder' ? c.coder_preparation : c.reviewer_preparation) &&
           !p.publication &&
           p.source === c.repository.source_commit &&
           p.requirements === c.requirements &&
@@ -267,7 +270,17 @@ export function deriveFactoryEvidence(c: any, before: any, after: any, ci: any[]
   check(
     /^[a-f0-9]{32}$/.test(publication.id) &&
       /^[a-f0-9]{32}$/.test(publication.assignment_id) &&
-      after.assignments.some((a: any) => a.id === publication.assignment_id && a.root === allowance.root) &&
+      after.assignments.some(
+        (a: any) =>
+          a.id === publication.assignment_id &&
+          a.id === allowance.root &&
+          a.root === a.id &&
+          a.publication_assignment === a.id &&
+          a.phase === 'investigate' &&
+          a.role === 'soda-coder' &&
+          a.outcome === 'succeeded' &&
+          a.reported === true
+      ) &&
       publication.id === merge.publication,
     'factory_publication_owner_lineage'
   );
@@ -338,6 +351,7 @@ export function deriveFactoryEvidence(c: any, before: any, after: any, ci: any[]
         r.execution.generation === r.generation,
       'factory_actual_native_execution_missing'
     );
+    check(nativeExecutionSucceeded(r.native, r, a, after.container), 'factory_native_success_retirement_unconfirmed');
     check(
       after.submissions.some((s: any) => s.assignment === a.id && s.tool === tool && s.state === 'accepted'),
       'factory_typed_finish_missing'
@@ -348,6 +362,7 @@ export function deriveFactoryEvidence(c: any, before: any, after: any, ci: any[]
       assignment: a,
       run: r,
       usage: u,
+      retired_native_observation: r.native,
       active_native_observation: observedNative.find((n: any) => n.run === r.id) ?? null,
     });
   }
@@ -519,7 +534,7 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
       sponsor.max_concurrent === 1,
     'factory_existing_sponsorship_required'
   );
-  const commandID = (label: string) => sha('qualification-factory\0' + c.operation_id + '\0' + label).slice(0, 32);
+  const commandID = (label: string) => factoryCommandID(c.operation_id, label);
   const policyBody = (current: any, paused: boolean) => {
     const body: any = {
       command_id: commandID(paused ? 'held-policy' : 'open-policy'),
@@ -650,7 +665,11 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
             status.source_commit === a.source &&
             status.preparation === a.preparation &&
             Number.isSafeInteger(status.current_connection_generation) &&
-            status.current_connection_generation > 0,
+            status.current_connection_generation > 0 &&
+            after.connection?.id === c.connection.id &&
+            after.connection.owner_id === c.connection.owner_id &&
+            after.connection.state === 'ready' &&
+            status.current_connection_generation === after.connection.generation,
           'canonical_role_context_status_binding'
         );
         if (a.phase === 'review')
@@ -806,6 +825,10 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
     return {observed: false, reason, ...state};
   }
   stage = 'validate_canonical_factory';
+  for (const run of after.runs) {
+    run.native = JSON.parse(await io.sshRead(nativeExecutionScript(c, run.id)));
+    await io.save('native-retired-' + run.id + '.json', run.native);
+  }
   const evidence = deriveFactoryEvidence(c, before, after, ci, native);
   await io.saveBytes('provider-execution.json', evidence.executionBytes);
   await io.save('native.json', evidence.native);

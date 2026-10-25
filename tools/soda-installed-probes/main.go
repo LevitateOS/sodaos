@@ -12,7 +12,7 @@ import (
 )
 
 // toolUsage names every installed client probe.
-const toolUsage = "developer-access|personal-git|service-https|workload-access|workload-exec"
+const toolUsage = "developer-access|personal-git|service-https|workload-access|workload-exec|factory-context-status"
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -35,6 +35,8 @@ func run(args []string, stdout io.Writer) error {
 		return dispatchUsage("subcommand required")
 	}
 	switch args[0] {
+	case "factory-context-status":
+		return acceptance.RunFactoryContextStatus(args[1:], os.Stdin, stdout)
 	case "developer-access":
 		return acceptance.RunDeveloperAccess(args[1:], stdout)
 	case "personal-git":

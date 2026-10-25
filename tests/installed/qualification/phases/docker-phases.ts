@@ -12,7 +12,7 @@ import {mountedSpacesFacts} from '../../sodaspaces-journey-evidence';
 import {check, sha, COMMIT, SHA, rawRun, networkGuard, packageAssetHashes, packageAssetName} from './support';
 import {ProjectPermits, exerciseProjectPhase, validateProjectPhase} from './project-phase';
 import {FactoryPermits, exerciseFactoryPhase} from './factory-phase';
-import {validateFactoryPhase} from './factory-native';
+import {validateFactoryPhase, factoryCommandID} from './factory-native';
 import {contextStatusScript} from './context-status';
 import {writePersistenceWitness} from './project-persistence-witness';
 import {
@@ -93,8 +93,8 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
   };
   check(
     COMMIT.test(details.context_status.source_revision) &&
-      details.context_status.source_revision === s.candidate.source_revision,
-    'context_installed_source_binding'
+      details.context_status.source_revision === s.driver.source_revision,
+    'context_driver_source_binding'
   );
   for (const digest of [details.issue.title_digest, details.issue.content_digest])
     check(SHA.test(digest), 'accepted_issue_digest');
@@ -133,6 +133,8 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
       attempt_minutes: selected.limits.attempt_minutes,
       maximum_seconds: selected.limits.maximum_seconds,
     },
+    coder_preparation: subject.coder_preparation,
+    reviewer_preparation: subject.reviewer_preparation,
     requirements: subject.requirements,
     approval: subject.approval,
     approved_check_sha256: subject.check_script_sha256,
@@ -155,7 +157,13 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
   });
   // Validate helper/scope pins before opening any runtime transport. These
   // identities are placeholders for validation only; no status read occurs.
-  contextStatusScript(factory_phase, subject.operation_id, subject.operation_id, details.context_status);
+  const context_status = {
+    ...details.context_status,
+    installed_source_revision: s.candidate.source_revision,
+    payload_sha256: s.candidate.payload_sha256,
+    policy_command_id: factoryCommandID(subject.operation_id, 'open-policy'),
+  };
+  contextStatusScript(factory_phase, subject.operation_id, subject.operation_id, context_status);
   return {
     format: 1,
     purpose: 'production',
@@ -184,7 +192,7 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
       operation_id: subject.operation_id,
       witness_relative: details.witness_relative,
     },
-    context_status: details.context_status,
+    context_status,
   };
 }
 

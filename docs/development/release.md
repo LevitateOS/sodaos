@@ -553,8 +553,49 @@ does not own product scenarios; do not move Factory orchestration into it.
   Evidence/reproduction scripts:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j10/{check-native-scope.ts,native-result.json,native.json,phase-idle.json,actual-closure.json,local-what-if-plan.json,check-browser-retirement.ts,browser-result.json,browser-requests.json,bundle,readiness-bundle}`.
 
-- [ ] **J11.** Preserve canonical publication versus owner identity, current-generation rules,
+- [x] **J11.** Preserve canonical publication versus owner identity, current-generation rules,
   native-success/retirement guards and exact per-run current-context eligibility.
+
+  Preserved the canonical publication ID versus publication-owner assignment,
+  and tightened the owner join to the succeeded root's self-bound publication
+  assignment. Standing preparation checks now bind the exact selected coder and
+  reviewer IDs. Active native observations require the current Ready connection
+  generation and matching live execution/lease/binding. Retired success uses the
+  recorded generation and canonical native completed/exit-zero, delivered,
+  credential-returned and confirmed-retirement metadata, with the same
+  container/unit/invocation/lease; a later connection generation does not
+  invalidate historical success. Database success alone is insufficient.
+
+  The maintained `soda-installed-probes factory-context-status SCOPE_FILE`
+  observation now consumes canonical Store/control logic in
+  `internal/acceptance/factory_context_status.go`. Both implementation and review
+  retain exact root/parent, preparation, publication/candidate and staged,
+  unexpired context eligibility. Scope binds the actual opening policy command
+  ID: the retired RC7 helper's different command-label salt cannot reject the
+  maintained operation. The caller checks the helper's current generation against
+  the current native observation and permits only the canonical recorded
+  `can_use_current` action. Tool and installed source/payload pins are independent;
+  generic errors expose no database or credential details. Native Inspect replies
+  are reduced to an allowlist inside the guest before SSH output; provider output
+  and reasons are not retained. The probe's CLI/build/scope contract is documented
+  in `tools/soda-installed-probes/README.md`.
+
+  Verification: focused strict and installed TypeScript, Oxlint, formatting,
+  composed Bun bundle and Go probe build passed. Actual read-only native inspection
+  of the three retained RC7 runs accepted the completed investigation and
+  implementation (exit zero, retirement confirmed) and refused the cancelled,
+  stopped review with no exit code. Historical generations 1/2 remain distinct
+  from the Ready connection's current generation 3. History and ten charged
+  minutes were unchanged. Offline real Chromium exercised eight requests through
+  the maintained guard: exact action once; changed path/run/body/command/method/
+  query and replay/rearm refused. The local unqualified probe compile also passed
+  CLI dispatch and unpinned/unprivileged refusal checks. Its local build is not an
+  admitted clean-source artifact; J12 owns that build integration. No helper
+  deployment, eligible live context action, model call, guest logical mutation or
+  qualification occurred. Those live claims remain unobserved under the hold.
+  Evidence/reproduction scripts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j11/{check-native-execution.ts,native-observations.json,native-result.json,check-browser-bridge.ts,browser-bridge-result.json,check-probe-cli.ts,probe-result.json,bundle}`.
+
 - [ ] **J12.** Verify that affected native/browser/request integrations work with retained
   history and the selected driver builds from repository source plus explicit
   dependencies, without copying a predecessor's scripts or credentials.
