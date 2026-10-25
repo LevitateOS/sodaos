@@ -655,9 +655,37 @@ does not own product scenarios; do not move Factory orchestration into it.
   Evidence/reproduction scripts:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j11/{check-native-execution.ts,native-observations.json,native-result.json,check-browser-bridge.ts,browser-bridge-result.json,check-probe-cli.ts,probe-result.json,bundle}`.
 
-- [ ] **J12.** Verify that affected native/browser/request integrations work with retained
+- [x] **J12.** Verify that affected native/browser/request integrations work with retained
   history and the selected driver builds from repository source plus explicit
   dependencies, without copying a predecessor's scripts or credentials.
+  `scripts/build-qualification.ts` now builds the standalone read-only driver,
+  importable phase composition and correctly source-pinned native probe. The
+  clean-source build passed at `f59e8b7c87aea2ef076c0e1df178ec0171686954` with the
+  explicit clean SDK subtree at `a70dbdd46322342d8b91b451f54fee798898dd06`;
+  its receipt records lock/input and output hashes. The first build's missing
+  module output was corrected by using Bun's actual `outdir`/`naming` boundary;
+  that incomplete attempt remains preserved. No dependency installation,
+  predecessor script/credential copy, candidate/media rebuild or deployment ran.
+
+  Maintained `check-browser.ts` passed against the built module using eight real
+  offline Chromium requests and the saved public request: exact action once;
+  changed owner path/run/body/command/method/query and replay/rearm refused.
+  Maintained `check-native.ts` read the three actual retired runs through pinned
+  SSH using the built native observer: two completed exit-zero successes at
+  recorded generations 1/2 accepted; the cancelled/stopped review refused.
+  Ready generation 3, all three runs and ten charged minutes were unchanged.
+  The existing Rust operator invoked the newly pinned driver for actual
+  `journey check/status`; both views matched and preserved the extra retained
+  Project/actor-1 terminal scope blockers, owner hold and unknown paid authority.
+  Built probe CLI dispatch and missing-protected-scope refusal also passed.
+  Strict installed/focused TypeScript, Oxlint and formatting passed. These are
+  provider-free integrations, not eligible context resumption or qualification.
+  No guest mutation, new enrollment or model call ran.
+
+  Reproduction commands are above. Actual receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j12-build-r2/build.json`,
+  `/home/vince/Projects/.sodaos-rc-20261023/j12-browser/result.json`, and
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j12/{result.json,scenario-input.json,native,readiness,check-status.json,saved-status.json}`.
 
 **4. Add bounded execution and reconciliation. Depends on 2–3.**
 
@@ -783,6 +811,18 @@ repair, not the execution hold or paid approval. J13–J20 retain admitted runti
 reconciliation and App/measurement/recovery composition; J21–J23 remain held live
 acceptance; J24–J26 keep their existing dependencies. No task IDs, scope, trial
 limits, source-push/publication authority or provider enrollments were added.
+
+Full list reviewed at the step 3 boundary after J12 on 2026-10-26:
+J01–J12 are accepted at their recorded local/read-only scopes. J13 is next;
+J13–J16 still own protected execution, durable effect intent and reconciliation;
+J17–J20 retain App/measurement/recovery composition and whole-route readiness.
+J21–J23 and paid/native extensions remain held. Clean-source support builds and
+maintained native/browser integration entrypoints now remove the dependency on
+per-attempt implementation copies for this boundary. Resource lifecycle scope
+still needs explicit resolution before execution; the existing Ready account
+and historical results remain usable. J24–J26 retain their dependencies. No
+task IDs, limits, authority or acceptance scope changed, and accepted unchanged
+checks were not reopened.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
