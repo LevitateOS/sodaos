@@ -13,6 +13,11 @@ has not passed. Promotion and both `latest` pointers remain held. ARM and upgrad
 qualification are outside this selected fresh-install-only candidate
 (`upgrade_from: []`).
 
+The corrected Docker trial exposed a native finalization bug, now fixed and
+verified locally. Its failed observation stays failed; the unchanged published
+RC6 does not contain that fix. The next source candidate is being prepared from
+the frozen release base, with source push/CI still awaiting authorization.
+
 Times below are UTC unless an offset is shown. Results describe actual executions,
 not merely prepared commands. Paths beginning with `$RUN` are local to the
 retained workstation:
@@ -68,6 +73,8 @@ the release; use the selected source and its recorded inputs.
 | Docker public installation | Passed: actual HTTPS installer, anonymous image pull, ordinary owner setup and trusted HTTPS | `$RUN/r56-public-factory-fixture/docker/unpaid-setup-handoff.public.json`; original installer evidence retained by the collector |
 | First Docker collector | Failed before Factory/model work, at `read_reserved_terminal`; installation passed | Original Docker authority below; caller `21934` exited 1 |
 | Docker existing-terminal continuation | Failed/incomplete: attach, shell, same-process reload and HOME witness passed; investigation and implementation finished and a PR was published, but review/merge did not finish | New continuation authority below; caller `18965` exited 1 normally, with no finalized seal |
+| Corrected Docker trial | Failed/incomplete: completed implementation report and PR, but native finalization failed on a legitimate tree-only verification task; review correctly refused | Corrected authority below; caller `28534` exited 1, no seal or persistence; journal predicates retained |
+| Native final-head fix integration | Passed on the two-file source fix: actual production final-request function, real Git/journal/locking, unchanged verification and stale/unfinished refusal cases | `$RUN/r56-native-final-head-integration/integration-result.public.json` |
 | Docker recreation / cold recovery / qualification | Not yet passed | Prepared cold lane and qualification caller remain held |
 
 ### Native target and proof
@@ -232,8 +239,9 @@ Its composition receipt is
 `d92ab100aef06dc779243ba6805edce52d514a200dfa04c50202dc3f6d59ef18`.
 Only the three identity modules and recorded composition inputs changed from the
 original initial collector; Project, witness, persistence and context modules
-remain byte-identical. It has **not run a new live trial**. The frozen earlier
-sources, binaries and failed evidence remain unchanged.
+remain byte-identical. Its separately approved trial ended incomplete, as recorded
+below; a new successful Factory result has not been established. The frozen
+earlier sources, binaries and failed evidence remain unchanged.
 
 Normal Retry after this closed root creates a new investigation/coding attempt;
 it does not resume only the pending review or deterministically reuse PR 2.
@@ -252,7 +260,7 @@ not the canonical contract. The collector proves owner/root lineage separately
 from the implementation run. This diagnostic did not trigger a rebuild or waive
 any actual required check.
 
-## Corrected trial prepared, not executed
+## Corrected trial result: native finalization failure
 
 All unpaid setup completed for repository 2,
 `rc-public-docker-rc6-factory-corrected-20261025`, on the same Docker VM. Its
@@ -275,12 +283,12 @@ Context deployment and admission preparation completed under
 Its `preparation.public.json` SHA-256 is
 `f79b325f515ccd13f4b7c0e6b8c8978a801d1f057150bce65e3a1aa57d6db623`.
 The public context helper binary was unchanged; the exact preceding scope and
-metadata were preserved before installing the new Project-bound scope. All
-execution controls are false, all active custody counters are zero, and no
-collector invocation is active.
+metadata were preserved before installing the new Project-bound scope. At that
+model-free handoff, all execution controls were false and all active custody
+counters were zero.
 
-A new live test is awaiting explicit owner approval because the preceding test
-excluded automatic retries. The concrete proposed scope is
+A new live test received explicit owner approval because the preceding test
+excluded automatic retries. The approved scope is
 `$RUN/r56-public-factory-fixture-corrected/setup-authorization.prepared.json`:
 one new Project member grant, 15 sponsored minutes, shared rolling limit raised
 from 15 to 25 minutes, max one active run, no automatic retry/refill/extra inquiry.
@@ -289,20 +297,147 @@ data remain. A 15-minute rolling limit does not have the full planned 15 minutes
 of remaining headroom after the earlier usage; it must not be reset to conceal
 that fact.
 
-The prepared commands, **only after that actual approval**, are:
+The commands executed **after that actual approval** were:
 
 ```sh
 node "$RUN/r56-public-factory-fixture-corrected/run-phase.cjs" funding
 node "$RUN/r56-public-factory-fixture-corrected/run-phase.cjs" emit
 ```
 
-The runner also requires the recorded owner-approval control; do not flip it
-without the real reply. It obtains the real grant through the normal owner API,
-reads back its exact binding and emits `docker/consumer-config.json`. Then bind
-that actual consumer into a fresh funded baseline, runtime admission and one
-collector invocation. Do not invent a grant ID, copy the old Project's grant, or
-reuse a completed invocation journal. The new setup is not a successful live
-Factory result.
+The exact reply, “Approve one bounded trial”, is recorded in
+`$RUN/r56-public-factory-fixture-corrected/bounded-test-user-approval.public.json`.
+Normal funding (`35947`) and emit (`58530`) both exited 0. The runner obtained the
+real member grant through the owner API and read back its exact binding; no grant
+ID was invented or copied from the old Project. The resulting
+`docker/consumer-config.json` SHA-256 is
+`4612773a066ed43bef2f00e83bcf757a5af95b2fd8acb11e9bfcaecc47f1ce75`.
+Funding/emit controls returned to false after execution.
+
+Fresh funded baseline `64460` passed at `17:20:35Z`, retaining both Projects and
+the earlier usage. Admission `92925` passed. A preceding admission refusal
+`50193` caught a local domain-label guard typo before authority or credential
+writes; only that fixture guard was corrected. No model ran in the refused
+admission.
+
+The sole corrected collector caller is `28534`, supervised by `context_helper`.
+Its authority is
+`/home/soda-rc-public-docker-collector-authority-20261025-rc6-corrected`, output
+`outputs/docker-rc6-corrected`. Runtime inventory SHA-256 is
+`27fd1f7d2fa12dc786a17c0a0693d911cd866a76f35771e611e64fe89d041126`.
+At the `17:30:40Z` saved observation, installation and browser Project/HOME witness
+had passed, investigation had succeeded and retired with two sponsored minutes,
+and implementation was active. No publication or failure was recorded yet.
+An active caller must not be duplicated or concurrently polled by another agent.
+The caller subsequently exited 1 at `17:35:06Z`; its execution controls and native
+unit were retired. No persistence, seal, canonical Docker qualification or cold
+recovery followed. Its local `collector-result.public.json` SHA-256 is
+`0475fefce893b73e53e74bc38e3751476044034fccdef4a28c6f8991c9e60c99`.
+No automatic retry, refill or extra model inquiry ran.
+
+### Native finalization bug confirmed against this run
+
+The implementation run was `50385e36d9ec3f1f646800bc8d8a5c15`. Its assignment had
+a succeeded, reported, completed result for the exact published candidate, but
+its reconciled native run outcome was `failed`. Review's successful-native-run
+guard therefore refused before exporting the candidate or launching reviewer
+preparation. Supported `/prepare-inspect` returned 404 at `17:33:16Z`, while the
+attempt was still eligible. This removes the earlier ambiguity about a 404
+observed only after retirement.
+
+The exact native receipt showed started and delivered execution, confirmed
+retirement, returned credentials and matching binding, with **no numeric exit
+code**. This does not establish a nonzero CLI exit or a provider limit. Only
+selected booleans/enums were read; no output, reason, summary, stop reason or
+provider log was inspected. The existing metadata-only protocol counters contain
+sanitized event names/types/statuses, not event ordering or thread identity;
+their completed-turn counts cannot reconstruct the exact last event.
+
+The decisive selected journal read at `17:47:59Z` found:
+
+| Task/checkpoint | Actual evidence |
+| --- | --- |
+| `reject_empty` | Committed with valid tree and new commit |
+| `independent_review` | Committed with a valid tree and no new commit; candidate equals expected head; 3/3 checks passed |
+| Final candidate checkpoint | Committed at the unchanged candidate; 3/3 checks passed |
+| Journal identity | All events match native invocation, manifest digest and known task identities |
+
+Source `lib/host/src/factory/checkpoint/mod.rs` deliberately records only
+`tree=HASH` when a successful task leaves the head unchanged. However,
+`lib/host/src/factory/native_tasks.rs::final_request` requires a valid `commit=`
+on **every** committed task, returning an error on the legitimate unchanged
+verification task. The existing checkpoint `integration_head` reducer already
+preserves the head for tree-only events and validates any present commit plus
+invocation/manifest identity. Native finalization must use that same reducer.
+The failed-run review guard must remain intact; stored outcomes must not be
+rewritten to make this failed attempt pass.
+
+The selected proof is
+`$RUN/r56-production-collector-admission/docker-rc6-corrected/task-journal-metadata-read-r3.result.public.json`,
+SHA-256 `11bb6ed55f97232f6d3a30716281007497fee684c0fb5b4c78e3eb8f610e7e15`.
+The diagnostic initially asserted an invocation field on the manifest itself;
+the canonical manifest contract does not require that field. Only that extra
+diagnostic gate was removed. Journal invocation and manifest bindings were
+actually checked and matched. The failed diagnostic attempts remain retained.
+
+The two-file product fix is committed on the working checkout as
+`2ecbf15870b3b360b2318550b9b229ef023a3c56`, and transplanted onto the frozen F1 base
+as `f3789a1842c76251f6d4a120d891fdbd7ee5c5b7` in
+`/home/vince/Projects/sodaos-rc-final-20261025-rc7`. It shares the existing
+invocation/manifest-validating head reducer with native finalization, preserving
+the two checkpoint callers' original starting heads. All ledger, task, child,
+final-checkpoint and failed-run review guards remain. The published F1 release
+is unchanged; its native App/recovery results retain their original scope, and
+this RC6 Factory trial remains failed.
+
+The focused integration executed the production `NativeTasks::final_request`
+with real Git, private journal persistence and file locking. Changed commit →
+unchanged verification returned the changed head. Stale invocation, stale
+manifest, malformed commit and unfinished child cases all refused. It used
+actual production Factory/terminal/broker types but made zero terminal, broker,
+model or guest calls. This is component integration proof, not a new installed
+provider qualification.
+
+Retained reproduction root is `$RUN/r56-native-final-head-integration/`:
+`host/Cargo.toml`, `host/integration/main.rs`, the private appended entry in
+`host/src/factory/native_tasks.rs`, and `source-binding.public.json` retain the
+exact compiled source and pins. Result `integration-result.public.json` SHA-256:
+`03ba9d5ef5316b01809b61ac5096ed6780234807915db6ce9857a49d164426b0`.
+Preserved executable `public/final-head-integration` SHA-256:
+`7ac746e5d409798178f82332f0137b57d09555d96debc85c8e8a07071dd0cb95`.
+
+Reproduce in a **fresh** fixture directory from the normal host environment:
+
+```sh
+CARGO_TARGET_DIR="$RUN/host-target" \
+TMPDIR="$RUN/r56-native-final-head-integration" \
+cargo run --locked --offline --release \
+  --manifest-path "$RUN/r56-native-final-head-integration/host/Cargo.toml" \
+  --bin final-head-integration -- \
+  "$RUN/r56-native-final-head-integration/runs/FRESH_NAME"
+```
+
+The passing fixture is retained as `runs/r2`; do not overwrite it. `runs/r1`
+preserves an earlier filesystem-sandbox ancestor-ownership refusal before
+finalization. Running in the normal host environment resolved that test-environment
+restriction. Rust formatting and whitespace checks passed; no new unit tests or
+unrelated passing suites were added/replayed.
+
+### Partial frozen resource measurement
+
+The existing sampler recorded 138 valid five-second samples, zero collection
+failures, over 686 seconds (`17:25:13Z`–`17:36:38Z`). Peak observed whole-guest
+memory use was 1,599,172 KiB (about 1.53 GiB), minimum available memory
+6,513,652 KiB, and peak sampled five-second CPU use 1.084 cores. The window had
+at most one active Factory/issue-Project database row, zero Apps and two retained
+Projects. Active rows alone do not prove native execution; this does not qualify
+the combined App/terminal/Factory or two-issue capacity profiles.
+
+Docker lacks `/var/home`, causing the first unchanged sampler to fail its `df`
+call. A small local fix selects `/var/home` when present and `/home` otherwise;
+the original and failed window are retained. The corrected sampler was stopped
+normally before guest handoff and has no active process. Result:
+`$RUN/sizing/rc6-docker-corrected-trial/window-r1/window-result.public.json`,
+SHA-256 `c0d0e28f8a308af0ee92ff0e76dbab6c5ab6170a0d5935a8a11d9e89e988636d`.
 
 ## Where another agent should resume
 
@@ -362,13 +497,17 @@ distinct from permission to publish or promote.
 
 ## Remaining work
 
-1. Diagnose the same candidate preparation and correct the observer's publication
-   identity handling. The original attempt is closed; do not silently reopen it
-   or rerun coding. Choose any further live trial with an explicit finite scope,
-   preserving this failed attempt and its accounting. No automatic model retry,
-   replacement inquiry or refill is approved by this report.
-2. Complete real candidate CI, review, conditional merge and accounting. Only
-   actual successful Factory evidence can permit persistence and sealing.
+1. Publish the prepared shared native head reducer fix and qualification report
+   through the authorized source/CI path, then build the next frozen candidate.
+   Local focused integration has passed. Observer publication identity was
+   corrected; the new live trial exposed the separate tree-only finalization
+   bug. Both attempts are closed and remain failed. Do not silently reopen them,
+   rewrite outcomes or rerun coding. Source publication and any further live
+   model trial need their actual task authorization; this report grants neither.
+2. Qualify the corrected candidate through real CI, review, conditional merge and
+   accounting. Only actual successful Factory evidence can permit persistence
+   and sealing. A local source fix cannot relabel the unchanged public F1 bytes
+   as fixed or reuse their failed observation as a pass.
 3. Complete Docker same-image recreation, canonical qualification and separate
    offline cold recovery. Cold tools are prepared but have not run successfully
    for this Docker target. Bind their inputs to the actual final container/head
