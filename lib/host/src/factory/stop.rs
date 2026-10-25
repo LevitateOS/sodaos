@@ -117,10 +117,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             drop(lock);
             return self.close_before_start(&mut receipt, &req.id, deadline);
         }
-        if receipt_terminal(&receipt.phase)
-            && (receipt.run.verification_manifest_digest.is_empty()
-                || receipt.retirement != "uncertain")
-        {
+        if receipt_terminal(&receipt.phase) && receipt.retirement != "uncertain" {
             // A tombstone whose broker fence never confirmed retries it;
             // every other terminal receipt is final.
             drop(lock);
