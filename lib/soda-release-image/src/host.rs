@@ -155,26 +155,37 @@ pub fn export_host_archive(
 
 /// buildHostImage bakes one host image from the context as staged. The first
 /// pass stages no release metadata: its only job is package observation for
-/// the bill-of-materials. The final pass builds the sealed context.
+/// the bill-of-materials. The final pass layers the sealed context onto that
+/// exact observed image without resolving the floating RPM repositories again.
 pub fn build_host_image(
     context: &str,
     out: &str,
     arch: &str,
     revision: &str,
-    flatten: bool,
+    observed: Option<&str>,
     base: &prepare::Base,
     production: &dyn Production,
 ) -> Result<String, Error> {
     let platform = model::oci_architecture(arch).unwrap_or("");
     let pinned = base.image(arch);
-    let iid = sys::join(&[out, "host.iid"]);
+    if observed.is_some_and(|id| !model::prefixed_digest(id)) {
+        return Err(Error::msg("exact observed host image ID required"));
+    }
+    let iid = sys::join(&[
+        out,
+        if observed.is_some() {
+            "host.iid"
+        } else {
+            "host-observed.iid"
+        },
+    ]);
     const SCOPE: &str = "thin-local-payload";
     let mut args = vec![
         "--remote=false".to_string(),
         "build".to_string(),
         "--pull=never".to_string(),
-        // Bare RPM names float. Refresh both transactions so the final bake
-        // cannot reuse older package metadata than the observed inventory.
+        // Bare RPM names float. Observe one fresh transaction, then seal its
+        // exact image; the final stage performs no second package transaction.
         "--no-cache".to_string(),
         "--unsetlabel=ostree.commit".to_string(),
         "--unsetlabel=ostree.final-diffid".to_string(),
@@ -183,6 +194,14 @@ pub fn build_host_image(
         format!("--platform=linux/{platform}"),
         format!("--build-arg=BASE_IMAGE={pinned}"),
         format!("--build-arg=PAYLOAD_SCOPE={SCOPE}"),
+        format!(
+            "--target={}",
+            if observed.is_some() {
+                "host-sealed"
+            } else {
+                "host-observation"
+            }
+        ),
         format!("--label=org.opencontainers.image.revision={revision}"),
         format!("--label=org.opencontainers.image.base.name={pinned}"),
         format!(
@@ -202,8 +221,10 @@ pub fn build_host_image(
     ];
     // Package observation needs a runnable image, not a flattened OCI export.
     // Flatten only the final sealed host consumed by native OSTree import.
-    if flatten {
+    if let Some(observed) = observed {
         args.insert(3, "--squash-all".to_string());
+        args.insert(4, "--network=none".to_string());
+        args.insert(5, format!("--build-arg=OBSERVED_HOST={observed}"));
     }
     production.execute(context, "podman", &args)?;
     read_host_image_id(&iid)

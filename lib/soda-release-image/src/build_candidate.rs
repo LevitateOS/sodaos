@@ -1,5 +1,5 @@
 //! Single host-candidate execution: observe the floating package
-//! inventory, seal the payload, bake and verify the final image.
+//! inventory, seal the payload onto that exact image, and verify it.
 //! Callback and progress callers share this one implementation.
 
 use crate::error::Error;
@@ -11,8 +11,9 @@ use crate::record;
 
 /// buildHostCandidate observes the floating package inventory from an
 /// observation build, seals the payload (release metadata included) into the
-/// context, then bakes and verifies the final image. The sealed fingerprint
-/// must reproduce from the final image; a shift fails the build.
+/// context, then layers that context onto the exact observation image and
+/// verifies it. The sealed fingerprint must reproduce from the final image;
+/// a shift fails the build.
 pub fn build_host_candidate(
     snapshot: &str,
     context_dir: &str,
@@ -65,7 +66,7 @@ pub fn build_host_candidate(
         artifacts,
         arch,
         revision,
-        false,
+        None,
         base,
         production,
     )?;
@@ -80,7 +81,7 @@ pub fn build_host_candidate(
         artifacts,
         arch,
         revision,
-        true,
+        Some(&observation),
         base,
         production,
     )?;

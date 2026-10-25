@@ -1,6 +1,7 @@
 # Local host-content candidate, not yet an installable Soda release. The caller
 # build context supplies the selected architecture-specific CoreOS image digest.
 ARG BASE_IMAGE
+ARG OBSERVED_HOST=scratch
 FROM ${BASE_IMAGE} AS selinux-policy-build
 
 # Compile the appliance's targeted SELinux policy using this exact base's
@@ -16,7 +17,7 @@ RUN rpm-ostree install selinux-policy-devel && \
       -m /run/soda-build/selinux/soda_factory_io.mod \
       -f /run/soda-build/selinux/soda_factory_io.fc
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS host-observation
 
 # Keep the existing provisioning package list as the source of authority. The
 # preparation command validates it and emits this argument file. Bare names:
@@ -49,6 +50,18 @@ RUN test ! -s /etc/subuid && test ! -s /etc/subgid && \
     printf 'containers:1000000:268435456\n' > /etc/subuid && \
     cp /etc/subuid /etc/subgid && \
     ostree container commit && \
+    find /sysroot -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+
+ARG PAYLOAD_SCOPE=host-content-only
+LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
+      org.opencontainers.image.source="https://github.com/LevitateOS/sodaos" \
+      io.soda.host-image.scope="${PAYLOAD_SCOPE}"
+
+# Seal metadata onto the exact image whose RPM inventory was observed. A
+# second install from the base could select different repository metadata.
+FROM ${OBSERVED_HOST} AS host-sealed
+COPY rootfs/ /
+RUN ostree container commit && \
     find /sysroot -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 
 ARG PAYLOAD_SCOPE=host-content-only
