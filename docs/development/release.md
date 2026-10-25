@@ -346,9 +346,26 @@ does not own product scenarios; do not move Factory orchestration into it.
   and `result.json`. Run that manifest with `cargo run --offline --release` and
   a reused target cache; use a fresh evidence directory when repeating it.
   Journey command admission/dispatch is still J05/J13; this check launched none.
-- [ ] **J04.** Verify that a saved actual fresh-install record and the current retained
+- [x] **J04.** Verify that a saved actual fresh-install record and the current retained
   two-Project RC7 fixture can be represented without changing driver source,
   creating another VM or clearing history.
+  Verified the saved `.165` owner-handoff/native-idle receipts from 19:20:20Z
+  on 2026-10-25 (Project0/App0/connection0/run0), including the handoff's linked
+  evidence hashes, against one fresh pinned metadata read at 21:30:18Z. The
+  retained fixture returned Project2/App0/connection1, Ready generation3, three
+  retained runs and ten charged minutes. Both records use the unchanged
+  `QualificationScenario`, `FixtureObservation`, `ResolvedQualificationInput` and
+  `discoverFixture`; both serialized and round-tripped. The old Project remains
+  in inventory outside the selected managed Project. Unread terminals and future
+  execution/publication values remain unknown. These representations are not
+  readiness, paid authority or qualification claims; both scenarios remain held.
+  Strict focused TypeScript checking passed. No driver edit, VM creation, history
+  clearing, guest mutation or model call occurred. Reproduction:
+  `bun /home/vince/Projects/.sodaos-rc-20261023/journey-j04/check.ts NEW_EMPTY_OUTPUT_DIR`
+  with a fresh child directory under `journey-j04/`. The existing `evidence/`
+  directory contains both resolved records, fresh retained metadata, a hashed
+  source manifest and `result.json`. This uses the saved J02 fixed native read;
+  migration into the maintained command remains J05/J09.
 
 **2. Implement whole-scenario read-only readiness and status. Depends on 1.**
 
@@ -471,6 +488,14 @@ review the complete list after every five completed tasks, at milestone boundari
 or immediately after a finding changes a dependency. Refresh actual obsolete
 assumptions without adding speculative work. Preserve the operational holds and
 use the goal's blocked/completion rules when no eligible work remains.
+
+List reviewed at the step 1 boundary on 2026-10-25 after J04: J01–J04 are complete;
+J05 is next. The complete J01–J26 dependency order still applies. Identity
+representation is proven; semantic readiness, command wiring, phase migration
+and actual live outcomes remain pending in their existing tasks. J21–J23 and
+paid/native extensions remain subject to the recorded execution holds. The
+existing Ready connection needs no replacement enrollment for the next read-only
+milestone. No new tasks or scope were added.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
