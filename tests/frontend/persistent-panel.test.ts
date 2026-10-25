@@ -143,11 +143,12 @@ for (const [order, first] of [
       liveGeneration = generation;
     });
     await page.goto(server.url.origin + first);
-    await page.locator('[data-extension-panel] soda-spaces').waitFor({state: 'attached'});
     if (order === 'native-first') {
       assert.equal(await page.locator('[data-extension-panels]').isVisible(), false);
+      assert.equal(await page.locator('[data-extension-panel] soda-spaces').count(), 0);
       await enter(page, 'Global Workspace', globalPath);
     }
+    await page.locator('[data-extension-panel] soda-spaces').waitFor({state: 'attached'});
     await page.getByRole('button', {name: 'team/repo', exact: true}).click();
     await page.getByRole('button', {name: 'Terminals', exact: true}).click();
     await page.getByLabel('Workspace options', {exact: true}).click();

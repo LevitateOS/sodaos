@@ -78,7 +78,9 @@ func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 					t.Fatal(w.Code, w.Body.String())
 				}
 			}
-			if failures != 1 || (!failStore && successes != 1) || (failStore && successes != 0) {
+			// Concurrent first inserts can race the separate login uniqueness check;
+			// a later insert instead replays the same membership after the winner commits.
+			if (!failStore && (successes < 1 || successes+failures != count)) || (failStore && (successes != 0 || failures != 1)) {
 				t.Fatal(successes, failures)
 			}
 			if !failStore {

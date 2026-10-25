@@ -141,7 +141,7 @@ before(async () => {
         });
       if (url.pathname.startsWith('/assets/soda/'))
         return new Response(Bun.file(path.join(root, 'assets/branding', url.pathname.slice('/assets/soda/'.length))));
-      const html = {headers: {'Content-Type': 'text/html'}};
+      const html = {headers: {'Content-Type': 'text/html', 'X-Extension-Session-Generation': 'fixture-generation'}};
       // Fountain page.tmpl, global scope: base/head + page-content/ui container.
       if (url.pathname === '/page')
         return new Response(

@@ -402,7 +402,7 @@ func TestFactoryConnectionUsageBudgetUsesBrokerOwnerAndReplays(t *testing.T) {
 		t.Fatalf("budget replay = %d %s", replay.Code, replay.Body.String())
 	}
 	changed := httptest.NewRecorder()
-	nativeAPIServe(t, s, changed, apiTestRequest(http.MethodPut, path, strings.Replace(body, "720", "721", 1), "alice"))
+	nativeAPIServe(t, s, changed, apiTestRequest(http.MethodPut, path, strings.Replace(body, `"rolling_minutes":720`, `"rolling_minutes":721`, 1), "alice"))
 	if changed.Code != http.StatusConflict {
 		t.Fatalf("changed budget payload reused command: %d %s", changed.Code, changed.Body.String())
 	}

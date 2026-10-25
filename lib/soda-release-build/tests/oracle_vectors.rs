@@ -22,8 +22,7 @@ pub const OCI_FIXTURE_HASH: &str =
 // The Fountain compile argv/script vectors are removed with the producer's
 // Fountain checkout/toolchain/compile/stage-binary dependency: admission
 // consumes the independently released Fountain image and metadata instead.
-pub const PRODUCTION_SEQUENCE: &str = r###"bun --version
-go mod verify
+pub const PRODUCTION_SEQUENCE: &str = r###"go mod verify
 bun install --frozen-lockfile
 git show --no-patch --format=%ct aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/rockylinux/rockylinux:10.2

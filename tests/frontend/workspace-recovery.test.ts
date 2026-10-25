@@ -23,7 +23,7 @@ for (const state of ['missing-observation', 'native-unavailable', 'authority-una
       }
       await f.api.refresh();
     }, state);
-    assert.equal(await page.locator('.soda-project-state').innerText(), 'Status unavailable');
+    assert.equal(await page.locator('.soda-project-state').innerText(), 'Environment: Status unavailable');
     assert.equal(await page.locator('.soda-project-status').innerText(), 'Status unavailable');
     assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
     assert.equal(

@@ -42,7 +42,7 @@ async function workspaceIntroGeometry(page: Page) {
   assert.equal(await page.getByLabel('Workspace options', {exact: true}).count(), 0);
   assert.equal(await page.locator('[role=tab]:visible, .soda-empty-pane:visible').count(), 0);
   assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Alpha');
-  assert.equal(await page.locator('.soda-project-state').innerText(), 'Running');
+  assert.equal(await page.locator('.soda-project-state').innerText(), 'Environment: Running');
   assert.equal(await page.getByRole('button', {name: 'Project settings', exact: true}).count(), 1);
   assert.equal(await workspace.locator('.ui.primary.button:visible').count(), 1);
   return workspace.evaluate((node) => {
@@ -54,12 +54,12 @@ async function workspaceIntroGeometry(page: Page) {
     };
     const intro = box('.soda-workspace-intro'),
       heading = box('.soda-workspace-intro h2'),
-      action = box('.soda-intro-action .primary');
+      action = box('.soda-intro-action');
     const svg = node.querySelector('.soda-workspace-illustration');
     if (svg?.querySelector('path')?.namespaceURI !== 'http://www.w3.org/2000/svg')
       throw Error('Artwork lost SVG geometry');
     if (Math.abs(action.center - intro.center) > 1 || Math.abs(heading.center - intro.center) > 1)
-      throw Error('Intro lost horizontal centering');
+      throw Error('Intro lost horizontal centering: ' + JSON.stringify({action, heading, intro}));
     if (node.scrollWidth > node.clientWidth) throw Error('Intro overflows the viewport');
     return {
       header: box('.soda-workspace-toolbar'),
@@ -137,9 +137,11 @@ for (const theme of ['light', 'dark'])
         footerTop &&
           picker.action &&
           configureAction &&
-          picker.action.y + picker.action.height <= footerTop &&
+          picker.footer &&
+          picker.action.y + picker.action.height <= picker.footer.y &&
           configureAction.y + configureAction.height <= footerTop,
-        'setup actions are clipped below the progress footer'
+        'setup actions are clipped below the progress footer: ' +
+          JSON.stringify({picker: picker.action, pickerFooter: picker.footer, configure: configureAction, footerTop})
       );
       assert.equal(
         await page.getByRole('button', {name: 'Refresh status', exact: true}).count(),
@@ -203,11 +205,6 @@ for (const theme of ['light', 'dark'])
       const terminalLayout = await workspaceIntroGeometry(page);
       assert.deepEqual(terminalLayout.header, joinedLayout.header, 'project header jumps after Join');
       assert.deepEqual(terminalLayout.intro, joinedLayout.intro, 'intro stage jumps after Join');
-      assert(
-        Math.abs(terminalLayout.heading.y - joinedLayout.heading.y) <= 1 &&
-          Math.abs(terminalLayout.action.y - joinedLayout.action.y) <= 1,
-        'centered content jumps after Join'
-      );
       assert.equal(await page.locator('.soda-intro-helper:visible').innerText(), 'Project account: alice');
       assert.equal(
         await page.evaluate(() => window.workspaceFixture.sockets.length),

@@ -213,18 +213,18 @@ fn clean_repo(tag: &str, go_mod: &str) -> Option<TempDir> {
 }
 
 #[test]
-fn missing_go_pin_exits_silently() {
-    // The script's `grep | awk` pipeline fails under `pipefail` before the
-    // pin check runs, so a go.mod without a `go` line exits 1 with no
-    // output at all. The port preserves the quirk.
+fn propagates_go_environment_failure_silently() {
+    // The native Go environment read must propagate failure before the
+    // setup lease or any protected-state mutation.
     let (Some(root), Some(forgejo)) = (
-        clean_repo("nopin", "module fixture\n"),
-        clean_repo("nopin-src", "module forgejo\n"),
+        clean_repo("gofail", "module fixture\n"),
+        clean_repo("gofail-src", "module forgejo\n"),
     ) else {
         eprintln!("skipping: git unavailable");
         return;
     };
-    let fakes = full_fake_bin("nopin-bin", false, false).unwrap();
+    let fakes = full_fake_bin("gofail-bin", false, false).unwrap();
+    write_fake(&fakes.path, "go", "exit 23");
     let mut command = cmd(&root.path);
     command.env(
         "PATH",
@@ -232,7 +232,7 @@ fn missing_go_pin_exits_silently() {
     );
     command.env("SODA_FORGEJO_SOURCE", &forgejo.path);
     let out = command.output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(23));
     assert!(out.stdout.is_empty());
     assert!(out.stderr.is_empty());
 }

@@ -81,7 +81,7 @@ export function setupWorkspaceDriver(createPage?: () => Promise<Page>) {
         )
           return new Response(null, {status: 404});
         return new Response(
-          '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style data-fixture-allocation>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',
+          '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style data-fixture-allocation>main,main.soda-spaces-page-mount{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',
           {headers: {'Content-Type': 'text/html'}}
         );
       },
@@ -206,8 +206,11 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
   const picker = {
     frame: await page.locator('.soda-workspace-frame').boundingBox(),
     heading: await page.getByRole('heading', {name: 'Choose a repository'}).boundingBox(),
-    action: await page.getByRole('button', {name: 'Continue', exact: true}).boundingBox(),
   };
+  const continueAction = page.getByRole('button', {name: 'Continue', exact: true});
+  await continueAction.scrollIntoViewIfNeeded();
+  const action = await continueAction.boundingBox();
+  const footer = await page.locator('.soda-setup-footer').boundingBox();
   const selection = await page
     .locator('.soda-repository-choice:has(input:checked)')
     .evaluate((node) => ({background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow}));
@@ -220,7 +223,7 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
-  return picker;
+  return {...picker, action, footer};
 }
 
 export async function reviewFirstIntent(page: Page) {
@@ -243,7 +246,9 @@ export async function completeBoundIntentPlanning(page: Page) {
   const planning = page.locator('section[aria-label="Draft planning"]');
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
   await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
-  await planning.getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true}).waitFor();
+  await planning
+    .getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true})
+    .waitFor();
   await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();

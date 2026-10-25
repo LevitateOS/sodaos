@@ -6,6 +6,7 @@ import {object} from '../../../frontend/spaces/sodaspaces-api.js';
 import type {ContributionNavigationOptions} from '../../../frontend/spaces/fountain-browser-contract.js';
 import {createWorkspaceModel} from './workspace-model.js';
 export {projectA, projectB} from './workspace-model.js';
+let pageMount: ReturnType<typeof mountSpacesEntry> | undefined;
 export function installWorkspaceModel(
   actor = '1',
   repository?: {id: string; owner: string; name: string},
@@ -36,6 +37,8 @@ function createWorkspaceFixture(
   subpath = '',
   repositoryId?: string
 ) {
+  pageMount?.dispose?.();
+  pageMount = undefined;
   const model = installWorkspaceModel('1', undefined, firstUse);
   const apiBase =
     subpath + (mode === 'page' ? '/-/native/pages/soda/spaces/api/' : '/-/native/panels/soda/workspace/api/');
@@ -64,7 +67,10 @@ function createWorkspaceFixture(
   let navigationDeferred = false;
   const presentRoute = (route = location.pathname + location.search + location.hash) => {
     const pathname = route.split(/[?#]/)[0] || '';
-    const workspace = pathname === `${subpath}/workspace` || pathname.startsWith(`${subpath}/workspace/`) || /^\/[^/]+\/[^/]+\/workspace\/?$/.test(pathname.slice(subpath.length));
+    const workspace =
+      pathname === `${subpath}/workspace` ||
+      pathname.startsWith(`${subpath}/workspace/`) ||
+      /^\/[^/]+\/[^/]+\/workspace\/?$/.test(pathname.slice(subpath.length));
     api.update({mode: workspace ? 'page' : 'panel', route, params: {}, visible: true});
   };
   // Authored fixture host: history is owned here, and the consumer receives
@@ -88,8 +94,6 @@ function createWorkspaceFixture(
           pageRepositoryId: '7',
         };
   let api = mountSodaspaces(model.root, context);
-  // Match the production entry's explicit initial inventory read.
-  void api.refresh();
   window.addEventListener('popstate', () => presentRoute());
   return {
     get api() {
@@ -130,7 +134,7 @@ if (location.pathname === '/workspace' || pageRepository.has(location.pathname))
   model.root.dataset.extensionId = 'soda';
   model.root.dataset.extensionPageId = 'spaces';
   const pageApiBase = location.origin + '/-/native/pages/soda/spaces/api/';
-  mountSpacesEntry(model.root, {
+  pageMount = mountSpacesEntry(model.root, {
     extensionId: 'soda',
     pageId: 'spaces',
     ownerId: 'workspace',

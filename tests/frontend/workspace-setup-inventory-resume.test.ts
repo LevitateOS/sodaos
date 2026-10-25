@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {reviewFirstIntent, fixture, setupWorkspaceDriver} from './fixtures/workspace-driver';
+import {
+  reviewFirstIntent,
+  completeBoundIntentPlanning,
+  fixture,
+  setupWorkspaceDriver,
+} from './fixtures/workspace-driver';
 setupWorkspaceDriver();
 
 test('first use: inventory-click accepted resume restores its overview with native links and no writes', async (t) => {
@@ -10,6 +15,7 @@ test('first use: inventory-click accepted resume restores its overview with nati
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
     const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
     const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');

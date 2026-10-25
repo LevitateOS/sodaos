@@ -125,11 +125,32 @@ function createFixture(extra: Partial<State> = {}) {
       };
     else if (url.endsWith('/tailnet')) body = network();
     else if (/\/api\/repositories\/\d+\/factory\/access$/.test(url))
-      body = {repository: url.match(/repositories\/(\d+)/)?.[1], observed_unix: 1,
-        viewer: {code_write: true, owner_or_admin: true, environment_owner: true, operator: true, member: true, session_current: true},
-        editable: {policy: {editable:true}, activity_settings: {editable:true}, operator_grant: {editable:true}, capacity: {editable:true}, environment_grant: {editable:true},
-          sponsorships: [{connection:'connection-observed',editable:true}], usage_budgets: [{connection:'connection-observed',editable:true}]},
-        effective: {}, required_actions: [], preparation: null, usage: [], planning: []};
+      body = {
+        repository: url.match(/repositories\/(\d+)/)?.[1],
+        observed_unix: 1,
+        viewer: {
+          code_write: true,
+          owner_or_admin: true,
+          environment_owner: true,
+          operator: true,
+          member: true,
+          session_current: true,
+        },
+        editable: {
+          policy: {editable: true},
+          activity_settings: {editable: true},
+          operator_grant: {editable: true},
+          capacity: {editable: true},
+          environment_grant: {editable: true},
+          sponsorships: [{connection: 'connection-observed', editable: true}],
+          usage_budgets: [{connection: 'connection-observed', editable: true}],
+        },
+        effective: {},
+        required_actions: [],
+        preparation: null,
+        usage: [],
+        planning: [],
+      };
     else if (url.endsWith('/api/identity/connections') || url.endsWith('/api/identity/enrollments')) body = [];
     else if (url.endsWith('/api/repositories/7/factory'))
       body = {
@@ -152,6 +173,7 @@ function createFixture(extra: Partial<State> = {}) {
         can_create: state.absent,
         items: state.absent ? [] : [{id: environmentID, repository_id: '7'}],
       };
+    else if (url.endsWith(`/api/environments/${environmentID}/members`)) body = {items: [], can_manage: state.admin};
     else if (url.endsWith('/api/me/development-keys'))
       body = {items: state.saved.map((fingerprint, i) => ({id: String(i + 1), fingerprint}))};
     else if (url.endsWith('/os'))

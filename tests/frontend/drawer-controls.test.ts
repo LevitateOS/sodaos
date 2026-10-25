@@ -23,7 +23,7 @@ test('project control mount is inert; refresh only reads and never owns a termin
     {count: 0, native: 'Native action', input: 'unsaved'}
   );
 });
-test('project view tabs and app switches dispatch no reads or writes', async (t) => {
+test('project view tabs read members on Access without lifetime writes', async (t) => {
   const page = await fixture(t);
   await refresh(page);
   const count = await page.evaluate(() => window.drawerFixture.calls.length);
@@ -35,7 +35,14 @@ test('project view tabs and app switches dispatch no reads or writes', async (t)
     window.dispatchEvent(new Event('blur'));
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
+  assert.deepEqual(
+    await page.evaluate(
+      (count) => window.drawerFixture.calls.slice(count).map(({url, method}) => ({url, method})),
+      count
+    ),
+    [{url: '/-/native/pages/soda/spaces/api/environments/p0123456789abcdef01234567/members', method: 'GET'}]
+  );
+  assert.deepEqual(await writes(page), []);
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   await page.getByRole('tab', {name: 'Environment', exact: true}).press('ArrowRight');
   assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Access');

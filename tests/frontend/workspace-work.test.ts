@@ -10,7 +10,7 @@ async function openProjectPlans(page: Page) {
   const work = page.locator('soda-project-work:visible');
   const plans = work.locator('details.soda-project-plans');
   if ((await plans.count()) && !(await plans.evaluate((details) => (details as HTMLDetailsElement).open)))
-    await plans.locator('summary').click();
+    await plans.locator(':scope > summary').click();
   return work;
 }
 async function seedPlans(page: Page, plans: PlanSeed[]) {
@@ -45,6 +45,7 @@ async function writes(page: Page) {
 
 test('Project Work opens explicit requirements review for an imported native issue without creating work', async (t) => {
   const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
   const work = page.locator('soda-project-work:visible');
   await work
     .getByText('Adopt or reaccept an issue', {exact: true})
