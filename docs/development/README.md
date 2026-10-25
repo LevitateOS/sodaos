@@ -38,6 +38,7 @@ language, packages and placement. Update guidance affected by the current change
 | Why unit tests are forbidden | [Why unit tests are forbidden](why-no-unit-tests.md) |
 | Support tool effects and candidates | [Native support](native-support.md) |
 | Running the release pipeline | [Release workflow](release.md) |
+| RC6 installed results, failures and handoff | [25 October qualification record](rc6-qualification-2026-10-25.md) |
 | Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
