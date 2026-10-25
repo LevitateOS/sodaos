@@ -517,6 +517,14 @@ boundary; do not recursively rerun them after they pass without a relevant chang
 
 ## Fountain upstream maintenance
 
+The current Soda source pin selects [Fountain 15.0.10-fountain.3](https://github.com/veighnsche/forgejo-ext/releases/tag/v15.0.10-fountain.3),
+revision `fd5d4db12daf291cdaa5cbde8cb9dee52a0e2b11`. Use its immutable
+[`release.json`](https://github.com/veighnsche/forgejo-ext/releases/download/v15.0.10-fountain.3/release.json)
+as `SODA_FOUNTAIN_RELEASE_URL` when preparing the builder. The existing input
+resolver binds its image, corresponding sources and protocol declarations;
+do not substitute the earlier local candidate image digest. This source update
+does not update an admitted worker configuration or install the release on a VM.
+
 Fountain follows Forgejo's maintained 15.0 LTS line. An update begins from an exact
 reviewed upstream tag and a clean Fountain branch. Record the old upstream base, old
 Fountain revision, new upstream tag and resulting Fountain revision. Review upstream

@@ -24,7 +24,7 @@ From the repository root:
 
 ```sh
 SODA_FORGEJO_SOURCE=/home/soda-builder/forgejo-source \
-SODA_FOUNTAIN_RELEASE_URL=https://RELEASE_HOST/vFOUNTAIN_VERSION/release.json \
+SODA_FOUNTAIN_RELEASE_URL=https://github.com/veighnsche/forgejo-ext/releases/download/v15.0.10-fountain.3/release.json \
   cargo run -p soda-candidate-setup
 ```
 
