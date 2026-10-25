@@ -63,7 +63,7 @@ const phases = path.join(out, 'phases.js');
 const probe = path.join(out, 'soda-installed-probes');
 for (const config of [
   {entrypoints: [path.join(root, 'tests/installed/qualification/main.ts')], compile: {outfile: driver}},
-  {entrypoints: [path.join(root, 'tests/installed/qualification/phases/index.ts')], outfile: phases},
+  {entrypoints: [path.join(root, 'tests/installed/qualification/phases/index.ts')], outdir: out, naming: 'phases.js'},
 ]) {
   const built = await Bun.build({...config, target: 'bun', minify: false});
   assert(built.success, 'qualification bundle failed: ' + built.logs.join('\n'));

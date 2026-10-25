@@ -318,6 +318,24 @@ limit. Every request is fulfilled locally with Chromium offline. Its result
 binds module/request hashes and exact-once action/refusal observations; it does
 not claim backend eligibility, context resumption or a paid outcome.
 
+For retained history on the Docker fixture, run the built native observer through
+the scenario's pinned SSH transport with an explicitly selected historical
+repository/issue:
+
+```sh
+bun tests/installed/qualification/check-native.ts \
+  --module /home/soda-tester/journey-build/phases.js \
+  --scenario /home/soda-tester/scenario.json --repository 1 --issue 1 \
+  --out /home/soda-tester/native-check
+```
+
+This check requires both succeeded and unsuccessful retired runs, with successful
+recorded generations older than the selected Ready connection. It compares real
+native metadata with database outcome/lease/generation bindings and verifies
+history, charges and connection metadata remain identical before/after. It uses
+read-only SQL and native Inspect; no provider output leaves the guest. Those
+fixture history prerequisites are not automatically created or repaired.
+
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
 
