@@ -149,12 +149,16 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             .map_err(err)
     }
 
-    fn integration_head(&self, admitted: &Admitted) -> Result<String, FactoryError> {
-        let journal = self.load_journal(&admitted.run.project, &admitted.run.id)?;
-        let mut head = admitted.plan.source_commit.clone();
+    pub(in crate::factory) fn integration_head(
+        &self,
+        run: &FactoryRun,
+        binding: &Binding,
+        source_commit: &str,
+    ) -> Result<String, FactoryError> {
+        let journal = self.load_journal(&run.project, &run.id)?;
+        let mut head = source_commit.to_owned();
         for event in journal.events() {
-            if event.invocation != admitted.binding.invocation_id
-                || event.plan_digest != admitted.run.manifest_digest
+            if event.invocation != binding.invocation_id || event.plan_digest != run.manifest_digest
             {
                 return Err(FactoryError::Stale);
             }
@@ -233,7 +237,11 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 "native output lacks its observed task owner",
             ));
         }
-        req.expected_head = self.integration_head(&admitted)?;
+        req.expected_head = self.integration_head(
+            &admitted.run,
+            &admitted.binding,
+            &admitted.plan.source_commit,
+        )?;
         admitted.context = GitContext::new(
             &admitted.run,
             &req,
@@ -628,7 +636,12 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         final_candidate: bool,
         deadline: Instant,
     ) -> Result<CheckpointOperation, FactoryError> {
-        if self.integration_head(admitted)? != req.expected_head {
+        if self.integration_head(
+            &admitted.run,
+            &admitted.binding,
+            &admitted.plan.source_commit,
+        )? != req.expected_head
+        {
             return Err(FactoryError::Stale);
         }
         let (parent_tree, tree, selected_checks) = if final_candidate {

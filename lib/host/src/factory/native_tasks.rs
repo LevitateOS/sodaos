@@ -270,22 +270,12 @@ impl NativeTasks {
                 "native task checkpoint release remains unconfirmed",
             ));
         }
-        let mut head = receipt.run.source_commit.clone();
-        for event in journal
-            .events()
-            .iter()
-            .filter(|event| event.event_type == TASK_EVENT_TASK_COMMITTED)
-        {
-            head = event
-                .detail
-                .split_whitespace()
-                .find_map(|field| field.strip_prefix("commit="))
-                .filter(|head| crate::preparation::valid_commit(head))
-                .ok_or_else(invalid)?
-                .into();
-        }
         let mut request = self.request(receipt, "");
-        request.expected_head = head;
+        request.expected_head = factory.integration_head(
+            &receipt.run,
+            receipt.binding.as_ref().ok_or_else(invalid)?,
+            &receipt.run.source_commit,
+        )?;
         Ok(request)
     }
 
