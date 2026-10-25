@@ -907,10 +907,40 @@ does not own product scenarios; do not move Factory orchestration into it.
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j14-build/build.json`,
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j14-command/result.json`, and
   root-private `/home/soda-j14-target-check-20261026/result.json`.
-- [ ] **J15.** Implement only existing supported recovery: pending operation, uncertain
+- [x] **J15.** Implement only existing supported recovery: pending operation, uncertain
   response, partial setup, driver defect, missing authentication, expired attempt,
   exhausted allowance and user hold. A second invocation must not replay paid
   work or re-enter an admitted collector merely because its earlier result failed.
+
+  Implemented in `cda47347e777bb87fa0a3ebe01bb6f0f417b5213`: retained
+  admissions are returned unchanged; partial admission writes stop without
+  overwrite. Rust serializes initial callers and uses inspect/finalize-only
+  recovery for retained collector intents, independently of driver availability.
+  Missing request/intent stays uncertain. Exact local worker retirement can
+  release the host concurrency fence for a separately admitted output while
+  retaining its claim; it proves no guest settlement or paid authority.
+  Native selected preparation phases/digests, run deadlines and allowance fields
+  support the documented recovery advice. Only explicitly scoped same-ID
+  approved/waiting setup may continue, and ready readback gates Factory work.
+
+  Verification: warm offline Rust release build, strict installed/focused
+  TypeScript, formatting, Oxlint and clean committed-source support build passed.
+  Actual root process integration covered ready admission without intent,
+  unavailable driver, retained intent without request (run and status), and
+  concurrent caller refusal under a live flock. Built driver/operator integration
+  repeated the actual held admission plus seven local scope/revocation fixtures
+  without changes or dispatch; an interrupted local admission preserved its
+  saved bytes and refused replay. Fresh pinned native reads observed both exact
+  ready preparation phases/digests. Three retained runs, ten charged minutes and
+  Ready generation 3 remained unchanged. There was no worker launch, guest
+  mutation, provider call, live setup continuation, successful finalization or
+  normal-API interruption acceptance; those unobserved outcomes are not claimed.
+
+  Reproduce with the maintained `check-run.ts` and `check-recovery.ts` commands
+  above. Receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j15-build/build.json`,
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j15-check/result.json`, and
+  root-private `/home/soda-j15-recovery-check-20261026/result.json`.
 - [ ] **J16.** Verify that interruption/lost-response integration against actual normal APIs
   produces no duplicate resource or paid launch, and cancellation reports real
   remaining custody. Use non-sponsored effects for this check; retired model
@@ -1034,6 +1064,18 @@ still needs explicit resolution before execution; the existing Ready account
 and historical results remain usable. J24–J26 retain their dependencies. No
 task IDs, limits, authority or acceptance scope changed, and accepted unchanged
 checks were not reopened.
+
+Full list reviewed after the fifteenth completed task, J15, on 2026-10-26:
+J01–J15 are accepted at their recorded local/read-only scopes. J16 is next and
+retains actual normal-API interruption/custody acceptance using non-sponsored
+effects; the local receipt/process checks do not substitute for that integration.
+J17–J20 still own App handoff, coordinated measurement, final-state recovery and
+whole-route checks. J21–J23 remain held for actual paid acceptance, and J24–J26
+retain native/concurrency, retirement and checkout-reproduction responsibilities.
+The extra retained Project/TTY still needs explicit lifecycle scope before a
+live journey. No task IDs, finite limits, execution holds or authority changed;
+unchanged accepted checks remain accepted. No provider enrollment, guest
+mutation, media build, publication, source push or destructive cleanup resumed.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
