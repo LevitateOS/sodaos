@@ -258,10 +258,11 @@ and context semantics. This design needs no new service, scheduler or database.
 
 #### Implementation plan
 
-The 26 unchecked tasks below are the implementation task list. Group headings
+The 26 tasks below are the living implementation task list. Group headings
 name dependencies; the ownership table names the code homes. Complete J01–J08
 first for the read-only readiness milestone. J21–J23 are live acceptance tasks
-and remain held until execution resumes. All tasks are pending. Planning does
+and remain held until execution resumes. Checked tasks have the recorded evidence;
+the remaining tasks are pending. Local implementation is now authorized. It does
 not resume the held trial, change its budget, rebuild RC7, publish source/assets
 or remove retained fixtures. The implementation target is the existing RC7 Docker
 fixture first, then the native distribution through the same scenario contract.
@@ -289,11 +290,19 @@ does not own product scenarios; do not move Factory orchestration into it.
 
 **1. Define the shared scenario and result boundary.**
 
-- [ ] **J01.** Establish one typed fixture/scenario definition in the maintained installed
+- [x] **J01.** Establish one typed fixture/scenario definition in the maintained installed
   driver: candidate/tool references, actual target, selected cases, retained and
   owned resources, protected credential references, permitted effects and paid
   limits. Reuse canonical domain identities instead of conflating publication,
   assignment, root and run IDs.
+  Implemented in `tests/installed/qualification/scenario.ts`: readonly candidate,
+  driver, target, case, retained/managed resource, credential-reference, effect and
+  model-limit types. `PublicationReference` preserves canonical `id`,
+  `assignment_id` and `run` separately. Strict focused TypeScript checking passed
+  with `tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess
+  --exactOptionalPropertyTypes --target ES2022 --module ESNext
+  --moduleResolution Bundler --types bun,node --skipLibCheck` against this file.
+  This is the type contract only; discovery and runtime validation remain J02/J05.
 - [ ] **J02.** Keep requested intent separate from returned runtime facts. Discover actual
   IDs/current connection generation; leave future run/head/PR values unknown.
   The Rust operator owns its admission envelope, not a second manually maintained
@@ -418,6 +427,14 @@ wiring and TypeScript inventory/phase consolidation can proceed independently.
 Merge at step 2/3 integration. Browser/fixture operations have one writer; heavy
 builds and measured workloads are serialized. Keep live spending behind whole-route
 readiness rather than launching several trials against the same unresolved defect.
+
+**Goal continuation.** Complete one eligible task per turn, record its evidence
+and checked state, commit the focused change, then end the turn. Keep the overall
+goal active for the next task. Read the current list before each selection;
+review the complete list after every five completed tasks, at milestone boundaries
+or immediately after a finding changes a dependency. Refresh actual obsolete
+assumptions without adding speculative work. Preserve the operational holds and
+use the goal's blocked/completion rules when no eligible work remains.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
