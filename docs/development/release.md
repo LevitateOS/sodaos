@@ -256,26 +256,171 @@ lib/soda-release-tools for protected execution/sealing and
 lib/soda-release-deliver for qualification. Existing Factory control owns lifecycle
 and context semantics. This design needs no new service, scheduler or database.
 
-Implement in this order:
+#### Implementation plan
 
-1. Unify the actual RC7 retained inventory across the existing driver. Resolve the
-   two-Project persistence mismatch and check later lifecycle/cold assumptions
-   before authorizing execution. Exercise changed request/lineage/state boundaries
-   without another sponsored task wherever real-system checks are available.
-2. Move that single working implementation into its source owners, replacing
-   release-specific source copies with scenario data. Keep old failed evidence
-   and its executable provenance as historical records.
-3. Record durable successful phase results and supported reconciliation paths.
-   Produce current phase, last confirmed effect, actual usage/remaining limits,
-   next action and required human input automatically; remove manual flag editing,
-   hash transcription and duplicated READY summaries from the normal operator path.
-   Start with boundaries the existing contracts support. General sealed-proof
-   composition is not a prerequisite for fixing the shared inventory or getting
-   the first maintained collector working.
-4. Add the deliberately combined App/terminal/Factory measurement and final-state
-   persistence/cold route. Keep its supplemental proof requirements explicit.
-   Extend to the two-issue case only when the basic driver is working and the
-   finite scope/connections are available.
+This plan implements the maintained journey. All steps are pending. Planning does
+not resume the held trial, change its budget, rebuild RC7, publish source/assets
+or remove retained fixtures. The implementation target is the existing RC7 Docker
+fixture first, then the native distribution through the same scenario contract.
+
+**Proposed operator interface:** add `soda-release journey check`, `run` and
+`status`. These commands do not exist yet. `check` reads selected target state and
+writes a local readiness result without guest mutation or provider inference;
+`status` derives the current result/next action without executing work; `run`
+executes only eligible authorized work and stops on a hold or missing authority.
+Build, stage, collect, finalize and qualify retain their existing owners.
+The intended arguments are `check --scenario FILE --out RUN_DIR` and
+`status|run --run RUN_DIR`; secret values are never command-line arguments.
+
+`soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
+does not own product scenarios; do not move Factory orchestration into it.
+
+| Responsibility | Existing owner / proposed implementation home |
+| --- | --- |
+| Operator command, scope admission, invoking protected collection | `lib/soda-release-tools/src/release_cli.rs`; a small new `journey.rs` module, split only when actual responsibilities need it |
+| Shared scenario/inventory, installed phase implementation and read-only readiness | New maintained modules under `tests/installed/qualification/`, reusing `sodaspaces-controls.ts`, `sodaspaces-input.ts`, `sodaspaces-journey-evidence.ts` and `native-browser.ts` |
+| Cancellation, pinned remote execution, evidence/redaction and VM support | Existing `tools/acceptance/src/driver`, `process`, `evidence`, `remote` and `vm`; extend only a missing generic primitive |
+| Protected runtime, credentials, collector custody and sealing | `lib/soda-release-tools/src/qualification.rs` and `worker/` |
+| Canonical observation validation and promotion eligibility | `lib/soda-release-deliver/src/publish/qualification.rs` |
+| Factory meanings, read-only context projection and lifecycle actions | Existing `internal/factory/control/context_resolution.go`, `publication_children.go`, `lifecycle_retry.go` and canonical Store types; no alternate Factory state machine |
+
+**1. Define the shared scenario and result boundary.**
+
+- Establish one typed fixture/scenario definition in the maintained installed
+  driver: candidate/tool references, actual target, selected cases, retained and
+  owned resources, protected credential references, permitted effects and paid
+  limits. Reuse canonical domain identities instead of conflating publication,
+  assignment, root and run IDs.
+- Keep requested intent separate from returned runtime facts. Discover actual
+  IDs/current connection generation; leave future run/head/PR values unknown.
+  The Rust operator owns its admission envelope, not a second manually maintained
+  copy of every business-state field.
+- Reuse existing request/receipt formats and observation paths. Before each
+  admitted attempt, snapshot its resolved input immutably; never mutate active
+  admitted inputs. Preserve old attempts and reference their provenance.
+- Done when a saved actual fresh-install record and the current retained
+  two-Project RC7 fixture can be represented without changing driver source,
+  creating another VM or clearing history.
+
+**2. Implement whole-scenario read-only readiness and status. Depends on 1.**
+
+- Add `journey check/status` wiring and the shared validator. Check source/trust,
+  actual inventory and custody, current account, standing preparations, accepted
+  inputs, command permits and the known persistence/cold resource closure.
+- Move the current two-Project/one-Project contradiction into an explicit
+  pre-execution diagnostic. Distinguish historical resources from live work and
+  state which owned terminals/Projects must be retired before a snapshot.
+- Return blockers, unknown future observations, last confirmed phase, accounting
+  fields and the next supported action. Missing paid authority reports a wait;
+  it does not cause a sign-in, funding request or model launch.
+- Done when the real current fixture reports the known persistence blocker with
+  zero guest mutations, sponsored executions, JEV calls or budget changes. The
+  affected real-request permit bridge must still refuse mismatched path/body/run
+  identities and accept its exact once-only request.
+
+**3. Consolidate the proven phase modules and fix inventory closure. Depends on 1–2.**
+
+- Migrate the selected RC7 private driver behavior into the maintained source
+  owner: installation readback, browser/TTY witness, canonical Factory observer,
+  CI measurement, both role-context paths, persistence and relevant native reads.
+  Parameterize target/tag/paths/IDs; eliminate active imports from per-attempt
+  implementation copies. Keep historical binaries/evidence immutable.
+- Replace independent global Project/App count assumptions with the same explicit
+  inventory. Normal stop must cover every authorized resource required for a
+  stopped snapshot and preserve unrelated state. Fixing the count alone is not
+  sufficient. Keep strict unknown-resource and active-custody refusals.
+- Preserve canonical publication versus owner identity, current-generation rules,
+  native-success/retirement guards and exact per-run current-context eligibility.
+- Done when affected native/browser/request integrations work with retained
+  history and the selected driver builds from repository source plus explicit
+  dependencies, without copying a predecessor's scripts or credentials.
+
+**4. Add bounded execution and reconciliation. Depends on 2–3.**
+
+- Wire `journey run` to existing protected collection. Reuse the approved scope
+  when target, paid actions and bounds match; record a user hold separately from
+  revoked authority. Do not require manual phase-flag edits or hash transcription.
+- Persist command intent before a side effect, record returned bindings and own
+  one caller per target. On an uncertain response, reconcile its exact operation
+  before another mutation. Adopt ready setup, use same-ID preparation continuation
+  and reuse Ready connections through normal APIs.
+- Implement only existing supported recovery: pending operation, uncertain
+  response, partial setup, driver defect, missing authentication, expired attempt,
+  exhausted allowance and user hold. A second invocation must not replay paid
+  work or re-enter an admitted collector merely because its earlier result failed.
+- Done when interruption/lost-response integration against actual normal APIs
+  produces no duplicate resource or paid launch, and cancellation reports real
+  remaining custody. Use non-sponsored effects for this check; retired model
+  attempts are not made resumable by the runner.
+
+**5. Compose the measured App/terminal/Factory and final-state recovery route.
+Depends on 3–4.**
+
+- Reuse the RC7-compatible App fixture and existing App owner/record behavior.
+  Make Docker transport/owner handoff explicit; native helpers must not silently
+  assume the same filesystem/container topology.
+- Start the genuine App/terminal probes and one existing resource/native observer
+  before the necessary Factory work. Record live CI/review/delivery separately
+  from sampled resource/response results.
+- After accounting settles, stop owned writers, take current protected state,
+  perform the selected persistence operation, read back the same owner/record,
+  Project witness and Factory history, then take one final cold set and restore
+  it in isolation. Keep supplemental App/capacity/cold validation distinct from
+  the four canonical Docker observation kinds.
+- Done before any sponsored demonstration when all known route assumptions,
+  App handoff, owned-resource closure and evidence shapes have been exercised
+  using available real-system checks. Future model/review/concurrency outcomes
+  remain explicitly unobserved. No fake provider result substitutes for them.
+
+**6. Demonstrate the maintained path on the retained RC7 fixture. Depends on 1–5.**
+
+- This is an operational acceptance step, held until the owner resumes execution.
+  Compare the resolved paid target/actions/bounds with the existing approval.
+  Reuse unchanged authority; require actual authority for any added paid trial,
+  increased allowance or concurrency. Never silently change the frozen approval.
+- Use the existing Ready connection. Run one eligible bounded journey, observe
+  the actual result and produce its canonical qualification plus separately
+  validated supplemental results. Preserve failed outcomes and every charge.
+- Done when the intended journey passes or reports its precise genuine blocker
+  without a known deterministic driver contradiction, duplicate mutation, blind
+  retry, erased history, unnecessary rebuild or replacement sign-in. A reported
+  blocker is a correct runner result, not a passing product qualification.
+
+**7. Extend the working path to native and two-issue cases; automate retirement.
+Depends on the basic driver working.**
+
+- Reuse the contract for native transport and the retained native fixture. Add
+  the explicitly selected two-issue extension only with two Ready connections
+  and finite authority. Require real overlap/joins and preserve a no-overlap
+  result honestly; do not buy another attempt automatically.
+- Derive the report from existing receipts. Add consumed-scratch and temporary
+  clone retirement at actual completion points, preserving provenance, active
+  reservations, unique data and backing dependencies. Generic cache resets or
+  broad pruning are not an automatic consequence of a failed run.
+- Done when a new source checkout can build/invoke the maintained path using
+  documented fixture/access inputs, resource release records report actual
+  outcomes, and active per-attempt driver copies/READY controls are unnecessary.
+  Private appliance state and human enrollment remain external prerequisites.
+
+**Validation and delivery discipline.** Check each changed boundary in its own
+step using the smallest meaningful integration. Do not defer all verification to
+step 6, add unit tests, rerun unrelated passing suites or use another paid model
+task to test JSON/ID/permit logic. Update the operator guide and reproduction
+instructions alongside the implementation. Each implementation commit should
+contain one working boundary and its relevant check; no remote push is implied.
+
+**Parallel work.** After step 1 fixes the shared input boundary, Rust CLI/status
+wiring and TypeScript inventory/phase consolidation can proceed independently.
+Merge at step 2/3 integration. Browser/fixture operations have one writer; heavy
+builds and measured workloads are serialized. Keep live spending behind whole-route
+readiness rather than launching several trials against the same unresolved defect.
+
+**First milestone:** `journey check/status` inspects the existing RC7 fixture,
+identifies the persistence inventory contradiction and exposes the exact next
+repair with no provider invocation or target mutation. After the fix it confirms
+the known inventory/closure requirements while still listing live outcomes as
+unobserved. This milestone is useful before `run` or general phase composition
+exists.
 
 The currently approved RC7 one-trial scope remains valid for its unchanged bounds
 and remains **held**. This redesign authorizes no spending or operational resume.
