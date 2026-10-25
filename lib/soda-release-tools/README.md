@@ -178,6 +178,15 @@ accounting, not provider token billing; neither an observed balance nor a saved
 approval path admits a new trial. Status reuses the saved observation time and
 does not silently refresh balances or alter allowances.
 
+The J08 readiness/permit milestone is recorded in the release task list. Its
+retained-request regression used a fresh offline native Chromium context, real
+browser Request objects and local fulfillment of every response: the exact
+saved action passed once, while changed identities and replay were refused.
+No historical action was sent to an appliance. This client-filter result does
+not establish current backend context eligibility, retire any resource or
+resume a trial. Phase/permit source migration remains the next implementation
+step; historical binaries and request evidence stay intact.
+
 ## Produce a development candidate
 
 Replace the paths below with the admitted executable, restricted configuration

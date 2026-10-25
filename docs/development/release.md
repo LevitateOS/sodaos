@@ -445,10 +445,31 @@ does not own product scenarios; do not move Factory orchestration into it.
   CLI integration, formatting and diff checks passed; zero model calls, funding,
   enrollment or guest mutations. Reproduction/evidence:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j07/{scenario.json,run,check-cli.ts,result.json}`.
-- [ ] **J08.** Verify that the real current fixture reports the known persistence blocker with
+- [x] **J08.** Verify that the real current fixture reports the known persistence blocker with
   zero guest mutations, sponsored executions, JEV calls or budget changes. The
   affected real-request permit bridge must still refuse mismatched path/body/run
   identities and accept its exact once-only request.
+  At 22:12:47Z on 2026-10-25, the unchanged maintained driver performed one new
+  read-only RC7 check. It still names retained Project
+  `pdf46bf52e38d8e2e0bb06c1f` and its unowned/unconfirmed terminal as the persistence
+  blockers. Ready generation3, all eight zero custody counters, three retained
+  runs, ten charged minutes and every selected budget/usage observation match
+  J07. No shipping/tool rebuild or replacement sign-in was needed.
+  Separately, a fresh offline native Chromium context replayed the actual saved
+  run-action request through real Playwright Request objects and the affected
+  `FactoryPermits` source. Every request was locally fulfilled; none continued to
+  a server. Altered path, run, body, command ID and method were refused; a
+  mismatched run label was refused before journaling. The exact request was
+  accepted once, then replay/rearming were refused, with one journal record.
+  Historical source and request hashes remained unchanged. This proves client
+  request identity/once-only filtering, not backend context eligibility or a
+  resume of that retired historical run. The live trial remains held.
+  Guest mutations, sponsored executions, JEV/model calls, budget changes and
+  action requests to the appliance: zero. Local scripts and evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j08/{run,check-browser-bridge.ts,browser-bridge-result.json,check-readiness.ts,result.json}`.
+  The browser script uses the installed Playwright/Chromium and existing native
+  browser helper. Its historical guard import is a migration input for J09,
+  not an import of the maintained readiness driver.
 
 **3. Consolidate the proven phase modules and fix inventory closure. Depends on 1–2.**
 
@@ -572,6 +593,14 @@ The concrete J05 finding adds public trust pins and an explicit
 pins/path cannot prove readiness; saved J04 representations remain historical
 input examples, not accepted current readiness. The existing dependency order
 and scope are unchanged, and unchanged accepted checks were not reopened.
+
+Full list reviewed at the J01–J08 readiness/permit milestone on 2026-10-25:
+those eight tasks are accepted; J09 is next. The known resource blocker is
+correctly reported, not repaired or qualified. J09–J12 still own phase migration,
+shared inventory/retirement and its integration. J13–J20 still own admitted
+execution, recovery and supplemental composition. J21–J23 and live native/paid
+extensions remain held. Existing dependencies and all task IDs are preserved;
+no new scope or additional trial/enrollment was introduced.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
