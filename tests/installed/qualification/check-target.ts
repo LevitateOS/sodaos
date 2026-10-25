@@ -21,7 +21,9 @@ assert.equal(await realpath(operator), operator);
 assert.equal(path.dirname(out), '/home', 'fresh direct child of /home required');
 assert.equal(path.resolve(out), out);
 const source = await lstat(operator);
-assert(source.isFile() && source.nlink === 1 && (source.mode & 0o111) !== 0);
+// Cargo may hard-link its public binary to the matching deps artifact. The
+// admitted copy below is a fresh regular file with independently checked bytes.
+assert(source.isFile() && (source.mode & 0o111) !== 0);
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 const write = (file: string, value: unknown) =>
   writeFile(file, JSON.stringify(value, null, 2) + '\n', {flag: 'wx', mode: 0o600});
@@ -64,6 +66,7 @@ await copyFile(operator, selected, constants.COPYFILE_EXCL);
 await chmod(selected, 0o700);
 const operatorSHA = sha(await readFile(selected));
 assert.equal(operatorSHA, sha(await readFile(operator)));
+assert.equal((await lstat(selected)).nlink, 1);
 assert.equal((await lstat(selected)).mode & 0o077, 0);
 const target = {distribution: 'docker', uuid: randomUUID()};
 const resolved = path.join(out, 'resolved.json');

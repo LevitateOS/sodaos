@@ -824,10 +824,50 @@ does not own product scenarios; do not move Factory orchestration into it.
   Reproduce with the documented `check-run.ts` inputs. Receipts:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j13-build-r2/build.json` and
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j13-check/{result.json,collector-cli.json,root-boundary.json,operator-check}`.
-- [ ] **J14.** Persist command intent before a side effect, record returned bindings and own
+- [x] **J14.** Persist command intent before a side effect, record returned bindings and own
   one caller per target. On an uncertain response, reconcile its exact operation
   before another mutation. Adopt ready setup, use same-ID preparation continuation
   and reuse Ready connections through normal APIs.
+  Journey dispatch retains immutable intent and returned collector request/unit
+  bindings. All resolved collector entrypoints now share the target UUID flock
+  and append-only exact request/unit claims before worker dispatch; unknown
+  retirement fences a different output. Existing collector outputs still only
+  finalize. `factory-command.ts` uses the existing normal command receipt/parser
+  and exact lookup after a lost response, checking principal/type/target,
+  normalized request fields/digest and finished outcome before continuing.
+  Pending/missing/conflicting outcomes never resend. CI and recreation inspect
+  their original remote journals; stop actions confirm the same native resource,
+  and terminal reservation bindings are saved before the browser receives them.
+  Post-recreation readback now carries the same explicit resource scope.
+
+  `setup.ts` is wired into the maintained composition before Project/Factory
+  effects. It adopts the selected existing Project/member, exact preparations
+  and Ready Codex generation with normal reads. Explicit unpaid continuation
+  uses only the same approved/waiting preparation IDs, persists its exact intent
+  and reads that retained operation after an uncertain reply. It creates no
+  replacement resource or sign-in. Whole-run admission for incomplete setup and
+  broader supported recovery remain J15; the ready-adoption path is wired now.
+
+  Verification: offline Rust check/operator build, strict installed TypeScript,
+  formatting, Oxlint and clean support build
+  `47d4449b75a66594aaa817e4be774acf9b607921` passed. Actual local root/process
+  integration held one flock and refused two distinct collector outputs for the
+  same synthetic target before allocation. After release, the deliberately
+  incomplete candidate refused before any worker. The copied admitted operator
+  was unshared; the runner was corrected to accept Cargo's normal hard-linked
+  source binary. Built command integration durably wrote intent before its
+  non-dispatching lost-reply callback, then recovered actual repository-2 policy
+  command `87346cc7f238aab0788d555aa8c400ae` via fresh fixed native reads.
+  Existing intent refused before another send; changed request, pending and 404
+  local variants stopped without retry. Three retained runs, ten charged minutes
+  and Ready generation 3 were unchanged. No guest mutation, live POST, preparation
+  continuation, collector worker, model call or live normal-API acceptance was
+  exercised. J16 retains actual API interruption/custody acceptance.
+
+  Reproduce with the two maintained checks above. Receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j14-build/build.json`,
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j14-command/result.json`, and
+  root-private `/home/soda-j14-target-check-20261026/result.json`.
 - [ ] **J15.** Implement only existing supported recovery: pending operation, uncertain
   response, partial setup, driver defect, missing authentication, expired attempt,
   exhausted allowance and user hold. A second invocation must not replay paid
