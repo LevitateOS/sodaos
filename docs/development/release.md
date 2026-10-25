@@ -362,10 +362,14 @@ Root invocation requires a root-controlled run and driver; approval/build
 receipts must also be root-owned private files under trusted ancestors. Reuse
 the existing root collector authority, runtime inventory and credential sources.
 The runtime supplies `details.json` (`DockerPhaseDetails`), `public-docker/`,
-`trust/{known_hosts,appliance-ca.crt}` and `chromium/chrome`; package inputs come
+`trust/{known_hosts,appliance-ca.crt}`, `playwright/` data files and `chromium/chrome`; package inputs come
 from the candidate snapshot. The adapter checks the scope, source and fixed
 mounts before credential reads or transport and uses only the two existing
 systemd credential names. It imports no per-attempt implementation.
+The build receipt identifies the installed Playwright data source and its
+bundle/package/browser metadata hashes. Its bundled data root is the fixed
+runtime path; unused optional BiDi modules stay external to the Chromium route.
+Playwright initializes only after admission, when opening the actual browser.
 
 The driver derives a private resolved source with approval/build pins; `collect`
 freezes its exact bytes as the existing read-only worker snapshot, retaining

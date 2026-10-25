@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {mkdir, readFile, realpath, stat, writeFile} from 'node:fs/promises';
 import path from 'node:path';
+import {createRequire} from 'node:module';
 
 process.umask(0o077);
 const root = path.resolve(import.meta.dir, '..');
@@ -57,6 +58,29 @@ const sdkRevision = await sdkSource();
 const inputs = await Promise.all(
   ['package.json', 'bun.lock', 'go.mod', 'go.sum'].map((file) => artifact(path.join(root, file)))
 );
+const require = createRequire(await realpath(path.join(root, 'node_modules/playwright/index.mjs')));
+const playwrightRoot = path.dirname(require.resolve('playwright-core/package.json'));
+const playwrightBundle = path.join(playwrightRoot, 'lib/coreBundle.js');
+const playwrightSource = await readFile(playwrightBundle, 'utf8');
+const packageRootAssignment = 'packageRoot = import_path9.default.join(__dirname, "..");';
+assert.equal(playwrightSource.split(packageRootAssignment).length, 2, 'one relocatable Playwright data root required');
+let relocations = 0;
+const playwrightRuntime: Bun.BunPlugin = {
+  name: 'protected-playwright-data-root',
+  setup(build) {
+    build.onLoad({filter: /\/playwright-core\/lib\/coreBundle\.js$/}, (args) => {
+      assert.equal(args.path, playwrightBundle);
+      relocations++;
+      return {
+        contents: playwrightSource.replace(
+          packageRootAssignment,
+          'packageRoot = "/run/soda-qualification-runtime/playwright";'
+        ),
+        loader: 'js',
+      };
+    });
+  },
+};
 await mkdir(out, {mode: 0o700});
 const driver = path.join(out, 'soda-qualification-journey');
 const phases = path.join(out, 'phases.js');
@@ -69,11 +93,16 @@ for (const config of [
     entrypoints: [path.join(root, 'tests/installed/qualification/collector.ts')],
     compile: {outfile: collector},
     define: {COLLECTOR_TOOL_REVISION: JSON.stringify(source)},
+    // The selected route uses the Chromium protocol. Optional WebDriver BiDi
+    // modules are absent from the installed dependency and are never invoked.
+    external: ['chromium-bidi'],
+    plugins: [playwrightRuntime],
   },
 ]) {
   const built = await Bun.build({...config, target: 'bun', minify: false});
   assert(built.success, 'qualification bundle failed: ' + built.logs.join('\n'));
 }
+assert.equal(relocations, 1, 'fixed Playwright data root must be bundled once');
 const linker = 'github.com/levitateos/sodaos/internal/acceptance.FactoryContextToolRevision=' + source;
 await command([
   'go',
@@ -100,6 +129,15 @@ const receipt = {
     {module: 'forgejo.org/extension-sdk', path: sdk, source_revision: sdkRevision, clean_scope: sdkRelative},
   ],
   dependency_inputs: inputs,
+  runtime_dependencies: {
+    playwright: {
+      source_directory: playwrightRoot,
+      bundle: await artifact(playwrightBundle),
+      package: await artifact(path.join(playwrightRoot, 'package.json')),
+      browsers: await artifact(path.join(playwrightRoot, 'browsers.json')),
+      admitted_directory: '/run/soda-qualification-runtime/playwright',
+    },
+  },
   dependency_installation_performed: false,
   tool_paths: {bun: process.execPath, go: Bun.which('go')},
   go_build: {cgo_enabled: false, mod: 'readonly', trimpath: true, linker},

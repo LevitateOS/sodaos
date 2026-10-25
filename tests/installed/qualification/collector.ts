@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import {lstat, mkdir, open, readFile} from 'node:fs/promises';
 import path from 'node:path';
-import {chromium} from 'playwright';
 import type {ResolvedQualificationInput} from './scenario';
 import {scenarioInput} from './validate';
 import {collectDockerPhases, dockerPhaseConfiguration, type DockerPhaseDetails} from './phases/docker-phases';
@@ -161,6 +160,9 @@ async function main() {
       );
     },
     async openBrowser() {
+      // Initialize Playwright only after scope/trust admission. Its data files
+      // live in the controller's fixed read-only runtime, not the source tree.
+      const {chromium} = await import('playwright');
       await mkdir(home + '/.pki/nssdb', {recursive: true, mode: 0o700});
       const database = 'sql:' + home + '/.pki/nssdb';
       command('/usr/bin/certutil', ['-N', '--empty-password', '-d', database]);
