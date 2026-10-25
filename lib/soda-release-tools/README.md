@@ -61,6 +61,26 @@ controller removes that exact private tree before sealing any observations.
 Unknown retirement or cleanup failure prevents sealing. Development fixtures can
 exercise this access path or use the standalone collector boundary.
 
+Maintained journey admission adds `resolved_input: {"path": "/ABSOLUTE/input.json",
+"sha256": "HEX"}` to that same collector authority. The shared installed-driver
+type `ResolvedQualificationInput` contains the requested scenario, returned
+observation and references to prior canonical `request.json`, `executed.json` and
+`observations/release-evidence.json` receipts (null when never produced). Store
+credential paths only. The Rust controller treats business fields as opaque;
+the journey validator owns their meaning.
+
+Before dispatch, `collect` checks the protected source and exact hash, durably
+creates `OUT/resolved-input.json` without overwriting, and records its path/hash
+in the existing `request.json`. The snapshot is root-owned 0444 beneath the
+private output directory and mounted read-only at
+`/run/soda-qualification-journey.json`. Only this small document is copied; its
+referenced runtime, credentials and old evidence are not duplicated. Recovery
+checks the frozen snapshot against the retained request and authority pin,
+without substituting a newer source document. A changed input needs a new output
+attempt; existing attempts remain intact. Standalone collectors without a journey
+document retain their existing request and observation formats. Journey command
+wiring and semantic admission remain separate implementation tasks.
+
 `soda-release finalize-evidence --out /home/RELEASE-AUTHORITY/observations-attempt` recovers that
 exact executed receipt without rerunning the collector or build. Failed,
 cancelled, incomplete and mismatched attempts stay unqualified. Development

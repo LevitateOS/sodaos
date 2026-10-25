@@ -1,5 +1,6 @@
 // Shared installed-journey input. This describes scope; it grants no authority
 // and performs no discovery, validation, provider call or target mutation.
+import type {FixtureObservation} from './facts';
 
 /** Public artifact identity; never use this to fingerprint a secret file. */
 export interface PublicArtifact {
@@ -178,4 +179,19 @@ export interface QualificationScenario {
     /** Null means no recorded approval; a non-null path still needs checking. */
     readonly scope_receipt_file: string | null;
   };
+}
+
+/** The collector snapshots these resolved bytes before dispatch. References to
+ * older canonical receipts preserve history without copying their contents.
+ * This document is input, not another controller request or qualification seal.
+ */
+export interface ResolvedQualificationInput {
+  readonly format: 1;
+  readonly scenario: QualificationScenario;
+  readonly observation: FixtureObservation;
+  readonly prior_attempts: readonly {
+    readonly request: PublicArtifact;
+    readonly executed: PublicArtifact | null;
+    readonly release_evidence: PublicArtifact | null;
+  }[];
 }

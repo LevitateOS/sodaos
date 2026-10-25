@@ -325,9 +325,27 @@ does not own product scenarios; do not move Factory orchestration into it.
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j02/check.ts`,
   `selected.json`, `observation.json` and `result.json` in the same directory.
   This checks identity discovery only; whole-scenario readiness remains J05–J08.
-- [ ] **J03.** Reuse existing request/receipt formats and observation paths. Before each
+- [x] **J03.** Reuse existing request/receipt formats and observation paths. Before each
   admitted attempt, snapshot its resolved input immutably; never mutate active
   admitted inputs. Preserve old attempts and reference their provenance.
+  The existing protected collector now accepts an exact-bound `resolved_input`
+  document, snapshots it before dispatch, records it in its canonical request and
+  mounts it read-only. Recovery verifies the retained copy; it never refreshes it
+  from the producer. `ResolvedQualificationInput` references prior canonical
+  requests/executed/sealed receipts without copying them or their runtime. The
+  Rust controller owns only file binding, leaving the scenario/facts schema in
+  the installed driver. See the release-tools guide for paths and format.
+  Provider-free filesystem integration used J02's actual RC7 observation: exact
+  bytes and prior references survived, overwrite/stale-pin/tamper were refused,
+  and the first attempt remained unchanged after a new input/snapshot. Accepted
+  snapshots totalled 2,228 bytes; no collector dispatch, guest mutation or model
+  call occurred. `cargo check --offline --release -p soda-release-tools --lib`,
+  focused Rust/TypeScript formatting and strict TypeScript checking passed.
+  Invocation and evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j03/Cargo.toml`, `src/main.rs`
+  and `result.json`. Run that manifest with `cargo run --offline --release` and
+  a reused target cache; use a fresh evidence directory when repeating it.
+  Journey command admission/dispatch is still J05/J13; this check launched none.
 - [ ] **J04.** Verify that a saved actual fresh-install record and the current retained
   two-Project RC7 fixture can be represented without changing driver source,
   creating another VM or clearing history.

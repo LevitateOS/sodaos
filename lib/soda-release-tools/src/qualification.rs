@@ -5,15 +5,16 @@ use soda_release_deliver::publish::qualification::{self as evidence, ProtectedEv
 use std::{
     collections::BTreeMap,
     fs,
-    io::Write,
     os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     time::Instant,
 };
+mod input;
 
 const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
 const RUNTIME: &str = "/run/soda-qualification-runtime";
+const RESOLVED_INPUT: &str = "/run/soda-qualification-journey.json";
 const CREDENTIALS: [&str; 2] = ["guest-ssh-key", "workspace-owner-password"];
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -48,6 +49,8 @@ struct Authority {
     runtime: Option<Runtime>,
     #[serde(default)]
     credentials: BTreeMap<String, Credential>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_input: Option<input::FileReference>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -58,6 +61,8 @@ struct Request {
     unit: String,
     attempt: PathBuf,
     binding: ProtectedEvidence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_input: Option<input::FileReference>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -77,18 +82,11 @@ fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
         .map_err(|e| e.to_string())
 }
 fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    let mut file = tempfile::NamedTempFile::new_in(path.parent().ok_or("parent required")?)
-        .map_err(|e| e.to_string())?;
-    file.as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))
-        .map_err(|e| e.to_string())?;
-    file.write_all(&serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?)
-        .and_then(|_| file.as_file().sync_all())
-        .map_err(|e| e.to_string())?;
-    file.persist_noclobber(path).map_err(|e| e.to_string())?;
-    fs::File::open(path.parent().ok_or("parent required")?)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| e.to_string())
+    input::write_new(
+        path,
+        &serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?,
+        0o600,
+    )
 }
 fn runtime_files(
     root: &Path,
@@ -471,7 +469,26 @@ fn retained_request(out: &Path) -> Result<(Request, Authority), String> {
         return Err("retained release request binding refused".into());
     }
     input_binding(&a, &out.join("input"))?;
+    resolved_binding(out, &a, &request)?;
     Ok((request, a))
+}
+fn resolved_binding(out: &Path, a: &Authority, request: &Request) -> Result<(), String> {
+    match (&a.resolved_input, &request.resolved_input) {
+        (None, None) => Ok(()),
+        (Some(source), Some(snapshot))
+            if snapshot.path == out.join("resolved-input.json")
+                && snapshot.sha256 == source.sha256 =>
+        {
+            // The request and output parent are already root-protected. The
+            // individual snapshot is readable through its read-only worker bind.
+            let meta = fs::symlink_metadata(&snapshot.path).map_err(|e| e.to_string())?;
+            if meta.uid() != 0 {
+                return Err("root-owned resolved input snapshot required".into());
+            }
+            input::verify(snapshot)
+        }
+        _ => Err("retained resolved input binding refused".into()),
+    }
 }
 fn result_binding(path: &Path, a: &Authority) -> Result<(), String> {
     let r: CollectorResult = read(&path.join("collector.json"))?;
@@ -579,6 +596,14 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         .create(out)
         .map_err(|e| e.to_string())?;
     let _lock = lock(out)?;
+    let resolved_input = a
+        .resolved_input
+        .as_ref()
+        .map(|source| {
+            evidence::protected_path(&source.path, false).map_err(|e| e.to_string())?;
+            input::snapshot(source, &out.join("resolved-input.json"))
+        })
+        .transpose()?;
     let input = out.join("input");
     snapshot_inputs(&a, candidate, &input)?;
     input_binding(&a, &input)?;
@@ -638,8 +663,10 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         unit: binding.unit.clone(),
         attempt: attempt.clone(),
         binding,
+        resolved_input,
     };
     write_new(&out.join("request.json"), &request)?;
+    resolved_binding(out, &a, &request)?;
     let mut worker = Worker {
         name,
         user: "soda-qualifier".into(),
@@ -675,6 +702,11 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
             .read_only
             .push(format!("{}:{RUNTIME}", runtime.directory.display()));
     }
+    if let Some(snapshot) = &request.resolved_input {
+        worker
+            .read_only
+            .push(format!("{}:{RESOLVED_INPUT}", snapshot.path.display()));
+    }
     crate::build_cli::watch_build_signals();
     let start = Instant::now();
     let mut custody = WorkerUnitCustody::NeverDispatched;
@@ -700,6 +732,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         return Err("collector retirement or completion unconfirmed".into());
     }
     access_binding(config, &a)?;
+    resolved_binding(out, &a, &request)?;
     input_binding(&a, &input)?;
     result_binding(&attempt, &a)?;
     secure_tree(&attempt, true)?;
