@@ -1,5 +1,11 @@
 // soda-fetch-muse stages the checksum-pinned native Muse executable for builds.
 //
+// The default (no-flag) entrypoint admits bytes only after live freshness
+// validation: current pins stage (cached reuse or verified download), stale
+// pins are refused with exit 2 (record via --refresh first), and unknown
+// upstream refuses any current-baseline claim. Ordinary builds therefore no
+// longer depend on the operator remembering --check.
+//
 // --check compares the pinned manifest against the live official channel and
 // reports current/stale/unknown without touching the file (exit 0 current,
 // 2 stale-or-unknown, 1 operational error). --refresh resolves the live
@@ -122,14 +128,29 @@ fn run() -> (i32, Option<String>) {
             }
         };
     }
-    match muse::fetch_muse(
+    // Default entrypoint: live freshness gates admission, so ordinary builds
+    // can no longer stage a stale pin or claim a baseline on unknown input.
+    match muse::admit_current(
         &options.manifest,
         &options.arch,
         Path::new(&options.out),
         muse::DOWNLOAD_BASE,
     ) {
-        Ok(()) => (0, None),
-        Err(e) => (1, Some(e)),
+        Ok(admitted) => (
+            0,
+            Some(format!(
+                "muse baseline admitted current: {} sha256:{} size:{}",
+                admitted.version, admitted.sha256, admitted.size
+            )),
+        ),
+        Err(muse::FetchRefusal::Stale(detail)) => {
+            (2, Some(format!("muse baseline is stale: {detail}")))
+        }
+        Err(muse::FetchRefusal::Unknown(reason)) => (
+            2,
+            Some(format!("muse baseline is unknown: {reason}")),
+        ),
+        Err(muse::FetchRefusal::Failed(error)) => (1, Some(error)),
     }
 }
 

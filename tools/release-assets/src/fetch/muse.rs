@@ -478,24 +478,80 @@ fn atomic_write(manifest: &str, text: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// The frozen verified baseline tuple a running build consumes: the exact
+/// upstream release the default admission validated before staging bytes.
+pub struct Admitted {
+    pub version: String,
+    pub sha256: String,
+    pub size: i64,
+}
+
+/// Why default admission refused the cached/descriptor bytes.
+pub enum FetchRefusal {
+    Stale(String),
+    Unknown(String),
+    Failed(String),
+}
+
+/// Default build admission: resolve live official metadata and stage the
+/// pinned bytes ONLY when the pin is exactly current. A stale pin is refused
+/// (record the current release with explicit `--refresh` first); an unusable
+/// upstream refuses any current-baseline claim, so ordinary builds can no
+/// longer depend on the operator remembering `--check`. The returned tuple is
+/// frozen for the running build; explicit source refresh before a new source
+/// snapshot stays a separate write-mode action.
+pub fn admit_current(
+    manifest: &str,
+    arch: &str,
+    dest: &Path,
+    download_base: &str,
+) -> Result<Admitted, FetchRefusal> {
+    if !dest.is_absolute() {
+        return Err(FetchRefusal::Failed(
+            "absolute Muse destination required".to_string(),
+        ));
+    }
+    match check_muse(manifest, arch).map_err(FetchRefusal::Failed)? {
+        Baseline::Current { .. } => {}
+        Baseline::Stale { detail } => {
+            return Err(FetchRefusal::Stale(format!(
+                "{detail}; run soda-fetch-muse --refresh to record the current release"
+            )))
+        }
+        Baseline::Unknown { reason } => return Err(FetchRefusal::Unknown(reason)),
+    }
+    let (version, artifact) = load_release(manifest, arch).map_err(FetchRefusal::Failed)?;
+    if current_digest(dest).as_deref() != Some(artifact.sha256.as_str()) {
+        let url = download_url(download_base, &version, &artifact.file);
+        let mut response = crate::fetch::http_get(&url, USER_AGENT, TIMEOUT)
+            .map_err(|e| FetchRefusal::Failed(format!("download Muse: {e}")))?;
+        if response.status != 200 {
+            return Err(FetchRefusal::Failed("muse download failed".to_string()));
+        }
+        stage(&mut response.reader, &artifact, dest).map_err(FetchRefusal::Failed)?;
+    } else {
+        crate::fetch::chmod(dest, 0o755).map_err(FetchRefusal::Failed)?;
+    }
+    Ok(Admitted {
+        version,
+        sha256: artifact.sha256,
+        size: artifact.size,
+    })
+}
+
+/// Backwards-compatible default fetch: gated admission, string errors.
+/// Prefer [`admit_current`] when exit codes must distinguish stale/unknown.
 pub fn fetch_muse(
     manifest: &str,
     arch: &str,
     dest: &Path,
     download_base: &str,
 ) -> Result<(), String> {
-    if !dest.is_absolute() {
-        return Err("absolute Muse destination required".to_string());
-    }
-    let (version, artifact) = load_release(manifest, arch)?;
-    if current_digest(dest).as_deref() == Some(artifact.sha256.as_str()) {
-        return crate::fetch::chmod(dest, 0o755);
-    }
-    let url = download_url(download_base, &version, &artifact.file);
-    let mut response = crate::fetch::http_get(&url, USER_AGENT, TIMEOUT)
-        .map_err(|e| format!("download Muse: {e}"))?;
-    if response.status != 200 {
-        return Err("muse download failed".to_string());
-    }
-    stage(&mut response.reader, &artifact, dest)
+    admit_current(manifest, arch, dest, download_base)
+        .map(|_| ())
+        .map_err(|refusal| match refusal {
+            FetchRefusal::Stale(detail) => format!("stale baseline: {detail}"),
+            FetchRefusal::Unknown(reason) => format!("unknown baseline: {reason}"),
+            FetchRefusal::Failed(error) => error,
+        })
 }
