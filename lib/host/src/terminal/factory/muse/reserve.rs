@@ -1,45 +1,24 @@
 use super::commands::{muse_exec_argv, muse_setup_script};
 use super::paths::{factory_muse_guest, factory_muse_paths, FactoryMusePaths};
 use crate::project::Executor;
-use crate::sha256;
 use crate::terminal::factory::native::{
     factory_unit_name_or_denied, harness_install_script, reserve_run_argv,
 };
 use crate::terminal::factory::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Lease, Service, KIND_FACTORY};
-use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
 // ---------- service operations ----------
 
 impl<E: Executor> Service<E> {
-    /// Staged-host Muse harness check: regular exec-bit file whose digest
-    /// matches the configured pin. Mirrors `verify_identity_harness`.
-    pub fn verify_muse_harness(&self) -> Result<(), String> {
-        let path = format!("{}/bin/muse", self.muse_harness.trim_end_matches('/'));
-        let lstat = std::fs::symlink_metadata(&path)
-            .map_err(|_| "verified Muse executable required".to_string())?;
-        if !lstat.file_type().is_file() || lstat.permissions().mode() & 0o111 == 0 {
-            return Err("verified Muse executable required".to_string());
-        }
-        let mut data = Vec::new();
-        use std::io::Read;
-        std::fs::File::open(&path)
-            .map_err(|_| "verified Muse executable required".to_string())?
-            .read_to_end(&mut data)
-            .map_err(|e| format!("muse harness unreadable: {e}"))?;
-        if sha256::hex_lower(&sha256::digest(&data)) != self.muse_harness_sha256 {
-            return Err("muse harness digest differs".to_string());
-        }
-        Ok(())
-    }
-
-    /// `Service.FactoryCodexReserve` shape for Muse runs.
+    /// `Service.FactoryCodexReserve` shape for Muse runs. Staging uses only
+    /// the bound exact bundle; the startup-configured harness path/pin is
+    /// never consulted.
     pub fn factory_muse_reserve(
         &self,
         run: &FactoryRun,
         lease: &Lease,
-        pin_sha256: &str,
+        bound: &super::super::bound::BoundBundle,
         max_secs: i64,
         deadline: Instant,
     ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
@@ -47,20 +26,18 @@ impl<E: Executor> Service<E> {
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
             return Err(terminal::err_denied());
         }
-        if pin_sha256.is_empty()
-            || pin_sha256 != self.muse_harness_sha256
-            || !self.muse_harness.starts_with('/')
-        {
+        // The seam binds the exact bundle before this call; the admitted run
+        // must name the bound version, never a moving startup pin.
+        if run.harness_vers != bound.version {
             return Err(terminal::err_denied());
         }
         if !(60..=3 * 3600).contains(&max_secs) {
             return Err(terminal::err_denied());
         }
-        self.verify_muse_harness()?;
         let container = self.factory_project_container(&run.project, true, deadline)?;
         let (uid, gid) = self.factory_role_ids(&container, &run.role, deadline)?;
         self.factory_muse_setup(&container, run, &p, uid, gid, deadline)?;
-        let guest = self.factory_muse_stage(&container, &run.harness_vers, deadline)?;
+        let guest = self.factory_muse_stage(&container, bound, deadline)?;
         let unit = factory_unit_name_or_denied(&run.id)?;
         let mut args = reserve_run_argv(&unit, max_secs);
         args.extend(muse_exec_argv(&container, run, &p, &guest));
@@ -140,10 +117,10 @@ impl<E: Executor> Service<E> {
     fn factory_muse_stage(
         &self,
         container: &str,
-        version: &str,
+        bound: &super::super::bound::BoundBundle,
         deadline: Instant,
     ) -> Result<String, String> {
-        let guest = factory_muse_guest(version).ok_or_else(terminal::err_denied)?;
+        let guest = factory_muse_guest(&bound.version).ok_or_else(terminal::err_denied)?;
         let probe = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
@@ -153,7 +130,7 @@ impl<E: Executor> Service<E> {
         ];
         match self.run_podman(&[], &probe, deadline) {
             Err(_) => {
-                let host_bin = terminal::clean_path(&format!("{}/bin/muse", self.muse_harness));
+                let host_bin = bound.executable.to_string_lossy().into_owned();
                 let cp = vec![
                     "--remote=false".to_string(),
                     "cp".to_string(),
@@ -175,7 +152,7 @@ impl<E: Executor> Service<E> {
                     Ok(out) => {
                         let text = String::from_utf8_lossy(&out);
                         let fields: Vec<&str> = text.split_whitespace().collect();
-                        if fields.len() != 2 || fields[0] != self.muse_harness_sha256 {
+                        if fields.len() != 2 || fields[0] != bound.executable_sha256 {
                             return Err("guest harness digest differs".to_string());
                         }
                     }
@@ -185,7 +162,7 @@ impl<E: Executor> Service<E> {
             Ok(out) => {
                 let text = String::from_utf8_lossy(&out);
                 let fields: Vec<&str> = text.split_whitespace().collect();
-                if fields.len() != 2 || fields[0] != self.muse_harness_sha256 {
+                if fields.len() != 2 || fields[0] != bound.executable_sha256 {
                     return Err("guest harness digest differs".to_string());
                 }
             }

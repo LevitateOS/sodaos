@@ -257,23 +257,25 @@ impl<E: Executor> Service<E> {
         self.factory_stage_file(&binding.project, binding, &paths.output, output, deadline)
     }
     /// `Service.FactoryCodexReserve`: prepare run directories, stage the
-    /// verified harness, start the waiting supervisor unit. No credentials.
+    /// bound exact bundle, start the waiting supervisor unit. No
+    /// credentials. Staging uses only the bound package path and executable
+    /// digest; the startup-configured harness path/pin is never consulted.
     pub fn factory_codex_reserve(
         &self,
         run: &FactoryRun,
         lease: &Lease,
-        pin_sha256: &str,
+        bound: &super::bound::BoundBundle,
         max_secs: i64,
         deadline: Instant,
     ) -> Result<(Binding, FactoryCodexPaths), String> {
-        self.factory_codex_reserve_with_channels(run, lease, pin_sha256, max_secs, None, deadline)
+        self.factory_codex_reserve_with_channels(run, lease, bound, max_secs, None, deadline)
     }
 
     pub fn factory_codex_controlled_reserve(
         &self,
         run: &FactoryRun,
         lease: &Lease,
-        pin_sha256: &str,
+        bound: &super::bound::BoundBundle,
         max_secs: i64,
         channels: &super::native_io::NativeChannels,
         deadline: Instant,
@@ -281,7 +283,7 @@ impl<E: Executor> Service<E> {
         self.factory_codex_reserve_with_channels(
             run,
             lease,
-            pin_sha256,
+            bound,
             max_secs,
             Some(channels),
             deadline,
@@ -292,7 +294,7 @@ impl<E: Executor> Service<E> {
         &self,
         run: &FactoryRun,
         lease: &Lease,
-        pin_sha256: &str,
+        bound: &super::bound::BoundBundle,
         max_secs: i64,
         channels: Option<&super::native_io::NativeChannels>,
         deadline: Instant,
@@ -301,20 +303,18 @@ impl<E: Executor> Service<E> {
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
             return Err(terminal::err_denied());
         }
-        if pin_sha256.is_empty()
-            || pin_sha256 != self.codex_harness_sha256
-            || !self.codex_harness.starts_with('/')
-        {
+        // The seam binds the exact bundle before this call; the admitted run
+        // must name the bound version, never a moving startup pin.
+        if run.harness_vers != bound.version {
             return Err(terminal::err_denied());
         }
         if !(60..=3 * 3600).contains(&max_secs) {
             return Err(terminal::err_denied());
         }
-        self.verify_identity_harness()?;
         let container = self.factory_project_container(&run.project, true, deadline)?;
         let (uid, gid) = self.factory_role_ids(&container, &run.role, deadline)?;
         self.factory_codex_setup(&container, run, &p, uid, gid, deadline)?;
-        let guest = self.factory_codex_stage(&container, &run.harness_vers, deadline)?;
+        let guest = self.factory_codex_stage(&container, bound, deadline)?;
         p.native_profile = self.factory_stage_codex_catalog(&container, run, deadline)?;
         if p.native_profile.is_some() && channels.is_none() {
             return Err("configured native Codex profile requires controlled transport".into());
@@ -411,10 +411,10 @@ impl<E: Executor> Service<E> {
     fn factory_codex_stage(
         &self,
         container: &str,
-        version: &str,
+        bound: &super::bound::BoundBundle,
         deadline: Instant,
     ) -> Result<String, String> {
-        let guest = factory_codex_guest(version).ok_or_else(terminal::err_denied)?;
+        let guest = factory_codex_guest(&bound.version).ok_or_else(terminal::err_denied)?;
         let probe = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
@@ -424,7 +424,7 @@ impl<E: Executor> Service<E> {
         ];
         match self.run_podman(&[], &probe, deadline) {
             Err(_) => {
-                let host_bin = terminal::clean_path(&format!("{}/bin/codex", self.codex_harness));
+                let host_bin = bound.executable.to_string_lossy().into_owned();
                 let cp = vec![
                     "--remote=false".to_string(),
                     "cp".to_string(),
@@ -446,7 +446,7 @@ impl<E: Executor> Service<E> {
                     Ok(out) => {
                         let text = String::from_utf8_lossy(&out);
                         let fields: Vec<&str> = text.split_whitespace().collect();
-                        if fields.len() != 2 || fields[0] != self.codex_harness_sha256 {
+                        if fields.len() != 2 || fields[0] != bound.executable_sha256 {
                             return Err("guest harness digest differs".to_string());
                         }
                     }
@@ -456,19 +456,29 @@ impl<E: Executor> Service<E> {
             Ok(out) => {
                 let text = String::from_utf8_lossy(&out);
                 let fields: Vec<&str> = text.split_whitespace().collect();
-                if fields.len() != 2 || fields[0] != self.codex_harness_sha256 {
+                if fields.len() != 2 || fields[0] != bound.executable_sha256 {
                     return Err("guest harness digest differs".to_string());
                 }
             }
         }
-        self.factory_codex_stage_host(container, deadline)?;
+        self.factory_codex_stage_host(container, bound, deadline)?;
         Ok(guest)
     }
 
-    fn factory_codex_stage_host(&self, container: &str, deadline: Instant) -> Result<(), String> {
+    fn factory_codex_stage_host(
+        &self,
+        container: &str,
+        bound: &super::bound::BoundBundle,
+        deadline: Instant,
+    ) -> Result<(), String> {
         const HOST_GUEST: &str = "/usr/local/bin/codex-code-mode-host";
-        let host_bin =
-            terminal::clean_path(&format!("{}/bin/codex-code-mode-host", self.codex_harness));
+        // The companion travels with its exact package: stage the sibling of
+        // the bound executable, never the startup-configured tree.
+        let host_bin = bound
+            .executable
+            .parent()
+            .ok_or_else(|| "factory code host is not staged".to_string())?
+            .join("codex-code-mode-host");
         let want =
             std::fs::read(&host_bin).map_err(|_| "factory code host is not staged".to_string())?;
         let digest = sha256::hex_lower(&sha256::digest(&want));
@@ -489,7 +499,7 @@ impl<E: Executor> Service<E> {
         let cp = vec![
             "--remote=false".to_string(),
             "cp".to_string(),
-            host_bin,
+            host_bin.to_string_lossy().into_owned(),
             format!("{container}:{HOST_GUEST}.new"),
         ];
         if self.run_podman(&[], &cp, deadline).is_err() {
