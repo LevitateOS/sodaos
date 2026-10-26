@@ -6,10 +6,12 @@
 //! `binary_sha256` pins are never consulted for new work (mandatory
 //! freshness supersedes them); a fully empty provider section is simply the
 //! same store path with nothing to ignore. In-flight executions keep the
-//! digest they verified against (`MuseExecution.provider_digest`);
-//! re-resolution of that exact bundle for old-run recovery goes through
-//! [`retained_muse_executable`], which fails closed when the bundle is no
-//! longer admitted.
+//! digest they verified against (`MuseExecution.provider_digest`) plus the
+//! live store reference (`MuseExecution.provider_ref_token`) transferred
+//! from the staging snapshot, so refresh/cleanup cannot collect the exact
+//! bundle of a live run; re-resolution of that exact bundle for old-run
+//! recovery goes through [`retained_muse_executable`], which fails closed
+//! when the bundle is no longer admitted.
 //!
 //! Credential fixtures and model/profile/budget fields are untouched: this
 //! module performs no credential reads and no model calls.
@@ -142,6 +144,38 @@ pub fn release_provider_snapshot(snapshot: ProviderSnapshot) {
     if let Some(token) = snapshot.token {
         let _ = soda_provider_tools::resolve::release(&token);
     }
+}
+
+impl ProviderSnapshot {
+    /// Transfer the snapshot's active store reference out of the snapshot
+    /// into the execution that now owns the staged bundle. After this
+    /// returns `Some`, `release_provider_snapshot` on this snapshot is a
+    /// no-op; the execution owner must call [`release_provider_ref`] after
+    /// confirmed retirement, and must NOT release while retirement is
+    /// uncertain (a conservative leak beats collecting a live bundle).
+    pub fn take_ref_token(
+        &mut self,
+    ) -> Option<soda_provider_tools::resolve::RefToken> {
+        self.token.take()
+    }
+}
+
+/// Release one execution-owned store reference by its retained digest and
+/// token name (the [`MuseExecution`](super::MuseExecution) pair). This is
+/// the only release path for a live execution: call it after
+/// `stop_execution` confirms retirement, never when cleanup is
+/// unconfirmed. Idempotent (`NotFound` is `Ok`), so an accidental second
+/// release is safe; an empty token name is a no-op for unstamped runs.
+pub fn release_provider_ref(provider_digest: &str, ref_token: &str) {
+    if ref_token.is_empty() {
+        return;
+    }
+    let token = soda_provider_tools::resolve::RefToken {
+        token: ref_token.to_string(),
+        provider: soda_provider_tools::Provider::Muse,
+        digest: provider_digest.to_string(),
+    };
+    let _ = soda_provider_tools::resolve::release(&token);
 }
 
 /// Expected `(version, sha256)` for one NEW Muse execution, captured as ONE

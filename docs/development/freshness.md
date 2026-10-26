@@ -73,9 +73,22 @@ must preserve credentials, accounts, budgets, data and required failed evidence.
 
 ## Implementation status
 
-The automatic installed Codex/Muse updater is designed but not implemented.
-Completing it is required; the current image pin/manual package paths do not meet
-this rule. Repository dependency automation is configured locally and takes effect
-only after publication to the repository's default branch. Custom input freshness,
-baseline enforcement and installed dependency activation remain implementation
-work. Do not present this policy change as an update of all dependencies or VMs.
+The automatic installed Codex/Muse updater is implemented in source (run
+UP-20261026-v1): shared retained store, upstream discovery, verified
+admission, status/due-check, active references and reference-aware cleanup in
+`lib/provider-tools`; broker and host staging consumers; `cmd/soda-provider-update`
+operator command; installed `system/host/services/soda-provider-update.service`
+and `.timer` units; project launch resolution and baseline freshness. The frozen
+shared contract lives in [provider-freshness-contract.md](provider-freshness-contract.md).
+Repository dependency automation is configured locally and takes effect only
+after publication to the repository's default branch.
+
+Proven locally in this run: unchanged-refresh reuse, atomic failure behavior,
+process retention, credential preservation, stale/unknown launch and baseline
+refusal, installed-path Project access, and live restage with legacy pins
+ignored. Remaining and unverified: installed/appliance activation (no production
+install was mutated or restarted here), nested live restage, exact host bundle
+lifetime across reserve and active execution (in progress), persisted
+cold-recovery Factory integration, and independent review. Do not present this
+policy change as an update of all dependencies or VMs, and never claim an
+installation is current without an actual check.

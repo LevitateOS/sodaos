@@ -9,8 +9,8 @@
 use soda_host::{muse, muse_serve, project, terminal};
 
 use muse::{
-    muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseHooks,
-    MuseLaunch, MusePeer, MuseRuntime,
+    muse_arguments, muse_command_argv, LaunchExit, LaunchRequest, MuseCaller, MuseExecution,
+    MuseHooks, MuseLaunch, MusePeer, MuseRuntime,
 };
 use muse_serve::open_muse_listener;
 use project::Executor;
@@ -1100,5 +1100,145 @@ fn prepare_ignores_legacy_pins_restages_store() {
     }
     assert!(saw_native_check, "guest verification targeted the staged binary");
     assert!(saw_binary_bytes, "staged bytes are exactly the admitted bundle");
+    cleanup(&dir);
+}
+
+// ---------- UP-20261026-v1 V3-A: exact host provider bundle lifetime ----------
+//
+// `prepare_execution` transfers the staging snapshot's store reference into
+// the execution before reservation. The broker lease binds the moving
+// current record, so only this retained reference keeps the exact staged
+// bundle alive across refresh/cleanup. The execution owner releases it
+// after confirmed retirement and preserves it under uncertainty.
+
+fn lifetime_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// V3-A main path: bundle A staged for a live execution survives two newer
+/// selections (B/C) plus cleanup while the execution ref is held, then
+/// becomes cleanable after retire + release through the same helper the
+/// shell end / `finish_start` paths use. Hermetic: real files, real
+/// admission records, no downloads (the check is never due here).
+#[test]
+fn host_execution_ref_survives_cleanup_until_released() {
+    use soda_provider_tools::store;
+    let _lock = STORE_ENV_LOCK.lock().unwrap();
+    let dir = work_tmp();
+    let root = dir.join("lifetime");
+    std::fs::create_dir_all(&root).unwrap();
+    let now = lifetime_now();
+    let (rel_a, _) = fixture_bundle(&root, "7.0.0-a");
+    fixture_selection(&root, &rel_a, now, store::Freshness::Current);
+    let _g0 = EnvGuard::set("SODA_PROVIDERS_ROOT", root.to_str().unwrap());
+    let _g1 = EnvGuard::set("SODA_PROVIDERS_CHANNEL", "review-invalid");
+    let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "86400");
+
+    // Stage exactly like `prepare_execution`: snapshot, transfer the
+    // reference out of the snapshot into the execution holder.
+    let mut snap = muse::fresh_provider_snapshot().expect("snapshot A");
+    assert_eq!(snap.selection.release.digest, rel_a.digest);
+    let digest_a = rel_a.digest.clone();
+    let token = snap.take_ref_token().expect("staging snapshot carries a ref");
+    // The tokenless snapshot releases nothing.
+    muse::release_provider_snapshot(snap);
+    let mut execution = MuseExecution::default();
+    execution.provider_digest = digest_a.clone();
+    execution.provider_ref_token = token.token.clone();
+    // Clones never own the reference (supervisor snapshot shape).
+    let shadow = execution.clone();
+    assert_eq!(shadow.provider_ref_token, execution.provider_ref_token);
+
+    // Two newer selections move current to C; A is neither current nor
+    // previous now.
+    let (rel_b, _) = fixture_bundle(&root, "7.0.0-b");
+    fixture_selection(&root, &rel_b, now, store::Freshness::Current);
+    let (rel_c, _) = fixture_bundle(&root, "7.0.0-c");
+    fixture_selection(&root, &rel_c, now, store::Freshness::Current);
+    let digest_c = rel_c.digest.clone();
+
+    // Cleanup while the A execution ref is held: A survives and stays
+    // admitted through the retained path.
+    store::cleanup(&root).expect("cleanup runs");
+    let bundle_a = root.join("bundles").join("muse").join(&digest_a);
+    assert!(bundle_a.is_dir(), "held A bundle survives cleanup past B/C");
+    muse::retained_muse_executable(&digest_a).expect("held A still admitted");
+
+    // Retire + release through the owner helper, then cleanup: the old
+    // unreferenced A becomes collectable while current C is untouched.
+    // An empty token is a no-op for unstamped runs.
+    muse::release_provider_ref(&digest_a, "");
+    assert!(bundle_a.is_dir(), "empty-token release touches nothing");
+    muse::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
+    // Release is idempotent: a second release is safe (NotFound is Ok).
+    muse::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
+    store::cleanup(&root).expect("cleanup runs after release");
+    assert!(!bundle_a.exists(), "released A is collected");
+    assert!(
+        muse::retained_muse_executable(&digest_a).is_err(),
+        "released A fails closed"
+    );
+    assert!(
+        root.join("bundles").join("muse").join(&digest_c).is_dir(),
+        "current C untouched"
+    );
+    assert!(rel_b.digest.len() == 64, "fixture thread-through");
+    cleanup(&dir);
+}
+
+/// V3-A failure paths: a ref transferred but never reserved (reserve
+/// failure) is released so it never leaks protection; a ref whose
+/// retirement is uncertain is preserved so cleanup can never collect a
+/// possibly-live bundle. Same owner, same helpers, real store.
+#[test]
+fn host_execution_ref_released_on_reserve_failure_preserved_when_uncertain() {
+    use soda_provider_tools::store;
+    let _lock = STORE_ENV_LOCK.lock().unwrap();
+    let dir = work_tmp();
+    let root = dir.join("lifefail");
+    std::fs::create_dir_all(&root).unwrap();
+    let now = lifetime_now();
+    let (rel_d, _) = fixture_bundle(&root, "7.0.0-d");
+    fixture_selection(&root, &rel_d, now, store::Freshness::Current);
+    let _g0 = EnvGuard::set("SODA_PROVIDERS_ROOT", root.to_str().unwrap());
+    let _g1 = EnvGuard::set("SODA_PROVIDERS_CHANNEL", "review-invalid");
+    let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "86400");
+
+    // Staged D, reservation failed: `prepare_execution` releases the
+    // transferred reference on this path (no live run can need it).
+    let mut snap_d = muse::fresh_provider_snapshot().expect("snapshot D");
+    let token_d = snap_d.take_ref_token().expect("snapshot carries a ref");
+    muse::release_provider_snapshot(snap_d);
+    muse::release_provider_ref(&rel_d.digest, &token_d.token);
+
+    // Uncertain retirement for E: the owner preserves the reference.
+    let (rel_e, _) = fixture_bundle(&root, "7.0.0-e");
+    fixture_selection(&root, &rel_e, now, store::Freshness::Current);
+    let mut snap_e = muse::fresh_provider_snapshot().expect("snapshot E");
+    let token_e = snap_e.take_ref_token().expect("snapshot carries a ref");
+    muse::release_provider_snapshot(snap_e);
+    // `stop_execution` returned Err (cleanup unconfirmed): NO release here.
+
+    // Advance twice more so neither D nor E is current, then cleanup.
+    let (rel_f, _) = fixture_bundle(&root, "7.0.0-f");
+    fixture_selection(&root, &rel_f, now, store::Freshness::Current);
+    let (rel_g, _) = fixture_bundle(&root, "7.0.0-g");
+    fixture_selection(&root, &rel_g, now, store::Freshness::Current);
+    store::cleanup(&root).expect("cleanup runs");
+
+    let bundle_d = root.join("bundles").join("muse").join(&rel_d.digest);
+    let bundle_e = root.join("bundles").join("muse").join(&rel_e.digest);
+    assert!(!bundle_d.exists(), "reserve-failed D released, collected");
+    assert!(bundle_e.is_dir(), "uncertain E preserved across cleanup");
+    muse::retained_muse_executable(&rel_e.digest).expect("uncertain E still admitted");
+
+    // Late confirmation for E releases, and the next cleanup collects it.
+    muse::release_provider_ref(&rel_e.digest, &token_e.token);
+    store::cleanup(&root).expect("cleanup runs after late release");
+    assert!(!bundle_e.exists(), "late-released E collected");
+    assert!(rel_f.digest.len() == 64 && rel_g.digest.len() == 64, "fixture thread-through");
     cleanup(&dir);
 }

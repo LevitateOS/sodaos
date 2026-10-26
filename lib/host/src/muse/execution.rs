@@ -118,35 +118,74 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         // bytes survive only through the bound-digest recovery path, never
         // through startup config. One coherent snapshot per invocation,
         // restaged into the running Project, then bound to this run.
-        let snapshot = super::provider::fresh_provider_snapshot()?;
+        let mut snapshot = super::provider::fresh_provider_snapshot()?;
         let verified_digest = match self.ensure_guest_provider(&caller, &snapshot, budget) {
-            Ok(digest) => {
-                super::provider::release_provider_snapshot(snapshot);
-                digest
-            }
+            Ok(digest) => digest,
             Err(err) => {
                 super::provider::release_provider_snapshot(snapshot);
                 return Err(err);
             }
         };
-        let mut execution = self.reserve_execution(&caller, &request, budget)?;
+        // Transfer the snapshot's store reference into this execution
+        // BEFORE reservation: from here on the exact staged bundle stays
+        // pinned regardless of selection movement or cleanup, because the
+        // broker lease binds the moving current record, not this bundle.
+        let provider_ref_token = snapshot
+            .take_ref_token()
+            .map(|token| token.token)
+            .unwrap_or_default();
+        // Dropping the now-tokenless snapshot must not release the
+        // execution's reference.
+        super::provider::release_provider_snapshot(snapshot);
+        let mut execution = match self.reserve_execution(&caller, &request, budget) {
+            Ok(execution) => execution,
+            Err(err) => {
+                // Staged but never reserved: no live run can need this
+                // bundle, so the transferred reference is released here.
+                super::provider::release_provider_ref(&verified_digest, &provider_ref_token);
+                return Err(err);
+            }
+        };
         // Bind this run to its exact verified bundle: recovery re-resolves
-        // this digest (fail closed), never the current selection.
+        // this digest (fail closed), never the current selection, and the
+        // retained reference keeps it collectable-proof while live.
         execution.provider_digest = verified_digest;
+        execution.provider_ref_token = provider_ref_token;
         if !muse_peer_alive(peer) {
             let cleanup = Instant::now() + Duration::from_secs(30);
-            let _ = self.hooks.end(caller.actor, &execution.lease.id, cleanup);
+            // No guest unit exists yet (unstaged, unspawned), so returning
+            // the lease is the whole retirement; the bundle reference is
+            // released only when that confirms, and preserved
+            // (conservative leak) when it does not.
+            if self
+                .hooks
+                .end(caller.actor, &execution.lease.id, cleanup)
+                .is_ok()
+            {
+                super::provider::release_provider_ref(
+                    &execution.provider_digest,
+                    &execution.provider_ref_token,
+                );
+            }
             return Err(terminal::err_denied());
         }
         if let Err(err) = self.stage(&caller, &execution.path, &request.config_home, budget) {
             let cleanup = Instant::now() + Duration::from_secs(30);
-            let _ = self.stop_execution(
-                &execution.binding,
-                caller.actor,
-                &execution.lease.id,
-                true,
-                cleanup,
-            );
+            if self
+                .stop_execution(
+                    &execution.binding,
+                    caller.actor,
+                    &execution.lease.id,
+                    true,
+                    cleanup,
+                )
+                .is_ok()
+            {
+                super::provider::release_provider_ref(
+                    &execution.provider_digest,
+                    &execution.provider_ref_token,
+                );
+            }
             return Err(err);
         }
         Ok(execution)
@@ -205,9 +244,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             binding,
             path: path.clone(),
             unit: format!("soda-muse-{id}.service"),
-            // Stamped by `prepare_execution` with the verified bundle digest;
-            // empty until then, never a cached selection.
+            // Stamped by `prepare_execution` with the verified bundle digest
+            // and the transferred store reference token; empty until then,
+            // never a cached selection.
             provider_digest: String::new(),
+            provider_ref_token: String::new(),
         })
     }
 

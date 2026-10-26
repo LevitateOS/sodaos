@@ -30,7 +30,8 @@ use std::time::{Duration, Instant};
 
 use crate::muse::{
     muse_command_argv, muse_command_exit, muse_host_environment, prepare_muse_listener_dir,
-    LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer, MuseRuntime,
+    release_provider_ref, LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer,
+    MuseRuntime,
 };
 use crate::project::Executor;
 use crate::terminal::Delivery;
@@ -147,8 +148,17 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 true,
                 cleanup,
             )
-            .is_err()
+            .is_ok()
         {
+            // Retirement confirmed: release the execution's exact-bundle
+            // reference so the staged bundle becomes collectable.
+            release_provider_ref(
+                &execution.provider_digest,
+                &execution.provider_ref_token,
+            );
+        } else {
+            // Retirement unconfirmed: preserve the reference (conservative
+            // leak); the outcome mapping is unchanged.
             return Ok(LaunchExit::cleanup_unconfirmed());
         }
         outcome
