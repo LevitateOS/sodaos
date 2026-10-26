@@ -1,5 +1,7 @@
 # Soda OS product overview
 
+The [mandatory freshness policy](../development/freshness.md) is a product requirement: AI provider CLIs automatically follow current upstream releases, and all managed software stays current as frequently as possible. Reproducibility must not defer freshness.
+
 Soda OS is **the operating system for software factories**. It takes repository
 issues through readiness assessment, coding, pull requests, review and correction,
 automatic merge, and reconsideration of dependent work. AI coding CLIs run in the

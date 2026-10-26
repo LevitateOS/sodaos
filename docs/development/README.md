@@ -1,12 +1,14 @@
 # Development
 
+**Required:** follow the [freshness policy](freshness.md). Resolve current upstream inputs before creating baselines; update stale locks and tools instead of retaining them for reproducibility.
+
 [Factory execution map](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 
 ## Setup
 
-1. Use the installed Go, Rust and Bun tools. Let builds and tests establish compatibility.
+1. Keep the installed Go, Rust and Bun tools current under the [freshness policy](freshness.md). Let builds and tests establish actual compatibility.
 2. From the repository root: `bun install --frozen-lockfile`.
 3. Run focused checks for the code you change; see the command table in
    [Testing](testing.md#source-checks).

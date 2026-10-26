@@ -1,5 +1,7 @@
 # Soda release assets
 
+Input selection follows the [mandatory freshness policy](../../docs/development/freshness.md). Refresh obsolete upstream artifact descriptors before starting a new baseline; size/checksum pins record selected current bytes and must not hold dependencies back.
+
 Fetch public build inputs and prepare release assets, Forgejo presentation and
 private provisioning documents. These commands are for release builders and
 operators preparing a host. The native build pipeline normally invokes them.

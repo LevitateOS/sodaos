@@ -1,5 +1,7 @@
 # SodaOS — An Open-Source Operating System for AI Software Factories
 
+**Mandatory policy:** [Freshness takes priority over reproducibility](docs/development/freshness.md). AI provider CLIs must track current upstream releases; all managed dependencies and every new baseline must follow the same freshness rule.
+
 SodaOS is a self-hosted operating system appliance built on Fedora CoreOS. It
 integrates persistent Podman project environments, Forgejo collaboration, AI
 agent coordination and policy-governed verification and merge, so teams can

@@ -1,5 +1,7 @@
 # Soda OS documentation
 
+**Mandatory:** [Software freshness](development/freshness.md) takes priority over reproducibility. AI provider CLIs must stay current, all managed inputs need frequent updates, and every new baseline must resolve fresh upstream inputs.
+
 Navigate by intent. Each important subject has one canonical owner; other documents
 link to it rather than redefining the contract.
 

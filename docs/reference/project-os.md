@@ -1,5 +1,7 @@
 # Project OS baseline
 
+Project tooling follows the [mandatory freshness policy](../development/freshness.md). AI provider CLIs must track the latest selected upstream channel across new and retained Projects; image pins are bootstrap inputs, not permission for permanent staleness.
+
 Project OS is the userspace foundation for persistent human projects: native
 accounts, shared tools, lasting roots, access and nested workloads. It supports
 development and intervention. The existing [factory operator runtime](factory.md)
@@ -226,9 +228,12 @@ package. Host configuration, broker provider instances and Factory policies bind
 specific executable identities. Updating an image descriptor or a user's vendor
 launcher alone does not update all those consumers.
 
-Use one appliance updater and the existing retained provider storage described in
+The [mandatory freshness policy](../development/freshness.md) governs this design;
+implementing it is required. Use one appliance updater and the existing retained provider storage described in
 [credentials](credentials.md#identity-broker). Check small upstream metadata on
-boot, every 15 minutes and through an explicit refresh command. Reuse unchanged
+boot, at least every five minutes and before new work when a check is due, as
+well as through an explicit refresh command. Consume upstream release events
+where available. Reuse unchanged
 metadata where upstream supports conditional requests, and download a changed
 native bundle once per appliance. Muse's
 [official stable channel](https://api.meta.ai/muse-code/channels/muse-stable)
@@ -242,11 +247,13 @@ the integration works, without guessed version cutoffs.
 Stage each changed bundle privately, verify its published integrity information
 and required files, then exercise the actual help/model-profile and protocol
 initialization paths used by Soda without signing in or making a model call.
-On success, atomically select the complete bundle for future sessions. Keep the
-previous selection when download or checks fail and expose the failure. No
+On success, atomically select the complete bundle for future sessions. Preserve
+active runs on their previous bundle when download or checks fail and expose the
+failure; known stale binaries must not start new provider work. No
 per-release manual approval, image rebuild, VM qualification or paid model test
-belongs in this routine update path. Offline operation uses the last working
-selection; first boot can use the bundled bootstrap input.
+belongs in this routine update path. Offline operation preserves existing work
+but cannot establish freshness for a new baseline. First boot must refresh the
+bundled bootstrap input before treating it as current.
 
 All entry points must resolve the same selected bundle: ordinary Project CLI
 launches, broker enrollment, host staging and new Factory admissions. Each new

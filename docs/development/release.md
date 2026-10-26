@@ -1,5 +1,7 @@
 # Release workflow
 
+**Freshness is mandatory:** follow the [freshness policy](freshness.md) before selecting build inputs, creating a baseline, qualifying or promoting. Recorded digests preserve the freshly resolved attempt; older frozen-input instructions do not authorize obsolete dependencies for new work.
+
 How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).

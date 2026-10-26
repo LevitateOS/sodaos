@@ -1,10 +1,63 @@
 version: 2
+# Mandatory freshness policy: docs/development/freshness.md.
+# Check hourly, including weekends, without a release-age cooldown.
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: '0 * * * *'
+    cooldown:
+      default-days: 0
     open-pull-requests-limit: 2
     groups:
       actions:
+        patterns: ['*']
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: '0 * * * *'
+    cooldown:
+      default-days: 0
+    open-pull-requests-limit: 2
+    groups:
+      go:
+        patterns: ['*']
+  - package-ecosystem: cargo
+    directories:
+      - /
+      - /tools/source-complexity/rust
+    schedule:
+      interval: cron
+      cronjob: '0 * * * *'
+    cooldown:
+      default-days: 0
+    open-pull-requests-limit: 2
+    groups:
+      rust:
+        patterns: ['*']
+  - package-ecosystem: bun
+    directories:
+      - /
+      - /tools/lit-check
+    schedule:
+      interval: cron
+      cronjob: '0 * * * *'
+    cooldown:
+      default-days: 0
+    open-pull-requests-limit: 2
+    groups:
+      browser:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /system/docker
+    schedule:
+      interval: cron
+      cronjob: '0 * * * *'
+    cooldown:
+      default-days: 0
+    open-pull-requests-limit: 2
+    groups:
+      docker:
         patterns: ['*']
