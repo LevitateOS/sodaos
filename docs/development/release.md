@@ -1327,10 +1327,48 @@ Depends on 3–4.**
   installed composition are implemented/compiled, not live-qualified by those
   two narrower checks; they remain J20. CPU/memory and new Factory outcomes
   remain unobserved.
-- [ ] **J20.** Before any sponsored demonstration, verify known route assumptions,
+- [x] **J20.** Before any sponsored demonstration, verify known route assumptions,
   App handoff, owned-resource closure and evidence shapes
   using available real-system checks. Future model/review/concurrency outcomes
   remain explicitly unobserved. No fake provider result substitutes for them.
+
+  Accepted for the available provider-free/read-only checks, not installed route
+  qualification. Found and removed a deterministic contradiction: run admission
+  still rejected the implemented supplemental App/cold route as unimplemented.
+  Admission, readiness and composition now share `route.ts`; source capability
+  is separate from installed App selection, complete resource closure, private
+  owner/record/tool validation and paid authority. Capacity remains unknown.
+
+  Clean committed-source support build `0af97141bbb46b6217529adb15d3acba23693dff`
+  passed with the existing SDK/cache and no dependency installation or media
+  build. Maintained `check-run.ts` exercised the actual Rust check/held run/status,
+  retained/repeated/interrupted admissions and seven non-operative local scope
+  fixtures. Its optional public App fixture check read the real appliance again:
+  supplemental source support passed, but the explicitly absent App blocked
+  managed inventory, selection and handoff before any API callback or credential
+  read. No handoff, owner file or resolved execution input was produced. Future
+  model/CI/review/delivery/publication and case completions/measurements stayed
+  null. Full installed TypeScript, affected lint/format and diff checks passed.
+
+  Actual target prerequisites remain precise: Docker `.165` has no installed
+  App; retained Project `pdf46bf52e38d8e2e0bb06c1f` and actor-1 terminal
+  `9e835706f492aa5530e16975f4fe5995` are outside the configured lifecycle scope.
+  Existing Ready generation 3, three retained runs and ten charged minutes were
+  unchanged. J19's real local App/PTY/storage/cold results remain accepted at
+  their recorded scope; no unchanged checks were rerun. Root selected-App
+  credential delivery, complete installed cold boot/browser readback and new
+  Factory/concurrency outcomes remain unobserved for held J21–J23 acceptance.
+  Zero provider calls, guest mutations, funding, enrollment, deploys or pushes.
+
+  Reproduce with the maintained build and `check-run.ts` command above, adding
+  `--application-fixture` with the retained public metadata. Exact build/input
+  and outcome references:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j20-build-r2/build.json`,
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j20-check/{scenario,readiness}.json`,
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j20-run-check-r2/result.json`.
+  The first build/read attempts were blocked by sandbox cache/network access;
+  incomplete outputs remain preserved. Authorized warm-cache/read-only access
+  completed the checks without changing their scope.
 
 **6. Demonstrate the maintained path on the retained RC7 fixture. Depends on 1–5.**
 
@@ -1341,6 +1379,10 @@ Depends on 3–4.**
 - [ ] **J22.** Use the existing Ready connection. Run one eligible bounded journey, observe
   the actual result and produce its canonical qualification plus separately
   validated supplemental results. Preserve failed outcomes and every charge.
+  Before sponsorship, resolve J20's actual missing App/owner/tool inputs and
+  retained-resource lifecycle scope for the selected route. Verify root selected-App
+  credential delivery and installed recovery on that actual path; local source
+  capability and J19's narrower fixtures do not establish these outcomes.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
@@ -1353,6 +1395,9 @@ Depends on the basic driver working.**
   the explicitly selected two-issue extension only with two Ready connections
   and finite authority. Require real overlap/joins and preserve a no-overlap
   result honestly; do not buy another attempt automatically.
+  Local native transport implementation/read-only checks can proceed after
+  J20 independently of held J21–J23. Actual native mutations, two-issue selection,
+  overlap and sponsored execution retain their existing prerequisites and holds.
 - [ ] **J25.** Derive the report from existing receipts. Add consumed-scratch and temporary
   clone retirement at actual completion points, preserving provenance, active
   reservations, unique data and backing dependencies. Generic cache resets or
@@ -1451,6 +1496,19 @@ guest/provider outcome: J21–J23 remain held, and J24–J26 retain their existi
 native/concurrency, retirement and fresh-checkout responsibilities. The additional
 retained Project/TTY still needs explicit lifecycle scope before live execution.
 No task IDs, limits, authority, holds or accepted unchanged checks were changed.
+
+Full list reviewed after the twentieth completed task and step 5 milestone on
+2026-10-26: J01–J20 are accepted only at their recorded local/read-only scopes.
+J20 corrected source admission rather than relaxing missing-App or closure
+checks. J21–J23 remain held; their installed App/credential/recovery outcomes
+remain explicit prerequisites, not deferred claims of success. The next eligible
+source work is J24's native transport portion; its live/two-issue acceptance still
+needs the retained fixture, two Ready connections and finite authority. J25's
+receipt-derived reporting/retirement implementation remains independently local
+work; actual destructive retirement stays held. J26 follows the implemented
+source boundaries and does not require buying a trial. All task IDs, previous
+evidence, budgets and operational holds are preserved; no accepted unchanged
+checks were reopened and no new scope was added.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
