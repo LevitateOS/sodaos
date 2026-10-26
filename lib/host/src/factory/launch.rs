@@ -24,49 +24,44 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         deadline: Instant,
     ) -> Result<FactoryState, FactoryError> {
         req.validate().map_err(FactoryError::msg)?;
-        let pin = self
-            .terminal
-            .harness_pin(&req.run.harness)
-            .map_err(FactoryError::msg)?;
-        if pin.harness != req.run.harness
-            || pin.sha256.is_empty()
-            || req.harness_sha256 != pin.sha256
-        {
-            return Err(FactoryError::msg(
-                "factory harness is unavailable until its own proof passes",
-            ));
-        }
-        // Validated above: parseable and nonzero.
-        let deadline_nanos = parse_deadline(&req.run.deadline).unwrap_or(0);
-        let now = system_nanos_now();
-        if !(deadline_nanos > now && deadline_nanos <= now + FACTORY_DEADLINE_BOUND_NANOS) {
-            return Err(FactoryError::msg(
-                "run deadline is outside the supervised bound",
-            ));
-        }
+        // Recorded authority first: lock and load the receipt before
+        // consulting the CURRENT pin or the execution deadline. An existing
+        // receipt takes the recorded path below, which never queries
+        // current, never starts a new process, and never re-checks the
+        // original execution deadline. Only a genuinely new run (no
+        // receipt) must match the current pin within the current deadline
+        // bound.
         let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
         let (receipt, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
-        if exists
-            && (req.run.effort != receipt.run.effort
-                || req.run.contributor != receipt.run.contributor)
-        {
-            return Err(FactoryError::Stale);
-        }
-        if !exists {
-            self.store_verification_manifest(&req.run, &req.verification_manifest)?;
-            self.store_execution_manifest(&req.run, &req.execution_manifest)?;
-            let receipt = FactoryReceipt {
-                run: req.run.clone(),
-                phase: FACTORY_APPROVED.to_string(),
-                ..FactoryReceipt::default()
-            };
-            let stored = self.store_receipt(&receipt);
+        if exists {
+            if req.run.effort != receipt.run.effort
+                || req.run.contributor != receipt.run.contributor
+            {
+                return Err(FactoryError::Stale);
+            }
+        } else {
+            let pin = self
+                .terminal
+                .harness_pin(&req.run.harness)
+                .map_err(FactoryError::msg)?;
+            if pin.harness != req.run.harness
+                || pin.sha256.is_empty()
+                || req.harness_sha256 != pin.sha256
+            {
+                return Err(FactoryError::msg(
+                    "factory harness is unavailable until its own proof passes",
+                ));
+            }
+            // Validated above: parseable and nonzero.
+            let deadline_nanos = parse_deadline(&req.run.deadline).unwrap_or(0);
+            let now = system_nanos_now();
+            if !(deadline_nanos > now && deadline_nanos <= now + FACTORY_DEADLINE_BOUND_NANOS) {
+                return Err(FactoryError::msg(
+                    "run deadline is outside the supervised bound",
+                ));
+            }
             drop(lock);
-            stored?;
-            let mut state = self.drive(req, &receipt, deadline_nanos, deadline)?;
-            let (current, _) = self.load_receipt(&req.run.project, &req.run.id)?;
-            state.verification_checks = self.saved_verification_checks(&current)?;
-            return Ok(state);
+            return self.launch_new(req, deadline_nanos, deadline);
         }
         if !req.verification_manifest.is_empty()
             || !receipt.run.verification_manifest_digest.is_empty()
@@ -85,6 +80,42 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         drop(lock);
         let mut state = receipt_state(&receipt, false);
         state.verification_checks = self.saved_verification_checks(&receipt)?;
+        Ok(state)
+    }
+
+    /// `launchNew`: the genuinely-new path (no receipt existed). The caller
+    /// has already matched the CURRENT pin and bound the CURRENT execution
+    /// deadline; this stores the fresh receipt and drives it. Never called
+    /// for an existing receipt, so recorded runs are never re-executed and
+    /// no model call happens on the recorded path.
+    fn launch_new(
+        &self,
+        req: &FactoryLaunch,
+        deadline_nanos: i128,
+        deadline: Instant,
+    ) -> Result<FactoryState, FactoryError> {
+        let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
+        let (_, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
+        if exists {
+            // A concurrent admission won the race: fall back to the
+            // recorded path rather than re-executing. Re-locking keeps
+            // the recorded read under the run lock.
+            drop(lock);
+            return self.launch(req, deadline);
+        }
+        self.store_verification_manifest(&req.run, &req.verification_manifest)?;
+        self.store_execution_manifest(&req.run, &req.execution_manifest)?;
+        let receipt = FactoryReceipt {
+            run: req.run.clone(),
+            phase: FACTORY_APPROVED.to_string(),
+            ..FactoryReceipt::default()
+        };
+        let stored = self.store_receipt(&receipt);
+        drop(lock);
+        stored?;
+        let mut state = self.drive(req, &receipt, deadline_nanos, deadline)?;
+        let (current, _) = self.load_receipt(&req.run.project, &req.run.id)?;
+        state.verification_checks = self.saved_verification_checks(&current)?;
         Ok(state)
     }
 

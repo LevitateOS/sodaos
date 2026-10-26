@@ -198,8 +198,20 @@ impl factory::FactoryTerminal for TerminalSeam {
                 Ok(binding)
             }
             Err(reason) => {
-                // Never leave a half-bound run pinned: release this attempt
-                // and restore the recorded binding, if any.
+                if !reserve_failure_is_definitive(&reason) {
+                    // Unit state is unconfirmed: the service may have
+                    // started a unit for this attempt (start unconfirmed,
+                    // failed active-invocation check, retention loss after
+                    // a successful reserve) while this attempt's binding +
+                    // ref are already the durable record. Preserve them;
+                    // the single owner releases after confirmed
+                    // retirement. A conservative leak beats collecting a
+                    // possibly-live bundle.
+                    return Err(factory::FactoryError::Msg(reason));
+                }
+                // Definitive pre-start refusal: this attempt started no
+                // unit, so release this attempt and restore the recorded
+                // binding, if any.
                 let reason = factory::FactoryError::Msg(reason);
                 terminal::factory::bound::release_harness_ref(
                     bound.provider,
@@ -388,6 +400,35 @@ impl factory::FactoryTerminal for TerminalSeam {
             .factory_export_bundle(project, recorded, role, preparation, candidate, deadline)
             .map_err(factory::FactoryError::Msg)
     }
+}
+
+/// Whether a reserve error is a definitive pre-start refusal: the service
+/// never started a unit for this attempt, so rolling back this attempt's
+/// binding + ref is safe. This is exactly the pre-`systemd_run` set
+/// (admission, container, checkout, staging and install checks, all of
+/// which deny before any unit exists). Anything else — unit start
+/// unconfirmed, a failed active-invocation check after the start, retention
+/// loss after a successful reserve, or an unrecognized error — leaves unit
+/// state unconfirmed and must preserve the durable binding + lifetime ref;
+/// release happens only after confirmed retirement through the single
+/// owner. Missing/corrupt history still fails closed at the read above.
+fn reserve_failure_is_definitive(reason: &str) -> bool {
+    matches!(
+        reason,
+        terminal::ERR_DENIED
+            | "configured native Codex profile requires controlled transport"
+            | "factory run directories unconfirmed"
+            | "factory checkout identity unconfirmed"
+            | "factory checkout is not the assigned commit"
+            | "factory source changed under preparation"
+            | "factory source unconfirmed"
+            | "factory harness staging unconfirmed"
+            | "factory harness install unconfirmed"
+            | "guest harness digest differs"
+            | "factory code host staging unconfirmed"
+            | "factory code host install unconfirmed"
+            | "guest code host digest differs"
+    )
 }
 
 /// A lease takes the muse path when its binding carries the factory-muse
