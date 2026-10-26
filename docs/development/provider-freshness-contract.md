@@ -29,7 +29,11 @@ integration drivers against real systems.
   probes (`--help`, provider protocol handshake, Muse model-profile resolve).
 - `refresh::refresh(provider)`: check, admit verified bundle when absent,
   atomically replace `current-<provider>.json`. Unchanged bytes: no
-  re-download. Failure: previous selection untouched, timestamps not refreshed;
+  re-download. Every mutation (unchanged advance, same-digest repair,
+  new-digest publish, stale-block) is compare-and-swapped against the exact
+  observed base: a concurrent newer winner is retained, never overwritten.
+  Damaged destinations quarantine-swap under the store lock. Failure:
+  previous selection untouched, timestamps not refreshed;
   newer-known-but-unadmitted returns `Blocked`.
 - `refresh::fetch_verified(release, staging)`: bounded download, sha256 + size
   check, archive safety (no symlink/absolute escape, native arch enforced).
