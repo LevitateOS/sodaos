@@ -19,11 +19,12 @@ async function main() {
   const args = process.argv.slice(2);
   assert.deepEqual(
     args.filter((_, i) => i % 2 === 0),
-    ['--scenario', '--authorization', '--action', '--out']
+    ['--scenario', '--authorization', '--action', '--out', ...(args.length === 10 ? ['--terminal-receipt'] : [])]
   );
-  assert.equal(args.length, 8);
+  assert(args.length === 8 || args.length === 10);
   const [scenarioFile, authorizationFile, action, out] = [args[1]!, args[3]!, args[5]!, args[7]!];
-  assert(['application', 'funding'].includes(action));
+  assert(['application', 'funding', 'terminal'].includes(action));
+  assert.equal(action === 'terminal', args.length === 10);
   const s = scenarioInput(JSON.parse(await readFile(scenarioFile, 'utf8')));
   assert.equal(s.target.distribution, 'docker');
   const authority = JSON.parse(await readFile(authorizationFile, 'utf8'));
@@ -264,7 +265,56 @@ async function main() {
           },
         }
       );
-    } else result = await prepareFunding(s, owner, {request, save, readSaved});
+    } else if (action === 'funding') result = await prepareFunding(s, owner, {request, save, readSaved});
+    else {
+      // Retire only the exact owner reservation returned by a failed unpaid
+      // browser phase. No Project/App stop, deletion or Factory action follows.
+      const bytes = await readFile(args[9]!);
+      assert(bytes.length <= 4096);
+      const terminal = JSON.parse(bytes.toString());
+      assert(
+        terminal.status === 201 &&
+          /^[a-f0-9]{32}$/.test(terminal.id) &&
+          terminal.project === subject.project_id &&
+          terminal.actor === owner
+      );
+      const intent = await readSaved('terminal/intent.json');
+      if (intent) assert.deepEqual(intent.terminal, terminal);
+      const observed = native.resource_inventory.terminals.filter((t: any) => t.id === terminal.id);
+      if (observed.length) {
+        assert(observed.length === 1 && observed[0].project_id === terminal.project && observed[0].actor_id === owner);
+        assert(!intent, 'terminal_end_uncertain_no_retry');
+        await save('terminal/intent.json', {
+          terminal,
+          receipt: {path: args[9], sha256: sha256(bytes)},
+          automatic_retry: false,
+        });
+        let status = 0;
+        try {
+          status = (
+            await request('environments/' + terminal.project + '/terminal-sessions/' + terminal.id, 'POST', {
+              action: 'end',
+            })
+          ).status;
+        } catch {
+          /* Inspect the exact native result below; never repeat this POST. */
+        }
+        await save('terminal/response.json', {status, automatic_retry: false});
+      }
+      const after = await checkScenario(s);
+      assert(after.observation && after.native);
+      assert(
+        !(after.native as any).resource_inventory.terminals.some((t: any) => t.id === terminal.id),
+        'terminal_retirement_unconfirmed'
+      );
+      result = {
+        format: 1,
+        terminal: terminal.id,
+        retired: true,
+        history: (after.native as any).history,
+        model_calls: 0,
+      };
+    }
     if (!(await readSaved('result.json'))) await save('result.json', result);
     console.log(JSON.stringify({complete: true, action, result_file: path.join(out, 'result.json'), model_calls: 0}));
   } finally {

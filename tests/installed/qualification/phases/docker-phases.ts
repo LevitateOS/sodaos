@@ -361,6 +361,7 @@ export async function collectInstalledPhases(
             project: projectPermits.project,
             actor: cfg.project_phase.actor,
           });
+          projectPermits.recordReservation(response.status(), reserved.id);
           return route.fulfill({response});
         } catch {
           await io.save('browser_project/terminal.uncertain.json', {

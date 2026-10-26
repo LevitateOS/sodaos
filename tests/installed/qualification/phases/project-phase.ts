@@ -46,6 +46,7 @@ export class ProjectPermits {
   project = '';
   terminalName = '';
   used: string[] = [];
+  private reserved: {status: number; id: string} | undefined;
   private armed: {name: string; path: string; validate: (body: any) => void} | undefined;
   constructor(private save: (name: string, value: any) => Promise<any>) {}
   arm(name: string, path: string, validate: (body: any) => void) {
@@ -61,6 +62,17 @@ export class ProjectPermits {
     this.used.push(a.name);
     await this.save(a.name + '.request.json', {method: 'POST', path: a.path, body});
     return true;
+  }
+  recordReservation(status: number, id: string) {
+    check(
+      !this.reserved && this.used.includes('terminal') && status === 201 && /^[a-f0-9]{32}$/.test(id),
+      'one_returned_terminal_reservation'
+    );
+    this.reserved = {status, id};
+  }
+  reservation() {
+    check(this.reserved, 'durable_terminal_reservation_required');
+    return this.reserved;
   }
   allowsSocket(url: string, origin: string) {
     const u = new URL(url);
@@ -263,29 +275,15 @@ export async function exerciseProjectPhase(
         'owned_terminal_reservation'
       );
     });
-    // Save the normal reservation reply as it arrives, before the UI connected wait.
-    const reserveReply = page
-      .waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname ===
-            mount.apiBase + '/environments/' + environment.id + '/terminal-sessions' &&
-          response.request().method() === 'POST',
-        {timeout: 60000}
-      )
-      .then(async (reservation) => {
-        const reserved = await reservation.json();
-        await save('terminal.receipt.json', {status: reservation.status(), ...reserved});
-        return {status: reservation.status(), reserved};
-      });
-    void reserveReply.catch(() => {});
+    // The route owner already persisted the normal reservation response before
+    // releasing it to the browser. Reuse that binding rather than fetching its
+    // intercepted response body a second time through the browser protocol.
     stage = 'create_one_browser_terminal';
     await newManagedTerminal(page, r.owner + '/' + r.name, name, environment.id);
     stage = 'read_reserved_terminal';
-    const {status, reserved} = await reserveReply;
-    check(
-      status === 201 && reserved.id === sessionId && creates === 1 && !wireFailure,
-      'owned_native_terminal_created'
-    );
+    const {status, id} = permits.reservation();
+    await save('terminal.receipt.json', {status, id});
+    check(status === 201 && id === sessionId && creates === 1 && !wireFailure, 'owned_native_terminal_created');
     const session = {id: sessionId, name, environment: environment.id, actor: phase.actor};
     stage = 'read_initial_shell';
     const facts = await wire.shell(session, true);

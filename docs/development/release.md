@@ -746,8 +746,10 @@ owned local named volumes at `/etc`, `/home` and `/var`; it refuses other runnin
 containers holding any of those paths and refuses external mounts. It copies the
 three full trees and original `compose.yaml`, protected `.env`, `identity.json`
 and `docker.json`, preserving and verifying bytes, ownership, permissions,
-timestamps, links and extended attributes. Outputs stay private under `/home`;
-their parent and ancestors must be root controlled. Copies use reflinks when
+timestamps, links and extended attributes. Outputs stay private under canonical
+`/home` or CoreOS `/var/home`; their parent and ancestors must be root controlled.
+Use the canonical settings path on CoreOS rather than traversing its `/home`
+symlink. Copies use reflinks when
 available and sparse copies otherwise. An incomplete output stays incomplete.
 
 ```sh
@@ -777,10 +779,11 @@ their exact journals without repeating an effect.
 App/capacity/cold results live under `supplemental/`; they never acquire a fifth
 canonical Docker kind or imply unobserved CI/review/delivery/capacity results.
 The main caller retains the canonical persistence result separately. Complete
-installed boot/readback and root selected-App credential delivery remain unverified
-on the retained target: it has no installed App and execution is held. J20 checks
-available real-system prerequisites; J21–J23 retain these actual installed outcomes
-when their scope and target prerequisites are supplied.
+installed cold boot/readback remains unverified until J22's actual result. J20's
+earlier read found no installed App; J22's scoped preparation installed the
+pinned App, and its first collector confirmed root selected-App credential
+delivery and owner record creation before a pre-model transport failure. See
+J22 below for the retained failed attempt and current execution evidence.
 
 Provider-free checks reuse the qualified App runtime and existing owner/data:
 
@@ -1558,6 +1561,14 @@ Depends on 3–4.**
   hashes without demanding that a repaired reader equal the old dispatcher.
   New dispatch still requires exact controller equality; a terminal old worker
   releases only its local target fence, never guest custody or paid authority.
+  The next collector created terminal `9912e7d964f24c02a5d5f7cb3903899b`
+  before a redundant browser response-body read failed. Its durable returned
+  reservation is now the phase's source of truth; the browser's actual native
+  handshake still must match it. `prepare-fixture.ts --action terminal` accepts
+  `--terminal-receipt RETURNED_JSON` to end only that exact selected-Project,
+  same-owner reservation through the normal control, with intent/readback and no
+  blind retry. It cannot stop Projects/Apps or launch Factory. The failed
+  collector stays at `/home/soda-journey-j22/outputs/j22-live-r5`.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
