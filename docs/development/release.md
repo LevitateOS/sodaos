@@ -1604,6 +1604,14 @@ Depends on 3–4.**
   Provider guard evidence: `journey-j22-preparation/muse-provider-guard.public.json`
   beneath the evidence root above. J22 stays unchecked: neither a passing
   canonical qualification nor completed installed cold recovery exists.
+  Clean source `13d7723712f01bee74bbaff31be1c67716db4df5` built all maintained
+  support tools with existing dependencies. Its actual `journey check` at sibling
+  `j22-muse-held-check` reports `factory_0_execution` for Muse versus Codex,
+  plus the explicit input hold and unvalidated complete scope. The missing
+  complete scope does not revoke the earlier unused finite paid approval.
+  `journey-j22-preparation/result.public.json` records the accepted prerequisites,
+  failed-attempt reports, zero new model use and exact remaining inputs. Preserve
+  this check; never run the older Codex scenarios as a fallback.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
