@@ -933,6 +933,11 @@ fn collect_inner(
         worker
             .read_only
             .push(format!("{}:{RUNTIME}", runtime.directory.display()));
+        // Browser NSS trust does not cover Playwright's separate HTTP client
+        // (route.fetch). Load the same admitted CA before the worker starts.
+        worker
+            .environment
+            .push(format!("NODE_EXTRA_CA_CERTS={RUNTIME}/trust/appliance-ca.crt"));
     }
     if let Some(snapshot) = &request.resolved_input {
         worker

@@ -259,6 +259,16 @@ export async function openApplicationOwner(input: {
         );
       } else {
         const before = await records();
+        // A new collector may follow a failed, retired collector that already
+        // committed this exact selected operation. Adopt its normal readback;
+        // never repeat the create POST or replace it with a new operation ID.
+        const existing = before.find((row) => row.id === selected.operation_id);
+        if (existing) {
+          assert(existing.data.label === selected.label, 'application_existing_operation_changed');
+          const adopted = witness(existing, selected.operation_id);
+          await journal.save('application/adopted.json', adopted);
+          return adopted;
+        }
         intent = {
           format: 1,
           owner_team: input.owner_team,

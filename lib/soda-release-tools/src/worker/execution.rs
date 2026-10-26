@@ -78,6 +78,7 @@ fn allowed_worker_env_key(key: &str) -> bool {
             | "BUN_INSTALL_CACHE_DIR"
             | "TMPDIR"
             | "PLAYWRIGHT_BROWSERS_PATH"
+            | "NODE_EXTRA_CA_CERTS"
             | "SODA_BUILD_START_NS"
     )
 }

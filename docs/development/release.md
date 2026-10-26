@@ -373,6 +373,9 @@ The build receipt identifies the installed Playwright data source and its
 bundle/package/browser metadata hashes. Its bundled data root is the fixed
 runtime path; unused optional BiDi modules stay external to the Chromium route.
 Playwright initializes only after admission, when opening the actual browser.
+The worker loads the admitted appliance CA through `NODE_EXTRA_CA_CERTS` as
+well as the browser's NSS database: Playwright's `route.fetch` uses a separate
+HTTP client. Browser trust alone does not authorize that client's TLS connection.
 
 The driver derives a private resolved source with approval/build pins; `collect`
 freezes its exact bytes as the existing read-only worker snapshot, retaining
@@ -1540,6 +1543,17 @@ Depends on 3–4.**
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j22-preparation`, with actual
   App/funding results in sibling `j22app/result.json` and `j22fund/result.json`.
   These prerequisites do not complete J22's live qualification.
+
+  The first launched collector confirmed installed identity, normal App adoption,
+  selected-owner credential delivery and a real App record, then stopped before
+  Factory when the terminal reservation transport lacked the appliance CA.
+  Native reconciliation confirmed no new terminal, run, allowance or charge;
+  the original three runs/ten minutes remain. A credential-free real HTTPS check
+  reproduced the certificate failure and passed with the admitted CA. The worker
+  now loads that CA at startup. The failed collector remains intact at
+  `/home/soda-journey-j22/outputs/j22-live-r3`; it is never re-entered.
+  A separately admitted collector adopts the same App operation by exact record
+  ID and label through normal owner readback, without another create POST.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
