@@ -1470,10 +1470,43 @@ Depends on 3–4.**
 
 **6. Demonstrate the maintained path on the retained RC7 fixture. Depends on 1–5.**
 
-- [ ] **J21.** Once the owner resumes execution, compare the resolved paid
-  target/actions/bounds with the existing approval. This acceptance task is held.
+- [x] **J21.** Once the owner resumes execution, compare the resolved paid
+  target/actions/bounds with the existing approval before dispatch.
   Reuse unchanged authority; require actual authority for any added paid trial,
   increased allowance or concurrency. Never silently change the frozen approval.
+
+  Comparison completed after the owner resumed the original goal on 2026-10-26.
+  The actual response `Approve this one corrected trial` to
+  `call_e9870a713cfd4550819f536222fb1907` approved the exact corrected RC7
+  proposal with SHA-256
+  `6c703c528e1adb38232ec42dace08f5dc908841311a1b6ce0d990785e62d1fb3`.
+  Its earlier prepared `approved: false` flags are a pre-response snapshot, not
+  revocation. Recorded that existing consent separately without rewriting the
+  proposal or reusing the already consumed first trial's different approval.
+
+  The maintained scenario matches the appliance UUID/source, repository 2,
+  Project, issue/native acceptance, source/preparations, operation and connection.
+  All finite limits match: 15 sponsorship minutes, rolling ceiling 25 (the
+  approved change from 15), one active run, 900 seconds, intent 5/attempt 10,
+  no automatic retry/refill/extra inquiry. Normal current-context actions retain
+  their exact eligible-run guards for implementation and review. No additional
+  paid trial, allowance increase beyond that consent or replacement sign-in is
+  needed solely because the driver was rebuilt.
+
+  Fresh pinned read-only observation confirms this corrected trial is unused:
+  repository 2 has zero runs, allowances and charges, no sponsorship or held
+  reservation; connection generation 3 remains Ready and both preparations are
+  ready. The observed rolling limit is still 15, with 472,550,938 settled
+  microseconds; all three historical runs/ten charged minutes remain intact.
+  No funding, model call, guest mutation, enrollment or build occurred.
+
+  This completes the paid-scope comparison, not whole-route admission. The
+  saved scenario remains held and has no complete collector inputs/scope
+  receipt. Its extra retained Project/TTY still requires resolved lifecycle
+  scope. App/cold/concurrency effects gain no authority from a paid Factory
+  approval. J22 must resolve the actual selected route and freeze its complete
+  scope before spending. Evidence and original-consent reference:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j21-approval-comparison/result.json`.
 - [ ] **J22.** Use the existing Ready connection. Run one eligible bounded journey, observe
   the actual result and produce its canonical qualification plus separately
   validated supplemental results. Preserve failed outcomes and every charge.
@@ -1749,6 +1782,14 @@ finite authority; native App/cold/capacity composition remains unsupported and
 unselected. No new task, trial, authority or scope was invented. Accepted checks
 were not reopened. Next selection must audit these remaining prerequisites;
 fresh-source success does not complete the overall goal or qualify RC7.
+
+Dependency refresh after resumed J21 on 2026-10-26: J21's comparison is complete;
+J22 is next. The corrected trial's existing paid consent is valid and unused,
+so a missing machine-readable whole-route receipt must not be described as
+missing or revoked user consent for that same paid trial. J22–J23 still require
+the actual complete route/runtime and resource-lifecycle inputs and live
+results. J24's native/two-issue prerequisites remain outstanding. All finite
+bounds, failed evidence and charges remain preserved; no task scope was added.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next

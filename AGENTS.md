@@ -36,6 +36,7 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 
 - Work in `~/Projects/sodaos`; create worktrees only when requested. Preserve unrelated edits and leave the predecessor/Updates platform alone.
 - All writes, builds, caches, state and scratch belong under `/home`. Do not use the root disk or `/tmp` as a fallback.
+- For temporary cloud/test Tailscale nodes, use the owner's supplied reusable ephemeral auth key. Do not enroll disposable nodes with a persistent key; preserve personal and infrastructure devices.
 - Protect credentials, retained data and existing human work. Never expose secrets in commands, logs or screenshots. Do not reinstall a VM, overwrite newer data, rewrite history or clean unrelated resources without authorization.
 - Implementation includes the code, relevant tests, necessary documentation and configuration. Deployment requests include the needed builds, transfers, scoped restarts and actual local checks. Do not infer permission to publish, push, open PRs, merge remotely or contact others.
 - Follow [language ownership](docs/development/ownership.md): Go for network servers, Rust for system/privileged applications, no authored Python. Put changes in the existing responsible package and preserve dependency direction and canonical definitions.
