@@ -112,9 +112,14 @@ live restage (no podman-capable guest image), and the full
 `prepare_execution` stage leg in minimal fixtures: rootful resolve now passes
 with `UsernsMode=private` (UP-V4; rootless `UsernsMode=""` stays denied by
 design), `ensure` restage verifies, and the stage tmpfs mount needs the
-production `SYS_ADMIN` cap. Last observed gap (UP-V4-CAPS, run
-`up-20261026T062315Z` evidence `rootful-preflight/`): guest
-`--soda-copy-config` support, present in the production provider binary but
-stubbed in fixtures. Do not present this policy
+production `SYS_ADMIN` cap. The last fixture gap (UP-V4-CAPS, run
+`up-20261026T062315Z` evidence `rootful-preflight/`) is closed in UP-V5:
+the real `target/debug/soda-muse` launcher plus its loader/libs (plus the
+fixture bundle's own `libcrypto.so.3`/`libz.so.1`, diagnosed from the
+guest `ld` error, not guessed) were copied into the isolated Alpine guest,
+so committed `prepare_execution` returns `PREPARE-OK` with the fixture
+digest retained across reservation, sanitized settings copy with auth
+excluded under the mapped account, and known-stale refusal through the same
+path — evidence `rootful-preflight/prepare-v5-result.txt`. Do not present this policy
 change as an update of all dependencies or VMs, and never claim an
 installation is current without an actual check.
