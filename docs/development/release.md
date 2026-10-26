@@ -445,7 +445,8 @@ Saved readiness reports derive `supported_recovery` from selected native
 connection/preparation/run-deadline/allowance/accounting fields at the recorded
 observation time. They read no raw Factory run bodies or provider logs and grant
 no authority. Collector failures retain a bounded reason and repair category.
-Actual normal-API interruption/cancellation acceptance remains J16.
+J16 records local real-API interruption and native worker cancellation evidence;
+installed guest and provider outcomes remain separate live acceptance.
 
 Reproduce command reconciliation with `check-command.ts --module BUILT_PHASES
 --scenario ACTUAL_SCENARIO --out FRESH_HOME_DIRECTORY`: it reads a real retained
@@ -455,7 +456,8 @@ cross-directory process lock, run `check-target.ts --operator ABS_SODA_RELEASE
 --out FRESH_DIRECT_HOME_CHILD` as root. Its isolated development fixture uses
 an incomplete candidate and a real flock holder to prove both callers stop
 before worker/output allocation. These checks never launch a model or touch
-an appliance's logical state; live API interruption/custody acceptance stays J16.
+an appliance's logical state. The normal-HTTP and native cancellation checks
+below cover different boundaries.
 
 `tests/installed/qualification/check-run.ts` reproduces guarded admission using
 the built driver and Rust operator. Supply `--operator ABSOLUTE_SODA_RELEASE`,
@@ -470,6 +472,48 @@ between saved observation and result; neither boundary permits dispatch/replay.
 Run `check-recovery.ts --operator ABSOLUTE_SODA_RELEASE --out
 FRESH_DIRECT_HOME_CHILD` as root for actual retained-intent/driver-loss and
 per-run process-lock checks without a worker, guest effect or provider call.
+
+For real normal-API lost-response integration, use the existing disposable
+[PostgreSQL fixture](../../tools/pg-fixture/README.md) with its `SODA_PG_*`
+environment and an existing `/home` temporary directory:
+
+```sh
+export TMPDIR=/home/soda-tester/tmp
+export SODA_QUALIFICATION_HTTP_RUNNER="$PWD/tests/installed/qualification/check-command-http.ts"
+export SODA_QUALIFICATION_HTTP_MODULE=/home/soda-tester/journey-build/phases.js
+export SODA_QUALIFICATION_HTTP_OUT=/home/soda-tester/fresh-http-check
+go test -count=1 -run '^TestQualificationJourneyLostHTTPResponse$' -v ./internal/web/api
+```
+
+The Go integration serves the registered product handlers on loopback and
+uses its existing test-only native authentication callback. It closes the
+selected TCP socket only after a real pause command and dispatch withdrawal
+commit in PostgreSQL. The maintained client persists intent, reads the original
+command through the normal API, and refuses re-entry before another send.
+`result.json` binds the module/runner and recovered command; `server-result.json`
+records actual mutation, database and zero-paid-work counts. The database is
+ephemeral; no appliance/provider authority or installed Forgejo journey is claimed.
+
+For actual worker cancellation, compile the existing CLI integration target
+with `cargo test --offline --release -p soda-release-tools --test cli --no-run`.
+Use the resulting integration executable path from Cargo's output:
+
+```sh
+sudo env TMPDIR=/home/root-owned-test-tmp \
+  SODA_NATIVE_WORKER_CANCELLATION_DIRECTORY=/home/fresh-worker-cancellation \
+  /ABS/PATH/TO/cli-HASH \
+  --exact soda_build::build_admission_matrix_preserves_release_boundaries --nocapture
+```
+
+The temporary directory must already exist; the cancellation directory must be
+a fresh direct child of `/home`. This optional integration requires the normal
+root/systemd worker prerequisites and existing `soda-qualifier` identity. It
+runs only the trusted installed `sleep` executable through `run_worker`, observes
+its exact transient unit alive before requesting cancellation, then records
+the returned custody and actual native state in `result.json`. Cancellation
+stops the exact unit before killing its launcher and draining pipes; the final
+existing native inspection decides custody. No candidate build, guest, provider
+or credentials are involved, and no model attempt becomes resumable.
 
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
@@ -941,10 +985,40 @@ does not own product scenarios; do not move Factory orchestration into it.
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j15-build/build.json`,
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j15-check/result.json`, and
   root-private `/home/soda-j15-recovery-check-20261026/result.json`.
-- [ ] **J16.** Verify that interruption/lost-response integration against actual normal APIs
+- [x] **J16.** Verify that interruption/lost-response integration against actual normal APIs
   produces no duplicate resource or paid launch, and cancellation reports real
   remaining custody. Use non-sponsored effects for this check; retired model
   attempts are not made resumable by the runner.
+
+  The maintained `check-command-http.ts` caller and existing allowlisted Go
+  HTTP/PG journey integration now exercise a genuine dropped response after the
+  normal pause effect commits. Actual command
+  `3c90ab0379124cb29d90c8055ca315dc` was recovered through its canonical GET:
+  one POST, one lookup, one command and dispatch revision 1 (closed). Re-entry
+  refused before another send. The real disposable database contained zero
+  Projects, runs, reservations, usage rows and attempt allowances. The unchanged
+  phase bundle `8cd940b032af8f93932e425cfc6ba32e608218f187d919139a04b32451b27713`
+  was reused from the J15 support build; no new appliance or support build was needed.
+
+  Actual local native cancellation exposed and fixed an owner bug: killing the
+  launcher before its unit left the worker's pipes open and misreported a drain
+  failure. The worker now stops its exact unit first and keeps existing final
+  inspection as the custody authority. The existing Rust CLI integration's
+  optional native branch observed `soda-qualify-cancel-231020.service` active
+  with PID 231034, then returned `Cancelled` and `ExactUnitTerminal` with
+  `MainPID=0`, inactive/not-found state. The original failed attempt remains.
+
+  Verification: focused real HTTP/PG integration, warm offline Rust integration
+  build and actual root/systemd cancellation integration passed, as did strict
+  TypeScript, formatting, Oxlint, no-unit-tests and diff checks. Reproduce using
+  the commands above. Client/server receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j16-http-r1/{result,server-result}.json`.
+  Native passing receipt:
+  `/home/soda-j16-worker-cancel-r2-20261026/result.json`; preserved failure:
+  `/home/soda-j16-worker-cancel-20261026/result.json`.
+  These are local normal-API/native-process checks, not installed guest lifecycle,
+  paid delivery or release qualification. No guest, account, provider, OS/media
+  build, publication or retained usage was changed.
 
 **5. Compose the measured App/terminal/Factory and final-state recovery route.
 Depends on 3–4.**
@@ -1076,6 +1150,15 @@ The extra retained Project/TTY still needs explicit lifecycle scope before a
 live journey. No task IDs, finite limits, execution holds or authority changed;
 unchanged accepted checks remain accepted. No provider enrollment, guest
 mutation, media build, publication, source push or destructive cleanup resumed.
+
+Full list reviewed at the step 4 boundary after J16 on 2026-10-26:
+J01–J16 are accepted at their documented local/read-only scopes. J17 is next;
+J17–J20 retain App handoff, coordinated probes, final-state recovery and the
+whole-route check. Local interruption/cancellation acceptance closes no installed
+guest/provider outcome: J21–J23 remain held, and J24–J26 retain their existing
+native/concurrency, retirement and fresh-checkout responsibilities. The additional
+retained Project/TTY still needs explicit lifecycle scope before live execution.
+No task IDs, limits, authority, holds or accepted unchanged checks were changed.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next

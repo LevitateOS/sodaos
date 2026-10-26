@@ -23,6 +23,7 @@ package api
 // missing/named rather than closed by test hooks.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -31,6 +32,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -45,6 +48,143 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+// TestQualificationJourneyLostHTTPResponse connects the maintained qualification
+// command client to real registered HTTP handlers and PostgreSQL. Only native
+// callback authentication uses journeyMux's existing local test authority. The
+// first mutation's socket closes AFTER its durable normal-API effect; no product
+// command outcome or native retirement is synthesized by this check.
+func TestQualificationJourneyLostHTTPResponse(t *testing.T) {
+	runner := os.Getenv("SODA_QUALIFICATION_HTTP_RUNNER")
+	module := os.Getenv("SODA_QUALIFICATION_HTTP_MODULE")
+	out := os.Getenv("SODA_QUALIFICATION_HTTP_OUT")
+	if runner == "" || module == "" || out == "" {
+		t.Skip("explicit maintained qualification runner, built module and fresh /home output required")
+	}
+	for _, file := range []string{runner, module, out} {
+		if !filepath.IsAbs(file) || filepath.Clean(file) != file || !strings.HasPrefix(file, "/home/") {
+			t.Fatal("qualification integration paths must be canonical absolute /home paths")
+		}
+	}
+	fx, _ := journeyMux(t, nil)
+	commandID := factory.NewID()
+	mutationPath := "/api/repositories/7/factory/actions"
+	lookupPath := "/api/factory/commands/" + commandID
+	var mutations, lookups, dropped atomic.Int32
+	serverErrors := make(chan error, 8)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == lookupPath {
+			lookups.Add(1)
+		}
+		if r.Method == http.MethodPost && r.URL.Path == mutationPath {
+			if mutations.Add(1) == 1 {
+				// Buffer the genuine product response so no bytes reach the client
+				// before the selected connection is deliberately interrupted.
+				reply := httptest.NewRecorder()
+				fx.mux.ServeHTTP(reply, r)
+				if reply.Code != http.StatusOK {
+					serverErrors <- fmt.Errorf("normal pause API returned %d: %s", reply.Code, reply.Body.String())
+					w.WriteHeader(reply.Code)
+					_, _ = w.Write(reply.Body.Bytes())
+					return
+				}
+				recorded, err := fx.db.FactoryCommand(context.Background(), commandID)
+				if err != nil || recorded.Finished == "" || recorded.Outcome == "" {
+					serverErrors <- fmt.Errorf("pause reply preceded durable outcome: %v", err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				connection, _, err := w.(http.Hijacker).Hijack()
+				if err != nil {
+					serverErrors <- err
+					return
+				}
+				dropped.Add(1)
+				_ = connection.Close()
+				return
+			}
+		}
+		fx.mux.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	headers := map[string]map[string]string{}
+	for _, method := range []string{"get", "post"} {
+		authority, err := json.Marshal(extensions.Authority{
+			ExtensionID: "soda", InstanceID: "journey-http-test", SessionGeneration: "generation-1",
+			Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: method},
+			Actor:        extensions.Actor{ID: "1", Username: "alice"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		headers[method] = map[string]string{
+			extensions.ContextHeader: string(authority), extensions.AdmissionHeader: "test-admission",
+			extensions.SessionGenerationHeader: "generation-1", "Origin": "https://soda.test", "Content-Type": "application/json",
+		}
+	}
+	input, err := json.Marshal(map[string]any{
+		"format": 1, "origin": server.URL, "owner": "1", "repository": 7, "command_id": commandID, "headers": headers,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	client := exec.CommandContext(ctx, "bun", runner, "--module", module, "--out", out)
+	client.Stdin = bytes.NewReader(input)
+	output, runErr := client.CombinedOutput()
+	select {
+	case err := <-serverErrors:
+		t.Fatal(err)
+	default:
+	}
+	if runErr != nil {
+		t.Fatalf("maintained HTTP recovery client: %v\n%s", runErr, output)
+	}
+	if mutations.Load() != 1 || dropped.Load() != 1 || lookups.Load() < 1 {
+		t.Fatalf("unexpected transport counts: mutations=%d dropped=%d lookups=%d", mutations.Load(), dropped.Load(), lookups.Load())
+	}
+	open, revision, withdrawal, err := fx.db.DispatchState(ctx, journeyRepo)
+	if err != nil || open || revision != 1 || len(withdrawal.Captured) != 0 {
+		t.Fatalf("canonical dispatch withdrawal: open=%v revision=%d withdrawal=%+v error=%v", open, revision, withdrawal, err)
+	}
+	var commands, runs, usage, allowances, projects, reservations int
+	err = fx.raw.QueryRowContext(ctx, `SELECT
+		(SELECT count(*) FROM factory_commands), (SELECT count(*) FROM factory_runs),
+		(SELECT count(*) FROM factory_usage), (SELECT count(*) FROM factory_attempt_allowances),
+		(SELECT count(*) FROM projects), (SELECT count(*) FROM factory_reservations)`).Scan(
+		&commands, &runs, &usage, &allowances, &projects, &reservations)
+	if err != nil || commands != 1 || runs != 0 || usage != 0 || allowances != 0 || projects != 0 || reservations != 0 {
+		t.Fatalf("unexpected duplicate resource or paid work: commands=%d runs=%d usage=%d allowances=%d projects=%d reservations=%d error=%v", commands, runs, usage, allowances, projects, reservations, err)
+	}
+	command, err := fx.db.FactoryCommand(ctx, commandID)
+	if err != nil || command.Type != factory.CommandPause || command.Principal != "native:1" || command.Finished == "" {
+		t.Fatalf("durable canonical command: %+v error=%v", command, err)
+	}
+	receipt := map[string]any{
+		"format": 1, "state": "passed", "command_id": commandID, "command_digest": command.Digest,
+		"mutations": mutations.Load(), "lost_replies": dropped.Load(), "normal_api_lookups": lookups.Load(),
+		"dispatch_revision": revision, "dispatch_open": open, "commands": commands,
+		"runs": runs, "usage": usage, "attempt_allowances": allowances, "projects": projects, "reservations": reservations,
+		"remaining_native_custody": "none: no Project or run was created", "native_retirement_exercised": false,
+		"provider_calls": 0, "guest_mutations": 0,
+	}
+	data, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(filepath.Join(out, "server-result.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := file.Write(append(data, '\n'))
+	syncErr := file.Sync()
+	closeErr := file.Close()
+	if writeErr != nil || syncErr != nil || closeErr != nil {
+		t.Fatal("save server integration receipt", writeErr, syncErr, closeErr)
+	}
+	t.Logf("real HTTP/PG lost-reply recovery passed: %s", filepath.Join(out, "server-result.json"))
+}
 
 const (
 	journeyRepo  = 7

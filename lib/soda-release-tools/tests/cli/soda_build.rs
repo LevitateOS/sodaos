@@ -132,6 +132,8 @@ fn build_admission_matrix_preserves_release_boundaries() {
         assert_eq!(err, want, "{args:?}");
     }
 
+    native_worker_cancellation();
+
     // Explicit native integration mode: the operator admits a separate root
     // controller/config/collector and existing completed development candidate.
     // Ordinary CLI runs do not claim to exercise the protected systemd boundary.
@@ -425,6 +427,151 @@ fn build_admission_matrix_preserves_release_boundaries() {
         )
         .unwrap();
     }
+}
+
+// Optional real host integration. This dispatches only the installed sleep
+// executable and cancels it after observing the exact transient unit alive;
+// it uses neither a candidate build nor a guest/provider fixture.
+fn native_worker_cancellation() {
+    use soda_release_tools::worker::{
+        run_worker, Worker, WorkerError, WorkerUnitCustody, WORKER_CONTROLLER,
+    };
+    use std::{
+        cell::RefCell,
+        fs::{self, DirBuilder, OpenOptions},
+        io::Write,
+        os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
+        path::Path,
+        process::Command,
+        time::{Duration, Instant},
+    };
+
+    let Some(directory) = std::env::var_os("SODA_NATIVE_WORKER_CANCELLATION_DIRECTORY") else {
+        return;
+    };
+    assert_eq!(unsafe { libc::getuid() }, 0, "native fixture requires root");
+    let root = Path::new(&directory);
+    assert_eq!(root.parent(), Some(Path::new("/home")));
+    DirBuilder::new().mode(0o700).create(root).unwrap();
+    assert_eq!(fs::canonicalize(root).unwrap(), root);
+    assert_eq!(fs::symlink_metadata(root).unwrap().uid(), 0);
+    let read_only = root.join("read-only");
+    DirBuilder::new().mode(0o755).create(&read_only).unwrap();
+    fs::set_permissions(&read_only, fs::Permissions::from_mode(0o755)).unwrap();
+    let name = format!("soda-qualify-cancel-{}", std::process::id());
+    let unit = format!("{name}.service");
+    let worker = Worker {
+        name,
+        user: "soda-qualifier".into(),
+        executable: "/usr/bin/sleep".into(),
+        controller: WORKER_CONTROLLER.into(),
+        directory: "/run/soda-worker-cancellation".into(),
+        read_only: vec![
+            format!("/usr/bin/sleep:{WORKER_CONTROLLER}"),
+            format!("{}:/run/soda-worker-cancellation", read_only.display()),
+        ],
+        arguments: vec!["60".into()],
+        ..Worker::default()
+    };
+    let inspect = || {
+        let output = Command::new("/usr/bin/systemctl")
+            .args([
+                "show",
+                &unit,
+                "--property=LoadState",
+                "--property=ActiveState",
+                "--property=MainPID",
+            ])
+            .env_clear()
+            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+            .env("LANG", "C.UTF-8")
+            .output()
+            .map_err(|error| error.to_string())?;
+        if !output.status.success() {
+            return Err(format!("systemctl show failed: {}", output.status));
+        }
+        String::from_utf8(output.stdout).map_err(|error| error.to_string())
+    };
+    let live = RefCell::new(None);
+    let inspection_error = RefCell::new(None);
+    let last_probe = RefCell::new(Instant::now() - Duration::from_secs(1));
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let cancelled = || {
+        if live.borrow().is_some() {
+            return true;
+        }
+        if last_probe.borrow().elapsed() >= Duration::from_millis(100) {
+            *last_probe.borrow_mut() = Instant::now();
+            match inspect() {
+                Ok(state) => {
+                    let pid = state
+                        .lines()
+                        .find_map(|line| line.strip_prefix("MainPID="))
+                        .and_then(|pid| pid.parse::<u32>().ok());
+                    if state.lines().any(|line| line == "ActiveState=active")
+                        && pid.is_some_and(|pid| pid > 0)
+                    {
+                        *live.borrow_mut() = Some(state);
+                        return true;
+                    }
+                }
+                Err(error) => *inspection_error.borrow_mut() = Some(error),
+            }
+        }
+        // An observation failure still requests bounded cleanup, but cannot
+        // satisfy the live-process assertion below.
+        Instant::now() >= deadline
+    };
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut custody = WorkerUnitCustody::NeverDispatched;
+    let result = run_worker(&worker, &mut stdout, &mut stderr, &cancelled, &mut custody);
+    let terminal = inspect();
+    let receipt = serde_json::json!({
+        "format": 1,
+        "unit": unit,
+        "live_before_cancellation": live.borrow().as_ref(),
+        "native_after_cancellation": terminal.as_ref().ok(),
+        "native_inspection_error": terminal.as_ref().err().or(inspection_error.borrow().as_ref()),
+        "result": format!("{result:?}"),
+        "custody": format!("{custody:?}"),
+        "stdout": String::from_utf8_lossy(&stdout),
+        "stderr": String::from_utf8_lossy(&stderr),
+        "guest_mutations": 0,
+        "provider_calls": 0,
+        "credentials": 0,
+        "builds": 0,
+    });
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(root.join("result.json"))
+        .unwrap();
+    file.write_all(&serde_json::to_vec_pretty(&receipt).unwrap())
+        .unwrap();
+    file.sync_all().unwrap();
+    fs::File::open(root).unwrap().sync_all().unwrap();
+    assert!(
+        live.borrow().is_some(),
+        "worker was never observed alive: {receipt}"
+    );
+    assert!(
+        matches!(result, Err(WorkerError::Cancelled(_))),
+        "{receipt}"
+    );
+    assert_eq!(custody, WorkerUnitCustody::ExactUnitTerminal, "{receipt}");
+    let terminal = terminal.unwrap();
+    assert!(
+        terminal.lines().any(|line| line == "MainPID=0"),
+        "{receipt}"
+    );
+    assert!(
+        terminal
+            .lines()
+            .any(|line| matches!(line, "ActiveState=inactive" | "ActiveState=failed")),
+        "{receipt}"
+    );
 }
 
 #[test]
