@@ -86,9 +86,31 @@ after publication to the repository's default branch.
 Proven locally in this run: unchanged-refresh reuse, atomic failure behavior,
 process retention, credential preservation, stale/unknown launch and baseline
 refusal, installed-path Project access, and live restage with legacy pins
-ignored. Remaining and unverified: installed/appliance activation (no production
-install was mutated or restarted here), nested live restage, exact host bundle
-lifetime across reserve and active execution (in progress), persisted
-cold-recovery Factory integration, and independent review. Do not present this
-policy change as an update of all dependencies or VMs, and never claim an
+ignored. Accepted exact host bundle lifetime (`b8e578fa`, independently
+accepted): a staged execution retains its exact bundle reference from staging
+through reservation and the live run, so refresh/cleanup cannot collect it;
+the reference releases only after confirmed retirement and is preserved when
+retirement is uncertain; retired unreferenced bundles become collectable
+while the current selection stays untouched. Accepted external results:
+staged bundle survives two updates and GC while held, retired bundle
+reclaimed, current bundle preserved.
+
+Reproduce from the repository root (no credentials; hermetic lifetime tests,
+no model calls):
+
+- `cargo check -p soda-host --jobs 4`
+- `cargo test -p soda-host --jobs 4 --test muse_serve_oracle`
+- `bash scripts/check-no-unit-tests.sh`
+
+Observed on `b8e578fa`: check pass; oracle 27 passed, 0 failed (including
+2 lifetime tests); no-unit-tests gate pass.
+
+Remaining and unverified: installed/appliance activation (no production
+install was mutated or restarted here), Factory new-selection adoption and
+persisted cold-recovery integration (T06, foreign writer unreleased), nested
+live restage (no podman-capable guest image), and the full
+`prepare_execution` resolve leg, which needs a rootful host — production runs
+`User=root` with `UsernsMode=private`, while rootless scratch reports
+`UsernsMode=""` and is denied there by design. Do not present this policy
+change as an update of all dependencies or VMs, and never claim an
 installation is current without an actual check.

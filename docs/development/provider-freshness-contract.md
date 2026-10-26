@@ -65,3 +65,7 @@ new provider work.
   launch-time due-check, installed scheduling fixtures under isolated roots.
 - T06 Factory dispatch adoption is coordinator-owned after writer
   reconciliation; lanes B/C must not edit shared Go Factory dispatch files.
+  Persisted cold-recovery Factory integration is required by this contract,
+  not yet integrated: the accepted execution reference lifetime covers live
+  host executions only, and cold recovery still resolves through
+  `resolve_existing` fail-closed until T06 lands.
