@@ -312,7 +312,6 @@ fn authority(path: &Path) -> Result<Authority, String> {
             return Err("admitted release executable changed".into());
         }
     }
-    worker::worker_executable_matches(&a.controller)?;
     evidence::protected_path(&a.output_parent, true).map_err(|e| e.to_string())?;
     if !matches!(a.purpose.as_str(), "development" | "production")
         || a.target.is_empty()
@@ -750,6 +749,10 @@ fn collect_inner(
     journey: Option<(&input::FileReference, &str)>,
 ) -> Result<(), String> {
     let a = authority(config)?;
+    // New dispatch requires the admitted controller. Reading an immutable old
+    // request (including a retired target claim) validates its pinned executable
+    // bytes above, without requiring a repaired controller to have those bytes.
+    worker::worker_executable_matches(&a.controller)?;
     if let Some((resolved, collector_sha256)) = journey {
         if a.collector_sha256 != collector_sha256
             || !crate::digest::is_digest(collector_sha256)

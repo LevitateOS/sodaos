@@ -1554,6 +1554,10 @@ Depends on 3–4.**
   `/home/soda-journey-j22/outputs/j22-live-r3`; it is never re-entered.
   A separately admitted collector adopts the same App operation by exact record
   ID and label through normal owner readback, without another create POST.
+  Retained target claims validate their original protected authority/executable
+  hashes without demanding that a repaired reader equal the old dispatcher.
+  New dispatch still requires exact controller equality; a terminal old worker
+  releases only its local target fence, never guest custody or paid authority.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
