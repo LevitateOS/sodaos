@@ -1612,6 +1612,22 @@ Depends on 3–4.**
   `journey-j22-preparation/result.public.json` records the accepted prerequisites,
   failed-attempt reports, zero new model use and exact remaining inputs. Preserve
   this check; never run the older Codex scenarios as a fallback.
+
+  The owner approved one private Docker-only build from `49591773`, including
+  an isolated checkout, on 2026-10-26. Input admission stopped before compilation:
+  independent Fountain `15.0.10-fountain.3` matches the committed `fd5d4db1` pin
+  and both downloaded source archives match its metadata checksums. However,
+  the exact retained Muse executable matches `system/project/muse-release.json`
+  (`1b68bd45…`, 347850968 bytes) and its actual `exec --help` has no
+  `--contributor-mode` option. It also lacks the desktop `model-profile` command;
+  the profile probe exits 2. Desktop CLI capability cannot qualify these pinned
+  image bytes. Evidence and the exact approval are at sibling
+  `journey-j22-muse-candidate/result.json` and `authorization.json`. No isolated
+  checkout, controller compilation, candidate build, guest mutation, enrollment
+  or model call occurred. Next select a compatible checksum-pinned Muse artifact
+  and freeze the revised source; do not silently change the approved source or
+  substitute the desktop wrapper. This is an unresolved image input, not a
+  failed paid trial; the original finite trial remains unused.
 - [x] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
