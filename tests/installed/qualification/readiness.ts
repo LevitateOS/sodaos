@@ -216,7 +216,10 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
     if (s.cases.some((c) => c === 'persistence' || c === 'cold_recovery')) {
       closure = diagnoseClosure(s, observation, native);
       check('persistence_resource_scope', closure.scope_ready);
-      check('persistence_operation', s.target.distribution !== 'docker' || effects.same_image_recreation);
+      check(
+        'persistence_operation',
+        s.target.distribution === 'docker' ? effects.same_image_recreation : effects.native_reboot === true
+      );
       if (s.cases.includes('cold_recovery')) check('cold_operation', effects.cold_restore);
     }
     if (s.cases.includes('app'))

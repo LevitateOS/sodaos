@@ -618,6 +618,58 @@ route predicate. `basic_capacity_route` stays unknown while no capacity threshol
 has been accepted, even though its supplemental probe code can run. Source support
 does not imply an installed pass or release the execution hold.
 
+### Native appliance transport
+
+The shared `collectInstalledPhases` composition reuses the Project, terminal,
+Factory, CI/current-context and resource-retirement owners on a native appliance.
+The initial native route selects exactly `installation`, `browser_project`,
+`factory`, `persistence` and one eligible Factory subject. It uses direct pinned
+root SSH with an actual DMI UUID check; it never addresses a Docker outer.
+Native App/cold/capacity and two-issue extensions remain unimplemented and refuse
+admission. Existing Apps remain in the complete retirement inventory, but an App
+record/rendered-page result is not inferred from that inventory or a reboot.
+
+`AppliancePhaseDetails` uses the common public Project/Factory/helper inputs and
+replaces Docker host/download identities with `installation`: five public
+references (`candidate`, `payload`, `media`, `console`, `release`), each `{path,
+sha256}`. In the protected worker, stage those files under its admitted runtime
+or candidate mounts; the original controller paths are not available there.
+The staged release copy must retain the scenario's original manifest hash.
+`public_download_directory` is `/run/soda-qualification-runtime/public-appliance`
+and `package_directory` remains `/run/soda-qualification-candidate/packages`.
+
+Installation joins the retained original console/first-boot record to the current
+XFS root PARTUUID, disk size, locked OSTree deployment, payload and all six image
+configs. The current boot need not be the first boot. The shared state reader
+also measures candidate-pinned running Dashboard and host/helper bytes, complete
+resource identities and custody. Existing verified media metadata is reused;
+neither a new public media download nor a fresh installation is claimed.
+
+Native persistence requires the explicit `permitted_effects.native_reboot: true`
+in the exact approved scope; omission is no permission. After the shared normal
+owner retirement and a fresh stopped snapshot, one exclusive root journal binds
+the operation, UUID, old boot and protected hash before requesting reboot. A lost
+reply permits observation only. A different actual kernel boot, same root,
+deployment/images, exact journal and protected state are required afterward.
+This implements reboot, not physical power-off or isolated cold recovery. Its
+four selected phase observations do not create appliance application coverage
+or a release qualification seal.
+
+Provider-free observation of an existing native fixture uses the same scenario
+and those five public references, without Factory selection or lifecycle scope:
+
+```sh
+bun tests/installed/qualification/check-appliance.ts \
+  --scenario /home/soda-tester/held-native-scenario.json \
+  --installation /home/soda-tester/public-installation-references.json \
+  --out /home/soda-tester/fresh-native-check
+```
+
+It checks real installed state, canonical inventory projections, candidate byte
+pins, staged-manifest use without the controller path and wrong-UUID refusal.
+It never requests reboot, installs an App, signs in a provider or changes scope.
+Private key/password paths stay references and are never hashed as evidence.
+
 ### Final retained state and cold recovery
 
 `phases/final-state-recovery.ts` uses the existing complete resource inventory
@@ -1223,8 +1275,10 @@ Depends on 3–4.**
   identity stay distinct. Fixture metadata binds RC7 source/payload and the
   prepared image/bundle/tools; no image build or guest installation was attempted.
 
-  The retained fixture was only preloaded on native `.164`; it was never an
-  installed App on Docker `.165`. Its old local proof removed owner credentials,
+  The public fixture was available on native `.164`; Docker `.165` had no
+  installed App. J24's later actual native read confirms the retained native
+  registration rather than treating image preload as its full inventory.
+  The old local proof removed owner credentials,
   so retained data was preserved rather than treated as an accessible account.
   The existing qualified tools archive matched
   `e9c042c053eecc1c24542b2e8afc1963fc05665121a957d6834bddc90a230a49`
@@ -1398,6 +1452,42 @@ Depends on the basic driver working.**
   Local native transport implementation/read-only checks can proceed after
   J20 independently of held J21–J23. Actual native mutations, two-issue selection,
   overlap and sponsored execution retain their existing prerequisites and holds.
+
+  Native source portion implemented: the shared collector now selects direct
+  native transport and the same Project/Factory/retirement functions, with
+  separately bound installation/current-boot checks and a once-only native
+  reboot journal. Native permission is explicit and included in approval scope;
+  Docker recreation grants no reboot authority. The implementation retains all
+  actual Projects/Apps and removes the old native collector's zero-Project and
+  current-boot-equals-first-boot assumptions. Worker manifest reads use the
+  admitted public copy, not an unavailable controller path. No historical
+  per-attempt implementation is imported or executed.
+
+  Actual provider-free integration on `.164` confirmed the original installed
+  root/deployment/six images and measured candidate-pinned binaries. Both
+  native inventory readers agreed on two Projects, one retained registered App
+  `aba31fc21ab6e4473a27cc277`, one actor-1 ordinary terminal and **zero provider
+  connections**; history remains zero runs/zero charged minutes. The current
+  boot differs from the recorded first boot, as expected. Another DMI UUID
+  refused before interpreting its program. No resource lifecycle scope was
+  added: both Projects, the terminal and App correctly block the stopped
+  snapshot. Zero guest mutations, provider calls, enrollment, reboots or builds
+  of OS/media. Full/focused TypeScript and affected lint/format checks passed.
+
+  Reproduce with the maintained native check above. Inputs:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j24-inputs/scenario.json` and
+  `installation-worker-paths.json`; final real receipt:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j24-native-check-r4/result.json`.
+  The first integration's projection mismatch was corrected without changing
+  actual native data. Earlier receipts remain preserved.
+
+  **Acceptance remains pending; checkbox stays open.** Actual native
+  Project/Factory/retirement/reboot execution is held, and no eligible native
+  Ready connection exists. Two-issue extension/overlap requires two actual Ready
+  connections, independent selected issues and finite authority; none was
+  invented or enrolled. Native App-owner/cold/capacity composition is explicitly
+  unsupported. No paid/reboot/App-readback outcome or release qualification is
+  claimed. Next independently eligible local source task: J25.
 - [ ] **J25.** Derive the report from existing receipts. Add consumed-scratch and temporary
   clone retirement at actual completion points, preserving provenance, active
   reservations, unique data and backing dependencies. Generic cache resets or
@@ -1509,6 +1599,16 @@ work; actual destructive retirement stays held. J26 follows the implemented
 source boundaries and does not require buying a trial. All task IDs, previous
 evidence, budgets and operational holds are preserved; no accepted unchanged
 checks were reopened and no new scope was added.
+
+Dependency review after J24's native read on 2026-10-26: the retained native
+fixture has an installed App as well as two Projects and a terminal; it has no
+Ready provider connections. This corrects the earlier image-only assumption.
+J24's native source/transport work is recorded, but J24 remains unchecked with
+its live and two-issue prerequisites outstanding. J21–J23 remain held. J25's
+local receipt/report/retirement implementation is the next eligible work; it
+does not require guest changes or an enrollment. J26 retains fresh-source
+reproduction after implemented boundaries. Task IDs, unchanged evidence,
+operational holds and finite authority remain intact.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next

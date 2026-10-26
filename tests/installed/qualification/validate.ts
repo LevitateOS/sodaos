@@ -226,9 +226,11 @@ export function scenarioInput(value: unknown): QualificationScenario {
     'factory_repositories',
     'current_context_phases',
     'same_image_recreation',
+    'native_reboot',
     'cold_restore',
   ]);
   for (const k of ['fixture_setup', 'same_image_recreation', 'cold_restore']) assert(typeof effects[k] === 'boolean');
+  assert(effects.native_reboot === undefined || typeof effects.native_reboot === 'boolean');
   for (const k of ['project_lifecycle', 'application_lifecycle', 'terminal_lifecycle', 'factory_repositories'])
     assert(strings(effects[k], nonempty));
   assert(strings(effects.current_context_phases, (v) => v === 'implement' || v === 'review'));

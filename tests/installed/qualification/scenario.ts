@@ -164,6 +164,8 @@ export interface PermittedEffects {
   readonly factory_repositories: readonly string[];
   readonly current_context_phases: readonly ('implement' | 'review')[];
   readonly same_image_recreation: boolean;
+  /** A native kernel reboot is distinct from recreating a Docker container. */
+  readonly native_reboot?: boolean;
   readonly cold_restore: boolean;
 }
 

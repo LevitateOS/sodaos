@@ -1,6 +1,9 @@
 // The maintained phase bundle's public composition boundary. No phase runs on import.
 export {collectDockerPhases, dockerPhaseConfiguration, innerDocker} from './docker-phases';
-export type {DockerPhaseDetails, DockerPhaseRuntime} from './docker-phases';
+export {collectInstalledPhases, installedPhaseConfiguration} from './docker-phases';
+export type {DockerPhaseDetails, DockerPhaseRuntime, AppliancePhaseDetails} from './docker-phases';
+export {loadApplianceBinding, observeApplianceBoot, readAppliance, applianceProgram} from './appliance-native';
+export {exerciseAppliancePersistence} from './appliance-persistence';
 export {FactoryPermits, deriveFactoryEvidence, exerciseFactoryPhase} from './factory-phase';
 export {PersistencePermits, retireOwnedResources, exercisePersistence} from './docker-persistence';
 export {nativeExecutionScript, nativeExecutionSucceeded} from './factory-execution';

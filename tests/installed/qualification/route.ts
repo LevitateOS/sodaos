@@ -17,3 +17,14 @@ export function implementedDockerRoute(s: QualificationScenario): boolean {
     s.applications?.length === 1
   );
 }
+
+/** Native single-issue composition reuses Project/Factory semantics and owns
+ * an actual reboot. App/cold/capacity extensions need their selected adapters. */
+export function implementedRoute(s: QualificationScenario): boolean {
+  return (
+    implementedDockerRoute(s) ||
+    (s.target.distribution === 'appliance' &&
+      s.factory.length === 1 &&
+      s.cases.join(',') === 'installation,browser_project,factory,persistence')
+  );
+}

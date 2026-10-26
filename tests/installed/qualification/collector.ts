@@ -6,9 +6,10 @@ import path from 'node:path';
 import type {ResolvedQualificationInput} from './scenario';
 import {scenarioInput} from './validate';
 import {
-  collectDockerPhases,
-  dockerPhaseConfiguration,
+  collectInstalledPhases,
+  installedPhaseConfiguration,
   type DockerPhaseDetails,
+  type AppliancePhaseDetails,
   type DockerPhaseRuntime,
 } from './phases/docker-phases';
 import {check, COMMIT, sha} from './phases/support';
@@ -105,14 +106,17 @@ async function main() {
       scenario.target.name === process.argv[7],
     'journey_execution_held_or_unbound'
   );
-  const details = JSON.parse(await readFile(RUNTIME + '/details.json', 'utf8')) as DockerPhaseDetails;
+  const details = JSON.parse(await readFile(RUNTIME + '/details.json', 'utf8')) as
+    | DockerPhaseDetails
+    | AppliancePhaseDetails;
+  const docker = scenario.target.distribution === 'docker';
   check(
-    details.public_download_directory === RUNTIME + '/public-docker' &&
+    details.public_download_directory === RUNTIME + (docker ? '/public-docker' : '/public-appliance') &&
       details.package_directory === INPUT + '/packages',
     'fixed_worker_public_paths'
   );
   // Validate the complete selected composition before credentials or transport.
-  const cfg = dockerPhaseConfiguration(input, details);
+  const cfg = installedPhaseConfiguration(input, details);
   check(scenario.trust, 'explicit_public_trust_required');
   for (const [name, pin] of [
     ['known_hosts', scenario.trust.known_hosts],
@@ -204,23 +208,36 @@ async function main() {
     },
   };
   if (scenario.cases.length > 4) {
-    check(scenario.applications?.length === 1 && details.cold, 'selected_supplemental_runtime_required');
+    check(
+      docker && scenario.applications?.length === 1 && 'cold' in details && details.cold,
+      'selected_supplemental_runtime_required'
+    );
     runtime.prepareFinalRecovery = async (page, apiBase, b, permits) => {
       const app = scenario.applications![0]!;
       const fixture = await readFile(RUNTIME + '/applications/' + app.application_id + '.json');
       check(sha(fixture) === app.fixture.sha256, 'admitted_worker_application_fixture');
-      return prepareDockerRecovery(input, details, runtime, page, apiBase, b, permits, fixture, async () => {
-        const file = credentials + '/application-owner-' + app.application_id;
-        const stat = await lstat(file);
-        check(
-          stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= 65536,
-          'bounded_delivered_application_credential'
-        );
-        return JSON.parse(await readFile(file, 'utf8'));
-      });
+      return prepareDockerRecovery(
+        input,
+        details as DockerPhaseDetails,
+        runtime,
+        page,
+        apiBase,
+        b,
+        permits,
+        fixture,
+        async () => {
+          const file = credentials + '/application-owner-' + app.application_id;
+          const stat = await lstat(file);
+          check(
+            stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= 65536,
+            'bounded_delivered_application_credential'
+          );
+          return JSON.parse(await readFile(file, 'utf8'));
+        }
+      );
     };
   }
-  const result = await collectDockerPhases(input, details, runtime);
+  const result = await collectInstalledPhases(input, details, runtime);
   for (const kind of ['installation', 'browser_project', 'factory', 'persistence'] as const) {
     const time = result.times[kind];
     const files = Object.fromEntries(
@@ -242,8 +259,9 @@ async function main() {
       Evidence: 'completed',
       Cleanup:
         'Authorized TTYs ended, retained resources stopped and browser closed; controller owns transient worker retirement.',
-      Topology:
-        'Pinned root SSH to Docker host; fixed native commands inside stock outer; trusted normal-owner browser.',
+      Topology: docker
+        ? 'Pinned root SSH to Docker host; fixed native commands inside stock outer; trusted normal-owner browser.'
+        : 'Pinned root SSH to installed appliance with actual UUID/root/deployment; trusted normal-owner browser; kernel reboot.',
       ExitCode: 0,
       ToolDirty: false,
       Invocation: [
@@ -269,7 +287,9 @@ async function main() {
     target: scenario.target.name,
     complete: true,
   });
-  console.log(JSON.stringify({complete: true, distribution: 'docker', noQualificationSealOrPublication: true}));
+  console.log(
+    JSON.stringify({complete: true, distribution: scenario.target.distribution, noQualificationSealOrPublication: true})
+  );
 }
 
 await main().catch(async (error: unknown) => {
@@ -277,7 +297,7 @@ await main().catch(async (error: unknown) => {
     error instanceof Error && /^[a-z0-9_]+$/.test(error.message) ? error.message : 'collector_phase_unconfirmed';
   await save('failure.json', {
     complete: false,
-    phase: 'docker_phases',
+    phase: 'installed_phases',
     noAutomaticRetry: true,
     reason,
     recovery: {

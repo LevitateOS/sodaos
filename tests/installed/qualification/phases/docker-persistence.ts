@@ -106,13 +106,28 @@ export async function retireOwnedResources(
   scope: ResourceScope,
   actor: string
 ) {
+  return retireResources(page, apiBase, w, io, permits, scope, actor, (mode) => readDocker(io, b, mode, w, scope));
+}
+
+/** Product retirement has one normal-owner implementation. Each topology
+ * supplies its own selected native reader rather than pretending to be Docker. */
+export async function retireResources(
+  page: any,
+  apiBase: string,
+  w: Witness,
+  io: DockerIO,
+  permits: PersistencePermits,
+  scope: ResourceScope,
+  actor: string,
+  readSelected: (mode: 'idle' | 'snapshot') => Promise<{inner: any}>
+) {
   check(
     !scope.scenario.authority.held && scope.scenario.authority.scope_receipt_file !== null,
     'journey_execution_held'
   );
   validateWitness(w);
   check(/^\/[^?#]*$/.test(apiBase) && !apiBase.endsWith('/'), 'canonical_transport_base');
-  const inspect = () => readDocker(io, b, 'idle', w, scope);
+  const inspect = () => readSelected('idle');
   const before = await inspect();
   const diagnose = (current: any) => {
     assertResourceInventory(scope, current.inner.resource_inventory);
@@ -235,7 +250,7 @@ export async function retireOwnedResources(
       application_runtime: after.inner.application_runtime,
     });
   }
-  const stopped = await readDocker(io, b, 'snapshot', w, scope);
+  const stopped = await readSelected('snapshot');
   sameIncarnations({...stopped, inner: {...stopped.inner, facts: stopped.inner.protected.facts}});
   await io.save('persistence/resources-stopped-native.json', stopped);
   return stopped;

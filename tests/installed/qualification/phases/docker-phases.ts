@@ -7,7 +7,7 @@ import {readFile} from 'node:fs/promises';
 import type {BrowserContext, Page} from 'playwright';
 import type {ResolvedQualificationInput} from '../scenario';
 import {scenarioInput} from '../validate';
-import {implementedDockerRoute} from '../route';
+import {implementedRoute} from '../route';
 import {loginNativeForgejo} from '../../sodaspaces-controls';
 import {mountedSpacesFacts, nativeSpacesMount} from '../../sodaspaces-journey-evidence';
 import {check, sha, COMMIT, SHA, rawRun, networkGuard, packageAssetHashes, packageAssetName} from './support';
@@ -27,7 +27,16 @@ import {
   type Witness,
 } from './docker-binding';
 import {observeInstallation} from './docker-native';
-import {PersistencePermits, retireOwnedResources, exercisePersistence} from './docker-persistence';
+import {PersistencePermits, retireOwnedResources, retireResources, exercisePersistence} from './docker-persistence';
+import {
+  loadApplianceBinding,
+  observeApplianceBoot,
+  readAppliance,
+  applianceProgram,
+  type ApplianceBinding,
+  type ApplianceInstallation,
+} from './appliance-native';
+import {exerciseAppliancePersistence} from './appliance-persistence';
 import {exerciseMeasuredFactoryPhase, type JourneyProbes, type TerminalProbe} from './journey-measurements';
 import {exerciseFinalStateRecovery, type FinalRecoveryRuntime} from './final-state-recovery';
 import type {ApplicationHandoff} from '../application';
@@ -77,14 +86,25 @@ export interface DockerPhaseRuntime extends DockerIO {
   }>;
 }
 
+export interface AppliancePhaseDetails extends Omit<DockerPhaseDetails, 'host' | 'downloads' | 'cold'> {
+  readonly installation: ApplianceInstallation;
+}
+
 /** A projection into the migrated phase functions' wire shapes, never another
  * manually edited target.json. It is not paid admission or a readiness proof. */
 export function dockerPhaseConfiguration(input: ResolvedQualificationInput, details: DockerPhaseDetails) {
+  check(input.scenario.target.distribution === 'docker', 'docker_scenario_required');
+  return installedPhaseConfiguration(input, details);
+}
+
+export function installedPhaseConfiguration(
+  input: ResolvedQualificationInput,
+  details: DockerPhaseDetails | AppliancePhaseDetails
+) {
   check(input?.format === 1, 'resolved_input_format');
   const s = scenarioInput(input.scenario);
   check(!s.authority.held && s.authority.scope_receipt_file !== null, 'journey_execution_held');
-  check(s.target.distribution === 'docker', 'docker_scenario_required');
-  check(implementedDockerRoute(s), 'implemented_docker_route_required');
+  check(implementedRoute(s), 'implemented_installed_route_required');
   if (s.cases.length > 4) check(s.permitted_effects.cold_restore, 'cold_restore_scope_required');
   const selected = s.factory[0]!,
     subject = selected.subject;
@@ -103,7 +123,9 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
     s.managed.project_ids.includes(subject.project_id) &&
       s.permitted_effects.project_lifecycle.includes(subject.project_id) &&
       s.permitted_effects.factory_repositories.includes(subject.repository_id) &&
-      s.permitted_effects.same_image_recreation,
+      (s.target.distribution === 'docker'
+        ? s.permitted_effects.same_image_recreation
+        : s.permitted_effects.native_reboot === true),
     'scenario_phase_effects_required'
   );
   assert.deepEqual([...s.permitted_effects.current_context_phases].sort(), ['implement', 'review']);
@@ -188,7 +210,7 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
   return {
     format: 1,
     purpose: 'production',
-    distribution: 'docker',
+    distribution: s.target.distribution,
     execution_released: true,
     target: s.target.name,
     guest: {
@@ -199,8 +221,7 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
       workspace_user: details.workspace_login,
     },
     expected: s.candidate,
-    host: details.host,
-    assets: details.downloads,
+    ...('host' in details ? {host: details.host, assets: details.downloads} : {}),
     factory_phase,
     project_phase: {
       execution_released: true,
@@ -231,14 +252,34 @@ export async function collectDockerPhases(
   details: DockerPhaseDetails,
   runtime: DockerPhaseRuntime
 ) {
-  const cfg = dockerPhaseConfiguration(input, details);
+  check(input.scenario.target.distribution === 'docker', 'docker_scenario_required');
+  return collectInstalledPhases(input, details, runtime);
+}
+
+export async function collectInstalledPhases(
+  input: ResolvedQualificationInput,
+  details: DockerPhaseDetails | AppliancePhaseDetails,
+  runtime: DockerPhaseRuntime
+) {
+  const cfg = installedPhaseConfiguration(input, details);
+  const docker = input.scenario.target.distribution === 'docker';
   const hasSupplemental = input.scenario.cases.length > 4;
   check(
-    !hasSupplemental || (runtime.prepareFinalRecovery && details.cold),
+    !hasSupplemental || (docker && runtime.prepareFinalRecovery && 'cold' in details && details.cold),
     'protected_app_recovery_capabilities_required'
   );
   let supplemental: Awaited<ReturnType<NonNullable<DockerPhaseRuntime['prepareFinalRecovery']>>> | undefined;
-  const b = await loadDockerBinding(details.public_download_directory, cfg, details.downloads);
+  const b = docker
+    ? await loadDockerBinding(details.public_download_directory, cfg, (details as DockerPhaseDetails).downloads)
+    : await loadApplianceBinding(input.scenario, (details as AppliancePhaseDetails).installation);
+  const db = b as DockerBinding,
+    nb = b as ApplianceBinding;
+  const scope: ResourceScope = {scenario: input.scenario, observation: input.observation};
+  const inner = (program: string) =>
+    docker ? innerDocker(program) : applianceProgram(input.scenario.target.uuid, program);
+  const artifacts = docker
+    ? Object.fromEntries(Object.entries(db.downloads).map(([name, x]) => [name, x.SHA256]))
+    : Object.fromEntries(Object.entries(nb.public_files).map(([name, x]) => [name, x.sha256]));
   const io = runtime,
     phases: Record<string, any> = {},
     times: Record<string, {started: string; finished: string}> = {};
@@ -250,8 +291,23 @@ export async function collectDockerPhases(
     check(Date.parse(times[name]!.finished) > Date.parse(times[name]!.started), 'actual_nonzero_phase_interval');
   };
   start('installation');
-  await downloadDockerAssets(b, io);
-  const installation = await observeInstallation(io, b);
+  let installation: {native: any};
+  if (docker) {
+    await downloadDockerAssets(db, io);
+    installation = await observeInstallation(io, db);
+  } else {
+    const boot = await observeApplianceBoot(io, nb),
+      state = await readAppliance(io, nb, 'installation', scope);
+    await io.save('installation/retained-console.json', nb.installation);
+    await io.save('installation/native.json', {
+      boot,
+      state: state.inner,
+      historical_installation_reused: true,
+      current_boot_is_first_boot: boot.boot_id === nb.installation.first_boot.boot_id,
+      media_redownloaded: false,
+    });
+    installation = {native: boot};
+  }
   finish('installation');
   phases.installation = installation.native;
   const pack = b.payload.ExtensionCatalog.packages.find((p: any) => p.id === 'soda');
@@ -412,7 +468,7 @@ export async function collectDockerPhases(
     );
     check(setup.state === 'ready', 'existing_setup_adoption_unconfirmed');
     if (hasSupplemental) {
-      supplemental = await runtime.prepareFinalRecovery!(page, setupMount.apiBase, b, persistencePermits);
+      supplemental = await runtime.prepareFinalRecovery!(page, setupMount.apiBase, db, persistencePermits);
       const selected = input.scenario.applications![0]!;
       check(
         supplemental.application.application.id === selected.application_id &&
@@ -429,7 +485,7 @@ export async function collectDockerPhases(
         ';\n' +
         String.raw`
 const cp=require('node:child_process');const p=a=>cp.execFileSync('/usr/bin/podman',['--remote=false',...a],{encoding:'utf8',timeout:20000,maxBuffer:16384,stdio:['ignore','pipe','pipe']}).trim();try{if(process.getuid()!==0)throw Error();const source=p(['exec','--user','1000','soda-forgejo','git','--no-optional-locks','--git-dir=/data/git/repositories/'+REQUEST.owner+'/'+REQUEST.name+'.git','rev-parse','refs/heads/main']);if(!REQUEST.project){console.log(JSON.stringify({source}));process.exit(0)}const n='soda-'+REQUEST.project;console.log(JSON.stringify({project:REQUEST.project,container:p(['inspect','--type','container','--format','{{.ID}}',n]),image:p(['inspect','--type','container','--format','{{.Image}}',n]).replace(/^sha256:/,''),source}));}catch{console.error('owned_project_read_unavailable');process.exitCode=1;}`;
-      const value = io.sshRead(innerDocker(program), 210000);
+      const value = io.sshRead(inner(program), 210000);
       return JSON.parse(value);
     };
     const inspectShell = (project: string, login: string, statement: string) => {
@@ -446,7 +502,7 @@ const cp=require('node:child_process');const p=a=>cp.execFileSync('/usr/bin/podm
         ';\n' +
         String.raw`
 const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error();process.stdout.write(cp.execFileSync('/usr/bin/podman',['--remote=false','exec','--user',REQUEST.login,'soda-'+REQUEST.project,'/bin/sh','-eu','-c',REQUEST.statement],{encoding:'utf8',timeout:20000,maxBuffer:16384,stdio:['ignore','pipe','pipe']}));}catch{console.error('owned_terminal_read_unavailable');process.exitCode=1;}`;
-      const value = io.sshRead(innerDocker(program), 210000);
+      const value = io.sshRead(inner(program), 210000);
       return value;
     };
     let projectResult: any;
@@ -487,7 +543,7 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
     const factoryIO = {
       save: (n, v) => io.save('factory/' + n, v),
       saveBytes: (n, v) => io.saveBytes('factory/' + n, v),
-      sshRead: (program, timeout) => io.sshRead(innerDocker(program), Math.max(timeout ?? 45000, 210000)),
+      sshRead: (program, timeout) => io.sshRead(inner(program), Math.max(timeout ?? 45000, 210000)),
     } satisfies import('./factory-phase').FactoryIO;
     const factory = supplemental
       ? (
@@ -548,7 +604,7 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
         {
           page,
           apiBase: mount.apiBase,
-          binding: b,
+          binding: db,
           witness,
           installationNative: installation.native,
           scope: retirementScope,
@@ -567,30 +623,44 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
       return {
         phases,
         times,
-        artifacts: Object.fromEntries(Object.entries(b.downloads).map(([name, x]) => [name, x.SHA256])),
+        artifacts,
       };
     }
-    await retireOwnedResources(
-      page,
-      mount.apiBase,
-      witness,
-      b,
-      io,
-      persistencePermits,
-      retirementScope,
-      cfg.project_phase.actor
-    );
+    if (docker)
+      await retireOwnedResources(
+        page,
+        mount.apiBase,
+        witness,
+        db,
+        io,
+        persistencePermits,
+        retirementScope,
+        cfg.project_phase.actor
+      );
+    else
+      await retireResources(
+        page,
+        mount.apiBase,
+        witness,
+        io,
+        persistencePermits,
+        retirementScope,
+        cfg.project_phase.actor,
+        (mode) => readAppliance(io, nb, mode, retirementScope, witness)
+      );
     await context.close();
     check(audit.raw_responses === 0, 'raw_provider_response_forbidden');
     await io.save('browser_project/network.json', audit);
-    const persistence = await exercisePersistence(b, witness, installation.native, io, retirementScope);
+    const persistence = docker
+      ? await exercisePersistence(db, witness, installation.native, io, retirementScope)
+      : await exerciseAppliancePersistence(nb, witness, installation.native, io, retirementScope);
     finish('persistence');
     phases.persistence = persistence.native;
     // Existing canonical collector owns observation envelopes and the seal.
     return {
       phases,
       times,
-      artifacts: Object.fromEntries(Object.entries(b.downloads).map(([name, x]) => [name, x.SHA256])),
+      artifacts,
     };
   } finally {
     terminalProbe?.dispose();
