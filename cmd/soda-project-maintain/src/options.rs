@@ -4,6 +4,7 @@ pub(crate) struct Options {
     pub(crate) project: String,
     pub(crate) tools: String,
     pub(crate) bind_only: bool,
+    pub(crate) provider_store: bool,
 }
 
 pub(crate) fn default_tools() -> String {
@@ -89,6 +90,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
     let mut project = String::new();
     let mut tools = default_tools();
     let mut bind_only = false;
+    let mut provider_store = false;
     let mut i = 0;
     let mut positional = 0;
     while i < args.len() {
@@ -111,6 +113,9 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
                 }
             }
             "bind-only" => bind_only = parse_bind_only(inline)?,
+            "provider-store" => {
+                provider_store = parse_bind_only(inline)?;
+            }
             "h" | "help" => {
                 print_usage(&default_tools());
                 return Err(String::from("flag: help requested"));
@@ -127,6 +132,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             project,
             tools,
             bind_only,
+            provider_store,
         },
         positional,
     )
@@ -138,7 +144,7 @@ fn print_usage(tools_default: &str) {
 
 pub(crate) fn usage_text(tools_default: &str) -> String {
     format!(
-        "Usage of soda-project-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -tools string\n    \tinstalled public tool directory (default \"{tools_default}\")\n"
+        "Usage of soda-project-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -provider-store\n    \tstage the shared store's selected native binary (default \"false\")\n  -tools string\n    \tinstalled public tool directory (default \"{tools_default}\")\n"
     )
 }
 

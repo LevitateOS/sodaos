@@ -1,5 +1,5 @@
 use super::paths::{go_strerror, path_error};
-use super::MUSE_NATIVE;
+use super::store_resolve::{enforce_receipt, resolve_muse_native};
 use std::ffi::CString;
 use std::fs;
 use std::io;
@@ -7,6 +7,12 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub(crate) fn check_runtime() -> Result<(), String> {
+    // Resolve through the shared store first: a known-stale selection
+    // fails the check instead of probing a superseded binary.
+    let binary = resolve_muse_native()
+        .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
+    enforce_receipt(&binary)
+        .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
     let private = make_private_dir("soda-muse-check-")?;
     struct Cleanup(String);
     impl Drop for Cleanup {
@@ -16,7 +22,7 @@ pub(crate) fn check_runtime() -> Result<(), String> {
     }
     let _cleanup = Cleanup(private.clone());
     run_pristine(
-        MUSE_NATIVE,
+        &binary,
         &["exec".to_string(), "--help".to_string()],
         &private,
         Duration::from_secs(5),

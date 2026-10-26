@@ -7,6 +7,7 @@ mod launch_wire;
 mod paths;
 mod runtime;
 mod shell;
+mod store_resolve;
 
 use account::account_for;
 use config::{copy_config, read_config};

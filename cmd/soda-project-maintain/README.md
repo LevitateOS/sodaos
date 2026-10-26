@@ -64,9 +64,30 @@ for it to be running. It does not start a stopped project.
 | `--config PATH` | Absolute host configuration; defaults to `/etc/soda/host.json`. |
 | `--tools PATH` | Absolute public tool directory; defaults to `/usr/share/soda/muse-tools`. |
 | `--bind-only` | Restore the launch interface without installing tools or the system bus prerequisite. |
+| `--provider-store` | Stage the shared provider store's currently selected native binary instead of the pinned tool directory. The store is only ever opened read-only; Projects receive a staged copy and gain no write access. Fails closed on a stale or missing selection. |
 
-The project startup service uses `muse --bind-only --project ID` to restore the
-interface after a restart. Full maintenance is an explicit operator action.
+The project startup service stages the store selection automatically at
+launch (`muse --provider-store --project ID`, best-effort so boot never
+blocks), then restores the interface (`muse --bind-only --project ID`),
+preceded by a best-effort `soda-provider-update refresh` due-check that never
+blocks the retained Project. Full maintenance is also available as an
+explicit operator action:
+
+```sh
+sudo /usr/libexec/soda/soda-project-maintain \
+  muse --provider-store --project p0123456789abcdef01234567
+```
+
+With `--provider-store`, the native binary is resolved from the shared
+provider store's current selection and verified against its selected digest
+before staging, so retained Projects are served current bytes without
+per-Project downloads or image rebuilds. Staging also plants
+`/usr/local/libexec/soda/muse-selection.json`, the admitted-identity receipt
+the in-Project launch path enforces at every invocation (mismatch or an
+explicit stale marker refuses; a receipt from before this change simply
+grandfathers until the next launch-time staging). Image-owned wrappers still
+come from `--tools`. The default pinned-directory path is unchanged until the
+provider store rollout completes.
 
 The same startup service runs `factory-mcp --project ID` to restore the fixed
 Factory socket directory in retained Projects. It binds

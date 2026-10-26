@@ -112,7 +112,7 @@ pub fn record_tool_files(
 /// rustTools maps ported Rust crates to the binaries they install in the
 /// image. Each port PR extends this table and drops its appliance/bin
 /// source; Prepare no longer stages these paths.
-pub const RUST_TOOLS: [(&str, &str, &str); 10] = [
+pub const RUST_TOOLS: [(&str, &str, &str); 11] = [
     (
         "soda-activate",
         "soda-activate",
@@ -162,6 +162,11 @@ pub const RUST_TOOLS: [(&str, &str, &str); 10] = [
         "soda-project-terminal",
         "project-terminal",
         "rootfs/usr/libexec/soda/project-terminal",
+    ),
+    (
+        "soda-provider-update",
+        "soda-provider-update",
+        "rootfs/usr/bin/soda-provider-update",
     ),
 ];
 
