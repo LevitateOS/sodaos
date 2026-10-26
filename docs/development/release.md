@@ -317,9 +317,9 @@ bun tests/installed/qualification/check-browser.ts \
 ```
 
 It uses the repository's installed Playwright/Chromium dependency and native
-browser bridge. Keep the fresh `/home` output short enough for the Unix socket
-limit. Every request is fulfilled locally with Chromium offline. Its result
-binds module/request hashes and exact-once action/refusal observations; it does
+browser bridge. Keep both the fresh `/home` output and private `TMPDIR` short
+enough for Unix sockets. Every request is fulfilled locally with Chromium
+offline. Its result binds module/request hashes and exact-once action/refusal observations; it does
 not claim backend eligibility, context resumption or a paid outcome.
 
 For retained history on the Docker fixture, run the built native observer through
@@ -1588,10 +1588,39 @@ Depends on the basic driver working.**
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j25-cli-check/result.json`.
   Native guard checks against that frozen operator also passed at
   `/home/soda-j25-retirement-check-r3-20261026/result.json`, with zero deletions.
-- [ ] **J26.** Verify that a new source checkout can build/invoke the maintained path using
+- [x] **J26.** Verify that a new source checkout can build/invoke the maintained path using
   documented fixture/access inputs, resource release records report actual
   outcomes, and active per-attempt driver copies/READY controls are unnecessary.
   Private appliance state and human enrollment remain external prerequisites.
+
+  Accepted at the fresh-source/provider-free scope. A clean local shared clone
+  at `f9fa2118ed7f95c91bc4956532830145bf3a14aa` rebuilt the Rust operator and all
+  four maintained support outputs from tracked source, reusing installed
+  dependencies and warm compiler/browser caches. No dependency installation,
+  private implementation copy or READY gate was needed. The operator guide's
+  [fresh-checkout recipe](../../lib/soda-release-tools/README.md#reproduce-from-a-fresh-source-checkout)
+  records the explicit dependency symlinks, SDK input and cache assumptions;
+  this is not an uncached-build claim.
+
+  The fresh operator completed actual Docker read-only check/status, held run
+  refusal and receipt-only reporting on the supported four-case selection.
+  Ready generation 3, three retained runs and ten charged minutes remain
+  preserved; qualification and future model outcomes remain null. Fresh-source
+  native reads confirmed the retained deployment, two Projects, one App and
+  terminal, with zero provider connections. The offline browser guard passed
+  eight real locally fulfilled requests. Its initial browser attachment failure
+  with a long temporary path is preserved; the same module/input passed with a
+  short private `/home` TMPDIR. Socket path length is the suspected cause.
+
+  Real local retirement integration completed an unpaid native unit, refused
+  incomplete/held scratch execution, actual live-file references and unknown
+  children, and inspected only a plan for the retained stopped clone. Resource
+  records report **zero deletions**, without claiming reclaimed space or live
+  completion. Zero model/provider calls, guest mutations or OS/media builds.
+  Exact commands, build identities, dependency inputs and nine receipt hashes:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j26-reproduction/result.json`.
+  Root guard receipt: `/home/soda-j26-retirement-check-20261026/result.json`.
+  Successful deletion/full live finalization remains unobserved under the holds.
 
 **Validation and delivery discipline.** Check each changed boundary in its own
 step using the smallest meaningful integration. Do not defer all verification to
@@ -1705,6 +1734,21 @@ local receipt/report/retirement implementation is the next eligible work; it
 does not require guest changes or an enrollment. J26 retains fresh-source
 reproduction after implemented boundaries. Task IDs, unchanged evidence,
 operational holds and finite authority remain intact.
+
+Full list reviewed at J26's fresh-source milestone on 2026-10-26: J01–J20,
+J25 and J26 are accepted at their recorded local/read-only scopes. J21–J24
+remain open. J21's authority comparison and J22–J23's actual installed journey
+require released execution and resolved fixture/runtime/lifecycle inputs; the
+Docker fixture still has an extra Project/TTY outside configured stop scope.
+An App-selected route also needs its actual App/owner/tool inputs. The current
+Docker Ready connection is preserved and needs no replacement sign-in.
+J24's native source portion works, but actual native Project/Factory/reboot
+execution is held and the fixture has no Ready connection. The conditional
+two-issue extension still requires two Ready connections, selected issues and
+finite authority; native App/cold/capacity composition remains unsupported and
+unselected. No new task, trial, authority or scope was invented. Accepted checks
+were not reopened. Next selection must audit these remaining prerequisites;
+fresh-source success does not complete the overall goal or qualify RC7.
 
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next

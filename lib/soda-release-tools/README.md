@@ -165,6 +165,48 @@ Model outcomes, unimplemented supplemental routes and unvalidated paid authority
 stay unknown. A user hold remains a blocker. No check result admits execution or
 qualifies a release.
 
+### Reproduce from a fresh source checkout
+
+Use a fresh local clone of the selected committed revision. Reuse installed
+dependencies and compiler/browser caches rather than downloading or rebuilding
+OS/media inputs. For example, with an existing clean source and SDK:
+
+```sh
+origin=/home/OPERATOR/sodaos
+repro=/home/OPERATOR/reproduction
+revision=FULL_COMMITTED_REVISION
+mkdir -m 700 "$repro"
+git clone --shared --no-checkout -- "$origin" "$repro/source"
+git -C "$repro/source" checkout --detach "$revision"
+ln -s "$origin/node_modules" "$repro/source/node_modules"
+mkdir "$repro/forgejo-ext"
+ln -s /home/OPERATOR/forgejo-ext/sdk "$repro/forgejo-ext/sdk"
+printf '/node_modules\n' >> "$repro/source/.git/info/exclude"
+mkdir -m 700 "$repro/tmp"
+TMPDIR="$repro/tmp" CARGO_TARGET_DIR="$origin/target" \
+  cargo build --offline --release --locked --manifest-path "$repro/source/Cargo.toml" \
+  -p soda-release-tools --bin soda-release
+cp --reflink=auto --no-clobber -- "$origin/target/release/soda-release" "$repro/soda-release"
+TMPDIR="$repro/tmp" bun "$repro/source/scripts/build-qualification.ts" --out "$repro/build"
+```
+
+The local Git exclusion covers only the dependency symlink: the tracked
+`/node_modules/` pattern does not ignore that symlink. Source must remain clean.
+The SDK location follows the existing `go.mod` replacement; the build receipt
+records its actual committed input. A shared clone depends on its original Git
+object store, and warm-cache reproduction is not an uncached build claim.
+
+Repin only the scenario's driver from `build/build.json`; select the supported
+case order explicitly and preserve target, access paths, lifecycle scope,
+authority and finite bounds. Run the documented check/status/report commands.
+`run` on a held scenario records refusal without dispatch. Private
+access is an input, not something this recipe provisions. Use the maintained
+[provider-free integration entrypoints](../../docs/development/release.md#implementation-plan)
+from the fresh source, with public retained requests as data. Give native
+Chromium a short private `/home` `TMPDIR` as well as a short output path.
+J26's exact build/input/result references are recorded in the release task list;
+no private per-attempt script or READY control is needed.
+
 ## Maintained journey execution admission
 
 `soda-release journey report --run RUN` prints a deterministic projection of saved
