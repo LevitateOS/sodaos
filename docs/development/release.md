@@ -268,7 +268,7 @@ not resume the held trial, change its budget, rebuild RC7, publish source/assets
 or remove retained fixtures. The implementation target is the existing RC7 Docker
 fixture first, then the native distribution through the same scenario contract.
 
-**Operator interface:** `soda-release journey check` and `status` now exist.
+**Operator interface:** `soda-release journey check`, `status`, `run` and `report` now exist.
 `check` reads selected target state and writes a local readiness result without
 guest mutation or provider inference; `status` derives blockers, accounting and
 the next supported action from that saved check without remote reads. `run`
@@ -276,8 +276,9 @@ performs semantic admission and calls the existing protected collector only for
 an eligible, released scope. Holds, revoked/missing authority and readiness
 blockers return a saved admission without dispatch.
 Build, stage, collect, finalize and qualify retain their existing owners.
-The intended arguments are `check --scenario FILE --out RUN_DIR` and
-`status|run --run RUN_DIR`; secret values are never command-line arguments.
+The arguments are `check --scenario FILE --out RUN_DIR` and
+`status|run|report --run RUN_DIR`; report can select a current tool with `--build
+BUILD_JSON`. Secret values are never command-line arguments.
 
 **Build the maintained driver:** from a clean committed checkout with the
 installed Bun/Go tools, dependencies installed from `bun.lock`, and the SDK at
@@ -1578,6 +1579,15 @@ Depends on the basic driver working.**
   live deletion, provider or release qualification claim. Existing root/native
   collector integration assertions now require retained scratch outside the seal.
   J21–J24 remain pending at their recorded scope; next local task is J26.
+  Final clean-source support/operator builds at
+  `fefc1df68f6693841b1dcc8c1bbe6b6d7c29ae78` passed. Exact public tool receipts:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j25-build/build.json` and
+  `journey-j25-operator/build.json`. The actual Rust CLI reported the historical
+  held run twice via `--build`, producing the same deterministic report without
+  replacing its old driver or changing its request. Receipt:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j25-cli-check/result.json`.
+  Native guard checks against that frozen operator also passed at
+  `/home/soda-j25-retirement-check-r3-20261026/result.json`, with zero deletions.
 - [ ] **J26.** Verify that a new source checkout can build/invoke the maintained path using
   documented fixture/access inputs, resource release records report actual
   outcomes, and active per-attempt driver copies/READY controls are unnecessary.
