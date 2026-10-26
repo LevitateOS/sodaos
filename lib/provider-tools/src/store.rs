@@ -806,11 +806,15 @@ pub fn record_inventory(
 
 /// Verify an admitted bundle before use: the digest names a real directory
 /// (never a symlink), `release.json` parses and matches provider+digest,
-/// every inventoried file still matches its digest/size/exec bits with exact
-/// coverage (no extra files, none missing), the required executable exists as
-/// a real executable file, and (Codex) the companion exists too. A bare
-/// hash-shaped directory with a fabricated executable and no admission record
-/// is `Denied`.
+/// `inventory.json` is present and matches provider+digest, every inventoried
+/// file still matches its digest/size/exec bits with exact coverage (no extra
+/// files, none missing), the required executable exists as a real executable
+/// file, and (Codex) the companion exists too. A bare hash-shaped directory
+/// with a fabricated executable and no admission record is `Denied`, and so
+/// is any bundle whose admission-time digest inventory is missing, unreadable
+/// or corrupt: there is no legacy bypass. A missing inventory never disables
+/// content verification; pre-inventory caches are re-admitted from verified
+/// upstream bytes, never re-hashed from arbitrary current contents.
 pub fn verify_bundle(
     root: &Path,
     provider: Provider,
@@ -859,7 +863,17 @@ pub fn verify_bundle(
         )));
     }
     let inventory_path = bundle.join("inventory.json");
-    if inventory_path.exists() {
+    // No legacy bypass: without the admission-time digest inventory there is
+    // nothing trustworthy to compare the live tree against, so verification
+    // fails closed. Callers re-admit from verified upstream bytes instead of
+    // re-hashing arbitrary current contents.
+    if !inventory_path.exists() {
+        return Err(crate::Error::denied(format!(
+            "bundle without digest inventory for {} {digest}; refusing to launch unverified bytes",
+            provider.as_str()
+        )));
+    }
+    {
         let inv_bytes = std::fs::read(&inventory_path).map_err(|e| {
             crate::Error::denied(format!(
                 "bundle inventory unreadable for {} {digest}: {e}",
@@ -916,10 +930,6 @@ pub fn verify_bundle(
                 )));
             }
         }
-    } else {
-        // Legacy bundle (admitted before inventories): still refuse any
-        // symlink authority, then check required paths below.
-        scan_tree(&bundle)?;
     }
     let exe = bundle.join(provider.executable_relpath());
     require_executable_file(&exe, provider, "executable")?;

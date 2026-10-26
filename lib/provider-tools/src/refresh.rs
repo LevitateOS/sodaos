@@ -146,8 +146,7 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
                         admitted_at_secs: now,
                         freshness: crate::store::Freshness::Current,
                     };
-                    publish(&root, previous.as_ref(), &admitted)?;
-                    return Ok(admitted);
+                    return publish(&root, previous.as_ref(), admitted);
                 }
                 Err(probe_err) => {
                     return Err(stale_block(
@@ -195,37 +194,60 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
         admitted_at_secs: now,
         freshness: crate::store::Freshness::Current,
     };
-    publish(&root, previous.as_ref(), &admitted)?;
-    Ok(admitted)
+    publish(&root, previous.as_ref(), admitted)
 }
 
-/// Publish a new selection under the store lock: retain the replaced record
-/// as `previous`, then atomically replace `current`. A concurrent refresh
-/// that already admitted the same digest converges instead of clobbering.
-fn publish(
+/// Publish a new selection under the store lock: compare-and-swap against
+/// the exact base (`previous`) the refresh observed before downloading.
+/// Returns the winning selection, which is `admitted` on success.
+///
+/// A concurrent refresh that already admitted the same digest converges and
+/// returns the stored winner instead of clobbering. When the on-disk record
+/// no longer matches the refresh's base (digest, check or admission stamps
+/// all differ from what this refresh saw before its download), a concurrent
+/// winner moved past us: the write aborts, nothing is touched, and the
+/// current winner is returned so the caller converges instead of downgrading
+/// it. Locking alone cannot stop a late finisher from overwriting a newer
+/// selection; this base reconciliation does.
+pub fn publish(
     root: &std::path::Path,
     previous: Option<&Selection>,
-    admitted: &Selection,
-) -> Result<(), crate::Error> {
+    admitted: Selection,
+) -> Result<Selection, crate::Error> {
     let _lock = crate::store::lock_store(root)?;
-    if let Some(sel) = previous {
-        if sel.release.digest == admitted.release.digest {
-            return Ok(());
-        }
-    }
-    if let Ok(Some(current)) = crate::store::read_selection(root, admitted.provider) {
+    let disk = crate::store::read_selection(root, admitted.provider)?;
+    if let Some(current) = &disk {
         if current.release.digest == admitted.release.digest
             && crate::store::verify_bundle(root, admitted.provider, &admitted.release.digest)
                 .is_ok()
         {
-            return Ok(());
+            return Ok(current.clone());
         }
     }
+    let base_matches = match (&disk, previous) {
+        (None, None) => true,
+        // The base record is gone (nothing deletes it in normal operation):
+        // recreate the lineage rather than strand the admission.
+        (None, Some(_)) => true,
+        // Another install won the first-install race; converge on it.
+        (Some(_), None) => false,
+        (Some(current), Some(base)) => {
+            current.release.digest == base.release.digest
+                && current.checked_at_secs == base.checked_at_secs
+                && current.admitted_at_secs == base.admitted_at_secs
+        }
+    };
+    if !base_matches {
+        return Ok(disk.expect("a stored winner is present when the base moved"));
+    }
+    // The admitted bytes must verify on their own before they can become
+    // current: publication never installs unverified payloads.
+    crate::store::verify_bundle(root, admitted.provider, &admitted.release.digest)?;
     if let Some(sel) = previous {
         crate::store::write_previous(root, sel)?;
     }
-    crate::store::write_selection(root, admitted)?;
-    Ok(())
+    crate::store::write_selection(root, &admitted)?;
+    Ok(admitted)
 }
 
 fn bundle_dir(root: &std::path::Path, provider: Provider, digest: &str) -> std::path::PathBuf {
