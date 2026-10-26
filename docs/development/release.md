@@ -1628,6 +1628,17 @@ Depends on 3–4.**
   and freeze the revised source; do not silently change the approved source or
   substitute the desktop wrapper. This is an unresolved image input, not a
   failed paid trial; the original finite trial remains unused.
+
+  The owner then requested the binary update. `system/project/muse-release.json`
+  now selects Meta's public stable artifact `1.4.13-R6996.1`, SHA256
+  `51e97f8de0aa175080e6576cbc055510a95dfe0ededf175c7f6b34fc8e3bf524`,
+  400902488 bytes. The cached native executable matches the official manifest
+  and was staged at the normal local build path without another binary download.
+  With a fresh empty HOME, its `exec --help` confirms `--contributor-mode on`
+  and `--yolo`; `model-profile show muse-spark-1.3 --effort low` resolves the
+  requested model. Evidence is sibling `j22-muse-update/result.json`. This
+  resolves the binary-input blocker only: no candidate build, appliance update,
+  enrollment or model call occurred, and J22's live outcome remains open.
 - [x] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
