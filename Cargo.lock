@@ -1963,6 +1963,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
+ "soda-provider-tools",
  "tempfile",
  "walkdir",
 ]

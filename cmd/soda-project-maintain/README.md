@@ -83,11 +83,21 @@ provider store's current selection and verified against its selected digest
 before staging, so retained Projects are served current bytes without
 per-Project downloads or image rebuilds. Staging also plants
 `/usr/local/libexec/soda/muse-selection.json`, the admitted-identity receipt
-the in-Project launch path enforces at every invocation (mismatch or an
-explicit stale marker refuses; a receipt from before this change simply
-grandfathers until the next launch-time staging). Image-owned wrappers still
-come from `--tools`. The default pinned-directory path is unchanged until the
-provider store rollout completes.
+carrying the selection's `checked_at` that the in-Project launch path
+revalidates at every invocation against the live host selection and its TTL.
+A digest drift between the receipt and the live selection refuses the
+outdated staged bytes; a stale or unknown live selection refuses even when
+the receipt still reads current; a missing receipt refuses whenever any store
+knowledge exists and only grandfathers the legacy staged binary on hosts
+where the store was never admitted. The staged binary itself is fully
+re-hashed against the receipt digest at invocation (never a size-only
+check). Image-owned wrappers still come from `--tools`. The default
+pinned-directory path is unchanged until the provider store rollout
+completes. Where the store view is not mounted into a running Project, the
+host launch gate still refuses a guest whose hash no longer matches the
+fresh selection; serving v2 bytes into such a Project without maintenance
+needs the read-only store-view mount (named in the UP-REVIEW-03 C/RQ03/RQ05
+report) or host-side restaging at invocation.
 
 The same startup service runs `factory-mcp --project ID` to restore the fixed
 Factory socket directory in retained Projects. It binds
