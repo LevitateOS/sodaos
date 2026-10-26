@@ -30,6 +30,7 @@ export interface FactoryIO {
   save(relative: string, value: any): Promise<any>;
   saveBytes(relative: string, value: Uint8Array): Promise<any>;
   sshRead(fixedScript: string, timeoutMs?: number): string | Promise<string>;
+  observeNative?(snapshot: unknown): Promise<void>;
 }
 
 export class FactoryPermits {
@@ -450,7 +451,8 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
     R = c.repository.id,
     base = 'repositories/' + R + '/factory';
   stage = 'navigate_factory';
-  await page.goto(cfg.guest.origin + '/workspace?repository=' + R);
+  const workspace = cfg.guest.origin + '/workspace?repository=' + R;
+  if (page.url() !== workspace) await page.goto(workspace);
   stage = 'mount_factory';
   await nativeSpacesMount(page);
   stage = 'read_factory_mount';
@@ -480,7 +482,11 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
     check(r.status === 200, 'factory_normal_read_unavailable');
     return r.body;
   };
-  const read = async () => JSON.parse(await io.sshRead(snapshotScript(c)));
+  const read = async () => {
+    const facts = JSON.parse(await io.sshRead(snapshotScript(c)));
+    await io.observeNative?.(facts);
+    return facts;
+  };
   stage = 'read_initial_baseline';
   const before = await read();
   stage = 'validate_initial_baseline';

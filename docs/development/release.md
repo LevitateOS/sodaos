@@ -565,8 +565,47 @@ one local owner/record, verifies normal read/render and anonymous denial, then
 reopens the same data/team/credentials after native restart. Both actual process
 exits and writer-lock release are recorded. Failed state and credentials remain
 available; do not bootstrap over them. This local check proves no guest install
-or release qualification. App/terminal/Factory coordination and supplemental
-collector composition remain J18–J20; `app_route` stays explicitly unobserved.
+or release qualification. Installed supplemental collector composition remains
+J19–J20; `app_route` stays explicitly unobserved.
+
+`phases/journey-measurements.ts` coordinates an already authenticated App owner
+and record with the Project phase's retained real terminal probe. Its measured
+Factory wrapper first reads the record/rendered page and original TTY, then
+subscribes to Factory's existing native baseline and progress reads. The baseline
+must pass before policy opening. Later probe failures are recorded and deferred
+until Factory returns, allowing its normal pause/accounting work to finish.
+There is no extra polling timer, SSH sampler or background evidence writer.
+`finish()` disposes the wire observer once; it does not stop the retained TTY or
+App writer (their lifecycle owners remain responsible).
+
+Each `measurements/sample-NNN.json` contains separate App/terminal request windows,
+monotonic elapsed milliseconds and success flags, plus a bounded projection of
+the existing native observation: timestamp, Project container, custody counts,
+active unit identity/PIDs and verified live run bindings. Samples do not contain
+provider bodies, terminal bytes or owner credentials. `measurements/result.json`
+summarizes this window independently from `factory/` CI/review/delivery evidence.
+No response-time threshold or CPU/memory capacity is claimed (`capacity: null`).
+These supplemental files do not become canonical Docker observation kinds.
+
+To extend the native App check with a real local persistent PTY and live remote
+read-only Factory/native observations, append:
+
+```sh
+  --native-config /home/soda-tester/public-consumer-config.json \
+  --ssh-config /home/soda-tester/private/ssh-config \
+  --ssh-host admitted-appliance-alias
+```
+
+The config supplies only existing repository/Project/issue/connection/branch
+identities to the maintained fixed snapshot reader; its paid flags and funding
+are unused. The SSH configuration must pin the admitted host/key. This optional
+check performs two native reads while the App and PTY remain live, then retires
+the local PTY before the App restart/readback check. Its
+`measurement-scope.json` explicitly leaves Factory CI/review/delivery null. It
+neither drives Factory nor proves an installed App/browser terminal route.
+The protected collector still admits only its four canonical cases and two fixed
+credentials; J19–J20 must compose the App credential/handoff and supplemental
+route before any installed trial. Do not bypass those admission checks.
 
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
@@ -1115,9 +1154,40 @@ Depends on 3–4.**
   Public fixture metadata:
   `/home/vince/Projects/.sodaos-rc-20261023/r57-appliance-app-fixture/application.json`.
   Input snapshot/module: `/home/vince/Projects/.sodaos-rc-20261023/journey-j17-inputs/`.
-- [ ] **J18.** Implement coordinated startup of genuine App/terminal probes and one
+- [x] **J18.** Implement coordinated startup of genuine App/terminal probes and one
   existing resource/native observer before Factory work. Record live CI/review/delivery separately
   from sampled resource/response results.
+
+  Accepted at the authorized local implementation scope. The measured Factory
+  wrapper starts genuine owner record/render and retained browser TTY probes;
+  its existing native baseline callback gates policy opening and later callbacks
+  reuse progress snapshots without duplicate SSH/polling. The Project phase can
+  retain its wire observer, and Factory preserves that mounted workspace. Fixed
+  native projections and paired request windows are supplemental; canonical
+  lifecycle evidence stays with Factory. Later measurement failures cannot
+  interrupt its normal accounting cleanup. Observer disposal is idempotent.
+
+  Actual provider-free integration reused the qualified RC7 runtime/bundle,
+  a real local shell PTY using the maintained marker command, and two live
+  read-only fixed native snapshots from Docker `.165`. Three paired App/PTY
+  samples passed with the same TTY PID/start and owner record. Both snapshots
+  observed zero global custody and no native Factory units/bound runs; no live
+  run was invented. The App restarted with its same record/owner, both native
+  exits released the writer lock and the PTY exited zero. No guest mutations,
+  model calls, image/media builds or dependency changes occurred. CPU/memory,
+  Factory CI/review/delivery and the installed App/browser composition remain
+  unobserved. Full/focused strict TS and affected lint/format checks passed.
+
+  Reproduce with `check-application.ts` above and its optional native arguments.
+  Final receipts and preserved local owner/data:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j18-application-r1/`;
+  paired/native evidence: `measurements/`, exact scope: `measurement-scope.json`.
+  Phase module: `/home/vince/Projects/.sodaos-rc-20261023/journey-j18-inputs/phases.js`.
+  Public read scope came from
+  `/home/vince/Projects/.sodaos-rc-20261023/r57-public-factory-fixture-corrected/docker/consumer-config.prepared.json`;
+  no per-attempt implementation was imported/executed. Protected App credential
+  delivery and full collector composition remain J19–J20; the four-case route
+  and `app_route` admission are unchanged.
 - [ ] **J19.** Implement the final-state persistence/recovery sequence: after accounting
   settles, stop owned writers, take current protected state, perform the selected
   persistence operation, read back the same owner/record,

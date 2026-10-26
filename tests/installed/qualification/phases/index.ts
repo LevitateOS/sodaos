@@ -11,3 +11,7 @@ export {applicationFixture, adoptApplication, applicationNativeProbe} from '../a
 export type {ApplicationFixture, ApplicationHandoff, ApplicationTransport} from '../application';
 export {openApplicationOwner} from '../application-owner';
 export type {ApplicationRecordWitness, ApplicationJournal} from '../application-owner';
+export {startJourneyMeasurements, exerciseMeasuredFactoryPhase} from './journey-measurements';
+export type {JourneyProbes, TerminalProbe} from './journey-measurements';
+export {projectNativeMeasurement, measurementSnapshotScript} from './native-measurement';
+export {matrixShellCommand} from '../../sodaspaces-matrix-native';

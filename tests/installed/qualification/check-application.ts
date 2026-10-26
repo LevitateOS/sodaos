@@ -10,11 +10,18 @@ import type {ApplicationRecordWitness} from './application-owner';
 
 process.umask(0o077);
 const args = process.argv.slice(2);
+const measuring = args.length === 14;
 assert.deepEqual(
   args.filter((_, index) => index % 2 === 0),
-  ['--runtime', '--bundle', '--module', '--out']
+  [
+    '--runtime',
+    '--bundle',
+    '--module',
+    '--out',
+    ...(measuring ? ['--native-config', '--ssh-config', '--ssh-host'] : []),
+  ]
 );
-assert.equal(args.length, 8);
+assert(args.length === 8 || measuring);
 const runtime = args[1]!,
   bundle = args[3]!,
   moduleFile = args[5]!,
@@ -67,10 +74,15 @@ for (const file of [runtime, bundle, moduleFile]) {
 const runtimeBytes = await readFile(runtime),
   bundleBytes = await readFile(bundle),
   moduleBytes = await readFile(moduleFile);
-const {openApplicationOwner} = (await import(pathToFileURL(moduleFile).href)) as Pick<
-  typeof import('./phases/index'),
-  'openApplicationOwner'
->;
+const {openApplicationOwner, startJourneyMeasurements, measurementSnapshotScript, innerDocker, matrixShellCommand} =
+  (await import(pathToFileURL(moduleFile).href)) as Pick<
+    typeof import('./phases/index'),
+    | 'openApplicationOwner'
+    | 'startJourneyMeasurements'
+    | 'measurementSnapshotScript'
+    | 'innerDocker'
+    | 'matrixShellCommand'
+  >;
 const input = JSON.parse(bundleBytes.toString('utf8'));
 assert.equal(hash(bundleBytes), '268d567e4d55575273d156f3f14a7f7ba14a7883384162a4cd4490896ed765e5');
 assert.equal(input.descriptor.identity.appName, 'SodaRuntime');
@@ -176,6 +188,136 @@ function operationID() {
   const hex = bytes.toString('hex');
   return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
 }
+
+async function measure(owner: Awaited<ReturnType<typeof openApplicationOwner>>, witness: ApplicationRecordWitness) {
+  // A real persistent PTY, exercising the same shell marker command as the
+  // browser wire probe. No terminal emulator or provider replies are fabricated.
+  const terminal = spawn(
+    '/usr/bin/script',
+    ['--quiet', '--flush', '--return', '--command', 'PS1=; export PS1; exec bash --noprofile --norc -i', '/dev/null'],
+    {
+      env: {...env, HOME: path.join(out, 'private'), HISTFILE: '/dev/null', TERM: 'xterm-256color'},
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }
+  );
+  const closed = new Promise<void>((resolve) => terminal.once('close', () => resolve()));
+  terminal.stderr.on('data', () => {});
+  let output = '',
+    expected: unknown,
+    disposed = false;
+  terminal.stdout.on('data', (bytes: Buffer) => {
+    output = (output + bytes.toString()).slice(-32768);
+  });
+  const sampleTerminal = async () => {
+    assert(!disposed && terminal.exitCode === null, 'measurement_terminal_not_live');
+    output = '';
+    const marker = 'SODA_FACT_' + randomBytes(16).toString('hex');
+    terminal.stdin.write(matrixShellCommand(marker, 'Measurement PTY', expected === undefined) + '\n');
+    const deadline = Date.now() + 15000;
+    do {
+      const line = output
+        .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+        .replaceAll('\r', '')
+        .split('\n')
+        .find((line) => line.startsWith(marker + ':'));
+      if (line) {
+        const facts = JSON.parse(line.slice(marker.length + 1));
+        assert(
+          facts.tty === true && facts.marker === 'Measurement PTY' && facts.pid > 0 && /^[0-9]+$/.test(facts.start)
+        );
+        if (expected === undefined) expected = facts;
+        else assert.deepEqual(facts, expected);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    } while (Date.now() < deadline);
+    throw Error('measurement_real_pty_unconfirmed');
+  };
+  const config = JSON.parse(await readFile(args[9]!, 'utf8'));
+  const program = innerDocker(measurementSnapshotScript(config.factory_phase));
+  assert(/^[A-Za-z0-9][A-Za-z0-9._-]{0,128}$/.test(args[13]!));
+  const nativeRead = async () => {
+    const child = spawn(
+      '/usr/bin/ssh',
+      [
+        '-T',
+        '-F',
+        args[11]!,
+        '-oBatchMode=yes',
+        '-oStrictHostKeyChecking=yes',
+        '-oIdentityAgent=none',
+        '-oControlMaster=no',
+        '-oControlPath=none',
+        '-oConnectTimeout=10',
+        '-oForwardAgent=no',
+        '-oForwardX11=no',
+        '-oPermitLocalCommand=no',
+        '-oClearAllForwardings=yes',
+        args[13]!,
+        '/usr/bin/node -',
+      ],
+      {stdio: ['pipe', 'pipe', 'pipe']}
+    );
+    let text = '';
+    child.stdout.on('data', (bytes: Buffer) => {
+      text += bytes.toString();
+      if (text.length > 4 << 20) child.kill();
+    });
+    child.stderr.on('data', () => {});
+    const timer = setTimeout(() => child.kill(), 210000);
+    const done = new Promise<void>((resolve, reject) => {
+      child.once('error', () => reject(Error('measurement_native_transport_unavailable')));
+      child.once('close', (code) => (code === 0 ? resolve() : reject(Error('measurement_native_read_unconfirmed'))));
+    });
+    child.stdin.end(program);
+    try {
+      await done;
+      return JSON.parse(text);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let measurement: Awaited<ReturnType<typeof startJourneyMeasurements>> | undefined;
+  try {
+    measurement = await startJourneyMeasurements({
+      application: {owner, witness},
+      terminal: {
+        sample: sampleTerminal,
+        dispose() {
+          if (!disposed) {
+            disposed = true;
+            terminal.stdin.end('exit\n');
+          }
+        },
+      },
+      save,
+    });
+    // Both are real, read-only observations of the retained appliance while the
+    // local App and PTY remain alive. No Factory trial/policy/action is sent.
+    await measurement.observeSnapshot(await nativeRead());
+    await measurement.observeSnapshot(await nativeRead());
+    const result = await measurement.finish();
+    assert(result.observed && result.native_samples === 2 && result.response_samples === 3);
+    await save('measurement-scope.json', {
+      format: 1,
+      scope: 'Local qualified App and PTY with live remote native observation; no Factory execution',
+      terminal: expected,
+      factory_lifecycle: {ci: null, review: null, delivery: null},
+      guest_mutations: 0,
+      provider_calls: 0,
+    });
+  } finally {
+    if (measurement) await measurement.finish();
+    else terminal.stdin.end('exit\n');
+    const timer = setTimeout(() => terminal.kill('SIGTERM'), 5000);
+    try {
+      await closed;
+    } finally {
+      clearTimeout(timer);
+    }
+    assert.equal(terminal.exitCode, 0, 'measurement_terminal_retirement_unconfirmed');
+  }
+}
 try {
   const bootstrap = spawnSync(
     runtime,
@@ -219,6 +361,10 @@ try {
   stage = 'record-and-rendered-read';
   await owner.readRecord(witness);
   const rendered = await owner.readRendered(witness);
+  if (measuring) {
+    stage = 'coordinated-measurements';
+    await measure(owner, witness);
+  }
   stage = 'anonymous-denial';
   const anonymous = await fetch(live.origin + '/api/operations/SodaRuntime.Entry.create', {
     method: 'POST',

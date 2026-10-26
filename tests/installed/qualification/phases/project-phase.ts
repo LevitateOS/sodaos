@@ -4,6 +4,7 @@ import {prepareManagedTerminal, newManagedTerminal} from '../../sodaspaces-contr
 import {nativeSpacesMount, mountedSpacesFacts} from '../../sodaspaces-journey-evidence';
 import {observeMatrixShell, inspectNativeTerminal} from '../../sodaspaces-matrix-native';
 import {check, COMMIT, digestRef} from './support';
+import type {TerminalProbe} from './journey-measurements';
 let stage = 'not_started';
 export function projectDiagnostic(error: any) {
   const name = ['Error', 'TypeError', 'AssertionError', 'TimeoutError', 'SyntaxError', 'ProtocolError'].includes(
@@ -83,7 +84,8 @@ export async function exerciseProjectPhase(
   save: (name: string, value: any) => Promise<any>,
   inspectProject: (project: string, repository: any) => any,
   inspectShell: (project: string, login: string, command: string) => string,
-  screenshot: (page: Page) => Promise<void>
+  screenshot: (page: Page) => Promise<void>,
+  retainProbe?: (probe: TerminalProbe) => void
 ) {
   const phase = validateProjectPhase(cfg.project_phase),
     r = phase.repository,
@@ -179,6 +181,7 @@ export async function exerciseProjectPhase(
   await save('native-project.json', native);
 
   const wire = observeMatrixShell(page);
+  let retained = false;
   let sessionId = '',
     creates = 0,
     attaches = 0,
@@ -323,12 +326,21 @@ export async function exerciseProjectPhase(
       noEndOrStopOrCleanup: true,
       productionQualification: false,
     });
+    if (retainProbe) {
+      retainProbe({
+        sample: async () => {
+          assert.deepEqual(await wire.shell(session, false), facts);
+        },
+        dispose: () => wire.dispose(),
+      });
+      retained = true;
+    }
     return {project: environment.id, terminal: session.id, phaseObserved: true};
   } catch (error) {
     await save('diagnostic.json', projectDiagnostic(error));
     throw error;
   } finally {
     page.off('websocket', sockets);
-    wire.dispose();
+    if (!retained) wire.dispose();
   }
 }
