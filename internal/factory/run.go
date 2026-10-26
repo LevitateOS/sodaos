@@ -48,10 +48,16 @@ type Run struct {
 // RunAdmission is the immutable authorization and execution profile captured
 // when a dispatch packet admits this run. Standalone supervisor runs may omit
 // it because they do not originate from factory dispatch.
+//
+// Tool is the exact tool bundle adopted at admission: the live staged host
+// identity snapshotted when the packet recorded. Rows admitted before
+// tool-identity proof existed leave it zero; those rows validate against
+// the recorded policy version exactly and never adopt the current version.
 type RunAdmission struct {
-	Authority AuthorityRef     `json:"authority"`
-	Policy    RepositoryPolicy `json:"policy"`
-	Profile   project.Profile  `json:"profile"`
+	Authority AuthorityRef              `json:"authority"`
+	Policy    RepositoryPolicy          `json:"policy"`
+	Profile   project.Profile           `json:"profile"`
+	Tool      project.FactoryHarnessPin `json:"tool,omitempty"`
 }
 
 func (r Run) Validate() error {
@@ -106,6 +112,30 @@ func (r Run) Validate() error {
 	return r.validateCredentials()
 }
 
+// AdoptedToolIdentity resolves the exact tool bundle a dispatch packet
+// recorded: family and version from the assignment, executable digest and
+// image from the assignment proof, cross-checked against the run image. It
+// returns the zero pin when the packet predates recorded proof; callers keep
+// those rows on the legacy policy-version rule and fail their recovery
+// closed instead of falling back to the current selection.
+func AdoptedToolIdentity(a Assignment, image string) (project.FactoryHarnessPin, error) {
+	var none project.FactoryHarnessPin
+	if a.AdoptedHarness == none {
+		return none, nil
+	}
+	adopted := a.AdoptedHarness
+	if err := adopted.Validate(); err != nil {
+		return none, errors.New("recorded tool proof is invalid")
+	}
+	if a.Harness != adopted.Harness+"-"+adopted.Version || a.HarnessVers != adopted.Version {
+		return none, errors.New("recorded tool proof does not match its assignment")
+	}
+	if image != adopted.Image {
+		return none, errors.New("recorded tool proof does not match its run")
+	}
+	return adopted, nil
+}
+
 func (r Run) validateAdmission() error {
 	if r.Admission == nil {
 		return nil
@@ -121,7 +151,31 @@ func (r Run) validateAdmission() error {
 		return errors.New("run admission policy revision does not match authority")
 	}
 	selection, ok := a.Policy.Roles[r.Role]
-	if !ok || r.Harness != selection.Harness+"-"+selection.HarnessVers || r.Model != selection.Model {
+	if !ok || r.Model != selection.Model {
+		return errors.New("run does not match admitted role selection")
+	}
+	if a.Tool == (project.FactoryHarnessPin{}) {
+		// Rows admitted before tool-identity proof existed: the recorded
+		// policy version is the only recorded identity, so it must match
+		// exactly. These rows never adopt the current version.
+		if r.Harness != selection.Harness+"-"+selection.HarnessVers {
+			return errors.New("run does not match admitted role selection")
+		}
+		return nil
+	}
+	// Rows with recorded proof bind it exactly: the adopted family must be
+	// the approved selection family, and the run must carry the adopted
+	// family-version and image byte-for-byte. Currency of the adopted
+	// bundle is enforced at dispatch by the live host pin check (due-check
+	// plus stale refusal); the executable digest itself is proved by the
+	// host when it stages the bound bundle.
+	if err := a.Tool.Validate(); err != nil {
+		return errors.New("run does not match admitted role selection")
+	}
+	if a.Tool.Harness != selection.Harness {
+		return errors.New("run does not match admitted role selection")
+	}
+	if r.Harness != a.Tool.Harness+"-"+a.Tool.Version || r.Image != a.Tool.Image {
 		return errors.New("run does not match admitted role selection")
 	}
 	return nil

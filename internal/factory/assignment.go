@@ -396,41 +396,42 @@ func checkDeliveryRepairSubject(s ExecutionSubject) error {
 // parent and no publication assignment. Admission always records Subject,
 // Phase and ParentAssignment.
 type Assignment struct {
-	AcceptedContext       *AcceptedContext      `json:"accepted_context,omitempty"`
-	ReviewContext         *CurrentReviewContext `json:"review_context,omitempty"`
-	PlanningContext       *SemanticPlannerInput `json:"planning_context,omitempty"`
-	Authority             AuthorityRef          `json:"authority"`
-	Result                *AssignmentResult     `json:"result,omitempty"`
-	Subject               ExecutionSubject      `json:"subject,omitempty"`
-	Prompt                []byte                `json:"prompt"`
-	RunHistory            []string              `json:"run_history"`
-	ID                    string                `json:"id"`
-	AttemptRoot           string                `json:"attempt_root"`
-	ParentAssignment      string                `json:"parent_assignment,omitempty"`
-	PublicationAssignment string                `json:"publication_assignment"`
-	ProjectID             string                `json:"project_id"`
-	Role                  string                `json:"role"`
-	Phase                 string                `json:"phase,omitempty"`
-	Acceptance            string                `json:"acceptance"`
-	Preparation           string                `json:"preparation"`
-	Harness               string                `json:"harness"`
-	HarnessVers           string                `json:"harness_version"`
-	Model                 string                `json:"model"`
-	Connection            string                `json:"connection"`
-	SourceCommit          string                `json:"source_commit"`
-	PromptSHA             string                `json:"prompt_sha"`
-	Run                   string                `json:"run"`
-	Stage                 string                `json:"stage"`
-	Outcome               Outcome               `json:"outcome,omitempty"`
-	Reason                string                `json:"reason,omitempty"`
-	Repository            int64                 `json:"repository,string"`
-	Issue                 int64                 `json:"issue,string"`
-	Revision              int64                 `json:"revision"`
-	NativeRev             int64                 `json:"native_revision"`
-	Attempts              int                   `json:"attempts"`
-	CreatedUnix           int64                 `json:"created_unix"`
-	FinishedUnix          int64                 `json:"finished_unix,omitempty"`
-	ActorID               int64                 `json:"actor_id,string"`
+	AcceptedContext       *AcceptedContext          `json:"accepted_context,omitempty"`
+	ReviewContext         *CurrentReviewContext     `json:"review_context,omitempty"`
+	PlanningContext       *SemanticPlannerInput     `json:"planning_context,omitempty"`
+	Authority             AuthorityRef              `json:"authority"`
+	Result                *AssignmentResult         `json:"result,omitempty"`
+	Subject               ExecutionSubject          `json:"subject,omitempty"`
+	Prompt                []byte                    `json:"prompt"`
+	RunHistory            []string                  `json:"run_history"`
+	ID                    string                    `json:"id"`
+	AttemptRoot           string                    `json:"attempt_root"`
+	ParentAssignment      string                    `json:"parent_assignment,omitempty"`
+	PublicationAssignment string                    `json:"publication_assignment"`
+	ProjectID             string                    `json:"project_id"`
+	Role                  string                    `json:"role"`
+	Phase                 string                    `json:"phase,omitempty"`
+	Acceptance            string                    `json:"acceptance"`
+	Preparation           string                    `json:"preparation"`
+	Harness               string                    `json:"harness"`
+	HarnessVers           string                    `json:"harness_version"`
+	AdoptedHarness        project.FactoryHarnessPin `json:"adopted_harness,omitempty"`
+	Model                 string                    `json:"model"`
+	Connection            string                    `json:"connection"`
+	SourceCommit          string                    `json:"source_commit"`
+	PromptSHA             string                    `json:"prompt_sha"`
+	Run                   string                    `json:"run"`
+	Stage                 string                    `json:"stage"`
+	Outcome               Outcome                   `json:"outcome,omitempty"`
+	Reason                string                    `json:"reason,omitempty"`
+	Repository            int64                     `json:"repository,string"`
+	Issue                 int64                     `json:"issue,string"`
+	Revision              int64                     `json:"revision"`
+	NativeRev             int64                     `json:"native_revision"`
+	Attempts              int                       `json:"attempts"`
+	CreatedUnix           int64                     `json:"created_unix"`
+	FinishedUnix          int64                     `json:"finished_unix,omitempty"`
+	ActorID               int64                     `json:"actor_id,string"`
 }
 
 // validateSubjectPhase enforces the D01 admission invariants for assignments
@@ -660,6 +661,13 @@ func checkAssignmentExecution(a Assignment) error {
 	}
 	if a.Harness == "" || len(a.Harness) > 128 || !project.ValidHarnessVersion(a.HarnessVers) {
 		return errors.New("invalid assignment harness")
+	}
+	// Recorded proof is optional for rows admitted before tool-identity
+	// proof existed; when present it must be a fully valid pin.
+	if a.AdoptedHarness != (project.FactoryHarnessPin{}) {
+		if err := a.AdoptedHarness.Validate(); err != nil {
+			return errors.New("invalid assignment adopted harness: " + err.Error())
+		}
 	}
 	if a.Model == "" || len(a.Model) > 128 {
 		return errors.New("invalid assignment model")

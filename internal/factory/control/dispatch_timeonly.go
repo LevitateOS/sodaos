@@ -403,7 +403,7 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		Subject: t.subject, Phase: t.phase,
 		ProjectID: t.projectID, ActorID: t.plan.sponsorship.ActorID, Role: t.role,
 		Repository: t.repository, Issue: 0, NativeRev: nativeRev, Acceptance: "", Preparation: t.plan.prep.Preparation.ID,
-		Harness: t.plan.pin.Harness + "-" + t.plan.pin.Version, HarnessVers: t.plan.pin.Version, Model: t.selection.Model,
+		Harness: t.plan.pin.Harness + "-" + t.plan.pin.Version, HarnessVers: t.plan.pin.Version, AdoptedHarness: t.plan.pin, Model: t.selection.Model,
 		Connection: t.plan.sponsorship.Connection, SourceCommit: t.source,
 		Prompt: t.prompt, PromptSHA: hex.EncodeToString(promptSum[:]),
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
@@ -414,10 +414,14 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root invalid: " + err.Error()})
 		return none, noRun, false
 	}
+	// The run records the current staged host identity exactly like the
+	// issue path: the pin's image and family-version, never the saved
+	// policy version or an image derived from the executable digest.
+	// The model stays the admitted policy selection.
 	run := factory.Run{
 		ID: runID, ProjectID: t.projectID, Role: t.role, InputSHA: t.source,
 		Started: t.now, Deadline: deadline,
-		Image: "sha256:" + t.plan.pin.SHA256, Harness: t.selection.Harness + "-" + t.selection.HarnessVers, Model: t.selection.Model,
+		Image: t.plan.pin.Image, Harness: t.plan.pin.Harness + "-" + t.plan.pin.Version, Model: t.selection.Model,
 	}
 	if t.deps.VerificationManifest != nil {
 		manifest, err := t.deps.VerificationManifest(t.ctx, assignment, run)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -52,7 +53,8 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		Acceptance: plan.acceptance.ID, Preparation: plan.prep.Preparation.ID,
 		Harness: plan.pin.Harness + "-" + plan.pin.Version, HarnessVers: plan.pin.Version,
-		Model: plan.policy.Roles[role].Model, Connection: plan.sponsorship.Connection,
+		AdoptedHarness: plan.pin,
+		Model:          plan.policy.Roles[role].Model, Connection: plan.sponsorship.Connection,
 		SourceCommit: plan.inputs.Tip, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
@@ -218,7 +220,8 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		Acceptance: parent.Acceptance, Preparation: plan.prep.Preparation.ID,
 		Harness: plan.pin.Harness + "-" + plan.pin.Version, HarnessVers: plan.pin.Version,
-		Model: plan.policy.Roles[project.RoleCoder].Model, Connection: plan.sponsorship.Connection,
+		AdoptedHarness: plan.pin,
+		Model:          plan.policy.Roles[project.RoleCoder].Model, Connection: plan.sponsorship.Connection,
 		SourceCommit: parent.SourceCommit, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
@@ -356,13 +359,13 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     plan.pin.Harness, HarnessVers: a.HarnessVers,
+			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: plan.phase,
 		},
-		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
+		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, false, report)
 }
@@ -391,6 +394,13 @@ func recordRetryRun(ctx context.Context, deps DispatchDeps, a factory.Assignment
 		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
 		Started: now, Deadline: plan.deadline,
 		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
+	}
+	// A retry continues its assignment: bind the recorded adopted identity
+	// exactly when the assignment carries proof, never the current pin.
+	// Packets predating proof keep the legacy recorded-version binding.
+	if adopted := a.AdoptedHarness; adopted != (project.FactoryHarnessPin{}) {
+		run.Harness = adopted.Harness + "-" + adopted.Version
+		run.Image = adopted.Image
 	}
 	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
 	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
@@ -510,13 +520,30 @@ func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 	return plan, true
 }
 
+// retryHarnessPin binds one retry launch to its assignment: the recorded
+// adopted pin exactly when the assignment carries proof, otherwise the
+// legacy live-pin-family/recorded-version binding. A retry continues its
+// assignment on the same bundle; genuinely new work records a fresh packet
+// and adopts the current pin there instead.
+func retryHarnessPin(a factory.Assignment, pin project.FactoryHarnessPin) project.FactoryHarnessPin {
+	if adopted := a.AdoptedHarness; adopted != (project.FactoryHarnessPin{}) {
+		return adopted
+	}
+	return project.FactoryHarnessPin{Harness: pin.Harness, Version: a.HarnessVers, SHA256: pin.SHA256, Image: pin.Image}
+}
+
 // checkRetryChildPlan requires the recorded child profile and
 // authority behind one publication child retry.
 func checkRetryChildPlan(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, publicationTarget string, report *DispatchReport) bool {
 	selection := plan.policy.Roles[a.Role]
+	// A version move never cancels the retry: the relaunch adopts the
+	// current staged pin, so only a family move (a different tool) ends
+	// the recorded child. The saved model, connection, preparation and
+	// branch still bind exactly.
+	harnessMoved := !strings.HasPrefix(a.Harness, plan.pin.Harness+"-")
 	if plan.attemptRoot != a.AttemptRoot ||
 		plan.sponsorship.Connection != a.Connection || selection.Model != a.Model ||
-		a.Harness != plan.pin.Harness+"-"+plan.pin.Version || a.HarnessVers != plan.pin.Version ||
+		harnessMoved ||
 		plan.prep.Preparation.ID != a.Preparation || plan.policy.TargetBranch != publicationTarget {
 		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child profile or authority changed", report)
 		return false
@@ -606,14 +633,14 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     plan.pin.Harness, HarnessVers: a.HarnessVers,
+			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: project.ExecutionImplement,
 			ManifestDigest: project.ExecutionManifestDigest(manifest),
 		},
-		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
+		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
 		ExecutionManifest: manifest,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, true, report)
@@ -959,14 +986,14 @@ func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupan
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     plan.pin.Harness, HarnessVers: a.HarnessVers,
+			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: a.Phase,
 			ManifestDigest: manifestDigest,
 		},
-		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
+		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
 		ExecutionManifest: manifest,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, a.Phase == project.ExecutionCorrect, report)

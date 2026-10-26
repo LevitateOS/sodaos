@@ -112,18 +112,50 @@ func pendingContextLaunch(ctx context.Context, deps DispatchDeps, a factory.Assi
 	if err != nil || stopped || !preparation.State.Ready {
 		return launch, waitFor(WaitPreparation, "pending launch preparation is not ready"), false
 	}
+	// The pending launch binds the recorded admitted bundle exactly and never
+	// consults the live host pin: rows carrying recorded tool proof resume
+	// their adopted bundle byte-for-byte, so an update that moved the
+	// current selection cannot strand or replace them. The host stages the
+	// recorded bundle from its retained sidecar and fails closed when that
+	// bundle is gone. Rows admitted before proof existed keep the legacy
+	// live-pin comparison and hold when it differs; rows with missing or
+	// incoherent recorded identity hold instead of falling back to current.
 	selection, ok := run.Admission.Policy.Roles[a.Role]
 	if !ok {
-		return launch, nil, true
+		return launch, waitFor(WaitHarness, "pending launch lacks its recorded role selection"), false
 	}
-	pin, err := deps.Host.FactoryHarness(ctx, selection.Harness)
-	if err != nil || pin.Validate() != nil {
-		return launch, waitFor(WaitHarness, "pending launch harness unavailable"), false
+	if selection.Model != a.Model || run.Model != a.Model {
+		return launch, waitFor(WaitHarness, "pending launch model differs from its recorded admission"), false
 	}
-	if pin.Harness+"-"+pin.Version != a.Harness || pin.Version != a.HarnessVers || pin.Image != run.Image || selection.Model != a.Model {
-		return launch, nil, true
+	adopted := run.Admission.Tool
+	if adopted != (project.FactoryHarnessPin{}) {
+		if err := adopted.Validate(); err != nil {
+			return launch, waitFor(WaitHarness, "pending launch recorded tool proof is invalid"), false
+		}
+		if a.AdoptedHarness != adopted {
+			return launch, waitFor(WaitHarness, "pending launch proof differs from its assignment"), false
+		}
+		if adopted.Harness != selection.Harness {
+			return launch, waitFor(WaitHarness, "pending launch bundle is not its admitted family"), false
+		}
+		if a.Harness != adopted.Harness+"-"+adopted.Version || a.HarnessVers != adopted.Version ||
+			run.Harness != a.Harness || run.Image != adopted.Image {
+			return launch, waitFor(WaitHarness, "pending launch admission does not bind its recorded identity"), false
+		}
+		launch = project.FactoryLaunch{Run: project.FactoryRun{ID: run.ID, Project: a.ProjectID, Role: a.Role, Preparation: a.Preparation, Harness: adopted.Harness, HarnessVers: adopted.Version, Model: a.Model, Assignment: a.PromptSHA, SourceCommit: a.SourceCommit, Connection: a.Connection, Actor: a.ActorID, Deadline: run.Deadline, ExecutionPhase: a.Phase}, Prompt: a.Prompt, HarnessSHA256: adopted.SHA256, ExecutionManifest: run.ExecutionManifest}
+	} else {
+		if a.Harness != selection.Harness+"-"+a.HarnessVers || run.Harness != a.Harness {
+			return launch, waitFor(WaitHarness, "pending launch admission does not bind its recorded identity"), false
+		}
+		pin, err := deps.Host.FactoryHarness(ctx, selection.Harness)
+		if err != nil || pin.Validate() != nil {
+			return launch, waitFor(WaitHarness, "pending launch harness unavailable"), false
+		}
+		if pin.Harness != selection.Harness || pin.Version != a.HarnessVers || pin.Image != run.Image {
+			return launch, waitFor(WaitHarness, "recorded harness bundle is not staged; pending launch holds for its admitted identity"), false
+		}
+		launch = project.FactoryLaunch{Run: project.FactoryRun{ID: run.ID, Project: a.ProjectID, Role: a.Role, Preparation: a.Preparation, Harness: selection.Harness, HarnessVers: a.HarnessVers, Model: a.Model, Assignment: a.PromptSHA, SourceCommit: a.SourceCommit, Connection: a.Connection, Actor: a.ActorID, Deadline: run.Deadline, ExecutionPhase: a.Phase}, Prompt: a.Prompt, HarnessSHA256: pin.SHA256, ExecutionManifest: run.ExecutionManifest}
 	}
-	launch = project.FactoryLaunch{Run: project.FactoryRun{ID: run.ID, Project: a.ProjectID, Role: a.Role, Preparation: a.Preparation, Harness: pin.Harness, HarnessVers: a.HarnessVers, Model: a.Model, Assignment: a.PromptSHA, SourceCommit: a.SourceCommit, Connection: a.Connection, Actor: a.ActorID, Deadline: run.Deadline, ExecutionPhase: a.Phase}, Prompt: a.Prompt, HarnessSHA256: pin.SHA256, ExecutionManifest: run.ExecutionManifest}
 	if len(run.ExecutionManifest) > 0 {
 		launch.Run.ManifestDigest = project.ExecutionManifestDigest(run.ExecutionManifest)
 	}
