@@ -63,9 +63,15 @@ new provider work.
   5-minute cadence, packaging, bootstrap/baseline inputs): read-only
   staging path for Projects (no write access to the shared store),
   launch-time due-check, installed scheduling fixtures under isolated roots.
-- T06 Factory dispatch adoption is coordinator-owned after writer
-  reconciliation; lanes B/C must not edit shared Go Factory dispatch files.
-  Persisted cold-recovery Factory integration is required by this contract,
-  not yet integrated: the accepted execution reference lifetime covers live
-  host executions only, and cold recovery still resolves through
-  `resolve_existing` fail-closed until T06 lands.
+- T06 Factory dispatch adoption LANDED as V6 (commits `3c9c2cfc` Go +
+  `d779b446` Rust, 2026-10-26): new packets record the live staged pin as
+  their adopted bundle (`Assignment.AdoptedHarness`, `RunAdmission.Tool`);
+  recovery binds the adopted bytes with no current-pin oracle; retries
+  continue their assignment's bundle; rows predating proof keep the strict
+  legacy rule and fail recovery closed. Host reservations snapshot current
+  (`resolve_current`) or bind the recorded sidecar (`bind_recorded`) with a
+  digest/version coherence check and release the ref after confirmed
+  retirement. Stale saved policy versions no longer refuse fresh admission.
+  Remaining: cross-process restart end-to-end (admit A, update to B,
+  restart, recover A) is T07 combined-integration work; R01/C01 stay
+  Codex-owned.
