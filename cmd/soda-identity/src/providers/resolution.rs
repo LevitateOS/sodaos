@@ -18,8 +18,10 @@
 //    the bundle in the gap between resolving and acquiring.
 //
 // Explicit `binary` + `sha256` configuration keeps its historical behavior
-// byte-for-byte (fixtures and the broker compat test rely on it). Setting
-// `store = true` switches a provider to the shared provider store: every new
+// byte-for-byte (fixtures and the broker compat test rely on it). Since V2-A
+// the broker routes every enabled section to store mode, so legacy pins only
+// reach this module as historical attribution, never as new-session bindings.
+// Setting `store = true` switches a provider to the shared provider store: every new
 // session resolves the fresh selection through `resolve_new`, binds the exact
 // admitted bundle, and releases it when the session closes. A refresh
 // therefore never corrupts an active enrollment, and new sessions pick up

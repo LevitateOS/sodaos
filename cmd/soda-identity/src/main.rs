@@ -24,26 +24,27 @@ struct ProviderSettings {
     #[serde(default)]
     root: String,
     /// Resolve the executable from the shared provider store at each
-    /// session creation instead of the pinned `binary`. An explicitly
-    /// configured section without a binary pin selects the updater
-    /// automatically (see `provider_store_mode`); a fully empty section
-    /// stays disabled.
+    /// session creation instead of a pinned `binary`. Every enabled section
+    /// selects the store (see `provider_store_mode`); a fully empty section
+    /// stays disabled. The flag itself is legacy: enabled sections reach
+    /// store mode with or without it.
     #[serde(default)]
     store: bool,
 }
 
-/// Decide how an enabled provider section resolves its executable. An
-/// explicit binary+digest pin keeps historical exact behavior; any other
-/// configured section (store flag or enrollment root present) resolves
-/// through the shared updater automatically, so normal enabled
-/// configurations cannot silently bypass freshness. Fully empty sections
-/// stay disabled; credentials, budgets and historical bindings are
-/// untouched by this choice.
+/// Decide how an enabled provider section resolves its executable. Every
+/// enabled section resolves NEW sessions through the shared provider store:
+/// mandatory freshness supersedes configured pins, so legacy `binary` +
+/// `sha256` fields are ignored for new-session resolution (they remain only
+/// as historical attribution metadata, never shadowing the current
+/// selection). Fully empty sections stay disabled; credentials, budgets and
+/// historical bindings are untouched by this choice.
 fn provider_store_mode(section: &ProviderSettings) -> Option<bool> {
-    if !section.binary.is_empty() || !section.sha256.is_empty() {
-        return Some(false);
-    }
-    if section.store || !section.root.is_empty() {
+    if section.store
+        || !section.root.is_empty()
+        || !section.binary.is_empty()
+        || !section.sha256.is_empty()
+    {
         return Some(true);
     }
     None

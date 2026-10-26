@@ -12,8 +12,8 @@ pub struct Config {
     pub root: String,
     /// Resolve the executable from the shared provider store at each
     /// session creation instead of spawning the pinned `binary`. When set,
-    /// `binary`/`sha256` may be empty; the bound bundle digest and version
-    /// come from the current store selection.
+    /// legacy `binary`/`sha256` pins are ignored for new sessions; the bound
+    /// bundle digest and version come from the current store selection.
     #[serde(default)]
     pub store: bool,
 }
@@ -47,11 +47,9 @@ pub(super) fn validate_config(c: &Config) -> Result<(), Error> {
         return Err(Error::denied("invalid Codex configuration"));
     }
     if c.store {
-        // Store mode resolves the executable per session; a pinned binary
-        // must not shadow the shared selection.
-        if !c.binary.is_empty() || !c.sha256.is_empty() {
-            return Err(Error::denied("invalid Codex configuration"));
-        }
+        // Store mode resolves the executable per session from the shared
+        // selection; legacy `binary`/`sha256` pins are ignored for new
+        // sessions (historical attribution only) and never shadow freshness.
         return Ok(());
     }
     if !Path::new(&c.binary).is_absolute() || c.sha256.len() != 64 {
