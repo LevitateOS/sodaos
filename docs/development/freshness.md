@@ -109,8 +109,12 @@ Remaining and unverified: installed/appliance activation (no production
 install was mutated or restarted here), Factory new-selection adoption and
 persisted cold-recovery integration (T06, foreign writer unreleased), nested
 live restage (no podman-capable guest image), and the full
-`prepare_execution` resolve leg, which needs a rootful host — production runs
-`User=root` with `UsernsMode=private`, while rootless scratch reports
-`UsernsMode=""` and is denied there by design. Do not present this policy
+`prepare_execution` stage leg in minimal fixtures: rootful resolve now passes
+with `UsernsMode=private` (UP-V4; rootless `UsernsMode=""` stays denied by
+design), `ensure` restage verifies, and the stage tmpfs mount needs the
+production `SYS_ADMIN` cap. Last observed gap (UP-V4-CAPS, run
+`up-20261026T062315Z` evidence `rootful-preflight/`): guest
+`--soda-copy-config` support, present in the production provider binary but
+stubbed in fixtures. Do not present this policy
 change as an update of all dependencies or VMs, and never claim an
 installation is current without an actual check.
