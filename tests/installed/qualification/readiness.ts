@@ -218,7 +218,14 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
       check('persistence_operation', s.target.distribution !== 'docker' || effects.same_image_recreation);
       if (s.cases.includes('cold_recovery')) check('cold_operation', effects.cold_restore);
     }
-    if (s.cases.includes('app')) check('app_selection', s.managed.application_ids.length > 0);
+    if (s.cases.includes('app'))
+      check(
+        'app_selection',
+        (s.applications?.length ?? 0) > 0 &&
+          s.applications!.every((a) =>
+            observation!.inventory.applications.some((actual) => actual.id === a.application_id)
+          )
+      );
   } else {
     for (const name of [
       'installed_identity',

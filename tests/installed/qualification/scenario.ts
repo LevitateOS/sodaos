@@ -147,6 +147,15 @@ export interface FactoryCase {
   readonly limits: ModelLimits;
 }
 
+/** Reuse a prepared App image and its existing app-local owner. The fixture
+ * reference describes public bytes; credentials remain a separate private path. */
+export interface ApplicationSelection {
+  readonly application_id: string;
+  readonly fixture: PublicArtifact;
+  readonly owner_credentials_file: string;
+  readonly record: {readonly operation_id: string; readonly label: string};
+}
+
 export interface PermittedEffects {
   readonly fixture_setup: boolean;
   readonly project_lifecycle: readonly string[];
@@ -178,6 +187,7 @@ export interface QualificationScenario {
   readonly cases: readonly JourneyCase[];
   readonly managed: ManagedResources;
   readonly factory: readonly FactoryCase[];
+  readonly applications?: readonly ApplicationSelection[];
   readonly credentials: CredentialReferences;
   readonly permitted_effects: PermittedEffects;
   /** Existing root-admitted collector inputs; paths do not grant execution. */

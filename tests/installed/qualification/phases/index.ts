@@ -7,3 +7,7 @@ export {nativeExecutionScript, nativeExecutionSucceeded} from './factory-executi
 export {networkGuard} from './support';
 export {issueFactoryCommand, reconcileFactoryCommand, factoryCommandBinding} from './factory-command';
 export {adoptSetup} from '../setup';
+export {applicationFixture, adoptApplication, applicationNativeProbe} from '../application';
+export type {ApplicationFixture, ApplicationHandoff, ApplicationTransport} from '../application';
+export {openApplicationOwner} from '../application-owner';
+export type {ApplicationRecordWitness, ApplicationJournal} from '../application-owner';

@@ -41,6 +41,7 @@ export function scenarioInput(value: unknown): QualificationScenario {
     'cases',
     'managed',
     'factory',
+    'applications',
     'credentials',
     'permitted_effects',
     'authority',
@@ -186,6 +187,36 @@ export function scenarioInput(value: unknown): QualificationScenario {
       absolute(creds.workspace_owner_password_file) &&
       strings(creds.application_owner_files, absolute)
   );
+  if (s.applications !== undefined) {
+    assert(Array.isArray(s.applications) && s.applications.length <= 16);
+    const selected = new Set<string>();
+    for (const value of s.applications) {
+      const a = object(value),
+        record = object(a.record);
+      keys(a, ['application_id', 'fixture', 'owner_credentials_file', 'record']);
+      keys(record, ['operation_id', 'label']);
+      assert(typeof a.application_id === 'string' && /^a[a-f0-9]{24}$/.test(a.application_id));
+      assert(!selected.has(a.application_id) && (managed.application_ids as string[]).includes(a.application_id));
+      selected.add(a.application_id);
+      artifact(a.fixture);
+      assert(
+        absolute(a.owner_credentials_file) &&
+          (creds.application_owner_files as string[]).includes(a.owner_credentials_file)
+      );
+      assert(
+        typeof record.operation_id === 'string' &&
+          /^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(record.operation_id)
+      );
+      assert(
+        typeof record.label === 'string' &&
+          record.label.length >= 1 &&
+          record.label.length <= 200 &&
+          record.label.trim() === record.label &&
+          !/[\u0000-\u001f\u007f]/u.test(record.label)
+      );
+    }
+    assert(s.applications.length === 0 || s.cases.includes('app'));
+  }
   const effects = object(s.permitted_effects);
   keys(effects, [
     'fixture_setup',

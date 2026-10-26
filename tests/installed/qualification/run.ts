@@ -31,6 +31,18 @@ export function approvalScope(s: QualificationScenario) {
           b.subject.repository_id + '/' + b.subject.issue_number
         )
       ),
+    // Omission/empty App selection preserves an unchanged Factory-only scope.
+    ...(s.applications?.length
+      ? {
+          applications: s.applications
+            .map((a) => ({
+              application_id: a.application_id,
+              fixture_sha256: a.fixture.sha256,
+              record: a.record,
+            }))
+            .sort((a, b) => a.application_id.localeCompare(b.application_id)),
+        }
+      : {}),
     permitted_effects: {
       ...s.permitted_effects,
       project_lifecycle: [...s.permitted_effects.project_lifecycle].sort(),

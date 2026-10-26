@@ -515,6 +515,59 @@ stops the exact unit before killing its launcher and draining pipes; the final
 existing native inspection decides custody. No candidate build, guest, provider
 or credentials are involved, and no model attempt becomes resumable.
 
+**App fixture and owner handoff:** optional scenario `applications` selections
+reuse a managed `application_id`, a public `fixture` metadata reference, one
+`owner_credentials_file` already listed in `credentials.application_owner_files`,
+and an exact record `{operation_id, label}`. The operation uses a UUIDv7.
+Approval binds the selected App, fixture digest and record operation/input;
+omitting App selections preserves an unchanged Factory-only scope. Adding an App
+case is not permission to alter the held trial or install/start anything.
+
+`application.ts` adopts the existing normal App API record using the canonical
+response parser and selected native inventory. It checks the fixture's candidate,
+image, semantic bundle/artifact/tools identities, Canlang owner team, data and
+container generation. Its handoff keeps the Forgejo administrator separate from
+the Canlang owner and marks credential paths as controller-local. No password is
+read during adoption. A missing App or pending Restore remains a blocker; this
+helper never substitutes registration, first-owner setup or a new data directory.
+
+Native data paths are in the appliance namespace. Docker data paths are in its
+Soda container namespace, reached through the pinned SSH host and the exact
+observed outer container ID/image. `applicationNativeProbe` checks the host UUID,
+installed source/payload and selected App labels/generation before returning
+read-only metadata. It never treats the Docker host's `/home` as inner storage.
+
+`application-owner.ts` uses Canlang's normal owner login/team selection and MCP
+grant, with HTTPS verification and an optional explicit public CA. It journals
+one create intent before sending. Re-entry reads the original operation's record
+without another create; uncertain responses are reconciled only by exact generated
+record ID, selected label and unchanged prior records. The pinned CRUD fixture
+uses its operation UUID as record ID. Readback alone does not manufacture a
+committed mutation receipt. Credentials, cookies and tokens stay out of evidence.
+
+For a provider-free native check, reuse the qualified extracted RC7 tools and
+readable public bundle, and bundle the maintained phase entrypoint (no image,
+release media, Go probe or dependency installation is needed):
+
+```sh
+bun build tests/installed/qualification/phases/index.ts --target=bun \
+  --outfile=/home/soda-tester/inputs/phases.js
+bun tests/installed/qualification/check-application.ts \
+  --runtime /home/soda-tester/qualified-canlang/bin/can-soda \
+  --bundle /home/soda-tester/inputs/bundle.json \
+  --module /home/soda-tester/inputs/phases.js \
+  --out /home/soda-tester/fresh-app-check
+```
+
+The runner requires the exact RC7 fixture bundle and qualified tools source.
+It durably saves `private/owner.json` outside App data before bootstrap, creates
+one local owner/record, verifies normal read/render and anonymous denial, then
+reopens the same data/team/credentials after native restart. Both actual process
+exits and writer-lock release are recorded. Failed state and credentials remain
+available; do not bootstrap over them. This local check proves no guest install
+or release qualification. App/terminal/Factory coordination and supplemental
+collector composition remain J18–J20; `app_route` stays explicitly unobserved.
+
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
 
@@ -1023,9 +1076,45 @@ does not own product scenarios; do not move Factory orchestration into it.
 **5. Compose the measured App/terminal/Factory and final-state recovery route.
 Depends on 3–4.**
 
-- [ ] **J17.** Reuse the RC7-compatible App fixture and existing App owner/record behavior.
+- [x] **J17.** Reuse the RC7-compatible App fixture and existing App owner/record behavior.
   Make Docker transport/owner handoff explicit; native helpers must not silently
   assume the same filesystem/container topology.
+
+  Added shared App selections, canonical normal-API adoption/handoff and explicit
+  native/Docker read-only transport. The maintained owner client reuses ordinary
+  Canlang authentication and exact journaled record operations. Controller
+  credential paths, inner App data, Forgejo administration and app-local owner
+  identity stay distinct. Fixture metadata binds RC7 source/payload and the
+  prepared image/bundle/tools; no image build or guest installation was attempted.
+
+  The retained fixture was only preloaded on native `.164`; it was never an
+  installed App on Docker `.165`. Its old local proof removed owner credentials,
+  so retained data was preserved rather than treated as an accessible account.
+  The existing qualified tools archive matched
+  `e9c042c053eecc1c24542b2e8afc1963fc05665121a957d6834bddc90a230a49`
+  (source `228f83d47b8462dc6949143ebf619a7d81b8a8e0`). A readable snapshot of
+  the public bundle matched
+  `268d567e4d55575273d156f3f14a7f7ba14a7883384162a4cd4490896ed765e5`;
+  no source/image/tool rebuild was required.
+
+  Verification: strict installed/focused TypeScript, formatting, Oxlint, diff
+  check and phase bundling passed. Real local native runtime integration used
+  built module `58452f30b6f9b4e3ceb4cd013de4d3b0bb8470608dd9aebc84c7d60b3d68eb2c`.
+  It observed owner login, a confirmed create, record read/render, anonymous 403,
+  then the same owner and record `01a17592-3d0e-797c-bc04-b293c1f93fb4` version 1
+  after restart. Journal re-entry used readback without creating another record.
+  Both actual runtime exits were zero and the writer lock was available after
+  each. Credentials were saved privately before bootstrap and remain outside
+  App data and public receipts. Earlier local checks are retained; no guest, provider, account
+  enrollment, media build or publication was changed. Installed normal-API App
+  adoption and the target-native probe are implemented/typechecked but were not
+  exercised against a deployed App; J18–J20 retain composed-route integration.
+
+  Reproduce using the maintained check above. Final receipt:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j17-application-r3/result.json`.
+  Public fixture metadata:
+  `/home/vince/Projects/.sodaos-rc-20261023/r57-appliance-app-fixture/application.json`.
+  Input snapshot/module: `/home/vince/Projects/.sodaos-rc-20261023/journey-j17-inputs/`.
 - [ ] **J18.** Implement coordinated startup of genuine App/terminal probes and one
   existing resource/native observer before Factory work. Record live CI/review/delivery separately
   from sampled resource/response results.
