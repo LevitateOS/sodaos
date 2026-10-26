@@ -1480,6 +1480,10 @@ Depends on the basic driver working.**
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j24-native-check-r4/result.json`.
   The first integration's projection mismatch was corrected without changing
   actual native data. Earlier receipts remain preserved.
+  Clean-source support build `b351ba7a0404e08d202d1ed3fd9b4b2230ae1fe7`
+  also passed using the unchanged SDK and warm caches, with no dependency
+  installation or appliance access. Exact driver/collector/phase/probe hashes:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j24-build/build.json`.
 
   **Acceptance remains pending; checkbox stays open.** Actual native
   Project/Factory/retirement/reboot execution is held, and no eligible native
