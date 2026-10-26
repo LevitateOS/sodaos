@@ -1612,10 +1612,35 @@ Depends on 3–4.**
   `journey-j22-preparation/result.public.json` records the accepted prerequisites,
   failed-attempt reports, zero new model use and exact remaining inputs. Preserve
   this check; never run the older Codex scenarios as a fallback.
-- [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
+- [x] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
   blocker is a correct runner result, not a passing product qualification.
+
+  Accepted the genuine-blocker outcome on 2026-10-26. The maintained Rust
+  `journey run/status` on the saved actual Muse readiness check stops with
+  `factory_0_execution`: requested Muse/Spark 1.3/Contributor versus the observed
+  Ready Codex connection and Codex role policy. It also retains the explicit
+  input hold, missing complete scope and collector inputs; those do not revoke
+  the earlier unused finite consent. No remote refresh, credential delivery,
+  collector request, enrollment, funding or model launch occurs in this path.
+
+  Fixed the saved report's omission of selected execution details. It now
+  projects the exact requested harness/model/profile and the bounded observed
+  provider and two role profiles. The maintained source report and existing
+  compiled admission path passed repeat calls against the real saved evidence:
+  five input/admission files remained byte-identical, admission/report replay
+  matched, history stayed three runs/ten charged minutes, and collection,
+  supplemental results and canonical qualification stayed null. TypeScript,
+  affected lint/format and diff checks passed. A support rebuild stopped before
+  building because an unrelated concurrent untracked documentation draft made
+  the checkout dirty; that draft remains untouched. No compiled-report rebuild
+  is claimed. Source fix: `031f6031befbda2db70dc2f039088141db7ed995`.
+
+  Evidence: `/home/vince/Projects/.sodaos-rc-20261023/journey-j23-blocker-check/result.json`.
+  This accepts correct pre-dispatch blocker reporting. J22 still owns the actual
+  bounded Muse journey and installed recovery; no passing product outcome or
+  post-blocker phase behavior is inferred.
 
 **7. Extend the working path to native and two-issue cases; automate retirement.
 Depends on the basic driver working.**
@@ -1898,8 +1923,9 @@ older host and no configured Muse harness or Ready Muse connection. Keep the
 working Codex sign-in and its history; do not run it as a fallback or generate
 a Muse device code before the matching candidate/capability inputs are ready.
 Qualification of that selected route needs the matching built candidate and
-normal Muse sign-in. New media/publication authority remains held. J23 must
-verify the resulting complete route or its precise blocker; J24's native and
+normal Muse sign-in. New media/publication authority remains held. J23 now
+accepts the precise pre-dispatch provider blocker with preserved evidence;
+actual execution/recovery remains J22. J24's native and
 two-issue prerequisites remain outstanding. No completed checkbox is reopened,
 and the unused finite trial gains no retry, refill or extra inquiry.
 
