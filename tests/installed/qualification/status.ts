@@ -47,6 +47,8 @@ function explanation(code: string): string {
   if (messages[code]) return messages[code];
   if (/^factory_[0-9]+_connection$/.test(code))
     return 'Inspect the existing selected Identity connection; no enrollment has been requested.';
+  if (/^factory_[0-9]+_execution$/.test(code))
+    return 'The selected provider, model or execution profile does not match the observed connection and role policy. Preserve the existing account; do not fall back to another provider or launch a model.';
   if (/^factory_[0-9]+_/.test(code))
     return 'Resolve the selected Factory binding, accepted input, preparation or effect scope through its canonical owner.';
   if (code.startsWith('live_or_unconfirmed_'))
@@ -82,6 +84,12 @@ export function journeyStatus(s: QualificationScenario, r: Readiness) {
       issue_number: b.issue_number,
       connection_id: b.connection_id,
       current_generation: observed?.connection?.generation ?? null,
+      ...(f.execution
+        ? {
+            requested_execution: f.execution,
+            observed_provider: typeof row?.connection_provider === 'string' ? row.connection_provider : null,
+          }
+        : {}),
       requested: f.limits,
       observed: {
         sponsor_minutes: count(a.sponsor_minutes),

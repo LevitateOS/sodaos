@@ -10,6 +10,8 @@ function readinessSQL(s: QualificationScenario): string {
   const factory = s.factory.map(
     ({subject: b}) => `json_build_object(
     'repository_id','${b.repository_id}','issue_number',${b.issue_number},
+    'connection_provider',(SELECT data->>'provider_id' FROM identity_connections WHERE id='${b.connection_id}'),
+    'roles',(SELECT data->'roles' FROM factory_policies WHERE repository=${b.repository_id}),
     'acceptance',(SELECT decision FROM issue_acceptance_heads WHERE repository=${b.repository_id} AND issue=${b.issue_number}),
     'requirements',(SELECT decision FROM project_requirement_heads WHERE project_id='${b.project_id}'),
     'approval',(SELECT decision FROM project_approval_heads WHERE project_id='${b.project_id}'),

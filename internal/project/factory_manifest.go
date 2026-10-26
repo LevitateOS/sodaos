@@ -153,6 +153,9 @@ func (m ExecutionManifest) ValidateManifestForRun(run FactoryRun) error {
 	if m.Contributor && run.Harness != FactoryHarnessMuse {
 		return errors.New("contributor mode is valid only for Muse")
 	}
+	if run.Effort != "" && (m.Effort != run.Effort || m.Contributor != run.Contributor) {
+		return errors.New("execution manifest profile does not match its run")
+	}
 	return nil
 }
 

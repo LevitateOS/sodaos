@@ -684,6 +684,21 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 		}
 		run = recorded
 	}
+	// Deliver the choice already retained with this run, including time-only
+	// investigation/review phases which intentionally have no plan manifest.
+	if launch.Run.Harness == project.FactoryHarnessMuse && run.Admission != nil {
+		selection, ok := run.Admission.Policy.Roles[a.Role]
+		profile := factory.EffectiveExecutionProfile(&selection.Profile)
+		if !ok || selection.Harness != launch.Run.Harness || selection.HarnessVers != launch.Run.HarnessVers || selection.Model != launch.Run.Model || profile.Validate(selection.Harness) != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded Muse execution profile unavailable"})
+			return
+		}
+		launch.Run.Effort, launch.Run.Contributor = profile.Effort, profile.Contributor
+		if err := launch.Validate(); err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded Muse execution profile differs from launch"})
+			return
+		}
+	}
 	if deps.Store != nil {
 		if len(launch.ExecutionManifest) > 0 {
 			if err := deps.Store.BindFactoryExecutionManifest(ctx, launch); err != nil {

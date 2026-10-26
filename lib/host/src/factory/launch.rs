@@ -45,6 +45,12 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
         let (receipt, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
+        if exists
+            && (req.run.effort != receipt.run.effort
+                || req.run.contributor != receipt.run.contributor)
+        {
+            return Err(FactoryError::Stale);
+        }
         if !exists {
             self.store_verification_manifest(&req.run, &req.verification_manifest)?;
             self.store_execution_manifest(&req.run, &req.execution_manifest)?;

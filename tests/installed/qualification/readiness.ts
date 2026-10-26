@@ -168,6 +168,23 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
           Number.isSafeInteger(actual.connection.generation) &&
           actual.connection.generation > 0
       );
+      if (f.execution) {
+        const e = f.execution,
+          roles = state?.roles as Record<string, any> | undefined;
+        check(
+          `factory_${index}_execution`,
+          state?.connection_provider === e.harness &&
+            ['soda-coder', 'soda-reviewer'].every((role) => {
+              const r = roles?.[role];
+              return (
+                r?.harness === e.harness &&
+                r.model === e.model &&
+                r.profile?.effort === e.profile.effort &&
+                Boolean(r.profile?.contributor) === e.profile.contributor
+              );
+            })
+        );
+      }
       check(
         `factory_${index}_accepted_inputs`,
         state?.acceptance === b.acceptance &&

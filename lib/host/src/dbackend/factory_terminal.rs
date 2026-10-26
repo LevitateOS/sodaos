@@ -19,6 +19,8 @@ fn cv_run_to_tcodex(r: &factory::FactoryRun) -> crate::terminal::factory::tcodex
         harness: r.harness.clone(),
         harness_vers: r.harness_vers.clone(),
         model: r.model.clone(),
+        effort: r.effort.clone(),
+        contributor: r.contributor,
         assignment: r.assignment.clone(),
         source_commit: r.source_commit.clone(),
         connection: r.connection.clone(),

@@ -11,9 +11,27 @@ use crate::terminal::factory::run::FactoryRun;
 /// a key past the staged file. Exit 45 is the missing-credential refusal
 /// (42/43/44 keep the codex gate meanings).
 pub fn factory_muse_supervisor(p: &FactoryMusePaths, guest: &str, model: &str) -> String {
+    supervisor(p, guest, model, None)
+}
+
+fn supervisor(
+    p: &FactoryMusePaths,
+    guest: &str,
+    model: &str,
+    profile: Option<(&str, bool)>,
+) -> String {
+    let execution = match profile {
+        Some((effort, contributor)) => format!(
+            "--reasoning-effort {} --contributor-mode {}",
+            shell_quote(effort),
+            if contributor { "on" } else { "off" },
+        ),
+        None => "--reasoning-effort low".into(),
+    };
     let mut command = format!(
-        "{} exec --provider meta --reasoning-effort low --workspace {} --trust-workspace --no-session-log --disable-approval --disable-sandbox",
+        "{} exec --provider meta {} --workspace {} --trust-workspace --no-session-log --disable-approval --disable-sandbox",
         shell_quote(guest),
+        execution,
         shell_quote(&p.checkout),
     );
     if !model.is_empty() {
@@ -114,6 +132,10 @@ pub fn muse_exec_argv(
         "--wait".to_string(),
         "/usr/bin/sh".to_string(),
         "-c".to_string(),
-        systemd_escape(&factory_muse_supervisor(p, guest, &run.model)),
+        systemd_escape(&if run.effort.is_empty() {
+            factory_muse_supervisor(p, guest, &run.model)
+        } else {
+            supervisor(p, guest, &run.model, Some((&run.effort, run.contributor)))
+        }),
     ]
 }

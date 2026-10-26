@@ -1514,7 +1514,7 @@ Depends on 3–4.**
   approval. J22 must resolve the actual selected route and freeze its complete
   scope before spending. Evidence and original-consent reference:
   `/home/vince/Projects/.sodaos-rc-20261023/journey-j21-approval-comparison/result.json`.
-- [ ] **J22.** Use the existing Ready connection. Run one eligible bounded journey, observe
+- [ ] **J22.** Reuse an eligible Ready connection for the selected provider. Run one eligible bounded journey, observe
   the actual result and produce its canonical qualification plus separately
   validated supplemental results. Preserve failed outcomes and every charge.
   Before sponsorship, resolve J20's actual missing App/owner/tool inputs and
@@ -1569,6 +1569,41 @@ Depends on 3–4.**
   same-owner reservation through the normal control, with intent/readback and no
   blind retry. It cannot stop Projects/Apps or launch Factory. The failed
   collector stays at `/home/soda-journey-j22/outputs/j22-live-r5`.
+
+  The owner then selected the Muse agent CLI provider, Spark 1.3 Contributor,
+  in place of Codex for future Factory tests. That preference is saved in
+  `AGENTS.md`; no Codex model was launched. `FactoryCase.execution` now pins
+  harness, model and profile in the approved scope. Readiness checks the actual
+  connection provider and both role policies; baseline and completed-execution
+  validation enforce the same pins. A real read-only check on this appliance
+  rejects the existing Ready Codex connection for a Muse selection, with no
+  fallback or enrollment. The desktop CLI's read-only
+  `muse model-profile show muse-spark-1.3 --effort low` confirms that model ID;
+  `muse exec --help` confirms `--contributor-mode on` and `--yolo`. These are
+  desktop capabilities, not proof of the still-unconfigured appliance harness.
+
+  Investigation found the native Muse launcher omitted Contributor mode even
+  when policy recorded it. The source fix carries the immutable admitted profile
+  through the common Go launch handoff and strict Rust wire/receipt to the actual
+  CLI command. Manifest and retained-profile mismatches refuse. Focused Go
+  compilation and Rust library/integration-fixture compilation passed; no model
+  ran. This source fix is not installed RC7 evidence: its existing host binary
+  and Docker host configuration (which has only Codex harness fields) remain
+  unchanged. A matching candidate/configured Muse harness, actual pinned-CLI
+  capability/model observation and normal Ready Muse enrollment precede a live
+  Muse journey. Do not overwrite the immutable RC7 image or call a mixed
+  deployment qualified. No expiring device code is generated during this work.
+
+  The exact failed-attempt terminal was retired through normal owner control;
+  its receipt is sibling `j22tty/result.json`. An unrelated host managed-save
+  restore had lost this test VM's original `sodaos-rc-tap17` interface. Recreating
+  that same user-owned tap on its original `br0` and resuming preserved the
+  original UUID, disk and boot ID. Fresh native observation still records three
+  historical runs/ten charged minutes, zero corrected-subject runs/allowances
+  and the same Ready Codex generation 3. The approved finite trial remains unused.
+  Provider guard evidence: `journey-j22-preparation/muse-provider-guard.public.json`
+  beneath the evidence root above. J22 stays unchecked: neither a passing
+  canonical qualification nor completed installed cold recovery exists.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported
@@ -1846,6 +1881,20 @@ the actual complete route/runtime and resource-lifecycle inputs and live
 results. J24's native/two-issue prerequisites remain outstanding. All finite
 bounds, failed evidence and charges remain preserved; no task scope was added.
 
+Dependency refresh after J22 preparation and provider steering on 2026-10-26:
+J01–J21, J25 and J26 retain their recorded accepted scopes. J22's App owner,
+funding and resource inputs are resolved, but live acceptance remains open.
+The owner now selects Muse Spark 1.3 Contributor. The source launcher/profile
+fix and explicit collector selection are local; immutable RC7 still has its
+older host and no configured Muse harness or Ready Muse connection. Keep the
+working Codex sign-in and its history; do not run it as a fallback or generate
+a Muse device code before the matching candidate/capability inputs are ready.
+Qualification of that selected route needs the matching built candidate and
+normal Muse sign-in. New media/publication authority remains held. J23 must
+verify the resulting complete route or its precise blocker; J24's native and
+two-issue prerequisites remain outstanding. No completed checkbox is reopened,
+and the unused finite trial gains no retry, refill or extra inquiry.
+
 **First milestone:** `journey check/status` inspects the existing RC7 fixture,
 identifies the persistence inventory contradiction and exposes the exact next
 repair with no provider invocation or target mutation. After the fix it confirms
@@ -1853,8 +1902,9 @@ the known inventory/closure requirements while still listing live outcomes as
 unobserved. This milestone is useful before `run` or general phase composition
 exists.
 
-The currently approved RC7 one-trial scope remains valid for its unchanged bounds
-and remains **held**. This redesign authorizes no spending or operational resume.
+The redesign alone authorized no spending or operational resume. The owner later
+released the scoped J22 execution recorded above. Its finite trial remains unused;
+the current Muse selection still needs its matching candidate and account inputs.
 A materially changed paid scope or concurrency still needs its actual authority;
 standing setup/key transport/cleanup authority should not prompt again. Public
 publication and promotion retain their existing separate holds.

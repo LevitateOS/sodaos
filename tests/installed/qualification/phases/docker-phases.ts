@@ -151,6 +151,7 @@ export function installedPhaseConfiguration(
   };
   const factory_phase = {
     execution_released: true,
+    ...(selected.execution ? {execution: selected.execution} : {}),
     operation_id: subject.operation_id,
     repository,
     target_branch: details.repository.target_branch,

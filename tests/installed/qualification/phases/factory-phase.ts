@@ -148,7 +148,7 @@ export function validateFactoryBaseline(c: any, f: any) {
     f.connection?.id === c.connection.id &&
       f.connection.owner_id === c.connection.owner_id &&
       f.connection.state === 'ready' &&
-      f.connection.provider === 'codex' &&
+      f.connection.provider === (c.execution?.harness ?? 'codex') &&
       f.connection.generation === c.connection.generation,
     'factory_ready_connection_changed'
   );
@@ -338,7 +338,11 @@ export function deriveFactoryEvidence(c: any, before: any, after: any, ci: any[]
         r.role === role &&
         a.connection === c.connection.id &&
         typeof r.harness === 'string' &&
-        r.harness.startsWith('codex-') &&
+        r.harness.startsWith((c.execution?.harness ?? 'codex') + '-') &&
+        (!c.execution ||
+          (r.model === c.execution.model &&
+            r.profile?.effort === c.execution.profile.effort &&
+            Boolean(r.profile?.contributor) === c.execution.profile.contributor)) &&
         r.binding?.kind === 'factory' &&
         r.binding.id === r.id &&
         r.binding.project === after.container &&
@@ -530,8 +534,17 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
       policy.review_actor.actor_id === String(c.actors.reviewer),
     'factory_enrolled_actors_changed'
   );
-  for (const role of ['soda-coder', 'soda-reviewer'])
-    check(policy.roles[role]?.harness === 'codex', 'factory_codex_configuration_required');
+  for (const role of ['soda-coder', 'soda-reviewer']) {
+    const actual = policy.roles[role];
+    check(actual?.harness === (c.execution?.harness ?? 'codex'), 'factory_selected_harness_required');
+    if (c.execution)
+      check(
+        actual.model === c.execution.model &&
+          actual.profile?.effort === c.execution.profile.effort &&
+          Boolean(actual.profile?.contributor) === c.execution.profile.contributor,
+        'factory_selected_model_profile_required'
+      );
+  }
   const sponsor = original.sponsorships.find((s: any) => s.connection === c.connection.id);
   check(
     sponsor?.active &&
