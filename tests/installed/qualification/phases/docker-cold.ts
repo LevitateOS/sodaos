@@ -67,6 +67,74 @@ export function dockerColdExecutor(
   );
   const prefix = paths(selected);
   return {
+    async retire(destination: ColdDestination, resultSHA256: string) {
+      check(
+        destination.directory === selected.restore_directory && destination.image === b.image && SHA.test(resultSHA256),
+        'exact_completed_clone_retirement_required'
+      );
+      const execute = scope.scenario.permitted_effects.retire_temporary_clone === true;
+      if (!execute) {
+        // Retention needs no whole-cold-set hash or remote process/mount scan.
+        // The successful recovery already confirmed this exact clone stopped.
+        await io.save('supplemental/recovery/retirement.plan.json', {
+          format: 1,
+          action: 'isolated-cold-retirement-plan',
+          container: destination.container,
+          restored: destination.directory,
+          result_sha256: resultSHA256,
+          execute_requested: false,
+          inspection_performed: false,
+          automatic_retry: false,
+        });
+        return;
+      }
+      await io.save('supplemental/recovery/retirement.intent.json', {
+        format: 1,
+        container: destination.container,
+        restored: destination.directory,
+        result_sha256: resultSHA256,
+        execute_requested: true,
+        automatic_retry: false,
+      });
+      const program =
+        prefix +
+        '\ntry{pin();process.stdout.write(run(PATHS.operator.path,' +
+        JSON.stringify([
+          'journey',
+          'cold',
+          'retire',
+          '--restored',
+          selected.restore_directory,
+          '--result-sha256',
+          resultSHA256,
+          ...(execute ? ['--execute'] : []),
+        ]) +
+        '));}catch{console.error("cold_retirement_unconfirmed_no_retry");process.exitCode=1;}';
+      try {
+        const result = JSON.parse(await io.sshRead(program, 1800000));
+        check(
+          result.container === destination.container &&
+            result.restored === destination.directory &&
+            result.result_sha256 === resultSHA256 &&
+            result.automatic_retry === false &&
+            result.action === (execute ? 'isolated-cold-retirement' : 'isolated-cold-retirement-plan'),
+          'cold_retirement_receipt_binding'
+        );
+        await io.save('supplemental/recovery/' + (execute ? 'retirement.json' : 'retirement.plan.json'), result);
+      } catch {
+        // Product recovery passed and the exact clone was already stopped.
+        // A cleanup failure cannot manufacture deletion or trigger another rm.
+        await io.save('supplemental/recovery/retirement.uncertain.json', {
+          format: 1,
+          state: 'uncertain',
+          container: destination.container,
+          restored: destination.directory,
+          result_sha256: resultSHA256,
+          execute_requested: execute,
+          automatic_retry: false,
+        });
+      }
+    },
     async capture(current: any): Promise<ColdCapture> {
       check(
         current?.target === b.target &&

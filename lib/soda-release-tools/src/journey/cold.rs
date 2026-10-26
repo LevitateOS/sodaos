@@ -18,6 +18,7 @@ use std::{
 
 const SETTINGS: [&str; 4] = ["compose.yaml", ".env", "identity.json", "docker.json"];
 const DESTINATIONS: [&str; 3] = ["/etc", "/home", "/var"];
+mod retirement;
 
 pub(super) fn command() -> Command {
     let options = |command: Command, names: &[&'static str]| {
@@ -33,6 +34,13 @@ pub(super) fn command() -> Command {
             &["container", "project", "image", "settings", "out"],
         ))
         .subcommand(options(Command::new("restore"), &["source", "out"]))
+        .subcommand(
+            options(Command::new("retire"), &["restored", "result-sha256"]).arg(
+                Arg::new("execute")
+                    .long("execute")
+                    .action(clap::ArgAction::SetTrue),
+            ),
+        )
 }
 
 pub(super) fn run(flags: &ArgMatches) -> Result<(), String> {
@@ -55,6 +63,11 @@ pub(super) fn run(flags: &ArgMatches) -> Result<(), String> {
             Path::new(get("out")?),
         ),
         "restore" => restore(Path::new(get("source")?), Path::new(get("out")?)),
+        "retire" => retirement::retire(
+            Path::new(get("restored")?),
+            get("result-sha256")?,
+            flags.get_flag("execute"),
+        ),
         _ => Err("unknown cold action".into()),
     }?;
     println!(

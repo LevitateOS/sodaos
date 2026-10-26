@@ -10,6 +10,7 @@ use std::{
     time::Instant,
 };
 pub(crate) mod input;
+pub(crate) mod retirement;
 mod target;
 
 const INPUT: &str = "/run/soda-qualification-candidate";
@@ -613,24 +614,9 @@ fn private_work(attempt: &Path, uid: u32, gid: u32) -> Result<(), String> {
     }
     Ok(())
 }
-fn remove_private_work(attempt: &Path) -> Result<(), String> {
-    // No native process remains at this point. Reclaim the fixed parent before
-    // inspecting/removing its child; remove_dir_all does not follow symlinks.
-    let parent = std::ffi::CString::new(attempt.as_os_str().as_encoded_bytes())
-        .map_err(|e| e.to_string())?;
-    if unsafe { libc::chown(parent.as_ptr(), 0, 0) } != 0 {
-        return Err(std::io::Error::last_os_error().to_string());
-    }
-    fs::set_permissions(attempt, fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
-    let path = attempt.join(".work");
-    let meta = fs::symlink_metadata(&path).map_err(|_| "private collector work missing")?;
-    if !meta.is_dir() || meta.file_type().is_symlink() {
-        return Err("private collector work directory substituted".into());
-    }
-    fs::remove_dir_all(path).map_err(|_| "private collector work cleanup failed".to_owned())
-}
 pub(crate) fn finalize(out: &Path) -> Result<(), String> {
-    finalize_inner(out, true)
+    finalize_inner(out, true)?;
+    retirement::automatic(out)
 }
 fn finalize_inner(out: &Path, announce: bool) -> Result<(), String> {
     let _lock = lock(out)?;
@@ -722,6 +708,7 @@ pub(crate) fn recover_journey(
         // Existing finalization requires exact successful execution, native
         // retirement and protected observations; it never calls the collector.
         finalize_inner(out, false)?;
+        retirement::automatic(out)?;
     }
     let completed = sealed.join("release-evidence.json").exists();
     let (state, native_retirement) = if completed {
@@ -877,6 +864,7 @@ fn collect_inner(
         return Err(std::io::Error::last_os_error().to_string());
     }
     private_work(&attempt, uid, gid)?;
+    retirement::record_origin(out, &attempt)?;
     let mut nonce = [0; 16];
     getrandom::fill(&mut nonce).map_err(|e| e.to_string())?;
     let name = format!(
@@ -965,7 +953,7 @@ fn collect_inner(
         &mut custody,
     );
     if custody == WorkerUnitCustody::ExactUnitTerminal {
-        remove_private_work(&attempt)?;
+        retirement::preserve(out, &attempt)?;
     }
     if let Err(e) = outcome {
         let text = match e {

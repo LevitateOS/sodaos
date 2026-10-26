@@ -223,8 +223,14 @@ fn build_admission_matrix_preserves_release_boundaries() {
             );
             assert!(
                 !out.join("attempt/.work").exists(),
-                "retired private work must be removed"
+                "retired private work must leave the evidence tree"
             );
+            assert!(
+                out.join("consumed-work").is_dir(),
+                "unpermitted and failed scratch stays retained"
+            );
+            assert!(out.join("work-origin.json").is_file());
+            assert!(out.join("work-preserved.json").is_file());
             let sealed = out.join("observations");
             if mode == "valid" {
                 assert_eq!(code, 0, "{stdout}{stderr}");

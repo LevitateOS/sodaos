@@ -53,6 +53,9 @@ export interface FinalRecoveryRuntime {
   observeIsolated(destination: ColdDestination): Promise<unknown>;
   /** Stop the exact isolated writer/outer; leave all storage/evidence intact. */
   stopIsolated(destination: ColdDestination): Promise<void>;
+  /** Plan retention by default; exact frozen scope can permit clone retirement
+   * only after successful validation and confirmed native stop. */
+  retireIsolated?(destination: ColdDestination, resultSHA256: string): Promise<void>;
 }
 
 // Copying files changes inode numbers. Keep all retained business state and
@@ -218,5 +221,6 @@ export async function exerciseFinalStateRecovery(
     await runtime.stopIsolated(destination);
   }
   await io.save('supplemental/recovery/result.json', supplemental);
+  await runtime.retireIsolated?.(destination, sha(JSON.stringify(supplemental, null, 2) + '\n'));
   return {persistence, supplemental};
 }

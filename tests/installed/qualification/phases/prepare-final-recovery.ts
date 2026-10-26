@@ -268,6 +268,7 @@ let ready=false;for(let i=0;i<60;i++){const r=cp.spawnSync('/usr/bin/docker',['-
           return observe(destination, 'snapshot');
         },
         observeIsolated: (destination) => observe(destination, 'snapshot'),
+        retireIsolated: (destination, resultSHA256) => cold.retire(destination, resultSHA256),
         async stopIsolated(destination) {
           assert(isolated?.container === destination.container);
           try {

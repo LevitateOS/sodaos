@@ -102,6 +102,12 @@ pub(crate) fn command() -> Command {
                 .about("Admit the saved exact scope, respect holds and reuse protected collection")
                 .arg(Arg::new("run").long("run").required(true).num_args(1)),
         )
+        .subcommand(Command::new("report").about("Project saved receipts without remote reads or recovery")
+            .arg(Arg::new("run").long("run").required(true).num_args(1))
+            .arg(Arg::new("build").long("build").num_args(1)))
+        .subcommand(Command::new("retire-scratch").about("Inspect fixed consumed collector scratch; execute only with frozen retirement scope")
+            .arg(Arg::new("out").long("out").required(true).num_args(1))
+            .arg(Arg::new("execute").long("execute").action(clap::ArgAction::SetTrue)))
         .subcommand(cold::command())
 }
 
@@ -117,6 +123,61 @@ pub(crate) fn run(flags: &ArgMatches) -> Result<(), String> {
         "check" => check(path("scenario")?, path("out")?),
         "status" => status(path("run")?),
         "run" => execute(path("run")?),
+        "report" => {
+            let out = private_run(path("run")?)?;
+            let mut request = retained(&out)?;
+            if let Some(build) = flags.get_one::<String>("build") {
+                let file = Path::new(build);
+                let meta =
+                    fs::symlink_metadata(file).map_err(|_| "report build receipt unavailable")?;
+                if !meta.is_file()
+                    || meta.file_type().is_symlink()
+                    || meta.nlink() != 1
+                    || meta.len() > 16 << 20
+                    || !file.starts_with("/home")
+                    || canonical(file)? != file
+                {
+                    return Err("canonical bounded public report build receipt required".into());
+                }
+                let build = read(file)?;
+                if build["format"] != 1 || build["source_clean"] != true {
+                    return Err("clean report build receipt required".into());
+                }
+                let selected = build["outputs"]
+                    .as_array()
+                    .ok_or("report build outputs required")?
+                    .iter()
+                    .filter(|v| {
+                        v["path"].as_str().is_some_and(|p| {
+                            Path::new(p)
+                                .file_name()
+                                .is_some_and(|name| name == "soda-qualification-journey")
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                if selected.len() != 1 {
+                    return Err("one maintained report driver required".into());
+                }
+                request.driver = FileReference {
+                    path: PathBuf::from(
+                        selected[0]["path"]
+                            .as_str()
+                            .ok_or("report driver path required")?,
+                    ),
+                    sha256: selected[0]["sha256"]
+                        .as_str()
+                        .ok_or("report driver SHA256 required")?
+                        .into(),
+                };
+            }
+            invoke("report", &request, &out)
+        }
+        "retire-scratch" => {
+            let result =
+                crate::qualification::retirement::retire(path("out")?, flags.get_flag("execute"))?;
+            println!("{}", result);
+            Ok(())
+        }
         "cold" => cold::run(flags),
         _ => Err("unknown journey action".into()),
     }

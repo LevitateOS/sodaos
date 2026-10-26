@@ -166,6 +166,9 @@ export interface PermittedEffects {
   readonly same_image_recreation: boolean;
   /** A native kernel reboot is distinct from recreating a Docker container. */
   readonly native_reboot?: boolean;
+  /** Consume only finalized controller scratch or verified temporary clones. */
+  readonly retire_consumed_scratch?: boolean;
+  readonly retire_temporary_clone?: boolean;
   readonly cold_restore: boolean;
 }
 

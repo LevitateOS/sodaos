@@ -227,10 +227,14 @@ export function scenarioInput(value: unknown): QualificationScenario {
     'current_context_phases',
     'same_image_recreation',
     'native_reboot',
+    'retire_consumed_scratch',
+    'retire_temporary_clone',
     'cold_restore',
   ]);
   for (const k of ['fixture_setup', 'same_image_recreation', 'cold_restore']) assert(typeof effects[k] === 'boolean');
   assert(effects.native_reboot === undefined || typeof effects.native_reboot === 'boolean');
+  for (const key of ['retire_consumed_scratch', 'retire_temporary_clone'])
+    assert(effects[key] === undefined || typeof effects[key] === 'boolean');
   for (const k of ['project_lifecycle', 'application_lifecycle', 'terminal_lifecycle', 'factory_repositories'])
     assert(strings(effects[k], nonempty));
   assert(strings(effects.current_context_phases, (v) => v === 'implement' || v === 'review'));

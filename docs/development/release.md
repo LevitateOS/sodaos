@@ -670,6 +670,49 @@ pins, staged-manifest use without the controller path and wrong-UUID refusal.
 It never requests reboot, installs an App, signs in a provider or changes scope.
 Private key/password paths stay references and are never hashed as evidence.
 
+### Receipt reports and resource retirement
+
+`soda-release journey report --run RUN` derives a stdout-only report from saved
+receipts, with no target read, reconciliation or mutation. Use `--build BUILD_JSON`
+to select a current report tool for an old immutable run; its original driver,
+scenario and history remain unchanged. The report binds collector intent,
+request, resolved bytes and executed/sealed file identities before projecting
+selected phase/supplemental results. It does not read private work, credential
+files or provider bodies, infer missing outcomes or make a qualification decision.
+
+Worker scratch now has an original-inode receipt and moves from `attempt/.work`
+to private `COLLECTION/consumed-work` only after exact native worker retirement.
+It remains outside sealed evidence. Failed or incomplete work is retained.
+Successful finalized work is removed automatically only when the exact frozen
+scope includes `retire_consumed_scratch: true`. The default preserves it without
+another process/storage scan. `journey retire-scratch --out COLLECTION` inspects
+the bounded selection; `--execute` cannot bypass that frozen permission or the
+completion, identity, live-reference and dependency guards. No input artifact,
+cache, credential, backing VM or failed attempt is a generic cleanup target.
+
+Final cold recovery saves its validated result and confirms the clone stopped
+before retirement. With `retire_temporary_clone: true`, the existing Rust cold
+owner checks the original capture, clone identity/isolation, all Docker container
+dependencies and active mounts before removing only that stopped clone and its
+three copied trees. Source data, settings/environment and provenance remain.
+Without permission, collection records retention locally; it does not rehash a
+large cold set just to keep it. Explicit inspection uses `journey cold retire
+--restored DIR --result-sha256 SHA`; adding `--execute` is an actual deletion.
+
+Intent precedes removal. A missing outcome after intent stays uncertain and is
+never an automatic retry. Resource outcomes distinguish requested, retained,
+confirmed native stop and recorded removal; absence or unit retirement alone
+does not prove deletion. Selected allocation and observed filesystem free-space
+change stay separate, including when reflinks share physical blocks.
+
+Reproduce provider-free reporting with `check-report.ts --run HELD_RUN --out
+FRESH_HOME_DIRECTORY`. Reproduce native retirement guards as root with
+`check-retirement.ts --operator ABS_SODA_RELEASE --cold-restored EXISTING_LOCAL_CLONE
+--cold-result ACTUAL_LOCAL_RESULT --out FRESH_DIRECT_HOME_CHILD`. It creates only
+a small incomplete scratch fixture and an unpaid true unit, refuses held/incomplete,
+live-referenced and unrecognized work, and plans the existing clone. It deletes
+no retained resources and creates no model/Factory outcome.
+
 ### Final retained state and cold recovery
 
 `phases/final-state-recovery.ts` uses the existing complete resource inventory
@@ -1492,10 +1535,49 @@ Depends on the basic driver working.**
   invented or enrolled. Native App-owner/cold/capacity composition is explicitly
   unsupported. No paid/reboot/App-readback outcome or release qualification is
   claimed. Next independently eligible local source task: J25.
-- [ ] **J25.** Derive the report from existing receipts. Add consumed-scratch and temporary
+- [x] **J25.** Derive the report from existing receipts. Add consumed-scratch and temporary
   clone retirement at actual completion points, preserving provenance, active
   reservations, unique data and backing dependencies. Generic cache resets or
   broad pruning are not an automatic consequence of a failed run.
+
+  Accepted at the authorized local implementation/provider-free guard scope.
+  Added the maintained receipt-only report and Rust CLI; an optional current
+  build receipt supports old immutable runs without changing their driver pins.
+  Fixed canonical evidence identity consumption to use Rust's `SHA256`/`Bytes`
+  wire fields. Reports project bounded actual outcomes and preserve unknown
+  qualification/provider results, failed history and charges.
+
+  Corrected the controller's previous unconditional private-work removal after
+  worker retirement: original scratch now moves out of evidence and remains
+  private on failure. Finalization/recovery consumes it only after successful
+  matching completion and explicit frozen permission. Cold cleanup is wired
+  after actual validation/native stop, preserves source/settings/provenance and
+  checks stopped containers as well as active mount dependencies. Both owners
+  persist intent before effect, retain uncertainty and never blindly repeat a
+  removal. Omitted permissions retain resources without expensive rescans.
+
+  Real saved-file reporting passed deterministic replay, unchanged source hashes
+  and altered-binding refusal on the retained J20 held run: Ready generation 3,
+  three retained runs and ten charged minutes. Real local root/native integration
+  completed one unpaid true unit, retained incomplete scratch, refused execute
+  under the frozen hold, and refused an actual live file reference and an
+  unrecognized resource. It also verified a plan for J19's real stopped isolated
+  clone/copies, preserving its source and every tree. Selected allocation was
+  5,865,472 bytes; **resources deleted: zero**, with no physical reclamation claim.
+  The first local fixture's readonly mode was corrected under its private umask;
+  failed fixture state remains preserved. No provider call, guest change,
+  enrollment, source push or media build occurred.
+
+  Warm Rust build, full/focused TypeScript, affected lint/format and diff checks
+  passed. Reproduction entrypoints are above. Actual evidence:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j25-report-check-r3/result.json`
+  and root-private `/home/soda-j25-retirement-check-r2-20261026/result.json`.
+  Genuine completed-journey report projections, actual scratch/clone deletion
+  and the full collector preservation/finalization path remain operationally
+  unobserved under the execution/cleanup holds; local guard checks are not a
+  live deletion, provider or release qualification claim. Existing root/native
+  collector integration assertions now require retained scratch outside the seal.
+  J21–J24 remain pending at their recorded scope; next local task is J26.
 - [ ] **J26.** Verify that a new source checkout can build/invoke the maintained path using
   documented fixture/access inputs, resource release records report actual
   outcomes, and active per-attempt driver copies/READY controls are unnecessary.

@@ -56,9 +56,13 @@ runtime file must match that complete inventory, with no extra or symlinked
 files, shared hard links or writable ancestors. Only that tree is mounted at
 `/run/soda-qualification-runtime`; developer source and dependency directories
 remain inaccessible. The collector keeps browser profiles, cookies and temporary
-files in the attempt's fixed `.work/` tree. After confirmed unit retirement the
-controller removes that exact private tree before sealing any observations.
-Unknown retirement or cleanup failure prevents sealing. Development fixtures can
+files in the attempt's fixed `.work/` tree. The controller records its original
+inode before dispatch. After confirmed unit retirement it moves that exact tree
+to private `OUT/consumed-work`, outside sealed observations; failed attempts keep
+their scratch. Unknown retirement leaves it with the attempt. A successful
+finalized journey may remove only that scratch when its frozen scope explicitly
+sets `permitted_effects.retire_consumed_scratch: true`. Otherwise it stays retained
+without an extra storage/process scan. Development fixtures can
 exercise this access path or use the standalone collector boundary.
 
 Maintained journey admission adds `resolved_input: {"path": "/ABSOLUTE/input.json",
@@ -162,6 +166,37 @@ stay unknown. A user hold remains a blocker. No check result admits execution or
 qualifies a release.
 
 ## Maintained journey execution admission
+
+`soda-release journey report --run RUN` prints a deterministic projection of saved
+readiness, admission, execution/seal, selected phase, supplemental and retirement
+receipts. It never contacts the target, finalizes evidence or dispatches work.
+Missing results remain unknown. It checks receipt/file hashes and projects only
+bounded metadata; credentials, private scratch and provider bodies are not read.
+For a historical run whose retained driver predates reporting, supply
+`--build /home/OPERATOR/current-journey-build/build.json`. This selects the exact
+current report executable from the existing build receipt without changing the
+old run or manually copying hashes. Root invocation still requires a trusted
+admitted executable and protected run. The report does not qualify a release.
+
+`journey retire-scratch --out COLLECTION` inspects fixed preserved scratch.
+`--execute` additionally requires finalized matching successful evidence, a
+terminal native worker, the original scratch identity and the frozen retirement
+permission. Mounts, live process references, shared files and unknown resources
+refuse removal. Source inputs, observations, credentials, caches and VM data are
+outside its scope. Durable intent without outcome reports uncertainty; it does
+not authorize another removal. Existing completed/failed attempts without a new
+scratch-origin record gain no inferred cleanup authority.
+
+The cold owner separately supports `journey cold retire --restored DIR
+--result-sha256 SHA` (plan), with `--execute` for the exact verified stopped clone
+and its three fresh copies only. Its source capture, source volumes/container,
+settings, private environment and provenance stay retained. Normal collection
+calls this only after completed final recovery and native stop, with the result
+file's exact hash and `permitted_effects.retire_temporary_clone: true`; the common
+false/omitted case records retention locally without rehashing the cold set.
+Other container references and active mount dependencies block execution.
+Allocation is an estimate; receipts separately record observed filesystem free
+space. No image/volume/cache pruning or failed-attempt retry is implied.
 
 `soda-release journey run --run RUN` admits the saved exact scope and calls the
 existing protected collector. The [release workflow](../../docs/development/release.md#implementation-plan)

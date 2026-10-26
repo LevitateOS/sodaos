@@ -8,6 +8,7 @@ import {checkScenario} from './readiness';
 import {journeyStatus} from './status';
 import type {Readiness} from './readiness';
 import {admitRun, retainedAdmission, interruptedAdmission} from './run';
+import {journeyReport} from './report';
 
 async function main() {
   const [action, ...args] = process.argv.slice(2);
@@ -36,6 +37,9 @@ async function main() {
       mode: 0o600,
     });
     console.log(JSON.stringify(journeyStatus(scenario, result)));
+  } else if (action === 'report') {
+    assert.equal([...flags.keys()].join(','), '--run');
+    console.log(JSON.stringify(await journeyReport(flags.get('--run')!)));
   } else if (action === 'status' || action === 'run') {
     assert.equal([...flags.keys()].join(','), '--run');
     const run = flags.get('--run')!;
@@ -81,6 +85,8 @@ async function main() {
   } else throw Error('Unknown journey action');
 }
 await main().catch(() => {
-  console.error('Journey input, read-only check or admission failed; no collector dispatched by this driver.');
+  console.error(
+    'Journey input, saved report, read-only check or admission failed; no collector dispatched by this driver.'
+  );
   process.exitCode = 1;
 });
