@@ -467,6 +467,12 @@ held run/status, then isolated local receipt fixtures for changed scope and
 revocation. It never invokes a released approved scope. Its fixture receipts
 are explicitly non-operative and user-owned; they cannot establish protected
 owner authority or qualify a release.
+Optional `--application-fixture PUBLIC_APPLICATION_JSON` adds a real read-only
+supplemental check using the publisher's candidate-bound metadata and an explicitly
+absent App selection. It verifies that source route support coexists with blocked
+App adoption/resource closure, unknown capacity and null future outcomes. No App
+response is fabricated, no owner file is created/read, and no handoff or resolved
+execution input may be produced. This negative selection grants no lifecycle scope.
 The same check repeats retained admissions and interrupts a local admission
 between saved observation and result; neither boundary permits dispatch/replay.
 Run `check-recovery.ts --operator ABSOLUTE_SODA_RELEASE --out
@@ -566,8 +572,9 @@ reopens the same data/team/credentials after native restart. Both actual process
 exits and writer-lock release are recorded. Failed state and credentials remain
 available; do not bootstrap over them. This local check proves no guest install
 or release qualification. Installed supplemental collector composition is
-implemented; its actual installed-route checks remain J20 and `app_route` stays
-explicitly unobserved until those checks support it.
+implemented. Readiness's `app_route` describes source support only; `app_selection`,
+complete resource closure and the protected collector's owner/record/tool checks
+remain separate prerequisites. An absent installed App cannot produce a handoff.
 
 `phases/journey-measurements.ts` coordinates an already authenticated App owner
 and record with the Project phase's retained real terminal probe. Its measured
@@ -606,8 +613,10 @@ the local PTY before the App restart/readback check. Its
 neither drives Factory nor proves an installed App/browser terminal route.
 The protected collector still emits only four canonical observation kinds. Its
 optional supplemental route selects one App and cold recovery after those four
-cases, optionally with `basic_capacity`. Readiness/admission still holds that
-route for J20 verification; a new implementation is not an installed pass.
+cases, optionally with `basic_capacity`. Admission and composition share the same
+route predicate. `basic_capacity_route` stays unknown while no capacity threshold
+has been accepted, even though its supplemental probe code can run. Source support
+does not imply an installed pass or release the execution hold.
 
 ### Final retained state and cold recovery
 
@@ -668,8 +677,10 @@ their exact journals without repeating an effect.
 App/capacity/cold results live under `supplemental/`; they never acquire a fifth
 canonical Docker kind or imply unobserved CI/review/delivery/capacity results.
 The main caller retains the canonical persistence result separately. Complete
-installed boot/readback, root credential delivery and current-target readiness
-still need J20's real route checks, then the separately held live acceptance.
+installed boot/readback and root selected-App credential delivery remain unverified
+on the retained target: it has no installed App and execution is held. J20 checks
+available real-system prerequisites; J21–J23 retain these actual installed outcomes
+when their scope and target prerequisites are supplied.
 
 Provider-free checks reuse the qualified App runtime and existing owner/data:
 

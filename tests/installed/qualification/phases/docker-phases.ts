@@ -7,6 +7,7 @@ import {readFile} from 'node:fs/promises';
 import type {BrowserContext, Page} from 'playwright';
 import type {ResolvedQualificationInput} from '../scenario';
 import {scenarioInput} from '../validate';
+import {implementedDockerRoute} from '../route';
 import {loginNativeForgejo} from '../../sodaspaces-controls';
 import {mountedSpacesFacts, nativeSpacesMount} from '../../sodaspaces-journey-evidence';
 import {check, sha, COMMIT, SHA, rawRun, networkGuard, packageAssetHashes, packageAssetName} from './support';
@@ -83,20 +84,8 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
   const s = scenarioInput(input.scenario);
   check(!s.authority.held && s.authority.scope_receipt_file !== null, 'journey_execution_held');
   check(s.target.distribution === 'docker', 'docker_scenario_required');
-  assert.deepEqual(s.cases.slice(0, 4), ['installation', 'browser_project', 'factory', 'persistence']);
-  check(
-    s.cases.slice(4).every((c) => ['app', 'basic_capacity', 'cold_recovery'].includes(c)),
-    'supported_supplemental_cases'
-  );
-  if (s.cases.length > 4)
-    check(
-      s.cases.includes('app') &&
-        s.cases.includes('cold_recovery') &&
-        s.applications?.length === 1 &&
-        s.permitted_effects.cold_restore,
-      'complete_app_recovery_selection_required'
-    );
-  check(s.factory.length === 1, 'single_factory_composition');
+  check(implementedDockerRoute(s), 'implemented_docker_route_required');
+  if (s.cases.length > 4) check(s.permitted_effects.cold_restore, 'cold_restore_scope_required');
   const selected = s.factory[0]!,
     subject = selected.subject;
   const actual = input.observation.factory.filter(

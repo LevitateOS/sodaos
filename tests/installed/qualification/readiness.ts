@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {implementedDockerRoute} from './route';
 import {object} from '../sodaspaces-input';
 import {discoverFixture, type FixtureObservation} from './facts';
 import {observeNative, NativeReadError} from './native';
@@ -241,7 +242,12 @@ export async function checkScenario(s: QualificationScenario): Promise<Readiness
   // Exact paid authority is admitted by the protected run path, not this read.
   check('execution_released', !s.authority.held);
   check('paid_authority', s.factory.length === 0, s.factory.length === 0);
-  for (const selected of ['app', 'basic_capacity', 'two_issue_capacity', 'cold_recovery'] as const)
+  // These checks describe maintained source availability. Installed selection,
+  // closure and scope remain separate checks; the protected collector verifies
+  // App credentials/record and cold tools before any sponsored dispatch.
+  for (const selected of ['app', 'cold_recovery'] as const)
+    if (s.cases.includes(selected)) check(`${selected}_route`, implementedDockerRoute(s));
+  for (const selected of ['basic_capacity', 'two_issue_capacity'] as const)
     if (s.cases.includes(selected)) check(`${selected}_route`, false, false);
   return {
     format: 1,

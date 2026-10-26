@@ -1,6 +1,7 @@
 // Semantic admission only. Rust invokes the existing protected collector after
 // verifying these exact file bindings; this module never launches product work.
 import assert from 'node:assert/strict';
+import {implementedDockerRoute} from './route';
 import {lstat, open, readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {sha256, publicBytes} from './validate';
@@ -200,8 +201,7 @@ export async function admitRun(s: QualificationScenario, saved: Readiness, run: 
       })
       .map((c) => c.name)
   );
-  if (s.target.distribution !== 'docker' || s.cases.join(',') !== 'installation,browser_project,factory,persistence')
-    blockers.push('collector_route_unimplemented');
+  if (!implementedDockerRoute(s)) blockers.push('collector_route_unimplemented');
   let build: PublicArtifact | null = null,
     collectorSHA: string | null = null;
   if (blockers.length === 0 && s.collection) {

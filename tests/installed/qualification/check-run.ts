@@ -5,14 +5,15 @@ import {access, mkdir, readFile, realpath, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {approvalScope} from './run';
 import {scenarioInput, sha256} from './validate';
+import {adoptApplication, applicationFixture} from './application';
 
 process.umask(0o077);
 const args = process.argv.slice(2);
 assert.deepEqual(
-  args.filter((_, i) => i % 2 === 0),
+  args.slice(0, 10).filter((_, i) => i % 2 === 0),
   ['--operator', '--build', '--scenario', '--readiness', '--out']
 );
-assert.equal(args.length, 10);
+assert(args.length === 10 || (args.length === 12 && args[10] === '--application-fixture'));
 const [operator, buildFile, scenarioFile, readinessFile, out] = [args[1]!, args[3]!, args[5]!, args[7]!, args[9]!];
 for (const file of [operator, buildFile, scenarioFile, readinessFile]) {
   assert(file.startsWith('/home/') && path.resolve(file) === file);
@@ -182,6 +183,95 @@ assert.equal(interruptedStatus.recovery.automatic_actions, false);
 assert.deepEqual(await readFile(path.join(interruptedRun, 'run-readiness.json')), interruptedBytes);
 await absent(path.join(interruptedRun, 'run-admission.json'));
 await absent(path.join(interruptedRun, 'resolved-input.json'));
+let supplemental = null;
+if (args[11]) {
+  // Deliberately absent selection against the real appliance inventory. This
+  // checks the missing-App boundary, never fabricates an App/provider response.
+  const fixtureFile = args[11];
+  assert(fixtureFile.startsWith('/home/') && (await realpath(fixtureFile)) === fixtureFile);
+  const fixture = {path: fixtureFile, sha256: sha256(await readFile(fixtureFile))};
+  await applicationFixture(base, fixture);
+  const directory = path.join(out, 'absent-application');
+  await mkdir(directory, {mode: 0o700});
+  const id = 'a000000000000000000000000',
+    owner = path.join(directory, 'owner-not-created.json');
+  assert(!actual.observation.inventory.applications.some((a: {id: string}) => a.id === id));
+  const selected = scenarioInput({
+    ...base,
+    cases: ['installation', 'browser_project', 'factory', 'persistence', 'app', 'basic_capacity', 'cold_recovery'],
+    managed: {...base.managed, application_ids: [...base.managed.application_ids, id]},
+    applications: [
+      {
+        application_id: id,
+        fixture,
+        owner_credentials_file: owner,
+        record: {operation_id: '00000000-0000-7000-8000-000000000000', label: 'Absent App integration fixture'},
+      },
+    ],
+    credentials: {...base.credentials, application_owner_files: [...base.credentials.application_owner_files, owner]},
+    permitted_effects: {...base.permitted_effects, application_lifecycle: [id], cold_restore: true},
+  });
+  await write(path.join(directory, 'scenario.json'), selected);
+  const view = await execute([
+    driver.path,
+    'check',
+    '--scenario',
+    path.join(directory, 'scenario.json'),
+    '--out',
+    directory,
+  ]);
+  const observed = await read(path.join(directory, 'readiness.json'));
+  assert.deepEqual(observed.native.history, actual.native.history);
+  assert.deepEqual(generations(observed), generations(actual));
+  const state = (name: string) => observed.checks.find((c: {name: string}) => c.name === name)?.state;
+  assert.equal(state('app_route'), 'pass');
+  assert.equal(state('cold_recovery_route'), 'pass');
+  assert.equal(state('basic_capacity_route'), 'unknown');
+  assert.equal(state('app_selection'), 'blocked');
+  assert.equal(state('managed_inventory'), 'blocked');
+  assert.equal(state('persistence_resource_scope'), 'blocked');
+  assert.equal(observed.ready, false);
+  let apiReads = 0,
+    handoffWrites = 0;
+  await assert.rejects(
+    adoptApplication(selected, observed, id, {
+      async get() {
+        apiReads++;
+        throw Error('missing App must block before API read');
+      },
+      async save() {
+        handoffWrites++;
+        throw Error('missing App must not produce a handoff');
+      },
+    }),
+    /selected_application_missing/
+  );
+  assert.equal(apiReads, 0);
+  assert.equal(handoffWrites, 0);
+  const held = await execute([driver.path, 'run', '--run', directory]);
+  assert.equal(held.execution.state, 'held');
+  assert(!held.execution.blockers.includes('collector_route_unimplemented'));
+  assert(held.execution.blockers.includes('app_selection'));
+  assert.equal(view.qualification_phase, null);
+  for (const f of view.future_observations.factory)
+    for (const key of ['run', 'candidate_head', 'pr_number', 'publication', 'model_result', 'ci', 'review', 'delivery'])
+      assert.equal(f[key], null);
+  for (const c of view.future_observations.cases) {
+    assert.equal(c.completion, null);
+    assert.equal(c.measurements, null);
+  }
+  await absent(owner);
+  await absent(path.join(directory, 'resolved-input.json'));
+  supplemental = {
+    directory,
+    fixture,
+    source_route_supported: true,
+    installed_app: 'absent',
+    handoff_refused_before_api_or_credentials: true,
+    capacity: null,
+    qualification: null,
+  };
+}
 assert.equal(sha256(await readFile(driver.path)), driver.sha256);
 assert.equal(sha256(await readFile(scenarioFile)), sha256(scenarioBytes));
 assert.equal(sha256(await readFile(readinessFile)), sha256(savedBytes));
@@ -206,6 +296,7 @@ const result = {
   provider_calls: 0,
   guest_mutations: 0,
   qualification_claimed: false,
+  supplemental,
 };
 await write(path.join(out, 'result.json'), result);
 console.log(JSON.stringify(result));
