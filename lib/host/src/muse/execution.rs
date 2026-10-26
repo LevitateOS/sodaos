@@ -12,7 +12,9 @@ use crate::terminal::{self, AcquireRequest, Binding};
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.verifyGuestBinary`: pinned dispatcher digest, ELF
-    /// header and command availability.
+    /// header and command availability. Retained for explicit digest
+    /// re-verification; new executions resolve through the store snapshot
+    /// and never consult configured pins.
     ///
     /// The expected identity resolves on every call: pinned configuration
     /// verifies against the pin, while empty pins resolve the fresh shared
@@ -110,25 +112,22 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         }
         request.args = muse_arguments(&request.args)?;
         let caller = self.resolve(peer, budget)?;
-        // Store-authoritative when no pin is configured: one coherent
-        // snapshot per invocation, restaged into the running Project, then
-        // bound to this run. Pinned configuration keeps its historical
-        // meaning: verify the guest against the pin, never restage.
-        let verified_digest = if self.binary_sha256.is_empty() && self.binary_version.is_empty() {
-            let snapshot = super::provider::fresh_provider_snapshot()?;
-            let staged = self.ensure_guest_provider(&caller, &snapshot, budget);
-            match staged {
-                Ok(digest) => {
-                    super::provider::release_provider_snapshot(snapshot);
-                    digest
-                }
-                Err(err) => {
-                    super::provider::release_provider_snapshot(snapshot);
-                    return Err(err);
-                }
+        // Store-authoritative for ALL new executions: legacy configured pins
+        // never select bytes for new work (mandatory freshness supersedes
+        // them for host launches exactly as for broker sessions). Historical
+        // bytes survive only through the bound-digest recovery path, never
+        // through startup config. One coherent snapshot per invocation,
+        // restaged into the running Project, then bound to this run.
+        let snapshot = super::provider::fresh_provider_snapshot()?;
+        let verified_digest = match self.ensure_guest_provider(&caller, &snapshot, budget) {
+            Ok(digest) => {
+                super::provider::release_provider_snapshot(snapshot);
+                digest
             }
-        } else {
-            self.verify_guest_binary(&caller.container, &caller.child, budget)?
+            Err(err) => {
+                super::provider::release_provider_snapshot(snapshot);
+                return Err(err);
+            }
         };
         let mut execution = self.reserve_execution(&caller, &request, budget)?;
         // Bind this run to its exact verified bundle: recovery re-resolves

@@ -906,3 +906,199 @@ fn oracle_muse_command_argv_project_and_nested() {
         nested_argv
     );
 }
+
+// ---------- UP-REVIEW-06: shared-store freshness for new host launches ----------
+//
+// Serializes on STORE_ENV_LOCK: these tests mutate process-global provider
+// env (root/channel/TTL), which parallel tests must not interleave.
+static STORE_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+struct EnvGuard {
+    key: &'static str,
+    old: Option<String>,
+}
+
+impl EnvGuard {
+    fn set(key: &'static str, val: &str) -> EnvGuard {
+        let old = std::env::var(key).ok();
+        unsafe { std::env::set_var(key, val) };
+        EnvGuard { key, old }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.old {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+}
+
+/// Admit a synthetic muse bundle through the public store APIs only: real
+/// files, real admission record, real digest inventory. The executable opens
+/// with a valid 64-bit LE ELF header (machine 62) so guest verification
+/// accepts it. Never touches the network.
+fn fixture_bundle(root: &std::path::Path, version: &str) -> (soda_provider_tools::store::ReleaseIdentity, Vec<u8>) {
+    use soda_provider_tools::store;
+    let mut exe = vec![0x7fu8, b'E', b'L', b'F', 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    exe.extend_from_slice(&[2, 0]); // ET_EXEC
+    exe.extend_from_slice(&62u16.to_le_bytes()); // EM_X86_64
+    exe.extend_from_slice(format!("review-host-fixture-{version}\n").as_bytes());
+    while exe.len() < 128 {
+        exe.push(0x90);
+    }
+    let digest = {
+        use sha2::Digest as _;
+        let mut h = sha2::Sha256::new();
+        h.update(&exe);
+        format!("{:x}", h.finalize())
+    };
+    let rel = soda_provider_tools::Provider::Muse.executable_relpath();
+    let exe_path = root.join("bundles").join("muse").join(&digest).join(rel);
+    std::fs::create_dir_all(exe_path.parent().unwrap()).unwrap();
+    std::fs::write(&exe_path, &exe).unwrap();
+    std::fs::set_permissions(&exe_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bundle = exe_path.parent().unwrap().parent().unwrap();
+    let release = store::ReleaseIdentity {
+        provider: soda_provider_tools::Provider::Muse,
+        version: version.to_string(),
+        digest,
+        size: exe.len() as u64,
+        artifact_url: "https://example.invalid/review-host".to_string(),
+    };
+    store::write_release_record(bundle, &release).unwrap();
+    store::record_inventory(bundle, &release).unwrap();
+    (release, exe)
+}
+
+fn fixture_selection(
+    root: &std::path::Path,
+    release: &soda_provider_tools::store::ReleaseIdentity,
+    checked_at: u64,
+    freshness: soda_provider_tools::store::Freshness,
+) {
+    soda_provider_tools::store::write_selection(
+        root,
+        &soda_provider_tools::store::Selection {
+            provider: soda_provider_tools::Provider::Muse,
+            release: release.clone(),
+            checked_at_secs: checked_at,
+            admitted_at_secs: checked_at,
+            freshness,
+        },
+    )
+    .unwrap();
+}
+
+/// P1a: an indefinitely old `Current` selection performs the upstream check
+/// instead of launching stale bytes. With the check failing, the retained
+/// bytes proceed as `UpdateFailed`; with no selection at all, new work is
+/// denied. Hermetic: the invalid channel fails fast, no downloads.
+#[test]
+fn host_snapshot_performs_due_check() {
+    use soda_provider_tools::store;
+    let _lock = STORE_ENV_LOCK.lock().unwrap();
+    let dir = work_tmp();
+    let root = dir.join("due");
+    std::fs::create_dir_all(&root).unwrap();
+    let (release, _) = fixture_bundle(&root, "9.9.9-host");
+    fixture_selection(&root, &release, 0, store::Freshness::Current);
+    let _g0 = EnvGuard::set("SODA_PROVIDERS_ROOT", root.to_str().unwrap());
+    let _g1 = EnvGuard::set("SODA_PROVIDERS_CHANNEL", "review-invalid");
+    let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "0");
+    let snap = muse::fresh_provider_snapshot().expect("expired selection checks, retains bytes");
+    assert_eq!(snap.selection.release.digest, release.digest);
+    assert!(
+        matches!(snap.selection.freshness, store::Freshness::UpdateFailed { .. }),
+        "the due check ran: Current became UpdateFailed instead of being trusted blind"
+    );
+    muse::release_provider_snapshot(snap);
+    // Nothing admitted and the check failing: deny, nothing to retain.
+    let empty = dir.join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    unsafe { std::env::set_var("SODA_PROVIDERS_ROOT", &empty) };
+    assert!(muse::fresh_provider_snapshot().is_err());
+    cleanup(&dir);
+}
+
+/// P1b: a runtime constructed with legacy nonempty pins still resolves and
+/// restages the shared-store bundle for new work; the pins are never
+/// consulted. The scripted guest starts stale and ends at the store digest
+/// with a corroborating receipt; every recorded guest call is asserted
+/// pin-free and the staged bytes are byte-exact.
+#[test]
+fn prepare_ignores_legacy_pins_restages_store() {
+    use soda_provider_tools::store;
+    let _lock = STORE_ENV_LOCK.lock().unwrap();
+    let dir = work_tmp();
+    let root = dir.join("pinned");
+    std::fs::create_dir_all(&root).unwrap();
+    let (release, exe_bytes) = fixture_bundle(&root, "9.9.8-host");
+    fixture_selection(&root, &release, 0, store::Freshness::Current);
+    // Long TTL: no upstream check here; the due-check contract is pinned by
+    // host_snapshot_performs_due_check. The store digest is the authority.
+    let _g0 = EnvGuard::set("SODA_PROVIDERS_ROOT", root.to_str().unwrap());
+    let _g1 = EnvGuard::set("SODA_PROVIDERS_CHANNEL", "review-invalid");
+    let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "86400");
+    let digest = release.digest.clone();
+    // Predict the guest receipt: the snapshot resolves the same record.
+    let predicted = muse::fresh_provider_snapshot().expect("fixture snapshot");
+    let receipt = serde_json::to_vec_pretty(&predicted.selection).unwrap();
+    muse::release_provider_snapshot(predicted);
+    let stale = "aa".repeat(32);
+    let script = vec![
+        Ok(format!("{stale}  /usr/local/libexec/soda/muse\n").into_bytes()),
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(format!("{digest}  /usr/local/libexec/soda/muse\n").into_bytes()),
+        Ok(exe_bytes[..64].to_vec()),
+        Ok(vec![]),
+        Ok(receipt.clone()),
+    ];
+    let exec = FakeExec::new(script);
+    let rt = MuseRuntime::new(
+        exec,
+        FakeHooks::new(),
+        "review-obsolete".to_string(),
+        "b".repeat(64),
+    );
+    let caller = MuseCaller {
+        container: "c".to_string(),
+        ..Default::default()
+    };
+    let snap = muse::fresh_provider_snapshot().expect("pinned runtime snapshots store");
+    let staged = rt
+        .ensure_guest_provider(&caller, &snap, deadline())
+        .expect("legacy pins do not block store restage");
+    assert_eq!(staged, digest);
+    muse::release_provider_snapshot(snap);
+    // Pins never consulted: no guest call references them; the store digest
+    // is verified; the staged bytes are byte-exact.
+    let calls = rt.exec.calls();
+    assert!(!calls.is_empty(), "guest was actually staged");
+    let mut saw_native_check = false;
+    let mut saw_binary_bytes = false;
+    for (stdin, _cmd, args) in &calls {
+        let flat = format!("{stdin:?} {args:?}");
+        assert!(
+            !flat.contains("review-obsolete") && !flat.contains(&"b".repeat(64)),
+            "configured pins must never reach the guest path"
+        );
+        if flat.contains("/usr/local/libexec/soda/muse") {
+            saw_native_check = true;
+        }
+        if *stdin == exe_bytes {
+            saw_binary_bytes = true;
+        }
+    }
+    assert!(saw_native_check, "guest verification targeted the staged binary");
+    assert!(saw_binary_bytes, "staged bytes are exactly the admitted bundle");
+    cleanup(&dir);
+}

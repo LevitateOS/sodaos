@@ -1,14 +1,15 @@
 //! Provider-store identity for Muse executions (UP-20261026-v1, lane B).
 //!
-//! Pinned `binary_version` / `binary_sha256` configuration keeps its
-//! historical meaning: the guest bundle is verified against the configured
-//! pin. Empty pins switch to the shared provider store instead: every new
-//! execution resolves the fresh selection, so a refreshed bundle is picked
-//! up without a daemon restart and no hash is cached across executions.
-//! In-flight executions keep the digest they verified against
-//! (`MuseExecution.provider_digest`); re-resolution of that exact bundle
-//! for old-run recovery goes through [`retained_muse_executable`], which
-//! fails closed when the bundle is no longer admitted.
+//! Every new execution resolves the fresh shared-store selection, so a
+//! refreshed bundle is picked up without a daemon restart and no hash is
+//! cached across executions. Legacy configured `binary_version` /
+//! `binary_sha256` pins are never consulted for new work (mandatory
+//! freshness supersedes them); a fully empty provider section is simply the
+//! same store path with nothing to ignore. In-flight executions keep the
+//! digest they verified against (`MuseExecution.provider_digest`);
+//! re-resolution of that exact bundle for old-run recovery goes through
+//! [`retained_muse_executable`], which fails closed when the bundle is no
+//! longer admitted.
 //!
 //! Credential fixtures and model/profile/budget fields are untouched: this
 //! module performs no credential reads and no model calls.
@@ -69,18 +70,19 @@ pub struct ProviderSnapshot {
 /// `Stale` (a newer release is known but unadmitted) refuses visibly so the
 /// operator refreshes; `Unknown` or an unverifiable bundle denies.
 pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
+    // Shared fresh authority: read, refresh when the check is due, gate. An
+    // indefinitely old `Current` performs the upstream check here instead of
+    // launching stale bytes; `Unknown` or known-newer fails closed. This
+    // reuses the same due-check path `expected_muse_identity` uses — no
+    // third selection gate is invented.
+    let first = fresh_selection().map_err(map_store_error)?;
     let root = soda_provider_tools::config::store_root();
-    let first =
-        soda_provider_tools::store::read_selection(&root, soda_provider_tools::Provider::Muse)
-            .map_err(|_| terminal::err_denied())?
-            .ok_or_else(terminal::err_denied)?;
-    gate_snapshot(&first).map_err(map_store_error)?;
     let (executable, token) = soda_provider_tools::resolve::resolve_pinned(
         soda_provider_tools::Provider::Muse,
         &first.release.digest,
     )
     .map_err(map_store_error)?;
-    let mut snapshot = ProviderSnapshot {
+    let snapshot = ProviderSnapshot {
         selection: first,
         executable,
         token: Some(token),
@@ -110,7 +112,8 @@ pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
         release_provider_snapshot(snapshot);
         return Err(map_store_error(blocked));
     }
-    snapshot.selection = current;
+    // Bind the refreshed authority (`first`), not the re-read: same digest,
+    // but `first` carries the outcome of the due check that just ran.
     Ok(snapshot)
 }
 
