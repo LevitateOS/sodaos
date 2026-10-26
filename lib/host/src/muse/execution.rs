@@ -13,13 +13,20 @@ use crate::terminal::{self, AcquireRequest, Binding};
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.verifyGuestBinary`: pinned dispatcher digest, ELF
     /// header and command availability.
+    ///
+    /// The expected identity resolves on every call: pinned configuration
+    /// verifies against the pin, while empty pins resolve the fresh shared
+    /// store selection. Returns the verified bundle digest so the execution
+    /// keeps its exact bytes across refreshes. Never caches one hash.
     pub fn verify_guest_binary(
         &self,
         container: &str,
         child: &str,
         deadline: Instant,
-    ) -> Result<(), String> {
-        if !domain::valid_container_id(&self.binary_sha256) {
+    ) -> Result<String, String> {
+        let (_, expected_sha256) =
+            super::provider::expected_muse_identity(&self.binary_version, &self.binary_sha256)?;
+        if !domain::valid_container_id(&expected_sha256) {
             return Err(terminal::err_denied());
         }
         let mut prefix = Vec::new();
@@ -42,7 +49,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         };
         let text = String::from_utf8_lossy(&hash);
         let fields: Vec<&str> = text.split_whitespace().collect();
-        if fields.len() != 2 || fields[0] != self.binary_sha256 {
+        if fields.len() != 2 || fields[0] != expected_sha256 {
             return Err(terminal::err_denied());
         }
         let mut head_argv = prefix.clone();
@@ -61,7 +68,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             "--soda-check".to_string(),
         ]);
         self.guest(container, &[], &check_argv, deadline)
-            .map(|_| ())
+            .map(|_| expected_sha256)
     }
 
     // ---------- execution lifecycle (muse_execution_linux.go) ----------
@@ -82,8 +89,12 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         }
         request.args = muse_arguments(&request.args)?;
         let caller = self.resolve(peer, budget)?;
-        self.verify_guest_binary(&caller.container, &caller.child, budget)?;
-        let execution = self.reserve_execution(&caller, &request, budget)?;
+        let verified_digest =
+            self.verify_guest_binary(&caller.container, &caller.child, budget)?;
+        let mut execution = self.reserve_execution(&caller, &request, budget)?;
+        // Bind this run to its exact verified bundle: recovery re-resolves
+        // this digest (fail closed), never the current selection.
+        execution.provider_digest = verified_digest;
         if !muse_peer_alive(peer) {
             let cleanup = Instant::now() + Duration::from_secs(30);
             let _ = self.hooks.end(caller.actor, &execution.lease.id, cleanup);
@@ -156,6 +167,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             binding,
             path: path.clone(),
             unit: format!("soda-muse-{id}.service"),
+            // Stamped by `prepare_execution` with the verified bundle digest;
+            // empty until then, never a cached selection.
+            provider_digest: String::new(),
         })
     }
 

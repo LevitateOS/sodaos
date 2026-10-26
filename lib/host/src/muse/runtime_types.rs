@@ -56,6 +56,11 @@ pub struct MuseExecution {
     pub binding: Binding,
     pub path: String,
     pub unit: String,
+    /// Bundle digest the guest binary was verified against at preparation.
+    /// New executions resolve the fresh selection; recovery of this run
+    /// must re-resolve this exact digest (fail closed), never the current
+    /// selection.
+    pub provider_digest: String,
 }
 
 /// Broker custody surface the Muse runtime needs.

@@ -2,6 +2,7 @@
 // config validation and executable integrity,
 // the `login` device-code session and the auth.json custody checks.
 
+use super::resolution::{self, BoundBinary, ProviderKind};
 use super::sha256;
 use super::types::{self, Connection, Enrollment};
 use super::{enrollment_tempdir, private_tmpfs, Error};
@@ -15,7 +16,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
-pub const VERSION: &str = "1.4.0-R4161.1";
 const DEVICE_PREFIX: &[u8] = b"https://auth.meta.com/oauth/device/?code=";
 
 #[derive(Debug, Clone, Deserialize)]
@@ -25,6 +25,12 @@ pub struct Config {
     pub version: String,
     pub sha256: String,
     pub root: String,
+    /// Resolve the executable from the shared provider store at each
+    /// session creation instead of spawning the pinned `binary`. When set,
+    /// `binary`/`sha256` may be empty; the bound bundle digest and version
+    /// come from the current store selection.
+    #[serde(default)]
+    pub store: bool,
 }
 
 pub struct Provider {
@@ -32,6 +38,16 @@ pub struct Provider {
 }
 
 impl Provider {
+    /// Bind the fresh shared selection for NEW lease work. Explicit mode
+    /// carries no store bundle (`None`); store mode resolves and pins the
+    /// current selection so cleanup retains it for the lease lifetime.
+    pub fn bind_new(&self) -> Result<Option<BoundBinary>, Error> {
+        if !self.config.store {
+            return Ok(None);
+        }
+        Ok(Some(resolution::resolve_new(ProviderKind::Muse)?))
+    }
+
     pub fn new(config: Config) -> Result<Provider, Error> {
         validate_config(&config)?;
         check_binary(&config)?;
@@ -41,14 +57,27 @@ impl Provider {
     /// Start a device-code enrollment. The owner is accepted for interface
     /// parity; like the Go provider, enrollment inherits no caller-selected
     /// identity.
+    ///
+    /// Store mode resolves the fresh shared selection on every call, so a
+    /// refreshed bundle is picked up without a broker restart and no hash
+    /// is cached across sessions.
     pub fn start(&self, _owner: i64) -> Result<Session, Error> {
+        let bound = if self.config.store {
+            Some(resolution::resolve_new(ProviderKind::Muse)?)
+        } else {
+            None
+        };
+        let binary = bound
+            .as_ref()
+            .map(|held| held.binary.to_string_lossy().into_owned())
+            .unwrap_or_else(|| self.config.binary.clone());
         let dir = enrollment_tempdir(Path::new(&self.config.root))?;
         let root = dir.path().to_path_buf();
         let id = root
             .file_name()
             .map(|n| n.as_bytes().to_vec())
             .unwrap_or_default();
-        let mut child = Command::new(&self.config.binary)
+        let mut child = Command::new(&binary)
             .arg("login")
             .env_clear()
             .envs(
@@ -86,6 +115,9 @@ impl Provider {
                 root: Mutex::new(Some(dir)),
                 done: Mutex::new(done_rx),
                 finished: AtomicBool::new(false),
+                bound: Mutex::new(bound),
+                fallback_version: self.config.version.clone(),
+                fallback_digest: self.config.sha256.clone(),
             }),
         };
         {
@@ -115,6 +147,12 @@ struct Inner {
     root: Mutex<Option<tempfile::TempDir>>,
     done: Mutex<mpsc::Receiver<()>>,
     finished: AtomicBool,
+    /// Store-bound executable for this session. Present only in store mode;
+    /// the token pins the exact bundle against cleanup until released.
+    bound: Mutex<Option<BoundBinary>>,
+    /// Explicit-mode attribution when no store binding exists.
+    fallback_version: String,
+    fallback_digest: String,
 }
 
 impl Drop for Inner {
@@ -122,6 +160,13 @@ impl Drop for Inner {
         // Session and pump threads retain this owner until the child is reaped.
         // TempDir's fallback cleanup covers abandoned completed sessions.
         self.root.get_mut().unwrap().take();
+        // Fail-safe: a dropped-but-unclosed session must not leave its
+        // bundle pinned, but release failures are best-effort here.
+        if let Ok(mut bound) = self.bound.try_lock() {
+            if let Some(mut held) = bound.take() {
+                resolution::release_bound(&mut held);
+            }
+        }
     }
 }
 
@@ -133,6 +178,26 @@ pub struct Session {
 impl Session {
     pub fn snapshot(&self) -> Enrollment {
         self.inner.state.lock().unwrap().clone()
+    }
+
+    /// Version of the exact executable this session runs: the bound store
+    /// selection in store mode, the configured pin otherwise. This replaces
+    /// the old hardcoded `VERSION` assumption with per-session resolution.
+    pub fn provider_version(&self) -> String {
+        if let Some(bound) = self.inner.bound.lock().unwrap().as_ref() {
+            return bound.version.clone();
+        }
+        self.inner.fallback_version.clone()
+    }
+
+    /// Digest of the exact executable this session runs: the admitted bundle
+    /// digest in store mode (usable with `resolve_existing` for recovery),
+    /// the configured file digest otherwise.
+    pub fn provider_digest(&self) -> String {
+        if let Some(bound) = self.inner.bound.lock().unwrap().as_ref() {
+            return bound.digest.clone();
+        }
+        self.inner.fallback_digest.clone()
     }
 
     pub fn finish(&self) -> Result<(Connection, Vec<u8>), Error> {
@@ -170,6 +235,13 @@ impl Session {
             Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => {
                 if let Some(root) = self.inner.root.lock().unwrap().take() {
                     root.close()?;
+                }
+                // The session no longer needs its exact bundle pinned:
+                // release the store reference so cleanup may reclaim it
+                // once unreferenced. On timeout below the child may still
+                // run, so the pin is deliberately kept there.
+                if let Some(mut held) = self.inner.bound.lock().unwrap().take() {
+                    resolution::release_bound(&mut held);
                 }
                 Ok(())
             }
@@ -260,10 +332,16 @@ fn environment(root: &str) -> Vec<String> {
 }
 
 fn validate_config(c: &Config) -> Result<(), Error> {
-    if !Path::new(&c.binary).is_absolute()
-        || !Path::new(&c.root).is_absolute()
-        || c.sha256.len() != 64
-    {
+    if !Path::new(&c.root).is_absolute() {
+        return Err(Error::denied("invalid Muse configuration"));
+    }
+    if c.store {
+        // Store mode resolves the executable per session; a pinned binary
+        // must not shadow the shared selection.
+        if !c.binary.is_empty() || !c.sha256.is_empty() {
+            return Err(Error::denied("invalid Muse configuration"));
+        }
+    } else if !Path::new(&c.binary).is_absolute() || c.sha256.len() != 64 {
         return Err(Error::denied("invalid Muse configuration"));
     }
     let info = std::fs::symlink_metadata(&c.root)
@@ -275,6 +353,10 @@ fn validate_config(c: &Config) -> Result<(), Error> {
 }
 
 fn check_binary(c: &Config) -> Result<(), Error> {
+    if c.store {
+        // The executable is resolved and admitted per session creation.
+        return Ok(());
+    }
     let mut f = std::fs::File::open(&c.binary)?;
     let sum = sha256::digest_reader(&mut f)?;
     if sha256::hex(&sum) != c.sha256 {

@@ -23,6 +23,11 @@ struct ProviderSettings {
     sha256: String,
     #[serde(default)]
     root: String,
+    /// Resolve the executable from the shared provider store at each
+    /// session creation instead of the pinned `binary`. Empty `binary`
+    /// with `store = false` keeps its historical meaning: disabled.
+    #[serde(default)]
+    store: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -241,7 +246,7 @@ fn secret(path: &str) -> Result<String, String> {
 
 fn open_broker(settings: &Settings) -> Result<Controller, String> {
     let mut providers: HashMap<String, Box<dyn control::Provider>> = HashMap::new();
-    if !settings.codex.binary.is_empty() {
+    if !settings.codex.binary.is_empty() || settings.codex.store {
         mkdir_all_mode(&settings.codex.root, 0o700)?;
         let provider = soda_identity::providers::codex::Provider::new(
             soda_identity::providers::codex::Config {
@@ -249,6 +254,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
                 version: settings.codex.version.clone(),
                 sha256: settings.codex.sha256.clone(),
                 root: settings.codex.root.clone(),
+                store: settings.codex.store,
             },
         )
         .map_err(|e| e.to_string())?;
@@ -257,7 +263,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
             Box::new(control::CodexProvider(provider)),
         );
     }
-    if !settings.muse.binary.is_empty() {
+    if !settings.muse.binary.is_empty() || settings.muse.store {
         mkdir_all_mode(&settings.muse.root, 0o700)?;
         let provider =
             soda_identity::providers::muse::Provider::new(soda_identity::providers::muse::Config {
@@ -265,6 +271,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
                 version: settings.muse.version.clone(),
                 sha256: settings.muse.sha256.clone(),
                 root: settings.muse.root.clone(),
+                store: settings.muse.store,
             })
             .map_err(|e| e.to_string())?;
         providers.insert(

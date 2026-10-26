@@ -21,6 +21,7 @@ path = "../../cmd/soda-forgejo-tailnet/main.rs"
 
 [dependencies]
 soda-build-tools = { path = "../release-inputs" }
+soda-provider-tools = { path = "../provider-tools" }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 base64 = "=0.22.1"

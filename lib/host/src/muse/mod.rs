@@ -61,6 +61,9 @@ pub use self::config::decode_config_view;
 mod execution;
 mod inspect;
 mod launch;
+mod provider;
+
+pub use self::provider::{expected_muse_identity, retained_muse_executable};
 
 pub use self::launch::MuseLaunch;
 

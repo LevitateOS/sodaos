@@ -351,6 +351,11 @@ fn shutdown_joins_admitted_provider_work_without_blocking_http_runtime() {
         }
     }
     impl Provider for BlockingProvider {
+        fn bind_new(
+            &self,
+        ) -> Result<Option<soda_identity::providers::resolution::BoundBinary>, Error> {
+            Ok(None)
+        }
         fn start(&self, _owner: i64) -> Result<Box<dyn EnrollmentSession>, Error> {
             self.entered.send(()).unwrap();
             self.release.lock().unwrap().recv().unwrap();

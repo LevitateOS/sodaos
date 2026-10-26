@@ -1,0 +1,16 @@
+[package]
+name = "soda-provider-update"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Operator command for provider CLI freshness: check, refresh, status (UP-20261026-v1)"
+
+[[bin]]
+name = "soda-provider-update"
+path = "src/main.rs"
+
+[dependencies]
+soda-provider-tools = { path = "../../lib/provider-tools" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"

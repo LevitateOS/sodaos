@@ -1873,6 +1873,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "soda-build-tools",
+ "soda-provider-tools",
  "soda-release-deliver",
  "soda-unix-http",
  "soda-wire-time",
@@ -1898,6 +1899,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "soda-provider-tools",
  "soda-unix-http",
  "soda-wire-time",
  "tempfile",
@@ -1994,6 +1996,7 @@ dependencies = [
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-host",
+ "soda-provider-tools",
  "soda-release-deliver",
  "soda-unix-http",
  "tar",
@@ -2011,6 +2014,29 @@ dependencies = [
  "sha2 0.10.9",
  "soda-host",
  "soda-wire-time",
+]
+
+[[package]]
+name = "soda-provider-tools"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tar",
+ "tempfile",
+ "ureq",
+]
+
+[[package]]
+name = "soda-provider-update"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "soda-provider-tools",
 ]
 
 [[package]]

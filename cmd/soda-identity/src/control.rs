@@ -1,6 +1,7 @@
 // Subscription admission and credential custody, mirroring
 // internal/identity/control: enrollment sessions, grants, leases,
 // execution fencing and native termination.
+use crate::providers::resolution::BoundBinary;
 use crate::store::Store;
 use crate::wire::{provider_valid, Connection, Enrollment, Error, Lease};
 use std::collections::HashMap;
@@ -14,6 +15,10 @@ pub trait EnrollmentSession: Send {
 
 pub trait Provider: Send + Sync {
     fn start(&self, owner: i64) -> Result<Box<dyn EnrollmentSession>, Error>;
+    /// Pin the fresh shared selection for NEW lease work (`None` in
+    /// explicit mode). A refresh must never corrupt an active run, and new
+    /// acquisitions pick up the refreshed selection without a restart.
+    fn bind_new(&self) -> Result<Option<BoundBinary>, Error>;
 }
 
 pub trait Runtime: Send + Sync {
@@ -69,6 +74,10 @@ impl Provider for CodexProvider {
             self.0.start(owner).map_err(map_provider_error)?,
         )))
     }
+
+    fn bind_new(&self) -> Result<Option<BoundBinary>, Error> {
+        self.0.bind_new().map_err(map_provider_error)
+    }
 }
 
 impl Provider for MuseProvider {
@@ -76,6 +85,10 @@ impl Provider for MuseProvider {
         Ok(Box::new(MuseSession(
             self.0.start(owner).map_err(map_provider_error)?,
         )))
+    }
+
+    fn bind_new(&self) -> Result<Option<BoundBinary>, Error> {
+        self.0.bind_new().map_err(map_provider_error)
     }
 }
 
@@ -92,6 +105,13 @@ pub(crate) struct State {
     pub(crate) providers: HashMap<String, Box<dyn Provider>>,
     pub(crate) runtime: Box<dyn Runtime>,
     pub(crate) enrollments: HashMap<String, EnrollmentEntry>,
+    /// Live lease pins against provider-store cleanup: lease id to the
+    /// exact bound bundle. Present only for store-mode providers; the pin
+    /// is released once no live lease row references the bundle, so a
+    /// refresh never corrupts an active run. Never blocks on this map:
+    /// callers hold the controller lock, so the map lock is never taken
+    /// in the opposite order.
+    pub(crate) lease_refs: Mutex<HashMap<String, BoundBinary>>,
 }
 
 pub struct Controller {
@@ -118,12 +138,43 @@ impl Controller {
                 providers,
                 runtime,
                 enrollments: HashMap::new(),
+                lease_refs: Mutex::new(HashMap::new()),
             }),
         })
     }
 
     pub(crate) fn lock(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap()
+    }
+
+    /// Pin the fresh shared selection for a newly admitted lease. Explicit
+    /// providers pin nothing. In store mode a known-stale/failed selection
+    /// fails acquisition here, so blocked new work surfaces instead of
+    /// running on a stale pin; live leases keep their existing pins.
+    pub(crate) fn pin_lease(state: &State, lease: &Lease) -> Result<(), Error> {
+        let provider = state
+            .providers
+            .get(&lease.provider_id)
+            .ok_or_else(|| Error::internal("identity custody dependencies required"))?;
+        if let Some(bound) = provider.bind_new()? {
+            state
+                .lease_refs
+                .lock()
+                .unwrap()
+                .insert(lease.id.clone(), bound);
+        }
+        Ok(())
+    }
+
+    /// Release a lease's store pin. Callers invoke this only once no live
+    /// lease row references the bundle (lease forgotten or returned), so
+    /// cleanup may reclaim the bundle once it is otherwise unreferenced.
+    /// Release failures keep the pin (fail-safe) and never fail teardown.
+    pub(crate) fn unpin_lease(state: &State, lease: &Lease) {
+        let held = state.lease_refs.lock().unwrap().remove(&lease.id);
+        if let Some(mut bound) = held {
+            crate::providers::resolution::release_bound(&mut bound);
+        }
     }
 
     pub(crate) fn owned(state: &State, owner: i64, id: &str) -> Result<Connection, Error> {
