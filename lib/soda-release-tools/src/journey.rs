@@ -1,6 +1,7 @@
 //! Installed-journey operator. The driver owns scenario validation and observed
 //! business state; Rust binds exact inputs and reuses protected collection.
 use crate::qualification::input::{self, FileReference};
+mod cold;
 use clap::{Arg, ArgMatches, Command};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -101,6 +102,7 @@ pub(crate) fn command() -> Command {
                 .about("Admit the saved exact scope, respect holds and reuse protected collection")
                 .arg(Arg::new("run").long("run").required(true).num_args(1)),
         )
+        .subcommand(cold::command())
 }
 
 pub(crate) fn run(flags: &ArgMatches) -> Result<(), String> {
@@ -115,6 +117,7 @@ pub(crate) fn run(flags: &ArgMatches) -> Result<(), String> {
         "check" => check(path("scenario")?, path("out")?),
         "status" => status(path("run")?),
         "run" => execute(path("run")?),
+        "cold" => cold::run(flags),
         _ => Err("unknown journey action".into()),
     }
 }

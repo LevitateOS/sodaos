@@ -49,7 +49,8 @@ export class PersistencePermits {
   arm(name: string, path: string, body: unknown) {
     const terminal = name.match(/^end-terminal-([a-f0-9]{32})$/),
       project = name.match(/^stop-project-(p[a-f0-9]{24})$/),
-      application = name.match(/^stop-application-(a[a-f0-9]{24})$/);
+      application = name.match(/^stop-application-(a[a-f0-9]{24})$/),
+      verifyApp = name.match(/^verify-(primary|isolated)-(start|stop)-application-(a[a-f0-9]{24})$/);
     if (terminal) {
       check(
         new RegExp('/environments/p[a-f0-9]{24}/terminal-sessions/' + terminal[1] + '$').test(path),
@@ -59,13 +60,15 @@ export class PersistencePermits {
     } else if (project) {
       check(path.endsWith('/environments/' + project[1] + '/lifecycle'), 'fixed_project_path');
       assert.deepEqual(body, {action: 'stop', confirm_stop: true});
-    } else if (application) {
+    } else if (application || verifyApp) {
       const v = body as any;
+      const id = application?.[1] ?? verifyApp![3],
+        action = application ? 'stop' : verifyApp![2];
       check(
-        path.endsWith('/applications/' + application[1] + '/actions') &&
+        path.endsWith('/applications/' + id + '/actions') &&
           Object.keys(v).sort().join(',') === 'action,confirm_stop,expected_container,revision' &&
-          v.action === 'stop' &&
-          v.confirm_stop === true &&
+          v.action === action &&
+          v.confirm_stop === (action === 'stop') &&
           Number.isSafeInteger(v.revision) &&
           v.revision > 0 &&
           /^[a-f0-9]{64}$/.test(v.expected_container),

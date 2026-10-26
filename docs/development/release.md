@@ -565,8 +565,9 @@ one local owner/record, verifies normal read/render and anonymous denial, then
 reopens the same data/team/credentials after native restart. Both actual process
 exits and writer-lock release are recorded. Failed state and credentials remain
 available; do not bootstrap over them. This local check proves no guest install
-or release qualification. Installed supplemental collector composition remains
-J19–J20; `app_route` stays explicitly unobserved.
+or release qualification. Installed supplemental collector composition is
+implemented; its actual installed-route checks remain J20 and `app_route` stays
+explicitly unobserved until those checks support it.
 
 `phases/journey-measurements.ts` coordinates an already authenticated App owner
 and record with the Project phase's retained real terminal probe. Its measured
@@ -603,9 +604,94 @@ check performs two native reads while the App and PTY remain live, then retires
 the local PTY before the App restart/readback check. Its
 `measurement-scope.json` explicitly leaves Factory CI/review/delivery null. It
 neither drives Factory nor proves an installed App/browser terminal route.
-The protected collector still admits only its four canonical cases and two fixed
-credentials; J19–J20 must compose the App credential/handoff and supplemental
-route before any installed trial. Do not bypass those admission checks.
+The protected collector still emits only four canonical observation kinds. Its
+optional supplemental route selects one App and cold recovery after those four
+cases, optionally with `basic_capacity`. Readiness/admission still holds that
+route for J20 verification; a new implementation is not an installed pass.
+
+### Final retained state and cold recovery
+
+`phases/final-state-recovery.ts` uses the existing complete resource inventory
+and writer retirement before same-image persistence. It reads the same App owner,
+record and rendered page after recreation, then stops the App again and takes a
+fresh native baseline. The old whole hash is not reused after App observation
+updates. Factory history, policy and accounting ledgers must remain unchanged.
+The adopted App is rebound to the verified new Docker outer ID. After cold
+restore, the same Project witness, protected business state and owner record
+must match; copied inode numbers are excluded from the portable comparison.
+
+The concrete protected adapter is `phases/prepare-final-recovery.ts`. It adopts
+an existing running App through normal APIs and fresh native evidence, without
+installation or first-owner setup. Public fixture bytes come from
+`/run/soda-qualification-runtime/applications/APP_ID.json` and retain the selected
+publisher hash. App credentials arrive as systemd credential
+`application-owner-APP_ID`, alongside the fixed SSH/workspace pair. Root derives
+exact permitted names from the hash-bound selected scenario; controller-local
+credential references are never opened by the worker. The runtime's optional
+`details.cold` selects a root-owned pinned operator executable plus fresh private
+capture and restore directories. Its presence/identity is checked before Factory.
+
+`soda-release journey cold` owns complete stopped Docker storage. `capture`
+requires the exact cleanly exited Compose container/image and exactly three
+owned local named volumes at `/etc`, `/home` and `/var`; it refuses other running
+containers holding any of those paths and refuses external mounts. It copies the
+three full trees and original `compose.yaml`, protected `.env`, `identity.json`
+and `docker.json`, preserving and verifying bytes, ownership, permissions,
+timestamps, links and extended attributes. Outputs stay private under `/home`;
+their parent and ancestors must be root controlled. Copies use reflinks when
+available and sparse copies otherwise. An incomplete output stays incomplete.
+
+```sh
+sudo soda-release journey cold capture \
+  --container EXACT_STOPPED_CONTAINER_ID --project sodaos \
+  --image ghcr.io/levitateos/sodaos@sha256:EXACT_MANIFEST \
+  --settings /home/sodaos --out /home/private-recovery/final-cold
+sudo soda-release journey cold restore \
+  --source /home/private-recovery/final-cold \
+  --out /home/private-recovery/fresh-restore
+```
+
+`restore` verifies the completed set, copies into fresh storage and creates a
+separate stopped container with network `none`, private cgroups and fresh
+`/run`/`/tmp`. It preserves the selected image and private execution environment;
+it does not pull or start anything. The maintained composition explicitly boots
+that container, adds the original private browser address only to its isolated
+loopback and checks services before reading retained state. Ordinary browser
+owner requests and App-local HTTP/MCP requests cross the existing protected SSH
+transport into that namespace, preserving TLS origin/CA and command permits.
+There is no host port, provider network or replacement sign-in. HTTP bodies,
+cookies and credentials are not evidence; bounded request metadata is saved.
+The isolated container is stopped afterward, including on failure, with all
+source/copy data preserved. Lost capture/restore replies are reconciled from
+their exact journals without repeating an effect.
+
+App/capacity/cold results live under `supplemental/`; they never acquire a fifth
+canonical Docker kind or imply unobserved CI/review/delivery/capacity results.
+The main caller retains the canonical persistence result separately. Complete
+installed boot/readback, root credential delivery and current-target readiness
+still need J20's real route checks, then the separately held live acceptance.
+
+Provider-free checks reuse the qualified App runtime and existing owner/data:
+
+```sh
+bun tests/installed/qualification/check-application-recovery.ts \
+  --storage /home/source/sodaos/target/release/soda-canlang-storage \
+  --runtime /home/qualified-canlang/bin/can-soda \
+  --bundle /home/inputs/bundle.json --module /home/inputs/phases.js \
+  --proof /home/retained-app-check --out /home/fresh-app-recovery-check
+sudo bun tests/installed/qualification/check-cold.ts \
+  --operator /home/source/sodaos/target/release/soda-release \
+  --app-proof /home/retained-app-check --out /home/fresh-docker-cold-check
+```
+
+The first uses the actual fixed curl transport for normal owner login, MCP and
+rendered readback, refuses a live writer, restores stopped data to a fresh
+loopback runtime and rechecks the original. It never bootstraps another owner.
+The second imports only a tiny local executable fixture, creates independent
+local volumes containing retained App storage and nonsecret witnesses, verifies
+active-writer refusal, complete copy/restore and an actual isolated container
+exit. It pulls no image and builds no Soda media. These are distinct real local
+checks; neither is a complete installed Soda recovery claim.
 
 `soda-acceptance` remains a generic execution/evidence tool. Its driver explicitly
 does not own product scenarios; do not move Factory orchestration into it.
@@ -1188,12 +1274,48 @@ Depends on 3–4.**
   no per-attempt implementation was imported/executed. Protected App credential
   delivery and full collector composition remain J19–J20; the four-case route
   and `app_route` admission are unchanged.
-- [ ] **J19.** Implement the final-state persistence/recovery sequence: after accounting
+- [x] **J19.** Implement the final-state persistence/recovery sequence: after accounting
   settles, stop owned writers, take current protected state, perform the selected
   persistence operation, read back the same owner/record,
   Project witness and Factory history, then take one final cold set and restore
   it in isolation. Keep supplemental App/capacity/cold validation distinct from
   the four canonical Docker observation kinds.
+
+  Accepted at the authorized local implementation scope. The maintained Docker
+  composition now wires J18 probes to App adoption, selected protected
+  credentials and the ordered final-state owner above. Its concrete normal-owner
+  transport performs App readback/retirement before the final cold baseline;
+  the Rust executor owns complete stopped three-volume copies and fresh isolated
+  storage. Cold boot/readback uses the same inner native reader and normal
+  authenticated App/browser protocol. Unknown outcomes preserve exact journals
+  instead of repeating stop/copy/create/start. The source and Ready provider
+  connection are preserved. Existing four-case operation remains supported;
+  supplemental admission remains held for J20's actual route checks.
+
+  Real local Docker integration passed with three actual named volumes,
+  retained qualified App storage, file/link witnesses and a separate network-none
+  container. It refused an active holder, verified copied bytes/metadata, left
+  source stopped and restored the executable fixture to exit zero. An actual
+  regular-file inventory failure was fixed; failed fixtures remain preserved.
+  Receipt: `/home/soda-journey-j19-cold-r3/result.json` (root private).
+  The explicit stock Compose user-namespace setting was then checked against
+  that same completed set without rebuilding/reimporting its fixture:
+  `/home/soda-journey-j19-cold-r3/userns-restoration-check.json`.
+
+  Real App integration reused J18's existing owner, credentials, record and data;
+  no new bootstrap. Live-writer backup was refused; a stopped snapshot restored
+  to fresh data, the same owner/record rendered through the fixed curl protocol,
+  and the original reopened successfully. All three native exits were zero and
+  released their writer locks. Receipt:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j19-app-recovery-r2/result.json`.
+  Module/input directory:
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j19-inputs/`.
+  Warm Rust release builds, full/focused strict TS and affected lint/format checks
+  passed. No model calls, image pulls, appliance changes, source pushes or
+  release/media builds ran. Selected-App systemd delivery and the complete
+  installed composition are implemented/compiled, not live-qualified by those
+  two narrower checks; they remain J20. CPU/memory and new Factory outcomes
+  remain unobserved.
 - [ ] **J20.** Before any sponsored demonstration, verify known route assumptions,
   App handoff, owned-resource closure and evidence shapes
   using available real-system checks. Future model/review/concurrency outcomes
@@ -1355,7 +1477,8 @@ Prove those commands with component/development checks before producing final
 bytes. Debugging a collector does not require rebuilding unchanged shipping bytes.
 
 Production collection uses a root-admitted runtime inventory and the fixed
-`guest-ssh-key` and `workspace-owner-password` systemd credentials. Its browser
+`guest-ssh-key` and `workspace-owner-password` systemd credentials, plus exactly
+the selected `application-owner-APP_ID` credentials when an App is requested. Its browser
 runtime and public target trust are read-only; private browser state stays in
 the attempt's `.work/` directory until confirmed unit retirement and removal
 before sealing. Never mount a developer checkout or credential directory into

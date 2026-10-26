@@ -113,7 +113,7 @@ try{
  need(execution.installer_url==='https://github.com/LevitateOS/sodaos/releases/download/'+REQUEST.tag+'/install-docker.sh'&&JSON.stringify(execution.arguments)===JSON.stringify(['--qualification','--yes','--bind-ip',identity.bind_ip,'--project-subnet',identity.project_subnet,'--install-dir',root]),'actual_canonical_installer_arguments');
  const started=Date.parse(execution.started_at),finished=Date.parse(execution.finished_at);need(Number.isFinite(started)&&finished>started&&finished<=Date.now()+5000&&volumes.every(x=>Date.parse(x.created_at)>=started-1000&&Date.parse(x.created_at)<=finished+1000),'fresh_volume_creation');
  const inner=JSON.parse(run('/usr/bin/docker',['--host','unix:///var/run/docker.sock','exec','-i','sodaos-soda-1','/usr/bin/node','-'],'const REQUEST='+JSON.stringify(REQUEST)+';\n'+INNER,180000));
- console.log(JSON.stringify({target:REQUEST.target,outer_id:ci.id,engine_image:ci.image,registry_manifest:REQUEST.manifest,registry_config:REQUEST.config,stock_vendor_files_unchanged:true,identity_sha256:hash(identityBytes),metadata_sha256:hash(metadataBytes),compose_sha256:hash(compose),installer_sha256:hash(script),installer_execution_sha256:hash(executionBytes),installer_execution_text:executionBytes.toString('utf8'),installer_execution:execution,volumes,os:info.OSType,architecture:'x86_64',rootful:true,cgroup_version:2,host_network:true,fresh_volumes:true,inner}));
+ console.log(JSON.stringify({target:REQUEST.target,host_uuid:fs.readFileSync("/sys/class/dmi/id/product_uuid","utf8").trim().toLowerCase(),outer_id:ci.id,engine_image:ci.image,registry_manifest:REQUEST.manifest,registry_config:REQUEST.config,stock_vendor_files_unchanged:true,identity_sha256:hash(identityBytes),metadata_sha256:hash(metadataBytes),compose_sha256:hash(compose),installer_sha256:hash(script),installer_execution_sha256:hash(executionBytes),installer_execution_text:executionBytes.toString('utf8'),installer_execution:execution,volumes,os:info.OSType,architecture:'x86_64',rootful:true,cgroup_version:2,host_network:true,fresh_volumes:true,inner}));
 }catch(e){console.error(JSON.stringify({reason:e instanceof Error&&/^[a-z0-9_]+$/.test(e.message)?e.message:'docker_observation_unavailable'}));process.exitCode=1;}
 `;
 
@@ -179,6 +179,7 @@ export async function readDocker(
   );
   if (mode !== 'installation') {
     check(scope, 'shared_resource_scope_required');
+    check(value.host_uuid === scope.scenario.target.uuid, 'exact_docker_host_uuid');
     assertResourceInventory(scope, value.inner.resource_inventory);
     if (mode === 'snapshot')
       check(

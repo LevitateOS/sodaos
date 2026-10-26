@@ -1,6 +1,7 @@
 // Reuse an installed App through its existing owners. Soda owns registration
 // and lifecycle; Canlang owns the separate account, team and application record.
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {applicationResponse, type ApplicationRecord} from '../../../frontend/spaces/sodaspaces-application-response';
 import {object} from '../sodaspaces-input';
 import type {ApplicationSelection, PublicArtifact, QualificationScenario} from './scenario';
@@ -59,9 +60,15 @@ const image = /^sha256:[a-f0-9]{64}$/;
 /** Read the retained publisher metadata, not an executable per-attempt helper. */
 export async function applicationFixture(
   s: QualificationScenario,
-  reference: PublicArtifact
+  reference: PublicArtifact,
+  admittedBytes?: Uint8Array
 ): Promise<ApplicationFixture> {
-  const value = object(JSON.parse((await publicBytes(reference)).toString()));
+  const bytes = admittedBytes === undefined ? await publicBytes(reference) : Buffer.from(admittedBytes);
+  assert(
+    bytes.length <= 16 << 20 && createHash('sha256').update(bytes).digest('hex') === reference.sha256,
+    'application_fixture_bytes_changed'
+  );
+  const value = object(JSON.parse(bytes.toString()));
   assert(
     value.source === s.candidate.source_revision && value.payloadSha256 === s.candidate.payload_sha256,
     'application_fixture_candidate_changed'
@@ -142,6 +149,8 @@ export async function adoptApplication(
   runtime: {
     get(route: string): Promise<unknown>;
     save(relative: string, value: unknown): Promise<unknown>;
+    /** Worker-namespace copy from the root-admitted public runtime inventory. */
+    fixtureBytes?: Uint8Array;
   }
 ): Promise<ApplicationHandoff> {
   const s = scenarioInput(scenario);
@@ -151,7 +160,7 @@ export async function adoptApplication(
   const observed = readiness.observation?.inventory.applications.filter((a) => a.id === applicationID) ?? [];
   assert(observed.length === 1, 'selected_application_missing');
   const nativeTransport = transport(s, readiness, observed[0]!.data_id);
-  const fixture = await applicationFixture(s, selected.fixture);
+  const fixture = await applicationFixture(s, selected.fixture, runtime.fixtureBytes);
   const record = applicationResponse(await runtime.get('/api/applications/' + applicationID));
   assert(!record.restore, 'application_restore_pending');
   const actual = record.application;

@@ -5,8 +5,14 @@ import {lstat, mkdir, open, readFile} from 'node:fs/promises';
 import path from 'node:path';
 import type {ResolvedQualificationInput} from './scenario';
 import {scenarioInput} from './validate';
-import {collectDockerPhases, dockerPhaseConfiguration, type DockerPhaseDetails} from './phases/docker-phases';
+import {
+  collectDockerPhases,
+  dockerPhaseConfiguration,
+  type DockerPhaseDetails,
+  type DockerPhaseRuntime,
+} from './phases/docker-phases';
 import {check, COMMIT, sha} from './phases/support';
+import {prepareDockerRecovery} from './phases/prepare-final-recovery';
 
 declare const COLLECTOR_TOOL_REVISION: string;
 const INPUT = '/run/soda-qualification-candidate';
@@ -121,7 +127,7 @@ async function main() {
   await privateDirectory(OUTPUT);
   const work = OUTPUT + '/.work';
   const home = work + '/home';
-  const result = await collectDockerPhases(input, details, {
+  const runtime: DockerPhaseRuntime = {
     save,
     saveBytes,
     sshRead(program, timeout = 45000) {
@@ -196,7 +202,25 @@ async function main() {
     async ownerPassword() {
       return (await readFile(credentials + '/workspace-owner-password', 'utf8')).trim();
     },
-  });
+  };
+  if (scenario.cases.length > 4) {
+    check(scenario.applications?.length === 1 && details.cold, 'selected_supplemental_runtime_required');
+    runtime.prepareFinalRecovery = async (page, apiBase, b, permits) => {
+      const app = scenario.applications![0]!;
+      const fixture = await readFile(RUNTIME + '/applications/' + app.application_id + '.json');
+      check(sha(fixture) === app.fixture.sha256, 'admitted_worker_application_fixture');
+      return prepareDockerRecovery(input, details, runtime, page, apiBase, b, permits, fixture, async () => {
+        const file = credentials + '/application-owner-' + app.application_id;
+        const stat = await lstat(file);
+        check(
+          stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= 65536,
+          'bounded_delivered_application_credential'
+        );
+        return JSON.parse(await readFile(file, 'utf8'));
+      });
+    };
+  }
+  const result = await collectDockerPhases(input, details, runtime);
   for (const kind of ['installation', 'browser_project', 'factory', 'persistence'] as const) {
     const time = result.times[kind];
     const files = Object.fromEntries(

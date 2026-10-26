@@ -105,10 +105,13 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     valid_worker_identity(w)?;
     if !w.credentials.is_empty()
         && (w.user != "soda-qualifier"
-            || w.credentials.keys().map(String::as_str).collect::<Vec<_>>()
-                != ["guest-ssh-key", "workspace-owner-password"])
+            || !super::config::qualification_credential_names(
+                w.credentials.keys().map(String::as_str),
+            ))
     {
-        return Err("only the two fixed qualification credentials are permitted".into());
+        return Err(
+            "only fixed qualification and bounded selected App credentials are permitted".into(),
+        );
     }
     let mut args = vec![
         "--quiet".to_owned(),

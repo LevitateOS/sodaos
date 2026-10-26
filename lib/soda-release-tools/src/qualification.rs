@@ -3,7 +3,7 @@ use crate::worker::{self, Worker, WorkerUnitCustody, WORKER_CONTROLLER};
 use serde::{Deserialize, Serialize};
 use soda_release_deliver::publish::qualification::{self as evidence, ProtectedEvidence};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
@@ -16,7 +16,6 @@ const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
 const RUNTIME: &str = "/run/soda-qualification-runtime";
 const RESOLVED_INPUT: &str = "/run/soda-qualification-journey.json";
-const CREDENTIALS: [&str; 2] = ["guest-ssh-key", "workspace-owner-password"];
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Runtime {
@@ -201,10 +200,10 @@ fn access_binding(path: &Path, a: &Authority) -> Result<(), String> {
     if let Some(runtime) = &a.runtime {
         runtime_binding(runtime)?;
     }
-    if (!a.credentials.is_empty() || a.purpose == "production")
-        && a.credentials.keys().map(String::as_str).collect::<Vec<_>>() != CREDENTIALS
+    if !worker::qualification_credential_names(a.credentials.keys().map(String::as_str))
+        || (a.purpose == "production" && a.credentials.is_empty())
     {
-        return Err("the two fixed qualification credentials are required".into());
+        return Err("fixed qualification credentials and bounded App names required".into());
     }
     if a.purpose == "production" && a.runtime.is_none() {
         return Err("production qualification runtime required".into());
@@ -220,6 +219,80 @@ fn access_binding(path: &Path, a: &Authority) -> Result<(), String> {
         if credential.path != parent.join(name) || hash(&credential.path)? != credential.sha256 {
             return Err("qualification credential identity refused".into());
         }
+    }
+    Ok(())
+}
+
+/// Controller references are metadata only. Secret delivery always comes from
+/// the authority's fixed private credential directory, never a scenario path.
+fn selected_credentials(
+    a: &Authority,
+    reference: Option<&input::FileReference>,
+    retained: bool,
+) -> Result<(), String> {
+    let mut expected: BTreeSet<String> = if a.credentials.is_empty() && a.purpose != "production" {
+        BTreeSet::new()
+    } else {
+        worker::QUALIFICATION_CREDENTIALS
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect()
+    };
+    if let Some(reference) = reference {
+        if retained {
+            let meta = fs::symlink_metadata(&reference.path)
+                .map_err(|_| "retained resolved credential scope unavailable")?;
+            if meta.uid() != 0 {
+                return Err("root-owned retained credential scope required".into());
+            }
+            input::verify(reference)?;
+        } else {
+            evidence::protected_path(&reference.path, false)
+                .map_err(|_| "root-protected resolved credential scope required")?;
+            if hash(&reference.path)? != reference.sha256 {
+                return Err("resolved credential scope changed".into());
+            }
+        }
+        let resolved: serde_json::Value = read(&reference.path)?;
+        if let Some(applications) = resolved.pointer("/scenario/applications") {
+            let applications = applications
+                .as_array()
+                .ok_or("selected App credential scope must be an array")?;
+            if applications.len() > 16 {
+                return Err("selected App credential scope exceeds bound".into());
+            }
+            let mut ids = BTreeSet::new();
+            for app in applications {
+                let id = app
+                    .get("application_id")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or("selected App credential ID required")?;
+                if id.len() != 25
+                    || !id.starts_with('a')
+                    || !id.as_bytes()[1..]
+                        .iter()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
+                    || !ids.insert(id)
+                {
+                    return Err("unique selected App credential IDs required".into());
+                }
+                let owner_path = app
+                    .get("owner_credentials_file")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or("selected App owner reference required")?;
+                if !resolved
+                    .pointer("/scenario/credentials/application_owner_files")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|paths| paths.iter().any(|path| path.as_str() == Some(owner_path)))
+                {
+                    return Err("selected App owner reference is outside scenario custody".into());
+                }
+                expected.insert(format!("application-owner-{id}"));
+            }
+        }
+    }
+    if expected != a.credentials.keys().cloned().collect() {
+        return Err("qualification credentials differ from exact selected Apps".into());
     }
     Ok(())
 }
@@ -489,6 +562,7 @@ fn retained_request(out: &Path) -> Result<(Request, Authority), String> {
     }
     input_binding(&a, &out.join("input"))?;
     resolved_binding(out, &a, &request)?;
+    selected_credentials(&a, request.resolved_input.as_ref(), true)?;
     Ok((request, a))
 }
 fn resolved_binding(out: &Path, a: &Authority, request: &Request) -> Result<(), String> {
@@ -719,6 +793,13 @@ fn collect_inner(
             }
         }
     }
+    selected_credentials(
+        &a,
+        journey
+            .map(|(resolved, _)| resolved)
+            .or(a.resolved_input.as_ref()),
+        false,
+    )?;
     if out.parent() != Some(a.output_parent.as_path())
         || out.file_name().is_none()
         || out.starts_with(candidate)

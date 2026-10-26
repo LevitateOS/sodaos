@@ -38,6 +38,17 @@ const object = (value: unknown): Record<string, any> => {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'application_response_unconfirmed');
   return value as Record<string, any>;
 };
+export interface ApplicationHttpRequest {
+  readonly route: string;
+  readonly method: 'GET' | 'POST';
+  readonly body: string | null;
+  readonly headers: Record<string, string>;
+}
+export interface ApplicationHttpResponse {
+  readonly status: number;
+  readonly text: string;
+  readonly set_cookie: readonly string[];
+}
 
 export async function openApplicationOwner(input: {
   readonly origin: string;
@@ -45,6 +56,9 @@ export async function openApplicationOwner(input: {
   readonly credentials: {readonly email: string; readonly password: string};
   /** Explicit public appliance CA; HTTPS verification remains enabled. */
   readonly ca?: Uint8Array;
+  /** Fixed SSH/namespace HTTP transport for an isolated restored container.
+   * Requests still use the same origin, TLS and ordinary owner protocol. */
+  readonly transport?: (request: ApplicationHttpRequest) => Promise<ApplicationHttpResponse>;
 }) {
   const origin = new URL(input.origin);
   assert(
@@ -65,6 +79,40 @@ export async function openApplicationOwner(input: {
     new Promise<{status: number; text: string}>((resolve, reject) => {
       assert(route.startsWith('/') && !route.startsWith('//') && !route.includes('#'));
       const data = body === undefined ? undefined : JSON.stringify(body);
+      const headers = {
+        accept: 'application/json',
+        origin: input.origin,
+        cookie: [...cookies].map(([key, value]) => key + '=' + value).join('; '),
+        ...(data === undefined
+          ? {}
+          : {'content-type': 'application/json', 'content-length': String(Buffer.byteLength(data))}),
+        ...extra,
+      };
+      const retainCookies = (values: readonly string[]) => {
+        for (const header of values) {
+          const pair = header.split(';', 1)[0]!,
+            at = pair.indexOf('=');
+          if (at > 0) cookies.set(pair.slice(0, at), pair.slice(at + 1));
+        }
+      };
+      if (input.transport) {
+        void input
+          .transport({route, method, body: data ?? null, headers})
+          .then((response) => {
+            assert(
+              Number.isSafeInteger(response.status) &&
+                response.status >= 100 &&
+                response.status <= 599 &&
+                Buffer.byteLength(response.text) <= 2 << 20 &&
+                response.set_cookie.length <= 64,
+              'application_namespace_response_invalid'
+            );
+            retainCookies(response.set_cookie);
+            resolve({status: response.status, text: response.text});
+          })
+          .catch(() => reject(Error('application_transport_uncertain')));
+        return;
+      }
       const native = origin.protocol === 'https:' ? httpsRequest : httpRequest;
       const req = native(
         new URL(route, origin),
@@ -72,22 +120,10 @@ export async function openApplicationOwner(input: {
           method,
           agent: false,
           ...(input.ca === undefined ? {} : {ca: Buffer.from(input.ca)}),
-          headers: {
-            accept: 'application/json',
-            origin: input.origin,
-            cookie: [...cookies].map(([key, value]) => key + '=' + value).join('; '),
-            ...(data === undefined
-              ? {}
-              : {'content-type': 'application/json', 'content-length': Buffer.byteLength(data)}),
-            ...extra,
-          },
+          headers,
         },
         (res) => {
-          for (const header of res.headers['set-cookie'] ?? []) {
-            const pair = header.split(';', 1)[0]!,
-              at = pair.indexOf('=');
-            if (at > 0) cookies.set(pair.slice(0, at), pair.slice(at + 1));
-          }
+          retainCookies(res.headers['set-cookie'] ?? []);
           const chunks: Buffer[] = [];
           let size = 0;
           res.on('data', (bytes: Buffer) => {

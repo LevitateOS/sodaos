@@ -4,7 +4,7 @@ import type {ResourceScope} from '../closure';
 // Importing this module never launches it. journey run admission is separate.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import type {BrowserContext} from 'playwright';
+import type {BrowserContext, Page} from 'playwright';
 import type {ResolvedQualificationInput} from '../scenario';
 import {scenarioInput} from '../validate';
 import {loginNativeForgejo} from '../../sodaspaces-controls';
@@ -22,14 +22,20 @@ import {
   type DockerHostPaths,
   type DockerIO,
   type FileIdentity,
+  type DockerBinding,
+  type Witness,
 } from './docker-binding';
 import {observeInstallation} from './docker-native';
 import {PersistencePermits, retireOwnedResources, exercisePersistence} from './docker-persistence';
+import {exerciseMeasuredFactoryPhase, type JourneyProbes, type TerminalProbe} from './journey-measurements';
+import {exerciseFinalStateRecovery, type FinalRecoveryRuntime} from './final-state-recovery';
+import type {ApplicationHandoff} from '../application';
 
 /** Public facts missing from the initial identity discovery, plus explicit file
  * locations. No duplicated source/target/resource IDs, paid limits or flags. The
  * controller must pin these dependencies in its admitted resolved input. */
 export interface DockerPhaseDetails {
+  readonly cold?: import('./docker-cold').DockerColdPaths;
   readonly preparation_continuation?: SetupContinuation;
   readonly host: DockerHostPaths;
   readonly public_download_directory: string;
@@ -56,6 +62,18 @@ export interface DockerPhaseRuntime extends DockerIO {
   /** Creates a private, trusted context; guards are attached before any page. */
   openBrowser(): Promise<BrowserContext>;
   ownerPassword(): Promise<string>;
+  /** Capabilities supplied by the protected adapter after App adoption and
+   * credential delivery. Missing capabilities block before any phase effect. */
+  prepareFinalRecovery?(
+    page: Page,
+    apiBase: string,
+    b: DockerBinding,
+    permits: PersistencePermits
+  ): Promise<{
+    readonly application: ApplicationHandoff;
+    readonly probe: JourneyProbes['application'];
+    readonly operations: (scope: ResourceScope, witness: Witness) => FinalRecoveryRuntime;
+  }>;
 }
 
 /** A projection into the migrated phase functions' wire shapes, never another
@@ -65,7 +83,19 @@ export function dockerPhaseConfiguration(input: ResolvedQualificationInput, deta
   const s = scenarioInput(input.scenario);
   check(!s.authority.held && s.authority.scope_receipt_file !== null, 'journey_execution_held');
   check(s.target.distribution === 'docker', 'docker_scenario_required');
-  assert.deepEqual(s.cases, ['installation', 'browser_project', 'factory', 'persistence']);
+  assert.deepEqual(s.cases.slice(0, 4), ['installation', 'browser_project', 'factory', 'persistence']);
+  check(
+    s.cases.slice(4).every((c) => ['app', 'basic_capacity', 'cold_recovery'].includes(c)),
+    'supported_supplemental_cases'
+  );
+  if (s.cases.length > 4)
+    check(
+      s.cases.includes('app') &&
+        s.cases.includes('cold_recovery') &&
+        s.applications?.length === 1 &&
+        s.permitted_effects.cold_restore,
+      'complete_app_recovery_selection_required'
+    );
   check(s.factory.length === 1, 'single_factory_composition');
   const selected = s.factory[0]!,
     subject = selected.subject;
@@ -213,6 +243,12 @@ export async function collectDockerPhases(
   runtime: DockerPhaseRuntime
 ) {
   const cfg = dockerPhaseConfiguration(input, details);
+  const hasSupplemental = input.scenario.cases.length > 4;
+  check(
+    !hasSupplemental || (runtime.prepareFinalRecovery && details.cold),
+    'protected_app_recovery_capabilities_required'
+  );
+  let supplemental: Awaited<ReturnType<NonNullable<DockerPhaseRuntime['prepareFinalRecovery']>>> | undefined;
   const b = await loadDockerBinding(details.public_download_directory, cfg, details.downloads);
   const io = runtime,
     phases: Record<string, any> = {},
@@ -242,6 +278,7 @@ export async function collectDockerPhases(
   const persistencePermits = new PersistencePermits(io.save);
   const audit = {requests: [] as any[], blocked_raw_runs: 0, blocked_other: 0, raw_responses: 0, login_posts: 0};
   const context = await runtime.openBrowser();
+  let terminalProbe: TerminalProbe | undefined;
   let loginPhase = true;
   let setupIntent: {path: string; body: unknown} | undefined;
   try {
@@ -385,6 +422,16 @@ export async function collectDockerPhases(
       }
     );
     check(setup.state === 'ready', 'existing_setup_adoption_unconfirmed');
+    if (hasSupplemental) {
+      supplemental = await runtime.prepareFinalRecovery!(page, setupMount.apiBase, b, persistencePermits);
+      const selected = input.scenario.applications![0]!;
+      check(
+        supplemental.application.application.id === selected.application_id &&
+          supplemental.probe.witness.owner_team === supplemental.application.owner.team_id &&
+          supplemental.probe.witness.operation_id === selected.record.operation_id,
+        'adopted_app_probe_binding'
+      );
+    }
     const inspectProject = (project: string, r: any) => {
       check(project === '' || /^p[a-f0-9]{24}$/.test(project), 'owned_project_id');
       const program =
@@ -428,7 +475,12 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
       inspectShell,
       async (p) => {
         await io.saveBytes('browser_project/terminal.png', await p.screenshot({fullPage: false}));
-      }
+      },
+      supplemental
+        ? (probe) => {
+            terminalProbe = probe;
+          }
+        : undefined
     );
     check(projectResult, 'browser_result_required');
     const witness = await writePersistenceWitness(page, cfg, projectResult, (n, v) =>
@@ -443,17 +495,20 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
     finish('browser_project');
     phases.browser_project = {project: projectResult.environment.id, witness, loaded};
     start('factory');
-    const factory = await exerciseFactoryPhase(
-      page,
-      cfg,
-      {payload: b.payload},
-      {
-        save: (n, v) => io.save('factory/' + n, v),
-        saveBytes: (n, v) => io.saveBytes('factory/' + n, v),
-        sshRead: (program, timeout) => io.sshRead(innerDocker(program), Math.max(timeout ?? 45000, 210000)),
-      },
-      factoryPermits
-    );
+    const factoryIO = {
+      save: (n, v) => io.save('factory/' + n, v),
+      saveBytes: (n, v) => io.saveBytes('factory/' + n, v),
+      sshRead: (program, timeout) => io.sshRead(innerDocker(program), Math.max(timeout ?? 45000, 210000)),
+    } satisfies import('./factory-phase').FactoryIO;
+    const factory = supplemental
+      ? (
+          await exerciseMeasuredFactoryPhase(page, cfg, {payload: b.payload}, factoryIO, factoryPermits, {
+            application: supplemental.probe,
+            terminal: terminalProbe!,
+            save: (n, v) => io.save('supplemental/' + n, v),
+          })
+        ).factory
+      : await exerciseFactoryPhase(page, cfg, {payload: b.payload}, factoryIO, factoryPermits);
     check(
       factory.observed && factory.paused && factory.native_idle && factory.scope_runs_retired,
       'factory_phase_incomplete'
@@ -499,6 +554,33 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
     };
     start('persistence');
     const mount = await mountedSpacesFacts(page);
+    if (supplemental) {
+      const recovered = await exerciseFinalStateRecovery(
+        {
+          page,
+          apiBase: mount.apiBase,
+          binding: b,
+          witness,
+          installationNative: installation.native,
+          scope: retirementScope,
+          actor: cfg.project_phase.actor,
+          permits: persistencePermits,
+          application: supplemental.application,
+          record: supplemental.probe.witness,
+        },
+        io,
+        supplemental.operations(retirementScope, witness)
+      );
+      finish('persistence');
+      phases.persistence = recovered.persistence.native;
+      check(audit.raw_responses === 0, 'raw_provider_response_forbidden');
+      await io.save('browser_project/network.json', audit);
+      return {
+        phases,
+        times,
+        artifacts: Object.fromEntries(Object.entries(b.downloads).map(([name, x]) => [name, x.SHA256])),
+      };
+    }
     await retireOwnedResources(
       page,
       mount.apiBase,
@@ -522,6 +604,7 @@ const cp=require('node:child_process');try{if(process.getuid()!==0)throw Error()
       artifacts: Object.fromEntries(Object.entries(b.downloads).map(([name, x]) => [name, x.SHA256])),
     };
   } finally {
+    terminalProbe?.dispose();
     await context.close();
   }
 }

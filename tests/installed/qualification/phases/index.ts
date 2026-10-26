@@ -15,3 +15,8 @@ export {startJourneyMeasurements, exerciseMeasuredFactoryPhase} from './journey-
 export type {JourneyProbes, TerminalProbe} from './journey-measurements';
 export {projectNativeMeasurement, measurementSnapshotScript} from './native-measurement';
 export {matrixShellCommand} from '../../sodaspaces-matrix-native';
+export {exerciseFinalStateRecovery} from './final-state-recovery';
+export type {FinalRecoveryRuntime, ColdCapture, ColdDestination} from './final-state-recovery';
+export {dockerColdExecutor} from './docker-cold';
+export type {DockerColdPaths} from './docker-cold';
+export {nativeHttpScript} from './namespace-http';
