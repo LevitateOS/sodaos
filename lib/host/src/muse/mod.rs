@@ -63,7 +63,10 @@ mod inspect;
 mod launch;
 mod provider;
 
-pub use self::provider::{expected_muse_identity, retained_muse_executable};
+pub use self::provider::{
+    expected_muse_identity, fresh_provider_snapshot, release_provider_snapshot,
+    retained_muse_executable, ProviderSnapshot,
+};
 
 pub use self::launch::MuseLaunch;
 

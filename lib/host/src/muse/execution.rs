@@ -26,9 +26,12 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     ) -> Result<String, String> {
         let (_, expected_sha256) =
             super::provider::expected_muse_identity(&self.binary_version, &self.binary_sha256)?;
-        if !domain::valid_container_id(&expected_sha256) {
-            return Err(terminal::err_denied());
-        }
+        self.verify_guest_digest(container, child, &expected_sha256, deadline)
+    }
+
+    /// Guest-side `podman exec` prefix for nested children; empty for the
+    /// normal project-namespace path.
+    pub(in crate::muse) fn guest_binary_prefix(&self, child: &str) -> Vec<String> {
         let mut prefix = Vec::new();
         if !child.is_empty() {
             prefix.extend([
@@ -38,6 +41,24 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 child.to_string(),
             ]);
         }
+        prefix
+    }
+
+    /// Verify the guest provider binary against one explicit expected
+    /// digest: pinned dispatcher digest, ELF header and command
+    /// availability. Returns the verified digest so the execution keeps its
+    /// exact bytes across refreshes. Never caches one hash.
+    pub(in crate::muse) fn verify_guest_digest(
+        &self,
+        container: &str,
+        child: &str,
+        expected_sha256: &str,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        if !domain::valid_container_id(expected_sha256) {
+            return Err(terminal::err_denied());
+        }
+        let prefix = self.guest_binary_prefix(child);
         let mut hash_argv = prefix.clone();
         hash_argv.extend([
             "/usr/bin/sha256sum".to_string(),
@@ -68,7 +89,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             "--soda-check".to_string(),
         ]);
         self.guest(container, &[], &check_argv, deadline)
-            .map(|_| expected_sha256)
+            .map(|_| expected_sha256.to_string())
     }
 
     // ---------- execution lifecycle (muse_execution_linux.go) ----------
@@ -89,8 +110,26 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         }
         request.args = muse_arguments(&request.args)?;
         let caller = self.resolve(peer, budget)?;
-        let verified_digest =
-            self.verify_guest_binary(&caller.container, &caller.child, budget)?;
+        // Store-authoritative when no pin is configured: one coherent
+        // snapshot per invocation, restaged into the running Project, then
+        // bound to this run. Pinned configuration keeps its historical
+        // meaning: verify the guest against the pin, never restage.
+        let verified_digest = if self.binary_sha256.is_empty() && self.binary_version.is_empty() {
+            let snapshot = super::provider::fresh_provider_snapshot()?;
+            let staged = self.ensure_guest_provider(&caller, &snapshot, budget);
+            match staged {
+                Ok(digest) => {
+                    super::provider::release_provider_snapshot(snapshot);
+                    digest
+                }
+                Err(err) => {
+                    super::provider::release_provider_snapshot(snapshot);
+                    return Err(err);
+                }
+            }
+        } else {
+            self.verify_guest_binary(&caller.container, &caller.child, budget)?
+        };
         let mut execution = self.reserve_execution(&caller, &request, budget)?;
         // Bind this run to its exact verified bundle: recovery re-resolves
         // this digest (fail closed), never the current selection.

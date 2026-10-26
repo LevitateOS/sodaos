@@ -50,6 +50,97 @@ fn fresh_selection() -> Result<soda_provider_tools::Selection, soda_provider_too
     }
 }
 
+/// One coherent admitted snapshot for a NEW invocation sequence: the gated
+/// selection, its verified executable, and the active store reference that
+/// keeps the bundle alive while the host stages it into the running
+/// Project. Provider/version/digest/ref all come from this single value;
+/// the moving current record is never re-read afterwards. A concurrent
+/// admission between the gate and the pin fails this invocation closed
+/// (the next invocation snapshots fresh) instead of staging drifted bytes.
+pub struct ProviderSnapshot {
+    pub selection: soda_provider_tools::store::Selection,
+    pub executable: std::path::PathBuf,
+    token: Option<soda_provider_tools::resolve::RefToken>,
+}
+
+/// Take the single coherent selection snapshot for NEW work and pin its
+/// exact bundle: gate the stored selection, pin that same digest under the
+/// store lock, then confirm no concurrent admission replaced it in between.
+/// `Stale` (a newer release is known but unadmitted) refuses visibly so the
+/// operator refreshes; `Unknown` or an unverifiable bundle denies.
+pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
+    let root = soda_provider_tools::config::store_root();
+    let first =
+        soda_provider_tools::store::read_selection(&root, soda_provider_tools::Provider::Muse)
+            .map_err(|_| terminal::err_denied())?
+            .ok_or_else(terminal::err_denied)?;
+    gate_snapshot(&first).map_err(map_store_error)?;
+    let (executable, token) = soda_provider_tools::resolve::resolve_pinned(
+        soda_provider_tools::Provider::Muse,
+        &first.release.digest,
+    )
+    .map_err(map_store_error)?;
+    let mut snapshot = ProviderSnapshot {
+        selection: first,
+        executable,
+        token: Some(token),
+    };
+    // Confirm the pin still matches the live record: a concurrent admission
+    // (new digest, or the same digest flipped Stale by a failed check while
+    // a newer release is known) fails this invocation closed. The next
+    // invocation snapshots the new world. Never stage drifted bytes.
+    let live =
+        soda_provider_tools::store::read_selection(&root, soda_provider_tools::Provider::Muse)
+            .map_err(|_| terminal::err_denied())?;
+    let current = match live {
+        Some(current) => current,
+        None => {
+            release_provider_snapshot(snapshot);
+            return Err(terminal::err_denied());
+        }
+    };
+    if current.release.digest != snapshot.selection.release.digest {
+        // A concurrent admission moved the world: deny this invocation so
+        // the next one snapshots the new record. No operator refresh can
+        // fix a race, so this stays a plain denial, not a stale marker.
+        release_provider_snapshot(snapshot);
+        return Err(terminal::err_denied());
+    }
+    if let Err(blocked) = gate_snapshot(&current) {
+        release_provider_snapshot(snapshot);
+        return Err(map_store_error(blocked));
+    }
+    snapshot.selection = current;
+    Ok(snapshot)
+}
+
+/// Gate one selection snapshot for NEW work: `Current` and `UpdateFailed`
+/// (no newer release confirmed) may run their retained bytes; `Stale` and
+/// `Unknown` block.
+fn gate_snapshot(
+    selection: &soda_provider_tools::store::Selection,
+) -> Result<(), soda_provider_tools::Error> {
+    use soda_provider_tools::store::Freshness;
+    match &selection.freshness {
+        Freshness::Current | Freshness::UpdateFailed { .. } => Ok(()),
+        Freshness::Stale { latest } => Err(soda_provider_tools::Error::blocked(format!(
+            "known newer muse {latest} blocks new muse work; refresh before launching",
+        ))),
+        Freshness::Unknown { reason } => Err(soda_provider_tools::Error::blocked(format!(
+            "no usable muse selection for new work ({reason})",
+        ))),
+    }
+}
+
+/// Release the snapshot's active store reference. The bytes already staged
+/// into the guest are independent of store cleanup; in-flight guest
+/// processes keep their open inode. Idempotent by consumption.
+pub fn release_provider_snapshot(snapshot: ProviderSnapshot) {
+    if let Some(token) = snapshot.token {
+        let _ = soda_provider_tools::resolve::release(&token);
+    }
+}
+
 /// Expected `(version, sha256)` for one NEW Muse execution, captured as ONE
 /// coherent admitted identity: both halves come from the same selection
 /// snapshot, and the selected bundle is verified before anything is

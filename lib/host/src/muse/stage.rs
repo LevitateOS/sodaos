@@ -1,10 +1,165 @@
 use std::time::Instant;
 
-use super::{decode_config_view, MuseCaller, MuseHooks, MuseRuntime};
+use super::{decode_config_view, MuseCaller, MuseHooks, MuseRuntime, ProviderSnapshot};
 use crate::project::Executor;
 use crate::terminal;
 
+/// Guest provider installation paths, fixed by the installed project
+/// interface (same destinations the maintain staging pipe installs).
+const GUEST_NATIVE: &str = "/usr/local/libexec/soda/muse";
+const GUEST_RECEIPT: &str = "/usr/local/libexec/soda/muse-selection.json";
+
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
+    /// Ensure the RUNNING Project serves this invocation's admitted
+    /// snapshot: when the guest binary already matches the snapshot digest
+    /// with a corroborating receipt, touch nothing. Otherwise stage the
+    /// snapshot's bundle bytes plus its admitted-identity receipt into the
+    /// live container (normal and nested paths) and re-verify. Each file
+    /// lands via temp file plus atomic rename, so already-running processes
+    /// keep their old inode and never observe a truncation: in-flight work
+    /// stays bound to its exact old bytes with no restart, while the next
+    /// exec sees the admitted bytes. Fails closed on any mismatch.
+    pub fn ensure_guest_provider(
+        &self,
+        caller: &MuseCaller,
+        snapshot: &ProviderSnapshot,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        let digest = snapshot.selection.release.digest.clone();
+        let receipt =
+            serde_json::to_vec_pretty(&snapshot.selection).map_err(|_| terminal::err_denied())?;
+        if receipt.len() > 65536 {
+            return Err(terminal::err_denied());
+        }
+        if self.guest_provider_current(caller, &digest, &receipt, deadline) {
+            return Ok(digest);
+        }
+        // Staged under the snapshot's active store reference: cleanup
+        // cannot collect the bundle mid-copy.
+        let bytes = std::fs::read(&snapshot.executable).map_err(|_| terminal::err_denied())?;
+        if bytes.is_empty() || bytes.len() as u64 != snapshot.selection.release.size {
+            return Err(terminal::err_denied());
+        }
+        self.stage_guest_file(caller, GUEST_RECEIPT, &receipt, "0644", deadline)?;
+        self.stage_guest_file(caller, GUEST_NATIVE, &bytes, "0755", deadline)?;
+        // Re-verify exactly what the execution will run: digest, ELF
+        // header, command availability. The receipt must corroborate the
+        // staged bytes, matching the in-project enforcement.
+        let verified =
+            self.verify_guest_digest(&caller.container, &caller.child, &digest, deadline)?;
+        if !self.guest_receipt_current(caller, &receipt, deadline) {
+            return Err(terminal::err_denied());
+        }
+        Ok(verified)
+    }
+
+    /// True when the guest binary hashes to the snapshot digest AND the
+    /// guest receipt byte-matches the snapshot receipt.
+    fn guest_provider_current(
+        &self,
+        caller: &MuseCaller,
+        digest: &str,
+        receipt: &[u8],
+        deadline: Instant,
+    ) -> bool {
+        let prefix = self.guest_binary_prefix(&caller.child);
+        let mut hash_argv = prefix;
+        hash_argv.extend(["/usr/bin/sha256sum".to_string(), GUEST_NATIVE.to_string()]);
+        let hash = match self.guest(&caller.container, &[], &hash_argv, deadline) {
+            Ok(hash) => hash,
+            Err(_) => return false,
+        };
+        let text = String::from_utf8_lossy(&hash);
+        let fields: Vec<&str> = text.split_whitespace().collect();
+        if fields.len() != 2 || fields[0] != digest {
+            return false;
+        }
+        self.guest_receipt_current(caller, receipt, deadline)
+    }
+
+    /// True when the guest receipt byte-matches the snapshot receipt.
+    fn guest_receipt_current(
+        &self,
+        caller: &MuseCaller,
+        receipt: &[u8],
+        deadline: Instant,
+    ) -> bool {
+        let mut cat_argv = self.guest_binary_prefix(&caller.child);
+        cat_argv.extend(["/usr/bin/cat".to_string(), GUEST_RECEIPT.to_string()]);
+        match self.guest(&caller.container, &[], &cat_argv, deadline) {
+            Ok(body) => body == receipt,
+            Err(_) => false,
+        }
+    }
+
+    /// Copy one blob into the running container at `path` via temp file
+    /// plus atomic rename. Nested children are reached through the same
+    /// parent `podman exec` prefix the verifier uses.
+    fn stage_guest_file(
+        &self,
+        caller: &MuseCaller,
+        path: &str,
+        bytes: &[u8],
+        mode: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let id = terminal::rand_id().map_err(|_| terminal::err_denied())?;
+        let tmp = format!("{path}.soda-restage-{id}");
+        let prefix = self.inner_exec_prefix(caller);
+        let mut dd_argv = prefix.clone();
+        dd_argv.extend([
+            "/usr/bin/dd".to_string(),
+            format!("of={tmp}"),
+            "status=none".to_string(),
+        ]);
+        let staged = self
+            .guest(&caller.container, bytes, &dd_argv, deadline)
+            .and_then(|_| {
+                let mut chmod_argv = prefix.clone();
+                chmod_argv.extend(["/usr/bin/chmod".to_string(), mode.to_string(), tmp.clone()]);
+                self.guest(&caller.container, &[], &chmod_argv, deadline)
+            })
+            .and_then(|_| {
+                let mut mv_argv = prefix.clone();
+                mv_argv.extend([
+                    "/usr/bin/mv".to_string(),
+                    "-T".to_string(),
+                    "--".to_string(),
+                    tmp.clone(),
+                    path.to_string(),
+                ]);
+                self.guest(&caller.container, &[], &mv_argv, deadline)
+            });
+        if staged.is_err() {
+            let mut rm_argv = prefix;
+            rm_argv.extend([
+                "/usr/bin/rm".to_string(),
+                "-f".to_string(),
+                "--".to_string(),
+                tmp,
+            ]);
+            let _ = self.guest(&caller.container, &[], &rm_argv, deadline);
+            return Err(terminal::err_denied());
+        }
+        Ok(())
+    }
+
+    /// Command prefix that executes inside the target namespace: empty for
+    /// the normal project-namespace path, parent `podman exec` (with stdin
+    /// forwarding) for nested children.
+    fn inner_exec_prefix(&self, caller: &MuseCaller) -> Vec<String> {
+        let mut prefix = Vec::new();
+        if !caller.child.is_empty() {
+            prefix.extend([
+                "/usr/bin/podman".to_string(),
+                "--remote=false".to_string(),
+                "exec".to_string(),
+                "--interactive".to_string(),
+                caller.child.clone(),
+            ]);
+        }
+        prefix
+    }
     /// `MuseRuntime.stage`: credential directory plus config population.
     pub fn stage(
         &self,

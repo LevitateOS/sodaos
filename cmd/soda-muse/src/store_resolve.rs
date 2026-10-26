@@ -3,92 +3,24 @@
 //! Every invocation re-reads the CURRENT shared-store selection: the staged
 //! receipt can never establish currentness on its own. When the store view is
 //! visible, the live selection is the sole authority (TTL due-check with a
-//! best-effort refresh, known-stale/unknown refusal, full digest
-//! verification). The staged binary plus its receipt only run when the store
-//! was never admitted (pre-updater hosts); a missing receipt while any store
-//! knowledge exists refuses instead of silently launching old bytes.
+//! real refresh, known-stale/unknown refusal, full digest verification).
+//! The staged binary plus its receipt only run when the store was never
+//! admitted (pre-updater hosts); a missing receipt while any store knowledge
+//! exists refuses instead of silently launching old bytes.
 //!
-//! Schema note: the selection and receipt records below are byte-compatible
-//! with the shared `soda_provider_tools::store::Selection` JSON (same field
-//! names, same `freshness.state` tagged values) and enforce the same gate
-//! semantics as `resolve::resolve_new` (Current/UpdateFailed run retained
-//! bytes, Stale/Unknown block new work). They are a local mirror only
-//! because this crate may not add dependencies in this lane; the requested
-//! follow-up is `soda-provider-tools = { path = "../../lib/provider-tools" }`
-//! in `cmd/soda-muse/Cargo.toml` (coordinator-owned) with this module then
-//! calling `resolve::resolve_new` / `store::read_selection` /
-//! `store::verify_bundle` directly instead of mirroring them.
+//! Admission and freshness truth lives in the shared `soda_provider_tools`
+//! crate: selection records parse as its `Selection` type and new work
+//! resolves through `resolve::resolve_new` (which refreshes when the check
+//! is due and gates `Current`/`UpdateFailed` vs `Stale`/`Unknown`). This
+//! module holds no mirror of those records or that gate.
 
 use super::MUSE_NATIVE;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-const DEFAULT_ROOT: &str = "/var/lib/soda/providers";
-const DEFAULT_TTL_SECS: u64 = 300;
-const SELECTION_FILE: &str = "current-muse.json";
+use soda_provider_tools::{store, Provider};
+
 const DEFAULT_RECEIPT: &str = "/usr/local/libexec/soda/muse-selection.json";
-
-/// Mirror of the shared store's release identity. Validation matches
-/// `provider-tools::store::validate_release`.
-#[derive(serde::Deserialize)]
-struct StoreRelease {
-    #[serde(default)]
-    provider: String,
-    #[serde(default)]
-    version: String,
-    #[serde(default)]
-    digest: String,
-    #[serde(default)]
-    size: u64,
-    #[serde(default)]
-    artifact_url: String,
-}
-
-/// Mirror of the shared store's freshness values (tagged `state`,
-/// snake_case), with the same launch semantics as `resolve_new`.
-#[derive(serde::Deserialize)]
-#[serde(tag = "state", rename_all = "snake_case")]
-enum StoreFreshness {
-    Current,
-    Stale { #[serde(default)] latest: String },
-    Unknown { #[serde(default)] reason: String },
-    UpdateFailed { #[serde(default)] reason: String },
-}
-
-/// Mirror of the shared store's atomically replaced selection record. Both
-/// the live host selection and the staged receipt use this one shape.
-#[derive(serde::Deserialize)]
-struct StoreSelection {
-    #[serde(default)]
-    provider: String,
-    #[serde(default)]
-    release: Option<StoreRelease>,
-    #[serde(default)]
-    checked_at_secs: u64,
-    #[serde(default)]
-    admitted_at_secs: u64,
-    #[serde(default)]
-    freshness: Option<StoreFreshness>,
-}
-
-impl Default for StoreRelease {
-    fn default() -> Self {
-        Self {
-            provider: String::new(),
-            version: String::new(),
-            digest: String::new(),
-            size: 0,
-            artifact_url: String::new(),
-        }
-    }
-}
-
-fn store_root() -> String {
-    match std::env::var("SODA_PROVIDERS_ROOT") {
-        Ok(root) if !root.is_empty() => root,
-        _ => DEFAULT_ROOT.to_string(),
-    }
-}
 
 fn staged_path() -> String {
     match std::env::var("SODA_MUSE_STAGED_PATH") {
@@ -104,51 +36,19 @@ fn receipt_path() -> String {
     }
 }
 
-fn ttl_secs() -> u64 {
-    std::env::var("SODA_PROVIDERS_CHECK_TTL_SECS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_TTL_SECS)
-}
-
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
 fn is_hex64(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-/// Read and validate one common-schema selection record. `Ok(None)` means
-/// the store never admitted this provider (no file); any other failure is
-/// `Err` so damaged knowledge fails closed. Pure read: never refreshes.
-fn read_store_selection(path: &str) -> Result<Option<StoreSelection>, String> {
-    let bytes = match std::fs::read(path) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => {
-            return Err(String::from("provider store selection unreadable"));
-        }
-    };
-    let selection: StoreSelection = serde_json::from_slice(&bytes)
-        .map_err(|_| String::from("provider store selection unreadable"))?;
-    validate_selection(&selection)?;
-    Ok(Some(selection))
-}
-
-/// Mirror of the shared store's selection validation: exact provider,
-/// exact release identity, never a fallback presented as usable.
-fn validate_selection(selection: &StoreSelection) -> Result<(), String> {
-    if selection.provider != "muse" {
-        return Err(String::from("provider store selection unreadable"));
+/// Validate one shared-schema receipt record the same way the store does:
+/// exact provider, exact release identity, never a fallback presented as
+/// usable. Pure check: never refreshes.
+fn validate_receipt(selection: &store::Selection) -> Result<(), String> {
+    if selection.provider != Provider::Muse {
+        return Err(String::from("staged muse receipt unreadable"));
     }
-    let Some(release) = selection.release.as_ref() else {
-        return Err(String::from("provider store selection unreadable"));
-    };
-    if release.provider != "muse"
+    let release = &selection.release;
+    if release.provider != Provider::Muse
         || release.version.is_empty()
         || !is_hex64(&release.digest)
         || release.size == 0
@@ -156,32 +56,27 @@ fn validate_selection(selection: &StoreSelection) -> Result<(), String> {
             || release.artifact_url.starts_with("http://localhost")
             || release.artifact_url.starts_with("http://127."))
     {
-        return Err(String::from("provider store selection unreadable"));
+        return Err(String::from("staged muse receipt unreadable"));
     }
-    if selection.freshness.is_none() {
-        return Err(String::from("provider store selection unreadable"));
-    }
-    let _ = selection.admitted_at_secs;
     Ok(())
 }
 
-/// Gate a validated selection the way `resolve_new` does: `Current` and
-/// `UpdateFailed` (no newer release known) may run their retained bytes;
+/// Gate one shared-schema selection the way `resolve_new` does: `Current`
+/// and `UpdateFailed` (no newer release known) may run retained bytes;
 /// `Stale` and `Unknown` block new work.
-fn gate_selection(selection: &StoreSelection) -> Result<(), String> {
-    match selection.freshness.as_ref() {
-        Some(StoreFreshness::Current) => Ok(()),
-        Some(StoreFreshness::UpdateFailed { reason }) => {
+fn gate_live(selection: &store::Selection) -> Result<(), String> {
+    match &selection.freshness {
+        store::Freshness::Current => Ok(()),
+        store::Freshness::UpdateFailed { reason } => {
             let _ = reason;
             Ok(())
         }
-        Some(StoreFreshness::Stale { latest }) => Err(format!(
+        store::Freshness::Stale { latest } => Err(format!(
             "muse provider is known-stale (latest {latest}); refresh before launching"
         )),
-        Some(StoreFreshness::Unknown { reason }) => Err(format!(
-            "no usable muse selection for new work ({reason})"
-        )),
-        None => Err(String::from("no usable muse selection for new work")),
+        store::Freshness::Unknown { reason } => {
+            Err(format!("no usable muse selection for new work ({reason})"))
+        }
     }
 }
 
@@ -193,68 +88,103 @@ fn gate_selection(selection: &StoreSelection) -> Result<(), String> {
 /// was never admitted. Fails closed on stale/unknown selections, on damaged
 /// store knowledge, and on bundle bytes that do not fully verify.
 pub(crate) fn resolve_muse_native() -> Result<String, String> {
-    let root = store_root();
-    let path = format!("{root}/{SELECTION_FILE}");
-    let mut selection = match read_store_selection(&path)? {
-        Some(selection) => selection,
-        None => return Ok(staged_path()),
-    };
-    if now_secs().saturating_sub(selection.checked_at_secs) > ttl_secs() {
-        // Due check: one best-effort refresh where the helper exists. A
-        // failed or missing refresh keeps the stored selection, which still
-        // gates below; launch never bypasses freshness, it just may run
-        // retained bytes whose check is due.
-        best_effort_refresh();
-        if let Ok(Some(fresh)) = read_store_selection(&path) {
-            selection = fresh;
+    let root = soda_provider_tools::config::store_root();
+    match store::read_selection(&root, Provider::Muse) {
+        Ok(None) => Ok(staged_path()),
+        Err(_) => Err(String::from("provider store selection unreadable")),
+        Ok(Some(_)) => {
+            // Store knowledge exists: the shared resolver is authoritative
+            // (due-check refresh, staleness gate, full bundle verification).
+            // Its refusal message stays visible to the operator.
+            let executable = soda_provider_tools::resolve::resolve_new(Provider::Muse)
+                .map_err(|e| e.to_string())?;
+            Ok(executable.to_string_lossy().into_owned())
         }
     }
-    gate_selection(&selection)?;
-    let release = selection.release.as_ref().expect("validated above");
-    verify_bundle(&root, &release.digest, release.size)
 }
 
-/// Best-effort due-check refresh where the updater helper exists. Any
-/// failure (missing helper, timeout, updater error) is ignored: the stored
-/// selection still gates above.
-fn best_effort_refresh() {
-    let mut child = match std::process::Command::new("soda-provider-update")
-        .args(["refresh", "--provider", "muse"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(_) => return,
+/// Enforce the staged receipt for retained Projects.
+///
+/// The live host selection is authoritative whenever it is visible: a
+/// receipt that said current at staging time cannot overrule today's
+/// selection, and a missing receipt bootstraps through the store path
+/// (resolve already returned verified store bytes) instead of launching old
+/// bytes. The staged binary runs only when the store was never admitted
+/// (pre-updater hosts, with or without a legacy receipt) or when the store
+/// view is unavailable and a usable receipt corroborates the staged bytes.
+pub(crate) fn enforce_receipt(binary: &str) -> Result<(), String> {
+    let staged = staged_path();
+    if binary != staged {
+        // Store-resolved (or foreign) binary: authority was established and
+        // fully verified by this invocation's resolution, not by a copy.
+        return Ok(());
+    }
+    let root = soda_provider_tools::config::store_root();
+    let live = match store::read_selection(&root, Provider::Muse) {
+        Ok(live) => live,
+        Err(_) => {
+            return Err(String::from("provider store selection unreadable"));
+        }
     };
-    let deadline = Instant::now() + Duration::from_secs(60);
-    loop {
-        match child.try_wait() {
-            Ok(Some(_)) => return,
-            Ok(None) => {
-                if Instant::now() >= deadline {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return;
-                }
-                std::thread::sleep(Duration::from_millis(50));
+    let bytes = match std::fs::read(receipt_path()) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // No receipt: only a never-admitted store (no trusted path at
+            // all) may still run the legacy staged binary. Any existing
+            // store knowledge demands the store path instead.
+            if live.is_none() {
+                return Ok(());
             }
-            Err(_) => return,
+            return Err(String::from(
+                "staged muse receipt missing; resolve through the provider store before launching",
+            ));
+        }
+        Err(_) => return Err(String::from("staged muse receipt unreadable")),
+    };
+    let receipt: store::Selection = serde_json::from_slice(&bytes)
+        .map_err(|_| String::from("staged muse receipt unreadable"))?;
+    validate_receipt(&receipt)?;
+    match receipt.freshness {
+        store::Freshness::Current => {}
+        store::Freshness::UpdateFailed { .. } => {}
+        store::Freshness::Stale { latest } => {
+            return Err(format!(
+                "staged muse is known-stale (latest {latest}); refresh before launching"
+            ));
+        }
+        _ => {
+            return Err(String::from("no usable staged muse receipt for new work"));
         }
     }
+    match live {
+        Some(live) => {
+            // Today's authority beats yesterday's copy: a stale or unknown
+            // live selection refuses even when the receipt still reads
+            // current, and a digest drift refuses the outdated staged bytes
+            // instead of running them silently.
+            gate_live(&live)?;
+            if live.release.digest.to_lowercase() != receipt.release.digest.to_lowercase()
+                || live.release.version != receipt.release.version
+            {
+                return Err(format!(
+                    "staged muse {} is older than the current selection {}; refresh before launching",
+                    receipt.release.version, live.release.version
+                ));
+            }
+        }
+        None => {
+            // No store ever admitted: the receipt is the staging record.
+            // Digest agreement is still required below.
+        }
+    }
+    verify_executable(&staged, &receipt.release.digest, receipt.release.size)
+        .map_err(|_| String::from("staged muse binary does not match the admitted receipt"))?;
+    Ok(())
 }
 
-/// The bundle path is derived from the validated selection digest, and the
-/// bytes must fully hash to that digest: digest/inventory coherence, never
-/// a size-only check. Rejects symlinks and world-writable files.
-fn verify_bundle(root: &str, digest: &str, size: u64) -> Result<String, String> {
-    let exe = format!("{root}/bundles/muse/{}/bin/muse", digest.to_lowercase());
-    verify_executable(&exe, digest, size)
-        .map_err(|_| String::from("provider store executable is unavailable"))?;
-    Ok(exe)
-}
-
+/// The staged bytes must fully hash to the admitted digest:
+/// digest/inventory coherence, never a size-only check. Rejects symlinks
+/// and world-writable files.
 fn verify_executable(path: &str, digest: &str, size: u64) -> Result<(), String> {
     let meta = std::fs::symlink_metadata(path).map_err(|_| String::from("unavailable"))?;
     use std::os::unix::fs::MetadataExt;
@@ -317,91 +247,4 @@ fn sha256_of(path: &str) -> Result<String, String> {
             Err(_) => return Err(String::from("muse executable verification unavailable")),
         }
     }
-}
-
-/// Enforce the staged receipt for retained Projects.
-///
-/// The live host selection is authoritative whenever it is visible: a
-/// receipt that said current at staging time cannot overrule today's
-/// selection, and a missing receipt bootstraps through the store path
-/// (resolve already returned verified store bytes) instead of launching old
-/// bytes. The staged binary runs only when the store was never admitted
-/// (pre-updater hosts, with or without a legacy receipt) or when the store
-/// view is unavailable and a usable receipt corroborates the staged bytes.
-pub(crate) fn enforce_receipt(binary: &str) -> Result<(), String> {
-    let root = store_root();
-    let staged = staged_path();
-    if binary != staged {
-        // Store-resolved (or foreign) binary: authority was established and
-        // fully verified by this invocation's resolution, not by a copy.
-        return Ok(());
-    }
-    let live = match read_store_selection(&format!("{root}/{SELECTION_FILE}")) {
-        Ok(live) => live,
-        Err(_) => {
-            return Err(String::from("provider store selection unreadable"));
-        }
-    };
-    let bytes = match std::fs::read(receipt_path()) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // No receipt: only a never-admitted store (no trusted path at
-            // all) may still run the legacy staged binary. Any existing
-            // store knowledge demands the store path instead.
-            if live.is_none() {
-                return Ok(());
-            }
-            return Err(String::from(
-                "staged muse receipt missing; resolve through the provider store before launching",
-            ));
-        }
-        Err(_) => return Err(String::from("staged muse receipt unreadable")),
-    };
-    let receipt: StoreSelection = serde_json::from_slice(&bytes)
-        .map_err(|_| String::from("staged muse receipt unreadable"))?;
-    validate_selection(&receipt).map_err(|_| String::from("staged muse receipt unreadable"))?;
-    match receipt.freshness.as_ref() {
-        Some(StoreFreshness::Current) => {}
-        Some(StoreFreshness::UpdateFailed { reason }) => {
-            let _ = reason;
-        }
-        Some(StoreFreshness::Stale { latest }) => {
-            return Err(format!(
-                "staged muse is known-stale (latest {latest}); refresh before launching"
-            ));
-        }
-        _ => {
-            return Err(String::from(
-                "no usable staged muse receipt for new work",
-            ));
-        }
-    }
-    match live {
-        Some(live) => {
-            // Today's authority beats yesterday's copy: a stale or unknown
-            // live selection refuses even when the receipt still reads
-            // current, and a digest drift refuses the outdated staged bytes
-            // instead of running them silently.
-            gate_selection(&live)?;
-            let live_release = live.release.as_ref().expect("validated above");
-            let receipt_release = receipt.release.as_ref().expect("validated above");
-            if live_release.digest.to_lowercase() != receipt_release.digest.to_lowercase()
-                || live_release.version != receipt_release.version
-            {
-                return Err(format!(
-                    "staged muse {} is older than the current selection {}; refresh before launching",
-                    receipt_release.version, live_release.version
-                ));
-            }
-        }
-        None => {
-            // No store ever admitted: the receipt is the staging record.
-            // Digest agreement is still required below.
-        }
-    }
-    let receipt_release = receipt.release.as_ref().expect("validated above");
-    verify_executable(&staged, &receipt_release.digest, receipt_release.size).map_err(|_| {
-        String::from("staged muse binary does not match the admitted receipt")
-    })?;
-    Ok(())
 }
