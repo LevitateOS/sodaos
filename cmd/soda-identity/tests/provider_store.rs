@@ -1,12 +1,10 @@
 // V2-A: every enabled broker section resolves new sessions from the shared
 // provider store, including sections that still carry legacy binary/sha256
 // pins. Store mode accepts (and ignores) those pins for new sessions;
-// explicit-pin validation is unchanged byte-for-byte.
-//
-// The live-store test needs an isolated admitted store copy via
-// SODA_IDENTITY_ADMITTED_STORE (a directory holding current-<provider>.json
-// plus bundles/); it skips exactly like the PostgreSQL fixtures when absent.
-// It copies that store to a temp dir and never mutates the original.
+// explicit-pin validation is unchanged byte-for-byte. The single test below
+// exercises the real filesystem behavior (admit, bind, tamper refusal,
+// stale refusal, retained binding) on an isolated store; constructor-only
+// checks are not kept (unit-test ban).
 use soda_identity::providers::{codex, muse, resolution};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -16,8 +14,10 @@ const LEGACY_BINARY: &str = "/opt/stale-install/provider-cli";
 const LEGACY_SHA: &str =
     "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
-/// Private enrollment root on tmpfs (the broker requires both).
-fn tmpfs_root() -> Option<tempfile::TempDir> {
+/// One tmpfs scratch dir holding both the isolated store and the private
+/// enrollment root. tmpfs is a production requirement for enrollment roots
+/// (the broker requires a private root); all scratch stays off the root disk.
+fn scratch() -> Option<(tempfile::TempDir, PathBuf, PathBuf)> {
     let dir = match tempfile::TempDir::new_in("/dev/shm") {
         Ok(dir) => dir,
         Err(e) => {
@@ -25,85 +25,14 @@ fn tmpfs_root() -> Option<tempfile::TempDir> {
             return None;
         }
     };
+    let store_root = dir.path().join("store");
+    let enroll_root = dir.path().join("enroll");
+    std::fs::create_dir_all(&store_root).expect("store dir");
+    std::fs::create_dir_all(&enroll_root).expect("enroll dir");
     // Production enrollment roots must be private; enforce it explicitly.
-    std::fs::set_permissions(
-        dir.path(),
-        std::fs::Permissions::from_mode(0o700),
-    )
-    .expect("chmod tmpfs root");
-    Some(dir)
-}
-
-#[test]
-fn codex_store_mode_accepts_legacy_pins() {
-    let Some(root) = tmpfs_root() else {
-        eprintln!("SKIP: no private tmpfs root available");
-        return;
-    };
-    let provider = codex::Provider::new(codex::Config {
-        binary: LEGACY_BINARY.to_string(),
-        version: "rust-v0.1.0".to_string(),
-        sha256: LEGACY_SHA.to_string(),
-        root: root.path().to_string_lossy().into_owned(),
-        store: true,
-    });
-    assert!(
-        provider.is_ok(),
-        "store mode must accept legacy pins: {}",
-        provider.err().unwrap()
-    );
-}
-
-#[test]
-fn muse_store_mode_accepts_legacy_pins() {
-    let Some(root) = tmpfs_root() else {
-        eprintln!("SKIP: no private tmpfs root available");
-        return;
-    };
-    let provider = muse::Provider::new(muse::Config {
-        binary: LEGACY_BINARY.to_string(),
-        version: "0.0.0-stale".to_string(),
-        sha256: LEGACY_SHA.to_string(),
-        root: root.path().to_string_lossy().into_owned(),
-        store: true,
-    });
-    assert!(
-        provider.is_ok(),
-        "store mode must accept legacy pins: {}",
-        provider.err().unwrap()
-    );
-}
-
-#[test]
-fn explicit_mode_still_validates_pins() {
-    let Some(root) = tmpfs_root() else {
-        eprintln!("SKIP: no private tmpfs root available");
-        return;
-    };
-    let root = root.path().to_string_lossy().into_owned();
-    // Byte-identical preserved behavior: explicit configs still validate pins.
-    assert!(
-        codex::Provider::new(codex::Config {
-            binary: "/bin/true".to_string(),
-            version: String::new(),
-            sha256: "short".to_string(),
-            root: root.clone(),
-            store: false,
-        })
-        .is_err(),
-        "explicit codex config must still reject a malformed pin"
-    );
-    assert!(
-        muse::Provider::new(muse::Config {
-            binary: "/bin/true".to_string(),
-            version: String::new(),
-            sha256: "short".to_string(),
-            root,
-            store: false,
-        })
-        .is_err(),
-        "explicit muse config must still reject a malformed pin"
-    );
+    std::fs::set_permissions(&enroll_root, std::fs::Permissions::from_mode(0o700))
+        .expect("chmod enroll root");
+    Some((dir, store_root, enroll_root))
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -196,8 +125,10 @@ fn read_selection(
 /// the retained bundle still binds exactly for existing work.
 #[test]
 fn legacy_pins_cannot_shadow_store_selection() {
-    let work = tempfile::TempDir::new().expect("scratch dir");
-    let root: PathBuf = work.path().join("store");
+    let Some((_scratch, root, enroll_dir)) = scratch() else {
+        eprintln!("SKIP: no tmpfs scratch available");
+        return;
+    };
     // Isolated store, no network: the freshly written snapshot is within its
     // check TTL, so resolution never attempts an upstream refresh and no
     // credentials or model calls are involved at any point.
@@ -213,11 +144,7 @@ fn legacy_pins_cannot_shadow_store_selection() {
         "9.9.9-lane-v2-a",
     );
 
-    let Some(enroll_root) = tmpfs_root() else {
-        eprintln!("SKIP: no private tmpfs root available");
-        return;
-    };
-    let enroll_root = enroll_root.path().to_string_lossy().into_owned();
+    let enroll_root = enroll_dir.to_string_lossy().into_owned();
     // Exactly how open_broker now constructs enabled legacy sections.
     let codex = codex::Provider::new(codex::Config {
         binary: LEGACY_BINARY.to_string(),

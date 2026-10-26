@@ -26,6 +26,22 @@ fn stale_block(
     if prev.release.digest == latest.digest {
         return crate::Error::failed(detail);
     }
+    publish_stale(root, prev, latest, now, detail)
+}
+
+/// Persist a known-newer discovery as `Stale` through the same
+/// compare-and-swap every other refresh mutation uses: the disk record must
+/// still be exactly `prev`, otherwise the concurrent winner is retained and
+/// reported. A stored `Stale` (or any newer freshness knowledge) on the same
+/// digest is never overwritten with older knowledge, even within the same
+/// second. New work stays blocked either way.
+pub fn publish_stale(
+    root: &std::path::Path,
+    prev: &Selection,
+    latest: &crate::store::ReleaseIdentity,
+    now: u64,
+    detail: String,
+) -> crate::Error {
     let stale = Selection {
         provider: prev.provider,
         release: prev.release.clone(),
@@ -35,19 +51,34 @@ fn stale_block(
             latest: latest.version.clone(),
         },
     };
-    let persisted = (|| -> Result<(), crate::Error> {
+    let outcome = (|| -> Result<Selection, crate::Error> {
         let _lock = crate::store::lock_store(root)?;
         match crate::store::read_selection(root, prev.provider)? {
-            Some(current) if current.release.digest != prev.release.digest => Ok(()),
-            _ => crate::store::write_selection(root, &stale),
+            Some(current) if current == *prev => {
+                crate::store::write_selection(root, &stale)?;
+                Ok(stale.clone())
+            }
+            // A concurrent winner moved past this refresh: retain it, never
+            // overwrite newer freshness knowledge with older knowledge.
+            Some(current) => Ok(current),
+            None => {
+                crate::store::write_selection(root, &stale)?;
+                Ok(stale.clone())
+            }
         }
     })();
-    match persisted {
-        Ok(()) => crate::Error::blocked(format!(
+    match outcome {
+        Ok(winner) if winner == stale => crate::Error::blocked(format!(
             "known newer {} {} could not be admitted ({detail}); previous {} retained and recorded stale",
             latest.provider.as_str(),
             latest.version,
             prev.release.version
+        )),
+        Ok(winner) => crate::Error::blocked(format!(
+            "known newer {} {} could not be admitted ({detail}); concurrent winner {} retained, new work stays blocked",
+            latest.provider.as_str(),
+            latest.version,
+            winner.release.version
         )),
         Err(e) => crate::Error::uncertain(format!(
             "known newer {} {} could not be admitted ({detail}) and stale state could not be recorded ({e}); retry before launching",
@@ -105,19 +136,19 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
         if sel.release.digest == latest.digest {
             if bundle_complete(&root, provider, &sel.release.digest) {
                 // Unchanged refresh: no download, only the successful check
-                // timestamp advances. Published under the store lock.
+                // timestamp advances. Compare-and-swap against the base: a
+                // concurrent newer winner is retained, never overwritten.
                 let updated = Selection {
                     checked_at_secs: now,
                     freshness: crate::store::Freshness::Current,
                     ..sel.clone()
                 };
-                let _lock = crate::store::lock_store(&root)?;
-                crate::store::write_selection(&root, &updated)?;
-                return Ok(updated);
+                return publish_checked(&root, sel, &updated);
             }
             // Selection matches upstream but payload is damaged: repair by
             // re-admitting the same digest. No newer release is known, so a
-            // repair failure is operational, not blocking.
+            // repair failure is operational, not blocking. Publication is
+            // compare-and-swapped the same way: a concurrent winner survives.
             admit(&root, provider, &latest)?;
             let repaired = Selection {
                 provider,
@@ -126,9 +157,7 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
                 admitted_at_secs: now,
                 freshness: crate::store::Freshness::Current,
             };
-            let _lock = crate::store::lock_store(&root)?;
-            crate::store::write_selection(&root, &repaired)?;
-            return Ok(repaired);
+            return publish_checked(&root, sel, &repaired);
         }
         if bundle_complete(&root, provider, &latest.digest) {
             // Payload already on disk (e.g. downloaded before an
@@ -197,57 +226,85 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
     publish(&root, previous.as_ref(), admitted)
 }
 
-/// Publish a new selection under the store lock: compare-and-swap against
-/// the exact base (`previous`) the refresh observed before downloading.
-/// Returns the winning selection, which is `admitted` on success.
+/// Compare-and-swap publication under the store lock: write `next` only when
+/// the on-disk record is still exactly the `base` this refresh observed
+/// before its download. Returns the winning selection, which is `next` on
+/// success.
 ///
 /// A concurrent refresh that already admitted the same digest converges and
 /// returns the stored winner instead of clobbering. When the on-disk record
-/// no longer matches the refresh's base (digest, check or admission stamps
-/// all differ from what this refresh saw before its download), a concurrent
-/// winner moved past us: the write aborts, nothing is touched, and the
-/// current winner is returned so the caller converges instead of downgrading
-/// it. Locking alone cannot stop a late finisher from overwriting a newer
-/// selection; this base reconciliation does.
+/// differs from the base in ANY field (digest, version, either stamp, or
+/// freshness, even within the same second), a concurrent winner moved past
+/// us: the write aborts, nothing is touched, and the current winner is
+/// returned so the caller converges instead of downgrading it. Locking alone
+/// cannot stop a late finisher from overwriting a newer selection; this exact
+/// base reconciliation does, with no schema change. Same-second ABA cannot
+/// erase knowledge: restoring byte-identical content is the only invisible
+/// transition, and it changes nothing.
+///
+/// Lineage (`previous-<provider>.json`) advances only when the digest
+/// changes: same-digest outcomes (unchanged check advances, repairs) leave
+/// retention of the older bundle untouched.
+pub fn publish_checked(
+    root: &std::path::Path,
+    base: &Selection,
+    next: &Selection,
+) -> Result<Selection, crate::Error> {
+    let _lock = crate::store::lock_store(root)?;
+    match crate::store::read_selection(root, base.provider)? {
+        Some(current) if current == *base => {
+            // The admitted bytes must verify on their own before they can
+            // become current: publication never installs unverified payloads.
+            crate::store::verify_bundle(root, next.provider, &next.release.digest)?;
+            if next.release.digest != base.release.digest {
+                crate::store::write_previous(root, base)?;
+            }
+            crate::store::write_selection(root, next)?;
+            Ok(next.clone())
+        }
+        // A concurrent winner is present: retain it, converge onto it.
+        Some(current) => Ok(current),
+        // The base record is gone (nothing deletes it in normal operation):
+        // recreate the lineage rather than strand the admission.
+        None => {
+            crate::store::verify_bundle(root, next.provider, &next.release.digest)?;
+            if next.release.digest != base.release.digest {
+                crate::store::write_previous(root, base)?;
+            }
+            crate::store::write_selection(root, next)?;
+            Ok(next.clone())
+        }
+    }
+}
+
+/// Publish a new selection under the store lock: compare-and-swap against
+/// the exact base (`previous`) the refresh observed before downloading.
+/// A first install with no base converges onto a concurrent winner instead
+/// of clobbering it. See [`publish_checked`].
 pub fn publish(
     root: &std::path::Path,
     previous: Option<&Selection>,
     admitted: Selection,
 ) -> Result<Selection, crate::Error> {
-    let _lock = crate::store::lock_store(root)?;
-    let disk = crate::store::read_selection(root, admitted.provider)?;
-    if let Some(current) = &disk {
-        if current.release.digest == admitted.release.digest
-            && crate::store::verify_bundle(root, admitted.provider, &admitted.release.digest)
-                .is_ok()
-        {
-            return Ok(current.clone());
+    match previous {
+        Some(base) => publish_checked(root, base, &admitted),
+        None => {
+            let _lock = crate::store::lock_store(root)?;
+            match crate::store::read_selection(root, admitted.provider)? {
+                // Another install won the first-install race; converge on it.
+                Some(current) => Ok(current),
+                None => {
+                    crate::store::verify_bundle(
+                        root,
+                        admitted.provider,
+                        &admitted.release.digest,
+                    )?;
+                    crate::store::write_selection(root, &admitted)?;
+                    Ok(admitted)
+                }
+            }
         }
     }
-    let base_matches = match (&disk, previous) {
-        (None, None) => true,
-        // The base record is gone (nothing deletes it in normal operation):
-        // recreate the lineage rather than strand the admission.
-        (None, Some(_)) => true,
-        // Another install won the first-install race; converge on it.
-        (Some(_), None) => false,
-        (Some(current), Some(base)) => {
-            current.release.digest == base.release.digest
-                && current.checked_at_secs == base.checked_at_secs
-                && current.admitted_at_secs == base.admitted_at_secs
-        }
-    };
-    if !base_matches {
-        return Ok(disk.expect("a stored winner is present when the base moved"));
-    }
-    // The admitted bytes must verify on their own before they can become
-    // current: publication never installs unverified payloads.
-    crate::store::verify_bundle(root, admitted.provider, &admitted.release.digest)?;
-    if let Some(sel) = previous {
-        crate::store::write_previous(root, sel)?;
-    }
-    crate::store::write_selection(root, &admitted)?;
-    Ok(admitted)
 }
 
 fn bundle_dir(root: &std::path::Path, provider: Provider, digest: &str) -> std::path::PathBuf {
@@ -355,33 +412,112 @@ fn admit_inner(
     std::fs::create_dir_all(staging_dir)?;
     install_staging(provider, staging_file, staging_dir)?;
     normalize_prefix(provider, staging_dir)?;
-    crate::store::write_release_record(staging_dir, release)?;
     chmod_exec(provider, staging_dir)?;
-    crate::store::record_inventory(staging_dir, release)?;
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    // Publish atomically: rename wins the race; a concurrently admitted
-    // identical digest is reused instead of overwritten. Any rename failure
-    // re-checks the destination so a lost race still converges.
-    match std::fs::rename(staging_dir, dest) {
+    // The admission record binds to the directory name, so records are
+    // written only after the tree reaches its digest-named destination
+    // (a staging dir can never carry one). The whole tail runs under the
+    // store lock so concurrent repairs serialize through one winner.
+    publish_staged(root, provider, release, staging_dir, dest)
+}
+
+/// Move the staged tree into its digest-named destination, write the
+/// admission record plus digest inventory bound to that name, and verify.
+/// A concurrently admitted identical digest is reused instead of overwritten.
+/// A damaged destination (present yet unverifiable) is quarantined aside and
+/// swapped, never deleted blindly and never served. Everything runs under
+/// the store lock: a concurrent repair converges instead of interfering.
+/// Crash-orphaned quarantine dirs (pid-suffixed, never reused across
+/// processes) are left in place and reported, not silently pruned.
+fn publish_staged(
+    root: &std::path::Path,
+    provider: Provider,
+    release: &crate::store::ReleaseIdentity,
+    staging_dir: &std::path::Path,
+    dest: &std::path::Path,
+) -> Result<bool, crate::Error> {
+    let _lock = crate::store::lock_store(root)?;
+    // Re-check under the lock: a concurrent admission may have converged
+    // while this refresh was downloading.
+    if bundle_complete(root, provider, &release.digest) {
+        let _ = std::fs::remove_dir_all(staging_dir);
+        return Ok(false);
+    }
+    let quarantine = root.join(format!(
+        ".quarantine-{}-{}-{}",
+        provider.as_str(),
+        release.digest,
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&quarantine);
+    // Fresh install: dest is absent and this rename wins. Damaged
+    // destination: the rename fails and the quarantine path below swaps.
+    let mut repaired = false;
+    if let Err(rename_err) = std::fs::rename(staging_dir, dest) {
+        std::fs::rename(dest, &quarantine).map_err(|quarantine_err| {
+            crate::Error::failed(format!(
+                "bundle publish failed ({}); damaged destination could not be quarantined ({quarantine_err}); staged rename also failed: {rename_err}",
+                dest.display()
+            ))
+        })?;
+        if let Err(swap_err) = std::fs::rename(staging_dir, dest) {
+            // Staging never moved: put the quarantined tree back and report.
+            let _ = std::fs::rename(&quarantine, dest);
+            return Err(crate::Error::failed(format!(
+                "bundle publish failed ({}); damaged destination quarantined at {} but staged swap failed ({swap_err}); original rename also failed: {rename_err}",
+                dest.display(),
+                quarantine.display()
+            )));
+        }
+        repaired = true;
+    }
+    let _ = crate::fsync_dir(dest);
+    if let Some(parent) = dest.parent() {
+        let _ = crate::fsync_dir(parent);
+    }
+    // The tree is now at its digest-named directory: bind the admission
+    // record to that name, inventory the admitted bytes, and verify.
+    let recorded = (|| -> Result<(), crate::Error> {
+        crate::store::write_release_record(dest, release)?;
+        crate::store::record_inventory(dest, release)?;
+        if bundle_complete(root, provider, &release.digest) {
+            Ok(())
+        } else {
+            Err(crate::Error::failed(format!(
+                "bundle did not verify after admission record write: {}",
+                dest.display()
+            )))
+        }
+    })();
+    match recorded {
         Ok(()) => {
-            let _ = crate::fsync_dir(dest);
-            if let Some(parent) = dest.parent() {
-                let _ = crate::fsync_dir(parent);
+            if repaired {
+                let _ = std::fs::remove_dir_all(&quarantine);
             }
             Ok(true)
         }
-        Err(rename_err) => {
-            if bundle_complete(root, provider, &release.digest) {
-                let _ = std::fs::remove_dir_all(staging_dir);
-                return Ok(false);
+        Err(e) => {
+            if repaired {
+                // As-found restoration: drop the unverified tree and put the
+                // quarantined (pre-existing, damaged) tree back.
+                let _ = std::fs::remove_dir_all(dest);
+                let restored = std::fs::rename(&quarantine, dest).is_ok();
+                Err(crate::Error::failed(format!(
+                    "bundle publish failed ({}: {e}); quarantined tree {}",
+                    dest.display(),
+                    if restored {
+                        "restored as-found"
+                    } else {
+                        "left quarantined (restore failed)"
+                    }
+                )))
+            } else {
+                // Fresh install that did not verify: remove what we created.
+                let _ = std::fs::remove_dir_all(dest);
+                Err(e)
             }
-            let _ = std::fs::remove_dir_all(staging_dir);
-            Err(crate::Error::failed(format!(
-                "bundle publish failed ({}); concurrent bundle incomplete: {rename_err}",
-                dest.display()
-            )))
         }
     }
 }

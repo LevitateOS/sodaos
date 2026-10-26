@@ -87,7 +87,9 @@ pub enum Freshness {
 }
 
 /// The atomically replaced selection record: `current-<provider>.json`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// `PartialEq`/`Eq` support exact base comparison for compare-and-swap
+/// publication; the serialized shape is unchanged.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Selection {
     pub provider: Provider,
     pub release: ReleaseIdentity,

@@ -16,6 +16,10 @@
 //! - R2b: competing successful publications race deterministically; the late
 //!   finisher aborts onto the winner instead of overwriting it, and the race
 //!   advances afterwards.
+//! - R5 (UP-REVIEW-05 P1.1): a stale same-digest refresh converges onto a
+//!   concurrent newer winner (no same-second ABA overwrite, no stamp
+//!   regression); a stale-block keeps newer same-digest freshness knowledge
+//!   while still blocking new work.
 //! No unit tests, no framework, no model calls, no credentials.
 
 use soda_provider_tools::{
@@ -155,11 +159,17 @@ fn scenario_r1() {
 
 /// R1 for Codex: same stale-preservation rules through the codex provider
 /// (companion-bearing) path.
+///
+/// History note: this scenario once drove a live codex refresh expecting an
+/// admission failure, and it passed only because admission itself was broken
+/// (the record was written into the staging dir, whose name can never match
+/// the digest). Now that real admission works, a live refresh would genuinely
+/// admit current upstream bytes, so the driver pins the stale-block contract
+/// directly at the compare-and-swap layer instead of downloading live bytes.
+/// Live admission is proven separately against an isolated store.
 fn scenario_r1_codex() {
     println!("--- R1 stale preservation (codex) ---");
     let root = fresh_root("r1-codex");
-    std::env::set_var("SODA_PROVIDERS_CHANNEL", "review-invalid-channel");
-    std::env::set_var("SODA_PROVIDERS_CHECK_TTL_SECS", "300");
     let now = now_secs();
     let (release, _) = make_bundle(&root, Provider::Codex, "review-old", true);
     write_selection(
@@ -171,18 +181,34 @@ fn scenario_r1_codex() {
             latest: "review-known-newer".to_string(),
         },
     );
-    // Codex discovery uses live GitHub metadata (no channel override), so a
-    // fixture bundle older than upstream exercises the known-newer admission
-    // failure: the refresh must fail Blocked while the disk selection stays
-    // Stale with original timestamps, and new work stays blocked.
-    let blocked = refresh::refresh(Provider::Codex).unwrap_err();
+    let base = store::read_selection(&root, Provider::Codex)
+        .expect("read")
+        .expect("base present");
+    // A known-newer release that cannot be admitted: the discovery is
+    // persisted as Stale and new work stays blocked, while the old bytes are
+    // never overwritten.
+    let known_newer = ReleaseIdentity {
+        provider: Provider::Codex,
+        version: "review-known-newer".to_string(),
+        digest: sha256_hex(b"known-newer-artifact"),
+        size: 1,
+        artifact_url: "https://example.invalid/review-newer".to_string(),
+    };
+    let blocked = refresh::publish_stale(
+        &root,
+        &base,
+        &known_newer,
+        now,
+        "admission failed (deterministic fixture)".to_string(),
+    );
     expect(blocked.blocks_new_work(), "codex admission failure blocks new work");
     let on_disk = store::read_selection(&root, Provider::Codex)
         .expect("read")
         .expect("selection present");
     expect(
-        matches!(&on_disk.freshness, Freshness::Stale { .. })
-            && on_disk.release.digest == release.digest,
+        matches!(&on_disk.freshness, Freshness::Stale { latest } if latest == "review-known-newer")
+            && on_disk.release.digest == release.digest
+            && on_disk.checked_at_secs == now,
         "disk codex selection still Stale on the old bytes (never overwritten)",
     );
     let launched = resolve::resolve_new(Provider::Codex).is_ok();
@@ -557,6 +583,142 @@ fn scenario_publish_race() {
     );
 }
 
+/// UP-REVIEW-05 P1.1: a same-digest refresh that read its base before a
+/// concurrent newer winner published must converge onto the winner, never
+/// overwrite it (even within the same second); same-digest stamp advances
+/// never regress; and a stale-block against newer same-digest freshness
+/// knowledge must keep that knowledge while still blocking new work.
+fn scenario_unchanged_vs_newer_winner() {
+    println!("--- unchanged vs newer winner ---");
+    let root = fresh_root("r5-unchanged");
+    let now = now_secs();
+    let (rel_x, _) = make_bundle(&root, Provider::Muse, "race-X", false);
+    write_selection(&root, &rel_x, now, now, Freshness::Current);
+    let base = store::read_selection(&root, Provider::Muse)
+        .expect("read")
+        .expect("base present");
+    // B wins with newer digest Y while A is still "checking upstream".
+    let (rel_y, _) = make_bundle(&root, Provider::Muse, "race-Y", false);
+    let admitted_y = Selection {
+        provider: Provider::Muse,
+        release: rel_y.clone(),
+        checked_at_secs: now,
+        admitted_at_secs: now,
+        freshness: Freshness::Current,
+    };
+    let winner = refresh::publish(&root, Some(&base), admitted_y).expect("Y publishes");
+    expect(winner.release.digest == rel_y.digest, "newer Y wins");
+    // A's stale same-digest refresh (X, advanced check stamp) must converge.
+    let stale_unchanged = Selection {
+        provider: Provider::Muse,
+        release: rel_x.clone(),
+        checked_at_secs: now.saturating_add(5),
+        admitted_at_secs: now,
+        freshness: Freshness::Current,
+    };
+    let converged = refresh::publish_checked(&root, &base, &stale_unchanged).expect("converges");
+    expect(
+        converged.release.digest == rel_y.digest,
+        "stale unchanged refresh converges onto newer Y",
+    );
+    let on_disk = store::read_selection(&root, Provider::Muse)
+        .expect("read")
+        .expect("selection present");
+    expect(
+        on_disk.release.digest == rel_y.digest && on_disk.checked_at_secs == now,
+        "disk still Y with winner stamps (no overwrite, no same-second ABA)",
+    );
+    // Same-digest stamp race: B advanced the check stamp on X; A's older
+    // advance from the same base must not regress it.
+    let root2 = fresh_root("r5-unchanged-stamps");
+    let (rel_x2, _) = make_bundle(&root2, Provider::Muse, "race-X2", false);
+    write_selection(&root2, &rel_x2, now, now, Freshness::Current);
+    let base2 = store::read_selection(&root2, Provider::Muse)
+        .expect("read")
+        .expect("base present");
+    write_selection(&root2, &rel_x2, now.saturating_add(9), now, Freshness::Current);
+    let late = Selection {
+        provider: Provider::Muse,
+        release: rel_x2.clone(),
+        checked_at_secs: now.saturating_add(5),
+        admitted_at_secs: now,
+        freshness: Freshness::Current,
+    };
+    let converged2 = refresh::publish_checked(&root2, &base2, &late).expect("converges");
+    expect(
+        converged2.checked_at_secs == now.saturating_add(9),
+        "same-digest late write converges, no stamp regression",
+    );
+    // Fresh base still advances: disk == base writes the new stamps.
+    let base3 = store::read_selection(&root2, Provider::Muse)
+        .expect("read")
+        .expect("fresh base present");
+    let advance = Selection {
+        checked_at_secs: now.saturating_add(12),
+        ..base3.clone()
+    };
+    let written = refresh::publish_checked(&root2, &base3, &advance).expect("advances");
+    expect(
+        written.checked_at_secs == now.saturating_add(12),
+        "fresh-base unchanged refresh advances the check stamp",
+    );
+    // Stale-block against newer same-digest knowledge keeps that knowledge.
+    let root3 = fresh_root("r5-stale-knowledge");
+    let (rel_x3, _) = make_bundle(&root3, Provider::Muse, "race-X3", false);
+    write_selection(&root3, &rel_x3, now, now, Freshness::Current);
+    let base4 = store::read_selection(&root3, Provider::Muse)
+        .expect("read")
+        .expect("base present");
+    write_selection(
+        &root3,
+        &rel_x3,
+        now.saturating_add(3),
+        now,
+        Freshness::Stale {
+            latest: "race-Z".to_string(),
+        },
+    );
+    let blocked = refresh::publish_stale(
+        &root3,
+        &base4,
+        &rel_y,
+        now.saturating_add(7),
+        "race-Y admission failed".to_string(),
+    );
+    expect(blocked.blocks_new_work(), "stale-block still blocks new work");
+    let on_disk3 = store::read_selection(&root3, Provider::Muse)
+        .expect("read")
+        .expect("selection present");
+    expect(
+        matches!(&on_disk3.freshness, Freshness::Stale { latest } if latest == "race-Z")
+            && on_disk3.checked_at_secs == now.saturating_add(3),
+        "newer same-digest freshness knowledge retained, no regression",
+    );
+    // Plain stale-block still records when the base is fresh.
+    let root4 = fresh_root("r5-stale-plain");
+    let (rel_x4, _) = make_bundle(&root4, Provider::Muse, "race-X4", false);
+    write_selection(&root4, &rel_x4, now, now, Freshness::Current);
+    let base5 = store::read_selection(&root4, Provider::Muse)
+        .expect("read")
+        .expect("base present");
+    let blocked2 = refresh::publish_stale(
+        &root4,
+        &base5,
+        &rel_y,
+        now.saturating_add(7),
+        "race-Y admission failed".to_string(),
+    );
+    expect(blocked2.blocks_new_work(), "plain stale-block blocks new work");
+    let on_disk4 = store::read_selection(&root4, Provider::Muse)
+        .expect("read")
+        .expect("selection present");
+    expect(
+        matches!(&on_disk4.freshness, Freshness::Stale { latest } if *latest == rel_y.version)
+            && on_disk4.checked_at_secs == now.saturating_add(7),
+        "fresh-base stale-block records the known-newer discovery",
+    );
+}
+
 fn main() {
     let _ = std::fs::remove_dir_all(scratch_base());
     scenario_r1();
@@ -566,6 +728,7 @@ fn main() {
     scenario_r2();
     scenario_concurrency();
     scenario_publish_race();
+    scenario_unchanged_vs_newer_winner();
     let failures = FAILURES.load(Ordering::SeqCst);
     if failures == 0 {
         println!("review_probe_repair=PASS");
