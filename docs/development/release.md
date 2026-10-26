@@ -366,8 +366,9 @@ the existing root collector authority, runtime inventory and credential sources.
 The runtime supplies `details.json` (`DockerPhaseDetails`), `public-docker/`,
 `trust/{known_hosts,appliance-ca.crt}`, `playwright/` data files and `chromium/chrome`; package inputs come
 from the candidate snapshot. The adapter checks the scope, source and fixed
-mounts before credential reads or transport and uses only the two existing
-systemd credential names. It imports no per-attempt implementation.
+mounts before credential reads or transport. It uses the two fixed systemd
+credentials plus exactly one `application-owner-APP_ID` credential for each
+selected App. It imports no per-attempt implementation.
 The build receipt identifies the installed Playwright data source and its
 bundle/package/browser metadata hashes. Its bundled data root is the fixed
 runtime path; unused optional BiDi modules stay external to the Chromium route.
@@ -1514,6 +1515,31 @@ Depends on 3–4.**
   retained-resource lifecycle scope for the selected route. Verify root selected-App
   credential delivery and installed recovery on that actual path; local source
   capability and J19's narrower fixtures do not establish these outcomes.
+
+  Scoped execution approved on 2026-10-26 in
+  `call_9ac842a92aa44a149b23fa38f0f29fa6`. The maintained prerequisite client is
+  `bun tests/installed/qualification/prepare-fixture.ts --scenario SCENARIO
+  --authorization AUTHORIZATION --action application|funding --out PRIVATE_HOME_DIR`.
+  It validates the recorded consent and actual target before using normal owner
+  APIs. Its exclusive journals preserve returned identities and uncertain
+  mutations; it never opens dispatch or launches a model. Application setup saves
+  its private owner before claiming the pinned existing image. Funding adopts the
+  existing Ready connection and applies only the approved sponsorship/rolling
+  limits. Neither action is a second journey runner.
+
+  Actual unpaid preparation installed App `a628fd7aaaa04f4dc8d951f6b` and created
+  grant `19c04050ba8b9573a0acf4e93846b425`: sponsorship 15 minutes, rolling
+  ceiling 25, max one. Dispatch remains paused and the corrected trial remains
+  unused. A dropped App begin response was reconciled against that same pending
+  setup/native generation, then completed without creating another App. Cold
+  preflight found CoreOS's `/home` symlink to `/var/home`; cold paths now accept
+  its explicit canonical home-storage path while retaining ancestor, ownership
+  and symlink checks. Capture canonicalizes the existing settings directory;
+  installation evidence retains its original `/home/sodaos` argument spelling.
+  Preparation evidence is under
+  `/home/vince/Projects/.sodaos-rc-20261023/journey-j22-preparation`, with actual
+  App/funding results in sibling `j22app/result.json` and `j22fund/result.json`.
+  These prerequisites do not complete J22's live qualification.
 - [ ] **J23.** Verify that the intended journey passes or reports its precise genuine blocker
   without a known deterministic driver contradiction, duplicate mutation, blind
   retry, erased history, unnecessary rebuild or replacement sign-in. A reported

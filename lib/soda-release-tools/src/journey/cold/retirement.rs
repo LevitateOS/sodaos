@@ -33,9 +33,9 @@ fn document(path: &Path) -> Result<serde_json::Value, String> {
 fn canonical_directory(path: &Path) -> Result<(), String> {
     need(
         path.is_absolute()
-            && path.starts_with("/home")
+            && (path.starts_with("/home") || path.starts_with("/var/home"))
             && fs::canonicalize(path).is_ok_and(|actual| actual == path),
-        "canonical retirement directory under /home required",
+        "canonical retirement directory under /home or /var/home required",
     )?;
     private(path)
 }

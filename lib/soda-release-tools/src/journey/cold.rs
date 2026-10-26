@@ -127,7 +127,9 @@ fn private(path: &Path) -> Result<(), String> {
 fn fresh(path: &Path) -> Result<(), String> {
     need(
         path.is_absolute()
-            && path.starts_with("/home")
+            // CoreOS exposes /home as a symlink; callers supply its canonical
+            // home-storage path so all existing ancestor checks still apply.
+            && (path.starts_with("/home") || path.starts_with("/var/home"))
             && !path.as_os_str().as_bytes().contains(&b',')
             && path.components().all(|p| {
                 matches!(
@@ -135,7 +137,7 @@ fn fresh(path: &Path) -> Result<(), String> {
                     std::path::Component::RootDir | std::path::Component::Normal(_)
                 )
             }),
-        "canonical cold output under /home required",
+        "canonical cold output under /home or /var/home required",
     )?;
     let parent = path.parent().ok_or("cold output parent required")?;
     for ancestor in parent.ancestors() {

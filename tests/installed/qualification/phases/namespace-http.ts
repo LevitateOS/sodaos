@@ -123,7 +123,7 @@ export function containerNativeScript(target: ContainerHttpTarget, native: strin
   assert(/^(?:sha256:[a-f0-9]{64}|[^\s@]+@sha256:[a-f0-9]{64})$/.test(target.image), 'namespace_image_invalid');
   if (target.restore_directory !== undefined)
     assert(
-      /^\/home\/[A-Za-z0-9_./-]+$/.test(target.restore_directory) &&
+      /^\/(?:home|var\/home)\/[A-Za-z0-9_./-]+$/.test(target.restore_directory) &&
         !target.restore_directory.endsWith('/') &&
         target.restore_directory.split('/').every((part) => part !== '.' && part !== '..'),
       'namespace_restore_directory_invalid'

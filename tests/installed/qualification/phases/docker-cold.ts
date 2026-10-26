@@ -22,7 +22,7 @@ const pin=()=>{need(process.getuid()===0);for(let p=PATHS.operator.path;;p=requi
 `;
 function paths(value: DockerColdPaths) {
   const home = (v: string) =>
-    /^\/home\/[A-Za-z0-9._/-]+$/.test(v) && v.split('/').every((p) => p !== '.' && p !== '..');
+    /^\/(?:home|var\/home)\/[A-Za-z0-9._/-]+$/.test(v) && v.split('/').every((p) => p !== '.' && p !== '..');
   check(
     home(value.capture_directory) &&
       home(value.restore_directory) &&
@@ -32,7 +32,7 @@ function paths(value: DockerColdPaths) {
     'fresh_distinct_cold_paths_required'
   );
   check(
-    /^\/(usr|home)\/[A-Za-z0-9._/-]+$/.test(value.operator.path) &&
+    /^\/(usr|home|var\/home)\/[A-Za-z0-9._/-]+$/.test(value.operator.path) &&
       !value.operator.path.split('/').some((p) => p === '.' || p === '..') &&
       SHA.test(value.operator.sha256),
     'pinned_cold_operator_required'
@@ -165,7 +165,7 @@ export function dockerColdExecutor(
 try{pin();const before=JSON.parse(run('/usr/bin/node',['-'],READER,210000));need(before.outer_id===EXPECTED.outer&&before.inner.protected_sha256===EXPECTED.protected);
 const marker=PATHS.capture_directory+'.stop-request.json',fd=fs.openSync(marker,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,384);try{fs.writeFileSync(fd,JSON.stringify({format:1,outer:EXPECTED.outer,protected:EXPECTED.protected,automatic_retry:false}));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}const parent=fs.openSync(require('node:path').dirname(marker),fs.constants.O_RDONLY|fs.constants.O_DIRECTORY);try{fs.fsyncSync(parent)}finally{fs.closeSync(parent)}
 run('/usr/bin/docker',['--host','unix:///var/run/docker.sock','compose','--project-name','sodaos','--project-directory',HOST.install_directory,'--env-file',HOST.install_directory+'/.env','-f',HOST.install_directory+'/compose.yaml','stop'],undefined,300000);
-process.stdout.write(run(PATHS.operator.path,['journey','cold','capture','--container',EXPECTED.outer,'--project','sodaos','--image',IMAGE,'--settings',HOST.install_directory,'--out',PATHS.capture_directory]));
+process.stdout.write(run(PATHS.operator.path,['journey','cold','capture','--container',EXPECTED.outer,'--project','sodaos','--image',IMAGE,'--settings',fs.realpathSync(HOST.install_directory),'--out',PATHS.capture_directory]));
 }catch{console.error('cold_capture_unconfirmed_no_retry');process.exitCode=1;}`;
       try {
         return JSON.parse(await io.sshRead(program, 1800000));
