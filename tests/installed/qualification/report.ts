@@ -102,6 +102,25 @@ export async function journeyReport(run: string) {
       generation: connection.id === f.subject.connection_id ? integer(connection.generation) : null,
       connection_state: connection.id === f.subject.connection_id ? code(connection.state) : null,
       requested: f.limits,
+      ...(f.execution
+        ? {
+            requested_execution: f.execution,
+            observed_provider: code(state?.connection_provider),
+            observed_roles: ['soda-coder', 'soda-reviewer'].map((role) => {
+              const selection = row(row(state?.roles)[role]),
+                profile = row(selection.profile);
+              return {
+                role,
+                harness: code(selection.harness),
+                model: text(selection.model, /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/),
+                profile: {
+                  effort: code(profile.effort),
+                  contributor: profile.contributor === undefined ? false : bool(profile.contributor),
+                },
+              };
+            }),
+          }
+        : {}),
       observed: {
         sponsor_minutes: integer(accounting.sponsor_minutes),
         sponsor_active: bool(accounting.sponsor_active),
