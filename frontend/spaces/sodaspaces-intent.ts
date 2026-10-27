@@ -113,6 +113,14 @@ export class SodaIntent extends LitElement {
     h3 {
       font: var(--soda-font-heading, 20px sans-serif);
     }
+    .state-chip {
+      width: fit-content;
+      margin: -1rem 0 1rem;
+      padding: 0.125rem 0.5rem;
+      border: 1px solid var(--soda-page-edge);
+      color: var(--soda-page-muted);
+      font-size: 0.875rem;
+    }
     label {
       display: block;
     }

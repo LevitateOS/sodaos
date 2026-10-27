@@ -1447,8 +1447,10 @@ test('explicit check on a blocked plan summarizes state near the top and focuses
   const planning = page.locator('section[aria-label="Draft planning"]');
   await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
   await page.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
-  // The state/action summary sits near the top, directly under the review heading.
-  const summary = page.locator('section.intent-review > h2 + p');
+  // The state/action summary sits near the top, directly under the review
+  // heading and its state chip.
+  await page.locator('section.intent-review > h2 + .state-chip').getByText('Checked · needs correction', {exact: true}).waitFor();
+  const summary = page.locator('section.intent-review > h2 + .state-chip + p');
   await summary
     .getByText('Check found 1 walkthrough finding blocking acceptance.', {exact: false})
     .waitFor();

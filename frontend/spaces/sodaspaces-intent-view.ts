@@ -523,16 +523,21 @@ function planReason(status: IntentPlanStatus) {
 // stateLabel is the short state chip text for the review heading; '' means
 // no chip. It never reports a state further along than the plan status.
 export function stateLabel(view: IntentView): string {
-  switch (view.plan?.state) {
+  if (view.revision?.state === 'accepted') return 'Accepted';
+  if (!view.plan || view.plan.revision !== view.revision?.id) return '';
+  switch (view.plan.state) {
     case 'pending':
       return 'Planning…';
     case 'attention':
       return view.plan.attention ? 'Needs your decision' : 'Planning stopped';
     case 'failed':
+      return 'Planning failed';
     case 'cancelled':
-      return 'Planning stopped';
+      return 'Planning cancelled';
     case 'completed':
-      return 'Ready to check';
+      if (!view.plan.walkthroughs) return 'Planning complete';
+      if (!view.plan.review) return 'Ready to check';
+      return planAcceptBlock(view) ? 'Checked · needs correction' : 'Checked · ready to accept';
     default:
       return '';
   }
@@ -666,7 +671,7 @@ export function reviewIntent(view: IntentView) {
   const referenced = new Set(revision.tasks.flatMap((task) => task.idea_ids));
   return html`<section class="intent-review">
     <h2 tabindex="-1">Review your product direction</h2>
-    ${blockedCheckSummary(view)}
+    ${stateLabel(view) ? html`<p class="state-chip">${stateLabel(view)}</p>` : ''} ${blockedCheckSummary(view)}
     <label
       >Desired outcome<textarea
         rows="3"
