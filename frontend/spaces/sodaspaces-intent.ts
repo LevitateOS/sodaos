@@ -149,6 +149,13 @@ export class SodaIntent extends LitElement {
       background: var(--soda-button-primary-bg);
       color: var(--soda-button-primary-text);
     }
+    button.primary:disabled {
+      opacity: 1;
+      background: var(--soda-page-hover);
+      color: var(--soda-page-muted);
+      border-color: var(--soda-page-edge);
+      cursor: not-allowed;
+    }
     .context,
     .actions {
       display: flex;
