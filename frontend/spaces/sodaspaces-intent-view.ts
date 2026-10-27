@@ -133,10 +133,10 @@ function requestState(state: SavedRequest['state']): string {
   return 'Draft';
 }
 function savedRequestItem(view: IntentView, item: SavedRequest) {
-  const work = item.task_count ? ` · ${item.task_count} work items` : '';
+  const work = item.task_count ? ` · ${plural(item.task_count, 'work item', 'work items')}` : '';
   return html`<li>
-    <p>${item.objective}</p>
-    <p>${requestState(item.state)}${work}</p>
+    <p class="saved-objective" title=${item.objective}>${item.objective}</p>
+    <p class="saved-state">${requestState(item.state)}${work}</p>
     <button
       aria-label=${'Resume ' + item.objective}
       ?disabled=${view.busy || view.blocked}
@@ -160,11 +160,13 @@ function savedRequests(view: IntentView) {
       <p>No saved requests yet.</p>
     </section>`;
   return html`<section aria-label="Saved requests">
-    <h3>Saved requests</h3>
-    <ul>
-      ${view.savedRequests.map((item) => savedRequestItem(view, item))}
-    </ul>
-    ${view.savedMore ? html`<button @click=${view.moreSaved}>Show more</button>` : ''}
+    <details class="saved">
+      <summary>Resume a saved request (${view.savedRequests.length}${view.savedMore ? '+' : ''})</summary>
+      <ul>
+        ${view.savedRequests.map((item) => savedRequestItem(view, item))}
+      </ul>
+      ${view.savedMore ? html`<button @click=${view.moreSaved}>Show more</button>` : ''}
+    </details>
   </section>`;
 }
 export function describeIntent(view: IntentView) {

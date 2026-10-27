@@ -515,6 +515,12 @@ async function resumeIntent(page: Page, id: string) {
     target.request = intent;
   }, id);
 }
+// Saved requests sit in a collapsed "Resume a saved request (n)" disclosure.
+async function openSavedRequests(page: Page) {
+  const saved = page.locator('details.saved');
+  await saved.waitFor({state: 'attached'});
+  if (!(await saved.evaluate((node) => (node as HTMLDetailsElement).open))) await saved.locator('summary').click();
+}
 async function intentObjective(page: Page): Promise<string> {
   return page.evaluate(() => {
     const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
@@ -1654,6 +1660,7 @@ test('saved draft resumes by request id while superseded and refused loads keep 
   const first = await lastPostedBody(page, 'draft');
   const id1 = String(first.intent);
   assert(/^d[0-9a-f]{24}$/.test(id1));
+  await openSavedRequests(page);
   await page.getByText('First draft', {exact: true}).waitFor();
   const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
   await resetIntent(page);
@@ -1676,6 +1683,8 @@ test('saved draft resumes by request id while superseded and refused loads keep 
   await resetIntent(page);
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Second draft');
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.locator('summary', {hasText: /^Resume a saved request \(2\)$/}).waitFor();
+  await openSavedRequests(page);
   await page.getByText('Second draft', {exact: true}).waitFor();
   const second = await lastPostedBody(page, 'draft');
   const id2 = String(second.intent);
@@ -1744,6 +1753,7 @@ test('declined direction resumes for revision and re-explores as a new draft', a
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   const declined = await lastPostedBody(page, 'declined');
   assert(/^d[0-9a-f]{24}$/.test(String(declined.intent)));
+  await openSavedRequests(page);
   await page.getByText('Declined', {exact: false}).first().waitFor();
   await resumeIntent(page, String(declined.intent));
   await page
@@ -1793,10 +1803,12 @@ test('saved inventory lists states and separates empty from unavailable', async 
   });
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.locator('summary', {hasText: /^Resume a saved request \(4\)$/}).waitFor();
+  await openSavedRequests(page);
   await page.getByText('Accepted tracker', {exact: true}).waitFor();
   await page
     .locator('li', {hasText: 'Accepted tracker'})
-    .getByText(/^Accepted · 1 work items$/)
+    .getByText(/^Accepted · 1 work item$/)
     .waitFor();
   await page.getByText('Rejected planner', {exact: true}).waitFor();
   await page.locator('li', {hasText: 'Rejected planner'}).getByText('Rejected', {exact: true}).waitFor();
@@ -1804,6 +1816,7 @@ test('saved inventory lists states and separates empty from unavailable', async 
   await page.locator('li', {hasText: 'Abandoned board'}).getByText('Abandoned', {exact: true}).waitFor();
   await page.getByText('Fresh draft', {exact: true}).waitFor();
   await resetIntent(page);
+  await openSavedRequests(page);
   await page.locator('li', {hasText: 'Fresh draft'}).getByRole('button', {name: 'Resume'}).click();
   await page.waitForFunction(() => {
     const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
@@ -1819,6 +1832,7 @@ test('saved inventory lists states and separates empty from unavailable', async 
     (window as unknown as {intentStore: IntentStore}).intentStore.forbid = false;
   });
   await page.getByRole('button', {name: 'Retry', exact: true}).click();
+  await openSavedRequests(page);
   await page.getByText('Another draft', {exact: true}).waitFor();
 });
 
@@ -1844,6 +1858,8 @@ test('saved inventory names each resume action and publishes list updates', asyn
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.locator('summary', {hasText: /^Resume a saved request \(2\)$/}).waitFor();
+  await openSavedRequests(page);
   await page.getByRole('button', {name: 'Resume Seeded tracker', exact: true}).waitFor();
   await page.getByRole('button', {name: 'Resume Fresh draft', exact: true}).waitFor();
   const inventories = await page.evaluate(

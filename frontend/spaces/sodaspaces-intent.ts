@@ -170,6 +170,39 @@ export class SodaIntent extends LitElement {
     .bounds {
       margin-block: 1rem;
     }
+    .saved {
+      text-align: left;
+      margin-block: 1rem;
+    }
+    .saved > summary {
+      cursor: pointer;
+      padding-block: 0.5rem;
+    }
+    .saved ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .saved li {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding-block: 0.25rem;
+      border-block-end: 1px solid var(--soda-page-edge);
+    }
+    .saved li > p {
+      margin: 0;
+      white-space: nowrap;
+    }
+    .saved .saved-objective {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .saved .saved-state {
+      color: var(--soda-page-muted);
+    }
     article {
       border-block-end: 1px solid var(--soda-page-edge);
       padding-block: 1rem;
