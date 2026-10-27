@@ -175,6 +175,8 @@ async function phaseExplore(page: Page, out: string, intent: string): Promise<vo
   await shot(page, `${out}/explore-proposal.png`);
 }
 
+const DECIDE_CORRECTION = `First user action: an employee submits an equipment request with item (laptop/monitor/other), reason and needed-by date. Success: the request is saved; the employee sees it with status Submitted and the manager sees it pending approval. Operations sees only approved requests and marks them ordered then delivered. Employees see only their own requests.`;
+
 async function phaseDecide(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
@@ -201,6 +203,31 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
     0,
     `Decide: product asks ${pending.length} question(s) needing recorded owner answers: ${pending.join(' | ').slice(0, 800)}`
   );
+  // Answer the material assumption through the product's own correction box,
+  // then Update proposal. Recorded owner correction (equipment spirit) is above.
+  const correction = spaces.getByLabel(/^Correct the automatic choice:/);
+  if ((await correction.count()) > 0) {
+    const current = await correction.first().inputValue();
+    if (!current.trim()) {
+      await correction.first().fill(DECIDE_CORRECTION);
+      await shot(page, `${out}/decide-correction-filled.png`);
+      const saving = page.waitForResponse(
+        (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+        {timeout: 120000}
+      );
+      const explored = page.waitForResponse(
+        (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+        {timeout: 300000}
+      );
+      await spaces.getByRole('button', {name: 'Update proposal'}).click();
+      const saved = await saving;
+      assert.equal(saved.status(), 201, `Decide: Update proposal save must return 201, got ${saved.status()}`);
+      const re = await explored;
+      assert.equal(re.status(), 201, `Decide: Update proposal explore must return 201, got ${re.status()}`);
+      await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+      await shot(page, `${out}/decide-updated.png`);
+    }
+  }
 }
 
 async function phaseBind(page: Page, out: string): Promise<string> {
