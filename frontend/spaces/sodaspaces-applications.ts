@@ -976,6 +976,18 @@ export class SodaApplications extends LitElement {
       })
     );
   }
+  // The empty App view links to the project's Work, where the request and its
+  // build progress live. The workspace shell owns the navigation.
+  private openProjectWork() {
+    if (!this.active || !/^[1-9][0-9]*$/.test(this.repository)) return;
+    this.dispatchEvent(
+      new CustomEvent('soda-project-work-open', {
+        bubbles: true,
+        composed: true,
+        detail: {repository: this.repository},
+      })
+    );
+  }
   protected render() {
     const projectRecords = this.repository
       ? this.records.filter((record) => record.project?.repository === this.repository)
@@ -1032,9 +1044,10 @@ export class SodaApplications extends LitElement {
           : ''
       }
       ${this.companyScope && !this.requestedDelivery ? html`<p>Showing the current company application; previews stay separate.</p>` : ''}
-      ${!this.requestedDelivery && confirmedEmpty ? html`<p>${this.companyScope ? 'No current company application is available to you. Previews stay separate.' : this.repository ? 'No application is available to you for this project yet. Check the project Feed for updates or ask an application administrator about access.' : 'No applications are available to this Soda account yet. Applications shared with you will appear here.'}</p>` : ''}
+      ${!this.requestedDelivery && confirmedEmpty ? html`<p>${this.companyScope ? 'No current company application is available to you. Previews stay separate.' : this.repository ? 'No app is available here yet. Apps appear once a build is verified and released.' : 'No apps are available for your projects yet. An app appears here once a build is verified and released.'}</p>` : ''}
       ${!this.complete ? html`<p>Some application details could not be loaded. Refresh to try again.</p>` : ''}
-      ${!this.canSetup && this.active && this.loaded && !this.busy ? html`<p>Application setup and updates are handled by an operator.</p>` : ''}
+      ${!this.canSetup && !noApplications && this.active && this.loaded && !this.busy ? html`<p>Application setup and updates are handled by an operator.</p>` : ''}
+      ${this.repository && !this.requestedDelivery && confirmedEmpty ? html`<button type="button" class="ui primary button" ?disabled=${!this.active} @click=${() => this.openProjectWork()}>Open Work</button>` : ''}
       ${this.repository && !this.busy && (this.loaded || this.notice) ? html`<button type="button" class="ui button" ?disabled=${!this.active} @click=${() => this.openProjectFeed()}>View project Feed</button>` : ''}
       <ul>
         ${repeat(
