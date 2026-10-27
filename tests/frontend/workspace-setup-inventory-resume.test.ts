@@ -36,6 +36,7 @@ test('first use: inventory-click accepted resume restores its overview with nati
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
+  await page.locator('details.saved > summary').click();
   const resume = page.getByRole('button', {name: /^Resume Build a small project tracker$/});
   await resume.waitFor();
   const settledCalls = await page.evaluate(() => window.workspaceFixture.calls.length);

@@ -1522,6 +1522,7 @@ test('setup: native New on idle Configure starts blank and saves apart', {timeou
   assert.equal(fresh?.body?.predecessor, undefined);
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   const resumeName = /^Resume Build a small project tracker$/;
+  await page.locator('details.saved > summary').click();
   await page.getByRole('button', {name: resumeName}).waitFor();
   await page.getByRole('button', {name: resumeName}).click();
   await page.waitForFunction(
@@ -1595,6 +1596,7 @@ test('setup: discovery groups saved drafts from inventory and resumes them', {ti
   const saved = await saveAndLeave('Build discovery beta');
   assert.match(saved, /^\/workspace\/requests\/d[0-9a-f]{24}$/);
   await begin();
+  await page.locator('soda-intent details.saved > summary').click();
   await page.locator('soda-intent').getByText('Build discovery beta', {exact: true}).waitFor();
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await heading.waitFor({state: 'hidden'});

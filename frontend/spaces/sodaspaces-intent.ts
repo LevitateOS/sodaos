@@ -33,7 +33,7 @@ import type {
   SavedRequest,
   SavedReviewRead,
 } from './sodaspaces-intent-response.js';
-import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
+import {describeIntent, reviewIntent, departmentDialog, reviewReady, attentionText} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
 type IntentAPI = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>;
@@ -56,6 +56,8 @@ export class SodaIntent extends LitElement {
     active: {type: Boolean},
     actor: {type: String},
     request: {type: String},
+    project: {type: String},
+    repository: {type: String},
     exploration: {state: true},
     objective: {state: true},
     savedRequests: {state: true},
@@ -98,11 +100,12 @@ export class SodaIntent extends LitElement {
       max-width: 720px;
       margin: auto;
     }
-    .intent-review {
+    .intent-review,
+    .intent-entry {
       text-align: left;
     }
     .intent-entry {
-      padding-block: clamp(1rem, 8vh, 6rem);
+      padding-block: clamp(0.5rem, 3vh, 2rem);
     }
     h2 {
       font: var(--soda-font-title, 32px sans-serif);
@@ -110,6 +113,14 @@ export class SodaIntent extends LitElement {
     }
     h3 {
       font: var(--soda-font-heading, 20px sans-serif);
+    }
+    .state-chip {
+      width: fit-content;
+      margin: -1rem 0 1rem;
+      padding: 0.125rem 0.5rem;
+      border: 1px solid var(--soda-page-edge);
+      color: var(--soda-page-muted);
+      font-size: 0.875rem;
     }
     label {
       display: block;
@@ -148,6 +159,13 @@ export class SodaIntent extends LitElement {
       background: var(--soda-button-primary-bg);
       color: var(--soda-button-primary-text);
     }
+    button.primary:disabled {
+      opacity: 1;
+      background: var(--soda-page-hover);
+      color: var(--soda-page-muted);
+      border-color: var(--soda-page-edge);
+      cursor: not-allowed;
+    }
     .context,
     .actions {
       display: flex;
@@ -161,6 +179,39 @@ export class SodaIntent extends LitElement {
     }
     .bounds {
       margin-block: 1rem;
+    }
+    .saved {
+      text-align: left;
+      margin-block: 1rem;
+    }
+    .saved > summary {
+      cursor: pointer;
+      padding-block: 0.5rem;
+    }
+    .saved ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .saved li {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding-block: 0.25rem;
+      border-block-end: 1px solid var(--soda-page-edge);
+    }
+    .saved li > p {
+      margin: 0;
+      white-space: nowrap;
+    }
+    .saved .saved-objective {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .saved .saved-state {
+      color: var(--soda-page-muted);
     }
     article {
       border-block-end: 1px solid var(--soda-page-edge);
@@ -210,12 +261,20 @@ export class SodaIntent extends LitElement {
       outline: 2px solid var(--soda-page-focus);
       outline-offset: 2px;
     }
+    h2[tabindex='-1']:focus,
+    h3[tabindex='-1']:focus {
+      outline: none;
+    }
   `;
   declare api: IntentAPI | undefined;
   declare blocked: boolean;
   declare active: boolean;
   declare actor: string;
   declare request: string;
+  declare project: string;
+  // Repository the surrounding project route binds (UI-12d). Used only for
+  // the first save of a fresh draft; a saved revision keeps its own binding.
+  declare repository: string;
   declare exploration: Exploration | undefined;
   declare savedRequests: SavedRequest[];
   declare savedLoaded: boolean;
@@ -305,6 +364,8 @@ export class SodaIntent extends LitElement {
     this.active = false;
     this.actor = '';
     this.request = '';
+    this.project = '';
+    this.repository = '';
     this.exploration = undefined;
     this.savedRequests = [];
     this.savedLoaded = false;
@@ -426,10 +487,7 @@ export class SodaIntent extends LitElement {
     } else if (status.state === 'completed') this.planNotice = '';
     else if (status.state === 'pending')
       this.planNotice = 'Your request is saved. Its planning progress and any question appear here.';
-    else if (status.state === 'attention')
-      this.planNotice = status.attention
-        ? `Planning needs a product decision: ${status.attention}`
-        : 'Planning needs a product decision before issues can be proposed.';
+    else if (status.state === 'attention') this.planNotice = attentionText(status);
   }
   private draftStorageKey() {
     // Key by intent once a revision exists: the request id is only the
@@ -604,6 +662,16 @@ export class SodaIntent extends LitElement {
       target?.focus();
     });
   }
+  // editRequest moves focus to the review's Desired outcome field so the
+  // presenter can change the request; it saves nothing and spends no calls.
+  private editRequest = () => {
+    void this.updateComplete.then(() => {
+      const area = this.shadowRoot?.querySelector<HTMLTextAreaElement>('section.intent-review textarea');
+      if (!area) return;
+      area.scrollIntoView({block: 'center'});
+      area.focus({preventScroll: true});
+    });
+  };
   focusFindings() {
     void this.updateComplete.then(() => {
       this.shadowRoot
@@ -720,6 +788,15 @@ export class SodaIntent extends LitElement {
           composed: true,
         })
       );
+      // Land on the review heading: a resume from the saved list must not
+      // leave focus on the body with the heading scrolled out of view.
+      void this.updateComplete.then(() => {
+        if (this.loadedRequest !== id) return;
+        const heading = this.shadowRoot?.querySelector<HTMLElement>('section.intent-review h2');
+        if (!heading) return;
+        heading.scrollIntoView({block: 'start'});
+        heading.focus({preventScroll: true});
+      });
     } catch (error) {
       this.resumeFailed(id, controller, error);
     } finally {
@@ -2211,7 +2288,7 @@ export class SodaIntent extends LitElement {
     }, 'Raising allowance…');
   };
   private async explore(signal: AbortSignal) {
-    const saved = await this.save('draft', this.revision?.repository || '0', signal);
+    const saved = await this.save('draft', this.draftRepository(), signal);
     if (!(await this.ensureAllowance(saved.intent, signal))) return;
     try {
       const response = await this.call(
@@ -2262,11 +2339,15 @@ export class SodaIntent extends LitElement {
         'The derived proposal failed review validation. Your description is saved; review the approach and explore again.';
     else this.error = 'Exploration could not run. Your description is saved; try again.';
   }
+  private draftRepository(): string {
+    if (this.revision) return this.revision.repository || '0';
+    return this.repository || '0';
+  }
   private describe = () => {
     if (this.objective.trim()) void this.perform((signal) => this.explore(signal));
   };
   private saveCurrent = async (signal: AbortSignal) => {
-    const saved = await this.save('draft', this.revision?.repository || '0', signal);
+    const saved = await this.save('draft', this.draftRepository(), signal);
     this.dirty = false;
     this.dispatchEvent(
       new CustomEvent('intent-saved', {
@@ -2384,7 +2465,7 @@ export class SodaIntent extends LitElement {
           const findings = review.consistency?.mismatches.length || 0;
           this.planNotice = findings
             ? 'The authored walkthrough needs a correction. Correct or clarify the request above (your objective and choices stay with your authorship), then plan again and check before accepting.'
-            : 'JEV checked the authored walkthrough. Review it above, then accept to build.';
+            : 'JEV checked the walkthrough: no findings. Accept and build when you are satisfied.';
           // An explicit Check that blocks on findings lands focus on the
           // real findings; the near-top summary keeps the state, action and
           // a second link visible without scrolling.
@@ -2481,9 +2562,7 @@ export class SodaIntent extends LitElement {
       return;
     }
     if (fresh.state === 'attention') {
-      this.planNotice = fresh.attention
-        ? `Planning needs a product decision: ${fresh.attention}`
-        : 'Planning needs a product decision before issues can be proposed.';
+      this.planNotice = attentionText(fresh);
       return;
     }
     // A completed plan with walkthroughs is ready for the review flow
@@ -2498,7 +2577,12 @@ export class SodaIntent extends LitElement {
         () => this.call(path, undefined, signal),
         revision.id
       );
-      this.planNotice = outcome.notice;
+      // A settled attention outcome uses the one shared attention wording;
+      // an unconfirmed start keeps its own notice.
+      this.planNotice =
+        outcome.status?.state === 'attention' && outcome.notice.startsWith('Planning needs a product decision')
+          ? attentionText(outcome.status)
+          : outcome.notice;
       this.generationNotice = '';
       if (outcome.status !== undefined) {
         this.plan = outcome.status;
@@ -2680,6 +2764,7 @@ export class SodaIntent extends LitElement {
     (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
   }
   private saveNote(): string {
+    if (!this.revision) return '';
     if (!this.objective.trim() && !this.dirty) return '';
     if (this.revision && !this.dirty && this.objective.trim() === this.revision.objective) return 'Saved';
     return 'Unsaved changes';
@@ -2720,6 +2805,9 @@ export class SodaIntent extends LitElement {
   private view(): IntentView {
     const unsaved = this.unsavedSummary();
     return {
+      ...(this.project ? {project: this.project} : {}),
+      planningUnavailable: false,
+      editRequest: this.editRequest,
       objective: this.objective,
       saveNote: this.saveNote(),
       savedRequests: this.savedRequests,
