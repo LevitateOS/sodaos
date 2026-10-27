@@ -12,6 +12,14 @@ import type {
 import {explorationReview} from './sodaspaces-intent-walkthrough.js';
 
 export interface IntentView {
+  // Repository display name when the request is started inside a project
+  // (set by the shell through <soda-intent .project>); undefined otherwise.
+  project?: string;
+  // Reserved for UI-25: true when planning is known to be unavailable for
+  // this project, so Prepare project can be offered. Always false for now.
+  planningUnavailable: boolean;
+  // Focus the review's Desired outcome field. No save and no planning spend.
+  editRequest(): void;
   objective: string;
   saveNote: string;
   exploration: Exploration | undefined;
@@ -496,6 +504,30 @@ function planNoticeText(view: IntentView): string {
   if (view.plan && view.planNotice === planText(view.plan)) return '';
   return view.planNotice;
 }
+// attentionText is the one wording for a plan in attention, shared by the
+// review and the component's plan notices.
+export function attentionText(status: IntentPlanStatus): string {
+  return status.attention
+    ? `Planning needs a product decision: ${status.attention}`
+    : 'Planning needs a product decision before issues can be proposed.';
+}
+// stateLabel is the short state chip text for the review heading; '' means
+// no chip. It never reports a state further along than the plan status.
+export function stateLabel(view: IntentView): string {
+  switch (view.plan?.state) {
+    case 'pending':
+      return 'Planning…';
+    case 'attention':
+      return view.plan.attention ? 'Needs your decision' : 'Planning stopped';
+    case 'failed':
+    case 'cancelled':
+      return 'Planning stopped';
+    case 'completed':
+      return 'Ready to check';
+    default:
+      return '';
+  }
+}
 function planText(status: IntentPlanStatus): string {
   switch (status.state) {
     case 'none':
@@ -505,9 +537,7 @@ function planText(status: IntentPlanStatus): string {
     case 'completed':
       return 'Planning is complete. Accept the direction below to create its work.';
     case 'attention':
-      return status.attention
-        ? `Planning needs a product decision: ${status.attention}`
-        : 'Planning needs a product decision before issues can be proposed.';
+      return attentionText(status);
     case 'failed':
       return 'Planning failed. Your direction is saved; try again.';
     case 'cancelled':

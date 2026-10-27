@@ -33,7 +33,7 @@ import type {
   SavedRequest,
   SavedReviewRead,
 } from './sodaspaces-intent-response.js';
-import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
+import {describeIntent, reviewIntent, departmentDialog, reviewReady, attentionText} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
 type IntentAPI = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>;
@@ -56,6 +56,7 @@ export class SodaIntent extends LitElement {
     active: {type: Boolean},
     actor: {type: String},
     request: {type: String},
+    project: {type: String},
     exploration: {state: true},
     objective: {state: true},
     savedRequests: {state: true},
@@ -261,6 +262,7 @@ export class SodaIntent extends LitElement {
   declare active: boolean;
   declare actor: string;
   declare request: string;
+  declare project: string;
   declare exploration: Exploration | undefined;
   declare savedRequests: SavedRequest[];
   declare savedLoaded: boolean;
@@ -350,6 +352,7 @@ export class SodaIntent extends LitElement {
     this.active = false;
     this.actor = '';
     this.request = '';
+    this.project = '';
     this.exploration = undefined;
     this.savedRequests = [];
     this.savedLoaded = false;
@@ -471,10 +474,7 @@ export class SodaIntent extends LitElement {
     } else if (status.state === 'completed') this.planNotice = '';
     else if (status.state === 'pending')
       this.planNotice = 'Your request is saved. Its planning progress and any question appear here.';
-    else if (status.state === 'attention')
-      this.planNotice = status.attention
-        ? `Planning needs a product decision: ${status.attention}`
-        : 'Planning needs a product decision before issues can be proposed.';
+    else if (status.state === 'attention') this.planNotice = attentionText(status);
   }
   private draftStorageKey() {
     // Key by intent once a revision exists: the request id is only the
@@ -649,6 +649,16 @@ export class SodaIntent extends LitElement {
       target?.focus();
     });
   }
+  // editRequest moves focus to the review's Desired outcome field so the
+  // presenter can change the request; it saves nothing and spends no calls.
+  private editRequest = () => {
+    void this.updateComplete.then(() => {
+      const area = this.shadowRoot?.querySelector<HTMLTextAreaElement>('section.intent-review textarea');
+      if (!area) return;
+      area.scrollIntoView({block: 'center'});
+      area.focus({preventScroll: true});
+    });
+  };
   focusFindings() {
     void this.updateComplete.then(() => {
       this.shadowRoot
@@ -2526,9 +2536,7 @@ export class SodaIntent extends LitElement {
       return;
     }
     if (fresh.state === 'attention') {
-      this.planNotice = fresh.attention
-        ? `Planning needs a product decision: ${fresh.attention}`
-        : 'Planning needs a product decision before issues can be proposed.';
+      this.planNotice = attentionText(fresh);
       return;
     }
     // A completed plan with walkthroughs is ready for the review flow
@@ -2766,6 +2774,9 @@ export class SodaIntent extends LitElement {
   private view(): IntentView {
     const unsaved = this.unsavedSummary();
     return {
+      ...(this.project ? {project: this.project} : {}),
+      planningUnavailable: false,
+      editRequest: this.editRequest,
       objective: this.objective,
       saveNote: this.saveNote(),
       savedRequests: this.savedRequests,
