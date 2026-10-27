@@ -315,6 +315,11 @@ async function main() {
       await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
     } else if (resume) intent = resume;
     assert(intent, 'need a request id: run describe first or pass --resume <intent>');
+    if (only !== 'all' && only !== 'describe') {
+      await s.page.goto(`${ORIGIN}/workspace/requests/${intent}`);
+      await nativeSpacesMount(s.page);
+      await shot(s.page, `${dir}/resumed-${only}.png`);
+    }
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
     let revision = '';
