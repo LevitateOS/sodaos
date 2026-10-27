@@ -549,7 +549,9 @@ function planText(status: IntentPlanStatus): string {
     case 'pending':
       return 'Planning is running. The result appears here when the run settles.';
     case 'completed':
-      return 'Planning is complete. Accept the direction below to create its work.';
+      if (!status.walkthroughs) return 'Planning is complete, but this plan has no request-specific walkthrough.';
+      if (!status.review) return 'Planning is complete. Check the walkthrough with JEV before accepting.';
+      return 'Planning is complete. JEV checked the walkthrough; Accept and build creates its work.';
     case 'attention':
       return attentionText(status);
     case 'failed':
@@ -666,7 +668,7 @@ function reviewNextStep(view: IntentView): string {
     if (!view.plan.walkthroughs)
       return 'This saved plan has no request-specific walkthrough. Author one in a new plan before accepting.';
     if (!view.plan.review) return 'Review the walkthrough, then check it before authorizing work.';
-    return 'Accept this direction to create its work. App delivery is tracked separately.';
+    return 'Choose Accept and build when you are satisfied. App delivery is tracked separately.';
   }
   return 'Your request and choices are saved. Continue to planning when project preparation is ready.';
 }

@@ -1314,7 +1314,7 @@ test('immediate completed plan clears the notice without a running text', async 
   // The settled completion is announced by the status line; no action
   // notice and no running text may survive it.
   await planning
-    .getByText('Planning is complete. Accept the direction below to create its work.', {exact: true})
+    .getByText('Planning is complete. Check the walkthrough with JEV before accepting.', {exact: true})
     .waitFor();
   assert.equal(
     await planning.getByText('Planning is running. The status below follows the run.', {exact: true}).count(),
@@ -1387,7 +1387,7 @@ test('walkthrough findings block acceptance until the direction is corrected', a
     .waitFor();
   assert.equal(
     await planning
-      .getByText('Planning is complete. Accept the direction below to create its work.', {exact: true})
+      .getByText('Planning is complete. JEV checked the walkthrough; Accept and build creates its work.', {exact: true})
       .count(),
     0
   );
