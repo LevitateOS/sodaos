@@ -231,8 +231,9 @@ func setCurrentProduct(revision factory.IntentRevision, out *factory.CurrentCont
 	for _, idea := range revision.Ideas {
 		ideas = append(ideas, factory.CurrentProductIdea{ID: idea.ID, Description: idea.Description, Consequence: idea.Consequence, Assumption: idea.Assumption, Decision: idea.Decision, Correction: idea.Correction, Source: idea.Source, Provenance: idea.Provenance, Evidence: idea.Evidence, Material: idea.Material})
 	}
-	out.Role.Product = &factory.CurrentProductContext{Intent: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), Objective: revision.Objective, Approach: revision.Approach, Ideas: ideas, Tasks: revision.Tasks, EffectiveOutcomes: revision.EffectiveOutcomes}
-	count := len(revision.EffectiveOutcomes)
+	resolved := factory.ResolvedScope(revision)
+	out.Role.Product = &factory.CurrentProductContext{Intent: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), Objective: revision.Objective, Approach: revision.Approach, Ideas: ideas, Tasks: revision.Tasks, EffectiveOutcomes: append([]string(nil), resolved...)}
+	count := len(resolved)
 	out.Intent.OutcomeCount = &count
 	out.Intent.ContextDigest = revision.Digest()
 }

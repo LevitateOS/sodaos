@@ -34,15 +34,17 @@ const (
 // (no plan, no PR, pending funded calls) leaves its section empty.
 func (s *API) factoryIssueJourney(ctx context.Context, repository, index int64, issue string, owner *factory.Assignment, publication *factory.Publication, observedUnix int64) (*factoryIssueJourneyView, error) {
 	view := &factoryIssueJourneyView{
-		Phases:      []journeyPhaseView{},
-		Tasks:       []journeyTaskView{},
-		Commits:     []journeyCommitView{},
-		Findings:    []journeyFindingView{},
-		Corrections: []journeyCorrectionView{},
-		Judgments:   []journeyJudgmentView{},
-		Gates:       []journeyGateView{},
-		Adoptions:   []journeyAdoptionView{},
-		Repository:  strconv.FormatInt(repository, 10), Issue: issue,
+		Phases:        []journeyPhaseView{},
+		Tasks:         []journeyTaskView{},
+		Commits:       []journeyCommitView{},
+		Findings:      []journeyFindingView{},
+		Corrections:   []journeyCorrectionView{},
+		Judgments:     []journeyJudgmentView{},
+		Gates:         []journeyGateView{},
+		Adoptions:     []journeyAdoptionView{},
+		Delivered:     []journeyDeliveredTaskView{},
+		Verifications: []journeyVerifiedAppView{},
+		Repository:    strconv.FormatInt(repository, 10), Issue: issue,
 		ObservedUnix: observedUnix,
 	}
 	head, err := s.Store.AcceptanceHead(ctx, repository, index)
@@ -96,33 +98,45 @@ func (s *API) factoryIssueJourney(ctx context.Context, repository, index int64, 
 	return view, nil
 }
 
-// journeyEvidenceSections closes the two evidence joins from canonical
+// journeyEvidenceSections closes the four evidence joins from canonical
 // records. Adoptions render from the intent task bindings that adopted
-// this native issue (intent + revision, state adopted: a binding is
-// recorded only after native readback confirmed the issue). Delivery
-// proof renders from the publication's journaled delivery acceptances:
+// this native issue (intent + revision with the exact task binding,
+// state adopted: a binding is recorded only after native readback
+// confirmed the issue). Delivered-task evidence renders the canonical
+// completion behind each adoption binding. Verified applications render
+// the F10 trusted check behind each adopted revision. Delivery proof
+// renders from the publication's journaled delivery acceptances:
 // a clean-review acceptance is its own evidence and renders no funded
 // judgment; a Jev acceptance renders its funded delivery judgment only
 // when the recorded receipt joins on the exact publication, attempt
-// root, round and tuple. Either section without rendered proof keeps
-// its unavailable reason, so the full merged journey never reports
-// complete on missing evidence.
+// root, round and tuple. A section without rendered proof keeps its
+// unavailable reason, so the full merged journey never reports
+// complete on missing evidence. Delivered and verified evidence is only
+// expected once an adoption exists.
 func (s *API) journeyEvidenceSections(ctx context.Context, view *factoryIssueJourneyView, repository, index int64, owner *factory.Assignment, publication *factory.Publication) error {
-	if err := s.journeyAdoptionSection(ctx, view, repository, index); err != nil {
+	recorded, err := s.journeyAdoptionSection(ctx, view, repository, index)
+	if err != nil {
+		return err
+	}
+	if err := s.journeyDeliveredSection(ctx, view, repository, recorded); err != nil {
+		return err
+	}
+	if err := s.journeyVerifiedSection(ctx, view, repository, recorded); err != nil {
 		return err
 	}
 	return s.journeyDeliverySection(ctx, view, owner, publication)
 }
 
-func (s *API) journeyAdoptionSection(ctx context.Context, view *factoryIssueJourneyView, repository, index int64) error {
+func (s *API) journeyAdoptionSection(ctx context.Context, view *factoryIssueJourneyView, repository, index int64) ([]store.JourneyAdoption, error) {
 	recorded, truncated, err := s.Store.JourneyAdoptions(ctx, repository, index, maxJourneyAdoptions)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	adoptions := make([]journeyAdoptionView, 0, len(recorded))
 	invalid := false
 	for _, adoption := range recorded {
-		rendered, err := journeyAdoptionDTO(adoption.Intent, adoption.Revision, journeyAdoptionAdopted)
+		rendered, err := journeyAdoptionDTO(adoption.Intent, adoption.Revision, journeyAdoptionAdopted,
+			adoption.Binding.TaskKey, strconv.FormatInt(adoption.Binding.IssueIndex, 10), adoption.Binding.AcceptanceID)
 		if err != nil {
 			invalid = true
 			continue
@@ -139,6 +153,105 @@ func (s *API) journeyAdoptionSection(ctx context.Context, view *factoryIssueJour
 		view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsUnavailable)
 	}
 	view.Adoptions = nonNilJourney(adoptions, []journeyAdoptionView{})
+	return recorded, nil
+}
+
+// journeyDeliveredSection renders the delivered-task evidence behind
+// the recorded adoptions: the canonical completion event for each
+// adoption binding's native issue and acceptance. Rows render in
+// adoption order; an unchanged task that rebinds a successor revision
+// with the same issue and acceptance yields one completion, not one
+// row per historical binding: delivered evidence deduplicates by the
+// exact task, issue, acceptance and completion identity while the
+// adoption section keeps both bindings visible as history. When an
+// adoption has no recorded completion the section keeps its
+// unavailable reason instead of passing a partial chain as the whole
+// lineage. With no adoptions there is no adopted task to deliver, so
+// the section stays empty without a reason.
+func (s *API) journeyDeliveredSection(ctx context.Context, view *factoryIssueJourneyView, repository int64, recorded []store.JourneyAdoption) error {
+	if len(recorded) == 0 {
+		return nil
+	}
+	delivered := make([]journeyDeliveredTaskView, 0, len(recorded))
+	seen := make(map[string]bool, len(recorded))
+	invalid := false
+	missing := false
+	for _, adoption := range recorded {
+		event, err := s.Store.JourneyDeliveredCompletion(ctx, repository, adoption.Binding.IssueIndex, adoption.Binding.AcceptanceID)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				missing = true
+				continue
+			}
+			return err
+		}
+		rendered, err := journeyDeliveredTaskDTO(adoption.Binding.TaskKey,
+			strconv.FormatInt(adoption.Binding.IssueIndex, 10), adoption.Binding.AcceptanceID,
+			event.ID, event.PublicationID, event.Generation)
+		if err != nil {
+			invalid = true
+			continue
+		}
+		key := adoption.Binding.TaskKey + "\x00" + strconv.FormatInt(adoption.Binding.IssueIndex, 10) + "\x00" + adoption.Binding.AcceptanceID + "\x00" + event.ID
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		delivered = append(delivered, rendered)
+	}
+	if invalid {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveriesInvalidRow)
+	}
+	if missing || len(delivered) == 0 {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveriesUnavailable)
+	}
+	view.Delivered = nonNilJourney(delivered, []journeyDeliveredTaskView{})
+	return nil
+}
+
+// journeyVerifiedSection renders the verified application revision
+// behind each adopted intent revision: the exact revision whose
+// trusted application check passed, once per revision in adoption
+// order. When an adopted revision has no recorded F10 verification
+// the section keeps its unavailable reason instead of reporting the
+// chain verified on worker claims. With no adoptions there is no
+// adopted revision to verify, so the section stays empty without
+// a reason.
+func (s *API) journeyVerifiedSection(ctx context.Context, view *factoryIssueJourneyView, repository int64, recorded []store.JourneyAdoption) error {
+	if len(recorded) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(recorded))
+	verifications := make([]journeyVerifiedAppView, 0, len(recorded))
+	invalid := false
+	missing := false
+	for _, adoption := range recorded {
+		if seen[adoption.Revision] {
+			continue
+		}
+		seen[adoption.Revision] = true
+		verified, err := s.Store.JourneyVerifiedApp(ctx, repository, adoption.Intent, adoption.Revision)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				missing = true
+				continue
+			}
+			return err
+		}
+		rendered, err := journeyVerifiedAppDTO(verified.Intent, verified.Revision, verified.SourceCommit, verified.Manifest)
+		if err != nil {
+			invalid = true
+			continue
+		}
+		verifications = append(verifications, rendered)
+	}
+	if invalid {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonVerificationsInvalidRow)
+	}
+	if missing || len(verifications) == 0 {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonVerificationsUnavailable)
+	}
+	view.Verifications = nonNilJourney(verifications, []journeyVerifiedAppView{})
 	return nil
 }
 

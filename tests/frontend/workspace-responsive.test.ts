@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setupWorkspaceDriver, chooseFirstRepository, fixture, openSession} from './fixtures/workspace-driver';
+import {
+  setupWorkspaceDriver,
+  chooseFirstRepository,
+  enterCreatedProjectTerminals,
+  fixture,
+  openSession,
+} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
@@ -46,7 +52,7 @@ for (const viewport of [
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
-    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    await enterCreatedProjectTerminals(page);
     await page.evaluate(async () => {
       const f = window.workspaceFixture,
         space = f.spaces[0];

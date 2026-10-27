@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -168,15 +169,40 @@ func generateAcceptedBody(id string) string {
 		`"state":"accepted","max_issues":10,"planning_calls":12}`
 }
 
+// q05WalkthroughContent authors the request-specific walkthroughs for the
+// saved q05 draft head, mirroring planWalkthroughContent: deterministic
+// planning-agent prose bound to the head's own objective and authorized
+// outcomes, with no model call.
+func q05WalkthroughContent(t *testing.T, head factory.IntentRevision) factory.ProposalContent {
+	t.Helper()
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content.Producer, content.Supported = factory.PlanningProducer, true
+	content.Alternatives = nil
+	for _, key := range []string{"guided", "list"} {
+		content.Alternatives = append(content.Alternatives, factory.ProductAlternative{
+			Key: key, Name: key + " project planning", Audience: "The project owner", Summary: "Plan the recorded draft with visible progress.",
+			Steps:      []factory.WalkthroughStep{{Actor: "The project owner", Action: "reviews the saved request", Result: "The planned work is visible"}},
+			Visibility: "The owner sees the saved plan", Consequences: "The request stays editable before acceptance", Evidence: "The admitted request and inspected source", Outcomes: []string{head.Objective}, IdeaIDs: append([]string(nil), head.EffectiveOutcomes...),
+		})
+	}
+	return content
+}
+
 // generateAnswer fences one decomposition_options answer for the saved
-// draft head: the covering "keep" candidate plus "split" when requested.
-func generateAnswer(t *testing.T, operation string, keys ...string) string {
+// draft head: the covering "keep" candidate plus "split" when requested,
+// carrying the authored walkthroughs the walkthrough gate requires before
+// native generate.
+func generateAnswer(t *testing.T, head factory.IntentRevision, operation string, keys ...string) string {
 	t.Helper()
 	tasks := []factory.IntentTask{
 		{Key: generateTaskA, Objective: "Capture leave requests", Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{generateIdeaA}},
 		{Key: generateTaskB, Objective: "Managers review requests", Outcomes: []string{"Decisions are visible"}, IdeaIDs: []string{generateIdeaB}},
 	}
-	out := factory.SemanticPlannerOutput{Intent: generateIntentID, Revision: generateDraftID, Operation: operation}
+	walkthroughs := q05WalkthroughContent(t, head)
+	out := factory.SemanticPlannerOutput{Intent: head.Intent, Revision: head.ID, Operation: operation, Walkthroughs: &walkthroughs}
 	for _, key := range keys {
 		candidate := tasks
 		if key == "split" {
@@ -199,26 +225,35 @@ func generateAnswer(t *testing.T, operation string, keys ...string) string {
 
 // recordGeneratePlan saves the options draft, funds the repository,
 // plans the requested operation through the real mux, settles the
-// fenced answer and accepts the scope-preserving successor,
-// returning the accepted revision ID.
+// fenced answer with authored walkthroughs, records the mocked
+// consolidation/consistency review receipts and accepts the
+// scope-preserving successor, returning the accepted revision ID.
 func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(method, path, body string) (int, []byte), operation, acceptID string, keys ...string) string {
 	t.Helper()
 	ctx := context.Background()
-	draftBody, acceptedBody, answer := generateOptionsDraft(), generateAcceptedBody(acceptID), generateAnswer(t, operation, keys...)
+	draftBody, acceptedBody := generateOptionsDraft(), generateAcceptedBody(acceptID)
+	app := strings.NewReplacer(
+		"Build a leave approval workflow so managers can review time-off requests", "Build a private team task board with persisted priority",
+		"Capture leave requests", "Store team tasks", "Requests can be recorded", "Team tasks persist",
+		"Managers review requests", "Set task priority", "Decisions are visible", "Saved priority is visible",
+		"Build the leave tracker", "Build the team task board", "Requests list", "Team tasks are visible",
+		"Decide vacation requests with manager review", "Manage team tasks with saved priority")
 	if operation == factory.IntentPlanningPropose {
-		app := strings.NewReplacer(
-			"Build a leave approval workflow so managers can review time-off requests", "Build a private team task board with persisted priority",
-			"Capture leave requests", "Store team tasks", "Requests can be recorded", "Team tasks persist",
-			"Managers review requests", "Set task priority", "Decisions are visible", "Saved priority is visible",
-			"Build the leave tracker", "Build the team task board", "Requests list", "Team tasks are visible",
-			"Decide vacation requests with manager review", "Manage team tasks with saved priority")
-		draftBody, acceptedBody, answer = app.Replace(draftBody), app.Replace(acceptedBody), app.Replace(answer)
+		draftBody, acceptedBody = app.Replace(draftBody), app.Replace(acceptedBody)
 		if factory.DescribeAlternatives("Build a private team task board with persisted priority").Supported {
 			t.Fatal("authored app scope unexpectedly matched a canned workflow")
 		}
 	}
 	if code, body := call(http.MethodPost, "/api/factory/intents", draftBody); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	head, err := s.IntentRevision(ctx, generateIntentID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := generateAnswer(t, head, operation, keys...)
+	if operation == factory.IntentPlanningPropose {
+		answer = app.Replace(answer)
 	}
 	seedPlanFunding(t, ctx, s)
 	product.Coordinator = &control.Coordinator{Store: s, Host: &planStubHost{}, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
@@ -233,6 +268,21 @@ func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(me
 		t.Fatal(err)
 	}
 	settlePlanRun(t, ctx, s, launched.RunID, answer)
+	// The walkthrough gate replays durable review receipts at serving
+	// time, so the fixture records them explicitly here with the mocked
+	// chooser: the same allowance funds both review calls, and the later
+	// serving comparison draws from the same intent funding.
+	// wireGenerateCoordinator re-saves this identical allowance revision;
+	// the duplicate save confirms without changing funding.
+	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: generateIntentID, Owner: 1, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
+	judge := &exploreFixtureChooser{}
+	product.IntentExploreChooser = judge
+	code, body = call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/plan/review", `{"revision":"`+generateDraftID+`"}`)
+	if code != http.StatusOK || judge.calls != 2 || !strings.Contains(string(body), `"recommended":"guided"`) {
+		t.Fatalf("explicit walkthrough review failed: status=%d calls=%d body=%s", code, judge.calls, body)
+	}
 	if code, body := call(http.MethodPost, "/api/factory/intents", acceptedBody); code != http.StatusCreated {
 		t.Fatalf("accept status=%d body=%s", code, body)
 	}
@@ -425,6 +475,15 @@ func TestGenerateRecordedProposalAdoptsAssessedGraph(t *testing.T) {
 	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
 	recordGeneratePlan(t, product, s, call, "propose_intent", acceptID, "keep", "split")
 	fake := wireGenerateCoordinator(product, s, t, q05KeepChooser{})
+	ctx := context.Background()
+
+	// The explicit walkthrough check spends its own two review calls
+	// (consolidation + consistency) before any serving comparison; the
+	// serving replay costs nothing, so the fixture accounts them first.
+	reviewed, err := s.PlanningAllowance(ctx, generateIntentID, 1)
+	if err != nil || reviewed.Consumed != 2 || reviewed.Reserved != 0 {
+		t.Fatalf("explicit walkthrough check did not spend exactly two review calls: %+v %v", reviewed, err)
+	}
 
 	for pass := 0; pass < 2; pass++ {
 		code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`)
@@ -439,8 +498,316 @@ func TestGenerateRecordedProposalAdoptsAssessedGraph(t *testing.T) {
 			t.Fatalf("proposal graph not exact or replayed twice: %+v submits=%d", result, fake.submits)
 		}
 	}
-	allowance, err := s.PlanningAllowance(context.Background(), generateIntentID, 1)
-	if err != nil || allowance.Consumed != 1 || allowance.Reserved != 0 {
-		t.Fatalf("proposal comparison did not spend exactly once: %+v %v", allowance, err)
+	allowance, err := s.PlanningAllowance(ctx, generateIntentID, 1)
+	if err != nil || allowance.Consumed != reviewed.Consumed+1 || allowance.Reserved != 0 {
+		t.Fatalf("proposal comparison did not spend exactly once beyond the two review calls: %+v %v", allowance, err)
+	}
+}
+
+// Resolved-scope regression identities: a dedicated intent with decided
+// accept/edit ideas, one pending idea and one declined idea. All IDs are
+// valid decision IDs distinct from the generate-commitment fixtures.
+const (
+	resolvedScopeIntent   = "da10000000000000000000001"
+	resolvedScopeDraft    = "da10000000000000000000002"
+	resolvedScopeAccept   = "da10000000000000000000003"
+	resolvedScopePend     = "da10000000000000000000004"
+	resolvedScopeEdit     = "da10000000000000000000005"
+	resolvedScopeDecl     = "da10000000000000000000006"
+	resolvedScopeSucc     = "da10000000000000000000007"
+	resolvedScopeAccepted = "da10000000000000000000008"
+)
+
+// resolvedScopeDraftBody saves a draft with nil effective outcomes: one
+// accept, one pending (autonomous, so it stays undecided without forged
+// human attribution) and one edit with a human correction.
+func resolvedScopeDraftBody() string {
+	return `{"id":"` + resolvedScopeDraft + `","intent":"` + resolvedScopeIntent + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + resolvedScopeAccept + `","description":"Capture leave requests","consequence":"Requests can be recorded",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"},` +
+		`{"id":"` + resolvedScopePend + `","description":"Sync to the legacy tracker","consequence":"Legacy stays current",` +
+		`"decision":"pending","source":"autonomous","provenance":"autonomous"},` +
+		`{"id":"` + resolvedScopeEdit + `","description":"Delete requests automatically","consequence":"Old requests vanish","correction":"Retain requests until a manager decides",` +
+		`"decision":"edit","source":"requested","provenance":"human","actor":"1"}],` +
+		`"state":"draft","max_issues":10,"planning_calls":12}`
+}
+
+// q05ResolvedWalkthrough authors deterministic planning-agent prose bound
+// to the given idea set, mirroring q05WalkthroughContent without reading
+// the raw effective set.
+func q05ResolvedWalkthrough(t *testing.T, head factory.IntentRevision, ids ...string) factory.ProposalContent {
+	t.Helper()
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content.Producer, content.Supported = factory.PlanningProducer, true
+	content.Alternatives = nil
+	for _, key := range []string{"guided", "list"} {
+		content.Alternatives = append(content.Alternatives, factory.ProductAlternative{
+			Key: key, Name: key + " project planning", Audience: "The project owner", Summary: "Plan the recorded draft with visible progress.",
+			Steps:      []factory.WalkthroughStep{{Actor: "The project owner", Action: "reviews the saved request", Result: "The planned work is visible"}},
+			Visibility: "The owner sees the saved plan", Consequences: "The request stays editable before acceptance", Evidence: "The admitted request and inspected source", Outcomes: []string{head.Objective}, IdeaIDs: append([]string(nil), ids...),
+		})
+	}
+	return content
+}
+
+// TestResolvedScopeDerivedBindingValidates proves the FUX repair through
+// the real mux: a draft saved with nil effective outcomes resolves to its
+// decided accept/edit ideas in revision order; a walkthrough binding
+// exactly that set validates while pending inclusion refuses. Declared
+// external judgments: none. No live model call.
+func TestResolvedScopeDerivedBindingValidates(t *testing.T) {
+	_, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", resolvedScopeDraftBody()); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	head, err := s.IntentRevision(ctx, resolvedScopeIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved := factory.ResolvedScope(head); !slices.Equal(resolved, []string{resolvedScopeAccept, resolvedScopeEdit}) {
+		t.Fatalf("resolved=%v want accept+edit in revision order", resolved)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(head, q05ResolvedWalkthrough(t, head, resolvedScopeAccept, resolvedScopeEdit)); err != nil {
+		t.Fatalf("exact derived binding refused: %v", err)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(head, q05ResolvedWalkthrough(t, head, resolvedScopeAccept, resolvedScopePend, resolvedScopeEdit)); err == nil {
+		t.Fatal("pending inclusion validated against the decided scope")
+	}
+}
+
+// TestResolvedScopeExplicitOverrideBindsVerbatim proves an explicit
+// nonempty subset still resolves verbatim: the walkthrough covering the
+// override validates, extra decided IDs refuse, and exact head identity
+// (intent/revision binding) still refuses on mismatch. No live model call.
+func TestResolvedScopeExplicitOverrideBindsVerbatim(t *testing.T) {
+	_, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	draft := `{"id":"` + resolvedScopeDraft + `","intent":"` + resolvedScopeIntent + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + resolvedScopeAccept + `","description":"Capture leave requests","consequence":"Requests can be recorded",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"},` +
+		`{"id":"` + resolvedScopeEdit + `","description":"Managers review requests","consequence":"Decisions are visible","correction":"Managers review requests in one queue",` +
+		`"decision":"edit","source":"requested","provenance":"human","actor":"1"}],` +
+		`"effective_outcomes":["` + resolvedScopeAccept + `"],` +
+		`"state":"draft","max_issues":10,"planning_calls":12}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	head, err := s.IntentRevision(ctx, resolvedScopeIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved := factory.ResolvedScope(head); !slices.Equal(resolved, []string{resolvedScopeAccept}) {
+		t.Fatalf("resolved=%v want explicit override verbatim", resolved)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(head, q05ResolvedWalkthrough(t, head, resolvedScopeAccept)); err != nil {
+		t.Fatalf("override binding refused: %v", err)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(head, q05ResolvedWalkthrough(t, head, resolvedScopeAccept, resolvedScopeEdit)); err == nil {
+		t.Fatal("extra decided ID validated against the explicit override")
+	}
+	foreign := q05ResolvedWalkthrough(t, head, resolvedScopeAccept)
+	foreign.Revision = resolvedScopeSucc
+	if err := factory.ValidatePlanningWalkthroughs(head, foreign); err == nil {
+		t.Fatal("mismatched revision binding validated")
+	}
+	foreign = q05ResolvedWalkthrough(t, head, resolvedScopeAccept)
+	foreign.Intent = generateIntentID
+	if err := factory.ValidatePlanningWalkthroughs(head, foreign); err == nil {
+		t.Fatal("mismatched intent binding validated")
+	}
+}
+
+// TestResolvedScopeSuccessorPreservesCorrection proves correction coverage
+// across revisions: a successor draft preserving the decided pattern
+// resolves identically, its exact binding validates, and a
+// scope-preserving accepted successor still saves (acceptance admission
+// unchanged). No live model call.
+func TestResolvedScopeSuccessorPreservesCorrection(t *testing.T) {
+	_, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", resolvedScopeDraftBody()); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	head, err := s.IntentRevision(ctx, resolvedScopeIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Ideas json.RawMessage `json:"ideas"`
+	}
+	if err := json.Unmarshal([]byte(resolvedScopeDraftBody()), &raw); err != nil {
+		t.Fatal(err)
+	}
+	successor := `{"id":"` + resolvedScopeSucc + `","intent":"` + resolvedScopeIntent + `","predecessor":"` + resolvedScopeDraft + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":` + string(raw.Ideas) + `,` +
+		`"state":"draft","max_issues":10,"planning_calls":12}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", successor); code != http.StatusCreated {
+		t.Fatalf("successor save status=%d body=%s", code, body)
+	}
+	next, err := s.IntentRevision(ctx, resolvedScopeIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.ID != resolvedScopeSucc || next.Predecessor != resolvedScopeDraft {
+		t.Fatalf("successor identity=%s predecessor=%s", next.ID, next.Predecessor)
+	}
+	if resolved := factory.ResolvedScope(next); !slices.Equal(resolved, factory.ResolvedScope(head)) || !slices.Equal(resolved, []string{resolvedScopeAccept, resolvedScopeEdit}) {
+		t.Fatalf("successor resolved=%v want preserved accept+edit pattern", resolved)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(next, q05ResolvedWalkthrough(t, next, resolvedScopeAccept, resolvedScopeEdit)); err != nil {
+		t.Fatalf("successor exact binding refused: %v", err)
+	}
+	accepted := `{"id":"` + resolvedScopeAccepted + `","intent":"` + resolvedScopeIntent + `","predecessor":"` + resolvedScopeSucc + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":` + string(raw.Ideas) + `,` +
+		`"effective_outcomes":["` + resolvedScopeAccept + `","` + resolvedScopeEdit + `"],` +
+		`"tasks":[{"key":"` + generateAuthored + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + resolvedScopeAccept + `"]}],` +
+		`"state":"accepted","max_issues":10,"planning_calls":12}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", accepted); code != http.StatusCreated {
+		t.Fatalf("scope-preserving accept status=%d body=%s", code, body)
+	}
+}
+
+// TestResolvedScopeEmptyRefusesTruthfully proves the FJ-338 edge: with no
+// decided accept/edit ideas (all pending/declined) the resolved scope is
+// empty and every walkthrough refuses, including an empty binding. The fix
+// never fabricates authority, never approves pending choices, and leaves
+// acceptance behavior to the existing gates. No live model call.
+func TestResolvedScopeEmptyRefusesTruthfully(t *testing.T) {
+	_, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	draft := `{"id":"` + resolvedScopeDraft + `","intent":"` + resolvedScopeIntent + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + resolvedScopePend + `","description":"Sync to the legacy tracker","consequence":"Legacy stays current",` +
+		`"decision":"pending","source":"autonomous","provenance":"autonomous"},` +
+		`{"id":"` + resolvedScopeDecl + `","description":"Delete requests automatically","consequence":"Old requests vanish",` +
+		`"decision":"decline","source":"requested","provenance":"human","actor":"1"}],` +
+		`"state":"draft","max_issues":10,"planning_calls":12}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	head, err := s.IntentRevision(ctx, resolvedScopeIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved := factory.ResolvedScope(head); len(resolved) != 0 {
+		t.Fatalf("resolved=%v want empty with no decided ideas", resolved)
+	}
+	for name, ids := range map[string][]string{
+		"empty binding":    {},
+		"pending approval": {resolvedScopePend},
+		"declined revival": {resolvedScopeDecl},
+	} {
+		if err := factory.ValidatePlanningWalkthroughs(head, q05ResolvedWalkthrough(t, head, ids...)); err == nil {
+			t.Fatalf("%s validated against an empty resolved scope", name)
+		}
+	}
+}
+
+// Explicit-empty vs absent array identity: two drafts with the same
+// product content and distinct intent/row identity, one posting
+// `"effective_outcomes":[]` and the other omitting the key.
+const (
+	emptyArrayIntent  = "da20000000000000000000001"
+	emptyArrayDraft   = "da20000000000000000000002"
+	absentArrayIntent = "da20000000000000000000003"
+	absentArrayDraft  = "da20000000000000000000004"
+	emptyArrayAccept  = "da20000000000000000000005"
+	emptyArrayEdit    = "da20000000000000000000006"
+)
+
+// emptyArrayDraftBody saves one accept and one human edit idea; withEmpty
+// adds an explicit empty effective_outcomes array, without omits the key.
+func emptyArrayDraftBody(intent, id string, withEmpty bool) string {
+	body := `{"id":"` + id + `","intent":"` + intent + `","repository":"7",` +
+		`"objective":"Build a leave approval workflow so managers can review time-off requests",` +
+		`"ideas":[{"id":"` + emptyArrayAccept + `","description":"Capture leave requests","consequence":"Requests can be recorded",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"},` +
+		`{"id":"` + emptyArrayEdit + `","description":"Managers review requests","consequence":"Decisions are visible","correction":"Managers review requests in one queue",` +
+		`"decision":"edit","source":"requested","provenance":"human","actor":"1"}],`
+	if withEmpty {
+		body += `"effective_outcomes":[],`
+	}
+	return body + `"state":"draft","max_issues":10,"planning_calls":12}`
+}
+
+// normalizeSavedBody drops the volatile identity/clock fields so two saves
+// of the same product content compare byte-for-byte.
+func normalizeSavedBody(t *testing.T, body []byte) string {
+	t.Helper()
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	delete(decoded, "id")
+	delete(decoded, "intent")
+	delete(decoded, "created_unix")
+	normalized, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(normalized)
+}
+
+// TestResolvedScopeExplicitEmptyArrayMatchesAbsent proves the explicit-empty
+// array is behaviorally absent through the real mux: both saves 201, neither
+// saved payload retains the key, both stored heads carry no effective
+// subset, the resolved scope derives the same decided accept/edit pair, and
+// the saved payloads are byte-identical once volatile identity/clock fields
+// are normalized. No production change. No live model call.
+func TestResolvedScopeExplicitEmptyArrayMatchesAbsent(t *testing.T) {
+	_, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	code, explicitBody := call(http.MethodPost, "/api/factory/intents", emptyArrayDraftBody(emptyArrayIntent, emptyArrayDraft, true))
+	if code != http.StatusCreated {
+		t.Fatalf("explicit-empty save status=%d body=%s", code, explicitBody)
+	}
+	code, absentBody := call(http.MethodPost, "/api/factory/intents", emptyArrayDraftBody(absentArrayIntent, absentArrayDraft, false))
+	if code != http.StatusCreated {
+		t.Fatalf("absent save status=%d body=%s", code, absentBody)
+	}
+	if strings.Contains(string(explicitBody), "effective_outcomes") || strings.Contains(string(absentBody), "effective_outcomes") {
+		t.Fatalf("saved payload retained an empty effective subset:\n%s\n%s", explicitBody, absentBody)
+	}
+	if normalizeSavedBody(t, explicitBody) != normalizeSavedBody(t, absentBody) {
+		t.Fatalf("explicit-empty payload diverged from absent:\n%s\n%s", explicitBody, absentBody)
+	}
+	explicit, err := s.IntentRevision(ctx, emptyArrayIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	absent, err := s.IntentRevision(ctx, absentArrayIntent, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(explicit.EffectiveOutcomes) != 0 || len(absent.EffectiveOutcomes) != 0 {
+		t.Fatalf("stored heads carry an effective subset: %v %v", explicit.EffectiveOutcomes, absent.EffectiveOutcomes)
+	}
+	want := []string{emptyArrayAccept, emptyArrayEdit}
+	if resolved := factory.ResolvedScope(explicit); !slices.Equal(resolved, want) {
+		t.Fatalf("explicit-empty resolved=%v want decided accept+edit", resolved)
+	}
+	if resolved := factory.ResolvedScope(absent); !slices.Equal(resolved, want) {
+		t.Fatalf("absent resolved=%v want decided accept+edit", resolved)
+	}
+	explicit.ID, explicit.Intent, explicit.CreatedUnix = "", "", 0
+	absent.ID, absent.Intent, absent.CreatedUnix = "", "", 0
+	explicitBytes, err := json.Marshal(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	absentBytes, err := json.Marshal(absent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(explicitBytes) != string(absentBytes) {
+		t.Fatalf("stored heads diverged:\n%s\n%s", explicitBytes, absentBytes)
 	}
 }

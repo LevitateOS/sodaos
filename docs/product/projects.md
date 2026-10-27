@@ -97,6 +97,18 @@ base, alongside explicit Project configuration. Record the approval revision,
 approver and source references in Soda's existing authority/attempt records.
 Issue prose and agent suggestions cannot approve their own setup.
 
+For a Soda-hosted Canlang app, the protected check also produces the exact
+canonical bundle at `.soda/application/bundle.json` after its real application
+assertions pass. Native verification retains those bytes before cleanup for
+explicit packaging into the selected runtime. The app's intended HTTPS origin
+and effective build inputs must be known and included in the approved source
+selection. This output is optional for other project work; it grants no owner,
+deployment or release authority. The [Canlang application guide](../guides/canlang-applications.md#assemble-and-provision-the-application)
+owns the build command and subsequent first-owner flow.
+An isolated app preview uses a second checked output at
+`.soda/application/preview/bundle.json` with its own intended origin and runtime
+data; its native receipt and artifact identity stay separate from the company app.
+
 Acceptance can cover later attempts whose selected definitions and effective
 inputs are unchanged; an unrelated base commit does not require another approval.
 Record each attempt's actual source commit. Changed selected requirements need

@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setupWorkspaceDriver, chooseFirstRepository, fixture, openSession} from './fixtures/workspace-driver';
+import {
+  setupWorkspaceDriver,
+  chooseFirstRepository,
+  enterCreatedProjectTerminals,
+  fixture,
+  openSession,
+} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
@@ -10,7 +16,7 @@ for (const state of ['missing-observation', 'native-unavailable', 'authority-una
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
-    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    await enterCreatedProjectTerminals(page);
     await page.evaluate(async (state) => {
       const f = window.workspaceFixture,
         space = f.spaces[0];
@@ -45,7 +51,7 @@ for (const [code, message] of [
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
-    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    await enterCreatedProjectTerminals(page);
     await page.evaluate((code) => window.workspaceFixture.setJoinFailure(code || ''), code);
     await page.getByRole('button', {name: 'Join project', exact: true}).click();
     await page.getByRole('heading', {name: 'Couldn’t join project'}).waitFor();
@@ -109,8 +115,9 @@ test('first use: incomplete and failed inventories never render guessed welcome'
 });
 test('departure during authorization cannot dispatch a late collection read', async (t) => {
   const page = await fixture(t);
-  await page.evaluate(async () => {
+  const newCalls = await page.evaluate(async () => {
     const f = window.workspaceFixture;
+    const before = f.calls.length;
     let release: (() => void) | undefined;
     f.pause(
       new Promise<void>((resolve) => {
@@ -121,8 +128,11 @@ test('departure during authorization cannot dispatch a late collection read', as
     f.api.dispose();
     release?.();
     await pending;
+    return f.calls.slice(before);
   });
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 1);
+  assert.equal(newCalls.length, 1);
+  assert.equal(newCalls[0]?.method, 'GET');
+  assert(newCalls[0]?.path.endsWith('/api/spaces'));
 });
 for (const theme of ['light', 'dark'])
   for (const width of [1440, 390])
@@ -162,7 +172,7 @@ for (const theme of ['light', 'dark'])
       await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
       await chooseFirstRepository(page);
       await page.getByRole('button', {name: 'Create project', exact: true}).click();
-      await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+      await enterCreatedProjectTerminals(page);
       await page.evaluate(async () => {
         const f = window.workspaceFixture,
           space = f.spaces[0];
@@ -202,12 +212,18 @@ for (const status of [401, 403])
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
-    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    await enterCreatedProjectTerminals(page);
     await page.evaluate((status) => window.workspaceFixture.setStatus(status), status);
-    await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
-    await page.getByRole('heading', {name: 'Could not load projects', exact: true}).waitFor();
+    await page.getByRole('button', {name: 'Project settings', exact: true}).click();
+    await page
+      .getByText(
+        'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.',
+        {exact: true}
+      )
+      .waitFor();
     assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
-    assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
+    assert.equal(await page.getByRole('button', {name: 'Join project', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('button', {name: 'Reload repository page', exact: true}).isEnabled(), true);
     assert.equal(
       await page.evaluate(
         () =>

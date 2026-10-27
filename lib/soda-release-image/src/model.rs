@@ -41,7 +41,7 @@ pub const DELIVER_IMAGES_PATH: &str = "/usr/share/soda/images";
 pub const FORGEJO_COMPILER_IMAGE: &str =
     "docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade";
 /// `store.SchemaVersion()`.
-pub const SCHEMA_VERSION: i64 = 58;
+pub const SCHEMA_VERSION: i64 = 68;
 pub const SODA_SOURCE: &str = "https://github.com/LevitateOS/sodaos";
 
 pub fn is_revision(s: &str) -> bool {

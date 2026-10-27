@@ -14,6 +14,7 @@ test('first use: inventory-click accepted resume restores its overview with nati
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {

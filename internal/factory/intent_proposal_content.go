@@ -2,6 +2,7 @@ package factory
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -84,7 +85,7 @@ func ComposeProposalContent(r IntentRevision) (ProposalContent, error) {
 
 // Validate checks revision binding, preserved facts and alternative bounds.
 func (c ProposalContent) Validate() error {
-	if c.Producer != AuthoredProducer || !project.ValidDecisionID(c.Intent) || !project.ValidDecisionID(c.Revision) || !intentText(c.Objective, 16000) {
+	if (c.Producer != AuthoredProducer && c.Producer != PlanningProducer) || !project.ValidDecisionID(c.Intent) || !project.ValidDecisionID(c.Revision) || !intentText(c.Objective, 16000) {
 		return errors.New("invalid proposal content identity or objective")
 	}
 	if len(c.Facts) == 0 || len(c.Facts) > 51 || len(c.Excluded) > 50 || len(c.Exclusions) > 50 || len(c.Unknowns) == 0 || len(c.Unknowns) > 8 {
@@ -140,8 +141,81 @@ func checkProposalAlternatives(c ProposalContent) error {
 		return errors.New("supported content needs two alternatives")
 	}
 	for _, alternative := range c.Alternatives {
+		if c.Producer == AuthoredProducer {
+			if authored, exists := authoredAlternatives[alternative.Key]; !exists || authored.Name != alternative.Name {
+				return errors.New("unknown authored product alternative")
+			}
+		}
 		if err := alternative.Validate(); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// ResolvedScope returns the decided outcome IDs a walkthrough must bind:
+// the explicit nonempty EffectiveOutcomes verbatim (Validate already proves
+// each member is an authorized choice), else the accept/edit idea IDs in
+// revision order. Pending and declined ideas never resolve, matching the
+// committed exportScopeIdeas and manifest ValidateOutcomes fallback. An
+// empty result carries no authority and stays refusible downstream: no
+// walkthrough can meaningfully bind zero authorized outcomes.
+func ResolvedScope(r IntentRevision) []string {
+	if len(r.EffectiveOutcomes) > 0 {
+		return append([]string(nil), r.EffectiveOutcomes...)
+	}
+	var resolved []string
+	for _, idea := range r.Ideas {
+		if idea.Decision == "accept" || idea.Decision == "edit" {
+			resolved = append(resolved, idea.ID)
+		}
+	}
+	return resolved
+}
+
+// ValidatePlanningWalkthroughs binds generated prose to the actual input,
+// preserving source facts and rejected meanings verbatim. Every alternative
+// must cover the same authorized idea subset; semantic faithfulness remains
+// an explicit JEV consistency judgment rather than a substring heuristic.
+func ValidatePlanningWalkthroughs(r IntentRevision, c ProposalContent) error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	basis, err := ComposeProposalContent(r)
+	if err != nil {
+		return err
+	}
+	if c.Producer != PlanningProducer || !c.Supported || c.Intent != r.Intent || c.Revision != r.ID || c.Objective != r.Objective || !slices.Equal(c.Facts, basis.Facts) || !slices.Equal(c.Excluded, basis.Excluded) || !slices.Equal(c.Exclusions, basis.Exclusions) {
+		return errors.New("planning walkthrough changes its source facts or revision")
+	}
+	resolved := ResolvedScope(r)
+	if len(resolved) == 0 {
+		return errors.New("walkthrough must bind the authorized outcomes")
+	}
+	keys := map[string]bool{}
+	for _, alternative := range c.Alternatives {
+		// The review-label comparison rides the canonical byte rule:
+		// proposalObjective substitutes when the objective exceeds
+		// 4000 UTF-8 BYTES, so persisted walkthroughs substituted
+		// under that rule keep matching here.
+		if keys[alternative.Key] || alternative.Outcomes[0] != proposalObjective(r.Objective) {
+			return errors.New("planning walkthrough needs distinct alternatives preserving the objective")
+		}
+		keys[alternative.Key] = true
+		covered := map[string]bool{}
+		for _, id := range alternative.IdeaIDs {
+			if covered[id] {
+				return errors.New("duplicate walkthrough outcome binding")
+			}
+			covered[id] = true
+		}
+		if len(covered) != len(resolved) {
+			return errors.New("walkthrough must bind the authorized outcomes")
+		}
+		for _, id := range resolved {
+			if !covered[id] {
+				return errors.New("walkthrough leaves an authorized outcome uncovered")
+			}
 		}
 	}
 	return nil

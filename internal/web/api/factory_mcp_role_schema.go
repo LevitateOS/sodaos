@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 )
 
 // rolePayloadSchema documents each existing result carrier at discovery. The
@@ -17,7 +18,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range spec.required {
 		props[key] = &jsonschema.Schema{Description: "Required result field."}
 	}
-	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
+	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "walkthroughs", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
 		if mcpOptionalPayloadKey(tool, key) {
 			props[key] = &jsonschema.Schema{}
 		}
@@ -44,10 +45,12 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		set("affected_task_ids", "IDs of tasks left unfinished.", strings)
 		set("requested_resolution", "What needs to change before this work can proceed.", text)
 	case factory.MCPToolFinishProductPlan:
-		set("candidates", "One to three structured semantic graph candidates. Each contains key, rationale and full task metadata. String candidate names alone cannot settle a product plan.", mcpCarrier[[]factory.SemanticCandidate]())
+		set("candidates", "One to three structured semantic graph candidates. Each contains key, rationale and full task metadata. String candidate names alone cannot settle a product plan. "+control.FinishProductPlanArgsGuidance, mcpCarrier[[]factory.SemanticCandidate]())
 		set("coverage", "Explain how the candidates cover the accepted requested outcomes.", strings)
 		set("questions", "Any unresolved product questions; required unresolved questions prevent executable adoption.", strings)
-		set("verification_manifest_proposal", "Optional structured proposal using approved check catalog references; separately validated and adopted.", mcpCarrier[factory.VerificationManifestProposal]())
+		set("verification_manifest_proposal", "Optional structured proposal using approved check catalog references; separately validated and adopted. "+factory.ApplicationBundleGuidance, mcpCarrier[factory.VerificationManifestProposal]())
+		props["walkthroughs"] = mcpCarrier[factory.ProposalContent]()
+		props["walkthroughs"].Description = "Required for newly staged intent plans: author two concrete product walkthroughs using producer soda-planning-agent-v1, the exact admitted Content facts/identity/exclusions, and every resolved-scope ID from Head in each alternative's idea_ids (the explicit nonempty EffectiveOutcomes verbatim, else the accept/edit idea IDs in revision order; pending/declined never resolve). JEV compares and checks this authored prose separately. Follow the staged product walkthrough instructions. " + control.FinishProductPlanArgsGuidance
 	case factory.MCPToolFinishIssuePlan:
 		set("approach", "Approach chosen after source investigation; must match tasks.approach.", text)
 		props["tasks"] = investigationPlanSchema()

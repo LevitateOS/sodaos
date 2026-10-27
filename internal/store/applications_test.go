@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/application"
 )
@@ -223,6 +224,97 @@ func TestApplicationReplacementCASAndHistory(t *testing.T) {
 	var n int
 	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM application_revisions WHERE application_id=$1`, r.Application.ID).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("history count %d %v", n, err)
+	}
+}
+
+func setupRenewalFixture(tag string, port int, expiresAt int64) application.SetupRecord {
+	return application.SetupRecord{
+		ID: "a" + strings.Repeat(tag, 24),
+		Application: application.SetupSpec{
+			ID: "a" + strings.Repeat(tag, 24), Name: "Example",
+			ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64),
+			RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64),
+			Data: "a" + strings.Repeat(tag, 24), Origin: "https://setup-" + tag + ".example.test", Port: port,
+		},
+		AdministratorID: 41, ExpiresAt: expiresAt, State: "pending",
+	}
+}
+
+func TestApplicationSetupRenewalPreservesReservation(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	now := time.Now().Unix()
+
+	expired := setupRenewalFixture("b", 20011, now-10)
+	if err := s.CreateApplicationSetup(ctx, expired); err != nil {
+		t.Fatal(err)
+	}
+	renewed, err := s.RenewApplicationSetup(ctx, expired, 1)
+	if err != nil {
+		t.Fatalf("expired renewal refused: %v", err)
+	}
+	if renewed.ID != expired.ID || renewed.Application != expired.Application || renewed.AdministratorID != expired.AdministratorID || renewed.State != "pending" || renewed.Observation != nil {
+		t.Fatalf("renewal changed the retained reservation: %+v", renewed)
+	}
+	if renewed.ExpiresAt < now+SetupRenewTTLSeconds-60 || renewed.ExpiresAt > time.Now().Unix()+SetupRenewTTLSeconds+60 {
+		t.Fatalf("renewal window wrong: %d", renewed.ExpiresAt)
+	}
+	var renews, renewAdmin, renewExpiry int64
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*),max(administrator_id),max(expires_at) FROM application_setup_renewals WHERE setup_id=$1`, expired.ID).Scan(&renews, &renewAdmin, &renewExpiry); err != nil || renews != 1 || renewAdmin != 1 || renewExpiry != renewed.ExpiresAt {
+		t.Fatalf("renewal audit lost: %d %d %d %v", renews, renewAdmin, renewExpiry, err)
+	}
+	// The namespace stays reserved throughout: no unsafe reset onto a fresh setup.
+	clash := setupRenewalFixture("b", 20011, now+1800)
+	clash.ID = "a" + strings.Repeat("c", 24)
+	if err := s.CreateApplicationSetup(ctx, clash); err == nil {
+		t.Fatal("renewed reservation released its address")
+	}
+	// A fresh window needs no renewal.
+	if _, err := s.RenewApplicationSetup(ctx, renewed, 1); err == nil || err.Error() != "setup has not expired" {
+		t.Fatalf("unexpired renewal admitted: %v", err)
+	}
+	// A superseded read cannot renew over the fresh window.
+	if _, err := s.RenewApplicationSetup(ctx, expired, 1); err == nil || err.Error() != "setup changed" {
+		t.Fatalf("stale renewal admitted: %v", err)
+	}
+
+	pastGrace := setupRenewalFixture("d", 20012, now-SetupRenewGraceSeconds-10)
+	if err := s.CreateApplicationSetup(ctx, pastGrace); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RenewApplicationSetup(ctx, pastGrace, 1); err == nil || err.Error() != "setup renewal is closed" {
+		t.Fatalf("past-grace renewal admitted: %v", err)
+	}
+
+	// The renewal cap is finite: three prior audits close any further re-arm.
+	capped := setupRenewalFixture("e", 20013, now-20)
+	if err := s.CreateApplicationSetup(ctx, capped); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO application_setup_renewals(setup_id,renewed_at,expires_at,administrator_id) VALUES($1,$2,$3,1),($1,$4,$5,1),($1,$6,$7,1)`, capped.ID, now-50, now-40, now-30, now-25, now-15, now-5); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RenewApplicationSetup(ctx, capped, 1); err == nil || err.Error() != "setup renewal is closed" {
+		t.Fatalf("uncapped renewal admitted: %v", err)
+	}
+
+	// Settled setups never renew.
+	settled := setupRenewalFixture("f", 20014, now-10)
+	if err := s.CreateApplicationSetup(ctx, settled); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SettleApplicationSetup(ctx, settled, application.SetupResult{Operation: settled.ID}, true); err != nil {
+		t.Fatal(err)
+	}
+	aborted, err := s.ApplicationSetup(ctx, settled.ID)
+	if err != nil || aborted.State != "aborted" {
+		t.Fatalf("abort not recorded: %+v %v", aborted, err)
+	}
+	if _, err := s.RenewApplicationSetup(ctx, aborted, 1); err == nil || err.Error() != "setup is already settled" {
+		t.Fatalf("settled renewal admitted: %v", err)
+	}
+	if _, err := s.RenewApplicationSetup(ctx, expired, 0); err == nil || err.Error() != "setup renewal needs its operator" {
+		t.Fatalf("anonymous renewal admitted: %v", err)
 	}
 }
 

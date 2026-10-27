@@ -365,7 +365,7 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		auth.JSONError(w, 404, "comment_not_found", "Feed comment is not found.")
 		return
 	}
-	if detail.Payload != nil && detail.Payload.Communication != nil {
+	if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
 		auth.JSONResponse(w, 200, feedWorkerCommentResponse(detail))
 		return
 	}
@@ -375,7 +375,17 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		return
 	}
 	progress, _ := s.Store.CommentProgress(r.Context(), detail.Record.ID)
-	auth.JSONResponse(w, 200, feedCommentResponse(detail, pipe, progress, strconv.FormatInt(v.User.ID, 10)))
+	auth.JSONResponse(w, 200, s.feedCommentWithProduct(r, v, detail, pipe, progress))
+}
+
+func (s *API) feedCommentWithWork(ctx context.Context, detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
+	response := feedCommentResponse(detail, pipe, progress, actor)
+	if work, err := s.Store.CommentLinkedWork(ctx, detail.Record.Repository, detail.Record.ID); err != nil {
+		response["linked_work"] = map[string]any{"status": "unavailable"}
+	} else if work != nil {
+		response["linked_work"] = work
+	}
+	return response
 }
 
 func feedCommentResponse(detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
@@ -432,7 +442,7 @@ func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v st
 			auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
 			return
 		}
-		if detail.Payload != nil && detail.Payload.Communication != nil {
+		if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
 			items = append(items, feedWorkerCommentResponse(detail))
 			continue
 		}
@@ -442,7 +452,7 @@ func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v st
 			return
 		}
 		progress, _ := s.Store.CommentProgress(r.Context(), id)
-		items = append(items, feedCommentResponse(detail, pipe, progress, strconv.FormatInt(v.User.ID, 10)))
+		items = append(items, s.feedCommentWithProduct(r, v, detail, pipe, progress))
 	}
 	auth.JSONResponse(w, 200, map[string]any{"items": items, "next_before": next})
 }
@@ -540,6 +550,11 @@ func driveCommentPipeline(ctx context.Context, st *store.Store, wired *CommentCo
 		if detail.Record.Deleted || detail.Record.Revoked {
 			// The write path already settles the effect as blocked;
 			// report the stored states without spending anything.
+			return commentResponse(pipe), nil
+		}
+		if detail.Source != nil && detail.Source.Product != nil && pipe.Judgment == factory.CommentJudgmentApplied && pipe.Route == factory.CommentRouteNewIssue {
+			// Product revisions enter the existing explicit review/adoption
+			// owner. Creating a detached issue here would duplicate its graph.
 			return commentResponse(pipe), nil
 		}
 		var advanced bool
@@ -938,6 +953,7 @@ func enrichFeedPosts(ctx context.Context, st *store.Store, projects map[int64]st
 			entries[i].Actor = detail.Actor
 		}
 		entries[i].Assignment = detail.Assignment
+		entries[i].EventIdentity = detail.EventIdentity
 		entries[i].Issue = detail.Record.Issue
 		entries[i].Payload = detail.Payload
 		if detail.Payload != nil && detail.Payload.Communication != nil {
@@ -1013,4 +1029,5 @@ func (s *API) DrivePendingComments(ctx context.Context) {
 		return
 	}
 	_ = drivePendingComments(ctx, s.Store, s.commentCollaborators(), commentDriveLimit)
+	s.driveContributions(ctx)
 }

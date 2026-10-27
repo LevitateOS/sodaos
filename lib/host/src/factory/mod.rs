@@ -32,6 +32,7 @@ use std::time::Instant;
 use crate::project::Executor;
 use crate::terminal::Binding;
 
+mod application;
 mod artifacts;
 mod candidate;
 mod checkpoint;
@@ -45,6 +46,7 @@ mod identity;
 mod inspect;
 mod launch;
 mod manifest;
+mod native_actions;
 mod native_control;
 mod native_tasks;
 mod receipt;
@@ -84,6 +86,7 @@ pub use self::events::{
 };
 pub use self::identity::{AcquireRequest, Lease};
 pub use self::manifest::{valid_task_effort, ExecutionManifest};
+pub use self::native_actions::NativeTaskAction;
 pub use self::requests::{
     FactoryCandidateInspect, FactoryCandidateState, FactoryExport, FactoryExportState,
     FactoryInspect, FactoryOutput, FactoryOutputState, FactoryStop, FactoryTakeover,

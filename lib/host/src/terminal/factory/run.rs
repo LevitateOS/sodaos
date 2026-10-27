@@ -30,13 +30,22 @@ pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
 /// `MaxPromptForPhase` policy at its staging mirror; the admission gate
 /// stays authoritative and staging never admits more than admission.
 pub const MAX_REASSESS_PROMPT: usize = 320 * 1024;
+/// Intent decompose prompt headroom (`128*1024`): an intent-subject
+/// decompose prompt carries the complete approved planning input inline.
+/// Decompose admits only intent subjects, so this bound is exactly
+/// intent-scoped; every other non-reassess phase keeps
+/// `MAX_FACTORY_PROMPT`. Finite headroom, not a maximal-input promise.
+pub const MAX_DECOMPOSE_PROMPT: usize = 128 * 1024;
 
 /// `MaxStagingPromptForPhase`: the admitted staged-prompt bound for one
-/// execution phase. Unknown phases keep the standard bound and refuse
+/// execution phase, mirroring the factory-domain `MaxPromptForPhase`
+/// policy. Unknown phases keep the standard bound and refuse
 /// downstream at admission; staging alone never widens authority.
 pub fn max_staging_prompt_for_phase(phase: &str) -> usize {
     if phase == "reassess" || phase == "repair" {
         MAX_REASSESS_PROMPT
+    } else if phase == "decompose" {
+        MAX_DECOMPOSE_PROMPT
     } else {
         MAX_FACTORY_PROMPT
     }

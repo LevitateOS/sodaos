@@ -72,6 +72,9 @@ func TestSaveInvestigationPlanRoundTripAndRefusals(t *testing.T) {
 	ctx := context.Background()
 	root := strings.Repeat("a", 32)
 	plan := planRevisionFixture(root, strings.Repeat("b", 32), 0, "Investigate, plan, then implement behind checks.")
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,'plan-run','assigned',1,'{"phase":"investigate"}')`, root); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.SaveInvestigationPlan(ctx, plan); err != nil {
 		t.Fatal(err)
 	}
@@ -82,6 +85,29 @@ func TestSaveInvestigationPlanRoundTripAndRefusals(t *testing.T) {
 	got, err := s.InvestigationPlan(ctx, root, plan.ID)
 	if err != nil || got.Digest != plan.Digest {
 		t.Fatalf("plan round trip lost content: %v", err)
+	}
+	posts, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, View: "decisions", Limit: 10})
+	if err != nil || len(posts) != 1 {
+		t.Fatalf("plan revision did not publish exactly one decision: %+v %v", posts, err)
+	}
+	post, err := s.FeedComment(ctx, posts[0].ID)
+	if err != nil || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.PlanSource == nil || post.Payload.Communication.PlanSource.Plan != plan.ID || post.Payload.Communication.PlanSource.Digest != plan.Digest {
+		t.Fatalf("plan post lost its native revision: %+v %v", post, err)
+	}
+	next := planRevisionFixture(root, strings.Repeat("c", 32), 1, "Revised architecture retains the original plan history.")
+	if err := s.SaveInvestigationPlan(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AdvancePlanHead(ctx, root, "", plan.ID); err != nil {
+		t.Fatal(err)
+	}
+	current, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, View: "decisions", Current: true, Limit: 10})
+	if err != nil || len(current) != 1 || current[0].ID != posts[0].ID {
+		t.Fatalf("current view does not follow the native plan head: %+v %v", current, err)
+	}
+	history, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, View: "decisions", Limit: 10})
+	if err != nil || len(history) != 2 {
+		t.Fatalf("plan revision history lost: %+v %v", history, err)
 	}
 	if _, err = s.InvestigationPlan(ctx, root, strings.Repeat("1", 32)); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing plan revision: %v", err)

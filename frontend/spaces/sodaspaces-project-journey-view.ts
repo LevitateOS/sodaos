@@ -135,9 +135,13 @@ function renderJourneyJoinFailed(input: JourneyViewInput) {
 
 function joinAction(input: JourneyViewInput) {
   const label = input.isMutationPending() ? 'Joining project…' : 'Join project';
-  return html`${projectFeedAction(input)}<button class="ui button" ?disabled=${input.isBlocked()} @click=${input.requestJoin}>
-    ${label}
-  </button>`;
+  return html`${projectFeedAction(input)}<button
+      class="ui button"
+      ?disabled=${input.isBlocked()}
+      @click=${input.requestJoin}
+    >
+      ${label}
+    </button>`;
 }
 
 function projectFeedAction(input: JourneyViewInput) {
@@ -186,7 +190,8 @@ function renderJourneyJoin(input: JourneyViewInput) {
     ${renderWorkspaceIntro({
       kind: 'project',
       heading: 'Project created',
-      description: html`Follow ${input.readRepositoryName()} in its feed. Join the development environment to use a browser terminal.`,
+      description: html`Follow ${input.readRepositoryName()} in its feed. Join the development environment to use a
+      browser terminal.`,
       action: joinAction(input),
       helper: joinHelper(),
       feedback: joinFeedback(input),
@@ -256,7 +261,9 @@ function journeyExistingAction(input: JourneyViewInput, stopped: boolean) {
 }
 
 function journeyExistingHelper(input: JourneyViewInput, incomplete: boolean, stopped: boolean) {
-  if (incomplete) return html`Refresh can finish an interrupted setup when the existing environment is ready. Your reserved project is kept.`;
+  if (incomplete)
+    return html`Refresh can finish an interrupted setup when the existing environment is ready. Your reserved project is
+    kept.`;
   if (stopped && !input.hasLifecycle()) return html`A project administrator must start this project.`;
   return html`Refreshing checks the existing project without repeating an operation.`;
 }
@@ -359,7 +366,16 @@ function renderCreateAction(input: JourneyViewInput) {
   </button>`;
 }
 
+function renderConfigureOutcome(input: JourneyViewInput, outcome: string) {
+  // The live-region wrapper persists so the first outcome announcement is
+  // not missed; only the bordered feedback child renders when populated.
+  // The child markup stays tight so no whitespace text node remains.
+  // oxfmt-ignore
+  return html`<div class="soda-configure-outcome" role="status">${outcome ? html`<p class="soda-feedback" data-tone=${pendingTone(input.isMutationPending())}>${outcome}</p>` : ''}</div>`;
+}
+
 function renderConfigureFeedback(input: JourneyViewInput) {
+  const outcome = input.isMutationPending() ? 'Creating your project…' : input.readOutcome();
   return html`<p
       class="soda-feedback"
       data-tone=${pendingTone(input.isBusy())}
@@ -368,9 +384,7 @@ function renderConfigureFeedback(input: JourneyViewInput) {
     >
       ${input.readStatus()}
     </p>
-    <p class="soda-feedback" data-tone=${pendingTone(input.isMutationPending())} role="status">
-      ${input.isMutationPending() ? 'Creating your project…' : input.readOutcome()}
-    </p>
+    ${renderConfigureOutcome(input, outcome)}
     <button
       class="ui button soda-quiet-action"
       ?hidden=${configureReady(input) || input.isBusy()}

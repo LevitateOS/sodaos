@@ -37,7 +37,12 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
     // execve only returns on failure; success replaces this process.
     let binary = match CString::new(binary_path) {
         Ok(binary) => binary,
-        Err(_) => return (1, Some(String::from("muse execution failed: invalid argument"))),
+        Err(_) => {
+            return (
+                1,
+                Some(String::from("muse execution failed: invalid argument")),
+            )
+        }
     };
     let mut argv: Vec<CString> = vec![CString::new("muse").unwrap()];
     for a in args {

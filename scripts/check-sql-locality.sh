@@ -70,6 +70,15 @@ while IFS= read -r -d '' file; do
     ./internal/web/api/factory_mcp_bound_test.go) continue ;;
     # Seed finished assignment history to exercise feed projection directly.
     ./internal/web/api/factory_feed_route_test.go) continue ;;
+    # Seed an eligible assignment, finished record assignment and open run to
+    # challenge FUX14 record-invitation threading through registered owners;
+    # these rows have no public Store writer. Disposable fixture only.
+    ./internal/web/api/factory_feed_comment_test.go) continue ;;
+    # Seed a merged completion, finished assignment and F10 comment rows to
+    # challenge comment-product HTTP projection/readback (incl. unavailable
+    # lane); proves registered-HTTP readback of fixtures, not a producer
+    # chain. No public writer records these rows outside the test closure.
+    ./internal/web/api/factory_intent_review_test.go) continue ;;
   esac
   if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do

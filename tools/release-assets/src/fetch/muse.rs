@@ -255,8 +255,8 @@ fn channel_artifact_key(arch: &str) -> Result<&'static str, String> {
 }
 
 fn get_text(url: &str) -> Result<(u16, String), String> {
-    let mut response =
-        crate::fetch::http_get(url, USER_AGENT, TIMEOUT).map_err(|e| format!("request failed: {e}"))?;
+    let mut response = crate::fetch::http_get(url, USER_AGENT, TIMEOUT)
+        .map_err(|e| format!("request failed: {e}"))?;
     let status = response.status;
     let body = crate::fetch::read_capped(response.reader.as_mut(), METADATA_LIMIT)
         .map_err(|e| format!("request failed: {e}"))?;
@@ -266,9 +266,12 @@ fn get_text(url: &str) -> Result<(u16, String), String> {
 }
 
 fn parse_manifest_url(channel_body: &str) -> Result<String, String> {
-    let value: serde_json::Value =
-        serde_json::from_str(channel_body).map_err(|_| "upstream channel is malformed".to_string())?;
-    match value.get("manifest_url").and_then(serde_json::Value::as_str) {
+    let value: serde_json::Value = serde_json::from_str(channel_body)
+        .map_err(|_| "upstream channel is malformed".to_string())?;
+    match value
+        .get("manifest_url")
+        .and_then(serde_json::Value::as_str)
+    {
         Some(url) if !url.is_empty() => Ok(url.to_string()),
         _ => Err("upstream channel carries no manifest".to_string()),
     }
@@ -311,7 +314,9 @@ fn resolve_live_from(channel_url: &str, arch: &str) -> Result<LiveRelease, Strin
     let manifest_url = parse_manifest_url(&channel_body).map_err(|e| format!("unknown: {e}"))?;
     let (manifest_status, manifest_body) = get_text(&manifest_url)?;
     if manifest_status != 200 {
-        return Err(format!("unknown: upstream manifest answered HTTP {manifest_status}"));
+        return Err(format!(
+            "unknown: upstream manifest answered HTTP {manifest_status}"
+        ));
     }
     parse_live_release(&manifest_body, key)
 }
@@ -336,7 +341,10 @@ fn parse_live_release(manifest_body: &str, key: &str) -> Result<LiveRelease, Str
         .get("checksum")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("");
-    let size = entry.get("size").and_then(serde_json::Value::as_i64).unwrap_or(0);
+    let size = entry
+        .get("size")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
     let file = artifact_file_from_url(url).map_err(|e| format!("unknown: {e}"))?;
     let artifact = MuseArtifact {
         file,

@@ -9,6 +9,10 @@ import (
 // No model call authors this wording; Jev only judges supplied alternatives.
 const AuthoredProducer = "soda-authored-v1"
 
+// PlanningProducer identifies prose authored by the admitted native planning
+// agent. JEV compares and checks this prose; it does not write it.
+const PlanningProducer = "soda-planning-agent-v1"
+
 // WalkthroughBranch names one meaningful outcome of a step and its result.
 type WalkthroughBranch struct {
 	Outcome string `json:"outcome"`
@@ -34,6 +38,7 @@ type ProductAlternative struct {
 	Consequences string            `json:"consequences"`
 	Evidence     string            `json:"evidence"`
 	Outcomes     []string          `json:"outcomes"`
+	IdeaIDs      []string          `json:"idea_ids,omitempty"`
 }
 
 // AlternativeSet is the producer's bounded answer for one objective. When
@@ -133,6 +138,10 @@ var authoredUnknowns = map[string][]string{
 // as false with the gap named in Unknowns.
 func DescribeAlternatives(objective string) AlternativeSet {
 	trimmed := strings.TrimSpace(objective)
+	// Objective bound: 16000 UTF-8 BYTES, the persisted-old-valid
+	// standard shared with the review-label rule. A multibyte objective
+	// that fits in 16000 runes but exceeds 16000 bytes stays
+	// unsupported, so recorded baselines keep their support verdict.
 	if trimmed == "" || len(trimmed) > 16000 || strings.ContainsRune(trimmed, 0) {
 		return AlternativeSet{Producer: AuthoredProducer, Unknowns: []string{"No usable objective was supplied, so no alternative is offered."}}
 	}
@@ -204,6 +213,9 @@ func (s AlternativeSet) Validate() error {
 	}
 	seen := map[string]bool{}
 	for _, alternative := range s.Alternatives {
+		if authored, exists := authoredAlternatives[alternative.Key]; !exists || authored.Name != alternative.Name {
+			return errors.New("unknown authored product alternative")
+		}
 		if err := alternative.Validate(); err != nil {
 			return err
 		}
@@ -215,11 +227,15 @@ func (s AlternativeSet) Validate() error {
 	return nil
 }
 
-// Validate checks bounds and the fixed authored alternative keys.
+// validateIdentity checks bounded, portable keys and human-readable content.
 func (a ProductAlternative) validateIdentity() error {
-	authored, exists := authoredAlternatives[a.Key]
-	if !exists || a.Name != authored.Name {
-		return errors.New("unknown product alternative")
+	if !intentText(a.Key, 64) || !intentText(a.Name, 4000) || len(a.IdeaIDs) > 50 {
+		return errors.New("invalid product alternative identity")
+	}
+	for _, char := range a.Key {
+		if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '_') {
+			return errors.New("invalid product alternative key")
+		}
 	}
 	if !intentText(a.Audience, 4000) || !intentText(a.Summary, 4000) || !intentText(a.Visibility, 4000) || !intentText(a.Consequences, 4000) || !intentText(a.Evidence, 4000) {
 		return errors.New("invalid product alternative prose")

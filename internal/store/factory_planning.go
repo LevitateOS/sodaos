@@ -26,8 +26,18 @@ func (s *Store) SavePlanningRecord(ctx context.Context, r factory.PlanningRecord
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_planning(repository,issue,snapshot,data) VALUES($1,$2,$3,$4) ON CONFLICT(repository,issue) DO UPDATE SET snapshot=excluded.snapshot,data=excluded.data`, r.Input.Candidate.Control.Repository, r.Input.Candidate.Control.Issue, r.Snapshot, string(raw))
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_planning(repository,issue,snapshot,data) VALUES($1,$2,$3,$4) ON CONFLICT(repository,issue) DO UPDATE SET snapshot=excluded.snapshot,data=excluded.data`, r.Input.Candidate.Control.Repository, r.Input.Candidate.Control.Issue, r.Snapshot, string(raw)); err != nil {
+		return err
+	}
+	if err = recordPlanningFeedTx(ctx, tx, r, raw); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) PlanningControlsAfter(ctx context.Context, limit int, seen, repository, issue int64, hasCursor bool) ([]factory.IssueControl, error) {

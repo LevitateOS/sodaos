@@ -105,12 +105,10 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
         Ok(latest) => latest,
         Err(check_err) => match previous {
             Some(sel) => match &sel.freshness {
-                crate::store::Freshness::Stale { .. }
-                | crate::store::Freshness::Unknown { .. } => {
+                crate::store::Freshness::Stale { .. } | crate::store::Freshness::Unknown { .. } => {
                     return Ok(sel);
                 }
-                crate::store::Freshness::Current
-                | crate::store::Freshness::UpdateFailed { .. } => {
+                crate::store::Freshness::Current | crate::store::Freshness::UpdateFailed { .. } => {
                     return Ok(Selection {
                         freshness: crate::store::Freshness::UpdateFailed {
                             reason: format!(
@@ -196,9 +194,8 @@ pub fn refresh(provider: Provider) -> Result<Selection, crate::Error> {
 
     // Admit the new digest, then atomically select it. Any admission failure
     // against a known-newer release persists the discovery as `Stale` first.
-    let created = admit(&root, provider, &latest).map_err(|e| {
-        stale_block(&root, previous.as_ref(), &latest, now, e.to_string())
-    })?;
+    let created = admit(&root, provider, &latest)
+        .map_err(|e| stale_block(&root, previous.as_ref(), &latest, now, e.to_string()))?;
     let exe = latest_exe(&root, provider, &latest);
     if let Err(probe_err) = crate::discover::probe_executable(provider, &exe) {
         if created {
@@ -294,11 +291,7 @@ pub fn publish(
                 // Another install won the first-install race; converge on it.
                 Some(current) => Ok(current),
                 None => {
-                    crate::store::verify_bundle(
-                        root,
-                        admitted.provider,
-                        &admitted.release.digest,
-                    )?;
+                    crate::store::verify_bundle(root, admitted.provider, &admitted.release.digest)?;
                     crate::store::write_selection(root, &admitted)?;
                     Ok(admitted)
                 }

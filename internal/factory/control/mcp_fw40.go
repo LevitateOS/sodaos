@@ -290,6 +290,13 @@ func settleProductPlan(assigned factory.Assignment, submission factory.MCPSubmis
 		Intent: assigned.Subject.Intent.IntentID, Revision: assigned.Subject.Intent.RevisionID,
 		Operation: in.Operation, Candidates: candidates,
 	}
+	if raw, present := fields["walkthroughs"]; present {
+		var content factory.ProposalContent
+		if err := strictDecodeField(raw, &content); err != nil || factory.ValidatePlanningWalkthroughs(in.Head, content) != nil {
+			return fenceFW40(assigned, submission, now, "product walkthrough differs from its planning scope")
+		}
+		out.Walkthroughs = &content
+	}
 	if raw, present := fields["verification_manifest_proposal"]; present {
 		proposal, err := factory.ParseVerificationManifestProposal(raw)
 		if err != nil || proposal.ValidateOutcomes(in.Head) != nil {

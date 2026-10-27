@@ -20,11 +20,12 @@ func recordedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixtu
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	c := choicePlanCoordinator(t, db, fx, &candidateChoiceStub{selected: "cand-a", confidence: 1})
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	r := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-	c := choicePlanCoordinator(t, db, fx, &candidateChoiceStub{selected: "cand-a", confidence: 1})
 	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
 	return c, f, fx, r

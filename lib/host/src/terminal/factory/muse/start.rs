@@ -6,6 +6,21 @@ use crate::terminal::{self, Lease, Service};
 use std::time::Instant;
 
 impl<E: Executor> Service<E> {
+    pub fn factory_muse_native_output(
+        &self,
+        lease: &Lease,
+        output: &[u8],
+        deadline: Instant,
+    ) -> Result<(), String> {
+        if output.len() > crate::factory::MAX_FACTORY_OUTPUT {
+            return Err(terminal::err_denied());
+        }
+        let paths = factory_muse_binding(lease)?;
+        let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
+        self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)?;
+        self.factory_stage_file(&binding.project, binding, &paths.output, output, deadline)
+    }
+
     /// `Service.FactoryCodexStart` shape for Muse runs: stage the opaque
     /// broker `auth.json` bytes verbatim (both the run-dir copy capture
     /// echoes and the CLI lookup copy), then prompt, then the start

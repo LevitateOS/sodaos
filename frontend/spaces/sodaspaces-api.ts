@@ -1,9 +1,9 @@
 // Soda response contracts used by its two browser components. No copied Forgejo authority.
 
 // Never accept HTML, invalid UTF-8 or an unbounded body as Soda JSON.
-async function sodaJSONReader(response: Response) {
+async function sodaJSONReader(response: Response, maxBytes: number) {
   const json = /^application\/json(?:;|$)/i.test(response.headers.get('Content-Type') || '');
-  if (!json || Number(response.headers.get('Content-Length')) > 65536) {
+  if (!json || Number(response.headers.get('Content-Length')) > maxBytes) {
     await response.body?.cancel();
     throw Error('Invalid Soda response');
   }
@@ -11,8 +11,9 @@ async function sodaJSONReader(response: Response) {
   return response.body.getReader();
 }
 
-export async function readSodaJSON(response: Response): Promise<unknown> {
-  const reader = await sodaJSONReader(response),
+export async function readSodaJSON(response: Response, maxBytes = 65536): Promise<unknown> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 4 * 1024 * 1024) throw Error('Invalid Soda response bound');
+  const reader = await sodaJSONReader(response, maxBytes),
     decoder = new TextDecoder('utf-8', {fatal: true});
   let size = 0,
     text = '';
@@ -21,7 +22,7 @@ export async function readSodaJSON(response: Response): Promise<unknown> {
       const {done, value} = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 65536) throw Error('Oversized Soda response');
+      if (size > maxBytes) throw Error('Oversized Soda response');
       text += decoder.decode(value, {stream: true});
     }
     return JSON.parse(text + decoder.decode());

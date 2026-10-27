@@ -95,6 +95,7 @@ export interface InventoryInput {
   readComplete: () => boolean;
   readNextAfter: () => string;
   readSetup: () => 'intent' | 'repositories' | 'configure' | null;
+  readIntentRequest?: () => string;
   readSelectedSpace: () => Space | undefined;
   readProject: () => string;
   readObservedAt: () => number;
@@ -245,6 +246,10 @@ export function restoreIfNeeded(input: InventoryInput, n: number, signal: AbortS
 
 export function clearConfigureAfterCreate(input: InventoryInput) {
   if (input.readSetup() === 'configure' && input.readSelectedSpace()?.environment.provisioned) {
+    if (input.readIntentRequest?.()) {
+      input.setSetup('intent');
+      return;
+    }
     input.setSetup(null);
     input.clearSetupReturn();
   }
@@ -264,8 +269,9 @@ export function refreshJourneyManagement(input: InventoryInput) {
 
 export function syncPageJourney(input: InventoryInput) {
   if (missingRepositoryProject(input)) {
-    if (input.readView() === 'terminal' || input.readView() === 'work')
-      void input.showManagement(input.readProject(), 'journey');
+    // An explicit native repository route has no Project yet, hence no view
+    // tabs. Keep its configuration reachable even when Feed is the default.
+    void input.showManagement(input.readProject(), 'journey');
     return;
   }
   if (!pageJourneyActive(input)) return;

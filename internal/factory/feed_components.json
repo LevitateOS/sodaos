@@ -1700,5 +1700,15 @@
     "outlets": [],
     "authority": "factory",
     "availability": "canonical"
+  },
+  {
+    "id": "F11",
+    "label": "Design decision recorded",
+    "family": "decision",
+    "presentation": "decision",
+    "roles": ["factory"],
+    "outlets": [],
+    "authority": "factory",
+    "availability": "canonical"
   }
 ]

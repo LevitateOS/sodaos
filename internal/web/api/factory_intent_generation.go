@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -43,6 +44,8 @@ func (s *API) apiIntentGenerate(w http.ResponseWriter, r *http.Request, v store.
 	generation, wait, err := s.Coordinator.GenerateAcceptedIntentFromRecordedPlan(r.Context(), intent.Intent, v.User.ID)
 	if err != nil {
 		switch {
+		case errors.Is(err, control.ErrPlanChoiceReview):
+			auth.JSONError(w, 409, "intent_review_required", err.Error())
 		case errors.Is(err, control.ErrPlanChoiceAttention):
 			auth.JSONError(w, 409, "planning_attention", err.Error())
 		case errors.Is(err, control.ErrPlanChoiceStale):
@@ -116,6 +119,10 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 	}
 	plan, prep, wait, err := s.Coordinator.AssembleIntentPlanningInput(r.Context(), current, in.Operation)
 	if err != nil {
+		if errors.Is(err, control.ErrIntentPlanningPromptBound) {
+			auth.JSONError(w, 400, "planning_prompt_over_bound", "Approved planning context exceeds the staged prompt bound; narrow the approved source selection and plan again.")
+			return
+		}
 		auth.JSONError(w, 503, "planning_unavailable", "Draft planning inputs are unavailable: "+err.Error())
 		return
 	}
@@ -128,6 +135,10 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		// A lost launch observation does not undo the funded packet. Return
 		// that exact admitted identity so the caller reads its status instead
 		// of treating an existing worker as a failed storage operation.
+		if report.Errors[0].Reason == control.DispatchErrPromptBound {
+			auth.JSONError(w, 400, "planning_prompt_over_bound", report.Errors[0].Detail)
+			return
+		}
 		if report.Errors[0].Reason == control.DispatchErrHost || report.Errors[0].Reason == control.DispatchErrFence {
 			a, readErr := s.Store.IntentPlanAttempt(r.Context(), current.Intent, current.ID)
 			if readErr == nil && a.Validate() == nil && a.Subject.Intent != nil && a.Subject.Intent.OwnerID == v.User.ID && a.Subject.Intent.IntentID == current.Intent && a.Subject.Intent.RevisionID == current.ID && a.Subject.Intent.ScopeDigest == current.Digest() && a.SourceCommit == prep.SourceCommit && a.Preparation == prep.ID && a.PlanningContext != nil && a.PlanningContext.Operation == in.Operation {
@@ -151,13 +162,15 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 // reported shape once it settles, and none before the first attempt.
 // Copy stays about planning results, never source hashes.
 type intentPlanStatusView struct {
-	Revision     string `json:"revision"`
-	State        string `json:"state"`
-	AssignmentID string `json:"assignment_id,omitempty"`
-	RunID        string `json:"run_id,omitempty"`
-	Summary      string `json:"summary,omitempty"`
-	Candidates   int    `json:"candidates,omitempty"`
-	Attention    string `json:"attention,omitempty"`
+	Revision     string                   `json:"revision"`
+	State        string                   `json:"state"`
+	AssignmentID string                   `json:"assignment_id,omitempty"`
+	RunID        string                   `json:"run_id,omitempty"`
+	Summary      string                   `json:"summary,omitempty"`
+	Candidates   int                      `json:"candidates,omitempty"`
+	Attention    string                   `json:"attention,omitempty"`
+	Walkthroughs *factory.ProposalContent `json:"walkthroughs,omitempty"`
+	Review       *exploreData             `json:"review,omitempty"`
 }
 
 // apiIntentPlanStatus shows the latest draft-planning attempt for the
@@ -200,6 +213,7 @@ func renderIntentPlanOutcome(a factory.Assignment) intentPlanStatusView {
 		view.State, view.Summary = "completed", a.Result.Summary
 		if out := a.Result.PhaseResult.Output; out != nil && out.Decomposition != nil {
 			view.Candidates = len(out.Decomposition.Candidates)
+			view.Walkthroughs = out.Decomposition.Walkthroughs
 		}
 	default:
 		view.State, view.Summary = "attention", a.Result.Summary
@@ -230,7 +244,84 @@ func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v stor
 	}
 	view := renderIntentPlanOutcome(a)
 	view.Revision = head.ID
+	if view.Walkthroughs != nil {
+		if err := factory.ValidatePlanningWalkthroughs(*head, *view.Walkthroughs); err != nil {
+			auth.JSONError(w, 409, "planning_walkthrough_invalid", "The saved walkthrough does not match this direction.")
+			return
+		}
+		// A nil chooser replays existing advice only. Reading progress never
+		// reserves credit or asks a model to judge.
+		view.Review, _ = s.reviewPlanningWalkthrough(r.Context(), *head, *view.Walkthroughs, false)
+	}
 	auth.JSONResponse(w, 200, view)
+}
+
+func (s *API) reviewPlanningWalkthrough(ctx context.Context, head factory.IntentRevision, content factory.ProposalContent, consult bool) (*exploreData, error) {
+	coord := &control.Coordinator{Store: s.Store}
+	if consult {
+		judge := s.IntentExploreChooser
+		if judge == nil {
+			judge = &control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
+		}
+		coord.Planning = &control.PlanningJudgments{Chooser: judge}
+	}
+	recommended, err := coord.JudgeConsolidation(ctx, head, content)
+	if err != nil {
+		return nil, err
+	}
+	checked, err := coord.JudgeConsistency(ctx, head, content, recommended)
+	if err != nil {
+		return nil, err
+	}
+	return &exploreData{Content: content, Challenges: []factory.AssumptionChallenge{}, Settled: []string{}, Recommendation: &recommended, Consistency: &checked}, nil
+}
+
+// apiIntentPlanReview checks an actual recorded planner walkthrough without
+// changing the draft head, so acceptance still adopts that exact native plan.
+func (s *API) apiIntentPlanReview(w http.ResponseWriter, r *http.Request, v store.Session) {
+	head := s.admitIntentPlanHead(w, r, v)
+	if head == nil || !s.factoryOwner(w, r, v, head.Repository) {
+		return
+	}
+	var in struct {
+		Revision string `json:"revision"`
+	}
+	if !auth.DecodeAPIObject(w, r, &in) {
+		return
+	}
+	if in.Revision != head.ID {
+		auth.JSONError(w, 412, "stale_revision", "Review inputs changed.")
+		return
+	}
+	attempt, err := s.Store.IntentPlanAttempt(r.Context(), head.Intent, head.ID)
+	if err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	if attempt.Subject.Intent == nil || attempt.Subject.Intent.OwnerID != v.User.ID {
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	}
+	view := renderIntentPlanOutcome(attempt)
+	if view.State != "completed" || view.Walkthroughs == nil {
+		auth.JSONError(w, 409, "walkthrough_unavailable", "This plan has no completed authored walkthrough. Plan again to produce one.")
+		return
+	}
+	if err := factory.ValidatePlanningWalkthroughs(*head, *view.Walkthroughs); err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	review, err := s.reviewPlanningWalkthrough(r.Context(), *head, *view.Walkthroughs, true)
+	if err != nil {
+		reportJudgmentCallError(w, err, "Walkthrough review could not finish. Completed judgments and consumed allowance are retained; check the planning allowance or revise the direction.")
+		return
+	}
+	current, err := s.Store.IntentRevision(r.Context(), head.Intent, v.User.ID)
+	if err != nil || current.ID != head.ID {
+		auth.JSONError(w, 412, "stale_revision", "The direction changed while its walkthrough was checked.")
+		return
+	}
+	auth.JSONResponse(w, 200, review)
 }
 
 func (s *API) apiIntentGeneration(w http.ResponseWriter, r *http.Request, v store.Session) {

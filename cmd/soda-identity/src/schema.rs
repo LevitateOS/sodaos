@@ -1,17 +1,27 @@
 // Mechanically mirrored from internal/store/schema.go and its named SQL owners.
 // Go owns the schema; keep this consumer identical when changing those owners.
-pub const SCHEMA_VERSION: i64 = 67;
+pub const SCHEMA_VERSION: i64 = 69;
+
+/// 68 → 69 upgrade: retained 68 databases carry builds but no
+/// setup-renewals journal. Must match the Go 68→69 upgrade statement for
+/// statement; runs inside the open transaction.
+pub const UPGRADE_68_TO_69: &[&str] = &[
+    r####"CREATE TABLE application_setup_renewals(setup_id TEXT NOT NULL REFERENCES application_setups(id),renewed_at BIGINT NOT NULL CHECK(renewed_at>0),expires_at BIGINT NOT NULL CHECK(expires_at>renewed_at),administrator_id BIGINT NOT NULL CHECK(administrator_id>0),PRIMARY KEY(setup_id,renewed_at))"####,
+    r####"UPDATE schema_version SET version=69"####,
+];
 
 pub const STATEMENTS: &[&str] = &[
     r####"CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)"####,
     r####"CREATE TABLE factory_feed_subscriptions(subscriber TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>0), data JSONB NOT NULL)"####,
     r####"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"####,
-    r####"INSERT INTO schema_version(version) VALUES(67)"####,
+    r####"INSERT INTO schema_version(version) VALUES(69)"####,
     r####"CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))"####,
     r####"CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))"####,
     r####"CREATE TABLE application_projects(application_id TEXT PRIMARY KEY REFERENCES applications(id), repository BIGINT NOT NULL CHECK(repository>0))"####,
     r####"CREATE TABLE application_restores(id TEXT PRIMARY KEY,application_id TEXT NOT NULL REFERENCES applications(id),base_revision BIGINT NOT NULL,target_data TEXT NOT NULL UNIQUE,state TEXT NOT NULL CHECK(state IN ('pending','complete','aborted')),data JSONB NOT NULL)"####,
     r####"CREATE TABLE application_setups(id TEXT PRIMARY KEY,application_id TEXT NOT NULL UNIQUE,administrator_id BIGINT NOT NULL CHECK(administrator_id>0),data_id TEXT NOT NULL UNIQUE,origin TEXT NOT NULL UNIQUE,hostname TEXT NOT NULL UNIQUE,port INTEGER NOT NULL UNIQUE,state TEXT NOT NULL CHECK(state IN ('pending','complete','aborted')),data JSONB NOT NULL CHECK(octet_length(data::text)<=8192))"####,
+    r####"CREATE TABLE application_setup_renewals(setup_id TEXT NOT NULL REFERENCES application_setups(id),renewed_at BIGINT NOT NULL CHECK(renewed_at>0),expires_at BIGINT NOT NULL CHECK(expires_at>renewed_at),administrator_id BIGINT NOT NULL CHECK(administrator_id>0),PRIMARY KEY(setup_id,renewed_at))"####,
+    r####"CREATE TABLE application_builds(seq BIGINT GENERATED ALWAYS AS IDENTITY,id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'),repository BIGINT NOT NULL CHECK(repository>0),delivery_id TEXT NOT NULL,environment TEXT NOT NULL CHECK(environment IN ('company','preview')),data JSONB NOT NULL CHECK(octet_length(data::text)<=16384),setup_id TEXT REFERENCES application_setups(id),UNIQUE(repository,delivery_id,environment))"####,
     r####"CREATE UNIQUE INDEX application_restore_pending ON application_restores(application_id) WHERE state='pending'"####,
     r####"ALTER TABLE applications ADD FOREIGN KEY(id,revision) REFERENCES application_revisions(application_id,revision) DEFERRABLE INITIALLY DEFERRED"####,
     r####"CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)"####,
@@ -304,6 +314,8 @@ pub const VERIFY_QUERIES: &[&str] = &[
     r####"SELECT id,administrator_id,name,data_id,owner_team,origin,hostname,port,revision,observation FROM applications LIMIT 0"####,
     r####"SELECT id,application_id,base_revision,target_data,state,data FROM application_restores LIMIT 0"####,
     r####"SELECT id,application_id,administrator_id,data_id,origin,hostname,port,state,data FROM application_setups LIMIT 0"####,
+    r####"SELECT setup_id,renewed_at,expires_at,administrator_id FROM application_setup_renewals LIMIT 0"####,
+    r####"SELECT id,repository,delivery_id,environment,data,setup_id FROM application_builds LIMIT 0"####,
     r####"SELECT application_id,repository FROM application_projects LIMIT 0"####,
     r####"SELECT application_id,revision,spec FROM application_revisions LIMIT 0"####,
     r####"SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0"####,

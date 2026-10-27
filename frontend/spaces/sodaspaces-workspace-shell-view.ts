@@ -23,6 +23,7 @@ export function workspaceClasses(
   if (setupScreen) cls += ' is-setup';
   if (welcomeScreen) cls += ' is-welcome';
   if (setup) cls += ' is-project-setup';
+  if (setup === 'intent') cls += ' is-intent-entry';
   if (workspaceIntro) cls += ' is-workspace-intro';
   return cls;
 }

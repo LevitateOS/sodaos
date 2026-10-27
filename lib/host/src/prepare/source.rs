@@ -7,7 +7,36 @@ use crate::preparation::{
     self, ContextFile, Preparation, PreparationContext, PrepareContextRead, PrepareState,
     MAX_CONTEXT_FILES, MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
 };
-use crate::project::{Executor, Runtime};
+use crate::project::{BoundedError, Executor, Runtime};
+
+/// Typed failure for one bounded preparation-context read.
+///
+/// Explicit oversize/bounds refusals stay distinct from every other
+/// failure at the producing site, so the route layer can signal them
+/// distinctly (HTTP 413) without matching error text. Anything else —
+/// identity, ancestry, path/UTF-8 shape, exec — fails closed elsewhere.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContextReadError {
+    /// An explicit bounds refusal: the selection cannot fit the
+    /// file-count, per-file or aggregate context bounds. Carries the
+    /// fixed diagnostic; the wire carries only the typed signal.
+    Bounds(&'static str),
+    /// Every other failure. Carries the exact executor diagnostic for
+    /// the operator journal; the wire stays a generic 500.
+    Failed(String),
+}
+
+impl From<String> for ContextReadError {
+    fn from(message: String) -> Self {
+        ContextReadError::Failed(message)
+    }
+}
+
+impl From<&str> for ContextReadError {
+    fn from(message: &str) -> Self {
+        ContextReadError::Failed(message.to_string())
+    }
+}
 
 /// Admitted context source: the recorded ready checkout plus its
 /// derived paths. Every later phase reads from this exact checkout.
@@ -224,8 +253,8 @@ impl<E: Executor> Runtime<E> {
         &self,
         admitted: &AdmittedPreparationContext,
         input: &PrepareContextRead,
-    ) -> Result<Vec<String>, String> {
-        let changed = self.context_git(
+    ) -> Result<Vec<String>, ContextReadError> {
+        let changed = self.context_git_bounded(
             &admitted.container,
             &admitted.state.role,
             &admitted.checkout,
@@ -243,9 +272,12 @@ impl<E: Executor> Runtime<E> {
             ],
             MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES + 1,
             admitted.deadline,
+            "candidate context path set exceeds its bound",
         )?;
         if changed.len() > MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES {
-            return Err("candidate context path set exceeds its bound".into());
+            return Err(ContextReadError::Bounds(
+                "candidate context path set exceeds its bound",
+            ));
         }
         let mut selected = BTreeSet::new();
         selected.insert("AGENTS.md".to_string());
@@ -283,7 +315,9 @@ impl<E: Executor> Runtime<E> {
             .filter(|path| existing.contains(path) || changed_paths.contains(path))
             .collect();
         if selected.len() > MAX_CONTEXT_FILES {
-            return Err("preparation context selects too many files".into());
+            return Err(ContextReadError::Bounds(
+                "preparation context selects too many files",
+            ));
         }
         Ok(selected)
     }
@@ -293,7 +327,7 @@ impl<E: Executor> Runtime<E> {
     fn load_approved_setup(
         &self,
         admitted: &AdmittedPreparationContext,
-    ) -> Result<(Vec<u8>, Vec<u8>, usize), String> {
+    ) -> Result<(Vec<u8>, Vec<u8>, usize), ContextReadError> {
         let files = self.approved_preparation_files(
             &admitted.container,
             &admitted.state.id,
@@ -316,7 +350,9 @@ impl<E: Executor> Runtime<E> {
         }
         let total = setup.len().saturating_add(check.len());
         if total > MAX_CONTEXT_TOTAL_BYTES {
-            return Err("preparation context exceeds its aggregate bound".into());
+            return Err(ContextReadError::Bounds(
+                "preparation context exceeds its aggregate bound",
+            ));
         }
         Ok((setup, check, total))
     }
@@ -382,14 +418,17 @@ impl<E: Executor> Runtime<E> {
     }
 
     /// Read every selected file that exists at the approved base into the
-    /// aggregate byte budget.
+    /// aggregate byte budget. Each blob reads through one bounded call
+    /// (cap+1 detects oversize without truncation); the Go caller chunks
+    /// large selections across reads so each response stays bounded while
+    /// the full file bytes return for digest verification.
     fn collect_approved_files(
         &self,
         admitted: &AdmittedPreparationContext,
         input: &PrepareContextRead,
         selected: &[String],
         total: usize,
-    ) -> Result<(Vec<ContextFile>, usize), String> {
+    ) -> Result<(Vec<ContextFile>, usize), ContextReadError> {
         let tree = self.list_approved_tree(admitted, input, selected)?;
         let existing = Self::parse_approved_tree(&tree, selected)?;
         let mut total = total;
@@ -401,7 +440,7 @@ impl<E: Executor> Runtime<E> {
             let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
             let cap = MAX_CONTEXT_FILE_BYTES.min(remaining);
             let expression = format!("{}:{path}", input.approved_base);
-            let content = self.context_git(
+            let content = self.context_git_bounded(
                 &admitted.container,
                 &admitted.state.role,
                 &admitted.checkout,
@@ -409,9 +448,12 @@ impl<E: Executor> Runtime<E> {
                 &["cat-file", "blob", expression.as_str()],
                 cap.saturating_add(1),
                 admitted.deadline,
+                "approved-base context file exceeds its bound",
             )?;
             if content.len() > cap {
-                return Err("approved-base context file exceeds its bound".into());
+                return Err(ContextReadError::Bounds(
+                    "approved-base context file exceeds its bound",
+                ));
             }
             if content.contains(&0) || std::str::from_utf8(&content).is_err() {
                 return Err("approved-base context file is not UTF-8 text".into());
@@ -431,7 +473,7 @@ impl<E: Executor> Runtime<E> {
         admitted: &AdmittedPreparationContext,
         input: &PrepareContextRead,
         total: usize,
-    ) -> Result<Vec<u8>, String> {
+    ) -> Result<Vec<u8>, ContextReadError> {
         let diff_args = vec![
             "diff".to_string(),
             "--no-ext-diff".to_string(),
@@ -442,7 +484,7 @@ impl<E: Executor> Runtime<E> {
         ];
         let diff_refs: Vec<&str> = diff_args.iter().map(String::as_str).collect();
         let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
-        let diff = self.context_git(
+        let diff = self.context_git_bounded(
             &admitted.container,
             &admitted.state.role,
             &admitted.checkout,
@@ -450,9 +492,12 @@ impl<E: Executor> Runtime<E> {
             &diff_refs,
             remaining.saturating_add(1),
             admitted.deadline,
+            "candidate context diff exceeds its aggregate bound",
         )?;
         if diff.len() > remaining {
-            return Err("candidate context diff exceeds its aggregate bound".into());
+            return Err(ContextReadError::Bounds(
+                "candidate context diff exceeds its aggregate bound",
+            ));
         }
         if diff
             .split(|byte| *byte == b'\n')
@@ -473,7 +518,7 @@ impl<E: Executor> Runtime<E> {
         &self,
         input: &PrepareContextRead,
         deadline: Instant,
-    ) -> Result<PreparationContext, String> {
+    ) -> Result<PreparationContext, ContextReadError> {
         let admitted = self.admit_preparation_context(input, deadline)?;
         self.confirm_context_commits(&admitted, input)?;
         let selected = self.select_context_paths(&admitted, input)?;
@@ -506,36 +551,78 @@ impl<E: Executor> Runtime<E> {
         stdout_limit: usize,
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        let mut args = vec![
-            "exec".to_string(),
-            "--user".to_string(),
-            role.to_string(),
-            container.to_string(),
-            "/usr/bin/env".to_string(),
-            "-i".to_string(),
-            "PATH=/usr/bin:/bin".to_string(),
-            "LC_ALL=C".to_string(),
-            format!("HOME={home}"),
-            "GIT_CONFIG_NOSYSTEM=1".to_string(),
-            "GIT_CONFIG_GLOBAL=/dev/null".to_string(),
-            "GIT_NO_REPLACE_OBJECTS=1".to_string(),
-            "GIT_TERMINAL_PROMPT=0".to_string(),
-            "GIT_OPTIONAL_LOCKS=0".to_string(),
-            "/usr/bin/git".to_string(),
-            "-c".to_string(),
-            format!("safe.directory={checkout}"),
-            "-c".to_string(),
-            "core.hooksPath=/dev/null".to_string(),
-            "-c".to_string(),
-            "core.fsmonitor=false".to_string(),
-            "-C".to_string(),
-            checkout.to_string(),
-        ];
-        args.extend(git_args.iter().map(|arg| (*arg).to_string()));
+        let args = context_git_argv(container, role, checkout, home, git_args);
         let refs: Vec<&str> = args.iter().map(String::as_str).collect();
         self.exec
             .run_bounded(&[], "/usr/bin/podman", &refs, deadline, stdout_limit, 1024)
     }
+
+    /// Typed bounded Git read for the producing-site bound checks: a
+    /// genuine stdout-ceiling overflow from the real executor surfaces
+    /// as `ContextReadError::Bounds` (the route's typed 413) carrying the
+    /// site's bound message. Every other failure — stderr ceiling,
+    /// timeout/cancellation, cleanup, wait, exit status — keeps the exact
+    /// executor diagnostic and fails closed as `Failed`. No error text is
+    /// matched.
+    pub(super) fn context_git_bounded(
+        &self,
+        container: &str,
+        role: &str,
+        checkout: &str,
+        home: &str,
+        git_args: &[&str],
+        stdout_limit: usize,
+        deadline: Instant,
+        overflow: &'static str,
+    ) -> Result<Vec<u8>, ContextReadError> {
+        let args = context_git_argv(container, role, checkout, home, git_args);
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        self.exec
+            .run_bounded_typed(&[], "/usr/bin/podman", &refs, deadline, stdout_limit, 1024)
+            .map_err(|error| match error {
+                BoundedError::StdoutLimit => ContextReadError::Bounds(overflow),
+                BoundedError::Failed(message) => ContextReadError::Failed(message),
+            })
+    }
+}
+
+/// Shared `podman exec` + `git` argv for the bounded preparation reads.
+/// One builder so the String and typed paths issue byte-identical
+/// commands; only the error channel differs.
+fn context_git_argv(
+    container: &str,
+    role: &str,
+    checkout: &str,
+    home: &str,
+    git_args: &[&str],
+) -> Vec<String> {
+    let mut args = vec![
+        "exec".to_string(),
+        "--user".to_string(),
+        role.to_string(),
+        container.to_string(),
+        "/usr/bin/env".to_string(),
+        "-i".to_string(),
+        "PATH=/usr/bin:/bin".to_string(),
+        "LC_ALL=C".to_string(),
+        format!("HOME={home}"),
+        "GIT_CONFIG_NOSYSTEM=1".to_string(),
+        "GIT_CONFIG_GLOBAL=/dev/null".to_string(),
+        "GIT_NO_REPLACE_OBJECTS=1".to_string(),
+        "GIT_TERMINAL_PROMPT=0".to_string(),
+        "GIT_OPTIONAL_LOCKS=0".to_string(),
+        "/usr/bin/git".to_string(),
+        "-c".to_string(),
+        format!("safe.directory={checkout}"),
+        "-c".to_string(),
+        "core.hooksPath=/dev/null".to_string(),
+        "-c".to_string(),
+        "core.fsmonitor=false".to_string(),
+        "-C".to_string(),
+        checkout.to_string(),
+    ];
+    args.extend(git_args.iter().map(|arg| (*arg).to_string()));
+    args
 }
 
 fn add_context_instruction_paths(selected: &mut BTreeSet<String>, path: &str) {

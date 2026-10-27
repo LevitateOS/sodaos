@@ -158,6 +158,7 @@ export class SodaSpaces extends LitElement {
     intentNotice: {state: true},
     savedRequests: {state: true},
     project: {state: true},
+    deliveryTarget: {state: true},
     complete: {state: true},
     repositoryQuery: {state: true},
     repositoryResult: {state: true},
@@ -246,6 +247,10 @@ export class SodaSpaces extends LitElement {
     }
   >();
   declare private project: string;
+  declare private deliveryTarget: string;
+  private deliveryRepository = '';
+  private companyScopeRepository = '';
+  private applicationOwner = '';
   declare private setup: 'intent' | 'repositories' | 'configure' | null;
   declare private intentNotice: string;
   declare private savedRequests: SavedRequest[];
@@ -274,6 +279,7 @@ export class SodaSpaces extends LitElement {
   private available = false;
   private surfaceVisible = true;
   private storageKey = '';
+  private restoredProjectView = '';
   private lifetime = new AbortController();
   private canvasSize = {
     width: 0,
@@ -294,6 +300,7 @@ export class SodaSpaces extends LitElement {
   private lastMinimum = 0;
   constructor() {
     super();
+    this.deliveryTarget = '';
     this.spaces = [];
     this.savedRequests = [];
     this.project =
@@ -415,7 +422,7 @@ export class SodaSpaces extends LitElement {
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     const requestedProject = new URLSearchParams(location.search).get('repository');
     if (context.kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
-    this.view = context.kind === 'page' ? 'work' : 'terminal';
+    this.view = context.kind === 'page' ? 'feed' : 'terminal';
     this.factory = factory;
     this.storageKey = '';
     this.routePathname = window.location.pathname;
@@ -434,6 +441,44 @@ export class SodaSpaces extends LitElement {
       if (this.pendingWorkspaceRoute && event.target === this.querySelector('soda-intent')) this.requestUpdate();
     });
     this.addEventListener('soda-project-change-repository', (e) => this.onProjectChangeRepository(e));
+    this.addEventListener('soda-project-feed-open', (event) => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
+      if (this.view !== 'app' || event.detail?.repository !== this.project) return;
+      this.showProjectView('feed');
+    });
+    this.addEventListener('soda-application-open', (event) => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
+      const repository = event.detail?.repository;
+      if (typeof repository !== 'string' || !id(repository)) return;
+      const space = this.spaces.find((space) => space.environment.repository_id === repository);
+      if (!space) return;
+      this.project = repository;
+      this.deliveryRepository = repository;
+      this.deliveryTarget =
+        typeof event.detail?.deliveryId === 'string' && /^[a-f0-9]{32}$/.test(event.detail.deliveryId)
+          ? event.detail.deliveryId
+          : '';
+      // An exact selection leaves the company surface, so a stale scope can
+      // never filter the exact view.
+      this.companyScopeRepository = '';
+      this.rememberProjectScope();
+      this.showProjectView('app');
+    });
+    this.addEventListener('application-delivery-cleared', () => {
+      this.deliveryTarget = '';
+      this.rememberProjectDelivery();
+    });
+    this.addEventListener('application-company-opened', () => {
+      this.companyScopeRepository = this.project;
+      this.rememberProjectScope();
+    });
+    this.addEventListener('soda-intent-open', (event) => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
+      const {id: intent, repository} = event.detail ?? {};
+      if (typeof intent !== 'string' || !requestIDPattern.test(intent) || typeof repository !== 'string') return;
+      if (!this.spaces.some((space) => space.environment.repository_id === repository)) return;
+      this.onResumeRequest(intent);
+    });
     this.addEventListener('soda-project-changed', (e) => {
       if (!(e instanceof CustomEvent)) return;
       void this.refresh();
@@ -458,11 +503,12 @@ export class SodaSpaces extends LitElement {
   private presentView(kind: 'page' | 'native', entered: boolean, repositoryId?: string) {
     if (repositoryId) this.project = repositoryId;
     if (kind === 'native') {
-      if (this.view === 'work' || this.view === 'plans') this.view = 'terminal';
+      if (['feed', 'app', 'work', 'plans'].includes(this.view)) this.view = 'terminal';
       return;
     }
     if (this.selected) return;
-    if (entered && this.view === 'terminal') this.view = 'work';
+    if (entered && this.view === 'terminal') this.view = 'feed';
+    this.restoreProjectView();
   }
   private presentedRoute(route?: string) {
     return route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
@@ -640,8 +686,64 @@ export class SodaSpaces extends LitElement {
     this.invalidate();
   };
   private readonly onShowWork = () => {
-    this.view = 'work';
+    this.showProjectView('work');
   };
+  private readonly onShowFeed = () => this.showProjectView('feed');
+  private readonly onShowApp = () => this.showProjectView('app');
+  private showProjectView(view: 'feed' | 'app' | 'work') {
+    if (this.stale || !this.actor || !this.selectedSpace) return;
+    if (view === 'app') this.applicationOwner = `${this.actor.id}:${this.project}`;
+    this.view = view;
+    try {
+      window.localStorage.setItem(`soda-project-view:v1:${this.actor.id}:${this.project}`, view);
+      this.rememberProjectDelivery();
+    } catch {
+      /* The current view remains usable without browser storage. */
+    }
+  }
+  private rememberProjectDelivery() {
+    if (!this.actor || !id(this.project)) return;
+    const key = `soda-project-delivery:v1:${this.actor.id}:${this.project}`;
+    try {
+      if (this.deliveryRepository === this.project && this.deliveryTarget)
+        window.localStorage.setItem(key, this.deliveryTarget);
+      else window.localStorage.removeItem(key);
+    } catch {
+      /* Navigation remains usable without browser storage. */
+    }
+  }
+  private rememberProjectScope() {
+    if (!this.actor || !id(this.project)) return;
+    const key = `soda-project-scope:v1:${this.actor.id}:${this.project}`;
+    try {
+      if (this.companyScopeRepository === this.project) window.localStorage.setItem(key, 'company');
+      else window.localStorage.removeItem(key);
+    } catch {
+      /* Navigation remains usable without browser storage. */
+    }
+  }
+  private restoreProjectView() {
+    if (this.binding?.kind !== 'page' || !this.actor || !id(this.project) || this.setup || this.view === 'project')
+      return;
+    const key = `soda-project-view:v1:${this.actor.id}:${this.project}`;
+    if (this.restoredProjectView === key) return;
+    this.restoredProjectView = key;
+    this.applicationOwner = '';
+    try {
+      const saved = window.localStorage.getItem(key);
+      this.view = saved === 'app' || saved === 'work' ? saved : 'feed';
+      const delivery = window.localStorage.getItem(`soda-project-delivery:v1:${this.actor.id}:${this.project}`) ?? '';
+      this.deliveryTarget = /^[a-f0-9]{32}$/.test(delivery) ? delivery : '';
+      this.deliveryRepository = this.project;
+      // A retained company selection restores the scope it was opened over;
+      // an exact selection always wins, and another project never inherits it.
+      const scope = window.localStorage.getItem(`soda-project-scope:v1:${this.actor.id}:${this.project}`);
+      this.companyScopeRepository = !this.deliveryTarget && scope === 'company' ? this.project : '';
+    } catch {
+      this.view = 'feed';
+    }
+    if (this.view === 'app') this.applicationOwner = `${this.actor.id}:${this.project}`;
+  }
   private readonly onShowPlans = () => {
     this.view = 'plans';
   };
@@ -806,12 +908,30 @@ export class SodaSpaces extends LitElement {
     return creationForm(this.creationInput(), this.creation);
   }
   private renderApplications() {
-    if (this.binding?.kind !== 'page') return '';
-    return html`<soda-applications
-      .request=${this.requestApplication}
-      .active=${this.activeSurface && !this.stale && !this.disposed}
-      .sessionKey=${this.binding.transport.generation}
-    ></soda-applications>`;
+    // Visiting App creates its owner once; other project views then shelter it
+    // without discarding the running app or inspecting an unvisited project.
+    if (
+      this.binding?.kind !== 'page' ||
+      this.stale ||
+      !this.actor ||
+      this.applicationOwner !== `${this.actor.id}:${this.project}`
+    )
+      return '';
+    return html`<section
+      class="soda-project-app"
+      aria-label="Project application"
+      ?hidden=${this.view !== 'app' || this.stale || this.setupScreen}
+    >
+      <soda-applications
+        .expanded=${true}
+        .request=${this.requestApplication}
+        .active=${this.activeSurface && !this.stale && !this.disposed}
+        .sessionKey=${this.binding.transport.generation}
+        .repository=${this.project}
+        .requestedDelivery=${this.deliveryRepository === this.project ? this.deliveryTarget : ''}
+        .requestedCompanyScope=${this.companyScopeRepository === this.project && !this.deliveryTarget}
+      ></soda-applications>
+    </section>`;
   }
   private renderNavigation() {
     return html`<nav
@@ -845,7 +965,6 @@ export class SodaSpaces extends LitElement {
       </div>
       ${this.renderProjectNavigation()} ${this.renderDiscoveryRequests()}
       ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
-      ${this.renderApplications()}
       ${this.binding?.kind === 'page' ? html`<button class="ui button soda-saved-plans" aria-pressed=${this.view === 'plans'} @click=${this.onShowPlans}>Saved plans</button>` : ''}
     </nav>`;
   }
@@ -891,6 +1010,8 @@ export class SodaSpaces extends LitElement {
   private renderProjectViews() {
     if (this.binding?.kind !== 'page' || this.view === 'plans' || !this.selectedSpace || this.setupScreen) return '';
     return html`<nav class="soda-project-views" aria-label="Project views">
+      <button class="ui button" aria-pressed=${this.view === 'feed'} @click=${this.onShowFeed}>Feed</button>
+      <button class="ui button" aria-pressed=${this.view === 'app'} @click=${this.onShowApp}>App</button>
       <button class="ui button" aria-pressed=${this.view === 'work'} @click=${this.onShowWork}>Work</button>
       <button class="ui button" aria-pressed=${this.view === 'terminal'} @click=${this.onShowTerminals}>
         Terminals
@@ -916,11 +1037,12 @@ export class SodaSpaces extends LitElement {
   }
   private renderProjectWork() {
     const active =
-      this.binding?.kind === 'page' && !this.setupScreen && (this.view === 'work' || this.view === 'plans');
+      this.binding?.kind === 'page' && !this.setupScreen && ['feed', 'app', 'work', 'plans'].includes(this.view);
     return html`<soda-project-work
       .context=${this.projectWorkContext()}
       .active=${active && this.activeSurface}
-      ?hidden=${!active || this.stale}
+      .surface=${this.view === 'feed' ? 'feed' : 'work'}
+      ?hidden=${!active || this.view === 'app' || this.stale}
       @soda-work-new=${this.onNewWork}
       @soda-work-resume=${this.onWorkResume}
       @soda-work-authority-lost=${this.onWorkAuthorityLost}
@@ -1025,9 +1147,9 @@ export class SodaSpaces extends LitElement {
             ${this.renderPageToolbar()}
             <div
               class="soda-project-content"
-              ?hidden=${this.view !== 'work' && this.view !== 'plans' && !(this.binding?.kind === 'native' && this.view === 'sessions')}
+              ?hidden=${!['feed', 'app', 'work', 'plans'].includes(this.view) && !(this.binding?.kind === 'native' && this.view === 'sessions')}
             >
-              ${this.renderProjectWork()} ${this.renderFactoryActivity()}
+              ${this.renderProjectWork()} ${this.renderApplications()} ${this.renderFactoryActivity()}
             </div>
             ${this.renderCanvas()}
             <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
@@ -1320,7 +1442,7 @@ export class SodaSpaces extends LitElement {
     if (this.stale || !this.available || !this.canRestore) return;
     this.project = space.environment.repository_id;
     if (this.binding?.kind === 'page') {
-      this.view = 'work';
+      this.restoreProjectView();
       this.choosingPane = undefined;
       this.binding.navigate?.(`${this.repositoryPrefix()}/workspace?repository=${encodeURIComponent(this.project)}`);
       return;
@@ -1512,7 +1634,7 @@ export class SodaSpaces extends LitElement {
     });
   }
   private back() {
-    this.view = this.binding?.kind === 'page' ? 'work' : 'terminal';
+    this.view = this.binding?.kind === 'page' ? 'feed' : 'terminal';
     this.choosingPane = undefined;
     this.restoreFocus();
     this.markViewed();
@@ -1567,6 +1689,7 @@ export class SodaSpaces extends LitElement {
       readComplete: () => this.complete,
       readNextAfter: () => this.nextAfter,
       readSetup: () => this.setup,
+      readIntentRequest: () => requestIdFromLocation(this.routePathname, this.repositoryPrefix()),
       readSelectedSpace: () => this.selectedSpace,
       readProject: () => this.project,
       readObservedAt: () => this.observedAt,
@@ -1599,6 +1722,7 @@ export class SodaSpaces extends LitElement {
       },
       setProject: (project) => {
         this.project = project;
+        this.restoreProjectView();
       },
       stampNow: () => {
         this.now = this.observedAt = Date.now();
@@ -1611,6 +1735,7 @@ export class SodaSpaces extends LitElement {
       },
       setActor: (actor) => {
         this.actor = actor;
+        this.restoreProjectView();
       },
       setStorageKey: (storageKey) => {
         this.storageKey = storageKey;
@@ -2025,6 +2150,7 @@ export class SodaSpaces extends LitElement {
     this.reconnectRequired = false;
     if (this.stale) return;
     this.stale = true;
+    this.applicationOwner = '';
     this.available = this.complete = false;
     this.measurement.retire();
     window.clearInterval(this.attentionTimer);

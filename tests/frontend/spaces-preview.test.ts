@@ -38,7 +38,9 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
   await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('button', {name: 'New terminal', exact: true}).click();
   await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();

@@ -33,6 +33,12 @@ pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
 /// other phase keeps `MAX_FACTORY_PROMPT`, and every phase result keeps
 /// `MAX_FACTORY_OUTPUT`. Prompts use stdin/file delivery, never argv.
 pub const MAX_REASSESS_PROMPT: usize = 320 * 1024;
+/// Intent decompose prompt headroom (`128*1024`): an intent-subject
+/// decompose prompt carries the complete approved planning input inline.
+/// Decompose admits only intent subjects, so this bound is exactly
+/// intent-scoped; every other non-reassess phase keeps
+/// `MAX_FACTORY_PROMPT`. Finite headroom, not a maximal-input promise.
+pub const MAX_DECOMPOSE_PROMPT: usize = 128 * 1024;
 /// `MaxExecutionManifest`: one staged execution manifest (D05).
 pub const MAX_EXECUTION_MANIFEST: usize = 64 * 1024;
 /// Admitted execution phases (`project.Execution*`). The empty phase is a
@@ -83,11 +89,15 @@ pub fn execution_manifest_required(phase: &str) -> bool {
 }
 
 /// `MaxPromptForPhase`: the admitted prompt bound for one phase: the
-/// 320 KiB inventory exception for reassess and repair, the standard
-/// bound otherwise.
+/// 320 KiB inventory exception for reassess and repair, the 128 KiB
+/// intent-decompose headroom for decompose, the standard bound
+/// otherwise. Decompose admits only intent subjects, so the decompose
+/// bound is exactly intent-scoped.
 pub fn max_prompt_for_phase(phase: &str) -> usize {
     if phase == EXECUTION_REASSESS || phase == EXECUTION_REPAIR {
         MAX_REASSESS_PROMPT
+    } else if phase == EXECUTION_DECOMPOSE {
+        MAX_DECOMPOSE_PROMPT
     } else {
         MAX_FACTORY_PROMPT
     }

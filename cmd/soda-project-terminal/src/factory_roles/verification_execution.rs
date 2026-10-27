@@ -302,13 +302,21 @@ fn run(
 }
 
 fn job(ctx: &crate::Ctx, dir: &Path, request: &Request, tools: &[StateValue], account: &Account) {
-    let outcome = run(ctx, dir, request, tools, account);
+    let mut outcome = run(ctx, dir, request, tools, account);
     let Ok(_lock) = execution::state_lock(ctx) else {
         return;
     };
     // A failed process retirement retains its receipt and fixture for the
     // explicit stop owner. Never turn uncertainty into a finished receipt.
-    if fsx::lexists(&dir.join("active-child.json")) || cleanup(ctx, dir).is_err() {
+    if fsx::lexists(&dir.join("active-child.json")) {
+        return;
+    }
+    if matches!(outcome, Ok((0, Some(0)))) {
+        if let Err(error) = super::verification_bundle::retain(ctx, dir) {
+            outcome = Err(error);
+        }
+    }
+    if cleanup(ctx, dir).is_err() {
         return;
     }
     if fsx::lexists(&dir.join("stopped.json")) {

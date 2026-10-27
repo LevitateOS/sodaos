@@ -56,6 +56,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Prompt template: " + factory.DispatchPromptTemplate, "Recorded attempt active-time limit: 120 minutes",
+		factory.LibraryReadGuidance,
 		"synthetic approved setup instructions", "synthetic exact candidate diff",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
 		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 1",

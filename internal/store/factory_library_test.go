@@ -47,11 +47,11 @@ func TestLibraryMCPMaintenanceAndDiscovery(t *testing.T) {
 		return out.Item
 	}
 	a, b := learn("Task ownership"), learn("Task ownership duplicate")
-	page, err := s.LibrarySearch(ctx, worker.Repository, "ownership", "knowledge", "", false)
+	page, err := s.LibrarySearch(ctx, worker.Repository, "ownership", "knowledge", "", false, false)
 	if err != nil || len(page.Items) != 2 {
 		t.Fatalf("search=%+v %v", page, err)
 	}
-	foreign, err := s.LibrarySearch(ctx, worker.Repository+1, "", "", "", false)
+	foreign, err := s.LibrarySearch(ctx, worker.Repository+1, "", "", "", false, false)
 	if err != nil || len(foreign.Items) != 0 {
 		t.Fatalf("cross-project search=%+v %v", foreign, err)
 	}
@@ -149,13 +149,13 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 	if _, err := s.LibraryPreview(ctx, admin, factory.MCPToolEditLibraryItem, factory.LibraryChange{ID: a.ID, Revision: 1, Reason: "Expand scope", Content: &factory.LibraryContent{Title: a.Title, Body: a.Body, Scope: "all applications"}}); err == nil {
 		t.Fatal("decision scope rewritten")
 	}
-	before, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false)
+	before, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
 	raw := []byte(`{"title":"Unscoped learning","summary":"Missing source evidence","scope":"all tasks"}`)
 	submission := testMCPSubmissionRow(cap, factory.MCPToolLearned, raw)
 	if _, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission)); err == nil {
 		t.Fatal("invalid learning accepted")
 	}
-	after, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false)
+	after, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
 	if len(before.Items) != len(after.Items) {
 		t.Fatal("rejected learning leaked library item")
 	}
@@ -762,7 +762,7 @@ func TestLibraryWorkerRetrievalSurfacesConflictAndSupersession(t *testing.T) {
 	challenge := map[string]any{"title": "Ownership check disputed", "summary": "Review already covers this.", "scope": "task access", "evidence_refs": []string{"src/review.go:3"}, "revises_item": a, "expected_revision": 1, "challenge": true}
 	submit(worker, factory.MCPToolLearned, challenge)
 	submit(admin, factory.MCPToolSupersedeLibraryItem, factory.LibraryChange{ID: b, Revision: 1, Target: &factory.LibraryRef{ID: a, Revision: 2}, Reason: "The boundary note carries the correction", EvidenceRefs: []string{"src/access.go:18"}})
-	page, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false)
+	page, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -782,15 +782,19 @@ func TestLibraryWorkerRetrievalSurfacesConflictAndSupersession(t *testing.T) {
 	if byID[b].State != "superseded" || len(byID[b].Replacements) != 1 || byID[b].Replacements[0] != a {
 		t.Fatalf("search hid the supersession: %+v", byID[b])
 	}
+	current, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false, true)
+	if err != nil || !current.Complete || len(current.Items) != 1 || current.Items[0].ID != a || current.Items[0].State != "contested" || current.Items[0].Revision != 2 || current.Items[0].SourcePost == "" {
+		t.Fatalf("current lookup lost revision/conflict evidence or included superseded content: %+v %v", current, err)
+	}
 	submit(admin, factory.MCPToolRemoveLibraryItem, factory.LibraryChange{ID: b, Revision: 2, Reason: "Revisit evidence"})
-	hidden, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false)
+	hidden, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(hidden.Items) != 1 || hidden.Items[0].ID != a {
 		t.Fatalf("removed entry leaked into search: %+v", hidden)
 	}
-	foreign, err := s.LibrarySearch(ctx, worker.Repository+1, "", "", "", true)
+	foreign, err := s.LibrarySearch(ctx, worker.Repository+1, "", "", "", true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -810,6 +814,13 @@ func TestLibraryWorkerRetrievalSurfacesConflictAndSupersession(t *testing.T) {
 	removed, err := s.LibraryRead(ctx, worker.Repository, b, true)
 	if err != nil || !removed.Item.Removed || removed.Item.State != "superseded" {
 		t.Fatalf("privileged read lost the removed record: %+v %v", removed, err)
+	}
+	// A later decision sees the maintained canonical revision without changing
+	// the bytes already read for the earlier decision.
+	submit(worker, factory.MCPToolLearned, map[string]any{"title": "Ownership evidence corrected", "summary": "The current implementation now confirms the ownership boundary.", "scope": "task access", "evidence_refs": []string{"src/access.go:19"}, "revises_item": a, "expected_revision": 2})
+	later, err := s.LibrarySearch(ctx, worker.Repository, "", "knowledge", "", false, true)
+	if err != nil || len(later.Items) != 1 || later.Items[0].Revision != 3 || later.Items[0].State != "observed" || current.Items[0].Revision != 2 || current.Items[0].State != "contested" {
+		t.Fatalf("future lookup failed to preserve distinct observed revisions: earlier=%+v later=%+v err=%v", current, later, err)
 	}
 }
 

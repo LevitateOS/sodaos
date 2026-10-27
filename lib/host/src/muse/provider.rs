@@ -153,9 +153,7 @@ impl ProviderSnapshot {
     /// no-op; the execution owner must call [`release_provider_ref`] after
     /// confirmed retirement, and must NOT release while retirement is
     /// uncertain (a conservative leak beats collecting a live bundle).
-    pub fn take_ref_token(
-        &mut self,
-    ) -> Option<soda_provider_tools::resolve::RefToken> {
+    pub fn take_ref_token(&mut self) -> Option<soda_provider_tools::resolve::RefToken> {
         self.token.take()
     }
 }

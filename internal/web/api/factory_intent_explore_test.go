@@ -265,6 +265,151 @@ func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
 	}
 }
 
+// scriptedExploreChooser answers each explore judgment leg without a
+// provider: incremental design, default assumption handling, the shared
+// review walkthrough, and an outcome_gap consistency verdict at 0.73.
+type scriptedExploreChooser struct {
+	calls          int
+	sawConsistency bool
+}
+
+func (c *scriptedExploreChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	c.calls++
+	selected, confidence := "shared_review", 0.9
+	switch {
+	case choices["complete_first"] != nil:
+		selected, confidence = "incremental", 0.9
+	case choices["apply_default"] != nil:
+		selected, confidence = "apply_default", 0.9
+	case choices["consistent"] != nil:
+		selected, confidence = "outcome_gap", 0.73
+		c.sawConsistency = true
+	}
+	probs := make(map[string]float64, len(choices))
+	for id := range choices {
+		probs[id] = 0
+	}
+	probs[selected] = 1
+	return factory.PriorityAnswer{Selected: selected, Model: "scripted", Confidence: confidence, Probabilities: probs}, nil
+}
+
+// TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments pins the
+// FJ-v3 explore post-judgment trace: a draft whose judged work graph
+// exceeds max_issues cannot persist, so the round refuses with the
+// whitelisted invalid_proposal code after deriving the graph instead of
+// burning the remaining judgments. The single spent design receipt is
+// retained and replayed, never refunded or replaced: a repeated explore
+// replays it without a new charge. Raising max_issues on a new revision
+// completes the same round, persisting the outcome_gap verdict at 0.73.
+func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	const intentID = "d202202202202202202202202"
+	draft := func(id, predecessor string, maxIssues int) string {
+		body := `{"id":"` + id + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":` + fmt.Sprint(maxIssues) + `,"planning_calls":8,"ideas":[`
+		body += `{"id":"d303303303303303303303303","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true,"source":"assumption","provenance":"autonomous"},`
+		body += `{"id":"d304304304304304304304304","description":"Capture leave requests","consequence":"Requests are recorded","decision":"accept"},`
+		body += `{"id":"d305305305305305305305305","description":"Managers review requests","consequence":"Decisions are visible","decision":"accept"},`
+		body += `{"id":"d306306306306306306306306","description":"People see their own outcomes","consequence":"Outcomes stay visible","decision":"accept"}]}`
+		if predecessor != "" {
+			body = `{"id":"` + id + `","intent":"` + intentID + `","predecessor":"` + predecessor + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":` + fmt.Sprint(maxIssues) + `,"planning_calls":8,"ideas":[`
+			body += `{"id":"d303303303303303303303303","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true,"source":"assumption","provenance":"autonomous"},`
+			body += `{"id":"d304304304304304304304304","description":"Capture leave requests","consequence":"Requests are recorded","decision":"accept"},`
+			body += `{"id":"d305305305305305305305305","description":"Managers review requests","consequence":"Decisions are visible","decision":"accept"},`
+			body += `{"id":"d306306306306306306306306","description":"People see their own outcomes","consequence":"Outcomes stay visible","decision":"accept"}]}`
+		}
+		return body
+	}
+	const narrowID = "d201201201201201201201201"
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft(narrowID, "", 4)); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", `{"id":"d404404404404404404404404","intent":"`+intentID+`","amount":8,"ceiling":8,"unit":"planning_calls"}`); code != http.StatusCreated {
+		t.Fatalf("allowance save status=%d body=%s", code, body)
+	}
+	allowanceUsage := func() (reserved, consumed int) {
+		t.Helper()
+		code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", "")
+		if code != http.StatusOK {
+			t.Fatalf("allowance read status=%d body=%s", code, body)
+		}
+		var a factory.PlanningAllowance
+		if err := json.Unmarshal(body, &a); err != nil {
+			t.Fatal(err)
+		}
+		return a.Reserved, a.Consumed
+	}
+	chooser := &scriptedExploreChooser{}
+	product.IntentExploreChooser = chooser
+	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+narrowID+`"}`)
+	if code != http.StatusBadRequest || errorCode(body) != "invalid_proposal_task_limit" {
+		t.Fatalf("over-bound explore status=%d body=%s", code, body)
+	}
+	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 1 {
+		t.Fatalf("bound refusal kept %d charges: reserved=%d consumed=%d calls=%d", consumed, reserved, consumed, chooser.calls)
+	}
+	if chooser.calls != 1 || chooser.sawConsistency {
+		t.Fatalf("round spent judgments past the derived graph: calls=%d consistency=%v", chooser.calls, chooser.sawConsistency)
+	}
+	code, body = call(http.MethodGet, "/api/factory/intents/"+intentID, "")
+	if code != http.StatusOK {
+		t.Fatalf("intent read status=%d body=%s", code, body)
+	}
+	var head factory.IntentRevision
+	if err := json.Unmarshal(body, &head); err != nil {
+		t.Fatal(err)
+	}
+	if head.ID != narrowID {
+		t.Fatalf("refused round moved the head: %+v", head)
+	}
+	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+narrowID+`"}`)
+	if code != http.StatusBadRequest || errorCode(body) != "invalid_proposal_task_limit" {
+		t.Fatalf("repeat explore status=%d body=%s", code, body)
+	}
+	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 1 {
+		t.Fatalf("repeat explore charged again: reserved=%d consumed=%d", reserved, consumed)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("repeat explore consulted again: calls=%d", chooser.calls)
+	}
+
+	// The same round fits after raising max_issues: all four judgments
+	// run and the outcome_gap verdict at 0.73 persists with its review.
+	const wideID = "d205205205205205205205205"
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft(wideID, narrowID, 64)); code != http.StatusCreated {
+		t.Fatalf("wide draft save status=%d body=%s", code, body)
+	}
+	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+wideID+`"}`)
+	if code != http.StatusCreated {
+		t.Fatalf("fitting explore status=%d body=%s", code, body)
+	}
+	if chooser.calls != 5 || !chooser.sawConsistency {
+		t.Fatalf("fitting round calls=%d consistency=%v", chooser.calls, chooser.sawConsistency)
+	}
+	var responded exploreResponse
+	if err := json.Unmarshal(body, &responded); err != nil {
+		t.Fatal(err)
+	}
+	if len(responded.Tasks) != 6 {
+		t.Fatalf("derived tasks=%d", len(responded.Tasks))
+	}
+	if responded.Exploration.Consistency == nil || len(responded.Exploration.Consistency.Mismatches) != 1 || responded.Exploration.Consistency.Mismatches[0].Class != "outcome_gap" || responded.Exploration.Consistency.Confidence != 0.73 {
+		t.Fatalf("consistency verdict lost: %+v", responded.Exploration.Consistency)
+	}
+	stored, err := s.IntentReview(context.Background(), responded.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.ResultRevision != responded.ID || stored.BasisRevision != wideID {
+		t.Fatalf("stored provenance wrong: %+v", stored)
+	}
+	if stored.Consistency == nil || len(stored.Consistency.Mismatches) != 1 || stored.Consistency.Mismatches[0].Class != "outcome_gap" || stored.Consistency.Confidence != 0.73 {
+		t.Fatalf("stored consistency lost: %+v", stored.Consistency)
+	}
+	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 5 {
+		t.Fatalf("fitting round charges: reserved=%d consumed=%d", reserved, consumed)
+	}
+}
+
 // TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
 // distinction on the real explore path: finite allowance exhaustion
 // mid-round reports 409 planning_funding_required (never 503), while

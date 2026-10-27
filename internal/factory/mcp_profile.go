@@ -130,6 +130,8 @@ const (
 	MCPToolDraftRepair              MCPTool = "factory.draft_repair"
 	MCPToolRecordJourneyResult      MCPTool = "factory.record_journey_result"
 	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
+	MCPToolStartTask                MCPTool = "factory.start_task"
+	MCPToolReleaseOutput            MCPTool = "factory.release_output"
 	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
 )
 
@@ -173,6 +175,8 @@ var MCPTools = []MCPTool{
 	MCPToolRecordJourneyResult,
 	MCPToolFinishAppVerify,
 	MCPToolSubmitTaskOutput,
+	MCPToolStartTask,
+	MCPToolReleaseOutput,
 	MCPToolRequestHandoff,
 	MCPToolLibraryInventory,
 	MCPToolPreviewLibraryChanges,
@@ -316,6 +320,8 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 		MCPProfileFixer:   true,
 	},
 	MCPToolRequestHandoff: singleMCPProfile(MCPProfileBuilder),
+	MCPToolStartTask:      singleMCPProfile(MCPProfileBuilder),
+	MCPToolReleaseOutput:  singleMCPProfile(MCPProfileFixer),
 }
 
 func allMCPProfiles() map[MCPProfile]bool {

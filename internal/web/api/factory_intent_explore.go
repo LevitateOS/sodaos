@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -80,6 +81,10 @@ func mintExplorationProposal(current factory.IntentRevision) ([]string, factory.
 
 func (s *API) persistExploration(ctx context.Context, w http.ResponseWriter, current factory.IntentRevision, content factory.ProposalContent, proposal factory.IntentRevision, review factory.AssumptionReview, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) error {
 	if err := proposal.Validate(); err != nil {
+		if len(proposal.Tasks) > current.MaxIssues {
+			auth.JSONError(w, 400, "invalid_proposal_task_limit", err.Error())
+			return err
+		}
 		auth.JSONError(w, 400, "invalid_proposal", err.Error())
 		return err
 	}
@@ -183,6 +188,19 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
 		proposal.Tasks = []factory.IntentTask{}
 		proposal = appendClarifyOnce(proposal, ids[103])
+	}
+	// The derived graph is deterministic: refuse a bound-violating
+	// proposal before spending further judgments. Spent allowance stays
+	// charged, the head is untouched, and no review is stored. Only an
+	// actual task-count overflow carries the task-limit code; every other
+	// validation failure keeps the generic code without a fabricated cause.
+	if err := proposal.Validate(); err != nil {
+		if len(proposal.Tasks) > current.MaxIssues {
+			auth.JSONError(w, 400, "invalid_proposal_task_limit", fmt.Sprintf("The derived proposal carries %d tasks for max_issues %d: %s.", len(proposal.Tasks), current.MaxIssues, err))
+			return
+		}
+		auth.JSONError(w, 400, "invalid_proposal", err.Error())
+		return
 	}
 	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {

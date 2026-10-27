@@ -64,6 +64,18 @@ function repositoryResults(view: RepositoryPickerView, select: (id: string) => v
 function pickerLocked(view: RepositoryPickerView) {
   return view.busy || view.blocked;
 }
+function repositoryNoticeMessage(view: RepositoryPickerView) {
+  if (view.busy) return 'Finding repositories…';
+  return view.error || (view.blocked ? 'Choosing is unavailable right now. Your request stays saved.' : '');
+}
+function repositoryNotice(view: RepositoryPickerView) {
+  const message = repositoryNoticeMessage(view);
+  // The live-region wrapper persists so the first announcement is not
+  // missed; only the bordered notice child renders when a message exists.
+  // The child markup stays tight so no whitespace text node remains.
+  // oxfmt-ignore
+  return html`<div class="soda-repository-notice" role="status">${message ? html`<p class="soda-feedback" data-tone=${view.error ? 'warning' : 'pending'}>${message}</p>` : ''}</div>`;
+}
 function repositoryPages(view: RepositoryPickerView, search: (page: number) => void) {
   const result = view.result;
   if (!result || !(result.nextCursor || result.page > 1)) return '';
@@ -126,13 +138,13 @@ export function renderRepositoryPicker(view: RepositoryPickerView, actions: Repo
       /></label>
       <button class="ui button" ?disabled=${pickerLocked(view)}>Search</button>
     </form>
-    <div class="soda-repository-notice soda-feedback" data-tone=${view.error ? 'warning' : 'pending'} role="status">
-      ${view.busy ? 'Finding repositories…' : view.error}
-    </div>
+    ${repositoryNotice(view)}
     ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
     <div class="soda-setup-actions">
       <a href=${view.createURL} target="_blank" rel="noopener">Create a new repository</a
-      ><button class="ui button" ?disabled=${pickerLocked(view)} @click=${() => actions.search(1)}>Refresh repositories</button>
+      ><button class="ui button" ?disabled=${pickerLocked(view)} @click=${() => actions.search(1)}>
+        Refresh repositories
+      </button>
       <button class="ui primary button" ?disabled=${pickerLocked(view) || !choice} @click=${actions.continue}>
         ${continueCaption(choice)}
       </button>

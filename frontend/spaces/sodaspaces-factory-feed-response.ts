@@ -1,4 +1,5 @@
 import {check, object} from './sodaspaces-api.js';
+import {decisionID} from './sodaspaces-intent-response.js';
 
 // Combined subscribed-feed wire contract (Lane B release, R42.1 preparation).
 // Backend owns identity, visibility and cursors: entries arrive newest-first
@@ -21,7 +22,25 @@ export const feedPayloadCap = 24;
 // events served as their own record entries instead of status
 // suffixes. A milestone entry names its bound assignment in
 // `assignment` when available and receives its own order key when recorded.
-export const feedCommunicationKinds = ['ask', 'answer', 'reply', 'flag', 'learned', 'suggest', 'partial', 'blocked', 'stuck', 'record_decision', 'finish_incomplete', 'system', 'library_maintenance', 'artifact', 'journey', 'diagnosis', 'repair_draft'] as const;
+export const feedCommunicationKinds = [
+  'ask',
+  'answer',
+  'reply',
+  'flag',
+  'learned',
+  'suggest',
+  'partial',
+  'blocked',
+  'stuck',
+  'record_decision',
+  'finish_incomplete',
+  'system',
+  'library_maintenance',
+  'artifact',
+  'journey',
+  'diagnosis',
+  'repair_draft',
+] as const;
 export type FeedCommunicationKind = (typeof feedCommunicationKinds)[number];
 export const feedActivities = ['merged', 'completed', 'judgment', ...feedCommunicationKinds] as const;
 export type FeedActivity = (typeof feedActivities)[number];
@@ -58,6 +77,7 @@ export interface FeedEntry {
   // coercing the unreadable detail into a success.
   activity?: FeedActivity;
   assignment?: string;
+  eventIdentity?: string;
   payload?: FeedPayload;
 }
 
@@ -324,6 +344,17 @@ export interface FeedGraphItem {
 }
 
 export interface FeedCommunication {
+  intentSource?: {intent: string; revision: string; predecessor?: string; state: string; owner: string};
+  planSource?: {attemptRoot: string; plan: string; digest: string; source: string; generation: number};
+  planningSource?: {
+    snapshot: string;
+    recordDigest: string;
+    strategy: string;
+    outcome: string;
+    provisional: boolean;
+    recordedUnix: number;
+    judgment: Record<string, unknown>;
+  };
   commits?: {revision: string; summary: string}[];
   source?: FeedSourceExcerpt;
   kind: FeedCommunicationKind;
@@ -522,7 +553,9 @@ function payloadCheckArgv(value: unknown): string[] {
   check(Array.isArray(value) && value.length > 0 && value.length <= 64);
   let bytes = 0;
   return value.map((argument) => {
-    check(typeof argument === 'string' && argument.length > 0 && argument.length <= 16 * 1024 && !argument.includes('\0'));
+    check(
+      typeof argument === 'string' && argument.length > 0 && argument.length <= 16 * 1024 && !argument.includes('\0')
+    );
     bytes += new TextEncoder().encode(argument).length;
     check(bytes <= 16 * 1024);
     return argument;
@@ -577,25 +610,25 @@ function parsePlanPayload(value: unknown): FeedPlan {
     return planCheck;
   });
   const parsed: FeedPlan = {
-      findings,
-      findingsTotal: payloadTotal(plan.findings_total, findings.length),
-      unresolved: payloadStrings(plan.unresolved),
-      rejected: payloadList(plan.rejected, (row) => {
-        const entry: FeedRejected = {};
-        const approach = payloadText(row.approach);
-        const reason = payloadText(row.reason);
-        if (approach !== undefined) entry.approach = approach;
-        if (reason !== undefined) entry.reason = reason;
-        return entry;
-      }),
-      inspected,
-      inspectedTotal: payloadTotal(plan.inspected_total, inspected.length),
-      acceptanceCoverage: payloadIDs(plan.acceptance_coverage),
-      tasks,
-      tasksTotal: payloadTotal(plan.tasks_total, tasks.length),
-      lanes: payloadList(plan.lanes, (row) => ({id: payloadID(row.id), tasks: payloadIDs(row.tasks)})),
-      checks,
-      checksTotal: payloadTotal(plan.checks_total, checks.length),
+    findings,
+    findingsTotal: payloadTotal(plan.findings_total, findings.length),
+    unresolved: payloadStrings(plan.unresolved),
+    rejected: payloadList(plan.rejected, (row) => {
+      const entry: FeedRejected = {};
+      const approach = payloadText(row.approach);
+      const reason = payloadText(row.reason);
+      if (approach !== undefined) entry.approach = approach;
+      if (reason !== undefined) entry.reason = reason;
+      return entry;
+    }),
+    inspected,
+    inspectedTotal: payloadTotal(plan.inspected_total, inspected.length),
+    acceptanceCoverage: payloadIDs(plan.acceptance_coverage),
+    tasks,
+    tasksTotal: payloadTotal(plan.tasks_total, tasks.length),
+    lanes: payloadList(plan.lanes, (row) => ({id: payloadID(row.id), tasks: payloadIDs(row.tasks)})),
+    checks,
+    checksTotal: payloadTotal(plan.checks_total, checks.length),
   };
   const approach = payloadText(plan.approach);
   const sourceCommit = payloadOptionalID(plan.source_commit);
@@ -947,13 +980,19 @@ function communicationText(value: unknown, limit = 2048): string | undefined {
 function parseCommunicationPayload(value: unknown): FeedCommunication {
   const data = object(value);
   const kind = feedCommunicationKinds.find((candidate) => candidate === data.kind);
-  const title = communicationText(data.title, 160), summary = communicationText(data.summary);
+  const title = communicationText(data.title, 160),
+    summary = communicationText(data.summary);
   check(kind !== undefined && title !== undefined && summary !== undefined);
   const parsed: FeedCommunication = {
-    kind, title, summary,
-    evidenceRefs: payloadStrings(data.evidence_refs), options: payloadStrings(data.options),
-    completed: payloadStrings(data.completed), remaining: payloadStrings(data.remaining),
-    attempts: payloadStrings(data.attempts), alternatives: payloadStrings(data.alternatives),
+    kind,
+    title,
+    summary,
+    evidenceRefs: payloadStrings(data.evidence_refs),
+    options: payloadStrings(data.options),
+    completed: payloadStrings(data.completed),
+    remaining: payloadStrings(data.remaining),
+    attempts: payloadStrings(data.attempts),
+    alternatives: payloadStrings(data.alternatives),
     items: payloadList(data.items, (item) => {
       const label = payloadText(item.label);
       check(label !== undefined);
@@ -961,7 +1000,8 @@ function parseCommunicationPayload(value: unknown): FeedCommunication {
       const itemID = payloadOptionalID(item.id);
       if (itemID !== undefined) row.id = itemID;
       if (item.depends_on !== undefined) row.dependsOn = payloadStrings(item.depends_on);
-      const detail = communicationText(item.detail), state = payloadText(item.state);
+      const detail = communicationText(item.detail),
+        state = payloadText(item.state);
       if (detail !== undefined) row.detail = detail;
       if (state !== undefined) row.state = state;
       return row;
@@ -969,49 +1009,147 @@ function parseCommunicationPayload(value: unknown): FeedCommunication {
   };
   if (data.commits !== undefined) {
     check(Array.isArray(data.commits) && data.commits.length <= 8);
-    parsed.commits = payloadList(data.commits, item => {
-      const revision = payloadText(item.revision), summary = communicationText(item.summary, 160);
+    parsed.commits = payloadList(data.commits, (item) => {
+      const revision = payloadText(item.revision),
+        summary = communicationText(item.summary, 160);
       check(revision !== undefined && /^[a-f0-9]{40}$/.test(revision) && summary !== undefined);
       return {revision, summary};
     });
   }
-  if (data.artifacts !== undefined) parsed.artifacts = payloadList(data.artifacts, (artifact) => {
-    const artifactID = payloadOptionalID(artifact.id), name = payloadText(artifact.name);
-    const mediaType = payloadText(artifact.media_type), href = payloadText(artifact.href);
-    check(artifactID !== undefined && name !== undefined && mediaType !== undefined && href !== undefined);
-    check(/^\/api\/factory\/artifacts\/[a-f0-9]{32}\?repository=[1-9][0-9]*$/.test(href));
-    check(href.startsWith(`/api/factory/artifacts/${artifactID}?`));
-    return {id: artifactID, name, mediaType, href};
-  });
+  if (data.artifacts !== undefined)
+    parsed.artifacts = payloadList(data.artifacts, (artifact) => {
+      const artifactID = payloadOptionalID(artifact.id),
+        name = payloadText(artifact.name);
+      const mediaType = payloadText(artifact.media_type),
+        href = payloadText(artifact.href);
+      check(artifactID !== undefined && name !== undefined && mediaType !== undefined && href !== undefined);
+      check(/^\/api\/factory\/artifacts\/[a-f0-9]{32}\?repository=[1-9][0-9]*$/.test(href));
+      check(href.startsWith(`/api/factory/artifacts/${artifactID}?`));
+      return {id: artifactID, name, mediaType, href};
+    });
   if (data.source !== undefined) {
-    const source = object(data.source), path = payloadText(source.path), code = communicationText(source.code, 3072);
-    check(path !== undefined && code !== undefined && typeof source.start_line === 'number' && Number.isInteger(source.start_line) && source.start_line > 0);
+    const source = object(data.source),
+      path = payloadText(source.path),
+      code = communicationText(source.code, 3072);
+    check(
+      path !== undefined &&
+        code !== undefined &&
+        typeof source.start_line === 'number' &&
+        Number.isInteger(source.start_line) &&
+        source.start_line > 0
+    );
     check(path.length <= 512 && code.length <= 3072 && code.split('\n').length <= 32);
     const startLine = source.start_line;
     const highlightLines = source.highlight_lines === undefined ? [] : source.highlight_lines;
-    check(Array.isArray(highlightLines) && highlightLines.length <= 32 && highlightLines.every((line) => typeof line === 'number' && Number.isInteger(line) && line >= startLine && line < startLine + code.split('\n').length));
+    check(
+      Array.isArray(highlightLines) &&
+        highlightLines.length <= 32 &&
+        highlightLines.every(
+          (line) =>
+            typeof line === 'number' &&
+            Number.isInteger(line) &&
+            line >= startLine &&
+            line < startLine + code.split('\n').length
+        )
+    );
     parsed.source = {path, code, startLine: source.start_line, highlightLines};
-    const revision = communicationText(source.revision, 80), after = communicationText(source.after, 3072);
+    const revision = communicationText(source.revision, 80),
+      after = communicationText(source.after, 3072);
     if (revision !== undefined) parsed.source.revision = revision;
-    if (after !== undefined) { check(after.length <= 3072 && after.split('\n').length <= 32); parsed.source.after = after; }
+    if (after !== undefined) {
+      check(after.length <= 3072 && after.split('\n').length <= 32);
+      parsed.source.after = after;
+    }
   }
   for (const field of ['question', 'resolution', 'scope', 'decision', 'rationale', 'before', 'after'] as const) {
     const text = communicationText(data[field]);
     if (text !== undefined) parsed[field] = text;
   }
-  const componentId = payloadOptionalID(data.component_id), replyTo = payloadOptionalID(data.reply_to);
+  const componentId = payloadOptionalID(data.component_id),
+    replyTo = payloadOptionalID(data.reply_to);
+  if (data.intent_source !== undefined) {
+    const source = object(data.intent_source);
+    const intent = payloadID(source.intent),
+      revision = payloadID(source.revision),
+      state = payloadText(source.state);
+    check(state !== undefined && typeof source.owner === 'string');
+    parsed.intentSource = {
+      intent,
+      revision,
+      state,
+      owner: source.owner,
+      ...(typeof source.predecessor === 'string' ? {predecessor: source.predecessor} : {}),
+    };
+  }
+  if (data.plan_source !== undefined) {
+    const source = object(data.plan_source);
+    if (
+      typeof source.attempt_root !== 'string' ||
+      !/^[a-f0-9]{32}$/.test(source.attempt_root) ||
+      typeof source.plan !== 'string' ||
+      !/^[a-f0-9]{32}$/.test(source.plan) ||
+      typeof source.digest !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(source.digest) ||
+      typeof source.source_commit !== 'string' ||
+      !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(source.source_commit) ||
+      !Number.isInteger(source.generation) ||
+      (source.generation as number) < 0
+    )
+      throw new Error('Invalid plan source.');
+    parsed.planSource = {
+      attemptRoot: source.attempt_root,
+      plan: source.plan,
+      digest: source.digest,
+      source: source.source_commit,
+      generation: source.generation as number,
+    };
+  }
+  if (data.planning_source !== undefined) {
+    const source = object(data.planning_source);
+    if (
+      typeof source.snapshot !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(source.snapshot) ||
+      typeof source.record_digest !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(source.record_digest) ||
+      typeof source.strategy !== 'string' ||
+      typeof source.outcome !== 'string' ||
+      !['planned', 'waiting', 'unavailable'].includes(source.outcome) ||
+      typeof source.provisional !== 'boolean' ||
+      typeof source.recorded_unix !== 'number' ||
+      !Number.isSafeInteger(source.recorded_unix) ||
+      source.recorded_unix <= 0
+    )
+      throw new Error('Invalid planning source.');
+    parsed.planningSource = {
+      snapshot: source.snapshot,
+      recordDigest: source.record_digest,
+      strategy: source.strategy,
+      outcome: source.outcome,
+      provisional: source.provisional,
+      recordedUnix: source.recorded_unix,
+      judgment: object(source.judgment),
+    };
+  }
   const libraryItemId = payloadOptionalID(data.library_item_id);
   if (libraryItemId !== undefined && /^[a-f0-9]{32}$/.test(libraryItemId)) parsed.libraryItemId = libraryItemId;
-  if (typeof data.library_revision === 'number' && data.library_revision > 0) parsed.libraryRevision = data.library_revision;
+  if (typeof data.library_revision === 'number' && data.library_revision > 0)
+    parsed.libraryRevision = data.library_revision;
   if (componentId !== undefined) parsed.componentId = componentId;
   if (replyTo !== undefined) parsed.replyTo = replyTo;
   if (data.question_state !== undefined) {
-    check(data.question_state === 'open' || data.question_state === 'answered' || data.question_state === 'replied' || data.question_state === 'incorporated');
+    check(
+      data.question_state === 'open' ||
+        data.question_state === 'answered' ||
+        data.question_state === 'replied' ||
+        data.question_state === 'incorporated'
+    );
     parsed.questionState = data.question_state;
   }
   if (data.disposition !== undefined) {
-    check((kind === 'suggest' && (data.disposition === 'applied' || data.disposition === 'refused')) ||
-      (kind === 'answer' && data.disposition === 'incorporated'));
+    check(
+      (kind === 'suggest' && (data.disposition === 'applied' || data.disposition === 'refused')) ||
+        (kind === 'answer' && data.disposition === 'incorporated')
+    );
     parsed.disposition = data.disposition;
     const reason = communicationText(data.disposition_reason);
     if (reason !== undefined) parsed.dispositionReason = reason;
@@ -1093,6 +1231,7 @@ export function parseFeedEntry(value: unknown): FeedEntry {
   const activity = entry.activity === undefined ? undefined : feedActivities.find((known) => known === entry.activity);
   check(entry.activity === undefined || activity !== undefined);
   const assignment = optionalText(entry.assignment, 256);
+  const eventIdentity = optionalText(entry.event_identity, 160);
   const payload = parseFeedPayload(entry.payload);
   if (actor !== undefined) parsed.actor = actor;
   if (author !== undefined) parsed.author = author;
@@ -1105,6 +1244,7 @@ export function parseFeedEntry(value: unknown): FeedEntry {
   if (summary !== undefined) parsed.summary = summary;
   if (activity !== undefined) parsed.activity = activity;
   if (assignment !== undefined) parsed.assignment = assignment;
+  if (eventIdentity !== undefined) parsed.eventIdentity = eventIdentity;
   if (payload !== undefined) parsed.payload = payload;
   return parsed;
 }
@@ -1155,6 +1295,10 @@ export interface FeedQueryOptions {
   kinds: FeedEntryKind[];
   limit: number;
   cursor: string;
+  view?: string;
+  search?: string;
+  role?: string;
+  current?: boolean;
 }
 
 // feedQueryString renders one feed query against the released route:
@@ -1169,6 +1313,10 @@ export function feedQueryString(query: FeedQueryOptions): string {
   if (query.kinds.length > 0) params.set('kinds', query.kinds.join(','));
   params.set('limit', String(query.limit));
   if (query.cursor !== '') params.set('cursor', parseFeedCursor(query.cursor));
+  if (query.view && query.view !== 'all') params.set('view', query.view);
+  if (query.search) params.set('search', query.search);
+  if (query.role) params.set('role', query.role);
+  if (query.current) params.set('current', 'true');
   return `factory/feed?${params.toString()}`;
 }
 
@@ -1190,9 +1338,58 @@ export interface CommentSource {
   ref?: string;
   status?: string;
   summary?: string;
+  // The exact accepted build-request revision this comment was discussed
+  // against, as resolved by the canonical feed source resolver. Absent on
+  // older comments recorded before the resolver supplied it.
+  product?: {intent: string; acceptedRevision: string};
+}
+
+export interface CommentProductTaskEvidence {
+  taskKey: string;
+  issue: number;
+  acceptance: string;
+  completion?: string;
+  // Explicit pending marker for a bound matching task with no canonical
+  // completion row yet: the native binding is exact, but no delivery or
+  // completion is inferred. Absent reads as not pending.
+  pending?: boolean;
+}
+
+export interface CommentProductChange {
+  intent: string;
+  acceptedRevision: string;
+  draftRevision?: string;
+  // Review handoff states plus the explicit unknown: 'unavailable' is the
+  // product-lane projection miss (lane known, detail unreadable). It never
+  // asserts absence and never reads as success; a missing product_change on
+  // the product lane renders the same way, never as detached progress.
+  state: 'review_required' | 'draft' | 'accepted' | 'superseded' | 'unavailable';
+  canReview: boolean;
+  // Adopted lineage: the accepted descendant revision carrying the
+  // deterministic comment idea, with its scope digest. Absent before any
+  // adoption; preserved as history when a later head supersedes it.
+  adoptedRevision?: string;
+  scopeDigest?: string;
+  // Controller-owned F10 fact for the adopted revision and scope digest.
+  // False while unknown; never inferred from closed issues or worker exits.
+  verified: boolean;
+  // Canonical work-evidence read state, reusing the linked-work
+  // vocabulary: recorded when the adopted delivered graph read back,
+  // unavailable while unknown. Evidence and native issue identity stay
+  // separate fields on each task row.
+  evidenceStatus: 'recorded' | 'unavailable';
+  evidence: CommentProductTaskEvidence[];
 }
 
 export interface CommentPipelineState {
+  productChange?: CommentProductChange;
+  linkedWork?: {
+    status: string;
+    issue: number;
+    adoption?: {state: string; actor: string; assignment: string; reason: string};
+    work: {assignment: string; phase: string; stage: string; outcome: string; sourceRevision: string}[];
+    completion: string;
+  };
   detail?: string;
   canRetry?: boolean;
   attempts?: number;
@@ -1232,6 +1429,13 @@ function parseCommentSource(value: unknown): CommentSource | undefined {
   if (ref !== undefined) parsed.ref = ref;
   if (status !== undefined) parsed.status = status;
   if (summary !== undefined) parsed.summary = summary;
+  // The canonical resolver names the exact accepted product discussed; a
+  // caller-supplied value never reaches here because the server resolves it.
+  if (data.product !== undefined) {
+    const product = object(data.product);
+    check(decisionID(product.intent) && decisionID(product.accepted_revision));
+    parsed.product = {intent: product.intent, acceptedRevision: product.accepted_revision};
+  }
   return parsed;
 }
 
@@ -1264,11 +1468,17 @@ export function parseCommentPipelineState(value: unknown): CommentPipelineState 
   const selected = data.existing_issue ?? data.selected_issue;
   check(selected === undefined || (typeof selected === 'number' && Number.isSafeInteger(selected) && selected >= 0));
   const linkedIssue = typeof issue === 'number' && issue > 0 ? issue : typeof selected === 'number' ? selected : 0;
+  // The same-product lane never creates a native issue: a product change
+  // row with a linked issue is not the atomic comment-to-draft handoff.
+  check(data.product_change === undefined || linkedIssue === 0);
   const source = parseCommentSource(data.source);
   const attempts = data.attempts;
   const attemptLimit = data.attempt_limit;
   check(attempts === undefined || (typeof attempts === 'number' && Number.isSafeInteger(attempts) && attempts >= 0));
-  check(attemptLimit === undefined || (typeof attemptLimit === 'number' && Number.isSafeInteger(attemptLimit) && attemptLimit > 0));
+  check(
+    attemptLimit === undefined ||
+      (typeof attemptLimit === 'number' && Number.isSafeInteger(attemptLimit) && attemptLimit > 0)
+  );
   check(attempts === undefined || attemptLimit === undefined || attempts <= attemptLimit);
   check(data.resume === undefined || typeof data.resume === 'boolean');
   const parsed: CommentPipelineState = {
@@ -1288,7 +1498,119 @@ export function parseCommentPipelineState(value: unknown): CommentPipelineState 
   if (source !== undefined) parsed.source = source;
   if (typeof attempts === 'number') parsed.attempts = attempts;
   if (typeof attemptLimit === 'number') parsed.attemptLimit = attemptLimit;
+  if (data.product_change !== undefined) parsed.productChange = parseCommentProductChange(data.product_change);
+  if (data.linked_work !== undefined) {
+    const trace = object(data.linked_work);
+    check(trace.status === 'recorded' || trace.status === 'unavailable');
+    const work = payloadList(trace.work, (entry) => ({
+      assignment: payloadID(entry.assignment),
+      phase: payloadText(entry.phase) ?? '',
+      stage: payloadText(entry.stage) ?? '',
+      outcome: payloadText(entry.outcome) ?? '',
+      sourceRevision: payloadText(entry.source_revision) ?? '',
+    }));
+    const adoption = object(trace.adoption ?? {});
+    parsed.linkedWork = {
+      status: trace.status,
+      issue: typeof trace.issue === 'number' ? trace.issue : 0,
+      work,
+      completion: payloadText(trace.completion) ?? '',
+      ...(typeof adoption.state === 'string'
+        ? {
+            adoption: {
+              state: adoption.state,
+              actor: payloadText(adoption.actor) ?? '',
+              assignment: payloadText(adoption.assignment) ?? '',
+              reason: payloadText(adoption.reason) ?? '',
+            },
+          }
+        : {}),
+    };
+  }
   return parsed;
+}
+
+const completionEventID = (value: unknown): value is string =>
+  typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+const scopeDigest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+
+function parseCommentProductEvidence(value: unknown): CommentProductTaskEvidence {
+  const data = object(value);
+  check(decisionID(data.task_key));
+  check(positiveInt(data.issue));
+  check(decisionID(data.acceptance));
+  check(data.completion === undefined || completionEventID(data.completion));
+  check(data.pending === undefined || typeof data.pending === 'boolean');
+  return {
+    taskKey: data.task_key,
+    issue: data.issue,
+    acceptance: data.acceptance,
+    ...(typeof data.completion === 'string' ? {completion: data.completion} : {}),
+    ...(typeof data.pending === 'boolean' ? {pending: data.pending} : {}),
+  };
+}
+
+// commentProductLaneWithoutProjection names a same-product comment whose
+// detail did not arrive: an accepted source behind an applied new-issue
+// pipeline with no linked native issue, but no product_change row. Missing
+// data here is an unavailable projection, never an absent change.
+export function commentProductLaneWithoutProjection(state: CommentPipelineState): boolean {
+  return (
+    state.productChange === undefined &&
+    state.source?.product !== undefined &&
+    state.judgment === 'applied' &&
+    state.route === 'new_issue' &&
+    state.issue === 0 &&
+    state.existingIssue === 0
+  );
+}
+
+function parseCommentProductChange(value: unknown): CommentProductChange {
+  const data = object(value);
+  check(decisionID(data.intent) && decisionID(data.accepted_revision));
+  check(data.draft_revision === undefined || decisionID(data.draft_revision));
+  check(
+    data.state === 'review_required' ||
+      data.state === 'draft' ||
+      data.state === 'accepted' ||
+      data.state === 'superseded' ||
+      data.state === 'unavailable'
+  );
+  check(typeof data.can_review === 'boolean');
+  check(
+    data.state === 'review_required' ||
+      data.state === 'superseded' ||
+      data.state === 'unavailable' ||
+      decisionID(data.draft_revision)
+  );
+  // Adopted lineage is separate from the review handoff: an adopted
+  // revision and scope digest arrive together, verified is always an
+  // explicit boolean, and evidence status reuses the linked-work
+  // recorded/unavailable vocabulary. Unknown work never parses as success.
+  const adopted = data.adopted_revision === undefined ? undefined : data.adopted_revision;
+  const digest = data.scope_digest === undefined ? undefined : data.scope_digest;
+  check(adopted === undefined || decisionID(adopted));
+  check(digest === undefined || scopeDigest(digest));
+  check(digest === undefined || adopted !== undefined);
+  check(typeof data.verified === 'boolean');
+  check(data.evidence_status === 'recorded' || data.evidence_status === 'unavailable');
+  check(data.evidence_status === 'unavailable' || adopted !== undefined);
+  // Canonical delivered tasks are bounded like the serving graph; an
+  // absent list reads as no recorded task, never as verified work.
+  const evidence = data.evidence === undefined ? [] : data.evidence;
+  check(Array.isArray(evidence) && evidence.length <= 64);
+  return {
+    intent: data.intent,
+    acceptedRevision: data.accepted_revision,
+    state: data.state,
+    canReview: data.can_review,
+    verified: data.verified,
+    evidenceStatus: data.evidence_status,
+    evidence: evidence.map(parseCommentProductEvidence),
+    ...(typeof data.draft_revision === 'string' ? {draftRevision: data.draft_revision} : {}),
+    ...(typeof adopted === 'string' ? {adoptedRevision: adopted} : {}),
+    ...(typeof digest === 'string' ? {scopeDigest: digest} : {}),
+  };
 }
 
 export interface CommentPostBody {
@@ -1349,6 +1671,106 @@ export interface CommentDetail {
   at: number;
   edited: boolean;
   removed: boolean;
+  actor?: string;
+  assignment?: string;
+  replyTo?: string;
+  source?: CommentPipelineState['source'];
+  communication?: FeedCommunication;
+  consultation?: FeedConsultation;
+  contribution?: FeedContribution;
+}
+
+export interface FeedContribution {
+  source: string;
+  revision: number;
+  state: string;
+  profile?: string;
+  reply?: string;
+  body: string;
+  context?: string;
+  roles: unknown[];
+  replies: unknown[];
+  calls?: {
+    assignment: string;
+    question: string;
+    answer: {selected: string; probabilities: Record<string, number>; confidence: number; model: string};
+  }[];
+  minimum_probability: number;
+  minimum_confidence: number;
+  probability_threshold?: number;
+  confidence_threshold?: number;
+  policy_version?: string;
+}
+
+function parseContribution(value: unknown): FeedContribution {
+  const data = object(value);
+  check(
+    commentID(data.source) &&
+      typeof data.revision === 'number' &&
+      typeof data.state === 'string' &&
+      typeof data.body === 'string'
+  );
+  check(Array.isArray(data.roles) && Array.isArray(data.replies));
+  for (const role of data.roles) object(role);
+  if (data.calls !== undefined) {
+    check(Array.isArray(data.calls) && data.calls.length <= 12);
+    for (const value of data.calls) {
+      const call = object(value),
+        answer = object(call.answer);
+      check(
+        typeof call.assignment === 'string' &&
+          typeof call.question === 'string' &&
+          typeof answer.selected === 'string' &&
+          typeof answer.confidence === 'number' &&
+          typeof answer.model === 'string'
+      );
+      object(answer.probabilities);
+    }
+  }
+  return data as unknown as FeedContribution;
+}
+
+export interface FeedConsultation {
+  snapshot: string;
+  group_id: string;
+  assignment: string;
+  source_revision?: string;
+  tool: string;
+  kind: string;
+  state?: unknown;
+  instructions?: unknown;
+  criteria?: unknown;
+  questions?: Record<string, unknown>;
+  model?: string;
+  status: 'pending' | 'returned' | 'failed' | 'unavailable' | 'uncertain';
+  answer?: Record<string, unknown>;
+  created_unix: number;
+  updated_unix: number;
+}
+
+function parseConsultation(value: unknown): FeedConsultation {
+  const data = object(value);
+  check(typeof data.snapshot === 'string' && /^[a-f0-9]{64}$/.test(data.snapshot));
+  check(typeof data.group_id === 'string' && typeof data.assignment === 'string');
+  check(typeof data.tool === 'string' && typeof data.kind === 'string');
+  check(['pending', 'returned', 'failed', 'unavailable', 'uncertain'].includes(String(data.status)));
+  check(typeof data.created_unix === 'number' && typeof data.updated_unix === 'number');
+  check(data.status !== 'returned' || (data.answer !== null && typeof data.answer === 'object'));
+  return data as unknown as FeedConsultation;
+}
+
+// commentTombstoneOf names an authoritative tombstone marker on one direct
+// comment GET response: the explicit deleted/revoked flags only. A bodyless
+// payload without those flags proves nothing — it may be malformed or
+// truncated — and a missing page row alone never counts. Pipeline-only rows
+// (body absent but judgment present) are live progress, never tombstones.
+export function commentTombstoneOf(value: unknown): {commentId: string} | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const data = value as Record<string, unknown>;
+  const id = data.comment_id;
+  if (!commentID(id)) return undefined;
+  if (data.deleted === true || data.revoked === true) return {commentId: id};
+  return undefined;
 }
 
 // parseCommentDetail admits one comment GET response: the stored pipeline
@@ -1356,10 +1778,27 @@ export interface CommentDetail {
 // tombstone still resolves through the pipeline states.
 export function parseCommentDetail(value: unknown): CommentDetail {
   const data = object(value);
-  const pipeline = data.judgment === undefined ? undefined : parseCommentPipelineState(value);
   check(commentID(data.comment_id));
+  // Bodyless tombstones carry no body and no pipeline, but only with an
+  // explicit deleted/revoked flag do they resolve to a removed marker. A
+  // bodyless payload without those flags is malformed and throws instead of
+  // reading as a deletion. Missing-row absence alone never reaches here.
+  if (data.body === undefined && data.judgment === undefined) {
+    check(data.deleted === true || data.revoked === true);
+    return {
+      commentId: data.comment_id,
+      body: '',
+      authorName: typeof data.author_name === 'string' ? data.author_name : '',
+      at: typeof data.at === 'number' ? data.at : 0,
+      edited: false,
+      removed: true,
+    };
+  }
+  const pipeline = data.judgment === undefined ? undefined : parseCommentPipelineState(value);
   const {body, author_name, at, edited, deleted, revoked} = data;
-  check(typeof body === 'string' && body.length <= 4096);
+  const removed = deleted === true || revoked === true;
+  check(removed || (typeof body === 'string' && body.length <= 4096));
+  check(body === undefined || (typeof body === 'string' && body.length <= 4096));
   check(author_name === undefined || (typeof author_name === 'string' && author_name.length <= 128));
   check(at === undefined || (typeof at === 'number' && Number.isSafeInteger(at) && at >= 0));
   check(edited === undefined || typeof edited === 'boolean');
@@ -1368,11 +1807,18 @@ export function parseCommentDetail(value: unknown): CommentDetail {
   return {
     commentId: data.comment_id,
     ...(pipeline ? {pipeline} : {}),
-    body,
+    body: typeof body === 'string' ? body : '',
     authorName: typeof author_name === 'string' ? author_name : '',
     at: typeof at === 'number' ? at : 0,
     edited: edited === true,
-    removed: deleted === true || revoked === true,
+    removed,
+    ...(typeof data.actor === 'string' ? {actor: data.actor} : {}),
+    ...(typeof data.assignment === 'string' && data.assignment !== '' ? {assignment: payloadID(data.assignment)} : {}),
+    ...(typeof data.reply_to === 'string' && data.reply_to !== '' ? {replyTo: payloadID(data.reply_to)} : {}),
+    ...(data.source ? {source: parseCommentSource(data.source)} : {}),
+    ...(data.communication ? {communication: parseCommunicationPayload(data.communication)} : {}),
+    ...(data.consultation ? {consultation: parseConsultation(data.consultation)} : {}),
+    ...(data.contribution ? {contribution: parseContribution(data.contribution)} : {}),
   };
 }
 
@@ -1394,10 +1840,16 @@ export function newIdempotencyKey(): string {
 // outcomes (verified/applied/blocked/failed/discussion/clarify) need no
 // polling; reads never drive them further.
 export function commentAttemptsExhausted(state: CommentPipelineState): boolean {
-  return !state.resume && state.attempts !== undefined && state.attemptLimit !== undefined && state.attempts >= state.attemptLimit;
+  return (
+    !state.resume &&
+    state.attempts !== undefined &&
+    state.attemptLimit !== undefined &&
+    state.attempts >= state.attemptLimit
+  );
 }
 
 export function commentUnsettled(state: CommentPipelineState): boolean {
+  if (state.productChange) return false;
   if (commentAttemptsExhausted(state)) return false;
   if (state.judgment === 'pending') return true;
   if (state.judgment === 'failed') return false;

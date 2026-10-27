@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+// LibraryReadGuidance is included in newly rendered phase prompts and the
+// admitted context read. Live evidence never rewrites the accepted work packet.
+const LibraryReadGuidance = "Before choosing an approach or implementing a change, read factory.search_library with payload {\"kind\":\"decision\",\"current_only\":true}; follow next_cursor until complete. Search relevant knowledge with payload {\"kind\":\"knowledge\",\"current_only\":true,\"query\":\"<terms from your admitted task>\"}, broadening the query when no evidence matches. Read relevant items through factory.read_library_item and retain their item ID, exact revision, source_post and evidence in your consultation and decision. current_only excludes removed, superseded and retracted entries but preserves contested items: treat those as unresolved evidence, not settled policy. These are live advisory reads, not new scope or approval; do not replace your frozen accepted inputs. If a current record conflicts with accepted scope, surface the exact conflict to its owner before adopting a change. Read newly maintained revisions for future decisions without silently rewriting prior work.\n"
+
 // LibraryItem is a project-scoped observation or recorded decision. Its source
 // identity and decision content survive maintenance; editing never applies work.
 type LibraryItem struct {

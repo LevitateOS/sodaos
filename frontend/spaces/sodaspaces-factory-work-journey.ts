@@ -55,6 +55,7 @@ export class SodaFactoryWorkJourney extends LitElement {
       serial = this.serial;
     if (!context || this.busy) return;
     this.busy = true;
+    this.message = this.model ? 'Refreshing work history…' : 'Loading work history…';
     try {
       const response = await context.transport.request(
         `repositories/${context.repository}/factory/issues/${context.issue}`,
@@ -71,7 +72,10 @@ export class SodaFactoryWorkJourney extends LitElement {
       this.model = model;
       this.message = model ? '' : 'No work journey has been recorded.';
     } catch {
-      if (serial === this.serial) this.message = 'Could not load the work journey. Refresh to try again.';
+      if (serial === this.serial)
+        this.message = this.model
+          ? 'Could not refresh. The last loaded work history is still shown.'
+          : 'Could not load the work journey. Refresh to try again.';
     } finally {
       if (serial === this.serial) this.busy = false;
     }
@@ -80,7 +84,7 @@ export class SodaFactoryWorkJourney extends LitElement {
     if (!this.current) return html``;
     return html`<p role="status">${this.message}</p>
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>
-        Refresh journey
+        ${this.busy ? 'Loading…' : 'Refresh journey'}
       </button>
       ${this.model ? renderWorkJourney(this.model) : ''}`;
   }

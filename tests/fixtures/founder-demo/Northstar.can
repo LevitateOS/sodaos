@@ -1,0 +1,87 @@
+## Reference input for the founder journey. This file is not a Factory build receipt.
+app NorthstarEquipment
+Given
+ role manager label="Manager"
+ role operations label="Operations"
+ role finance label="Finance"
+ EquipmentRequest {
+  title:text trim min=1 max=120 label="Equipment",
+  reason:text trim min=1 max=500 label="Why you need it",
+  amount:money label="Cost",
+  requester:user server=actor label="Requested by",
+  stage:enum(waiting_manager,waiting_finance,fulfillment,delivered,declined)=waiting_manager label={text="Status",values={waiting_manager="Manager review",waiting_finance="Finance review",fulfillment="Ready for delivery",delivered="Delivered",declined="Declined"}},
+  needs_finance:bool=false,
+  manager_approved_by:user?,
+  finance_approved_by:user?,
+  delivered_by:user?,
+  decision_note:text? label="Decision note"
+ } label="Equipment request"
+ policy EquipmentRequest read=members where=row.requester==actor
+ policy EquipmentRequest read=manager
+ policy EquipmentRequest read=operations
+ policy EquipmentRequest read=finance
+ invariant EquipmentRequest: row.amount.minor>0 and row.amount.currency=="EUR"
+ fixture monitor=EquipmentRequest {title="Monitor",reason="Home office",amount=money(420,"EUR"),requester=other}
+ fixture ready=EquipmentRequest {title="Monitor",reason="Home office",amount=money(420,"EUR"),requester=other,stage=fulfillment}
+ fixture finance_review=EquipmentRequest {title="Laptop",reason="Design work",amount=money(1001,"EUR"),requester=other,stage=waiting_finance,needs_finance=true}
+When
+ ## Capture the route at submission. Changing the later policy preserves pending requests.
+ scenario request_equipment(title:text label="Equipment",reason:text label="Why you need it",amount:money=money(0,"EUR") label="Amount") by=members label="Request equipment"
+  require trim(title)!="" and trim(reason)!="" and amount.minor>0 and amount.currency=="EUR"
+  do create EquipmentRequest {title,reason,amount,needs_finance=false} as request
+ scenario approve(request:EquipmentRequest) by=manager label="Approve request"
+  require request.stage==waiting_manager and request.requester!=actor and not request.needs_finance
+  do set request {stage=fulfillment,manager_approved_by=actor}
+  examples request=monitor
+   as,request.requester -> request.stage,request.manager_approved_by
+   manager,other -> fulfillment,self
+   manager,self -> error(rule_failed)
+   members,other -> error(forbidden)
+ scenario approve_finance_route(request:EquipmentRequest) by=manager label="Approve request for Finance"
+  require request.stage==waiting_manager and request.requester!=actor and request.needs_finance
+  do set request {stage=waiting_finance,manager_approved_by=actor}
+ scenario approve_finance(request:EquipmentRequest) by=finance label="Approve Finance review"
+  require request.stage==waiting_finance and request.requester!=actor
+  do set request {stage=fulfillment,finance_approved_by=actor}
+  examples request=finance_review
+   as,request.requester -> request.stage
+   finance,other -> fulfillment
+   finance,self -> error(rule_failed)
+   operations,other -> error(forbidden)
+ scenario decline(request:EquipmentRequest,note:text) by=manager label="Decline request"
+  require request.stage==waiting_manager and request.requester!=actor and trim(note)!=""
+  do set request {stage=declined,decision_note=note}
+ scenario decline_finance(request:EquipmentRequest,note:text) by=finance label="Decline Finance review"
+  require request.stage==waiting_finance and request.requester!=actor and trim(note)!=""
+  do set request {stage=declined,decision_note=note}
+ scenario deliver(request:EquipmentRequest) by=operations label="Mark delivered"
+  require request.stage==fulfillment
+  do set request {stage=delivered,delivered_by=actor}
+  examples request=ready
+   as -> request.stage
+   operations -> delivered
+   members -> error(forbidden)
+  examples request=finance_review
+   as -> request.stage
+   operations -> error(rule_failed)
+Then
+ page / title="Northstar equipment"
+  require members
+  card "What do you need?"
+   form request_equipment display=inline
+    input title
+    textarea reason
+    input amount
+  card "Requests and decisions"
+   list EquipmentRequest order=-created search=title empty="No equipment requests yet."
+    badge row.stage
+    text row.title,row.amount,row.reason,row.requester
+    text row.manager_approved_by,row.finance_approved_by,row.delivered_by,row.decision_note
+    action approve
+    action approve_finance_route
+    action approve_finance
+    action decline
+    action decline_finance
+    action deliver
+    history
+    pagination

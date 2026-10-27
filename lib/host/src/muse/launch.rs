@@ -345,10 +345,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         {
             // Retirement confirmed: the exact staged bundle may now be
             // collected once unreferenced elsewhere.
-            super::release_provider_ref(
-                &execution.provider_digest,
-                &execution.provider_ref_token,
-            );
+            super::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
         } else {
             // Retirement unconfirmed: preserve the reference (conservative
             // leak) so cleanup can never collect a possibly-live bundle.
@@ -370,10 +367,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             )
             .is_ok()
         {
-            super::release_provider_ref(
-                &execution.provider_digest,
-                &execution.provider_ref_token,
-            );
+            super::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
             LaunchExit::denied()
         } else {
             LaunchExit::cleanup_unconfirmed()

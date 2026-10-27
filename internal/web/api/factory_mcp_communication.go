@@ -62,11 +62,17 @@ func checkCommunicationPayload(tool factory.MCPTool, payload map[string]any) err
 // Worker communications are recorded content; no human comment routing request
 // was created, so their reads must not invent a pending JEV pipeline.
 func feedWorkerCommentResponse(detail store.FeedCommentDetail) map[string]any {
+	var communication *factory.FeedCommunication
+	if detail.Payload != nil {
+		communication = detail.Payload.Communication
+	}
 	return map[string]any{
 		"comment_id": detail.Record.ID, "revision": detail.Record.Revision, "repository": detail.Record.Repository,
 		"author": detail.Record.Author, "author_name": detail.AuthorName, "actor": detail.Actor, "at": detail.At,
 		"issue_scope": detail.Record.Issue, "reply_to": detail.Record.ReplyTo, "body": commentBodyFor(detail),
 		"status": detail.Status, "deleted": detail.Record.Deleted, "revoked": detail.Record.Revoked, "edited": false,
-		"can_retry": false, "communication": detail.Payload.Communication,
+		"can_retry": false, "communication": communication, "consultation": detail.Consultation,
+		"assignment": detail.Assignment, "source": detail.Source,
+		"contribution": detail.Contribution,
 	}
 }

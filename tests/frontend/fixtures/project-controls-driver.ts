@@ -31,9 +31,39 @@ export function setupProjectControlsDriver() {
           return new Response(Bun.file(path.join(root, 'assets/branding', portrait)), {
             headers: {'Content-Type': 'image/png'},
           });
+        // The same production stylesheets the workspace driver loads, so the
+        // drawer renders with actual product styles, not unstyled markup.
+        const local =
+          url.pathname === '/assets/sodaspaces-drawer.css'
+            ? 'frontend/spaces/sodaspaces-project.css'
+            : url.pathname === '/assets/sodaspaces-page.css'
+              ? 'frontend/spaces/sodaspaces-workspace.css'
+              : url.pathname === '/assets/sodaspaces-factory-conversation.css'
+                ? 'frontend/spaces/sodaspaces-factory-conversation.css'
+                : url.pathname === '/assets/sodaspaces-terminal.css'
+                  ? 'frontend/spaces/sodaspaces-terminal.css'
+                  : url.pathname.startsWith('/assets/soda-terminal/')
+                    ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
+                    : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                      ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
+                      : url.pathname.startsWith('/assets/soda/')
+                        ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                        : '';
+        if (local)
+          return new Response(Bun.file(path.join(root, local)), {
+            headers: {
+              'Content-Type': /\.m?js$/.test(local)
+                ? 'text/javascript'
+                : local.endsWith('.css')
+                  ? 'text/css'
+                  : local.endsWith('.svg')
+                    ? 'image/svg+xml'
+                    : 'application/octet-stream',
+            },
+          });
         if (url.pathname !== '/') return new Response(null, {status: 404});
         return new Response(
-          '<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/assets/drawer-fixture.js"></script>',
+          '<!doctype html><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/assets/drawer-fixture.js"></script>',
           {headers: {'Content-Type': 'text/html'}}
         );
       },
@@ -54,6 +84,11 @@ export async function fixture(t: TestContext, extra: Partial<State> = {}) {
     assert.deepEqual(errors, []);
   });
   await page.goto(server.url.href);
+  // Production serves the drawer from a soda-themed Forgejo host; the
+  // native button stylesheet keys off this attribute.
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'soda-auto';
+  });
   await page.waitForFunction(() => typeof window.createDrawerFixture === 'function');
   await page.evaluate(async (extra) => {
     window.drawerFixture = window.createDrawerFixture(extra);

@@ -98,17 +98,15 @@ fn run() -> (i32, Option<String>) {
     };
     if options.check {
         return match muse::check_muse(&options.manifest, &options.arch) {
-            Ok(muse::Baseline::Current { version }) => (
-                0,
-                Some(format!("muse baseline is current: {version}")),
-            ),
+            Ok(muse::Baseline::Current { version }) => {
+                (0, Some(format!("muse baseline is current: {version}")))
+            }
             Ok(muse::Baseline::Stale { detail }) => {
                 (2, Some(format!("muse baseline is stale: {detail}")))
             }
-            Ok(muse::Baseline::Unknown { reason }) => (
-                2,
-                Some(format!("muse baseline is unknown: {reason}")),
-            ),
+            Ok(muse::Baseline::Unknown { reason }) => {
+                (2, Some(format!("muse baseline is unknown: {reason}")))
+            }
             Err(e) => (1, Some(e)),
         };
     }
@@ -146,10 +144,9 @@ fn run() -> (i32, Option<String>) {
         Err(muse::FetchRefusal::Stale(detail)) => {
             (2, Some(format!("muse baseline is stale: {detail}")))
         }
-        Err(muse::FetchRefusal::Unknown(reason)) => (
-            2,
-            Some(format!("muse baseline is unknown: {reason}")),
-        ),
+        Err(muse::FetchRefusal::Unknown(reason)) => {
+            (2, Some(format!("muse baseline is unknown: {reason}")))
+        }
         Err(muse::FetchRefusal::Failed(error)) => (1, Some(error)),
     }
 }

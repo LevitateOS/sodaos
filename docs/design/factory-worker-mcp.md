@@ -1,6 +1,6 @@
 # Factory worker MCP redesign: work, feed and shared knowledge
 
-This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 55 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
+This document defines the seven production worker roles, Library Admin and Researcher, their context, work, communication and shared knowledge. The implemented catalog now contains 57 tools across nine profiles; the implementation section identifies current behavior. The larger proposed work interfaces and issue-contract extensions below retain their explicit task scope.
 
 The owner has requested the full redesign. The previously described 21-tool
 target covers the existing catalog plus seven communication tools; it is a
@@ -99,6 +99,17 @@ quietly launching a worker with no Factory tools. Credentials stay out of
 prompts, feed posts and saved run receipts. The server rechecks actual run and
 stop authority; an expired or stopped assignment cannot keep submitting merely
 because its relay process still exists.
+
+Muse Builder parents use `factory.start_task` with
+`{"payload":{"task_id":"task-key"}}`; singleton Fixer parents use
+`factory.release_output` with the same shape. These tools appear only for an
+admitted Muse run and the corresponding role. The server derives the exact
+run, native invocation and retained manifest, checks current work and the live
+process, then calls that process's existing native task owner. Retries recover
+the same task admission. No MCP submission ledger, new task grant or inferred
+child result is created. Observed output still passes through
+`factory.submit_task_output` and the existing committed checkpoint before
+dependent work may proceed. Codex retains its native dynamic task tools.
 
 The shared [component catalog](../../internal/factory/feed_components.json)
 contains 121 presentation variants: 102 worker-report/role-result variants,

@@ -176,7 +176,7 @@ impl<E: project::Executor> Ops<E> {
         &self,
         req: &PrepareContextReq,
         deadline: Instant,
-    ) -> Result<String, String> {
+    ) -> Result<String, crate::prepare::ContextReadError> {
         Ok(self
             .runtime()
             .read_preparation_context(&req.0, deadline)?

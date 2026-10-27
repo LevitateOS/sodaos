@@ -171,7 +171,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	st, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +192,10 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	qualified := newFakeCatalogSink()
 	assignment := qualified.assignments[qualified.capability.AssignmentID]
 	assignment.ID = capability.AssignmentID
+	assignment.Repository, assignment.Issue, assignment.Run = capability.Repository, 42, capability.RunID
+	// The real journal also attaches its actual question/result to this
+	// canonical work post; the PostgreSQL fixture must own that assignment.
+	seedLiveMCPAssignment(t, ctx, dsn, assignment)
 	qualified.capability = capability
 	qualified.assignments = map[string]factory.Assignment{assignment.ID: assignment}
 	storeSelectionReceipt(t, qualified, assignment, false, false, factory.ContextBundleCurrent)
@@ -246,6 +250,14 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	}
 	if receipt.Outcome != systemOneAnswerOutcome || receipt.Answer == nil {
 		t.Fatalf("journal receipt is not the recorded answer: %+v", receipt)
+	}
+	comment, err := st.FeedComment(ctx, factory.FeedConsultationPostID(snapshot))
+	if err != nil || comment.Consultation == nil || comment.Consultation.Status != "returned" || comment.Consultation.Instructions != instructions || comment.Consultation.Answer == nil {
+		t.Fatalf("actual MCP question/result did not reach its work thread: %v", err)
+	}
+	thread, _, err := st.FeedReplyIDs(ctx, capability.Repository, "record", capability.AssignmentID, 0)
+	if err != nil || len(thread) != 1 || thread[0] != comment.Record.ID {
+		t.Fatalf("consultation replay duplicated or lost its thread: %v %v", thread, err)
 	}
 }
 

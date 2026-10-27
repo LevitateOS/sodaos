@@ -12,8 +12,20 @@ const (
 	MaxFactoryContextPaths     = 12
 	MaxFactoryContextFiles     = 12
 	MaxFactoryContextPathBytes = 256
-	MaxFactoryContextFileBytes = 8 * 1024
-	MaxFactoryContextBytes     = 32 * 1024
+	// Approved source files may reach MaxApprovedFileSize (32 KiB); the
+	// per-file bound matches so an approved file reads fully through one
+	// bounded native call, with cap+1 oversize detection instead of
+	// truncation. The aggregate bound matches MaxApprovedTotal so one
+	// large file plus setup, check, instructions and diff still fit a
+	// single bounded read. Anything larger fails truthfully.
+	MaxFactoryContextFileBytes = 32 * 1024
+	MaxFactoryContextBytes     = 128 * 1024
+
+	// FactoryContextSelectedPathsPerRead sizes client selections, not native
+	// authority. Reserve file-sized slots for setup, check and root AGENTS.md.
+	// Entrypoints and expanded ancestor instructions still undergo the actual
+	// native aggregate validation; an oversized closure cannot be read partially.
+	FactoryContextSelectedPathsPerRead = MaxFactoryContextBytes/MaxFactoryContextFileBytes - 2 - 1
 )
 
 // FactoryPreparationContextRequest selects repository material for one exact

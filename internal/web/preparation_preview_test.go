@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -29,9 +30,34 @@ type preparationPreviewFixture struct {
 	administrator bool
 	accessCalls   int
 	missingRole   string
+	delay         time.Duration
+	failContext   bool
+	hangContext   bool
+	// badBatch, when non-empty, is served as the raw HTTP 200 body for
+	// every multi-path batch while single-path reads stay valid. It
+	// proves a malformed batch fails closed instead of halving onto
+	// the servable singles.
+	badBatch string
 }
 
 func newPreparationPreviewFixture(t *testing.T) *preparationPreviewFixture {
+	t.Helper()
+	return newPreparationPreviewFixtureFiles(t, map[string][]byte{
+		"setup.sh": []byte("echo private-setup-content\n"),
+		"check.sh": []byte("echo private-check-content\n"),
+	})
+}
+
+func newPreparationPreviewFixtureFiles(t *testing.T, files map[string][]byte) *preparationPreviewFixture {
+	t.Helper()
+	return newPreparationPreviewFixtureFilesSelected(t, files, nil)
+}
+
+// newPreparationPreviewFixtureFilesSelected admits a requirement over the
+// selected paths only, while the native peer still serves every file in
+// files as setup, check or selected content. A nil selection selects every
+// file, preserving the single-selection behavior for existing callers.
+func newPreparationPreviewFixtureFilesSelected(t *testing.T, files map[string][]byte, selected []string) *preparationPreviewFixture {
 	t.Helper()
 	s, _ := preparationFixture(t)
 	s.Config.OperatorID = 99 // Require each actor's actual native Project privilege.
@@ -40,17 +66,21 @@ func newPreparationPreviewFixture(t *testing.T) *preparationPreviewFixture {
 	}
 	f := &preparationPreviewFixture{
 		server: s, states: map[string]project.PrepareState{},
-		files: map[string][]byte{
-			"setup.sh": []byte("echo private-setup-content\n"),
-			"check.sh": []byte("echo private-check-content\n"),
-		},
+		files: files,
 	}
 	f.requirement = project.RequirementDecision{
 		ID: "d111111111111111111111111", Project: preparationProject, Approver: 1,
 		SourceCommit: strings.Repeat("c", 40), SetupDigest: project.SetupDigestOf(f.files),
 		InputsDigest: strings.Repeat("d", 64), SourceInputs: map[string]string{},
 	}
-	for path, content := range f.files {
+	if selected == nil {
+		for path := range f.files {
+			selected = append(selected, path)
+		}
+	}
+	for _, path := range selected {
+		content, found := f.files[path]
+		require.True(t, found, "selected path must exist in fixture files")
 		digest := sha256.Sum256(content)
 		f.requirement.SourceInputs[path] = hex.EncodeToString(digest[:])
 	}
@@ -91,6 +121,20 @@ func newPreparationPreviewFixture(t *testing.T) *preparationPreviewFixture {
 			}
 			response = state
 		case "/prepare-context":
+			if f.hangContext {
+				<-r.Context().Done()
+				return &http.Response{StatusCode: 500, Body: http.NoBody, Header: make(http.Header)}, nil
+			}
+			if f.failContext {
+				return &http.Response{StatusCode: 500, Body: http.NoBody, Header: make(http.Header)}, nil
+			}
+			if f.delay > 0 {
+				select {
+				case <-time.After(f.delay):
+				case <-r.Context().Done():
+					return &http.Response{StatusCode: 500, Body: http.NoBody, Header: make(http.Header)}, nil
+				}
+			}
 			var in project.FactoryPreparationContextRequest
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&in))
 			state, found := f.states[in.ID]
@@ -101,14 +145,48 @@ func newPreparationPreviewFixture(t *testing.T) *preparationPreviewFixture {
 			require.Equal(t, in.SourceCommit, in.DiffBase)
 			require.Equal(t, in.SourceCommit, in.Candidate)
 			require.True(t, in.NotAfter.After(time.Now()))
-			require.LessOrEqual(t, time.Until(in.NotAfter), 5*time.Second)
+			require.LessOrEqual(t, time.Until(in.NotAfter), 30*time.Second)
 			f.contexts = append(f.contexts, in)
+			if f.badBatch != "" && len(in.Paths) > 1 {
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(f.badBatch))), Header: make(http.Header)}, nil
+			}
 			material := project.FactoryPreparationContext{
 				Project: in.Project, ID: in.ID, Role: state.Role, SourceCommit: in.SourceCommit,
 				ApprovedBase: in.ApprovedBase, DiffBase: in.DiffBase, Candidate: in.Candidate,
 				Setup: f.files["setup.sh"], Check: f.files["check.sh"],
 			}
+			// Serve the requested paths plus the root AGENTS.md the real
+			// native always selects, and refuse exactly like the real
+			// route: any over-file, over-count or over-aggregate closure
+			// is answered with the typed HTTP 413 signal before sending
+			// bytes, never with an oversized 200 the native cannot emit.
+			seen := map[string]bool{}
+			var served []string
 			for _, path := range in.Paths {
+				if !seen[path] {
+					seen[path] = true
+					served = append(served, path)
+				}
+			}
+			if _, found := f.files["AGENTS.md"]; found && !seen["AGENTS.md"] {
+				served = append(served, "AGENTS.md")
+			}
+			total := len(material.Setup) + len(material.Check)
+			refuse := len(served) > project.MaxFactoryContextFiles
+			for _, path := range served {
+				content := f.files[path]
+				if len(content) > project.MaxFactoryContextFileBytes {
+					refuse = true
+				}
+				total += len(content)
+			}
+			if total > project.MaxFactoryContextBytes {
+				refuse = true
+			}
+			if refuse {
+				return &http.Response{StatusCode: 413, Body: http.NoBody, Header: make(http.Header)}, nil
+			}
+			for _, path := range served {
 				material.Files = append(material.Files, project.FactoryContextFile{Path: path, Content: f.files[path]})
 			}
 			response = material
@@ -217,10 +295,31 @@ func TestPreparationDecisionPreviewProxyJourney(t *testing.T) {
 	}
 	require.Equal(t, f.requirement.SourceInputs, selected)
 	require.Equal(t, []string{"check.sh", "setup.sh"}, paths)
+	// The batched reader confirms each role's whole selection in one call
+	// (both files fit the native per-request count and aggregate bounds),
+	// so two files x two roles = two reads: each role reads its exact
+	// prepared checkout once.
 	require.Len(t, f.contexts, 2)
-	for _, request := range f.contexts {
-		require.Equal(t, paths, request.Paths)
+	coderID := "f" + strings.Repeat("1", 24)
+	reviewerID := "f" + strings.Repeat("2", 24)
+	expectedReads := []struct {
+		id    string
+		role  string
+		paths []string
+	}{
+		{coderID, project.RoleCoder, paths},
+		{reviewerID, project.RoleReviewer, paths},
 	}
+	covered := map[string][]string{}
+	for i, request := range f.contexts {
+		require.Equal(t, expectedReads[i].id, request.ID)
+		require.Equal(t, expectedReads[i].paths, request.Paths)
+		state, found := f.states[request.ID]
+		require.True(t, found)
+		require.Equal(t, expectedReads[i].role, state.Role)
+		covered[request.ID] = append(covered[request.ID], request.Paths...)
+	}
+	require.Equal(t, map[string][]string{coderID: paths, reviewerID: paths}, covered)
 	require.Len(t, view.Preview.Approval.Roles, 2)
 	require.Equal(t, project.RoleCoder, view.Preview.Approval.Roles[0].Role)
 	require.Equal(t, project.RoleReviewer, view.Preview.Approval.Roles[1].Role)
@@ -350,6 +449,164 @@ func TestPreparationDecisionPreviewRequiresNativeEvidence(t *testing.T) {
 			require.Nil(t, view.Preview.Approval)
 			require.NotEmpty(t, view.Preview.Reason)
 			require.Equal(t, f.requirement.ID, view.Requirements)
+			_, err := f.server.Store.ApprovalHead(t.Context(), preparationProject)
+			require.ErrorIs(t, err, store.ErrNotFound)
+		})
+	}
+}
+
+// TestPreparationDecisionPreviewSlowNativeRead is the FJ-v3-701 regression:
+// a seven-input selection (~35KiB, mirroring the live multi-input selection)
+// with a slow native reader must still confirm under the raised budget. Each
+// role batches its whole selection into one host call, so the preview needs
+// two 3s reads (~6s total): necessarily beyond the old 5s budget, where the
+// old one-path-per-read fan-out would have needed fourteen such reads
+// (~42s). Success still requires byte-exact SHA matching for every path.
+func TestPreparationDecisionPreviewSlowNativeRead(t *testing.T) {
+	files := map[string][]byte{
+		"setup.sh": []byte("echo private-setup-content\n"),
+		"check.sh": []byte("echo private-check-content\n"),
+	}
+	for i := range 5 {
+		name := "input" + string(rune('a'+i)) + ".sh"
+		files[name] = []byte("#!/bin/sh\n# selected input " + name + "\n" + strings.Repeat("echo payload\n", 500))
+	}
+	f := newPreparationPreviewFixtureFiles(t, files)
+	f.delay = 3 * time.Second
+	var total int
+	for _, content := range files {
+		total += len(content)
+	}
+	require.Greater(t, total, 30*1024) // Live-scale aggregate, far under the 128KiB native bound.
+	start := time.Now()
+	view := preparationPreviewRead(t, f)
+	elapsed := time.Since(start)
+	require.Empty(t, view.Preview.Reason)
+	require.NotNil(t, view.Preview.Requirements)
+	require.NotNil(t, view.Preview.Approval)
+	selected := map[string]string{}
+	for _, input := range view.Preview.Requirements.SourceInputs {
+		selected[input.Path] = input.Digest
+	}
+	require.Equal(t, f.requirement.SourceInputs, selected)
+	require.Len(t, selected, 7)
+	require.Len(t, f.contexts, 2) // One batched read per role, not fourteen single-path reads.
+	for _, request := range f.contexts {
+		require.Len(t, request.Paths, 7)
+	}
+	// The two slow reads alone exceed the old 5s budget, so this passing
+	// preview demonstrates the old fan-out could not have survived it.
+	require.GreaterOrEqual(t, elapsed, 5*time.Second)
+	_, err := f.server.Store.ApprovalHead(t.Context(), preparationProject)
+	require.ErrorIs(t, err, store.ErrNotFound) // Reading creates no approval.
+}
+
+// TestPreparationDecisionPreviewMaxInputsBoundedFallback proves the true
+// worst-case call bound for the legal maximum of 64 selected inputs
+// (project.MaxSourceInputs) against the genuine typed route signal: with
+// the production-shaped boundary (32KiB setup + 32KiB check + 32KiB root
+// AGENTS.md, which the native always selects), every multi-path batch
+// genuinely overflows the native aggregate bound, so the peer refuses it
+// with HTTP 413 exactly like the real route — and only that typed signal
+// retries by halving. Every single-path read totals exactly 128KiB and
+// fits, so each role falls back through the full binary tree down to
+// singles and still confirms with byte-exact digests. A 12-batch costs 23
+// calls, a 4-batch 7, so each role costs 5*23+7 = 122 and both roles 244
+// native reads exactly. Any future halving change that issues more or
+// fewer calls fails here.
+func TestPreparationDecisionPreviewMaxInputsBoundedFallback(t *testing.T) {
+	// The 96 KiB setup/check/AGENTS.md overhead rides along every native
+	// read — facing only the aggregate bound, not the per-file bound —
+	// while each of the 64 selected inputs fills the 32 KiB per-file bound
+	// exactly: one selected file totals exactly 128KiB and fits, while two
+	// selected files (160KiB) overflow. AGENTS.md is served but unselected,
+	// mirroring the native auto-selection outside the accepted inputs.
+	files := map[string][]byte{
+		"setup.sh":  bytes.Repeat([]byte("s"), 32*1024),
+		"check.sh":  bytes.Repeat([]byte("c"), 32*1024),
+		"AGENTS.md": bytes.Repeat([]byte("a"), 32*1024),
+	}
+	var names []string
+	for i := range 64 {
+		name := fmt.Sprintf("input%02d.dat", i)
+		files[name] = bytes.Repeat([]byte("x"), project.MaxFactoryContextFileBytes)
+		names = append(names, name)
+	}
+	f := newPreparationPreviewFixtureFilesSelected(t, files, names)
+	start := time.Now()
+	view := preparationPreviewRead(t, f)
+	elapsed := time.Since(start)
+	require.Empty(t, view.Preview.Reason)
+	require.NotNil(t, view.Preview.Requirements)
+	require.NotNil(t, view.Preview.Approval)
+	selected := map[string]string{}
+	for _, input := range view.Preview.Requirements.SourceInputs {
+		selected[input.Path] = input.Digest
+	}
+	require.Equal(t, f.requirement.SourceInputs, selected)
+	require.Len(t, selected, 64)
+	require.Less(t, elapsed, 30*time.Second)
+	require.Len(t, f.contexts, 244) // True worst-case bound, both roles.
+	coderID := "f" + strings.Repeat("1", 24)
+	reviewerID := "f" + strings.Repeat("2", 24)
+	perRole := map[string]int{}
+	for _, request := range f.contexts {
+		perRole[request.ID]++
+	}
+	require.Equal(t, map[string]int{coderID: 122, reviewerID: 122}, perRole)
+	_, err := f.server.Store.ApprovalHead(t.Context(), preparationProject)
+	require.ErrorIs(t, err, store.ErrNotFound) // Reading creates no approval.
+}
+
+// TestPreparationDecisionPreviewFailsClosedOnNativeErrors proves actual host
+// failures refuse the preview with the fixed reason instead of partial data:
+// no requirements, no approval, and no durable approval written.
+func TestPreparationDecisionPreviewFailsClosedOnNativeErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*preparationPreviewFixture)
+	}{
+		{"host-error", func(f *preparationPreviewFixture) { f.failContext = true }},
+		{"host-timeout", func(f *preparationPreviewFixture) { f.hangContext = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newPreparationPreviewFixture(t)
+			tc.mutate(f)
+			view := preparationPreviewRead(t, f)
+			require.Nil(t, view.Preview.Requirements)
+			require.Nil(t, view.Preview.Approval)
+			require.Contains(t, view.Preview.Reason, "must be confirmed before reviewing decisions")
+			require.Equal(t, f.requirement.ID, view.Requirements)
+			_, err := f.server.Store.ApprovalHead(t.Context(), preparationProject)
+			require.ErrorIs(t, err, store.ErrNotFound)
+		})
+	}
+}
+
+// TestPreparationDecisionPreviewMalformedBatchFailsClosed is the FJ-v3-729
+// regression: an HTTP 200 batch carrying null or malformed JSON, followed
+// by servable valid singles, must fail closed. The shape error
+// ("invalid native response") is not the typed bounds signal, so no
+// subset retry may halve onto the valid singles and mask the failed
+// batch — the preview refuses with the fixed reason and writes nothing.
+func TestPreparationDecisionPreviewMalformedBatchFailsClosed(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"null-batch", "null"},
+		{"malformed-batch", "{not json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newPreparationPreviewFixture(t)
+			f.badBatch = tc.body
+			view := preparationPreviewRead(t, f)
+			require.Nil(t, view.Preview.Requirements)
+			require.Nil(t, view.Preview.Approval)
+			require.Contains(t, view.Preview.Reason, "must be confirmed before reviewing decisions")
+			require.Equal(t, f.requirement.ID, view.Requirements)
+			// Fail-closed means no subset retry: exactly one batch read —
+			// the coder role refuses and the preview returns before the
+			// reviewer role reads — never the halved singles the peer
+			// would have served validly.
+			require.Len(t, f.contexts, 1)
 			_, err := f.server.Store.ApprovalHead(t.Context(), preparationProject)
 			require.ErrorIs(t, err, store.ErrNotFound)
 		})

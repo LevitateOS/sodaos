@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // RecordRetryPacket advances one assigned assignment to its next run
@@ -40,14 +41,30 @@ func admitRetryPacket(a factory.Assignment, run factory.Run, view factory.RunVie
 }
 
 // checkLockedRetryAssignment refuses retries against stale, moved or
-// no-longer-assignable attempts, including reused run identities.
+// no-longer-assignable attempts, including reused run identities. A retry is
+// a new provider process: the calling snapshot may advance the recorded
+// harness pin to the current selection, but every other binding stays exact.
 func checkLockedRetryAssignment(current, a factory.Assignment, run factory.Run) error {
 	if current.Revision != a.Revision {
 		return ErrStaleRevision
 	}
 	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection || current.ActorID != a.ActorID ||
-		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
-		run.Harness != current.Harness || run.Model != current.Model || current.AdoptedHarness != a.AdoptedHarness {
+		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit {
+		return ErrStaleRevision
+	}
+	if run.Model != a.Model || a.Model != current.Model {
+		return ErrStaleRevision
+	}
+	// The new execution adopts the calling snapshot's pin: the run carries
+	// it and the snapshot's pin is internally coherent. The stored pin may
+	// lag behind; advancing it is the retry, never a revision conflict.
+	if run.Harness != a.Harness {
+		return ErrStaleRevision
+	}
+	if err := checkRetryPinAdvance(a); err != nil {
+		return err
+	}
+	if a.AdoptedHarness != (project.FactoryHarnessPin{}) && run.Image != a.AdoptedHarness.Image {
 		return ErrStaleRevision
 	}
 	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
@@ -60,6 +77,23 @@ func checkLockedRetryAssignment(current, a factory.Assignment, run factory.Run) 
 		if seen == run.ID {
 			return errors.New("dispatch attempt reuses a run identity")
 		}
+	}
+	return nil
+}
+
+// checkRetryPinAdvance requires the calling snapshot's pin to be internally
+// coherent when it carries tool proof. Rows admitted before proof existed
+// carry no pin and keep the legacy binding; advancing to a proved pin is
+// the retry adopting current.
+func checkRetryPinAdvance(a factory.Assignment) error {
+	if a.AdoptedHarness == (project.FactoryHarnessPin{}) {
+		return nil
+	}
+	if err := a.AdoptedHarness.Validate(); err != nil {
+		return ErrStaleRevision
+	}
+	if a.Harness != a.AdoptedHarness.Harness+"-"+a.AdoptedHarness.Version || a.HarnessVers != a.AdoptedHarness.Version {
+		return ErrStaleRevision
 	}
 	return nil
 }
@@ -77,8 +111,10 @@ func checkLockedPreviousRun(previous factory.Run, current factory.Assignment, gr
 }
 
 // admitLockedPreviousRunTx locks the previous run row, refuses changed
-// admission policy and binds fresh authority to the retry run.
-func admitLockedPreviousRunTx(ctx context.Context, tx *sql.Tx, current factory.Assignment, grants admissionGrants, authority factory.AuthorityRef, run *factory.Run) error {
+// admission policy and binds fresh authority to the retry run. The retry is
+// a new execution, so its tool identity comes from the calling snapshot's
+// current pin, never the stored assignment's lagging pin.
+func admitLockedPreviousRunTx(ctx context.Context, tx *sql.Tx, current, retryA factory.Assignment, grants admissionGrants, authority factory.AuthorityRef, run *factory.Run) error {
 	var previousData []byte
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 FOR UPDATE`, current.Run).Scan(&previousData); err != nil {
 		return err
@@ -90,7 +126,7 @@ func admitLockedPreviousRunTx(ctx context.Context, tx *sql.Tx, current factory.A
 	if err := checkLockedPreviousRun(previous, current, grants); err != nil {
 		return err
 	}
-	tool, err := factory.AdoptedToolIdentity(current, run.Image)
+	tool, err := factory.AdoptedToolIdentity(retryA, run.Image)
 	if err != nil {
 		return err
 	}
@@ -202,7 +238,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err = checkAssignmentAuthorityTx(ctx, tx, authority, current, grants); err != nil {
 		return factory.Assignment{}, err
 	}
-	if err = admitLockedPreviousRunTx(ctx, tx, current, grants, authority, &run); err != nil {
+	if err = admitLockedPreviousRunTx(ctx, tx, current, a, grants, authority, &run); err != nil {
 		return factory.Assignment{}, err
 	}
 	next := current
@@ -210,6 +246,11 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	next.Revision++
 	next.Run = run.ID
 	next.RunHistory = append(append([]string(nil), current.RunHistory...), run.ID)
+	// The new execution adopts the calling snapshot's current pin; every
+	// other binding stays the stored one.
+	next.Harness = a.Harness
+	next.HarnessVers = a.HarnessVers
+	next.AdoptedHarness = a.AdoptedHarness
 	if err = next.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}

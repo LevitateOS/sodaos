@@ -1,0 +1,15 @@
+{
+  "source": "Northstar.can",
+  "policy": "manager",
+  "baseline_source_commit": null,
+  "company": {
+    "origin": "https://equipment.northstar.soda.test",
+    "identity_resource": "northstar-company-identity",
+    "state_resource": "northstar-company-state"
+  },
+  "preview": {
+    "origin": "https://preview.northstar.soda.test",
+    "identity_resource": "northstar-preview-identity",
+    "state_resource": "northstar-preview-state"
+  }
+}

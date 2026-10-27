@@ -34,6 +34,7 @@
       "file": "system/host/services/soda-identity.service",
       "lines": [
         "ExecStart=/usr/local/libexec/soda/soda-identity",
+        "Environment=SODA_PROVIDERS_ROOT=/home/soda-identity/providers",
         "Requires=soda-host.socket soda-identity.socket soda-identity-runtime.socket",
         "Sockets=soda-identity.socket soda-identity-runtime.socket"
       ]

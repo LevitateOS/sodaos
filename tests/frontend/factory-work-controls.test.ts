@@ -826,6 +826,204 @@ test('work detail retries the same completion command after lost replies and run
   assert.deepEqual(projectStop?.body, {action: 'stop', confirm_stop: true});
 });
 
+test('held context refresh with the same run ID enables use-current from the new selection', async (t) => {
+  const FRESH = 'b'.repeat(64);
+  const runPayload = (selection: unknown) => ({
+    run: {
+      id: RUN,
+      project_id: PROJECT,
+      role: 'soda-coder',
+      harness: 'codex-fixture',
+      model: 'fixture',
+      input_sha: HEAD,
+      reconciled: false,
+    },
+    ...(selection === undefined ? {} : {context_selection: selection}),
+  });
+  const held = {
+    fingerprint: SNAPSHOT,
+    scope_digest: SNAPSHOT,
+    required_digest: SNAPSHOT,
+    availability: 'incomplete',
+    reason: 'missing required inputs',
+    action: 'hold',
+    can_use_current: false,
+  };
+  const refreshed = {
+    fingerprint: FRESH,
+    scope_digest: FRESH,
+    required_digest: FRESH,
+    availability: 'complete',
+    reason: 'required context is complete',
+    action: 'hold',
+    can_use_current: true,
+  };
+  const page = await openView(t, 'detail', [
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {method: 'GET', path: `factory/runs/${RUN}`, status: 200, json: runPayload(held)},
+  ]);
+  const detail = page.locator('soda-factory-work-detail');
+  const contextChoice = detail.getByRole('region', {name: 'Context choice needs attention'});
+  const useCurrent = contextChoice.getByRole('button', {name: 'Use current required context', exact: true});
+  await contextChoice.getByText('Required current context is unavailable.').waitFor();
+  assert.equal(await useCurrent.isDisabled(), true);
+  await page.evaluate(
+    (next) => window.factoryWork.setRoutes(next),
+    [
+      {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+      {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+      {method: 'GET', path: `factory/runs/${RUN}`, status: 200, json: runPayload(refreshed)},
+    ]
+  );
+  await detail.getByRole('button', {name: 'Refresh detail', exact: true}).click();
+  await contextChoice.getByText('The required current context is complete.').waitFor();
+  assert.equal(await useCurrent.isDisabled(), false);
+  await page.evaluate(
+    (next) => window.factoryWork.setRoutes(next),
+    [
+      {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+      {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+      {method: 'GET', path: `factory/runs/${RUN}`, status: 200, json: runPayload(undefined)},
+      {
+        method: 'POST',
+        path: `factory/runs/${RUN}/actions`,
+        action: 'use_current_context',
+        status: 200,
+        echoCommand: true,
+        json: {
+          command_id: '',
+          run_id: RUN,
+          bundle: 'current',
+          scope_digest: FRESH,
+          fingerprint: FRESH,
+          required_digest: FRESH,
+        },
+      },
+    ]
+  );
+  await useCurrent.click();
+  // The resolve receipt dispatches soda-context-resolved, so the parent
+  // immediately reloads the resolved run and the hold prompt unmounts; the
+  // request payload plus the resolved readback are the durable proof.
+  await page.waitForFunction(
+    () => document.querySelector('soda-factory-work-detail [aria-label="Context choice needs attention"]') === null
+  );
+  const currentChoice = (await workCalls(page)).find(
+    (call) => (call.body as {action?: string} | undefined)?.action === 'use_current_context'
+  );
+  assert.deepEqual((currentChoice?.body as {context: unknown}).context, {
+    fingerprint: FRESH,
+    scope_digest: FRESH,
+    required_digest: FRESH,
+  });
+  assert.equal(await detail.getByRole('region', {name: 'Context choice needs attention'}).count(), 0);
+});
+
+test('stale in-flight context read resolving after scope change writes nothing', async (t) => {
+  const page = await openView(t, 'overview', []);
+  const outcome = await page.evaluate(async () => {
+    const RUN_B = 'b'.repeat(32);
+    const RUN_STALE = 'e'.repeat(32);
+    const pending: {path: string; resolve: (value: Response) => void}[] = [];
+    const deferred = {
+      request: (path: string) => new Promise<Response>((resolve) => void pending.push({path, resolve})),
+    };
+    const serving = {
+      request: async (path: string) => {
+        if (path.includes('/factory/issues/')) return Response.json({journey: {lineage: {latest_run: RUN_B}}});
+        return Response.json({
+          run: {
+            id: RUN_B,
+            project_id: 'p0123456789abcdef01234567',
+            role: 'soda-coder',
+            harness: 'codex-fixture',
+            model: 'fixture',
+            input_sha: 'a'.repeat(40),
+            reconciled: false,
+          },
+          context_selection: {
+            fingerprint: 'b'.repeat(64),
+            scope_digest: 'b'.repeat(64),
+            required_digest: 'b'.repeat(64),
+            availability: 'complete',
+            reason: 'required context is complete',
+            action: 'hold',
+            can_use_current: true,
+          },
+        });
+      },
+    };
+    const host = document.createElement('soda-factory-context-resolution') as unknown as HTMLElement & {
+      context: unknown;
+      updateComplete: Promise<unknown>;
+      selectedRun?: {id: string};
+    };
+    document.querySelector('main')?.append(host);
+    host.context = {transport: deferred, repository: '7', issue: '12'};
+    await host.updateComplete;
+    const firstPaths = pending.map((entry) => entry.path);
+    // Supersede the deferred lookup with a newer transport before the stale read lands.
+    host.context = {transport: serving, repository: '7', issue: '12'};
+    await host.updateComplete;
+    let settled = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (host.selectedRun?.id === RUN_B) {
+        settled = true;
+        break;
+      }
+      await new Promise((done) => setTimeout(done, 10));
+    }
+    const staleIssue = pending.shift();
+    staleIssue?.resolve(Response.json({journey: {lineage: {latest_run: RUN_STALE}}}));
+    await new Promise((done) => setTimeout(done, 0));
+    await new Promise((done) => setTimeout(done, 0));
+    const staleRun = pending.shift();
+    staleRun?.resolve(
+      Response.json({
+        run: {
+          id: RUN_STALE,
+          project_id: 'p0123456789abcdef01234567',
+          role: 'soda-coder',
+          harness: 'codex-fixture',
+          model: 'fixture',
+          input_sha: 'a'.repeat(40),
+          reconciled: false,
+        },
+        context_selection: {
+          fingerprint: 'c'.repeat(64),
+          scope_digest: 'c'.repeat(64),
+          required_digest: 'c'.repeat(64),
+          availability: 'incomplete',
+          reason: 'stale read must not win',
+          action: 'hold',
+          can_use_current: false,
+        },
+      })
+    );
+    await new Promise((done) => setTimeout(done, 0));
+    await new Promise((done) => setTimeout(done, 0));
+    await host.updateComplete;
+    const button = (host as unknown as Element).querySelector('button');
+    return {
+      firstPaths,
+      settled,
+      hadStaleIssue: staleIssue !== undefined,
+      hadStaleRun: staleRun !== undefined,
+      leftoverPaths: pending.map((entry) => entry.path),
+      selectedId: host.selectedRun?.id,
+      buttonDisabled: button ? button.disabled : null,
+    };
+  });
+  assert.deepEqual(outcome.firstPaths, ['repositories/7/factory/issues/12']);
+  assert.equal(outcome.settled, true);
+  assert.equal(outcome.hadStaleIssue, true);
+  assert.equal(outcome.hadStaleRun, true);
+  assert.deepEqual(outcome.leftoverPaths, []);
+  assert.equal(outcome.selectedId, 'b'.repeat(32));
+  assert.equal(outcome.buttonDisabled, false);
+});
+
 test('direction revision shows allowance reference and history, then adjusts allowance', async (t) => {
   const page = await openView(t, 'direction', [
     {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
@@ -1241,6 +1439,430 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
   assert.equal(await page.locator('soda-factory-work-detail').textContent(), '');
 });
 
+test('same-issue refresh re-reads the resolution child and enables use-current', async (t) => {
+  const page = await openView(t, 'overview', []);
+  const outcome = await page.evaluate(async () => {
+    const RUN_A = 'a'.repeat(32);
+    let runs = 0;
+    let complete = false;
+    const transport = {
+      request: async (path: string) => {
+        if (path === 'repositories/7/factory/issues/12')
+          return Response.json({journey: {lineage: {latest_run: RUN_A}}});
+        if (path === `factory/runs/${RUN_A}`) {
+          runs += 1;
+          return Response.json({
+            run: {
+              id: RUN_A,
+              project_id: 'p0123456789abcdef01234567',
+              role: 'soda-coder',
+              harness: 'codex-fixture',
+              model: 'fixture',
+              input_sha: 'a'.repeat(40),
+              reconciled: false,
+            },
+            context_selection: {
+              fingerprint: complete ? 'b'.repeat(64) : 'a'.repeat(64),
+              scope_digest: complete ? 'b'.repeat(64) : 'a'.repeat(64),
+              required_digest: complete ? 'b'.repeat(64) : 'a'.repeat(64),
+              availability: complete ? 'complete' : 'incomplete',
+              reason: complete ? 'required context is complete' : 'missing required inputs',
+              action: 'hold',
+              can_use_current: complete,
+            },
+          });
+        }
+        return Response.json({}, {status: 404});
+      },
+    };
+    type Host = HTMLElement & {
+      context: unknown;
+      updateComplete: Promise<unknown>;
+      selectedRun?: {id: string};
+      refresh?: () => void;
+    };
+    const host = document.createElement('soda-factory-context-resolution') as unknown as Host;
+    document.querySelector('main')?.append(host);
+    host.context = {transport, repository: '7', issue: '12'};
+    await host.updateComplete;
+    for (let attempt = 0; attempt < 100 && runs === 0; attempt++) await new Promise((done) => setTimeout(done, 10));
+    await host.updateComplete;
+    for (let attempt = 0; attempt < 100 && !host.querySelector('button'); attempt++)
+      await new Promise((done) => setTimeout(done, 10));
+    await host.updateComplete;
+    const disabledBefore = (host.querySelector('button') as HTMLButtonElement | null)?.disabled ?? null;
+    const readsBefore = runs;
+    // Same-issue re-entry without an explicit refresh skips its read.
+    host.context = {transport, repository: '7', issue: '12'};
+    await host.updateComplete;
+    await new Promise((done) => setTimeout(done, 50));
+    const readsAfterResend = runs;
+    // Corrected inputs land server-side; the explicit refresh re-reads.
+    complete = true;
+    host.refresh?.();
+    for (let attempt = 0; attempt < 100 && runs < readsBefore + 1; attempt++)
+      await new Promise((done) => setTimeout(done, 10));
+    await host.updateComplete;
+    let enabled = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await host.updateComplete;
+      if ((host.querySelector('button') as HTMLButtonElement | null)?.disabled === false) {
+        enabled = true;
+        break;
+      }
+      await new Promise((done) => setTimeout(done, 10));
+    }
+    return {readsBefore, readsAfterResend, runsAfter: runs, disabledBefore, enabled};
+  });
+  assert.equal(outcome.readsBefore, 1);
+  assert.equal(outcome.readsAfterResend, 1);
+  assert.equal(outcome.disabledBefore, true);
+  assert.equal(outcome.runsAfter, 2);
+  assert.equal(outcome.enabled, true);
+});
+
+test('delayed use-current confirmation for issue A never renders on issue B', async (t) => {
+  const page = await openView(t, 'overview', []);
+  const outcome = await page.evaluate(async () => {
+    const RUN_A = 'a'.repeat(32);
+    const RUN_B = 'b'.repeat(32);
+    const DIGEST = 'b'.repeat(64);
+    const payload = (id: string) => ({
+      run: {
+        id,
+        project_id: 'p0123456789abcdef01234567',
+        role: 'soda-coder',
+        harness: 'codex-fixture',
+        model: 'fixture',
+        input_sha: 'a'.repeat(40),
+        reconciled: false,
+      },
+      context_selection: {
+        fingerprint: DIGEST,
+        scope_digest: DIGEST,
+        required_digest: DIGEST,
+        availability: 'complete',
+        reason: 'required context is complete',
+        action: 'hold',
+        can_use_current: true,
+      },
+    });
+    let releaseA: ((value: Response) => void) | undefined;
+    const transport = {
+      request: async (path: string, init?: RequestInit) => {
+        if (path === 'repositories/7/factory/issues/12')
+          return Response.json({journey: {lineage: {latest_run: RUN_A}}});
+        if (path === 'repositories/7/factory/issues/13')
+          return Response.json({journey: {lineage: {latest_run: RUN_B}}});
+        if ((init?.method ?? 'GET') === 'GET' && path === `factory/runs/${RUN_A}`) return Response.json(payload(RUN_A));
+        if ((init?.method ?? 'GET') === 'GET' && path === `factory/runs/${RUN_B}`) return Response.json(payload(RUN_B));
+        if (path === `factory/runs/${RUN_A}/actions`) {
+          await new Promise<Response>((resolve) => {
+            releaseA = resolve;
+          });
+          const body = JSON.parse(String(init?.body ?? '{}')) as {command_id?: string};
+          return Response.json({
+            command_id: body.command_id,
+            run_id: RUN_A,
+            bundle: 'current',
+            scope_digest: DIGEST,
+            fingerprint: DIGEST,
+            required_digest: DIGEST,
+          });
+        }
+        return Response.json({}, {status: 404});
+      },
+    };
+    type Host = HTMLElement & {
+      context: unknown;
+      updateComplete: Promise<unknown>;
+      selectedRun?: {id: string};
+    };
+    const host = document.createElement('soda-factory-context-resolution') as unknown as Host;
+    let resolved = 0;
+    host.addEventListener('soda-context-resolved', () => {
+      resolved += 1;
+    });
+    document.querySelector('main')?.append(host);
+    const button = () => host.querySelector('button') as HTMLButtonElement | null;
+    const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+    host.context = {transport, repository: '7', issue: '12'};
+    await host.updateComplete;
+    for (let attempt = 0; attempt < 100 && host.selectedRun?.id !== RUN_A; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+    }
+    for (let attempt = 0; attempt < 100 && button()?.disabled !== false; attempt++) await sleep(10);
+    await host.updateComplete;
+    button()?.click();
+    await host.updateComplete;
+    await sleep(20);
+    // Open issue B while A's confirmation reply is still delayed.
+    host.context = {transport, repository: '7', issue: '13'};
+    await host.updateComplete;
+    for (let attempt = 0; attempt < 100 && host.selectedRun?.id !== RUN_B; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+    }
+    let bEnabled = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await host.updateComplete;
+      if (button()?.disabled === false) {
+        bEnabled = true;
+        break;
+      }
+      await sleep(10);
+    }
+    const statusOnB = host.textContent ?? '';
+    releaseA?.(Response.json({}));
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+    }
+    return {
+      selectedId: host.selectedRun?.id,
+      bEnabled,
+      statusOnB,
+      statusAfter: host.textContent ?? '',
+      buttonDisabledAfter: button()?.disabled ?? null,
+      resolved,
+    };
+  });
+  assert.equal(outcome.selectedId, 'b'.repeat(32));
+  assert.equal(outcome.bEnabled, true);
+  assert.equal(outcome.statusOnB.includes('Current required context selected'), false);
+  assert.equal(outcome.statusAfter.includes('Current required context selected'), false);
+  assert.equal(outcome.buttonDisabledAfter, false);
+  assert.equal(outcome.resolved, 0);
+});
+
+test('same-issue project refresh during a delayed use-current unbinds the stale action', async (t) => {
+  // True Project Work regression (FJ-450): the Refresh plans click is an
+  // ordinary UI click on the real soda-project-work element — never a
+  // direct child refresh() call. A delayed issue-based Use-current POST is
+  // pending when the refresh lands a changed same-issue selection; the old
+  // busy must clear, the new Use-current must enable and bind the new
+  // digests, and the original server op is preserved (no retry, no
+  // command-status readback once its reply finally arrives).
+  const page = await browser.newPage();
+  page.setDefaultTimeout(5000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  t.after(async () => {
+    await page.close();
+    assert.deepEqual(errors, []);
+  });
+  // Same-origin blank document (no fixture bundle): a secure http origin
+  // keeps crypto.randomUUID available while avoiding double custom-element
+  // registration with the fixture shell.
+  await page.goto(new URL('/blank-450', server.url.href).href);
+  const bundle = await Bun.build({
+    entrypoints: [path.join(root, 'frontend/spaces/sodaspaces-project-work.ts')],
+    target: 'browser',
+    format: 'esm',
+    define: {'process.env.NODE_ENV': '"production"'},
+  });
+  assert(bundle.success, `Project work bundle build failed: ${bundle.logs.join('\n')}`);
+  const [entry] = bundle.outputs;
+  assert(entry);
+  await page.addScriptTag({content: await entry.text(), type: 'module'});
+  await page.waitForFunction(() => customElements.get('soda-project-work') !== undefined);
+  const outcome = await page.evaluate(async () => {
+    const RUN_A = 'a'.repeat(32);
+    const DIGEST_A = 'a'.repeat(64);
+    const DIGEST_B = 'b'.repeat(64);
+    const posted: {command_id?: unknown; context?: unknown}[] = [];
+    let commandReads = 0;
+    const state = {refreshed: false, releaseOld: undefined as undefined | (() => void), resolved: 0};
+    const selection = (digest: string) => ({
+      fingerprint: digest,
+      scope_digest: digest,
+      required_digest: digest,
+      availability: 'complete',
+      reason: 'required context is complete',
+      action: 'hold',
+      can_use_current: true,
+    });
+    const transport = {
+      request: async (pathStr: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        if (method === 'GET' && pathStr.startsWith('factory/intents')) return Response.json({intents: []});
+        if (pathStr === 'repositories/7/factory/issues/12')
+          return Response.json({journey: {lineage: {latest_run: RUN_A}}});
+        if (method === 'GET' && pathStr === `factory/runs/${RUN_A}`)
+          return Response.json({
+            run: {
+              id: RUN_A,
+              project_id: 'p0123456789abcdef01234567',
+              role: 'soda-coder',
+              harness: 'codex-fixture',
+              model: 'fixture',
+              input_sha: 'a'.repeat(40),
+              reconciled: false,
+            },
+            context_selection: selection(state.refreshed ? DIGEST_B : DIGEST_A),
+          });
+        if (pathStr === `factory/runs/${RUN_A}/actions`) {
+          const body = JSON.parse(String(init?.body ?? '{}')) as {command_id?: unknown; context?: unknown};
+          posted.push(body);
+          if (posted.length === 1) await new Promise<void>((resolve) => void (state.releaseOld = resolve));
+          const context = body.context as {fingerprint?: unknown; scope_digest?: unknown; required_digest?: unknown};
+          return Response.json({
+            command_id: body.command_id,
+            run_id: RUN_A,
+            bundle: 'current',
+            scope_digest: context?.scope_digest,
+            fingerprint: context?.fingerprint,
+            required_digest: context?.required_digest,
+          });
+        }
+        if (method === 'GET' && pathStr.startsWith('factory/commands/')) {
+          commandReads += 1;
+          return Response.json({}, {status: 404});
+        }
+        return Response.json({}, {status: 404});
+      },
+    };
+    type Host = HTMLElement & {context: unknown; active: boolean; surface: string; updateComplete: Promise<unknown>};
+    const host = document.createElement('soda-project-work') as unknown as Host;
+    host.addEventListener('soda-context-resolved', () => {
+      state.resolved += 1;
+    });
+    document.body.append(host);
+    host.context = {
+      transport,
+      mode: 'project',
+      repository: {id: '7', name: '/soda-tester/demo'},
+      repositoryNames: new Map(),
+    };
+    host.active = true;
+    host.surface = 'work';
+    const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+    const buttonByName = (name: string) =>
+      ([...host.querySelectorAll('button')].find((entry) => entry.textContent?.trim() === name) ?? null) as
+        | HTMLButtonElement
+        | null;
+    const childStatus = () =>
+      (host.querySelector('soda-factory-context-resolution')?.querySelector('p[role="status"]')?.textContent ?? '');
+    for (let attempt = 0; attempt < 100 && !buttonByName('Open requirements review'); attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+    }
+    const details = host.querySelector('details') as HTMLDetailsElement | null;
+    const input = host.querySelector('input[inputmode="numeric"]') as HTMLInputElement | null;
+    const opened = !!details && !!input && buttonByName('Open requirements review') !== null;
+    if (!details || !input) {
+      return {
+        pendingStatus: '',
+        opened,
+        initiallyEnabled: false,
+        enabledAfterRefresh: false,
+        statusAfterRefresh: '',
+        afterOld: {status: '', enabled: false, posts: posted.length, resolved: state.resolved, commandReads},
+        successAfterNew: false,
+        resolvedFinal: state.resolved,
+        posts: [] as {command: unknown; context: unknown}[],
+      };
+    }
+    details.open = true;
+    input.value = '12';
+    input.dispatchEvent(new Event('input', {bubbles: true, composed: true}));
+    await host.updateComplete;
+    // Ordinary UI clicks from here on: no direct child method calls.
+    buttonByName('Open requirements review')?.click();
+    let useCurrent: HTMLButtonElement | null = null;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+      useCurrent = buttonByName('Use current required context');
+      if (useCurrent?.disabled === false) break;
+    }
+    const initiallyEnabled = useCurrent?.disabled === false;
+    useCurrent?.click();
+    for (let attempt = 0; attempt < 100 && childStatus() !== 'Recording your current-context choice…'; attempt++)
+      await sleep(10);
+    const pendingStatus = childStatus();
+    // Same-issue inputs are corrected server-side; the genuine Project
+    // Work refresh click re-reads the same issue and lands a changed
+    // selection while the first POST is still delayed.
+    state.refreshed = true;
+    buttonByName('Refresh plans')?.click();
+    let enabledAfterRefresh = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+      if (buttonByName('Use current required context')?.disabled === false) {
+        enabledAfterRefresh = true;
+        break;
+      }
+    }
+    const statusAfterRefresh = childStatus();
+    // The original server op finally replies; it must be ignored (never
+    // rendered, never retried, no command-status readback).
+    state.releaseOld?.();
+    for (let attempt = 0; attempt < 50; attempt++) await sleep(10);
+    await host.updateComplete;
+    const afterOld = {
+      status: childStatus(),
+      enabled: buttonByName('Use current required context')?.disabled === false,
+      posts: posted.length,
+      resolved: state.resolved,
+      commandReads,
+    };
+    buttonByName('Use current required context')?.click();
+    let successAfterNew = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await sleep(10);
+      await host.updateComplete;
+      if (childStatus().includes('Current required context selected. Factory will recheck this run before starting.')) {
+        successAfterNew = true;
+        break;
+      }
+    }
+    return {
+      pendingStatus,
+      opened,
+      initiallyEnabled,
+      enabledAfterRefresh,
+      statusAfterRefresh,
+      afterOld,
+      successAfterNew,
+      resolvedFinal: state.resolved,
+      posts: posted.map((body) => ({
+        command: body.command_id,
+        context: body.context,
+      })),
+    };
+  });
+  assert.equal(outcome.opened, true);
+  assert.equal(outcome.initiallyEnabled, true);
+  assert.equal(outcome.pendingStatus, 'Recording your current-context choice…');
+  assert.equal(outcome.enabledAfterRefresh, true);
+  assert.equal(outcome.statusAfterRefresh.includes('Recording your current-context choice'), false);
+  assert.equal(outcome.statusAfterRefresh.includes('Current required context selected'), false);
+  assert.equal(outcome.afterOld.posts, 1);
+  assert.equal(outcome.afterOld.resolved, 0);
+  assert.equal(outcome.afterOld.commandReads, 0);
+  assert.equal(outcome.afterOld.enabled, true);
+  assert.equal(outcome.afterOld.status.includes('Current required context selected'), false);
+  assert.equal(outcome.successAfterNew, true);
+  assert.equal(outcome.resolvedFinal, 1);
+  assert.equal(outcome.posts.length, 2);
+  assert.deepEqual(outcome.posts[0]?.context, {
+    fingerprint: 'a'.repeat(64),
+    scope_digest: 'a'.repeat(64),
+    required_digest: 'a'.repeat(64),
+  });
+  assert.deepEqual(outcome.posts[1]?.context, {
+    fingerprint: 'b'.repeat(64),
+    scope_digest: 'b'.repeat(64),
+    required_digest: 'b'.repeat(64),
+  });
+  assert.match(String(outcome.posts[0]?.command), /^[a-f0-9]{32}$/);
+  assert.match(String(outcome.posts[1]?.command), /^[a-f0-9]{32}$/);
+  assert.notEqual(outcome.posts[0]?.command, outcome.posts[1]?.command);
+});
+
 test('intent overview failures surface unavailable with no fallback reads', async (t) => {
   const bait: StubRoute[] = [
     {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
@@ -1299,4 +1921,93 @@ test('intent overview failures surface unavailable with no fallback reads', asyn
     assert.deepEqual(scope.issues, []);
     assert.equal(await overview.getByText('No counted work.').count(), 0);
   }
+});
+
+test('work journey dedups delivered evidence on unchanged rebind with preserved history', async (t) => {
+  const successor = 'd' + 'a'.repeat(24);
+  const acceptance = 'd' + 'b'.repeat(24);
+  const completion = '9'.repeat(32);
+  const publication = '8'.repeat(32);
+  const manifest = '7'.repeat(64);
+  const journey = {
+    repository: '7',
+    issue: '12',
+    observed_unix: 1720000100,
+    phases: [],
+    tasks: [{key: 'task-plan', lane: 'a', issue: '12', state: 'complete'}],
+    commits: [],
+    findings: [],
+    corrections: [],
+    judgments: [],
+    gates: [],
+    adoptions: [
+      {intent: INTENT, revision: REVISION, state: 'adopted', task: 'task-plan', issue_id: '12', acceptance},
+      {intent: INTENT, revision: successor, state: 'adopted', task: 'task-plan', issue_id: '12', acceptance},
+    ],
+    delivered_tasks: [{task: 'task-plan', issue: '12', acceptance, completion, publication, generation: 2}],
+    verifications: [{intent: INTENT, revision: REVISION, source_commit: HEAD, manifest}],
+  };
+  const page = await openView(t, 'detail', [
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: {...issueDetail, journey}},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+  ]);
+  const detail = page.locator('soda-factory-work-detail');
+  const workJourney = detail.getByRole('region', {name: 'Work journey', exact: true});
+  await workJourney.getByText('1 delivered tasks').waitFor();
+  await workJourney.getByText('1 verified applications').waitFor();
+  assert.equal(await workJourney.getByText('Task task-plan delivered on native issue #12').count(), 1);
+  assert.equal(
+    await workJourney.getByText(`Verified application revision ${REVISION.slice(0, 9)}`).count(),
+    1
+  );
+  await workJourney.getByText(`at revision ${REVISION.slice(0, 9)}`).waitFor();
+  await workJourney.getByText(`at revision ${successor.slice(0, 9)}`).waitFor();
+  assert.equal(await workCalls(page).then((calls) => calls.filter((call) => call.method === 'POST').length), 0);
+  // Exact evidence values render as text: the delivered row names the
+  // canonical completion, publication and generation; the verified row
+  // names the recorded source and manifest.
+  await workJourney
+    .getByText(
+      `Task task-plan delivered on native issue #12 (acceptance ${acceptance.slice(0, 9)}): ` +
+        `completion ${completion.slice(0, 9)} via publication ${publication.slice(0, 9)} (generation 2).`,
+      {exact: true}
+    )
+    .waitFor();
+  await workJourney
+    .getByText(
+      `Verified application revision ${REVISION.slice(0, 9)} of intent ${INTENT.slice(0, 9)}: ` +
+        `trusted check passed at source ${HEAD.slice(0, 12)} (manifest ${manifest.slice(0, 12)}).`,
+      {exact: true}
+    )
+    .waitFor();
+  // Native navigation lives only on the "Open issue" anchors (one task
+  // row plus two preserved adoption rows); every anchor names the
+  // exact native issue URL, never an evidence identity.
+  const issueLinks = workJourney.getByRole('link', {name: 'Open issue'});
+  assert.equal(await issueLinks.count(), 3);
+  for (let i = 0; i < 3; i++) {
+    assert.equal(await issueLinks.nth(i).getAttribute('href'), '/soda-tester/demo/issues/12');
+  }
+  // Refresh re-reads through GET only: no POST, PUT, PATCH or DELETE
+  // may fire while the journey reloads.
+  await page.evaluate(
+    (next) => window.factoryWork.setRoutes(next),
+    [
+      {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: {...issueDetail, journey}},
+      {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    ]
+  );
+  await page
+    .locator('soda-factory-work-journey')
+    .getByRole('button', {name: 'Refresh journey', exact: true})
+    .click();
+  await page.waitForFunction(() => window.factoryWork.calls().length >= 1);
+  await workJourney.getByText('1 delivered tasks').waitFor();
+  const refreshCalls = await workCalls(page);
+  assert.ok(refreshCalls.length >= 1);
+  assert.ok(refreshCalls.some((call) => call.path === 'repositories/7/factory/issues/12'));
+  assert.equal(
+    refreshCalls.filter((call) => call.method !== 'GET').length,
+    0
+  );
 });

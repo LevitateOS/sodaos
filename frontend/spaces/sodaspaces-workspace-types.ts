@@ -7,7 +7,7 @@ import type {LayoutEntry, Minimum} from './sodaspaces-layout.js';
 import type {TerminalContext, mountTerminal} from './sodaspaces-terminal.js';
 import type {MountContext} from './fountain-browser-contract.js';
 
-export type WorkspaceView = 'work' | 'plans' | 'terminal' | 'sessions' | 'project';
+export type WorkspaceView = 'feed' | 'app' | 'work' | 'plans' | 'terminal' | 'sessions' | 'project';
 
 export type WorkspaceContext = {
   transport: PreparedExtensionMount;

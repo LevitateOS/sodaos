@@ -178,9 +178,22 @@ Corrected accepted assumptions
 enter native requirements, while rejected assumptions cannot impose their old
 constraints. Consequential contradictions require clarification before generation.
 
-Repository selection follows product review. The accepted revision binds that
-repository before generated work is admitted. Creating the persistent Project
+Repository selection follows the initial product review and binds a saved draft.
+The request stays open while native planning runs. **Prepare project** opens the
+existing owner/profile/network controls when preparation is needed and returns
+to that same request. Creating the persistent Project
 remains an explicit action with existing owner/profile/network checks. Navigation,
 review entry and department selection cannot provision a Project, enroll an
 account or grant access. Failure after acceptance preserves the durable request
 and displays pending native generation rather than pretending issues exist.
+
+The early keyword-selected comparison is labeled a starter. The admitted native
+planning agent must return two request-specific walkthroughs alongside its task
+candidates. Their typed content preserves the exact objective, source facts,
+declined meanings and authorized outcome IDs. The author is the planning agent;
+this transport is the existing coder/decompose execution, not a separate Product
+Lead run or JEV text generation. **Check walkthrough** explicitly asks JEV to
+compare the alternatives and check the recommendation before **Accept and build**.
+Findings stay visible for correction. Progress GETs only replay retained judgment
+receipts; they cannot reserve allowance or call a model. A completed older plan
+without authored content says so and exposes replanning in Planning details.

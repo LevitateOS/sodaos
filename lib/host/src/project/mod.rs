@@ -43,7 +43,7 @@ pub use self::confirmation::{
 // that never runs a restart; the re-export serves the real library
 // (`tailnet/forgejo.rs`).
 #[allow(unused_imports)]
-pub use self::executor::{Executor, Native, NativeStatusOnly};
+pub use self::executor::{BoundedError, Executor, Native, NativeStatusOnly};
 // `muse_serve_oracle` compiles this root through a private `#[path]` copy
 // that never touches the crate-visible specs; the re-export serves the
 // real library (`prepare/helper.rs`).

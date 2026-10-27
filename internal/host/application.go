@@ -16,6 +16,9 @@ func (r *applicationResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	keys := []string{"id", "revision", "container", "image", "running", "ready", "origin"}
+	if _, ok := fields["bundle_file_sha256"]; ok {
+		keys = append(keys, "bundle_file_sha256")
+	}
 	if len(fields) != len(keys) {
 		return fmt.Errorf("invalid native application observation shape")
 	}

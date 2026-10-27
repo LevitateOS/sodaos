@@ -76,6 +76,84 @@ func TestLibraryMaintenanceIssueRoutingAndTerminal(t *testing.T) {
 	}
 }
 
+// TestSettleForeignFinishKeepsReceiptAccepted pins the FJ-v3-538/FUX26
+// settlement joint. FUX26 intentionally changed the pinned 538
+// behavior, and this pin now records the corrected contract: ErrNotFound
+// from FinishAssignment is ambiguous (a concurrent foreign finish, a
+// missing allowance, or a stale input rollback), so the settler re-reads
+// the assignment instead of settling unconditionally. The 538 pin
+// advanced recorded→accepted on every ErrNotFound, which stranded
+// still-assigned work behind an accepted receipt; only a genuinely
+// terminal re-read settles now, and still-assigned work returns the
+// refusal with its receipt left recorded for a later pass. This pins
+// settler logic against a stub; the PG CAS and allowance paths that
+// produce ErrNotFound are covered by the store tests and
+// TestSettleMissingAllowanceKeepsReceiptRecordedPGDrive.
+func TestSettleForeignFinishKeepsReceiptAccepted(t *testing.T) {
+	newStub := func(t *testing.T) (*stubSettleStore, factory.Assignment) {
+		t.Helper()
+		a := phaseTestAssignment(t, project.ExecutionMaintainLibrary, project.RoleReviewer, false)
+		a.PublicationAssignment = ""
+		if err := a.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		stub := fw40Stub(t, a, factory.MCPToolFinishLibraryMaintenance, map[string]any{"title": "Maintenance finished", "summary": "Source notes consolidated.", "completed": []string{"Consolidated duplicate entries"}})
+		stub.finishErr = store.ErrNotFound
+		return stub, a
+	}
+	// A concurrent foreign finish consumes the assignment between the
+	// settler's initial read and its finish: the terminal re-read still
+	// settles accepted with the during-settlement note.
+	t.Run("concurrent finish settles", func(t *testing.T) {
+		stub, a := newStub(t)
+		foreign := a
+		foreign.Stage = factory.AssignmentFinished
+		stub.reread, stub.rereadOK = foreign, true
+		settled, err := SettleMCPTerminalProposal(context.Background(), stub, a.ID, time.Now())
+		if err != nil || !settled {
+			t.Fatalf("foreign finish: settled=%v err=%v", settled, err)
+		}
+		if len(stub.finished) != 0 {
+			t.Fatalf("foreign finish wrote %d assignments, want 0", len(stub.finished))
+		}
+		if stub.lastReceipt.State != factory.MCPReceiptAccepted || stub.lastReceipt.Reason != "assignment finished during settlement" {
+			t.Fatalf("receipt=%+v, want accepted with the during-settlement note", stub.lastReceipt)
+		}
+	})
+	// A stale refusal leaves the assignment assigned: the settler
+	// returns the miss with the receipt recorded, never accepted.
+	t.Run("stale refusal keeps receipt recorded", func(t *testing.T) {
+		stub, a := newStub(t)
+		settled, err := SettleMCPTerminalProposal(context.Background(), stub, a.ID, time.Now())
+		if err == nil || settled {
+			t.Fatalf("stale refusal: settled=%v err=%v, want a refusal", settled, err)
+		}
+		if !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("stale refusal error=%v, want the store miss surfaced", err)
+		}
+		if len(stub.finished) != 0 {
+			t.Fatalf("stale refusal wrote %d assignments, want 0", len(stub.finished))
+		}
+		if stub.receiptState != factory.MCPReceiptRecorded || stub.advances != 0 {
+			t.Fatalf("receipt advanced on a stale refusal: state=%q advances=%d", stub.receiptState, stub.advances)
+		}
+	})
+	// A transient failure on the re-read itself returns the error with the
+	// receipt left recorded for a later pass — never accepted, never refused
+	// as terminal.
+	t.Run("transient reread failure keeps receipt recorded", func(t *testing.T) {
+		stub, a := newStub(t)
+		stub.rereadErr = errors.New("connection reset by peer")
+		settled, err := SettleMCPTerminalProposal(context.Background(), stub, a.ID, time.Now())
+		if err == nil || settled {
+			t.Fatalf("reread failure: settled=%v err=%v, want the transient error", settled, err)
+		}
+		if stub.receiptState != factory.MCPReceiptRecorded || stub.advances != 0 {
+			t.Fatalf("receipt advanced on a reread failure: state=%q advances=%d", stub.receiptState, stub.advances)
+		}
+	})
+}
+
 func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 	for _, work := range []struct{ role, phase, profile, finish string }{
 		{"library_admin", project.ExecutionMaintainLibrary, string(factory.MCPProfileLibraryAdmin), string(factory.MCPToolFinishLibraryMaintenance)},

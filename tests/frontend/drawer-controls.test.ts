@@ -27,7 +27,13 @@ test('project view tabs read members on Access without lifetime writes', async (
   const page = await fixture(t);
   await refresh(page);
   const count = await page.evaluate(() => window.drawerFixture.calls.length);
-  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Environment');
+  // The soda theme intentionally uppercases rendered button text, so the
+  // selected tab reads by its semantic label, stable with or without the
+  // applied cascade.
+  assert.equal(
+    await page.locator('[role=tab][aria-selected=true]').evaluate((el) => el.textContent?.trim()),
+    'Environment'
+  );
   await click(page, 'Access');
   assert.equal(await page.getByRole('tabpanel', {name: 'Access'}).getAttribute('hidden'), null);
   await click(page, 'Environment');
@@ -45,7 +51,7 @@ test('project view tabs read members on Access without lifetime writes', async (
   assert.deepEqual(await writes(page), []);
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   await page.getByRole('tab', {name: 'Environment', exact: true}).press('ArrowRight');
-  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Access');
+  assert.equal(await page.locator('[role=tab][aria-selected=true]').evaluate((el) => el.textContent?.trim()), 'Access');
   assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Access');
 });
 test('hidden access view cannot remove a key through a synthetic click', async (t) => {

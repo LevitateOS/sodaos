@@ -161,15 +161,8 @@ func (p VerificationManifestProposal) Digest() string {
 
 func (p VerificationManifestProposal) ValidateOutcomes(r IntentRevision) error {
 	want := map[string]bool{}
-	for _, outcome := range r.EffectiveOutcomes {
+	for _, outcome := range ResolvedScope(r) {
 		want[outcome] = true
-	}
-	if len(want) == 0 {
-		for _, idea := range r.Ideas {
-			if idea.Decision == "accept" || idea.Decision == "edit" {
-				want[idea.ID] = true
-			}
-		}
 	}
 	got, err := validateManifestOutcomes(p)
 	if err != nil || len(want) == 0 || len(want) != len(got) {

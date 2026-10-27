@@ -5,19 +5,23 @@ import type {
   JourneyAdoption,
   JourneyCommit,
   JourneyCorrection,
+  JourneyDeliveredTask,
   JourneyFinding,
   JourneyGate,
   JourneyJudgment,
   JourneyPhase,
   JourneyTask,
+  JourneyVerifiedApp,
   WorkJourney,
 } from './sodaspaces-factory-work-journey-response.js';
 
 // Work-journey presentation. Model builders turn one issue's recorded
-// facts into display state; render helpers
-// project those models to Lit templates. No transport, identity lookup
-// or mutable state lives here. Actual persisted readback binding belongs
-// to the read-only work-journey element.
+// facts into display state; render helpers project those models to Lit
+// templates. No transport, identity lookup or mutable state lives here.
+// Evidence identities (commits, digests, acceptances, completions) render
+// as text only; native navigation is built solely through the
+// nativeIssueLink/nativePullLink helpers, so evidence and native links
+// never mix. The read-only work-journey element owns the binding.
 
 export function describeJourneyPhase(phase: JourneyPhase): string {
   return `Phase ${phase.phase}: ${phase.state}.`;
@@ -116,11 +120,60 @@ export function describeJourneyGate(gate: JourneyGate): JourneyGateModel {
   };
 }
 
-export function describeJourneyAdoption(adoption: JourneyAdoption): string {
-  return (
-    `Proposal adoption ${adoption.state}: intent ${adoption.intent.slice(0, 9)} ` +
-    `at revision ${adoption.revision.slice(0, 9)}. Adoption names the bound revision only.`
-  );
+export interface JourneyAdoptionModel {
+  readonly text: string;
+  readonly link: string | undefined;
+}
+
+// describeJourneyAdoption projects one recorded adoption: the adopted
+// intent revision with its exact task binding. Evidence identities
+// (intent, revision, task, acceptance) render as text; the native issue
+// behind the binding gets the only link, built separately.
+export function describeJourneyAdoption(adoption: JourneyAdoption, repositoryPath: string): JourneyAdoptionModel {
+  return {
+    text:
+      `Proposal adoption ${adoption.state}: intent ${adoption.intent.slice(0, 9)} ` +
+      `at revision ${adoption.revision.slice(0, 9)}, bound task ${adoption.task} ` +
+      `on native issue #${adoption.issue_id} (acceptance ${adoption.acceptance.slice(0, 9)}).`,
+    link: nativeIssueLink(repositoryPath, adoption.issue_id),
+  };
+}
+
+export interface JourneyDeliveredTaskModel {
+  readonly text: string;
+}
+
+// describeJourneyDeliveredTask projects one delivered-task evidence row:
+// the bound task with the canonical completion behind its native issue
+// and acceptance. Completion, publication and generation are evidence
+// identities and render as text: no native URL scheme names them, so no
+// link is invented for them. The native issue link lives on the adoption
+// and task rows, never duplicated here.
+export function describeJourneyDeliveredTask(delivered: JourneyDeliveredTask): JourneyDeliveredTaskModel {
+  return {
+    text:
+      `Task ${delivered.task} delivered on native issue #${delivered.issue} ` +
+      `(acceptance ${delivered.acceptance.slice(0, 9)}): completion ${delivered.completion.slice(0, 9)} ` +
+      `via publication ${delivered.publication.slice(0, 9)} (generation ${delivered.generation}).`,
+  };
+}
+
+export interface JourneyVerifiedAppModel {
+  readonly text: string;
+}
+
+// describeJourneyVerifiedApp projects one verified application revision:
+// the exact adopted revision whose trusted check passed, with the
+// recorded source commit and manifest digest. Both render as evidence
+// text; only a recorded F10 verification renders here, never a link to
+// an unverified claim.
+export function describeJourneyVerifiedApp(verified: JourneyVerifiedApp): JourneyVerifiedAppModel {
+  return {
+    text:
+      `Verified application revision ${verified.revision.slice(0, 9)} ` +
+      `of intent ${verified.intent.slice(0, 9)}: trusted check passed ` +
+      `at source ${verified.source_commit.slice(0, 12)} (manifest ${verified.manifest.slice(0, 12)}).`,
+  };
 }
 
 export interface WorkJourneyModel {
@@ -132,7 +185,9 @@ export interface WorkJourneyModel {
   readonly corrections: readonly string[];
   readonly judgments: readonly string[];
   readonly gates: readonly JourneyGateModel[];
-  readonly adoptions: readonly string[];
+  readonly adoptions: readonly JourneyAdoptionModel[];
+  readonly delivered: readonly JourneyDeliveredTaskModel[];
+  readonly verifications: readonly JourneyVerifiedAppModel[];
   readonly observedText: string;
 }
 
@@ -141,7 +196,14 @@ function journeyHeadline(journey: WorkJourney): string {
   if (journey.tasks.length > 0) parts.push(`${journey.tasks.length} tasks`);
   if (journey.findings.length > 0) parts.push(`${journey.findings.length} findings`);
   if (journey.gates.length > 0) parts.push(`${journey.gates.length} completion gates`);
-  return parts.length > 0 ? `Work journey: ${parts.join(' · ')}.` : 'No journey sections recorded.';
+  if (journey.delivered_tasks.length > 0) parts.push(`${journey.delivered_tasks.length} delivered tasks`);
+  if (journey.verifications.length > 0) parts.push(`${journey.verifications.length} verified applications`);
+  if (parts.length > 0) return `Work journey: ${parts.join(' · ')}.`;
+  return [journey.phases, journey.commits, journey.corrections, journey.judgments, journey.adoptions].some(
+    (rows) => rows.length
+  )
+    ? 'Recorded work history.'
+    : 'No journey sections recorded.';
 }
 
 // describeWorkJourney projects one recorded journey to display state.
@@ -157,48 +219,65 @@ export function describeWorkJourney(journey: WorkJourney, repositoryPath: string
     corrections: journey.corrections.map(describeJourneyCorrection),
     judgments: journey.judgments.map(describeJourneyJudgment),
     gates: journey.gates.map(describeJourneyGate),
-    adoptions: journey.adoptions.map(describeJourneyAdoption),
-    observedText: `Observed ${journey.observed_unix}.`,
+    adoptions: journey.adoptions.map((adoption) => describeJourneyAdoption(adoption, repositoryPath)),
+    delivered: journey.delivered_tasks.map(describeJourneyDeliveredTask),
+    verifications: journey.verifications.map(describeJourneyVerifiedApp),
+    observedText: describeJourneyObserved(journey.observed_unix),
   };
 }
 
+function describeJourneyObserved(observedUnix: number): string {
+  if (!Number.isSafeInteger(observedUnix) || observedUnix <= 0) return 'Observation time unrecorded.';
+  const date = new Date(observedUnix * 1000);
+  if (!Number.isFinite(date.getTime())) return 'Observation time unrecorded.';
+  return `Observed ${date.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}.`;
+}
+
 export function renderWorkJourney(model: WorkJourneyModel): TemplateResult {
+  const section = (title: string, rows: readonly (string | TemplateResult)[]) =>
+    rows.length
+      ? html`<section aria-label=${title}>
+          <h3>${title}</h3>
+          <ul>
+            ${rows.map((row) => html`<li>${row}</li>`)}
+          </ul>
+        </section>`
+      : '';
   return html`
     <section aria-label="Work journey">
       <p role="status">${model.headline}</p>
-      <ul>
-        ${model.phases.map((text) => html`<li>${text}</li>`)}
-      </ul>
-      <ul>
-        ${model.tasks.map(
-          (task) => html`<li>${task.text} ${task.link ? html`<a href=${task.link}>Open issue</a>` : ''}</li>`
-        )}
-      </ul>
-      <ul>
-        ${model.commits.map(
+      ${section('Recorded phases', model.phases)}
+      ${section(
+        'Tasks',
+        model.tasks.map((task) => html`${task.text} ${task.link ? html`<a href=${task.link}>Open issue</a>` : ''}`)
+      )}
+      ${section(
+        'Published candidates',
+        model.commits.map(
           (commit) =>
-            html`<li>
-              ${commit.text} ${commit.pullLink ? html`<a href=${commit.pullLink}>Open pull request</a>` : ''}
-            </li>`
-        )}
-      </ul>
-      <ul>
-        ${model.findings.map((text) => html`<li>${text}</li>`)}
-      </ul>
-      <ul>
-        ${model.corrections.map((text) => html`<li>${text}</li>`)}
-      </ul>
-      <ul>
-        ${model.judgments.map((text) => html`<li>${text}</li>`)}
-      </ul>
-      <ul>
-        ${model.gates.map(
-          (gate) => html`<li>${gate.gateText} ${gate.proposalText} ${gate.waitText ? html`${gate.waitText}` : ''}</li>`
-        )}
-      </ul>
-      <ul>
-        ${model.adoptions.map((text) => html`<li>${text}</li>`)}
-      </ul>
+            html`${commit.text} ${commit.pullLink ? html`<a href=${commit.pullLink}>Open pull request</a>` : ''}`
+        )
+      )}
+      ${section('Review findings', model.findings)} ${section('Corrections', model.corrections)}
+      ${section('Recorded decisions', model.judgments)}
+      ${section(
+        'Completion reviews',
+        model.gates.map((gate) => html`${gate.gateText} ${gate.proposalText} ${gate.waitText}`)
+      )}
+      ${section(
+        'Proposal adoption',
+        model.adoptions.map(
+          (adoption) => html`${adoption.text} ${adoption.link ? html`<a href=${adoption.link}>Open issue</a>` : ''}`
+        )
+      )}
+      ${section(
+        'Delivered tasks',
+        model.delivered.map((row) => html`${row.text}`)
+      )}
+      ${section(
+        'Verified application',
+        model.verifications.map((row) => html`${row.text}`)
+      )}
       <p>${model.observedText}</p>
     </section>
   `;

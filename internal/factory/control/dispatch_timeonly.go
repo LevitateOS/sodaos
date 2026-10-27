@@ -72,7 +72,11 @@ func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, o
 	}
 	prompt, err := StageIntentPlanningPrompt(head, in)
 	if err != nil {
-		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: err.Error()})
+		reason := DispatchErrStore
+		if errors.Is(err, ErrIntentPlanningPromptBound) {
+			reason = DispatchErrPromptBound
+		}
+		report.Errors = append(report.Errors, DispatchError{Reason: reason, Detail: err.Error()})
 		return report
 	}
 	occupancy, err := snapshotOccupancy(ctx, c.Store)

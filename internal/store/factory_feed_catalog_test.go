@@ -50,7 +50,11 @@ func TestEveryWorkerFeedComponentHasDurableToolPath(t *testing.T) {
 			cap = activateMCPCapability(t, ctx, s, cap)
 			content := map[string]any{"component_id": component.ID, "title": component.Label, "summary": "A concrete worker observation.", "question": "Which outcome should this issue deliver?", "severity": "warning", "scope": "project", "evidence_refs": []string{"src/main.go"}, "resolution": "Supply missing evidence", "completed": []string{"Reviewed the source"}, "remaining": []string{"Apply the change"}, "attempts": []string{"Read the source"}, "decision": "Use the existing interface", "rationale": "It matches the accepted request", "alternatives": []string{"Add a new interface"}}
 			if tool == factory.MCPToolReply {
-				id, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "Context for the reply", IdempotencyKey: factory.NewID()}, "7", "Owner", 1)
+				source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourceRecord, a.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Context for the reply", SourceKind: factory.CommentSourceRecord, SourceID: a.ID, IdempotencyKey: factory.NewID()}, "7", "Owner", 1, source)
 				if err != nil {
 					t.Fatal(err)
 				}

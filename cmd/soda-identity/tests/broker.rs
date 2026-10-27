@@ -762,3 +762,57 @@ fn connection_lists_refuse_relational_json_owner_and_state_mismatch() {
         1
     );
 }
+
+/// Concurrent opens of one retained 68 copy migrate exactly once: every
+/// opener succeeds instead of the second failing on the shared CREATE, the
+/// marker lands on 69 with the renewals journal present, and a reopen stays
+/// clean. Only isolated copies are ever degraded here; the live database is
+/// never touched. Row-level preservation across the upgrade is proven on the
+/// Go side against the same DDL; this target proves the Rust mirror takes
+/// the same serialized upgrade path.
+#[test]
+fn concurrent_open_migrates_retained_68_exactly_once() {
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let key = fixture_key();
+    drop(fixture.store(&key));
+    assert!(fixture.exec("DROP TABLE application_setup_renewals"));
+    assert!(fixture.exec("UPDATE schema_version SET version=68"));
+    let stores: Vec<_> = std::thread::scope(|s| {
+        let handles: Vec<_> = (0..8)
+            .map(|_| s.spawn(|| fixture.try_store(&key)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("opener thread live"))
+            .collect()
+    });
+    for (index, opened) in stores.iter().enumerate() {
+        assert!(
+            opened.is_ok(),
+            "concurrent opener {index} refused: {:?}",
+            opened.as_ref().err()
+        );
+    }
+    drop(stores);
+    assert_eq!(
+        fixture
+            .query_scalar("SELECT version::TEXT FROM schema_version")
+            .as_deref(),
+        Some("69"),
+        "concurrent migration missed the marker"
+    );
+    assert_eq!(
+        fixture
+            .query_scalar(
+                "SELECT count(*)::TEXT FROM information_schema.tables \
+                 WHERE table_schema='public' AND table_name='application_setup_renewals'"
+            )
+            .as_deref(),
+        Some("1"),
+        "concurrent migration left no journal"
+    );
+    drop(fixture.store(&key));
+}

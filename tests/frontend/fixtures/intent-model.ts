@@ -1,5 +1,68 @@
 import {intentRevision} from '../../../frontend/spaces/sodaspaces-intent-response';
-import type {IntentRevision} from '../../../frontend/spaces/sodaspaces-intent-response';
+import type {ConsistencyMismatch, IntentRevision} from '../../../frontend/spaces/sodaspaces-intent-response';
+
+// Synthetic planning-agent walkthroughs bound to one draft head, with the
+// clean JEV-shaped check the explicit review command would record. The
+// status read serves both without spending; only POST /plan/review (the
+// explicit Check walkthrough action) records a new check.
+function planWalkthroughs(head: IntentRevision) {
+  const alternatives = ['team_list', 'guided_steps'].map((key) => ({
+    key,
+    name: key === 'team_list' ? 'Team project list' : 'Guided project creation',
+    audience: 'Project owners and their team',
+    summary: 'Track the next action on a project.',
+    steps: [
+      {
+        actor: 'The project owner',
+        action: 'adds a project and its next action',
+        result: 'The team can see who will do what next',
+      },
+    ],
+    visibility: 'The project team sees its work',
+    consequences: 'Updates remain visible in the project',
+    evidence: 'The saved project tracker request',
+    outcomes: [head.objective],
+  }));
+  return {
+    producer: 'soda-planning-agent-v1',
+    supported: true,
+    intent: head.intent,
+    revision: head.id,
+    objective: head.objective,
+    facts: [head.objective],
+    unknowns: ['The team can refine labels after trying the first version.'],
+    alternatives,
+  };
+}
+
+function planReview(head: IntentRevision, walkthroughs: ReturnType<typeof planWalkthroughs>) {
+  const selected = walkthroughs.alternatives[0]!;
+  return {
+    content: walkthroughs,
+    challenges: [],
+    settled: [],
+    recommendation: {
+      producer: walkthroughs.producer,
+      intent: head.intent,
+      revision: head.id,
+      objective: head.objective,
+      recommended: selected.key,
+      alternative: selected,
+      outcomes: selected.outcomes,
+      constraints: [],
+      milestones: [{name: 'Track a project', result: 'The team sees its next action'}],
+      advice: 'a'.repeat(64),
+    },
+    consistency: {
+      producer: 'soda-authored-v1',
+      intent: head.intent,
+      revision: head.id,
+      mismatches: [] as ConsistencyMismatch[],
+      confidence: 0.9,
+      advice: 'b'.repeat(64),
+    },
+  };
+}
 
 // Synthetic planning peer for browser checks; no AI, funding or native mutations.
 export function createIntentModel() {
@@ -107,11 +170,29 @@ export function createIntentModel() {
           {status: 201}
         );
       }
-      return Response.json({
-        revision: head.id,
-        state: plans.has(head.id) ? 'completed' : 'none',
-        candidates: plans.has(head.id) ? 1 : 0,
-      });
+      if (!plans.has(head.id)) return Response.json({revision: head.id, state: 'none', candidates: 0});
+      const walkthroughs = planWalkthroughs(head);
+      const marker = head.objective.toLowerCase();
+      // Fixture variants for Work return replay: a recorded completed plan
+      // serves its walkthroughs with no check yet (Plan-ready) or with a
+      // blocking finding (Needs-correction), without any new POST.
+      if (marker.includes('plan-ready') && !marker.includes('needs-correction'))
+        return Response.json({revision: head.id, state: 'completed', candidates: 1, walkthroughs});
+      const review = planReview(head, walkthroughs);
+      if (marker.includes('needs-correction') || marker.includes('needs correction'))
+        review.consistency.mismatches = [
+          {class: 'unverified', detail: 'The walkthrough needs a correction before work can start.'},
+        ];
+      return Response.json({revision: head.id, state: 'completed', candidates: 1, walkthroughs, review});
+    }
+    const planCheck = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/plan\/review$/);
+    if (planCheck && method === 'POST' && body) {
+      const head = [...revisions.values()].reverse().find((revision) => revision.intent === planCheck[1]);
+      if (!head || head.state !== 'draft' || head.repository === '0') return new Response(null, {status: 409});
+      if (body.revision !== head.id) return new Response(null, {status: 412});
+      if (!plans.has(head.id)) return Response.json({error: {code: 'walkthrough_unavailable'}}, {status: 409});
+      const walkthroughs = planWalkthroughs(head);
+      return Response.json(planReview(head, walkthroughs));
     }
     if (method === 'GET') {
       const allowance = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/allowance$/);

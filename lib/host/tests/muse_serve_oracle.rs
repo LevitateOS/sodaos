@@ -941,7 +941,10 @@ impl Drop for EnvGuard {
 /// files, real admission record, real digest inventory. The executable opens
 /// with a valid 64-bit LE ELF header (machine 62) so guest verification
 /// accepts it. Never touches the network.
-fn fixture_bundle(root: &std::path::Path, version: &str) -> (soda_provider_tools::store::ReleaseIdentity, Vec<u8>) {
+fn fixture_bundle(
+    root: &std::path::Path,
+    version: &str,
+) -> (soda_provider_tools::store::ReleaseIdentity, Vec<u8>) {
     use soda_provider_tools::store;
     let mut exe = vec![0x7fu8, b'E', b'L', b'F', 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     exe.extend_from_slice(&[2, 0]); // ET_EXEC
@@ -1012,7 +1015,10 @@ fn host_snapshot_performs_due_check() {
     let snap = muse::fresh_provider_snapshot().expect("expired selection checks, retains bytes");
     assert_eq!(snap.selection.release.digest, release.digest);
     assert!(
-        matches!(snap.selection.freshness, store::Freshness::UpdateFailed { .. }),
+        matches!(
+            snap.selection.freshness,
+            store::Freshness::UpdateFailed { .. }
+        ),
         "the due check ran: Current became UpdateFailed instead of being trusted blind"
     );
     muse::release_provider_snapshot(snap);
@@ -1098,8 +1104,14 @@ fn prepare_ignores_legacy_pins_restages_store() {
             saw_binary_bytes = true;
         }
     }
-    assert!(saw_native_check, "guest verification targeted the staged binary");
-    assert!(saw_binary_bytes, "staged bytes are exactly the admitted bundle");
+    assert!(
+        saw_native_check,
+        "guest verification targeted the staged binary"
+    );
+    assert!(
+        saw_binary_bytes,
+        "staged bytes are exactly the admitted bundle"
+    );
     cleanup(&dir);
 }
 
@@ -1142,7 +1154,9 @@ fn host_execution_ref_survives_cleanup_until_released() {
     let mut snap = muse::fresh_provider_snapshot().expect("snapshot A");
     assert_eq!(snap.selection.release.digest, rel_a.digest);
     let digest_a = rel_a.digest.clone();
-    let token = snap.take_ref_token().expect("staging snapshot carries a ref");
+    let token = snap
+        .take_ref_token()
+        .expect("staging snapshot carries a ref");
     // The tokenless snapshot releases nothing.
     muse::release_provider_snapshot(snap);
     let mut execution = MuseExecution::default();
@@ -1239,6 +1253,9 @@ fn host_execution_ref_released_on_reserve_failure_preserved_when_uncertain() {
     muse::release_provider_ref(&rel_e.digest, &token_e.token);
     store::cleanup(&root).expect("cleanup runs after late release");
     assert!(!bundle_e.exists(), "late-released E collected");
-    assert!(rel_f.digest.len() == 64 && rel_g.digest.len() == 64, "fixture thread-through");
+    assert!(
+        rel_f.digest.len() == 64 && rel_g.digest.len() == 64,
+        "fixture thread-through"
+    );
     cleanup(&dir);
 }

@@ -2,8 +2,12 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
@@ -595,5 +599,152 @@ func TestCommentJudgeChoiceHelpers(t *testing.T) {
 	listed, ok := state["candidates"].([]map[string]any)
 	if !ok || len(listed) != 2 || listed[0]["summary"] != "filter work" {
 		t.Fatalf("state candidates missing evidence: %+v", state["candidates"])
+	}
+}
+
+// TestRecordInvitationThreadReachesOriginalAssignment proves the FUX14
+// API-level leg: an eligible role is invited on a real finished assignment
+// record (never a separate authored post), and its worker reply lands in the
+// original record thread behind the existing ResolveCommentSource and
+// FeedReplyIDs owners. JEV threshold, per-revision idempotency and the
+// receipt/consultation/reply loop exclusion are preserved.
+func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	ctx := context.Background()
+	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = raw.Close() })
+	now := time.Now().Unix()
+	digest := strings.Repeat("a", 64)
+	capability := factory.MCPCapability{
+		ID: factory.NewID(), AssignmentID: factory.NewID(), RunID: "run-1", Generation: 1,
+		Profile: factory.MCPProfileInspector, Subject: "review:42", Repository: 7,
+		Project:           "p" + strings.Repeat("d", 24),
+		PreparationDigest: digest, SourceDigest: "abc", AcceptedRevision: "rev-1",
+		Authority: digest, DeadlineUnix: time.Now().Add(time.Hour).Unix(),
+		State: factory.MCPCapabilityStaged,
+	}
+	eligible := factory.Assignment{
+		ID: capability.AssignmentID, AttemptRoot: capability.AssignmentID,
+		PublicationAssignment: capability.AssignmentID, ProjectID: capability.Project,
+		Role: "reviewer", Acceptance: "d" + strings.Repeat("a", 24),
+		Preparation:  "f" + strings.Repeat("b", 24),
+		Run:          capability.RunID, RunHistory: []string{capability.RunID},
+		Repository: 7, Issue: 42, CreatedUnix: now,
+		AcceptedContext: &factory.AcceptedContext{Title: "Equipment approval policy", Body: "Implement protected manager and Finance approvals without self-approval."},
+	}
+	eligibleRaw, err := json.Marshal(eligible)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,$2,'assigned',1,$3)`,
+		eligible.ID, eligible.Run, string(eligibleRaw)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,'{}')`, capability.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.StageMCPCapability(ctx, capability); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ActivateMCPCapability(ctx, capability.ID, capability.Generation, capability.RunID, capability.AssignmentID, capability.Authority, time.Now().Unix(), false); err != nil {
+		t.Fatal(err)
+	}
+	capability, err = s.GetMCPCapability(ctx, capability.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceID := factory.NewID()
+	source := factory.Assignment{
+		ID: sourceID, AttemptRoot: sourceID, PublicationAssignment: sourceID, ProjectID: capability.Project,
+		Role: "coder", Phase: "implement", Acceptance: "d" + strings.Repeat("a", 24),
+		Preparation: "f" + strings.Repeat("b", 24),
+		Run: "run-" + sourceID[:8], RunHistory: []string{"run-" + sourceID[:8]},
+		Repository: 7, Issue: 42, CreatedUnix: now, FinishedUnix: now,
+	}
+	result := factory.ResultSynthesized(sourceID, source.Run, "succeeded", "Implemented the delivery guard without self-approval; candidate abc123.", now)
+	source.Result = &result
+	sourceRaw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,$2,'finished',1,$3)`,
+		sourceID, source.Run, string(sourceRaw)); err != nil {
+		t.Fatal(err)
+	}
+	sources, err := s.ContributionSources(ctx)
+	if err != nil || len(sources) != 1 || sources[0] != sourceID {
+		t.Fatalf("record undiscovered via API owners: %v %v", sources, err)
+	}
+	review, err := s.ContributionContext(ctx, sourceID)
+	if err != nil || review.SourceKind != factory.CommentSourceRecord || len(review.Roles) != 1 {
+		t.Fatalf("record context via API owners: %+v %v", review, err)
+	}
+	if claimed, err := s.ClaimContributionReview(ctx, review); err != nil || !claimed {
+		t.Fatalf("record claim: %v %v", claimed, err)
+	}
+	for _, question := range factory.ContributionQuestions {
+		review.Calls = append(review.Calls, factory.ContributionCall{Assignment: capability.AssignmentID, Question: question, Answer: factory.PriorityAnswer{Model: "fixture-jev", Selected: "contribute", Probabilities: map[string]float64{"contribute": .95, "no_contribution": .05}, Confidence: .9}})
+	}
+	factory.SelectContribution(&review)
+	if review.State != "invited" {
+		t.Fatalf("record not invited: %+v", review)
+	}
+	if err := s.SettleContributionReview(ctx, review); err != nil {
+		t.Fatal(err)
+	}
+	invitation := factory.ContributionReviewInvitationID(review)
+	resolved, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourceRecord, sourceID)
+	if err != nil || resolved.ID != sourceID {
+		t.Fatalf("record source unresolved: %+v %v", resolved, err)
+	}
+	submit := func(tool factory.MCPTool, payload []byte) factory.MCPReceipt {
+		t.Helper()
+		submission := factory.MCPSubmission{
+			AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
+			CapabilityID: capability.ID, Tool: tool,
+			ExpectedInputDigest: capability.ScopeDigest(),
+			PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
+		}
+		receipt, err := s.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
+			SubmissionID: submission.SubmissionID, Tool: tool,
+			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", tool, err)
+		}
+		return receipt
+	}
+	receipt := submit(factory.MCPToolReply, []byte(`{"title":"Approval boundary","summary":"I checked the delivery guard and the self-approval case still fails before changing code.","reply_to":"`+invitation+`"}`))
+	thread, _, err := s.FeedReplyIDs(ctx, 7, "record", sourceID, 0)
+	if err != nil || len(thread) != 2 || thread[0] != receipt.FeedPostID || thread[1] != invitation {
+		t.Fatalf("reply missed original record thread: %v %v", thread, err)
+	}
+	page, err := s.MCPDiscussion(ctx, capability, invitation, "")
+	if err != nil || len(page.Items) != 2 || page.Items[0].ID != receipt.FeedPostID {
+		t.Fatalf("invited thread unreadable: %+v %v", page, err)
+	}
+	duplicate := factory.MCPSubmission{
+		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
+		CapabilityID: capability.ID, Tool: factory.MCPToolReply,
+		ExpectedInputDigest: capability.ScopeDigest(),
+		PayloadHash:         factory.MCPInputDigest([]byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`)),
+		Payload:             []byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`),
+	}
+	if _, err := s.RecordMCPSubmission(ctx, duplicate, factory.MCPReceipt{
+		SubmissionID: duplicate.SubmissionID, Tool: duplicate.Tool,
+		State: factory.MCPReceiptRecorded, InputDigest: duplicate.PayloadHash,
+	}); err == nil {
+		t.Fatal("record invitation admitted a second reply")
 	}
 }

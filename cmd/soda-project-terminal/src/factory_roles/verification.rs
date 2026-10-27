@@ -281,6 +281,21 @@ pub(crate) fn result(ctx: &crate::Ctx, dir: &Path, r: &Request) -> Result<StateV
         ),
         ("retirement".into(), str_value(retirement)),
     ]);
+    if phase == "completed" {
+        for (_, _, retained, key) in super::verification_bundle::OUTPUTS {
+            match snapshot_bytes(
+                ctx,
+                &dir.join(retained),
+                super::verification_bundle::MAX_BUNDLE,
+            ) {
+                Ok(bytes) => {
+                    fields.push((key.into(), str_value(&sha::hex(&Sha256::digest(&bytes)))))
+                }
+                Err(Error::Missing) => {}
+                Err(error) => return Err(error),
+            }
+        }
+    }
     Ok(StateValue::Object(fields))
 }
 
@@ -313,6 +328,49 @@ pub(crate) fn start(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, E
 pub(crate) fn inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
     let r = Request::parse(data, true)?;
     result(ctx, &directory(ctx, &r)?, &r)
+}
+
+pub(crate) fn export_bundle(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
+    use base64::Engine;
+    let environment = data
+        .get("environment")
+        .and_then(StateValue::as_str)
+        .unwrap_or("");
+    let (_, _, retained, key) = super::verification_bundle::OUTPUTS
+        .iter()
+        .find(|(name, _, _, _)| *name == environment)
+        .ok_or_else(|| Error::fail("choose company or preview application output"))?;
+    let fields =
+        validate::as_object(data).ok_or_else(|| Error::fail("invalid application export"))?;
+    let request = StateValue::Object(
+        fields
+            .iter()
+            .filter(|(key, _)| key != "environment")
+            .cloned()
+            .collect(),
+    );
+    let r = Request::parse(&request, true)?;
+    let dir = directory(ctx, &r)?;
+    let state = result(ctx, &dir, &r)?;
+    if state.get("phase").and_then(StateValue::as_str) != Some("completed") {
+        return fail("application bundle requires a passed retired check");
+    }
+    let bytes = snapshot_bytes(
+        ctx,
+        &dir.join(retained),
+        super::verification_bundle::MAX_BUNDLE,
+    )?;
+    let digest = sha::hex(&Sha256::digest(&bytes));
+    if state.get(key).and_then(StateValue::as_str) != Some(digest.as_str()) {
+        return fail("application bundle differs from native receipt");
+    }
+    Ok(crate::emit::obj(vec![
+        ("sha256", str_value(&digest)),
+        (
+            "bundle",
+            str_value(&base64::engine::general_purpose::STANDARD.encode(bytes)),
+        ),
+    ]))
 }
 
 pub(crate) fn stop(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {

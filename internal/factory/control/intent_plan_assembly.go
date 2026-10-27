@@ -48,14 +48,20 @@ func expandContextSelection(paths []string) []string {
 
 // chunkApprovedSelections groups approved paths so every read's native
 // closure — the chunk plus its instruction expansion — stays within the
-// context path bound. A single path whose own closure exceeds the bound
-// waits instead of reading partially.
+// context path bound. The shared read sizing reserves file-sized slots for
+// setup/check entrypoints and root AGENTS.md. Native validation still owns the
+// actual aggregate, including ancestor instructions: a single intrinsically
+// oversized closure waits instead of reading partially.
 func chunkApprovedSelections(paths []string) ([][]string, error) {
+	const selectedPerRead = project.FactoryContextSelectedPathsPerRead
+	if selectedPerRead < 1 {
+		return nil, errors.New("approved source selection has no context byte budget")
+	}
 	var chunks [][]string
 	var current []string
 	for _, path := range paths {
 		grown := append(append([]string(nil), current...), path)
-		if len(expandContextSelection(grown)) > project.MaxFactoryContextPaths {
+		if len(grown) > selectedPerRead || len(expandContextSelection(grown)) > project.MaxFactoryContextPaths {
 			if len(current) > 0 {
 				chunks = append(chunks, current)
 				current = nil
@@ -111,6 +117,13 @@ func (c *Coordinator) AssembleIntentPlanningInput(ctx context.Context, head fact
 	in, planWait, err := assemblePlanningInput(head, operation, prep, paths, merged)
 	if err != nil || planWait != nil {
 		return empty, project.Preparation{}, planWait, err
+	}
+	// The staged prompt is the binding total: refuse oversized assembled
+	// input here, before dispatch, through the same staging bound the
+	// dispatch packet enforces. Approved evidence is never truncated; the
+	// approved selection must narrow instead.
+	if _, err := StageIntentPlanningPrompt(head, in); err != nil {
+		return empty, project.Preparation{}, nil, err
 	}
 	return in, prep, nil, nil
 }
@@ -172,6 +185,10 @@ func (c *Coordinator) readPlanningContext(ctx context.Context, proj store.Projec
 	return merged, nil, nil
 }
 
+// mergePlanningContextFiles carries each approved file's full bytes (one
+// bounded native read per chunk) and verifies the FULL approved digest
+// before accepting evidence; files beyond the evidence bound refuse
+// instead of truncating.
 func mergePlanningContextFiles(prep project.Preparation, files []project.FactoryContextFile, merged map[string][]byte) error {
 	for _, file := range files {
 		want, approved := prep.Requirements.SourceInputs[file.Path]
@@ -213,6 +230,7 @@ func assemblePlanningInput(head factory.IntentRevision, operation string, prep p
 	in := factory.SemanticPlannerInput{
 		Operation: operation, Head: head, Content: content,
 		Alternatives: factory.DescribeAlternatives(head.Objective), Inspected: inspected,
+		RequireWalkthroughs: true,
 	}
 	if err := in.Validate(); err != nil {
 		return empty, nil, err

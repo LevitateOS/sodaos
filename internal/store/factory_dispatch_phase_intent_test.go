@@ -289,6 +289,84 @@ func TestIntentFailedRootCannotRefillSameRevision(t *testing.T) {
 	}
 }
 
+// TestIntentSucceededRootCannotRefillSameRevision (real pg) proves a
+// success-settled attempt stays charged: after the first root finishes
+// succeeded with recorded usage and a consumed reservation — the
+// walkthrough-less completed plan case — the same intent/revision/owner
+// triple as a distinct root refuses with the settled-attempt error
+// instead of funding a fresh allowance, and the successor revision still
+// admits its own funded attempt while the prior stays charged.
+func TestIntentSucceededRootCannotRefillSameRevision(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
+	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
+	first := time.Now().UTC().Truncate(time.Second)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+		t.Fatalf("first intent root refused: %v", err)
+	}
+	ended := time.Now().UTC().Truncate(time.Second)
+	finishedRun := run
+	finishedRun.Outcome, finishedRun.Reconciled, finishedRun.Summary = factory.Succeeded, true, "planned"
+	if err := db.SaveFactoryRun(ctx, finishedRun); err != nil {
+		t.Fatalf("succeeded run not reconciled: %v", err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: a.Run, Minutes: 1, Repository: 7, Connection: "conn", StartedAt: ended.Add(-time.Minute), EndedAt: ended}); err != nil {
+		t.Fatalf("succeeded run usage not recorded: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, r.AssignmentID); err != nil {
+		t.Fatalf("succeeded root reservation not consumed: %v", err)
+	}
+	if err := db.FinishAssignment(ctx, finishIntentRoot(t, a, ended, factory.Succeeded, factory.AssignReasonReported)); err != nil {
+		t.Fatalf("succeeded root not finished: %v", err)
+	}
+	prior := readIntentAllowance(t, db, a.ID)
+	if prior.Active || !prior.Closed {
+		t.Fatalf("succeeded intent allowance still open: %+v", prior)
+	}
+	second := time.Now().UTC().Truncate(time.Second)
+	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	if !errors.Is(err, factory.ErrAttemptClosed) {
+		t.Fatalf("succeeded intent replay did not report the settled attempt: %v", err)
+	}
+	assertDispatchPacketAbsent(t, db, a2)
+	var funded int
+	if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_attempt_allowances WHERE root_assignment=$1`, a2.ID).Scan(&funded); err != nil {
+		t.Fatal(err)
+	}
+	if funded != 0 {
+		t.Fatalf("settled intent revision funded a second root: %d allowances", funded)
+	}
+	settled := readIntentAllowance(t, db, a.ID)
+	if settled.Active || !settled.Closed || settled.Limits.ActiveMinutes != 30 {
+		t.Fatalf("settled intent allowance disturbed: %+v", settled)
+	}
+	nextRevision := "d" + strings.Repeat("c", 24)
+	next := factory.IntentRevision{
+		ID: nextRevision, Intent: intentID, Owner: 7, Repository: 7, Predecessor: revisionID,
+		Objective: "plan the recorded draft", State: "draft",
+		MaxIssues: 10, CreatedUnix: time.Now().UTC().Truncate(time.Second).Unix(),
+	}
+	if err := db.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatalf("next intent revision not recorded: %v", err)
+	}
+	third := time.Now().UTC().Truncate(time.Second)
+	d3, a3, r3, run3, view3 := decomposeRootPacket(t, ctx, db, third, intentID, nextRevision, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, d3, decomposeTestControl(a3), a3, r3, run3, view3); err != nil {
+		t.Fatalf("successor revision root refused: %v", err)
+	}
+	fundedNext := readIntentAllowance(t, db, a3.ID)
+	if !fundedNext.Active || fundedNext.Limits.ActiveMinutes != 30 {
+		t.Fatalf("successor revision allowance not funded: %+v", fundedNext)
+	}
+	kept := readIntentAllowance(t, db, a.ID)
+	if kept.Active || !kept.Closed || kept.Limits.ActiveMinutes != 30 {
+		t.Fatalf("prior success-settled allowance disturbed: %+v", kept)
+	}
+}
+
 // TestIntentNewRevisionFundsNextAttempt (real pg) proves the legitimate
 // next attempt still admits: after the first root settles failed, the
 // intent owner publishing a new revision advances the head, and a fresh

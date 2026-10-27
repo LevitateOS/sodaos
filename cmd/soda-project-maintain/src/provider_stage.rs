@@ -49,7 +49,11 @@ pub(crate) fn resolve_native_staging() -> Result<StagedNative, String> {
             "provider store executable is outside the retained bundles",
         ));
     }
-    let tool = open_verified(&executable, &selection.release.digest, selection.release.size)?;
+    let tool = open_verified(
+        &executable,
+        &selection.release.digest,
+        selection.release.size,
+    )?;
     let receipt = stage_receipt(&selection)?;
     Ok(StagedNative { tool, receipt })
 }
@@ -58,9 +62,7 @@ pub(crate) fn resolve_native_staging() -> Result<StagedNative, String> {
 /// identity the in-project launch path enforces at invocation. Written
 /// through an `O_EXCL` temp file opened `O_NOFOLLOW` and unlinked before
 /// return, so only the open descriptor reaches the tar pipe.
-fn stage_receipt(
-    selection: &soda_provider_tools::store::Selection,
-) -> Result<Tool, String> {
+fn stage_receipt(selection: &soda_provider_tools::store::Selection) -> Result<Tool, String> {
     let bytes = serde_json::to_vec_pretty(selection)
         .map_err(|_| String::from("provider store selection unreadable"))?;
     if bytes.len() > 65536 {

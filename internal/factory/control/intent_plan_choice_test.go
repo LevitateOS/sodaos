@@ -2,12 +2,16 @@ package control
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	sdk "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
@@ -92,12 +96,13 @@ func TestResolveAcceptedPlanChoiceSingleNeedsNoComparativeCall(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	accepted := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	chosen, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
 	if err != nil || wait != nil {
 		t.Fatalf("resolve err=%v wait=%+v", err, wait)
@@ -118,12 +123,13 @@ func TestResolveAcceptedPlanChoiceMultiUsesOneFundedChoice(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a", "cand-b")); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "cand-b", confidence: 0.9}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	accepted := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "cand-b", confidence: 0.9}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	chosen, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
 	if err != nil || wait != nil {
 		t.Fatalf("resolve err=%v wait=%+v", err, wait)
@@ -376,12 +382,13 @@ func TestRecordedPlanSourceChangesBeforeNativeSubmit(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	accepted := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	inner := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	graph := &rotatingGraphFixture{inner: inner, rotate: func() {
 		rotateChoicePlanSource(t, ctx, db, fx, strings.Repeat("d", 40))
@@ -411,6 +418,9 @@ func TestRecoverIntentGraphsPreservesOriginalPendingPlan(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	accepted := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
@@ -424,8 +434,6 @@ func TestRecoverIntentGraphsPreservesOriginalPendingPlan(t *testing.T) {
 		}
 		return nil
 	}
-	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	c.Graph, c.GraphActorID, c.AcceptanceReads = inner, 91, inner
 	if _, _, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7); err == nil {
 		t.Fatal("expected transient native failure")
@@ -487,6 +495,9 @@ func TestRecoverIntentGraphsRefusesUnboundPlanlessLegacy(t *testing.T) {
 	if inner.submissions != 0 {
 		t.Fatalf("plan-less legacy submitted %d native operations", inner.submissions)
 	}
+	if stub.calls != 0 {
+		t.Fatalf("plan-less legacy funded %d comparative calls", stub.calls)
+	}
 	refused, err := db.IntentGeneration(ctx, accepted.ID)
 	if err != nil || refused.State != "refused" {
 		t.Fatalf("plan-less row=%+v err=%v want terminal refusal", refused, err)
@@ -511,12 +522,13 @@ func TestGenerateFromResolvedPlanChoiceAdoptsExactly(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	accepted := choicePlanAccepted(t, fx.repo)
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	preparations, err := db.StandingProjectPreparations(ctx, fx.proj)
 	if err != nil {
 		t.Fatal(err)
@@ -657,11 +669,12 @@ func TestResolveAcceptedPlanChoiceMovedHeadDuringChoiceRefuses(t *testing.T) {
 		t.Fatal("recorded plan did not settle")
 	}
 	accepted := choicePlanAccepted(t, fx.repo)
+	stub := &candidateChoiceStub{selected: "cand-b", confidence: 0.9}
+	c := choicePlanCoordinator(t, db, fx, &movingChoiceStub{T: t, store: db, accepted: accepted, inner: stub})
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "cand-b", confidence: 0.9}
-	c := choicePlanCoordinator(t, db, fx, &movingChoiceStub{T: t, store: db, accepted: accepted, inner: stub})
 	_, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
 	if !errors.Is(err, ErrPlanChoiceStale) {
 		t.Fatalf("moved head must refuse as stale: %v", err)
@@ -713,11 +726,13 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	if factory.DescribeAlternatives(draft.Objective).Supported {
 		t.Fatal("authored task-board scope must not acquire a canned workflow")
 	}
+	proposalWalkthroughs := choicePlanWalkthroughs(draft)
 	answer := fencedResult(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "propose ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
 			Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningPropose,
+			Walkthroughs: &proposalWalkthroughs,
 			Candidates: []factory.SemanticCandidate{{
 				Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
 				Tasks: []factory.IntentTask{{
@@ -730,14 +745,15 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningPropose, answer); !ok {
 		t.Fatal("recorded propose plan did not settle")
 	}
+	stub := &candidateChoiceStub{selected: "keep", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, proposalWalkthroughs)
 	accepted := draft
 	accepted.ID, accepted.Predecessor, accepted.State = choicePlanIDs.accepted, draft.ID, "accepted"
 	accepted.Tasks = []factory.IntentTask{{Key: "d888888888888888888888888", Objective: draft.Objective, Outcomes: []string{"Team task state persists"}, IdeaIDs: []string{draft.Ideas[0].ID}}}
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
-	stub := &candidateChoiceStub{selected: "keep", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
 	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
 	generated, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, draft.Owner)
@@ -862,5 +878,899 @@ func TestResolveAcceptedPlanChoiceNarrowedScopeRefuses(t *testing.T) {
 	}
 	if stub.calls != 0 {
 		t.Fatalf("narrowed scope funded %d comparative calls", stub.calls)
+	}
+}
+
+// A recorded plan that never authored its walkthrough refuses before any
+// funded choice or native effect: retained drafts from before walkthrough
+// enforcement replan instead of building. The refusal funds nothing and
+// records no generation.
+func TestResolveAcceptedPlanChoiceWithoutWalkthroughRefuses(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := choicePlanDraft(fx.repo)
+	bare := choicePlannerOutput(draft, "cand-a")
+	bare.Walkthroughs = nil
+	answer := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "recorded choice ready", Output: &factory.PhaseOutput{Decomposition: &bare},
+	})
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
+		t.Fatal("recorded plan did not settle")
+	}
+	accepted := choicePlanAccepted(t, fx.repo)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	if _, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted); !errors.Is(err, ErrPlanChoiceReview) {
+		t.Fatalf("walkthrough-less plan must refuse review: %v", err)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("walkthrough-less plan funded %d comparative calls", stub.calls)
+	}
+	if _, _, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7); !errors.Is(err, ErrPlanChoiceReview) {
+		t.Fatalf("walkthrough-less plan must refuse its build: %v", err)
+	}
+	if _, err := db.IntentGeneration(ctx, accepted.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("refused build recorded a generation: %v", err)
+	}
+}
+
+// A recorded walkthrough nobody checked refuses before any funded choice:
+// the person runs the explicit walkthrough check first, then native work
+// may proceed. The replay attempt itself funds nothing.
+func TestResolveAcceptedPlanChoiceWithoutReviewRefuses(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := choicePlanDraft(fx.repo)
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, choicePlanAnswer(t, draft, "completed", "cand-a")); !ok {
+		t.Fatal("recorded plan did not settle")
+	}
+	accepted := choicePlanAccepted(t, fx.repo)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	_, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if !errors.Is(err, ErrPlanChoiceReview) || !strings.Contains(err.Error(), "no checked review") {
+		t.Fatalf("unchecked walkthrough must refuse review: %v", err)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("unchecked walkthrough funded %d calls", stub.calls)
+	}
+}
+
+// The product-review bridge rejoins the actual recorded-plan generator. Native
+// graph I/O and planner answers are explicit doubles; PostgreSQL, admission,
+// lineage, adoption and replay are production owners.
+func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, map[string]string{"README.md": dispatchDigest("synthetic selected source: README.md")})
+	initial := choicePlanDraft(fx.repo)
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, initial, factory.IntentPlanningOptions, choicePlanAnswer(t, initial, "completed", "cand-a")); !ok {
+		t.Fatal("first recorded plan did not settle")
+	}
+	c := choicePlanCoordinator(t, db, fx, &candidateChoiceStub{selected: "cand-a", confidence: 1})
+	seedChoiceWalkthroughReview(t, ctx, c, initial, choicePlanWalkthroughs(initial))
+	accepted := choicePlanAccepted(t, fx.repo)
+	accepted.MaxIssues = 4
+	accepted.EffectiveOutcomes = append([]string(nil), initial.EffectiveOutcomes...)
+	accepted.Tasks = []factory.IntentTask{{Key: "d888888888888888888888888", Objective: "Deliver the reviewed workflow", Outcomes: []string{"Requests and approval history are retained"}, IdeaIDs: append([]string(nil), accepted.EffectiveOutcomes...)}}
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	sqlDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	complete := func(binding factory.IntentTaskBinding, generation int64) {
+		t.Helper()
+		event := factory.CompletionEvent{ID: factory.NewID(), Repository: fx.repo, Issue: binding.IssueIndex, Generation: generation, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: fx.tip, ClosingOccurrence: fmt.Sprint(generation)}
+		raw, _ := json.Marshal(event)
+		if _, err := sqlDB.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)`, fx.repo, generation, event.ID, event.PublicationID, event.ClosingOccurrence, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, accepted.Intent, accepted.Owner)
+	if err != nil || wait != nil || first.State != "completed" {
+		t.Fatalf("first adoption: %+v %+v %v", first, wait, err)
+	}
+	oldBindings, err := c.Store.IntentTaskBindings(ctx, accepted.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, binding := range oldBindings {
+		complete(binding, int64(i+1))
+	}
+	for _, native := range f.issues {
+		native.Issue.IsClosed = true
+	}
+	before, _ := json.Marshal(f.issues)
+	// Resolve the accepted decision post through the same native source reader
+	// used by HTTP comments; no caller-supplied product identity is admitted.
+	key := fmt.Sprintf("factory:%d:F11:intent-revision:%s", accepted.Repository, accepted.ID)
+	sum := sha256.Sum256([]byte(key))
+	post := hex.EncodeToString(sum[:16])
+	source, err := c.Store.ResolveCommentSource(ctx, accepted.Repository, factory.CommentSourcePost, post)
+	if err != nil || source.Product == nil {
+		t.Fatalf("canonical product source: %+v %v", source, err)
+	}
+	comment, _, err := c.Store.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: accepted.Repository, Body: "Require Finance approval above EUR 1000 and retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-change"}, "43", "Robin", 2, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Store.RecordCommentIntake(ctx, comment, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := c.Store.CommentPipeline(ctx, comment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	routed := pipe
+	routed.Judgment = factory.CommentJudgmentApplied
+	routed.Route = factory.CommentRouteNewIssue
+	if err = c.Store.AdvanceCommentPipeline(ctx, pipe, routed); err != nil {
+		t.Fatal(err)
+	}
+	draft, err := c.Store.ReviewCommentProductChange(ctx, comment, 0, accepted.Owner, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.submissions != 1 {
+		t.Fatal("review created detached native work")
+	}
+	baselineJSON, _ := json.Marshal(accepted.Tasks)
+	generatedJSON, _ := json.Marshal(first.SubmittedTasks)
+	draftJSON, _ := json.Marshal(draft.Tasks)
+	if string(baselineJSON) == string(generatedJSON) || string(draftJSON) != string(generatedJSON) {
+		t.Fatalf("change-review draft must carry the actual generated tasks, not the different accepted review baseline: baseline=%s generated=%s draft=%s", baselineJSON, generatedJSON, draftJSON)
+	}
+	// Mirror the actual UI's bounds-only Update proposal: retain attributed
+	// ideas, effective outcomes and recorded task keys in a new draft before
+	// planning. No exploration remints a baseline graph here.
+	previousDraft := draft
+	draft.ID = factory.CommentDecisionID("finance-bounds", comment, 0)
+	draft.Predecessor = previousDraft.ID
+	draft.MaxIssues = len(draft.Tasks) + 1
+	draft.CreatedUnix = 4
+	if err = c.Store.SaveIntentRevision(ctx, draft); err != nil {
+		t.Fatal(err)
+	}
+	input, _, planningWait, err := c.AssembleIntentPlanningInput(ctx, draft, factory.IntentPlanningOptions)
+	if err != nil || planningWait != nil {
+		t.Fatalf("actual successor planning input: wait=%+v err=%v", planningWait, err)
+	}
+	planningJSON, _ := json.Marshal(input.Head.Tasks)
+	if string(planningJSON) != string(generatedJSON) || len(input.Head.EffectiveOutcomes) != len(accepted.EffectiveOutcomes)+1 {
+		t.Fatal("native planning input omitted the retained generated task identities or Finance outcome")
+	}
+	idea := draft.Ideas[len(draft.Ideas)-1]
+	tasks := append(append([]factory.IntentTask(nil), input.Head.Tasks...), factory.IntentTask{Key: "d777777777777777777777777", Objective: "Apply Finance approval above EUR 1000", Outcomes: []string{"EUR 1000 keeps manager approval; EUR 1001 requires Finance approval; existing requests persist"}, IdeaIDs: []string{idea.ID}, DependsOn: []string{input.Head.Tasks[len(input.Head.Tasks)-1].Key}})
+	proposal := &factory.VerificationManifestProposal{Outcomes: append([]string(nil), draft.EffectiveOutcomes...)}
+	for _, outcome := range proposal.Outcomes {
+		proposal.Checks = append(proposal.Checks, factory.ManifestCheckRef{Outcome: outcome, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}})
+	}
+	financeWalkthroughs := choicePlanWalkthroughs(draft)
+	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &financeWalkthroughs, Candidates: []factory.SemanticCandidate{{Key: "finance", Rationale: "Keep delivered tasks and add only the requested approval rule.", Tasks: tasks}}, VerificationManifestProposal: proposal}
+	answer := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "Finance change planned against the retained product", Output: &factory.PhaseOutput{Decomposition: &out}})
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, c.Store, fx, draft, factory.IntentPlanningOptions, answer); !ok {
+		t.Fatal("second recorded planner did not settle")
+	}
+	seedChoiceWalkthroughReview(t, ctx, c, draft, financeWalkthroughs)
+	next := draft
+	next.ID = factory.CommentDecisionID("finance-accept", comment, 0)
+	next.Predecessor = draft.ID
+	next.State = "accepted"
+	next.Tasks = tasks
+	next.CreatedUnix = 4
+	if err = c.Store.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	preparations, err := c.Store.StandingProjectPreparations(ctx, fx.proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prep project.Preparation
+	for _, p := range preparations {
+		if p.Preparation.Role == project.RoleCoder {
+			prep = p.Preparation
+		}
+	}
+	zero := 0
+	fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
+		return project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}, nil
+	}
+	// A delivered issue reopened after graph preparation must refuse adoption.
+	// The first retained binding may already exist; restoring the native fact
+	// exercises the exact replay path without submitting a second graph.
+	f.beforeSubmit = func(factory.IntentGeneration) error {
+		f.issues[2].Issue.IsClosed = false
+		return nil
+	}
+	interrupted, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, next.Intent, next.Owner)
+	if err == nil || wait != nil || interrupted.State != "committed" || f.submissions != 2 {
+		t.Fatalf("reopened delivered record retained authority: state=%s wait=%+v err=%v", interrupted.State, wait, err)
+	}
+	f.issues[2].Issue.IsClosed = true
+	f.beforeSubmit = nil
+	second, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, next.Intent, next.Owner)
+	if err != nil || wait != nil || second.State != "completed" {
+		t.Fatalf("second native adoption: state=%s wait=%+v err=%v", second.State, wait, err)
+	}
+	var payload sdk.IssueGraphPayload
+	if err = json.Unmarshal(second.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if f.submissions != 2 || len(payload.Creates) != 1 || payload.Creates[0].Key != tasks[len(tasks)-1].Key || len(payload.Edits) != 0 || len(second.Delivered) != len(first.SubmittedTasks) {
+		t.Fatalf("delivered work duplicated or rewritten: submits=%d payload=%+v delivered=%+v", f.submissions, payload, second.Delivered)
+	}
+	retained := map[int64]sdk.NativeSnapshot{}
+	for index := range f.issues {
+		if index <= int64(len(first.SubmittedTasks)) {
+			retained[index] = f.issues[index]
+		}
+	}
+	after, _ := json.Marshal(retained)
+	if string(before) != string(after) {
+		t.Fatal("closed first-version native history changed")
+	}
+	bindings, err := c.Store.IntentTaskBindings(ctx, next.ID)
+	if err != nil || len(bindings) != len(tasks) {
+		t.Fatalf("new scope not completely adopted: %+v %v", bindings, err)
+	}
+	for _, old := range oldBindings {
+		found := false
+		for _, b := range bindings {
+			if b.TaskKey == old.TaskKey {
+				found = b.IssueID == old.IssueID && b.IssueIndex == old.IssueIndex && b.AcceptanceID == old.AcceptanceID
+			}
+		}
+		if !found {
+			t.Fatal("delivered native identity or acceptance pin lost", old)
+		}
+	}
+	if second.VerificationManifest == nil || second.VerificationManifest.ValidateFor(next) != nil || second.VerificationManifest.Proposal.Digest() != proposal.Digest() {
+		t.Fatal("new accepted scope lacks its exact application verification manifest")
+	}
+	if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 0 {
+		t.Fatalf("new Finance work was considered delivered early: %+v %v", candidates, err)
+	}
+	for _, binding := range bindings {
+		if binding.TaskKey == tasks[len(tasks)-1].Key {
+			complete(binding, int64(len(oldBindings)+1))
+		}
+	}
+	if candidates, _, err := db.DeliveredIntentCandidates(ctx, "", 16); err != nil || len(candidates) != 1 || candidates[0].Revision.ID != next.ID {
+		t.Fatalf("new completion did not admit exact v2 Test Pilot scope: %+v %v", candidates, err)
+	}
+	replay, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, next.Intent, next.Owner)
+	if err != nil || wait != nil || replay.OperationID != second.OperationID || f.submissions != 2 {
+		t.Fatal("retry duplicated the change graph", err)
+	}
+	detail, err := c.Store.FeedComment(ctx, comment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := c.Store.CommentProductChange(ctx, detail, routed, next.Owner)
+	if err != nil || view.State != "accepted" || view.AcceptedRevision != accepted.ID || view.DraftRevision != previousDraft.ID {
+		t.Fatalf("comment lost exact adopted lineage: %+v %v", view, err)
+	}
+}
+
+// With an explicit resolved subset the adoption consumer resolves the
+// exact-subset candidate with zero comparative surprises and replays
+// stably, while the wide candidate binding the decided idea outside the
+// subset refuses assessment with its exact-scope error before any funded
+// choice. No native graph is consulted: the proof runs on the recorded
+// staged input and the single settled answer.
+func TestResolveAcceptedPlanChoiceExactSubsetAdopts(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, map[string]string{"README.md": dispatchDigest("synthetic selected source: README.md")})
+	draft := choicePlanDraft(fx.repo)
+	draft.EffectiveOutcomes = []string{"d555555555555555555555555"}
+	if err := db.SaveIntentRevision(ctx, draft); err != nil {
+		t.Fatal(err)
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	in, _, planWait, err := c.AssembleIntentPlanningInput(ctx, draft, factory.IntentPlanningOptions)
+	if err != nil || planWait != nil {
+		t.Fatalf("exact-subset planning input: wait=%+v err=%v", planWait, err)
+	}
+	wide := choicePlannerOutput(draft, "cand-a")
+	if err := factory.AssessSemanticOutput(in, wide); err == nil || !strings.Contains(err.Error(), "exceeds effective authorized outcomes") {
+		t.Fatalf("outside-subset candidate must refuse with its exact-scope error: %v", err)
+	}
+	exact := choicePlannerOutput(draft, "cand-a")
+	exact.Candidates = []factory.SemanticCandidate{{
+		Key: "cand-a", Rationale: "Bind only the explicitly authorized outcome.",
+		Tasks: []factory.IntentTask{{
+			Key: choiceTaskKey(1), Objective: "Capture leave requests",
+			Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{"d555555555555555555555555"},
+		}},
+	}}
+	answer := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "exact subset ready", Output: &factory.PhaseOutput{Decomposition: &exact},
+	})
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
+		t.Fatal("exact-subset plan did not settle")
+	}
+	seedChoiceWalkthroughReview(t, ctx, c, draft, choicePlanWalkthroughs(draft))
+	// The 391 positive case: the accepted successor canonically carries the
+	// explicit subset with its tasks constrained to A — no absent subset,
+	// no B content.
+	accepted := choicePlanAccepted(t, fx.repo)
+	accepted.EffectiveOutcomes = []string{"d555555555555555555555555"}
+	accepted.Tasks = []factory.IntentTask{{
+		Key: choiceTaskKey(1), Objective: "Capture leave requests",
+		Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{"d555555555555555555555555"},
+	}}
+	if err := accepted.Validate(); err != nil {
+		t.Fatalf("explicit-subset acceptance invalid: %v", err)
+	}
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	chosen, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if err != nil || wait != nil {
+		t.Fatalf("resolve err=%v wait=%+v", err, wait)
+	}
+	if chosen.Key != "cand-a" || len(chosen.Tasks) != 1 || chosen.Tasks[0].Key != choiceTaskKey(1) ||
+		len(chosen.Tasks[0].Outcomes) != 1 || chosen.Tasks[0].Outcomes[0] != "Requests can be recorded" ||
+		len(chosen.Tasks[0].IdeaIDs) != 1 || chosen.Tasks[0].IdeaIDs[0] != "d555555555555555555555555" || stub.calls != 0 {
+		t.Fatalf("choice=%+v fundedCalls=%d", chosen, stub.calls)
+	}
+	again, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if err != nil || wait != nil || again.Key != chosen.Key || len(again.Tasks) != len(chosen.Tasks) || again.Tasks[0].Key != chosen.Tasks[0].Key || stub.calls != 0 {
+		t.Fatalf("replay choice=%+v err=%v wait=%+v fundedCalls=%d", again, err, wait, stub.calls)
+	}
+	// Final adoption submits precisely the authorized outcome: the standing
+	// coder preparation stays bound, the graph carries exactly the A task,
+	// and a replayed adoption leaves the saved generation row bit-identical.
+	preparations, err := db.StandingProjectPreparations(ctx, fx.proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p project.Preparation
+	for _, preparation := range preparations {
+		if preparation.Preparation.Role == project.RoleCoder {
+			p = preparation.Preparation
+			break
+		}
+	}
+	if p.ID == "" {
+		t.Fatal("standing coder preparation missing")
+	}
+	zero := 0
+	fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
+		return project.PrepareState{ID: p.ID, Project: p.Project, Role: p.Role, SourceCommit: p.SourceCommit, SetupDigest: p.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}, nil
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	g, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7)
+	if err != nil || wait != nil {
+		t.Fatalf("generate err=%v wait=%+v", err, wait)
+	}
+	if g.State != "completed" || len(g.SubmittedTasks) != 1 || g.SubmittedTasks[0].Key != choiceTaskKey(1) ||
+		len(g.SubmittedTasks[0].IdeaIDs) != 1 || g.SubmittedTasks[0].IdeaIDs[0] != "d555555555555555555555555" || stub.calls != 0 {
+		t.Fatalf("adopted graph not precisely A: %+v fundedCalls=%d", g, stub.calls)
+	}
+	bindings, err := db.IntentTaskBindings(ctx, accepted.ID)
+	if err != nil || len(bindings) != 1 || bindings[0].TaskKey != choiceTaskKey(1) {
+		t.Fatalf("adopted graph binding not precisely A: %+v %v", bindings, err)
+	}
+	sqlDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	var adoptedBefore []byte
+	if err := sqlDB.QueryRow(`SELECT data FROM factory_intent_generations WHERE revision=$1`, accepted.ID).Scan(&adoptedBefore); err != nil {
+		t.Fatal(err)
+	}
+	replayed, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, choicePlanIDs.intent, 7)
+	if err != nil || wait != nil || replayed.OperationID != g.OperationID {
+		t.Fatalf("adoption replay diverged: state=%s wait=%+v err=%v", replayed.State, wait, err)
+	}
+	var adoptedAfter []byte
+	if err := sqlDB.QueryRow(`SELECT data FROM factory_intent_generations WHERE revision=$1`, accepted.ID).Scan(&adoptedAfter); err != nil || string(adoptedAfter) != string(adoptedBefore) {
+		t.Fatalf("adoption replay rewrote its saved generation bytes: %v", err)
+	}
+}
+
+// persistedCompatDraft returns the reviewed draft behind the FJ-v3-591
+// persisted proof: the choicePlanDraft choices with a byte-window
+// multibyte objective (over 4000 bytes, under 4000 runes) so the
+// released 586 byte rule substitutes Outcomes[0] while facts[0] stays
+// byte-verbatim. IDs reuse the choicePlanIDs lane; each test owns an
+// isolated PG fixture.
+func persistedCompatDraft(repo int64) factory.IntentRevision {
+	draft := choicePlanDraft(repo)
+	signal := "Approve leave requests with a visible reviewer decision. "
+	draft.Objective = signal + strings.Repeat("é", 2000)
+	return draft
+}
+
+// persistedCompatWalkthroughs authors the persisted old-valid shape:
+// PlanningProducer, verbatim facts[0], substituted Outcomes[0] under the
+// canonical byte rule, IdeaIDs bound to the resolved scope. It mirrors
+// the 586 in-memory construction through ComposeProposalContent so the
+// persisted replay proves the same bytes.
+func persistedCompatWalkthroughs(t *testing.T, draft factory.IntentRevision) factory.ProposalContent {
+	t.Helper()
+	basis, err := factory.ComposeProposalContent(draft)
+	if err != nil {
+		t.Fatalf("compat basis refused: %v", err)
+	}
+	if !basis.Supported || len(basis.Alternatives) != 2 || len(basis.Alternatives[0].Outcomes) == 0 {
+		t.Fatal("compat head left supported coverage")
+	}
+	for _, alternative := range basis.Alternatives {
+		if alternative.Outcomes[0] != "Implement the recorded product objective" {
+			t.Fatalf("compat basis lost its byte-rule label: %q", alternative.Outcomes[0])
+		}
+	}
+	content := factory.ProposalContent{
+		Producer: factory.PlanningProducer, Supported: true,
+		Intent: draft.Intent, Revision: draft.ID, Objective: draft.Objective,
+		Facts: basis.Facts, Excluded: basis.Excluded, Exclusions: basis.Exclusions,
+		Unknowns: basis.Unknowns,
+	}
+	for _, alternative := range basis.Alternatives {
+		alternative.IdeaIDs = append([]string(nil), factory.ResolvedScope(draft)...)
+		content.Alternatives = append(content.Alternatives, alternative)
+	}
+	if content.Facts[0] != draft.Objective || len(content.Facts[0]) != len(draft.Objective) {
+		t.Fatal("compat walkthroughs lost their byte-verbatim facts")
+	}
+	if err := content.Validate(); err != nil {
+		t.Fatalf("compat content refused: %v", err)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(draft, content); err != nil {
+		t.Fatalf("compat walkthrough binding refused: %v", err)
+	}
+	return content
+}
+
+// persistedCompatAnswer fences one single-candidate answer carrying the
+// persisted walkthroughs with the recorded broad-join tasks.
+func persistedCompatAnswer(t *testing.T, draft factory.IntentRevision, walkthroughs factory.ProposalContent, key string) string {
+	t.Helper()
+	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
+	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &walkthroughs}
+	out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
+	return fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "recorded compat choice ready", Output: &factory.PhaseOutput{Decomposition: &out},
+	})
+}
+
+// persistedCompatAccepted carries the byte-window draft as predecessor,
+// preserving the reviewed substantive scope exactly like
+// choicePlanAccepted but with the compat objective.
+func persistedCompatAccepted(t *testing.T, repo int64, draft factory.IntentRevision) factory.IntentRevision {
+	t.Helper()
+	accepted := choicePlanAccepted(t, repo)
+	accepted.Objective = draft.Objective
+	if err := accepted.Validate(); err != nil {
+		t.Fatalf("compat accepted head invalid: %v", err)
+	}
+	return accepted
+}
+
+// TestResolveAcceptedPlanChoicePersistedCompatByteWindow persists the
+// FJ-v3-586 old-valid multibyte walkthrough and replays it through
+// save → review → admitRecordedWalkthroughReview → adoption against an
+// isolated PG fixture, asserting unchanged identity/digest end to end.
+// Facts[0] stays byte-verbatim, Outcomes[0] stays substituted under the
+// canonical byte rule; no digest/authority/history mutation, no
+// normalization, no arbitrary-mismatch acceptance.
+func TestResolveAcceptedPlanChoicePersistedCompatByteWindow(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := persistedCompatDraft(fx.repo)
+	if len(draft.Objective) <= 4000 || utf8.RuneCountInString(draft.Objective) >= 4000 {
+		t.Fatalf("compat objective outside its byte window: %d bytes, %d runes", len(draft.Objective), utf8.RuneCountInString(draft.Objective))
+	}
+	if err := draft.Validate(); err != nil {
+		t.Fatalf("compat draft invalid: %v", err)
+	}
+	compatDigest := draft.Digest()
+	walkthroughs := persistedCompatWalkthroughs(t, draft)
+	if walkthroughs.Facts[0] != draft.Objective || len(walkthroughs.Facts[0]) != len(draft.Objective) {
+		t.Fatal("persisted walkthroughs lost byte-verbatim facts")
+	}
+	for _, alternative := range walkthroughs.Alternatives {
+		if alternative.Outcomes[0] != "Implement the recorded product objective" {
+			t.Fatalf("persisted walkthrough lost byte-rule label: %q", alternative.Outcomes[0])
+		}
+	}
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, persistedCompatAnswer(t, draft, walkthroughs, "cand-a")); !ok {
+		t.Fatal("persisted compat plan did not settle")
+	}
+	attempt, err := db.IntentPlanAttempt(ctx, draft.Intent, draft.ID)
+	if err != nil {
+		t.Fatalf("persisted attempt unreadable: %v", err)
+	}
+	stored := attempt.Result.PhaseResult.Output.Decomposition
+	if stored == nil || stored.Walkthroughs == nil {
+		t.Fatal("persisted attempt lost its walkthroughs")
+	}
+	if stored.Walkthroughs.Facts[0] != draft.Objective || len(stored.Walkthroughs.Facts[0]) != len(draft.Objective) {
+		t.Fatal("persisted walkthroughs changed facts through save")
+	}
+	for _, alternative := range stored.Walkthroughs.Alternatives {
+		if alternative.Outcomes[0] != "Implement the recorded product objective" {
+			t.Fatalf("persisted walkthrough changed its label through save: %q", alternative.Outcomes[0])
+		}
+	}
+	if stored.Intent != draft.Intent || stored.Revision != draft.ID {
+		t.Fatal("persisted walkthrough changed identity through save")
+	}
+	if err := factory.ValidatePlanningWalkthroughs(draft, *stored.Walkthroughs); err != nil {
+		t.Fatalf("persisted walkthrough refused acceptance after save: %v", err)
+	}
+	proposal, err := factory.ConsolidateContent(*stored.Walkthroughs, stored.Walkthroughs.Alternatives[0].Key, strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatalf("persisted compat consolidation refused: %v", err)
+	}
+	if proposal.Outcomes[0] != "Implement the recorded product objective" {
+		t.Fatalf("persisted compat proposal lost its label: %q", proposal.Outcomes[0])
+	}
+	if mismatches := factory.CheckProposalEffects(*stored.Walkthroughs, proposal); len(mismatches) != 0 {
+		t.Fatalf("persisted compat walkthrough emitted mismatches: %+v", mismatches)
+	}
+	if draft.Digest() != compatDigest {
+		t.Fatal("acceptance mutated identity or digest")
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, walkthroughs)
+	accepted := persistedCompatAccepted(t, fx.repo, draft)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	if accepted.Digest() == compatDigest {
+		t.Fatal("accepted head unexpectedly kept its draft digest")
+	}
+	chosen, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if err != nil || wait != nil {
+		t.Fatalf("persisted compat resolve err=%v wait=%+v", err, wait)
+	}
+	if chosen.Key != "cand-a" || chosen.Intent != draft.Intent || chosen.Revision != draft.ID || stub.calls != 0 {
+		t.Fatalf("persisted compat choice=%+v fundedCalls=%d", chosen, stub.calls)
+	}
+	preparations, err := db.StandingProjectPreparations(ctx, fx.proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prep project.Preparation
+	for _, preparation := range preparations {
+		if preparation.Preparation.Role == project.RoleCoder {
+			prep = preparation.Preparation
+			break
+		}
+	}
+	if prep.ID == "" {
+		t.Fatal("standing coder preparation missing")
+	}
+	zero := 0
+	fx.host.inspectPreparation = func(project.PrepareInspect) (project.PrepareState, error) {
+		return project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}, nil
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	g, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, 7)
+	if err != nil || wait != nil {
+		t.Fatalf("persisted compat generate err=%v wait=%+v", err, wait)
+	}
+	if g.State != "completed" || g.RevisionID != accepted.ID || g.IntentID != draft.Intent || g.IntentDigest != accepted.Digest() || stub.calls != 0 {
+		t.Fatalf("persisted adoption lost identity or digest: %+v fundedCalls=%d", g, stub.calls)
+	}
+	if g.PlanAssignment == "" {
+		t.Fatal("persisted adoption lost its recorded plan binding")
+	}
+	if keys := submittedKeys(g.SubmittedTasks); len(keys) == 0 || keys[0] != choiceTaskKey(1) {
+		t.Fatalf("persisted submitted=%v want recorded candidate tasks", keys)
+	}
+	bindings, err := db.IntentTaskBindings(ctx, accepted.ID)
+	if err != nil || len(bindings) == 0 {
+		t.Fatalf("persisted adoption is unbound: %+v %v", bindings, err)
+	}
+	sqlDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	var adoptedBefore []byte
+	if err := sqlDB.QueryRow(`SELECT data FROM factory_intent_generations WHERE revision=$1`, accepted.ID).Scan(&adoptedBefore); err != nil {
+		t.Fatal(err)
+	}
+	replayed, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, 7)
+	if err != nil || wait != nil || replayed.OperationID != g.OperationID || f.submissions != 1 {
+		t.Fatalf("persisted adoption replay diverged: state=%s wait=%+v err=%v submits=%d", replayed.State, wait, err, f.submissions)
+	}
+	var adoptedAfter []byte
+	if err := sqlDB.QueryRow(`SELECT data FROM factory_intent_generations WHERE revision=$1`, accepted.ID).Scan(&adoptedAfter); err != nil || string(adoptedAfter) != string(adoptedBefore) {
+		t.Fatalf("persisted adoption replay rewrote its saved generation bytes: %v", err)
+	}
+	if replayed.IntentDigest != accepted.Digest() || replayed.RevisionID != accepted.ID {
+		t.Fatal("persisted replay changed identity or digest")
+	}
+}
+
+// TestResolveAcceptedPlanChoicePersistedCompatMismatchRefuses proves the
+// same persisted harness refuses an unrelated substituted-outcome
+// mismatch with the exact released messages and writes nothing durable.
+// The head is persisted and reloaded; validator, comparator and admit
+// probes all run against that reloaded identity with byte-verbatim facts.
+func TestResolveAcceptedPlanChoicePersistedCompatMismatchRefuses(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := persistedCompatDraft(fx.repo)
+	if err := db.SaveIntentRevision(ctx, draft); err != nil {
+		t.Fatalf("compat head not persisted: %v", err)
+	}
+	reloaded, err := db.IntentRevision(ctx, draft.Intent, 7)
+	if err != nil {
+		t.Fatalf("persisted head unreadable: %v", err)
+	}
+	if reloaded.Digest() != draft.Digest() || reloaded.Objective != draft.Objective {
+		t.Fatal("persisted head changed identity or digest through save")
+	}
+	valid := persistedCompatWalkthroughs(t, reloaded)
+	unrelated := valid
+	unrelated.Alternatives = append([]factory.ProductAlternative(nil), valid.Alternatives...)
+	unrelated.Alternatives[0].Outcomes = append([]string{"An unrelated invented outcome"}, unrelated.Alternatives[0].Outcomes[1:]...)
+	verbatim := valid
+	verbatim.Alternatives = nil
+	for _, alternative := range valid.Alternatives {
+		alternative.Outcomes = append([]string{reloaded.Objective}, alternative.Outcomes[1:]...)
+		verbatim.Alternatives = append(verbatim.Alternatives, alternative)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(reloaded, unrelated); err == nil ||
+		err.Error() != "planning walkthrough needs distinct alternatives preserving the objective" {
+		t.Fatalf("unrelated mismatch misreported: %v", err)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(reloaded, verbatim); err == nil ||
+		err.Error() != "planning walkthrough needs distinct alternatives preserving the objective" {
+		t.Fatalf("verbatim long Outcomes[0] misreported: %v", err)
+	}
+	unrelatedProposal, err := factory.ConsolidateContent(factory.ProposalContent{
+		Producer: unrelated.Producer, Supported: unrelated.Supported,
+		Intent: unrelated.Intent, Revision: unrelated.Revision, Objective: unrelated.Objective,
+		Facts: unrelated.Facts, Excluded: unrelated.Excluded, Exclusions: unrelated.Exclusions,
+		Unknowns:     unrelated.Unknowns,
+		Alternatives: append([]factory.ProductAlternative{unrelated.Alternatives[0]}, valid.Alternatives[1:]...),
+	}, unrelated.Alternatives[0].Key, strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatalf("unrelated consolidation refused: %v", err)
+	}
+	mismatches := factory.CheckProposalEffects(valid, unrelatedProposal)
+	if len(mismatches) != 1 || mismatches[0].Class != factory.MismatchOutcomeGap ||
+		mismatches[0].Detail != "The first outcome does not preserve the requested objective." {
+		t.Fatalf("unrelated mismatch misreported: %+v", mismatches)
+	}
+	if valid.Alternatives[0].Outcomes[0] != "Implement the recorded product objective" {
+		t.Fatal("refusal probe mutated the recorded walkthrough")
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
+	unrelatedOut := factory.SemanticPlannerOutput{Intent: reloaded.Intent, Revision: reloaded.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &unrelated}
+	unrelatedOut.Candidates = append(unrelatedOut.Candidates, factory.SemanticCandidate{Key: "cand-a", Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
+	if err := c.admitRecordedWalkthroughReview(ctx, reloaded, unrelatedOut); !errors.Is(err, ErrPlanChoiceReview) ||
+		!strings.Contains(err.Error(), "planning walkthrough needs distinct alternatives preserving the objective") {
+		t.Fatalf("unrelated admit misreported: %v", err)
+	}
+	verbatimOut := factory.SemanticPlannerOutput{Intent: reloaded.Intent, Revision: reloaded.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &verbatim}
+	verbatimOut.Candidates = append(verbatimOut.Candidates, factory.SemanticCandidate{Key: "cand-a", Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
+	if err := c.admitRecordedWalkthroughReview(ctx, reloaded, verbatimOut); !errors.Is(err, ErrPlanChoiceReview) ||
+		!strings.Contains(err.Error(), "planning walkthrough needs distinct alternatives preserving the objective") {
+		t.Fatalf("verbatim admit misreported: %v", err)
+	}
+	accepted := persistedCompatAccepted(t, fx.repo, reloaded)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted); err == nil {
+		t.Fatal("unrelated mismatch admitted a plan choice")
+	}
+	if stub.calls != 0 {
+		t.Fatalf("unrelated mismatch funded %d comparative calls", stub.calls)
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	if _, _, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, 7); err == nil {
+		t.Fatal("unrelated mismatch admitted native adoption")
+	}
+	if f.submissions != 0 {
+		t.Fatalf("unrelated mismatch submitted %d native operations", f.submissions)
+	}
+	if _, err := db.IntentGeneration(ctx, accepted.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unrelated mismatch recorded a generation: %v", err)
+	}
+}
+
+// TestResolveAcceptedPlanChoicePersistedMalformedSettleRefuses closes the
+// FJ-v3-599 gap on the malformed-attempt side: a genuinely malformed
+// planning attempt (unrelated substituted Outcomes[0] bound to the real
+// saved compat head/revision) is persisted through the real admission
+// path. The settle boundary refuses it into a blocked needs-human attempt
+// carrying the exact validator message with no decomposition, and the
+// save → review → admit → resolve/generate path then refuses with the
+// exact attention surface — never ErrPlanChoiceReview, never a funded
+// choice, never a native submission, never a generation row.
+func TestResolveAcceptedPlanChoicePersistedMalformedSettleRefuses(t *testing.T) {
+	const mismatchDetail = "planning walkthrough needs distinct alternatives preserving the objective"
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := persistedCompatDraft(fx.repo)
+	valid := persistedCompatWalkthroughs(t, draft)
+	unrelated := valid
+	unrelated.Alternatives = append([]factory.ProductAlternative(nil), valid.Alternatives...)
+	unrelated.Alternatives[0].Outcomes = append([]string{"An unrelated invented outcome"}, unrelated.Alternatives[0].Outcomes[1:]...)
+	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
+	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &unrelated}
+	out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: "cand-a", Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
+	answer := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "malformed compat choice", Output: &factory.PhaseOutput{Decomposition: &out},
+	})
+	finished, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer)
+	if !ok {
+		t.Fatal("malformed settle left no finished assignment")
+	}
+	if finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport {
+		t.Fatalf("malformed settle outcome=%q reason=%q, want blocked needs-human", finished.Outcome, finished.Reason)
+	}
+	if finished.Result == nil || finished.Result.Reported {
+		t.Fatalf("malformed settle reported a decomposition: %+v", finished.Result)
+	}
+	phased := finished.Result.PhaseResult
+	if phased == nil || phased.Status != "blocked" || phased.Summary != mismatchDetail {
+		t.Fatalf("malformed settle status=%+v, want blocked with the exact validator message", phased)
+	}
+	if phased.Output != nil && phased.Output.Decomposition != nil {
+		t.Fatalf("malformed settle kept a decomposition: %+v", phased.Output.Decomposition)
+	}
+	attempt, err := db.IntentPlanAttempt(ctx, draft.Intent, draft.ID)
+	if err != nil {
+		t.Fatalf("malformed attempt unreadable: %v", err)
+	}
+	if attempt.Outcome != factory.NeedsHuman || attempt.Result == nil || attempt.Result.Reported {
+		t.Fatalf("malformed attempt not persisted blocked: %+v", attempt)
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedChoiceWalkthroughReview(t, ctx, c, draft, valid)
+	accepted := persistedCompatAccepted(t, fx.repo, draft)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	_, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if wait != nil || !errors.Is(err, ErrPlanChoiceAttention) || !strings.Contains(err.Error(), "needs a product decision first") {
+		t.Fatalf("malformed resolve surface: wait=%+v err=%v", wait, err)
+	}
+	if errors.Is(err, ErrPlanChoiceReview) {
+		t.Fatalf("malformed resolve misreported as review: %v", err)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("malformed resolve funded %d comparative calls", stub.calls)
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	if _, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, 7); wait != nil || !errors.Is(err, ErrPlanChoiceAttention) || !strings.Contains(err.Error(), "needs a product decision first") {
+		t.Fatalf("malformed generate surface: wait=%+v err=%v", wait, err)
+	}
+	if f.submissions != 0 {
+		t.Fatalf("malformed generate submitted %d native operations", f.submissions)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("malformed generate funded %d comparative calls", stub.calls)
+	}
+	if _, err := db.IntentGeneration(ctx, accepted.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("malformed generate recorded a generation: %v", err)
+	}
+}
+
+// mismatchVerdictStub records one funded outcome-gap consistency verdict: it
+// stands in for a JEV mismatch finding the way reviewSeedingStub stands in
+// for a clean one, so the recorded review genuinely carries mismatches
+// through the production JudgeConsistency path.
+type mismatchVerdictStub struct{}
+
+func (mismatchVerdictStub) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	selected := "outcome_gap"
+	if _, ok := choices[selected]; !ok {
+		selected = "consistent"
+	}
+	probabilities := map[string]float64{}
+	rest := 0.0
+	if len(choices) > 1 {
+		rest = 0.1 / float64(len(choices)-1)
+	}
+	sum := 0.0
+	for key := range choices {
+		if key == selected {
+			continue
+		}
+		probabilities[key] = rest
+		sum += rest
+	}
+	probabilities[selected] = 1 - sum
+	return factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: 0.9, Probabilities: probabilities}, nil
+}
+
+// TestResolveAcceptedPlanChoicePersistedMismatchReviewRefuses closes the
+// FJ-v3-599 gap on the review side end to end: the valid compat attempt
+// persists completed through the real settle path, then a funded
+// outcome-gap consistency verdict is recorded through the production
+// JudgeConsistency path. The same save → review → admit →
+// resolve/generate path then refuses with the exact ErrPlanChoiceReview
+// "needs correction" surface — replaying the durable receipts, funding no
+// choice, submitting nothing, recording no generation.
+func TestResolveAcceptedPlanChoicePersistedMismatchReviewRefuses(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	draft := persistedCompatDraft(fx.repo)
+	walkthroughs := persistedCompatWalkthroughs(t, draft)
+	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, persistedCompatAnswer(t, draft, walkthroughs, "cand-a")); !ok {
+		t.Fatal("compat plan did not settle")
+	}
+	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
+	c := choicePlanCoordinator(t, db, fx, stub)
+	seedCon := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: reviewSeedingStub{}}}
+	recommended, err := seedCon.JudgeConsolidation(ctx, draft, walkthroughs)
+	if err != nil {
+		t.Fatalf("mismatch consolidation not recorded: %v", err)
+	}
+	seedMis := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: mismatchVerdictStub{}}}
+	report, err := seedMis.JudgeConsistency(ctx, draft, walkthroughs, recommended)
+	if err != nil {
+		t.Fatalf("mismatch consistency not recorded: %v", err)
+	}
+	if len(report.Mismatches) != 1 || report.Mismatches[0].Class != factory.MismatchOutcomeGap {
+		t.Fatalf("recorded review carries no outcome-gap mismatch: %+v", report)
+	}
+	accepted := persistedCompatAccepted(t, fx.repo, draft)
+	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	_, wait, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
+	if wait != nil || !errors.Is(err, ErrPlanChoiceReview) || !strings.Contains(err.Error(), "needs correction") {
+		t.Fatalf("mismatch resolve surface: wait=%+v err=%v", wait, err)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("mismatch resolve funded %d comparative calls", stub.calls)
+	}
+	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
+	c.Graph, c.GraphActorID, c.AcceptanceReads = f, 91, f
+	if _, wait, err := c.GenerateAcceptedIntentFromRecordedPlan(ctx, draft.Intent, 7); wait != nil || !errors.Is(err, ErrPlanChoiceReview) || !strings.Contains(err.Error(), "needs correction") {
+		t.Fatalf("mismatch generate surface: wait=%+v err=%v", wait, err)
+	}
+	if f.submissions != 0 {
+		t.Fatalf("mismatch generate submitted %d native operations", f.submissions)
+	}
+	if stub.calls != 0 {
+		t.Fatalf("mismatch generate funded %d comparative calls", stub.calls)
+	}
+	if _, err := db.IntentGeneration(ctx, accepted.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("mismatch generate recorded a generation: %v", err)
 	}
 }

@@ -2,8 +2,13 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/application"
 )
 
 func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
@@ -38,5 +43,296 @@ func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
 				t.Fatalf("startup changed schema marker %d %v", version, err)
 			}
 		})
+	}
+}
+
+// The seeded marker, the version constant, and the renewal audit table must
+// agree: a fresh database carries exactly one version row matching
+// SchemaVersion, and the renewals journal the renewal path writes to.
+func TestSchemaSeedMatchesVersionConstant(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	var version int
+	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != SchemaVersion() || SchemaVersion() != 69 {
+		t.Fatalf("seeded marker %d disagrees with constant %d", version, SchemaVersion())
+	}
+	var columns int
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='application_setup_renewals' AND column_name IN ('setup_id','renewed_at','expires_at','administrator_id')`).Scan(&columns); err != nil || columns != 4 {
+		t.Fatalf("renewal journal columns %d %v", columns, err)
+	}
+}
+
+// Mixed-version behavior: only the adopted 68 to 69 upgrade runs; any
+// other foreign version is rejected on open without mutation. Both the Go
+// store and the Rust identity mirror carry 69. A 68 marker beside a
+// present renewals journal is not a 68 database but shape corruption, and
+// is refused the same way.
+func TestOpenRefusesForeignSchemaVersion(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		foreign int
+	}{{"older", 68}, {"newer", 70}} {
+		t.Run(test.name, func(t *testing.T) {
+			s, dsn := postgresFixture(t, nil)
+			ctx := context.Background()
+			if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=$1`, test.foreign); err != nil {
+				t.Fatal(err)
+			}
+			opened, err := Open(dsn)
+			if err == nil {
+				_ = opened.Close()
+				t.Fatalf("foreign schema version %d accepted", test.foreign)
+			}
+			if !strings.Contains(err.Error(), "database schema differs from this application") {
+				t.Fatalf("unexpected refusal for version %d: %v", test.foreign, err)
+			}
+			var version int
+			if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != test.foreign {
+				t.Fatalf("startup mutated foreign marker to %d %v", version, err)
+			}
+			var journal int
+			if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals'`).Scan(&journal); err != nil || journal != 1 {
+				t.Fatalf("startup touched foreign schema tables %d %v", journal, err)
+			}
+		})
+	}
+}
+
+// The adopted 68 to 69 upgrade runs against a genuine retained 68 copy:
+// builds present, renewals journal absent, marker 68. The copy migrates
+// to 69 with every retained row intact, the migrated journal re-arms an
+// expired setup, and a second open is a clean no-op. Only isolated
+// copies are ever degraded here; the live database is never touched.
+func TestOpenMigratesRetained68To69(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	setup := application.SetupRecord{
+		ID:              "a" + strings.Repeat("6", 24),
+		Application:     application.SetupSpec{ID: "a" + strings.Repeat("6", 24), Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("6", 24), Origin: "https://migrate-68.example.test", Port: 20031},
+		AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending",
+	}
+	if err := s.CreateApplicationSetup(ctx, setup); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO application_builds(id,repository,delivery_id,environment,data,setup_id) VALUES($1,$2,$3,$4,$5,$6)`, strings.Repeat("6", 32), 7, "delivery-68", "company", `{"build":"retained-68"}`, setup.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := Open(dsn)
+	if err != nil {
+		t.Fatalf("genuine 68 copy refused: %v", err)
+	}
+	defer migrated.Close()
+	var version int
+	if err := migrated.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+		t.Fatalf("migrated marker %d %v", version, err)
+	}
+	var journal int
+	if err := migrated.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals' AND table_type='BASE TABLE'`).Scan(&journal); err != nil || journal != 1 {
+		t.Fatalf("migrated journal tables %d %v", journal, err)
+	}
+	kept, err := migrated.ApplicationSetup(ctx, setup.ID)
+	if err != nil || kept != setup {
+		t.Fatalf("migrated setup changed: %+v %v", kept, err)
+	}
+	var build string
+	if err := migrated.db.QueryRowContext(ctx, `SELECT data->>'build' FROM application_builds WHERE id=$1`, strings.Repeat("6", 32)).Scan(&build); err != nil || build != "retained-68" {
+		t.Fatalf("migrated build changed: %s %v", build, err)
+	}
+	// The migrated journal actually re-arms: the expired retained setup
+	// renews through it, preserving identity, address, and administrator.
+	renewed, err := migrated.RenewApplicationSetup(ctx, kept, 41)
+	if err != nil {
+		t.Fatalf("migrated journal refused renewal: %v", err)
+	}
+	if renewed.ExpiresAt <= time.Now().Unix() || renewed.Application != setup.Application || renewed.AdministratorID != setup.AdministratorID || renewed.State != "pending" {
+		t.Fatalf("renewal changed the retained reservation: %+v", renewed)
+	}
+	var renews int
+	if err := migrated.db.QueryRowContext(ctx, `SELECT count(*) FROM application_setup_renewals WHERE setup_id=$1`, setup.ID).Scan(&renews); err != nil || renews != 1 {
+		t.Fatalf("migrated journal rows %d %v", renews, err)
+	}
+	again, err := Open(dsn)
+	if err != nil {
+		t.Fatalf("migrated database refused reopen: %v", err)
+	}
+	defer again.Close()
+	if err := again.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+		t.Fatalf("reopened marker %d %v", version, err)
+	}
+}
+
+// Concurrent opens of one retained 68 copy migrate exactly once: every
+// opener succeeds instead of the second failing on the shared CREATE, the
+// marker lands on 69, and the retained setup and build rows survive intact.
+// Only isolated copies are ever degraded here; the live database is never
+// touched.
+func TestConcurrentOpensMigrateRetained68Once(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	setup := application.SetupRecord{
+		ID:              "a" + strings.Repeat("8", 24),
+		Application:     application.SetupSpec{ID: "a" + strings.Repeat("8", 24), Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("8", 24), Origin: "https://migrate-68-race.example.test", Port: 20033},
+		AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending",
+	}
+	if err := s.CreateApplicationSetup(ctx, setup); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO application_builds(id,repository,delivery_id,environment,data,setup_id) VALUES($1,$2,$3,$4,$5,$6)`, strings.Repeat("8", 32), 9, "delivery-68", "company", `{"build":"retained-68-race"}`, setup.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
+		t.Fatal(err)
+	}
+	const openers = 8
+	type outcome struct {
+		opened *Store
+		err    error
+	}
+	outcomes := make([]outcome, openers)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range outcomes {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			opened, err := Open(dsn)
+			outcomes[i] = outcome{opened: opened, err: err}
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for i, o := range outcomes {
+		if o.err != nil {
+			t.Fatalf("concurrent opener %d refused: %v", i, o.err)
+		}
+		if o.opened == nil {
+			t.Fatalf("concurrent opener %d returned no store", i)
+		}
+		defer o.opened.Close()
+	}
+	first := outcomes[0].opened
+	var version int
+	if err := first.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+		t.Fatalf("concurrent migration marker %d %v", version, err)
+	}
+	kept, err := first.ApplicationSetup(ctx, setup.ID)
+	if err != nil || kept != setup {
+		t.Fatalf("concurrent migration changed retained setup: %+v %v", kept, err)
+	}
+	var build string
+	if err := first.db.QueryRowContext(ctx, `SELECT data->>'build' FROM application_builds WHERE id=$1`, strings.Repeat("8", 32)).Scan(&build); err != nil || build != "retained-68-race" {
+		t.Fatalf("concurrent migration changed retained build: %s %v", build, err)
+	}
+	var journal int
+	if err := first.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals' AND table_type='BASE TABLE'`).Scan(&journal); err != nil || journal != 1 {
+		t.Fatalf("concurrent migration journals %d %v", journal, err)
+	}
+}
+
+// A loser that fails the 68 to 69 upgrade after the winner committed still
+// opens: the reread finds the now-current 69 marker, runs the full shape
+// verification, and succeeds. The simulated loser reads 68, then a
+// concurrent winner commits the upgrade, then the loser's own journal
+// CREATE fails with a genuine duplicate-table error — the exact shape of a
+// cross-process lost upgrade race.
+func TestLostUpgradeRaceRereadAcceptsCommitted69(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
+		t.Fatal(err)
+	}
+	loser, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer loser.Close()
+	tx, err := loser.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	var staged int
+	if err := tx.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&staged); err != nil || staged != 68 {
+		t.Fatalf("loser staged marker %d %v", staged, err)
+	}
+	winner, err := Open(dsn)
+	if err != nil {
+		t.Fatalf("winner refused: %v", err)
+	}
+	defer winner.Close()
+	_, lostErr := tx.ExecContext(ctx, ApplicationSetupRenewalsDDL)
+	if lostErr == nil {
+		t.Fatal("loser CREATE did not fail after the committed upgrade")
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reopenAfterLostUpgradeRace(ctx, s.db, lostErr); err != nil {
+		t.Fatalf("reread refused a committed 69: %v", err)
+	}
+	var version int
+	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+		t.Fatalf("reread moved marker to %d %v", version, err)
+	}
+}
+
+// A failed 68 to 69 upgrade rolls back to 68 without mutation: with a
+// conflicting object holding the journal name, the CREATE TABLE fails
+// inside the open transaction and the retained rows and marker survive.
+func TestFailedMigrationLeaves68Intact(t *testing.T) {
+	s, dsn := postgresFixture(t, nil)
+	ctx := context.Background()
+	setup := application.SetupRecord{
+		ID:              "a" + strings.Repeat("7", 24),
+		Application:     application.SetupSpec{ID: "a" + strings.Repeat("7", 24), Name: "Example", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("7", 24), Origin: "https://migrate-68-fail.example.test", Port: 20032},
+		AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending",
+	}
+	if err := s.CreateApplicationSetup(ctx, setup); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `CREATE VIEW application_setup_renewals AS SELECT 1 AS setup_id`); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := Open(dsn)
+	if err == nil {
+		_ = opened.Close()
+		t.Fatal("conflicted migration accepted")
+	}
+	if !strings.Contains(err.Error(), "migrate database schema 68 to 69") {
+		t.Fatalf("unexpected migration failure: %v", err)
+	}
+	var version int
+	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 68 {
+		t.Fatalf("failed migration moved marker to %d %v", version, err)
+	}
+	kept, err := s.ApplicationSetup(ctx, setup.ID)
+	if err != nil || kept != setup {
+		t.Fatalf("failed migration changed retained setup: %+v %v", kept, err)
+	}
+	var journal int
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals' AND table_type='BASE TABLE'`).Scan(&journal); err != nil || journal != 0 {
+		t.Fatalf("failed migration left journal tables %d %v", journal, err)
 	}
 }

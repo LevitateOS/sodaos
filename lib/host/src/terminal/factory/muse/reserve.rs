@@ -1,8 +1,8 @@
-use super::commands::{muse_exec_argv, muse_setup_script};
+use super::commands::{muse_controlled_argv, muse_exec_argv, muse_setup_script};
 use super::paths::{factory_muse_guest, factory_muse_paths, FactoryMusePaths};
 use crate::project::Executor;
 use crate::terminal::factory::native::{
-    factory_unit_name_or_denied, harness_install_script, reserve_run_argv,
+    factory_unit_name_or_denied, harness_install_script, reserve_run_argv, shell_quote,
 };
 use crate::terminal::factory::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Lease, Service, KIND_FACTORY};
@@ -22,6 +22,37 @@ impl<E: Executor> Service<E> {
         max_secs: i64,
         deadline: Instant,
     ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
+        self.factory_muse_reserve_with_channels(run, lease, bound, max_secs, None, deadline)
+    }
+
+    pub fn factory_muse_controlled_reserve(
+        &self,
+        run: &FactoryRun,
+        lease: &Lease,
+        bound: &super::super::bound::BoundBundle,
+        max_secs: i64,
+        channels: &super::super::native_io::NativeChannels,
+        deadline: Instant,
+    ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
+        self.factory_muse_reserve_with_channels(
+            run,
+            lease,
+            bound,
+            max_secs,
+            Some(channels),
+            deadline,
+        )
+    }
+
+    fn factory_muse_reserve_with_channels(
+        &self,
+        run: &FactoryRun,
+        lease: &Lease,
+        bound: &super::super::bound::BoundBundle,
+        max_secs: i64,
+        channels: Option<&super::super::native_io::NativeChannels>,
+        deadline: Instant,
+    ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
         let p = factory_muse_paths(run)?;
         if lease.kind != KIND_FACTORY || lease.execution_id != run.id || lease.generation <= 0 {
             return Err(terminal::err_denied());
@@ -37,10 +68,42 @@ impl<E: Executor> Service<E> {
         let container = self.factory_project_container(&run.project, true, deadline)?;
         let (uid, gid) = self.factory_role_ids(&container, &run.role, deadline)?;
         self.factory_muse_setup(&container, run, &p, uid, gid, deadline)?;
+        if !run.effort.is_empty() {
+            let model = serde_json::to_string(&run.model)
+                .map_err(|_| "native child model configuration invalid".to_string())?;
+            let definition = format!(
+                "---\nname: factory-task\ndescription: One admitted Factory implementation task\nmodel: {model}\neffort: {}\n---\nComplete only the delegated admitted task. Never spawn children, resume another task, modify Git metadata or acquire credentials. Release all source writes before returning your result.\n",
+                run.effort
+            );
+            let directory = format!("{}/agents", p.muse_config);
+            let argv = vec![
+                "--remote=false".into(),
+                "exec".into(),
+                "--interactive".into(),
+                container.clone(),
+                "/usr/bin/sh".into(),
+                "-c".into(),
+                format!(
+                    "/usr/bin/install -d -m 750 -o 0 -g {gid} {directory} && /usr/bin/install -m 440 -o 0 -g {gid} /dev/stdin {path}\n",
+                    directory = shell_quote(&directory),
+                    path = shell_quote(&format!("{directory}/factory-task.md"))
+                ),
+            ];
+            self.run_podman(definition.as_bytes(), &argv, deadline)
+                .map_err(|_| "native child profile staging unconfirmed".to_string())?;
+        }
         let guest = self.factory_muse_stage(&container, bound, deadline)?;
         let unit = factory_unit_name_or_denied(&run.id)?;
-        let mut args = reserve_run_argv(&unit, max_secs);
-        args.extend(muse_exec_argv(&container, run, &p, &guest));
+        let mut args = if let Some(channels) = channels {
+            super::super::codex_control::reserve_argv(&unit, max_secs, channels)
+        } else {
+            reserve_run_argv(&unit, max_secs)
+        };
+        args.extend(if channels.is_some() {
+            muse_controlled_argv(&container, run, &p, &guest, max_secs)
+        } else {
+            muse_exec_argv(&container, run, &p, &guest)
+        });
         if self.factory_systemd_run(&args, deadline).is_err() {
             return Err("factory unit start unconfirmed".to_string());
         }
@@ -77,7 +140,12 @@ impl<E: Executor> Service<E> {
         gid: i64,
         deadline: Instant,
     ) -> Result<(), String> {
-        let setup = muse_setup_script(p, uid, gid);
+        let setup = format!(
+            "{}mkdir -p -m 700 {tmp} {cache}\nchown {uid}:{gid} {tmp} {cache}\n",
+            muse_setup_script(p, uid, gid),
+            tmp = shell_quote(&format!("{}/tmp", p.home)),
+            cache = shell_quote(&format!("{}/cache", p.home))
+        );
         let argv = vec![
             "--remote=false".to_string(),
             "exec".to_string(),

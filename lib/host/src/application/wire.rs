@@ -158,6 +158,7 @@ impl Request {
         if ![
             "install",
             "inspect",
+            "verify_build",
             "start",
             "stop",
             "replace",
@@ -203,4 +204,6 @@ pub struct Observation {
     pub running: bool,
     pub ready: bool,
     pub origin: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub bundle_file_sha256: String,
 }

@@ -161,7 +161,7 @@ func extensionQueryRoute(route string) bool {
 			return parts[5] == "acceptance-preview" || parts[5] == "plan"
 		}
 		return len(parts) == 4 && parts[0] == "factory" && parts[1] == "intents" &&
-			parts[2] != "" && parts[3] == "revisions"
+			parts[2] != "" && (parts[3] == "revisions" || parts[3] == "review")
 	}
 }
 
@@ -212,7 +212,7 @@ func extensionIntentsRevisionRoute(parts []string, method string) (admitted, han
 	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
 		return method == http.MethodGet || method == http.MethodPost, true
 	}
-	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions") {
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions" || parts[3] == "review") {
 		return method == http.MethodGet, true
 	}
 	if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
@@ -222,6 +222,9 @@ func extensionIntentsRevisionRoute(parts []string, method string) (admitted, han
 }
 
 func extensionIntentsMutationRoute(parts []string, method string) (admitted, handled bool) {
+	if len(parts) == 5 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" && parts[4] == "review" {
+		return method == http.MethodPost, true
+	}
 	if len(parts) == 2 && parts[1] == "intent-allowances" {
 		return method == http.MethodPost, true
 	}
@@ -331,7 +334,7 @@ func extensionFactoryRoute(parts []string, method string) bool {
 		case 4:
 			return parts[2] == "comments" && extensionProductID(parts[3]) && method == http.MethodGet
 		case 5:
-			return parts[2] == "comments" && extensionProductID(parts[3]) && parts[4] == "retry" && method == http.MethodPost
+			return parts[2] == "comments" && extensionProductID(parts[3]) && (parts[4] == "retry" || parts[4] == "review") && method == http.MethodPost
 		}
 		return false
 	}

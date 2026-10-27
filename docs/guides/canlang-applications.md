@@ -82,6 +82,70 @@ date and flags. See [Canlang's target guide](../../../canlang/docs/soda-runtime.
 for configuration and private credential-file formats. `build` exclusively
 creates its output; runtime launch verifies the portable bundle identity again.
 
+For a Factory delivery, the approved Project check can write the exact build to
+`.soda/application/bundle.json` in its disposable checkout. After that check
+passes and its processes retire, the native helper retains those bytes and their
+SHA-256 with the source, run, invocation and approved check receipt. A failed
+check supplies no application build receipt. Older checks without this output
+remain valid checks, with no claim that they produced a launchable application.
+
+Include the source, descriptor, environment and any imported files in the
+preparation's complete effective input selection. The maintainer reviews
+`check.sh` through the existing protected setup-file approval. Its app checks
+must assert the accepted outcomes before producing the transport. For example,
+after the repository's real behavior checks succeed:
+
+```sh
+can check app.can
+can compile --format=json app.can > app.json
+mkdir -p .soda/application
+can-soda build --artifact app.json --descriptor deployment.json \
+  --environment soda-environment.json --out .soda/application/bundle.json
+```
+
+Use the installed compiler's actual descriptor/environment configuration and
+the intended HTTPS `CAN_AUTH_ORIGIN`; the paths above illustrate the existing
+CLI inputs rather than approving a check suite. A change to protected check
+definitions requires their normal approval. A failed assertion must return a
+nonzero status instead of leaving a misleading successful build result.
+
+For an isolated preview, the same approved check also builds and checks
+`.soda/application/preview/bundle.json` from that source using its separately
+declared environment and HTTPS origin. The helper records each exact byte
+digest and refuses two outputs with the same origin. It exports only the fixed
+`company` or `preview` output chosen by the typed build request; a caller cannot
+choose another file. Native staging, image tags, receipts and build inventory
+keep those environments separate. Each first-owner setup reserves independent
+app, data and account identities. A missing preview output means no verified
+preview is available. Changing a company bundle's origin after checking is not
+a preview build, and preview must never use live data or owner credentials.
+
+The project's verified delivery can now supply a native application build.
+The operator requests packaging by its delivery ID; Soda resolves the exact
+current accepted scope and passed native run. The helper exports the retained
+bytes, and the host uses the selected release's immutable runtime with a fixed
+offline recipe that only adds that bundle. It accepts no caller-supplied image,
+shell command, Containerfile or filesystem path. Native readback verifies the
+finished image against the check receipt before the build enters inventory.
+Retrying packaging returns the same recorded build after checking its bytes.
+
+Creating owner setup from that build carries its actual name, origin and
+immutable references into the existing first-owner lifecycle. Soda reserves
+fresh app and data identities; retries return the same reservation. Completing
+the confirmed native owner receipt links the stopped app to its project.
+Packaging does not create an account, start the app or release it to employees.
+The source build must use the intended HTTPS origin: an unrelated preview
+origin cannot be silently substituted for a live application's identity.
+
+After admitting and inspecting an application image, **Verify build** reads the
+actual `/opt/application/bundle.json` from that immutable OCI image without
+executing its code. The App shows a verified Factory delivery only when those
+bytes match the native check receipt for the same project's current accepted
+direction and canonical verification event. Image labels, an operator's project
+link and a successful build command alone do not supply that proof. This check
+grants neither company access nor release permission; packaging, first-owner
+setup and release remain explicit operations.
+
 Create a private, existing, writable directory under `/home` and bootstrap its
 owner while the application is stopped:
 
@@ -120,7 +184,7 @@ or threads, and app-only writable storage. These fixed limits also appear in
 Applications. They are limits rather than reserved CPUs. It
 does not inherit Project homes, SSH, sudo, an engine socket or Forgejo credentials.
 
-For production, build the application layer over the exact selected runtime
+For an application without a Factory build receipt, build its layer over the exact selected runtime
 image using the application recipe's `APP_BUNDLE`, `APP_NAME`, `ARTIFACT_DIGEST`,
 `BUNDLE_DIGEST`, `STORAGE_DIGEST`, `TOOLS_DIGEST`, `RUNTIME_DIGEST` and `APP_ORIGIN` inputs. Take `STORAGE_DIGEST` from the built Soda bundle's `storageFingerprint`. Preserve
 those values from the admitted bundle and release; labels cannot substitute for
@@ -128,7 +192,7 @@ checking bytes. Transfer the resulting OCI archive through the operator's
 trusted path and load it into the appliance's Podman store before registration.
 There is no browser image-upload endpoint or build during Install.
 
-The operator can instead open **Set up a new application** in Applications,
+The operator can also open **Set up a new application** in Applications,
 provide the admitted image references and choose the Soda administrator. Soda
 reserves a separate provisional record and fresh data identity. **Begin owner
 setup** starts only Canlang's first-owner form at the exact application origin;

@@ -10,11 +10,146 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/application"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+func checkFactoryApplicationReadback(t *testing.T, ctx context.Context, db *store.Store, a factory.Assignment, bundle string) string {
+	t.Helper()
+	r := application.Record{Application: application.Spec{ID: "a" + strings.Repeat("1", 24), Revision: 1, Name: "FactoryFixture", ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64), RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64), Data: "a" + strings.Repeat("7", 24), OwnerTeam: "12345678-1234-1234-1234-123456789abc", Origin: "https://factory-app.example.test", Port: 24001}, AdministratorID: 7}
+	if err := db.CreateApplication(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetApplicationProject(ctx, r.Application.ID, 7, a.Repository); err != nil {
+		t.Fatal(err)
+	}
+	if proof, err := db.VerifiedApplicationDelivery(ctx, r.Application.ID); err != nil || proof != nil {
+		t.Fatal("labels or project link supplied byte proof", proof, err)
+	}
+	o := application.Observation{ID: r.Application.ID, Revision: 1, Image: r.Application.Image, Container: strings.Repeat("a", 64), Origin: r.Application.Origin, BundleFileSHA256: strings.Repeat("f", 64)}
+	if err := db.ObserveApplication(ctx, r.Application.ID, 7, 1, nil, &o); err != nil {
+		t.Fatal(err)
+	}
+	if proof, err := db.VerifiedApplicationDelivery(ctx, r.Application.ID); err != nil || proof != nil {
+		t.Fatal("different native bundle matched delivery", proof, err)
+	}
+	matched := o
+	matched.BundleFileSHA256 = bundle
+	if err := db.ObserveApplication(ctx, r.Application.ID, 7, 1, &o, &matched); err != nil {
+		t.Fatal(err)
+	}
+	proof, err := db.VerifiedApplicationDelivery(ctx, r.Application.ID)
+	if err != nil || proof == nil || proof.Run != a.Run || proof.SourceCommit != a.SourceCommit || proof.Revision != a.Subject.Delivery.AcceptedRevision || proof.BundleFileSHA256 != bundle || proof.Environment != "company" {
+		t.Fatal("native bytes did not join canonical delivery", proof, err)
+	}
+	if err := db.SetApplicationProject(ctx, r.Application.ID, 7, a.Repository+1); err != nil {
+		t.Fatal(err)
+	}
+	if proof, err := db.VerifiedApplicationDelivery(ctx, r.Application.ID); err != nil || proof != nil {
+		t.Fatal("foreign repository borrowed verified bytes", proof, err)
+	}
+	if err := db.SetApplicationProject(ctx, r.Application.ID, 7, a.Repository); err != nil {
+		t.Fatal(err)
+	}
+	request, delivery, err := db.VerifiedFactoryBuildInput(ctx, a.Repository, a.Subject.Delivery.DeliveryID, "company")
+	if err != nil || request.Run != a.Run || delivery.BundleFileSHA256 != bundle || delivery.SourceCommit != a.SourceCommit {
+		t.Fatal("canonical delivery did not admit its exact native packaging input", request, delivery, err)
+	}
+	if _, _, err := db.VerifiedFactoryBuildInput(ctx, a.Repository+1, a.Subject.Delivery.DeliveryID, "company"); err == nil {
+		t.Fatal("foreign repository admitted packaging")
+	}
+	artifact := application.BuildArtifact{Environment: "company", Project: request.Project, Run: request.Run, Incarnation: request.Incarnation, ManifestDigest: request.ManifestDigest, SourceCommit: delivery.SourceCommit, Name: "PackagedFixture", ArtifactSHA256: r.Application.ArtifactSHA256, BundleSHA256: r.Application.BundleSHA256, BundleFileSHA256: bundle, StorageSHA256: strings.Repeat("8", 64), ToolsSHA256: r.Application.ToolsSHA256, RuntimeImage: r.Application.RuntimeImage, Image: "sha256:" + strings.Repeat("9", 64), Origin: "https://packaged-app.example.test"}
+	for _, mismatch := range []string{"hash", "source", "run"} {
+		foreign := artifact
+		switch mismatch {
+		case "hash":
+			foreign.BundleFileSHA256 = strings.Repeat("f", 64)
+		case "source":
+			foreign.SourceCommit = strings.Repeat("f", 40)
+		case "run":
+			foreign.Run = strings.Repeat("f", 32)
+		}
+		if _, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, foreign); err == nil {
+			t.Fatal("foreign packaged artifact admitted", mismatch)
+		}
+	}
+	build, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, artifact)
+	if err != nil || build.Artifact != artifact || build.Delivery != delivery {
+		t.Fatal("native build was not retained", build, err)
+	}
+	again, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, artifact)
+	if err != nil || again.ID != build.ID {
+		t.Fatal("build response recovery changed its identity", again, err)
+	}
+	builds, err := db.ApplicationBuilds(ctx, a.Repository, delivery.DeliveryID)
+	if err != nil || len(builds) != 1 {
+		t.Fatal("build response recovery duplicated inventory", builds, err)
+	}
+	setup, err := db.CreateApplicationBuildSetup(ctx, a.Repository, build.ID, 7)
+	if err != nil || setup.Application.Image != artifact.Image || setup.Application.Origin != artifact.Origin || setup.Application.Name != artifact.Name {
+		t.Fatal("build references did not produce the owner setup", setup, err)
+	}
+	setupAgain, err := db.CreateApplicationBuildSetup(ctx, a.Repository, build.ID, 7)
+	if err != nil || setupAgain.ID != setup.ID || setupAgain.Application != setup.Application || setupAgain.ExpiresAt != setup.ExpiresAt {
+		t.Fatal("setup response recovery changed identity or data", setupAgain, err)
+	}
+	settled := application.SetupResult{Operation: setup.ID, Observation: application.SetupObservation{}, Receipt: &application.SetupReceipt{Schema: "canlang.soda.setup.v1", Operation: setup.ID, App: artifact.Name, ArtifactDigest: artifact.ArtifactSHA256, BundleDigest: artifact.BundleSHA256, StorageFingerprint: artifact.StorageSHA256, OwnerTeam: r.Application.OwnerTeam, CompletedAt: time.Now().Unix()}, Application: &application.Observation{ID: setup.Application.ID, Revision: 1, Image: artifact.Image, Container: strings.Repeat("b", 64), Origin: artifact.Origin, BundleFileSHA256: bundle}}
+	if err := db.SettleApplicationSetup(ctx, setup, settled, false); err != nil {
+		t.Fatal("native owner receipt did not settle packaged app", err)
+	}
+	if repository, err := db.ApplicationProject(ctx, setup.Application.ID); err != nil || repository != a.Repository {
+		t.Fatal("settled packaged app lost its project", repository, err)
+	}
+	if retained, err := db.Application(ctx, setup.Application.ID, 7); err != nil || retained.Application.Data != setup.Application.Data || retained.Application.OwnerTeam != r.Application.OwnerTeam {
+		t.Fatal("settled packaged app changed its admitted data or owner", retained, err)
+	}
+	previewRequest, previewDelivery, err := db.VerifiedFactoryBuildInput(ctx, a.Repository, delivery.DeliveryID, "preview")
+	if err != nil || previewRequest.Environment != "preview" || previewDelivery.BundleFileSHA256 == bundle {
+		t.Fatal("preview did not select separate native output", previewRequest, previewDelivery, err)
+	}
+	previewArtifact := artifact
+	previewArtifact.Environment, previewArtifact.Origin, previewArtifact.Image, previewArtifact.BundleFileSHA256 = "preview", "https://preview.packaged-app.example.test", "sha256:"+strings.Repeat("a", 64), previewDelivery.BundleFileSHA256
+	wrongEnvironment := previewArtifact
+	wrongEnvironment.BundleFileSHA256 = bundle
+	if _, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, wrongEnvironment); err == nil {
+		t.Fatal("company bytes relabeled as preview")
+	}
+	preview, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, previewArtifact)
+	if err != nil || preview.ID == build.ID || preview.Delivery.Environment != "preview" {
+		t.Fatal("preview inventory overlaps company", preview, err)
+	}
+	previewAgain, err := db.SaveApplicationBuild(ctx, a.Repository, delivery.DeliveryID, previewArtifact)
+	if err != nil || previewAgain.ID != preview.ID {
+		t.Fatal("preview response recovery changed identity", previewAgain, err)
+	}
+	builds, err = db.ApplicationBuilds(ctx, a.Repository, delivery.DeliveryID)
+	if err != nil || len(builds) != 2 {
+		t.Fatal("environment inventories were conflated or duplicated", builds, err)
+	}
+	previewSetup, err := db.CreateApplicationBuildSetup(ctx, a.Repository, preview.ID, 7)
+	if err != nil || previewSetup.ID == setup.ID || previewSetup.Application.ID == setup.Application.ID || previewSetup.Application.Data == setup.Application.Data || previewSetup.Application.Origin == setup.Application.Origin || previewSetup.Application.Port == setup.Application.Port {
+		t.Fatal("preview setup borrowed company identity or data", previewSetup, err)
+	}
+	previewSetupAgain, err := db.CreateApplicationBuildSetup(ctx, a.Repository, preview.ID, 7)
+	if err != nil || previewSetupAgain.ID != previewSetup.ID || previewSetupAgain.Application != previewSetup.Application {
+		t.Fatal("preview setup response recovery changed data", previewSetupAgain, err)
+	}
+	previewOwner := "22345678-1234-1234-1234-123456789abc"
+	previewSettled := application.SetupResult{Operation: previewSetup.ID, Observation: application.SetupObservation{}, Receipt: &application.SetupReceipt{Schema: "canlang.soda.setup.v1", Operation: previewSetup.ID, App: previewArtifact.Name, ArtifactDigest: previewArtifact.ArtifactSHA256, BundleDigest: previewArtifact.BundleSHA256, StorageFingerprint: previewArtifact.StorageSHA256, OwnerTeam: previewOwner, CompletedAt: time.Now().Unix()}, Application: &application.Observation{ID: previewSetup.Application.ID, Revision: 1, Image: previewArtifact.Image, Container: strings.Repeat("c", 64), Origin: previewArtifact.Origin, BundleFileSHA256: previewArtifact.BundleFileSHA256}}
+	if err := db.SettleApplicationSetup(ctx, previewSetup, previewSettled, false); err != nil {
+		t.Fatal("preview native owner receipt did not settle", err)
+	}
+	if projection, err := db.VerifiedApplicationDelivery(ctx, previewSetup.Application.ID); err != nil || projection == nil || projection.Environment != "preview" || projection.BundleFileSHA256 != previewArtifact.BundleFileSHA256 {
+		t.Fatal("preview did not retain exact native provenance", projection, err)
+	}
+	if retained, err := db.Application(ctx, previewSetup.Application.ID, 7); err != nil || retained.Application.Data != previewSetup.Application.Data || retained.Application.OwnerTeam != previewOwner {
+		t.Fatal("preview did not retain its own data and owner", retained, err)
+	}
+	return r.Application.ID
+}
 
 func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 	for _, fixture := range []struct {
@@ -271,6 +406,8 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					}
 					native.Invocation, native.LeaseID, native.Generation, native.Delivered, native.CredentialReturned, native.Retirement = strings.Repeat("b", 32), "native-manifest-lease", 1, true, true, "confirmed"
 					checks := &project.FactoryVerificationChecksState{Project: in.Run.Project, Run: in.Run.ID, Incarnation: native.Invocation, ManifestDigest: in.Run.VerificationManifestDigest, Phase: "passed", SourceCommit: m.SourceCommit, Preparation: m.Preparation, CheckDigest: m.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("per-run native manifest assertions passed")), OutputExcerpt: "full-name.expected=Hello, Ada Lovelace!\nfull-name.observed=Hello, Ada Lovelace!\n", Retirement: "confirmed"}
+					checks.ApplicationBundleSHA256 = factory.MCPInputDigest([]byte("checked application bundle bytes"))
+					checks.ApplicationPreviewBundleSHA256 = factory.MCPInputDigest([]byte("checked preview application bundle bytes"))
 					if fixture.failed {
 						// Older retained receipts carry a digest without captured text.
 						checks.OutputExcerpt = ""
@@ -281,6 +418,8 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						code := 1
 						checks.Phase, checks.ExitCode, checks.Reason = "failed", &code, "required_check_failed"
 						checks.OutputDigest = factory.MCPInputDigest([]byte("per-run assertions failed"))
+						checks.ApplicationBundleSHA256 = ""
+						checks.ApplicationPreviewBundleSHA256 = ""
 						native.Phase, native.Delivered, native.Reason = project.FactoryFailed, false, "verification_checks_failed"
 					}
 					native.VerificationChecks = checks
@@ -865,6 +1004,18 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			if err := c.verifyApplicationReport(ctx, a); err != nil {
 				t.Fatal("trusted F10 adoption", err)
 			}
+			var resultPost string
+			if err := sqlDB.QueryRow(`SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, a.Subject.Delivery.DeliveryID).Scan(&resultPost); err != nil {
+				t.Fatal("verified result post missing", err)
+			}
+			resultSource, err := db.ResolveCommentSource(ctx, a.Repository, factory.CommentSourcePost, resultPost)
+			if err != nil || resultSource.Product == nil || resultSource.Product.Intent != revision.Intent || resultSource.Product.AcceptedRevision != revision.ID {
+				t.Fatal("verified app result cannot anchor an exact product change", resultSource, err)
+			}
+			appID := ""
+			if fixture.adopted {
+				appID = checkFactoryApplicationReadback(t, ctx, db, a, native.VerificationChecks.ApplicationBundleSHA256)
+			}
 			c.DispatchReads = &appVerificationReads{tip: strings.Repeat("e", 40)}
 			fx.host.contextRead = func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
 				t.Fatal("verified current accepted revision requested another native preparation")
@@ -902,6 +1053,28 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 			nextRevision.ID, nextRevision.Predecessor = phasedDecisionID(42), revision.ID
 			if err := db.SaveIntentRevision(ctx, nextRevision); err != nil {
 				t.Fatal(err)
+			}
+			if appID != "" {
+				if proof, err := db.VerifiedApplicationDelivery(ctx, appID); err != nil || proof == nil || proof.Revision != revision.ID || proof.Revision == nextRevision.ID || proof.Run != a.Run || proof.SourceCommit != a.SourceCommit || proof.Environment != "company" {
+					t.Fatal("running old bundle lost its exact historical verification", proof, err)
+				}
+				builds, err := db.ApplicationBuilds(ctx, a.Repository, a.Subject.Delivery.DeliveryID)
+				if err != nil || len(builds) != 2 {
+					t.Fatal("historical build inventory disappeared", builds, err)
+				}
+				for _, build := range builds {
+					if _, _, err := db.VerifiedFactoryBuildInput(ctx, a.Repository, build.Delivery.DeliveryID, build.Artifact.Environment); err == nil {
+						t.Fatal("changed accepted head admitted stale packaging")
+					}
+					before, err := db.ApplicationSetup(ctx, build.SetupID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					recovered, err := db.CreateApplicationBuildSetup(ctx, a.Repository, build.ID, 7)
+					if err != nil || recovered.ID != before.ID || recovered.Application != before.Application || recovered.State != "complete" {
+						t.Fatal("changed head lost existing setup recovery", recovered, err)
+					}
+				}
 			}
 			binding.RevisionID = nextRevision.ID
 			if err := db.BindIntentTaskAcceptance(ctx, binding); err != nil {

@@ -16,6 +16,7 @@ type applicationAction struct {
 	ExpectedContainer string            `json:"expected_container"`
 	ConfirmStop       bool              `json:"confirm_stop"`
 	Replacement       *application.Spec `json:"replacement"`
+	ReplacementBuild  string            `json:"replacement_build,omitempty"`
 }
 
 func (s *API) acquireApplicationMutation(id string) (func(), bool) {
@@ -124,6 +125,10 @@ func (s *API) admitApplicationOperation(w http.ResponseWriter, r *http.Request, 
 	if !s.authorizeApplicationAction(w, r, v, in.Action) {
 		return empty, noRequest, false
 	}
+	if err := s.resolveApplicationBuildReplacement(r, record, &in); err != nil {
+		auth.JSONError(w, 409, "build_replacement_conflict", "Choose a current verified build prepared for this application's project, name and address. Refresh before retrying.")
+		return empty, noRequest, false
+	}
 	if !s.noApplicationRestore(w, r, record.Application.ID) {
 		return empty, noRequest, false
 	}
@@ -165,6 +170,14 @@ func (s *API) performApplicationOperation(w http.ResponseWriter, r *http.Request
 			auth.JSONError(w, 409, "application_state_changed", "The native app changed, but its references could not be saved. Refresh before acting again.")
 			return
 		}
+	}
+	// Readback identifies immutable image bytes. Ordinary lifecycle observations
+	// of that same exact image retain it; replacement must establish new proof.
+	if result.BundleFileSHA256 == "" && record.Observation != nil && record.Application.Image == result.Image && record.Observation.Image == result.Image && result.Container != "" {
+		result.BundleFileSHA256 = record.Observation.BundleFileSHA256
+	}
+	if result.BundleFileSHA256 == "" && result.Container != "" && result.Image == request.Application.Image {
+		result.BundleFileSHA256 = s.Store.ApplicationBuildImageProof(ctx, result.Image)
 	}
 	if err := s.Store.ObserveApplication(ctx, record.Application.ID, record.AdministratorID, request.Application.Revision, nil, &result); err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native outcome could not be recorded. Inspect before acting again.")

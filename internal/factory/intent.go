@@ -351,10 +351,11 @@ func (r IntentRevision) Summary() IntentSummary {
 	if len(objective) > 280 {
 		objective = objective[:280]
 	}
+	resolved := ResolvedScope(r)
 	return IntentSummary{
 		Intent: r.Intent, Revision: r.ID, State: r.State, Objective: objective,
 		Repository: r.Repository, Department: r.Department, CreatedUnix: r.CreatedUnix,
-		EffectiveCount: len(r.EffectiveOutcomes), TaskCount: len(r.Tasks), Outcomes: r.EffectiveOutcomes,
+		EffectiveCount: len(resolved), TaskCount: len(r.Tasks), Outcomes: resolved,
 	}
 }
 

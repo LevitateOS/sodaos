@@ -46,6 +46,10 @@ func parseFeedQueryParams(r *http.Request) (factory.FeedQuery, error) {
 		limit = parsed
 	}
 	query.Limit = limit
+	query.View = strings.TrimSpace(r.URL.Query().Get("view"))
+	query.Search = strings.TrimSpace(r.URL.Query().Get("search"))
+	query.Role = strings.TrimSpace(r.URL.Query().Get("role"))
+	query.Current = r.URL.Query().Get("current") == "true"
 	query.Cursor = strings.TrimSpace(r.URL.Query().Get("cursor"))
 	if err := query.Validate(); err != nil {
 		return factory.FeedQuery{}, err

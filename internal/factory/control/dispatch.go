@@ -113,10 +113,14 @@ const (
 
 // Dispatch error reasons for unexpected infrastructure failures. The
 // affected assignment keeps its held reservation; a later pass retries.
+// DispatchErrPromptBound is the one deterministic validation refusal: an
+// assembled intent prompt past its admitted phase bound. It never
+// retries the same input; the selection must narrow instead.
 const (
-	DispatchErrStore = "store_unavailable"
-	DispatchErrHost  = "host_unavailable"
-	DispatchErrFence = "launch_fenced"
+	DispatchErrStore       = "store_unavailable"
+	DispatchErrHost        = "host_unavailable"
+	DispatchErrFence       = "launch_fenced"
+	DispatchErrPromptBound = "prompt_over_bound"
 )
 
 // DispatchWait is one issue that did not launch this pass and why.
@@ -257,7 +261,7 @@ func dispatchObservationReason(repository, issue int64, reason, detail string) D
 		stage = "read"
 	case WaitSource:
 		stage = "source"
-	case WaitPrompt:
+	case WaitPrompt, DispatchErrPromptBound:
 		stage = "prompt"
 	case "plan_not_current", "planning_deferred":
 		stage = "planning"

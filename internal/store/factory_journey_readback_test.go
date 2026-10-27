@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // journeySQL opens the ephemeral database for direct fixture inserts;
@@ -499,5 +500,464 @@ func TestDeliveryJudgmentsForPublicationScope(t *testing.T) {
 	}
 	if _, _, err := s.DeliveryJudgmentsForPublication(ctx, "bad", root, 8); err == nil {
 		t.Fatal("delivery listing accepted invalid scope")
+	}
+}
+
+func journeyAdoptionRevision(intent, revision string) factory.IntentRevision {
+	return factory.IntentRevision{
+		ID: revision, Intent: intent,
+		Owner: 1, Repository: 7, Objective: "Build a request form",
+		State: "accepted", MaxIssues: 4, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+		Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
+}
+
+func seedJourneyCompletion(t *testing.T, db *sql.DB, acceptance string) factory.CompletionEvent {
+	t.Helper()
+	event := factory.CompletionEvent{
+		ID: strings.Repeat("d", 32), PublicationID: strings.Repeat("9", 32),
+		MergedCommit: strings.Repeat("c", 40), ClosingOccurrence: "journey-delivered",
+		AcceptanceID: acceptance, Repository: 7, Issue: 3, Generation: 2,
+	}
+	if err := event.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)`,
+		event.Repository, event.Generation, event.ID, event.PublicationID, event.ClosingOccurrence, string(data)); err != nil {
+		t.Fatal(err)
+	}
+	return event
+}
+
+func TestJourneyUnchangedRebindYieldsTwoBindingsOneDelivered(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	acceptance := "d555555555555555555555555"
+	first := journeyAdoptionRevision(intent, "d111111111111111111111111")
+	if err := s.SaveIntentRevision(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, factory.IntentTaskBinding{
+		RevisionID: first.ID, TaskKey: "d444444444444444444444444",
+		IssueID: 99, IssueIndex: 3, AcceptanceID: acceptance, CreatedUnix: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	second := journeyAdoptionRevision(intent, "d666666666666666666666666")
+	second.Predecessor = first.ID
+	if err := s.SaveIntentRevision(ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, factory.IntentTaskBinding{
+		RevisionID: second.ID, TaskKey: "d444444444444444444444444",
+		IssueID: 99, IssueIndex: 3, AcceptanceID: acceptance, CreatedUnix: 2,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	adoptions, truncated, err := s.JourneyAdoptions(ctx, 7, 3, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if truncated || len(adoptions) != 2 {
+		t.Fatalf("unchanged rebind adoptions=%v truncated=%v", adoptions, truncated)
+	}
+	if adoptions[0].Revision == adoptions[1].Revision {
+		t.Fatalf("successor rebind kept one revision: %+v", adoptions)
+	}
+	event := seedJourneyCompletion(t, raw, acceptance)
+	for _, adoption := range adoptions {
+		got, err := s.JourneyDeliveredCompletion(ctx, 7, adoption.Binding.IssueIndex, adoption.Binding.AcceptanceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.ID != event.ID || got.PublicationID != event.PublicationID || got.Generation != event.Generation {
+			t.Fatalf("binding %+v delivered=%+v want %+v", adoption.Binding, got, event)
+		}
+	}
+}
+
+func seedCanonicalVerifiedApp(t *testing.T, db *sql.DB, intent, revision string) (factory.DeliverySubject, factory.Assignment) {
+	t.Helper()
+	var revisionRaw []byte
+	if err := db.QueryRow(`SELECT data FROM factory_intent_revisions WHERE id=$1`, revision).Scan(&revisionRaw); err != nil {
+		t.Fatal(err)
+	}
+	var adopted factory.IntentRevision
+	if err := json.Unmarshal(revisionRaw, &adopted); err != nil {
+		t.Fatal(err)
+	}
+	manifest := strings.Repeat("7", 64)
+	subject := factory.DeliverySubject{
+		IntentID: intent, AcceptedRevision: revision,
+		ScopeDigest: adopted.Digest(), SourceCommit: strings.Repeat("c", 40),
+		PreparationDigest: strings.Repeat("4", 64), VerificationManifestDigest: manifest,
+	}
+	subject.DeliveryID = factory.DeliveryID(subject)
+	if err := subject.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	report := factory.AppVerificationReport{
+		DeliveryID: subject.DeliveryID, InputDigest: strings.Repeat("9", 64),
+		Outcome:       factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "approved check passed"}},
+	}
+	if err := report.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	assignment := factory.Assignment{
+		ID: strings.Repeat("5", 32), AttemptRoot: strings.Repeat("5", 32),
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer,
+		Phase: project.ExecutionVerify, Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
+		Subject:      factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &subject},
+		Preparation:  "f" + strings.Repeat("b", 24),
+		SourceCommit: subject.SourceCommit, Run: strings.Repeat("6", 32),
+		RunHistory: []string{strings.Repeat("6", 32)},
+		Repository: 7, CreatedUnix: 1700000000, ActorID: 1,
+		Result: &factory.AssignmentResult{
+			AssignmentID: strings.Repeat("5", 32), RunID: strings.Repeat("6", 32),
+			Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "Application outcomes verified", Reported: true, RecordedUnix: 1700000000,
+			PhaseResult: &factory.PhaseResult{
+				Version: factory.PhaseResultVersion, Phase: project.ExecutionVerify,
+				Status: "completed", Summary: "Application outcomes verified",
+				Output: &factory.PhaseOutput{Verification: &report},
+			},
+		},
+	}
+	insertJourneyAssignment(t, db, assignment, factory.AssignmentFinished, 1)
+	content := factory.FeedCommunication{
+		ComponentID: "F10", Title: "Application outcomes verified",
+		Summary:      "All accepted outcomes passed the approved application check.",
+		EvidenceRefs: []string{subject.SourceCommit, manifest, strings.Repeat("8", 64)},
+	}
+	feed, err := json.Marshal(map[string]any{
+		"actor": "factory", "author_name": "Factory", "issue": 0,
+		"assignment": assignment.ID, "at": 1700000000, "status": "application:verified",
+		"communication": content, "event_identity": subject.DeliveryID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+		subject.DeliveryID, 7,
+		content.Title+"\n\n"+content.Summary, subject.DeliveryID, string(feed)); err != nil {
+		t.Fatal(err)
+	}
+	return subject, assignment
+}
+
+func TestJourneyVerifiedAppCanonicalIdentity(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	got, err := s.JourneyVerifiedApp(ctx, 7, intent, revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SourceCommit != subject.SourceCommit || got.Manifest != subject.VerificationManifestDigest {
+		t.Fatalf("canonical verified=%+v want source=%s manifest=%s", got, subject.SourceCommit, subject.VerificationManifestDigest)
+	}
+}
+
+func TestJourneyVerifiedAppRefusesWrongAssignment(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	if _, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
+		`"00000000000000000000000000000000"`, subject.DeliveryID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.JourneyVerifiedApp(ctx, 7, intent, revision); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("wrong-assignment verified err=%v", err)
+	}
+}
+
+func TestJourneyVerifiedAppRefusesWrongScope(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	subject, assignment := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	var stored factory.Assignment
+	var data []byte
+	if err := raw.QueryRow(`SELECT data FROM factory_assignments WHERE id=$1`, assignment.ID).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	stored.Subject.Delivery.ScopeDigest = strings.Repeat("0", 64)
+	stored.Subject.Delivery.DeliveryID = factory.DeliveryID(*stored.Subject.Delivery)
+	patched, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(patched), assignment.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Keep the event join valid: the F10 event follows the tampered
+	// delivery identity, so only the scope predicate can refuse.
+	res, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
+		`"`+stored.Subject.Delivery.DeliveryID+`"`, subject.DeliveryID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("F10 repoint affected %d rows, join not preserved", n)
+	}
+	if _, err := s.JourneyVerifiedApp(ctx, 7, intent, revision); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("wrong-scope verified err=%v", err)
+	}
+}
+
+func TestJourneyVerifiedAppRefusesManifestMismatch(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	// Keep the event join valid (same delivery, same assignment, valid
+	// F10) and vary only the observed manifest: a well-formed but
+	// foreign digest must not pass as the admitted verification.
+	foreign := strings.Repeat("2", 64)
+	res, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
+		`"`+foreign+`"`, subject.DeliveryID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("F10 manifest tamper affected %d rows, join not preserved", n)
+	}
+	got, err := s.JourneyVerifiedApp(ctx, 7, intent, revision)
+	if err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("manifest-mismatch verified=%+v err=%v", got, err)
+	}
+	if !strings.Contains(err.Error(), "evidence mismatch") {
+		t.Fatalf("manifest-mismatch wrong error: %v", err)
+	}
+}
+
+func TestJourneyVerifiedAppRefusesNonVerifiedResult(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	_, assignment := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	var stored factory.Assignment
+	var data []byte
+	if err := raw.QueryRow(`SELECT data FROM factory_assignments WHERE id=$1`, assignment.ID).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	stored.Result.PhaseResult.Output.Verification.Outcome = factory.AppVerificationFailed
+	stored.Result.PhaseResult.Output.Verification.CheckReceipts = []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "x"}}
+	stored.Result.PhaseResult.Output.Verification.Failures = []factory.CheckFailure{{CheckRef: "outcome", Detail: "failed"}}
+	patched, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(patched), assignment.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.JourneyVerifiedApp(ctx, 7, intent, revision); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("non-verified verified err=%v", err)
+	}
+}
+
+func TestJourneyVerifiedAppRefusesMissingF10(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	revision := "d111111111111111111111111"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, revision)); err != nil {
+		t.Fatal(err)
+	}
+	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
+	if _, err := raw.Exec(`DELETE FROM factory_feed_comments WHERE id=$1`, subject.DeliveryID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.JourneyVerifiedApp(ctx, 7, intent, revision); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing-F10 verified err=%v", err)
+	}
+}
+
+func TestJourneyVerifiedAppIgnoresUnrelatedNewerVerification(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw := journeySQL(t, dsn)
+	intent := "d222222222222222222222222"
+	first := "d111111111111111111111111"
+	second := "d777777777777777777777777"
+	if err := s.SaveIntentRevision(ctx, journeyAdoptionRevision(intent, first)); err != nil {
+		t.Fatal(err)
+	}
+	other := journeyAdoptionRevision(intent, second)
+	other.Predecessor = first
+	other.Tasks = []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Other task", Outcomes: []string{"Other"}, IdeaIDs: []string{"d333333333333333333333333"}}}
+	if err := s.SaveIntentRevision(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, first)
+	var revisionRaw []byte
+	if err := raw.QueryRow(`SELECT data FROM factory_intent_revisions WHERE id=$1`, second).Scan(&revisionRaw); err != nil {
+		t.Fatal(err)
+	}
+	var adopted factory.IntentRevision
+	if err := json.Unmarshal(revisionRaw, &adopted); err != nil {
+		t.Fatal(err)
+	}
+	unrelated := factory.DeliverySubject{
+		IntentID: intent, AcceptedRevision: second,
+		ScopeDigest: adopted.Digest(), SourceCommit: strings.Repeat("a", 40),
+		PreparationDigest: strings.Repeat("4", 64), VerificationManifestDigest: strings.Repeat("1", 64),
+	}
+	unrelated.DeliveryID = factory.DeliveryID(unrelated)
+	report := factory.AppVerificationReport{
+		DeliveryID: unrelated.DeliveryID, InputDigest: strings.Repeat("9", 64),
+		Outcome:       factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "ok"}},
+	}
+	late := factory.Assignment{
+		ID: strings.Repeat("9", 32), AttemptRoot: strings.Repeat("9", 32),
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer,
+		Phase: project.ExecutionVerify, Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
+		Subject:      factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &unrelated},
+		Preparation:  "f" + strings.Repeat("b", 24),
+		SourceCommit: unrelated.SourceCommit, Run: strings.Repeat("1", 32),
+		RunHistory: []string{strings.Repeat("1", 32)},
+		Repository: 7, CreatedUnix: 1700000001, ActorID: 1,
+		Result: &factory.AssignmentResult{
+			AssignmentID: strings.Repeat("9", 32), RunID: strings.Repeat("1", 32),
+			Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "ok", Reported: true, RecordedUnix: 1700000001,
+			PhaseResult: &factory.PhaseResult{
+				Version: factory.PhaseResultVersion, Phase: project.ExecutionVerify,
+				Status: "completed", Summary: "ok",
+				Output: &factory.PhaseOutput{Verification: &report},
+			},
+		},
+	}
+	insertJourneyAssignment(t, raw, late, factory.AssignmentFinished, 2)
+	content := factory.FeedCommunication{
+		ComponentID: "F10", Title: "Application outcomes verified",
+		Summary:      "Other revision verified.",
+		EvidenceRefs: []string{unrelated.SourceCommit, unrelated.VerificationManifestDigest, strings.Repeat("8", 64)},
+	}
+	feed, err := json.Marshal(map[string]any{
+		"actor": "factory", "author_name": "Factory", "issue": 0,
+		"assignment": late.ID, "at": 1700000001, "status": "application:verified",
+		"communication": content, "event_identity": unrelated.DeliveryID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+		unrelated.DeliveryID, 7, content.Title+"\n\n"+content.Summary, unrelated.DeliveryID, string(feed)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.JourneyVerifiedApp(ctx, 7, intent, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SourceCommit != subject.SourceCommit {
+		t.Fatalf("unrelated newer shadowed canonical: %+v", got)
 	}
 }

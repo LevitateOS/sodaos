@@ -35,6 +35,15 @@ func (s *factoryCatalogServer) addCurrentContext(ctx context.Context, read *read
 		}
 	}
 	current.Role.Tools = factory.MCPDiscovery(read.capability.Profile)
+	if s.deps.BoundCapability != nil && s.deps.NativeTask == nil {
+		filtered := current.Role.Tools[:0]
+		for _, tool := range current.Role.Tools {
+			if !isNativeTaskTool(tool) {
+				filtered = append(filtered, tool)
+			}
+		}
+		current.Role.Tools = filtered
+	}
 	for _, tool := range current.Role.Tools {
 		if !factory.MCPIsTerminal(tool) || tool == factory.MCPToolFinishIncomplete {
 			continue

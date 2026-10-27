@@ -85,6 +85,7 @@ type FactoryMCPDeps struct {
 	SystemOne            FactorySystemOne
 	VerificationEvidence func(context.Context, factory.MCPCapability) (map[string]any, error)
 	RepairPreview        func(context.Context, factory.MCPCapability, json.RawMessage) (factory.RepairPreview, error)
+	NativeTask           func(context.Context, factory.MCPCapability, string, string) (map[string]any, error)
 }
 
 // mcpCallArgs is the tool envelope. Production supplies capability identity
@@ -169,6 +170,14 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	}
 	if tool == factory.MCPToolPublishArtifact {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = artifactPayloadSchema()
+	}
+	if isNativeTaskTool(tool) {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = &jsonschema.Schema{
+			Type: "object", Properties: map[string]*jsonschema.Schema{
+				"task_id": {Type: "string", Pattern: "^[a-z][a-z0-9_-]{0,31}$"},
+			}, Required: []string{"task_id"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
+		}
+		definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
 	}
 	return definition
 }
@@ -501,7 +510,7 @@ func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
 	case factory.MCPToolFinishImplement:
 		return key == "unchanged" || key == "candidate"
 	case factory.MCPToolFinishProductPlan:
-		return key == "questions" || key == "verification_manifest_proposal"
+		return key == "questions" || key == "verification_manifest_proposal" || key == "walkthroughs"
 	case factory.MCPToolFinishIssuePlan:
 		return key == "alternatives" || key == "unresolved_facts"
 	case factory.MCPToolFinishReview:
@@ -623,6 +632,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 			terminal, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, submission.AssignmentID)
 			if err == nil && !(frozen && terminal.Tool == tool && terminal.InputDigest == submission.PayloadHash) {
 				err = s.checkManifestProposal(ctx, capability, args.Payload)
+				if err == nil {
+					err = s.checkProductPlanWalkthroughs(ctx, capability, args.Payload)
+				}
 			}
 			if err != nil {
 				release()
@@ -671,6 +683,9 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 		if deps.BoundCapability != nil && !factory.MCPToolAdmitted(deps.BoundCapability.Profile, tool) {
 			continue
 		}
+		if deps.BoundCapability != nil && isNativeTaskTool(tool) && deps.NativeTask == nil {
+			continue
+		}
 		if isSystemOneTool(tool) {
 			catalog.addSystemOneTool(server, tool)
 			continue
@@ -695,6 +710,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveLibraryRead(ctx, tool, args)
 	}
 	switch tool {
+	case factory.MCPToolStartTask, factory.MCPToolReleaseOutput:
+		return s.serveNativeTask(ctx, tool, args)
 	case factory.MCPToolPublishArtifact:
 		return s.serveArtifact(ctx, args)
 	case factory.MCPToolVerificationEvidence:
@@ -891,8 +908,11 @@ func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, for
 		"scope_digest":          capability.ScopeDigest(),
 		"feed_components":       workerFeedComponents(capability.Profile),
 		"replies_tool":          string(factory.MCPToolInbox),
+		"discussion_guidance":   "Read factory.inbox before finishing. A recorded role invitation grants only its exact discussion context and one useful reply through factory.reply with reply_to set to the invited post ID. It does not expand your assignment, execution authority or budget. Skip redundant contributions, explain concrete relevant evidence, and preserve the source identity. Do not invite other roles recursively.",
+		"work_post":             map[string]any{"kind": "record", "id": assignment.ID},
 		"library_tools":         []string{"factory.search_library", "factory.read_library_item"},
-		"consultation_guidance": "Use systemone.noul, systemone.choice and systemone.score for typed judgments. For substantive decisions consult three times with the same facts and alternatives but independently worded, counterbalanced questions; compare results. Judgments are advice and do not replace native checks or authorization.",
+		"library_guidance":      factory.LibraryReadGuidance,
+		"consultation_guidance": "System One questions and actual results are automatically recorded in your work post. Never include credentials or private key material. For substantive decisions prepare three independent, counterbalanced questions using the same facts and alternatives before reading any answer, then make three separate calls with the same consultation_group identity. A questions batch is one call and must not be described as three independent calls. Compare the results, then reply to the returned consultation.post_id with your interpretation, decision and next action, or use factory.record_decision with that reply_to for durable decisions. Your explanation must remain distinct from JEV's actual answer. Judgments do not replace native checks or authorization. Read your inbox and effective project decisions/knowledge through the library tools before adopting a change; preserve cited item IDs/revisions and source revision.",
 	}
 	if assignment.Issue > 0 {
 		body["issue"] = assignment.Issue
@@ -1115,6 +1135,7 @@ func (s *API) FactoryMCPHandler() http.Handler {
 		VerificationEvidence: s.factoryVerificationEvidence,
 		RepairPreview:        s.factoryRepairPreview,
 		Catalog:              s.factoryApprovedVerificationCatalog,
+		NativeTask:           s.factoryNativeTask,
 	}, key)
 }
 

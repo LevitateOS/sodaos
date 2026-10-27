@@ -71,7 +71,16 @@ export async function captureSpacesComponent(page: Page, name: string) {
   const info = await stat(directory);
   assert(info.isDirectory() && (info.mode & 0o077) === 0);
   const url = new URL(page.url());
-  assert(url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.pathname === '/' && !url.search && !url.hash);
+  // Component fixture routes only: the bare root plus the exact workspace
+  // request flow the emitted fixture actually navigates (/workspace/new,
+  // /workspace/requests/<native intent>, /workspace?repository=<id>).
+  // Loopback origin, fixture marker and no-native-chrome guards below stay.
+  const fixtureRoute =
+    (url.pathname === '/' && !url.search) ||
+    (url.pathname === '/workspace/new' && !url.search) ||
+    (/^\/workspace\/requests\/d[0-9a-f]{24}$/.test(url.pathname) && !url.search) ||
+    (url.pathname === '/workspace' && /^repository=\d+$/.test(url.search.replace(/^\?/, '')));
+  assert(url.protocol === 'http:' && url.hostname === '127.0.0.1' && fixtureRoute && !url.hash);
   assert.equal(await page.locator('meta[name="soda-component-fixture"]').getAttribute('content'), 'spaces');
   assert.equal(await page.locator('#navbar, input[type=password]').count(), 0);
   const out = path.join(directory, name);

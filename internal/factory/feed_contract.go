@@ -75,22 +75,23 @@ const (
 // typed component content projected from the canonical record;
 // a record that supplies no typed content omits it entirely.
 type FeedEntry struct {
-	Kind       string       `json:"kind"`
-	ID         string       `json:"id"`
-	Repository int64        `json:"repository"`
-	Seq        int64        `json:"seq"`
-	Actor      string       `json:"actor,omitempty"`
-	Author     string       `json:"author,omitempty"`
-	Project    string       `json:"project,omitempty"`
-	At         int64        `json:"at,omitempty"`
-	Status     string       `json:"status,omitempty"`
-	Issue      int64        `json:"issue,omitempty"`
-	PR         int64        `json:"pr,omitempty"`
-	Ref        string       `json:"ref,omitempty"`
-	Summary    string       `json:"summary,omitempty"`
-	Activity   string       `json:"activity,omitempty"`
-	Assignment string       `json:"assignment,omitempty"`
-	Payload    *FeedPayload `json:"payload,omitempty"`
+	Kind          string       `json:"kind"`
+	ID            string       `json:"id"`
+	Repository    int64        `json:"repository"`
+	Seq           int64        `json:"seq"`
+	Actor         string       `json:"actor,omitempty"`
+	Author        string       `json:"author,omitempty"`
+	Project       string       `json:"project,omitempty"`
+	At            int64        `json:"at,omitempty"`
+	Status        string       `json:"status,omitempty"`
+	Issue         int64        `json:"issue,omitempty"`
+	PR            int64        `json:"pr,omitempty"`
+	Ref           string       `json:"ref,omitempty"`
+	Summary       string       `json:"summary,omitempty"`
+	Activity      string       `json:"activity,omitempty"`
+	Assignment    string       `json:"assignment,omitempty"`
+	EventIdentity string       `json:"event_identity,omitempty"`
+	Payload       *FeedPayload `json:"payload,omitempty"`
 }
 
 // FeedPayload is one record's typed component content, projected by
@@ -413,11 +414,23 @@ type FeedQuery struct {
 	Kinds        []string `json:"kinds,omitempty"`
 	Limit        int      `json:"limit"`
 	Cursor       string   `json:"cursor,omitempty"`
+	View         string   `json:"view,omitempty"`
+	Search       string   `json:"search,omitempty"`
+	Role         string   `json:"role,omitempty"`
+	Current      bool     `json:"current,omitempty"`
 }
 
 // Validate admits one feed query with a bounded window and a
 // well-formed cursor.
 func (q FeedQuery) Validate() error {
+	switch q.View {
+	case "", "all", "attention", "decisions", "knowledge", "evidence":
+	default:
+		return errors.New("unknown feed view")
+	}
+	if len(q.Search) > 256 || len(q.Role) > 64 {
+		return errors.New("feed search exceeds its bound")
+	}
 	if len(q.Repositories) == 0 {
 		return errors.New("feed query needs its repository scope")
 	}

@@ -1800,6 +1800,33 @@ func seedJourneyAdoption(t *testing.T, s *store.Store, acceptance string) (strin
 	return revision.Intent, revision.ID
 }
 
+// seedJourneySuccessorAdoption records a successor intent revision that
+// rebinds the unchanged task to the same native issue and acceptance.
+// Both historical bindings stay visible as adoption history; the
+// delivered section must show the shared completion once.
+func seedJourneySuccessorAdoption(t *testing.T, s *store.Store, intent, predecessor, acceptance string) string {
+	t.Helper()
+	revision := factory.IntentRevision{
+		ID: "d666666666666666666666666", Intent: intent,
+		Owner: 1, Repository: journeyRepo, Objective: "Build a request form",
+		State: "accepted", MaxIssues: 4, CreatedUnix: 2, Predecessor: predecessor,
+		Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+		Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
+	ctx := context.Background()
+	if err := s.SaveIntentRevision(ctx, revision); err != nil {
+		t.Fatal(err)
+	}
+	binding := factory.IntentTaskBinding{
+		RevisionID: revision.ID, TaskKey: "d444444444444444444444444",
+		IssueID: 99, IssueIndex: journeyIssue, AcceptanceID: acceptance, CreatedUnix: 2,
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	return revision.ID
+}
+
 // journeyDeliveryAcceptanceFixture builds one valid journaled delivery
 // acceptance over the fixture publication's committed correction tip.
 func journeyDeliveryAcceptanceFixture(root factory.Assignment, kind string) factory.DeliveryAcceptance {
@@ -1859,7 +1886,10 @@ func seedJourneyDeliveryReceipt(t *testing.T, fx *journeyHTTPFixture, root facto
 
 // seedJourneyWithDelivery records the rich lineage with one journaled
 // delivery acceptance of the given kind, its funded receipt when
-// asked, and one intent adoption binding.
+// asked, one intent adoption binding, the canonical completion behind
+// that binding, and the F10 verified application behind the adopted
+// revision. The full adopted to work to verified chain stays closed,
+// so the complete-chain tests prove every evidence join together.
 func seedJourneyWithDelivery(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptanceSource, kind string, withReceipt bool) (string, string, factory.Assignment) {
 	t.Helper()
 	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
@@ -1874,10 +1904,118 @@ func seedJourneyWithDelivery(t *testing.T, fx *journeyHTTPFixture, fake *journey
 	seedJourneyPlan(t, fx.db, root.ID)
 	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder")
 	intent, revision := seedJourneyAdoption(t, fx.db, acceptance)
+	seedJourneyDeliveredCompletion(t, fx.raw, acceptance)
+	seedJourneyVerifiedApp(t, fx.raw, intent, revision)
 	if withReceipt {
 		seedJourneyDeliveryReceipt(t, fx, root)
 	}
 	return intent, revision, root
+}
+
+// seedJourneyDeliveredCompletion records the canonical completion
+// event behind the adopted binding: the exact delivered-task evidence
+// the journey read joins on native issue and acceptance. Generation 2
+// is free in this lineage (the reassessment cycle seeds generation 1
+// with placeholder bytes), and the latest generation wins the read.
+func seedJourneyDeliveredCompletion(t *testing.T, raw *sql.DB, acceptance string) {
+	t.Helper()
+	event := factory.CompletionEvent{
+		ID: strings.Repeat("d", 32), PublicationID: strings.Repeat("9", 32),
+		MergedCommit: journeyCorrection, ClosingOccurrence: "journey-delivered",
+		AcceptanceID: acceptance,
+		Repository:   journeyRepo, Issue: journeyIssue, Generation: 2,
+	}
+	if err := event.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)`,
+		event.Repository, event.Generation, event.ID, event.PublicationID, event.ClosingOccurrence, string(data)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedJourneyVerifiedApp records the finished verify assignment and its
+// F10 verified feed event behind the adopted intent revision under the
+// canonical identity, outcome and scope the delivery admission owns:
+// finished verify, succeeded outcome, trusted verification outcome
+// verified, exact intent, revision and scope digest, with the F10 event
+// bound to both the delivery and the assignment. Only this trusted
+// check renders; the observation and receipt seeds above never stand
+// in for it.
+func seedJourneyVerifiedApp(t *testing.T, raw *sql.DB, intent, revision string) {
+	t.Helper()
+	var revisionRaw []byte
+	if err := raw.QueryRow(`SELECT data FROM factory_intent_revisions WHERE id=$1`, revision).Scan(&revisionRaw); err != nil {
+		t.Fatal(err)
+	}
+	var adopted factory.IntentRevision
+	if err := json.Unmarshal(revisionRaw, &adopted); err != nil {
+		t.Fatal(err)
+	}
+	if adopted.ID != revision || adopted.Intent != intent {
+		t.Fatalf("verified seed revision mismatch: %+v", adopted)
+	}
+	manifest := strings.Repeat("7", 64)
+	subject := factory.DeliverySubject{
+		IntentID: intent, AcceptedRevision: revision,
+		ScopeDigest: adopted.Digest(), SourceCommit: journeyCorrection,
+		PreparationDigest: strings.Repeat("4", 64), VerificationManifestDigest: manifest,
+	}
+	subject.DeliveryID = factory.DeliveryID(subject)
+	if err := subject.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	report := factory.AppVerificationReport{
+		DeliveryID: subject.DeliveryID, InputDigest: strings.Repeat("9", 64),
+		Outcome:       factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "approved check passed"}},
+	}
+	if err := report.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	verify := factory.Assignment{
+		ID: strings.Repeat("5", 32), AttemptRoot: strings.Repeat("5", 32),
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer,
+		Phase: project.ExecutionVerify, Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
+		Subject:      factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &subject},
+		Preparation:  "f" + strings.Repeat("b", 24),
+		SourceCommit: journeyCorrection, Run: strings.Repeat("6", 32),
+		RunHistory: []string{strings.Repeat("6", 32)},
+		Repository: journeyRepo, CreatedUnix: 1700000000, ActorID: 1,
+		Result: &factory.AssignmentResult{
+			AssignmentID: strings.Repeat("5", 32), RunID: strings.Repeat("6", 32),
+			Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "Application outcomes verified", Reported: true, RecordedUnix: 1700000000,
+			PhaseResult: &factory.PhaseResult{
+				Version: factory.PhaseResultVersion, Phase: project.ExecutionVerify,
+				Status: "completed", Summary: "Application outcomes verified",
+				Output: &factory.PhaseOutput{Verification: &report},
+			},
+		},
+	}
+	insertJourneyRow(t, raw, verify, factory.AssignmentFinished)
+	content := factory.FeedCommunication{
+		ComponentID: "F10", Title: "Application outcomes verified",
+		Summary:      "All accepted outcomes passed the approved application check.",
+		EvidenceRefs: []string{journeyCorrection, manifest, strings.Repeat("8", 64)},
+	}
+	feed, err := json.Marshal(map[string]any{
+		"actor": "factory", "author_name": "Factory", "issue": 0,
+		"assignment": verify.ID, "at": 1700000000, "status": "application:verified",
+		"communication": content, "event_identity": subject.DeliveryID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+		subject.DeliveryID, journeyRepo,
+		content.Title+"\n\n"+content.Summary, subject.DeliveryID, string(feed)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestFactoryIssueJourneyEvidenceJoinsComplete(t *testing.T) {
@@ -1945,5 +2083,278 @@ func TestFactoryIssueJourneyCleanDeliveryEvidence(t *testing.T) {
 	}
 	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision {
 		t.Fatalf("clean-delivery judgments: %+v", journey.Judgments)
+	}
+}
+
+func TestFactoryIssueJourneyDeliveredDedupOnUnchangedRebind(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	intent, revision, root := seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	seedJourneySuccessorAdoption(t, fx.db, intent, revision, root.Acceptance)
+
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("dedup status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	if len(journey.Adoptions) != 2 {
+		t.Fatalf("dedup preserved history: %+v", journey.Adoptions)
+	}
+	if len(journey.Delivered) != 1 {
+		t.Fatalf("dedup delivered section: %+v", journey.Delivered)
+	}
+	first, second := journey.Adoptions[0], journey.Adoptions[1]
+	if first.Task != second.Task || first.IssueID != second.IssueID || first.Acceptance != second.Acceptance {
+		t.Fatalf("rebind changed task identity: %+v %+v", first, second)
+	}
+	delivered := journey.Delivered[0]
+	if delivered.Task != first.Task || delivered.Issue != first.IssueID || delivered.Acceptance != first.Acceptance {
+		t.Fatalf("delivered identity: %+v adoptions %+v %+v", delivered, first, second)
+	}
+	for _, reason := range journey.Reasons {
+		if reason == journeyReasonDeliveriesUnavailable || reason == journeyReasonDeliveriesInvalidRow {
+			t.Fatalf("dedup falsely unavailable: %+v", journey)
+		}
+	}
+}
+
+func journeyVerifiedDeliveryID(t *testing.T, raw *sql.DB) string {
+	t.Helper()
+	var delivery string
+	if err := raw.QueryRow(`SELECT data->'subject'->'delivery'->>'delivery_id' FROM factory_assignments WHERE id=$1`, strings.Repeat("5", 32)).Scan(&delivery); err != nil {
+		t.Fatal(err)
+	}
+	return delivery
+}
+
+func TestFactoryIssueJourneyVerifiedRefusesWrongAssignment(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	delivery := journeyVerifiedDeliveryID(t, fx.raw)
+	if _, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
+		`"00000000000000000000000000000000"`, delivery); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("wrong-assignment status=%d body=%s", code, body)
+	}
+	view := journeyIssueView(t, body)
+	journey := view.Journey
+	if len(journey.Verifications) != 0 {
+		t.Fatalf("wrong-assignment verifications: %+v", journey.Verifications)
+	}
+	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+		t.Fatalf("wrong-assignment reasons: %+v", journey.Reasons)
+	}
+}
+
+func TestFactoryIssueJourneyVerifiedRefusesWrongScope(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	old := journeyVerifiedDeliveryID(t, fx.raw)
+	var data []byte
+	if err := fx.raw.QueryRow(`SELECT data FROM factory_assignments WHERE id=$1`, strings.Repeat("5", 32)).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	var stored factory.Assignment
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	stored.Subject.Delivery.ScopeDigest = strings.Repeat("0", 64)
+	stored.Subject.Delivery.DeliveryID = factory.DeliveryID(*stored.Subject.Delivery)
+	patched, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(patched), stored.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Keep the event join valid: the F10 event follows the tampered
+	// delivery identity, so only the scope guard can refuse.
+	res, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
+		`"`+stored.Subject.Delivery.DeliveryID+`"`, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("F10 repoint affected %d rows, join not preserved", n)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("wrong-scope status=%d body=%s", code, body)
+	}
+	view := journeyIssueView(t, body)
+	journey := view.Journey
+	if len(journey.Verifications) != 0 {
+		t.Fatalf("wrong-scope verifications: %+v", journey.Verifications)
+	}
+	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+		t.Fatalf("wrong-scope reasons: %+v", journey.Reasons)
+	}
+}
+
+func TestFactoryIssueJourneyVerifiedRefusesManifestMismatch(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	delivery := journeyVerifiedDeliveryID(t, fx.raw)
+	// Keep the event join valid (same delivery, same assignment, valid
+	// F10) and vary only the observed manifest: a well-formed but
+	// foreign digest is an explicit storage failure, never a verified
+	// application.
+	res, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
+		`"`+strings.Repeat("2", 64)+`"`, delivery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("F10 manifest tamper affected %d rows, join not preserved", n)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusServiceUnavailable || journeyErrorCode(t, body) != "store_unavailable" {
+		t.Fatalf("manifest-mismatch status=%d body=%s", code, body)
+	}
+}
+
+func TestFactoryIssueJourneyVerifiedRefusesNonVerifiedResult(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	var data []byte
+	if err := fx.raw.QueryRow(`SELECT data FROM factory_assignments WHERE id=$1`, strings.Repeat("5", 32)).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	var stored factory.Assignment
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	stored.Result.PhaseResult.Output.Verification.Outcome = factory.AppVerificationFailed
+	stored.Result.PhaseResult.Output.Verification.CheckReceipts = []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "x"}}
+	stored.Result.PhaseResult.Output.Verification.Failures = []factory.CheckFailure{{CheckRef: "outcome", Detail: "failed"}}
+	patched, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(patched), stored.ID); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("non-verified status=%d body=%s", code, body)
+	}
+	view := journeyIssueView(t, body)
+	journey := view.Journey
+	if len(journey.Verifications) != 0 {
+		t.Fatalf("non-verified verifications: %+v", journey.Verifications)
+	}
+	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+		t.Fatalf("non-verified reasons: %+v", journey.Reasons)
+	}
+}
+
+func TestFactoryIssueJourneyVerifiedRefusesMissingF10(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	delivery := journeyVerifiedDeliveryID(t, fx.raw)
+	if _, err := fx.raw.Exec(`DELETE FROM factory_feed_comments WHERE id=$1`, delivery); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("missing-F10 status=%d body=%s", code, body)
+	}
+	view := journeyIssueView(t, body)
+	journey := view.Journey
+	if len(journey.Verifications) != 0 {
+		t.Fatalf("missing-F10 verifications: %+v", journey.Verifications)
+	}
+	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+		t.Fatalf("missing-F10 reasons: %+v", journey.Reasons)
+	}
+}
+
+func TestFactoryIssueJourneyVerifiedIgnoresUnrelatedNewer(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	intent, revision, _ := seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
+	second := "d777777777777777777777777"
+	other := factory.IntentRevision{
+		ID: second, Intent: intent,
+		Owner: 1, Repository: journeyRepo, Objective: "Build a request form",
+		State: "accepted", MaxIssues: 4, CreatedUnix: 2, Predecessor: revision,
+		Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+		Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Other task", Outcomes: []string{"Other"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
+	if err := fx.db.SaveIntentRevision(context.Background(), other); err != nil {
+		t.Fatal(err)
+	}
+	var revisionRaw []byte
+	if err := fx.raw.QueryRow(`SELECT data FROM factory_intent_revisions WHERE id=$1`, second).Scan(&revisionRaw); err != nil {
+		t.Fatal(err)
+	}
+	var adopted factory.IntentRevision
+	if err := json.Unmarshal(revisionRaw, &adopted); err != nil {
+		t.Fatal(err)
+	}
+	unrelated := factory.DeliverySubject{
+		IntentID: intent, AcceptedRevision: second,
+		ScopeDigest: adopted.Digest(), SourceCommit: strings.Repeat("a", 40),
+		PreparationDigest: strings.Repeat("4", 64), VerificationManifestDigest: strings.Repeat("1", 64),
+	}
+	unrelated.DeliveryID = factory.DeliveryID(unrelated)
+	report := factory.AppVerificationReport{
+		DeliveryID: unrelated.DeliveryID, InputDigest: strings.Repeat("9", 64),
+		Outcome:       factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: strings.Repeat("e", 64), LogExcerpt: "ok"}},
+	}
+	late := factory.Assignment{
+		ID: strings.Repeat("9", 32), AttemptRoot: strings.Repeat("9", 32),
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer,
+		Phase: project.ExecutionVerify, Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
+		Subject:      factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: &unrelated},
+		Preparation:  "f" + strings.Repeat("b", 24),
+		SourceCommit: unrelated.SourceCommit, Run: strings.Repeat("1", 32),
+		RunHistory: []string{strings.Repeat("1", 32)},
+		Repository: journeyRepo, CreatedUnix: 1700000001, ActorID: 1,
+		Result: &factory.AssignmentResult{
+			AssignmentID: strings.Repeat("9", 32), RunID: strings.Repeat("1", 32),
+			Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "ok", Reported: true, RecordedUnix: 1700000001,
+			PhaseResult: &factory.PhaseResult{
+				Version: factory.PhaseResultVersion, Phase: project.ExecutionVerify,
+				Status: "completed", Summary: "ok",
+				Output: &factory.PhaseOutput{Verification: &report},
+			},
+		},
+	}
+	insertJourneyRow(t, fx.raw, late, factory.AssignmentFinished)
+	content := factory.FeedCommunication{
+		ComponentID: "F10", Title: "Application outcomes verified",
+		Summary:      "Other revision verified.",
+		EvidenceRefs: []string{unrelated.SourceCommit, unrelated.VerificationManifestDigest, strings.Repeat("8", 64)},
+	}
+	feed, err := json.Marshal(map[string]any{
+		"actor": "factory", "author_name": "Factory", "issue": 0,
+		"assignment": late.ID, "at": 1700000001, "status": "application:verified",
+		"communication": content, "event_identity": unrelated.DeliveryID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+		unrelated.DeliveryID, journeyRepo, content.Title+"\n\n"+content.Summary, unrelated.DeliveryID, string(feed)); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("unrelated-newer status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	if len(journey.Verifications) != 1 {
+		t.Fatalf("unrelated-newer verifications: %+v", journey.Verifications)
 	}
 }

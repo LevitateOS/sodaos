@@ -215,6 +215,40 @@ func (s *Store) OperatorApplication(ctx context.Context, id string) (application
 	return scanApplication(s.db.QueryRowContext(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.id=$1`, id))
 }
 
+// LaunchApplicationRecord is the authorization-free read backing the
+// launch-only projection. The caller must admit the reader: administrator
+// grant, operator scope, or a visible linked project. It never grants
+// lifecycle or administration authority on its own.
+func (s *Store) LaunchApplicationRecord(ctx context.Context, id string) (application.Record, error) {
+	return scanApplication(s.db.QueryRowContext(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.id=$1`, id))
+}
+
+// ApplicationProjectLink pairs one application with one linked repository.
+type ApplicationProjectLink struct {
+	ApplicationID string
+	Repository    int64
+}
+
+// ApplicationProjectLinks lists every application-to-project association for
+// launch-projection filtering. Visibility is decided by the caller against
+// native repository access; this inventory alone grants nothing.
+func (s *Store) ApplicationProjectLinks(ctx context.Context) ([]ApplicationProjectLink, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT application_id,repository FROM application_projects ORDER BY application_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	links := []ApplicationProjectLink{}
+	for rows.Next() {
+		var link ApplicationProjectLink
+		if err := rows.Scan(&link.ApplicationID, &link.Repository); err != nil {
+			return nil, err
+		}
+		links = append(links, link)
+	}
+	return links, rows.Err()
+}
+
 // Applications returns the inventory for one admitted administrator.
 func (s *Store) Applications(ctx context.Context, actorID int64) ([]application.Record, error) {
 	return s.applicationInventory(ctx, `SELECT r.spec,a.administrator_id,a.observation FROM applications a JOIN application_revisions r ON r.application_id=a.id AND r.revision=a.revision WHERE a.administrator_id=$1 ORDER BY a.id`, actorID)
@@ -252,4 +286,27 @@ func (s *Store) applicationInventory(ctx context.Context, query string, args ...
 		records = append(records, r)
 	}
 	return records, rows.Err()
+}
+
+// ApplicationEnvironment belongs to the completed setup/build association,
+// independent of the latest delivery. Legacy manual admissions are company apps.
+func (s *Store) ApplicationEnvironment(ctx context.Context, id string) (string, error) {
+	var count int
+	var artifact, delivery sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT count(b.id),min(b.data->'artifact'->>'environment'),min(b.data->'delivery'->>'environment')
+		FROM applications a LEFT JOIN application_setups p ON p.application_id=a.id AND p.state='complete'
+		LEFT JOIN application_builds b ON b.setup_id=p.id WHERE a.id=$1 GROUP BY a.id`, id).Scan(&count, &artifact, &delivery)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if count == 0 {
+		return "company", nil
+	}
+	if count != 1 || !artifact.Valid || !delivery.Valid || artifact.String != delivery.String || !application.ValidBuildEnvironment(artifact.String) {
+		return "", errors.New("application environment association is invalid")
+	}
+	return artifact.String, nil
 }

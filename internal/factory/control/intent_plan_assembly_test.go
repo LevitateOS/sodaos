@@ -4,11 +4,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 )
 
@@ -82,11 +88,70 @@ func assemblyHead(repo int64) factory.IntentRevision {
 
 // TestAssembleIntentPlanningInputReadsExpandedContext proves server-owned
 // input assembly across chunked native reads: twelve approved files plus
-// one nested path need two reads whose shared root AGENTS.md repeats
+// one nested path need bounded reads whose shared root AGENTS.md repeats
 // identically, and the assembled evidence carries exactly the approved
 // paths with digest-verified bytes — never native-added instruction
 // files, never a repeated-path refusal.
 func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
+	t.Run("native HTTP exact aggregate boundary", func(t *testing.T) {
+		ctx := context.Background()
+		paths := []string{"one.mjs", "two.mjs"}
+		contents := map[string]string{"one.mjs": strings.Repeat("a", project.MaxFactoryContextFileBytes), "two.mjs": strings.Repeat("b", project.MaxFactoryContextFileBytes)}
+		inputs := map[string]string{}
+		for name, content := range contents {
+			sum := sha256.Sum256([]byte(content))
+			inputs[name] = hex.EncodeToString(sum[:])
+		}
+		db, _ := dispatchTestDB(t)
+		fx := dispatchSeed(t, db, inputs)
+		var reads atomic.Int32
+		var oversized atomic.Bool
+		peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.URL.Path != "/prepare-context" {
+				http.NotFound(w, r)
+				return
+			}
+			var request project.FactoryPreparationContextRequest
+			if json.NewDecoder(r.Body).Decode(&request) != nil || request.Validate() != nil {
+				http.Error(w, "invalid native selection", http.StatusBadRequest)
+				return
+			}
+			reads.Add(1)
+			material, _ := nativeExpandingContextRead(contents)(request, project.RoleCoder)
+			material.Setup = []byte(strings.Repeat("s", project.MaxFactoryContextFileBytes))
+			material.Check = []byte(strings.Repeat("c", project.MaxFactoryContextFileBytes))
+			for i := range material.Files {
+				if material.Files[i].Path == "AGENTS.md" {
+					material.Files[i].Content = []byte(strings.Repeat("i", project.MaxFactoryContextFileBytes))
+				}
+			}
+			if err := material.ValidateFor(request, project.RoleCoder); err != nil {
+				http.Error(w, "native context aggregate refused", http.StatusUnprocessableEntity)
+				return
+			}
+			if oversized.Load() {
+				// A malformed peer cannot bypass the production client's bound.
+				material.Diff = []byte("x")
+			}
+			_ = json.NewEncoder(w).Encode(material)
+		}))
+		defer peer.Close()
+		endpoint, _ := url.Parse(peer.URL)
+		coord := &Coordinator{Store: db, Host: &host.Client{HTTP: &http.Client{Transport: deliveryPGTransport{target: endpoint, base: http.DefaultTransport}}}}
+		input, _, wait, err := coord.AssembleIntentPlanningInput(ctx, assemblyHead(fx.repo), factory.IntentPlanningPropose)
+		if err != nil || wait != nil || reads.Load() != int32(len(paths)) || len(input.Inspected) != len(paths) {
+			t.Fatalf("bounded native reads failed: reads=%d inspected=%d wait=%+v err=%v", reads.Load(), len(input.Inspected), wait, err)
+		}
+		for i, source := range input.Inspected {
+			if source.Path != paths[i] || source.Evidence != contents[source.Path] {
+				t.Fatal("aggregate chunking lost or shortened approved source", source.Path)
+			}
+		}
+		oversized.Store(true)
+		if _, _, wait, err := coord.AssembleIntentPlanningInput(ctx, assemblyHead(fx.repo), factory.IntentPlanningPropose); err == nil && wait == nil {
+			t.Fatal("production native client accepted an aggregate above its unchanged bound")
+		}
+	})
 	ctx := context.Background()
 	paths := []string{
 		"internal/factory/a.go", "internal/factory/b.go", "internal/factory/c.go",
@@ -146,14 +211,6 @@ func TestAssembleIntentPlanningInputReadsExpandedContext(t *testing.T) {
 	fx.host.contextRead = nativeExpandingContextRead(map[string]string{paths[0]: contents[paths[0]] + "x"})
 	if _, _, _, err := coord.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose); err == nil {
 		t.Fatal("assembly accepted a native file beyond its existing context limit")
-	}
-	aggregate := make(map[string]string, len(paths))
-	for _, path := range paths {
-		aggregate[path] = contents[paths[0]]
-	}
-	fx.host.contextRead = nativeExpandingContextRead(aggregate)
-	if _, _, _, err := coord.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose); err == nil {
-		t.Fatal("assembly accepted source files beyond the existing native aggregate limit")
 	}
 	fx.host.contextRead = nativeExpandingContextRead(contents)
 	// The production catalog consumes the same approved native preparation,
@@ -221,8 +278,52 @@ func TestChunkApprovedSelectionsRejectsDeepPathAfterFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(chunks) != 1 {
-		t.Fatalf("short paths split: %v", chunks)
+	if len(chunks) != 2 {
+		t.Fatalf("short paths lost their separate byte budgets: %v", chunks)
+	}
+}
+
+// TestAssembleIntentPlanningInputReadsApprovedLargeSource proves the
+// general product fix: an approved 31,674-byte source file (past the old
+// 8 KiB per-file bound) reads fully through bounded native chunks with
+// its full digest verified and untruncated, while a file past the
+// supported 32 KiB evidence bound refuses truthfully instead of
+// truncating.
+func TestAssembleIntentPlanningInputReadsApprovedLargeSource(t *testing.T) {
+	ctx := context.Background()
+	path := "northstar-check.mjs"
+	large := strings.Repeat("n", 31674)
+	sum := sha256.Sum256([]byte(large))
+	inputs := map[string]string{path: hex.EncodeToString(sum[:])}
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, inputs)
+	fx.host.contextRead = nativeExpandingContextRead(map[string]string{path: large})
+	coord := &Coordinator{Store: db, Host: fx.host}
+	in, _, wait, err := coord.AssembleIntentPlanningInput(ctx, assemblyHead(fx.repo), factory.IntentPlanningPropose)
+	if err != nil || wait != nil || len(in.Inspected) != 1 || in.Inspected[0].Evidence != large {
+		t.Fatalf("approved large source did not assemble fully: inspected=%d wait=%+v err=%v", len(in.Inspected), wait, err)
+	}
+	// Boundary: exactly MaxFactoryContextFileBytes still assembles in full.
+	atCap := strings.Repeat("m", project.MaxFactoryContextFileBytes)
+	atCapSum := sha256.Sum256([]byte(atCap))
+	dbCap, _ := dispatchTestDB(t)
+	fxCap := dispatchSeed(t, dbCap, map[string]string{path: hex.EncodeToString(atCapSum[:])})
+	fxCap.host.contextRead = nativeExpandingContextRead(map[string]string{path: atCap})
+	coordCap := &Coordinator{Store: dbCap, Host: fxCap.host}
+	capped, _, wait, err := coordCap.AssembleIntentPlanningInput(ctx, assemblyHead(fxCap.repo), factory.IntentPlanningPropose)
+	if err != nil || wait != nil || len(capped.Inspected) != 1 || capped.Inspected[0].Evidence != atCap {
+		t.Fatalf("evidence-boundary source did not assemble fully: wait=%+v err=%v", wait, err)
+	}
+	// Oversize: MaxFactoryContextFileBytes+1 with a matching approval
+	// digest still refuses instead of truncating.
+	oversized := strings.Repeat("o", project.MaxFactoryContextFileBytes+1)
+	overSum := sha256.Sum256([]byte(oversized))
+	dbOver, _ := dispatchTestDB(t)
+	fxOver := dispatchSeed(t, dbOver, map[string]string{path: hex.EncodeToString(overSum[:])})
+	fxOver.host.contextRead = nativeExpandingContextRead(map[string]string{path: oversized})
+	coordOver := &Coordinator{Store: dbOver, Host: fxOver.host}
+	if _, _, wait, err := coordOver.AssembleIntentPlanningInput(ctx, assemblyHead(fxOver.repo), factory.IntentPlanningPropose); err == nil || wait != nil {
+		t.Fatalf("oversized approved source assembled: wait=%+v err=%v", wait, err)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/application"
@@ -26,6 +27,7 @@ type applicationBoundary struct {
 	fail          atomic.Bool
 	changeSession atomic.Bool
 	last          application.Request
+	bundleDigest  string
 }
 
 func applicationHTTPFixture(t *testing.T) *applicationBoundary {
@@ -49,7 +51,19 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 	}
 	callback := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var in extensions.CallbackRequest
-		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil || in.Operation != extensions.OperationCurrentActor {
+		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil {
+			w.WriteHeader(403)
+			return
+		}
+		if in.Operation == extensions.OperationRepository {
+			if in.RepositoryID != "7" || actor.Load() == 43 {
+				w.WriteHeader(404)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "northstar", Name: "equipment", Permission: "read"}})
+			return
+		}
+		if in.Operation != extensions.OperationCurrentActor {
 			w.WriteHeader(403)
 			return
 		}
@@ -78,6 +92,24 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 			_ = json.NewEncoder(w).Encode(application.SnapshotInventory{Snapshots: []application.Snapshot{{ID: id, CreatedAt: 1, Application: request.Application}}, Complete: true})
 			return
 		}
+		if r.Method == http.MethodPost && r.URL.Path == "/application/setup" {
+			var setup application.SetupRequest
+			if json.NewDecoder(r.Body).Decode(&setup) != nil || setup.Validate() != nil {
+				w.WriteHeader(400)
+				return
+			}
+			fixture.effects.Add(1)
+			if fixture.fail.Load() {
+				w.WriteHeader(502)
+				return
+			}
+			container := setup.ExpectedContainer
+			if container == "" {
+				container = strings.Repeat("7", 64)
+			}
+			_ = json.NewEncoder(w).Encode(application.SetupResult{Operation: setup.Setup.ID, Observation: application.SetupObservation{Container: container, Running: true, Ready: true}})
+			return
+		}
 		if r.Method != http.MethodPost || r.URL.Path != "/application" || json.NewDecoder(r.Body).Decode(&fixture.last) != nil {
 			w.WriteHeader(400)
 			return
@@ -99,7 +131,7 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 			}
 		}
 		running := in.Action == "start"
-		_ = json.NewEncoder(w).Encode(application.Observation{ID: in.Application.ID, Revision: in.Application.Revision, Container: container, Image: in.Application.Image, Origin: in.Application.Origin, Running: running, Ready: running})
+		_ = json.NewEncoder(w).Encode(application.Observation{ID: in.Application.ID, Revision: in.Application.Revision, Container: container, Image: in.Application.Image, Origin: in.Application.Origin, Running: running, Ready: running, BundleFileSHA256: fixture.bundleDigest})
 	}))
 	t.Cleanup(native.Close)
 	api := &API{Store: db, Config: &config.Config{OperatorID: 1, ForgejoURL: "https://forgejo.example.test"}, Host: &host.Client{HTTP: &http.Client{Transport: applicationNativeTransport{native.URL}}}}
@@ -280,8 +312,42 @@ func TestApplicationAuthorityAndLifecycleHTTP(t *testing.T) {
 		t.Fatal("changed session effected")
 	}
 	f.changeSession.Store(false)
+	f.bundleDigest = strings.Repeat("d", 64)
 	if status, body := f.call(41, "POST", base+"/actions", start); status != 200 {
 		t.Fatalf("start %d %s", status, body)
+	}
+	if err := f.store.SetApplicationProject(context.Background(), spec.ID, 41, 7); err != nil {
+		t.Fatal(err)
+	}
+	beforeLaunch := f.effects.Load()
+	status, body := f.call(42, "GET", "/api/applications", nil)
+	var launch struct {
+		Applications []json.RawMessage            `json:"applications"`
+		Launchable   []map[string]json.RawMessage `json:"launchable"`
+		CanSetup     bool                         `json:"can_setup"`
+	}
+	if status != 200 || json.Unmarshal(body, &launch) != nil || len(launch.Applications) != 0 || len(launch.Launchable) != 1 || launch.CanSetup {
+		t.Fatalf("ordinary launch projection %d %s", status, body)
+	}
+	row := launch.Launchable[0]
+	var reference map[string]json.RawMessage
+	if len(row) != 8 || json.Unmarshal(row["application"], &reference) != nil || len(reference) != 4 {
+		t.Fatalf("ordinary launch exposed private fields: %s", body)
+	}
+	for _, key := range []string{"id", "revision", "name", "origin"} {
+		if _, ok := reference[key]; !ok {
+			t.Fatalf("launch missing %s", key)
+		}
+	}
+	if _, ok := row["delivery_id"]; ok {
+		t.Fatal("image readback without verified F10 supplied a delivery identity")
+	}
+	if status, _ := f.call(42, "GET", "/api/applications?delivery_id="+strings.Repeat("e", 32), nil); status != 400 {
+		t.Fatal("caller-supplied delivery filter was admitted")
+	}
+	status, body = f.call(43, "GET", "/api/applications", nil)
+	if status != 200 || json.Unmarshal(body, &launch) != nil || len(launch.Launchable) != 0 || f.effects.Load() != beforeLaunch {
+		t.Fatalf("unrelated project reader or launch performed native effect: %d %s", status, body)
 	}
 	stop := applicationAction{Action: "stop", Revision: 1, ExpectedContainer: container}
 	if status, _ := f.call(41, "POST", base+"/actions", stop); status != 409 {
@@ -311,6 +377,19 @@ func TestApplicationImageReplacementHTTP(t *testing.T) {
 	}
 	if status, _ := f.call(1, "POST", base+"/actions", applicationAction{Action: "install", Revision: 1}); status != 200 {
 		t.Fatal(status)
+	}
+	// Prepared builds are operator-only and resolved from native receipts. A
+	// browser-supplied build ID alone cannot stop or replace the current app.
+	buildRequest := applicationAction{Action: "replace", Revision: 1, ExpectedContainer: strings.Repeat("a", 64), ConfirmStop: true, ReplacementBuild: strings.Repeat("e", 32)}
+	beforeBuild := f.effects.Load()
+	if status, _ := f.call(41, "POST", base+"/actions", buildRequest); status != 403 || f.effects.Load() != beforeBuild {
+		t.Fatal("administrator used build replacement")
+	}
+	if status, _ := f.call(1, "POST", base+"/actions", buildRequest); status != 409 || f.effects.Load() != beforeBuild {
+		t.Fatal("unknown build affected native application")
+	}
+	if status, _ := f.call(41, "GET", "/api/repositories/7/application-builds", nil); status != 403 {
+		t.Fatal("employee read operator build inventory")
 	}
 	next := spec
 	next.Revision = 2
@@ -352,5 +431,198 @@ func TestApplicationImageReplacementHTTP(t *testing.T) {
 	}
 	if status, _ := f.call(41, "POST", base+"/actions", applicationAction{Action: "start", Revision: 1, ExpectedContainer: request.ExpectedContainer}); status != 409 {
 		t.Fatal("old revision could start replaced app")
+	}
+}
+
+func setupRenewalSpec(seed string, port int) application.SetupSpec {
+	return application.SetupSpec{
+		ID: "a" + strings.Repeat(seed, 24), Name: "Example",
+		ArtifactSHA256: strings.Repeat("2", 64), BundleSHA256: strings.Repeat("3", 64), ToolsSHA256: strings.Repeat("4", 64),
+		RuntimeImage: "sha256:" + strings.Repeat("5", 64), Image: "sha256:" + strings.Repeat("6", 64),
+		Data: "a" + strings.Repeat(seed, 24), Origin: "https://renew-" + seed + ".example.test", Port: port,
+	}
+}
+
+func TestApplicationSetupRenewalHTTP(t *testing.T) {
+	f := applicationHTTPFixture(t)
+	ctx := context.Background()
+	act := func(actor int64, id, action string, confirm bool) (int, []byte) {
+		return f.call(actor, "POST", "/api/applications/setups/"+id+"/actions", map[string]any{"action": action, "confirm": confirm})
+	}
+
+	ref := setupRenewalSpec("b", 20021)
+	status, body := f.call(1, "POST", "/api/applications/setups", map[string]any{"application": ref, "administrator_id": "41"})
+	if status != 201 {
+		t.Fatalf("setup reservation %d %s", status, body)
+	}
+	var created application.SetupRecord
+	// The reservation mints a fresh setup identity (application.NewIdentity);
+	// the spec ID survives as the application reference, not the record ID.
+	if err := json.Unmarshal(body, &created); err != nil || created.Application.ID != ref.ID || created.State != "pending" {
+		t.Fatalf("setup record %s %v", body, err)
+	}
+	if f.effects.Load() != 0 {
+		t.Fatal("reservation performed a native effect")
+	}
+	// A fresh window needs no renewal, and renewal stays operator-confirmed.
+	if status, body := act(1, created.ID, "renew", true); status != 409 || !strings.Contains(string(body), "setup_renewal_unneeded") {
+		t.Fatalf("unexpired renew %d %s", status, body)
+	}
+	if status, _ := act(1, created.ID, "renew", false); status != 400 {
+		t.Fatal("unconfirmed renew admitted")
+	}
+	if status, _ := act(41, created.ID, "renew", true); status != 403 {
+		t.Fatal("administrator renewed")
+	}
+	if f.effects.Load() != 0 {
+		t.Fatal("refused renew performed a native effect")
+	}
+
+	// Interim fail-closed: a Soda-side "unclaimed" read cannot prove the
+	// durable owner claim alone, so an expired pending setup refuses
+	// rotation before any renewal-audit mutation and before any host call.
+	// The old token is kept, no renewal is consumed, and the retained
+	// reservation still blocks fresh setups at the same address.
+	expiredRef := setupRenewalSpec("c", 20022)
+	expired := application.SetupRecord{ID: expiredRef.ID, Application: expiredRef, AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending"}
+	if err := f.store.CreateApplicationSetup(ctx, expired); err != nil {
+		t.Fatal(err)
+	}
+	refusalEffects := f.effects.Load()
+	status, body = act(1, expired.ID, "renew", true)
+	if status != 409 || !strings.Contains(string(body), "setup_renewal_unavailable") {
+		t.Fatalf("Soda-unclaimed renew %d %s", status, body)
+	}
+	if f.effects.Load() != refusalEffects {
+		t.Fatal("refused renew performed a native effect")
+	}
+	stored, err := f.store.ApplicationSetup(ctx, expired.ID)
+	if err != nil || stored.ExpiresAt != expired.ExpiresAt || stored.Observation != nil {
+		t.Fatalf("refused renew mutated the retained reservation: %+v %v", stored, err)
+	}
+	// The refusal consumes no renewal: retrying refuses identically, and
+	// the address is still reserved — no fresh setup can claim it.
+	if status, _ := act(1, expired.ID, "renew", true); status != 409 {
+		t.Fatal("refused setup renewed on retry")
+	}
+	clash := expiredRef
+	clash.ID = "a" + strings.Repeat("d", 24)
+	if status, _ := f.call(1, "POST", "/api/applications/setups", map[string]any{"application": clash, "administrator_id": "41"}); status != 409 {
+		t.Fatal("refused reservation released its address")
+	}
+
+	// A malformed re-begin never consumes the bounded renewal: 400 before
+	// any expiry or audit mutation, with no native effect, and the same
+	// setup still refuses without rotation afterward.
+	malformedRef := setupRenewalSpec("1", 20025)
+	malformed := application.SetupRecord{ID: malformedRef.ID, Application: malformedRef, AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending"}
+	if err := f.store.CreateApplicationSetup(ctx, malformed); err != nil {
+		t.Fatal(err)
+	}
+	beforeMalformed := f.effects.Load()
+	if status, body := f.call(1, "POST", "/api/applications/setups/"+malformed.ID+"/actions", map[string]any{"action": "renew", "confirm": true, "expected_container": "not-a-generation"}); status != 400 || !strings.Contains(string(body), "invalid_setup_action") {
+		t.Fatalf("malformed renew %d %s", status, body)
+	}
+	if f.effects.Load() != beforeMalformed {
+		t.Fatal("malformed renew performed a native effect")
+	}
+	storedMalformed, err := f.store.ApplicationSetup(ctx, malformed.ID)
+	if err != nil || storedMalformed.ExpiresAt != malformed.ExpiresAt {
+		t.Fatalf("malformed renew moved expiry: %+v %v", storedMalformed, err)
+	}
+	// Interim fail-closed: the valid re-begin after a malformed attempt
+	// meets the same claim gate — refused, no rotation, no native effect.
+	if status, body := act(1, malformed.ID, "renew", true); status != 409 || !strings.Contains(string(body), "setup_renewal_unavailable") {
+		t.Fatalf("renew after malformed rotated: %d %s", status, body)
+	}
+	if f.effects.Load() != beforeMalformed {
+		t.Fatal("renew after malformed performed a native effect")
+	}
+
+	// Past the grace window the locally provable closed gate fires before
+	// the claim check: still no rotation, still no native effects.
+	staleRef := setupRenewalSpec("e", 20023)
+	stale := application.SetupRecord{ID: staleRef.ID, Application: staleRef, AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Duration(store.SetupRenewGraceSeconds+60) * time.Second).Unix(), State: "pending"}
+	if err := f.store.CreateApplicationSetup(ctx, stale); err != nil {
+		t.Fatal(err)
+	}
+	effects := f.effects.Load()
+	if status, body := act(1, stale.ID, "renew", true); status != 410 || !strings.Contains(string(body), "setup_renewal_closed") {
+		t.Fatalf("past-grace renew %d %s", status, body)
+	}
+	if f.effects.Load() != effects {
+		t.Fatal("closed renew performed a native effect")
+	}
+	if status, _ := act(1, "a"+strings.Repeat("9", 24), "renew", true); status != 404 {
+		t.Fatal("unknown setup renewed")
+	}
+
+	// Settled setups answer without replaying native effects.
+	settledRef := setupRenewalSpec("f", 20024)
+	settled := application.SetupRecord{ID: settledRef.ID, Application: settledRef, AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending"}
+	if err := f.store.CreateApplicationSetup(ctx, settled); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.SettleApplicationSetup(ctx, settled, application.SetupResult{Operation: settled.ID}, true); err != nil {
+		t.Fatal(err)
+	}
+	effects = f.effects.Load()
+	status, body = act(1, settled.ID, "renew", true)
+	if status != 200 || !strings.Contains(string(body), `"aborted"`) || f.effects.Load() != effects {
+		t.Fatalf("settled renew replayed: %d %s", status, body)
+	}
+}
+
+// FJ-v3-812: a 502 setup_unconfirmed does not imply no rotation — the
+// store renewal may already be committed while the native outcome is
+// unknown. The setup is not stranded: a plain begin retries to
+// convergence without consuming another renewal, and the observation is
+// recorded against the actual generation.
+func TestApplicationSetupBeginRetriesAfterUnconfirmed(t *testing.T) {
+	f := applicationHTTPFixture(t)
+	ctx := context.Background()
+	ref := setupRenewalSpec("7", 20026)
+	expired := application.SetupRecord{ID: ref.ID, Application: ref, AdministratorID: 41, ExpiresAt: time.Now().Add(-time.Minute).Unix(), State: "pending"}
+	if err := f.store.CreateApplicationSetup(ctx, expired); err != nil {
+		t.Fatal(err)
+	}
+	// Interim fail-closed stages the committed renewal below the HTTP
+	// refusal: Soda-unclaimed renew refuses rotation over HTTP, so the
+	// committed-renewal premise this convergence test needs is staged
+	// through the store primitive directly (same audit row, same expiry
+	// advance, no host effect). The re-begin below runs the ordinary
+	// begin flow against the re-armed record.
+	f.fail.Store(false)
+	rearmedSetup, err := f.store.RenewApplicationSetup(ctx, expired, 1)
+	if err != nil || rearmedSetup.ExpiresAt <= time.Now().Unix() {
+		t.Fatalf("renewal did not re-arm: %v", err)
+	}
+	rearmed := struct {
+		Setup application.SetupRecord `json:"setup"`
+	}{Setup: rearmedSetup}
+	// The re-begin outcome is lost: 502 carries no claim about whether
+	// the native side rotated, only that the outcome is unknown.
+	f.fail.Store(true)
+	status, body := f.call(1, "POST", "/api/applications/setups/"+expired.ID+"/actions", map[string]any{"action": "begin", "expected_container": strings.Repeat("7", 64)})
+	if status != 502 || !strings.Contains(string(body), "setup_unconfirmed") {
+		t.Fatalf("lost begin %d %s", status, body)
+	}
+	// A plain begin retries to convergence: 200 with the observation
+	// recorded, exactly one renewal consumed, and no further renewal
+	// needed or admitted.
+	f.fail.Store(false)
+	status, body = f.call(1, "POST", "/api/applications/setups/"+expired.ID+"/actions", map[string]any{"action": "begin"})
+	if status != 200 {
+		t.Fatalf("retry begin %d %s", status, body)
+	}
+	stored, err := f.store.ApplicationSetup(ctx, expired.ID)
+	if err != nil || stored.Observation == nil || stored.Observation.Container != strings.Repeat("7", 64) {
+		t.Fatalf("retry observation not recorded: %+v %v", stored, err)
+	}
+	if stored.ExpiresAt != rearmed.Setup.ExpiresAt {
+		t.Fatalf("retry consumed another renewal: %d vs %d", stored.ExpiresAt, rearmed.Setup.ExpiresAt)
+	}
+	if status, _ := f.call(1, "POST", "/api/applications/setups/"+expired.ID+"/actions", map[string]any{"action": "renew", "confirm": true}); status != 409 {
+		t.Fatalf("re-armed setup renewed again: %d", status)
 	}
 }

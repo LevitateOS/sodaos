@@ -28,6 +28,14 @@ var ErrPlanChoiceAttention = errors.New("recorded plan needs a product decision 
 // to a product refusal.
 var ErrPlanChoiceStore = errors.New("planning store unavailable")
 
+// ErrPlanChoiceReview reports a recorded decomposition answer that never
+// completed its explicit walkthrough check: the plan carries no
+// request-specific authored walkthrough, or its consolidation and
+// consistency judgments have no clean recorded review. The person checks
+// the walkthrough first, then native work may proceed. Replays cost
+// nothing; a missing check never funds new judgments at serving time.
+var ErrPlanChoiceReview = errors.New("recorded plan needs its walkthrough checked before native work")
+
 // GenerateAcceptedIntentFromRecordedPlan is the bound R13 serving
 // connector: it resolves the current accepted head's own recorded
 // assessed planning choice and generates through the choice-bound pipeline
@@ -107,6 +115,11 @@ func (c *Coordinator) ResolveAcceptedPlanChoice(ctx context.Context, owner int64
 	}
 	if err := c.currentAcceptedIntent(ctx, r); err != nil {
 		return empty, nil, fmt.Errorf("%w: accepted direction changed during choice", ErrPlanChoiceStale)
+	}
+	// The recorded walkthrough admits before any funded choice: a missing
+	// or unchecked walkthrough refuses without spending a comparison.
+	if err := c.admitRecordedWalkthroughReview(ctx, in.Head, *out); err != nil {
+		return empty, nil, err
 	}
 	chosen, err := c.ChoosePlannedCandidate(ctx, r, in, *out)
 	if err != nil {
@@ -317,6 +330,36 @@ func (c *Coordinator) recheckPlanChoiceAfterComparison(ctx context.Context, r fa
 		return nil, fmt.Errorf("%w: accepted direction changed during choice", ErrPlanChoiceStale)
 	}
 	return nil, nil
+}
+
+// admitRecordedWalkthroughReview proves a recorded answer carries a
+// request-specific authored walkthrough and a clean recorded check
+// before new builds: the walkthrough binds the recorded draft head,
+// and the consolidation and consistency judgments replay clean from
+// durable receipts. The replay coordinator carries no chooser, so a
+// missing check refuses without funding new judgments at serving time;
+// the person checks the walkthrough explicitly, then native work may
+// proceed. Deterministic effect findings refuse the same way.
+func (c *Coordinator) admitRecordedWalkthroughReview(ctx context.Context, head factory.IntentRevision, out factory.SemanticPlannerOutput) error {
+	if out.Walkthroughs == nil {
+		return fmt.Errorf("%w: recorded plan carries no authored walkthrough", ErrPlanChoiceReview)
+	}
+	if err := factory.ValidatePlanningWalkthroughs(head, *out.Walkthroughs); err != nil {
+		return fmt.Errorf("%w: %v", ErrPlanChoiceReview, err)
+	}
+	replay := &Coordinator{Store: c.Store}
+	recommended, err := replay.JudgeConsolidation(ctx, head, *out.Walkthroughs)
+	if err != nil {
+		return fmt.Errorf("%w: recorded walkthrough has no checked review", ErrPlanChoiceReview)
+	}
+	checked, err := replay.JudgeConsistency(ctx, head, *out.Walkthroughs, recommended)
+	if err != nil {
+		return fmt.Errorf("%w: recorded walkthrough has no checked review", ErrPlanChoiceReview)
+	}
+	if len(checked.Mismatches) != 0 {
+		return fmt.Errorf("%w: recorded walkthrough needs correction", ErrPlanChoiceReview)
+	}
+	return nil
 }
 
 // validateGenerationBinding proves a generated operation's stamped

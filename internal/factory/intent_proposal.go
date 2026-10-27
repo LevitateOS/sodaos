@@ -50,9 +50,12 @@ func ValidateDraftPlanningScope(r IntentRevision) error {
 // its draft head without requiring an accepted graph or history. Every
 // task binds known accepted-or-edited choices, prerequisite edges resolve
 // inside the candidate without cycles, and every effective authorized
-// outcome is covered by at least one task. Broad multi-task graphs and
-// single-task graphs both assess: there is no artificial minimum issue
-// count. Models never choose native issue IDs: task keys are decision IDs.
+// outcome is covered by at least one task. With an explicit resolved
+// subset the tasks must also stay inside it: a candidate binding a
+// decided choice outside the subset refuses on its shape before coverage
+// is assessed. Broad multi-task graphs and single-task graphs both
+// assess: there is no artificial minimum issue count. Models never choose
+// native issue IDs: task keys are decision IDs.
 func AssessProposedTasks(r IntentRevision, tasks []IntentTask, maxIssues int) error {
 	if maxIssues < 1 || maxIssues > 64 || maxIssues > r.MaxIssues {
 		return errors.New("invalid candidate issue bound")
@@ -64,7 +67,7 @@ func AssessProposedTasks(r IntentRevision, tasks []IntentTask, maxIssues int) er
 	for _, idea := range r.Ideas {
 		ideas[idea.ID] = idea
 	}
-	seen, err := checkProposedTaskShapes(tasks, ideas)
+	seen, err := checkProposedTaskShapes(tasks, ideas, explicitEffectiveScope(r))
 	if err != nil {
 		return err
 	}
@@ -74,7 +77,22 @@ func AssessProposedTasks(r IntentRevision, tasks []IntentTask, maxIssues int) er
 	return checkProposedTaskCoverage(r, tasks)
 }
 
-func checkProposedTaskShapes(tasks []IntentTask, ideas map[string]ProductIdea) (map[string]IntentTask, error) {
+// explicitEffectiveScope returns the explicit authorized idea subset one
+// candidate task graph must stay inside, or nil when the head names no
+// explicit subset. Without EffectiveOutcomes every decided choice is in
+// scope, so the accepted-or-edited shape check already proves membership.
+func explicitEffectiveScope(r IntentRevision) map[string]bool {
+	if len(r.EffectiveOutcomes) == 0 {
+		return nil
+	}
+	scope := make(map[string]bool, len(r.EffectiveOutcomes))
+	for _, id := range r.EffectiveOutcomes {
+		scope[id] = true
+	}
+	return scope
+}
+
+func checkProposedTaskShapes(tasks []IntentTask, ideas map[string]ProductIdea, scope map[string]bool) (map[string]IntentTask, error) {
 	seen := map[string]IntentTask{}
 	for _, task := range tasks {
 		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, 4000) ||
@@ -96,6 +114,9 @@ func checkProposedTaskShapes(tasks []IntentTask, ideas map[string]ProductIdea) (
 			}
 			if idea.Decision != "accept" && idea.Decision != "edit" {
 				return nil, errors.New("candidate references undecided product choice")
+			}
+			if scope != nil && !scope[id] {
+				return nil, errors.New("candidate exceeds effective authorized outcomes")
 			}
 		}
 		seen[task.Key] = task
@@ -141,7 +162,8 @@ func visitProposedTask(seen map[string]IntentTask, visited, active map[string]bo
 }
 
 func checkProposedTaskCoverage(r IntentRevision, tasks []IntentTask) error {
-	if len(r.EffectiveOutcomes) == 0 {
+	resolved := ResolvedScope(r)
+	if len(resolved) == 0 {
 		return nil
 	}
 	covered := map[string]bool{}
@@ -150,7 +172,7 @@ func checkProposedTaskCoverage(r IntentRevision, tasks []IntentTask) error {
 			covered[id] = true
 		}
 	}
-	for _, id := range r.EffectiveOutcomes {
+	for _, id := range resolved {
 		if !covered[id] {
 			return errors.New("candidate leaves authorized outcomes uncovered")
 		}
@@ -182,6 +204,11 @@ func ProposeIntent(r IntentRevision, ids []string) IntentRevision {
 		key := ids[2+i*2]
 		check := ids[3+i*2]
 		verification := "Verify the reviewed behavior: " + objective
+		// Authored prose bound: 4000 UTF-8 bytes, matching the
+		// canonical review-label rule below. Byte length is the
+		// persisted-old-valid standard: multibyte text that fits in
+		// 4000 runes but exceeds 4000 bytes still falls back, so
+		// recorded baselines keep verifying.
 		if len(verification) > 4000 {
 			verification = "Verify the accepted product behavior and its authority boundaries"
 		}
@@ -196,6 +223,13 @@ func ProposeIntent(r IntentRevision, ids []string) IntentRevision {
 
 // A review label may summarize a large objective; the immutable revision
 // retains the full person's text, which also enters native requirements.
+// The 4000 bound counts UTF-8 BYTES, not runes: multibyte text that fits
+// in 4000 characters but exceeds 4000 bytes still falls back to the
+// substitute label. This byte rule is the persisted-old-valid standard —
+// recorded walkthroughs substituted under it must keep verifying — while
+// the staged prompt tells the worker the same byte rule, and facts[0]
+// stays byte-equal to the full objective either way. intentText rune
+// bounds validate prose elsewhere; transport 64 KiB caps count bytes.
 func proposalObjective(objective string) string {
 	if len(objective) > 4000 {
 		return "Implement the recorded product objective"

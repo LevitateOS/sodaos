@@ -52,15 +52,17 @@ export function setupWorkspaceDriver(createPage?: () => Promise<Page>) {
                 ? 'frontend/spaces/sodaspaces-project.css'
                 : url.pathname === '/assets/sodaspaces-page.css'
                   ? 'frontend/spaces/sodaspaces-workspace.css'
-                  : url.pathname === '/assets/sodaspaces-terminal.css'
-                    ? 'frontend/spaces/sodaspaces-terminal.css'
-                    : url.pathname.startsWith('/assets/soda-terminal/')
-                      ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
-                      : url.pathname.startsWith('/assets/soda/forgejo/icons/')
-                        ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
-                        : url.pathname.startsWith('/assets/soda/')
-                          ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
-                          : '';
+                  : url.pathname === '/assets/sodaspaces-factory-conversation.css'
+                    ? 'frontend/spaces/sodaspaces-factory-conversation.css'
+                    : url.pathname === '/assets/sodaspaces-terminal.css'
+                      ? 'frontend/spaces/sodaspaces-terminal.css'
+                      : url.pathname.startsWith('/assets/soda-terminal/')
+                        ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
+                        : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                          ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
+                          : url.pathname.startsWith('/assets/soda/')
+                            ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                            : '';
         if (local)
           return new Response(Bun.file(path.join(root, local)), {
             headers: {
@@ -221,9 +223,22 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
     'single-page results should not show pagination'
   );
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
   return {...picker, action, footer};
+}
+
+// Creation returns to the retained product request. Developer checks enter the
+// native Workspace route explicitly before exercising the separate Join flow.
+export async function enterCreatedProjectTerminals(page: Page) {
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.evaluate(() => {
+    history.pushState({}, '', '/workspace?repository=7');
+    window.workspaceFixture.presentRoute();
+  });
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
 }
 
 export async function reviewFirstIntent(page: Page) {
@@ -244,13 +259,9 @@ export async function reviewFirstIntent(page: Page) {
 export async function completeBoundIntentPlanning(page: Page) {
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   const planning = page.locator('section[aria-label="Draft planning"]');
-  await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
   await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
-  await planning
-    .getByText('Planning proposed 1 candidate. Choosing and adopting a graph comes next.', {exact: true})
-    .waitFor();
-  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
-  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
-  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Accept and build', exact: true}).click();
+  await page.locator('soda-factory-work-overview').waitFor();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
 }

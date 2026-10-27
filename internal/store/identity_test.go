@@ -57,6 +57,71 @@ func TestIdentityConnectionRoundTripAndValidation(t *testing.T) {
 	}
 }
 
+// TestConnectionGenerationGuardsOwnerStateAndGeneration pins the FUX27
+// narrow getter: exact owner/connection binding, generation>=1, ready state,
+// and one generic failure for every miss path (never credential/state detail).
+func TestConnectionGenerationGuardsOwnerStateAndGeneration(t *testing.T) {
+	s, dsn := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
+	ctx := t.Context()
+	// The read-only observe handle opens the initialized database without
+	// identity grants; the getter must observe identically through it.
+	observed, err := OpenObserve(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = observed.Close() })
+	seed := func(id string, owner int64, generation int64, state string) {
+		t.Helper()
+		c := identity.Connection{ProviderID: identity.Codex, ID: id, OwnerID: owner, Generation: generation, State: state}
+		credential := []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)
+		if generation <= 0 {
+			if err := s.SeedIdentityConnection(ctx, identity.Connection{ProviderID: identity.Codex, ID: id, OwnerID: owner, Generation: 1, State: state}, credential); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.db.ExecContext(ctx, `UPDATE identity_connections SET generation=$1 WHERE id=$2`, generation, id); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+		if err := s.SeedIdentityConnection(ctx, c, credential); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed("conn-ready", 1, 1, identity.Ready)
+	seed("conn-revoked", 1, 3, identity.Revoked)
+	seed("conn-zero", 1, 0, identity.Ready)
+	if gen, err := s.ConnectionGeneration(ctx, "conn-ready", 1); err != nil || gen != 1 {
+		t.Fatalf("ready connection generation=%d err=%v, want 1 nil", gen, err)
+	}
+	if gen, err := observed.ConnectionGeneration(ctx, "conn-ready", 1); err != nil || gen != 1 {
+		t.Fatalf("observed ready connection generation=%d err=%v, want 1 nil", gen, err)
+	}
+	if gen, err := observed.ConnectionGeneration(ctx, "conn-ready", 2); err == nil || gen != 0 {
+		t.Fatalf("observed foreign owner generation=%d err=%v, want 0 plus the generic failure", gen, err)
+	} else if err.Error() != "current connection unavailable" {
+		t.Fatalf("observed foreign owner error %q, want the generic failure", err)
+	}
+	if gen, err := observed.ConnectionGeneration(ctx, "conn-absent", 1); err == nil || gen != 0 {
+		t.Fatalf("observed missing connection generation=%d err=%v, want 0 plus the generic failure", gen, err)
+	}
+	for _, tc := range []struct {
+		name  string
+		id    string
+		owner int64
+	}{
+		{"wrong owner", "conn-ready", 2},
+		{"missing connection", "conn-absent", 1},
+		{"non-ready state", "conn-revoked", 1},
+		{"generation zero", "conn-zero", 1},
+	} {
+		if gen, err := s.ConnectionGeneration(ctx, tc.id, tc.owner); err == nil || gen != 0 {
+			t.Fatalf("%s: generation=%d err=%v, want 0 plus the generic failure", tc.name, gen, err)
+		} else if err.Error() != "current connection unavailable" {
+			t.Fatalf("%s: error %q leaks detail, want the generic failure", tc.name, err)
+		}
+	}
+}
+
 func TestIdentityGrantRoundTrip(t *testing.T) {
 	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()

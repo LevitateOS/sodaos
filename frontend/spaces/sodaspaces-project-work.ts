@@ -2,14 +2,15 @@ import {LitElement, html} from 'lit';
 import type {PropertyValues} from 'lit';
 import {check, id, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {intentList} from './sodaspaces-intent-response.js';
-import type {SavedRequest} from './sodaspaces-intent-response.js';
+import {intentList, intentPlanStatus} from './sodaspaces-intent-response.js';
+import type {SavedRequest, IntentPlanStatus} from './sodaspaces-intent-response.js';
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
 import {SodaFactoryVerificationAllowance} from './sodaspaces-factory-verification-allowance.js';
 import './sodaspaces-factory-feed.js';
 import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
 import './sodaspaces-factory-context-resolution.js';
+import type {SodaFactoryContextResolution} from './sodaspaces-factory-context-resolution.js';
 import './sodaspaces-factory-completion-retry.js';
 import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
@@ -27,9 +28,15 @@ export interface ProjectWorkContext {
   verificationRuns?: readonly string[];
 }
 
+// Plan replay reads run through a small worker pool so accumulated drafts
+// never fan out into unbounded parallel GETs.
+const planReadConcurrency = 4;
+
 function sameContext(a: ProjectWorkContext | undefined, b: ProjectWorkContext | undefined) {
   if (!a || !b) return a === b;
-  return a.transport === b.transport && a.mode === b.mode && a.repository?.id === b.repository?.id;
+  return (
+    a.transport === b.transport && a.mode === b.mode && a.repository?.id === b.repository?.id && a.account === b.account
+  );
 }
 
 function listPath(context: ProjectWorkContext, cursor: string | undefined) {
@@ -52,7 +59,9 @@ function appendPlans(current: readonly SavedRequest[], incoming: readonly SavedR
 export class SodaProjectWork extends LitElement {
   static properties = {
     active: {type: Boolean},
+    surface: {type: String},
     plans: {state: true},
+    planStates: {state: true},
     loaded: {state: true},
     busy: {state: true},
     error: {state: true},
@@ -62,7 +71,9 @@ export class SodaProjectWork extends LitElement {
     issueError: {state: true},
   };
   declare active: boolean;
+  declare surface: 'feed' | 'work';
   declare private plans: SavedRequest[];
+  declare private planStates: Map<string, IntentPlanStatus>;
   declare private loaded: boolean;
   declare private busy: boolean;
   declare private error: string;
@@ -76,7 +87,9 @@ export class SodaProjectWork extends LitElement {
   constructor() {
     super();
     this.active = false;
+    this.surface = 'feed';
     this.plans = [];
+    this.planStates = new Map();
     this.loaded = this.busy = false;
     this.error = '';
     this.next = undefined;
@@ -127,7 +140,15 @@ export class SodaProjectWork extends LitElement {
       'soda-factory-verification-allowance'
     ))
       void control.refresh();
+    this.refreshResolution();
     return this.load(false);
+  }
+
+  private refreshResolution() {
+    // Explicit child refresh (FJ-446): the resolution child skips identical
+    // scope+transport, so genuine Work refresh/reopen re-invokes its read.
+    // Stale guards live in the child (superseded tokens never write).
+    this.querySelector<SodaFactoryContextResolution>('soda-factory-context-resolution')?.refresh();
   }
 
   private cancelRead() {
@@ -138,6 +159,7 @@ export class SodaProjectWork extends LitElement {
 
   private clearPlans() {
     this.plans = [];
+    this.planStates = new Map();
     this.loaded = false;
     this.error = '';
     this.next = undefined;
@@ -158,6 +180,14 @@ export class SodaProjectWork extends LitElement {
     this.request = request;
     this.busy = true;
     this.error = '';
+    // Work-state pre-clear (FJ-v3-work-review-266): a full refresh REPLACES
+    // the map from this pass, so retire attempted statuses synchronously for
+    // the current context before awaiting the refresh. Stale Checked never
+    // survives a slow sibling read. Request-identity guard preserves
+    // account/project-change cancellation: a superseded request never
+    // touches state (see readPlanStates early return). Paginated loads keep
+    // retained entries and never pre-clear.
+    if (!more && this.current === context && this.request === request) this.planStates = new Map();
     const timeout = window.setTimeout(() => request.abort(), 15000);
     try {
       await this.readPage(context, request, more);
@@ -180,7 +210,9 @@ export class SodaProjectWork extends LitElement {
     if (!this.live(request)) return;
     this.admitResponse(response);
     const page = intentList(await readSodaJSON(response));
-    if (this.live(request)) this.applyPage(context, page, more);
+    if (!this.live(request)) return;
+    this.applyPage(context, page, more);
+    await this.readPlanStates(context, request, more, page.intents);
   }
 
   private applyPage(context: ProjectWorkContext, page: ReturnType<typeof intentList>, more: boolean) {
@@ -188,23 +220,131 @@ export class SodaProjectWork extends LitElement {
     this.plans = more ? appendPlans(this.plans, page.intents) : page.intents;
     this.next = page.next_cursor;
     this.loaded = true;
+    this.retainPlanStates();
+  }
+
+  // Owner replay of the recorded plan/check state. One GET per bound draft,
+  // same intent and revision guarded by the view mapping. Replay-only: no
+  // POST, no PUT, no planning side effect. A missing plan, a mismatched
+  // revision, an undecided run, or a failed read stays neutral and never
+  // surfaces a list error.
+  //
+  // Freshness: a full refresh REPLACES the map from the reads that return in
+  // this pass, keyed by exact revision. A 404/409/503, a mismatched
+  // revision, or an unparseable replay resolves to unknown (no entry), so a
+  // formerly Checked draft can never survive its own failed replay. A 401 or
+  // 403 on any plan read routes through the existing authority-loss path.
+  // A paginated load fetches only the newly arrived page and keeps the
+  // retained entries for earlier pages. Retries are explicit and bounded:
+  // one pass per Refresh, one pass per Load more, no background loop. Plan
+  // reads run through a small worker pool so accumulated drafts never fan
+  // out into unbounded parallel GETs.
+  private async readPlanStates(
+    context: ProjectWorkContext,
+    request: AbortController,
+    more: boolean,
+    fresh: readonly SavedRequest[]
+  ) {
+    const scope = more ? fresh : this.plans;
+    const candidates = scope.filter(
+      (plan) => plan.state === 'draft' && plan.repository !== '0' && (!more || !this.planStates.has(plan.intent))
+    );
+    if (!candidates.length) {
+      if (!more) this.planStates = new Map();
+      else this.retainPlanStates();
+      return;
+    }
+    const replayed = new Map<string, IntentPlanStatus>();
+    let authority: 401 | 403 | undefined;
+    let cursor = 0;
+    const readOne = async (plan: SavedRequest): Promise<void> => {
+      let response: Response;
+      try {
+        response = await context.transport.request(`factory/intents/${plan.intent}/plan`, {
+          method: 'GET',
+          signal: request.signal,
+        });
+      } catch {
+        return;
+      }
+      if (response.status === 401 || response.status === 403) {
+        authority = response.status;
+        // Immediate authority loss for the current context: retire state
+        // now instead of waiting for a hung sibling or the 15s deadline.
+        // Request-identity guard preserves account/project-change
+        // cancellation: a superseded request never touches state.
+        // loseAuthority aborts the signal, releasing hung siblings.
+        if (this.request === request) this.loseAuthority(response.status === 401);
+        return;
+      }
+      if (!response.ok) return;
+      try {
+        const status = intentPlanStatus(await readSodaJSON(response));
+        if (status.revision !== plan.revision) return;
+        replayed.set(plan.intent, status);
+      } catch {
+        // An unparseable replay stays neutral.
+      }
+    };
+    const lane = async (): Promise<void> => {
+      for (;;) {
+        if (cursor >= candidates.length || request.signal.aborted) return;
+        const plan = candidates[cursor];
+        cursor += 1;
+        if (!plan) return;
+        await readOne(plan);
+      }
+    };
+    await Promise.all(Array.from({length: Math.min(planReadConcurrency, candidates.length)}, () => lane()));
+    // Timeout-hole repair (FJ-v3-work-timeout-251): our own 15s deadline
+    // aborts the signal while we stay current. A hung read then surfaces as
+    // a readOne AbortError with !live, which must still replace the prior
+    // map (hung/failed replays stay neutral) and must not discard a captured
+    // 401/403. Only a superseded request (account/project change, which
+    // retires this.request) returns without touching state.
+    if (this.request !== request) return;
+    if (authority !== undefined) {
+      this.loseAuthority(authority === 401);
+      return;
+    }
+    if (!request.signal.aborted && !this.live(request)) return;
+    // Still current, timed out or fresh: replace from this pass so a hung
+    // read can never retain its stale Checked entry.
+    if (!more) this.planStates = replayed;
+    else {
+      const next = new Map(this.planStates);
+      for (const [intent, status] of replayed) next.set(intent, status);
+      this.planStates = next;
+    }
+    this.retainPlanStates();
+  }
+
+  private retainPlanStates() {
+    const valid = new Map<string, IntentPlanStatus>();
+    for (const plan of this.plans) {
+      const status = this.planStates.get(plan.intent);
+      if (status && status.revision === plan.revision) valid.set(plan.intent, status);
+    }
+    this.planStates = valid;
   }
 
   private admitResponse(response: Response) {
     if (response.ok) return;
-    if (response.status === 401 || response.status === 403) {
-      this.cancelRead();
-      this.current = undefined;
-      this.clearPlans();
-      this.dispatchEvent(
-        new CustomEvent('soda-work-authority-lost', {
-          bubbles: true,
-          composed: true,
-          detail: {reconnectRequired: response.status === 401},
-        })
-      );
-    }
+    if (response.status === 401 || response.status === 403) this.loseAuthority(response.status === 401);
     throw new SodaRequestError(response.status);
+  }
+
+  private loseAuthority(reconnectRequired: boolean) {
+    this.cancelRead();
+    this.current = undefined;
+    this.clearPlans();
+    this.dispatchEvent(
+      new CustomEvent('soda-work-authority-lost', {
+        bubbles: true,
+        composed: true,
+        detail: {reconnectRequired},
+      })
+    );
   }
 
   private failureMessage(more: boolean) {
@@ -238,6 +378,12 @@ export class SodaProjectWork extends LitElement {
       return;
     }
     this.issueError = '';
+    if (this.requirementsIssue === issue) {
+      // Same-issue reopen: scope+transport are identical so the child would
+      // skip its read forever; explicitly re-invoke it instead of no-op.
+      this.refreshResolution();
+      return;
+    }
     this.requirementsIssue = issue;
   }
 
@@ -287,15 +433,27 @@ export class SodaProjectWork extends LitElement {
     if (!context) return html``;
     const feed =
       context.mode === 'project' && context.repository
-        ? html`<soda-factory-feed
-            .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}
-          ></soda-factory-feed>`
+        ? html`<section ?hidden=${this.surface !== 'feed'} aria-label="Project conversation">
+            <header class="soda-work-intro">
+              <div>
+                <h2>Keep the work moving</h2>
+                <p>Follow your team's decisions, ask a question, or describe the next change.</p>
+              </div>
+              <button type="button" class="ui primary button" ?disabled=${!this.active} @click=${() => this.newWork()}>
+                Describe a change
+              </button>
+            </header>
+            <soda-factory-feed
+              .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}
+            ></soda-factory-feed>
+          </section>`
         : '';
     const plans = renderProjectWork({
       mode: context.mode,
       repositoryName: context.repository?.name || 'this project',
       repositoryNames: context.repositoryNames,
       plans: this.plans,
+      planStatuses: this.planStates,
       loaded: this.loaded,
       busy: this.busy,
       error: this.error,
@@ -314,17 +472,12 @@ export class SodaProjectWork extends LitElement {
         void this.load(true);
       },
     });
-    return html`${feed}${this.renderRequirements(context)}<soda-factory-verification-retry
-        .context=${this.active && context.mode === 'project' && context.repository ? {transport: context.transport, repository: context.repository.id, runs: context.verificationRuns ?? []} : undefined}
-      ></soda-factory-verification-retry
-      >${
-        context.mode === 'project'
-          ? html`<details class="soda-project-plans">
-              <summary>My plans</summary>
-              ${plans}
-            </details>`
-          : plans
-      }`;
+    return html`${feed}
+      <section ?hidden=${context.mode === 'project' && this.surface !== 'work'} aria-label="Plans and delivery">
+        ${plans}${this.renderRequirements(context)}<soda-factory-verification-retry
+          .context=${this.active && context.mode === 'project' && context.repository ? {transport: context.transport, repository: context.repository.id, runs: context.verificationRuns ?? []} : undefined}
+        ></soda-factory-verification-retry>
+      </section>`;
   }
 }
 

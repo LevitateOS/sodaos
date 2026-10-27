@@ -2,9 +2,7 @@ use super::wire::{hex, Observation, Request, Spec};
 use crate::project::Executor;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::fs;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 fn canonical_image(value: &str) -> Result<String, String> {
@@ -15,7 +13,6 @@ fn canonical_image(value: &str) -> Result<String, String> {
     Ok(format!("sha256:{digest}"))
 }
 
-const ROOT: &str = "/home/soda-applications";
 const CONTAINER_FORMAT: &str = "{\"container\":{{json .ID}},\"image\":{{json .Image}},\"running\":{{json .State.Running}},\"labels\":{{json .Config.Labels}}}";
 const IMAGE_FORMAT: &str =
     "{\"image\":{{json .ID}},\"user\":{{json .Config.User}},\"labels\":{{json .Config.Labels}}}";
@@ -282,6 +279,7 @@ impl<E: Executor> Runtime<E> {
                     running: true,
                     ready: true,
                     origin: spec.origin.clone(),
+                    bundle_file_sha256: String::new(),
                 });
             }
             let remaining = deadline.saturating_duration_since(Instant::now());
@@ -406,6 +404,7 @@ impl<E: Executor> Runtime<E> {
                 running: false,
                 ready: false,
                 origin: spec.origin.clone(),
+                bundle_file_sha256: String::new(),
             });
         }
         let native = self.inspect(spec, &request.expected_container, deadline)?;
@@ -417,6 +416,18 @@ impl<E: Executor> Runtime<E> {
             "stop" => self.run_stop(spec, &request.action, deadline),
             "replace" => self.run_replace(spec, native, &request.action, deadline),
             "inspect" => self.finish(spec, &request.action, deadline),
+            "verify_build" => {
+                if native.image != spec.image {
+                    return Err("build readback requires the admitted image generation".into());
+                }
+                let digest = self.bundle_file_sha256(spec, deadline)?;
+                let mut observed = self.finish(spec, &request.action, deadline)?;
+                if observed.image != spec.image {
+                    return Err("application changed during build readback".into());
+                }
+                observed.bundle_file_sha256 = digest;
+                Ok(observed)
+            }
             _ => unreachable!(),
         }
     }
@@ -440,63 +451,59 @@ impl<E: Executor> Runtime<E> {
             running: native.running,
             ready: native.running && self.ready(spec, deadline),
             origin: spec.origin.clone(),
+            bundle_file_sha256: String::new(),
         })
     }
-}
-
-fn private_root(path: &Path) -> Result<(), String> {
-    let metadata = fs::symlink_metadata(path).map_err(|_| "application storage is unavailable")?;
-    if !metadata.is_dir()
-        || metadata.file_type().is_symlink()
-        || metadata.mode() & 0o077 != 0
-        || fs::canonicalize(path).map_err(|_| "application storage is unavailable")? != path
-    {
-        return Err("application storage must be an existing private canonical directory".into());
-    }
-    Ok(())
 }
 
 pub(super) fn data_directory(data: &str) -> Result<PathBuf, String> {
     if !super::wire::id(data) {
         return Err("invalid application data identity".into());
     }
-    let root = super::home_path(Path::new(ROOT))?;
-    let root_meta =
-        fs::symlink_metadata(&root).map_err(|_| "application storage is unavailable")?;
-    if !root_meta.is_dir() || root_meta.uid() != 0 || root_meta.mode() & 0o022 != 0 {
-        return Err("application storage root must belong to the appliance operator".into());
-    }
-    let base = root.join("data");
-    private_root(&base)?;
-    if fs::symlink_metadata(&base)
-        .map_err(|_| "application storage is unavailable")?
-        .uid()
-        != 0
-    {
-        return Err("application data parent must belong to the appliance operator".into());
-    }
-    let path = base.join(data);
-    private_root(&path)?;
-    if fs::symlink_metadata(&path)
-        .map_err(|_| "application storage is unavailable")?
-        .uid()
-        != 10000
-    {
-        return Err("application data must belong to the runtime account".into());
-    }
+    // Same trusted seam as setup and snapshots: one shared storage root, so
+    // the fixture redirect can never split runtime data off to another tree.
+    // FJ-847: the root, the data parent, and the application leaf are each
+    // opened into validated descriptors; the podman path below is rebound to
+    // the leaf descriptor before hand-off, so a swapped path fails closed.
+    let root = super::storage_root()?;
+    let root_anchor = super::home::open_validated_dir(
+        &root,
+        0,
+        0o022,
+        "application storage root must belong to the appliance operator",
+    )?;
+    let base = super::home::validate_child_dir(
+        &root_anchor,
+        "data",
+        0,
+        0o077,
+        "application data parent must belong to the appliance operator",
+    )?;
+    let child = super::home::validate_child_dir(
+        &base,
+        data,
+        10000,
+        0o077,
+        "application data must belong to the runtime account",
+    )?;
     // Open without following links; the Canlang launcher takes the same lock
     // before provisioning or runtime startup.
-    let lock = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(path.join(".writer-lock"))
-        .map_err(|_| "application data lock is unavailable")?;
-    let metadata = lock
-        .metadata()
-        .map_err(|_| "application data lock is unavailable")?;
-    if !metadata.is_file() || metadata.uid() != 10000 || metadata.mode() & 0o077 != 0 {
+    let lock = super::home::open_child_opt(
+        &child,
+        ".writer-lock",
+        true,
+        "application data lock is unavailable",
+    )?
+    .ok_or("application data lock is unavailable")?;
+    let stat = super::home::stat_opened(&lock, "application data lock is unavailable")?;
+    if (stat.st_mode as u32 & libc::S_IFMT) != libc::S_IFREG
+        || stat.st_uid != 10000
+        || (stat.st_mode as u32 & 0o077) != 0
+    {
         return Err("application data lock is not a regular file".into());
     }
+    let path = root.join("data").join(data);
+    super::home::fd_matches_path(&path, &child)
+        .map_err(|_| "application data must belong to the runtime account".to_string())?;
     Ok(path)
 }

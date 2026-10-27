@@ -473,7 +473,102 @@ func choicePlannerOutput(draft factory.IntentRevision, keys ...string) factory.S
 	for _, key := range keys {
 		out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
 	}
+	walkthroughs := choicePlanWalkthroughs(draft)
+	out.Walkthroughs = &walkthroughs
 	return out
+}
+
+// choicePlanWalkthroughs authors real-shaped planning-agent walkthroughs
+// bound to the reviewed draft: facts preserved from the draft objective
+// and two alternatives covering the authorized outcomes, or facts-only
+// prose when the objective falls outside the authored representative
+// coverage (nothing to consolidate then, matching the serving review
+// rule). The content passes planning validation and the deterministic
+// effect scan, so only the recorded review decides the serving gate.
+func choicePlanWalkthroughs(draft factory.IntentRevision) factory.ProposalContent {
+	set := factory.DescribeAlternatives(draft.Objective)
+	basis, err := factory.ComposeProposalContent(draft)
+	if err != nil {
+		panic("choice walkthrough basis invalid: " + err.Error())
+	}
+	// The planning agent authors its own alternatives for any objective,
+	// even outside the authored representative coverage: planning
+	// validation requires supported walkthroughs, and consolidation can
+	// only review an actual comparison.
+	content := factory.ProposalContent{
+		Producer: factory.PlanningProducer, Supported: true,
+		Intent: draft.Intent, Revision: draft.ID, Objective: draft.Objective,
+		Facts: basis.Facts, Excluded: basis.Excluded, Exclusions: basis.Exclusions,
+		Unknowns: set.Unknowns,
+	}
+	for _, key := range []string{"guided", "list"} {
+		content.Alternatives = append(content.Alternatives, factory.ProductAlternative{
+			Key: key, Name: key + " leave review", Audience: "Managers and their team",
+			Summary:      "Track leave requests with a visible review step.",
+			Steps:        []factory.WalkthroughStep{{Actor: "The person", Action: "records the leave request", Result: "The request is tracked"}},
+			Visibility:   "The person and the reviewer see the request.",
+			Consequences: "Reviews take reviewer time.",
+			Evidence:     "The recorded draft and inspected source.",
+			Outcomes:     []string{draft.Objective}, IdeaIDs: append([]string(nil), draft.EffectiveOutcomes...),
+		})
+	}
+	if err := content.Validate(); err != nil {
+		panic("choice walkthroughs invalid: " + err.Error())
+	}
+	if err := factory.ValidatePlanningWalkthroughs(draft, content); err != nil {
+		panic("choice walkthrough binding invalid: " + err.Error())
+	}
+	return content
+}
+
+// reviewSeedingStub records the explicit walkthrough check a serving test
+// replays: deterministic selection keeps every receipt clean without
+// funding further judgments.
+type reviewSeedingStub struct{}
+
+func (reviewSeedingStub) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	selected := ""
+	for key := range choices {
+		if key == "consistent" {
+			selected = key
+			break
+		}
+		if selected == "" || key < selected {
+			selected = key
+		}
+	}
+	probabilities := map[string]float64{}
+	rest := 0.0
+	if len(choices) > 1 {
+		rest = 0.1 / float64(len(choices)-1)
+	}
+	sum := 0.0
+	for key := range choices {
+		if key == selected {
+			continue
+		}
+		probabilities[key] = rest
+		sum += rest
+	}
+	probabilities[selected] = 1 - sum
+	return factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: 0.9, Probabilities: probabilities}, nil
+}
+
+// seedChoiceWalkthroughReview records the explicit walkthrough check a
+// serving test replays: consolidation and consistency run once through
+// the deterministic stub, so ResolveAcceptedPlanChoice replays them clean
+// without funding new judgments. The reservation proves the draft head,
+// so seed before the accepted successor replaces it.
+func seedChoiceWalkthroughReview(t *testing.T, ctx context.Context, c *Coordinator, head factory.IntentRevision, content factory.ProposalContent) {
+	t.Helper()
+	seed := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: reviewSeedingStub{}}}
+	recommended, err := seed.JudgeConsolidation(ctx, head, content)
+	if err != nil {
+		t.Fatalf("walkthrough consolidation not recorded: %v", err)
+	}
+	if _, err := seed.JudgeConsistency(ctx, head, content, recommended); err != nil {
+		t.Fatalf("walkthrough consistency not recorded: %v", err)
+	}
 }
 
 // stubSettleStore doubles the terminal-settlement store boundary.
@@ -491,6 +586,17 @@ type stubSettleStore struct {
 	finishErr    error
 	finished     []factory.Assignment
 	byRun        map[string]factory.Assignment
+	// reread models the assignment row a second read observes after a
+	// finish attempt: a concurrent foreign finish lands between the
+	// settler's initial read and its finish, so the re-read is terminal
+	// while the first read was still assigned. Unset means the row is
+	// unchanged and the initial read serves again.
+	reread   factory.Assignment
+	rereadOK bool
+	// rereadErr models a transient store failure on the second read only:
+	// the initial read still serves the assigned row.
+	rereadErr   error
+	finishCalls int
 }
 
 func (s *stubSettleStore) FactoryRun(_ context.Context, id string) (factory.Run, error) {
@@ -520,6 +626,12 @@ func (s *stubSettleStore) Assignment(context.Context, string) (factory.Assignmen
 	}
 	if !s.assignmentOK {
 		return factory.Assignment{}, store.ErrNotFound
+	}
+	if s.finishCalls > 0 && s.rereadErr != nil {
+		return factory.Assignment{}, s.rereadErr
+	}
+	if s.finishCalls > 0 && s.rereadOK {
+		return s.reread, nil
 	}
 	return s.assignment, nil
 }
@@ -555,6 +667,7 @@ func (s *stubSettleStore) AdvanceMCPReceipt(_ context.Context, _, _ string, expe
 }
 
 func (s *stubSettleStore) FinishAssignment(_ context.Context, a factory.Assignment) error {
+	s.finishCalls++
 	if s.finishErr != nil {
 		return s.finishErr
 	}

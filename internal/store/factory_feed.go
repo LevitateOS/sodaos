@@ -44,6 +44,7 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			SELECT seq,id,repository,'post','','' FROM factory_feed_comments
 			WHERE (($4 AND NOT (data ? 'communication')) OR ($1 AND data ? 'communication'))
  AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
+			AND ((COALESCE(data->>'reply_to','') = '' AND NOT (data ? 'source')) OR data->'communication'->>'kind' IN ('learned','record_decision','library_maintenance'))
 			AND COALESCE((data->>'deleted')::boolean,false) = false
 			AND COALESCE((data->>'revoked')::boolean,false) = false
 			UNION ALL
@@ -89,8 +90,66 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			AND sel.repo>0 AND sel.issue>0 AND sel.repo = ANY($2)
 			AND ($3 = 0 OR j.feed_seq < $3)
 		)
-		SELECT seq,id,repository,kind,activity,assignment FROM members
-		ORDER BY seq DESC LIMIT $5`, wantsRecords, query.Repositories, bound, wantsPosts, query.Limit+1)
+			SELECT m.seq,m.id,m.repository,m.kind,m.activity,m.assignment FROM members m
+			LEFT JOIN factory_feed_comments c ON m.kind='post' AND c.id=m.id
+			LEFT JOIN factory_assignments a ON m.kind='record' AND a.id=CASE WHEN m.assignment<>'' THEN m.assignment ELSE m.id END
+			LEFT JOIN factory_library_items l ON l.id=c.data->'communication'->>'library_item_id'
+			LEFT JOIN factory_reassessments rs ON rs.cycle=a.data->'result'->'phase_result'->'output'->'reassessment'->>'cycle_id'
+			WHERE ($6 IN ('','all')
+			 OR ($6='decisions' AND (c.data->'communication'->>'kind'='record_decision' OR c.data->'communication'->>'component_id' IN ('F03','F04','F11') OR l.kind='decision' OR m.activity='judgment' OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['plan','decomposition','reassessment'])))
+			 OR ($6='knowledge' AND (c.data->'communication'->>'kind' IN ('learned','record_decision') OR c.data->'communication'->>'component_id' IN ('F03','F04','F11') OR l.id IS NOT NULL OR m.activity='judgment' OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['plan','decomposition','reassessment'])))
+			 OR ($6='attention' AND ((c.data->'communication'->>'kind'='ask' AND NOT EXISTS(SELECT 1 FROM factory_feed_comments ans JOIN factory_post_resolutions res ON res.post=ans.id AND res.resolution='incorporated' WHERE ans.data->>'reply_to'=c.id)) OR c.data->'communication'->>'kind' IN ('blocked','stuck','flag') OR a.data->>'outcome' IN ('needs-human','failed','blocked')))
+			 OR ($6='evidence' AND (m.activity IN ('merged','completed') OR c.data->'communication' ?| ARRAY['evidence_refs','artifacts','source','commits'] OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['review','correction','verification','research']))))
+			AND ($7='' OR strpos(lower(COALESCE(c.body,'') || ' ' || COALESCE(c.data->'communication'->>'title','') || ' ' || COALESCE(c.data->'communication'->>'decision','') || ' ' || COALESCE(c.data->'communication'->>'rationale','') || ' ' || COALESCE(a.data->'result'->>'summary','') || ' ' || COALESCE(l.data->>'body','')),lower($7))>0)
+			AND ($8='' OR ($8='human' AND c.author NOT LIKE 'worker:%' AND c.author<>'factory') OR COALESCE(c.data->>'actor',CASE a.data->>'phase' WHEN 'decompose' THEN 'product_lead' WHEN 'investigate' THEN 'architect' WHEN 'implement' THEN 'builder' WHEN 'review' THEN 'inspector' WHEN 'correct' THEN 'fixer' WHEN 'verify' THEN 'test_pilot' WHEN 'research' THEN 'researcher' WHEN 'maintain_library' THEN 'library_admin' WHEN 'reassess' THEN 'strategist' END,'')=$8)
+			AND (NOT $9 OR ((l.id IS NULL OR (NOT l.removed AND COALESCE(l.data->>'state','') NOT IN ('superseded','retracted') AND COALESCE((c.data->'communication'->>'library_revision')::bigint,l.revision)=l.revision)) AND (c.data->'communication'->'intent_source' IS NULL OR EXISTS(SELECT 1 FROM factory_intent_heads h WHERE h.id=c.data->'communication'->'intent_source'->>'intent' AND h.revision=c.data->'communication'->'intent_source'->>'revision'))))
+			AND (NOT $9 OR c.data->'communication'->'plan_source' IS NULL OR CASE
+			 WHEN EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root')
+			 THEN EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root' AND h.plan_id=c.data->'communication'->'plan_source'->>'plan')
+			 ELSE NOT EXISTS(SELECT 1 FROM factory_plan_revisions p WHERE p.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root' AND p.generation>(c.data->'communication'->'plan_source'->>'generation')::integer) END)
+			AND (NOT $9 OR c.data->'communication'->'planning_source' IS NULL OR EXISTS(
+			 SELECT 1 FROM factory_planning p WHERE p.repository=c.repository AND p.issue=(c.data->>'issue')::bigint
+			 AND p.snapshot=c.data->'communication'->'planning_source'->>'snapshot'
+			 AND p.data->>'created_unix'=c.data->'communication'->'planning_source'->>'recorded_unix'
+			 AND p.data->>'strategy'=c.data->'communication'->'planning_source'->>'strategy'
+			 AND p.data->>'outcome'=c.data->'communication'->'planning_source'->>'outcome'
+			 AND p.data->'judgment'=c.data->'communication'->'planning_source'->'judgment'))
+			-- A reassessment decision record is current until its own cycle is
+			-- superseded by an accepted successor retry: the canonical
+			-- factory_reassessments lineage judges the record's own cycle, never
+			-- the state of the completed predecessor attempt it cites, so a live
+			-- successor stays readable beside its superseded predecessor.
+			-- Released, live and other-output records stay, and a missing cycle
+			-- row or NULL data never proves supersession, so those rows stay too;
+			-- the All view without current-only keeps every history row either way.
+			AND (NOT $9 OR rs.cycle IS NULL OR rs.state<>'superseded')
+			-- A finished decompose/investigate planning record is current until a
+			-- newer head supersedes it without adoption. A decompose record stays
+			-- when its intent revision is the head, has no head row, or is the
+			-- revision (in any state, including a completed draft) a live
+			-- accepted head directly cites as its predecessor — adoption is
+			-- judged by the live accepted successor's cite, never by the
+			-- predecessor's own state; an investigate record stays when its plan is the head,
+			-- has no head row, or a live assigned or accepted finished-succeeded
+			-- successor attempt still cites the completed record as its parent.
+			-- Other phases, unfinished work, missing bindings/outputs and posts
+			-- (which never join an assignment) stay; only a proven-superseded
+			-- finished planning record without an adopted successor leaves.
+			AND (NOT $9 OR a.id IS NULL OR a.stage<>'finished'
+			 OR COALESCE(a.data->>'phase','') NOT IN ('decompose','investigate')
+			 OR (COALESCE(a.data->>'phase','')='decompose' AND (
+			  a.data->'result'->'phase_result'->'output'->'decomposition'->>'intent' IS NULL
+			  OR a.data->'result'->'phase_result'->'output'->'decomposition'->>'revision' IS NULL
+			  OR NOT EXISTS(SELECT 1 FROM factory_intent_heads h WHERE h.id=a.data->'result'->'phase_result'->'output'->'decomposition'->>'intent')
+			  OR EXISTS(SELECT 1 FROM factory_intent_heads h WHERE h.id=a.data->'result'->'phase_result'->'output'->'decomposition'->>'intent' AND h.revision=a.data->'result'->'phase_result'->'output'->'decomposition'->>'revision')
+			  OR EXISTS(SELECT 1 FROM factory_intent_heads h JOIN factory_intent_revisions hr ON hr.id=h.revision AND hr.intent=h.id JOIN factory_intent_revisions r ON r.id=a.data->'result'->'phase_result'->'output'->'decomposition'->>'revision' AND r.intent=h.id WHERE h.id=a.data->'result'->'phase_result'->'output'->'decomposition'->>'intent' AND hr.data->>'state'='accepted' AND hr.data->>'predecessor'=r.id)))
+			 OR (COALESCE(a.data->>'phase','')='investigate' AND (
+			  a.data->'result'->'phase_result'->'output'->'plan'->>'attempt_root' IS NULL
+			  OR a.data->'result'->'phase_result'->'output'->'plan'->>'id' IS NULL
+			  OR NOT EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=a.data->'result'->'phase_result'->'output'->'plan'->>'attempt_root')
+			  OR EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=a.data->'result'->'phase_result'->'output'->'plan'->>'attempt_root' AND h.plan_id=a.data->'result'->'phase_result'->'output'->'plan'->>'id')
+			  OR EXISTS(SELECT 1 FROM factory_assignments s WHERE s.data->>'parent_assignment'=a.id AND (s.stage='assigned' OR (s.stage='finished' AND s.data->>'outcome'='succeeded'))))))
+			ORDER BY m.seq DESC LIMIT $5`, wantsRecords, query.Repositories, bound, wantsPosts, query.Limit+1, query.View, query.Search, query.Role, query.Current)
 	if err != nil {
 		return nil, "", false, err
 	}

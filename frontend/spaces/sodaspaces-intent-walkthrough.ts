@@ -69,8 +69,12 @@ function recommendationFlow(proposal: ConsolidatedProposal) {
   return html`<section aria-label="Recommended product flow">
     <h3>Here is how it would work</h3>
     <p>${proposal.alternative.name}</p>
-    ${other.audience ? html`<p>Who will use it: ${other.audience}</p>` : ''} ${flowFigure(other)}
-    ${flowSteps(other.steps)} ${other.visibility ? html`<p>Who sees each result: ${other.visibility}</p>` : ''}
+    ${other.audience ? html`<p>Who will use it: ${other.audience}</p>` : ''} ${flowSteps(other.steps)}
+    ${other.visibility ? html`<p>Who sees each result: ${other.visibility}</p>` : ''}
+    <details>
+      <summary>Flow diagram</summary>
+      ${flowFigure(other)}
+    </details>
     <h4>Outcomes</h4>
     <ul>
       ${proposal.outcomes.map((outcome) => html`<li>${outcome}</li>`)}
@@ -83,24 +87,30 @@ function recommendationFlow(proposal: ConsolidatedProposal) {
             </ul>`
         : ''
     }
-    <h4>Milestones</h4>
-    <ol>
-      ${proposal.milestones.map((milestone) => html`<li>${milestone.name}: ${milestone.result}</li>`)}
-    </ol>
+    <details>
+      <summary>Delivery milestones</summary>
+      <ol>
+        ${proposal.milestones.map((milestone) => html`<li>${milestone.name}: ${milestone.result}</li>`)}
+      </ol>
+    </details>
   </section>`;
 }
 function comparedApproaches(exploration: Exploration) {
   const alternatives = exploration.content.alternatives;
   if (!alternatives?.length) return '';
+  const recommended = exploration.recommendation?.alternative.name;
   return html`<section aria-label="Compared approaches">
     <h3>Compared approaches</h3>
-    <p>Authored comparison; no vote is needed. Correct anything wrong instead.</p>
+    <p>
+      ${exploration.content.producer === 'soda-planning-agent-v1' ? (recommended ? `JEV recommends ${recommended}; you can correct it before acceptance.` : 'JEV will compare these alternatives when you check the walkthrough; you can correct them before acceptance.') : 'Starter comparison; no vote is needed. Correct anything wrong instead.'}
+    </p>
     ${alternatives.map(
       (other) => html`<details>
         <summary>${other.name}</summary>
         ${other.audience ? html`<p>Audience: ${other.audience}</p>` : ''}
         ${other.summary ? html`<p>${other.summary}</p>` : ''}
         ${other.evidence ? html`<p>Evidence: ${other.evidence}</p>` : ''}
+        ${exploration.content.producer === 'soda-planning-agent-v1' ? flowSteps(other.steps) : ''}
         <h4>Outcomes</h4>
         <ul>
           ${other.outcomes.map((outcome) => html`<li>${outcome}</li>`)}
@@ -120,9 +130,9 @@ function unknownList(exploration: Exploration) {
 function consistencyNote(exploration: Exploration) {
   const report = exploration.consistency;
   if (!report) return '';
-  if (!report.mismatches.length) return html`<p>The walkthrough was checked against the accepted direction.</p>`;
+  if (!report.mismatches.length) return html`<p>The walkthrough was checked against the saved direction.</p>`;
   return html`<section aria-label="Consistency check">
-    <h3>Needs attention before acceptance</h3>
+    <h3 tabindex="-1">Needs attention before acceptance</h3>
     <ul>
       ${report.mismatches.map((finding) => html`<li>${finding.detail}</li>`)}
     </ul>
@@ -212,7 +222,9 @@ export function explorationReview(view: IntentView, exploration: Exploration) {
   ${
     recommendation
       ? recommendationFlow(recommendation)
-      : html`<p>No authored comparison covers this objective yet. Answer the questions below instead.</p>`
+      : html`<p>
+          ${exploration.content.supported ? 'The authored alternatives below are awaiting review.' : 'No authored comparison covers this objective yet. Answer the questions below instead.'}
+        </p>`
   }
   ${comparedApproaches(exploration)} ${unknownList(exploration)} ${consistencyNote(exploration)}
   ${changeSomething(view)} ${assumptionChallenges(view, exploration)}`;

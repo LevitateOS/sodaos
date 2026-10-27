@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -197,7 +196,7 @@ func observeFactoryContext(ctx context.Context, scopePath string, in factoryCont
 	if err != nil {
 		return nil, err
 	}
-	generation, err := observeFactoryContextOwnerOperation(ctx, st, registered, bound, a)
+	generation, err := observeFactoryContextOwnerOperation(ctx, st, bound, a)
 	if err != nil {
 		return nil, err
 	}
@@ -226,19 +225,13 @@ func observeFactoryContext(ctx context.Context, scopePath string, in factoryCont
 	return &factoryContextResponse{Phase: a.Phase, Role: a.Role, SourceCommit: a.SourceCommit, Preparation: a.Preparation, CurrentGeneration: generation, ScopeSHA: scopeHash, Format: 1, ToolSource: FactoryContextToolRevision, RunID: run.ID, AssignmentID: a.ID, Repository: bound.Repository, Issue: bound.Issue, Project: bound.Project, Root: a.AttemptRoot, ContextPending: run.ContextPending, Reconciled: run.Reconciled, CredentialDelegated: run.CredentialDelegated, NativeBinding: run.IdentityBinding != nil, ContextSelection: selection}, nil
 }
 
-func observeFactoryContextOwnerOperation(ctx context.Context, st *store.Store, registered string, bound *factoryContextScope, a factory.Assignment) (int64, error) {
+func observeFactoryContextOwnerOperation(ctx context.Context, st *store.Store, bound *factoryContextScope, a factory.Assignment) (int64, error) {
 	if a.ActorID != bound.Owner || a.Repository != bound.Repository || a.Issue != bound.Issue || a.ProjectID != bound.Project || a.Connection != bound.Connection || a.Acceptance != bound.Acceptance || a.Validate() != nil {
 		return 0, errors.New("owner scope unavailable")
 	}
-	db, err := sql.Open("pgx", registered)
+	generation, err := st.ConnectionGeneration(ctx, bound.Connection, bound.Owner)
 	if err != nil {
 		return 0, err
-	}
-	defer db.Close()
-	var owner, generation int64
-	var state string
-	if db.QueryRowContext(ctx, "SELECT owner_id,generation,state FROM identity_connections WHERE id=$1", bound.Connection).Scan(&owner, &generation, &state) != nil || owner != bound.Owner || generation < 1 || state != "ready" {
-		return 0, errors.New("current connection unavailable")
 	}
 	commandID := bound.PolicyCommandID
 	command, err := st.FactoryCommand(ctx, commandID)

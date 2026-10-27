@@ -26,6 +26,10 @@ pub enum BackendError {
     ExportCandidate,
     /// Factory export outside bounds: native 413.
     ExportBounds,
+    /// Preparation context selection outside bounds: native 413. The only
+    /// typed explicit-bounds refusal; every other context failure is
+    /// `Internal` (native 500) and fails closed without subset retry.
+    ContextBounds,
     /// Input failed validation: tailnet 400, otherwise native 500.
     Invalid,
     /// Operation refused: native 500, identity 409.
@@ -95,6 +99,9 @@ pub trait ExecBackend: Send + Sync {
     fn factory_verification_checks(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
+    fn factory_application_build(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_takeover(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
@@ -102,6 +109,9 @@ pub trait ExecBackend: Send + Sync {
     /// never mutates checkpoints; the 64 KiB response cap from the read
     /// bound applies.
     fn factory_task_events(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    fn factory_native_task(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     fn factory_task_checkpoint(
         &self,
         _body: &[u8],

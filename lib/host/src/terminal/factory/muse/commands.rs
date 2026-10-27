@@ -2,6 +2,54 @@ use super::paths::FactoryMusePaths;
 use crate::terminal::factory::native::{shell_quote, systemd_escape};
 use crate::terminal::factory::run::FactoryRun;
 
+pub(crate) fn muse_controlled_argv(
+    container: &str,
+    run: &FactoryRun,
+    p: &FactoryMusePaths,
+    guest: &str,
+    max_secs: i64,
+) -> Vec<String> {
+    let mut args = muse_exec_argv(container, run, p, guest);
+    args.insert(2, "--interactive".into());
+    args.splice(
+        3..3,
+        [
+            "--env".into(),
+            format!("TMPDIR={}/tmp", p.home),
+            "--env".into(),
+            format!("XDG_CACHE_HOME={}/cache", p.home),
+        ],
+    );
+    let instructions = "Follow the admitted Factory phase and immutable manifest. Never modify Git metadata, acquire credentials or start independent CLI agents. For implementation, select a ready task with factory.start_task({payload:{task_id:...}}) before spawning. Spawn exactly one native child with the returned prompt verbatim as objective and subagent_type factory-task, whose admitted native definition fixes the returned model and effort; no worktree or nested children. Never use general-purpose, resume, reopen, follow up or replace a task child. Wait for each native result, read Factory context and submit_task_output with the host-observed exact output digest and native_child_ref; wait for its committed checkpoint before dependent or same-lane work. The parent must not edit task source. For correction, do the singleton task yourself, then call factory.release_output({payload:{task_id:...}}), never write source afterward, and submit the returned exact output digest with empty native_child_ref. Stay alive until all task checkpoints are committed. Native child result text is not verification evidence.";
+    let configured = super::super::mcp_relay::instruction_argv(
+        super::super::mcp_relay::PerRunInstructionRoute::MuseDeveloperPrompt,
+        instructions,
+    )
+    .expect("fixed Muse instructions are valid");
+    let command = format!(
+        "{} serve --provider meta --model {} --contributor-mode {} --trust-workspace --disable-sandbox --disable-request-user-input {} {}",
+        shell_quote(guest),
+        shell_quote(&run.model),
+        if run.contributor { "on" } else { "off" },
+        shell_quote(&configured[0]),
+        shell_quote(&configured[1]),
+    );
+    let script = [
+        format!("RUNDIR={}", shell_quote(&p.run_dir)),
+        ": >\"$RUNDIR/last-message.txt\"; exec 2>>\"$RUNDIR/stdout.log\"".into(),
+        "STAT=$(cat /proc/$$/stat); REST=${STAT##*)}; set -- $REST; echo \"$$ ${20}\" >\"$RUNDIR/supervisor.pid\"".into(),
+        "fail() { echo \"$1\" >\"$RUNDIR/exit\"; exit \"$1\"; }".into(),
+        format!("i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt {max_secs} ] && fail 42; sleep 1; done"),
+        "mv \"$RUNDIR/marker\" \"$RUNDIR/started\" || fail 43".into(),
+        "unset META_API_KEY".into(),
+        format!("[ -s {} ] || fail 45", shell_quote(&p.auth)),
+        command,
+        "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".into(),
+    ].join("\n")+"\n";
+    *args.last_mut().expect("fixed Muse supervisor payload") = systemd_escape(&script);
+    args
+}
+
 /// `factorySupervisor` shape for Muse runs: marker-gated fixed
 /// `muse exec` entrypoint. Stdout carries exactly the final answer
 /// (headless contract: diagnostics go to stderr), so the answer lands

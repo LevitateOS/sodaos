@@ -7,6 +7,7 @@ import {
   action,
   create,
   chooseFirstRepository,
+  enterCreatedProjectTerminals,
 } from './fixtures/workspace-driver';
 setupWorkspaceDriver();
 
@@ -72,6 +73,7 @@ for (const firstUse of [false, true])
         'setup must keep Factory out of the journey'
       );
       await page.getByRole('button', {name: 'Create project', exact: true}).click();
+      await enterCreatedProjectTerminals(page);
       await page.getByRole('button', {name: 'Join project', exact: true}).click();
       await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
     }

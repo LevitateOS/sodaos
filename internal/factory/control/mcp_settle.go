@@ -26,14 +26,18 @@ package control
 // receipt advances recorded→accepted under its expected-state guard.
 // A crash between the two recovers on the next pass (finished
 // assignment plus recorded receipt advances with an already-finished
-// note). A concurrent foreign finish surfaces as ErrNotFound from
-// FinishAssignment and settles the same way. Transient store errors
+// note). ErrNotFound from FinishAssignment is ambiguous — a concurrent
+// foreign finish, a missing allowance, or a stale input rollback — so
+// the settler re-reads the assignment and settles only a genuinely
+// terminal one; still-assigned work returns the refusal with its
+// receipt left recorded for a later pass. Other transient store errors
 // return without touching the receipt, so a later pass retries.
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -154,6 +158,19 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	}
 	if err := st.FinishAssignment(ctx, finished); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
+			// ErrNotFound is ambiguous: a concurrent foreign finish
+			// consumes the assignment, but a missing allowance or a
+			// stale input rollback refuses while the assignment stays
+			// assigned. Settle only a genuinely terminal re-read;
+			// still-assigned work keeps its recorded receipt for a
+			// later pass instead of stranding as accepted.
+			current, rerr := st.Assignment(ctx, assignmentID)
+			if rerr != nil {
+				return false, rerr
+			}
+			if current.Stage != factory.AssignmentFinished {
+				return false, fmt.Errorf("mcp terminal finish refused: %w", err)
+			}
 			return advanceSettledTerminal(ctx, st, submission, "assignment finished during settlement")
 		}
 		return false, err

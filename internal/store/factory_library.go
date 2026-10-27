@@ -43,12 +43,12 @@ func readLibraryItem(ctx context.Context, q libraryQuerier, repository int64, id
 	return item, err
 }
 
-func (s *Store) LibrarySearch(ctx context.Context, repository int64, query, kind, cursor string, includeRemoved bool) (factory.LibraryPage, error) {
+func (s *Store) LibrarySearch(ctx context.Context, repository int64, query, kind, cursor string, includeRemoved, currentOnly bool) (factory.LibraryPage, error) {
 	page := factory.LibraryPage{Items: []factory.LibraryItem{}, Complete: true}
 	if repository < 1 || len(query) > 512 || (cursor != "" && !factory.ValidID(cursor)) || (kind != "" && kind != "knowledge" && kind != "decision") {
 		return page, errors.New("invalid library search")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3) AND id>$4 AND ($5='' OR to_tsvector('simple',coalesce(data->>'title','') || ' ' || coalesce(data->>'body','') || ' ' || coalesce(data->>'scope','')) @@ plainto_tsquery('simple',$5)) ORDER BY id LIMIT 51`, repository, includeRemoved, kind, cursor, query)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_library_items WHERE repository=$1 AND ($2 OR NOT removed) AND ($3='' OR kind=$3) AND id>$4 AND ($5='' OR to_tsvector('simple',coalesce(data->>'title','') || ' ' || coalesce(data->>'body','') || ' ' || coalesce(data->>'scope','')) @@ plainto_tsquery('simple',$5)) AND (NOT $6 OR (NOT removed AND COALESCE(data->>'state','') NOT IN ('superseded','retracted'))) ORDER BY id LIMIT 51`, repository, includeRemoved, kind, cursor, query, currentOnly)
 	if err != nil {
 		return page, err
 	}

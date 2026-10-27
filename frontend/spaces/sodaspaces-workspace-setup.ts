@@ -584,6 +584,18 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
         }}
         @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
         @intent-reviewed=${(event: Event) => chooseIntentRepository(event, read(), actions, host)}
+        @intent-preparation=${(event: CustomEvent<{intent: string; repository: string}>) => {
+          if (actions.isStale() || !actions.isActiveSurface()) return;
+          actions.setReviewedIntent(event.detail.intent);
+          actions.setRepositoryChoice(event.detail.repository);
+          actions.setSetup('configure');
+          actions.showManagement(event.detail.repository, 'journey');
+        }}
+        @intent-accepted=${(event: Event) => {
+          void resumeCommittedOverview(event, read, actions);
+          actions.setSetupCommitted(true);
+          actions.setSetup('intent');
+        }}
         @intent-leave=${() => leaveSetup(read(), actions, host)}
       ></soda-intent>
       ${renderSetupBody(reading, actions, host, blocked, read)}
@@ -593,9 +605,28 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
 
 export function focusSetupPanel(host: SetupHost, isStale: () => boolean, isActiveSurface: () => boolean) {
   void host.updateComplete.then(() => {
-    if (!isStale() && isActiveSurface())
-      host.querySelector<HTMLElement>('.soda-setup-panel:not([hidden]) h2, .soda-project-journey h2')?.focus();
+    if (isStale() || !isActiveSurface()) return;
+    host
+      .querySelector<HTMLElement>('.soda-setup-panel:not([hidden]) h2, .soda-project-journey h2')
+      ?.focus({preventScroll: true});
+    revealSetupFrame(host);
   });
+}
+
+function revealSetupFrame(host: SetupHost) {
+  const workspace = host.querySelector<HTMLElement>('.soda-workspace.is-project-setup');
+  const frame = workspace?.querySelector<HTMLElement>('.soda-workspace-frame');
+  if (!workspace || !frame) return;
+  // Retained planning can change the outer scroll offset. Reveal each new
+  // panel in the same padded viewport, without scrolling native ancestors or
+  // borrowing an offset from a differently sized intermediate screen.
+  const viewport = workspace.getBoundingClientRect(),
+    bounds = frame.getBoundingClientRect();
+  const style = getComputedStyle(workspace);
+  const top = viewport.top + workspace.clientTop + parseFloat(style.paddingTop);
+  const bottom = viewport.top + workspace.clientTop + workspace.clientHeight - parseFloat(style.paddingBottom);
+  if (bounds.height > bottom - top || bounds.top < top) workspace.scrollTop += bounds.top - top;
+  else if (bounds.bottom > bottom) workspace.scrollTop += bounds.bottom - bottom;
 }
 
 export function focusSetupIntent(host: SetupHost, isStale: () => boolean, isActiveSurface: () => boolean) {
@@ -730,6 +761,7 @@ export async function searchRepositories(reading: SetupReading, actions: SetupAc
   const request = new AbortController();
   actions.admitRepositoryRequest(request);
   const query = reading.repositoryQuery;
+  const priorChoice = reading.repositoryChoice;
   const timer = window.setTimeout(() => request.abort(), 15000);
   actions.setRepositoryBusy(true);
   actions.setRepositoryError('');
@@ -741,6 +773,15 @@ export async function searchRepositories(reading: SetupReading, actions: SetupAc
       page
     );
     applyRepositorySearch(actions, request, query, result);
+    if (
+      priorChoice &&
+      !actions.isStale() &&
+      actions.currentRepositoryRequest() === request &&
+      !request.signal.aborted &&
+      actions.currentRepositoryQuery() === query &&
+      result.items.some((item) => item.id === priorChoice)
+    )
+      actions.setRepositoryChoice(priorChoice);
   } catch {
     failRepositorySearch(actions, request, query);
   } finally {
@@ -765,9 +806,9 @@ export async function configureProject(reading: SetupReading, actions: SetupActi
   }
   if (actions.isStale() || !actions.isActiveSurface()) return;
   actions.notifyFactory(intent.generationNotice);
-  actions.setSetup('configure');
-  actions.setSetupCommitted(true);
-  void actions.showManagement(choice.id, 'journey');
+  actions.setSetup('intent');
+  actions.setSetupCommitted(intent.revision?.state === 'accepted');
+  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 function configureAdmitted(reading: SetupReading) {
   return !reading.repositoryBusy && !reading.stale && reading.canRestore && reading.setup === 'repositories';

@@ -121,7 +121,16 @@ for (const mode of ['native', 'page'] as const)
 for (const mode of ['native', 'page'] as const)
   test(`${mode}: three exact sessions across two projects retain real xterm owners`, async (t) => {
     const page = await fixture(t, mode);
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 0);
+    const initialReads = await page.evaluate(() => window.workspaceFixture.calls);
+    // The journey can read its private inventories before a terminal is opened.
+    // Mounting it must still issue no native command or terminal attachment.
+    assert(
+      initialReads.every(
+        (call) =>
+          call.method === 'GET' && (call.path.includes('/api/factory/') || call.path.endsWith('/api/applications'))
+      )
+    );
+    assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
     for (const name of ['Build', 'Edit', 'Other project']) await openSession(page, name);

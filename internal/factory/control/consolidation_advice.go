@@ -15,6 +15,7 @@ type consolidationEvidence struct {
 	Unknowns     []string                     `json:"unknowns"`
 	Alternatives []factory.ProductAlternative `json:"alternatives"`
 	Exclusions   []factory.Exclusion          `json:"exclusions,omitempty"`
+	Ideas        []factory.ProductIdea        `json:"ideas,omitempty"`
 }
 
 // JudgeConsolidation compares the content's actual alternatives and returns
@@ -37,6 +38,9 @@ func (c *Coordinator) JudgeConsolidation(ctx context.Context, r factory.IntentRe
 		return factory.ConsolidatedProposal{}, errors.New("no alternatives to consolidate")
 	}
 	state := consolidationEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Alternatives: content.Alternatives, Exclusions: content.Exclusions}
+	if content.Producer == factory.PlanningProducer {
+		state.Ideas = r.Ideas
+	}
 	options := make(map[string]any, len(content.Alternatives))
 	for _, alternative := range content.Alternatives {
 		options[alternative.Key] = alternative.Name + ": " + alternative.Summary

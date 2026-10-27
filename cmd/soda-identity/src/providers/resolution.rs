@@ -163,8 +163,8 @@ pub fn resolve_new(provider: ProviderKind) -> Result<BoundBinary, Error> {
     let root = soda_provider_tools::config::store_root();
     // ONE snapshot: digest and version are paired here, never re-read.
     let selection = fresh_selection(tool).map_err(map_store_error)?;
-    let admitted = admitted_version(&root, tool, &selection.release.digest)
-        .map_err(map_store_error)?;
+    let admitted =
+        admitted_version(&root, tool, &selection.release.digest).map_err(map_store_error)?;
     if admitted != selection.release.version {
         return Err(Error::failed(format!(
             "{} selection version drifted from its admitted bundle; refresh before launching",

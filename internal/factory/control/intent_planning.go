@@ -20,6 +20,7 @@ var (
 	ErrIntentPlanningInvestigate = errors.New("intent planning needs source investigation first")
 	ErrIntentPlanningAttention   = errors.New("intent planning needs a product decision first")
 	ErrIntentPlanningAmbiguous   = errors.New("intent planning needs a funded single choice")
+	ErrIntentPlanningPromptBound = errors.New("staged intent prompt is over its bound")
 )
 
 // SemanticPlanner produces candidate issue graphs from planner outputs.

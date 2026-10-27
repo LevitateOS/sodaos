@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setupWorkspaceDriver, chooseFirstRepository, fixture} from './fixtures/workspace-driver';
+import {
+  setupWorkspaceDriver,
+  chooseFirstRepository,
+  enterCreatedProjectTerminals,
+  fixture,
+} from './fixtures/workspace-driver';
 setupWorkspaceDriver();
 
 // F03: setup/configure keeps its repository context and step actions reachable
@@ -36,10 +41,7 @@ for (const viewport of [
       await page.getByRole('button', {name: 'Back', exact: true}).click();
       await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
       assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
-      await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
-      await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
-      await page.getByRole('radio', {name: /alice\/Alpha/}).check();
-      await page.getByRole('button', {name: 'Continue', exact: true}).click();
+      await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
       await page.getByRole('heading', {name: 'Configure project'}).waitFor();
       const create = page.getByRole('button', {name: 'Create project', exact: true});
       await create.scrollIntoViewIfNeeded();
@@ -49,6 +51,6 @@ for (const viewport of [
         'Create project cannot be reached after Back round-trip'
       );
       await create.click();
-      await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+      await enterCreatedProjectTerminals(page);
     }
   );

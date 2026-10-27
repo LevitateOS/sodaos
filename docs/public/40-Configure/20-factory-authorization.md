@@ -24,7 +24,9 @@ A native repository owner or administrator selects the target branch, eligible r
 In **Repository policy**, select the enrolled **Publisher**, **Pull request
 creator**, **Reviewer**, **Thread resolver** and **Merger**, then review **Target branch
 ref**, **Required checks (comma separated)**, harness/model selections and
-attempt limits. Check **Enable automatic factory dispatch** when authorizing
+attempt limits. Set **Intent active minutes** explicitly to fund intent planning;
+zero leaves it unfunded. This limit is separate from planning calls, provider
+allowances and application verification. Check **Enable automatic factory dispatch** when authorizing
 automatic work and select **Save repository policy**. **Pause dispatch** keeps
 the repository paused. Actor choices come from host enrollment and current
 policy; the form offers them before a first policy exists. Saving a choice does

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // journeyReassignmentLimit bounds one per-issue reassessment listing; the
@@ -212,6 +214,125 @@ func (s *Store) JourneyAdoptions(ctx context.Context, repository, issue int64, l
 		return adoptions[:limit], true, nil
 	}
 	return adoptions, false, nil
+}
+
+// JourneyDeliveredCompletion returns the latest canonical completion
+// event behind one adopted native binding: the exact delivered-task
+// evidence for the adopted task. Completions are immutable history, so
+// the newest generation is the delivery proof; older generations stay
+// out. No recorded completion is ErrNotFound, never an empty event.
+func (s *Store) JourneyDeliveredCompletion(ctx context.Context, repository, issue int64, acceptance string) (factory.CompletionEvent, error) {
+	var event factory.CompletionEvent
+	if repository <= 0 || issue <= 0 || !project.ValidDecisionID(acceptance) {
+		return event, errors.New("invalid delivered completion scope")
+	}
+	var raw []byte
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_completions
+		WHERE repository=$1 AND data->>'issue'=$2 AND data->>'acceptance_id'=$3
+		ORDER BY generation DESC LIMIT 1`, repository, strconv.FormatInt(issue, 10), acceptance).Scan(&raw)
+	if err != nil {
+		return event, err
+	}
+	if err = json.Unmarshal(raw, &event); err != nil {
+		return event, err
+	}
+	if err = event.Validate(); err != nil {
+		return event, err
+	}
+	if event.Repository != repository || event.Issue != issue || event.AcceptanceID != acceptance {
+		return event, errors.New("delivered completion scope mismatch")
+	}
+	return event, nil
+}
+
+// JourneyVerifiedApp names the verified application revision behind one
+// adopted intent revision: the latest finished verify assignment whose
+// delivery subject binds this intent revision, with the source commit
+// and verification manifest digest from its recorded F10 verified
+// evidence. Only the trusted application check renders here; worker
+// journey observations and receipts alone never do. No recorded
+// verification is ErrNotFound, never an unverified claim.
+type JourneyVerifiedApp struct {
+	Intent       string
+	Revision     string
+	SourceCommit string
+	Manifest     string
+}
+
+// JourneyVerifiedApp returns the verified application evidence for one
+// adopted intent revision. The read is spend-free and write-free: it
+// joins the recorded verify assignment to its recorded F10 feed event
+// under the same canonical identity, outcome and scope the delivery
+// admission owns (finished verify, succeeded outcome, trusted
+// verification outcome verified, exact intent, revision and scope
+// digest, with the F10 event bound to both the delivery and the
+// assignment). The observed manifest must equal the admitted
+// VerificationManifestDigest, matching the delivery admission and the
+// journey observation contract. A worker finish, another revision, a
+// foreign scope, a foreign manifest, a non-verified result or an F10
+// event naming the wrong assignment never qualifies. Rows that decode,
+// validate or scope-check refuse as storage errors; a missing
+// assignment or event is ErrNotFound.
+func (s *Store) JourneyVerifiedApp(ctx context.Context, repository int64, intent, revision string) (JourneyVerifiedApp, error) {
+	var out JourneyVerifiedApp
+	if repository <= 0 || !project.ValidDecisionID(intent) || !project.ValidDecisionID(revision) {
+		return out, errors.New("invalid verified application scope")
+	}
+	var revisionRaw []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, revision).Scan(&revisionRaw); err != nil {
+		return out, err
+	}
+	var adopted factory.IntentRevision
+	if err := json.Unmarshal(revisionRaw, &adopted); err != nil {
+		return out, err
+	}
+	if adopted.ID != revision || adopted.Intent != intent || adopted.Repository != repository {
+		return out, errors.New("verified application scope mismatch")
+	}
+	scope := adopted.Digest()
+	var raw, feed []byte
+	err := s.db.QueryRowContext(ctx, `SELECT a.data, p.data FROM factory_assignments a
+		JOIN factory_feed_comments p ON p.repository=a.repository
+		AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id'
+		AND p.data->>'assignment'=a.id AND p.data->'communication'->>'component_id'='F10'
+		WHERE a.repository=$1 AND a.stage='finished' AND a.data->>'phase'='verify'
+		AND a.data->>'outcome'='succeeded'
+		AND a.data->'result'->'phase_result'->'output'->'verification'->>'outcome'='verified'
+		AND a.data->'subject'->'delivery'->>'intent_id'=$2
+		AND a.data->'subject'->'delivery'->>'accepted_revision'=$3
+		AND a.data->'subject'->'delivery'->>'scope_digest'=$4
+		ORDER BY a.seq DESC LIMIT 1`, repository, intent, revision, scope).Scan(&raw, &feed)
+	if err != nil {
+		return out, err
+	}
+	var assignment factory.Assignment
+	if err = json.Unmarshal(raw, &assignment); err != nil {
+		return out, err
+	}
+	subject := assignment.Subject.Delivery
+	if subject == nil || subject.Validate() != nil ||
+		subject.IntentID != intent || subject.AcceptedRevision != revision ||
+		subject.ScopeDigest != scope || assignment.Repository != repository {
+		return out, errors.New("verified application scope mismatch")
+	}
+	var event struct {
+		Communication struct {
+			EvidenceRefs []string `json:"evidence_refs"`
+		} `json:"communication"`
+	}
+	if err = json.Unmarshal(feed, &event); err != nil {
+		return out, err
+	}
+	refs := event.Communication.EvidenceRefs
+	if len(refs) < 2 || refs[0] != subject.SourceCommit ||
+		!factory.ValidCommit(refs[0]) || !factory.ValidDigest(refs[1]) ||
+		refs[1] != subject.VerificationManifestDigest {
+		return out, errors.New("verified application evidence mismatch")
+	}
+	return JourneyVerifiedApp{
+		Intent: intent, Revision: revision,
+		SourceCommit: refs[0], Manifest: refs[1],
+	}, nil
 }
 
 // journeyDeliveryLimit bounds one per-publication delivery receipt

@@ -5,8 +5,16 @@ import {fixture, openSession, setupWorkspaceDriver} from './fixtures/workspace-d
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
-type PlanSeed = {objective: string; repository: string; state: 'draft' | 'accepted' | 'abandoned'};
+type PlanSeed = {
+  objective: string;
+  repository: string;
+  state: 'draft' | 'accepted' | 'abandoned';
+  tasks?: Array<{key: string; objective: string; outcomes: string[]; idea_ids: string[]}>;
+  effective_outcomes?: string[];
+};
 async function openProjectPlans(page: Page) {
+  const tab = page.getByRole('button', {name: 'Work', exact: true});
+  if (await tab.isVisible()) await tab.click();
   const work = page.locator('soda-project-work:visible');
   const plans = work.locator('details.soda-project-plans');
   if ((await plans.count()) && !(await plans.evaluate((details) => (details as HTMLDetailsElement).open)))
@@ -24,7 +32,8 @@ async function seedPlans(page: Page, plans: PlanSeed[]) {
         intent,
         id: intent,
         ideas: [],
-        tasks: [],
+        tasks: plan.tasks ?? [],
+        ...(plan.effective_outcomes ? {effective_outcomes: plan.effective_outcomes} : {}),
         max_issues: 10,
         planning_calls: 0,
       });
@@ -46,6 +55,7 @@ async function writes(page: Page) {
 test('Project Work opens explicit requirements review for an imported native issue without creating work', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openProjectPlans(page);
   const work = page.locator('soda-project-work:visible');
   await work
     .getByText('Adopt or reaccept an issue', {exact: true})
@@ -175,6 +185,7 @@ test('Project Work opens explicit requirements review for an imported native iss
     window.workspaceFixture.setRepairProgress('attention');
     await window.workspaceFixture.api.refresh();
   });
+  await openProjectPlans(attentionPage);
   const attention = attentionPage.getByRole('region', {name: 'Application repair progress'});
   await attention.getByRole('status').filter({hasText: 'Application repair needs attention.'}).waitFor();
   await attention.getByText('Judgment: accept; acceptance probability 0.87; confidence 0.24.', {exact: true}).waitFor();
@@ -206,6 +217,18 @@ test('cold Project entry loads scoped work, keeps the directory quiet, and opens
     document.documentElement.style.colorScheme = 'dark';
   });
   await captureSpacesComponent(page, 'project-work-dark');
+  for (const theme of ['light', 'dark'])
+    for (const width of [800, 390]) {
+      await page.setViewportSize({width, height: 900});
+      await page.evaluate((value) => {
+        document.documentElement.style.colorScheme = value;
+      }, theme);
+      await captureSpacesComponent(page, `project-work-${theme}-${width}`);
+    }
+  await page.setViewportSize({width: 1440, height: 1000});
+  await page.evaluate(() => {
+    document.documentElement.style.colorScheme = 'dark';
+  });
   const limits = work.locator('details.soda-verification-limits');
   await limits.locator('summary').click();
   const allowance = limits.getByRole('region', {name: 'Verification allowance'});
@@ -265,6 +288,7 @@ test('cold Project entry loads scoped work, keeps the directory quiet, and opens
     0,
     'verification limits stay scoped to their accepted Project intent'
   );
+  await openProjectPlans(page);
   await work.getByRole('button', {name: 'New work', exact: true}).click();
   await page.getByLabel('Describe what you want to build', {exact: true}).waitFor();
   assert.equal(new URL(page.url()).pathname, '/workspace/new');
@@ -344,12 +368,13 @@ test('Work, Project and Terminals navigation retain the exact terminal owner and
   assert.equal(await writes(page), 0);
 });
 
-test('native page entry opens Work once and preserves a deliberately selected terminal view', async (t) => {
+test('native page entry opens Feed and preserves a deliberately selected terminal view', async (t) => {
   const page = await fixture(t, 'native');
   await page.evaluate(async () => {
     await window.workspaceFixture.api.refresh();
     window.workspaceFixture.presentRoute('/workspace');
   });
+  assert.equal(await page.getByRole('button', {name: 'Feed', exact: true}).getAttribute('aria-pressed'), 'true');
   await (
     await openProjectPlans(page)
   )
@@ -398,6 +423,7 @@ test('Factory watch stays connected across project filtering and work-view chang
     window.workspaceFixture.enableFactoryRun();
     await window.workspaceFixture.api.refresh();
   });
+  await openProjectPlans(page);
   await page.getByRole('button', {name: /^Watch · soda-coder/}).click();
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
   const owner = await page.locator('soda-factory-watch').elementHandle();
@@ -412,4 +438,966 @@ test('Factory watch stays connected across project filtering and work-view chang
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map((socket) => socket.closed)), [0]);
   assert.equal(await writes(page), 0);
+});
+
+test('Feed, App and Work share one project and retain their owners; returning opens the saved App view', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  const feedTab = page.getByRole('button', {name: 'Feed', exact: true});
+  assert.equal(await feedTab.getAttribute('aria-pressed'), 'true');
+  await page.getByRole('region', {name: 'Project conversation', exact: true}).waitFor();
+  const feed = await page.locator('soda-factory-feed').elementHandle();
+  assert.equal(await page.locator('soda-applications').count(), 0, 'Feed cannot mount an unvisited app');
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  assert.equal(await page.locator('soda-applications').count(), 0, 'Terminals cannot mount an unvisited app');
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/applications'))),
+    [],
+    'unvisited applications cannot be read or inspected'
+  );
+  await feedTab.click();
+  await page.getByRole('button', {name: 'App', exact: true}).click();
+  await page.getByRole('region', {name: 'Project application', exact: true}).waitFor();
+  const app = await page.locator('soda-applications').elementHandle();
+  assert(await feed?.evaluate((node) => node.isConnected));
+  await page.locator('soda-applications').evaluate((node) => {
+    node.dispatchEvent(new CustomEvent('soda-project-feed-open', {bubbles: true, detail: {repository: '8'}}));
+  });
+  assert.equal(await page.getByRole('button', {name: 'App', exact: true}).getAttribute('aria-pressed'), 'true');
+  await page.getByRole('button', {name: 'View project Feed', exact: true}).click();
+  assert.equal(await feedTab.getAttribute('aria-pressed'), 'true', 'App guidance returns to this project’s Feed');
+  assert(await app?.evaluate((node) => node === document.querySelector('soda-applications')));
+  assert.equal(await writes(page), 0, 'App guidance navigation cannot create work');
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
+  await page.getByRole('region', {name: 'Plans and delivery', exact: true}).waitFor();
+  assert(await app?.evaluate((node) => node.isConnected));
+  await feedTab.click();
+  assert(await feed?.evaluate((node) => node === document.querySelector('soda-factory-feed')));
+  assert(await app?.evaluate((node) => node === document.querySelector('soda-applications')));
+  await page.getByRole('button', {name: 'App', exact: true}).click();
+  await page.evaluate(() => {
+    const workspace = document.querySelector('soda-spaces');
+    if (!workspace) throw Error('missing workspace');
+    workspace.dispatchEvent(
+      new CustomEvent('soda-application-open', {bubbles: true, detail: {repository: '7', deliveryId: 'e'.repeat(32)}})
+    );
+  });
+  await page.waitForFunction(
+    () =>
+      document.querySelector<HTMLElement & {requestedDelivery: string}>('soda-applications')?.requestedDelivery ===
+      'e'.repeat(32)
+  );
+  assert.equal(await writes(page), 0, 'view selection cannot create work or launch an application');
+  await page.reload();
+  await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  await page.evaluate(async () => {
+    window.workspaceFixture = window.createWorkspaceFixture('page');
+    await window.workspaceFixture.api.ready;
+    await window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'App', exact: true}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'App', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert.equal(
+    await page
+      .locator('soda-applications')
+      .evaluate((node) => (node as HTMLElement & {requestedDelivery: string}).requestedDelivery),
+    'e'.repeat(32),
+    'reload retains the exact delivery instead of substituting a current app'
+  );
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  assert.equal(await feedTab.getAttribute('aria-pressed'), 'true', 'a different project has its own view preference');
+  assert.equal(await page.locator('soda-applications').count(), 0, 'a different project has not visited App');
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+  assert.equal(await page.getByRole('button', {name: 'App', exact: true}).getAttribute('aria-pressed'), 'true');
+  const restoredApp = await page.locator('soda-applications').elementHandle();
+  await page.evaluate(async () => {
+    window.workspaceFixture.setUser('2');
+    await window.workspaceFixture.api.refresh();
+  });
+  assert.equal(await page.locator('soda-applications').count(), 0, 'identity invalidation retires the app owner');
+  assert.equal(await restoredApp?.evaluate((node) => node.isConnected), false);
+});
+
+test('Draft list stays truthful without a recorded plan check: unplanned, tasked, and scoped drafts', async (t) => {
+  const page = await fixture(t);
+  const taskKey = 'd' + (3000).toString(16).padStart(24, '0');
+  const outcome = 'd' + (3001).toString(16).padStart(24, '0');
+  const ids = await seedPlans(page, [
+    {objective: 'Unplanned draft without scope', repository: '7', state: 'draft'},
+    {
+      objective: 'Tasks without a recorded check stay Draft',
+      repository: '7',
+      state: 'draft',
+      tasks: [
+        {
+          key: taskKey,
+          objective: 'Do the scoped work',
+          outcomes: ['Demonstrate the selected outcome'],
+          idea_ids: ['idea-1'],
+        },
+      ],
+    },
+    {
+      objective: 'Saved scope without a recorded check stays Draft',
+      repository: '7',
+      state: 'draft',
+      tasks: [
+        {
+          key: taskKey,
+          objective: 'Do the scoped work',
+          outcomes: ['Demonstrate the selected outcome'],
+          idea_ids: ['idea-1'],
+        },
+      ],
+      effective_outcomes: [outcome],
+    },
+  ]);
+  const work = page.locator('soda-project-work:visible');
+  for (const objective of [
+    'Unplanned draft without scope',
+    'Tasks without a recorded check stay Draft',
+    'Saved scope without a recorded check stays Draft',
+  ])
+    await work.getByRole('heading', {name: objective, exact: true}).waitFor();
+  assert.equal(await work.locator('.soda-work-item').count(), 3);
+  assert.equal(await work.getByText('Draft', {exact: true}).count(), 3);
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Blocked', {exact: true}).count(), 0);
+  for (const objective of [
+    'Unplanned draft without scope',
+    'Tasks without a recorded check stay Draft',
+    'Saved scope without a recorded check stays Draft',
+  ])
+    await work.getByRole('button', {name: `Continue planning: ${objective}`, exact: true}).waitFor();
+  assert.equal(await work.getByRole('button', {name: /^Review check:/, exact: false}).count(), 0);
+  assert.equal(await work.getByRole('button', {name: /^Resolve blockers:/, exact: false}).count(), 0);
+  const calls = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'GET').map((call) => call.path)
+  );
+  assert(calls.some((path) => path.endsWith('/api/factory/intents?limit=20&repository=7')));
+  assert.equal(await writes(page), 0, 'reading saved scope must not start planning or a check');
+  await work
+    .getByRole('button', {name: 'Continue planning: Saved scope without a recorded check stays Draft', exact: true})
+    .click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.equal(new URL(page.url()).pathname, '/workspace/requests/' + ids[2]);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Saved scope without a recorded check stays Draft';
+  });
+  assert.equal(await writes(page), 0, 'resuming a draft must only read existing work');
+});
+
+test('Work return replays the recorded plan check without creating work', async (t) => {
+  const page = await fixture(t);
+  const ids = await seedPlans(page, [
+    {objective: 'Unplanned draft stays Draft', repository: '7', state: 'draft'},
+    {objective: 'Checked draft shows its recorded check', repository: '7', state: 'draft'},
+    {objective: 'Needs-correction draft names its blockers', repository: '7', state: 'draft'},
+    {objective: 'Plan-ready draft waits for its check', repository: '7', state: 'draft'},
+  ]);
+  // Planning and checks were recorded earlier through the Describe flow; the
+  // Work return below must only replay them with owner GETs.
+  await page.evaluate(async (ids) => {
+    const fixture = window.workspaceFixture;
+    for (const intent of ids.slice(1)) {
+      await fixture.request('/api/factory/intents/' + intent + '/plan', 'POST', {
+        revision: intent,
+        operation: 'propose_intent',
+      });
+    }
+    fixture.calls.length = 0;
+    await fixture.api.refresh();
+  }, ids);
+  const work = await openProjectPlans(page);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work.getByText('Checked', {exact: true}).waitFor();
+  await work.getByText('Needs-correction', {exact: true}).waitFor();
+  await work.getByText('Plan-ready', {exact: true}).waitFor();
+  assert.equal(await work.locator('.soda-work-item').count(), 4);
+  assert.equal(await work.getByText('Draft', {exact: true}).count(), 1);
+  await work.getByRole('button', {name: 'Continue planning: Unplanned draft stays Draft', exact: true}).waitFor();
+  await work.getByRole('button', {name: 'Review check: Checked draft shows its recorded check', exact: true}).waitFor();
+  await work
+    .getByRole('button', {name: 'Resolve blockers: Needs-correction draft names its blockers', exact: true})
+    .waitFor();
+  await work
+    .getByRole('button', {name: 'Check walkthrough: Plan-ready draft waits for its check', exact: true})
+    .waitFor();
+  const calls = await page.evaluate(() =>
+    window.workspaceFixture.calls.map((call) => ({method: call.method, path: call.path}))
+  );
+  for (const intent of ids)
+    assert(
+      calls.some((call) => call.method === 'GET' && call.path.endsWith('/api/factory/intents/' + intent + '/plan')),
+      'owner replays the recorded plan for ' + intent
+    );
+  assert.equal(await writes(page), 0, 'replaying recorded plan/check state must not POST');
+  await work.getByRole('button', {name: 'Review check: Checked draft shows its recorded check', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.equal(new URL(page.url()).pathname, '/workspace/requests/' + ids[1]);
+  assert.equal(await writes(page), 0, 'resuming a checked draft must only read existing work');
+});
+
+test('Work return keeps edited, unbound, and decided work neutral without claiming a check', async (t) => {
+  const page = await fixture(t);
+  const ids = await seedPlans(page, [
+    {objective: 'Unplanned draft stays Draft', repository: '7', state: 'draft'},
+    {objective: 'Edited draft stays Draft after its direction changes', repository: '7', state: 'draft'},
+    {objective: 'Accepted direction stays Accepted', repository: '7', state: 'accepted'},
+    {objective: 'Unbound draft stays Draft without a plan read', repository: '0', state: 'draft'},
+  ]);
+  await page.evaluate(async (ids) => {
+    const fixture = window.workspaceFixture;
+    // Plan the edited draft, then change its direction: the recorded check
+    // belongs to the earlier revision and must not label the new head.
+    await fixture.request('/api/factory/intents/' + ids[1] + '/plan', 'POST', {
+      revision: ids[1],
+      operation: 'propose_intent',
+    });
+    const successor = 'd' + (2000).toString(16).padStart(24, '0');
+    await fixture.request('/api/factory/intents', 'POST', {
+      objective: 'Edited draft stays Draft after its direction changes',
+      repository: '7',
+      state: 'draft',
+      intent: ids[1],
+      id: successor,
+      ideas: [],
+      tasks: [],
+      max_issues: 10,
+      planning_calls: 0,
+    });
+    fixture.calls.length = 0;
+    await fixture.api.refresh();
+  }, ids);
+  const work = await openProjectPlans(page);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work
+    .getByRole('heading', {name: 'Edited draft stays Draft after its direction changes', exact: true})
+    .waitFor();
+  assert.equal(await work.locator('.soda-work-item').count(), 3);
+  assert.equal(await work.getByText('Draft', {exact: true}).count(), 2);
+  assert.equal(await work.getByText('Accepted', {exact: true}).count(), 1);
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+  await work
+    .getByRole('button', {name: 'Continue planning: Edited draft stays Draft after its direction changes', exact: true})
+    .waitFor();
+  await work.getByRole('button', {name: 'View progress: Accepted direction stays Accepted', exact: true}).waitFor();
+  assert.equal(await work.getByRole('button', {name: /^Review check:/, exact: false}).count(), 0);
+  assert.equal(await work.getByRole('button', {name: /^Resolve blockers:/, exact: false}).count(), 0);
+  const calls = await page.evaluate(() =>
+    window.workspaceFixture.calls.map((call) => ({method: call.method, path: call.path}))
+  );
+  for (const intent of ids.slice(0, 2))
+    assert(
+      calls.some((call) => call.method === 'GET' && call.path.endsWith('/api/factory/intents/' + intent + '/plan')),
+      'owner replays the recorded plan for ' + intent
+    );
+  assert(
+    !calls.some((call) => call.path.endsWith('/api/factory/intents/' + ids[2] + '/plan')),
+    'decided work keeps its Accepted state without a plan read'
+  );
+  assert.equal(await writes(page), 0, 'guard reads must not start planning or a check');
+  // Saved plans shows the unbound draft neutrally without reading a plan.
+  await page.evaluate(() => {
+    window.workspaceFixture.calls.length = 0;
+  });
+  await page.getByRole('button', {name: 'Saved plans', exact: true}).click();
+  const saved = page.locator('soda-project-work:visible');
+  await saved.getByText('Not linked to a repository', {exact: true}).waitFor();
+  await saved.getByRole('heading', {name: 'Unbound draft stays Draft without a plan read', exact: true}).waitFor();
+  await saved.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await saved
+    .getByRole('button', {name: 'Continue planning: Unbound draft stays Draft without a plan read', exact: true})
+    .waitFor();
+  assert.equal(await saved.getByText('Accepted', {exact: true}).count(), 1);
+  const savedCalls = await page.evaluate(() =>
+    window.workspaceFixture.calls.map((call) => ({method: call.method, path: call.path}))
+  );
+  assert(
+    !savedCalls.some((call) => call.path.endsWith('/api/factory/intents/' + ids[3] + '/plan')),
+    'unbound drafts stay Draft without a plan read'
+  );
+  assert(
+    !savedCalls.some((call) => call.path.endsWith('/api/factory/intents/' + ids[2] + '/plan')),
+    'decided work keeps its Accepted state without a plan read'
+  );
+  assert.equal(await writes(page), 0, 'saved-plans replay must not start planning or a check');
+});
+
+async function seedCheckedDraft(page: Page, objective: string) {
+  const ids = await seedPlans(page, [{objective, repository: '7', state: 'draft'}]);
+  const intent = ids[0];
+  if (!intent) throw Error('missing seeded intent');
+  await page.evaluate(async (intent) => {
+    const fixture = window.workspaceFixture;
+    await fixture.request('/api/factory/intents/' + intent + '/plan', 'POST', {
+      revision: intent,
+      operation: 'propose_intent',
+    });
+    fixture.calls.length = 0;
+    await fixture.api.refresh();
+  }, intent);
+  const work = await openProjectPlans(page);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work.getByText('Checked', {exact: true}).waitFor();
+  return {work, intent};
+}
+
+async function failPlanReads(page: Page, intent: string, status: number) {
+  await page.evaluate(
+    ({intent, status}) => {
+      const original = window.fetch.bind(window);
+      Object.defineProperty(window, 'fetch', {
+        configurable: true,
+        value: (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET')
+            return Promise.resolve(new Response(null, {status}));
+          return original(input, init);
+        },
+      });
+    },
+    {intent, status}
+  );
+}
+
+for (const status of [404, 409, 503])
+  test(`a formerly Checked draft stays neutral when its plan replay returns ${status}`, async (t) => {
+    const page = await fixture(t);
+    const objective = 'Checked draft with a failed replay';
+    const {work, intent} = await seedCheckedDraft(page, objective);
+    await failPlanReads(page, intent, status);
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    await work.getByText('Draft', {exact: true}).waitFor();
+    assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a failed replay never retains Checked');
+    assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
+    assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+    await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
+    assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a failed replay never surfaces a list error');
+    assert.equal(await writes(page), 0, 'replaying a failed plan must not start planning or a check');
+  });
+
+test('a formerly Checked draft stays neutral when its recorded revision no longer matches', async (t) => {
+  const page = await fixture(t);
+  const objective = 'Checked draft with a superseded replay';
+  const {work, intent} = await seedCheckedDraft(page, objective);
+  await page.evaluate((intent) => {
+    const original = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const response = await original(input, init);
+        if (
+          url.includes('/api/factory/intents/' + intent + '/plan') &&
+          (init?.method || 'GET') === 'GET' &&
+          response.ok
+        ) {
+          const replay = (await response.json()) as Record<string, unknown>;
+          return Response.json({...replay, revision: 'd' + 'f'.repeat(24)});
+        }
+        return response;
+      },
+    });
+  }, intent);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work.getByText('Draft', {exact: true}).waitFor();
+  // Pre-clear shows Draft immediately while the replay is still in flight
+  // (busy Loading feedback). Wait for the refresh to settle before asserting
+  // no list error surfaces.
+  await page.waitForFunction(
+    () => document.querySelectorAll('soda-project-work .soda-work-feedback').length === 0,
+    undefined,
+    {timeout: 2000}
+  );
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a mismatched revision never retains Checked');
+  await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
+  assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a mismatched replay never surfaces a list error');
+  assert.equal(await writes(page), 0, 'replaying a mismatched revision must not start planning or a check');
+});
+
+for (const status of [401, 403])
+  test(`a ${status} plan replay routes through the authority-loss path`, async (t) => {
+    const page = await fixture(t);
+    const {work, intent} = await seedCheckedDraft(page, 'Checked draft with a lost authority');
+    await page.evaluate(
+      ({intent, status}) => {
+        (window as unknown as {authorityLost: unknown[]}).authorityLost = [];
+        window.addEventListener('soda-work-authority-lost', (event) => {
+          (window as unknown as {authorityLost: unknown[]}).authorityLost.push((event as CustomEvent).detail);
+        });
+        const original = window.fetch.bind(window);
+        Object.defineProperty(window, 'fetch', {
+          configurable: true,
+          value: (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET')
+              return Promise.resolve(new Response(null, {status}));
+            return original(input, init);
+          },
+        });
+      },
+      {intent, status}
+    );
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    await page.waitForFunction(() => (window as unknown as {authorityLost: unknown[]}).authorityLost.length > 0);
+    assert.deepEqual(
+      await page.evaluate(() => (window as unknown as {authorityLost: unknown[]}).authorityLost),
+      [{reconnectRequired: status === 401}],
+      'plan authority loss reuses the existing reconnect path'
+    );
+    assert.equal(await page.locator('.soda-work-item').count(), 0, 'authority loss retires the work list');
+    assert.equal(await writes(page), 0, 'authority loss must not start planning or a check');
+  });
+
+test('account and project changes retire stale Checked work without writes', async (t) => {
+  const page = await fixture(t);
+  await seedCheckedDraft(page, 'Checked draft retired on change');
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  // A fresh project restores its own Feed surface, so open Work before
+  // asserting Beta shows its own empty list instead of inherited checks.
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
+  const beta = page.locator('soda-project-work:visible');
+  await beta.getByRole('heading', {name: 'What would you like to change?', exact: true}).waitFor();
+  await beta.getByText('No plans linked to this project yet', {exact: true}).waitFor();
+  assert.equal(await beta.locator('.soda-work-item').count(), 0, 'another project never inherits Checked work');
+  assert.equal(await beta.getByText('Checked', {exact: true}).count(), 0);
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+  const alpha = page.locator('soda-project-work:visible');
+  await alpha.getByText('Checked', {exact: true}).waitFor();
+  await page.evaluate(async () => {
+    window.workspaceFixture.setUser('2');
+    await window.workspaceFixture.api.refresh();
+  });
+  await page.waitForFunction(() => document.querySelectorAll('.soda-work-item').length === 0);
+  assert.equal(await page.getByText('Checked', {exact: true}).count(), 0, 'an account change retires stale checks');
+  assert.equal(await writes(page), 0, 'change-driven retirement must not start planning or a check');
+});
+
+test('delayed plan replays never apply after a project change', async (t) => {
+  const page = await fixture(t);
+  const {work, intent} = await seedCheckedDraft(page, 'Checked draft raced by a project change');
+  await page.evaluate((intent) => {
+    (window as unknown as {planGate: Promise<void>; openPlanGate: () => void}).planGate = new Promise<void>(
+      (resolve) => {
+        (window as unknown as {openPlanGate: () => void}).openPlanGate = resolve;
+      }
+    );
+    const original = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET')
+          await (window as unknown as {planGate: Promise<void>}).planGate;
+        return original(input, init);
+      },
+    });
+  }, intent);
+  await page.evaluate(() => {
+    window.workspaceFixture.calls.length = 0;
+  });
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) => call.path.includes('/api/factory/intents?'))
+  );
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  // A fresh project restores its own Feed surface; open Work so the gated
+  // Alpha replay has a visible foreign list it must never land in.
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
+  const beta = page.locator('soda-project-work:visible');
+  await beta.getByRole('heading', {name: 'What would you like to change?', exact: true}).waitFor();
+  await beta.getByText('No plans linked to this project yet', {exact: true}).waitFor();
+  await page.evaluate(() => (window as unknown as {openPlanGate: () => void}).openPlanGate());
+  assert.equal(await beta.locator('.soda-work-item').count(), 0, 'the late replay never lands in another project');
+  assert.equal(await beta.getByText('Checked', {exact: true}).count(), 0);
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+  const alpha = page.locator('soda-project-work:visible');
+  await alpha.getByText('Checked', {exact: true}).waitFor();
+  assert.equal(await writes(page), 0, 'a discarded replay must not start planning or a check');
+});
+
+test('delayed plan replays never apply after an account change', async (t) => {
+  const page = await fixture(t);
+  const {work, intent} = await seedCheckedDraft(page, 'Checked draft raced by an account change');
+  await page.evaluate((intent) => {
+    (window as unknown as {planGate: Promise<void>; openPlanGate: () => void}).planGate = new Promise<void>(
+      (resolve) => {
+        (window as unknown as {openPlanGate: () => void}).openPlanGate = resolve;
+      }
+    );
+    const original = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET')
+          await (window as unknown as {planGate: Promise<void>}).planGate;
+        return original(input, init);
+      },
+    });
+  }, intent);
+  await page.evaluate(() => {
+    window.workspaceFixture.calls.length = 0;
+  });
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) => call.path.includes('/api/factory/intents?'))
+  );
+  await page.evaluate(async () => {
+    window.workspaceFixture.setUser('2');
+    await window.workspaceFixture.api.refresh();
+  });
+  await page.evaluate(() => (window as unknown as {openPlanGate: () => void}).openPlanGate());
+  await page.waitForFunction(() => document.querySelectorAll('.soda-work-item').length === 0);
+  assert.equal(await page.getByText('Checked', {exact: true}).count(), 0, 'the late replay never lands after logout');
+  assert.equal(await writes(page), 0, 'a discarded replay must not start planning or a check');
+});
+
+test('paginated plan replay bounds parallel reads and fetches only the new page', async (t) => {
+  const page = await fixture(t);
+  const ids = await seedPlans(
+    page,
+    Array.from({length: 21}, (_, index) => ({
+      objective: 'Planned change ' + (index + 1),
+      repository: '7',
+      state: 'draft' as const,
+    }))
+  );
+  const last = ids[20];
+  if (!last) throw Error('missing final intent');
+  await page.waitForFunction(
+    () =>
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
+      20
+  );
+  await page.evaluate(() => {
+    (window as unknown as {planFlight: {inflight: number; max: number}}).planFlight = {inflight: 0, max: 0};
+    const original = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/api/factory/intents/') && url.includes('/plan') && (init?.method || 'GET') === 'GET') {
+          const flight = (window as unknown as {planFlight: {inflight: number; max: number}}).planFlight;
+          flight.inflight += 1;
+          flight.max = Math.max(flight.max, flight.inflight);
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            return await original(input, init);
+          } finally {
+            flight.inflight -= 1;
+          }
+        }
+        return original(input, init);
+      },
+    });
+    window.workspaceFixture.calls.length = 0;
+  });
+  const work = await openProjectPlans(page);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work.getByText('More plans are available.', {exact: false}).waitFor();
+  await page.waitForFunction(
+    () =>
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
+      20
+  );
+  assert.equal(await work.locator('.soda-work-item').count(), 20);
+  // Let the full refresh settle (Refresh enabled again) before measuring the
+  // paginated load, so in-flight replays cannot overlap the new-page reads.
+  await page.waitForFunction(() => {
+    const refresh = [...document.querySelectorAll('soda-project-work button')].find((button) =>
+      button.textContent?.includes('Refresh plans')
+    );
+    return refresh instanceof HTMLButtonElement && !refresh.disabled;
+  });
+  const first = await page.evaluate(() => ({
+    max: (window as unknown as {planFlight: {inflight: number; max: number}}).planFlight.max,
+    planReads: window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan'))
+      .length,
+  }));
+  assert.equal(first.planReads, 20, 'a full refresh replays every bound draft once');
+  assert.ok(first.max <= 4, `plan replay stays within its small worker pool (saw ${first.max} in flight)`);
+  assert.ok(first.max >= 2, `plan replay still overlaps reads through the pool (saw ${first.max} in flight)`);
+  await page.evaluate(() => {
+    window.workspaceFixture.calls.length = 0;
+  });
+  await work.getByRole('button', {name: 'Load more plans', exact: true}).click();
+  await work.getByRole('heading', {name: 'Planned change 21', exact: true}).waitFor();
+  // The replayed plan read follows the list response; wait for it to start
+  // before asserting the paginated load fetched exactly the new page.
+  await page.waitForFunction(
+    () =>
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
+      1
+  );
+  assert.equal(await work.locator('.soda-work-item').count(), 21);
+  const more = await page.evaluate((last) => ({
+    reads: window.workspaceFixture.calls
+      .filter((call) => call.method === 'GET' && call.path.includes('/plan'))
+      .map((call) => call.path),
+    last,
+  }), last);
+  assert.equal(more.reads.length, 1, 'a paginated load fetches only the newly arrived page');
+  assert.ok(more.reads[0]?.endsWith('/api/factory/intents/' + last + '/plan'));
+  assert.equal(await writes(page), 0, 'paginated replay must not start planning or a check');
+});
+
+test('a formerly Checked draft stays neutral when its plan replay hangs past the request deadline', async (t) => {
+  const page = await fixture(t);
+  const objective = 'Checked draft with a hung replay';
+  const {work, intent} = await seedCheckedDraft(page, objective);
+  await page.evaluate((intent) => {
+    const original = window.fetch.bind(window);
+    const origSetTimeout = window.setTimeout.bind(window);
+    Object.defineProperty(window, 'setTimeout', {
+      configurable: true,
+      value: (fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+        if (ms === 15000) return origSetTimeout(fn as () => void, 80);
+        return origSetTimeout(fn as () => void, ms, ...(args as []));
+      },
+    });
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET')
+          return new Promise<Response>((_, reject) => {
+            const signal = init?.signal;
+            if (signal?.aborted) {
+              reject(new DOMException('Aborted', 'AbortError'));
+              return;
+            }
+            signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {once: true});
+          });
+        return original(input, init);
+      },
+    });
+  }, intent);
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  await work.getByText('Draft', {exact: true}).waitFor();
+  // Pre-clear shows Draft immediately while the hung read is still in flight
+  // (busy Loading feedback). Wait for the shortened deadline to retire the
+  // hung read before asserting no list error surfaces.
+  await page.waitForFunction(
+    () => document.querySelectorAll('soda-project-work .soda-work-feedback').length === 0,
+    undefined,
+    {timeout: 2000}
+  );
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a hung replay never retains Checked');
+  assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+  await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
+  assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a hung replay never surfaces a list error');
+  assert.equal(await writes(page), 0, 'replaying a hung plan must not start planning or a check');
+});
+
+for (const status of [401, 403])
+  test(`a ${status} plan replay still routes through authority-loss when another read hangs past the deadline`, async (t) => {
+    const page = await fixture(t);
+    const ids = await seedPlans(page, [
+      {objective: 'Checked draft with a fast authority loss', repository: '7', state: 'draft'},
+      {objective: 'Checked draft with a hung replay', repository: '7', state: 'draft'},
+    ]);
+    const authIntent = ids[0],
+      hungIntent = ids[1];
+    if (!authIntent || !hungIntent) throw Error('missing seeded intents');
+    await page.evaluate(async (ids) => {
+      const fixture = window.workspaceFixture;
+      for (const intent of ids) {
+        await fixture.request('/api/factory/intents/' + intent + '/plan', 'POST', {
+          revision: intent,
+          operation: 'propose_intent',
+        });
+      }
+      fixture.calls.length = 0;
+      await fixture.api.refresh();
+    }, ids);
+    const work = await openProjectPlans(page);
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    await work.getByText('Checked', {exact: true}).first().waitFor();
+    await page.evaluate(
+      ({authIntent, hungIntent, status}) => {
+        (window as unknown as {authorityLost: unknown[]}).authorityLost = [];
+        window.addEventListener('soda-work-authority-lost', (event) => {
+          (window as unknown as {authorityLost: unknown[]}).authorityLost.push((event as CustomEvent).detail);
+        });
+        const original = window.fetch.bind(window);
+        const origSetTimeout = window.setTimeout.bind(window);
+        Object.defineProperty(window, 'setTimeout', {
+          configurable: true,
+          value: (fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+            if (ms === 15000) return origSetTimeout(fn as () => void, 80);
+            return origSetTimeout(fn as () => void, ms, ...(args as []));
+          },
+        });
+        Object.defineProperty(window, 'fetch', {
+          configurable: true,
+          value: (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            if ((init?.method || 'GET') === 'GET') {
+              if (url.includes('/api/factory/intents/' + authIntent + '/plan'))
+                return Promise.resolve(new Response(null, {status}));
+              if (url.includes('/api/factory/intents/' + hungIntent + '/plan'))
+                return new Promise<Response>((_, reject) => {
+                  const signal = init?.signal;
+                  if (signal?.aborted) {
+                    reject(new DOMException('Aborted', 'AbortError'));
+                    return;
+                  }
+                  signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
+                    once: true,
+                  });
+                });
+            }
+            return original(input, init);
+          },
+        });
+      },
+      {authIntent, hungIntent, status}
+    );
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    await page.waitForFunction(() => (window as unknown as {authorityLost: unknown[]}).authorityLost.length > 0);
+    assert.deepEqual(
+      await page.evaluate(() => (window as unknown as {authorityLost: unknown[]}).authorityLost),
+      [{reconnectRequired: status === 401}],
+      'a captured authority loss survives a hung sibling past the deadline'
+    );
+    assert.equal(await page.locator('.soda-work-item').count(), 0, 'authority loss retires the work list');
+    assert.equal(await writes(page), 0, 'authority loss must not start planning or a check');
+  });
+
+for (const status of [401, 403])
+  test(`a ${status} plan replay clears state immediately while its sibling stays blocked`, async (t) => {
+    const page = await fixture(t);
+    const ids = await seedPlans(page, [
+      {objective: 'Checked draft with an immediate authority loss', repository: '7', state: 'draft'},
+      {objective: 'Checked draft with a still-blocked replay', repository: '7', state: 'draft'},
+    ]);
+    const authIntent = ids[0],
+      hungIntent = ids[1];
+    if (!authIntent || !hungIntent) throw Error('missing seeded intents');
+    await page.evaluate(async (ids) => {
+      const fixture = window.workspaceFixture;
+      for (const intent of ids) {
+        await fixture.request('/api/factory/intents/' + intent + '/plan', 'POST', {
+          revision: intent,
+          operation: 'propose_intent',
+        });
+      }
+      fixture.calls.length = 0;
+      await fixture.api.refresh();
+    }, ids);
+    const work = await openProjectPlans(page);
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    await work.getByText('Checked', {exact: true}).first().waitFor();
+    // No deadline shortening here: cleanup must land well before the 15s
+    // timeout while the sibling stays blocked. A hungReleased-only check
+    // could pass after the deadline (abort never opens the gate), so race
+    // against a short explicit timer and assert the deadline never fired.
+    await page.evaluate(
+      ({authIntent, hungIntent, status}) => {
+        (window as unknown as {authorityLost: unknown[]}).authorityLost = [];
+        window.addEventListener('soda-work-authority-lost', (event) => {
+          (window as unknown as {authorityLost: unknown[]}).authorityLost.push((event as CustomEvent).detail);
+        });
+        (window as unknown as {deadlineFired: boolean}).deadlineFired = false;
+        (window as unknown as {gateOpened: boolean}).gateOpened = false;
+        (window as unknown as {hungGate: Promise<void>; openHungGate: () => void}).hungGate = new Promise<void>(
+          (resolve) => {
+            (window as unknown as {openHungGate: () => void}).openHungGate = () => {
+              (window as unknown as {gateOpened: boolean}).gateOpened = true;
+              resolve();
+            };
+          }
+        );
+        const origSetTimeout = window.setTimeout.bind(window);
+        Object.defineProperty(window, 'setTimeout', {
+          configurable: true,
+          value: (fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+            if (ms === 15000)
+              return origSetTimeout(
+                () => {
+                  (window as unknown as {deadlineFired: boolean}).deadlineFired = true;
+                  (fn as () => void)();
+                },
+                ms,
+                ...(args as [])
+              );
+            return origSetTimeout(fn as () => void, ms, ...(args as []));
+          },
+        });
+        const original = window.fetch.bind(window);
+        Object.defineProperty(window, 'fetch', {
+          configurable: true,
+          value: (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            if ((init?.method || 'GET') === 'GET') {
+              if (url.includes('/api/factory/intents/' + authIntent + '/plan'))
+                return Promise.resolve(new Response(null, {status}));
+              if (url.includes('/api/factory/intents/' + hungIntent + '/plan'))
+                return new Promise<Response>((_, reject) => {
+                  const signal = init?.signal;
+                  if (signal?.aborted) {
+                    reject(new DOMException('Aborted', 'AbortError'));
+                    return;
+                  }
+                  signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
+                    once: true,
+                  });
+                  (window as unknown as {hungGate: Promise<void>}).hungGate.then(() =>
+                    reject(new DOMException('Aborted', 'AbortError'))
+                  );
+                });
+            }
+            return original(input, init);
+          },
+        });
+      },
+      {authIntent, hungIntent, status}
+    );
+    await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+    // Short explicit timer: cleanup must land well before the 15s deadline.
+    await page.waitForFunction(() => (window as unknown as {authorityLost: unknown[]}).authorityLost.length > 0, undefined, {
+      timeout: 2000,
+    });
+    assert.deepEqual(
+      await page.evaluate(() => (window as unknown as {authorityLost: unknown[]}).authorityLost),
+      [{reconnectRequired: status === 401}],
+      'authority loss fires without waiting for the hung sibling'
+    );
+    assert.equal(
+      await page.evaluate(() => (window as unknown as {deadlineFired: boolean}).deadlineFired),
+      false,
+      'immediate cleanup lands with no 15s deadline fired'
+    );
+    assert.equal(
+      await page.evaluate(() => (window as unknown as {gateOpened: boolean}).gateOpened),
+      false,
+      'cleanup lands while the blocked sibling gate stays closed'
+    );
+    assert.equal(await page.locator('.soda-work-item').count(), 0, 'immediate authority loss retires the work list');
+    assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'stale Checked never survives authority loss');
+    assert.equal(await writes(page), 0, 'immediate authority loss must not start planning or a check');
+    await page.evaluate(() => (window as unknown as {openHungGate: () => void}).openHungGate());
+    await page.waitForTimeout(300);
+    assert.equal(
+      await page.evaluate(() => (window as unknown as {deadlineFired: boolean}).deadlineFired),
+      false,
+      'releasing the hung sibling never needs the deadline'
+    );
+    assert.equal(await page.locator('.soda-work-item').count(), 0, 'released sibling never restores retired work');
+    assert.equal(await writes(page), 0, 'releasing the hung sibling must not start planning or a check');
+  });
+
+test('a slow refresh pre-clears stale Checked work before the deadline while its sibling stays blocked', async (t) => {
+  const page = await fixture(t);
+  const objective = 'Checked draft with a slow replay';
+  const {work, intent} = await seedCheckedDraft(page, objective);
+  await page.evaluate((intent) => {
+    (window as unknown as {deadlineFired: boolean}).deadlineFired = false;
+    (window as unknown as {planStarted: boolean}).planStarted = false;
+    (window as unknown as {planSettled: boolean}).planSettled = false;
+    (window as unknown as {gateOpened: boolean}).gateOpened = false;
+    (window as unknown as {hungGate: Promise<void>; openHungGate: () => void}).hungGate = new Promise<void>(
+      (resolve) => {
+        (window as unknown as {openHungGate: () => void}).openHungGate = () => {
+          (window as unknown as {gateOpened: boolean}).gateOpened = true;
+          resolve();
+        };
+      }
+    );
+    const origSetTimeout = window.setTimeout.bind(window);
+    Object.defineProperty(window, 'setTimeout', {
+      configurable: true,
+      value: (fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+        if (ms === 15000)
+          return origSetTimeout(
+            () => {
+              (window as unknown as {deadlineFired: boolean}).deadlineFired = true;
+              (fn as () => void)();
+            },
+            ms,
+            ...(args as [])
+          );
+        return origSetTimeout(fn as () => void, ms, ...(args as []));
+      },
+    });
+    const original = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/api/factory/intents/' + intent + '/plan') && (init?.method || 'GET') === 'GET') {
+          (window as unknown as {planStarted: boolean}).planStarted = true;
+          return new Promise<Response>((_, reject) => {
+            const signal = init?.signal;
+            if (signal?.aborted) {
+              (window as unknown as {planSettled: boolean}).planSettled = true;
+              reject(new DOMException('Aborted', 'AbortError'));
+              return;
+            }
+            signal?.addEventListener(
+              'abort',
+              () => {
+                (window as unknown as {planSettled: boolean}).planSettled = true;
+                reject(new DOMException('Aborted', 'AbortError'));
+              },
+              {once: true}
+            );
+            (window as unknown as {hungGate: Promise<void>}).hungGate.then(() => {
+              (window as unknown as {planSettled: boolean}).planSettled = true;
+              reject(new DOMException('Aborted', 'AbortError'));
+            });
+          });
+        }
+        return original(input, init);
+      },
+    });
+  }, intent);
+  await page.evaluate(() => {
+    window.workspaceFixture.calls.length = 0;
+  });
+  await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
+  // Race pre-clear against a short explicit timer: stale Checked must retire
+  // synchronously at refresh start, while the sibling read stays blocked and
+  // the 15s deadline never fires.
+  await work.getByText('Draft', {exact: true}).waitFor({timeout: 2000});
+  await page.waitForFunction(() => (window as unknown as {planStarted: boolean }).planStarted === true, undefined, {
+    timeout: 2000,
+  });
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'slow refresh pre-clears stale Checked');
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {deadlineFired: boolean}).deadlineFired),
+    false,
+    'pre-clear lands with no 15s deadline fired'
+  );
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {planStarted: boolean}).planStarted),
+    true,
+    'sibling read started and stays blocked'
+  );
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {planSettled: boolean}).planSettled),
+    false,
+    'sibling read remains unresolved at pre-clear'
+  );
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {gateOpened: boolean}).gateOpened),
+    false,
+    'sibling gate stays closed at pre-clear'
+  );
+  assert.equal(await writes(page), 0, 'pre-clearing a slow replay must not start planning or a check');
+  await page.evaluate(() => (window as unknown as {openHungGate: () => void}).openHungGate());
+  await work.getByText('Draft', {exact: true}).waitFor();
+  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'released sibling never restores stale Checked');
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {deadlineFired: boolean}).deadlineFired),
+    false,
+    'releasing the hung sibling never needs the deadline'
+  );
+  assert.equal(await writes(page), 0, 'releasing the hung sibling must not start planning or a check');
 });

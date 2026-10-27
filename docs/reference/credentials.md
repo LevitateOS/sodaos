@@ -59,6 +59,14 @@ are separate explicit actions, never automatic migrations.
 
 ## Identity Broker
 
+The installed broker resolves provider executables in its private retained store
+at `/home/soda-identity/providers`, owned by the `soda-identity` service account.
+Its admission and launch checks use the shared
+[provider freshness contract](../development/provider-freshness-contract.md#consumers).
+The native host keeps its separate root-owned store and independently verifies
+the executable bound to each run. Provider updates require no broader access to
+the host store and do not copy or replace subscription credentials.
+
 ### Authentication and billing choice
 
 The selected provider, account and native authentication method are the connection

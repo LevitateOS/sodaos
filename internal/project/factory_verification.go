@@ -125,16 +125,18 @@ func (r FactoryVerificationChecks) Validate() error {
 }
 
 type FactoryVerificationChecksState struct {
-	Project        string `json:"project"`
-	Run            string `json:"run"`
-	Incarnation    string `json:"incarnation"`
-	ManifestDigest string `json:"manifest_digest"`
-	Phase          string `json:"phase"`
-	SourceCommit   string `json:"source_commit"`
-	Preparation    string `json:"preparation"`
-	CheckDigest    string `json:"check_digest"`
-	ExitCode       *int   `json:"exit_code,omitempty"`
-	OutputDigest   string `json:"output_digest,omitempty"`
+	Project                        string `json:"project"`
+	Run                            string `json:"run"`
+	Incarnation                    string `json:"incarnation"`
+	ManifestDigest                 string `json:"manifest_digest"`
+	Phase                          string `json:"phase"`
+	SourceCommit                   string `json:"source_commit"`
+	Preparation                    string `json:"preparation"`
+	CheckDigest                    string `json:"check_digest"`
+	ExitCode                       *int   `json:"exit_code,omitempty"`
+	OutputDigest                   string `json:"output_digest,omitempty"`
+	ApplicationBundleSHA256        string `json:"application_bundle_sha256,omitempty"`
+	ApplicationPreviewBundleSHA256 string `json:"application_preview_bundle_sha256,omitempty"`
 	// Only the approved native check's output is projected. Control characters
 	// other than LF/TAB are escaped; the digest remains over native captured bytes.
 	OutputExcerpt   string `json:"output_excerpt,omitempty"`
@@ -144,6 +146,11 @@ type FactoryVerificationChecksState struct {
 }
 
 func (s FactoryVerificationChecksState) ValidateFor(request FactoryVerificationChecks) error {
+	for _, digest := range []string{s.ApplicationBundleSHA256, s.ApplicationPreviewBundleSHA256} {
+		if digest != "" && (s.Phase != "passed" || !ValidDigest(digest)) {
+			return errors.New("application build receipt requires a passed native check")
+		}
+	}
 	if request.Validate() != nil || s.Project != request.Project || s.Run != request.Run || s.Incarnation != request.Incarnation || s.ManifestDigest != request.ManifestDigest || !ValidCommit(s.SourceCommit) || !ValidPreparationID(s.Preparation) || !ValidDigest(s.CheckDigest) || len(s.Reason) > 1024 {
 		return errors.New("verification checks receipt differs from its admitted identity")
 	}

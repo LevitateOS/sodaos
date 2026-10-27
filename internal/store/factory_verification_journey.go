@@ -52,7 +52,7 @@ func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory
 	if err != nil {
 		return err
 	}
-	if err := o.ValidateFor(cap, a, r.EffectiveOutcomes); err != nil {
+	if err := o.ValidateFor(cap, a, factory.ResolvedScope(r)); err != nil {
 		return err
 	}
 	var count int
@@ -151,7 +151,7 @@ func validateVerificationJourneyRefsTx(ctx context.Context, tx *sql.Tx, a factor
 			return err
 		}
 		o, err := factory.DecodeVerificationJourney(raw)
-		if err != nil || capability != cap.ID || input != report.InputDigest || digest != factory.MCPInputDigest(raw) || o.ValidateFor(cap, a, revision.EffectiveOutcomes) != nil {
+		if err != nil || capability != cap.ID || input != report.InputDigest || digest != factory.MCPInputDigest(raw) || o.ValidateFor(cap, a, factory.ResolvedScope(revision)) != nil {
 			return errors.New("journey reference differs from its canonical observation")
 		}
 		if report.Outcome == factory.AppVerificationVerified && o.Result != "passed" {
@@ -177,7 +177,7 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 	if err != nil {
 		return out, err
 	}
-	out = factory.VerificationScopeView{Assignment: a.ID, Run: a.Run, InputDigest: cap.ScopeDigest(), Delivery: *a.Subject.Delivery, OutcomeIDs: append([]string(nil), r.EffectiveOutcomes...), Records: []factory.VerificationJourneyRecord{}, Limit: factory.VerificationJourneyPageSize, Maximum: factory.MaxVerificationJourneys}
+	out = factory.VerificationScopeView{Assignment: a.ID, Run: a.Run, InputDigest: cap.ScopeDigest(), Delivery: *a.Subject.Delivery, OutcomeIDs: append([]string(nil), factory.ResolvedScope(r)...), Records: []factory.VerificationJourneyRecord{}, Limit: factory.VerificationJourneyPageSize, Maximum: factory.MaxVerificationJourneys}
 	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`, a.ID, string(factory.MCPToolRecordJourneyResult)).Scan(&out.Total); err != nil {
 		return out, err
 	}
@@ -197,7 +197,7 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 			break
 		}
 		record.Observation, err = factory.DecodeVerificationJourney(raw)
-		if err != nil || record.Observation.ValidateFor(cap, a, r.EffectiveOutcomes) != nil {
+		if err != nil || record.Observation.ValidateFor(cap, a, factory.ResolvedScope(r)) != nil {
 			rows.Close()
 			return out, errors.New("recorded journey differs from its admitted scope")
 		}

@@ -55,6 +55,22 @@ new provider work.
 
 ## Consumers
 
+Store custody follows the consumer's operating-system authority. The native
+`soda-identity` unit sets `SODA_PROVIDERS_ROOT=/home/soda-identity/providers`
+inside its existing private, durable home. Its `soda-identity` user owns admission,
+selection, locking and active references there under the unit's `UMask=0077`.
+The root host and root updater retain `/var/lib/soda/providers`; the broker gains
+no access to that root-owned store. Both use the same resolver and verified
+official-upstream admission. Broker enrollment and lease bindings carry no store
+path into the host's independent, exact harness binding.
+
+For initial operator preparation, run the existing `soda-provider-update refresh
+--provider codex --json` as `soda-identity`, with the same store environment and
+private umask. An empty store must complete actual admission; copying a selection
+record or credentials is not a substitute. New-session due checks continue to
+refresh that owner's store, and stale, unknown or unverifiable selections retain
+their existing refusals.
+
 - Lane B (`cmd/soda-identity/src/providers/`, host daemon/dbackend/terminal
   resolution): resolve paths at session creation via `resolve_new`; bind
   in-flight sessions/enrollments/leases and recovery to `resolve_existing` +
@@ -75,3 +91,18 @@ new provider work.
   Remaining: cross-process restart end-to-end (admit A, update to B,
   restart, recover A) is T07 combined-integration work; R01/C01 stay
   Codex-owned.
+- V7 correction (2026-10-26, UP-20261026-V7-START): a retry with a NEW
+  execution ID is a new provider session and adopts the CURRENT pin, never
+  the assignment's adopted bundle (`retryHarnessPin` deleted; only the SAME
+  already-captured execution/session recovers its recorded adopted bytes).
+  Host `Factory::launch` classifies via recorded authority first: existing
+  receipts never consult current or re-check the original execution
+  deadline; only genuinely new runs require current pin + current deadline.
+  `dbackend` reserve preserves the durable binding + lifetime ref under
+  unconfirmed unit state (fail-closed default) and releases only after
+  confirmed retirement through the single owner. Joined acceptance red to
+  green against real `Factory::launch` + private-state files
+  (`oracle_v7_recorded_receipt_survives_current_advance`,
+  `oracle_v7_recorded_receipt_survives_own_deadline_expiry`); Go retry
+  conformance probe green; suites match baseline (4 pre-existing PG-fixture
+  failures unchanged); `cargo check -p soda-host` clean.

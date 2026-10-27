@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 )
 
-const schemaFormatVersion = 67
+const schemaFormatVersion = 69
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -18,12 +19,14 @@ var schemaStatements = []string{
 	`CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_feed_subscriptions(subscriber TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>0), data JSONB NOT NULL)`,
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(67)`,
+	`INSERT INTO schema_version(version) VALUES(69)`,
 	`CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))`,
 	`CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))`,
 	`CREATE TABLE application_projects(application_id TEXT PRIMARY KEY REFERENCES applications(id), repository BIGINT NOT NULL CHECK(repository>0))`,
 	ApplicationRestoresDDL,
 	ApplicationSetupsDDL,
+	ApplicationSetupRenewalsDDL,
+	ApplicationBuildsDDL,
 	`CREATE UNIQUE INDEX application_restore_pending ON application_restores(application_id) WHERE state='pending'`,
 	`ALTER TABLE applications ADD FOREIGN KEY(id,revision) REFERENCES application_revisions(application_id,revision) DEFERRABLE INITIALLY DEFERRED`,
 	`CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)`,
@@ -274,8 +277,38 @@ END $$ LANGUAGE plpgsql`,
 	`CREATE TRIGGER identity_execution_immutable BEFORE UPDATE ON identity_executions FOR EACH ROW EXECUTE FUNCTION soda_guard_execution_identity()`,
 }
 
-// SchemaVersion is a format identifier. This unreleased database format has no
-// compatibility migrations; older versioned files are refused without mutation.
+// schemaUpgrade68To69 migrates a retained 68 database — which carries the
+// application builds table but no setup-renewals journal — to 69. It runs
+// inside the open transaction, so any failure rolls the database back to 68
+// without mutation.
+var schemaUpgrade68To69 = []string{
+	ApplicationSetupRenewalsDDL,
+	`UPDATE schema_version SET version=69`,
+}
+
+// migrateSchema68To69 upgrades a genuine 68 database in place. A 68 marker
+// beside an already-present renewals journal is not a 68 database — it is
+// shape corruption — and is refused without mutation like any other foreign
+// version.
+func migrateSchema68To69(ctx context.Context, t *sql.Tx) error {
+	var journal int
+	if err := t.QueryRowContext(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals' AND table_type='BASE TABLE'`).Scan(&journal); err != nil {
+		return err
+	}
+	if journal != 0 {
+		return errors.New("database schema differs from this application")
+	}
+	for _, statement := range schemaUpgrade68To69 {
+		if _, err := t.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate database schema 68 to 69: %w", err)
+		}
+	}
+	return nil
+}
+
+// SchemaVersion is a format identifier. Only the adopted 68 to 69 upgrade
+// runs, inside the open transaction; anything else foreign is refused
+// without mutation.
 func SchemaVersion() int { return schemaFormatVersion }
 
 func schemaPresent(ctx context.Context, t *sql.Tx) (bool, error) {
@@ -314,6 +347,8 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT id,administrator_id,name,data_id,owner_team,origin,hostname,port,revision,observation FROM applications LIMIT 0`,
 		`SELECT id,application_id,base_revision,target_data,state,data FROM application_restores LIMIT 0`,
 		`SELECT id,application_id,administrator_id,data_id,origin,hostname,port,state,data FROM application_setups LIMIT 0`,
+		`SELECT setup_id,renewed_at,expires_at,administrator_id FROM application_setup_renewals LIMIT 0`,
+		`SELECT id,repository,delivery_id,environment,data,setup_id FROM application_builds LIMIT 0`,
 		`SELECT application_id,repository FROM application_projects LIMIT 0`,
 		`SELECT application_id,revision,spec FROM application_revisions LIMIT 0`,
 		`SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0`,
@@ -426,13 +461,29 @@ func loadSchemaVersion(ctx context.Context, t *sql.Tx) (int, error) {
 	return storedSchemaVersion(ctx, t)
 }
 
+// schemaOpenMu serializes schema opens inside this process. Two concurrent
+// opens of a retained 68 database must not both attempt the upgrade CREATE:
+// the second opener rereads the committed 69 marker instead of failing.
+// Cross-process losers are covered by the version reread below, which runs
+// after the losing transaction rolls back.
+var schemaOpenMu sync.Mutex
+
 func initializeSchema(ctx context.Context, db *sql.DB) error {
+	schemaOpenMu.Lock()
+	defer schemaOpenMu.Unlock()
 	inner, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	t := inner
-	defer func() { _ = t.Rollback() }()
+	rolledBack := false
+	rollback := func() {
+		if !rolledBack {
+			rolledBack = true
+			_ = t.Rollback()
+		}
+	}
+	defer rollback()
 	version, err := loadSchemaVersion(ctx, t)
 	if err != nil {
 		return err
@@ -444,23 +495,64 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 				return fmt.Errorf("create current database schema: %w", err)
 			}
 		}
+	} else if version == 68 {
+		if err = migrateSchema68To69(ctx, t); err != nil {
+			rollback()
+			return reopenAfterLostUpgradeRace(ctx, db, err)
+		}
 	} else if version != SchemaVersion() {
 		return errors.New("database schema differs from this application")
 	}
-	if err = verifyRequiredColumns(ctx, t); err != nil {
+	if err = verifyCurrentSchema(ctx, t); err != nil {
 		return err
 	}
-	if err = verifyImmutableCreationProfile(ctx, t); err != nil {
-		return err
-	}
-	if err = verifyImmutablePreparationRefs(ctx, t); err != nil {
-		return err
-	}
-	if err = verifyImmutableExecutionIdentity(ctx, t); err != nil {
-		return err
-	}
-	if err = verifyImmutableApplications(ctx, t); err != nil {
-		return err
-	}
+	rolledBack = true
 	return t.Commit()
+}
+
+// reopenAfterLostUpgradeRace rereads the schema marker after a failed 68 to
+// 69 upgrade. When a concurrent opener committed the upgrade meanwhile, the
+// database is now current: it still faces the full verification before the
+// open succeeds. Any other outcome returns the original upgrade failure, so
+// genuine corruption keeps its refusal signal and the unmigrated database
+// is left untouched.
+func reopenAfterLostUpgradeRace(ctx context.Context, db *sql.DB, upgradeErr error) error {
+	inner, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return upgradeErr
+	}
+	t := inner
+	defer func() { _ = t.Rollback() }()
+	version, err := loadSchemaVersion(ctx, t)
+	if err != nil {
+		return upgradeErr
+	}
+	if version != SchemaVersion() {
+		return upgradeErr
+	}
+	if err = verifyCurrentSchema(ctx, t); err != nil {
+		return upgradeErr
+	}
+	return nil
+}
+
+// verifyCurrentSchema runs the full 69 shape check: every required column
+// query plus the immutability trigger guards.
+func verifyCurrentSchema(ctx context.Context, t *sql.Tx) error {
+	if err := verifyRequiredColumns(ctx, t); err != nil {
+		return err
+	}
+	if err := verifyImmutableCreationProfile(ctx, t); err != nil {
+		return err
+	}
+	if err := verifyImmutablePreparationRefs(ctx, t); err != nil {
+		return err
+	}
+	if err := verifyImmutableExecutionIdentity(ctx, t); err != nil {
+		return err
+	}
+	if err := verifyImmutableApplications(ctx, t); err != nil {
+		return err
+	}
+	return nil
 }

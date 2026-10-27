@@ -122,6 +122,37 @@ impl Ephemeral {
     pub fn exec(&self, sql: &str) -> bool {
         admin_command(&self.dsn, sql)
     }
+
+    /// Read the first column of the first row as text. Callers cast to
+    /// `::TEXT` in SQL; this only observes isolated fixture state, never
+    /// production data.
+    pub fn query_scalar(&self, sql: &str) -> Option<String> {
+        let Ok(mut config) = self.dsn.parse::<Config>() else {
+            return None;
+        };
+        config.ssl_mode(SslMode::Disable);
+        let Ok(runtime) = Builder::new_current_thread().enable_all().build() else {
+            return None;
+        };
+        runtime.block_on(async {
+            let deadline = Instant::now() + ADMIN_OPERATION_BUDGET;
+            let Ok(Ok((client, connection))) = timeout_at(deadline, config.connect(NoTls)).await
+            else {
+                return None;
+            };
+            let mut driver = tokio::spawn(connection);
+            let out = match timeout_at(deadline, client.query(sql, &[])).await {
+                Ok(Ok(rows)) => rows
+                    .into_iter()
+                    .next()
+                    .and_then(|row| row.try_get::<_, String>(0).ok()),
+                _ => None,
+            };
+            drop(client);
+            let _ = timeout_at(deadline, &mut driver).await;
+            out
+        })
+    }
 }
 
 impl Drop for Ephemeral {
@@ -191,9 +222,7 @@ impl control::Provider for StubProvider {
         }))
     }
 
-    fn bind_new(
-        &self,
-    ) -> Result<Option<soda_identity::providers::resolution::BoundBinary>, Error> {
+    fn bind_new(&self) -> Result<Option<soda_identity::providers::resolution::BoundBinary>, Error> {
         Ok(None)
     }
 }

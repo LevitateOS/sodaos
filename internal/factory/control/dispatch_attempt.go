@@ -751,13 +751,14 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 // publish.
 func phasedReportContract(phase string) string {
 	if phase == project.ExecutionMaintainLibrary {
-		return phasedReportMarker + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
+		return phasedReportMarker + factory.LibraryReadGuidance + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
 	}
 	if phase == project.ExecutionResearch {
-		return phasedReportMarker + factory.ResearchReportGuidance
+		return phasedReportMarker + factory.LibraryReadGuidance + factory.ResearchReportGuidance
 	}
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)
+	b.WriteString(factory.LibraryReadGuidance)
 	b.WriteString("Close your work with exactly one fenced block:\n\n")
 	b.WriteString("```" + factory.ResultFence + "\n")
 	if phase == project.ExecutionInvestigate {

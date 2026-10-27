@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // Feed communication contract (R32.2/R32.14, R42.2): durable comment
@@ -136,13 +138,21 @@ const CommentSourceSummaryLimit = 512
 // authoring consume authorized recorded evidence instead of
 // caller-asserted facts or a later re-read of moved work.
 type CommentSource struct {
-	Kind    string `json:"kind"`
-	ID      string `json:"id"`
-	Issue   int64  `json:"issue,omitempty"`
-	PR      int64  `json:"pr,omitempty"`
-	Ref     string `json:"ref,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Summary string `json:"summary,omitempty"`
+	Kind    string                `json:"kind"`
+	ID      string                `json:"id"`
+	Issue   int64                 `json:"issue,omitempty"`
+	PR      int64                 `json:"pr,omitempty"`
+	Ref     string                `json:"ref,omitempty"`
+	Status  string                `json:"status,omitempty"`
+	Summary string                `json:"summary,omitempty"`
+	Product *CommentProductSource `json:"product,omitempty"`
+}
+
+// CommentProductSource is supplied only by the canonical feed source resolver.
+// It names the accepted product discussed, never a caller-selected latest head.
+type CommentProductSource struct {
+	Intent           string `json:"intent"`
+	AcceptedRevision string `json:"accepted_revision"`
 }
 
 // Validate admits one resolved comment source snapshot.
@@ -158,6 +168,9 @@ func (s CommentSource) Validate() error {
 	}
 	if len(s.Ref) > 256 || len(s.Status) > 128 || len([]rune(s.Summary)) > CommentSourceSummaryLimit {
 		return errors.New("comment source evidence outside its bound")
+	}
+	if s.Product != nil && (!project.ValidDecisionID(s.Product.Intent) || !project.ValidDecisionID(s.Product.AcceptedRevision)) {
+		return errors.New("comment product source needs its exact accepted revision")
 	}
 	return nil
 }

@@ -12,6 +12,8 @@ mod transport;
 mod wire;
 
 pub use codex::{CodexThread, CodexTurn};
-pub use session::{new_command_id, SessionSnapshot, TurnAdmission};
+pub use session::{
+    mcp_probe_outcome, new_command_id, sanitize_mcp_servers, SessionSnapshot, TurnAdmission,
+};
 pub use transport::{Connection, Error, MAX_FRAME_BYTES};
 pub use wire::{Item, Notice, Provenance, TurnFailure};

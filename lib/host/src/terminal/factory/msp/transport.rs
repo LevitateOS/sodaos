@@ -233,6 +233,9 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
 
 fn response(frame: Value) -> Result<Value, Error> {
     if let Some(error) = frame.get("error") {
+        // Only the strictly validated structured reason code is retained.
+        // Daemon free-text messages never enter logs or stored summaries:
+        // they can carry paths, prompt content or credentials.
         let reason = error
             .get("data")
             .and_then(|v| v.get("reason"))

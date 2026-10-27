@@ -68,13 +68,15 @@ fn chmod_exec(path: &Path) {
 /// Build a fully admitted bundle WITHOUT network: real files, real admission
 /// record, real digest inventory. Returns the identity plus exe bytes (so the
 /// caller can tamper and restore).
-fn make_bundle(root: &Path, provider: Provider, version: &str, companion: bool) -> (ReleaseIdentity, Vec<u8>) {
+fn make_bundle(
+    root: &Path,
+    provider: Provider,
+    version: &str,
+    companion: bool,
+) -> (ReleaseIdentity, Vec<u8>) {
     let content = format!("#!/bin/sh\necho review-{provider:?}-{version}\n").into_bytes();
     let digest = sha256_hex(&content);
-    let bundle = root
-        .join("bundles")
-        .join(provider.as_str())
-        .join(&digest);
+    let bundle = root.join("bundles").join(provider.as_str()).join(&digest);
     let bin = bundle.join("bin");
     std::fs::create_dir_all(&bin).expect("bin dir");
     let exe_name = provider.executable_relpath().rsplit('/').next().unwrap();
@@ -98,7 +100,13 @@ fn make_bundle(root: &Path, provider: Provider, version: &str, companion: bool) 
     (release, content)
 }
 
-fn write_selection(root: &Path, release: &ReleaseIdentity, checked: u64, admitted: u64, freshness: Freshness) {
+fn write_selection(
+    root: &Path,
+    release: &ReleaseIdentity,
+    checked: u64,
+    admitted: u64,
+    freshness: Freshness,
+) {
     store::write_selection(
         root,
         &Selection {
@@ -141,7 +149,10 @@ fn scenario_r1() {
         matches!(&refreshed.freshness, Freshness::Stale { latest } if latest == "review-known-newer"),
         "failed refresh preserves Stale (not downgraded to UpdateFailed)",
     );
-    expect(refreshed.checked_at_secs == 0, "failed refresh leaves checked_at untouched");
+    expect(
+        refreshed.checked_at_secs == 0,
+        "failed refresh leaves checked_at untouched",
+    );
     let on_disk = store::read_selection(&root, Provider::Muse)
         .expect("read")
         .expect("selection present");
@@ -151,10 +162,16 @@ fn scenario_r1() {
     );
     let launched = resolve::resolve_new(Provider::Muse).is_ok();
     println!("known_stale_launch_allowed_after_upstream_failure={launched}");
-    expect(!launched, "resolve_new blocks known-stale after failed check");
+    expect(
+        !launched,
+        "resolve_new blocks known-stale after failed check",
+    );
     // Direct refresh error class: must not block-or-fail, must preserve.
     let blocked = resolve::resolve_new(Provider::Muse).unwrap_err();
-    expect(blocked.blocks_new_work(), "resolve_new error blocks new work");
+    expect(
+        blocked.blocks_new_work(),
+        "resolve_new error blocks new work",
+    );
 }
 
 /// R1 for Codex: same stale-preservation rules through the codex provider
@@ -201,7 +218,10 @@ fn scenario_r1_codex() {
         now,
         "admission failed (deterministic fixture)".to_string(),
     );
-    expect(blocked.blocks_new_work(), "codex admission failure blocks new work");
+    expect(
+        blocked.blocks_new_work(),
+        "codex admission failure blocks new work",
+    );
     let on_disk = store::read_selection(&root, Provider::Codex)
         .expect("read")
         .expect("selection present");
@@ -213,7 +233,10 @@ fn scenario_r1_codex() {
     );
     let launched = resolve::resolve_new(Provider::Codex).is_ok();
     println!("codex_known_stale_launch_allowed_after_upstream_failure={launched}");
-    expect(!launched, "resolve_new blocks known-stale codex after failed check");
+    expect(
+        !launched,
+        "resolve_new blocks known-stale codex after failed check",
+    );
 }
 
 /// R3: admission record + digests enforced; hash-shaped dirs refused.
@@ -227,10 +250,7 @@ fn scenario_r3() {
         "admitted bundle resolves",
     );
     // Tamper with one byte: verification must fail; restore: resolves again.
-    let exe = root
-        .join("bundles/muse")
-        .join(&digest)
-        .join("bin/muse");
+    let exe = root.join("bundles/muse").join(&digest).join("bin/muse");
     let mut tampered = exe_bytes.clone();
     tampered[0] = b'#';
     tampered[1] = b'!';
@@ -250,7 +270,11 @@ fn scenario_r3() {
     let other = sha256_hex(b"unadmitted-fixture");
     let fake_bin = root.join("bundles/muse").join(&other).join("bin");
     std::fs::create_dir_all(&fake_bin).expect("fake bin");
-    std::fs::write(fake_bin.join("muse"), b"#!/bin/sh\necho unadmitted-fixture\n").expect("fake exe");
+    std::fs::write(
+        fake_bin.join("muse"),
+        b"#!/bin/sh\necho unadmitted-fixture\n",
+    )
+    .expect("fake exe");
     chmod_exec(&fake_bin.join("muse"));
     let accepted = resolve::resolve_existing(Provider::Muse, &other).is_ok();
     println!("bundle_without_admission_record_accepted={accepted}");
@@ -279,11 +303,8 @@ fn scenario_r3() {
         .join("bin/codex-code-mode-host");
     std::fs::write(&comp, b"#!/bin/sh\necho companion\n").expect("companion");
     chmod_exec(&comp);
-    store::record_inventory(
-        &root.join("bundles/codex").join(&codex.digest),
-        &codex,
-    )
-    .expect("re-inventory");
+    store::record_inventory(&root.join("bundles/codex").join(&codex.digest), &codex)
+        .expect("re-inventory");
     expect(
         resolve::resolve_existing(Provider::Codex, &codex.digest).is_ok(),
         "codex bundle with companion resolves",
@@ -303,8 +324,11 @@ fn scenario_r2() {
     std::fs::create_dir_all(&old_bin).expect("old bin");
     std::fs::write(old_bin.join("muse"), b"#!/bin/sh\necho old\n").expect("old exe");
     std::fs::create_dir_all(root.join("refs")).expect("refs");
-    std::fs::write(root.join("refs/active-old.json"), b"{truncated-active-reference")
-        .expect("corrupt ref");
+    std::fs::write(
+        root.join("refs/active-old.json"),
+        b"{truncated-active-reference",
+    )
+    .expect("corrupt ref");
     let cleaned = store::cleanup(&root);
     let succeeded = cleaned.is_ok();
     println!("cleanup_succeeded_with_corrupt_reference={succeeded}");
@@ -315,10 +339,16 @@ fn scenario_r2() {
     );
     let preserved = root.join("bundles/muse").join(&old_digest).exists();
     println!("possibly_active_old_bundle_preserved={preserved}");
-    expect(preserved, "possibly-active bundle preserved while knowledge corrupt");
+    expect(
+        preserved,
+        "possibly-active bundle preserved while knowledge corrupt",
+    );
     // Sound knowledge again: cleanup succeeds and collects the unreferenced dir.
     std::fs::remove_file(root.join("refs/active-old.json")).expect("drop corrupt ref");
-    expect(store::cleanup(&root).is_ok(), "cleanup succeeds with sound knowledge");
+    expect(
+        store::cleanup(&root).is_ok(),
+        "cleanup succeeds with sound knowledge",
+    );
     expect(
         !root.join("bundles/muse").join(&old_digest).exists(),
         "unreferenced bundle collected once knowledge is sound",
@@ -356,8 +386,13 @@ fn scenario_concurrency() {
     let refreshed = Arc::new(AtomicU64::new(0));
     let mut handles = Vec::new();
     for i in 0..8 {
-        let (root, digest, acquired, cleaned, refreshed) =
-            (Arc::clone(&root), Arc::clone(&digest), Arc::clone(&acquired), Arc::clone(&cleaned), Arc::clone(&refreshed));
+        let (root, digest, acquired, cleaned, refreshed) = (
+            Arc::clone(&root),
+            Arc::clone(&digest),
+            Arc::clone(&acquired),
+            Arc::clone(&cleaned),
+            Arc::clone(&refreshed),
+        );
         handles.push(std::thread::spawn(move || {
             for _ in 0..25 {
                 if i < 2 {
@@ -367,7 +402,8 @@ fn scenario_concurrency() {
                     }
                 } else if i < 5 {
                     // Locked resolve+acquire, then release.
-                    let (_exe, tok) = resolve::resolve_pinned(Provider::Muse, &digest).expect("pinned");
+                    let (_exe, tok) =
+                        resolve::resolve_pinned(Provider::Muse, &digest).expect("pinned");
                     acquired.fetch_add(1, Ordering::SeqCst);
                     resolve::release(&tok).expect("release");
                 } else {
@@ -636,7 +672,13 @@ fn scenario_unchanged_vs_newer_winner() {
     let base2 = store::read_selection(&root2, Provider::Muse)
         .expect("read")
         .expect("base present");
-    write_selection(&root2, &rel_x2, now.saturating_add(9), now, Freshness::Current);
+    write_selection(
+        &root2,
+        &rel_x2,
+        now.saturating_add(9),
+        now,
+        Freshness::Current,
+    );
     let late = Selection {
         provider: Provider::Muse,
         release: rel_x2.clone(),
@@ -685,7 +727,10 @@ fn scenario_unchanged_vs_newer_winner() {
         now.saturating_add(7),
         "race-Y admission failed".to_string(),
     );
-    expect(blocked.blocks_new_work(), "stale-block still blocks new work");
+    expect(
+        blocked.blocks_new_work(),
+        "stale-block still blocks new work",
+    );
     let on_disk3 = store::read_selection(&root3, Provider::Muse)
         .expect("read")
         .expect("selection present");
@@ -708,7 +753,10 @@ fn scenario_unchanged_vs_newer_winner() {
         now.saturating_add(7),
         "race-Y admission failed".to_string(),
     );
-    expect(blocked2.blocks_new_work(), "plain stale-block blocks new work");
+    expect(
+        blocked2.blocks_new_work(),
+        "plain stale-block blocks new work",
+    );
     let on_disk4 = store::read_selection(&root4, Provider::Muse)
         .expect("read")
         .expect("selection present");

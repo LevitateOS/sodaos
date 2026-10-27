@@ -77,6 +77,11 @@ export interface FirstUseEvidence {
   facts?: MatrixFacts;
   writes: string[];
   intent?: string;
+  planning_revision?: string;
+  planning_assignment?: string;
+  planning_run?: string;
+  walkthrough_reviewed?: boolean;
+  accepted_revision?: string;
   explore_status?: number;
   decisions?: string[];
   factory?: string[];

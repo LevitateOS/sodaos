@@ -118,6 +118,112 @@ func TestSubscribedFeedSubscriptionScopeAndUnsubscribe(t *testing.T) {
 	}
 }
 
+func TestSubscribedFeedAdoptedDraftPredecessorStaysCurrent(t *testing.T) {
+	ctx := context.Background()
+	s, dsn := postgresFixture(t, nil)
+	raw := journeySQL(t, dsn)
+
+	intent := "d" + strings.Repeat("2", 24)
+	draft := "d" + strings.Repeat("1", 24)
+	accepted := "d" + strings.Repeat("3", 24)
+	abandoned := "d" + strings.Repeat("4", 24)
+	idea := "d" + strings.Repeat("5", 24)
+	task := "d" + strings.Repeat("6", 24)
+	acceptance := "d" + strings.Repeat("a", 24)
+
+	revision := func(id, predecessor, state string) factory.IntentRevision {
+		return factory.IntentRevision{
+			ID: id, Intent: intent, Predecessor: predecessor, Owner: 1, Repository: 7,
+			Objective: "Build a request form", State: state, MaxIssues: 4, CreatedUnix: 1,
+			Ideas: []factory.ProductIdea{{ID: idea, Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
+			Tasks: []factory.IntentTask{{Key: task, Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{idea}}},
+		}
+	}
+	// A real draft→accepted succession: the completed draft predecessor is
+	// adopted while the live accepted head directly cites it.
+	if err := s.SaveIntentRevision(ctx, revision(draft, "", "draft")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveIntentRevision(ctx, revision(accepted, draft, "accepted")); err != nil {
+		t.Fatal(err)
+	}
+	// An abandoned fork off the same draft with no accepted citer: the raw
+	// insert leaves the head on the accepted successor, exactly as a
+	// superseded lineage reads live.
+	fork, err := json.Marshal(revision(abandoned, draft, "draft"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO factory_intent_revisions(id,intent,data) VALUES($1,$2,$3)`,
+		abandoned, intent, string(fork)); err != nil {
+		t.Fatal(err)
+	}
+
+	decomposeRecord := func(id, bound string) factory.Assignment {
+		t.Helper()
+		a := journeyAssignment(id, id, acceptance, 7, 3, true)
+		a.Phase = "decompose"
+		a.Result = &factory.AssignmentResult{
+			PhaseResult: &factory.PhaseResult{
+				Phase: "decompose", Status: "completed", Summary: "decomposition recorded",
+				Version: factory.PhaseResultVersion,
+				Output: &factory.PhaseOutput{
+					Decomposition: &factory.SemanticPlannerOutput{
+						Intent: intent, Revision: bound, Operation: factory.IntentPlanningPropose,
+					},
+				},
+			},
+		}
+		return a
+	}
+	adoptedID, successorID, forkID := strings.Repeat("7", 32), strings.Repeat("8", 32), strings.Repeat("9", 32)
+	insertJourneyAssignment(t, raw, decomposeRecord(adoptedID, draft), factory.AssignmentFinished, 1)
+	insertJourneyAssignment(t, raw, decomposeRecord(successorID, accepted), factory.AssignmentFinished, 1)
+	insertJourneyAssignment(t, raw, decomposeRecord(forkID, abandoned), factory.AssignmentFinished, 1)
+
+	records := func(page []factory.FeedEntry) map[string]int64 {
+		out := map[string]int64{}
+		for _, e := range page {
+			if e.Kind == factory.FeedKindRecord && e.Activity == "" {
+				out[e.ID] = e.Seq
+			}
+		}
+		return out
+	}
+
+	all, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	allRecords := records(all)
+	for _, id := range []string{adoptedID, successorID, forkID} {
+		if _, ok := allRecords[id]; !ok {
+			t.Fatalf("history view drops %s: %+v", id, all)
+		}
+	}
+
+	current, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10, Current: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentRecords := records(current)
+	if _, ok := currentRecords[adoptedID]; !ok {
+		t.Fatalf("current view drops adopted draft predecessor %s: %+v", adoptedID, current)
+	}
+	if _, ok := currentRecords[successorID]; !ok {
+		t.Fatalf("current view drops head-bound successor %s: %+v", successorID, current)
+	}
+	if _, ok := currentRecords[forkID]; ok {
+		t.Fatalf("current view keeps uncited fork %s: %+v", forkID, current)
+	}
+	// Current-only is a filter, never a reorder: shared keys match history.
+	for id, seq := range currentRecords {
+		if allRecords[id] != seq {
+			t.Fatalf("record %s moved %d != %d", id, seq, allRecords[id])
+		}
+	}
+}
+
 func TestFeedSubscriptionRestartPersistence(t *testing.T) {
 	ctx := context.Background()
 	_, dsn := postgresFixture(t, nil)

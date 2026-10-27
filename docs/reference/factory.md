@@ -90,9 +90,13 @@ routes belong to the [credential contract](credentials.md#authentication-and-bil
 Muse's admitted role profile also binds reasoning effort and Contributor mode.
 The common launch handoff takes that profile from the run's retained policy,
 including investigation and review, which have no execution manifest. The
-native Muse command receives explicit `--reasoning-effort` and
-`--contributor-mode on|off`; planned execution must match the same profile in
-its staged manifest. A changed profile cannot replay an existing native run.
+headless Muse command receives explicit `--reasoning-effort` and
+`--contributor-mode on|off`. Supervised native sessions pass the effort through
+MSP `turn/start` and retain per-process Contributor mode. Implementation children
+select the fixed per-run `factory-task` native agent definition; its admitted
+model/effort and actual child model, prompt, lineage and result must match before
+output is released. Planned execution must match the same profile in its staged
+manifest. A changed profile cannot replay an existing native run.
 Older launches without profile fields retain their recorded behavior. This
 requires the matching host implementation and a pinned CLI that supports the
 flags; changing policy metadata alone does not establish those capabilities.

@@ -1,5 +1,18 @@
 use std::time::{Duration, Instant};
 
+/// Typed failure of a bounded run: retained-stdout overflow stays
+/// distinct from every other failure so route layers can signal an
+/// explicit bounds refusal without matching error text. Anything else —
+/// stderr ceiling, timeout/cancellation, cleanup, wait, exit status —
+/// fails closed carrying the exact executor diagnostic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BoundedError {
+    /// Retained stdout outgrew its ceiling with cleanup confirmed.
+    StdoutLimit,
+    /// Every other failure, carrying the exact executor diagnostic.
+    Failed(String),
+}
+
 pub trait Executor {
     fn run(
         &self,
@@ -22,6 +35,25 @@ pub trait Executor {
         _stderr_limit: usize,
     ) -> Result<Vec<u8>, String> {
         self.run(stdin, cmd, args, deadline)
+    }
+    /// Typed bounded run: stdout-ceiling overflow with confirmed cleanup
+    /// surfaces as [`BoundedError::StdoutLimit`]; every other failure
+    /// (stderr ceiling, timeout/cancellation, cleanup, wait, exit status)
+    /// surfaces as [`BoundedError::Failed`] with the exact legacy
+    /// diagnostic. Non-native test/custom executors keep their existing
+    /// behavior through the default: any `run_bounded` error maps to
+    /// `Failed`, never to `StdoutLimit`.
+    fn run_bounded_typed(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, BoundedError> {
+        self.run_bounded(stdin, cmd, args, deadline, stdout_limit, stderr_limit)
+            .map_err(BoundedError::Failed)
     }
     /// Run with a bounded post-exit capture grace (Go WaitDelay analog):
     /// after the leader exits, capture must settle within `grace`
@@ -75,6 +107,18 @@ impl<E: Executor> Executor for &E {
         (*self).run_bounded(stdin, cmd, args, deadline, stdout_limit, stderr_limit)
     }
 
+    fn run_bounded_typed(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, BoundedError> {
+        (*self).run_bounded_typed(stdin, cmd, args, deadline, stdout_limit, stderr_limit)
+    }
+
     fn run_with_capture_grace(
         &self,
         stdin: &[u8],
@@ -117,6 +161,29 @@ impl Executor for Native {
         stderr_limit: usize,
     ) -> Result<Vec<u8>, String> {
         execute(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            false,
+            CapturePolicy {
+                stdout_limit: Some(stdout_limit),
+                stderr_limit: Some(stderr_limit),
+                ..CapturePolicy::default()
+            },
+        )
+    }
+
+    fn run_bounded_typed(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, BoundedError> {
+        execute_typed(
             stdin,
             cmd,
             args,
@@ -197,6 +264,29 @@ impl Executor for NativeStatusOnly {
         )
     }
 
+    fn run_bounded_typed(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+        stdout_limit: usize,
+        stderr_limit: usize,
+    ) -> Result<Vec<u8>, BoundedError> {
+        execute_typed(
+            stdin,
+            cmd,
+            args,
+            deadline,
+            true,
+            CapturePolicy {
+                stdout_limit: Some(stdout_limit),
+                stderr_limit: Some(stderr_limit),
+                ..CapturePolicy::default()
+            },
+        )
+    }
+
     fn run_with_capture_grace(
         &self,
         stdin: &[u8],
@@ -232,6 +322,62 @@ fn execute(
     capture: CapturePolicy,
 ) -> Result<Vec<u8>, String> {
     execute_with_waiter(stdin, cmd, args, deadline, status_only, capture, wait_exit)
+        .map_err(|error| error.into_legacy(cmd, status_only))
+}
+
+fn execute_typed(
+    stdin: &[u8],
+    cmd: &str,
+    args: &[&str],
+    deadline: Instant,
+    status_only: bool,
+    capture: CapturePolicy,
+) -> Result<Vec<u8>, BoundedError> {
+    execute_with_waiter(stdin, cmd, args, deadline, status_only, capture, wait_exit).map_err(
+        |error| match error {
+            RunError::StdoutLimit {
+                cleanup_confirmed: true,
+            } => BoundedError::StdoutLimit,
+            RunError::StdoutLimit {
+                cleanup_confirmed: false,
+            } => BoundedError::Failed(capture_limit_error(cmd, status_only, false)),
+            RunError::Msg(message) => BoundedError::Failed(message),
+        },
+    )
+}
+
+/// Structured failure of one bounded execution. A stdout-ceiling
+/// overflow with confirmed cleanup stays distinct from every other
+/// failure so typed callers can signal it without matching error text.
+enum RunError {
+    /// Pure retained-stdout overflow: every transfer completed, the
+    /// reaped exit was clean, and the flag records whether the bounded
+    /// cleanup confirmed the child reaped. Anything mixed (incomplete
+    /// transfer, stderr involvement, nonzero exit, lapsed deadline,
+    /// unconfirmed cleanup) is `Msg`, never this.
+    StdoutLimit { cleanup_confirmed: bool },
+    /// Every other failure, carrying the exact legacy diagnostic.
+    Msg(String),
+}
+
+impl RunError {
+    fn into_legacy(self, cmd: &str, status_only: bool) -> String {
+        match self {
+            RunError::Msg(message) => message,
+            RunError::StdoutLimit { cleanup_confirmed } => {
+                capture_limit_error(cmd, status_only, cleanup_confirmed)
+            }
+        }
+    }
+}
+
+/// Which retained pipe outgrew its ceiling while the run was in flight.
+/// Stderr involvement always fails closed as `Msg`; only a pure stdout
+/// overflow with confirmed cleanup is a typed bounds refusal.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LimitCause {
+    Stdout,
+    Stderr,
 }
 
 /// Shared runner with an injectable exit probe. Exclusive-waiter design:
@@ -366,21 +512,48 @@ fn cleanup_unless_lost(child: &mut std::process::Child, cause: &std::io::Error) 
     }
 }
 
-fn exceeded_capture_error(
+fn limit_capture_error(
     pid: libc::pid_t,
     child: &mut std::process::Child,
     cmd: &str,
     status_only: bool,
-) -> String {
+    cause: LimitCause,
+    retained_stderr: Vec<u8>,
+) -> RunError {
     let retired = retire_group(pid);
-    match child.wait() {
-        Ok(_) => {}
-        Err(e) => return wait_text(cmd, status_only, &e),
-    }
-    if !retired {
-        capture_limit_error(cmd, status_only, false)
-    } else {
-        capture_limit_error(cmd, status_only, true)
+    let status = match child.wait() {
+        Ok(status) => status,
+        Err(e) => return RunError::Msg(wait_text(cmd, status_only, &e)),
+    };
+    match cause {
+        LimitCause::Stderr => RunError::Msg(capture_limit_error(cmd, status_only, retired)),
+        LimitCause::Stdout => {
+            // Fail-closed precedence: the reaped exit status decides, not
+            // the overflow flag. A nonzero exit is an execution failure
+            // (reported with the retained stderr, like the normal path),
+            // never a bounds refusal. Only a clean exit with confirmed
+            // cleanup stays a typed bounds refusal; an unconfirmed
+            // cleanup fails closed with the limit diagnostic.
+            if !status.success() {
+                return match finalize_execution(
+                    status,
+                    Vec::new(),
+                    retained_stderr,
+                    cmd,
+                    status_only,
+                ) {
+                    Err(message) => RunError::Msg(message),
+                    Ok(_) => RunError::Msg(capture_limit_error(cmd, status_only, retired)),
+                };
+            }
+            if retired {
+                RunError::StdoutLimit {
+                    cleanup_confirmed: true,
+                }
+            } else {
+                RunError::Msg(capture_limit_error(cmd, status_only, false))
+            }
+        }
     }
 }
 
@@ -412,22 +585,27 @@ fn execute_with_waiter(
     status_only: bool,
     policy: CapturePolicy,
     waiter: impl Fn(libc::pid_t) -> Result<bool, std::io::Error>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, RunError> {
     // Refuse before launch: an expired deadline must never start an
     // effectful command. The error describes the refusal, never a kill
     // (no child exists), like Go's expired-context Start refusal.
     if Instant::now() >= deadline {
-        return Err(refusal_text(cmd, status_only));
+        return Err(RunError::Msg(refusal_text(cmd, status_only)));
     }
-    let mut child = spawn_execution_child(cmd, args, status_only)?;
-    let (mut input, mut out_pipe, mut err_pipe) = take_and_arm_pipes(&mut child, cmd)?;
+    let mut child = spawn_execution_child(cmd, args, status_only).map_err(RunError::Msg)?;
+    let (mut input, mut out_pipe, mut err_pipe) =
+        take_and_arm_pipes(&mut child, cmd).map_err(RunError::Msg)?;
     let pid = child.id() as libc::pid_t;
     // Post-exit capture bound, shared with the transfers. Unselected
     // callers keep the full caller deadline; selected callers tighten it
     // to the capture grace once exit is observed.
     let capture_deadline = std::sync::Mutex::new(deadline);
     let cap = Some(&capture_deadline);
-    let exceeded = std::sync::atomic::AtomicBool::new(false);
+    // One overflow flag per retained pipe: only a pure stdout overflow
+    // with confirmed cleanup is a typed bounds refusal. Stderr
+    // involvement always fails closed as `Msg`.
+    let stdout_exceeded = std::sync::atomic::AtomicBool::new(false);
+    let stderr_exceeded = std::sync::atomic::AtomicBool::new(false);
     let outcome = std::thread::scope(|scope| {
         // Stdin/stdout/stderr transfer concurrently: a child emitting
         // beyond pipe capacity would otherwise block forever while the
@@ -441,7 +619,7 @@ fn execute_with_waiter(
                 deadline,
                 cap,
                 policy.stdout_limit,
-                &exceeded,
+                &stdout_exceeded,
             )
         });
         let err_drain = scope.spawn(|| {
@@ -450,23 +628,84 @@ fn execute_with_waiter(
                 deadline,
                 cap,
                 policy.stderr_limit,
-                &exceeded,
+                &stderr_exceeded,
             )
         });
         loop {
-            if exceeded.load(std::sync::atomic::Ordering::Acquire) {
+            if stdout_exceeded.load(std::sync::atomic::Ordering::Acquire)
+                || stderr_exceeded.load(std::sync::atomic::Ordering::Acquire)
+            {
                 if let Ok(mut bound) = capture_deadline.lock() {
                     *bound = (*bound).min(Instant::now() + CLEANUP_GRACE);
                 }
                 let cleaned = cleanup_child(&mut child);
-                let _ = writer.join();
-                let _ = out_drain.join();
-                let _ = err_drain.join();
-                return Err(capture_limit_error(
-                    cmd,
-                    status_only,
-                    matches!(cleaned, Cleanup::Clean(_)),
-                ));
+                let wrote = writer.join();
+                let stdout = out_drain.join();
+                let stderr = err_drain.join();
+                // Fail-closed precedence: a transfer that stopped WITHOUT
+                // its pipe's overflow flag is genuinely incomplete (the
+                // caller deadline passed or the pipe broke), never bounds.
+                // A flagged pipe's Incomplete IS the overflow, so only an
+                // unflagged Incomplete fails the run here.
+                if !matches!(wrote, Ok(Transfer::Done(())))
+                    || (!stdout_exceeded.load(std::sync::atomic::Ordering::Acquire)
+                        && !matches!(stdout, Ok(Transfer::Done(_))))
+                    || (!stderr_exceeded.load(std::sync::atomic::Ordering::Acquire)
+                        && !matches!(stderr, Ok(Transfer::Done(_))))
+                {
+                    return Err(RunError::Msg(completion_text(cmd, status_only)));
+                }
+                let cleanup_confirmed = matches!(cleaned, Cleanup::Clean(_));
+                if stderr_exceeded.load(std::sync::atomic::Ordering::Acquire) {
+                    return Err(RunError::Msg(capture_limit_error(
+                        cmd,
+                        status_only,
+                        cleanup_confirmed,
+                    )));
+                }
+                // Fail-closed precedence: a reaped nonzero EXIT is a
+                // natural `exit N` that landed before the cleanup reap
+                // (the flag causally precedes it: the overflow drain
+                // drops the read end, the writer SIGPIPEs, the shell
+                // exits N). Report the execution failure, never
+                // bounds — exactly like the capture-phase path. Signal
+                // deaths (including this branch's own group kill of a
+                // still-live leader) keep the bounds refusal, so a pure
+                // overflow never leaks its kill status.
+                if let Cleanup::Clean(status) = &cleaned {
+                    if matches!(status.code(), Some(code) if code != 0) {
+                        let retained_stderr = match &stderr {
+                            Ok(Transfer::Done(retained)) => retained.clone(),
+                            _ => Vec::new(),
+                        };
+                        return Err(
+                            match finalize_execution(
+                                *status,
+                                Vec::new(),
+                                retained_stderr,
+                                cmd,
+                                status_only,
+                            ) {
+                                Err(message) => RunError::Msg(message),
+                                Ok(_) => RunError::Msg(capture_limit_error(
+                                    cmd,
+                                    status_only,
+                                    cleanup_confirmed,
+                                )),
+                            },
+                        );
+                    }
+                }
+                // A deadline that lapsed around the overflow is a
+                // cancellation, never a bounds refusal.
+                if Instant::now() >= deadline {
+                    return Err(RunError::Msg(timeout_execution_error(
+                        cmd,
+                        status_only,
+                        cleaned,
+                    )));
+                }
+                return Err(RunError::StdoutLimit { cleanup_confirmed });
             }
             match waiter(pid) {
                 // Exited but UN-REAPED: the zombie pins the PID/PGID
@@ -489,7 +728,11 @@ fn execute_with_waiter(
                         let _ = writer.join();
                         let _ = out_drain.join();
                         let _ = err_drain.join();
-                        return Err(timeout_execution_error(cmd, status_only, cleaned));
+                        return Err(RunError::Msg(timeout_execution_error(
+                            cmd,
+                            status_only,
+                            cleaned,
+                        )));
                     }
                     std::thread::sleep(Duration::from_millis(5));
                 }
@@ -507,7 +750,7 @@ fn execute_with_waiter(
                     let _ = writer.join();
                     let _ = out_drain.join();
                     let _ = err_drain.join();
-                    return Err(wait_text(cmd, status_only, &e));
+                    return Err(RunError::Msg(wait_text(cmd, status_only, &e)));
                 }
             }
         }
@@ -518,15 +761,55 @@ fn execute_with_waiter(
         // never-orphan claims cover the joined paths only, not unwinds.
         let wrote = writer
             .join()
-            .map_err(|_| format!("{cmd} failed: stdin writer panicked"))?;
+            .map_err(|_| RunError::Msg(format!("{cmd} failed: stdin writer panicked")))?;
         let stdout = out_drain
             .join()
-            .map_err(|_| completion_text(cmd, status_only))?;
+            .map_err(|_| RunError::Msg(completion_text(cmd, status_only)))?;
         let stderr = err_drain
             .join()
-            .map_err(|_| completion_text(cmd, status_only))?;
-        if exceeded.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(exceeded_capture_error(pid, &mut child, cmd, status_only));
+            .map_err(|_| RunError::Msg(completion_text(cmd, status_only)))?;
+        // Fail-closed precedence: genuine incompleteness (an Incomplete
+        // transfer with no overflow flag for its pipe) beats every
+        // overflow flag, exactly like the exclusive-waiter path above.
+        // The check runs before the flags because a flagged drain always
+        // reports Incomplete itself.
+        let wrote_incomplete = matches!(wrote, Transfer::Incomplete);
+        let stdout_genuine = matches!(stdout, Transfer::Incomplete)
+            && !stdout_exceeded.load(std::sync::atomic::Ordering::Acquire);
+        let stderr_genuine = matches!(stderr, Transfer::Incomplete)
+            && !stderr_exceeded.load(std::sync::atomic::Ordering::Acquire);
+        if wrote_incomplete || stdout_genuine || stderr_genuine {
+            // Incomplete with the leader still pinned: retire the
+            // original owned group BEFORE the single reap (the zombie
+            // holds the PGID against reuse), then report the bounded
+            // capture failure. Never signal after the reap.
+            let _ = retire_group(pid);
+            let _ = child.wait();
+            return Err(RunError::Msg(completion_text(cmd, status_only)));
+        }
+        if stderr_exceeded.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(limit_capture_error(
+                pid,
+                &mut child,
+                cmd,
+                status_only,
+                LimitCause::Stderr,
+                Vec::new(),
+            ));
+        }
+        if stdout_exceeded.load(std::sync::atomic::Ordering::Acquire) {
+            let retained_stderr = match &stderr {
+                Transfer::Done(retained) => retained.clone(),
+                Transfer::Incomplete => Vec::new(),
+            };
+            return Err(limit_capture_error(
+                pid,
+                &mut child,
+                cmd,
+                status_only,
+                LimitCause::Stdout,
+                retained_stderr,
+            ));
         }
         // No successful truncated output: any transfer that missed the
         // deadline fails the run even when the exit status is zero, like
@@ -540,15 +823,17 @@ fn execute_with_waiter(
                 // capture failure. Never signal after the reap.
                 let _ = retire_group(pid);
                 let _ = child.wait();
-                return Err(completion_text(cmd, status_only));
+                return Err(RunError::Msg(completion_text(cmd, status_only)));
             }
         };
         // Single reap now that capture settled; the exit status decides.
-        let status = child.wait().map_err(|e| wait_text(cmd, status_only, &e))?;
+        let status = child
+            .wait()
+            .map_err(|e| RunError::Msg(wait_text(cmd, status_only, &e)))?;
         Ok((status, stdout, stderr))
     })?;
     let (status, stdout, stderr): (std::process::ExitStatus, Vec<u8>, Vec<u8>) = outcome;
-    finalize_execution(status, stdout, stderr, cmd, status_only)
+    finalize_execution(status, stdout, stderr, cmd, status_only).map_err(RunError::Msg)
 }
 
 /// Expired-deadline refusal text: no child was started, so the wording

@@ -1,7 +1,7 @@
 import {html} from 'lit';
 import './sodaspaces-factory-verification-allowance.js';
 import {repeat} from 'lit/directives/repeat.js';
-import type {SavedRequest} from './sodaspaces-intent-response.js';
+import type {SavedRequest, IntentPlanStatus} from './sodaspaces-intent-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 
 export interface ProjectWorkView {
@@ -9,6 +9,7 @@ export interface ProjectWorkView {
   repositoryName: string;
   repositoryNames: ReadonlyMap<string, string>;
   plans: readonly SavedRequest[];
+  planStatuses: ReadonlyMap<string, IntentPlanStatus>;
   loaded: boolean;
   busy: boolean;
   error: string;
@@ -21,13 +22,35 @@ export interface ProjectWorkView {
   loadMore: () => void;
 }
 
-function planState(plan: SavedRequest) {
-  if (plan.state === 'draft') return 'Draft';
+// Work return replays the recorded plan/check state, never a saved-scope
+// guess. The list entry carries only saved scope counts
+// (effective_count/task_count derive from the current revision content, see
+// internal/factory/intent.go Summary). The state label and action below derive
+// from the authorized same-intent/revision owner GET plan status:
+// completed + walkthroughs + clean check = Checked, completed + walkthroughs +
+// blocking findings = Needs-correction, completed + walkthroughs without a
+// recorded check = Plan-ready. Anything else stays neutral (Draft for drafts,
+// Accepted/Closed for decided work). Reads are replay-only: a missing plan,
+// a mismatched revision, an undecided run, or a failed read never claims a
+// check and never starts planning.
+export function workPlanState(plan: SavedRequest, status: IntentPlanStatus | undefined) {
   if (plan.state === 'accepted') return 'Accepted';
-  return 'Closed';
+  if (plan.state !== 'draft') return 'Closed';
+  if (!status || status.revision !== plan.revision) return 'Draft';
+  if (status.state !== 'completed' || !status.walkthroughs) return 'Draft';
+  if (!status.review || !status.review.consistency) return 'Plan-ready';
+  return status.review.consistency.mismatches.length ? 'Needs-correction' : 'Checked';
 }
 
-function planAction(plan: SavedRequest) {
+function planState(plan: SavedRequest, statuses: ReadonlyMap<string, IntentPlanStatus>) {
+  return workPlanState(plan, statuses.get(plan.intent));
+}
+
+function planAction(plan: SavedRequest, statuses: ReadonlyMap<string, IntentPlanStatus>) {
+  const state = workPlanState(plan, statuses.get(plan.intent));
+  if (state === 'Checked') return 'Review check';
+  if (state === 'Needs-correction') return 'Resolve blockers';
+  if (state === 'Plan-ready') return 'Check walkthrough';
   if (plan.state === 'draft') return 'Continue planning';
   if (plan.state === 'accepted') return 'View progress';
   return 'Review';
@@ -39,7 +62,7 @@ function repositoryName(plan: SavedRequest, names: ReadonlyMap<string, string>) 
 }
 
 function renderPlan(plan: SavedRequest, view: ProjectWorkView) {
-  const state = planState(plan);
+  const state = planState(plan, view.planStatuses);
   return html`<article class="soda-work-item" data-intent-id=${plan.intent}>
     <div class="soda-work-item-heading">
       <span class="soda-work-state" data-state=${state.toLocaleLowerCase()}>${state}</span>
@@ -55,10 +78,10 @@ function renderPlan(plan: SavedRequest, view: ProjectWorkView) {
         type="button"
         class="ui button"
         ?disabled=${view.disabled}
-        aria-label=${planAction(plan) + ': ' + plan.objective}
+        aria-label=${planAction(plan, view.planStatuses) + ': ' + plan.objective}
         @click=${() => view.resume(plan.intent)}
       >
-        ${planAction(plan)} <span aria-hidden="true">→</span>
+        ${planAction(plan, view.planStatuses)} <span aria-hidden="true">→</span>
       </button>
     </div>
     ${

@@ -30,7 +30,7 @@ type requestDirectionView struct {
 func requestDirectionDTO(r factory.IntentRevision) requestDirectionView {
 	view := requestDirectionView{
 		IdeasByDecision: map[string]int{}, IdeasBySource: map[string]int{},
-		EffectiveOutcomes: r.EffectiveOutcomes,
+		EffectiveOutcomes: append([]string(nil), factory.ResolvedScope(r)...),
 		Objective:         r.Objective, Approach: r.Approach,
 		IdeasTotal: len(r.Ideas), TasksTotal: len(r.Tasks),
 	}
@@ -242,7 +242,7 @@ func (s *API) apiFactoryRequestOverview(w http.ResponseWriter, r *http.Request, 
 		Intent: revision.Intent, Revision: revision.ID, State: revision.State,
 		ObservedUnix: time.Now().Unix(),
 	}
-	view.WorkItems.OutcomesTotal = len(revision.EffectiveOutcomes)
+	view.WorkItems.OutcomesTotal = len(factory.ResolvedScope(revision))
 	view.WorkItems.OutcomesEvidenced, err = s.Store.VerifiedApplicationOutcomeCount(r.Context(), revision)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read application verification evidence.")
@@ -266,8 +266,8 @@ func (s *API) apiFactoryRequestOverview(w http.ResponseWriter, r *http.Request, 
 	for _, task := range revision.Tasks {
 		tasks[task.Key] = task
 	}
-	effective := make(map[string]bool, len(revision.EffectiveOutcomes))
-	for _, id := range revision.EffectiveOutcomes {
+	effective := make(map[string]bool, len(factory.ResolvedScope(revision)))
+	for _, id := range factory.ResolvedScope(revision) {
 		effective[id] = true
 	}
 	for _, id := range requestUnresolvedAssumptions(revision.Ideas) {

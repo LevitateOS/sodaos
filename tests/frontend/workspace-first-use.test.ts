@@ -28,6 +28,38 @@ test('page stylesheet sizes the workspace host without drawer CSS', async (t) =>
   assert(geometry.workspace.width > 0 && geometry.workspace.height > 0, 'workspace must inherit host geometry');
 });
 
+test('first use entry keeps its primary action in the initial viewport at presentation size', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.setViewportSize({width: 1440, height: 1000});
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  const action = await page.getByRole('button', {name: 'Explore ideas', exact: true}).boundingBox();
+  assert(action, 'entry primary action is missing');
+  assert(
+    action.y >= 0 && action.y + action.height <= 1000,
+    'initial request primary action sits below the fold at presentation size: ' + JSON.stringify(action)
+  );
+  const frame = await page.locator('.soda-setup-panel').evaluate((node) => {
+    const workspace = node.closest('.soda-workspace')!;
+    const frame = workspace.querySelector(':scope > .soda-workspace-frame') as HTMLElement;
+    const frameStyle = getComputedStyle(frame);
+    const panelStyle = getComputedStyle(node);
+    return {
+      frameMaxHeight: frameStyle.maxHeight,
+      panelOverflowY: panelStyle.overflowY,
+      panelScroll: node.scrollHeight - node.clientHeight,
+    };
+  });
+  assert.notEqual(
+    frame.frameMaxHeight,
+    '640px',
+    'entry frame is capped below the presentation viewport: ' + JSON.stringify(frame)
+  );
+  assert.equal(frame.panelOverflowY, 'visible', 'entry form keeps a nested panel scroller: ' + JSON.stringify(frame));
+  assert(frame.panelScroll <= 1, 'entry form overflows its panel: ' + JSON.stringify(frame));
+});
+
 async function workspaceIntroGeometry(page: Page) {
   // Wait for loaded-font ResizeObserver work and its Lit update before
   // comparing the two settled intro layouts around Join.
@@ -182,7 +214,12 @@ for (const theme of ['light', 'dark'])
         0
       );
       await page.getByRole('button', {name: 'Create project', exact: true}).click();
-      await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+      await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+      await page.getByRole('button', {name: 'Accept and build', exact: true}).waitFor();
+      assert.equal(
+        await page.getByLabel('Desired outcome', {exact: true}).inputValue(),
+        'Build a small project tracker'
+      );
       assert.equal(
         await page.evaluate(
           () =>
@@ -190,6 +227,14 @@ for (const theme of ['light', 'dark'])
         ),
         1
       );
+      // A native Workspace entry leaves the saved request available while
+      // the developer explicitly selects the retained terminal branch.
+      await page.evaluate(() => {
+        window.history.pushState({}, '', '/workspace?repository=7');
+        (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+      });
+      await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+      await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
       const joinedLayout = await workspaceIntroGeometry(page);
       assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), joinedLayout.compact ? 0 : 1);
       assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);

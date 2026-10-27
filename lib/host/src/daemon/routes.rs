@@ -52,10 +52,12 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/factory-launch"),
     ("POST", "/factory-inspect"),
     ("POST", "/factory-verification-checks"),
+    ("POST", "/factory-application-build"),
     ("POST", "/factory-stop"),
     ("POST", "/factory-takeover"),
     ("POST", "/factory-output"),
     ("POST", "/factory-task-events"),
+    ("POST", "/factory-native-task"),
     ("POST", "/factory-task-checkpoint"),
     ("POST", "/factory-final-candidate"),
     ("POST", "/factory-task-checkpoint-receipt"),
@@ -248,11 +250,13 @@ fn invoke_native_factory<B: ExecBackend + ?Sized>(
         "/factory-launch" => Some(backend.factory_launch(body)),
         "/factory-inspect" => Some(backend.factory_inspect(body)),
         "/factory-verification-checks" => Some(backend.factory_verification_checks(body)),
+        "/factory-application-build" => Some(backend.factory_application_build(body)),
         "/factory-stop" => Some(backend.factory_stop(body)),
         "/factory-takeover" => Some(backend.factory_takeover(body)),
         "/factory-output" => Some(backend.factory_output(body)),
         "/factory-task-events" => Some(backend.factory_task_events(body)),
         "/factory-task-checkpoint" => Some(backend.factory_task_checkpoint(body, false)),
+        "/factory-native-task" => Some(backend.factory_native_task(body)),
         "/factory-final-candidate" => Some(backend.factory_task_checkpoint(body, true)),
         "/factory-task-checkpoint-receipt" => Some(backend.factory_checkpoint_receipt(body, false)),
         "/factory-final-candidate-receipt" => Some(backend.factory_checkpoint_receipt(body, true)),
@@ -274,6 +278,9 @@ fn native_error_response(result: Result<Vec<u8>, BackendError>) -> HttpResponse 
             error_response(422, "export candidate is not recorded")
         }
         Err(BackendError::ExportBounds) => error_response(413, "candidate export exceeds bounds"),
+        Err(BackendError::ContextBounds) => {
+            error_response(413, "preparation context exceeds bounds")
+        }
         Err(BackendError::Unimplemented) => error_response(501, "not implemented"),
         Err(_) => error_response(500, "native operation failed; inspect operator journal"),
     }

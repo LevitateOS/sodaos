@@ -152,10 +152,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         {
             // Retirement confirmed: release the execution's exact-bundle
             // reference so the staged bundle becomes collectable.
-            release_provider_ref(
-                &execution.provider_digest,
-                &execution.provider_ref_token,
-            );
+            release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
         } else {
             // Retirement unconfirmed: preserve the reference (conservative
             // leak); the outcome mapping is unchanged.

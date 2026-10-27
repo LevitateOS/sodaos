@@ -9,6 +9,7 @@ User=soda-identity
 Group=soda
 ExecStart=/usr/local/libexec/soda/soda-identity
 Environment=HOME=/home/soda-identity
+Environment=SODA_PROVIDERS_ROOT=/home/soda-identity/providers
 Environment=XDG_RUNTIME_DIR=/run/soda-identity
 RuntimeDirectory=soda-identity
 RuntimeDirectoryMode=0700

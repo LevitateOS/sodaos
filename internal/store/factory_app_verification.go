@@ -39,7 +39,7 @@ func (s *Store) VerifiedApplicationOutcomeCount(ctx context.Context, revision fa
 		return 0, err
 	}
 	if verified {
-		return len(revision.EffectiveOutcomes), nil
+		return len(factory.ResolvedScope(revision)), nil
 	}
 	return 0, nil
 }
@@ -230,11 +230,19 @@ func (s *Store) RecordVerifiedApplication(ctx context.Context, a factory.Assignm
 	// accepted head. All contributors to each outcome must be named; valid ID
 	// syntax, planning-sketch keys or a subset of delivered work is insufficient.
 	coverage := current.Result.PhaseResult.Output.Verification.Coverage
-	if len(coverage) != len(revision.EffectiveOutcomes) {
+	resolved := factory.ResolvedScope(revision)
+	if len(coverage) != len(resolved) {
 		return errors.New("application coverage differs from accepted outcomes")
+	}
+	authorized := make(map[string]bool, len(resolved))
+	for _, id := range resolved {
+		authorized[id] = true
 	}
 	covered := map[string]bool{}
 	for _, entry := range coverage {
+		if !authorized[entry.OutcomeID] {
+			return errors.New("application coverage differs from accepted outcomes")
+		}
 		expectedTasks, expectedAcceptances := map[string]bool{}, map[string]bool{}
 		for _, task := range tasks {
 			for _, outcome := range task.OutcomeIDs {

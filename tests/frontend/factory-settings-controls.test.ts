@@ -110,11 +110,30 @@ test('Factory settings render current authority and submit capacity through the 
     let loseReply = true;
     window.drawerFixture.setReply(async (call) => {
       if (!call.url.endsWith('/api/repositories/7/factory/repair')) return null;
-      if (call.method === 'GET') return Response.json({revision, grant, charges: revision ? [{id: 'charge', kind: 'run', episode_id: 'episode', cycle: 1, active_minutes: 30, failed: true}] : [], episodes: revision ? [{episode_id: 'episode', reason: 'missing_producer', cycles: [{id: 'cycle', number: 1, state: 'attention', reason: 'no_change', run_id: 'run'}]}] : []});
+      if (call.method === 'GET')
+        return Response.json({
+          revision,
+          grant,
+          charges: revision
+            ? [{id: 'charge', kind: 'run', episode_id: 'episode', cycle: 1, active_minutes: 30, failed: true}]
+            : [],
+          episodes: revision
+            ? [
+                {
+                  episode_id: 'episode',
+                  reason: 'missing_producer',
+                  cycles: [{id: 'cycle', number: 1, state: 'attention', reason: 'no_change', run_id: 'run'}],
+                },
+              ]
+            : [],
+        });
       const body = JSON.parse(call.body || '{}');
       revision = body.expected_revision + 1;
       grant = {...body, id: body.command_id, repository: '7'};
-      if (loseReply) { loseReply = false; throw Error('Fixture lost committed reply'); }
+      if (loseReply) {
+        loseReply = false;
+        throw Error('Fixture lost committed reply');
+      }
       return Response.json({command_id: body.command_id, revision});
     });
     window.drawerFixture.api.setPresentation('settings');
@@ -173,7 +192,9 @@ test('Factory settings render current authority and submit capacity through the 
   await repair.getByRole('button', {name: 'Save repair grant', exact: true}).click();
   await repair.locator('[data-repair-message]').filter({hasText: 'Describe the effect'}).waitFor();
   assert.equal((await writes(page)).filter((call) => call.url.endsWith('/factory/repair')).length, 2);
-  await repair.getByLabel('Effect of this change').fill('Authorize one additional investigation; preserve recorded consumption.');
+  await repair
+    .getByLabel('Effect of this change')
+    .fill('Authorize one additional investigation; preserve recorded consumption.');
   await repair.getByRole('button', {name: 'Save repair grant', exact: true}).click();
   await repair.locator('[data-repair-message]').filter({hasText: 'Repair grant confirmed.'}).waitFor();
   repairWrites = (await writes(page)).filter((call) => call.url.endsWith('/factory/repair'));
@@ -205,7 +226,7 @@ test('Factory settings expose stale authority without replaying a capacity comma
   assert.equal(sent.filter((call) => call.url.endsWith('/api/factory/capacity')).length, 1);
 });
 
-test('first repository policy selects enrolled actors before any policy exists', async (t) => {
+test('first repository policy selects enrolled actors and requires explicit intent funding', async (t) => {
   const page = await fixture(t);
   const bindings = [
     {actor_id: '41', token_id: '51', kind: 'git.ref.publish'},
@@ -216,15 +237,35 @@ test('first repository policy selects enrolled actors before any policy exists',
     {actor_id: '44', token_id: '54', kind: 'pull_request.merge'},
   ];
   await page.evaluate((bindings) => {
-    window.drawerFixture.setReply(async (call) => call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET'
-      ? Response.json({repository: '7', policy: null, native_bindings: bindings}) : null);
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+        return Response.json({repository: '7', policy: null, native_bindings: bindings});
+      if (
+        call.url.endsWith('/api/repositories/7/factory/policy') &&
+        call.method === 'PUT' &&
+        JSON.parse(call.body || '{}').intent_minutes > 0
+      )
+        return new Promise<Response>((resolve) =>
+          window.addEventListener('release-policy-write', () => resolve(Response.json({ok: true})), {once: true})
+        );
+      return null;
+    });
     window.drawerFixture.api.setPresentation('settings');
   }, bindings);
   await refresh(page);
   await page.getByRole('tab', {name: 'Factory'}).click();
   const form = page.locator('soda-factory-settings form[data-action="policy"]');
+  const minutes = form.getByLabel('Intent active minutes', {exact: true});
+  assert.equal(await minutes.inputValue(), '0', 'A new policy must not invent intent funding');
   await form.getByLabel('Publisher', {exact: true}).selectOption('45:56');
-  for (const [name, value] of Object.entries({target_branch: 'refs/heads/main', required_checks: 'native-ci/check', coder_harness_version: 'fixture', coder_model: 'fixture-coder', reviewer_harness_version: 'fixture', reviewer_model: 'fixture-reviewer'})) {
+  for (const [name, value] of Object.entries({
+    target_branch: 'refs/heads/main',
+    required_checks: 'native-ci/check',
+    coder_harness_version: 'fixture',
+    coder_model: 'fixture-coder',
+    reviewer_harness_version: 'fixture',
+    reviewer_model: 'fixture-reviewer',
+  })) {
     await form.locator(`input[name="${name}"]`).fill(value);
   }
   await form.getByRole('button', {name: 'Save repository policy', exact: true}).click();
@@ -233,7 +274,36 @@ test('first repository policy selects enrolled actors before any policy exists',
   assert.equal(sent.length, 1);
   const body = JSON.parse(sent[0]!.body!);
   assert.equal(body.expected_revision, 0);
-  for (const [field, expected] of Object.entries({publish_actor: {actor_id: '45', token_id: '56'}, create_actor: {actor_id: '41', token_id: '51'}, review_actor: {actor_id: '43', token_id: '53'}, resolve_actor: {actor_id: '43', token_id: '55'}, merge_actor: {actor_id: '44', token_id: '54'}})) assert.deepEqual(body[field], expected);
+  assert.equal(body.intent_minutes, 0);
+  for (const [field, expected] of Object.entries({
+    publish_actor: {actor_id: '45', token_id: '56'},
+    create_actor: {actor_id: '41', token_id: '51'},
+    review_actor: {actor_id: '43', token_id: '53'},
+    resolve_actor: {actor_id: '43', token_id: '55'},
+    merge_actor: {actor_id: '44', token_id: '54'},
+  }))
+    assert.deepEqual(body[field], expected);
+  for (const invalid of ['-1', '1.5']) {
+    await minutes.fill(invalid);
+    await form.evaluate((element) => element.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})));
+    await page.getByRole('status').filter({hasText: 'Enter a whole number in the allowed range.'}).waitFor();
+    assert.equal(await minutes.inputValue(), invalid, 'A refused value remains available for correction');
+    assert.equal((await writes(page)).filter((call) => call.url.endsWith('/factory/policy')).length, 1);
+  }
+  await minutes.fill('12');
+  await form.getByRole('button', {name: 'Save repository policy', exact: true}).click();
+  await page.waitForFunction(
+    () =>
+      window.drawerFixture.calls.filter((call) => call.url.endsWith('/factory/policy') && call.method === 'PUT')
+        .length === 2
+  );
+  assert(await minutes.isDisabled(), 'The existing policy authority fieldset closes while a write is pending');
+  assert(await form.getByRole('button', {name: 'Save repository policy', exact: true}).isDisabled());
+  await page.evaluate(() => window.dispatchEvent(new Event('release-policy-write')));
+  await page.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const funded = (await writes(page)).filter((call) => call.url.endsWith('/factory/policy'));
+  assert.equal(funded.length, 2);
+  assert.equal(JSON.parse(funded[1]!.body!).intent_minutes, 12);
 });
 
 test('repository policy preserves canonical role selections and submits only actor and token IDs', async (t) => {
@@ -283,6 +353,7 @@ test('repository policy preserves canonical role selections and submits only act
   await refresh(page);
   await page.getByRole('tab', {name: 'Factory'}).click();
   const form = page.locator('soda-factory-settings form[data-action="policy"]');
+  assert.equal(await form.getByLabel('Intent active minutes', {exact: true}).inputValue(), '9');
   const rendered: Record<string, string> = {};
   const selected = {
     coder_harness: roles['soda-coder'].harness,
@@ -1240,6 +1311,7 @@ test('Factory execution usage reports exact minutes, editability and required ac
   await refresh(page);
   await page.getByRole('tab', {name: 'Factory'}).click();
   const settings = page.locator('[data-factory-settings]');
+  assert(await settings.getByLabel('Intent active minutes', {exact: true}).isDisabled());
   await settings.getByText('c1: 360 minutes budget; 41 minutes used.').waitFor();
   assert.match(await settings.innerText(), /7 of 12 planning calls available/);
   assert.match(await settings.innerText(), /Status: exhausted/);
@@ -1255,7 +1327,9 @@ test('Factory execution usage reports exact minutes, editability and required ac
 test('Factory execution usage stays honestly unavailable without the access read', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {
-    window.drawerFixture.setReply(async call => call.url.endsWith('/factory/access') ? Response.json({error:{code:'unavailable'}},{status:503}) : null);
+    window.drawerFixture.setReply(async (call) =>
+      call.url.endsWith('/factory/access') ? Response.json({error: {code: 'unavailable'}}, {status: 503}) : null
+    );
     window.drawerFixture.api.setPresentation('settings');
   });
   await refresh(page);
@@ -1375,3 +1449,237 @@ test('Factory settings mount optional effects with authorizer/submitter context 
   assert.doesNotMatch(retired, /Authorized by 1001/);
   assert.match(retired, /No configuration recorded\./);
 });
+
+test('Factory settings resume closed dispatch with no open work through the actions route', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    let resumed = false;
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+        return Response.json({
+          repository: '7',
+          policy: null,
+          operator_grant: null,
+          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          sponsorships: [],
+          environment_grant: null,
+          queue: {queued: 0, active: 0},
+          effective: resumed
+            ? {effective: true, dispatch_open: true, missing: [], authority: {}}
+            : {effective: false, dispatch_open: false, missing: ['dispatch_closed'], authority: {}},
+        });
+      if (call.url.endsWith('/api/repositories/7/factory/actions') && call.method === 'POST') {
+        const body = JSON.parse(call.body || '{}');
+        resumed = true;
+        return Response.json({
+          command_id: body.command_id,
+          revision: 6,
+          reopened: true,
+          effective: {effective: true, dispatch_open: true, missing: []},
+        });
+      }
+      return null;
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('soda-factory-settings');
+  await settings.getByRole('button', {name: 'Resume Factory work', exact: true}).waitFor();
+  assert.match(await settings.innerText(), /Dispatch: closed/);
+  await settings.getByRole('button', {name: 'Resume Factory work', exact: true}).click();
+  await page.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const sent = (await writes(page)).filter((call) => call.url.endsWith('/api/repositories/7/factory/actions'));
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.method, 'POST');
+  const payload = JSON.parse(sent[0]?.body || '{}') as Record<string, unknown>;
+  assert.equal(payload.action, 'resume');
+  assert.match(String(payload.command_id), /^[a-f0-9]{32}$/);
+  assert.match(await settings.innerText(), /Dispatch: open/);
+});
+
+test('Factory settings refuse a closed-dispatch resume without replaying the command', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+        return Response.json({
+          repository: '7',
+          policy: null,
+          operator_grant: null,
+          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          sponsorships: [],
+          environment_grant: null,
+          queue: {queued: 0, active: 0},
+          effective: {effective: false, dispatch_open: false, missing: ['dispatch_closed'], authority: {}},
+        });
+      if (call.url.endsWith('/api/repositories/7/factory/actions') && call.method === 'POST')
+        return Response.json(
+          {error: {code: 'authority_ineffective', message: 'Current grants do not authorize this action.'}},
+          {status: 409}
+        );
+      return null;
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('soda-factory-settings');
+  await settings.getByRole('button', {name: 'Resume Factory work', exact: true}).click();
+  await page.getByRole('status').filter({hasText: 'Current grants do not authorize this action.'}).waitFor();
+  const sent = (await writes(page)).filter((call) => call.url.endsWith('/api/repositories/7/factory/actions'));
+  assert.equal(sent.length, 1);
+  assert.match(await settings.innerText(), /Dispatch: closed/);
+});
+
+test('Factory settings disable dispatch resume without repository write access', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) => {
+      if (/\/api\/repositories\/\d+\/factory\/access$/.test(call.url) && call.method === 'GET')
+        return Response.json({
+          repository: '7',
+          observed_unix: 1,
+          viewer: {
+            code_write: false,
+            owner_or_admin: false,
+            environment_owner: false,
+            operator: false,
+            member: true,
+            session_current: true,
+          },
+          editable: {
+            policy: {editable: false, reason: 'repository_admin_required'},
+            activity_settings: {editable: true},
+            operator_grant: {editable: false, reason: 'operator_required'},
+            capacity: {editable: false, reason: 'operator_required'},
+            environment_grant: {editable: false, reason: 'repository_admin_required'},
+            sponsorships: [{connection: 'connection-observed', editable: false}],
+            usage_budgets: [{connection: 'connection-observed', editable: false}],
+          },
+          effective: {},
+          required_actions: [],
+          preparation: null,
+          usage: [],
+          planning: [],
+        });
+      if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+        return Response.json({
+          repository: '7',
+          policy: null,
+          operator_grant: null,
+          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          sponsorships: [],
+          environment_grant: null,
+          queue: {queued: 0, active: 0},
+          effective: {effective: false, dispatch_open: false, missing: ['dispatch_closed'], authority: {}},
+        });
+      return null;
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('soda-factory-settings');
+  const resume = settings.getByRole('button', {name: 'Resume Factory work', exact: true});
+  await resume.waitFor();
+  assert.equal(await resume.isDisabled(), true);
+  assert.match(await settings.innerText(), /Resume requires repository write access for your account\./);
+  const sent = (await writes(page)).filter((call) => call.url.endsWith('/api/repositories/7/factory/actions'));
+  assert.equal(sent.length, 0);
+});
+
+test(
+  'a slow preparation preview within the backend budget renders instead of aborting',
+  {timeout: 90000},
+  async (t) => {
+    const page = await fixture(t);
+    await page.evaluate(() => {
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+          return Response.json({
+            repository: '7',
+            appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+          });
+        if (
+          call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') &&
+          call.method === 'GET'
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 20000));
+          return Response.json({
+            project: 'test-project',
+            hold: true,
+            hold_revision: 6,
+            requirements: '',
+            approval: '',
+            preparations: [
+              {
+                id: 'prep-slow',
+                role: 'coder',
+                phase: 'complete',
+                ready: true,
+                source_commit: 'a'.repeat(40),
+                setup_digest: 'b'.repeat(64),
+              },
+            ],
+          });
+        }
+        return null;
+      });
+      window.drawerFixture.api.setPresentation('settings');
+    });
+    const started = Date.now();
+    await refresh(page);
+    await page.getByRole('tab', {name: 'Factory'}).click();
+    const settings = page.locator('soda-factory-settings');
+    await settings.getByText(/ID prep-slow/).first().waitFor({timeout: 45000});
+    assert.match(await settings.innerText(), /coder · complete · ID prep-slow · ready/);
+    assert(
+      Date.now() - started >= 19000,
+      'The UI waited out the slow preview instead of aborting it early'
+    );
+    assert.equal(
+      await settings.getByRole('button', {name: 'Refresh current authority', exact: true}).isDisabled(),
+      false
+    );
+  }
+);
+
+test(
+  'a preparation preview hung past the deadline reports honestly instead of sticking busy',
+  {timeout: 150000},
+  async (t) => {
+    const page = await fixture(t);
+    await page.evaluate(() => {
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
+          return Response.json({
+            repository: '7',
+            appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+          });
+        if (
+          call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') &&
+          call.method === 'GET'
+        )
+          return new Promise<Response | null>(() => {});
+        return null;
+      });
+      window.drawerFixture.api.setPresentation('settings');
+    });
+    const started = Date.now();
+    await refresh(page);
+    await page.getByRole('tab', {name: 'Factory'}).click();
+    const settings = page.locator('soda-factory-settings');
+    const status = settings.getByRole('status').filter({hasText: /unavailable|timed out|timeout/i});
+    await status.waitFor({timeout: 120000});
+    assert(
+      Date.now() - started >= 40000,
+      'The hung preview survived past the old 15s deadline before the new deadline aborted it'
+    );
+    assert.equal(await settings.getByText(/ID prep-/).count(), 0);
+    assert.equal(
+      await settings.getByRole('button', {name: 'Refresh current authority', exact: true}).isDisabled(),
+      false
+    );
+  }
+);

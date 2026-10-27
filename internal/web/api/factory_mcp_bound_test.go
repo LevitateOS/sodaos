@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -962,6 +963,169 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationScope), Arguments: map[string]any{}})
 	if !catalogRefused(result, err) || counts() != afterTerminal {
 		t.Fatal("revoked Test Pilot read journey scope")
+	}
+
+	// A legacy accepted revision carries no explicit effective subset.
+	// Test Pilot record/read/replay still binds the decided accept/edit
+	// ideas in revision order: pending/declined excluded, raw bytes and
+	// digest unchanged, canonical binding preserved across replay.
+	legacyAccept := factory.ProductIdea{ID: "d" + strings.Repeat("b", 24), Description: "Save a task", Consequence: "The saved title persists", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+	legacyEdit := factory.ProductIdea{ID: "d" + strings.Repeat("c", 24), Description: "Read back a saved task", Consequence: "The saved title is visible", Correction: "Read back the saved title with its timestamp", Decision: "edit", Source: "requested", Provenance: "human", Actor: 7}
+	legacyPending := factory.ProductIdea{ID: "d" + strings.Repeat("d", 24), Description: "Sync to the legacy tracker", Consequence: "Legacy stays current", Decision: "pending", Source: "autonomous", Provenance: "autonomous"}
+	legacyDeclined := factory.ProductIdea{ID: "d" + strings.Repeat("e", 24), Description: "Delete tasks automatically", Consequence: "Old tasks vanish", Decision: "decline", Source: "requested", Provenance: "human", Actor: 7}
+	legacyTask := factory.IntentTask{Key: "d" + strings.Repeat("f", 24), Objective: "Persist tasks", Outcomes: []string{"The saved title persists"}, IdeaIDs: []string{legacyAccept.ID}}
+	legacyCheck := factory.IntentTask{Key: "d" + strings.Repeat("0", 24), Objective: "Read back saved titles", Outcomes: []string{"The saved title is visible"}, IdeaIDs: []string{legacyEdit.ID}}
+	legacyAccepted := factory.IntentRevision{ID: "d" + strings.Repeat("1", 24), Intent: "d" + strings.Repeat("2", 24), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 2, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{legacyAccept, legacyEdit, legacyPending, legacyDeclined}, Tasks: []factory.IntentTask{legacyTask, legacyCheck}}
+	if err := st.SaveIntentRevision(ctx, legacyAccepted); err != nil {
+		t.Fatal(err)
+	}
+	// The independent expectation comes from the fixture's decided
+	// accept/edit ideas, never from the raw empty subset under test.
+	legacyScope := []string{legacyAccept.ID, legacyEdit.ID}
+	if resolved := factory.ResolvedScope(legacyAccepted); !slices.Equal(resolved, legacyScope) {
+		t.Fatalf("legacy scope resolved=%v want decided accept+edit in revision order", resolved)
+	}
+	decidedProposal := factory.VerificationManifestProposal{Outcomes: append([]string(nil), legacyScope...), Checks: []factory.ManifestCheckRef{{Outcome: legacyAccept.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}, {Outcome: legacyEdit.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}
+	if err := decidedProposal.ValidateOutcomes(legacyAccepted); err != nil {
+		t.Fatal("legacy manifest coverage refused its decided scope", err)
+	}
+	legacyManifest := factory.ApprovedAppCheck{IntentID: legacyAccepted.Intent, AcceptedRevision: legacyAccepted.ID, Outcomes: append([]string(nil), legacyScope...)}
+	if !legacyManifest.BindsIntent(legacyAccepted) {
+		t.Fatal("legacy accepted scope did not bind its canonical manifest")
+	}
+	legacyDelivery := &factory.DeliverySubject{DeliveryID: factory.NewID(), IntentID: legacyAccepted.Intent, AcceptedRevision: legacyAccepted.ID, ScopeDigest: legacyAccepted.Digest(), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, VerificationManifestDigest: legacyManifest.Digest()}
+	legacyPilot := pilot
+	legacyPilot.ID, legacyPilot.Run = factory.NewID(), factory.NewID()
+	legacyPilot.AttemptRoot, legacyPilot.Preparation, legacyPilot.SourceCommit = legacyPilot.ID, pilot.Preparation, a.SourceCommit
+	legacyPilot.Harness, legacyPilot.HarnessVers, legacyPilot.Model, legacyPilot.Connection = "codex-fixture", "fixture", "fixture", "fixture"
+	legacyPilot.PromptSHA = project.FactoryPromptDigest(legacyPilot.Prompt)
+	legacyPilot.Attempts, legacyPilot.RunHistory = 1, []string{legacyPilot.Run}
+	legacyPilot.Subject = factory.ExecutionSubject{Kind: factory.SubjectDelivery, Delivery: legacyDelivery}
+	if err := legacyPilot.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	legacyBinding := factory.IntentTaskBinding{RevisionID: legacyAccepted.ID, TaskKey: legacyTask.Key, IssueID: 44, IssueIndex: 44, AcceptanceID: "d" + strings.Repeat("a", 24), CreatedUnix: 1}
+	if err := st.BindIntentTaskAcceptance(ctx, legacyBinding); err != nil {
+		t.Fatal(err)
+	}
+	legacyBinding2 := factory.IntentTaskBinding{RevisionID: legacyAccepted.ID, TaskKey: legacyCheck.Key, IssueID: 45, IssueIndex: 45, AcceptanceID: "d" + strings.Repeat("9", 24), CreatedUnix: 1}
+	if err := st.BindIntentTaskAcceptance(ctx, legacyBinding2); err != nil {
+		t.Fatal(err)
+	}
+	legacyEvent := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 44, Generation: 4, PublicationID: factory.NewID(), AcceptanceID: legacyBinding.AcceptanceID, MergedCommit: a.SourceCommit, ClosingOccurrence: "1"}
+	raw, _ = json.Marshal(legacyEvent)
+	write(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,4,$1,$2,'1',$3)`, legacyEvent.ID, legacyEvent.PublicationID, string(raw))
+	legacyEvent2 := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: 45, Generation: 5, PublicationID: factory.NewID(), AcceptanceID: legacyBinding2.AcceptanceID, MergedCommit: a.SourceCommit, ClosingOccurrence: "1"}
+	raw, _ = json.Marshal(legacyEvent2)
+	write(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,5,$1,$2,'1',$3)`, legacyEvent2.ID, legacyEvent2.PublicationID, string(raw))
+	raw, _ = json.Marshal(legacyPilot)
+	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',1,$3)`, legacyPilot.ID, legacyPilot.Run, string(raw))
+	legacyRun := factory.Run{ID: legacyPilot.Run, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: a.SourceCommit}
+	raw, _ = json.Marshal(legacyRun)
+	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, legacyPilot.Run, string(raw))
+	legacyPilotCap := pilotCap
+	legacyPilotCap.ID, legacyPilotCap.RunID, legacyPilotCap.AssignmentID = factory.NewID(), legacyPilot.Run, legacyPilot.ID
+	legacyPilotCap.Subject = legacyPilot.Subject.SubjectKey(7)
+	legacyPilotCap.State = factory.MCPCapabilityStaged
+	if err := st.StageMCPCapability(ctx, legacyPilotCap); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ActivateObservedMCPCapability(ctx, legacyPilotCap); err != nil {
+		t.Fatal(err)
+	}
+	legacyPilotCap, err = st.GetMCPCapability(ctx, legacyPilotCap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decidedSecret, err := factory.DeriveMCPCapabilitySecret(key, legacyPilotCap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decidedSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{legacyPilotCap.ID, decidedSecret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer decidedSession.Close()
+	readLegacyScope := func(after int64) factory.VerificationScopeView {
+		t.Helper()
+		before := counts()
+		beforeState := verificationReadState()
+		result, err := decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationScope), Arguments: map[string]any{"payload": map[string]any{"after": after}}})
+		var view factory.VerificationScopeView
+		if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &view) != nil || counts() != before || verificationReadState() != beforeState {
+			t.Fatal("legacy journey scope refused or wrote during read", err)
+		}
+		return view
+	}
+	legacyBeforeState := verificationReadState()
+	if scope := readLegacyScope(0); !scope.Complete || scope.Total != 0 || len(scope.Records) != 0 || !slices.Equal(scope.OutcomeIDs, legacyScope) {
+		t.Fatalf("legacy journey scope exposed %+v want decided accept+edit outcomes", scope)
+	}
+	legacyObservation := factory.VerificationJourneyResult{DeliveryID: legacyDelivery.DeliveryID, InputDigest: legacyPilotCap.ScopeDigest(), SourceCommit: a.SourceCommit, Preparation: legacyPilot.Preparation, ManifestDigest: legacyDelivery.VerificationManifestDigest, OutcomeIDs: append([]string(nil), legacyScope...), Name: "Persist a saved task", Steps: []string{"Create a task", "Read back its saved title"}, Expected: "The saved title matches the request.", Observed: "The native assertions read back the saved title.", Result: "passed"}
+	legacyJourneyID := factory.NewID()
+	legacyArgs := map[string]any{"submission_id": legacyJourneyID, "payload": journeyPayload(legacyObservation)}
+	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: legacyArgs})
+	if catalogRefused(result, err) {
+		t.Fatal("legacy scoped journey observation refused", err, catalogText(t, result))
+	}
+	legacyReceipt := catalogText(t, result)
+	legacyAfterRecord := counts()
+	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: legacyArgs})
+	if catalogRefused(result, err) || catalogText(t, result) != legacyReceipt || counts() != legacyAfterRecord {
+		t.Fatal("legacy journey replay changed its receipt or journal", err)
+	}
+	for name, ids := range map[string][]string{"pending revival": {legacyScope[0], legacyPending.ID}, "declined revival": {legacyScope[0], legacyDeclined.ID}, "foreign outcome": {"d" + strings.Repeat("9", 24)}} {
+		bad := legacyObservation
+		bad.OutcomeIDs = ids
+		id := factory.NewID()
+		result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": id, "payload": journeyPayload(bad)}})
+		if !catalogRefused(result, err) || counts() != legacyAfterRecord || verificationReadState() != legacyBeforeState {
+			t.Fatalf("legacy %s recorded evidence or changed canonical work", name)
+		}
+	}
+	if scope := readLegacyScope(0); !scope.Complete || scope.Total != 1 || len(scope.Records) != 1 || !slices.Equal(scope.OutcomeIDs, legacyScope) || scope.Records[0].Observation.OutcomeIDs[0] != legacyScope[0] || scope.Records[0].Observation.OutcomeIDs[1] != legacyScope[1] || scope.Records[0].Observation.DeliveryID != legacyDelivery.DeliveryID {
+		t.Fatal("legacy journey readback lost its exact recorded observation")
+	}
+	var legacyRevisionRaw []byte
+	if err := db.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, legacyAccepted.ID).Scan(&legacyRevisionRaw); err != nil || strings.Contains(string(legacyRevisionRaw), "effective_outcomes") {
+		t.Fatal("legacy revision raw bytes gained an effective subset", err)
+	}
+	var legacyReread factory.IntentRevision
+	if err := json.Unmarshal(legacyRevisionRaw, &legacyReread); err != nil || legacyReread.Digest() != legacyAccepted.Digest() || legacyReread.Digest() != legacyDelivery.ScopeDigest {
+		t.Fatal("legacy revision digest moved under the pure projection", err)
+	}
+	// A legacy terminal finish carries the recorded journey observation by
+	// reference: the failed finish cites journey:<submission> through the
+	// same terminal reference validation as current scope, replays
+	// immutably over HTTP, and leaves the saved legacy revision bytes
+	// bit-identical.
+	legacyFinish := factory.AppVerificationReport{DeliveryID: legacyDelivery.DeliveryID, InputDigest: legacyPilotCap.ScopeDigest(), Outcome: factory.AppVerificationFailed, Coverage: []factory.ReassessmentCoverage{}, CheckReceipts: []factory.VerificationCheckReceipt{*verificationEvidence.ExecutionReceipt}, Failures: []factory.CheckFailure{{CheckRef: legacyScope[0], Detail: "The approved readback does not exercise every accepted behavior."}}, EvidenceRefs: []string{"journey:" + legacyJourneyID}}
+	legacyFinishJSON, _ := json.Marshal(legacyFinish)
+	var legacyFinishPayload map[string]any
+	if json.Unmarshal(legacyFinishJSON, &legacyFinishPayload) != nil {
+		t.Fatal("invalid legacy finish fixture")
+	}
+	legacyFinishJSON, _ = json.Marshal(legacyFinishPayload)
+	legacyFinishID := factory.NewID()
+	legacyFinishArgs := map[string]any{"submission_id": legacyFinishID, "payload": legacyFinishPayload}
+	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, ExpectedInputDigest: legacyPilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(legacyFinishJSON), Payload: legacyFinishJSON}
+	if _, err := st.RecordMCPSubmission(ctx, legacyFinishSub, factory.MCPReceipt{SubmissionID: legacyFinishID, Tool: legacyFinishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyFinishSub.PayloadHash}); err != nil {
+		t.Fatal("legacy journey observation consumed terminal capacity", err)
+	}
+	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: legacyFinishArgs})
+	if catalogRefused(result, err) {
+		t.Fatal("HTTP finish dropped its canonical legacy evidence refs", err, catalogText(t, result))
+	}
+	legacyAfterTerminal := counts()
+	legacyFinishPayload["evidence_refs"] = []string{"journey:" + factory.NewID()}
+	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: legacyFinishArgs})
+	if !catalogRefused(result, err) || counts() != legacyAfterTerminal {
+		t.Fatal("legacy finish replay replaced its original journey reference")
+	}
+	var legacyRevisionAfter []byte
+	if err := db.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, legacyAccepted.ID).Scan(&legacyRevisionAfter); err != nil || string(legacyRevisionAfter) != string(legacyRevisionRaw) {
+		t.Fatal("legacy terminal finish rewrote its saved revision bytes", err)
 	}
 
 	// A real Architect report must remain correctable before terminal freeze.

@@ -1,6 +1,6 @@
-// Full FW23 fixture work journey: every rendered section with D13
-// completion gate, proposal and adoption. Recorded-shaped facts only;
-// actual persisted readback binding belongs to FW25.
+// Full fixture work journey: every rendered section with D13 completion
+// gate, proposal and adoption, delivered-task evidence and the verified
+// application revision. Recorded-shaped facts only.
 
 const head = 'a'.repeat(40);
 const base = 'b'.repeat(40);
@@ -90,7 +90,39 @@ export const WORK_JOURNEY_FIXTURE = {
     },
   ],
   adoptions: [
-    {intent: `d${'e'.repeat(24)}`, revision: `d${'f'.repeat(24)}`, state: 'adopted'},
-    {intent: `d${'e'.repeat(24)}`, revision: `d${'a'.repeat(24)}`, state: 'proposed'},
+    {
+      intent: `d${'e'.repeat(24)}`,
+      revision: `d${'f'.repeat(24)}`,
+      state: 'adopted',
+      task: 'task-plan',
+      issue_id: '12',
+      acceptance: `d${'c'.repeat(24)}`,
+    },
+    {
+      intent: `d${'e'.repeat(24)}`,
+      revision: `d${'a'.repeat(24)}`,
+      state: 'proposed',
+      task: 'task-docs',
+      issue_id: '12',
+      acceptance: `d${'b'.repeat(24)}`,
+    },
+  ],
+  delivered_tasks: [
+    {
+      task: 'task-plan',
+      issue: '12',
+      acceptance: `d${'c'.repeat(24)}`,
+      completion: idOf('9'),
+      publication: idOf('8'),
+      generation: 2,
+    },
+  ],
+  verifications: [
+    {
+      intent: `d${'e'.repeat(24)}`,
+      revision: `d${'f'.repeat(24)}`,
+      source_commit: head,
+      manifest: digestOf('m'),
+    },
   ],
 };

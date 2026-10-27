@@ -328,6 +328,9 @@ type SemanticPlannerInput struct {
 	Content      ProposalContent
 	Alternatives AlternativeSet
 	Inspected    []InspectedSource
+	// RequireWalkthroughs is recorded in newly assembled native input. Older
+	// stored attempts omit it and remain readable as missing product prose.
+	RequireWalkthroughs bool
 }
 
 // SemanticPlannerOutput is one bounded semantic planning answer: one to
@@ -341,6 +344,7 @@ type SemanticPlannerOutput struct {
 	Candidates                   []SemanticCandidate           `json:"candidates,omitempty"`
 	Attention                    string                        `json:"attention,omitempty"`
 	VerificationManifestProposal *VerificationManifestProposal `json:"verification_manifest_proposal,omitempty"`
+	Walkthroughs                 *ProposalContent              `json:"walkthroughs,omitempty"`
 }
 
 // Validate checks the planner input shape and bindings without running any
@@ -396,7 +400,7 @@ func (out SemanticPlannerOutput) Validate() error {
 		return errors.New("unknown intent planning operation")
 	}
 	if out.Attention != "" {
-		if len(out.Candidates) != 0 || out.VerificationManifestProposal != nil {
+		if len(out.Candidates) != 0 || out.VerificationManifestProposal != nil || out.Walkthroughs != nil {
 			return errors.New("attention carries no new candidates")
 		}
 		if strings.TrimSpace(out.Attention) == "" || len(out.Attention) > 4000 {
@@ -439,6 +443,14 @@ func AssessSemanticOutput(in SemanticPlannerInput, out SemanticPlannerOutput) er
 	}
 	if out.Attention != "" {
 		return nil
+	}
+	if in.RequireWalkthroughs && out.Walkthroughs == nil {
+		return errors.New("completed planning must author its product walkthroughs")
+	}
+	if out.Walkthroughs != nil {
+		if err := ValidatePlanningWalkthroughs(in.Head, *out.Walkthroughs); err != nil {
+			return err
+		}
 	}
 	if out.VerificationManifestProposal != nil {
 		if err := out.VerificationManifestProposal.ValidateOutcomes(in.Head); err != nil {

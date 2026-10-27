@@ -82,6 +82,19 @@ struct Selection {
     activity_complete: bool,
     result_complete: bool,
     output: String,
+    #[serde(default)]
+    muse: MuseChild,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize)]
+struct MuseChild {
+    task: String,
+    run: String,
+    model: String,
+    effort: String,
+    prompt_observed: bool,
+    session_observed: bool,
+    model_observed: bool,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -107,6 +120,297 @@ fn invalid() -> FactoryError {
 }
 
 impl NativeTasks {
+    pub(super) fn muse_children(&self) -> Vec<String> {
+        self.ledger
+            .selections
+            .iter()
+            .filter_map(|selection| {
+                (!selection.child.is_empty() && !selection.muse.run.is_empty())
+                    .then(|| selection.child.clone())
+            })
+            .collect()
+    }
+
+    /// These records come from the owned Muse process's raw-log API, never
+    /// tool arguments or assistant text. The exact admission prompt was already
+    /// persisted by `tool` before the parent could request its native spawn.
+    pub(super) fn muse_record<E: Executor, T: FactoryTerminal, B: FactoryBroker>(
+        &mut self,
+        factory: &Factory<E, T, B>,
+        receipt: &FactoryReceipt,
+        private: &PrivateState,
+        session: &str,
+        turn: &str,
+        envelope: &Value,
+        deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        let kind = envelope["payload_type"].as_str().ok_or_else(invalid)?;
+        if !kind.starts_with("subagent.control.")
+            && !matches!(kind, "runtime.session" | "run.model.configured")
+        {
+            return Ok(());
+        }
+        if envelope["durability"] != "durable"
+            || envelope["schema_version"] != 1
+            || envelope["stream"]["kind"] != "session"
+            || envelope["stream"]["id"] != session
+        {
+            return Err(invalid());
+        }
+        let payload = &envelope["payload"];
+        let record = &payload["record"];
+        let parent = session == self.ledger.thread;
+        let identity = |value: &Value| -> Result<String, FactoryError> {
+            value
+                .as_str()
+                .filter(|id| !id.is_empty() && id.len() <= 128 && !id.contains('\0'))
+                .map(str::to_owned)
+                .ok_or_else(invalid)
+        };
+        if kind == "subagent.control.spawn_accepted" {
+            if !parent || receipt.run.execution_phase == EXECUTION_CORRECT {
+                return Err(FactoryError::msg(
+                    "singleton or nested native child refused",
+                ));
+            }
+            if envelope["payload_schema_version"] != 4
+                || payload["kind"] != "subagent_control"
+                || record["kind"] != "spawn_accepted"
+                || record["parent_session_id"] != self.ledger.thread
+                || record["parent_run_id"] != turn
+                || record["depth"] != 1
+                || record["agent_lineage_admission"]["schema_version"] != 1
+                || record["agent_lineage_admission"]["immediate_parent_agent_id"]
+                    != self.ledger.thread
+                || record["agent_lineage_admission"]["root_agent_id"] != self.ledger.thread
+                || record["admitted_execution"]["schema_version"] != 1
+                || record["admitted_execution"]["launch_lane"] != "native"
+            {
+                return Err(invalid());
+            }
+            let prompt = record["objective"].as_str().ok_or_else(invalid)?;
+            let index = self
+                .ledger
+                .selections
+                .iter()
+                .position(|selection| selection.prompt == prompt)
+                .ok_or_else(invalid)?;
+            let spawn = identity(&record["subagent_id"])?;
+            let task = identity(&record["task_id"])?;
+            let definition = &record["admitted_execution"]["definition"];
+            let model = definition["model"]
+                .as_str()
+                .ok_or_else(|| FactoryError::msg("native child admitted model missing"))?;
+            let effort = definition["effort"]
+                .as_str()
+                .ok_or_else(|| FactoryError::msg("native child admitted effort missing"))?;
+            if model != receipt.run.model
+                || effort != self.manifest.effort
+                || definition["resolved_id"] != "factory-task"
+                || record["agent_lineage_admission"]["agent_instance_id"] != spawn
+                || self
+                    .ledger
+                    .selections
+                    .iter()
+                    .enumerate()
+                    .any(|(other, selection)| other != index && selection.spawn == spawn)
+            {
+                return Err(invalid());
+            }
+            let selection = &mut self.ledger.selections[index];
+            if (!selection.spawn.is_empty() && selection.spawn != spawn)
+                || (!selection.muse.task.is_empty() && selection.muse.task != task)
+            {
+                return Err(FactoryError::Stale);
+            }
+            selection.spawn = spawn;
+            selection.muse.task = task;
+            selection.muse.model = model.into();
+            selection.muse.effort = effort.into();
+        } else if kind.starts_with("subagent.control.") {
+            if !parent || payload["kind"] != "subagent_control" {
+                return Err(invalid());
+            }
+            let spawn = identity(&record["subagent_id"])?;
+            let index = self
+                .ledger
+                .selections
+                .iter()
+                .position(|selection| selection.spawn == spawn)
+                .ok_or_else(invalid)?;
+            let selection = &mut self.ledger.selections[index];
+            match kind {
+                "subagent.control.child_session_bound" => {
+                    if envelope["payload_schema_version"] != 1
+                        || record["kind"] != "child_session_bound"
+                    {
+                        return Err(invalid());
+                    }
+                    let child = identity(&record["child_session_id"])?;
+                    if child == self.ledger.thread
+                        || (!selection.child.is_empty() && selection.child != child)
+                    {
+                        return Err(FactoryError::Stale);
+                    }
+                    selection.child = child;
+                    if self
+                        .ledger
+                        .selections
+                        .iter()
+                        .enumerate()
+                        .any(|(other, candidate)| {
+                            other != index && candidate.child == self.ledger.selections[index].child
+                        })
+                    {
+                        return Err(FactoryError::Stale);
+                    }
+                }
+                "subagent.control.start_attested" => {
+                    if envelope["payload_schema_version"] != 1
+                        || record["kind"] != "start_attested"
+                        || record["subagent_session_id"] != selection.child
+                    {
+                        return Err(invalid());
+                    }
+                    let run = record["run_stream"]
+                        .as_str()
+                        .and_then(|stream| stream.strip_prefix("run/"))
+                        .ok_or_else(invalid)?;
+                    if !selection.muse.run.is_empty() && selection.muse.run != run {
+                        return Err(FactoryError::Stale);
+                    }
+                    selection.muse.run = run.into();
+                }
+                "subagent.control.result_ready" => {
+                    if envelope["payload_schema_version"] != 2
+                        || record["kind"] != "result_ready"
+                        || !record["error_kind"].is_null()
+                    {
+                        return Err(FactoryError::msg("native child result failed"));
+                    }
+                    selection.result_complete = true;
+                }
+                "subagent.control.attempt_admitted" => {
+                    if record["admission_kind"] != "spawn" {
+                        return Err(FactoryError::msg("native child reuse refused"));
+                    }
+                }
+                _ if kind.contains("resume_accepted")
+                    || kind.contains("reopen")
+                    || kind.contains("followup")
+                    || kind.contains("input_accepted")
+                    || kind.contains("message_accepted") =>
+                {
+                    return Err(FactoryError::msg("native child reuse refused"));
+                }
+                _ => return Ok(()),
+            }
+        } else if !parent {
+            let selection = self
+                .ledger
+                .selections
+                .iter_mut()
+                .find(|selection| selection.child == session)
+                .ok_or_else(invalid)?;
+            if kind == "run.model.configured" {
+                if envelope["payload_schema_version"] != 1
+                    || payload["kind"] != "run_model"
+                    || record["provider_id"] != "meta"
+                    || record["run_stream"]["kind"] != "run"
+                    || record["run_stream"]["id"] != selection.muse.run
+                    || record["command_id"] != selection.muse.run
+                {
+                    return Err(invalid());
+                }
+                let actual = if receipt.run.contributor {
+                    format!("{}-contributor", receipt.run.model)
+                } else {
+                    receipt.run.model.clone()
+                };
+                if record["model_id"] != actual {
+                    return Err(FactoryError::msg("native child effective model mismatch"));
+                }
+                selection.muse.model_observed = true;
+            } else if payload["kind"] == "run" {
+                if envelope["payload_schema_version"] != 1 {
+                    return Err(invalid());
+                }
+                let event = &payload["event"];
+                if event["kind"] == "started" {
+                    if selection.muse.prompt_observed || event["prompt"] != selection.prompt {
+                        return Err(FactoryError::msg("native child prompt or reuse mismatch"));
+                    }
+                    selection.muse.prompt_observed = true;
+                } else if event["kind"] == "terminal" {
+                    if event["terminal"] != "completed" {
+                        return Err(FactoryError::msg("native child turn failed"));
+                    }
+                    selection.activity_complete = true;
+                }
+            }
+        } else {
+            return Ok(());
+        }
+        self.persist(private)?;
+        self.release_muse_observed(factory, receipt, private, deadline)
+    }
+
+    pub(super) fn muse_session<E: Executor, T: FactoryTerminal, B: FactoryBroker>(
+        &mut self,
+        factory: &Factory<E, T, B>,
+        receipt: &FactoryReceipt,
+        private: &PrivateState,
+        session: &Value,
+        deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        let child = session["sessionId"].as_str().ok_or_else(invalid)?;
+        let selection = self
+            .ledger
+            .selections
+            .iter_mut()
+            .find(|selection| selection.child == child)
+            .ok_or_else(invalid)?;
+        if session["kind"] != "subagent"
+            || session["parentSessionId"] != self.ledger.thread
+            || session["providerId"] != "meta"
+            || session["workspaceRoot"]
+                != format!(
+                    "/home/{}/checkouts/{}",
+                    receipt.run.role, receipt.run.preparation
+                )
+            || session["turnCount"].as_u64().is_none_or(|count| count > 1)
+        {
+            return Err(invalid());
+        }
+        selection.muse.session_observed = true;
+        self.persist(private)?;
+        self.release_muse_observed(factory, receipt, private, deadline)
+    }
+
+    fn release_muse_observed<E: Executor, T: FactoryTerminal, B: FactoryBroker>(
+        &mut self,
+        factory: &Factory<E, T, B>,
+        receipt: &FactoryReceipt,
+        private: &PrivateState,
+        deadline: Instant,
+    ) -> Result<(), FactoryError> {
+        for selection in &self.ledger.selections {
+            if !selection.child.is_empty()
+                && selection.muse.prompt_observed
+                && selection.muse.session_observed
+                && selection.muse.model_observed
+                && selection.muse.model == receipt.run.model
+                && selection.muse.effort == self.manifest.effort
+            {
+                self.ledger.profiles.insert(
+                    selection.child.clone(),
+                    (selection.muse.model.clone(), selection.muse.effort.clone()),
+                );
+            }
+        }
+        self.persist(private)?;
+        self.release_observed(factory, receipt, private, deadline)
+    }
     pub(super) fn new(
         receipt: &FactoryReceipt,
         manifest: ExecutionManifest,
@@ -157,9 +461,15 @@ impl NativeTasks {
             })
         };
         if correct {
-            vec![spec(RELEASE_TOOL, "Release the singleton task's filesystem output while waiting for its trusted checkpoint. Do not write source again after release. The returned digest is a proposal binding, never a check result.")]
+            vec![spec(
+                RELEASE_TOOL,
+                "Release the singleton task's filesystem output while waiting for its trusted checkpoint. Do not write source again after release. The returned digest is a proposal binding, never a check result.",
+            )]
         } else {
-            vec![spec(START_TOOL,"Select a ready admitted task. Before spawning, call this exactly once for that task. Spawn one native child with the returned prompt verbatim and the returned model and effort. Never reassign or resume a task child.")]
+            vec![spec(
+                START_TOOL,
+                "Select a ready admitted task. Before spawning, call this exactly once for that task. Spawn one native child with the returned prompt verbatim and the returned model and effort. Never reassign or resume a task child.",
+            )]
         }
     }
 
@@ -175,6 +485,15 @@ impl NativeTasks {
             .iter()
             .find(|task| task.id == id)
             .ok_or_else(invalid)
+    }
+
+    fn selected(&self, receipt: &FactoryReceipt, task: &str, prompt: &str) -> String {
+        let mut result = json!({"admitted":true,"task_id":task,"prompt":prompt,
+            "model":receipt.run.model,"effort":self.manifest.effort});
+        if receipt.run.harness == super::FACTORY_HARNESS_MUSE {
+            result["subagent_type"] = "factory-task".into();
+        }
+        result.to_string()
     }
 
     fn request(&self, receipt: &FactoryReceipt, task: &str) -> FactoryTaskCheckpoint {
@@ -354,7 +673,7 @@ impl NativeTasks {
             if old.task != task.id || old.call != call || old.request != *request {
                 return Err(FactoryError::Stale);
             }
-            return Ok(json!({"admitted":true,"task_id":old.task,"prompt":old.prompt,"model":receipt.run.model,"effort":self.manifest.effort}).to_string());
+            return Ok(self.selected(receipt, &old.task, &old.prompt));
         }
         let _lock = factory.lock_run(&receipt.run.project, &receipt.run.id, deadline)?;
         self.ensure_live(factory, receipt, private, deadline)?;
@@ -453,7 +772,15 @@ impl NativeTasks {
             }
         }
         let nonce = crate::terminal::factory::msp::new_command_id().map_err(|_| invalid())?;
-        let child_prompt = format!("Factory native task {}. Admission nonce: {}. Manifest: {}. Parent run: {}. Deadline: {}. Work only on this exact admitted task in the shared checkout: {}. Do not spawn agents, modify Git metadata, perform commits, use credentials, or edit any other task's paths. Return only after releasing your source writes; the host derives and checks the immutable output tree. Do not resume work after completion.",task.id,nonce,receipt.run.manifest_digest,receipt.run.id,receipt.run.deadline,serde_json::to_string(&task).map_err(|_|invalid())?);
+        let child_prompt = format!(
+            "Factory native task {}. Admission nonce: {}. Manifest: {}. Parent run: {}. Deadline: {}. Work only on this exact admitted task in the shared checkout: {}. Do not spawn agents, modify Git metadata, perform commits, use credentials, or edit any other task's paths. Return only after releasing your source writes; the host derives and checks the immutable output tree. Do not resume work after completion.",
+            task.id,
+            nonce,
+            receipt.run.manifest_digest,
+            receipt.run.id,
+            receipt.run.deadline,
+            serde_json::to_string(&task).map_err(|_| invalid())?
+        );
         if child_prompt.len() > 24 * 1024 {
             return Err(invalid());
         }
@@ -473,7 +800,7 @@ impl NativeTasks {
             "",
             &nonce,
         )?;
-        Ok(json!({"admitted":true,"task_id":task.id,"prompt":child_prompt,"model":receipt.run.model,"effort":self.manifest.effort}).to_string())
+        Ok(self.selected(receipt, &task.id, &child_prompt))
     }
 
     pub(super) fn item<E: Executor, T: FactoryTerminal, B: FactoryBroker>(

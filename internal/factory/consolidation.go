@@ -56,7 +56,7 @@ func ConsolidateContent(content ProposalContent, recommended, advice string) (Co
 		owned.Steps[i].Branches = append([]WalkthroughBranch(nil), alternative.Steps[i].Branches...)
 	}
 	proposal := ConsolidatedProposal{
-		Producer:    AuthoredProducer,
+		Producer:    content.Producer,
 		Intent:      content.Intent,
 		Revision:    content.Revision,
 		Objective:   content.Objective,
@@ -80,11 +80,16 @@ func ConsolidateContent(content ProposalContent, recommended, advice string) (Co
 
 // Validate checks proposal binding, preserved direction and milestone bounds.
 func (p ConsolidatedProposal) validateIdentity() error {
-	if p.Producer != AuthoredProducer || !project.ValidDecisionID(p.Intent) || !project.ValidDecisionID(p.Revision) || !intentText(p.Objective, 16000) {
+	if (p.Producer != AuthoredProducer && p.Producer != PlanningProducer) || !project.ValidDecisionID(p.Intent) || !project.ValidDecisionID(p.Revision) || !intentText(p.Objective, 16000) {
 		return errors.New("invalid consolidated proposal identity or objective")
 	}
 	if err := p.Alternative.Validate(); err != nil {
 		return err
+	}
+	if p.Producer == AuthoredProducer {
+		if authored, exists := authoredAlternatives[p.Alternative.Key]; !exists || authored.Name != p.Alternative.Name {
+			return errors.New("unknown authored product alternative")
+		}
 	}
 	if p.Recommended != p.Alternative.Key || !ValidDigest(p.Advice) {
 		return errors.New("invalid consolidated recommendation or advice")

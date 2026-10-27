@@ -355,17 +355,19 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	if !ok {
 		return
 	}
+	// A retry starts a new provider process, so it adopts the current pin;
+	// the same already-captured execution recovers its recorded bytes exactly.
 	launch := project.FactoryLaunch{
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
+			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: plan.phase,
 		},
-		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
+		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, false, report)
 }
@@ -386,22 +388,22 @@ func routeAttemptWait(ctx context.Context, deps DispatchDeps, a factory.Assignme
 }
 
 // recordRetryRun records one retry packet behind a planned attempt
-// with a fresh run identity.
+// with a fresh run identity. A retry is a new provider process, so the run
+// and the calling assignment snapshot adopt the current pin; recovery of
+// the same already-captured execution keeps its recorded bytes exactly.
 func recordRetryRun(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, runID string, report *DispatchReport) (factory.Assignment, factory.Run, bool) {
 	var none factory.Assignment
 	now := time.Now()
 	run := factory.Run{
 		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
 		Started: now, Deadline: plan.deadline,
-		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
+		Image: plan.pin.Image, Harness: plan.pin.Harness + "-" + plan.pin.Version, Model: a.Model,
 	}
-	// A retry continues its assignment: bind the recorded adopted identity
-	// exactly when the assignment carries proof, never the current pin.
-	// Packets predating proof keep the legacy recorded-version binding.
-	if adopted := a.AdoptedHarness; adopted != (project.FactoryHarnessPin{}) {
-		run.Harness = adopted.Harness + "-" + adopted.Version
-		run.Image = adopted.Image
-	}
+	// Advance the calling snapshot to the current pin so the packet records
+	// the new execution's identity; the store keeps every other binding exact.
+	a.Harness = plan.pin.Harness + "-" + plan.pin.Version
+	a.HarnessVers = plan.pin.Version
+	a.AdoptedHarness = plan.pin
 	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
 	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
 	if err != nil {
@@ -520,18 +522,6 @@ func planRetryAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 	return plan, true
 }
 
-// retryHarnessPin binds one retry launch to its assignment: the recorded
-// adopted pin exactly when the assignment carries proof, otherwise the
-// legacy live-pin-family/recorded-version binding. A retry continues its
-// assignment on the same bundle; genuinely new work records a fresh packet
-// and adopts the current pin there instead.
-func retryHarnessPin(a factory.Assignment, pin project.FactoryHarnessPin) project.FactoryHarnessPin {
-	if adopted := a.AdoptedHarness; adopted != (project.FactoryHarnessPin{}) {
-		return adopted
-	}
-	return project.FactoryHarnessPin{Harness: pin.Harness, Version: a.HarnessVers, SHA256: pin.SHA256, Image: pin.Image}
-}
-
 // checkRetryChildPlan requires the recorded child profile and
 // authority behind one publication child retry.
 func checkRetryChildPlan(ctx context.Context, deps DispatchDeps, a factory.Assignment, plan *attemptPlan, publicationTarget string, report *DispatchReport) bool {
@@ -633,14 +623,14 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
+			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: project.ExecutionImplement,
 			ManifestDigest: project.ExecutionManifestDigest(manifest),
 		},
-		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
+		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 		ExecutionManifest: manifest,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, true, report)
@@ -986,14 +976,14 @@ func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupan
 		Run: project.FactoryRun{
 			ID: runID, Project: a.ProjectID, Role: a.Role,
 			Preparation: a.Preparation,
-			Harness:     retryHarnessPin(a, plan.pin).Harness, HarnessVers: retryHarnessPin(a, plan.pin).Version,
+			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
 			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline, ExecutionPhase: a.Phase,
 			ManifestDigest: manifestDigest,
 		},
-		Prompt: a.Prompt, HarnessSHA256: retryHarnessPin(a, plan.pin).SHA256,
+		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
 		ExecutionManifest: manifest,
 	}
 	validateRetryLaunch(ctx, deps, a, next, run, launch, a.Phase == project.ExecutionCorrect, report)

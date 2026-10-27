@@ -62,6 +62,20 @@ func TestPlanningRecordsOnceAndFeedsFreshLaunch(t *testing.T) {
 	if err != nil || r.Provisional || r.Outcome != "planned" {
 		t.Fatalf("plan=%+v %v", r, err)
 	}
+	if err := c.Store.SavePlanningRecord(ctx, r); err != nil {
+		t.Fatal("planning replay", err)
+	}
+	entries, _, _, err := c.Store.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{fx.repo}, View: "decisions", Search: "Implementation strategy", Limit: 20})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("planning replay should retain one decision: %+v %v", entries, err)
+	}
+	post, err := c.Store.FeedComment(ctx, entries[0].ID)
+	if err != nil || post.Payload.Communication == nil || post.Payload.Communication.PlanningSource == nil {
+		t.Fatalf("missing canonical planning source: %+v %v", post, err)
+	}
+	if source := post.Payload.Communication.PlanningSource; source.Snapshot != r.Snapshot || source.Strategy != r.Strategy || source.Judgment.Selected != r.Judgment.Selected || source.Judgment.Model != r.Judgment.Model || source.RecordedUnix != r.CreatedUnix {
+		t.Fatalf("published planning differs from canonical record: %+v", source)
+	}
 	// Same-terms lifecycle changes must not buy a new semantic planning call.
 	policy, err := c.Store.RepositoryPolicy(ctx, fx.repo)
 	if err != nil {
@@ -153,5 +167,21 @@ func TestPlanningProvisionalRecordCannotLaunch(t *testing.T) {
 	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 || chooser.calls != 2 {
 		t.Fatalf("plan did not refresh %+v calls=%d", report, chooser.calls)
+	}
+	for _, current := range []bool{false, true} {
+		entries, _, _, err := c.Store.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{fx.repo}, View: "knowledge", Search: "implementation strategy", Current: current, Limit: 20})
+		want := 2
+		if current {
+			want = 1
+		}
+		if err != nil || len(entries) != want {
+			t.Fatalf("planning history current=%v: %+v %v", current, entries, err)
+		}
+		if current {
+			post, err := c.Store.FeedComment(ctx, entries[0].ID)
+			if err != nil || post.Payload.Communication == nil || post.Payload.Communication.PlanningSource == nil || post.Payload.Communication.PlanningSource.Provisional || post.Payload.Communication.PlanningSource.Snapshot == r.Snapshot {
+				t.Fatalf("current planning retained superseded provisional choice: %+v %v", post, err)
+			}
+		}
 	}
 }

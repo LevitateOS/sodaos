@@ -25,6 +25,7 @@ mod tools;
 pub use self::paths::{
     path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
 };
+pub use self::source::ContextReadError;
 pub use self::state::{map_preparation_state, LauncherEvidence, PreparationObservationError};
 
 #[derive(Default)]

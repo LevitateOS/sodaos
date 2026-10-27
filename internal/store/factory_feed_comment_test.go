@@ -693,3 +693,673 @@ func TestPendingCommentRequestsRotatePastWaitingWork(t *testing.T) {
 		t.Fatalf("waiting work starved next request: %+v %v", page, err)
 	}
 }
+
+func TestCommentProductReviewKeepsCanonicalScopeAndOwner(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
+	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
+	if err := s.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	var post string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+accepted.ID).Scan(&post); err != nil {
+		t.Fatal(err)
+	}
+	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, post)
+	if err != nil || source.Product == nil || source.Product.Intent != accepted.Intent || source.Product.AcceptedRevision != accepted.ID {
+		t.Fatalf("canonical source missing: %+v %v", source, err)
+	}
+	if _, err := s.ResolveCommentSource(ctx, 8, factory.CommentSourcePost, post); err == nil {
+		t.Fatal("foreign repository acquired product source")
+	}
+	save := func(key string) string {
+		t.Helper()
+		id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Require Finance approval above EUR 1000; retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: key}, "43", "Robin", 2, source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+			t.Fatal(err)
+		}
+		p, err := s.CommentPipeline(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next := p
+		next.Judgment = factory.CommentJudgmentApplied
+		next.Route = factory.CommentRouteNewIssue
+		if err = s.AdvanceCommentPipeline(ctx, p, next); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	id, stale := save("finance"), save("another-change")
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view == nil || view.State != "review_required" || !view.CanReview {
+		t.Fatalf("review not available: %+v %v", view, err)
+	}
+	if other, err := s.CommentProductChange(ctx, detail, pipe, 43); err != nil || other.CanReview {
+		t.Fatalf("nonowner review authority: %+v %v", other, err)
+	}
+	if _, err = s.ReviewCommentProductChange(ctx, id, 0, 43, 3); err == nil {
+		t.Fatal("comment author became product owner")
+	}
+	if _, err = s.ReviewCommentProductChange(ctx, id, 1, 42, 3); err == nil {
+		t.Fatal("stale comment reviewed")
+	}
+	draft, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.Intent != accepted.Intent || draft.Predecessor != accepted.ID || draft.State != "draft" || len(draft.Ideas) != 2 || len(draft.EffectiveOutcomes) != 2 || draft.EffectiveOutcomes[0] != idea.ID || draft.Tasks[0].Key != accepted.Tasks[0].Key {
+		t.Fatalf("successor changed baseline: %+v", draft)
+	}
+	if !strings.Contains(draft.Ideas[1].Evidence, "43") || draft.Ideas[1].Description != detail.Body {
+		t.Fatal("original request or attribution lost")
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "draft" || !view.CanReview || view.DraftRevision != draft.ID {
+		t.Fatalf("owner cannot continue: %+v %v", view, err)
+	}
+	if other, err := s.CommentProductChange(ctx, detail, pipe, 43); err != nil || other.CanReview {
+		t.Fatalf("nonowner continuation authority: %+v %v", other, err)
+	}
+	replay, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 4)
+	if err != nil || replay.ID != draft.ID || replay.CreatedUnix != draft.CreatedUnix {
+		t.Fatalf("handoff duplicated: %+v %v", replay, err)
+	}
+	if _, err = s.ReviewCommentProductChange(ctx, stale, 0, 42, 4); err == nil {
+		t.Fatal("another comment replaced current review")
+	}
+	if _, err = s.EditFeedComment(ctx, id, "43", "Different request", 0, 5); err == nil {
+		t.Fatal("admitted source rewritten")
+	}
+	if err = s.RetryFeedComment(ctx, id, "43", 0, "Different request", 5); err == nil {
+		t.Fatal("admitted source retried")
+	}
+	queued, err := s.PendingCommentPipelines(ctx, 20)
+	if err != nil || len(queued) != 0 {
+		t.Fatalf("review waits in automatic issue queue: %+v %v", queued, err)
+	}
+	inherited, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, id)
+	if err != nil || inherited.Product == nil || *inherited.Product != *source.Product {
+		t.Fatalf("thread lost source lineage: %+v %v", inherited, err)
+	}
+	adopted := draft
+	adopted.ID = "d222222222222222222222222"
+	adopted.Predecessor = draft.ID
+	adopted.State = "accepted"
+	adopted.Tasks = append(append([]factory.IntentTask(nil), draft.Tasks...), factory.IntentTask{Key: "d777777777777777777777777", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{draft.Ideas[1].ID}})
+	if err = s.SaveIntentRevision(ctx, adopted); err != nil {
+		t.Fatal(err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "accepted" || !view.CanReview {
+		t.Fatalf("owner cannot open accepted change: %+v %v", view, err)
+	}
+	if other, err := s.CommentProductChange(ctx, detail, pipe, 43); err != nil || other.State != "accepted" || other.CanReview {
+		t.Fatalf("collaborator gained accepted owner control: %+v %v", other, err)
+	}
+	if view.Verified {
+		t.Fatalf("accepted change claims verification without the F10 fact: %+v", view)
+	}
+	replay, err = s.ReviewCommentProductChange(ctx, id, 0, 42, 6)
+	head, headErr := s.IntentRevision(ctx, accepted.Intent, 42)
+	if err != nil || replay.ID != draft.ID || headErr != nil || head.ID != adopted.ID {
+		t.Fatal("retry rolled back accepted head")
+	}
+	var revisions, graphs int
+	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_revisions WHERE intent=$1`, accepted.Intent).Scan(&revisions); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_generations`).Scan(&graphs); err != nil {
+		t.Fatal(err)
+	}
+	if revisions != 3 || graphs != 0 {
+		t.Fatalf("review silently generated scope: revisions=%d graphs=%d", revisions, graphs)
+	}
+	removed := adopted
+	removed.ID, removed.Predecessor = "d333333333333333333333333", adopted.ID
+	removed.Ideas = append([]factory.ProductIdea(nil), adopted.Ideas...)
+	removed.Ideas[1].Decision = "decline"
+	removed.EffectiveOutcomes = []string{idea.ID}
+	removed.Tasks = accepted.Tasks
+	if err = s.SaveIntentRevision(ctx, removed); err != nil {
+		t.Fatal(err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "superseded" {
+		t.Fatalf("declined Finance proposal still presented as accepted: %+v %v", view, err)
+	}
+	// A corrupted same-product binding is a projection error, never a
+	// silent absence: the store surfaces the error so the API projects the
+	// lane explicitly instead of falling back to detached generic progress.
+	if _, err = s.db.ExecContext(ctx, `UPDATE factory_feed_comments SET data = data || '{"product_change": "bogus"}' WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.CommentProductChange(ctx, detail, pipe, 42); err == nil {
+		t.Fatal("corrupted product binding reads as a successful projection")
+	}
+}
+
+func TestCommentProductLineageAdoptedWorkAndVerification(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
+	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
+	if err := s.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	var post string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+accepted.ID).Scan(&post); err != nil {
+		t.Fatal(err)
+	}
+	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, post)
+	if err != nil {
+		t.Fatal(err)
+	}
+	save := func(key string, via *factory.CommentSource) (string, factory.CommentPipeline, FeedCommentDetail) {
+		t.Helper()
+		id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Require Finance approval above EUR 1000; retain existing requests.", SourceKind: via.Kind, SourceID: via.ID, IdempotencyKey: key}, "43", "Robin", 2, via)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+			t.Fatal(err)
+		}
+		pipe, err := s.CommentPipeline(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next := pipe
+		next.Judgment, next.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+		if err = s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+			t.Fatal(err)
+		}
+		pipe, err = s.CommentPipeline(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		detail, err := s.FeedComment(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id, pipe, detail
+	}
+	// A pipeline that leaves the same-product lane no longer speaks for
+	// the accepted direction, and its review lane refuses with it. This
+	// detour runs on its own intent so the main review head stays put.
+	detourAccepted := accepted
+	detourAccepted.ID, detourAccepted.Intent = "d101010101010101010101010", "d000000000000000000000001"
+	if err := s.SaveIntentRevision(ctx, detourAccepted); err != nil {
+		t.Fatal(err)
+	}
+	var detourPost string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+detourAccepted.ID).Scan(&detourPost); err != nil {
+		t.Fatal(err)
+	}
+	detourSource, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, detourPost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, secondPipe, _ := save("finance-detour", detourSource)
+	if _, err = s.ReviewCommentProductChange(ctx, second, 0, 42, 3); err != nil {
+		t.Fatal(err)
+	}
+	detour := secondPipe
+	detour.Issue = 7
+	if err = s.AdvanceCommentPipeline(ctx, secondPipe, detour); err != nil {
+		t.Fatal(err)
+	}
+	detourPipe, err := s.CommentPipeline(ctx, second)
+	if err != nil || detourPipe.Issue != 7 {
+		t.Fatalf("detour issue missing: %+v %v", detourPipe, err)
+	}
+	detourDetail, err := s.FeedComment(ctx, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detourView, err := s.CommentProductChange(ctx, detourDetail, detourPipe, 42)
+	if err != nil || detourView.State != "superseded" || detourView.CanReview || detourView.EvidenceStatus != CommentProductEvidenceUnavailable {
+		t.Fatalf("detoured pipeline keeps product authority: %+v %v", detourView, err)
+	}
+	if _, err = s.ReviewCommentProductChange(ctx, second, 0, 42, 4); err == nil {
+		t.Fatal("detoured pipeline admitted a same-product review")
+	}
+	id, pipe, detail := save("finance-lineage", source)
+	draft, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentIdea := draft.Ideas[1].ID
+	if commentIdea != factory.CommentDecisionID("product-idea", id, 0) {
+		t.Fatalf("comment idea is not deterministic: %s", commentIdea)
+	}
+	view, err := s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "draft" || view.EvidenceStatus != CommentProductEvidenceUnavailable || view.AdoptedRevision != "" || view.Verified || len(view.Evidence) != 0 {
+		t.Fatalf("draft claims work evidence: %+v %v", view, err)
+	}
+	unrelated := accepted
+	unrelated.ID, unrelated.Predecessor = "d444444444444444444444444", draft.ID
+	if err = s.SaveIntentRevision(ctx, unrelated); err != nil {
+		t.Fatal(err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "superseded" || view.AdoptedRevision != "" || view.EvidenceStatus != CommentProductEvidenceUnavailable {
+		t.Fatalf("unrelated accepted revision claims adoption: %+v %v", view, err)
+	}
+	adopted := draft
+	adopted.ID, adopted.Predecessor, adopted.State = "d222222222222222222222222", unrelated.ID, "accepted"
+	adopted.EffectiveOutcomes = []string{idea.ID, commentIdea}
+	financeTask := factory.IntentTask{Key: "d777777777777777777777777", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
+	adopted.Tasks = append(append([]factory.IntentTask(nil), draft.Tasks...), financeTask)
+	if err = s.SaveIntentRevision(ctx, adopted); err != nil {
+		t.Fatal(err)
+	}
+	head, err := s.IntentRevision(ctx, accepted.Intent, 42)
+	if err != nil || head.ID != adopted.ID {
+		t.Fatalf("adoption missed the head: %+v %v", head, err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "accepted" || view.AdoptedRevision != adopted.ID || view.ScopeDigest != adopted.Digest() {
+		t.Fatalf("adoption without lineage: %+v %v", view, err)
+	}
+	if view.EvidenceStatus != CommentProductEvidenceUnavailable || view.Verified || len(view.Evidence) != 0 {
+		t.Fatalf("undelivered adoption claims work: %+v", view)
+	}
+	if pipe.Issue != 0 {
+		t.Fatalf("same-product pipeline left its zero issue: %+v", pipe)
+	}
+	// The canonical graph behind the adopted revision carries both tasks;
+	// only the comment idea's key is lineage.
+	generation := factory.IntentGeneration{RevisionID: adopted.ID, IntentID: adopted.Intent, IntentDigest: adopted.Digest(), OperationID: "lineage-op", ActorID: 42, NativeRev: 1, NotAfter: 3, Payload: []byte(`{}`), State: "pending", SubmittedTasks: adopted.Tasks}
+	if err = s.BeginIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	generation.State = "completed"
+	if err = s.RecordIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	originalBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: adopted.Tasks[0].Key, IssueID: 100, IssueIndex: 11, AcceptanceID: "d555555555555555555555555", CreatedUnix: 4}
+	matchedBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: financeTask.Key, IssueID: 101, IssueIndex: 12, AcceptanceID: "d666666666666666666666666", CreatedUnix: 4}
+	if err = s.BindIntentTaskAcceptance(ctx, originalBinding); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.BindIntentTaskAcceptance(ctx, matchedBinding); err != nil {
+		t.Fatal(err)
+	}
+	// One completion row exists per repository generation; each task's
+	// canonical completion is the latest generation for its issue and
+	// acceptance.
+	complete := func(binding factory.IntentTaskBinding, generation int64) {
+		t.Helper()
+		event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: binding.IssueIndex, Generation: generation, PublicationID: factory.NewID(), AcceptanceID: binding.AcceptanceID, MergedCommit: strings.Repeat("a", 40), ClosingOccurrence: "1"}
+		raw, err := json.Marshal(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,$1,$2,$3,'1',$4)`, generation, event.ID, event.PublicationID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	complete(originalBinding, 1)
+	complete(matchedBinding, 2)
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "accepted" || view.EvidenceStatus != CommentProductEvidenceRecorded || view.Verified {
+		t.Fatalf("delivered adoption unread: %+v %v", view, err)
+	}
+	if len(view.Evidence) != 1 || view.Evidence[0].TaskKey != financeTask.Key || view.Evidence[0].Issue != matchedBinding.IssueIndex || view.Evidence[0].Acceptance != matchedBinding.AcceptanceID || view.Evidence[0].Completion == "" {
+		t.Fatalf("lineage misses the comment task: %+v", view.Evidence)
+	}
+	// Only the controller-owned F10 fact verifies the adopted scope: a
+	// closed native issue or a worker exit never flips this bit.
+	delivery := factory.NewID()
+	assignmentID := factory.NewID()
+	assignment, err := json.Marshal(map[string]any{
+		"id": assignmentID, "attempt_root": assignmentID, "repository": "7", "issue": 0, "run": factory.NewID(), "stage": "finished",
+		"phase": "verify", "role": "soda-reviewer", "outcome": "succeeded", "source_commit": strings.Repeat("b", 40),
+		"subject": map[string]any{"kind": "delivery", "delivery": map[string]any{"delivery_id": delivery, "intent_id": adopted.Intent, "accepted_revision": adopted.ID, "scope_digest": adopted.Digest()}},
+		"result":  map[string]any{"phase_result": map[string]any{"output": map[string]any{"verification": map[string]any{"outcome": "verified"}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'finished',0,$3)`, assignmentID, factory.NewID(), string(assignment)); err != nil {
+		t.Fatal(err)
+	}
+	postRaw, err := json.Marshal(map[string]any{"actor": "factory", "event_identity": delivery, "assignment": assignmentID, "communication": map[string]any{"component_id": "F10"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,7,0,'factory','verified',$2,$3)`, factory.NewID(), "f10-"+delivery, string(postRaw)); err != nil {
+		t.Fatal(err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || !view.Verified || view.EvidenceStatus != CommentProductEvidenceRecorded || len(view.Evidence) != 1 {
+		t.Fatalf("controller verification missing: %+v %v", view, err)
+	}
+	// A later superseding head keeps the adopted lineage as history.
+	removed := adopted
+	removed.ID, removed.Predecessor = "d333333333333333333333333", adopted.ID
+	removed.Ideas = append([]factory.ProductIdea(nil), adopted.Ideas...)
+	removed.Ideas[1].Decision = "decline"
+	removed.EffectiveOutcomes = []string{idea.ID}
+	removed.Tasks = accepted.Tasks
+	if err = s.SaveIntentRevision(ctx, removed); err != nil {
+		t.Fatal(err)
+	}
+	view, err = s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil || view.State != "superseded" || view.CanReview {
+		t.Fatalf("superseded adoption still authoritative: %+v %v", view, err)
+	}
+	if view.AdoptedRevision != adopted.ID || view.EvidenceStatus != CommentProductEvidenceRecorded || !view.Verified || len(view.Evidence) != 1 || view.Evidence[0].TaskKey != financeTask.Key {
+		t.Fatalf("historical adoption lost: %+v", view)
+	}
+}
+
+func TestCommentProductLineageKeepsCompletedWorkWhenScopePartial(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
+	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
+	if err := s.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	var post string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+accepted.ID).Scan(&post); err != nil {
+		t.Fatal(err)
+	}
+	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, post)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Require Finance approval above EUR 1000; retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-partial"}, "43", "Robin", 2, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := pipe
+	next.Judgment, next.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+	if err = s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err = s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentIdea := draft.Ideas[1].ID
+	adopted := draft
+	adopted.ID, adopted.Predecessor, adopted.State = "d222222222222222222222222", draft.ID, "accepted"
+	adopted.EffectiveOutcomes = []string{idea.ID, commentIdea}
+	financeTask := factory.IntentTask{Key: "d777777777777777777777777", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
+	adopted.Tasks = append(append([]factory.IntentTask(nil), draft.Tasks...), financeTask)
+	if err = s.SaveIntentRevision(ctx, adopted); err != nil {
+		t.Fatal(err)
+	}
+	// The canonical graph behind the adopted revision carries both tasks;
+	// only the comment idea's key is lineage.
+	generation := factory.IntentGeneration{RevisionID: adopted.ID, IntentID: adopted.Intent, IntentDigest: adopted.Digest(), OperationID: "partial-op", ActorID: 42, NativeRev: 1, NotAfter: 3, Payload: []byte(`{}`), State: "pending", SubmittedTasks: adopted.Tasks}
+	if err = s.BeginIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	generation.State = "completed"
+	if err = s.RecordIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	unrelatedBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: adopted.Tasks[0].Key, IssueID: 100, IssueIndex: 11, AcceptanceID: "d555555555555555555555555", CreatedUnix: 4}
+	matchedBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: financeTask.Key, IssueID: 101, IssueIndex: 12, AcceptanceID: "d666666666666666666666666", CreatedUnix: 4}
+	if err = s.BindIntentTaskAcceptance(ctx, unrelatedBinding); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.BindIntentTaskAcceptance(ctx, matchedBinding); err != nil {
+		t.Fatal(err)
+	}
+	// Mixed scope: the comment idea's task completes while the unrelated
+	// task in the same scope stays pending with no completion row.
+	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: matchedBinding.IssueIndex, Generation: 2, PublicationID: factory.NewID(), AcceptanceID: matchedBinding.AcceptanceID, MergedCommit: strings.Repeat("a", 40), ClosingOccurrence: "1"}
+	raw, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,$1,$2,$3,'1',$4)`, 2, event.ID, event.PublicationID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.State != "accepted" || view.EvidenceStatus != CommentProductEvidenceRecorded {
+		t.Fatalf("partial scope hides completed comment work: %+v", view)
+	}
+	if len(view.Evidence) != 1 || view.Evidence[0].TaskKey != financeTask.Key || view.Evidence[0].Issue != matchedBinding.IssueIndex || view.Evidence[0].Acceptance != matchedBinding.AcceptanceID || view.Evidence[0].Completion == "" {
+		t.Fatalf("partial lineage misses the completed comment task: %+v", view.Evidence)
+	}
+}
+
+func TestCommentProductLineageShowsPendingMatchingTask(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
+	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
+	if err := s.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	var post string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+accepted.ID).Scan(&post); err != nil {
+		t.Fatal(err)
+	}
+	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, post)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Require Finance approval above EUR 1000; retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-pending"}, "43", "Robin", 2, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := pipe
+	next.Judgment, next.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+	if err = s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err = s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentIdea := draft.Ideas[1].ID
+	adopted := draft
+	adopted.ID, adopted.Predecessor, adopted.State = "d222222222222222222222222", draft.ID, "accepted"
+	adopted.EffectiveOutcomes = []string{idea.ID, commentIdea}
+	financeTask := factory.IntentTask{Key: "d777777777777777777777777", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
+	adopted.Tasks = append(append([]factory.IntentTask(nil), draft.Tasks...), financeTask)
+	if err = s.SaveIntentRevision(ctx, adopted); err != nil {
+		t.Fatal(err)
+	}
+	generation := factory.IntentGeneration{RevisionID: adopted.ID, IntentID: adopted.Intent, IntentDigest: adopted.Digest(), OperationID: "pending-op", ActorID: 42, NativeRev: 1, NotAfter: 3, Payload: []byte(`{}`), State: "pending", SubmittedTasks: adopted.Tasks}
+	if err = s.BeginIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	generation.State = "completed"
+	if err = s.RecordIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	// The matching task has its exact native binding but no completion
+	// row: actual progress stays visible as pending without inferring
+	// delivery or completion.
+	matchedBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: financeTask.Key, IssueID: 101, IssueIndex: 12, AcceptanceID: "d666666666666666666666666", CreatedUnix: 4}
+	if err = s.BindIntentTaskAcceptance(ctx, matchedBinding); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.State != "accepted" || view.EvidenceStatus != CommentProductEvidenceRecorded {
+		t.Fatalf("pending matching task hides comment evidence: %+v", view)
+	}
+	if view.AdoptedRevision != adopted.ID || view.ScopeDigest != adopted.Digest() {
+		t.Fatalf("pending adoption without lineage: %+v", view)
+	}
+	// No F10 verification event exists here, so whole-product
+	// verification stays strict.
+	if view.Verified {
+		t.Fatalf("pending work verifies the product without an F10 fact: %+v", view)
+	}
+	if len(view.Evidence) != 1 {
+		t.Fatalf("pending lineage misses the bound comment task: %+v", view.Evidence)
+	}
+	got := view.Evidence[0]
+	if got.TaskKey != financeTask.Key || got.Issue != matchedBinding.IssueIndex || got.Acceptance != matchedBinding.AcceptanceID {
+		t.Fatalf("pending lineage loses the native binding: %+v", view.Evidence)
+	}
+	if got.Completion != "" || !got.Pending {
+		t.Fatalf("bound task without completion is not marked pending: %+v", view.Evidence)
+	}
+}
+
+func TestCommentProductLineageShowsMixedMatchingTasks(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
+	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
+	if err := s.SaveIntentRevision(ctx, accepted); err != nil {
+		t.Fatal(err)
+	}
+	var post string
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1`, "intent-revision:"+accepted.ID).Scan(&post); err != nil {
+		t.Fatal(err)
+	}
+	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, post)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := s.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Require Finance approval above EUR 1000; retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-mixed"}, "43", "Robin", 2, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordCommentIntake(ctx, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err := s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := pipe
+	next.Judgment, next.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
+	if err = s.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
+	pipe, err = s.CommentPipeline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.FeedComment(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft, err := s.ReviewCommentProductChange(ctx, id, 0, 42, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentIdea := draft.Ideas[1].ID
+	adopted := draft
+	adopted.ID, adopted.Predecessor, adopted.State = "d222222222222222222222222", draft.ID, "accepted"
+	adopted.EffectiveOutcomes = []string{idea.ID, commentIdea}
+	firstTask := factory.IntentTask{Key: "d777777777777777777777777", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
+	secondTask := factory.IntentTask{Key: "d707070707070707070707070", Objective: "Finance audit trail", Outcomes: []string{"Approvals are listed"}, IdeaIDs: []string{commentIdea}}
+	adopted.Tasks = append(append(append([]factory.IntentTask(nil), draft.Tasks...), firstTask), secondTask)
+	if err = s.SaveIntentRevision(ctx, adopted); err != nil {
+		t.Fatal(err)
+	}
+	generation := factory.IntentGeneration{RevisionID: adopted.ID, IntentID: adopted.Intent, IntentDigest: adopted.Digest(), OperationID: "mixed-op", ActorID: 42, NativeRev: 1, NotAfter: 3, Payload: []byte(`{}`), State: "pending", SubmittedTasks: adopted.Tasks}
+	if err = s.BeginIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	generation.State = "completed"
+	if err = s.RecordIntentGeneration(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	firstBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: firstTask.Key, IssueID: 101, IssueIndex: 12, AcceptanceID: "d666666666666666666666666", CreatedUnix: 4}
+	secondBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: secondTask.Key, IssueID: 102, IssueIndex: 13, AcceptanceID: "d616161616161616161616161", CreatedUnix: 4}
+	if err = s.BindIntentTaskAcceptance(ctx, firstBinding); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.BindIntentTaskAcceptance(ctx, secondBinding); err != nil {
+		t.Fatal(err)
+	}
+	// One matching task completes while the other bound matching task
+	// stays pending with no completion row: neither delivery nor
+	// completion is inferred for the pending task.
+	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: firstBinding.IssueIndex, Generation: 2, PublicationID: factory.NewID(), AcceptanceID: firstBinding.AcceptanceID, MergedCommit: strings.Repeat("a", 40), ClosingOccurrence: "1"}
+	raw, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,$1,$2,$3,'1',$4)`, 2, event.ID, event.PublicationID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.CommentProductChange(ctx, detail, pipe, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.State != "accepted" || view.EvidenceStatus != CommentProductEvidenceRecorded {
+		t.Fatalf("mixed matching tasks hide comment evidence: %+v", view)
+	}
+	// No F10 verification event exists here, so whole-product
+	// verification stays strict.
+	if view.Verified {
+		t.Fatalf("mixed work verifies the product without an F10 fact: %+v", view)
+	}
+	if len(view.Evidence) != 2 {
+		t.Fatalf("mixed lineage misses a matching task: %+v", view.Evidence)
+	}
+	byKey := map[string]CommentProductTaskEvidence{}
+	for _, task := range view.Evidence {
+		byKey[task.TaskKey] = task
+	}
+	completed, ok := byKey[firstTask.Key]
+	if !ok || completed.Issue != firstBinding.IssueIndex || completed.Acceptance != firstBinding.AcceptanceID || completed.Completion == "" || completed.Pending {
+		t.Fatalf("completed matching task is not exact: %+v", view.Evidence)
+	}
+	pending, ok := byKey[secondTask.Key]
+	if !ok || pending.Issue != secondBinding.IssueIndex || pending.Acceptance != secondBinding.AcceptanceID || pending.Completion != "" || !pending.Pending {
+		t.Fatalf("pending matching task is not marked pending: %+v", view.Evidence)
+	}
+}

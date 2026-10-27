@@ -32,6 +32,8 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 
 ## Orchestrate without ceremony
 
+- For the founder-demo UX task, the completion boundary is the full [current frontend-to-demo checklist](docs/development/factory-remaining-tasks.md#current-product-ux-tasks), including the installed real journey, second change, rehearsal and presenter handover. A completed lane, frontend slice, passing suite or exited Muse goal is a checkpoint: continue the next ready unchecked item. Never report the whole task complete or recommend stopping its waker while required items remain. If a real dependency blocks progress, record its exact owner/needed action and continue independent work; do not turn unfinished authorized work into a new-scope permission request.
+
 - For an authorized Muse run: save the needed implementation instructions, start Muse, deliver the prompt, submit it, confirm it started and promptly give the owner the tmux command and requested waker prompt.
 - Keep required model and writer checks brief. Do not delay the handoff with repeated settings inspections, log archaeology or runtime-internals probing after sufficient startup information exists.
 - Necessary plans, prompts, checklists and run references support continuity; writing them down is not bureaucracy. Keep them useful and concise, and update existing records rather than multiplying trackers.

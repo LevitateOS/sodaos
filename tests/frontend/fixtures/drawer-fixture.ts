@@ -75,7 +75,20 @@ function createFixture(extra: Partial<State> = {}) {
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
     };
     calls.push(call);
-    const override = await reply?.(call);
+    const signal = init?.signal;
+    if (signal?.aborted) throw signal.reason;
+    const pending = reply?.(call);
+    // Mirror production fetch abort semantics: a hung reply must lose to an
+    // aborted signal (e.g. the settings preparation GET deadline) instead of
+    // hanging the awaiting UI forever.
+    const override = await (signal
+      ? Promise.race([
+          pending,
+          new Promise<null>((_, reject) =>
+            signal.addEventListener('abort', () => reject(signal.reason), {once: true})
+          ),
+        ])
+      : pending);
     if (override) return override;
     const {url, method, body: encoded} = call;
     if (call.headers['x-extension-session-generation'] !== 'fixture-generation')

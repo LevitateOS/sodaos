@@ -8,13 +8,34 @@ import (
 	"strings"
 )
 
+// FJ-874: maps the setup route's typed refusal to the existing
+// committed/conflict/unconfirmed outcomes. The returned errors carry the
+// same fixed literals the host gate emits, so the API layer's existing
+// setup-claim mapping keeps working byte-identical. Every non-claim
+// error (validation, transport, 200-shape) keeps its existing behavior
+// byte-identical.
+func mapSetupClaimError(err error) error {
+	var claim setupClaimError
+	if !errors.As(err, &claim) {
+		return err
+	}
+	switch claim.code {
+	case "committed":
+		return errors.New("setup claim is committed; renewal refused with the retained credential kept")
+	case "conflict":
+		return errors.New("setup claim conflicts; renewal refused with the retained credential kept")
+	default:
+		return errors.New("setup claim is unconfirmed; renewal refused with the retained credential kept")
+	}
+}
+
 func (c *Client) ApplicationSetup(ctx context.Context, request application.SetupRequest) (application.SetupResult, error) {
 	var result application.SetupResult
 	if err := request.Validate(); err != nil {
 		return result, err
 	}
-	if err := c.callLimit(ctx, "/application/setup", request, &result, 8192); err != nil {
-		return result, err
+	if err := c.callSetupLimit(ctx, "/application/setup", request, &result, 8192); err != nil {
+		return result, mapSetupClaimError(err)
 	}
 	if result.Operation != request.Setup.ID || result.Observation.Validate() != nil {
 		return application.SetupResult{}, errors.New("native setup identity differs")

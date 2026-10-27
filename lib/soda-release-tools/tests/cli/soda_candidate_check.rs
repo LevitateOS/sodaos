@@ -397,7 +397,10 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
         qualification: qualification.clone(),
     };
     let summary = serde_json::json!({"upgrade": published});
-    let notes = format!("Fixture notes{}", upgrade::render_summary(summary.as_object().unwrap()).unwrap());
+    let notes = format!(
+        "Fixture notes{}",
+        upgrade::render_summary(summary.as_object().unwrap()).unwrap()
+    );
     let parse = |text: &str| {
         upgrade::published_from_notes(
             text,

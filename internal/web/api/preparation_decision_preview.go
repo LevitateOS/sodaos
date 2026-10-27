@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -37,6 +38,21 @@ type preparationApprovalPreview struct {
 // A preview observes a previously accepted selection; it neither selects new
 // requirements nor verifies privileged effects on an administrator's behalf.
 // Logs and repository contents stay outside the browser response.
+
+// previewPreparationBudget bounds one decision-preview read. Each native
+// context read fans out to roughly a dozen container execs at ~170ms, so
+// the historical 5s budget expired on ordinary multi-input selections (5
+// inputs x 2 roles = 10 single-path reads ≈ 25s of native work) before any
+// digest comparison ran. Thirty seconds bounds the batched reader below
+// while keeping the browser read bounded: batches that fit confirm in a
+// handful of calls, and any path that cannot confirm within the remaining
+// budget fails closed with the fixed role reason instead of hanging. The
+// worst case is 244 native reads for a 64-input selection at both roles
+// (5x23 per 12-batch plus 7 per 4-batch per role); the pre-call budget
+// check in readPreparationInputBatch stops issuing calls once the budget
+// is gone, so wall time never exceeds the budget plus one in-flight read.
+const previewPreparationBudget = 30 * time.Second
+
 type preparationDecisionPreview struct {
 	Requirements *preparationRequirementPreview `json:"requirements,omitempty"`
 	Approval     *preparationApprovalPreview    `json:"approval,omitempty"`
@@ -89,7 +105,7 @@ func (s *API) preparationDecisionPreview(ctx context.Context, p store.Project, r
 	if s.Host == nil {
 		return missing("Native Project preparation is unavailable.")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, previewPreparationBudget)
 	defer cancel()
 	records, err := s.Store.StandingProjectPreparations(ctx, p.ID)
 	if err != nil || len(records) > 128 {
@@ -126,40 +142,96 @@ func (s *API) preparationDecisionPreview(ctx context.Context, p store.Project, r
 }
 
 func (s *API) confirmPreparationInputs(ctx context.Context, prep project.Preparation, inputs []preparationInputView) bool {
-	// The native reader also selects AGENTS.md; leave a slot within its existing
-	// bounded text context. Larger or non-text inputs require native inspection.
-	const chunk = project.MaxFactoryContextFiles - 1
-	for start := 0; start < len(inputs); start += chunk {
-		end := min(start+chunk, len(inputs))
-		paths := make([]string, 0, end-start)
-		for _, input := range inputs[start:end] {
-			paths = append(paths, input.Path)
-		}
-		deadline, _ := ctx.Deadline()
-		request := project.FactoryPreparationContextRequest{Project: prep.Project, ID: prep.ID, SourceCommit: prep.SourceCommit, ApprovedBase: prep.SourceCommit, DiffBase: prep.SourceCommit, Candidate: prep.SourceCommit, Paths: paths, NotAfter: deadline}
-		material, err := s.Host.ReadPreparationContext(ctx, request, prep.Role)
-		if err != nil {
+	// Batch selected paths up to the native per-request count bound so each
+	// role confirms in as few host calls as fit. A bounds-refused batch
+	// (the typed HTTP 413 signal only) halves down to single-path reads,
+	// so any selection that confirmed one path
+	// at a time keeps confirming; only a genuinely unreadable selection
+	// fails, exactly as before. Digest, duplicate and bounds checks are
+	// unchanged. Worst case for the legal maximum of 64 inputs
+	// (project.MaxSourceInputs) is 122 native reads per role — 23 per
+	// 12-batch and 7 per 4-batch through the full binary fallback — hence
+	// 244 across both roles; genuine size-driven fallback converges in a
+	// handful of calls and the budget check below caps the rest.
+	const maxBatch = project.MaxFactoryContextPaths
+	for start := 0; start < len(inputs); start += maxBatch {
+		end := min(start+maxBatch, len(inputs))
+		if !s.confirmPreparationInputBatch(ctx, prep, inputs[start:end]) {
 			return false
-		}
-		files := make(map[string][]byte, len(material.Files))
-		for _, file := range material.Files {
-			if _, duplicate := files[file.Path]; duplicate {
-				return false
-			}
-			files[file.Path] = file.Content
-		}
-		for _, input := range inputs[start:end] {
-			content, found := files[input.Path]
-			if !found {
-				return false
-			}
-			digest := sha256.Sum256(content)
-			if hex.EncodeToString(digest[:]) != input.Digest {
-				return false
-			}
 		}
 	}
 	return true
+}
+
+func (s *API) confirmPreparationInputBatch(ctx context.Context, prep project.Preparation, inputs []preparationInputView) bool {
+	ok, sizeRefused := s.readPreparationInputBatch(ctx, prep, inputs)
+	if ok {
+		return true
+	}
+	// Only an explicit native size-limit refusal retries by halving: every
+	// smaller read re-verifies its full byte content against the accepted
+	// digests, so genuine oversize converges while any other failure —
+	// cancellation, transport, identity, digest, duplicate or missing bytes
+	// — fails closed here with no subset retry. A failed batch is never
+	// masked by passing leaves: every input must still verify.
+	if !sizeRefused || len(inputs) == 1 || ctx.Err() != nil {
+		return false
+	}
+	mid := len(inputs) / 2
+	return s.confirmPreparationInputBatch(ctx, prep, inputs[:mid]) && s.confirmPreparationInputBatch(ctx, prep, inputs[mid:])
+}
+
+func (s *API) readPreparationInputBatch(ctx context.Context, prep project.Preparation, inputs []preparationInputView) (bool, bool) {
+	// Budget-aware stop: once the preview budget (or a shorter parent
+	// deadline) is gone, refuse without issuing calls that are already
+	// doomed. The caller surfaces the fixed role reason.
+	if err := ctx.Err(); err != nil {
+		return false, false
+	}
+	paths := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		paths = append(paths, input.Path)
+	}
+	deadline, _ := ctx.Deadline()
+	request := project.FactoryPreparationContextRequest{Project: prep.Project, ID: prep.ID, SourceCommit: prep.SourceCommit, ApprovedBase: prep.SourceCommit, DiffBase: prep.SourceCommit, Candidate: prep.SourceCommit, Paths: paths, NotAfter: deadline}
+	material, err := s.Host.ReadPreparationContext(ctx, request, prep.Role)
+	if err != nil {
+		return false, ctx.Err() == nil && isNativeSizeRefusal(err)
+	}
+	files := make(map[string][]byte, len(material.Files))
+	for _, file := range material.Files {
+		if _, duplicate := files[file.Path]; duplicate {
+			return false, false
+		}
+		files[file.Path] = file.Content
+	}
+	for _, input := range inputs {
+		content, found := files[input.Path]
+		if !found {
+			return false, false
+		}
+		digest := sha256.Sum256(content)
+		if hex.EncodeToString(digest[:]) != input.Digest {
+			return false, false
+		}
+	}
+	return true, false
+}
+
+// isNativeSizeRefusal reports whether err is the genuine typed explicit
+// bounds refusal, the only failure that may retry by halving. The real
+// native route refuses an oversized selection with HTTP 413 before
+// sending bytes, surfaced through the host client as
+// host.IsPreparationContextBoundsExceeded; no error text is matched.
+// Every other error fails closed with no subset retry: the generic 500
+// for identity/ancestry/exec failures, malformed or over-wire 200s
+// ("invalid native response"), client-observed bound overruns
+// ("exceeds its text bound", "invalid native factory context file" —
+// which also cover path/UTF-8 shape, never size alone), cancellation,
+// transport, digest, duplicate and missing bytes. Halving cannot repair
+// those, and retrying them would burn budget or mask a failed batch.
+func isNativeSizeRefusal(err error) bool {
+	return host.IsPreparationContextBoundsExceeded(err)
 }
 
 func preparationPreviewDigest(value any) string {

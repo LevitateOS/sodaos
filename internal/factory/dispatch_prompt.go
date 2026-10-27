@@ -363,6 +363,7 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 		b.WriteString("These are native CI status context names, not executable commands or repository paths. Do not turn a status name into a shell command. Use the recorded check evidence for its exact head; run only actual approved repository checks or commands justified by inspected source.\n")
 	}
 	b.WriteString("Required evidence: exact candidate commit, checks actually run and their outcomes, unresolved requirements, and remaining risks. Do not claim a check passed without its result.\n")
+	b.WriteString(ApplicationBundleGuidance + "\n")
 	b.WriteString("If accepted inputs conflict with controller policy, a required limit is unavailable, or the objective cannot be completed within the selected limits, stop further work and report blocked with the concrete reason. Never evade a limit by retrying, switching credentials or expanding scope.\n")
 	if in.Role == project.RoleReviewer {
 		b.WriteString("\nReview the exact candidate against the accepted requirements below. ")

@@ -230,7 +230,11 @@ fn sha256_of(path: &str) -> Result<String, String> {
                 if !status.success() {
                     return Err(String::from("muse executable verification unavailable"));
                 }
-                let sum = output.split_whitespace().next().unwrap_or_default().to_lowercase();
+                let sum = output
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or_default()
+                    .to_lowercase();
                 if !is_hex64(&sum) {
                     return Err(String::from("muse executable verification unavailable"));
                 }

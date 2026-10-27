@@ -1298,6 +1298,51 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	if _, _, err := server.serve(ctx, factory.MCPToolFinishProductPlan, argsFor(plain)); err != nil {
 		t.Fatalf("plan without proposal refused: %v", err)
 	}
+	// The FJ-v3-553 optional-carrier rule: documented optional fields
+	// ride the same finish without changing the required outcome. The
+	// recorded plain terminal freezes its assignment, so a fresh
+	// assignment proves the optional shape.
+	optionalSink := newFakeCatalogSink()
+	optionalSink.capability.Profile = factory.MCPProfileProductLead
+	storeSelectionReceipt(t, optionalSink, optionalSink.assignments[optionalSink.capability.AssignmentID], false, false, factory.ContextBundleCurrent)
+	optionalServer := &factoryCatalogServer{
+		deps:    FactoryMCPDeps{Capabilities: optionalSink, Submissions: optionalSink, Assignments: optionalSink},
+		limiter: newMCPRateLimiter(),
+	}
+	withOptional := map[string]any{
+		"candidates": []any{"g1"}, "evidence_refs": []any{"r1"}, "coverage": "all",
+		"questions": []any{"What remains open?"}, "component_id": "PL11",
+	}
+	if _, _, err := optionalServer.serve(ctx, factory.MCPToolFinishProductPlan, mcpCallArgs{
+		CapabilityID: optionalSink.capability.ID, SubmissionID: factory.NewID(),
+		ExpectedInputDigest: optionalSink.capability.ScopeDigest(), Payload: withOptional,
+	}); err != nil {
+		t.Fatalf("plan with documented optional carriers refused: %v", err)
+	}
+	// The FJ-v3-526 worker inlined the admitted objective+facts as
+	// top-level finish arguments and was refused before settlement:
+	// unknown payload fields never reach the settler, so the 64 KiB
+	// cap was never the gate. The worker-facing schema carries the
+	// same finish-args guidance as the staged prompt.
+	inlined := map[string]any{
+		"candidates": []any{"g1"}, "evidence_refs": []any{"r1"}, "coverage": "all",
+		"objective": "Record the draft plan.", "facts": []any{"Record the draft plan."},
+	}
+	if _, _, err := server.serve(ctx, factory.MCPToolFinishProductPlan, argsFor(inlined)); err == nil {
+		t.Fatal("inlined objective/facts admitted as finish arguments")
+	} else if !strings.Contains(err.Error(), "unknown payload field") {
+		t.Fatalf("inline refusal %q does not name the unknown-field gate", err)
+	}
+	schema := rolePayloadSchema(factory.MCPToolFinishProductPlan)
+	if schema == nil {
+		t.Fatal("finish_product_plan schema missing from worker discovery")
+	}
+	for _, key := range []string{"candidates", "walkthroughs"} {
+		description := schema.Properties[key].Description
+		if !strings.Contains(description, control.FinishProductPlanArgsGuidance) {
+			t.Fatalf("%s schema omits the finish-args guidance the worker reads", key)
+		}
+	}
 }
 
 // TestFactoryCatalogRateLimit bounds traffic per run without

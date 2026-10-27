@@ -528,21 +528,18 @@ func (a *intentAdoption) loadDeliveredPins() error {
 	if err := a.c.currentAcceptedIntent(a.ctx, a.r); err != nil {
 		return err
 	}
-	history, err := a.c.Store.IntentHistory(a.ctx, a.r.Intent, a.r.Owner, 2)
+	previous, err := a.c.Store.PreviousGeneratedIntent(a.ctx, a.r.Intent, a.r.ID)
 	if err != nil {
 		return err
 	}
-	if len(history) < 2 || history[0].ID != a.r.ID || history[1].ID != a.r.Predecessor {
-		return errors.New("previous revision is unavailable")
-	}
-	priorGeneration, err := a.c.Store.IntentGeneration(a.ctx, history[1].ID)
+	priorGeneration, err := a.c.Store.IntentGeneration(a.ctx, previous.ID)
 	if err != nil {
 		return err
 	}
 	if len(priorGeneration.SubmittedTasks) == 0 {
 		return errors.New("previous generation predates submitted-task records")
 	}
-	pw := history[1]
+	pw := previous
 	pw.Tasks = priorGeneration.SubmittedTasks
 	a.prevWork = &pw
 	a.priorTasks = map[string]factory.IntentTask{}
@@ -554,7 +551,7 @@ func (a *intentAdoption) loadDeliveredPins() error {
 			return errors.New("delivered history unexpectedly mutated")
 		}
 	}
-	priorBindings, err := a.c.Store.IntentTaskBindings(a.ctx, history[1].ID)
+	priorBindings, err := a.c.Store.IntentTaskBindings(a.ctx, previous.ID)
 	if err != nil {
 		return err
 	}
@@ -580,6 +577,10 @@ func (a *intentAdoption) adoptExistingBindings() error {
 				}
 			}
 			if copied {
+				a.adopted[b.TaskKey] = b
+				continue
+			}
+			if prior, delivered := a.deliveredBinding(b.TaskKey); delivered && prior == b {
 				a.adopted[b.TaskKey] = b
 				continue
 			}
@@ -627,7 +628,34 @@ func (a *intentAdoption) adoptTask(key string) error {
 	if err != nil {
 		return err
 	}
+	if binding, delivered := a.deliveredBinding(key); delivered {
+		// The closed native issue has already passed its exact content and
+		// dependency checks. Keep the acceptance which actually completed;
+		// inventing a new acceptance would require a second merge of old work.
+		if err := a.c.bindValidatedGenerationTask(a.ctx, a.g, binding, a.validate); err != nil {
+			return err
+		}
+		a.adopted[key], a.active[key] = binding, false
+		return nil
+	}
+	if _, delivered := a.g.Delivered[key]; delivered {
+		return errors.New("delivered task lacks its original acceptance binding")
+	}
 	return a.persistAdoptedTask(evidence, decision)
+}
+
+func (a *intentAdoption) deliveredBinding(key string) (factory.IntentTaskBinding, bool) {
+	ref, ok := a.g.Delivered[key]
+	if !ok {
+		return factory.IntentTaskBinding{}, false
+	}
+	for _, prior := range a.priorBindings {
+		if prior.TaskKey == key && prior.IssueID == ref.IssueID && prior.IssueIndex == ref.IssueIndex && prior.ContentVersion == ref.ContentVersion {
+			prior.RevisionID = a.r.ID
+			return prior, true
+		}
+	}
+	return factory.IntentTaskBinding{}, false
 }
 
 // readAdoptEvidence reads one submitted task's native observation at
@@ -660,7 +688,7 @@ func (a *intentAdoption) checkAdoptedIssue(evidence adoptEvidence) error {
 		return refuseAcceptance(RefusalObjectiveChanged)
 	}
 	// Delivered records adopt without mutation: the native stays closed
-	// with its pinned content while bindings and acceptances chain on.
+	// with its pinned content and original completed acceptance.
 	// A reopened or rewritten record refuses rather than rebinding
 	// history it no longer matches.
 	if ref, delivered := a.g.Delivered[evidence.task.Key]; delivered {

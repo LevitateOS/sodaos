@@ -112,6 +112,259 @@ func TestDispatchTimeOnlyRootLaunchesIntent(t *testing.T) {
 	}
 }
 
+// planPromptFixtureHead is a valid corrected draft with attributed
+// effective scope behind the FJ-v3 plan-dispatch diagnosis: accepted and
+// edited choices carry explicit source and provenance so draft planning
+// scope admits it exactly like the corrected production head.
+func planPromptFixtureHead(repo int64, intent, revision string) factory.IntentRevision {
+	idea := func(id, desc, consequence string) factory.ProductIdea {
+		return factory.ProductIdea{ID: id, Description: desc, Consequence: consequence, Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+	}
+	return factory.IntentRevision{
+		ID: revision, Intent: intent, Owner: 7, Repository: repo,
+		Objective:         "Build a leave approval workflow so managers can review time-off requests",
+		State:             "draft",
+		MaxIssues:         10,
+		PlanningCalls:     12,
+		CreatedUnix:       time.Now().UTC().Truncate(time.Second).Unix(),
+		EffectiveOutcomes: []string{"d555555555555555555555555", "d666666666666666666666666"},
+		Ideas: []factory.ProductIdea{
+			idea("d555555555555555555555555", "Capture leave requests", "Requests can be recorded"),
+			idea("d666666666666666666666666", "Managers review requests", "Decisions are visible"),
+		},
+	}
+}
+
+// planPromptFixtureContext serves the exact approved bytes per requested
+// path so preparation-context digests verify, mirroring the native reader.
+func planPromptFixtureContext(contents map[string]string) func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+	return func(in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+		files := make([]project.FactoryContextFile, 0, len(in.Paths))
+		for _, path := range in.Paths {
+			files = append(files, project.FactoryContextFile{Path: path, Content: []byte(contents[path])})
+		}
+		return project.FactoryPreparationContext{
+			Project: in.Project, ID: in.ID, Role: role,
+			SourceCommit: in.SourceCommit, ApprovedBase: in.ApprovedBase,
+			DiffBase: in.DiffBase, Candidate: in.Candidate,
+			Setup: []byte("synthetic approved setup instructions"),
+			Check: []byte("synthetic required checks"),
+			Files: files,
+			Diff:  []byte("synthetic exact candidate diff"),
+		}, nil
+	}
+}
+
+func planPromptDigest(t *testing.T, content string) string {
+	t.Helper()
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+// oversizedPromptContents builds approved source bytes past the
+// intent-decompose headroom: five 31 KiB files stay inside every
+// per-file and per-read bound while their merged staged prompt exceeds
+// the 128 KiB phase bound.
+func oversizedPromptContents() map[string]string {
+	big := strings.Repeat("0123456789abcdef", 1984)
+	if len(big) != 31744 {
+		panic("fixture file size drift")
+	}
+	return map[string]string{
+		"README.md":    big + "a",
+		"docs/a.md":    big + "b",
+		"docs/b.md":    big + "c",
+		"docs/c.md":    big + "d",
+		"docs/main.go": big + "e",
+	}
+}
+
+// headroomPromptContents builds approved source bytes inside the
+// intent-decompose headroom but past the other-phase bound: two 31 KiB
+// files stage near 85 KiB, the FJ-v3 production shape.
+func headroomPromptContents() map[string]string {
+	big := strings.Repeat("0123456789abcdef", 1984)
+	return map[string]string{"README.md": big + "a", "docs/main.go": big + "b"}
+}
+
+// TestAssembleIntentPlanningInputRefusesOversizedPrompt proves the
+// fail-fast layer: assembled input past the admitted decompose phase
+// bound refuses at assembly with the typed prompt-bound sentinel,
+// before any dispatch, funding or launch.
+func TestAssembleIntentPlanningInputRefusesOversizedPrompt(t *testing.T) {
+	ctx := context.Background()
+	contents := oversizedPromptContents()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, promptDigests(t, contents))
+	fx.host.contextRead = planPromptFixtureContext(contents)
+	head := planPromptFixtureHead(fx.repo, "d911911911911911911911911", "d91f71eb91f71eb91f71eb91f")
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatalf("corrected draft not recorded: %v", err)
+	}
+	c := &Coordinator{Store: db, Host: fx.host}
+	_, _, wait, err := c.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose)
+	if wait != nil {
+		t.Fatalf("oversized input waited: %+v", wait)
+	}
+	if !errors.Is(err, ErrIntentPlanningPromptBound) {
+		t.Fatalf("assembly error = %v", err)
+	}
+	if _, err := db.IntentPlanAttempt(ctx, head.Intent, head.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("refused assembly admitted an attempt: %v", err)
+	}
+	if len(fx.host.launches) != 0 {
+		t.Fatal("refused assembly reached the host launch")
+	}
+}
+
+// TestDispatchIntentPlanRefusesOversizedPromptProvesReason pins the
+// dispatch-layer guard behind assembly: input assembled past the
+// admitted decompose phase bound refuses deterministically with the
+// whitelisted prompt_over_bound reason before any packet, assignment,
+// attempt or funding row exists.
+func TestDispatchIntentPlanRefusesOversizedPromptProvesReason(t *testing.T) {
+	ctx := context.Background()
+	contents := oversizedPromptContents()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, promptDigests(t, contents))
+	fx.host.contextRead = planPromptFixtureContext(contents)
+	head := planPromptFixtureHead(fx.repo, "d913913913913913913913913", "d913913913913913913913913")
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatalf("corrected draft not recorded: %v", err)
+	}
+	c := &Coordinator{Store: db, Host: fx.host}
+	proj, prep, paths, planWait, err := c.resolvePlanningPreparation(ctx, head)
+	if err != nil || planWait != nil {
+		t.Fatalf("preparation err=%v wait=%+v", err, planWait)
+	}
+	merged, planWait, err := c.readPlanningContext(ctx, proj, prep, paths, time.Now().Add(2*time.Minute), fx.repo)
+	if err != nil || planWait != nil {
+		t.Fatalf("context err=%v wait=%+v", err, planWait)
+	}
+	in, planWait, err := assemblePlanningInput(head, factory.IntentPlanningPropose, prep, paths, merged)
+	if err != nil || planWait != nil {
+		t.Fatalf("input err=%v wait=%+v", err, planWait)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("assembled input bytes = %d, decompose prompt bound = %d", len(raw), project.MaxDecomposePrompt)
+	report := c.DispatchIntentPlan(ctx, head.Intent, head.Owner, factory.IntentPlanningPropose, in, prep.SourceCommit, prep.ID)
+	if len(report.Launched) != 0 || len(report.Waits) != 0 || len(report.Errors) != 1 {
+		t.Fatalf("dispatch report: %+v", report)
+	}
+	if got := report.Errors[0]; got.Reason != DispatchErrPromptBound || got.Detail != ErrIntentPlanningPromptBound.Error() {
+		t.Fatalf("typed dispatch error = %+v", got)
+	}
+	if _, err := db.IntentPlanAttempt(ctx, head.Intent, head.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("refused dispatch admitted an attempt: %v", err)
+	}
+	if len(fx.host.launches) != 0 {
+		t.Fatal("refused dispatch reached the host launch")
+	}
+}
+
+// TestDispatchIntentPlanLaunchesDecomposeHeadroom proves the finite
+// headroom end to end: approved context inside the 128 KiB
+// intent-decompose bound but past the other-phase bound assembles,
+// dispatches, funds and launches exactly one run with its complete
+// approved evidence and digest intact.
+func TestDispatchIntentPlanLaunchesDecomposeHeadroom(t *testing.T) {
+	ctx := context.Background()
+	contents := headroomPromptContents()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, promptDigests(t, contents))
+	fx.host.contextRead = planPromptFixtureContext(contents)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	head := planPromptFixtureHead(fx.repo, "d914914914914914914914914", "d914914914914914914914914")
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatalf("corrected draft not recorded: %v", err)
+	}
+	c := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker}
+	in, prep, wait, err := c.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose)
+	if err != nil || wait != nil {
+		t.Fatalf("assembly err=%v wait=%+v", err, wait)
+	}
+	raw, err := json.Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) <= project.MaxFactoryPrompt {
+		t.Fatalf("headroom fixture fits the old bound: %d bytes", len(raw))
+	}
+	report := c.DispatchIntentPlan(ctx, head.Intent, head.Owner, factory.IntentPlanningPropose, in, prep.SourceCommit, prep.ID)
+	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
+		t.Fatalf("dispatch report: %+v", report)
+	}
+	if len(fx.host.launches) != 1 {
+		t.Fatalf("host launches = %d", len(fx.host.launches))
+	}
+	a, err := db.AssignmentByRun(ctx, report.Launched[0].RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Subject.Intent == nil || a.Subject.Intent.ScopeDigest != head.Digest() {
+		t.Fatalf("launched assignment not bound to its head: %+v", a.Subject)
+	}
+	staged, planningStaged, err := ParseStagedPlanningInput(a.Prompt)
+	if err != nil || !planningStaged {
+		t.Fatalf("launched prompt lost its staged input: %v", err)
+	}
+	if len(staged.Inspected) != 2 {
+		t.Fatalf("launched prompt lost approved evidence: %d refs", len(staged.Inspected))
+	}
+	for _, ref := range staged.Inspected {
+		if want := contents[ref.Path]; ref.Evidence != want {
+			t.Fatalf("launched prompt altered approved evidence for %s", ref.Path)
+		}
+		if ref.Commit != prep.SourceCommit {
+			t.Fatalf("launched prompt lost its source commit for %s", ref.Path)
+		}
+	}
+}
+
+func promptDigests(t *testing.T, contents map[string]string) map[string]string {
+	t.Helper()
+	selected := map[string]string{}
+	for path, content := range contents {
+		selected[path] = planPromptDigest(t, content)
+	}
+	return selected
+}
+
+// TestDispatchIntentPlanLaunchesFittingPrompt is the control for the
+// oversized-prompt diagnosis: the same assembly route with small approved
+// context launches exactly one run.
+func TestDispatchIntentPlanLaunchesFittingPrompt(t *testing.T) {
+	ctx := context.Background()
+	contents := map[string]string{"README.md": "small approved readme", "docs/main.go": "small approved source"}
+	selected := map[string]string{}
+	for path, content := range contents {
+		selected[path] = planPromptDigest(t, content)
+	}
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db, selected)
+	fx.host.contextRead = planPromptFixtureContext(contents)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	head := planPromptFixtureHead(fx.repo, "d922922922922922922922922", "d922922922922922922922922")
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatalf("corrected draft not recorded: %v", err)
+	}
+	c := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker}
+	in, prep, wait, err := c.AssembleIntentPlanningInput(ctx, head, factory.IntentPlanningPropose)
+	if err != nil || wait != nil {
+		t.Fatalf("assembly err=%v wait=%+v", err, wait)
+	}
+	report := c.DispatchIntentPlan(ctx, head.Intent, head.Owner, factory.IntentPlanningPropose, in, prep.SourceCommit, prep.ID)
+	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
+		t.Fatalf("dispatch report: %+v", report)
+	}
+	if len(fx.host.launches) != 1 {
+		t.Fatalf("host launches = %d", len(fx.host.launches))
+	}
+}
+
 func TestDispatchTimeOnlyRootReplaySingleCharge(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)

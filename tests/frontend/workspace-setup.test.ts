@@ -40,6 +40,87 @@ async function focusedReviewHeading(page: Page) {
   );
 }
 
+async function installAuthoredPlanningPeer(page: Page) {
+  await page.evaluate(() => {
+    const original = window.fetch.bind(window);
+    let reviewed: Record<string, unknown> | undefined;
+    let content: Record<string, unknown> | undefined;
+    const request = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input),
+        method = init?.method || 'GET';
+      if (method === 'POST' && path.endsWith('/plan/review') && content) {
+        const alternatives = content.alternatives as Record<string, unknown>[];
+        const selected = alternatives[0]!;
+        reviewed = {
+          content,
+          challenges: [],
+          settled: [],
+          recommendation: {
+            producer: content.producer,
+            intent: content.intent,
+            revision: content.revision,
+            objective: content.objective,
+            recommended: selected.key,
+            alternative: selected,
+            outcomes: selected.outcomes,
+            constraints: [],
+            milestones: [{name: 'Track a project', result: 'The team sees its next action'}],
+            advice: 'a'.repeat(64),
+          },
+          consistency: {
+            producer: 'soda-authored-v1',
+            intent: content.intent,
+            revision: content.revision,
+            mismatches: [],
+            confidence: 0.9,
+            advice: 'b'.repeat(64),
+          },
+        };
+        window.workspaceFixture.calls.push({path, method, body: JSON.parse(String(init?.body))});
+        return Response.json(reviewed);
+      }
+      const response = await original(input, init);
+      if (method !== 'GET' || !path.endsWith('/plan') || !response.ok) return response;
+      const status = await response.json();
+      if (status.state !== 'completed') return Response.json(status);
+      const {review: _modelReview, ...unreviewed} = status as Record<string, unknown>;
+      void _modelReview;
+      const revision = (
+        document.querySelector('soda-intent') as unknown as {revision: {intent: string; objective: string}}
+      ).revision;
+      if (content?.revision !== status.revision) reviewed = undefined;
+      content = {
+        producer: 'soda-planning-agent-v1',
+        supported: true,
+        intent: revision.intent,
+        revision: status.revision,
+        objective: revision.objective,
+        facts: [revision.objective],
+        unknowns: ['The team can refine labels after trying the first version.'],
+        alternatives: ['team_list', 'guided_steps'].map((key) => ({
+          key,
+          name: key === 'team_list' ? 'Team project list' : 'Guided project creation',
+          audience: 'Project owners and their team',
+          summary: 'Track the next action on a project.',
+          steps: [
+            {
+              actor: 'The project owner',
+              action: 'adds a project and its next action',
+              result: 'The team can see who will do what next',
+            },
+          ],
+          visibility: 'The project team sees its work',
+          consequences: 'Updates remain visible in the project',
+          evidence: 'The saved project tracker request',
+          outcomes: [revision.objective],
+        })),
+      };
+      return Response.json({...unreviewed, walkthroughs: content, ...(reviewed ? {review: reviewed} : {})});
+    };
+    Object.defineProperty(window, 'fetch', {value: request, configurable: true});
+  });
+}
+
 test('setup: pending creation keeps its selection and disables navigation without duplicate writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
@@ -57,14 +138,55 @@ test('setup: pending creation keeps its selection and disables navigation withou
     return window.workspaceFixture.api.refresh();
   });
   await chooseFirstRepository(page);
+  const outcomeRegion = page.locator('.soda-configure-outcome');
+  assert.equal(await outcomeRegion.count(), 1);
+  assert.equal(await outcomeRegion.getAttribute('role'), 'status');
+  assert.equal(await outcomeRegion.locator('.soda-feedback').count(), 0);
+  const idleOutcome = await outcomeRegion.evaluate((node) => ({
+    height: node.clientHeight,
+    border: getComputedStyle(node).borderTopWidth,
+  }));
+  assert.equal(idleOutcome.height, 0);
+  assert.equal(idleOutcome.border, '0px');
+  const outcomeHandle = await outcomeRegion.elementHandle();
+  assert.ok(outcomeHandle);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('button', {name: 'Creating project…', exact: true}).waitFor();
+  assert.equal(
+    await page.evaluate((element) => document.querySelector('.soda-configure-outcome') === element, outcomeHandle),
+    true
+  );
+  assert.equal(await outcomeRegion.locator('.soda-feedback').count(), 1);
+  assert(await outcomeRegion.locator('.soda-feedback').isVisible());
+  assert.equal(await outcomeRegion.locator('.soda-feedback').getAttribute('role'), null);
+  assert.match(await outcomeRegion.innerText(), /Creating your project/);
+  const conversation = await page.evaluate(() =>
+    fetch('/assets/sodaspaces-factory-conversation.css').then(async (r) => ({
+      status: r.status,
+      type: r.headers.get('content-type'),
+      body: await r.text(),
+    }))
+  );
+  assert.equal(conversation.status, 200);
+  assert.match(conversation.type ?? '', /text\/css/);
+  assert.match(conversation.body, /\.soda-feed-filters/);
+  const icon = await page.evaluate(() =>
+    fetch('/assets/soda/forgejo/icons/repo-19.14.0.svg').then(async (r) => ({
+      status: r.status,
+      type: r.headers.get('content-type'),
+      body: await r.text(),
+    }))
+  );
+  assert.equal(icon.status, 200);
+  assert.match(icon.type ?? '', /svg/);
+  assert.match(icon.body, /<svg/);
   for (const name of ['Back', 'Change repository', 'Cancel setup', 'Creating project…'])
     assert(await page.getByRole('button', {name, exact: true}).isDisabled(), name);
   assert.equal(await page.locator('.soda-config-repository-name').innerText(), 'alice/Alpha\nForgejo');
   await captureSpacesComponent(page, 'pending-creation');
   await page.evaluate(() => window.dispatchEvent(new Event('release-creation')));
-  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Accept and build', exact: true}).waitFor();
   assert.equal(
     await page.evaluate(
       () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
@@ -81,17 +203,20 @@ for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const)
     }, outcome);
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
-    await page
-      .getByText(
-        outcome === 'rejected'
-          ? /Installed Project OS unavailable\. No reservation/
-          : /Project creation could not be confirmed/
-      )
-      .waitFor();
-    await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
-    if (outcome === 'uncertain') await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
-    else if (outcome === 'incomplete') await page.getByRole('heading', {name: 'Project needs inspection'}).waitFor();
-    else await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
+    if (outcome === 'uncertain')
+      await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+    else {
+      await page
+        .getByText(
+          outcome === 'rejected'
+            ? /Installed Project OS unavailable\. No reservation/
+            : /Project creation could not be confirmed/
+        )
+        .waitFor();
+      await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
+      if (outcome === 'incomplete') await page.getByRole('heading', {name: 'Project needs inspection'}).waitFor();
+      else await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
+    }
     assert.equal(
       await page.evaluate(
         () =>
@@ -115,6 +240,7 @@ test('first use: keyboard selection and post-commit Change inspects without writ
   await page.keyboard.press('Space');
   await page.getByRole('button', {name: 'Continue', exact: true}).focus();
   await page.keyboard.press('Enter');
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   const committed = await page.evaluate(() => window.location.pathname);
   await page.getByRole('button', {name: 'Change repository', exact: true}).click();
@@ -148,7 +274,9 @@ test('first use: committed inspection mounts the request overview with verified 
   await page.keyboard.press('Space');
   await page.getByRole('button', {name: 'Continue', exact: true}).focus();
   await page.keyboard.press('Enter');
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await completeBoundIntentPlanning(page);
   await page.getByRole('button', {name: 'Change repository', exact: true}).click();
   const overview = page.locator('soda-factory-work-overview');
   await overview.getByText('Build a small project tracker').waitFor();
@@ -175,24 +303,252 @@ test('first use: picker Back preserves the reviewed direction', async (t) => {
   assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
   assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isEnabled());
   assert.equal(await focusedReviewHeading(page), 'Review your product direction');
+  // A declared native planner peer supplies concrete experience prose; the
+  // browser must keep it unreviewed until the explicit semantic command.
+  await installAuthoredPlanningPeer(page);
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
+  await page.getByRole('button', {name: 'Accept and build', exact: true}).waitFor();
+  await page.getByText('The team can see who will do what next', {exact: true}).first().waitFor();
+  assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).count(), 0);
+  const boundRoute = await page.evaluate(() => location.pathname);
+  await page
+    .locator('section[aria-label="Draft planning"]')
+    .getByRole('button', {name: 'Refresh status', exact: true})
+    .click();
+  await page.getByRole('button', {name: 'Accept and build', exact: true}).click();
+  await page.locator('soda-factory-work-overview').getByText('Native work generated.').waitFor();
+  assert.equal(await page.evaluate(() => location.pathname), boundRoute);
+  const mutations = await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method === 'POST'));
+  assert.equal(
+    mutations.filter((call) => call.path.endsWith('/plan')).length,
+    1,
+    'refresh must not dispatch another plan'
+  );
+  assert.equal(mutations.filter((call) => call.path.endsWith('/generate')).length, 1, 'acceptance creates work once');
+  assert.equal(
+    mutations.filter((call) => call.path.endsWith('/plan/review')).length,
+    1,
+    'refresh restores reviewed content without consulting again'
+  );
 });
+test('first use: resumed draft explicitly raises work limit before planning the same request', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.locator('details.bounds summary').click();
+  await page.getByLabel('Maximum work items', {exact: true}).fill('1');
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  const original = await page.evaluate(async () => {
+    const calls = window.workspaceFixture.calls;
+    const saved = calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents')).at(-1)!;
+    const prior = saved.body!;
+    // Declared server peer supplies the canonical comment-review draft. The
+    // PostgreSQL integration verifies its real accepted-generation provenance.
+    const ideas = prior.ideas as Record<string, unknown>[];
+    const finance = {
+      id: 'd' + '9'.repeat(24),
+      description: 'Require Finance approval above EUR 1000',
+      consequence: 'Preserve existing requests and approval history',
+      decision: 'accept',
+      assumption: false,
+      source: 'requested',
+      provenance: 'human',
+      actor: '1',
+      evidence: 'Feed comment c1 revision 0 admitted by the product owner',
+    };
+    const draft: Record<string, unknown> = {
+      ...prior,
+      id: 'd' + '8'.repeat(24),
+      predecessor: prior.id,
+      ideas: [...ideas, finance],
+      effective_outcomes: [...ideas.map((idea) => idea.id), finance.id],
+    };
+    const response = await fetch(saved.path, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(draft),
+    });
+    if (!response.ok) throw Error('Synthetic comment-review draft unavailable');
+    return draft;
+  });
+  assert.equal(original.max_issues, 1);
+  // Leave and resume through the native request route, as the comment handoff does.
+  await page.evaluate(() => {
+    history.pushState({}, '', '/workspace/new');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.evaluate((intent) => {
+    history.pushState({}, '', '/workspace/requests/' + intent);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, original.intent);
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await installAuthoredPlanningPeer(page);
+  await page.locator('details.bounds summary').click();
+  assert.equal(await page.getByLabel('Maximum work items', {exact: true}).inputValue(), '1');
+  const before = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await page.getByLabel('Maximum work items', {exact: true}).fill('2');
+  assert.equal(await page.getByRole('button', {name: 'Continue to planning', exact: true}).count(), 0);
+  assert(await page.locator('soda-intent').getByRole('button', {name: 'Update proposal', exact: true}).isEnabled());
+  assert.equal(await page.locator('soda-intent').locator('button.primary').innerText(), 'Update proposal');
+  await page.getByText('Planning details', {exact: true}).click();
+  assert(await page.getByRole('button', {name: 'Plan work', exact: true}).isDisabled());
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.length),
+    before,
+    'Editing a limit alone cannot launch work'
+  );
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page.getByRole('button', {name: 'Continue to planning', exact: true}).waitFor();
+  const draftOrder = await page
+    .locator('soda-intent section[aria-label="Draft planning"] button')
+    .evaluateAll((buttons) => buttons.map((button) => button.textContent?.trim()));
+  const primaryAt = draftOrder.findIndex((label) => label === 'Continue to planning');
+  const prepareAt = draftOrder.findIndex((label) => label === 'Prepare project');
+  assert(
+    primaryAt !== -1 && prepareAt !== -1 && primaryAt < prepareAt,
+    `primary planning action precedes project preparation in Draft planning: ${JSON.stringify(draftOrder)}`
+  );
+  const revised = await page.evaluate(
+    () =>
+      window.workspaceFixture.calls
+        .filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+        .at(-1)!.body!
+  );
+  assert.equal(revised.intent, original.intent);
+  assert.equal(revised.predecessor, original.id);
+  assert.equal(revised.repository, '7');
+  assert.equal(revised.max_issues, 2);
+  assert.deepEqual(revised.tasks, original.tasks, 'A bounds edit does not rewrite the accepted work shape');
+  assert.deepEqual(revised.ideas, original.ideas, 'A bounds edit preserves comment identity and attribution');
+  assert.deepEqual(revised.effective_outcomes, original.effective_outcomes);
+  assert.equal(
+    await page.evaluate(
+      (before) => window.workspaceFixture.calls.slice(before).some((call) => call.path.endsWith('/explore')),
+      before
+    ),
+    false,
+    'Limits alone must not remint product tasks through exploration'
+  );
+  assert.equal(
+    await page.evaluate(
+      (before) => window.workspaceFixture.calls.slice(before).some((call) => call.path.endsWith('/generate')),
+      before
+    ),
+    false
+  );
+  await page.getByRole('button', {name: 'Continue to planning', exact: true}).click();
+  await page.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
+  await page.getByRole('button', {name: 'Accept and build', exact: true}).click();
+  await page.locator('soda-factory-work-overview').getByText('Native work generated.').waitFor();
+  const accepted = await page.evaluate(
+    () =>
+      window.workspaceFixture.calls
+        .filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+        .at(-1)!.body!
+  );
+  assert.equal(accepted.state, 'accepted');
+  assert.equal(accepted.predecessor, revised.id);
+  assert.equal(accepted.intent, original.intent);
+  assert.equal(accepted.max_issues, 2);
+  assert.deepEqual(accepted.tasks, original.tasks);
+  assert.deepEqual(accepted.ideas, original.ideas);
+  assert.deepEqual(accepted.effective_outcomes, original.effective_outcomes);
+});
+test('review preserves the saved request after preparation and waits for an explicit planning action', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input),
+          method = init?.method || 'GET';
+        if (path.includes('/api/factory/intents/') && path.endsWith('/plan')) {
+          const revision = (document.querySelector('soda-intent') as unknown as {revision: {id: string}}).revision.id;
+          const body = init?.body ? JSON.parse(String(init.body)) : null;
+          window.workspaceFixture.calls.push({path, method, body});
+          return Promise.resolve(
+            Response.json(
+              method === 'POST'
+                ? {
+                    launched: false,
+                    waits: [{reason: 'preparation_not_ready', detail: 'Project preparation is required.'}],
+                  }
+                : {revision, state: 'none'},
+              {status: method === 'POST' ? 202 : 200}
+            )
+          );
+        }
+        return original(input, init);
+      },
+    });
+  });
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByText(/Planning is waiting:/).waitFor();
+  const before = await page.evaluate(() => ({
+    revision: (document.querySelector('soda-intent') as unknown as {revision: unknown}).revision,
+    posts: window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/plan')).length,
+  }));
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: 'Continue to planning', exact: true}).waitFor();
+  await page
+    .locator('soda-intent')
+    .getByText('Your request and choices are saved. Continue to planning when project preparation is ready.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(await page.getByLabel('Desired outcome', {exact: true}).inputValue(), 'Build a small project tracker');
+  const returned = await page.evaluate(() => ({
+    revision: (document.querySelector('soda-intent') as unknown as {revision: unknown}).revision,
+    posts: window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/plan')).length,
+  }));
+  assert.deepEqual(
+    returned,
+    before,
+    'Returning from preparation must preserve the request without spending another call'
+  );
+  await page.getByRole('button', {name: 'Continue to planning', exact: true}).click();
+  await page.getByText(/Planning is waiting:/).waitFor();
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/plan')).length
+    ),
+    before.posts + 1
+  );
+});
+
 test('first use: picker summarizes reviewed authorization and the create effect', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
   await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
   await page.getByText('Saving 1 authorized idea and 1 work item to the chosen repository.').waitFor();
-  await page.getByText('The draft is linked first. Factory work is created after a completed plan is accepted.').waitFor();
+  await page
+    .getByText('The draft is linked first. Factory work is created after a completed plan is accepted.')
+    .waitFor();
   const create = page.getByRole('link', {name: 'Create a new repository'});
   assert.equal(await create.getAttribute('target'), '_blank');
   assert.equal(await create.getAttribute('rel'), 'noopener');
 });
-test('first use: resumed accepted request suggests its repository in the picker', async (t) => {
+test('first use: resumed accepted request keeps its repository without repeating the picker', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
@@ -218,9 +574,8 @@ test('first use: resumed accepted request suggests its repository in the picker'
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, intent);
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
-  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
-  await page.getByText('Showing the suggested repository for this request.', {exact: true}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).count(), 0);
+  await page.locator('soda-factory-work-overview').getByText('Native work generated.').waitFor();
 });
 test('first use: resumed accepted request restores its overview with native links and no writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
@@ -228,6 +583,7 @@ test('first use: resumed accepted request restores its overview with native link
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
@@ -271,6 +627,7 @@ test('first use: committed inspection mounts plan, detail and revision from the 
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   const intent = await page.evaluate(() => {
@@ -321,9 +678,13 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
   await page.evaluate(() => {
@@ -407,9 +768,13 @@ test(
     await reviewFirstIntent(page);
     await page.getByRole('radio', {name: /alice\/Alpha/}).check();
     await page.getByRole('button', {name: 'Continue', exact: true}).click();
+    await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
     await page.getByRole('heading', {name: 'Configure project'}).waitFor();
     await completeBoundIntentPlanning(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+    await page.getByRole('button', {name: 'Back', exact: true}).click();
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
     await page.getByRole('button', {name: 'Join project', exact: true}).click();
     await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
     await page.evaluate(() => {
@@ -545,6 +910,9 @@ for (const administrator of [true, false])
     await page.evaluate(() => window.workspaceFixture.api.refresh());
     await chooseFirstRepository(page);
     await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+    await page.getByRole('button', {name: 'Back', exact: true}).click();
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
     await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
     await page.evaluate(async (administrator) => {
       const f = window.workspaceFixture,
@@ -580,6 +948,9 @@ test('first use: second-project setup cancellation preserves the live renderer, 
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await chooseFirstRepository(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
   await page.getByRole('button', {name: 'New terminal', exact: true}).click();
@@ -592,6 +963,7 @@ test('first use: second-project setup cancellation preserves the live renderer, 
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Beta/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
@@ -649,6 +1021,7 @@ test('setup cancel restores the non-first return target instead of selecting the
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).waitFor();
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
   await page.getByRole('heading', {name: 'Project OS'}).waitFor();
@@ -702,6 +1075,7 @@ test('setup cancel falls back to the first project only when the return target i
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).waitFor();
   await page.evaluate(async () => {
     const spaces = window.workspaceFixture.spaces;
@@ -727,6 +1101,9 @@ test('setup: join states its account, authority and factory independence', async
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await chooseFirstRepository(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
   const journey = page.locator('.soda-project-journey');
   assert.match(await journey.innerText(), /Joining as Forgejo account/);
@@ -765,6 +1142,7 @@ test('setup: welcome footer tracks describe, repository and create steps', async
   assert.deepEqual(await current(), ['false', 'step', 'false']);
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
   await page.waitForFunction(() => document.querySelector('.soda-setup-footer')?.getAttribute('data-step') === '3');
   assert.deepEqual(await steps(), ['✓ Describe the work', '✓ Choose a repository', '03 Create the project']);
@@ -978,9 +1356,13 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
   await page.evaluate(() => {
@@ -1092,6 +1474,7 @@ test('setup: native New on idle Configure starts blank and saves apart', {timeou
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
   await completeBoundIntentPlanning(page);
   const acceptedIntent = await page.evaluate(
@@ -1228,4 +1611,84 @@ test('setup: discovery groups saved drafts from inventory and resumes them', {ti
     const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
     return area instanceof HTMLTextAreaElement && area.value === 'Build discovery beta';
   });
+});
+test('first use: picker notice keeps a stable silent wrapper and borders only real messages', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  const notice = page.locator('.soda-repository-notice');
+  // Idle: the live-region wrapper persists for first announcements but takes
+  // no space and shows no border.
+  assert.equal(await notice.count(), 1);
+  assert.equal(await notice.getAttribute('role'), 'status');
+  assert.equal(await notice.locator('.soda-feedback').count(), 0);
+  const idle = await notice.evaluate((node) => ({
+    height: node.clientHeight,
+    border: getComputedStyle(node).borderTopWidth,
+    same: document.querySelector('.soda-repository-notice') === node,
+  }));
+  assert.equal(idle.height, 0);
+  assert.equal(idle.border, '0px');
+  assert.equal(idle.same, true);
+  const idleHandle = await notice.elementHandle();
+  assert.ok(idleHandle);
+  // Gate repository search to observe the busy copy, then release it.
+  await page.evaluate(() => {
+    const pristine = window.fetch.bind(window);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (window as unknown as {releaseRepositorySearch: () => void}).releaseRepositorySearch = () => release();
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/api/repositories?')) return gate.then(() => pristine(input, init));
+        return pristine(input, init);
+      },
+    });
+  });
+  await page.getByPlaceholder('Search repositories…').fill('beta');
+  await page.getByRole('button', {name: 'Search', exact: true}).click();
+  await page.getByText('Finding repositories…').waitFor();
+  const busyNotice = page.locator('.soda-repository-notice');
+  assert.equal(await busyNotice.count(), 1);
+  assert.equal(await busyNotice.locator('.soda-feedback').count(), 1);
+  assert(await busyNotice.locator('.soda-feedback').isVisible());
+  assert.equal(
+    await page.evaluate((element) => document.querySelector('.soda-repository-notice') === element, idleHandle),
+    true
+  );
+  await page.evaluate(() => (window as unknown as {releaseRepositorySearch: () => void}).releaseRepositorySearch());
+  await page.getByRole('radio', {name: /alice\/Beta/}).waitFor();
+  // Released: the same wrapper persists with no bordered child.
+  assert.equal(await busyNotice.locator('.soda-feedback').count(), 0);
+  assert.equal(
+    await page.evaluate((element) => document.querySelector('.soda-repository-notice') === element, idleHandle),
+    true
+  );
+  // A failed search surfaces the error copy in the same notice region.
+  await page.evaluate(() => {
+    const pristine = window.fetch.bind(window);
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/api/repositories?')) return Promise.resolve(new Response(null, {status: 500}));
+        return pristine(input, init);
+      },
+    });
+  });
+  await page.getByPlaceholder('Search repositories…').fill('zzz-no-match');
+  await page.getByRole('button', {name: 'Search', exact: true}).click();
+  await page.getByText('Could not find repositories. Search again; no project was created.').waitFor();
+  const errorNotice = page.locator('.soda-repository-notice');
+  assert.equal(await errorNotice.count(), 1);
+  assert(await errorNotice.locator('.soda-feedback').isVisible());
+  assert.equal(await errorNotice.locator('.soda-feedback').getAttribute('data-tone'), 'warning');
+  assert.equal(
+    await page.evaluate((element) => document.querySelector('.soda-repository-notice') === element, idleHandle),
+    true
+  );
 });

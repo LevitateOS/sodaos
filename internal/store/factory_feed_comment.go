@@ -26,25 +26,34 @@ import (
 // FeedCommentDetail carries one stored comment with its serving
 // fields. Source is the persisted resolved snapshot of the feed
 // entry the comment was submitted against, when it named one.
+// Consultation carries actual tool inputs/results, distinct from agent prose.
 type FeedCommentDetail struct {
-	Actor      string
-	Assignment string
-	Payload    *factory.FeedPayload
-	Record     factory.CommentRecord
-	Body       string
-	AuthorName string
-	At         int64
-	Status     string
-	Source     *factory.CommentSource
+	Consultation  *factory.FeedConsultation
+	Contribution  *factory.ContributionReview
+	Actor         string
+	Assignment    string
+	EventIdentity string
+	Payload       *factory.FeedPayload
+	Record        factory.CommentRecord
+	Body          string
+	AuthorName    string
+	At            int64
+	Status        string
+	Source        *factory.CommentSource
 }
 
 // FeedReplyIDs lists the actual conversation, including replies from other
 // browsers. The caller authorizes the repository and source before this read.
 func (s *Store) FeedReplyIDs(ctx context.Context, repository int64, kind, source string, before int64) ([]string, int64, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,seq FROM factory_feed_comments
-		WHERE repository=$1 AND (($2='post' AND data->>'reply_to'=$3) OR (data->'source'->>'kind'=$2 AND data->'source'->>'id'=$3))
-		AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
-		AND ($4::bigint=0 OR seq<$4) ORDER BY seq DESC LIMIT 21`, repository, kind, source, before)
+	rows, err := s.db.QueryContext(ctx, `WITH RECURSIVE thread AS (
+	 SELECT id,seq,data FROM factory_feed_comments
+	 WHERE repository=$1 AND (($2='post' AND data->>'reply_to'=$3) OR (data->'source'->>'kind'=$2 AND data->'source'->>'id'=$3))
+	 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
+	 UNION
+	 SELECT c.id,c.seq,c.data FROM factory_feed_comments c JOIN thread p
+	 ON c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
+	 WHERE c.repository=$1 AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
+	) SELECT id,seq FROM thread WHERE ($4::bigint=0 OR seq<$4) ORDER BY seq DESC LIMIT 21`, repository, kind, source, before)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -162,6 +171,9 @@ func (s *Store) EditFeedComment(ctx context.Context, id, author, body string, ex
 	}
 	if data["deleted"] == true || data["revoked"] == true {
 		return 0, errors.New("comment source is closed to edits")
+	}
+	if data["product_change"] != nil {
+		return 0, errors.New("the reviewed product change keeps its original comment; add a new reply")
 	}
 	data["edited"] = true
 	data["at"] = at
@@ -587,6 +599,10 @@ func (s *Store) ResolveCommentSource(ctx context.Context, repository int64, kind
 			return nil, ErrNotFound
 		}
 		source := &factory.CommentSource{Kind: kind, ID: id, Issue: assignment.Issue}
+		source.Product, err = s.assignmentCommentProduct(ctx, assignment)
+		if err != nil {
+			return nil, err
+		}
 		details, err := s.FeedRecordDetails(ctx, []string{id})
 		if err != nil {
 			return nil, err
@@ -609,6 +625,10 @@ func (s *Store) ResolveCommentSource(ctx context.Context, repository int64, kind
 		source := &factory.CommentSource{
 			Kind: kind, ID: id, Issue: detail.Record.Issue,
 			Summary: TruncateFeedSummary(detail.Body), Status: PostStatus(nil),
+		}
+		source.Product, err = s.postCommentProduct(ctx, detail)
+		if err != nil {
+			return nil, err
 		}
 		if detail.Payload != nil && detail.Payload.Communication != nil {
 			source.Status = detail.Status
@@ -646,7 +666,7 @@ func (s *Store) PendingCommentPipelines(ctx context.Context, limit int) ([]facto
 		AND COALESCE((c.data->>'revoked')::boolean,false)=false
 		AND (r.attempts<$2 OR COALESCE((r.data->>'resume')::boolean,false))
 		AND (r.judgment='pending'
-			OR (r.judgment='applied' AND r.route='new_issue'
+			OR (r.judgment='applied' AND r.route='new_issue' AND c.data#>>'{source,product,intent}' IS NULL
 				AND (r.draft='pending' OR (r.draft='applied' AND r.effect IN ('pending','failed'))))
 			OR (r.judgment='applied' AND r.route='existing_work' AND r.effect IN ('pending','failed') AND (r.data->>'feedback_revision')::bigint=r.revision))
 		ORDER BY COALESCE(r.data->>'last_checked_at',''),c.seq LIMIT $1`, limit, factory.CommentAttemptLimit)
@@ -700,7 +720,7 @@ func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expecte
 	var savedAuthor, oldBody string
 	var revision int64
 	var closed bool
-	if err := tx.QueryRowContext(ctx, `SELECT author,body,revision,COALESCE((data->>'deleted')::boolean,false) OR COALESCE((data->>'revoked')::boolean,false)
+	if err := tx.QueryRowContext(ctx, `SELECT author,body,revision,COALESCE((data->>'deleted')::boolean,false) OR COALESCE((data->>'revoked')::boolean,false) OR data ? 'product_change'
 		FROM factory_feed_comments WHERE id=$1 FOR UPDATE`, id).Scan(&savedAuthor, &oldBody, &revision, &closed); err != nil {
 		return err
 	}

@@ -57,9 +57,14 @@ impl factory::FactoryTerminal for TerminalSeam {
         output: &[u8],
         deadline: Instant,
     ) -> Result<(), factory::FactoryError> {
-        self.service()
-            .factory_codex_native_output(&cv_lease_to_texec(lease), output, deadline)
-            .map_err(factory::FactoryError::Msg)
+        let lease = cv_lease_to_texec(lease);
+        let service = self.service();
+        if muse_scoped_lease(&lease) {
+            service.factory_muse_native_output(&lease, output, deadline)
+        } else {
+            service.factory_codex_native_output(&lease, output, deadline)
+        }
+        .map_err(factory::FactoryError::Msg)
     }
     fn harness_pin(&self, family: &str) -> Result<factory::FactoryHarnessPin, String> {
         // NEW-work identity resolves the CURRENT shared selection
@@ -140,9 +145,31 @@ impl factory::FactoryTerminal for TerminalSeam {
             return Err(cause);
         }
         let out = if run.harness == factory::FACTORY_HARNESS_MUSE {
-            service
-                .factory_muse_reserve(&trun, &tlease, &bound, max_secs, deadline)
-                .map(|(binding, _paths)| binding)
+            let channels = terminal::factory::native_io::NativeChannels::create(
+                &self.state_dir,
+                &run.project,
+                &run.id,
+            )
+            .map_err(factory::FactoryError::Msg)?;
+            match service.factory_muse_controlled_reserve(
+                &trun, &tlease, &bound, max_secs, &channels, deadline,
+            ) {
+                Ok((binding, _paths)) => {
+                    self.native_channels
+                        .lock()
+                        .map_err(|_| {
+                            factory::FactoryError::Msg("native channel owner poisoned".into())
+                        })?
+                        .insert(run.id.clone(), channels);
+                    Ok(binding)
+                }
+                Err(reason) => {
+                    if service.factory_muse_stop_unbound(&trun, deadline).is_ok() {
+                        let _ = channels.retire();
+                    }
+                    Err(reason)
+                }
+            }
         } else {
             let channels = terminal::factory::native_io::NativeChannels::create(
                 &self.state_dir,

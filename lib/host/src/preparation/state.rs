@@ -177,8 +177,14 @@ pub struct PreparationContext {
 
 pub const MAX_CONTEXT_FILES: usize = 12;
 pub const MAX_CONTEXT_PATH_BYTES: usize = 256;
-pub const MAX_CONTEXT_FILE_BYTES: usize = 8 * 1024;
-pub const MAX_CONTEXT_TOTAL_BYTES: usize = 32 * 1024;
+// Approved source files may reach 32 KiB (see MAX_APPROVED_FILE_SIZE);
+// the per-file bound matches so an approved file reads fully in one
+// bounded `cat-file` call (cap+1 detects oversize without truncation).
+// The aggregate bound matches the approved total so one large file plus
+// setup, check, instructions and diff still fit a single bounded read.
+// Anything larger fails truthfully instead of truncating.
+pub const MAX_CONTEXT_FILE_BYTES: usize = 32 * 1024;
+pub const MAX_CONTEXT_TOTAL_BYTES: usize = 128 * 1024;
 
 impl PrepareContextRead {
     pub fn validate(&self) -> Result<(), String> {

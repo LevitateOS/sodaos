@@ -45,7 +45,7 @@ func (r Request) Validate() error {
 		return err
 	}
 	switch r.Action {
-	case "install", "inspect", "start", "stop", "replace", "restore", "restore_abort":
+	case "install", "inspect", "verify_build", "start", "stop", "replace", "restore", "restore_abort":
 	default:
 		return errors.New("invalid application operation")
 	}
@@ -79,16 +79,20 @@ func (r Request) validGeneration() bool {
 // Observation records confirmed native state, never desired state. An empty
 // container is allowed only for a stopped, absent application inspection.
 type Observation struct {
-	ID        string `json:"id"`
-	Revision  int64  `json:"revision"`
-	Container string `json:"container"`
-	Image     string `json:"image"`
-	Running   bool   `json:"running"`
-	Ready     bool   `json:"ready"`
-	Origin    string `json:"origin"`
+	ID               string `json:"id"`
+	Revision         int64  `json:"revision"`
+	Container        string `json:"container"`
+	Image            string `json:"image"`
+	Running          bool   `json:"running"`
+	Ready            bool   `json:"ready"`
+	Origin           string `json:"origin"`
+	BundleFileSHA256 string `json:"bundle_file_sha256,omitempty"`
 }
 
 func (o Observation) Validate(s Spec) error {
+	if o.BundleFileSHA256 != "" && (!digest.MatchString(o.BundleFileSHA256) || o.Container == "") {
+		return errors.New("application bundle readback lacks its native container")
+	}
 	if !o.matches(s) || !o.validState() {
 		return errors.New("application observation differs from admitted references")
 	}

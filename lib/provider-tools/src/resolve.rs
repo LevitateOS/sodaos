@@ -107,7 +107,10 @@ pub fn resolve_existing(provider: Provider, digest: &str) -> Result<PathBuf, cra
 /// is held across verification and reference publication, so cleanup cannot
 /// collect the bundle between resolution and acquire. Returns the verified
 /// executable plus the live reference token. Lane B builds on this.
-pub fn resolve_pinned(provider: Provider, digest: &str) -> Result<(PathBuf, RefToken), crate::Error> {
+pub fn resolve_pinned(
+    provider: Provider,
+    digest: &str,
+) -> Result<(PathBuf, RefToken), crate::Error> {
     let root = crate::config::store_root();
     let _lock = crate::store::lock_store(&root)?;
     let exe = crate::store::verify_bundle(&root, provider, digest)?;

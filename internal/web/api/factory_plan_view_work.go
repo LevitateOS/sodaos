@@ -12,15 +12,16 @@ import (
 // FW23 fixture journey read model. It renders one issue's recorded work
 // journey for UI/API consumers: execution phases, tasks with their lanes,
 // commit/PR evidence, structured findings with corrections, Jev judgments
-// with effective waits, and D13 completion gates with proposals and
-// adoption. Every section carries IDs, commits, digests and bounded codes
+// with effective waits, D13 completion gates with proposals, adoption with
+// its task binding, delivered-task evidence and the verified application
+// revision. Every section carries IDs, commits, digests and bounded codes
 // only; native prose and evidence bytes stay out.
 //
 // These builders validate fixture input against the frozen FW06A, FW06C
 // and FW30 contracts but read no store and spend nothing: absence of a
-// section means nothing was recorded, never a guessed state. Binding this
-// shape to actual persisted readback belongs to FW25; until then no
-// handler serves it, so fixture UI must never be read as the journey.
+// section means nothing was recorded, never a guessed state. The
+// persisted readback binds this same shape; fixture UI must never be
+// read as the journey.
 
 // Journey section caps. Totals are exact; only recorded entries render.
 const (
@@ -144,6 +145,19 @@ func validJourneyLane(lane string) bool {
 	}
 }
 
+// validJourneyTaskKey enforces the bounded stable task identity shared
+// by planned tasks, adoption bindings and delivered-task evidence: a
+// bounded trimmed key with no control characters.
+func validJourneyTaskKey(key string) error {
+	if len(key) == 0 || len(key) > 128 || strings.TrimSpace(key) != key {
+		return errors.New("journey task lacks its bounded key")
+	}
+	if strings.ContainsFunc(key, func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		return errors.New("journey task key carries control characters")
+	}
+	return nil
+}
+
 // journeyTaskView renders one planned task with its lane binding and
 // recorded state. The key is the stable task identity; bodies come from
 // the accepted revision, never a speculative graph.
@@ -157,11 +171,8 @@ type journeyTaskView struct {
 // journeyTaskDTO validates one fixture task: a bounded key, a known
 // lane and a recorded state, with an optional decimal native issue.
 func journeyTaskDTO(key, lane, issue, state string) (journeyTaskView, error) {
-	if len(key) == 0 || len(key) > 128 || strings.TrimSpace(key) != key {
-		return journeyTaskView{}, errors.New("journey task lacks its bounded key")
-	}
-	if strings.ContainsFunc(key, func(r rune) bool { return r < ' ' || r == 0x7f }) {
-		return journeyTaskView{}, errors.New("journey task key carries control characters")
+	if err := validJourneyTaskKey(key); err != nil {
+		return journeyTaskView{}, err
 	}
 	if !validJourneyLane(lane) {
 		return journeyTaskView{}, errors.New("journey task lacks its recorded lane")
@@ -397,59 +408,150 @@ const (
 )
 
 // journeyAdoptionView renders one D13 proposal adoption: the intent and
-// revision it binds with its recorded position. Adoption never mutates
+// revision it binds with its recorded position, plus the exact task
+// binding that adopted the native issue (task key, native issue and the
+// acceptance behind it). The binding is the adoption proof: it exists
+// only after native readback confirmed the issue. Adoption never mutates
 // source or publication effects; it only names the bound revision.
 type journeyAdoptionView struct {
-	Intent   string `json:"intent"`
-	Revision string `json:"revision"`
-	State    string `json:"state"`
+	Intent     string `json:"intent"`
+	Revision   string `json:"revision"`
+	State      string `json:"state"`
+	Task       string `json:"task"`
+	IssueID    string `json:"issue_id"`
+	Acceptance string `json:"acceptance"`
 }
 
 // journeyAdoptionDTO validates one fixture adoption: exact intent and
-// revision identities with a recorded position.
-func journeyAdoptionDTO(intent, revision, state string) (journeyAdoptionView, error) {
+// revision identities with a recorded position and the exact task
+// binding behind the adoption.
+func journeyAdoptionDTO(intent, revision, state, task, issueID, acceptance string) (journeyAdoptionView, error) {
 	if !project.ValidDecisionID(intent) || !project.ValidDecisionID(revision) {
 		return journeyAdoptionView{}, errors.New("journey adoption lacks its exact intent or revision")
 	}
 	switch state {
 	case journeyAdoptionProposed, journeyAdoptionAdopted, journeyAdoptionReleased:
-		return journeyAdoptionView{Intent: intent, Revision: revision, State: state}, nil
 	default:
 		return journeyAdoptionView{}, errors.New("journey adoption lacks its recorded position")
 	}
+	if err := validJourneyTaskKey(task); err != nil {
+		return journeyAdoptionView{}, err
+	}
+	if !validJourneyDecimal(issueID) {
+		return journeyAdoptionView{}, errors.New("journey adoption names an invalid native issue")
+	}
+	if !project.ValidDecisionID(acceptance) {
+		return journeyAdoptionView{}, errors.New("journey adoption lacks its exact acceptance")
+	}
+	return journeyAdoptionView{
+		Intent: intent, Revision: revision, State: state,
+		Task: task, IssueID: issueID, Acceptance: acceptance,
+	}, nil
+}
+
+// journeyDeliveredTaskView renders the delivered-task evidence behind
+// one adoption binding: the bound task and acceptance with the exact
+// canonical completion event (identity, publication and generation)
+// that delivered it. Evidence identities travel; evidence bytes do not.
+type journeyDeliveredTaskView struct {
+	Task        string `json:"task"`
+	Issue       string `json:"issue"`
+	Acceptance  string `json:"acceptance"`
+	Completion  string `json:"completion"`
+	Publication string `json:"publication"`
+	Generation  int64  `json:"generation"`
+}
+
+// journeyDeliveredTaskDTO validates one delivered-task evidence row:
+// the bound task, its native issue and acceptance, and the exact
+// canonical completion behind them.
+func journeyDeliveredTaskDTO(task, issue, acceptance, completion, publication string, generation int64) (journeyDeliveredTaskView, error) {
+	if err := validJourneyTaskKey(task); err != nil {
+		return journeyDeliveredTaskView{}, err
+	}
+	if !validJourneyDecimal(issue) {
+		return journeyDeliveredTaskView{}, errors.New("journey delivery names an invalid native issue")
+	}
+	if !project.ValidDecisionID(acceptance) {
+		return journeyDeliveredTaskView{}, errors.New("journey delivery lacks its exact acceptance")
+	}
+	if !factory.ValidID(completion) || !factory.ValidID(publication) {
+		return journeyDeliveredTaskView{}, errors.New("journey delivery lacks its exact completion evidence")
+	}
+	if generation < 1 {
+		return journeyDeliveredTaskView{}, errors.New("journey delivery lacks its recorded generation")
+	}
+	return journeyDeliveredTaskView{
+		Task: task, Issue: issue, Acceptance: acceptance,
+		Completion: completion, Publication: publication, Generation: generation,
+	}, nil
+}
+
+// journeyVerifiedAppView renders the verified application revision
+// behind one adopted intent revision: the exact revision whose trusted
+// application check passed, with the recorded source commit and the
+// verification manifest digest. Only a recorded F10 verification
+// renders here; worker claims never do.
+type journeyVerifiedAppView struct {
+	Intent       string `json:"intent"`
+	Revision     string `json:"revision"`
+	SourceCommit string `json:"source_commit"`
+	Manifest     string `json:"manifest"`
+}
+
+// journeyVerifiedAppDTO validates one verified-application row: exact
+// intent and revision identities with the recorded source commit and
+// manifest digest behind the trusted check.
+func journeyVerifiedAppDTO(intent, revision, sourceCommit, manifest string) (journeyVerifiedAppView, error) {
+	if !project.ValidDecisionID(intent) || !project.ValidDecisionID(revision) {
+		return journeyVerifiedAppView{}, errors.New("journey verification lacks its exact intent or revision")
+	}
+	if !factory.ValidCommit(sourceCommit) {
+		return journeyVerifiedAppView{}, errors.New("journey verification lacks its exact source commit")
+	}
+	if !factory.ValidDigest(manifest) {
+		return journeyVerifiedAppView{}, errors.New("journey verification lacks its exact manifest")
+	}
+	return journeyVerifiedAppView{
+		Intent: intent, Revision: revision, SourceCommit: sourceCommit, Manifest: manifest,
+	}, nil
 }
 
 // workJourneyFixture is the bounded fixture input for one issue's work
-// journey. FW25 binds actual persisted sections to this same shape;
-// fixtures only assemble recorded-shaped facts.
+// journey. The persisted readback binds actual sections to this same
+// shape; fixtures only assemble recorded-shaped facts.
 type workJourneyFixture struct {
-	Phases      []journeyPhaseView      `json:"phases"`
-	Tasks       []journeyTaskView       `json:"tasks"`
-	Commits     []journeyCommitView     `json:"commits"`
-	Findings    []journeyFindingView    `json:"findings"`
-	Corrections []journeyCorrectionView `json:"corrections"`
-	Judgments   []journeyJudgmentView   `json:"judgments"`
-	Gates       []journeyGateView       `json:"gates"`
-	Adoptions   []journeyAdoptionView   `json:"adoptions"`
-	Repository  string                  `json:"repository"`
-	Issue       string                  `json:"issue"`
+	Phases        []journeyPhaseView         `json:"phases"`
+	Tasks         []journeyTaskView          `json:"tasks"`
+	Commits       []journeyCommitView        `json:"commits"`
+	Findings      []journeyFindingView       `json:"findings"`
+	Corrections   []journeyCorrectionView    `json:"corrections"`
+	Judgments     []journeyJudgmentView      `json:"judgments"`
+	Gates         []journeyGateView          `json:"gates"`
+	Adoptions     []journeyAdoptionView      `json:"adoptions"`
+	Delivered     []journeyDeliveredTaskView `json:"delivered_tasks"`
+	Verifications []journeyVerifiedAppView   `json:"verifications"`
+	Repository    string                     `json:"repository"`
+	Issue         string                     `json:"issue"`
 }
 
 // workJourneyView is the rendered fixture journey: every recorded
 // section with empty sections explicit, newest evidence last. Read
 // endpoints spend nothing; native CLI text streams stay primary.
 type workJourneyView struct {
-	Phases       []journeyPhaseView      `json:"phases"`
-	Tasks        []journeyTaskView       `json:"tasks"`
-	Commits      []journeyCommitView     `json:"commits"`
-	Findings     []journeyFindingView    `json:"findings"`
-	Corrections  []journeyCorrectionView `json:"corrections"`
-	Judgments    []journeyJudgmentView   `json:"judgments"`
-	Gates        []journeyGateView       `json:"gates"`
-	Adoptions    []journeyAdoptionView   `json:"adoptions"`
-	Repository   string                  `json:"repository"`
-	Issue        string                  `json:"issue"`
-	ObservedUnix int64                   `json:"observed_unix"`
+	Phases        []journeyPhaseView         `json:"phases"`
+	Tasks         []journeyTaskView          `json:"tasks"`
+	Commits       []journeyCommitView        `json:"commits"`
+	Findings      []journeyFindingView       `json:"findings"`
+	Corrections   []journeyCorrectionView    `json:"corrections"`
+	Judgments     []journeyJudgmentView      `json:"judgments"`
+	Gates         []journeyGateView          `json:"gates"`
+	Adoptions     []journeyAdoptionView      `json:"adoptions"`
+	Delivered     []journeyDeliveredTaskView `json:"delivered_tasks"`
+	Verifications []journeyVerifiedAppView   `json:"verifications"`
+	Repository    string                     `json:"repository"`
+	Issue         string                     `json:"issue"`
+	ObservedUnix  int64                      `json:"observed_unix"`
 }
 
 // renderWorkJourneyFixture validates one fixture journey's identity and
@@ -487,16 +589,28 @@ func renderWorkJourneyFixture(fixture workJourneyFixture, observedUnix int64) (*
 	if len(fixture.Adoptions) > maxJourneyAdoptions {
 		return nil, errors.New("journey fixture adoptions exceed their bound")
 	}
+	// Delivered-task evidence and verified applications each render at
+	// most one row per adoption, so the adoption bound covers them: a
+	// cut adoption listing already names its truncation, and no second
+	// silent cut can hide behind it.
+	if len(fixture.Delivered) > maxJourneyAdoptions {
+		return nil, errors.New("journey fixture delivered tasks exceed their bound")
+	}
+	if len(fixture.Verifications) > maxJourneyAdoptions {
+		return nil, errors.New("journey fixture verifications exceed their bound")
+	}
 	return &workJourneyView{
-		Phases:      nonNilJourney(fixture.Phases, []journeyPhaseView{}),
-		Tasks:       nonNilJourney(fixture.Tasks, []journeyTaskView{}),
-		Commits:     nonNilJourney(fixture.Commits, []journeyCommitView{}),
-		Findings:    nonNilJourney(fixture.Findings, []journeyFindingView{}),
-		Corrections: nonNilJourney(fixture.Corrections, []journeyCorrectionView{}),
-		Judgments:   nonNilJourney(fixture.Judgments, []journeyJudgmentView{}),
-		Gates:       nonNilJourney(fixture.Gates, []journeyGateView{}),
-		Adoptions:   nonNilJourney(fixture.Adoptions, []journeyAdoptionView{}),
-		Repository:  fixture.Repository, Issue: fixture.Issue, ObservedUnix: observedUnix,
+		Phases:        nonNilJourney(fixture.Phases, []journeyPhaseView{}),
+		Tasks:         nonNilJourney(fixture.Tasks, []journeyTaskView{}),
+		Commits:       nonNilJourney(fixture.Commits, []journeyCommitView{}),
+		Findings:      nonNilJourney(fixture.Findings, []journeyFindingView{}),
+		Corrections:   nonNilJourney(fixture.Corrections, []journeyCorrectionView{}),
+		Judgments:     nonNilJourney(fixture.Judgments, []journeyJudgmentView{}),
+		Gates:         nonNilJourney(fixture.Gates, []journeyGateView{}),
+		Adoptions:     nonNilJourney(fixture.Adoptions, []journeyAdoptionView{}),
+		Delivered:     nonNilJourney(fixture.Delivered, []journeyDeliveredTaskView{}),
+		Verifications: nonNilJourney(fixture.Verifications, []journeyVerifiedAppView{}),
+		Repository:    fixture.Repository, Issue: fixture.Issue, ObservedUnix: observedUnix,
 	}, nil
 }
 
@@ -510,10 +624,14 @@ func nonNilJourney[T any](got, fallback []T) []T {
 // Journey reason codes name every incomplete or unavailable fact behind
 // one recorded issue journey. Codes carry no raw data and stay bounded:
 // absence of a code means its section rendered whole, never a guess.
-// Adoption and delivery sections read unavailable until their
-// recorded linkage renders (intent task bindings; delivery
-// acceptances with their funded receipts); without that proof the
-// full merged journey never reports complete here.
+// Adoption, delivered-task, verification and delivery sections read
+// unavailable until their recorded linkage renders (intent task
+// bindings; canonical completions behind those bindings; F10 verified
+// applications behind the adopted revisions; delivery acceptances with
+// their funded receipts); without that proof the full merged journey
+// never reports complete here. Delivered and verified evidence is only
+// expected once an adoption exists: an issue nothing adopted has no
+// downstream chain to miss.
 const (
 	journeyReasonNoAttempt                = "no_attempt"
 	journeyReasonChainPageBound           = "chain_page_bound"
@@ -534,6 +652,10 @@ const (
 	journeyReasonAdoptionsUnavailable     = "adoptions_unavailable"
 	journeyReasonAdoptionsInvalidRow      = "adoptions_invalid_row"
 	journeyReasonAdoptionsTruncated       = "adoptions_truncated"
+	journeyReasonDeliveriesUnavailable    = "deliveries_unavailable"
+	journeyReasonDeliveriesInvalidRow     = "deliveries_invalid_row"
+	journeyReasonVerificationsUnavailable = "verifications_unavailable"
+	journeyReasonVerificationsInvalidRow  = "verifications_invalid_row"
 	journeyReasonDeliveryUnavailable      = "delivery_unavailable"
 )
 
@@ -582,21 +704,23 @@ type journeyLineageView struct {
 // malformed row and no producer-absent section; any reason present
 // means incomplete. Read endpoints spend nothing.
 type factoryIssueJourneyView struct {
-	Lineage      journeyLineageView      `json:"lineage"`
-	Phases       []journeyPhaseView      `json:"phases"`
-	Tasks        []journeyTaskView       `json:"tasks"`
-	Commits      []journeyCommitView     `json:"commits"`
-	Findings     []journeyFindingView    `json:"findings"`
-	Corrections  []journeyCorrectionView `json:"corrections"`
-	Judgments    []journeyJudgmentView   `json:"judgments"`
-	Gates        []journeyGateView       `json:"gates"`
-	Adoptions    []journeyAdoptionView   `json:"adoptions"`
-	Reasons      []string                `json:"reasons,omitempty"`
-	Repository   string                  `json:"repository"`
-	Issue        string                  `json:"issue"`
-	Available    bool                    `json:"available"`
-	Complete     bool                    `json:"complete"`
-	ObservedUnix int64                   `json:"observed_unix"`
+	Lineage       journeyLineageView         `json:"lineage"`
+	Phases        []journeyPhaseView         `json:"phases"`
+	Tasks         []journeyTaskView          `json:"tasks"`
+	Commits       []journeyCommitView        `json:"commits"`
+	Findings      []journeyFindingView       `json:"findings"`
+	Corrections   []journeyCorrectionView    `json:"corrections"`
+	Judgments     []journeyJudgmentView      `json:"judgments"`
+	Gates         []journeyGateView          `json:"gates"`
+	Adoptions     []journeyAdoptionView      `json:"adoptions"`
+	Delivered     []journeyDeliveredTaskView `json:"delivered_tasks"`
+	Verifications []journeyVerifiedAppView   `json:"verifications"`
+	Reasons       []string                   `json:"reasons,omitempty"`
+	Repository    string                     `json:"repository"`
+	Issue         string                     `json:"issue"`
+	Available     bool                       `json:"available"`
+	Complete      bool                       `json:"complete"`
+	ObservedUnix  int64                      `json:"observed_unix"`
 }
 
 // addJourneyReason records one bounded reason code, deduplicated.

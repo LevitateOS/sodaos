@@ -1,3 +1,4 @@
+@import './sodaspaces-factory-conversation.css';
 /* Project presentation uses the same semantic roles on both workspace surfaces. */
 .soda-spaces-controls { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
 .soda-spaces-tabs { display: flex; flex-shrink: 0; gap: var(--soda-space-1); overflow-x: auto; width: calc(100% - 80px); box-sizing: border-box; padding: var(--soda-space-1) var(--soda-space-2); border-bottom: 1px solid var(--soda-page-edge); }

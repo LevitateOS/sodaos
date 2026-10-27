@@ -11,8 +11,7 @@ use std::path::{Path, PathBuf};
 
 /// Stale-on-purpose legacy pin: well-formed but names no admitted bundle.
 const LEGACY_BINARY: &str = "/opt/stale-install/provider-cli";
-const LEGACY_SHA: &str =
-    "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+const LEGACY_SHA: &str = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
 /// One tmpfs scratch dir holding both the isolated store and the private
 /// enrollment root. tmpfs is a production requirement for enrollment roots
@@ -62,12 +61,13 @@ fn admit_bundle(
     provider: soda_provider_tools::Provider,
     version: &str,
 ) -> soda_provider_tools::ReleaseIdentity {
-    let content = format!("#!/bin/sh\necho lane-v2-a-{}-{version}\n", provider.as_str()).into_bytes();
+    let content = format!(
+        "#!/bin/sh\necho lane-v2-a-{}-{version}\n",
+        provider.as_str()
+    )
+    .into_bytes();
     let digest = sha256_hex(&content);
-    let bundle = root
-        .join("bundles")
-        .join(provider.as_str())
-        .join(&digest);
+    let bundle = root.join("bundles").join(provider.as_str()).join(&digest);
     let bin = bundle.join("bin");
     std::fs::create_dir_all(&bin).expect("bin dir");
     let exe_name = provider.executable_relpath().rsplit('/').next().unwrap();
@@ -79,9 +79,7 @@ fn admit_bundle(
     if provider == soda_provider_tools::Provider::Codex {
         let companion = bin.join("codex-code-mode-host");
         std::fs::write(&companion, b"#!/bin/sh\necho companion\n").expect("companion bytes");
-        let mut perms = std::fs::metadata(&companion)
-            .expect("stat")
-            .permissions();
+        let mut perms = std::fs::metadata(&companion).expect("stat").permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(&companion, perms).expect("chmod");
     }
@@ -92,8 +90,7 @@ fn admit_bundle(
         size: content.len() as u64,
         artifact_url: "https://example.invalid/lane-v2-a".to_string(),
     };
-    soda_provider_tools::store::write_release_record(&bundle, &release)
-        .expect("admission record");
+    soda_provider_tools::store::write_release_record(&bundle, &release).expect("admission record");
     soda_provider_tools::store::record_inventory(&bundle, &release).expect("inventory");
     let now = now_secs();
     soda_provider_tools::store::write_selection(
@@ -237,16 +234,16 @@ fn legacy_pins_cannot_shadow_store_selection() {
         serde_json::to_vec_pretty(&record).expect("selection serializes"),
     )
     .expect("stale selection writes");
-    let blocked = codex.bind_new().expect_err("known-stale must refuse new work");
+    let blocked = codex
+        .bind_new()
+        .expect_err("known-stale must refuse new work");
     assert!(
         blocked.to_string().contains("blocks new"),
         "refusal must name the block, got: {blocked}"
     );
-    let mut retained = resolution::resolve_existing(
-        resolution::ProviderKind::Codex,
-        &codex_release.digest,
-    )
-    .expect("retained bundle still binds exactly");
+    let mut retained =
+        resolution::resolve_existing(resolution::ProviderKind::Codex, &codex_release.digest)
+            .expect("retained bundle still binds exactly");
     assert_eq!(
         retained.binary,
         read_selection(&root, soda_provider_tools::Provider::Codex).executable(&root)

@@ -344,11 +344,14 @@ export function upfrontCapabilities(
   };
 }
 
+export type InterventionAudience = 'owner' | 'collaborator';
+
 export interface InterventionModel {
   readonly kind: InterventionKind;
   readonly label: string;
   readonly scope: string;
   readonly impact: string;
+  readonly audience: InterventionAudience;
   readonly enabled: boolean;
   readonly result: InterventionResult;
   readonly resultText: string;
@@ -362,42 +365,53 @@ export interface InterventionInput {
   readonly target: string;
 }
 
-const interventionCopy: Record<InterventionKind, {label: string; scope: string; impact: string}> = {
+const interventionCopy: Record<
+  InterventionKind,
+  {label: string; scope: string; impact: string; audience: InterventionAudience}
+> = {
   pause: {
     label: 'Pause Factory work',
     scope: 'This repository',
     impact: 'Closes dispatch and stops outstanding runs. Retained work and terminals stay.',
+    audience: 'owner',
   },
   resume: {
     label: 'Resume Factory work',
     scope: 'This repository',
     impact: 'Reopens dispatch after every recorded run settles.',
+    audience: 'owner',
   },
   stop: {
     label: 'Stop run',
     scope: 'This run only',
     impact: 'Retires the run through the operator stop path. Other runs continue.',
+    audience: 'collaborator',
   },
   retry: {
     label: 'Retry run',
     scope: 'This run only',
     impact: 'Queues one explicit retry after the prior run settles. No new attempt otherwise.',
+    audience: 'collaborator',
   },
   takeover: {
     label: 'Take over run',
     scope: 'This run into your checkout',
     impact: 'Copies retained work into your own project checkout. Requires project membership.',
+    audience: 'collaborator',
   },
   project_stop: {
     label: 'Stop Project for everyone',
     scope: 'The whole project',
     impact: 'Stops shared project services for everyone. Needs explicit confirmation.',
+    audience: 'owner',
   },
 };
 
 // describeIntervention pairs one authorized control with its exact scope,
-// impact and pending-versus-confirmed result. Requested actions never
-// read as confirmed effects.
+// impact, audience and pending-versus-confirmed result. Owner controls
+// act on the repository or project; collaborator controls act on one
+// run. Requested actions never read as confirmed effects. The owning
+// lifecycle APIs revalidate authority when the control acts.
 export function describeIntervention(input: InterventionInput): InterventionModel {
   const copy = interventionCopy[input.kind];
   return {
@@ -405,6 +419,7 @@ export function describeIntervention(input: InterventionInput): InterventionMode
     label: copy.label,
     scope: `${copy.scope}: ${input.target}`,
     impact: copy.impact,
+    audience: copy.audience,
     enabled: input.enabled,
     result: input.result,
     resultText: input.resultText,
@@ -518,24 +533,33 @@ export function renderInterventions(
   models: readonly InterventionModel[],
   commands: InterventionCommands
 ): TemplateResult {
+  const item = (model: InterventionModel) => html`<li>
+    <button type="button" class="ui button" ?disabled=${!model.enabled} @click=${() => commands.act(model.kind)}>
+      ${model.label}
+    </button>
+    <p>${model.scope}. ${model.impact}</p>
+    <p role="status">${model.resultText}</p>
+  </li>`;
+  // Owner and collaborator controls render in separate groups: owner
+  // controls act on the repository or project, collaborator controls on
+  // one run. Grouping never changes availability; the owning lifecycle
+  // APIs revalidate authority when a control acts.
+  const group = (audience: InterventionAudience, label: string, note: string) => {
+    const rows = models.filter((model) => model.audience === audience);
+    return rows.length
+      ? html`<section aria-label=${label}>
+          <h3>${label}</h3>
+          <p>${note}</p>
+          <ul>
+            ${rows.map(item)}
+          </ul>
+        </section>`
+      : '';
+  };
   return html`
     <section aria-label="Factory interventions">
-      <ul>
-        ${models.map(
-          (model) => html`<li>
-            <button
-              type="button"
-              class="ui button"
-              ?disabled=${!model.enabled}
-              @click=${() => commands.act(model.kind)}
-            >
-              ${model.label}
-            </button>
-            <p>${model.scope}. ${model.impact}</p>
-            <p role="status">${model.resultText}</p>
-          </li>`
-        )}
-      </ul>
+      ${group('owner', 'Owner controls', 'These controls act on the repository or project.')}
+      ${group('collaborator', 'Collaborator controls', 'These controls act on one run only.')}
     </section>
   `;
 }

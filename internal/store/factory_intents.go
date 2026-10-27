@@ -165,7 +165,7 @@ func saveIntentRevisionTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevis
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_intent_heads SET revision=$2 WHERE id=$1`, r.Intent, r.ID); err != nil {
 		return err
 	}
-	return nil
+	return recordIntentRevisionFeedTx(ctx, tx, r)
 }
 
 func (s *Store) IntentRevision(ctx context.Context, intent string, owner int64) (factory.IntentRevision, error) {

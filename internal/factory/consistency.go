@@ -72,6 +72,10 @@ func exclusionNamingEffect(exclusions []Exclusion, effect string) (Exclusion, bo
 // asking for renewed approval of the rejection.
 func CheckProposalEffects(content ProposalContent, proposal ConsolidatedProposal) []Mismatch {
 	var mismatches []Mismatch
+	// The outcome-gap comparison rides the canonical byte rule:
+	// proposalObjective substitutes when the objective exceeds 4000
+	// UTF-8 BYTES, so persisted walkthroughs substituted under that
+	// rule keep verifying instead of emitting outcome_gap.
 	if len(proposal.Outcomes) == 0 || proposal.Outcomes[0] != proposalObjective(content.Objective) {
 		mismatches = append(mismatches, Mismatch{Class: MismatchOutcomeGap, Detail: "The first outcome does not preserve the requested objective."})
 	}

@@ -85,6 +85,29 @@ impl DaemonBackend {
     }
 }
 
+/// FJ-874: typed setup-claim refusal mapping for `/application/setup`.
+/// The renewal gate in `application::setup` refuses with three fixed
+/// literals (committed, conflict, unconfirmed — old token kept
+/// byte-identical in every case); each maps to a distinct fixed
+/// (status, body) wire code the Go setup route pins. Only exact
+/// full-string equality classifies, so host free text is never trusted
+/// and never surfaces. Every other setup failure keeps the generic
+/// internal mapping.
+fn map_setup_claim_err(reason: String) -> BackendError {
+    match reason.as_str() {
+        "setup claim is committed; renewal refused with the retained credential kept" => {
+            BackendError::ExportStale
+        }
+        "setup claim conflicts; renewal refused with the retained credential kept" => {
+            BackendError::OutputStale
+        }
+        "setup claim is unconfirmed; renewal refused with the retained credential kept" => {
+            BackendError::Internal
+        }
+        _ => internal(reason),
+    }
+}
+
 impl ExecBackend for DaemonBackend {
     fn application_setup(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let request: crate::application::SetupRequest =
@@ -102,7 +125,7 @@ impl ExecBackend for DaemonBackend {
                     .flat_map(char::escape_default)
                     .collect();
                 eprintln!("native application setup failed: {safe}");
-                internal(reason)
+                map_setup_claim_err(reason)
             })?;
         serde_json::to_vec(&result).map_err(|_| BackendError::Internal)
     }
@@ -306,7 +329,13 @@ impl ExecBackend for DaemonBackend {
         self.pops
             .prepare_context(&req, native_deadline())
             .map(String::into_bytes)
-            .map_err(internal)
+            .map_err(|error| match error {
+                // The genuine typed explicit-bounds signal: the only
+                // context failure the preview may halve on. Everything
+                // else keeps the generic 500 and fails closed.
+                crate::prepare::ContextReadError::Bounds(_) => BackendError::ContextBounds,
+                crate::prepare::ContextReadError::Failed(message) => internal(message),
+            })
     }
 
     fn inspect_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
@@ -354,6 +383,22 @@ impl ExecBackend for DaemonBackend {
             .verification_checks(&req, native_deadline())
             .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
         Ok(state.encode().map_err(internal)?.into_bytes())
+    }
+
+    fn factory_application_build(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let factory = self.factory()?;
+        let req: crate::application::BuildRequest =
+            crate::json::decode_strict_as(body).map_err(|_| BackendError::Internal)?;
+        req.validate().map_err(internal)?;
+        let selected = self
+            .canlang_runtime
+            .clone()
+            .ok_or(BackendError::Unavailable)?;
+        let _admission = project::admission::admit(Some(&req.project)).map_err(internal)?;
+        let artifact = factory
+            .application_build(&req, selected, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        serde_json::to_vec(&artifact).map_err(|_| BackendError::Internal)
     }
 
     fn factory_inspect(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
@@ -406,6 +451,18 @@ impl ExecBackend for DaemonBackend {
             .task_events(&req, native_deadline())
             .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
         Ok(out.encode().into_bytes())
+    }
+
+    fn factory_native_task(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let factory = self.factory()?;
+        let req: factory::NativeTaskAction =
+            json::decode_strict_as(body).map_err(|_| BackendError::Internal)?;
+        req.validate().map_err(internal)?;
+        let result = factory
+            .native_task_action(&req, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        serde_json::to_vec(&serde_json::json!({"result":result}))
+            .map_err(|_| BackendError::Internal)
     }
 
     fn factory_checkpoint_receipt(

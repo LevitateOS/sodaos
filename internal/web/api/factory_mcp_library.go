@@ -15,7 +15,7 @@ import (
 )
 
 type factoryMCPLibrarySource interface {
-	LibrarySearch(context.Context, int64, string, string, string, bool) (factory.LibraryPage, error)
+	LibrarySearch(context.Context, int64, string, string, string, bool, bool) (factory.LibraryPage, error)
 	LibraryRead(context.Context, int64, string, bool) (factory.LibraryRead, error)
 	LibraryPreview(context.Context, factory.MCPCapability, factory.MCPTool, factory.LibraryChange) (map[string]any, error)
 	LibraryInventory(context.Context, int64, string, string, bool) (factory.LibraryInventory, error)
@@ -24,7 +24,7 @@ type factoryMCPLibrarySource interface {
 func libraryToolDescription(tool factory.MCPTool) string {
 	switch string(tool) {
 	case "factory.search_library":
-		return "Search this project's reusable knowledge and recorded decisions. Returns bounded current entries, sources and a continuation cursor; removed items are hidden."
+		return "Search this project's reusable knowledge and recorded decisions. Use current_only for current evidence: excludes removed, superseded and retracted entries, while contested entries retain their unresolved state. Returns exact revisions, sources and a continuation cursor. Without current_only, superseded history remains discoverable."
 	case "factory.read_library_item":
 		return "Read one project library item, its current revision and recent attributed revision history. Use its exact revision when proposing maintenance."
 	case "factory.library_inventory":
@@ -101,6 +101,9 @@ func libraryPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		if string(tool) != "factory.preview_library_changes" {
 			o.Properties["include_removed"] = &jsonschema.Schema{Type: "boolean", Description: "Only Library Admin can include removed items."}
 		}
+		if tool == factory.MCPToolSearchLibrary {
+			o.Properties["current_only"] = &jsonschema.Schema{Type: "boolean", Description: "Exclude removed, superseded and retracted entries before pagination. Contested records remain visible as unresolved evidence."}
+		}
 		return o
 	}
 	for _, key := range []string{"component_id", "title", "summary", "reason", "id", "relation"} {
@@ -161,6 +164,7 @@ func (s *factoryCatalogServer) serveLibraryRead(ctx context.Context, tool factor
 		Cursor         string          `json:"cursor"`
 		ID             string          `json:"id"`
 		IncludeRemoved bool            `json:"include_removed"`
+		CurrentOnly    bool            `json:"current_only"`
 		Tool           factory.MCPTool `json:"tool"`
 		Change         json.RawMessage `json:"change"`
 	}
@@ -204,7 +208,7 @@ func (s *factoryCatalogServer) serveLibraryRead(ctx context.Context, tool factor
 		}
 		return mcpJSONResult(item)
 	}
-	page, err := source.LibrarySearch(ctx, cap.Repository, in.Query, in.Kind, in.Cursor, in.IncludeRemoved)
+	page, err := source.LibrarySearch(ctx, cap.Repository, in.Query, in.Kind, in.Cursor, in.IncludeRemoved, in.CurrentOnly)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -222,7 +226,7 @@ func (s *API) apiFactoryLibrary(w http.ResponseWriter, r *http.Request, v store.
 		auth.JSONError(w, 404, "repository_not_found", "Repository is not visible.")
 		return
 	}
-	page, err := s.Store.LibrarySearch(r.Context(), repository, r.URL.Query().Get("query"), r.URL.Query().Get("kind"), r.URL.Query().Get("cursor"), false)
+	page, err := s.Store.LibrarySearch(r.Context(), repository, r.URL.Query().Get("query"), r.URL.Query().Get("kind"), r.URL.Query().Get("cursor"), r.URL.Query().Get("history") == "true", r.URL.Query().Get("current_only") == "true")
 	if err != nil {
 		auth.JSONError(w, 400, "invalid_request", "Could not search the project library.")
 		return
@@ -239,7 +243,7 @@ func (s *API) apiFactoryLibraryItem(w http.ResponseWriter, r *http.Request, v st
 		auth.JSONError(w, 404, "repository_not_found", "Repository is not visible.")
 		return
 	}
-	item, err := s.Store.LibraryRead(r.Context(), repository, r.URL.Query().Get("id"), false)
+	item, err := s.Store.LibraryRead(r.Context(), repository, r.URL.Query().Get("id"), r.URL.Query().Get("history") == "true")
 	if err != nil {
 		auth.JSONError(w, 404, "item_not_found", "Library item is not available.")
 		return

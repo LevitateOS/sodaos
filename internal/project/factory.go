@@ -144,18 +144,30 @@ const (
 	// and every phase result keeps MaxFactoryOutput. Prompts use existing
 	// stdin/file delivery, never command-line arguments.
 	MaxReassessPrompt = 320 * 1024
+	// MaxDecomposePrompt is the intent decompose prompt headroom: an
+	// intent-subject decompose prompt carries the complete approved
+	// planning input inline. Decompose admits only intent subjects, so
+	// this bound is exactly intent-scoped; every other non-reassess
+	// phase keeps MaxFactoryPrompt. Finite headroom, not a
+	// maximal-input promise: larger selections refuse truthfully.
+	MaxDecomposePrompt = 128 * 1024
 	// MaxFactoryOutput bounds retained last-message output per run.
 	MaxFactoryOutput = 64 * 1024
 )
 
 // MaxPromptForPhase returns the admitted prompt bound for phase: the
-// reassess/repair 320 KiB exception for reassess and repair, the standard
-// bound otherwise. The launch wire binds this exception to the recorded
-// phase; the matching completion/stall/delivery-repair subject binding
-// rides assignment admission.
+// reassess/repair 320 KiB exception for reassess and repair, the 128 KiB
+// intent-decompose headroom for decompose, the standard bound otherwise.
+// Decompose admits only intent subjects, so the decompose bound is
+// exactly intent-scoped. The launch wire binds each exception to the
+// recorded phase; the matching subject binding rides assignment
+// admission.
 func MaxPromptForPhase(phase string) int {
 	if phase == ExecutionReassess || phase == ExecutionRepair {
 		return MaxReassessPrompt
+	}
+	if phase == ExecutionDecompose {
+		return MaxDecomposePrompt
 	}
 	return MaxFactoryPrompt
 }

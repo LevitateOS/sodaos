@@ -1,13 +1,14 @@
 import {check, id, object} from './sodaspaces-api.js';
 import {decisionID} from './sodaspaces-intent-response.js';
 
-// Parsers for the FW23 fixture work-journey read: one issue's recorded
-// phases, tasks with lanes, commit/PR evidence, structured findings with
-// corrections, Jev judgments with effective waits, and D13 completion
-// gates with proposals and adoption. Each parser binds its exact
-// repository/issue identity; absent sections leave the view without a
-// verdict, never a guessed state. Actual persisted readback binding
-// belongs to FW25; fixtures only assemble recorded-shaped facts.
+// Parsers for the work-journey read: one issue's recorded phases, tasks
+// with lanes, commit/PR evidence, structured findings with corrections,
+// Jev judgments with effective waits, D13 completion gates with proposals
+// and adoption, delivered-task evidence behind each adoption binding, and
+// the verified application revision behind each adopted revision. Each
+// parser binds its exact repository/issue identity; absent sections read
+// as empty, never as guessed work. Evidence identities stay text here:
+// native navigation links are built only in the view layer.
 
 const commitID = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -102,6 +103,25 @@ export interface JourneyAdoption {
   readonly intent: string;
   readonly revision: string;
   readonly state: string;
+  readonly task: string;
+  readonly issue_id: string;
+  readonly acceptance: string;
+}
+
+export interface JourneyDeliveredTask {
+  readonly task: string;
+  readonly issue: string;
+  readonly acceptance: string;
+  readonly completion: string;
+  readonly publication: string;
+  readonly generation: number;
+}
+
+export interface JourneyVerifiedApp {
+  readonly intent: string;
+  readonly revision: string;
+  readonly source_commit: string;
+  readonly manifest: string;
 }
 
 export interface WorkJourney {
@@ -116,6 +136,8 @@ export interface WorkJourney {
   readonly judgments: readonly JourneyJudgment[];
   readonly gates: readonly JourneyGate[];
   readonly adoptions: readonly JourneyAdoption[];
+  readonly delivered_tasks: readonly JourneyDeliveredTask[];
+  readonly verifications: readonly JourneyVerifiedApp[];
 }
 
 const executionPhases = ['decompose', 'investigate', 'implement', 'review', 'correct', 'reassess'];
@@ -324,11 +346,45 @@ function journeyGate(value: unknown): JourneyGate {
 
 function journeyAdoption(value: unknown): JourneyAdoption {
   const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision));
+  check(decisionID(raw.intent) && decisionID(raw.revision) && decisionID(raw.acceptance));
+  check(id(raw.issue_id));
   return {
     intent: raw.intent as string,
     revision: raw.revision as string,
     state: closedSet(raw.state, adoptionStates),
+    task: boundedText(raw.task, 128),
+    issue_id: raw.issue_id as string,
+    acceptance: raw.acceptance as string,
+  };
+}
+
+const evidenceID = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+
+function journeyDeliveredTask(value: unknown): JourneyDeliveredTask {
+  const raw = object(value);
+  check(decisionID(raw.acceptance) && evidenceID(raw.completion) && evidenceID(raw.publication));
+  check(id(raw.issue));
+  const generation = counter(raw.generation);
+  check(generation >= 1);
+  return {
+    task: boundedText(raw.task, 128),
+    issue: raw.issue as string,
+    acceptance: raw.acceptance as string,
+    completion: raw.completion as string,
+    publication: raw.publication as string,
+    generation,
+  };
+}
+
+function journeyVerifiedApp(value: unknown): JourneyVerifiedApp {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.revision));
+  check(commitID(raw.source_commit) && digest(raw.manifest));
+  return {
+    intent: raw.intent as string,
+    revision: raw.revision as string,
+    source_commit: raw.source_commit as string,
+    manifest: raw.manifest as string,
   };
 }
 
@@ -337,9 +393,11 @@ function boundedList<T>(value: unknown, limit: number, parse: (entry: unknown) =
   return (value as unknown[]).map(parse);
 }
 
-// workJourney binds one issue's fixture work journey to its exact
-// repository and issue. Section bounds match the API fixture surface;
-// absent sections read as empty, never as guessed work.
+// workJourney binds one issue's recorded work journey to its exact
+// repository and issue. Section bounds match the API surface: at most
+// one delivered-task row and one verified application row per adoption,
+// so the adoption bound covers them. Absent newer sections read as
+// empty for older reads, never as guessed work.
 export function workJourney(value: unknown, repository: string, issue: string): WorkJourney {
   const data = object(value);
   check(data.repository === repository && data.issue === issue && id(repository) && id(issue));
@@ -355,5 +413,7 @@ export function workJourney(value: unknown, repository: string, issue: string): 
     judgments: boundedList(data.judgments, 8, journeyJudgment),
     gates: boundedList(data.gates, 8, journeyGate),
     adoptions: boundedList(data.adoptions, 16, journeyAdoption),
+    delivered_tasks: data.delivered_tasks === undefined ? [] : boundedList(data.delivered_tasks, 16, journeyDeliveredTask),
+    verifications: data.verifications === undefined ? [] : boundedList(data.verifications, 16, journeyVerifiedApp),
   };
 }

@@ -244,6 +244,14 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 // native callback authority. keyFile, when non-empty, enables live TypeSafe
 // judgments; empty keeps the deterministic no-credentials boundary.
 func q05Mux(t *testing.T, keyFile string) (*API, *store.Store, func(method, path, body string) (int, []byte), func(body []byte) string) {
+	product, s, _, call, errorCode := q05MuxFull(t, keyFile)
+	return product, s, call, errorCode
+}
+
+// q05MuxFull builds the same mux as q05Mux and additionally returns the
+// ephemeral database URL for seeds that have no production Store writer
+// (canonical completions, controller-owned F10 facts).
+func q05MuxFull(t *testing.T, keyFile string) (*API, *store.Store, string, func(method, path, body string) (int, []byte), func(body []byte) string) {
 	t.Helper()
 	suffix := "q05-" + strconv.Itoa(os.Getpid())
 	callbackPath := "@soda-callback-" + suffix
@@ -280,7 +288,7 @@ func q05Mux(t *testing.T, keyFile string) (*API, *store.Store, func(method, path
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +330,7 @@ func q05Mux(t *testing.T, keyFile string) (*API, *store.Store, func(method, path
 		}
 		return decoded.Error.Code
 	}
-	return product, s, call, errorCode
+	return product, s, dsn, call, errorCode
 }
 
 // TestFirstExploreLiveSuccess proves funded exploration success through the

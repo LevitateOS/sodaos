@@ -564,8 +564,9 @@ func checkRepairAssignmentScope(a Assignment) error {
 // assignmentPromptBound returns the admitted prompt size for assignment:
 // the 320 KiB exception when the recorded phase and subject match
 // (reassess with completion, repair with stall or delivery repair), the
-// standard transport bound otherwise. Binding both pins the exception to
-// genuine inventory-carrying cycles.
+// 128 KiB intent-decompose headroom for decompose with an intent subject,
+// the standard transport bound otherwise. Binding both pins each
+// exception to its genuine cycle: decompose admits only intent subjects.
 func assignmentPromptBound(a Assignment) int {
 	if a.Phase == project.ExecutionReassess && a.Subject.Kind == SubjectCompletion && a.Subject.Completion != nil {
 		return project.MaxReassessPrompt
@@ -574,6 +575,9 @@ func assignmentPromptBound(a Assignment) int {
 		(a.Subject.Kind == SubjectStall && a.Subject.Stall != nil ||
 			a.Subject.Kind == SubjectDeliveryRepair && a.Subject.DeliveryRepair != nil) {
 		return project.MaxReassessPrompt
+	}
+	if a.Phase == project.ExecutionDecompose && a.Subject.Kind == SubjectIntent && a.Subject.Intent != nil {
+		return project.MaxDecomposePrompt
 	}
 	return project.MaxFactoryPrompt
 }

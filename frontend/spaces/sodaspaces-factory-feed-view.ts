@@ -2,7 +2,11 @@ import {html} from 'lit';
 import {live} from 'lit/directives/live.js';
 import type {TemplateResult} from 'lit';
 import type {CommentPipelineState, FeedEntry} from './sodaspaces-factory-feed-response.js';
-import {commentAttemptsExhausted, feedEntryKey} from './sodaspaces-factory-feed-response.js';
+import {
+  commentAttemptsExhausted,
+  commentProductLaneWithoutProjection,
+  feedEntryKey,
+} from './sodaspaces-factory-feed-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import {
@@ -110,11 +114,23 @@ function readableStatus(entry: FeedEntry): string {
       if (communication.questionState === 'replied') return 'Reply received';
     }
     const labels = {
-      ask: 'Question open', answer: 'Answer recorded', reply: 'Reply', flag: 'Concern raised',
-      learned: 'Observation recorded', suggest: 'Proposed', partial: 'Progress reported',
-      blocked: 'Blocked', stuck: 'Diagnosis needed', record_decision: 'Decision recorded',
-      finish_incomplete: 'Incomplete', system: (entry.status ?? 'Factory update').replaceAll(':', ' · ').replaceAll('_', ' '), library_maintenance: (entry.status ?? 'Library updated').replaceAll(':', ' · ').replaceAll('_', ' '), artifact: 'Artifact available',
-      journey: 'Journey observation recorded', diagnosis: 'Diagnosis recorded', repair_draft: 'Repair proposed',
+      ask: 'Question open',
+      answer: 'Answer recorded',
+      reply: 'Reply',
+      flag: 'Concern raised',
+      learned: 'Observation recorded',
+      suggest: 'Proposed',
+      partial: 'Progress reported',
+      blocked: 'Blocked',
+      stuck: 'Diagnosis needed',
+      record_decision: 'Decision recorded',
+      finish_incomplete: 'Incomplete',
+      system: (entry.status ?? 'Factory update').replaceAll(':', ' · ').replaceAll('_', ' '),
+      library_maintenance: (entry.status ?? 'Library updated').replaceAll(':', ' · ').replaceAll('_', ' '),
+      artifact: 'Artifact available',
+      journey: 'Journey observation recorded',
+      diagnosis: 'Diagnosis recorded',
+      repair_draft: 'Repair proposed',
     };
     return labels[communication.kind];
   }
@@ -125,6 +141,9 @@ function readableStatus(entry: FeedEntry): string {
   if (status === 'route:discussion') return 'Comment';
   if (status === 'route:existing_work') return 'Linked to work';
   if (status === 'feedback:delivered') return 'Feedback delivered';
+  if (entry.activity === 'judgment' || status === 'judgment:applied') return 'Decision recorded';
+  if (status === 'draft:valid') return 'Proposal ready';
+  if (status === 'effect:created') return 'Work created';
   if (classifyFeedStatus(status) === 'settled') return 'Completed';
   if (/running/.test(status)) return 'Working';
   if (/assess/.test(status)) return 'Assessing';
@@ -142,11 +161,15 @@ function formatStamp(at: number): string {
 export type PostBodyState =
   | {state: 'loading'}
   | {state: 'text'; body: string; edited: boolean}
-  | {state: 'unavailable'; reason: string};
+  | {state: 'unavailable'; reason: string; commentId: string};
 
 export interface PostBodyModel {
   readonly bodyText: string;
   readonly editedText: string;
+  // Present only when the stored text failed to load: the comment identity
+  // the retry control re-reads. The post keeps its place while the retry
+  // runs; no draft or intake is touched.
+  readonly retryKey?: string;
 }
 
 // describePostBody projects one discussion post's payload: the stored
@@ -159,13 +182,20 @@ export function describePostBody(body: PostBodyState): PostBodyModel {
       bodyText: body.body === '' ? 'No comment text recorded.' : body.body,
       editedText: body.edited ? ' (edited)' : '',
     };
-  if (body.state === 'unavailable') return {bodyText: body.reason, editedText: ''};
+  if (body.state === 'unavailable') return {bodyText: body.reason, editedText: '', retryKey: body.commentId};
   return {bodyText: 'Loading discussion text…', editedText: ''};
 }
 
 export function renderPostBody(model: PostBodyModel): TemplateResult {
   return html`<section aria-label="Discussion text">
     <p class="soda-feed-body-text">${model.bodyText}${model.editedText}</p>
+    ${
+      model.retryKey
+        ? html`<button type="button" class="ui button" data-post-body-retry=${model.retryKey}>
+            Retry loading discussion text
+          </button>`
+        : ''
+    }
   </section>`;
 }
 
@@ -251,7 +281,15 @@ export function describeDecisionAttention(entry: FeedEntry, denied: boolean): De
 
 export type CommentOutcomeTone = 'progress' | 'settled' | 'failed';
 
+export interface ProductEvidenceModel {
+  readonly text: string | undefined;
+  readonly nativeLinks: readonly {label: string; href: string}[];
+}
+
 export interface CommentOutcomeModel {
+  readonly productChange?: CommentPipelineState['productChange'];
+  readonly productRepository?: number;
+  readonly reviewBusy?: boolean;
   readonly needsClarification?: boolean;
   readonly canRetry?: boolean | undefined;
   readonly revision?: number;
@@ -260,6 +298,11 @@ export interface CommentOutcomeModel {
   readonly text: string;
   readonly tone: CommentOutcomeTone;
   readonly issueLink: string | undefined;
+  // Adopted lineage reads separately from the review handoff: canonical
+  // completion evidence as text, native issue destinations as their own
+  // links. Unknown work stays unknown, never success.
+  readonly evidenceText: string | undefined;
+  readonly nativeLinks: readonly {label: string; href: string}[];
   readonly retryable: boolean;
   // Server-resolved source context: the feed entry this comment was
   // submitted against, empty when the submission named none.
@@ -287,6 +330,19 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
     },
   ];
   if (state.judgment === 'pending' || state.judgment === 'failed') return stages;
+  if (state.productChange) {
+    if (state.productChange.state === 'unavailable') {
+      stages.push({label: 'Product change', state: 'unavailable — current product detail unavailable'});
+      return stages;
+    }
+    stages.push({label: 'Product change', state: state.productChange.state.replaceAll('_', ' ')});
+    stages.push(...productEvidenceStages(state.productChange));
+    return stages;
+  }
+  if (commentProductLaneWithoutProjection(state)) {
+    stages.push({label: 'Product change', state: 'unavailable — current product detail unavailable'});
+    return stages;
+  }
   const routeLabel =
     state.route === 'new_issue'
       ? 'new issue'
@@ -343,6 +399,110 @@ function commentStages(state: CommentPipelineState): {label: string; state: stri
   return stages;
 }
 
+function linkedWorkStages(state: CommentPipelineState): {label: string; state: string}[] {
+  const trace = state.linkedWork;
+  if (!trace) return [];
+  if (trace.status !== 'recorded') return [{label: 'Linked work', state: 'Current work evidence unavailable'}];
+  const stages = [
+    {
+      label: 'Comment adoption',
+      state: trace.adoption
+        ? `${trace.adoption.state} · ${roleLabel(trace.adoption.actor) ?? trace.adoption.actor}${trace.adoption.reason ? ' · ' + trace.adoption.reason : ''}`
+        : 'No adoption receipt recorded',
+    },
+  ];
+  for (const work of trace.work)
+    stages.push({
+      label: `Linked issue #${trace.issue} · ${work.phase.replaceAll('_', ' ') || 'work'}`,
+      state: `${work.outcome || work.stage} · assignment ${shortFeedID(work.assignment)}${work.sourceRevision ? ' · source ' + shortFeedID(work.sourceRevision) : ''}`,
+    });
+  if (!trace.work.length) stages.push({label: `Linked issue #${trace.issue} work`, state: 'No assignment recorded'});
+  if (trace.completion)
+    stages.push({
+      label: 'Linked issue completion',
+      state: `Verified completion record ${shortFeedID(trace.completion)}; comment adoption remains separate`,
+    });
+  return stages;
+}
+
+// productEvidenceStages projects the adopted lineage behind one same-product
+// proposal: descendant acceptance, per-task canonical delivery and the
+// controller-owned application check. Known adoption and verification read
+// independently, even while task evidence is unavailable; unknown work reads
+// as unavailable, never as native progress; no stage here claims a native
+// issue creation. verified=false means no successful application check was
+// recorded — not an active pending check — so the negative reads as no
+// recorded success, never as work in flight.
+function productEvidenceStages(change: NonNullable<CommentPipelineState['productChange']>): {
+  label: string;
+  state: string;
+}[] {
+  if (change.state === 'unavailable') return [{label: 'Change evidence', state: 'unavailable — task delivery unknown'}];
+  if (change.adoptedRevision === undefined)
+    return [{label: 'Change evidence', state: 'Current work evidence unavailable'}];
+  const stages = [
+    {
+      label: 'Adopted change',
+      state: `accepted ${shortFeedID(change.adoptedRevision)}${change.verified ? ' · application check passed' : ' · no successful application check recorded'}`,
+    },
+  ];
+  if (change.evidenceStatus !== 'recorded')
+    return [...stages, {label: 'Change task evidence', state: 'unavailable — task delivery unknown'}];
+  for (const task of change.evidence)
+    stages.push({
+      label: `Change task ${shortFeedID(task.taskKey)}`,
+      state: `native issue #${task.issue} · acceptance ${shortFeedID(task.acceptance)} · completion ${task.completion ? shortFeedID(task.completion) : 'pending'}`,
+    });
+  if (change.evidence.length === 0)
+    stages.push({label: 'Change task delivery', state: 'No delivered task covers this change yet'});
+  return stages;
+}
+
+// describeProductEvidence separates canonical completion evidence (text)
+// from native destinations (links). Owner-only request controls stay with
+// the review handoff; collaborator-visible progress is navigation only.
+// Known adoption and verification read independently, even while task
+// evidence is unavailable; only tasks with a canonical completion count as
+// delivered. A projection miss (state unavailable) says only that nothing
+// could be read — it never asserts that no adoption or delivery exists.
+// verified=false means no successful application check was recorded, not an
+// active pending check.
+export function describeProductEvidence(
+  change: NonNullable<CommentPipelineState['productChange']>,
+  repository: FeedRepositoryRef
+): ProductEvidenceModel {
+  if (change.state === 'unavailable')
+    return {
+      text: 'Change detail is currently unavailable; no adopted delivery information could be read for this proposal.',
+      nativeLinks: [],
+    };
+  if (change.adoptedRevision === undefined)
+    return {
+      text: 'Change work evidence is unavailable; no adopted delivery has been recorded for this proposal.',
+      nativeLinks: [],
+    };
+  const nativeLinks =
+    change.evidenceStatus === 'recorded'
+      ? change.evidence.flatMap((task) => {
+          const href = repository.path !== undefined ? nativeIssueLink(repository.path, String(task.issue)) : undefined;
+          return href !== undefined ? [{label: `Open native issue #${task.issue}`, href}] : [];
+        })
+      : [];
+  if (change.evidenceStatus !== 'recorded')
+    return {
+      text: change.verified
+        ? `Adopted ${shortFeedID(change.adoptedRevision)} passed the approved application check. Change task evidence is unavailable; task delivery unknown.`
+        : `Adopted ${shortFeedID(change.adoptedRevision)}; no successful approved application check recorded. Change task evidence is unavailable; task delivery unknown.`,
+      nativeLinks,
+    };
+  const completed = change.evidence.filter((task) => task.completion !== undefined).length;
+  const tasks = completed === 1 ? '1 delivered task' : `${completed} delivered tasks`;
+  const text = change.verified
+    ? `Adopted ${shortFeedID(change.adoptedRevision)} passed the approved application check with ${completed === 0 ? 'no delivered task covering this change yet' : `${tasks} recorded`}.`
+    : `Adopted ${shortFeedID(change.adoptedRevision)}; ${completed === 0 ? 'no delivered task covers this change yet' : `${tasks} recorded`}, no successful approved application check recorded.`;
+  return {text, nativeLinks};
+}
+
 export function commentSourceText(state: CommentPipelineState): string {
   const source = state.source;
   if (source === undefined) return '';
@@ -351,6 +511,10 @@ export function commentSourceText(state: CommentPipelineState): string {
   if (source.pr) parts.push(`pull request #${source.pr}`);
   if (source.ref) parts.push(`candidate ${source.ref}`);
   if (source.status) parts.push(`status ${source.status}`);
+  // The exact accepted revision the comment was discussed against, so later
+  // work can tell stale context from the current direction at a glance.
+  if (source.product)
+    parts.push(`accepted ${shortFeedID(source.product.intent)} @ ${shortFeedID(source.product.acceptedRevision)}`);
   return `${parts.join(' · ')}${source.summary ? ` — ${source.summary}` : ''}`;
 }
 
@@ -361,26 +525,77 @@ export function commentSourceText(state: CommentPipelineState): string {
 // read exactly as recorded. Unknown states never read as success.
 export function describeCommentOutcome(
   state: CommentPipelineState,
-  repository: FeedRepositoryRef
+  repository: FeedRepositoryRef,
+  reviewBusy = false
 ): CommentOutcomeModel {
   const selectedExisting = state.existingIssue > 0 ? state.existingIssue : state.issue;
   const linkIssue = state.route === 'existing_work' ? selectedExisting : state.issue;
   const issueLink =
     linkIssue > 0 && repository.path !== undefined ? nativeIssueLink(repository.path, String(linkIssue)) : undefined;
   const sourceText = commentSourceText(state);
+  const evidence = state.productChange ? describeProductEvidence(state.productChange, repository) : undefined;
   const outcome = (text: string, tone: CommentOutcomeTone, retryable: boolean): CommentOutcomeModel => ({
     commentId: state.commentId,
     text,
     tone,
     issueLink,
+    evidenceText: evidence?.text,
+    nativeLinks: evidence?.nativeLinks ?? [],
     retryable,
     sourceText,
-    stages: commentStages(state),
+    stages: [...commentStages(state), ...linkedWorkStages(state)],
     canRetry: state.canRetry,
     revision: state.revision,
     detail: state.detail,
+    reviewBusy,
     needsClarification: state.route === 'clarify',
+    ...(state.productChange ? {productChange: state.productChange, productRepository: repository.id} : {}),
   });
+  // A projection miss — explicit or inferred from a product lane whose
+  // detail did not arrive — never falls back to detached generic progress.
+  const productUnavailable = state.productChange?.state === 'unavailable' || commentProductLaneWithoutProjection(state);
+  if (state.productChange) {
+    switch (state.productChange.state) {
+      case 'review_required':
+        return outcome(
+          state.productChange.canReview
+            ? 'Review this proposed change before updating the accepted direction.'
+            : 'Waiting for the request owner to review this proposed change.',
+          'progress',
+          false
+        );
+      case 'draft':
+        return outcome(
+          'The change is saved in the build request for review. Accept its direction before building.',
+          'progress',
+          false
+        );
+      case 'accepted':
+        return outcome(
+          'The changed direction is accepted. Follow its build and verification before applying a version.',
+          'settled',
+          false
+        );
+      case 'superseded':
+        return outcome(
+          'This proposal refers to an earlier direction. Refresh the request before proposing another change.',
+          'failed',
+          false
+        );
+      case 'unavailable':
+        return outcome(
+          'The proposed change detail is currently unavailable. Check progress to reload it.',
+          'progress',
+          true
+        );
+    }
+  }
+  if (productUnavailable)
+    return outcome(
+      'The proposed change detail is currently unavailable. Check progress to reload it.',
+      'progress',
+      true
+    );
   if (commentAttemptsExhausted(state)) {
     if (state.judgment === 'pending' || state.judgment === 'failed')
       return outcome(
@@ -484,18 +699,20 @@ export function describeDiscussion(
 
 export function renderPostHeader(model: PostHeaderModel, assetBase = ''): TemplateResult {
   return html`<div class="soda-feed-header">
-    <span class="soda-feed-avatar" aria-hidden="true">${
-      model.avatarFile
-        ? html`<img
-            src=${assetBase + model.avatarFile}
-            alt=""
-            width="36"
-            height="36"
-            loading="lazy"
-            decoding="async"
-          >`
-        : model.avatarInitial
-    }</span>
+    <span class="soda-feed-avatar" aria-hidden="true"
+      >${
+        model.avatarFile
+          ? html`<img
+              src=${assetBase + model.avatarFile}
+              alt=""
+              width="36"
+              height="36"
+              loading="lazy"
+              decoding="async"
+            />`
+          : model.avatarInitial
+      }</span
+    >
     <div>
       <p><strong>${model.name}</strong>${model.role !== model.name ? html` · ${model.role}` : ''} · ${model.project}</p>
       <p>${model.timeText} · <span class="soda-feed-status">${model.statusText}</span></p>
@@ -549,10 +766,83 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
           }
         </p>
         ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
+        ${outcome.evidenceText ? html`<p>${outcome.evidenceText}</p>` : ''}
+        ${
+          // Review, continuation and the accepted private request mutate or
+          // open the owner's private build request, so they stay owner-only
+          // (canReview). Collaborator-visible accepted progress is navigation
+          // to the authorized evidence the projection exposes: it performs
+          // no mutation and never targets the private intent route.
+          outcome.productChange && outcome.productChange.state === 'review_required' && outcome.productChange.canReview
+            ? html`<button
+                type="button"
+                class="ui button"
+                data-comment-product-change=${outcome.commentId}
+                data-product-revision=${outcome.revision ?? 0}
+                data-product-repository=${outcome.productRepository ?? 0}
+                ?disabled=${outcome.reviewBusy}
+              >
+                Review proposed change
+              </button>`
+            : ''
+        }
+        ${
+          outcome.productChange && outcome.productChange.state === 'draft' && outcome.productChange.canReview
+            ? html`<button
+                type="button"
+                class="ui button"
+                data-comment-product-change=${outcome.commentId}
+                data-product-revision=${outcome.revision ?? 0}
+                data-product-repository=${outcome.productRepository ?? 0}
+                ?disabled=${outcome.reviewBusy}
+              >
+                Continue change review
+              </button>`
+            : ''
+        }
+        ${
+          outcome.productChange && outcome.productChange.state === 'accepted' && outcome.productChange.canReview
+            ? html`<button
+                type="button"
+                class="ui button"
+                data-comment-product-change=${outcome.commentId}
+                data-product-revision=${outcome.revision ?? 0}
+                data-product-repository=${outcome.productRepository ?? 0}
+                ?disabled=${outcome.reviewBusy}
+              >
+                Open accepted change
+              </button>`
+            : ''
+        }
+        ${
+          outcome.productChange &&
+          outcome.productChange.state === 'accepted' &&
+          !outcome.productChange.canReview &&
+          outcome.nativeLinks.length > 0
+            ? html`<a class="ui button" href=${outcome.nativeLinks[0]?.href ?? ''}>Open accepted evidence</a>`
+            : ''
+        }
         ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}</button>` : ''}
         <details>
           <summary>Processing details</summary>
           ${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}
+          ${
+            outcome.productChange
+              ? html`<p>Build request <code>${outcome.productChange.intent}</code></p>
+                  <p>Original accepted revision <code>${outcome.productChange.acceptedRevision}</code></p>
+                  ${outcome.productChange.draftRevision ? html`<p>Change draft <code>${outcome.productChange.draftRevision}</code></p>` : ''}
+                  ${
+                    outcome.productChange.adoptedRevision
+                      ? html`<p>Adopted revision <code>${outcome.productChange.adoptedRevision}</code></p>`
+                      : ''
+                  }
+                  ${
+                    outcome.nativeLinks.length > 0
+                      ? html`<p>${outcome.nativeLinks.map((link) => html`<a href=${link.href}>${link.label}</a>`)}</p>`
+                      : ''
+                  }`
+              : ''
+          }
           <ol class="soda-feed-outcome-stages" aria-label="Comment pipeline stages">
             ${outcome.stages.map((stage) => html`<li><strong>${stage.label}</strong> — ${stage.state}</li>`)}
           </ol>
@@ -694,15 +984,36 @@ export function renderFeedPost(
           data-feed-drawer-toggle=${model.comments.key}
           aria-expanded=${model.comments.open}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z" />
+          </svg>
           <strong>${model.comments.countText}</strong>
           ${model.comments.faces.length ? html`<span class="soda-feed-faces" aria-hidden="true">${model.comments.faces.map((face) => html`<i>${face}</i>`)}</span>` : ''}
-          <svg class="soda-feed-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <svg
+            class="soda-feed-chev"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
         <div class="soda-feed-drawer-body" .inert=${!model.comments.open}>
           <div class="soda-feed-drawer-inner">
-            ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''} ${replies}
-            ${renderDiscussion({...model.discussion, outcomes: []})}
+            ${model.discussion.outcomes.length ? renderDiscussion({...model.discussion, showComposer: false}) : ''}
+            ${replies} ${renderDiscussion({...model.discussion, outcomes: []})}
           </div>
         </div>
       </section>

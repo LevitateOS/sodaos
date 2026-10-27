@@ -1,6 +1,11 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import {feedEntryKey, feedPayloadCap, feedSummaryLimit, parseFeedStatusSegments} from './sodaspaces-factory-feed-response.js';
+import {
+  feedEntryKey,
+  feedPayloadCap,
+  feedSummaryLimit,
+  parseFeedStatusSegments,
+} from './sodaspaces-factory-feed-response.js';
 import type {
   FeedCoverage,
   FeedCommunication,
@@ -117,7 +122,12 @@ export function classifyFeedStatus(status: string | undefined): FeedStatusClass 
   if (status === undefined) return 'unknown';
   const text = status.trim().toLowerCase();
   if (text === '') return 'unknown';
-  if (/(?:^|:)(?:failed|invalid|blocked|stuck|unconfirmed|cancelled|canceled|needs-human|stopped|request-changes|clarify)(?=:|$)/.test(text)) return 'failure';
+  if (
+    /(?:^|:)(?:failed|invalid|blocked|stuck|unconfirmed|cancelled|canceled|needs-human|stopped|request-changes|clarify)(?=:|$)/.test(
+      text
+    )
+  )
+    return 'failure';
   if (/^route:(?:discussion|existing_work)$/.test(text)) return 'settled';
   if (text === 'feedback:delivered') return 'settled';
   if (/^(?:judgment:applied|draft:valid|effect:created)$/.test(text)) return 'settled';
@@ -158,10 +168,23 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
   const communication = entry.payload?.communication;
   if (communication) {
     const bySignal: Record<FeedCommunication['kind'], FeedFamily> = {
-      ask: 'question', answer: 'answer', reply: 'discussion', flag: 'flag', learned: 'knowledge',
-      suggest: 'proposal', partial: 'progress', blocked: 'blocked', stuck: 'stuck',
-      record_decision: 'decision', finish_incomplete: 'incomplete', system: 'integration', library_maintenance: 'maintenance', artifact: 'work',
-      journey: 'verification', diagnosis: 'reassessment', repair_draft: 'reassessment',
+      ask: 'question',
+      answer: 'answer',
+      reply: 'discussion',
+      flag: 'flag',
+      learned: 'knowledge',
+      suggest: 'proposal',
+      partial: 'progress',
+      blocked: 'blocked',
+      stuck: 'stuck',
+      record_decision: 'decision',
+      finish_incomplete: 'incomplete',
+      system: 'integration',
+      library_maintenance: 'maintenance',
+      artifact: 'work',
+      journey: 'verification',
+      diagnosis: 'reassessment',
+      repair_draft: 'reassessment',
     };
     const component = feedComponent(communication.componentId);
     if (communication.kind === 'partial' && component && feedFamilies.some((family) => family === component.family))
@@ -287,8 +310,7 @@ const familyText: Readonly<Record<FeedFamily, {label: string; detail: string}>> 
   },
   knowledge: {
     label: 'Knowledge',
-    detail:
-      'Recorded knowledge and its supporting evidence. Open the linked source to inspect the original context.',
+    detail: 'Recorded knowledge and its supporting evidence. Open the linked source to inspect the original context.',
   },
   decision: {
     label: 'Recorded decision',
@@ -300,14 +322,37 @@ const familyText: Readonly<Record<FeedFamily, {label: string; detail: string}>> 
     detail:
       'The question, its consequence and answer history stay with the affected work. An answered question still needs its answer incorporated before dependent work relies on it.',
   },
-  answer: {label: 'Answer', detail: 'The answer is recorded with the question. Dependent work reports separately when it incorporates the answer.'},
+  answer: {
+    label: 'Answer',
+    detail:
+      'The answer is recorded with the question. Dependent work reports separately when it incorporates the answer.',
+  },
   flag: {label: 'Concern raised', detail: 'A worker has reported a concern with its impact and evidence.'},
-  proposal: {label: 'Proposal', detail: 'A proposed change remains a proposal until the responsible workflow adopts it.'},
-  progress: {label: 'Progress update', detail: 'The worker reports completed and remaining work. Confirmed workflow results are recorded separately.'},
-  blocked: {label: 'Blocked', detail: 'Progress depends on a known missing input. The release condition appears in this post.'},
-  stuck: {label: 'Diagnosis needed', detail: 'The worker cannot find a working route. Prior attempts help the next worker continue the diagnosis.'},
-  incomplete: {label: 'Incomplete handoff', detail: 'Useful work is preserved alongside the unresolved work and the reason it ended.'},
-  maintenance: {label: 'Library maintenance', detail: 'Item changes retain their evidence, scope and history. A proposal does not mean a library operation was applied.'},
+  proposal: {
+    label: 'Proposal',
+    detail: 'A proposed change remains a proposal until the responsible workflow adopts it.',
+  },
+  progress: {
+    label: 'Progress update',
+    detail: 'The worker reports completed and remaining work. Confirmed workflow results are recorded separately.',
+  },
+  blocked: {
+    label: 'Blocked',
+    detail: 'Progress depends on a known missing input. The release condition appears in this post.',
+  },
+  stuck: {
+    label: 'Diagnosis needed',
+    detail: 'The worker cannot find a working route. Prior attempts help the next worker continue the diagnosis.',
+  },
+  incomplete: {
+    label: 'Incomplete handoff',
+    detail: 'Useful work is preserved alongside the unresolved work and the reason it ended.',
+  },
+  maintenance: {
+    label: 'Library maintenance',
+    detail:
+      'Item changes retain their evidence, scope and history. A proposal does not mean a library operation was applied.',
+  },
   discussion: {
     label: 'Discussion',
     detail: 'The stored discussion text appears above with its replies and recorded outcome below.',
@@ -366,7 +411,8 @@ function humanSegment(segment: string): string {
 }
 
 function stageState(segments: FeedStatusSegments): string {
-  if (segments.outcome && /fail|refus|reject|error|cancel|needs-human|stopped/i.test(segments.outcome)) return 'stopped';
+  if (segments.outcome && /fail|refus|reject|error|cancel|needs-human|stopped/i.test(segments.outcome))
+    return 'stopped';
   if (segments.stage === 'finished') return segments.outcome === 'succeeded' ? 'done' : 'not completed';
   if (segments.stage) return 'current';
   return 'not recorded';
@@ -904,8 +950,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
         {term: 'Candidate produced', value: implementation.candidate ?? 'not recorded'},
         {
           term: 'Diagnostic references',
-          value:
-            implementation.diagnosticRefs.length > 0 ? implementation.diagnosticRefs.join(', ') : 'none recorded',
+          value: implementation.diagnosticRefs.length > 0 ? implementation.diagnosticRefs.join(', ') : 'none recorded',
         },
       ],
       note: cappedNote(implementation.diagnosticRefs.length, 'diagnostic references'),
@@ -1226,10 +1271,23 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
   const text = familyText[family];
   const communication = entry.payload?.communication;
   const resolved = communication?.disposition !== undefined || communication?.questionState === 'incorporated';
-  const statusClass: FeedStatusClass = communication && communication.kind !== 'system' && communication.kind !== 'library_maintenance'
-    ? resolved ? 'settled' : ['blocked', 'stuck', 'finish_incomplete'].includes(communication.kind) || (communication.kind === 'flag' && communication.severity !== 'info') ? 'failure' : 'waiting'
-    : classifyFeedStatus(entry.status);
-  const project = entry.project ?? repository.label;
+  const statusClass: FeedStatusClass =
+    communication && communication.kind !== 'system' && communication.kind !== 'library_maintenance'
+      ? resolved
+        ? 'settled'
+        : ['blocked', 'stuck', 'finish_incomplete'].includes(communication.kind) ||
+            (communication.kind === 'flag' && communication.severity !== 'info')
+          ? 'failure'
+          : 'waiting'
+      : classifyFeedStatus(entry.status);
+  const recordedHeadline =
+    entry.activity === 'judgment' || entry.status === 'judgment:applied'
+      ? 'Decision recorded'
+      : entry.status === 'draft:valid'
+        ? 'Proposal ready'
+        : entry.status === 'effect:created'
+          ? 'Work created'
+          : undefined;
   const payload = entry.payload;
   const typed: FeedBlock[] =
     payload === undefined
@@ -1250,7 +1308,9 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
     ...(payload?.componentId ? {componentId: payload.componentId} : {}),
     family,
     label: text.label,
-    headline: `${text.label}${statusClass === 'failure' ? ' needs attention' : statusClass === 'settled' ? ' completed' : statusClass === 'waiting' ? ' in progress' : ' stopped'}`,
+    headline:
+      recordedHeadline ??
+      `${text.label}${statusClass === 'failure' ? ' needs attention' : statusClass === 'settled' ? ' completed' : statusClass === 'waiting' ? ' in progress' : ' · status unavailable'}`,
     detailText: text.detail,
     stateText:
       entry.status !== undefined
@@ -1261,9 +1321,13 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
     nextText: nextTextFor(statusClass),
     statusClass,
     sourceLinks: familyLinks(family, repository, entry),
-    blocks: (typed.length ? typed : statusClass === 'failure' && (family === 'plan' || family === 'issue')
-      ? (entry.summary ? [{kind: 'brief' as const, heading: 'What happened', text: entry.summary}] : [])
-      : familyBlocks(family, entry, parseFeedStatusSegments(entry.status))),
+    blocks: typed.length
+      ? typed
+      : statusClass === 'failure' && (family === 'plan' || family === 'issue')
+        ? entry.summary
+          ? [{kind: 'brief' as const, heading: 'What happened', text: entry.summary}]
+          : []
+        : familyBlocks(family, entry, parseFeedStatusSegments(entry.status)),
   };
 }
 
@@ -1289,7 +1353,10 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
         </ol>
       </div>`}${note}`;
     case 'graph':
-      return html`<div class="soda-feed-plan-graph"><h4>${block.heading}</h4>${renderFeedGraph(block.items, block.heading)}${note}</div>`;
+      return html`<div class="soda-feed-plan-graph">
+        <h4>${block.heading}</h4>
+        ${renderFeedGraph(block.items, block.heading)}${note}
+      </div>`;
     case 'rows':
       return html`<div class="soda-feed-rows">
         <h4>${block.heading}</h4>
@@ -1345,12 +1412,30 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
 export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactRequest): TemplateResult {
   const component = feedComponent(model.componentId);
   const action = renderRecordAction(model.payload);
-  return html`<section aria-label=${model.label} data-feed-family=${model.family} data-feed-component=${component?.id ?? ''}>
-    ${model.communication
-      ? renderFeedCommunication(model.communication, model.entryKey ?? '', request)
-      : html`<p class="soda-feed-headline"><strong>${component?.label ?? model.headline}</strong></p>
-          ${action ?? html`${model.blocks.slice(0, 4).map(renderFeedBlock)}`}
-          ${action ? html`<details class="soda-feed-more-content"><summary>Recorded details and evidence</summary>${model.blocks.map(renderFeedBlock)}</details>` : model.blocks.length > 4 ? html`<details class="soda-feed-more-content"><summary>${model.blocks.length - 4} more details</summary>${model.blocks.slice(4).map(renderFeedBlock)}</details>` : ''}`}
+  return html`<section
+    aria-label=${model.label}
+    data-feed-family=${model.family}
+    data-feed-component=${component?.id ?? ''}
+  >
+    ${
+      model.communication
+        ? renderFeedCommunication(model.communication, model.entryKey ?? '', request)
+        : html`<p class="soda-feed-headline"><strong>${component?.label ?? model.headline}</strong></p>
+            ${action ?? html`${model.blocks.slice(0, 4).map(renderFeedBlock)}`}
+            ${
+              action
+                ? html`<details class="soda-feed-more-content">
+                    <summary>Recorded details and evidence</summary>
+                    ${model.blocks.map(renderFeedBlock)}
+                  </details>`
+                : model.blocks.length > 4
+                  ? html`<details class="soda-feed-more-content">
+                      <summary>${model.blocks.length - 4} more details</summary>
+                      ${model.blocks.slice(4).map(renderFeedBlock)}
+                    </details>`
+                  : ''
+            }`
+    }
     <div class="soda-feed-card-footer">
       <details class="soda-feed-record-details">
         <summary>Details</summary>
@@ -1360,7 +1445,9 @@ export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactR
       </details>
       ${
         model.sourceLinks.length > 0
-          ? html`<p class="soda-feed-source-links">${model.sourceLinks.map((link) => html`<a href=${link.href}>${link.label}</a> `)}</p>`
+          ? html`<p class="soda-feed-source-links">
+              ${model.sourceLinks.map((link) => html`<a href=${link.href}>${link.label}</a> `)}
+            </p>`
           : ''
       }
     </div>

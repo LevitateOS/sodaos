@@ -651,6 +651,9 @@ export interface PlanWorkOutcome {
   notice: string;
   status?: IntentPlanStatus;
 }
+export const planningRunningNotice = 'Planning is running. The status below follows the run.';
+export const planningFailedNotice = 'Planning failed. Your direction is saved; try again.';
+export const planningCancelledNotice = 'Planning was cancelled before it could report.';
 export async function runPlanWork(
   postPlan: () => Promise<unknown>,
   fetchPlan: () => Promise<unknown>,
@@ -662,13 +665,28 @@ export async function runPlanWork(
   check(launched.revision === revision);
   const status = intentPlanStatus(await fetchPlan());
   check(status.revision === revision);
-  return {
-    notice:
-      launched.launchConfirmed === false
-        ? 'Planning was accepted, but its start response was not confirmed. The status below follows the existing run.'
-        : 'Planning is running. The status below follows the run.',
-    status,
-  };
+  // An unconfirmed start keeps its own notice: only the launch response
+  // can lift that uncertainty. Otherwise a fast-settling run reports its
+  // settled state, never a running text for it: failure and cancellation
+  // restate their guidance, completion clears the notice for the review
+  // flow, and attention asks for the product decision.
+  if (launched.launchConfirmed === false)
+    return {
+      notice:
+        'Planning was accepted, but its start response was not confirmed. The status below follows the existing run.',
+      status,
+    };
+  if (status.state === 'failed') return {notice: planningFailedNotice, status};
+  if (status.state === 'cancelled') return {notice: planningCancelledNotice, status};
+  if (status.state === 'completed') return {notice: '', status};
+  if (status.state === 'attention')
+    return {
+      notice: status.attention
+        ? `Planning needs a product decision: ${status.attention}`
+        : 'Planning needs a product decision before issues can be proposed.',
+      status,
+    };
+  return {notice: planningRunningNotice, status};
 }
 export interface IntentPlanLaunch {
   assignment: string;
@@ -703,6 +721,8 @@ export interface IntentPlanStatus {
   summary?: string;
   candidates: number;
   attention?: string;
+  walkthroughs?: ProposalContent;
+  review?: Exploration;
 }
 export function intentPlanStatus(value: unknown): IntentPlanStatus {
   const raw = object(value);
@@ -720,5 +740,22 @@ export function intentPlanStatus(value: unknown): IntentPlanStatus {
   if (raw.summary !== undefined) out.summary = text(raw.summary, 4096);
   if (raw.candidates !== undefined) out.candidates = bound(raw.candidates, 0, 3);
   if (raw.attention !== undefined) out.attention = text(raw.attention, 4000);
+  if (raw.walkthroughs !== undefined) {
+    out.walkthroughs = proposalContent(raw.walkthroughs);
+    check(
+      out.state === 'completed' &&
+        out.walkthroughs.producer === 'soda-planning-agent-v1' &&
+        out.walkthroughs.revision === out.revision
+    );
+  }
+  if (raw.review !== undefined) {
+    out.review = exploration(raw.review);
+    check(
+      out.walkthroughs !== undefined &&
+        out.review.content.revision === out.revision &&
+        out.review.recommendation?.revision === out.revision &&
+        out.review.consistency?.revision === out.revision
+    );
+  }
   return out;
 }

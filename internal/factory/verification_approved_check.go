@@ -25,6 +25,10 @@ type ApprovedAppCheck struct {
 const ApprovedAppCheckPrefix = "# soda-app-verification: "
 const ApprovedAppCheckID = project.VerificationProjectCheck
 
+// ApplicationBundleGuidance is conditional execution guidance, not a scope
+// classifier or permission to change protected preparation inputs.
+const ApplicationBundleGuidance = "When the accepted product is a Soda-hosted Canlang application, its useful delivery includes the canonical can-soda build output at .soda/application/bundle.json in the approved project.check checkout. For the requested isolated preview, also build and check .soda/application/preview/bundle.json from that source with its own declared HTTPS origin and independent environment/resource configuration. Preview and company origins must differ; never rewrite an already checked bundle or share live data/owner credentials. Plan and implement the application source, deployment descriptor and environment configuration needed for the protected check.sh to produce that regular file after real outcome checks pass. Compile the actual integrated source; never copy an unrelated bundle or write a success-shaped fixture. Use the intended canonical HTTPS CAN_AUTH_ORIGIN from the admitted product/configuration; if it is unknown, ask rather than inventing an address. For an update preserve the admitted origin and compatible storage identities, with no implicit schema migration. The native helper retains the exact bytes only after that approved check succeeds and retires. A protected script change requires its existing administrator approval; workers cannot replace the approved catalog or bypass source/check binding. Product Lead proposes verification_manifest_proposal only from the existing approved catalog and carries missing build/configuration prerequisites as unresolved. No bundle is required for non-application work. A passed check and a packaged image grant no deployment, first-owner identity, start, access or release authority."
+
 func ParseApprovedAppCheck(script []byte) (ApprovedAppCheck, error) {
 	var manifest ApprovedAppCheck
 	found := false
@@ -71,7 +75,7 @@ func (m ApprovedAppCheck) Digest() string {
 }
 
 func (m ApprovedAppCheck) BindsIntent(revision IntentRevision) bool {
-	want, got := slices.Clone(revision.EffectiveOutcomes), slices.Clone(m.Outcomes)
+	want, got := slices.Clone(ResolvedScope(revision)), slices.Clone(m.Outcomes)
 	slices.Sort(want)
 	slices.Sort(got)
 	return revision.State == "accepted" && m.IntentID == revision.Intent && m.AcceptedRevision == revision.ID && slices.Equal(want, got)

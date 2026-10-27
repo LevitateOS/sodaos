@@ -39,6 +39,10 @@ struct HelperState {
     output: String,
     truncated: bool,
     retirement: String,
+    #[serde(default)]
+    application_bundle_sha256: String,
+    #[serde(default)]
+    application_preview_bundle_sha256: String,
 }
 
 fn manifest_name(run: &FactoryRun) -> String {
@@ -75,7 +79,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             .map_err(FactoryError::msg)
     }
 
-    fn load_verification_manifest(
+    pub(in crate::factory) fn load_verification_manifest(
         &self,
         run: &FactoryRun,
     ) -> Result<VerificationManifest, FactoryError> {
@@ -197,6 +201,8 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 state.exit_code = Some(0);
                 state.output_digest = helper.output_digest;
                 state.retirement = "confirmed".into();
+                state.application_bundle_sha256 = helper.application_bundle_sha256;
+                state.application_preview_bundle_sha256 = helper.application_preview_bundle_sha256;
             }
             "completed" | "failed" | "stopped" | "uncertain" => {
                 state.phase = if helper.phase == "stopped" {

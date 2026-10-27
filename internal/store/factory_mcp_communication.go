@@ -39,10 +39,13 @@ func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factor
 	}
 	if content.ReplyTo != "" {
 		var parentKind string
-		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_comments WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)`, content.ReplyTo, capability.Repository).Scan(&parentKind); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_comments WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ReplyTo, capability.Repository).Scan(&parentKind); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.New("reply target is not available in this project")
 			}
+			return err
+		}
+		if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ReplyTo); err != nil {
 			return err
 		}
 		if submission.Tool == factory.MCPToolAnswer && parentKind != "ask" {
@@ -65,11 +68,15 @@ func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.
 	if err = createCommunicationLibraryTx(ctx, tx, capability, submission, &content, postID, receipt); err != nil {
 		return err
 	}
-	data, err := json.Marshal(map[string]any{
+	fields := map[string]any{
 		"issue": issue, "reply_to": content.ReplyTo, "at": time.Now().Unix(), "author_name": recordPersona(capability.Profile),
 		"actor": string(capability.Profile), "assignment": capability.AssignmentID, "run": capability.RunID,
 		"project": capability.Project, "submission": submission.SubmissionID, "communication": content,
-	})
+	}
+	if content.ReplyTo == "" && (content.Kind == "partial" || content.Kind == "reply") {
+		fields["source"] = factory.CommentSource{Kind: factory.CommentSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}
+	}
+	data, err := json.Marshal(fields)
 	if err != nil {
 		return err
 	}
@@ -87,6 +94,9 @@ func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.
 		return err
 	}
 	receipt.FeedPostID = postID
+	if content.ReplyTo != "" {
+		return contributionReplyTx(ctx, tx, capability, content.ReplyTo, postID)
+	}
 	return nil
 }
 
@@ -100,11 +110,14 @@ func communicationToolNames() []string {
 
 func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 	var data struct {
-		Actor         string                     `json:"actor"`
-		Status        string                     `json:"status"`
-		Assignment    string                     `json:"assignment"`
-		Communication *factory.FeedCommunication `json:"communication"`
-		Source        *factory.CommentSource     `json:"source"`
+		Actor         string                      `json:"actor"`
+		Status        string                      `json:"status"`
+		Assignment    string                      `json:"assignment"`
+		EventIdentity string                      `json:"event_identity"`
+		Communication *factory.FeedCommunication  `json:"communication"`
+		Consultation  *factory.FeedConsultation   `json:"consultation"`
+		Contribution  *factory.ContributionReview `json:"contribution"`
+		Source        *factory.CommentSource      `json:"source"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return err
@@ -116,6 +129,9 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 		}
 	}
 	if data.Communication != nil {
+		if data.Actor == "factory" {
+			detail.EventIdentity = data.EventIdentity
+		}
 		detail.Actor = data.Actor
 		detail.Assignment = data.Assignment
 		detail.Status = data.Communication.Kind
@@ -123,6 +139,14 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 			detail.Status = data.Status
 		}
 		detail.Payload = &factory.FeedPayload{Communication: data.Communication}
+	}
+	if data.Consultation != nil {
+		detail.Actor, detail.Assignment, detail.Status = data.Actor, data.Assignment, data.Status
+		detail.Consultation = data.Consultation
+	}
+	if data.Contribution != nil {
+		detail.Actor, detail.Assignment, detail.Status = data.Actor, data.Assignment, data.Status
+		detail.Contribution = data.Contribution
 	}
 	return nil
 }

@@ -34,6 +34,7 @@ type consistencyEvidence struct {
 	Milestones  []factory.Milestone        `json:"milestones"`
 	Constraints []string                   `json:"constraints"`
 	Exclusions  []factory.Exclusion        `json:"exclusions,omitempty"`
+	Ideas       []factory.ProductIdea      `json:"ideas,omitempty"`
 }
 
 // JudgeConsistency verifies the consolidated proposal. Deterministic code
@@ -65,6 +66,9 @@ func (c *Coordinator) JudgeConsistency(ctx context.Context, r factory.IntentRevi
 		return report, report.Validate()
 	}
 	state := consistencyEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Recommended: proposal.Alternative, Outcomes: proposal.Outcomes, Milestones: proposal.Milestones, Constraints: proposal.Constraints, Exclusions: content.Exclusions}
+	if content.Producer == factory.PlanningProducer {
+		state.Ideas = r.Ideas
+	}
 	options := consistencyOptions()
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose:  factory.JudgmentConsistency,

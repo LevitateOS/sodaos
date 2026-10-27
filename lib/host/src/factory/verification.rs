@@ -154,6 +154,10 @@ pub struct FactoryVerificationChecksState {
     pub exit_code: Option<i64>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub output_digest: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub application_bundle_sha256: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub application_preview_bundle_sha256: String,
     // Approved check output only, with display controls escaped. Its digest
     // continues to identify the helper's captured bytes, not this text prefix.
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -169,6 +173,15 @@ pub struct FactoryVerificationChecksState {
 impl FactoryVerificationChecksState {
     pub fn validate_for(&self, r: &FactoryVerificationChecks) -> Result<(), String> {
         r.validate()?;
+        for digest in [
+            &self.application_bundle_sha256,
+            &self.application_preview_bundle_sha256,
+        ] {
+            if !digest.is_empty() && (self.phase != "passed" || !preparation::valid_digest(digest))
+            {
+                return Err("application build receipt requires a passed native check".into());
+            }
+        }
         if self.project != r.project
             || self.run != r.run
             || self.incarnation != r.incarnation

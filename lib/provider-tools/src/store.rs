@@ -698,7 +698,10 @@ fn scan_tree(bundle_dir: &Path) -> Result<Vec<TreeEntry>, crate::Error> {
         })?;
         for entry in entries {
             let entry = entry.map_err(|e| {
-                crate::Error::denied(format!("bundle listing unreadable ({}): {e}", current.display()))
+                crate::Error::denied(format!(
+                    "bundle listing unreadable ({}): {e}",
+                    current.display()
+                ))
             })?;
             let path = entry.path();
             if path.is_symlink() {
@@ -717,15 +720,14 @@ fn scan_tree(bundle_dir: &Path) -> Result<Vec<TreeEntry>, crate::Error> {
                 })?
                 .to_str()
                 .ok_or_else(|| {
-                    crate::Error::denied(format!(
-                        "bundle entry is not UTF-8: {}",
-                        path.display()
-                    ))
+                    crate::Error::denied(format!("bundle entry is not UTF-8: {}", path.display()))
                 })?
                 .replace('\\', "/");
             if rel.is_empty()
                 || rel.starts_with('/')
-                || rel.split('/').any(|c| c.is_empty() || c == "." || c == "..")
+                || rel
+                    .split('/')
+                    .any(|c| c.is_empty() || c == "." || c == "..")
             {
                 return Err(crate::Error::denied(format!(
                     "bundle entry has unsafe name: {rel}"
@@ -823,10 +825,7 @@ pub fn verify_bundle(
     digest: &str,
 ) -> Result<PathBuf, crate::Error> {
     let digest = crate::normalize_digest(digest)?;
-    let bundle = root
-        .join("bundles")
-        .join(provider.as_str())
-        .join(&digest);
+    let bundle = root.join("bundles").join(provider.as_str()).join(&digest);
     let meta = std::fs::symlink_metadata(&bundle).map_err(|_| {
         crate::Error::denied(format!(
             "no admitted {} bundle for digest {digest}; refusing to substitute another build",
@@ -888,8 +887,7 @@ pub fn verify_bundle(
                 provider.as_str()
             ))
         })?;
-        if inventory.provider != provider || crate::normalize_digest(&inventory.digest)? != digest
-        {
+        if inventory.provider != provider || crate::normalize_digest(&inventory.digest)? != digest {
             return Err(crate::Error::denied(format!(
                 "bundle inventory identity mismatch for {} {digest}",
                 provider.as_str()
@@ -916,8 +914,7 @@ pub fn verify_bundle(
                     entry.path
                 ))
             })?;
-            if found.size != entry.size || found.sha256.as_deref() != Some(entry.sha256.as_str())
-            {
+            if found.size != entry.size || found.sha256.as_deref() != Some(entry.sha256.as_str()) {
                 return Err(crate::Error::denied(format!(
                     "bundle file changed for {} {digest}: {} (digest/size mismatch)",
                     provider.as_str(),

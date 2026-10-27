@@ -36,6 +36,7 @@ pub(crate) mod records;
 pub(crate) mod sha;
 pub(crate) mod validate;
 pub(crate) mod verification;
+pub(crate) mod verification_bundle;
 pub(crate) mod verification_execution;
 
 use crate::state_json::StateValue;
@@ -148,6 +149,7 @@ fn dispatch_op(ctx: &Ctx, op: &str, data: &StateValue) -> Result<StateValue, Err
         "verify" => verification::start(ctx, data),
         "verify_inspect" => verification::inspect(ctx, data),
         "verify_stop" => verification::stop(ctx, data),
+        "verify_bundle" => verification::export_bundle(ctx, data),
         _ => fail("unsupported factory operation"),
     }
 }
@@ -180,6 +182,7 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
                     | "verify"
                     | "verify_inspect"
                     | "verify_stop"
+                    | "verify_bundle"
             ) =>
         {
             op
@@ -196,7 +199,7 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
         let lock_file = fsx::open_ro(&ctx.lock, false)?;
         use std::os::unix::io::AsRawFd;
         let fd = lock_file.as_raw_fd();
-        let flag = if op == "inspect" || op == "verify_inspect" {
+        let flag = if op == "inspect" || op == "verify_inspect" || op == "verify_bundle" {
             libc::LOCK_SH
         } else {
             libc::LOCK_EX

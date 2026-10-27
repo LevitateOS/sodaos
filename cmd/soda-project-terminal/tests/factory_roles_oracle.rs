@@ -125,6 +125,7 @@ struct NativeFactoryFixture {
     crash: Arc<AtomicU8>,
     refuse_stop: Arc<AtomicBool>,
     requires_verification: bool,
+    application_options: Option<Vec<String>>,
 }
 
 impl Executor for NativeFactoryFixture {
@@ -147,6 +148,16 @@ impl Executor for NativeFactoryFixture {
         stderr: usize,
     ) -> Result<Vec<u8>, String> {
         assert_eq!(command, "podman");
+        if !args.starts_with(&["--remote=false", "exec", "--interactive"]) {
+            let options = self
+                .application_options
+                .as_ref()
+                .expect("unexpected native operation");
+            let mut all: Vec<&str> = options.iter().map(String::as_str).collect();
+            all.extend_from_slice(args);
+            return soda_host::project::Native
+                .run_bounded(input, command, &all, deadline, stdout, stderr);
+        }
         assert_eq!(
             args,
             [
@@ -184,7 +195,7 @@ impl Executor for NativeFactoryFixture {
         let response: serde_json::Value = serde_json::from_slice(&raw).unwrap();
         self.events.lock().unwrap().push(format!(
             "helper:{op}:{}",
-            response["phase"].as_str().unwrap()
+            response["phase"].as_str().unwrap_or("exported")
         ));
         if crash == 2 {
             panic!("fixture Host loss after actual native helper dispatch");
@@ -474,6 +485,205 @@ fn wait_for(path: &Path, timeout_secs: u64) {
     }
 }
 
+// Explicit local OCI integration. The production host reads an immutable image
+// through real Podman in its own scratch store; no application is started.
+fn application_image_readback(root: &Path, bytes: &[u8], digest: &str, preview: &[u8]) {
+    if std::env::var("SODA_FACTORY_APPLICATION_OCI").as_deref() != Ok("1") {
+        return;
+    }
+    struct IsolatedPodman {
+        options: Vec<String>,
+    }
+    impl Executor for IsolatedPodman {
+        fn run(
+            &self,
+            stdin: &[u8],
+            cmd: &str,
+            args: &[&str],
+            deadline: Instant,
+        ) -> Result<Vec<u8>, String> {
+            assert_eq!(cmd, "podman");
+            let mut all: Vec<&str> = self.options.iter().map(String::as_str).collect();
+            all.extend_from_slice(args);
+            soda_host::project::Native
+                .run_bounded(stdin, cmd, &all, deadline, 65536, 4096)
+                .map_err(|error| {
+                    eprintln!("isolated OCI fixture command {args:?}: {error}");
+                    error
+                })
+        }
+    }
+    let exec = IsolatedPodman {
+        options: vec![
+            format!("--root={}", root.join("podman-graph").display()),
+            format!("--runroot={}", root.join("podman-run").display()),
+            "--storage-driver=vfs".into(),
+        ],
+    };
+    let rootfs = root.join("image-root");
+    std::fs::create_dir_all(rootfs.join("opt/application")).unwrap();
+    std::fs::write(rootfs.join("opt/application/bundle.json"), bytes).unwrap();
+    let archive = root.join("application.tar");
+    assert!(Command::new("tar")
+        .args(["-cf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&rootfs)
+        .arg(".")
+        .status()
+        .unwrap()
+        .success());
+    let mut spec = soda_host::application::Spec {
+        id: format!("a{}", "1".repeat(24)),
+        revision: 1,
+        name: "ReadbackFixture".into(),
+        artifact_sha256: "2".repeat(64),
+        bundle_sha256: "3".repeat(64),
+        tools_sha256: "4".repeat(64),
+        runtime_image: format!("sha256:{}", "5".repeat(64)),
+        image: String::new(),
+        data: format!("a{}", "6".repeat(24)),
+        owner_team: "12345678-1234-1234-1234-123456789abc".into(),
+        origin: "https://readback.example.test".into(),
+        port: 24001,
+    };
+    let mut import = vec![
+        "import".into(),
+        "--change".into(),
+        "USER 10000:10000".into(),
+    ];
+    for (key, value) in [
+        ("io.canlang.app", &spec.name),
+        ("io.canlang.artifact", &spec.artifact_sha256),
+        ("io.canlang.bundle", &spec.bundle_sha256),
+        ("io.canlang.tools", &spec.tools_sha256),
+        ("io.soda.canlang.runtime", &spec.runtime_image),
+        ("io.canlang.origin", &spec.origin),
+    ] {
+        import.extend(["--change".into(), format!("LABEL {key}={value}")]);
+    }
+    import.push(archive.to_string_lossy().into_owned());
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let image = exec
+        .run(
+            &[],
+            "podman",
+            &import.iter().map(String::as_str).collect::<Vec<_>>(),
+            deadline,
+        )
+        .unwrap();
+    spec.image = String::from_utf8(image).unwrap().trim().into();
+    if !spec.image.starts_with("sha256:") {
+        spec.image = format!("sha256:{}", spec.image);
+    }
+    let mut create = vec![
+        "create".into(),
+        "--network=none".into(),
+        format!("--name=soda-canlang-{}", spec.id),
+    ];
+    for (key, value) in [
+        ("id", spec.id.clone()),
+        ("data", spec.data.clone()),
+        ("owner", spec.owner_team.clone()),
+        ("origin", spec.origin.clone()),
+        ("port", spec.port.to_string()),
+        ("revision", "1".into()),
+    ] {
+        create.push(format!("--label=io.soda.canlang.{key}={value}"));
+    }
+    create.extend([spec.image.clone(), "/not-started".into()]);
+    let container = exec
+        .run(
+            &[],
+            "podman",
+            &create.iter().map(String::as_str).collect::<Vec<_>>(),
+            deadline,
+        )
+        .unwrap();
+    let container = String::from_utf8(container).unwrap().trim().to_string();
+    let runtime = soda_host::application::Runtime {
+        exec: &exec,
+        release: None,
+    };
+    let observed = runtime
+        .operate(
+            &soda_host::application::Request {
+                application: spec.clone(),
+                action: "verify_build".into(),
+                expected_container: container.clone(),
+                restore: None,
+            },
+            deadline,
+        )
+        .unwrap();
+    assert_eq!(observed.bundle_file_sha256, digest);
+    assert_eq!(observed.image, spec.image);
+    assert!(!observed.ready && !observed.running);
+    exec.run(&[], "podman", &["rm", &container], deadline)
+        .unwrap();
+    let package_runtime = soda_host::application::Runtime {
+        exec: &exec,
+        release: Some(soda_host::application::ReleaseBinding {
+            image: spec.image.clone(),
+            tools_sha256: spec.tools_sha256.clone(),
+        }),
+    };
+    let request = soda_host::application::BuildRequest {
+        environment: "company".into(),
+        project: format!("p{}", "1".repeat(24)),
+        run: "1".repeat(32),
+        incarnation: "a".repeat(32),
+        manifest_digest: "b".repeat(64),
+    };
+    let staged = root.join("packaged-application");
+    let built = package_runtime
+        .package_application(&request, COMMIT, bytes, &staged, deadline)
+        .unwrap();
+    assert_eq!(built.bundle_file_sha256, digest);
+    assert_eq!(built.runtime_image, spec.image);
+    let again = package_runtime
+        .package_application(&request, COMMIT, bytes, &staged, deadline)
+        .unwrap();
+    assert_eq!(
+        again, built,
+        "same retained bundle was repackaged into a different image"
+    );
+    let preview_request = soda_host::application::BuildRequest {
+        environment: "preview".into(),
+        ..request.clone()
+    };
+    let preview_build = package_runtime
+        .package_application(
+            &preview_request,
+            COMMIT,
+            preview,
+            &root.join("packaged-preview"),
+            deadline,
+        )
+        .unwrap();
+    assert_eq!(preview_build.environment, "preview");
+    assert_ne!(preview_build.origin, built.origin);
+    assert_ne!(preview_build.image, built.image);
+    assert_ne!(preview_build.bundle_file_sha256, built.bundle_file_sha256);
+    assert_eq!(preview_build.source_commit, built.source_commit);
+    exec.run(
+        &[],
+        "podman",
+        &["rmi", "--no-prune", &preview_build.image],
+        deadline,
+    )
+    .unwrap();
+    exec.run(
+        &[],
+        "podman",
+        &["rmi", "--no-prune", &built.image],
+        deadline,
+    )
+    .unwrap();
+    exec.run(&[], "podman", &["rmi", &spec.image], deadline)
+        .unwrap();
+}
+
 #[test]
 fn oracle_ensure_exact_bytes() {
     let scratch = Scratch::fresh();
@@ -597,10 +807,50 @@ fn oracle_start_runs_detached_to_ready() {
             .success());
     }
     std::fs::write(source.join("record.txt"), "retained\n").unwrap();
+    // Real compiled application bundles are much larger than host request
+    // JSON. Exercise retention/export and optional actual OCI packaging past
+    // that unrelated 1 MiB request bound without committing a large fixture.
+    let real_bundle = std::env::var_os("SODA_FACTORY_REAL_APPLICATION_BUNDLE");
+    let application_bytes = real_bundle.as_ref().map(|path| std::fs::read(path).unwrap()).unwrap_or_else(|| serde_json::to_vec(&serde_json::json!({"descriptor":{"identity":{"appName":"ReadbackFixture","artifactDigest":"2".repeat(64)}},"bundle":{"mixedSha256":"3".repeat(64),"fixturePayload":"x".repeat(2 * 1024 * 1024)},"storageFingerprint":"7".repeat(64),"environment":{"vars":{"CAN_AUTH_ORIGIN":"https://readback.example.test"}}})).unwrap());
+    let preview_bytes = if real_bundle.is_some() {
+        std::fs::read(
+            std::env::var_os("SODA_FACTORY_REAL_PREVIEW_BUNDLE").expect("real preview bundle"),
+        )
+        .unwrap()
+    } else {
+        serde_json::to_vec(&serde_json::json!({"descriptor":{"identity":{"appName":"ReadbackFixture","artifactDigest":"2".repeat(64)}},"bundle":{"mixedSha256":"3".repeat(64)},"storageFingerprint":"7".repeat(64),"environment":{"vars":{"CAN_AUTH_ORIGIN":"https://preview.readback.example.test"}}})).unwrap()
+    };
+    // Large outputs are integration inputs to the explicitly approved copy
+    // check, rather than generated files smuggled into its bounded Git request.
+    // The committed fixture retains their hashes and actual authored source.
+    for (name, bytes) in [
+        ("app-bundle.json", &application_bytes),
+        ("preview-bundle.json", &preview_bytes),
+    ] {
+        std::fs::write(
+            source.join(name),
+            if real_bundle.is_some() {
+                soda_host::sha256::hex_lower(&soda_host::sha256::digest(bytes)).into_bytes()
+            } else {
+                bytes.clone()
+            },
+        )
+        .unwrap();
+        if real_bundle.is_some() {
+            std::fs::write(verified.root.join(name), bytes).unwrap();
+        }
+    }
+    if real_bundle.is_some() {
+        std::fs::copy(
+            std::env::var_os("SODA_FACTORY_REAL_APPLICATION_SOURCE").expect("authored real source"),
+            source.join("Northstar.can"),
+        )
+        .unwrap();
+    }
     assert!(Command::new("/usr/bin/git")
         .arg("-C")
         .arg(&source)
-        .args(["add", "record.txt"])
+        .args(["add", "--all"])
         .status()
         .unwrap()
         .success());
@@ -630,7 +880,19 @@ fn oracle_start_runs_detached_to_ready() {
         .unwrap()
         .success());
     let setup = b"echo setup-private-marker\n";
-    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 222*|ccc*) printf 'failed-check\\n'; exit 7;; 333*|666*|777*|ddd*|eee*|fff*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; bbb*) sleep 1; printf 'long-check-ok\\n\\tprobe\\033[31m\\r'; i=0; while [ \"$i\" -lt 3000 ]; do printf '\\303\\251'; i=$((i+1)); done;; *) echo check-ok;; esac\n";
+    let check = b"set -eu\ntest -z \"${SODA_CREDENTIAL_FILE-}\"\ntest \"$(cat record.txt)\" = retained\nprintf isolated > record.txt\nmkdir -p .soda/application/preview\ncp app-bundle.json .soda/application/bundle.json\ncp preview-bundle.json .soda/application/preview/bundle.json\ncase \"${SODA_VERIFICATION_RUN_ID-}\" in 000*) cp app-bundle.json .soda/application/preview/bundle.json;; 222*|ccc*) printf 'failed-check\\n'; exit 7;; 333*|666*|777*|ddd*|eee*|fff*) echo waiting; sleep 120;; 444*) yes x | head -c 70000;; bbb*) sleep 1; printf 'long-check-ok\\n\\tprobe\\033[31m\\r'; i=0; while [ \"$i\" -lt 3000 ]; do printf '\\303\\251'; i=$((i+1)); done;; *) echo check-ok;; esac\n";
+    let mut check = String::from_utf8(check.to_vec()).unwrap();
+    if real_bundle.is_some() {
+        for name in ["app-bundle.json", "preview-bundle.json"] {
+            let path = verified
+                .root
+                .join(name)
+                .to_string_lossy()
+                .replace('\'', "'\\''");
+            check = check.replace(&format!("cp {name} "), &format!("cp '{path}' "));
+        }
+    }
+    let check = check.as_bytes();
     let mut approve: serde_json::Value = serde_json::from_str(&approve_request(
         PID,
         &[("setup.sh", setup), ("check.sh", check)],
@@ -681,6 +943,70 @@ fn oracle_start_runs_detached_to_ready() {
     assert_eq!(passed["retirement"], "confirmed");
     assert_eq!(passed["check_exit"], 0);
     assert_eq!(passed["output"], "check-ok\n");
+    use sha2::{Digest, Sha256};
+    application_image_readback(
+        &verified.root,
+        &application_bytes,
+        &format!("{:x}", Sha256::digest(&application_bytes)),
+        &preview_bytes,
+    );
+    assert_eq!(
+        std::fs::read(run_dir.join("application-bundle.json")).unwrap(),
+        application_bytes
+    );
+    assert_eq!(
+        passed["application_bundle_sha256"],
+        format!("{:x}", Sha256::digest(&application_bytes))
+    );
+    request["op"] = "verify_bundle".into();
+    request["environment"] = "company".into();
+    let exported: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert!(exported["bundle"].as_str().unwrap().len() > 1024 * 1024);
+    assert_eq!(exported["sha256"], passed["application_bundle_sha256"]);
+    assert_eq!(
+        soda_host::ssh::b64_decode(exported["bundle"].as_str().unwrap()).unwrap(),
+        application_bytes
+    );
+    // The OCI mode runs inside Podman's user namespace. Its scope ends at the
+    // actual check-output → immutable image readback; the broader native host
+    // ancestor/admission oracle runs separately in the normal host namespace.
+    assert_eq!(
+        passed["application_preview_bundle_sha256"],
+        format!("{:x}", Sha256::digest(&preview_bytes))
+    );
+    request["environment"] = "preview".into();
+    let exported: serde_json::Value =
+        serde_json::from_str(&verified.ok(&request.to_string())).unwrap();
+    assert_eq!(
+        exported["sha256"],
+        passed["application_preview_bundle_sha256"]
+    );
+    assert_eq!(
+        soda_host::ssh::b64_decode(exported["bundle"].as_str().unwrap()).unwrap(),
+        preview_bytes
+    );
+    request["environment"] = "../company".into();
+    assert_ne!(verified.run(request.to_string().as_bytes()).0, 0);
+    request.as_object_mut().unwrap().remove("environment");
+    let mut overlap = request.clone();
+    overlap["op"] = "verify".into();
+    overlap["run_id"] = "0".repeat(32).into();
+    verified.ok(&overlap.to_string());
+    let overlap_dir = prep.join("verifications").join("0".repeat(32));
+    wait_for(&overlap_dir.join("finished.json"), 30);
+    overlap["op"] = "verify_stop".into();
+    let rejected: serde_json::Value =
+        serde_json::from_str(&verified.ok(&overlap.to_string())).unwrap();
+    assert_eq!(
+        rejected["phase"], "failed",
+        "same-origin company/preview outputs were admitted"
+    );
+    assert!(rejected.get("application_bundle_sha256").is_none());
+    assert!(rejected.get("application_preview_bundle_sha256").is_none());
+    if std::env::var("SODA_FACTORY_APPLICATION_OCI").as_deref() == Ok("1") {
+        return;
+    }
     assert!(!run_dir.join("stopped.json").exists());
     assert!(!run_dir.join("work").exists());
     assert!(!run_dir.join("home").exists());
@@ -710,6 +1036,9 @@ fn oracle_start_runs_detached_to_ready() {
     assert_eq!(failed["phase"], "failed");
     assert_eq!(failed["check_exit"], 7);
     assert_eq!(failed["retirement"], "confirmed");
+    assert!(failed.get("application_bundle_sha256").is_none());
+    assert!(failed.get("application_preview_bundle_sha256").is_none());
+    assert!(!failed_dir.join("application-bundle.json").exists());
     // Stop the unfinished exact check; no source/fixture resurrection on replay.
     request["op"] = "verify".into();
     request["run_id"] = "3".repeat(32).into();
@@ -791,6 +1120,9 @@ fn oracle_start_runs_detached_to_ready() {
         ('e', 1, false, "verify"),
         ('f', 2, true, "verify"),
     ] {
+        if real_bundle.is_some() && digit != 'b' {
+            continue;
+        }
         let run_id = digit.to_string().repeat(32);
         let host_state = verified.root.join(format!("host-{digit}"));
         std::fs::create_dir(&host_state).unwrap();
@@ -802,6 +1134,9 @@ fn oracle_start_runs_detached_to_ready() {
             crash: Arc::new(AtomicU8::new(crash)),
             refuse_stop: Arc::new(AtomicBool::new(parent_uncertain)),
             requires_verification: phase == "verify",
+            application_options: std::env::var("SODA_FACTORY_APPLICATION_PODMAN_OPTIONS")
+                .ok()
+                .map(|value| serde_json::from_str(&value).unwrap()),
         };
         let mut manifest = soda_host::factory::VerificationManifest {
             version: "project-check-v1".into(),
@@ -941,6 +1276,81 @@ fn oracle_start_runs_detached_to_ready() {
                         && events.iter().any(|e| e == "capture")
                         && events.iter().any(|e| e == "return")
                 );
+                if real_bundle.is_some() {
+                    drop(events);
+                    let release = soda_host::application::ReleaseBinding {
+                        image: std::env::var("SODA_FACTORY_APPLICATION_RUNTIME_IMAGE")
+                            .expect("actual runtime image"),
+                        tools_sha256: std::env::var("SODA_FACTORY_APPLICATION_TOOLS_SHA256")
+                            .expect("actual local closure digest"),
+                    };
+                    let request = soda_host::application::BuildRequest {
+                        project: checks.project.clone(),
+                        run: checks.run.clone(),
+                        incarnation: checks.incarnation.clone(),
+                        manifest_digest: checks.manifest_digest.clone(),
+                        environment: "company".into(),
+                    };
+                    let built = open()
+                        .application_build(
+                            &request,
+                            release.clone(),
+                            Instant::now() + Duration::from_secs(120),
+                        )
+                        .unwrap();
+                    assert_eq!(
+                        built.bundle_file_sha256,
+                        soda_host::sha256::hex_lower(&soda_host::sha256::digest(
+                            &application_bytes
+                        ))
+                    );
+                    assert_eq!(built.source_commit, commit);
+                    assert_eq!(
+                        open()
+                            .application_build(
+                                &request,
+                                release.clone(),
+                                Instant::now() + Duration::from_secs(120)
+                            )
+                            .unwrap(),
+                        built
+                    );
+                    let preview_request = soda_host::application::BuildRequest {
+                        environment: "preview".into(),
+                        ..request
+                    };
+                    let preview = open()
+                        .application_build(
+                            &preview_request,
+                            release,
+                            Instant::now() + Duration::from_secs(120),
+                        )
+                        .unwrap();
+                    assert_eq!(
+                        preview.bundle_file_sha256,
+                        soda_host::sha256::hex_lower(&soda_host::sha256::digest(&preview_bytes))
+                    );
+                    assert_ne!(built.origin, preview.origin);
+                    assert_ne!(built.image, preview.image);
+                    assert_eq!(
+                        fixture
+                            .events
+                            .lock()
+                            .unwrap()
+                            .iter()
+                            .filter(|event| *event == "helper:verify_bundle:exported")
+                            .count(),
+                        2,
+                        "replay must not export another bundle"
+                    );
+                    let result = serde_json::json!({"scope":"Authored external Northstar fixtures copied by the approved native check; real helper retention/export, whole Factory.application_build decoder and actual OCI packaging/readback. No model generation, released tool archive, appliance service or ingress.","company_bytes":application_bytes.len(),"preview_bytes":preview_bytes.len(),"company":built,"preview":preview,"replay_preserved_image":true,"native_helper_exports":2});
+                    let output = std::env::var_os("SODA_FACTORY_APPLICATION_RESULT")
+                        .expect("result path under /home");
+                    assert!(Path::new(&output).starts_with("/home"));
+                    std::fs::write(output, serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+                    eprintln!("full actual Northstar helper export, host decoder and OCI packaging passed");
+                    return;
+                }
             } else {
                 assert_eq!(state.phase, "failed");
                 assert_eq!(state.retirement, "confirmed");

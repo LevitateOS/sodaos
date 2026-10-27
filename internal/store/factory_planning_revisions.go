@@ -271,7 +271,12 @@ func (s *Store) SaveInvestigationPlan(ctx context.Context, plan factory.Investig
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_plan_revisions(attempt_root,plan_id,generation,digest,data) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_root,plan_id) DO NOTHING`,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `INSERT INTO factory_plan_revisions(attempt_root,plan_id,generation,digest,data) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_root,plan_id) DO NOTHING`,
 		plan.AttemptRoot, plan.ID, plan.Generation, plan.Digest, string(data))
 	if err != nil {
 		return err
@@ -281,11 +286,14 @@ func (s *Store) SaveInvestigationPlan(ctx context.Context, plan factory.Investig
 		return err
 	}
 	if n == 1 {
-		return nil
+		if err := recordInvestigationPlanFeedTx(ctx, tx, plan); err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	var stored factory.InvestigationPlan
 	var storedRaw []byte
-	if err = s.db.QueryRowContext(ctx, `SELECT data FROM factory_plan_revisions WHERE attempt_root=$1 AND plan_id=$2`, plan.AttemptRoot, plan.ID).Scan(&storedRaw); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_plan_revisions WHERE attempt_root=$1 AND plan_id=$2`, plan.AttemptRoot, plan.ID).Scan(&storedRaw); err != nil {
 		return err
 	}
 	if err = json.Unmarshal(storedRaw, &stored); err != nil {
@@ -293,7 +301,10 @@ func (s *Store) SaveInvestigationPlan(ctx context.Context, plan factory.Investig
 	}
 	// Compare decoded records: JSONB storage normalizes the encoded bytes.
 	if reflect.DeepEqual(stored, plan) {
-		return nil
+		if err := recordInvestigationPlanFeedTx(ctx, tx, plan); err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	return ErrPlanConflict
 }

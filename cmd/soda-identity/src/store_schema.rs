@@ -4,7 +4,15 @@ use crate::crypto::{GrantCipher, KEY_BINDING};
 use crate::pg::pg_error;
 use crate::schema;
 use crate::wire::Error;
+use std::sync::Mutex;
 use tokio_postgres::types::ToSql;
+
+// SCHEMA_OPEN serializes schema opens inside this process. Two concurrent
+// opens of a retained 68 database must not both attempt the upgrade CREATE:
+// the second opener rereads the committed 69 marker instead of failing.
+// Cross-process losers are covered by the version reread below, which runs
+// after the losing transaction rolls back.
+static SCHEMA_OPEN: Mutex<()> = Mutex::new(());
 
 impl Store {
     pub(crate) fn check_grant_key(&self) -> Result<(), Error> {
@@ -68,26 +76,62 @@ impl Store {
     }
 
     pub(crate) fn initialize_schema(&self) -> Result<(), Error> {
-        self.transaction(|tx| {
-            let version = tx.load_schema_version()?;
-            if version == 0 {
-                // DDL carries no parameters.
-                for statement in schema::STATEMENTS {
-                    tx.simple(statement).map_err(|e| {
-                        Error::internal(format!("create current database schema: {e}"))
-                    })?;
-                }
-            } else if version != schema::SCHEMA_VERSION {
-                return Err(Error::internal(
-                    "database schema differs from this application",
-                ));
-            }
-            tx.verify_required_columns()?;
-            for (name, table) in schema::VERIFY_TRIGGERS {
-                tx.verify_trigger(name, table)?;
-            }
+        let _open = SCHEMA_OPEN
+            .lock()
+            .map_err(|_| Error::internal("schema open lock poisoned"))?;
+        match self.transaction(|tx| {
+            Self::open_current_schema(tx)?;
             Ok(())
-        })
+        }) {
+            Ok(()) => Ok(()),
+            Err(upgrade) => self.reopen_after_lost_upgrade_race(upgrade),
+        }
+    }
+
+    fn open_current_schema(tx: &Tx<'_>) -> Result<(), Error> {
+        let version = tx.load_schema_version()?;
+        if version == 0 {
+            // DDL carries no parameters.
+            for statement in schema::STATEMENTS {
+                tx.simple(statement)
+                    .map_err(|e| Error::internal(format!("create current database schema: {e}")))?;
+            }
+        } else if version == 68 {
+            tx.migrate_schema_68_to_69()?;
+        } else if version != schema::SCHEMA_VERSION {
+            return Err(Error::internal(
+                "database schema differs from this application",
+            ));
+        }
+        Self::verify_current_schema(tx)
+    }
+
+    fn verify_current_schema(tx: &Tx<'_>) -> Result<(), Error> {
+        tx.verify_required_columns()?;
+        for (name, table) in schema::VERIFY_TRIGGERS {
+            tx.verify_trigger(name, table)?;
+        }
+        Ok(())
+    }
+
+    /// Reread the schema marker after a failed open. When a concurrent
+    /// opener committed the 68 to 69 upgrade meanwhile, the database is now
+    /// current: it still faces the full verification before the open
+    /// succeeds. Any other outcome returns the original failure, so genuine
+    /// corruption keeps its refusal signal and the unmigrated database is
+    /// left untouched.
+    fn reopen_after_lost_upgrade_race(&self, upgrade: Error) -> Result<(), Error> {
+        let reread = self.transaction(|tx| {
+            if tx.load_schema_version()? != schema::SCHEMA_VERSION {
+                return Err(Error::internal("database schema changed under open"));
+            }
+            Self::verify_current_schema(tx)?;
+            Ok(())
+        });
+        match reread {
+            Ok(()) => Ok(()),
+            Err(_) => Err(upgrade),
+        }
     }
 
     pub(crate) fn grants(&self) -> Result<&GrantCipher, Error> {
@@ -98,6 +142,26 @@ impl Store {
 }
 
 impl<'a> Tx<'a> {
+    /// Upgrade a genuine 68 database in place: a 68 marker beside an
+    /// already-present renewals journal is shape corruption, refused
+    /// without mutation like any other foreign version.
+    pub(crate) fn migrate_schema_68_to_69(&self) -> Result<(), Error> {
+        let row = self.query_row(
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='application_setup_renewals' AND table_type='BASE TABLE'",
+            &[],
+        )?;
+        if row.try_get::<_, i64>(0).map_err(pg_error)? != 0 {
+            return Err(Error::internal(
+                "database schema differs from this application",
+            ));
+        }
+        for statement in schema::UPGRADE_68_TO_69 {
+            self.simple(statement)
+                .map_err(|e| Error::internal(format!("migrate database schema 68 to 69: {e}")))?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn load_schema_version(&self) -> Result<i64, Error> {
         let row = self.query_row(
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='schema_version'",

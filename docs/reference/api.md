@@ -25,7 +25,7 @@ current native site administrator. Project Tailnet routes retain Workspace
 repository and Project permissions.
 
 | Method | Path | Purpose |
-| --- | --- | --- |
+| --------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET | `/api/session` | Current native actor and Soda profile |
 | GET/PATCH | `/api/me/preferences` | Actor preferences |
 | GET/POST | `/api/me/development-keys` | List/add development-access public keys |
@@ -57,8 +57,12 @@ repository and Project permissions.
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `settled`, `recommendation`, `consistency`); supported/reversible choices settle autonomously, only consequential assumptions interrupt |
 | POST | `/api/factory/intents/{intentID}/plan` | Plan the exact current draft and operation; 201 names the launched assignment/run/revision. An uncertain start returns 202 with those same admitted identities and `launch_confirmed:false`; inspect the existing run instead of submitting another plan. |
 | GET | `/api/factory/intents/{intentID}/plan` | Read the current draft's retained planning status and canonical result; never funds or launches work. |
+| POST | `/api/factory/intents/{intentID}/plan/review` | Explicitly compare and check the planning agent's concrete walkthrough against the exact retained current revision; ordinary status reads never invoke JEV. |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
+| GET | `/api/factory/feed/comments/{id}` | Stored comment, pipeline and optional canonical product-change review projection; reads never plan, adopt or generate work |
+| GET | `/api/factory/feed/replies?repository=N&source_kind=post&source_id=ID` | Same comment projections within the authorized source thread, including product-change state after adoption |
+| POST | `/api/factory/feed/comments/{id}/review` | Current repository administrator and original product owner explicitly opens a comment-bound successor draft; strict body `{ "revision": N }` |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/actions` | Code-write pause/resume of factory dispatch (command envelope) |
 | POST | `/api/factory/runs/{runID}/actions` | Code-write run stop/retry/takeover (command envelope; takeover also requires membership) |
@@ -74,8 +78,10 @@ repository and Project permissions.
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/applications` | Stored application inventory / operator-admitted initial references and administrator grant |
+| GET/POST | `/api/repositories/{repositoryID}/application-builds` | Operator stored build inventory / explicit native packaging of one current verified delivery and environment |
+| POST | `/api/repositories/{repositoryID}/application-builds/{build}/setup` | Operator creates or recovers the selected build's separate first-owner setup reservation |
 | GET/POST | `/api/applications/setups` | Operator provisional owner-setup inventory / admitted initial references without an owner |
-| POST | `/api/applications/setups/{setup}/actions` | Operator explicit Begin/Inspect/Complete/Cancel of the exact setup generation |
+| POST | `/api/applications/setups/{setup}/actions` | Operator explicit Begin/Inspect/Complete/Cancel/Renew of the exact setup generation |
 | GET | `/api/applications/{id}` | Administrator/operator stored application references and last observation |
 | POST | `/api/applications/{id}/actions` | Explicit operator Install/image replacement or administrator/operator Inspect/Start/confirmed Stop |
 | GET/POST | `/api/applications/{id}/snapshots` | Operator native snapshot inventory / stopped backup |
@@ -106,6 +112,42 @@ Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
 
+### Product changes from feed comments
+
+A comment on a canonical accepted design or verified application result retains
+its server-resolved product identity in `source.product` (`intent`,
+`accepted_revision`). A client cannot supply or infer that identity. When the
+recorded comment judgment selects new work, the comment waits for explicit
+product review instead of creating an independent issue graph. Ordinary issue
+comments keep their existing route.
+
+Comment detail and thread reads may include `product_change` with `intent`,
+`accepted_revision`, `state`, `can_review` and optional `draft_revision`.
+States are `review_required`, `draft`, `accepted` and `superseded`. Decision IDs
+retain the native `d` plus 24 hexadecimal characters format. `can_review` is
+presentation only: the mutation rechecks the current native session, repository
+administration, original intent owner, exact comment revision and accepted head.
+
+The review POST returns the complete updated comment projection. Its transaction
+creates one same-intent successor draft and a receipt on the original comment.
+It retains prior outcomes and adds the exact attributed request; planning and
+acceptance remain separate actions. When the accepted revision has a completed
+generation, the successor carries its exact recorded submitted task graph;
+incomplete or incorrectly bound generation refuses review. This preserves
+planning context without copying new issue or execution authority. Bounds-only
+draft edits retain those task identities and effective outcomes. Replay returns
+that first draft without moving a later head. A stale comment or competing head
+returns 412. Once reviewed,
+the original comment cannot be edited or retried into different work; a new reply
+records a further proposal.
+
+Continue through the existing plan, walkthrough review, acceptance and generate
+routes. `accepted` describes scope only. It does not claim implementation,
+verification or release. Generation retains the original acceptance and
+completion only for unchanged, closed, precisely pinned delivered work. New,
+changed or open work requires fresh acceptance and completion before whole-app
+verification; preview and company release retain their separate lifecycle.
+
 ### Project member access
 
 Project member-access GET previews the stable Linux account, installed public
@@ -120,6 +162,34 @@ keys. Forgejo permissions, provider connections and app-local accounts remain
 separate authorities.
 
 ### Application administration
+
+Application build GET accepts only an optional single `delivery_id` query and
+returns `{builds, administrator:{id,name}}`. It reads stored inventory and starts
+no native work. POST accepts exactly `{delivery_id, environment}` with required
+`environment: "company"|"preview"`. The server resolves the current accepted
+intent, canonical F10 delivery and exact passed native verification tuple; the
+caller supplies no source commit, path, digest, image or build command. Native
+packaging uses only that environment's retained approved-check output and the
+selected runtime, verifies the resulting image bytes, then records the artifact.
+An older check without that output cannot create a verified build.
+
+A build contains `{id, repository, delivery, artifact, setup_id?}`. Delivery
+records `state`, `environment`, intent/revision, delivery/run, source commit and
+bundle-file SHA-256. Artifact additionally carries the native invocation and
+manifest digest, actual app name, artifact/bundle/storage/tool digests, runtime
+image, application image and fixed origin. Build identity includes environment;
+preview and company outputs have different intended origins and independent
+setup/data identities. Packaging neither starts an app nor grants company
+access. Lost-response recovery reads the same recorded build before retrying
+the explicit command; it does not invent a successful result.
+
+Build setup POST accepts an empty object. It uses the server-held artifact and
+current operator as administrator, reserves fresh app/data/port identities, and
+returns the ordinary provisional setup record below. Retrying returns that same
+reservation, even after a newer product direction exists. Creating a new setup
+still requires a current verified delivery. Completing its verified native
+owner receipt links the stopped application to the original project. Preview
+setup is never an alias for company data or an employee release.
 
 Initial POST accepts `{application: Spec, administrator_id: positive Forgejo ID}`.
 `Spec` is the canonical mechanical reference in `internal/application`; its
@@ -142,16 +212,21 @@ is numeric; it is not an ordinary registered application. GET returns
 
 `POST /api/applications/setups/{setup}/actions` accepts
 `{action, expected_container, confirm}`. Actions are `begin`, `inspect`,
-`complete` and `abort`; completion/cancellation require `confirm:true`. Begin
-and Inspect may use an empty generation only while none is known. Completion
-requires the exact setup container; Abort may use empty only when native absence
-is confirmed. Responses are `{setup,result}`, where result includes the checked
-observation and, for Begin, a transient `setup_url` with the credential only in
-its fragment. These responses are `Cache-Control:no-store`. Soda persists no
-setup token or owner password. Expiry blocks Begin, while Inspect, matching
-receipt completion and Abort remain usable. Completion requires a stopped
-setup generation, exact Canlang receipt, and fresh stopped owner-bound normal
-container before the provisional record and ordinary admission settle atomically.
+`complete`, `abort` and `renew`; completion/cancellation/renewal require
+`confirm:true`. Begin and Inspect may use an empty generation only while none
+is known. Completion requires the exact setup container; Abort may use empty
+only when native absence is confirmed. Responses are `{setup,result}`, where
+result includes the checked observation and, for Begin, a transient `setup_url`
+with the credential only in its fragment. These responses are
+`Cache-Control:no-store`. Soda persists no setup token or owner password.
+Expiry blocks Begin, while Inspect, matching receipt completion and Abort
+remain usable. An expired pending setup can be renewed: `renew` re-arms the
+retained reservation for one fresh 30-minute window (at most three renewals,
+within 24 hours past expiry) and then re-begins it on the same address and
+data, reusing the retained generation when it still exists. Completion requires
+a stopped setup generation, exact Canlang receipt, and fresh stopped
+owner-bound normal container before the provisional record and ordinary
+admission settle atomically.
 Repeated settled actions return `{setup}` without replaying native effects.
 
 Inventory is `{applications: [...], complete: boolean}` with at most32 rows.
@@ -160,8 +235,15 @@ the bounded appliance inventory. Reads do not inspect/install/start native
 resources. Apps require a hostname distinct from Forgejo, since cookies ignore
 ports. Sessions and app identities grant separate authority.
 
+Authorized linked-project readers also receive minimal `launchable` records:
+application ID/revision/name/origin, project, environment and availability.
+An optional `delivery_id` comes only from the native observed bundle's verified
+Factory join for that same project and environment. It lets an employee open
+the exact F10 result; an unmatched result stays unavailable. These records
+expose no container, artifact, administrator grant or lifecycle controls.
+
 Actions accept `{action, revision, expected_container, confirm_stop,
-replacement?: Spec}` with no query parameters or unknown fields. Install is
+replacement?: Spec, replacement_build?: buildID}` with no query parameters or unknown fields. Install is
 operator-only, revision1, empty expected container, unobserved initial record.
 Inspect is explicit and accepts an empty generation only while state is unknown.
 Start/Stop require the exact current observed container. Stop requires
@@ -171,6 +253,19 @@ unchanged identity/admin/data/team/origin/port. Changed artifact/bundle bytes
 require identical nonempty storage fingerprints on the old generation and new
 image; changed storage schemas are refused before stopping the writer. It
 creates a stopped new container; Start remains separate.
+
+For an inventory-backed replacement, `replacement_build` names the exact
+server-held build and excludes a manual `replacement` Spec. The server verifies
+its current source/delivery and selected environment, and preserves the live
+app's ID, name, origin, data, owner and port. A preview build cannot replace a
+company app; an unrelated registered app is not a replacement candidate.
+`verify_build` explicitly reads the admitted immutable image's actual bundle
+without running its code. Its optional observed `bundle_file_sha256` projects a
+verified delivery only when it matches the native check's exact source and
+environment. The projection names that check's immutable accepted revision;
+an older running image retains its historical proof when the current intent
+head advances. This grants no new build or release authority. Image labels or
+an operator's project link do not supply proof.
 
 Before an admitted native call, the last observation becomes durably unknown.
 Only exact matching native references/generation can restore it through CAS.
@@ -212,7 +307,7 @@ failures in the JSON error envelope. The same support codes can appear as the
 `reason` of a native terminal `closed` frame after WebSocket upgrade:
 
 | HTTP status / code | Required interpretation |
-| --- | --- |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | 503 `terminal_support_mismatch` | Administrator maintenance is required. No reservation or shell is admitted through the mismatch. |
 | 503 `terminal_support_unavailable` | Compatibility could not be inspected; retry or request operator inspection. |
 | 503 `project_maintenance` | Managed admission is temporarily closed for maintenance or recovery. |
@@ -235,7 +330,7 @@ installed Project SSH key.
 ## Public probes
 
 | Method | Path | Purpose |
-| --- | --- | --- |
+| ------ | ---------- | ----------------------------------- |
 | GET | `/` | Redirect to configured Forgejo home |
 | GET | `/healthz` | Health check |
 
