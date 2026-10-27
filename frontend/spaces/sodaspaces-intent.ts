@@ -210,6 +210,10 @@ export class SodaIntent extends LitElement {
       outline: 2px solid var(--soda-page-focus);
       outline-offset: 2px;
     }
+    h2[tabindex='-1']:focus,
+    h3[tabindex='-1']:focus {
+      outline: none;
+    }
   `;
   declare api: IntentAPI | undefined;
   declare blocked: boolean;
