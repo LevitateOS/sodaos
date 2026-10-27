@@ -39,6 +39,17 @@ function componentCaption(c: FeedCommunication, label: string | undefined): stri
   return (id !== undefined && Object.hasOwn(audienceCaption, id) ? audienceCaption[id] : undefined) ?? label;
 }
 
+// A summary that is only a machine code (e.g. "start-unconfirmed") is the
+// recorded cause, not prose: keep it, collapsed under Technical details.
+const machineCode = /^[a-z0-9]+(?:[-_.:/][a-z0-9]+)+$/;
+function componentSummary(summary: string): TemplateResult {
+  if (!machineCode.test(summary.trim())) return html`<p class="soda-feed-component-summary">${summary}</p>`;
+  return html`<details class="soda-feed-technical-details">
+    <summary>Technical details</summary>
+    <p>${summary}</p>
+  </details>`;
+}
+
 export function renderFeedCommunication(c: FeedCommunication, entryKey: string, request?: FeedArtifactRequest): TemplateResult {
   const component = feedComponent(c.componentId);
   const presentation = component?.presentation ?? defaultPresentation[c.kind];
@@ -47,7 +58,7 @@ export function renderFeedCommunication(c: FeedCommunication, entryKey: string, 
   return html`<div class="soda-feed-communication" data-feed-component=${component?.id ?? c.kind} data-presentation=${presentation} data-communication=${c.kind}>
     <p class="soda-feed-component-caption">${actionIcon(action)}${componentCaption(c, component?.label) ?? defaultPresentation[c.kind].replace(/^./, (letter) => letter.toUpperCase())}${c.scope && action !== 'knowledge' ? html`<span> · ${c.scope}</span>` : ''}</p>
     <h3>${c.title}</h3>
-    ${['brief', 'knowledge', 'discussion', 'result'].includes(action) || c.summary === c.title ? '' : html`<p class="soda-feed-component-summary">${c.summary}</p>`}
+    ${['brief', 'knowledge', 'discussion', 'result'].includes(action) || c.summary === c.title ? '' : componentSummary(c.summary)}
     ${c.severity && action !== 'finding' ? html`<p class="soda-feed-severity" data-severity=${c.severity}>${c.severity === 'critical' ? 'Critical concern' : c.severity === 'warning' ? 'Attention needed' : 'For your information'}</p>` : ''}
     ${renderFeedAction(c, presentation, entryKey)}
     ${c.dispositionReason ? html`<p class="soda-feed-disposition-reason" data-post-resolution=${c.disposition ?? ''}>${c.dispositionReason}</p>` : ''}
