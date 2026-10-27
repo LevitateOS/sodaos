@@ -450,6 +450,11 @@ export class SodaSpaces extends LitElement {
       if (this.view !== 'app' || event.detail?.repository !== this.project) return;
       this.showProjectView('feed');
     });
+    this.addEventListener('soda-project-work-open', (event) => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
+      if (this.view !== 'app' || event.detail?.repository !== this.project) return;
+      this.showProjectView('work');
+    });
     this.addEventListener('soda-application-open', (event) => {
       if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
       const repository = event.detail?.repository;
