@@ -265,7 +265,7 @@ test('Factory view binds one read-only run while refresh and hide retain its ren
 
   const watch = (watching: boolean) =>
     page.getByRole('button', {
-      name: new RegExp(`^${watching ? 'Watching' : 'Watch'} · soda-coder · issue #42 · active$`),
+      name: new RegExp(`^${watching ? 'Watching' : 'Watch'} · Coding agent · issue #42 · active$`),
     });
   await watch(false).click();
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
