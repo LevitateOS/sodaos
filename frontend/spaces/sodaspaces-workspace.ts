@@ -267,6 +267,8 @@ export class SodaSpaces extends LitElement {
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
   private workRepository: string | undefined;
+  // The project view a settings or project-list detour returns to (UI-53).
+  private previousProjectView: 'feed' | 'app' | 'work' = 'feed';
   declare private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
@@ -426,8 +428,12 @@ export class SodaSpaces extends LitElement {
     this.factory = factory;
     this.storageKey = '';
     this.routePathname = window.location.pathname;
-    if (context.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix()))
+    if (context.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix())) {
       this.pendingNewRoute = true;
+      // A direct load or reload of a project's new-request route keeps the
+      // request bound to that project, as the in-project New button does.
+      if (requestedProject && id(requestedProject)) this.workRepository = requestedProject;
+    }
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     // Host lifecycle only (NFX-D05): no pagehide/pageshow/visibilitychange
     // self-interpretation. The entry forwards host update/suspend/resume/
@@ -445,6 +451,11 @@ export class SodaSpaces extends LitElement {
       if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
       if (this.view !== 'app' || event.detail?.repository !== this.project) return;
       this.showProjectView('feed');
+    });
+    this.addEventListener('soda-project-work-open', (event) => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
+      if (this.view !== 'app' || event.detail?.repository !== this.project) return;
+      this.showProjectView('work');
     });
     this.addEventListener('soda-application-open', (event) => {
       if (!(event instanceof CustomEvent) || this.stale || this.disposed || !this.activeSurface) return;
@@ -495,7 +506,10 @@ export class SodaSpaces extends LitElement {
     const requestedProject = new URLSearchParams(
       (route ? new URL(route, location.href) : new URL(location.href)).search
     ).get('repository');
-    if (kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
+    if (kind === 'page' && requestedProject && id(requestedProject)) {
+      this.project = requestedProject;
+      if (isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.workRepository = requestedProject;
+    }
     this.presentView(kind, entered, repositoryId);
     this.armNewRoute(kind, entered);
     this.requestUpdate();
@@ -693,13 +707,20 @@ export class SodaSpaces extends LitElement {
   private showProjectView(view: 'feed' | 'app' | 'work') {
     if (this.stale || !this.actor || !this.selectedSpace) return;
     if (view === 'app') this.applicationOwner = `${this.actor.id}:${this.project}`;
+    const changed = this.view !== view;
     this.view = view;
+    // Feed, App and Work share one scroller; each view opens at its top.
+    if (changed) void this.updateComplete.then(() => this.scrollProjectContentTop());
     try {
       window.localStorage.setItem(`soda-project-view:v1:${this.actor.id}:${this.project}`, view);
       this.rememberProjectDelivery();
     } catch {
       /* The current view remains usable without browser storage. */
     }
+  }
+  private scrollProjectContentTop() {
+    this.querySelector<HTMLElement>('.soda-project-content')?.scrollTo({top: 0});
+    this.querySelector<HTMLElement>('#sodaspaces-data')?.scrollTo({top: 0});
   }
   private rememberProjectDelivery() {
     if (!this.actor || !id(this.project)) return;
@@ -849,6 +870,9 @@ export class SodaSpaces extends LitElement {
   }
   private renderWelcomeFooter() {
     if (!this.welcomeScreen && !this.setup) return '';
+    // A request started inside an existing project never creates a project,
+    // so the new-project stepper does not apply.
+    if (this.setup === 'intent' && this.suggestedSetupRepository()) return '';
     const step =
       this.setup === 'configure' ? 3 : this.setup === 'repositories' ? 2 : this.setup === 'intent' ? 1 : undefined;
     return renderWelcomeSteps(step);
@@ -1028,10 +1052,14 @@ export class SodaSpaces extends LitElement {
             this.spaces.map((space) => [space.environment.repository_id, this.projectName(space)])
           ),
           account: this.actor.id,
+          // Only an account that may execute reads verification state, so
+          // reviewers are not shown authorization failures (UI-51/180).
           verificationRuns:
-            this.selectedSpace?.factory_runs
-              .filter((run) => run.reconciled && run.issue === undefined)
-              .map((run) => run.id) ?? [],
+            this.selectedSpace?.execution_allowed && !this.selectedSpace.authority_unavailable
+              ? this.selectedSpace.factory_runs
+                  .filter((run) => run.reconciled && run.issue === undefined)
+                  .map((run) => run.id)
+              : [],
         }
       : undefined;
   }
@@ -1618,7 +1646,10 @@ export class SodaSpaces extends LitElement {
         this.layout = {...this.layout, sidebar: 256};
         this.persist();
       }
-    } else this.view = 'sessions';
+    } else {
+      this.rememberProjectView();
+      this.view = 'sessions';
+    }
     const active = document.activeElement,
       view = this.view;
     void this.updateComplete.then(() => {
@@ -1634,10 +1665,13 @@ export class SodaSpaces extends LitElement {
     });
   }
   private back() {
-    this.view = this.binding?.kind === 'page' ? 'feed' : 'terminal';
+    this.view = this.binding?.kind === 'page' ? this.previousProjectView : 'terminal';
     this.choosingPane = undefined;
     this.restoreFocus();
     this.markViewed();
+  }
+  private rememberProjectView() {
+    if (this.view === 'feed' || this.view === 'app' || this.view === 'work') this.previousProjectView = this.view;
   }
   private newTerminalInput(): NewTerminalInput {
     return {
@@ -2103,6 +2137,7 @@ export class SodaSpaces extends LitElement {
     this.rememberFocus();
     this.project = repositoryId;
     this.managementMode = mode;
+    this.rememberProjectView();
     this.view = 'project';
     const n = this.epoch;
     await this.updateComplete;

@@ -82,10 +82,14 @@ function hideBackButton(
 ) {
   if (view === 'terminal') return true;
   if (view === 'work' || view === 'plans') return true;
+  // Page mode shows Back only where it leaves something: settings and the
+  // compact project list. Feed/App/Work keep one toolbar layout (UI-53/54).
+  if (kind === 'page' && view !== 'project' && view !== 'sessions') return true;
   return kind === 'page' && view === 'project' && managementMode === 'journey';
 }
-function backButtonLabel(kind: 'native' | 'page' | undefined) {
-  return kind === 'page' ? 'Back to workspace' : 'Back to terminal';
+function backButtonLabel(kind: 'native' | 'page' | undefined, view: WorkspaceView) {
+  if (kind !== 'page') return 'Back to terminal';
+  return view === 'project' ? 'Close settings' : 'Back to workspace';
 }
 export function renderBackButton(
   view: WorkspaceView,
@@ -94,7 +98,7 @@ export function renderBackButton(
   onBack: () => void
 ) {
   if (hideBackButton(view, kind, managementMode)) return '';
-  return html`<button class="ui button" @click=${onBack}>${backButtonLabel(kind)}</button>`;
+  return html`<button class="ui button" @click=${onBack}>${backButtonLabel(kind, view)}</button>`;
 }
 export function renderOpenInDrawerOption(
   kind: 'native' | 'page' | undefined,

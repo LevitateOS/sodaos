@@ -33,13 +33,25 @@ test('first use entry keeps its primary action in the initial viewport at presen
   await page.setViewportSize({width: 1440, height: 1000});
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
-  await page.evaluate(() => document.fonts.ready);
-  const action = await page.getByRole('button', {name: 'Explore ideas', exact: true}).boundingBox();
-  assert(action, 'entry primary action is missing');
-  assert(
-    action.y >= 0 && action.y + action.height <= 1000,
-    'initial request primary action sits below the fold at presentation size: ' + JSON.stringify(action)
-  );
+  for (const size of [
+    {width: 1440, height: 1000},
+    {width: 1366, height: 768},
+    {width: 1280, height: 720},
+  ]) {
+    await page.setViewportSize(size);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+    const action = await page.getByRole('button', {name: 'Explore ideas', exact: true}).boundingBox();
+    assert(action, 'entry primary action is missing');
+    assert(
+      action.y >= 0 && action.y + action.height <= size.height,
+      `initial request primary action sits below the fold at ${size.width}x${size.height}: ` + JSON.stringify(action)
+    );
+  }
+  await page.setViewportSize({width: 1440, height: 1000});
   const frame = await page.locator('.soda-setup-panel').evaluate((node) => {
     const workspace = node.closest('.soda-workspace')!;
     const frame = workspace.querySelector(':scope > .soda-workspace-frame') as HTMLElement;
