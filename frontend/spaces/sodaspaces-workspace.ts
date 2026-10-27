@@ -1625,7 +1625,10 @@ export class SodaSpaces extends LitElement {
         this.layout = {...this.layout, sidebar: 256};
         this.persist();
       }
-    } else this.view = 'sessions';
+    } else {
+      this.rememberProjectView();
+      this.view = 'sessions';
+    }
     const active = document.activeElement,
       view = this.view;
     void this.updateComplete.then(() => {
