@@ -23,6 +23,31 @@ struct ProviderSettings {
     sha256: String,
     #[serde(default)]
     root: String,
+    /// Resolve the executable from the shared provider store at each
+    /// session creation instead of a pinned `binary`. Every enabled section
+    /// selects the store (see `provider_store_mode`); a fully empty section
+    /// stays disabled. The flag itself is legacy: enabled sections reach
+    /// store mode with or without it.
+    #[serde(default)]
+    store: bool,
+}
+
+/// Decide how an enabled provider section resolves its executable. Every
+/// enabled section resolves NEW sessions through the shared provider store:
+/// mandatory freshness supersedes configured pins, so legacy `binary` +
+/// `sha256` fields are ignored for new-session resolution (they remain only
+/// as historical attribution metadata, never shadowing the current
+/// selection). Fully empty sections stay disabled; credentials, budgets and
+/// historical bindings are untouched by this choice.
+fn provider_store_mode(section: &ProviderSettings) -> Option<bool> {
+    if section.store
+        || !section.root.is_empty()
+        || !section.binary.is_empty()
+        || !section.sha256.is_empty()
+    {
+        return Some(true);
+    }
+    None
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -241,7 +266,7 @@ fn secret(path: &str) -> Result<String, String> {
 
 fn open_broker(settings: &Settings) -> Result<Controller, String> {
     let mut providers: HashMap<String, Box<dyn control::Provider>> = HashMap::new();
-    if !settings.codex.binary.is_empty() {
+    if let Some(store) = provider_store_mode(&settings.codex) {
         mkdir_all_mode(&settings.codex.root, 0o700)?;
         let provider = soda_identity::providers::codex::Provider::new(
             soda_identity::providers::codex::Config {
@@ -249,6 +274,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
                 version: settings.codex.version.clone(),
                 sha256: settings.codex.sha256.clone(),
                 root: settings.codex.root.clone(),
+                store,
             },
         )
         .map_err(|e| e.to_string())?;
@@ -257,7 +283,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
             Box::new(control::CodexProvider(provider)),
         );
     }
-    if !settings.muse.binary.is_empty() {
+    if let Some(store) = provider_store_mode(&settings.muse) {
         mkdir_all_mode(&settings.muse.root, 0o700)?;
         let provider =
             soda_identity::providers::muse::Provider::new(soda_identity::providers::muse::Config {
@@ -265,6 +291,7 @@ fn open_broker(settings: &Settings) -> Result<Controller, String> {
                 version: settings.muse.version.clone(),
                 sha256: settings.muse.sha256.clone(),
                 root: settings.muse.root.clone(),
+                store,
             })
             .map_err(|e| e.to_string())?;
         providers.insert(

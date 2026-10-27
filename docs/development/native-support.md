@@ -1,5 +1,7 @@
 # Native support tools
 
+Build inputs follow the [mandatory freshness policy](freshness.md): resolve current upstream releases before selecting the exact inputs for an attempt. Reusing cached obsolete inputs to preserve a baseline is forbidden.
+
 Outside build, transport, VM and evidence tools for Soda development. They supply
 artifacts and observations; they do not redefine product API, Project OS or Spaces
 contracts.

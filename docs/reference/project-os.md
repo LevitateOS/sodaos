@@ -1,5 +1,7 @@
 # Project OS baseline
 
+Project tooling follows the [mandatory freshness policy](../development/freshness.md). AI provider CLIs must track the latest selected upstream channel across new and retained Projects; image pins are bootstrap inputs, not permission for permanent staleness.
+
 Project OS is the userspace foundation for persistent human projects: native
 accounts, shared tools, lasting roots, access and nested workloads. It supports
 development and intervention. The existing [factory operator runtime](factory.md)
@@ -215,3 +217,75 @@ Maintenance replaces only the three public Muse tools and attaches the dedicated
 launch interface to the same native root. It preserves accounts, project files,
 volumes and other installed tools. The project startup unit restores the interface
 after a restart; maintenance does not recreate a container or its storage.
+
+## Automatic CLI updates (proposed)
+
+The intended default is automatic adoption of the latest official stable Codex
+and Muse CLI releases, independently of OS and Project image releases. This
+updater is not implemented yet. The committed Muse descriptor currently supplies
+the image's bootstrap executable; Codex currently uses an operator-supplied
+package. Host configuration, broker provider instances and Factory policies bind
+specific executable identities. Updating an image descriptor or a user's vendor
+launcher alone does not update all those consumers.
+
+The [mandatory freshness policy](../development/freshness.md) governs this design;
+implementing it is required. Use one appliance updater and the existing retained provider storage described in
+[credentials](credentials.md#identity-broker). Check small upstream metadata on
+boot, at least every five minutes and before new work when a check is due, as
+well as through an explicit refresh command. Consume upstream release events
+where available. Reuse unchanged
+metadata where upstream supports conditional requests, and download a changed
+native bundle once per appliance. Muse's
+[official stable channel](https://api.meta.ai/muse-code/channels/muse-stable)
+provides a release-manifest URL with platform checksums and byte sizes. Codex's
+[official installation guidance](https://learn.chatgpt.com/docs/cli) provides its
+update route; its download adapter must select the complete supported package,
+including any companion executables required by Soda's integration. Stable
+channel metadata selects the release; existing CLI capabilities decide whether
+the integration works, without guessed version cutoffs.
+
+Stage each changed bundle privately, verify its published integrity information
+and required files, then exercise the actual help/model-profile and protocol
+initialization paths used by Soda without signing in or making a model call.
+On success, atomically select the complete bundle for future sessions. Preserve
+active runs on their previous bundle when download or checks fail and expose the
+failure; known stale binaries must not start new provider work. No
+per-release manual approval, image rebuild, VM qualification or paid model test
+belongs in this routine update path. Offline operation preserves existing work
+but cannot establish freshness for a new baseline. First boot must refresh the
+bundled bootstrap input before treating it as current.
+
+All entry points must resolve the same selected bundle: ordinary Project CLI
+launches, broker enrollment, host staging and new Factory admissions. Each new
+session/run captures its exact path, digest and release identity. Existing runs,
+leases and enrollments retain their captured executable until they finish; a
+moving selection must never change the executable used to recover an existing
+run. New Factory admissions should follow the selected CLI without changing
+their model, Contributor/effort settings, sponsorship or concurrency policy.
+Policies and host checks must be updated together so the current single-hash
+guard does not reject retained runs after a refresh. Broker provider instances
+must resolve new sessions without restarting unrelated work.
+
+Reuse the broker's existing credentials; an update must not erase accounts,
+request a replacement sign-in or reset budgets/history. Keep vendor self-update
+outside the supervised executable path so it cannot alter a captured run's bytes.
+Share read-only selected tools with retained Projects instead of making every
+Project maintain an independent download cache. Retain the current, previous and
+any still-referenced bundles, and remove unreferenced retired downloads. Show
+installed/available release identities, last successful check, update failures
+and any older bundles still serving active sessions.
+
+Implement in this order:
+
+1. Resolve both official stable channels into complete native bundle metadata.
+2. Stage, verify and select bundles in the retained shared provider store.
+3. Connect the host, broker and new Factory admissions to that selection while
+   preserving exact references for ongoing work and recovery.
+4. Connect ordinary Project launchers and retained Project tool access to the
+   same store, avoiding independent updates inside each Project.
+5. Add the installed updater service/timer, refresh/status commands and reference
+   cleanup. These are appliance product services, not agent wakeup schedules.
+6. Verify a real release refresh without a model call, then verify that an
+   existing session retains its old bundle while a new session selects the new
+   one. Check failed-download/offline behavior, retained credentials and cleanup
+   without rebuilding the OS or consuming Factory sponsorship.

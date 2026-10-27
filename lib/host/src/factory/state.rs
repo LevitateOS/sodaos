@@ -108,9 +108,12 @@ impl FactoryState {
     }
 }
 
-/// `project.FactoryHarnessPin`: the staged-harness identity. The daemon
-/// route fills `image` from its configuration after calling `harness_pin`,
-/// exactly like the Go dispatch.
+/// `project.FactoryHarnessPin`: the staged-harness identity. `sha256` is the
+/// staged executable digest used by the existing wire pin; the package
+/// artifact digest (which names the admitted bundle) is separate metadata
+/// carried alongside the reservation, never conflated with this field. The
+/// daemon route fills `image` from its configuration after calling
+/// `harness_pin`, exactly like the Go dispatch.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryHarnessPin {
     pub harness: String,

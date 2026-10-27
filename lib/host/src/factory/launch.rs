@@ -9,9 +9,10 @@ use super::receipt::{receipt_state, receipt_stop_owned, FactoryReceipt};
 use super::run::FACTORY_DEADLINE_BOUND_NANOS;
 use super::{
     AcquireRequest, Factory, FactoryBroker, FactoryError, FactoryLaunch, FactoryState,
-    FactoryTerminal, Secret, FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_RUNNING,
-    IDENTITY_FACTORY,
+    FactoryTerminal, PrivateState, Secret, FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED,
+    FACTORY_RUNNING, IDENTITY_FACTORY,
 };
+use crate::terminal::factory::bound;
 
 impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// `Launch`: admit one supervised run and drive it to completion. An
@@ -23,43 +24,44 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         deadline: Instant,
     ) -> Result<FactoryState, FactoryError> {
         req.validate().map_err(FactoryError::msg)?;
-        let pin = self
-            .terminal
-            .harness_pin(&req.run.harness)
-            .map_err(FactoryError::msg)?;
-        if pin.harness != req.run.harness
-            || pin.sha256.is_empty()
-            || req.harness_sha256 != pin.sha256
-        {
-            return Err(FactoryError::msg(
-                "factory harness is unavailable until its own proof passes",
-            ));
-        }
-        // Validated above: parseable and nonzero.
-        let deadline_nanos = parse_deadline(&req.run.deadline).unwrap_or(0);
-        let now = system_nanos_now();
-        if !(deadline_nanos > now && deadline_nanos <= now + FACTORY_DEADLINE_BOUND_NANOS) {
-            return Err(FactoryError::msg(
-                "run deadline is outside the supervised bound",
-            ));
-        }
+        // Recorded authority first: lock and load the receipt before
+        // consulting the CURRENT pin or the execution deadline. An existing
+        // receipt takes the recorded path below, which never queries
+        // current, never starts a new process, and never re-checks the
+        // original execution deadline. Only a genuinely new run (no
+        // receipt) must match the current pin within the current deadline
+        // bound.
         let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
         let (receipt, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
-        if !exists {
-            self.store_verification_manifest(&req.run, &req.verification_manifest)?;
-            self.store_execution_manifest(&req.run, &req.execution_manifest)?;
-            let receipt = FactoryReceipt {
-                run: req.run.clone(),
-                phase: FACTORY_APPROVED.to_string(),
-                ..FactoryReceipt::default()
-            };
-            let stored = self.store_receipt(&receipt);
+        if exists {
+            if req.run.effort != receipt.run.effort
+                || req.run.contributor != receipt.run.contributor
+            {
+                return Err(FactoryError::Stale);
+            }
+        } else {
+            let pin = self
+                .terminal
+                .harness_pin(&req.run.harness)
+                .map_err(FactoryError::msg)?;
+            if pin.harness != req.run.harness
+                || pin.sha256.is_empty()
+                || req.harness_sha256 != pin.sha256
+            {
+                return Err(FactoryError::msg(
+                    "factory harness is unavailable until its own proof passes",
+                ));
+            }
+            // Validated above: parseable and nonzero.
+            let deadline_nanos = parse_deadline(&req.run.deadline).unwrap_or(0);
+            let now = system_nanos_now();
+            if !(deadline_nanos > now && deadline_nanos <= now + FACTORY_DEADLINE_BOUND_NANOS) {
+                return Err(FactoryError::msg(
+                    "run deadline is outside the supervised bound",
+                ));
+            }
             drop(lock);
-            stored?;
-            let mut state = self.drive(req, &receipt, deadline_nanos, deadline)?;
-            let (current, _) = self.load_receipt(&req.run.project, &req.run.id)?;
-            state.verification_checks = self.saved_verification_checks(&current)?;
-            return Ok(state);
+            return self.launch_new(req, deadline_nanos, deadline);
         }
         if !req.verification_manifest.is_empty()
             || !receipt.run.verification_manifest_digest.is_empty()
@@ -69,15 +71,78 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             }
             self.store_verification_manifest(&req.run, &req.verification_manifest)?;
         }
+        // Out-of-drive confirmed retirements (operator stop and its
+        // repair paths live in `stop`, outside this lane): the exact-bundle
+        // reference is due for release exactly once, same as in-drive.
+        if receipt.retirement == "confirmed" {
+            self.release_run_harness(&req.run.project, &req.run.id);
+        }
         drop(lock);
         let mut state = receipt_state(&receipt, false);
         state.verification_checks = self.saved_verification_checks(&receipt)?;
         Ok(state)
     }
 
+    /// `launchNew`: the genuinely-new path (no receipt existed). The caller
+    /// has already matched the CURRENT pin and bound the CURRENT execution
+    /// deadline; this stores the fresh receipt and drives it. Never called
+    /// for an existing receipt, so recorded runs are never re-executed and
+    /// no model call happens on the recorded path.
+    fn launch_new(
+        &self,
+        req: &FactoryLaunch,
+        deadline_nanos: i128,
+        deadline: Instant,
+    ) -> Result<FactoryState, FactoryError> {
+        let lock = self.lock_run(&req.run.project, &req.run.id, deadline)?;
+        let (_, exists) = self.load_receipt(&req.run.project, &req.run.id)?;
+        if exists {
+            // A concurrent admission won the race: fall back to the
+            // recorded path rather than re-executing. Re-locking keeps
+            // the recorded read under the run lock.
+            drop(lock);
+            return self.launch(req, deadline);
+        }
+        self.store_verification_manifest(&req.run, &req.verification_manifest)?;
+        self.store_execution_manifest(&req.run, &req.execution_manifest)?;
+        let receipt = FactoryReceipt {
+            run: req.run.clone(),
+            phase: FACTORY_APPROVED.to_string(),
+            ..FactoryReceipt::default()
+        };
+        let stored = self.store_receipt(&receipt);
+        drop(lock);
+        stored?;
+        let mut state = self.drive(req, &receipt, deadline_nanos, deadline)?;
+        let (current, _) = self.load_receipt(&req.run.project, &req.run.id)?;
+        state.verification_checks = self.saved_verification_checks(&current)?;
+        Ok(state)
+    }
+
     /// `drive`: broker acquisition, native reservation, attested delivery,
-    /// single-use start, bounded wait and credential return.
+    /// single-use start, bounded wait and credential return. The exact-bundle
+    /// reference bound at reserve time releases here once retirement is
+    /// confirmed.
     fn drive(
+        &self,
+        req: &FactoryLaunch,
+        receipt: &FactoryReceipt,
+        deadline_nanos: i128,
+        deadline: Instant,
+    ) -> Result<FactoryState, FactoryError> {
+        let result = self.drive_inner(req, receipt, deadline_nanos, deadline);
+        if result
+            .as_ref()
+            .is_ok_and(|state| state.retirement == "confirmed")
+        {
+            self.release_run_harness(&req.run.project, &req.run.id);
+        }
+        result
+    }
+
+    /// `driveInner`: the launch drive itself; the wrapper above owns the
+    /// exact-bundle lifetime.
+    fn drive_inner(
         &self,
         req: &FactoryLaunch,
         receipt: &FactoryReceipt,
@@ -350,6 +415,76 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         self.store_receipt(&current)?;
         *receipt = current;
+        Ok(())
+    }
+
+    /// Release one run's bound harness reference after confirmed retirement
+    /// and drop its sidecar. Best-effort and idempotent: never fails the run
+    /// outcome, and a later touch retries whatever is left.
+    pub(in crate::factory) fn release_run_harness(&self, project: &str, run: &str) {
+        let Ok(state) = PrivateState::open(&self.state_dir) else {
+            return;
+        };
+        let Ok(bind) = state.read_harness_bind(project, run) else {
+            return;
+        };
+        let Some(bind) = bind else { return };
+        if let Ok(provider) = bound::provider_for_family(&bind.family) {
+            bound::release_harness_ref(provider, &bind.package_digest, &bind.ref_token);
+        }
+        let _ = state.remove_harness_bind(project, run);
+    }
+}
+
+impl PrivateState {
+    /// Read one run's recorded exact harness binding, if any. A corrupt or
+    /// invalid record fails closed: there is no safe exact identity left to
+    /// stage, and falling back to current would stage drifted bytes.
+    pub(crate) fn read_harness_bind(
+        &self,
+        project: &str,
+        run: &str,
+    ) -> Result<Option<bound::HarnessBind>, String> {
+        let bytes = match self.read_bytes(&bound::bind_name(project, run)?)? {
+            Some(bytes) => bytes,
+            None => return Ok(None),
+        };
+        let bind: bound::HarnessBind =
+            serde_json::from_slice(&bytes).map_err(|_| "run harness binding is invalid")?;
+        bind.validate()?;
+        Ok(Some(bind))
+    }
+
+    /// Record one run's exact harness binding. The live store reference in
+    /// the record keeps the bundle alive across refresh/cleanup until the
+    /// confirmed-retirement release.
+    pub(crate) fn write_harness_bind(
+        &self,
+        project: &str,
+        run: &str,
+        bind: &bound::HarnessBind,
+    ) -> Result<(), String> {
+        bind.validate()?;
+        self.write(&bound::bind_name(project, run)?, bind)
+    }
+
+    /// Drop one run's recorded binding. Idempotent: a missing record is
+    /// already gone.
+    pub(crate) fn remove_harness_bind(&self, project: &str, run: &str) -> Result<(), String> {
+        use std::os::unix::io::AsRawFd as _;
+        let name = bound::bind_name(project, run)?;
+        let dir = self.try_clone_directory()?;
+        let cname = std::ffi::CString::new(name).map_err(|_| "checkpoint state name is invalid")?;
+        // SAFETY: unlinkat on an owned directory fd with a validated name.
+        let rc = unsafe { libc::unlinkat(dir.as_raw_fd(), cname.as_ptr(), 0) };
+        if rc != 0 {
+            let err = std::io::Error::last_os_error();
+            if err.kind() == std::io::ErrorKind::NotFound {
+                return Ok(());
+            }
+            return Err(err.to_string());
+        }
+        dir.sync_all().map_err(|e| e.to_string())?;
         Ok(())
     }
 }

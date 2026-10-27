@@ -48,6 +48,9 @@ impl Controller {
     // lease is gone. A missing execution is ignored; only admitted leases
     // reach it.
     pub(crate) fn observe_terminal(state: &State, lease: &Lease) -> Result<(), Error> {
+        // Every caller has forgotten or returned the lease row first, so no
+        // live work references the bound bundle after this point.
+        Self::unpin_lease(state, lease);
         let mut execution = match state.store.execution(&lease.kind, &lease.execution_id) {
             Ok(execution) => execution,
             Err(err) if err.is_not_found() => return Ok(()),
@@ -63,6 +66,9 @@ impl Controller {
     // re-attestation. Completed Return, End, expiry and CloseExecution make
     // an execution terminal instead. A tombstone keeps its state.
     pub(crate) fn release_execution_lease(state: &State, lease: &Lease) -> Result<(), Error> {
+        // Recovery detaches the lease row first; the retry re-pins the fresh
+        // selection on its next acquire, so the stale pin is dropped here.
+        Self::unpin_lease(state, lease);
         let mut execution = match state.store.execution(&lease.kind, &lease.execution_id) {
             Ok(execution) => execution,
             Err(err) if err.is_not_found() => return Ok(()),

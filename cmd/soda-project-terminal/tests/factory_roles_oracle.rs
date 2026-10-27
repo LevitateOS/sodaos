@@ -118,7 +118,7 @@ impl Drop for Scratch {
 
 // Real Host orchestration and native helper/Git/processes. Only the external
 // broker/provider boundary is observed locally; no account or model is used.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct NativeFactoryFixture {
     factory: PathBuf,
     events: Arc<Mutex<Vec<String>>>,
@@ -1279,4 +1279,363 @@ fn oracle_refusal_contract() {
     scratch.ok("{\"op\": \"ensure\"}");
     let approved = scratch.ok(&fixture_request(PID));
     assert_eq!(field(&approved, "approved"), PID);
+}
+
+// V7 joined acceptance: an already-captured receipt is authoritative across a
+// current-CLI advance and past its own execution deadline. A duplicate
+// admission of the SAME captured run (same run identity, carrying its own
+// recorded harness identity) must return recorded state without consulting
+// the new current bundle or starting another process. This is same-session
+// receipt replay after the shared current selection moved to B — not a new
+// retry, which carries a new execution ID and stamps current.
+#[derive(Clone)]
+struct V7PinTerminal {
+    inner: NativeFactoryFixture,
+    pin: Arc<Mutex<factory::FactoryHarnessPin>>,
+    reserves: Arc<AtomicU64>,
+    starts: Arc<AtomicU64>,
+}
+
+impl FactoryTerminal for V7PinTerminal {
+    fn harness_pin(&self, _: &str) -> Result<factory::FactoryHarnessPin, String> {
+        Ok(self.pin.lock().unwrap().clone())
+    }
+    fn reserve(
+        &self,
+        run: &factory::FactoryRun,
+        lease: &factory::Lease,
+        pin: &str,
+        max_secs: i64,
+        deadline: Instant,
+    ) -> Result<Binding, factory::FactoryError> {
+        self.reserves.fetch_add(1, Ordering::SeqCst);
+        self.inner.reserve(run, lease, pin, max_secs, deadline)
+    }
+    fn start(
+        &self,
+        lease: &factory::Lease,
+        credential: &[u8],
+        prompt: &[u8],
+        deadline: Instant,
+        execution_phase: &str,
+    ) -> Result<(), factory::FactoryError> {
+        self.starts.fetch_add(1, Ordering::SeqCst);
+        self.inner
+            .start(lease, credential, prompt, deadline, execution_phase)
+    }
+    fn wait(
+        &self,
+        lease: &factory::Lease,
+        deadline: Instant,
+    ) -> Result<(i64, String), factory::FactoryError> {
+        self.inner.wait(lease, deadline)
+    }
+    fn stop(&self, lease: &factory::Lease, deadline: Instant) -> Result<(), factory::FactoryError> {
+        self.inner.stop(lease, deadline)
+    }
+    fn stop_unbound(
+        &self,
+        run: &factory::FactoryRun,
+        deadline: Instant,
+    ) -> Result<(), factory::FactoryError> {
+        self.inner.stop_unbound(run, deadline)
+    }
+    fn capture(
+        &self,
+        lease: &factory::Lease,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, factory::FactoryError> {
+        self.inner.capture(lease, deadline)
+    }
+    fn live(&self, binding: &Binding, deadline: Instant) -> bool {
+        self.inner.live(binding, deadline)
+    }
+    fn output(
+        &self,
+        project: &str,
+        binding: &Binding,
+        offset: i64,
+        limit: i64,
+        deadline: Instant,
+    ) -> Result<factory::OutputSlice, factory::FactoryError> {
+        self.inner.output(project, binding, offset, limit, deadline)
+    }
+    fn takeover_copy(
+        &self,
+        project: &str,
+        recorded: &str,
+        role: &str,
+        preparation: &str,
+        member: &str,
+        run: &str,
+        deadline: Instant,
+    ) -> Result<(String, bool), factory::FactoryError> {
+        self.inner
+            .takeover_copy(project, recorded, role, preparation, member, run, deadline)
+    }
+    fn export_bundle(
+        &self,
+        project: &str,
+        recorded: &str,
+        role: &str,
+        preparation: &str,
+        candidate: &str,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, factory::FactoryError> {
+        self.inner
+            .export_bundle(project, recorded, role, preparation, candidate, deadline)
+    }
+}
+
+#[test]
+fn oracle_v7_recorded_receipt_survives_current_advance() {
+    // State lives under the workspace target dir: PrivateState::open trusts
+    // only clean absolute paths with trusted ancestors (no /tmp).
+    let target = std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
+    let target_dir = PathBuf::from(&target);
+    let mut base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    base.pop();
+    base.pop();
+    let root = if target_dir.is_absolute() {
+        target_dir
+    } else {
+        base.join(target_dir)
+    }
+    .join(format!(
+        "v7-oracle-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::SeqCst)
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    let host_state = root.join("host");
+    std::fs::create_dir_all(&host_state).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&host_state, std::fs::Permissions::from_mode(0o700)).unwrap();
+    struct Guard {
+        root: PathBuf,
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+    let _guard = Guard { root: root.clone() };
+    let factory_dir = root.join("factory");
+    std::fs::create_dir_all(&factory_dir).unwrap();
+    let pin_a = factory::FactoryHarnessPin {
+        harness: "codex".into(),
+        version: "1.4.0".into(),
+        sha256: "a".repeat(64),
+        image: String::new(),
+    };
+    let pin_b = factory::FactoryHarnessPin {
+        harness: "codex".into(),
+        version: "1.4.13".into(),
+        sha256: "b".repeat(64),
+        image: String::new(),
+    };
+    let fixture = NativeFactoryFixture {
+        factory: factory_dir,
+        events: Arc::new(Mutex::new(Vec::new())),
+        crash: Arc::new(AtomicU8::new(0)),
+        refuse_stop: Arc::new(AtomicBool::new(false)),
+        requires_verification: false,
+        ..Default::default()
+    };
+    let terminal = V7PinTerminal {
+        inner: fixture.clone(),
+        pin: Arc::new(Mutex::new(pin_a.clone())),
+        reserves: Arc::new(AtomicU64::new(0)),
+        starts: Arc::new(AtomicU64::new(0)),
+    };
+    let open = || {
+        factory::Factory::open_factory(
+            host_state.to_str().unwrap(),
+            fixture.clone(),
+            terminal.clone(),
+            fixture.clone(),
+        )
+        .unwrap()
+    };
+    let prompt = b"v7 joined probe; no model/provider.".to_vec();
+    let assignment = soda_host::sha256::hex_lower(&soda_host::sha256::digest(&prompt));
+    let deadline_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 1800;
+    let launch = factory::FactoryLaunch {
+        run: factory::FactoryRun {
+            deadline: soda_wire_time::format(deadline_secs, 0).unwrap(),
+            actor: 1,
+            id: "7".repeat(32),
+            project: "p0123456789abcdef01234567".into(),
+            role: "soda-reviewer".into(),
+            preparation: PID.into(),
+            harness: "codex".into(),
+            harness_vers: "1.4.0".into(),
+            assignment,
+            source_commit: COMMIT.into(),
+            connection: "local-observed-boundary".into(),
+            execution_phase: "research".into(),
+            ..Default::default()
+        },
+        prompt,
+        harness_sha256: "a".repeat(64),
+        ..Default::default()
+    };
+    assert!(launch.validate().is_ok());
+    // Capture the A receipt against the real private-state files.
+    let first = open()
+        .launch(&launch, Instant::now() + Duration::from_secs(30))
+        .unwrap();
+    assert_eq!(
+        first.phase, "completed",
+        "capture did not complete: {first:?}"
+    );
+    assert_eq!(terminal.reserves.load(Ordering::SeqCst), 1);
+    assert_eq!(terminal.starts.load(Ordering::SeqCst), 1);
+    // The shared current selection advances to B; the controller is
+    // reconstructed (same state dir, new Factory) like a process restart.
+    *terminal.pin.lock().unwrap() = pin_b;
+    let replay = open()
+        .launch(&launch, Instant::now() + Duration::from_secs(30))
+        .unwrap();
+    assert_eq!(replay.phase, "completed", "recorded state lost: {replay:?}");
+    assert_eq!(replay.id, launch.run.id);
+    assert_eq!(
+        terminal.reserves.load(Ordering::SeqCst),
+        1,
+        "duplicate consulted the new current bundle"
+    );
+    assert_eq!(
+        terminal.starts.load(Ordering::SeqCst),
+        1,
+        "duplicate started another process"
+    );
+    let events = fixture.events.lock().unwrap();
+    assert_eq!(
+        events.iter().filter(|e| *e == "acquire").count(),
+        1,
+        "duplicate acquired a new lease: {events:?}"
+    );
+}
+
+#[test]
+fn oracle_v7_recorded_receipt_survives_own_deadline_expiry() {
+    // State lives under the workspace target dir: PrivateState::open trusts
+    // only clean absolute paths with trusted ancestors (no /tmp).
+    let target = std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
+    let target_dir = PathBuf::from(&target);
+    let mut base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    base.pop();
+    base.pop();
+    let root = if target_dir.is_absolute() {
+        target_dir
+    } else {
+        base.join(target_dir)
+    }
+    .join(format!(
+        "v7-oracle-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::SeqCst)
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    let host_state = root.join("host");
+    std::fs::create_dir_all(&host_state).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&host_state, std::fs::Permissions::from_mode(0o700)).unwrap();
+    struct Guard {
+        root: PathBuf,
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+    let _guard = Guard { root: root.clone() };
+    let factory_dir = root.join("factory");
+    std::fs::create_dir_all(&factory_dir).unwrap();
+    let fixture = NativeFactoryFixture {
+        factory: factory_dir,
+        events: Arc::new(Mutex::new(Vec::new())),
+        crash: Arc::new(AtomicU8::new(0)),
+        refuse_stop: Arc::new(AtomicBool::new(false)),
+        requires_verification: false,
+        ..Default::default()
+    };
+    let terminal = V7PinTerminal {
+        inner: fixture.clone(),
+        pin: Arc::new(Mutex::new(factory::FactoryHarnessPin {
+            harness: "codex".into(),
+            version: "1.4.0".into(),
+            sha256: "a".repeat(64),
+            image: String::new(),
+        })),
+        reserves: Arc::new(AtomicU64::new(0)),
+        starts: Arc::new(AtomicU64::new(0)),
+    };
+    let open = || {
+        factory::Factory::open_factory(
+            host_state.to_str().unwrap(),
+            fixture.clone(),
+            terminal.clone(),
+            fixture.clone(),
+        )
+        .unwrap()
+    };
+    let prompt = b"v7 expiry probe; no model/provider.".to_vec();
+    let assignment = soda_host::sha256::hex_lower(&soda_host::sha256::digest(&prompt));
+    let deadline_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+        + 4;
+    let launch = factory::FactoryLaunch {
+        run: factory::FactoryRun {
+            deadline: soda_wire_time::format(deadline_secs, 0).unwrap(),
+            actor: 1,
+            id: "8".repeat(32),
+            project: "p0123456789abcdef01234567".into(),
+            role: "soda-reviewer".into(),
+            preparation: PID.into(),
+            harness: "codex".into(),
+            harness_vers: "1.4.0".into(),
+            assignment,
+            source_commit: COMMIT.into(),
+            connection: "local-observed-boundary".into(),
+            execution_phase: "research".into(),
+            ..Default::default()
+        },
+        prompt,
+        harness_sha256: "a".repeat(64),
+        ..Default::default()
+    };
+    let first = open()
+        .launch(&launch, Instant::now() + Duration::from_secs(30))
+        .unwrap();
+    assert_eq!(
+        first.phase, "completed",
+        "capture did not complete: {first:?}"
+    );
+    std::thread::sleep(Duration::from_secs(5));
+    // The original execution window has expired; the recorded metadata read
+    // must still return the captured state instead of refusing the deadline.
+    let replay = open()
+        .launch(&launch, Instant::now() + Duration::from_secs(30))
+        .unwrap();
+    assert_eq!(
+        replay.phase, "completed",
+        "recorded state lost after expiry: {replay:?}"
+    );
+    assert_eq!(
+        terminal.reserves.load(Ordering::SeqCst),
+        1,
+        "expired duplicate consulted the bundle again"
+    );
+    assert_eq!(
+        terminal.starts.load(Ordering::SeqCst),
+        1,
+        "expired duplicate started another process"
+    );
 }

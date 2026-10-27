@@ -49,6 +49,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if action != "stop" {
             return Err(terminal::err_denied());
         }
+        // This route only sees `&Binding`: no digest, no reference token.
+        // It takes no store-reference action here; the execution owner
+        // (shell end / `finish_start` / `denied_after_cleanup`) releases
+        // its retained reference after it confirms retirement.
         // A normal shell exit retires locally before returning its broker
         // lease. The broker then confirms retirement through this same stop
         // route. A collected inactive unit is no longer an active binding;

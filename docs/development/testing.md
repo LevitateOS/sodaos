@@ -1,5 +1,7 @@
 # Testing and native validation
 
+The [mandatory freshness policy](freshness.md) applies to validation baselines. Check current upstream inputs before qualification; historical pinned results do not establish current compatibility.
+
 How to validate Soda changes. Product journeys and native proof requirements live
 here; tool transport lives in [Native support](native-support.md).
 

@@ -7,6 +7,16 @@ Wants=network-online.target soda-host.service
 Type=simple
 ExecStartPre=/usr/bin/test ! -d /var/lib/soda/dashboard/member-access/%i
 ExecStart=/usr/bin/podman start --attach soda-%i
+# Best-effort provider freshness due-check at Project launch. Failures never
+# block the retained Project; known-stale enforcement happens at provider
+# session creation, not at container start. The staging line below is the
+# automatic constrained store staging: read-only source, digest-verified,
+# fail-closed on known-stale (a stale store stages nothing, so no human
+# maintenance step and no full rebuild are needed to serve current bytes).
+# Best-effort so an offline or not-yet-admitted store never blocks boot;
+# the staged receipt still gates each Muse invocation inside the Project.
+ExecStartPost=-/usr/bin/soda-provider-update refresh
+ExecStartPost=-/usr/local/libexec/soda/soda-project-maintain muse --provider-store --project %i
 ExecStartPost=/usr/local/libexec/soda/soda-project-maintain muse --bind-only --project %i
 ExecStartPost=/usr/local/libexec/soda/soda-project-maintain factory-mcp --project %i
 # Queue only; enrollment never waits inside the helper's project admission gate.

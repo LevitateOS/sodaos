@@ -64,9 +64,40 @@ for it to be running. It does not start a stopped project.
 | `--config PATH` | Absolute host configuration; defaults to `/etc/soda/host.json`. |
 | `--tools PATH` | Absolute public tool directory; defaults to `/usr/share/soda/muse-tools`. |
 | `--bind-only` | Restore the launch interface without installing tools or the system bus prerequisite. |
+| `--provider-store` | Stage the shared provider store's currently selected native binary instead of the pinned tool directory. The store is only ever opened read-only; Projects receive a staged copy and gain no write access. Fails closed on a stale or missing selection. |
 
-The project startup service uses `muse --bind-only --project ID` to restore the
-interface after a restart. Full maintenance is an explicit operator action.
+The project startup service stages the store selection automatically at
+launch (`muse --provider-store --project ID`, best-effort so boot never
+blocks), then restores the interface (`muse --bind-only --project ID`),
+preceded by a best-effort `soda-provider-update refresh` due-check that never
+blocks the retained Project. Full maintenance is also available as an
+explicit operator action:
+
+```sh
+sudo /usr/libexec/soda/soda-project-maintain \
+  muse --provider-store --project p0123456789abcdef01234567
+```
+
+With `--provider-store`, the native binary is resolved from the shared
+provider store's current selection and verified against its selected digest
+before staging, so retained Projects are served current bytes without
+per-Project downloads or image rebuilds. Staging also plants
+`/usr/local/libexec/soda/muse-selection.json`, the admitted-identity receipt
+carrying the selection's `checked_at` that the in-Project launch path
+revalidates at every invocation against the live host selection and its TTL.
+A digest drift between the receipt and the live selection refuses the
+outdated staged bytes; a stale or unknown live selection refuses even when
+the receipt still reads current; a missing receipt refuses whenever any store
+knowledge exists and only grandfathers the legacy staged binary on hosts
+where the store was never admitted. The staged binary itself is fully
+re-hashed against the receipt digest at invocation (never a size-only
+check). Image-owned wrappers still come from `--tools`. The default
+pinned-directory path is unchanged until the provider store rollout
+completes. Where the store view is not mounted into a running Project, the
+host launch gate still refuses a guest whose hash no longer matches the
+fresh selection; serving v2 bytes into such a Project without maintenance
+needs the read-only store-view mount (named in the UP-REVIEW-03 C/RQ03/RQ05
+report) or host-side restaging at invocation.
 
 The same startup service runs `factory-mcp --project ID` to restore the fixed
 Factory socket directory in retained Projects. It binds

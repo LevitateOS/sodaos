@@ -66,11 +66,20 @@ impl Drop for Tool {
     }
 }
 
-pub(crate) fn load_tools(dir: &str, digest: &str) -> Result<Vec<Tool>, String> {
+/// Load the image-owned wrapper tools (`muse`, `soda-identity-compose`).
+/// The native binary comes either from the pinned directory (`load_tools`)
+/// or from the shared provider store (`provider_stage`), never both.
+pub(crate) fn load_wrappers(dir: &str) -> Result<Vec<Tool>, String> {
     let mut tools = Vec::new();
-    for name in ["muse", "soda-identity-compose", "muse-native"] {
+    for name in ["muse", "soda-identity-compose"] {
         tools.push(open_tool(dir, name)?);
     }
+    Ok(tools)
+}
+
+pub(crate) fn load_tools(dir: &str, digest: &str) -> Result<Vec<Tool>, String> {
+    let mut tools = load_wrappers(dir)?;
+    tools.push(open_tool(dir, "muse-native")?);
     verify_native(&tools[2], digest)?;
     Ok(tools)
 }

@@ -259,6 +259,8 @@ pub struct FactoryRun {
     pub harness: String,
     pub harness_vers: String,
     pub model: String,
+    pub effort: String,
+    pub contributor: bool,
     pub assignment: String,
     pub source_commit: String,
     pub connection: String,
@@ -284,6 +286,14 @@ impl FactoryRun {
     fn validate_run_harness_model(&self) -> Result<(), String> {
         if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
+        }
+        if (!self.effort.is_empty()
+            && (!super::valid_task_effort(&self.effort)
+                || self.harness != FACTORY_HARNESS_MUSE
+                || self.model.is_empty()))
+            || (self.contributor && self.effort.is_empty())
+        {
+            return Err("invalid Muse execution profile".into());
         }
         if !self.model.is_empty() {
             if self.model.len() > 128 {
@@ -392,6 +402,13 @@ impl FactoryRun {
             out.push_str(",\"model\":");
             out.push_str(&json::quote(&self.model));
         }
+        if !self.effort.is_empty() {
+            out.push_str(",\"effort\":");
+            out.push_str(&json::quote(&self.effort));
+        }
+        if self.contributor {
+            out.push_str(",\"contributor\":true");
+        }
         out.push_str(",\"assignment\":");
         out.push_str(&json::quote(&self.assignment));
         out.push_str(",\"source_commit\":");
@@ -447,6 +464,8 @@ typed_run_fields!(FactoryRun, "a factory run object", {
     harness => "harness": String,
     harness_vers => "harness_version": String,
     model => "model": String,
+    effort => "effort": String,
+    contributor => "contributor": bool,
     assignment => "assignment": String,
     source_commit => "source_commit": String,
     connection => "connection": String,

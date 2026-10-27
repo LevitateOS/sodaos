@@ -1,5 +1,7 @@
 # Release architecture
 
+The [mandatory freshness policy](../development/freshness.md) governs input selection and qualification. Resolve current upstream inputs first, then record exact identities. Independent provider CLI updates must not wait for an OS release.
+
 Soda ships as a **minimum-deviation Fedora CoreOS** appliance and has a direct
 [Docker runtime](#docker-runtime) deployment target. An exact-source candidate
 carries the complete Soda payload; GitHub Releases owns appliance delivery.

@@ -286,6 +286,11 @@ impl ExecutionManifest {
         if self.contributor && run.harness != super::run::FACTORY_HARNESS_MUSE {
             return Err("contributor mode is valid only for Muse".to_string());
         }
+        if !run.effort.is_empty()
+            && (self.effort != run.effort || self.contributor != run.contributor)
+        {
+            return Err("execution manifest profile does not match its run".into());
+        }
         Ok(())
     }
 }

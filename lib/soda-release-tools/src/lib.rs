@@ -18,6 +18,7 @@ pub mod check_cli;
 pub mod digest;
 pub mod exitcode;
 pub mod fountain_pin;
+mod journey;
 pub mod pipeline;
 pub mod progress;
 mod qualification;

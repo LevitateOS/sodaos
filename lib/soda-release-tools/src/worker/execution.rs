@@ -78,6 +78,7 @@ fn allowed_worker_env_key(key: &str) -> bool {
             | "BUN_INSTALL_CACHE_DIR"
             | "TMPDIR"
             | "PLAYWRIGHT_BROWSERS_PATH"
+            | "NODE_EXTRA_CA_CERTS"
             | "SODA_BUILD_START_NS"
     )
 }
@@ -105,10 +106,13 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     valid_worker_identity(w)?;
     if !w.credentials.is_empty()
         && (w.user != "soda-qualifier"
-            || w.credentials.keys().map(String::as_str).collect::<Vec<_>>()
-                != ["guest-ssh-key", "workspace-owner-password"])
+            || !super::config::qualification_credential_names(
+                w.credentials.keys().map(String::as_str),
+            ))
     {
-        return Err("only the two fixed qualification credentials are permitted".into());
+        return Err(
+            "only fixed qualification and bounded selected App credentials are permitted".into(),
+        );
     }
     let mut args = vec![
         "--quiet".to_owned(),
@@ -243,7 +247,7 @@ fn stop_worker_unit(unit: &str) -> Option<String> {
     }
 }
 
-fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
+pub(crate) fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
     let mut child = Command::new("/usr/bin/systemctl")
         .args([
             "show",
@@ -476,6 +480,7 @@ fn spawn_worker_pipes(
 
 fn poll_worker_status(
     child: &mut ChildGuard,
+    unit: &str,
     cancelled: &dyn Fn() -> bool,
     cancel_seen: &mut bool,
     status: &mut Option<std::process::ExitStatus>,
@@ -485,9 +490,16 @@ fn poll_worker_status(
         *cancel_seen = true;
     }
     if *cancel_seen && status.is_none() {
+        // The unit owns the worker's pipe descriptors. Killing only the
+        // launcher leaves the live worker holding them open and turns an
+        // otherwise successful cancellation into a drain timeout.
+        let stop_error = stop_worker_unit(unit);
         let _ = child.kill();
         *status = child.wait().ok();
         *drain_deadline = Some(Instant::now() + Duration::from_secs(2));
+        if stop_error.is_some() {
+            return stop_error;
+        }
     }
     if status.is_none() {
         match child.try_wait() {
@@ -523,6 +535,7 @@ fn drain_pipe<R: std::io::Read>(
 
 fn drain_worker_pipes(
     child: &mut ChildGuard,
+    unit: &str,
     stdout: &mut Option<std::process::ChildStdout>,
     stderr: &mut Option<std::process::ChildStderr>,
     out: &mut dyn std::io::Write,
@@ -536,6 +549,7 @@ fn drain_worker_pipes(
     loop {
         if let Some(error) = poll_worker_status(
             child,
+            unit,
             cancelled,
             &mut cancel_seen,
             &mut status,
@@ -663,7 +677,7 @@ fn check_worker_completion(
     }
 }
 
-pub(crate) fn run_worker(
+pub fn run_worker(
     w: &Worker,
     out: &mut dyn std::io::Write,
     err_out: &mut dyn std::io::Write,
@@ -675,6 +689,7 @@ pub(crate) fn run_worker(
     let (mut child, mut stdout, mut stderr) = spawn_worker_pipes(&args, &unit, custody)?;
     let (status, output_error, cancel_seen) = drain_worker_pipes(
         &mut child,
+        &unit,
         &mut stdout,
         &mut stderr,
         out,

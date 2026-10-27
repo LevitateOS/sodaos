@@ -16,6 +16,7 @@ for these existing commands:
 | `personal-git prepare\|exercise\|unlock FIXTURE_DIR` | Prepare encrypted project-local keys/agents, unlock retained keys or exercise personal Git. |
 | `workload-access FIXTURE_DIR` | Real member/client HTTP and committed PostgreSQL probe writes. |
 | `workload-exec FIXTURE_DIR` | Existing workload exec, UID and ordinary-member denial checks. |
+| `factory-context-status SCOPE_FILE` | Guest-side root observation of canonical staged implementation/review context metadata, with protected scope and read-only Store access. No actions or provider calls. |
 
 For the TLS observation alone:
 
@@ -35,6 +36,11 @@ Go callers in this module use `RunServiceHTTPS`, `RunDeveloperAccess`,
 and an output writer. [`StartCommand`](process.go) owns a new native process
 group; its `Process` exposes `Wait`, `Done` and bounded `Stop`. A timed-out
 `Wait` does not itself stop the process, so callers retain cleanup responsibility.
+
+`RunFactoryContextStatus` additionally takes its bounded stdin reader. Unlike the
+client fixture probes, it runs inside the selected guest and reads only the
+protected scope, installed release, server database references and canonical
+context records. Its build/source and scope contract is documented with the tool.
 
 Fixture probes require their private inputs, pinned SSH identity and native
 tools. Personal Git and both workload probes specifically require

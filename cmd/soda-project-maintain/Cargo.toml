@@ -17,3 +17,4 @@ soda-host = { path = "../../lib/host" }
 soda-build-tools = { path = "../../lib/release-inputs" }
 soda-release-deliver = { path = "../../lib/soda-release-deliver" }
 soda-unix-http = { path = "../../lib/unix-http" }
+soda-provider-tools = { path = "../../lib/provider-tools" }

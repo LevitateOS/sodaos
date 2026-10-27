@@ -1,5 +1,7 @@
 # Soda release assets
 
+Input selection follows the [mandatory freshness policy](../../docs/development/freshness.md). Refresh obsolete upstream artifact descriptors before starting a new baseline; size/checksum pins record selected current bytes and must not hold dependencies back.
+
 Fetch public build inputs and prepare release assets, Forgejo presentation and
 private provisioning documents. These commands are for release builders and
 operators preparing a host. The native build pipeline normally invokes them.
@@ -14,7 +16,7 @@ cargo run -p soda-release-assets --bin soda-stage -- --help
 
 | Binary | Inputs and result |
 | --- | --- |
-| `soda-fetch-muse` | `--arch x86_64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; download a size/checksum-pinned native Muse executable. Default manifest: `system/project/muse-release.json`. |
+| `soda-fetch-muse` | `--arch x86_64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; the default entrypoint admits bytes only after live freshness validation (current pins stage from cache or verified download and print the frozen tuple; stale pins exit 2 and unknown upstream exits 2, so ordinary builds cannot consume a stale descriptor or claim a baseline on unknown input). Default manifest: `system/project/muse-release.json`. `--check` reports current/stale/unknown against the live official channel (exit 0/2/1); `--refresh` records the live release in the manifest and is the only mode that writes. Maintained default-entrypoint check: `tools/release-assets/checks/fetch-muse-baseline.sh` (stale refusal, current reuse, unknown/dead upstream). |
 | `soda-fetch-tea` | `--arch x86_64 [--out DIR]`; fetch Tea and its license into `bin/tea` and `licenses/tea/LICENSE`. Default output: `.artifacts/native/x86_64/project-tools`. |
 | `soda-fetch-terminal` | `--out DIR`; fetch the exact browser terminal files pinned in `terminal-assets.lock.json`. |
 | `soda-stage-canlang` | `--archive FILE --out DIR [--manifest FILE]`; admit an already produced offline Linux x86_64 Canlang tools archive into `DIR/canlang`. Default manifest: `system/project/canlang-release.json`. No download or compilation. |
@@ -33,6 +35,30 @@ prints the host rootfs path on success; it does not build or install the result.
 ```sh
 cargo run -p soda-release-assets --bin soda-fetch-muse -- \
   --arch x86_64 --out "$PWD/.artifacts/native/x86_64/project-tools/bin/muse-native"
+```
+
+## Muse baseline freshness
+
+The committed `system/project/muse-release.json` pin is a recorded baseline,
+not proof of currency. Resolve the official stable channel immediately before
+selecting inputs for a new build, and refresh the pin when it drifts:
+
+```sh
+cargo run -p soda-release-assets --bin soda-fetch-muse -- \
+  --check --arch x86_64
+cargo run -p soda-release-assets --bin soda-fetch-muse -- \
+  --refresh --arch x86_64 --manifest "$PWD/system/project/muse-release.json"
+```
+
+`--check` is read-only: exit 0 means the pin selects exactly the live
+release, exit 2 means the baseline is stale (drift details on stderr) or
+unknown (upstream gave no usable selection; do not treat the pin as current),
+exit 1 means an operational failure (unreadable pin, no network) that keeps
+the existing pin and proves nothing. `--refresh` is the only mode that
+writes: it records the validated live release atomically, skips the rewrite
+when the pin is already current, and leaves the file untouched when upstream
+is unusable. A stale or unknown baseline refuses selection; record current
+bytes first, then build.
 cargo run -p soda-release-assets --bin soda-fetch-terminal -- \
   --out "$PWD/.artifacts/terminal-assets"
 cargo run -p soda-release-assets --bin soda-render-terminal-logo -- --check

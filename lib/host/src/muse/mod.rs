@@ -61,6 +61,12 @@ pub use self::config::decode_config_view;
 mod execution;
 mod inspect;
 mod launch;
+mod provider;
+
+pub use self::provider::{
+    expected_muse_identity, fresh_provider_snapshot, release_provider_ref,
+    release_provider_snapshot, retained_muse_executable, ProviderSnapshot,
+};
 
 pub use self::launch::MuseLaunch;
 

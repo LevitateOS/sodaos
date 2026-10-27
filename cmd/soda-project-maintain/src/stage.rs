@@ -14,10 +14,14 @@ systemd-run --quiet --wait --pipe --collect /usr/bin/true
 "#;
 
 // Destinations are fixed by the installed project interface, never repository input.
-const DESTINATIONS: [&str; 3] = [
+// The fourth entry is the admitted-identity receipt the in-project launch
+// path enforces: it must agree with the staged binary, and an explicit
+// stale marker refuses new Muse work without a human maintenance step.
+const DESTINATIONS: [&str; 4] = [
     "/usr/local/bin/muse",
     "/usr/local/bin/soda-identity-compose",
     "/usr/local/libexec/soda/muse",
+    "/usr/local/libexec/soda/muse-selection.json",
 ];
 
 pub(crate) const INSTALL_SCRIPT: &str = r#"
@@ -43,6 +47,10 @@ chmod 0755 "$stage/muse" "$stage/soda-identity-compose" "$stage/muse-native"
 mv -T -- "$stage/muse" "$1"
 mv -T -- "$stage/soda-identity-compose" "$2"
 mv -T -- "$stage/muse-native" "$3"
+if [ -e "$stage/muse-selection.json" ]; then
+  chmod 0644 "$stage/muse-selection.json"
+  mv -T -- "$stage/muse-selection.json" "${4-}"
+fi
 "#;
 
 pub(crate) fn ensure_system_bus(target: &Observation, deadline: Instant) -> Result<(), String> {
@@ -62,13 +70,18 @@ pub(crate) fn stage_tools(
     deadline: Instant,
 ) -> Result<(), String> {
     confirm_project(target, deadline)?;
+    // Pinned staging feeds three tools, store staging four (plus receipt).
+    // Anything else is a caller bug: refuse rather than misalign names.
+    if sources.len() != 3 && sources.len() != 4 {
+        return Err(String::from("public tool source count changed"));
+    }
     // The feeder thread borrows no Tool state: the fds stay open in the
     // caller while only plain ints cross the thread boundary.
     let feeds: Vec<(String, RawFd, u64)> = sources
         .iter()
         .map(|t| (t.name.clone(), t.fd, t.size))
         .collect();
-    let args: Vec<&str> = vec![
+    let mut args: Vec<&str> = vec![
         "exec",
         "--user",
         "0:0",
@@ -78,10 +91,10 @@ pub(crate) fn stage_tools(
         "-ceu",
         INSTALL_SCRIPT,
         "soda-project-maintain",
-        DESTINATIONS[0],
-        DESTINATIONS[1],
-        DESTINATIONS[2],
     ];
+    for destination in &DESTINATIONS[..sources.len()] {
+        args.push(destination);
+    }
     podman_streamed(feeds, &args, deadline)?;
     Ok(())
 }

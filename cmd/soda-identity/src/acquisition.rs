@@ -24,12 +24,20 @@ impl Controller {
         let digest = acquisition_digest(input);
         let (existing, created) = Self::admit_execution(&state, input, &digest)?;
         if !created && !existing.lease_id.is_empty() {
-            return Self::replay_acquisition(&state, &existing, &digest);
+            let lease = Self::replay_acquisition(&state, &existing, &digest)?;
+            // Re-driven work pins what it will run: a refresh after the
+            // original admission must not collect the bundle underneath it.
+            Self::pin_lease(&state, &lease)?;
+            return Ok(lease);
         }
         // A fresh identity, or a pending identity whose earlier reservation
         // never landed, proceeds to reserve exactly one lease for this digest.
         let lease = Self::reserve_execution_lease(&state, input)?;
         state.store.reserve_and_link_execution(&lease, &existing)?;
+        // New work binds the fresh selection: without a broker restart a
+        // refreshed bundle is picked up here, and cleanup retains the exact
+        // bound bundle until the lease is gone.
+        Self::pin_lease(&state, &lease)?;
         Ok(lease)
     }
 

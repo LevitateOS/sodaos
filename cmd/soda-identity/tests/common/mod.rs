@@ -190,6 +190,12 @@ impl control::Provider for StubProvider {
             credential: self.credential.clone(),
         }))
     }
+
+    fn bind_new(
+        &self,
+    ) -> Result<Option<soda_identity::providers::resolution::BoundBinary>, Error> {
+        Ok(None)
+    }
 }
 
 pub struct StubRuntime {

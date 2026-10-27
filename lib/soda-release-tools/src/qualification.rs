@@ -3,18 +3,20 @@ use crate::worker::{self, Worker, WorkerUnitCustody, WORKER_CONTROLLER};
 use serde::{Deserialize, Serialize};
 use soda_release_deliver::publish::qualification::{self as evidence, ProtectedEvidence};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
-    io::Write,
     os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     time::Instant,
 };
+pub(crate) mod input;
+pub(crate) mod retirement;
+mod target;
 
 const INPUT: &str = "/run/soda-qualification-candidate";
 const OUTPUT: &str = "/run/soda-qualification-output";
 const RUNTIME: &str = "/run/soda-qualification-runtime";
-const CREDENTIALS: [&str; 2] = ["guest-ssh-key", "workspace-owner-password"];
+const RESOLVED_INPUT: &str = "/run/soda-qualification-journey.json";
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Runtime {
@@ -48,6 +50,8 @@ struct Authority {
     runtime: Option<Runtime>,
     #[serde(default)]
     credentials: BTreeMap<String, Credential>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_input: Option<input::FileReference>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -58,6 +62,26 @@ struct Request {
     unit: String,
     attempt: PathBuf,
     binding: ProtectedEvidence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_input: Option<input::FileReference>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CollectionBinding {
+    pub request: input::FileReference,
+    pub unit: String,
+}
+
+pub(crate) fn collection_binding(out: &Path) -> Result<CollectionBinding, String> {
+    let (request, _) = retained_request(out)?;
+    Ok(CollectionBinding {
+        request: input::FileReference {
+            path: out.join("request.json"),
+            sha256: hash(&out.join("request.json"))?,
+        },
+        unit: request.unit,
+    })
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -77,18 +101,11 @@ fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
         .map_err(|e| e.to_string())
 }
 fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    let mut file = tempfile::NamedTempFile::new_in(path.parent().ok_or("parent required")?)
-        .map_err(|e| e.to_string())?;
-    file.as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))
-        .map_err(|e| e.to_string())?;
-    file.write_all(&serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?)
-        .and_then(|_| file.as_file().sync_all())
-        .map_err(|e| e.to_string())?;
-    file.persist_noclobber(path).map_err(|e| e.to_string())?;
-    fs::File::open(path.parent().ok_or("parent required")?)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| e.to_string())
+    input::write_new(
+        path,
+        &serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?,
+        0o600,
+    )
 }
 fn runtime_files(
     root: &Path,
@@ -184,10 +201,10 @@ fn access_binding(path: &Path, a: &Authority) -> Result<(), String> {
     if let Some(runtime) = &a.runtime {
         runtime_binding(runtime)?;
     }
-    if (!a.credentials.is_empty() || a.purpose == "production")
-        && a.credentials.keys().map(String::as_str).collect::<Vec<_>>() != CREDENTIALS
+    if !worker::qualification_credential_names(a.credentials.keys().map(String::as_str))
+        || (a.purpose == "production" && a.credentials.is_empty())
     {
-        return Err("the two fixed qualification credentials are required".into());
+        return Err("fixed qualification credentials and bounded App names required".into());
     }
     if a.purpose == "production" && a.runtime.is_none() {
         return Err("production qualification runtime required".into());
@@ -206,6 +223,80 @@ fn access_binding(path: &Path, a: &Authority) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Controller references are metadata only. Secret delivery always comes from
+/// the authority's fixed private credential directory, never a scenario path.
+fn selected_credentials(
+    a: &Authority,
+    reference: Option<&input::FileReference>,
+    retained: bool,
+) -> Result<(), String> {
+    let mut expected: BTreeSet<String> = if a.credentials.is_empty() && a.purpose != "production" {
+        BTreeSet::new()
+    } else {
+        worker::QUALIFICATION_CREDENTIALS
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect()
+    };
+    if let Some(reference) = reference {
+        if retained {
+            let meta = fs::symlink_metadata(&reference.path)
+                .map_err(|_| "retained resolved credential scope unavailable")?;
+            if meta.uid() != 0 {
+                return Err("root-owned retained credential scope required".into());
+            }
+            input::verify(reference)?;
+        } else {
+            evidence::protected_path(&reference.path, false)
+                .map_err(|_| "root-protected resolved credential scope required")?;
+            if hash(&reference.path)? != reference.sha256 {
+                return Err("resolved credential scope changed".into());
+            }
+        }
+        let resolved: serde_json::Value = read(&reference.path)?;
+        if let Some(applications) = resolved.pointer("/scenario/applications") {
+            let applications = applications
+                .as_array()
+                .ok_or("selected App credential scope must be an array")?;
+            if applications.len() > 16 {
+                return Err("selected App credential scope exceeds bound".into());
+            }
+            let mut ids = BTreeSet::new();
+            for app in applications {
+                let id = app
+                    .get("application_id")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or("selected App credential ID required")?;
+                if id.len() != 25
+                    || !id.starts_with('a')
+                    || !id.as_bytes()[1..]
+                        .iter()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
+                    || !ids.insert(id)
+                {
+                    return Err("unique selected App credential IDs required".into());
+                }
+                let owner_path = app
+                    .get("owner_credentials_file")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or("selected App owner reference required")?;
+                if !resolved
+                    .pointer("/scenario/credentials/application_owner_files")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|paths| paths.iter().any(|path| path.as_str() == Some(owner_path)))
+                {
+                    return Err("selected App owner reference is outside scenario custody".into());
+                }
+                expected.insert(format!("application-owner-{id}"));
+            }
+        }
+    }
+    if expected != a.credentials.keys().cloned().collect() {
+        return Err("qualification credentials differ from exact selected Apps".into());
+    }
+    Ok(())
+}
 fn authority(path: &Path) -> Result<Authority, String> {
     if worker::euid() != 0 {
         return Err("trusted root release controller required".into());
@@ -221,7 +312,6 @@ fn authority(path: &Path) -> Result<Authority, String> {
             return Err("admitted release executable changed".into());
         }
     }
-    worker::worker_executable_matches(&a.controller)?;
     evidence::protected_path(&a.output_parent, true).map_err(|e| e.to_string())?;
     if !matches!(a.purpose.as_str(), "development" | "production")
         || a.target.is_empty()
@@ -471,7 +561,29 @@ fn retained_request(out: &Path) -> Result<(Request, Authority), String> {
         return Err("retained release request binding refused".into());
     }
     input_binding(&a, &out.join("input"))?;
+    resolved_binding(out, &a, &request)?;
+    selected_credentials(&a, request.resolved_input.as_ref(), true)?;
     Ok((request, a))
+}
+fn resolved_binding(out: &Path, a: &Authority, request: &Request) -> Result<(), String> {
+    match (&a.resolved_input, &request.resolved_input) {
+        (None, None) => Ok(()),
+        (source, Some(snapshot))
+            if snapshot.path == out.join("resolved-input.json")
+                && source
+                    .as_ref()
+                    .is_none_or(|source| snapshot.sha256 == source.sha256) =>
+        {
+            // The request and output parent are already root-protected. The
+            // individual snapshot is readable through its read-only worker bind.
+            let meta = fs::symlink_metadata(&snapshot.path).map_err(|e| e.to_string())?;
+            if meta.uid() != 0 {
+                return Err("root-owned resolved input snapshot required".into());
+            }
+            input::verify(snapshot)
+        }
+        _ => Err("retained resolved input binding refused".into()),
+    }
 }
 fn result_binding(path: &Path, a: &Authority) -> Result<(), String> {
     let r: CollectorResult = read(&path.join("collector.json"))?;
@@ -501,23 +613,11 @@ fn private_work(attempt: &Path, uid: u32, gid: u32) -> Result<(), String> {
     }
     Ok(())
 }
-fn remove_private_work(attempt: &Path) -> Result<(), String> {
-    // No native process remains at this point. Reclaim the fixed parent before
-    // inspecting/removing its child; remove_dir_all does not follow symlinks.
-    let parent = std::ffi::CString::new(attempt.as_os_str().as_encoded_bytes())
-        .map_err(|e| e.to_string())?;
-    if unsafe { libc::chown(parent.as_ptr(), 0, 0) } != 0 {
-        return Err(std::io::Error::last_os_error().to_string());
-    }
-    fs::set_permissions(attempt, fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
-    let path = attempt.join(".work");
-    let meta = fs::symlink_metadata(&path).map_err(|_| "private collector work missing")?;
-    if !meta.is_dir() || meta.file_type().is_symlink() {
-        return Err("private collector work directory substituted".into());
-    }
-    fs::remove_dir_all(path).map_err(|_| "private collector work cleanup failed".to_owned())
-}
 pub(crate) fn finalize(out: &Path) -> Result<(), String> {
+    finalize_inner(out, true)?;
+    retirement::automatic(out)
+}
+fn finalize_inner(out: &Path, announce: bool) -> Result<(), String> {
     let _lock = lock(out)?;
     let (request, a) = retained_request(out)?;
     let sealed = out.join("observations");
@@ -547,15 +647,149 @@ pub(crate) fn finalize(out: &Path) -> Result<(), String> {
     result_binding(&sealed, &a)?;
     write_new(&sealed.join("release-evidence.json"), &executed)?;
     evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
-    println!(
-        "Protected {} evidence finalized at {}; no publication.",
-        a.purpose,
-        sealed.display()
-    );
+    if announce {
+        println!(
+            "Protected {} evidence finalized at {}; no publication.",
+            a.purpose,
+            sealed.display()
+        );
+    }
     Ok(())
 }
 pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(), String> {
+    collect_inner(config, candidate, out, None)
+}
+
+/// A trusted journey driver supplies fresh resolved bytes and the collector
+/// identity from its build receipt. Existing authority/credentials are reused;
+/// no authority hash or per-phase flag needs to be edited for that snapshot.
+pub(crate) fn collect_journey(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    resolved: &input::FileReference,
+    collector_sha256: &str,
+) -> Result<(), String> {
+    evidence::protected_path(&resolved.path, false)
+        .map_err(|_| "root-protected resolved journey input required")?;
+    if hash(&resolved.path)? != resolved.sha256 {
+        return Err("resolved journey input changed".into());
+    }
+    collect_inner(config, candidate, out, Some((resolved, collector_sha256)))
+}
+
+/// Reconcile only the immutable request of a previously admitted journey.
+/// This path cannot allocate an output, dispatch a worker or stop a unit. A
+/// terminal unit without a successful execution receipt stays incomplete.
+pub(crate) fn recover_journey(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    resolved: &input::FileReference,
+    collector_sha256: &str,
+    finish: bool,
+) -> Result<serde_json::Value, String> {
+    let (request, a) = retained_request(out)?;
+    if request.authority != config
+        || request.candidate != candidate
+        || a.collector_sha256 != collector_sha256
+        || request
+            .resolved_input
+            .as_ref()
+            .is_none_or(|snapshot| snapshot.sha256 != resolved.sha256)
+    {
+        return Err("retained journey collector binding changed".into());
+    }
+    let sealed = out.join("observations");
+    if finish
+        && (out.join("executed.json").exists() || sealed.join("release-evidence.json").exists())
+    {
+        // Existing finalization requires exact successful execution, native
+        // retirement and protected observations; it never calls the collector.
+        finalize_inner(out, false)?;
+        retirement::automatic(out)?;
+    }
+    let completed = sealed.join("release-evidence.json").exists();
+    let (state, native_retirement) = if completed {
+        let actual = evidence::read_protected(&sealed).map_err(|e| e.to_string())?;
+        let mut expected = request.binding;
+        expected.exit_code = 0;
+        expected.native_retirement = "confirmed".into();
+        expected.files = actual.files.clone();
+        if actual != expected {
+            return Err("completed release evidence replay changed".into());
+        }
+        ("complete", "confirmed")
+    } else {
+        match worker::systemctl_unit_terminal(&request.unit) {
+            Ok(false) => ("pending", "pending"),
+            Ok(true) => ("retired_incomplete", "confirmed"),
+            Err(_) => ("uncertain", "unknown"),
+        }
+    };
+    Ok(serde_json::json!({
+        "state": state,
+        "native_retirement": native_retirement,
+        "collection": collection_binding(out)?,
+        "finalized": completed,
+        "automatic_actions": false,
+        "next_action": match state {
+            "complete" => "Use the finalized protected evidence.",
+            "pending" => "Observe this exact unit and retained attempt until native retirement is confirmed; do not launch another collector.",
+            "retired_incomplete" => "Inspect the retained attempt and execution receipt. This run may only finalize an existing successful receipt; a new trial needs separate admission and fresh guest-custody checks.",
+            _ => "Inspect this exact unit and retained request; unknown custody does not authorize another collector.",
+        },
+    }))
+}
+
+fn collect_inner(
+    config: &Path,
+    candidate: &Path,
+    out: &Path,
+    journey: Option<(&input::FileReference, &str)>,
+) -> Result<(), String> {
     let a = authority(config)?;
+    // New dispatch requires the admitted controller. Reading an immutable old
+    // request (including a retired target claim) validates its pinned executable
+    // bytes above, without requiring a repaired controller to have those bytes.
+    worker::worker_executable_matches(&a.controller)?;
+    if let Some((resolved, collector_sha256)) = journey {
+        if a.collector_sha256 != collector_sha256
+            || !crate::digest::is_digest(collector_sha256)
+            || a.resolved_input.as_ref().is_some_and(|source| {
+                source.path != resolved.path || source.sha256 != resolved.sha256
+            })
+        {
+            return Err("journey collector or fixed resolved input differs from authority".into());
+        }
+        let selected: serde_json::Value = read(&resolved.path)?;
+        for (field, expected) in [
+            (
+                "/scenario/candidate/source_revision",
+                a.source_revision.as_str(),
+            ),
+            (
+                "/scenario/candidate/candidate_sha256",
+                a.candidate_sha256.as_str(),
+            ),
+            (
+                "/scenario/candidate/payload_sha256",
+                a.payload_sha256.as_str(),
+            ),
+            ("/scenario/target/name", a.target.as_str()),
+        ] {
+            if selected.pointer(field).and_then(serde_json::Value::as_str) != Some(expected) {
+                return Err("journey differs from collector candidate/target authority".into());
+            }
+        }
+    }
+    selected_credentials(
+        &a,
+        journey
+            .map(|(resolved, _)| resolved)
+            .or(a.resolved_input.as_ref()),
+        false,
+    )?;
     if out.parent() != Some(a.output_parent.as_path())
         || out.file_name().is_none()
         || out.starts_with(candidate)
@@ -564,11 +798,28 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
     {
         return Err("fresh disjoint evidence output required".into());
     }
+    // All entry points consuming a resolved journey share this target lock.
+    // An output-directory lock alone permits two runs against the same VM.
+    let target = journey
+        .map(|(resolved, _)| resolved)
+        .or(a.resolved_input.as_ref())
+        .map(target::Target::acquire)
+        .transpose()?;
+    if let Some(target) = &target {
+        target.check(out)?;
+    }
     if out.exists() {
         let (r, _) = retained_request(out)?;
         if r.authority != config || r.candidate != candidate || hash(config)? != r.authority_sha256
         {
             return Err("different collector request already exists".into());
+        }
+        if journey.is_some_and(|(source, _)| {
+            r.resolved_input
+                .as_ref()
+                .is_none_or(|snapshot| snapshot.sha256 != source.sha256)
+        }) {
+            return Err("different resolved journey already retained".into());
         }
         return finalize(out);
     }
@@ -579,6 +830,14 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         .create(out)
         .map_err(|e| e.to_string())?;
     let _lock = lock(out)?;
+    let resolved_input = journey
+        .map(|(source, _)| source)
+        .or(a.resolved_input.as_ref())
+        .map(|source| {
+            evidence::protected_path(&source.path, false).map_err(|e| e.to_string())?;
+            input::snapshot(source, &out.join("resolved-input.json"))
+        })
+        .transpose()?;
     let input = out.join("input");
     snapshot_inputs(&a, candidate, &input)?;
     input_binding(&a, &input)?;
@@ -608,6 +867,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         return Err(std::io::Error::last_os_error().to_string());
     }
     private_work(&attempt, uid, gid)?;
+    retirement::record_origin(out, &attempt)?;
     let mut nonce = [0; 16];
     getrandom::fill(&mut nonce).map_err(|e| e.to_string())?;
     let name = format!(
@@ -638,8 +898,10 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         unit: binding.unit.clone(),
         attempt: attempt.clone(),
         binding,
+        resolved_input,
     };
     write_new(&out.join("request.json"), &request)?;
+    resolved_binding(out, &a, &request)?;
     let mut worker = Worker {
         name,
         user: "soda-qualifier".into(),
@@ -674,6 +936,19 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         worker
             .read_only
             .push(format!("{}:{RUNTIME}", runtime.directory.display()));
+        // Browser NSS trust does not cover Playwright's separate HTTP client
+        // (route.fetch). Load the same admitted CA before the worker starts.
+        worker
+            .environment
+            .push(format!("NODE_EXTRA_CA_CERTS={RUNTIME}/trust/appliance-ca.crt"));
+    }
+    if let Some(snapshot) = &request.resolved_input {
+        worker
+            .read_only
+            .push(format!("{}:{RESOLVED_INPUT}", snapshot.path.display()));
+    }
+    if let Some(target) = &target {
+        target.claim(out, &collection_binding(out)?)?;
     }
     crate::build_cli::watch_build_signals();
     let start = Instant::now();
@@ -686,7 +961,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         &mut custody,
     );
     if custody == WorkerUnitCustody::ExactUnitTerminal {
-        remove_private_work(&attempt)?;
+        retirement::preserve(out, &attempt)?;
     }
     if let Err(e) = outcome {
         let text = match e {
@@ -700,6 +975,7 @@ pub(crate) fn collect(config: &Path, candidate: &Path, out: &Path) -> Result<(),
         return Err("collector retirement or completion unconfirmed".into());
     }
     access_binding(config, &a)?;
+    resolved_binding(out, &a, &request)?;
     input_binding(&a, &input)?;
     result_binding(&attempt, &a)?;
     secure_tree(&attempt, true)?;

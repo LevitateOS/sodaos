@@ -56,6 +56,21 @@ pub struct MuseExecution {
     pub binding: Binding,
     pub path: String,
     pub unit: String,
+    /// Bundle digest the guest binary was verified against at preparation.
+    /// New executions resolve the fresh selection; recovery of this run
+    /// must re-resolve this exact digest (fail closed), never the current
+    /// selection.
+    pub provider_digest: String,
+    /// Store reference token (`refs/<token>.json` file name) transferred
+    /// from the staging snapshot at preparation. Keeping this name retains
+    /// the exact bundle across refresh/cleanup for the whole active
+    /// execution; only the execution owner releases it after confirmed
+    /// retirement, and never under uncertainty. Empty until stamped by
+    /// `prepare_execution`. A plain name (not `RefToken`, which lacks
+    /// `PartialEq`/`Eq`) so this record keeps its `Clone`/`Default`/
+    /// `PartialEq`/`Eq` derives; clones (e.g. the supervisor snapshot)
+    /// never release.
+    pub provider_ref_token: String,
 }
 
 /// Broker custody surface the Muse runtime needs.

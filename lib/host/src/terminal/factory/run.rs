@@ -90,6 +90,8 @@ pub struct FactoryRun {
     pub harness: String,
     pub harness_vers: String,
     pub model: String,
+    pub effort: String,
+    pub contributor: bool,
     pub assignment: String,
     pub source_commit: String,
     pub connection: String,
@@ -106,6 +108,8 @@ struct FactoryRunWire {
     harness: Option<String>,
     harness_version: Option<String>,
     model: Option<String>,
+    effort: Option<String>,
+    contributor: Option<bool>,
     assignment: Option<String>,
     source_commit: Option<String>,
     connection: Option<String>,
@@ -171,6 +175,18 @@ where
         "harness_version" => {
             if let Some(v) = map.next_value::<Option<String>>()? {
                 o.harness_version = Some(v)
+            }
+            Ok(true)
+        }
+        "effort" => {
+            if let Some(v) = map.next_value::<Option<String>>()? {
+                o.effort = Some(v)
+            }
+            Ok(true)
+        }
+        "contributor" => {
+            if let Some(v) = map.next_value::<Option<bool>>()? {
+                o.contributor = Some(v)
             }
             Ok(true)
         }
@@ -251,6 +267,8 @@ impl<'de> Deserialize<'de> for FactoryRunWire {
                             "harness",
                             "harness_version",
                             "model",
+                            "effort",
+                            "contributor",
                             "assignment",
                             "source_commit",
                             "connection",
@@ -278,6 +296,14 @@ impl FactoryRun {
         }
         if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
+        }
+        if (!self.effort.is_empty()
+            && (!crate::factory::valid_task_effort(&self.effort)
+                || self.harness != FACTORY_HARNESS_MUSE
+                || self.model.is_empty()))
+            || (self.contributor && self.effort.is_empty())
+        {
+            return Err("invalid Muse execution profile".into());
         }
         if !self.model.is_empty() {
             if self.model.len() > 128 {
@@ -320,6 +346,8 @@ impl FactoryRun {
             harness: wire.harness.unwrap_or_default(),
             harness_vers: wire.harness_version.unwrap_or_default(),
             model: wire.model.unwrap_or_default(),
+            effort: wire.effort.unwrap_or_default(),
+            contributor: wire.contributor.unwrap_or_default(),
             assignment: wire.assignment.unwrap_or_default(),
             source_commit: wire.source_commit.unwrap_or_default(),
             connection: wire.connection.unwrap_or_default(),

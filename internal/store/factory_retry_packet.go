@@ -47,7 +47,7 @@ func checkLockedRetryAssignment(current, a factory.Assignment, run factory.Run) 
 	}
 	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection || current.ActorID != a.ActorID ||
 		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
-		run.Harness != current.Harness || run.Model != current.Model {
+		run.Harness != current.Harness || run.Model != current.Model || current.AdoptedHarness != a.AdoptedHarness {
 		return ErrStaleRevision
 	}
 	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
@@ -90,7 +90,11 @@ func admitLockedPreviousRunTx(ctx context.Context, tx *sql.Tx, current factory.A
 	if err := checkLockedPreviousRun(previous, current, grants); err != nil {
 		return err
 	}
-	run.Admission = &factory.RunAdmission{Authority: authority, Policy: grants.policy, Profile: *grants.environment.Profile}
+	tool, err := factory.AdoptedToolIdentity(current, run.Image)
+	if err != nil {
+		return err
+	}
+	run.Admission = &factory.RunAdmission{Authority: authority, Policy: grants.policy, Profile: *grants.environment.Profile, Tool: tool}
 	return run.Validate()
 }
 

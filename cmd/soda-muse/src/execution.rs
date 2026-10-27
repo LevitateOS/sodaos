@@ -1,5 +1,5 @@
 use super::paths::{errno_str, go_base, go_quote_rune, go_strerror, is_clean_absolute_path};
-use super::MUSE_NATIVE;
+use super::store_resolve::{enforce_receipt, resolve_muse_native};
 use std::ffi::CString;
 use std::fs;
 use std::time::{Duration, Instant};
@@ -24,8 +24,21 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
         Err(e) => return (1, Some(e)),
     };
     let env = muse_environment(root, &state);
+    // The shared store's selected bundle wins over the staged binary; a
+    // known-stale or unusable selection refuses instead of running old
+    // bytes, and the staged receipt must agree with the staged file.
+    let binary_path = match resolve_muse_native() {
+        Ok(path) => path,
+        Err(e) => return (1, Some(e)),
+    };
+    if let Err(e) = enforce_receipt(&binary_path) {
+        return (1, Some(e));
+    }
     // execve only returns on failure; success replaces this process.
-    let binary = CString::new(MUSE_NATIVE).unwrap();
+    let binary = match CString::new(binary_path) {
+        Ok(binary) => binary,
+        Err(_) => return (1, Some(String::from("muse execution failed: invalid argument"))),
+    };
     let mut argv: Vec<CString> = vec![CString::new("muse").unwrap()];
     for a in args {
         match CString::new(a.as_str()) {

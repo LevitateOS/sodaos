@@ -19,6 +19,8 @@ fn cv_run_to_tcodex(r: &factory::FactoryRun) -> crate::terminal::factory::tcodex
         harness: r.harness.clone(),
         harness_vers: r.harness_vers.clone(),
         model: r.model.clone(),
+        effort: r.effort.clone(),
+        contributor: r.contributor,
         assignment: r.assignment.clone(),
         source_commit: r.source_commit.clone(),
         connection: r.connection.clone(),
@@ -60,24 +62,16 @@ impl factory::FactoryTerminal for TerminalSeam {
             .map_err(factory::FactoryError::Msg)
     }
     fn harness_pin(&self, family: &str) -> Result<factory::FactoryHarnessPin, String> {
-        let (binary, version, sha256) = match family {
-            factory::FACTORY_HARNESS_CODEX => {
-                (&self.harness, &self.harness_version, &self.harness_sha256)
-            }
-            factory::FACTORY_HARNESS_MUSE => (
-                &self.muse_harness,
-                &self.muse_harness_version,
-                &self.muse_harness_sha256,
-            ),
-            _ => return Err("unsupported factory harness".to_string()),
-        };
-        if binary.is_empty() {
-            return Err("factory harness is not configured".to_string());
-        }
+        // NEW-work identity resolves the CURRENT shared selection
+        // (due-check + stale refusal). No reference is pinned here: the
+        // query reserves nothing, and the exact bytes are verified again at
+        // reserve time. `image` stays empty; the daemon route fills it from
+        // its configuration, exactly like the Go dispatch.
+        let (version, sha256) = terminal::factory::bound::current_pin(family)?;
         Ok(factory::FactoryHarnessPin {
             harness: family.to_string(),
-            version: version.clone(),
-            sha256: sha256.clone(),
+            version,
+            sha256,
             image: String::new(),
         })
     }
@@ -100,9 +94,54 @@ impl factory::FactoryTerminal for TerminalSeam {
                 "qualified native Codex task profile is not configured".into(),
             ));
         }
+        // Bind the exact bundle before staging anything: a recorded sidecar
+        // wins for recovery and duplicate reserves, otherwise the CURRENT
+        // shared selection is snapshotted for this new reservation. Missing
+        // history fails closed; the startup-configured path/pin is never
+        // consulted.
+        let state =
+            factory::PrivateState::open(&self.state_dir).map_err(factory::FactoryError::Msg)?;
+        let previous = state
+            .read_harness_bind(&run.project, &run.id)
+            .map_err(factory::FactoryError::Msg)?;
+        let mut bound = if let Some(recorded) = previous.clone() {
+            terminal::factory::bound::bind_recorded(&recorded)
+                .map_err(factory::FactoryError::Msg)?
+        } else {
+            terminal::factory::bound::resolve_current(&run.harness)
+                .map_err(factory::FactoryError::Msg)?
+        };
+        // Coherence with the admission: the request must name exactly the
+        // bound executable digest and version. A moved selection or a stale
+        // admission fails closed here instead of staging drifted bytes.
+        if pin != bound.executable_sha256 || run.harness_vers != bound.version {
+            terminal::factory::bound::release_bound(bound);
+            return Err(factory::FactoryError::Msg(terminal::err_denied()));
+        }
+        let token = bound.take_ref_token().ok_or_else(|| {
+            factory::FactoryError::Msg("harness reference unconfirmed".to_string())
+        })?;
+        let record = terminal::factory::bound::HarnessBind {
+            family: run.harness.clone(),
+            version: bound.version.clone(),
+            package_digest: bound.package_digest.clone(),
+            executable_sha256: bound.executable_sha256.clone(),
+            ref_token: token.token.clone(),
+        };
+        if let Err(cause) = state
+            .write_harness_bind(&run.project, &run.id, &record)
+            .map_err(factory::FactoryError::Msg)
+        {
+            terminal::factory::bound::release_harness_ref(
+                bound.provider,
+                &bound.package_digest,
+                &token.token,
+            );
+            return Err(cause);
+        }
         let out = if run.harness == factory::FACTORY_HARNESS_MUSE {
             service
-                .factory_muse_reserve(&trun, &tlease, pin, max_secs, deadline)
+                .factory_muse_reserve(&trun, &tlease, &bound, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
         } else {
             let channels = terminal::factory::native_io::NativeChannels::create(
@@ -112,30 +151,31 @@ impl factory::FactoryTerminal for TerminalSeam {
             )
             .map_err(factory::FactoryError::Msg)?;
             match service.factory_codex_controlled_reserve(
-                &trun, &tlease, pin, max_secs, &channels, deadline,
+                &trun, &tlease, &bound, max_secs, &channels, deadline,
             ) {
                 Ok((binding, paths)) => {
-                    if let Some(profile) = paths.native_profile {
-                        let retained =
-                            factory::PrivateState::open(&self.state_dir).and_then(|state| {
+                    let retained = match paths.native_profile {
+                        Some(profile) => factory::PrivateState::open(&self.state_dir)
+                            .and_then(|state| {
                                 state.retain_native_profile(run, &binding.invocation_id, profile)
-                            });
-                        if retained.is_err() {
-                            if service.factory_codex_stop_unbound(&trun, deadline).is_ok() {
-                                let _ = channels.retire();
-                            }
-                            return Err(factory::FactoryError::Msg(
-                                "native profile retention unconfirmed".into(),
-                            ));
+                            })
+                            .is_ok(),
+                        None => true,
+                    };
+                    if !retained {
+                        if service.factory_codex_stop_unbound(&trun, deadline).is_ok() {
+                            let _ = channels.retire();
                         }
+                        Err("native profile retention unconfirmed".to_string())
+                    } else {
+                        self.native_channels
+                            .lock()
+                            .map_err(|_| {
+                                factory::FactoryError::Msg("native channel owner poisoned".into())
+                            })?
+                            .insert(run.id.clone(), channels);
+                        Ok(binding)
                     }
-                    self.native_channels
-                        .lock()
-                        .map_err(|_| {
-                            factory::FactoryError::Msg("native channel owner poisoned".into())
-                        })?
-                        .insert(run.id.clone(), channels);
-                    Ok(binding)
                 }
                 Err(reason) => {
                     if service.factory_codex_stop_unbound(&trun, deadline).is_ok() {
@@ -145,7 +185,51 @@ impl factory::FactoryTerminal for TerminalSeam {
                 }
             }
         };
-        out.map_err(factory::FactoryError::Msg)
+        match out {
+            Ok(binding) => {
+                // The new reference supersedes the recorded one, if any.
+                if let Some(old) = previous {
+                    terminal::factory::bound::release_harness_ref(
+                        bound.provider,
+                        &old.package_digest,
+                        &old.ref_token,
+                    );
+                }
+                Ok(binding)
+            }
+            Err(reason) => {
+                if !reserve_failure_is_definitive(&reason) {
+                    // Unit state is unconfirmed: the service may have
+                    // started a unit for this attempt (start unconfirmed,
+                    // failed active-invocation check, retention loss after
+                    // a successful reserve) while this attempt's binding +
+                    // ref are already the durable record. Preserve them;
+                    // the single owner releases after confirmed
+                    // retirement. A conservative leak beats collecting a
+                    // possibly-live bundle.
+                    return Err(factory::FactoryError::Msg(reason));
+                }
+                // Definitive pre-start refusal: this attempt started no
+                // unit, so release this attempt and restore the recorded
+                // binding, if any.
+                let reason = factory::FactoryError::Msg(reason);
+                terminal::factory::bound::release_harness_ref(
+                    bound.provider,
+                    &bound.package_digest,
+                    &token.token,
+                );
+                match previous {
+                    Some(old) => {
+                        let _ = state.write_harness_bind(&run.project, &run.id, &old);
+                        Err(reason)
+                    }
+                    None => {
+                        let _ = state.remove_harness_bind(&run.project, &run.id);
+                        Err(reason)
+                    }
+                }
+            }
+        }
     }
     fn stage_mcp(
         &self,
@@ -316,6 +400,35 @@ impl factory::FactoryTerminal for TerminalSeam {
             .factory_export_bundle(project, recorded, role, preparation, candidate, deadline)
             .map_err(factory::FactoryError::Msg)
     }
+}
+
+/// Whether a reserve error is a definitive pre-start refusal: the service
+/// never started a unit for this attempt, so rolling back this attempt's
+/// binding + ref is safe. This is exactly the pre-`systemd_run` set
+/// (admission, container, checkout, staging and install checks, all of
+/// which deny before any unit exists). Anything else — unit start
+/// unconfirmed, a failed active-invocation check after the start, retention
+/// loss after a successful reserve, or an unrecognized error — leaves unit
+/// state unconfirmed and must preserve the durable binding + lifetime ref;
+/// release happens only after confirmed retirement through the single
+/// owner. Missing/corrupt history still fails closed at the read above.
+fn reserve_failure_is_definitive(reason: &str) -> bool {
+    matches!(
+        reason,
+        terminal::ERR_DENIED
+            | "configured native Codex profile requires controlled transport"
+            | "factory run directories unconfirmed"
+            | "factory checkout identity unconfirmed"
+            | "factory checkout is not the assigned commit"
+            | "factory source changed under preparation"
+            | "factory source unconfirmed"
+            | "factory harness staging unconfirmed"
+            | "factory harness install unconfirmed"
+            | "guest harness digest differs"
+            | "factory code host staging unconfirmed"
+            | "factory code host install unconfirmed"
+            | "guest code host digest differs"
+    )
 }
 
 /// A lease takes the muse path when its binding carries the factory-muse

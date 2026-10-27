@@ -1,11 +1,11 @@
 /* Soda OS Anaconda GTK theme. */
 
-@define-color soda_navy #06245B;
-@define-color soda_cyan #10D7E8;
+@define-color soda_ink #101010;
+@define-color soda_action #df001b;
 @define-color soda_white #FFFFFF;
 
 .logo-sidebar {
-    background-color: @soda_navy;
+    background-color: @soda_white;
 }
 
 .logo {
@@ -13,6 +13,7 @@
     background-image: url('/usr/share/anaconda/pixmaps/soda-sidebar-logo.png');
     background-position: 50% 20px;
     background-repeat: no-repeat;
+    background-size: 114px auto;
 }
 
 .product-logo {
@@ -25,24 +26,24 @@
 
 AnacondaSpokeWindow #nav-box,
 AnacondaStandaloneWindow #nav-box {
-    background-color: @soda_navy;
+    background-color: @soda_ink;
     color: @soda_white;
 }
 
 button.suggested-action {
-    background: @soda_cyan;
-    border-color: @soda_cyan;
-    color: @soda_navy;
+    background: @soda_action;
+    border-color: @soda_action;
+    color: @soda_ink;
 }
 
 button:focus,
 entry:focus,
 treeview:focus {
-    border-color: @soda_cyan;
-    box-shadow: 0 0 0 2px alpha(@soda_cyan, .45);
+    border-color: @soda_action;
+    box-shadow: 0 0 0 2px alpha(@soda_action, .45);
 }
 
 progressbar progress,
 switch:checked slider {
-    background-color: @soda_cyan;
+    background-color: @soda_action;
 }

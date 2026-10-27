@@ -2,6 +2,7 @@
 
 pub mod codex;
 pub mod muse;
+pub mod resolution;
 pub mod sha256;
 pub mod types;
 

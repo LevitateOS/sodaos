@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh provider CLI bundles every five minutes and at boot
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=soda-provider-update.service
+
+[Install]
+WantedBy=timers.target

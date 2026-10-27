@@ -47,7 +47,7 @@ RUN test "$(uname -m)" = x86_64 && \
     touch /etc/soda/installed && \
     systemctl mask auditd.service audit-rules.service NetworkManager.service \
       NetworkManager-wait-online.service systemd-resolved.service systemd-sysctl.service && \
-    systemctl enable soda-host.socket soda-postgres-backup.timer cockpit.socket && \
+    systemctl enable soda-host.socket soda-postgres-backup.timer soda-provider-update.timer cockpit.socket && \
     systemctl set-default multi-user.target && \
     rm -f /etc/machine-id && touch /etc/machine-id && \
     mkdir -p /usr/share/soda/docker-runtime && \

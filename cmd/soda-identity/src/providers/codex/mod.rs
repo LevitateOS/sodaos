@@ -1,4 +1,5 @@
 // Codex provider sessions and enrollment lifetime, folded from identity-providers (A06.M).
+use super::resolution::{self, BoundBinary, ProviderKind};
 use super::types::{self, Connection, Enrollment};
 use super::{enrollment_tempdir, private_tmpfs, Error};
 use config::{check_binary, environment, validate_config};
@@ -18,13 +19,22 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
-pub const VERSION: &str = "0.153.4";
 
 pub struct Provider {
     config: Config,
 }
 
 impl Provider {
+    /// Bind the fresh shared selection for NEW lease work. Explicit mode
+    /// carries no store bundle (`None`); store mode resolves and pins the
+    /// current selection so cleanup retains it for the lease lifetime.
+    pub fn bind_new(&self) -> Result<Option<BoundBinary>, Error> {
+        if !self.config.store {
+            return Ok(None);
+        }
+        Ok(Some(resolution::resolve_new(ProviderKind::Codex)?))
+    }
+
     pub fn new(config: Config) -> Result<Provider, Error> {
         validate_config(&config)?;
         let info =
@@ -60,7 +70,20 @@ impl Provider {
         Ok(session)
     }
 
+    /// Resolve the executable for one new session. Store mode asks the
+    /// shared selection on every call, so a refreshed bundle is picked up
+    /// without a broker restart and no hash is cached across sessions.
+    fn session_binary(&self) -> Result<(String, Option<BoundBinary>), Error> {
+        if !self.config.store {
+            return Ok((self.config.binary.clone(), None));
+        }
+        let bound = resolution::resolve_new(ProviderKind::Codex)?;
+        let binary = bound.binary.to_string_lossy().into_owned();
+        Ok((binary, Some(bound)))
+    }
+
     fn create_session(&self) -> Result<Session, Error> {
+        let (binary, bound) = self.session_binary()?;
         let dir = enrollment_tempdir(Path::new(&self.config.root))?;
         let root = dir.path().to_path_buf();
         let state_dir = root.join("state");
@@ -76,7 +99,7 @@ impl Provider {
             return Err(Error::failed("codex enrollment could not start"));
         }
         let stderr = unsafe { Stdio::from_raw_fd(dup) };
-        let mut child = Command::new(&self.config.binary)
+        let mut child = Command::new(&binary)
             .arg("-c")
             .arg("cli_auth_credentials_store=\"file\"")
             .arg("-c")
@@ -133,6 +156,9 @@ impl Provider {
                 finished: AtomicBool::new(false),
                 cancelled: AtomicBool::new(false),
                 closed: AtomicBool::new(false),
+                bound: Mutex::new(bound),
+                fallback_version: self.config.version.clone(),
+                fallback_digest: self.config.sha256.clone(),
             }),
         };
         let inner = Arc::clone(&session.inner);
@@ -165,6 +191,12 @@ struct Inner {
     finished: AtomicBool,
     cancelled: AtomicBool,
     closed: AtomicBool,
+    /// Store-bound executable for this session. Present only in store mode;
+    /// the token pins the exact bundle against cleanup until released.
+    bound: Mutex<Option<BoundBinary>>,
+    /// Explicit-mode attribution when no store binding exists.
+    fallback_version: String,
+    fallback_digest: String,
 }
 
 impl Drop for Inner {
@@ -173,6 +205,13 @@ impl Drop for Inner {
         // This fallback covers callers that drop a completed session without
         // calling close; explicit close still reports cleanup errors.
         self.root.get_mut().unwrap().take();
+        // Fail-safe: a dropped-but-unclosed session must not leave its
+        // bundle pinned, but release failures are best-effort here.
+        if let Ok(mut bound) = self.bound.try_lock() {
+            if let Some(mut held) = bound.take() {
+                resolution::release_bound(&mut held);
+            }
+        }
     }
 }
 
@@ -184,6 +223,26 @@ pub struct Session {
 impl Session {
     pub fn snapshot(&self) -> Enrollment {
         self.inner.state.lock().unwrap().clone()
+    }
+
+    /// Version of the exact executable this session runs: the bound store
+    /// selection in store mode, the configured pin otherwise. This replaces
+    /// the old hardcoded `VERSION` assumption with per-session resolution.
+    pub fn provider_version(&self) -> String {
+        if let Some(bound) = self.inner.bound.lock().unwrap().as_ref() {
+            return bound.version.clone();
+        }
+        self.inner.fallback_version.clone()
+    }
+
+    /// Digest of the exact executable this session runs: the admitted bundle
+    /// digest in store mode (usable with `resolve_existing` for recovery),
+    /// the configured file digest otherwise.
+    pub fn provider_digest(&self) -> String {
+        if let Some(bound) = self.inner.bound.lock().unwrap().as_ref() {
+            return bound.digest.clone();
+        }
+        self.inner.fallback_digest.clone()
     }
 
     /// Mirror Go context cancellation for in-flight protocol calls.
@@ -329,6 +388,11 @@ impl Session {
         self.stop()?;
         if let Some(root) = self.inner.root.lock().unwrap().take() {
             root.close()?;
+        }
+        // The session no longer needs its exact bundle pinned: release the
+        // store reference so cleanup may reclaim it once unreferenced.
+        if let Some(mut held) = self.inner.bound.lock().unwrap().take() {
+            resolution::release_bound(&mut held);
         }
         Ok(())
     }

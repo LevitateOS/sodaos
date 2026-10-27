@@ -1,5 +1,6 @@
 pub mod artifacts;
 pub mod binding;
+pub mod bound;
 pub mod children;
 mod codex_control;
 mod execution_manifest;

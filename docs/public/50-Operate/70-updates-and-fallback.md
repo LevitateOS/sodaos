@@ -1,5 +1,7 @@
 # Update SodaOS and use fallback safely
 
+Software freshness is a [mandatory requirement](../../development/freshness.md): keep provider CLIs and managed dependencies current; an old baseline cannot justify stale software. The independent automatic CLI updater is still implementation work, so this requirement must not be read as a claim that it is already deployed.
+
 Apply only a qualified appliance transition or recreate Docker with its existing pinned state. Software rollback and image replacement do not restore database or application data.
 
 Appliance release transitions and Docker container recreation have separate lifecycles. For an appliance, use only a source-to-target pair with its exact native qualification receipt; ordinary first-install media or an advertised update does not by itself qualify a retained-state transition.

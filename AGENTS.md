@@ -2,6 +2,14 @@
 
 SodaOS is unreleased and has zero users. Deliver working features quickly. Bureaucracy and red tape are our biggest enemies. Optimize for the current task and local use, not hypothetical future requirements. These rules apply to Codex and Muse; the owner's current instructions lead and override conflicting project or skill procedures.
 
+## Mandatory freshness
+
+- Freshness takes priority over reproducibility. Follow the [freshness policy](docs/development/freshness.md) for implementation, dependencies, builds, baselines, qualification and installed tools. Older plans and frozen-input instructions cannot override this rule.
+- AI provider CLIs, including Codex and Muse, MUST track the latest official stable release (or the owner's explicitly selected channel). Never start new provider work with a known stale CLI. Detect and apply releases automatically; a missing updater is unfinished work, not permission to leave a pin unchanged.
+- Keep all Soda-managed dependencies, runtimes, toolchains, packages, base images, actions and external release inputs current as frequently as their upstream and update mechanism allow. Do not introduce cooldowns, defer major updates merely for convenience or downgrade to preserve a passing baseline.
+- Before creating a baseline, resolve current upstream inputs, update stale locks/pins and check the affected behavior. Then record the exact freshly selected bytes. Historical reproducibility records preserve what ran; they never justify selecting obsolete inputs for new work.
+- Preserve active runs and historical artifacts at their exact captured bytes. Updates apply to new work without resetting credentials, model choices, budgets or data. Failed/unknown freshness checks must be visible; do not describe unverified or stale software as current.
+
 ## Implement and keep moving
 
 - Own the full authorized outcome. Make the smallest useful change, get it working locally, fix actual failures and continue until the task is handled.
@@ -11,7 +19,7 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 - Resolve routine implementation and setup choices yourself. Do not introduce approval gates, exception paperwork, bookkeeping commits or repeated requests for permission already given.
 - Keep one current implementation. Replace obsolete code and its callers together; remove dead paths instead of preserving them for imaginary users.
 - Reuse existing code, mature tools and working outputs. Test an uncertain assumption cheaply before investing in an approach that depends on it.
-- Never inspect, compare or gate work on tool or dependency version numbers. Try the installed tool's required behavior and fix actual failures; do not downgrade working tools to satisfy stale guidance.
+- Check official upstream release metadata to establish freshness; evaluate compatibility through required behavior instead of guessed version cutoffs. Fix actual integration failures on current tools; do not downgrade to satisfy stale guidance.
 
 ## Check that it works
 
@@ -36,6 +44,8 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 
 - Work in `~/Projects/sodaos`; create worktrees only when requested. Preserve unrelated edits and leave the predecessor/Updates platform alone.
 - All writes, builds, caches, state and scratch belong under `/home`. Do not use the root disk or `/tmp` as a fallback.
+- For temporary cloud/test Tailscale nodes, use the owner's supplied reusable ephemeral auth key. Do not enroll disposable nodes with a persistent key; preserve personal and infrastructure devices.
+- For Factory flow testing, the owner now prefers the Muse agent CLI provider with Spark 1.3 Contributor mode, rather than Codex. Installed `muse exec --help` confirms `--yolo --contributor-mode on` (the owner suggested `1`). Verify the selected model without a model call; reuse existing accounts and finite trial bounds. Do not silently fall back to Codex.
 - Protect credentials, retained data and existing human work. Never expose secrets in commands, logs or screenshots. Do not reinstall a VM, overwrite newer data, rewrite history or clean unrelated resources without authorization.
 - Implementation includes the code, relevant tests, necessary documentation and configuration. Deployment requests include the needed builds, transfers, scoped restarts and actual local checks. Do not infer permission to publish, push, open PRs, merge remotely or contact others.
 - Follow [language ownership](docs/development/ownership.md): Go for network servers, Rust for system/privileged applications, no authored Python. Put changes in the existing responsible package and preserve dependency direction and canonical definitions.

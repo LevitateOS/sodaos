@@ -269,6 +269,8 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda-postgres-init.service",
         "soda-pg-provision.service",
         "soda-forgejo-migrate.service",
+        "soda-provider-update.service",
+        "soda-provider-update.timer",
     ] {
         files.push((
             format!("system/host/services/{name}"),

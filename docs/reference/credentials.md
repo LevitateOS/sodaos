@@ -1,5 +1,7 @@
 # Credentials and grants
 
+Provider binary updates follow the [mandatory freshness policy](../development/freshness.md). Updating a CLI must preserve broker credentials and active session identities; new sessions must use the current selected release.
+
 Soda keeps provider credential-encryption keys separate from Forgejo's native
 credential store. Product identity comes from the verified
 Forgejo extension request; Soda does not issue browser login sessions. This

@@ -15,6 +15,7 @@ mod interface_admission;
 mod network;
 mod options;
 mod project;
+mod provider_stage;
 mod release;
 mod release_extensions;
 mod release_inventory;
@@ -28,7 +29,7 @@ mod support_root;
 mod terminal_support;
 
 use config::{load_config, Config};
-use filesystem::load_tools;
+use filesystem::{load_tools, load_wrappers};
 use interface::{attach_interface, prepare_interface};
 use options::{parse, Options};
 use project::wait_project;
@@ -79,11 +80,11 @@ fn run(argv: &[String]) -> Result<(), String> {
     }
     let o = parse(&argv[1..])?;
     let c = load_config(&o.config)?;
-    if c.muse_sha256.is_empty() {
-        if o.bind_only {
-            return Ok(());
-        }
+    if c.muse_sha256.is_empty() && !o.bind_only && !o.provider_store {
         return Err(String::from("muse project runtime is disabled"));
+    }
+    if c.muse_sha256.is_empty() && o.bind_only {
+        return Ok(());
     }
     maintain(&o, &c)
 }
@@ -94,7 +95,18 @@ fn is_lower_hex(b: u8) -> bool {
 
 fn maintain(o: &Options, c: &Config) -> Result<(), String> {
     // Tool closes its own fd on drop, mirroring deferred closeTools.
-    let sources = load_tools(&o.tools, &c.muse_sha256)?;
+    // With --provider-store the native binary comes from the shared store's
+    // current selection (read-only) plus its admitted-identity receipt;
+    // wrappers stay image-owned as before.
+    let sources = if o.provider_store {
+        let mut tools = load_wrappers(&o.tools)?;
+        let staged = provider_stage::resolve_native_staging()?;
+        tools.push(staged.tool);
+        tools.push(staged.receipt);
+        tools
+    } else {
+        load_tools(&o.tools, &c.muse_sha256)?
+    };
     let deadline = Instant::now() + Duration::from_secs(120);
     let target = wait_project(&o.project, deadline)?;
     if !o.bind_only {

@@ -12,16 +12,28 @@ use crate::terminal::{self, AcquireRequest, Binding};
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.verifyGuestBinary`: pinned dispatcher digest, ELF
-    /// header and command availability.
+    /// header and command availability. Retained for explicit digest
+    /// re-verification; new executions resolve through the store snapshot
+    /// and never consult configured pins.
+    ///
+    /// The expected identity resolves on every call: pinned configuration
+    /// verifies against the pin, while empty pins resolve the fresh shared
+    /// store selection. Returns the verified bundle digest so the execution
+    /// keeps its exact bytes across refreshes. Never caches one hash.
     pub fn verify_guest_binary(
         &self,
         container: &str,
         child: &str,
         deadline: Instant,
-    ) -> Result<(), String> {
-        if !domain::valid_container_id(&self.binary_sha256) {
-            return Err(terminal::err_denied());
-        }
+    ) -> Result<String, String> {
+        let (_, expected_sha256) =
+            super::provider::expected_muse_identity(&self.binary_version, &self.binary_sha256)?;
+        self.verify_guest_digest(container, child, &expected_sha256, deadline)
+    }
+
+    /// Guest-side `podman exec` prefix for nested children; empty for the
+    /// normal project-namespace path.
+    pub(in crate::muse) fn guest_binary_prefix(&self, child: &str) -> Vec<String> {
         let mut prefix = Vec::new();
         if !child.is_empty() {
             prefix.extend([
@@ -31,6 +43,24 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 child.to_string(),
             ]);
         }
+        prefix
+    }
+
+    /// Verify the guest provider binary against one explicit expected
+    /// digest: pinned dispatcher digest, ELF header and command
+    /// availability. Returns the verified digest so the execution keeps its
+    /// exact bytes across refreshes. Never caches one hash.
+    pub(in crate::muse) fn verify_guest_digest(
+        &self,
+        container: &str,
+        child: &str,
+        expected_sha256: &str,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        if !domain::valid_container_id(expected_sha256) {
+            return Err(terminal::err_denied());
+        }
+        let prefix = self.guest_binary_prefix(child);
         let mut hash_argv = prefix.clone();
         hash_argv.extend([
             "/usr/bin/sha256sum".to_string(),
@@ -42,7 +72,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         };
         let text = String::from_utf8_lossy(&hash);
         let fields: Vec<&str> = text.split_whitespace().collect();
-        if fields.len() != 2 || fields[0] != self.binary_sha256 {
+        if fields.len() != 2 || fields[0] != expected_sha256 {
             return Err(terminal::err_denied());
         }
         let mut head_argv = prefix.clone();
@@ -61,7 +91,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             "--soda-check".to_string(),
         ]);
         self.guest(container, &[], &check_argv, deadline)
-            .map(|_| ())
+            .map(|_| expected_sha256.to_string())
     }
 
     // ---------- execution lifecycle (muse_execution_linux.go) ----------
@@ -82,22 +112,80 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         }
         request.args = muse_arguments(&request.args)?;
         let caller = self.resolve(peer, budget)?;
-        self.verify_guest_binary(&caller.container, &caller.child, budget)?;
-        let execution = self.reserve_execution(&caller, &request, budget)?;
+        // Store-authoritative for ALL new executions: legacy configured pins
+        // never select bytes for new work (mandatory freshness supersedes
+        // them for host launches exactly as for broker sessions). Historical
+        // bytes survive only through the bound-digest recovery path, never
+        // through startup config. One coherent snapshot per invocation,
+        // restaged into the running Project, then bound to this run.
+        let mut snapshot = super::provider::fresh_provider_snapshot()?;
+        let verified_digest = match self.ensure_guest_provider(&caller, &snapshot, budget) {
+            Ok(digest) => digest,
+            Err(err) => {
+                super::provider::release_provider_snapshot(snapshot);
+                return Err(err);
+            }
+        };
+        // Transfer the snapshot's store reference into this execution
+        // BEFORE reservation: from here on the exact staged bundle stays
+        // pinned regardless of selection movement or cleanup, because the
+        // broker lease binds the moving current record, not this bundle.
+        let provider_ref_token = snapshot
+            .take_ref_token()
+            .map(|token| token.token)
+            .unwrap_or_default();
+        // Dropping the now-tokenless snapshot must not release the
+        // execution's reference.
+        super::provider::release_provider_snapshot(snapshot);
+        let mut execution = match self.reserve_execution(&caller, &request, budget) {
+            Ok(execution) => execution,
+            Err(err) => {
+                // Staged but never reserved: no live run can need this
+                // bundle, so the transferred reference is released here.
+                super::provider::release_provider_ref(&verified_digest, &provider_ref_token);
+                return Err(err);
+            }
+        };
+        // Bind this run to its exact verified bundle: recovery re-resolves
+        // this digest (fail closed), never the current selection, and the
+        // retained reference keeps it collectable-proof while live.
+        execution.provider_digest = verified_digest;
+        execution.provider_ref_token = provider_ref_token;
         if !muse_peer_alive(peer) {
             let cleanup = Instant::now() + Duration::from_secs(30);
-            let _ = self.hooks.end(caller.actor, &execution.lease.id, cleanup);
+            // No guest unit exists yet (unstaged, unspawned), so returning
+            // the lease is the whole retirement; the bundle reference is
+            // released only when that confirms, and preserved
+            // (conservative leak) when it does not.
+            if self
+                .hooks
+                .end(caller.actor, &execution.lease.id, cleanup)
+                .is_ok()
+            {
+                super::provider::release_provider_ref(
+                    &execution.provider_digest,
+                    &execution.provider_ref_token,
+                );
+            }
             return Err(terminal::err_denied());
         }
         if let Err(err) = self.stage(&caller, &execution.path, &request.config_home, budget) {
             let cleanup = Instant::now() + Duration::from_secs(30);
-            let _ = self.stop_execution(
-                &execution.binding,
-                caller.actor,
-                &execution.lease.id,
-                true,
-                cleanup,
-            );
+            if self
+                .stop_execution(
+                    &execution.binding,
+                    caller.actor,
+                    &execution.lease.id,
+                    true,
+                    cleanup,
+                )
+                .is_ok()
+            {
+                super::provider::release_provider_ref(
+                    &execution.provider_digest,
+                    &execution.provider_ref_token,
+                );
+            }
             return Err(err);
         }
         Ok(execution)
@@ -156,6 +244,11 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             binding,
             path: path.clone(),
             unit: format!("soda-muse-{id}.service"),
+            // Stamped by `prepare_execution` with the verified bundle digest
+            // and the transferred store reference token; empty until then,
+            // never a cached selection.
+            provider_digest: String::new(),
+            provider_ref_token: String::new(),
         })
     }
 

@@ -165,7 +165,8 @@ func MaxPromptForPhase(phase string) int {
 // execution ID; the assignment digest binds the immutable prompt bytes.
 // ExecutionPhase names the admitted factory phase; ManifestDigest binds the
 // staged execution manifest for implement and correct runs and stays empty
-// otherwise.
+// otherwise. Effort and Contributor deliver the immutable Muse policy profile;
+// an empty effort preserves launches recorded before profile delivery.
 type FactoryRun struct {
 	Deadline                   time.Time `json:"deadline"`
 	Actor                      int64     `json:"actor"`
@@ -176,6 +177,8 @@ type FactoryRun struct {
 	Harness                    string    `json:"harness"`
 	HarnessVers                string    `json:"harness_version"`
 	Model                      string    `json:"model,omitempty"`
+	Effort                     string    `json:"effort,omitempty"`
+	Contributor                bool      `json:"contributor,omitempty"`
 	Assignment                 string    `json:"assignment"`
 	SourceCommit               string    `json:"source_commit"`
 	Connection                 string    `json:"connection"`
@@ -193,6 +196,9 @@ func (r FactoryRun) validateRunIdentity() error {
 	}
 	if !ValidHarnessFamily(r.Harness) || !ValidHarnessVersion(r.HarnessVers) {
 		return errors.New("unsupported factory harness")
+	}
+	if r.Effort != "" && (!ValidTaskEffort(r.Effort) || r.Harness != FactoryHarnessMuse || r.Model == "") || r.Contributor && r.Effort == "" {
+		return errors.New("invalid Muse execution profile")
 	}
 	// Empty keeps the CLI default for older launches; a set model pins
 	// spend to the dispatch-selected policy choice.

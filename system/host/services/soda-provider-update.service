@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh selected provider CLI bundles from official channels
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/soda-provider-update refresh
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
