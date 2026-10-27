@@ -2725,6 +2725,7 @@ export class SodaIntent extends LitElement {
     (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
   }
   private saveNote(): string {
+    if (!this.revision) return '';
     if (!this.objective.trim() && !this.dirty) return '';
     if (this.revision && !this.dirty && this.objective.trim() === this.revision.objective) return 'Saved';
     return 'Unsaved changes';

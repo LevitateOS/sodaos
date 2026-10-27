@@ -1481,7 +1481,8 @@ test('save draft reports saved state and save-and-leave signals return without l
   assert(await page.getByRole('button', {name: 'Save draft', exact: true}).isDisabled());
   assert(await page.getByRole('button', {name: 'Save and leave', exact: true}).isDisabled());
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
-  await page.getByText('Unsaved changes', {exact: true}).waitFor();
+  // Nothing is saved yet, so there is no saved state to contrast with.
+  assert.equal(await page.getByText('Unsaved changes', {exact: true}).count(), 0);
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
   await page.getByText('Saved', {exact: true}).waitFor();
   const saved = await page.evaluate(

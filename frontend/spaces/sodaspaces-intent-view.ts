@@ -193,7 +193,7 @@ export function describeIntent(view: IntentView) {
         ? html`<p>Enter a description above to enable saving and exploring ideas.</p>`
         : ''
     }
-    <p>${view.saveNote}</p>
+    ${view.saveNote ? html`<p>${view.saveNote}</p>` : ''}
     <p>Save a draft to return to it later. Explore ideas saves your description and uses the planning limits below.</p>
     <div class="context">
       <label
