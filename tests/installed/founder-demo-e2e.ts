@@ -176,6 +176,10 @@ async function phaseExplore(page: Page, out: string, intent: string): Promise<vo
 }
 
 const DECIDE_CORRECTION = `First user action: an employee submits an equipment request with item (laptop/monitor/other), reason and needed-by date. Success: the request is saved; the employee sees it with status Submitted and the manager sees it pending approval. Operations sees only approved requests and marks them ordered then delivered. Employees see only their own requests.`;
+// Appended to the Desired outcome itself to answer the material question in
+// the request text (the product's own suggested path: "Edit the desired
+// outcome ... to explain the missing behavior, then update the proposal").
+const OBJECTIVE_SUFFIX = `\n\nFirst action and success: an employee submits an equipment request with item, reason and needed-by date; the request is saved and visible as Submitted to the employee and pending to the manager.`;
 
 async function phaseDecide(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
@@ -244,6 +248,80 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
       );
     }
   }
+  // Post-fix path: the correction stands but no questions render and the
+  // request is still unbound (the pre-fix deadlock state). Answer the
+  // material question in the Desired outcome itself, raise the allowance to
+  // the approved 20, and re-explore under the fixed producer.
+  const questionsNow = spaces.locator('section[aria-label="Questions needing your answer"] article');
+  const chooseNow = spaces.getByRole('button', {name: 'Choose repository'});
+  if ((await questionsNow.count()) === 0 && (await chooseNow.count()) > 0 && !(await chooseNow.first().isEnabled())) {
+    await spaces.locator('details.bounds > summary').first().click();
+    const calls = spaces.getByLabel('Planning calls', {exact: true});
+    await calls.fill('20');
+    await spaces.getByRole('button', {name: 'Update proposal'}).click();
+    await page.waitForTimeout(2000);
+    await shot(page, `${out}/decide-allowance-raised.png`);
+    const objective = spaces.getByLabel('Desired outcome', {exact: true});
+    const before = await objective.inputValue();
+    assert(!before.includes('First action and success'), 'Decide: objective suffix already applied, refusing to double-apply');
+    const grown = before + OBJECTIVE_SUFFIX;
+    assert(Buffer.byteLength(grown) < 4000, 'Decide: grown objective must stay under 4000 bytes (UI-24)');
+    await objective.fill(grown);
+    const saving = page.waitForResponse(
+      (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+      {timeout: 120000}
+    );
+    const explored = page.waitForResponse(
+      (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+      {timeout: 300000}
+    );
+    await spaces.getByRole('button', {name: 'Update proposal'}).click();
+    assert.equal((await saving).status(), 201, 'Decide: objective-update save must return 201');
+    assert.equal((await explored).status(), 201, 'Decide: objective-update explore must return 201');
+    await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+    await shot(page, `${out}/decide-objective-updated.png`);
+    const questionsAfter = spaces.locator('section[aria-label="Questions needing your answer"] article');
+    assert(
+      (await questionsAfter.count()) > 0,
+      'Decide: after the objective update the fixed producer must render "Questions needing your answer"'
+    );
+  }
+}
+
+async function phaseAnswerQuestions(page: Page, out: string): Promise<void> {
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  const challenges = spaces.locator('section[aria-label="Questions needing your answer"] article');
+  const count = await challenges.count();
+  assert(count > 0, 'Decide-answers: no questions to answer; nothing to do');
+  for (let i = 0; i < count; i++) {
+    const article = challenges.nth(i);
+    const text = ((await article.textContent()) ?? '').replace(/\s+/g, ' ');
+    await article.scrollIntoViewIfNeeded();
+    if (/first version within the existing repository/i.test(text)) {
+      // Recorded answer: keep the first version in the existing repository.
+      await article.getByRole('button', {name: /^Use recommended resolution/}).click();
+    } else if (/first user action/i.test(text)) {
+      // Recorded answer: the equipment-request first action + success text.
+      await article.getByLabel(/^Explain a correction to /).fill(DECIDE_CORRECTION);
+    } else {
+      assert.fail(`Decide-answers: unrecorded product question, refusing to invent an answer: ${text.slice(0, 300)}`);
+    }
+  }
+  await shot(page, `${out}/decide-answers-given.png`);
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 120000}
+  );
+  const explored = page.waitForResponse(
+    (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+    {timeout: 300000}
+  );
+  await spaces.getByRole('button', {name: 'Update proposal'}).click();
+  assert.equal((await saving).status(), 201, 'Decide-answers: answer save must return 201');
+  assert.equal((await explored).status(), 201, 'Decide-answers: answer explore must return 201');
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  await shot(page, `${out}/decide-answers-updated.png`);
 }
 
 async function phaseBind(page: Page, out: string): Promise<string> {
@@ -408,6 +486,7 @@ async function main() {
     }
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
+    if (only === 'all' || only === 'answers') await phaseAnswerQuestions(s.page, dir);
     let revision = '';
     if (only === 'all' || only === 'plan') {
       revision = await phaseBind(s.page, dir);
