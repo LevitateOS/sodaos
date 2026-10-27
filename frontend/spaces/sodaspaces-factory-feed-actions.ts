@@ -29,7 +29,7 @@ export function actionIcon(action: string): TemplateResult {
 export function feedItemTone(state: string | undefined): string {
   if (!state) return 'pending';
   if (/fail|blocked|stuck|missing|incomplete|stale|reject|disput|conflict|unknown|not\b|unverified|waiting/i.test(state)) return 'attention';
-  if (/pass|verified|complete|resolved|accepted|done/i.test(state)) return 'positive';
+  if (/pass|verified|complete|resolved|accepted|done|succeed|finished/i.test(state)) return 'positive';
   return 'pending';
 }
 

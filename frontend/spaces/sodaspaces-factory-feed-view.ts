@@ -102,6 +102,25 @@ export function describePostHeader(entry: FeedEntry, repository: FeedRepositoryR
   };
 }
 
+// Plain chip words for the recorded system statuses shown on stage. A run
+// ending is not the work being done, and an assignment only means the work
+// started; anything unlisted that failed still reads as needing attention.
+const systemStatusLabels: Readonly<Record<string, string>> = {
+  'run:succeeded': 'Run ended',
+  'run:failed': 'Failed',
+  'run:cancelled': 'Stopped',
+  'dispatch:assigned': 'Started',
+  'intent:draft': 'Draft',
+  'intent:accepted': 'Accepted',
+  'intent:declined': 'Declined',
+};
+
+function systemStatusLabel(status: string | undefined): string {
+  const label = status !== undefined && Object.hasOwn(systemStatusLabels, status) ? systemStatusLabels[status] : undefined;
+  if (label !== undefined) return label;
+  return classifyFeedStatus(status) === 'failure' ? 'Needs attention' : 'Update';
+}
+
 function readableStatus(entry: FeedEntry): string {
   const communication = entry.payload?.communication;
   if (communication) {
@@ -125,7 +144,7 @@ function readableStatus(entry: FeedEntry): string {
       stuck: 'Diagnosis needed',
       record_decision: 'Decision recorded',
       finish_incomplete: 'Incomplete',
-      system: (entry.status ?? 'Factory update').replaceAll(':', ' · ').replaceAll('_', ' '),
+      system: systemStatusLabel(entry.status),
       library_maintenance: (entry.status ?? 'Library updated').replaceAll(':', ' · ').replaceAll('_', ' '),
       artifact: 'Artifact available',
       journey: 'Journey observation recorded',
@@ -135,8 +154,10 @@ function readableStatus(entry: FeedEntry): string {
     return labels[communication.kind];
   }
   const status = entry.status ?? '';
+  const systemLabel = Object.hasOwn(systemStatusLabels, status) ? systemStatusLabels[status] : undefined;
+  if (systemLabel !== undefined) return systemLabel;
   if (/cancelled|canceled|stopped/.test(status)) return 'Stopped';
-  if (/needs-human|request-changes|clarify/.test(status)) return 'Needs your attention';
+  if (/needs-human|request-changes|clarify/.test(status)) return 'Needs attention';
   if (classifyFeedStatus(status) === 'failure') return 'Needs attention';
   if (status === 'route:discussion') return 'Comment';
   if (status === 'route:existing_work') return 'Linked to work';
@@ -968,7 +989,7 @@ export function renderFeedPost(
   return html`<article
     class="soda-feed-post"
     id=${'feed-' + model.header.key.replace(':', '-')}
-    data-status=${model.family.statusClass}
+    data-status=${model.family.neutral ? 'ended' : model.family.statusClass}
     data-role=${model.header.role.toLowerCase().replace(/[\s-]+/g, '_')}
   >
     ${renderPostHeader(model.header, assetBase)}
