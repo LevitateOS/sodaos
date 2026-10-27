@@ -705,13 +705,20 @@ export class SodaSpaces extends LitElement {
   private showProjectView(view: 'feed' | 'app' | 'work') {
     if (this.stale || !this.actor || !this.selectedSpace) return;
     if (view === 'app') this.applicationOwner = `${this.actor.id}:${this.project}`;
+    const changed = this.view !== view;
     this.view = view;
+    // Feed, App and Work share one scroller; each view opens at its top.
+    if (changed) void this.updateComplete.then(() => this.scrollProjectContentTop());
     try {
       window.localStorage.setItem(`soda-project-view:v1:${this.actor.id}:${this.project}`, view);
       this.rememberProjectDelivery();
     } catch {
       /* The current view remains usable without browser storage. */
     }
+  }
+  private scrollProjectContentTop() {
+    this.querySelector<HTMLElement>('.soda-project-content')?.scrollTo({top: 0});
+    this.querySelector<HTMLElement>('#sodaspaces-data')?.scrollTo({top: 0});
   }
   private rememberProjectDelivery() {
     if (!this.actor || !id(this.project)) return;
