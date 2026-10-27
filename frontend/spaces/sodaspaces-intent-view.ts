@@ -370,7 +370,13 @@ function blockedCheckSummary(view: IntentView) {
 }
 function refreshExploration(view: IntentView) {
   if (view.revision?.state !== 'draft') return '';
-  return html`<button ?disabled=${view.busy || view.blocked} @click=${view.revise}>Re-explore ideas</button>`;
+  // A live planning run would be superseded by re-exploring, so wait for it.
+  return html`<button
+    ?disabled=${view.busy || view.blocked || view.plan?.state === 'pending'}
+    @click=${view.revise}
+  >
+    Re-explore ideas
+  </button>`;
 }
 function reviewLead(view: IntentView) {
   const plan = view.plan;
@@ -651,7 +657,8 @@ function continueCaption(view: IntentView): string {
 }
 function reviewNextStep(view: IntentView): string {
   if (view.dirty) return 'Save your changes with Update proposal before continuing.';
-  if (view.plan?.state === 'pending') return 'Planning is running. You can leave and return to this saved request.';
+  // The status line and the Planning… primary already say a run is live.
+  if (view.plan?.state === 'pending') return '';
   if (view.plan?.state === 'attention')
     return view.plan.attention
       ? 'Review the planning question above and update your direction before continuing.'
