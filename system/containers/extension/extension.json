@@ -15,11 +15,11 @@
       "subroutes": [
         {
           "pattern": "new",
-          "title": "New Project"
+          "title": "New request"
         },
         {
           "pattern": "requests/{request}",
-          "title": "Build request"
+          "title": "Request"
         }
       ]
     },
