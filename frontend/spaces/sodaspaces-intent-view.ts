@@ -573,6 +573,18 @@ function primaryDirectionButton(view: IntentView) {
     ${continueCaption(view)}
   </button>`;
 }
+function planStatusText(view: IntentView, plan: IntentPlanStatus): string {
+  return (plan.walkthroughs && planAcceptBlock(view)) || planText(plan);
+}
+// planNextStep is the next-step line beside the planning primary; it stays
+// empty when it would only repeat the status line above it.
+function planNextStep(view: IntentView): string {
+  const next = reviewNextStep(view);
+  return view.plan && next === planStatusText(view, view.plan) ? '' : next;
+}
+// The planning primary (Check walkthrough, Accept and build, ...) sits in
+// Draft planning for every bound draft, so a completed plan's decision is
+// not left at the end of the review.
 function planSection(view: IntentView) {
   const revision = view.revision;
   if (!revision || revision.repository === '0') return '';
@@ -582,15 +594,10 @@ function planSection(view: IntentView) {
   return html`<section aria-label="Draft planning">
     <h3>Build preparation</h3>
     ${planNoticeText(view) ? html`<p role="status">${planNoticeText(view)}</p>` : ''}
-    ${view.plan ? html`<p role="status">${(view.plan.walkthroughs && planAcceptBlock(view)) || planText(view.plan)}</p>` : ''}
+    ${view.plan ? html`<p role="status">${planStatusText(view, view.plan)}</p>` : ''}
     ${view.plan ? planReason(view.plan) : ''}
-    ${view.plan?.state === 'completed' && !view.plan.walkthroughs ? html`<p>This saved plan has no request-specific walkthrough. Author one in a new plan before accepting.</p>` : ''}
-    ${
-      view.plan?.state === 'completed'
-        ? ''
-        : html`<p class="next-step" aria-live="polite">${reviewNextStep(view)}</p>
-            <div class="actions">${primaryDirectionButton(view)}</div>`
-    }
+    <p class="next-step" aria-live="polite">${planNextStep(view)}</p>
+    <div class="actions">${primaryDirectionButton(view)}</div>
     <div class="actions">
       <button @click=${view.prepareProject} ?disabled=${view.busy || view.blocked}>Prepare project</button>
       <button @click=${view.refreshPlanStatus} ?disabled=${view.busy || view.blocked}>Refresh status</button>
@@ -715,10 +722,9 @@ export function reviewIntent(view: IntentView) {
     ${(() => {
       if (revision.state === 'accepted') return '';
       // planSection already renders the primary action for a repository-bound
-      // draft without a completed plan; every other non-accepted case keeps
-      // the footer primary so unbound and dirty requests stay actionable.
-      const movedPrimary =
-        revision.state === 'draft' && revision.repository !== '0' && view.plan?.state !== 'completed';
+      // draft; every other non-accepted case keeps the footer primary so
+      // unbound requests stay actionable.
+      const movedPrimary = revision.state === 'draft' && revision.repository !== '0';
       if (movedPrimary)
         return html`<div class="actions">
           <button @click=${view.decline} ?disabled=${view.busy || view.blocked}>Decline proposal</button>
