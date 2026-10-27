@@ -783,6 +783,15 @@ export class SodaIntent extends LitElement {
           composed: true,
         })
       );
+      // Land on the review heading: a resume from the saved list must not
+      // leave focus on the body with the heading scrolled out of view.
+      void this.updateComplete.then(() => {
+        if (this.loadedRequest !== id) return;
+        const heading = this.shadowRoot?.querySelector<HTMLElement>('section.intent-review h2');
+        if (!heading) return;
+        heading.scrollIntoView({block: 'start'});
+        heading.focus({preventScroll: true});
+      });
     } catch (error) {
       this.resumeFailed(id, controller, error);
     } finally {
