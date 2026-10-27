@@ -675,7 +675,7 @@ function reviewNextStep(view: IntentView): string {
     if (!view.plan.walkthroughs)
       return 'This saved plan has no request-specific walkthrough. Author one in a new plan before accepting.';
     if (!view.plan.review) return 'Review the walkthrough, then check it before authorizing work.';
-    return 'Choose Accept and build when you are satisfied. App delivery is tracked separately.';
+    return 'App delivery is tracked separately from this plan.';
   }
   return 'Your request and choices are saved. Continue to planning when project preparation is ready.';
 }
