@@ -205,8 +205,13 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
   );
   // Answer the material assumption through the product's own correction box,
   // then Update proposal. Recorded owner correction (equipment spirit) is above.
+  // The box lives inside the closed "Recorded choices (1)" disclosure: open it first.
   const correction = spaces.getByLabel(/^Correct the automatic choice:/);
   if ((await correction.count()) > 0) {
+    if (!(await correction.first().isVisible())) {
+      await spaces.locator('summary', {hasText: 'Recorded choices'}).first().click();
+      await correction.first().waitFor({state: 'visible', timeout: 15000});
+    }
     const current = await correction.first().inputValue();
     if (!current.trim()) {
       await correction.first().fill(DECIDE_CORRECTION);
