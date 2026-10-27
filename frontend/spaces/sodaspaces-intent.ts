@@ -57,7 +57,6 @@ export class SodaIntent extends LitElement {
     actor: {type: String},
     request: {type: String},
     project: {type: String},
-    repository: {type: String},
     exploration: {state: true},
     objective: {state: true},
     savedRequests: {state: true},
@@ -272,9 +271,6 @@ export class SodaIntent extends LitElement {
   declare actor: string;
   declare request: string;
   declare project: string;
-  // Repository the surrounding project route binds (UI-12d). Used only for
-  // the first save of a fresh draft; a saved revision keeps its own binding.
-  declare repository: string;
   declare exploration: Exploration | undefined;
   declare savedRequests: SavedRequest[];
   declare savedLoaded: boolean;
@@ -365,7 +361,6 @@ export class SodaIntent extends LitElement {
     this.actor = '';
     this.request = '';
     this.project = '';
-    this.repository = '';
     this.exploration = undefined;
     this.savedRequests = [];
     this.savedLoaded = false;
@@ -2288,7 +2283,7 @@ export class SodaIntent extends LitElement {
     }, 'Raising allowance…');
   };
   private async explore(signal: AbortSignal) {
-    const saved = await this.save('draft', this.draftRepository(), signal);
+    const saved = await this.save('draft', this.revision?.repository || '0', signal);
     if (!(await this.ensureAllowance(saved.intent, signal))) return;
     try {
       const response = await this.call(
@@ -2339,15 +2334,11 @@ export class SodaIntent extends LitElement {
         'The derived proposal failed review validation. Your description is saved; review the approach and explore again.';
     else this.error = 'Exploration could not run. Your description is saved; try again.';
   }
-  private draftRepository(): string {
-    if (this.revision) return this.revision.repository || '0';
-    return this.repository || '0';
-  }
   private describe = () => {
     if (this.objective.trim()) void this.perform((signal) => this.explore(signal));
   };
   private saveCurrent = async (signal: AbortSignal) => {
-    const saved = await this.save('draft', this.draftRepository(), signal);
+    const saved = await this.save('draft', this.revision?.repository || '0', signal);
     this.dirty = false;
     this.dispatchEvent(
       new CustomEvent('intent-saved', {
