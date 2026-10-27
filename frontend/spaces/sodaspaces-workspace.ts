@@ -426,8 +426,12 @@ export class SodaSpaces extends LitElement {
     this.factory = factory;
     this.storageKey = '';
     this.routePathname = window.location.pathname;
-    if (context.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix()))
+    if (context.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix())) {
       this.pendingNewRoute = true;
+      // A direct load or reload of a project's new-request route keeps the
+      // request bound to that project, as the in-project New button does.
+      if (requestedProject && id(requestedProject)) this.workRepository = requestedProject;
+    }
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     // Host lifecycle only (NFX-D05): no pagehide/pageshow/visibilitychange
     // self-interpretation. The entry forwards host update/suspend/resume/
@@ -495,7 +499,10 @@ export class SodaSpaces extends LitElement {
     const requestedProject = new URLSearchParams(
       (route ? new URL(route, location.href) : new URL(location.href)).search
     ).get('repository');
-    if (kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
+    if (kind === 'page' && requestedProject && id(requestedProject)) {
+      this.project = requestedProject;
+      if (isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.workRepository = requestedProject;
+    }
     this.presentView(kind, entered, repositoryId);
     this.armNewRoute(kind, entered);
     this.requestUpdate();
