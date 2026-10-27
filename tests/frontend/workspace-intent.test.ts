@@ -1214,7 +1214,7 @@ test('explicit retry against live attention posts nothing and asks for the decis
   );
   await planning.getByText('Planning details', {exact: true}).click();
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
-  await planning.getByText('Planning needs a product decision before issues can be proposed.', {exact: true}).waitFor();
+  await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
   assert.equal(
     await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length),
     postsBefore
@@ -1334,7 +1334,7 @@ test('immediate attention plan asks for the decision without a running text', as
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   await page.waitForFunction(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length > 0);
   const planning = page.locator('section[aria-label="Draft planning"]');
-  await planning.getByText('Planning needs a product decision before issues can be proposed.', {exact: true}).waitFor();
+  await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
   assert.equal(
     await planning.getByText('Planning is running. The status below follows the run.', {exact: true}).count(),
     0

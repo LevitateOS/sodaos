@@ -2551,7 +2551,12 @@ export class SodaIntent extends LitElement {
         () => this.call(path, undefined, signal),
         revision.id
       );
-      this.planNotice = outcome.notice;
+      // A settled attention outcome uses the one shared attention wording;
+      // an unconfirmed start keeps its own notice.
+      this.planNotice =
+        outcome.status?.state === 'attention' && outcome.notice.startsWith('Planning needs a product decision')
+          ? attentionText(outcome.status)
+          : outcome.notice;
       this.generationNotice = '';
       if (outcome.status !== undefined) {
         this.plan = outcome.status;

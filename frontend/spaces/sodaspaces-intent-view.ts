@@ -509,7 +509,16 @@ function planNoticeText(view: IntentView): string {
 export function attentionText(status: IntentPlanStatus): string {
   return status.attention
     ? `Planning needs a product decision: ${status.attention}`
-    : 'Planning needs a product decision before issues can be proposed.';
+    : 'Planning stopped before it could propose work. Your request is saved.';
+}
+// planReason keeps the recorded cause of a stopped plan reachable without
+// putting internal text on the main surface.
+function planReason(status: IntentPlanStatus) {
+  if (!status.summary || !['attention', 'failed', 'cancelled'].includes(status.state)) return '';
+  return html`<details class="plan-reason">
+    <summary>Technical reason</summary>
+    <p>${status.summary}</p>
+  </details>`;
 }
 // stateLabel is the short state chip text for the review heading; '' means
 // no chip. It never reports a state further along than the plan status.
@@ -563,6 +572,7 @@ function planSection(view: IntentView) {
     <h3>Build preparation</h3>
     ${planNoticeText(view) ? html`<p role="status">${planNoticeText(view)}</p>` : ''}
     ${view.plan ? html`<p role="status">${(view.plan.walkthroughs && planAcceptBlock(view)) || planText(view.plan)}</p>` : ''}
+    ${view.plan ? planReason(view.plan) : ''}
     ${view.plan?.state === 'completed' && !view.plan.walkthroughs ? html`<p>This saved plan has no request-specific walkthrough. Author one in a new plan before accepting.</p>` : ''}
     ${
       view.plan?.state === 'completed'
@@ -621,7 +631,9 @@ function reviewNextStep(view: IntentView): string {
   if (view.dirty) return 'Save your changes with Update proposal before continuing.';
   if (view.plan?.state === 'pending') return 'Planning is running. You can leave and return to this saved request.';
   if (view.plan?.state === 'attention')
-    return 'Review the planning question above and update your direction before continuing.';
+    return view.plan.attention
+      ? 'Review the planning question above and update your direction before continuing.'
+      : 'To plan again, narrow or correct the Desired outcome above and choose Update proposal. Planning again uses planning calls.';
   if (view.plan?.review?.consistency?.mismatches.length)
     return 'Correct or clarify the request above for the walkthrough findings (your objective and choices stay), then plan again and check before authorizing work.';
   if (!view.revision?.tasks.length)
