@@ -1665,7 +1665,10 @@ export class SodaSpaces extends LitElement {
     });
   }
   private back() {
-    this.view = this.binding?.kind === 'page' ? this.previousProjectView : 'terminal';
+    // Through showProjectView so a settings visit that switched project still
+    // reopens the remembered view for the current project, at its top.
+    if (this.binding?.kind === 'page') this.showProjectView(this.previousProjectView);
+    else this.view = 'terminal';
     this.choosingPane = undefined;
     this.restoreFocus();
     this.markViewed();
