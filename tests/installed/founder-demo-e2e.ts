@@ -266,7 +266,8 @@ async function phaseBind(page: Page, out: string): Promise<string> {
 
 async function phasePlan(page: Page, out: string, intent: string, revision: string): Promise<void> {
   const spaces = await spacesContent(page);
-  const deadline = Date.now() + PLAN_TIMEOUT_MS;
+  const started = Date.now();
+  const deadline = started + PLAN_TIMEOUT_MS;
   for (;;) {
     assert(Date.now() < deadline, 'Plan: finite planning observation expired; retain the admitted run');
     const refreshed = page.waitForResponse(
@@ -280,11 +281,53 @@ async function phasePlan(page: Page, out: string, intent: string, revision: stri
     assert.equal(plan.revision, revision, 'Plan: refresh must report the bound revision');
     if (plan.state !== 'pending') {
       await shot(page, `${out}/plan-${plan.state}.png`);
+      await writeFile(`${out}/plan.json`, JSON.stringify({intent, revision, state: plan.state, startedUnixMS: started, endedUnixMS: Date.now(), plan}, null, 2));
       assert.equal(plan.state, 'completed', `Plan: planning ended in state "${plan.state}", not completed`);
       return;
     }
     await page.waitForTimeout(5000);
   }
+}
+
+/** Every Factory run on the journey must be Muse muse-spark-1.3 with
+ * contributor mode on (per the installed Factory policy). Fail naming the
+ * exact provenance text found when the markers are absent. */
+export function assertMuseProvenance(details: string, where: string): void {
+  assert(
+    /muse/i.test(details) && /muse-spark-1\.3/.test(details) && /contributor/i.test(details),
+    `${where}: expected Muse muse-spark-1.3 contributor provenance, found: ${details.slice(0, 500)}`
+  );
+}
+
+async function phaseBuildFollow(page: Page, out: string, intent: string): Promise<void> {
+  const started = Date.now();
+  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+  await nativeSpacesMount(page);
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
+  await page.waitForTimeout(2000);
+  const text = await visibleText(page, 8000);
+  assert(
+    text.includes(intent.slice(0, 8)) || /Run ended|Started|Run problem|needs your decision/i.test(text),
+    `Build: no Factory run post visible yet for the journey in Feed (page: ${text.slice(0, 300)})`
+  );
+  await shot(page, `${out}/build-feed.png`);
+  // Provenance comes from the run post's Technical details on the VM; assert
+  // it here once a run post exists. Until then the text scan above fails first.
+  const details = await page.evaluate(() => {
+    const parts: string[] = [];
+    const scan = (root: Document | ShadowRoot) => {
+      for (const d of Array.from(root.querySelectorAll('details'))) {
+        const t = (d.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
+        if (/muse|harness|model|contributor|assignment|run/i.test(t)) parts.push(t);
+      }
+      for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
+    };
+    scan(document);
+    return parts.join('\n---\n');
+  });
+  await writeFile(`${out}/build-provenance.txt`, `started=${new Date(started).toISOString()}\n${details.slice(0, 4000)}\n`);
+  assertMuseProvenance(details, 'Build');
 }
 
 async function phaseCheck(page: Page, out: string, intent: string): Promise<void> {
@@ -362,10 +405,11 @@ async function main() {
     }
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
-    if (only === 'all' || only === 'build' || only === 'app' || only === 'improve') {
+    if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
+    if (only === 'all' || only === 'app' || only === 'improve') {
       await shot(s.page, `${dir}/${only}-observed.png`);
       const text = await visibleText(s.page, 2000);
-      assert.fail(`${only}: Build/Use/Improve follow-up is not automated yet on the installed VM (page: ${text.slice(0, 300)})`);
+      assert.fail(`${only}: App/Improve follow-up is not automated yet on the installed VM (page: ${text.slice(0, 300)})`);
     }
     report.ok = true;
   } catch (error) {
