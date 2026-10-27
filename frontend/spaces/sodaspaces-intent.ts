@@ -98,7 +98,8 @@ export class SodaIntent extends LitElement {
       max-width: 720px;
       margin: auto;
     }
-    .intent-review {
+    .intent-review,
+    .intent-entry {
       text-align: left;
     }
     .intent-entry {
