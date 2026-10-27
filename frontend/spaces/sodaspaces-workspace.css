@@ -555,7 +555,7 @@ soda-factory-feed { display: block; max-width: 880px; margin-inline: auto; }
 .soda-feed-card > section[data-feed-family]:has(> .soda-feed-rows):has(> .soda-feed-checks), .soda-feed-card > section[data-feed-family=issue]:has(> .soda-feed-rows):has(> .soda-feed-steps) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .soda-feed-card > section[data-feed-family=issue]:has(> .soda-feed-rows) > .soda-feed-steps { grid-column: auto; }
 .soda-feed-card > section[data-feed-family] > * { min-width: 0; margin: 0; }
-.soda-feed-card :is(.soda-feed-headline, .soda-feed-source-links, .soda-feed-record-details, .soda-feed-brief, .soda-feed-steps, .soda-feed-beforeafter) { grid-column: 1 / -1; }
+.soda-feed-card :is(.soda-feed-headline, .soda-feed-source-links, .soda-feed-record-details, .soda-feed-brief, .soda-feed-steps, .soda-feed-beforeafter, .soda-feed-technical-details) { grid-column: 1 / -1; }
 .soda-feed-headline { font: var(--soda-font-heading); letter-spacing: -.015em; }
 .soda-feed a { color: var(--soda-page-link); text-underline-offset: 3px; }
 .soda-feed a:hover { text-decoration-thickness: 2px; }
@@ -591,8 +591,8 @@ soda-factory-feed { display: block; max-width: 880px; margin-inline: auto; }
 .soda-feed-card > section[data-feed-family] > .soda-feed-block-note { grid-column: 1 / -1; margin-top: -6px; }
 .soda-feed-source-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .soda-feed-card .soda-feed-source-links a { margin: 0; }
-.soda-feed :is(.soda-feed-record-details, .soda-feed-replies, .soda-feed-thread) > summary { width: fit-content; padding-block: 4px; font: var(--soda-font-caption); color: var(--soda-page-muted); cursor: pointer; }
-.soda-feed :is(.soda-feed-record-details, .soda-feed-replies, .soda-feed-thread)[open] > summary { margin-bottom: 12px; color: var(--soda-page-text); }
+.soda-feed :is(.soda-feed-record-details, .soda-feed-replies, .soda-feed-thread, .soda-feed-technical-details) > summary { width: fit-content; padding-block: 4px; font: var(--soda-font-caption); color: var(--soda-page-muted); cursor: pointer; }
+.soda-feed :is(.soda-feed-record-details, .soda-feed-replies, .soda-feed-thread, .soda-feed-technical-details)[open] > summary { margin-bottom: 12px; color: var(--soda-page-text); }
 .soda-feed-card [aria-label="Decision and attention"] { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--soda-page-warning-edge); background: var(--soda-page-warning-bg); color: var(--soda-page-warning); }
 .soda-feed-card [aria-label="Decision and attention"] p { margin: 0; }
 .soda-feed-outcome { padding: 12px; margin-block: 12px; border: 1px solid var(--soda-feed-edge); background: var(--soda-feed-tint); }
