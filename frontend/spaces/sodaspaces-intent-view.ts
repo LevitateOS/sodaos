@@ -175,7 +175,7 @@ export function describeIntent(view: IntentView) {
     <label
       ><span class="sr-only">Describe what you want to build</span
       ><textarea
-        rows="7"
+        rows="5"
         maxlength="16000"
         placeholder="Describe the outcome you want…"
         .value=${view.objective}
@@ -183,6 +183,14 @@ export function describeIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
+    ${entryActions(view)}
+    ${
+      !view.objective.trim() && !view.busy && !view.blocked
+        ? html`<p>Enter a description above to enable saving and exploring ideas.</p>`
+        : ''
+    }
+    <p>${view.saveNote}</p>
+    <p>Save a draft to return to it later. Explore ideas saves your description and uses the planning limits below.</p>
     <div class="context">
       <label
         >Department<select
@@ -203,15 +211,7 @@ export function describeIntent(view: IntentView) {
         New department
       </button>
     </div>
-    ${bounds(view)} ${entryActions(view)}
-    ${
-      !view.objective.trim() && !view.busy && !view.blocked
-        ? html`<p>Enter a description above to enable saving and exploring ideas.</p>`
-        : ''
-    }
-    <p>${view.saveNote}</p>
-    <p>Save a draft to return to it later. Explore ideas saves your description and uses the planning limits above.</p>
-    ${savedRequests(view)}
+    ${bounds(view)} ${savedRequests(view)}
   </section>`;
 }
 function ideaBasis(idea: ProductIdea): string {

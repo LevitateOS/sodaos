@@ -103,7 +103,7 @@ export class SodaIntent extends LitElement {
       text-align: left;
     }
     .intent-entry {
-      padding-block: clamp(1rem, 8vh, 6rem);
+      padding-block: clamp(0.5rem, 3vh, 2rem);
     }
     h2 {
       font: var(--soda-font-title, 32px sans-serif);
