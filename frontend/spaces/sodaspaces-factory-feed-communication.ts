@@ -19,13 +19,33 @@ const defaultPresentation: Record<FeedCommunication['kind'], string> = {
   journey: 'journey', diagnosis: 'diagnosis', repair_draft: 'comparison',
 };
 
+// Audience captions for the factory system components: what happened, in the
+// reader's words, instead of the catalog's internal component names.
+const audienceCaption: Readonly<Record<string, string>> = {
+  F01: 'Preparation',
+  F02: 'Work started',
+  F05: 'Work created',
+  F06: 'Merged',
+  F07: 'Ready',
+  F08: 'Run stopped',
+  F09: 'Run problem',
+  F10: 'App ready',
+  F11: 'Proposal',
+};
+
+function componentCaption(c: FeedCommunication, label: string | undefined): string | undefined {
+  if (c.intentSource?.state === 'draft') return 'Proposal (draft) · not accepted';
+  const id = c.componentId;
+  return (id !== undefined && Object.hasOwn(audienceCaption, id) ? audienceCaption[id] : undefined) ?? label;
+}
+
 export function renderFeedCommunication(c: FeedCommunication, entryKey: string, request?: FeedArtifactRequest): TemplateResult {
   const component = feedComponent(c.componentId);
   const presentation = component?.presentation ?? defaultPresentation[c.kind];
   const action = communicationAction(c, presentation);
   const extraBalance = !['progress', 'incomplete', 'blocker', 'result', 'merge', 'brief'].includes(action) && (c.completed.length > 0 || c.remaining.length > 0);
   return html`<div class="soda-feed-communication" data-feed-component=${component?.id ?? c.kind} data-presentation=${presentation} data-communication=${c.kind}>
-    <p class="soda-feed-component-caption">${actionIcon(action)}${component?.label ?? defaultPresentation[c.kind].replace(/^./, (letter) => letter.toUpperCase())}${c.scope && action !== 'knowledge' ? html`<span> · ${c.scope}</span>` : ''}</p>
+    <p class="soda-feed-component-caption">${actionIcon(action)}${componentCaption(c, component?.label) ?? defaultPresentation[c.kind].replace(/^./, (letter) => letter.toUpperCase())}${c.scope && action !== 'knowledge' ? html`<span> · ${c.scope}</span>` : ''}</p>
     <h3>${c.title}</h3>
     ${['brief', 'knowledge', 'discussion', 'result'].includes(action) || c.summary === c.title ? '' : html`<p class="soda-feed-component-summary">${c.summary}</p>`}
     ${c.severity && action !== 'finding' ? html`<p class="soda-feed-severity" data-severity=${c.severity}>${c.severity === 'critical' ? 'Critical concern' : c.severity === 'warning' ? 'Attention needed' : 'For your information'}</p>` : ''}
@@ -39,7 +59,7 @@ export function renderFeedCommunication(c: FeedCommunication, entryKey: string, 
     ${action !== 'question' ? actionList('Options', c.options) : ''}
     ${(action !== 'decision' || c.items.length > 0) && c.evidenceRefs.length ? html`<details class="soda-feed-evidence-refs"><summary>Evidence · ${c.evidenceRefs.length} ${c.evidenceRefs.length === 1 ? 'reference' : 'references'}</summary><ul>${c.evidenceRefs.map((ref) => html`<li><code>${ref}</code></li>`)}</ul></details>` : ''}
     ${c.libraryItemId ? html`<p class="soda-feed-library-reference"><button type="button" data-library-item=${c.libraryItemId} data-library-entry=${entryKey}>Open in project library${c.libraryRevision ? ` · revision ${c.libraryRevision}` : ''}</button></p>` : ''}
-    ${c.intentSource ? html`<div class="soda-feed-source-reference">Recorded choice · ${c.intentSource.state} · owner ${c.intentSource.owner}<br><button type="button" data-intent-source=${c.intentSource.intent} data-intent-revision=${c.intentSource.revision} data-source-entry=${entryKey}>Open build request</button><details><summary>Source revision</summary><code>${c.intentSource.revision}</code>${c.intentSource.predecessor ? html`<p>Previous revision: <code>${c.intentSource.predecessor}</code></p>` : ''}</details></div>` : ''}
+    ${c.intentSource ? html`<div class="soda-feed-source-reference">${c.intentSource.state === 'draft' ? 'Proposed choice' : 'Recorded choice'} · ${c.intentSource.state}<br><button type="button" data-intent-source=${c.intentSource.intent} data-intent-revision=${c.intentSource.revision} data-source-entry=${entryKey}>Open build request</button><details><summary>Source revision</summary><code>${c.intentSource.revision}</code>${c.intentSource.predecessor ? html`<p>Previous revision: <code>${c.intentSource.predecessor}</code></p>` : ''}</details></div>` : ''}
     ${c.planSource ? html`<details class="soda-feed-source-reference"><summary>Recorded plan · generation ${c.planSource.generation}</summary><p>Plan: <code>${c.planSource.plan}</code></p><p>Assignment: <code>${c.planSource.attemptRoot}</code></p><p>Source commit: <code>${c.planSource.source}</code></p><p>Plan digest: <code>${c.planSource.digest}</code></p><p>Recording this revision does not itself admit or implement the plan.</p></details>` : ''}
     ${c.planningSource ? html`<details class="soda-feed-source-reference"><summary>Recorded strategy${c.planningSource.provisional ? ' · provisional' : ''}</summary><p>Controller choice: ${c.planningSource.strategy || 'None'} · ${c.planningSource.outcome}</p><p>Snapshot: <code>${c.planningSource.snapshot}</code></p><p>Record digest: <code>${c.planningSource.recordDigest}</code></p>${c.planningSource.judgment['selected'] ? html`<details><summary>Actual JEV answer</summary><pre>${JSON.stringify(c.planningSource.judgment, null, 2)}</pre></details>` : html`<p>No JEV answer was recorded.</p>`}<p>Execution and verification remain separate records.</p></details>` : ''}
     ${c.componentId === 'F10' ? html`<button type="button" data-feed-open-app=${entryKey}>Open project app</button>` : ''}

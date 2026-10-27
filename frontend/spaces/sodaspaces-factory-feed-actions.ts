@@ -82,10 +82,12 @@ function reason(c: FeedCommunication, label = 'Why'): TemplateResult | string {
 
 function decision(c: FeedCommunication): TemplateResult {
   const jev = c.componentId === 'F03' || c.componentId === 'F04';
+  // A draft build request is a proposal, not a recorded decision.
+  const draft = c.intentSource?.state === 'draft';
   return html`<div class="soda-action-decision">
     ${c.items.length ? html`<section class="soda-decision-inputs"><h4>Considered</h4>${actionItems(c.items, 'options', c.kind !== 'system')}</section>` : c.evidenceRefs.length ? html`<section class="soda-decision-inputs">${actionList('Evidence considered', c.evidenceRefs)}</section>` : ''}
-    <div class="soda-decision-route"><span aria-hidden="true">↓</span><strong>${jev ? 'JEV' : 'Decision'}</strong><span aria-hidden="true">↓</span></div>
-    <section class="soda-decision-choice"><h4>${c.kind === 'suggest' ? 'Proposed choice' : 'Recorded choice'}</h4><p>${c.decision ?? 'No choice recorded'}</p>${reason(c)}</section>
+    <div class="soda-decision-route"><span aria-hidden="true">↓</span><strong>${jev ? 'JEV' : draft ? 'Proposal' : 'Decision'}</strong><span aria-hidden="true">↓</span></div>
+    <section class="soda-decision-choice"><h4>${c.kind === 'suggest' || draft ? 'Proposed choice' : 'Recorded choice'}</h4><p>${c.decision ?? 'No choice recorded'}</p>${reason(c)}</section>
     ${c.alternatives.length ? html`<details class="soda-action-more"><summary>Other options considered · ${c.alternatives.length}</summary>${actionList('Alternatives', c.alternatives)}</details>` : ''}
     ${nextStep(c)}
   </div>`;
