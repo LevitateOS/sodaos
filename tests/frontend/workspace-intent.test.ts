@@ -1389,7 +1389,7 @@ test('walkthrough findings block acceptance until the direction is corrected', a
   await allowance.locator('summary').click();
   await allowance
     .getByText(
-      'Typing a correction is free; submitting the change re-explores and can use planning calls, and checking a fresh walkthrough uses calls too. Unchanged saved judgments are reused, and a limits-only Update proposal just saves without re-exploring.',
+      'Editing text uses no calls; submitting the change re-explores and can use planning calls, and checking a fresh walkthrough uses calls too. Unchanged saved judgments are reused, and a limits-only Update proposal just saves without re-exploring.',
       {exact: true}
     )
     .waitFor();
@@ -2596,7 +2596,7 @@ test('review top-up funds an exhausted allowance without touching the draft', as
     'accept'
   );
   await page.locator('details[aria-label="Planning allowance"] > summary').click();
-  await page.getByText('Planning allowance: 8 of 8 calls used.', {exact: true}).waitFor();
+  await page.getByText('Planning budget: 8 of 8 calls used', {exact: true}).waitFor();
   const revisions = await revisionPostCount(page);
   await page.getByLabel('Raise to', {exact: true}).fill('24');
   await page.getByRole('button', {name: 'Raise allowance', exact: true}).click();
@@ -2688,7 +2688,7 @@ test('unchanged raise posts nothing and asks nothing again', async (t) => {
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
   await page.locator('details[aria-label="Planning allowance"] > summary').click();
-  await page.getByText('Planning allowance: 0 of 8 calls used.', {exact: true}).waitFor();
+  await page.getByText('Planning budget: 0 of 8 calls used', {exact: true}).waitFor();
   await page.getByLabel('Raise to', {exact: true}).fill('8');
   await page.getByRole('button', {name: 'Raise allowance', exact: true}).click();
   await page.getByText('Planning allowance is unchanged at 8 calls.', {exact: true}).waitFor();
@@ -2723,7 +2723,7 @@ test('resumed review loads the planning allowance read-only without planning', a
   await resumeIntent(page, intent);
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
   await page.locator('details[aria-label="Planning allowance"] > summary').click();
-  await page.getByText('Planning allowance: 3 of 24 calls used.', {exact: true}).waitFor();
+  await page.getByText('Planning budget: 3 of 24 calls used', {exact: true}).waitFor();
   const log = await allowanceLog(page);
   assert.equal(
     log.filter((call) => call.method === 'GET').length,
@@ -2807,12 +2807,12 @@ test('a stale allowance reply never overwrites the current review', async (t) =>
   await page.waitForFunction(() => (window as unknown as {heldAllowanceWaiting?: boolean }).heldAllowanceWaiting === true);
   await resumeIntent(page, second);
   await page.locator('details[aria-label="Planning allowance"] > summary').click();
-  await page.getByText('Planning allowance: 3 of 24 calls used.', {exact: true}).waitFor();
+  await page.getByText('Planning budget: 3 of 24 calls used', {exact: true}).waitFor();
   assert.equal(await intentObjective(page), 'Build an onboarding checklist');
   await page.evaluate(() => (window as unknown as {releaseHeldAllowance: () => void}).releaseHeldAllowance());
   await page.waitForTimeout(300);
-  await page.getByText('Planning allowance: 3 of 24 calls used.', {exact: true}).waitFor();
-  assert.equal(await page.getByText('Planning allowance: 0 of 8 calls used.', {exact: true}).count(), 0);
+  await page.getByText('Planning budget: 3 of 24 calls used', {exact: true}).waitFor();
+  assert.equal(await page.getByText('Planning budget: 0 of 8 calls used', {exact: true}).count(), 0);
   const log = await allowanceLog(page);
   assert.equal(
     log.filter((call) => call.method === 'POST').length,
@@ -2865,7 +2865,7 @@ test('a failed allowance load keeps the review with a reachable retry', async (t
   await page.getByRole('button', {name: 'Retry allowance load', exact: true}).click();
   // A successful retry re-renders the section collapsed; reopen before reading.
   await page.locator('details[aria-label="Planning allowance"] > summary').click();
-  await page.getByText('Planning allowance: 0 of 8 calls used.', {exact: true}).waitFor();
+  await page.getByText('Planning budget: 0 of 8 calls used', {exact: true}).waitFor();
   assert.equal((await allowanceLog(page)).filter((call) => call.method === 'POST').length, postsBefore);
 });
 test('a retry that confirms allowance absence clears the load failure', async (t) => {

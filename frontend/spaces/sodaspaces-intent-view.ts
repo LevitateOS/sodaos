@@ -389,7 +389,7 @@ function allowanceHint(view: IntentView): string {
   if (plan?.state === 'completed' && plan.walkthroughs && !plan.review)
     return 'Checking the walkthrough uses planning calls; re-checking the same walkthrough reuses the saved result.';
   if (plan?.review?.consistency?.mismatches.length)
-    return 'Typing a correction is free; submitting the change re-explores and can use planning calls, and checking a fresh walkthrough uses calls too. Unchanged saved judgments are reused, and a limits-only Update proposal just saves without re-exploring.';
+    return 'Editing text uses no calls; submitting the change re-explores and can use planning calls, and checking a fresh walkthrough uses calls too. Unchanged saved judgments are reused, and a limits-only Update proposal just saves without re-exploring.';
   return 'Updating the proposal or re-exploring can use planning calls, except a limits-only update which just saves; unchanged consultations reuse saved results.';
 }
 function fundingSection(view: IntentView) {
@@ -397,7 +397,7 @@ function fundingSection(view: IntentView) {
   if (view.revision?.state !== 'draft' || (!allowance && !view.allowanceError)) return '';
   if (!allowance)
     return html`<details aria-label="Planning allowance">
-    <summary>Planning allowance · load failed</summary>
+    <summary>Planning budget · could not load</summary>
     <p>${view.allowanceError}</p>
     <div class="actions">
       <button ?disabled=${view.busy || view.blocked} @click=${view.retryAllowance}>Retry allowance load</button>
@@ -405,8 +405,7 @@ function fundingSection(view: IntentView) {
   </details>`;
   const used = allowance.reserved + allowance.consumed;
   return html`<details aria-label="Planning allowance">
-    <summary>Planning allowance · ${used} of ${allowance.amount} calls used</summary>
-    <p>Planning allowance: ${used} of ${allowance.amount} calls used.</p>
+    <summary>Planning budget: ${used} of ${allowance.amount} calls used</summary>
     <p>${allowanceHint(view)}</p>
     <label
       >Raise to<input
