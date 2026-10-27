@@ -553,11 +553,17 @@ function planText(status: IntentPlanStatus): string {
       return 'Planning was cancelled before it could report.';
   }
 }
+// editingRequest: a plan in attention cannot continue as is, so the primary
+// becomes Edit request, which only moves focus to the Desired outcome.
+function editingRequest(view: IntentView): boolean {
+  return !view.dirty && view.revision?.repository !== '0' && view.plan?.state === 'attention';
+}
 function primaryDirectionButton(view: IntentView) {
+  const editing = editingRequest(view);
   return html`<button
     class="primary"
-    @click=${view.dirty ? view.revise : view.continue}
-    ?disabled=${view.busy || view.blocked || view.plan?.state === 'pending' || (!view.dirty && (!reviewReady(view) || view.plan?.state === 'attention' || !!planAcceptBlock(view)))}
+    @click=${view.dirty ? view.revise : editing ? view.editRequest : view.continue}
+    ?disabled=${view.busy || view.blocked || view.plan?.state === 'pending' || (!view.dirty && !editing && (!reviewReady(view) || !!planAcceptBlock(view)))}
   >
     ${continueCaption(view)}
   </button>`;
@@ -604,14 +610,15 @@ function planSection(view: IntentView) {
           <option value="decomposition_options">Candidate issue graphs</option>
         </select></label
       >
-      <div class="actions">
-        <button
-          @click=${view.planWork}
-          ?disabled=${view.busy || view.blocked || view.dirty || view.plan?.state === 'pending'}
-        >
-          Plan work
-        </button>
-      </div>
+      ${
+        // Plan work only starts a run where none is live or settled; in
+        // attention, pending or completed it would duplicate the primary.
+        !view.plan || ['none', 'failed', 'cancelled'].includes(view.plan.state)
+          ? html`<div class="actions">
+              <button @click=${view.planWork} ?disabled=${view.busy || view.blocked || view.dirty}>Plan work</button>
+            </div>`
+          : ''
+      }
     </details>
   </section>`;
 }
@@ -619,6 +626,7 @@ function continueCaption(view: IntentView): string {
   if (view.dirty) return 'Update proposal';
   if (view.revision?.repository === '0') return 'Choose repository';
   if (view.plan?.state === 'pending') return 'Planning…';
+  if (editingRequest(view)) return 'Edit request';
   if (view.plan?.state === 'completed') {
     if (!view.plan.walkthroughs) return 'Plan walkthrough first';
     if (!view.plan.review) return 'Check walkthrough';

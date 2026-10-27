@@ -1066,9 +1066,8 @@ test('run-active plan sends no new plan POST from either button', async (t) => {
   await running.waitFor();
   assert.equal(await running.isDisabled(), true);
   await planning.getByText('Planning details', {exact: true}).click();
-  const planWork = planning.getByRole('button', {name: 'Plan work', exact: true});
-  await planWork.waitFor();
-  assert.equal(await planWork.isDisabled(), true);
+  // While a run is live, Plan work is not offered at all.
+  assert.equal(await planning.getByRole('button', {name: 'Plan work', exact: true}).count(), 0);
   assert.deepEqual(await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls), [
     {revision: String((await lastPostedBody(page, 'draft')).id), operation: 'propose_intent'},
   ]);
@@ -1215,6 +1214,8 @@ test('explicit retry against live attention posts nothing and asks for the decis
   await planning.getByText('Planning details', {exact: true}).click();
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
   await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
+  // In attention Plan work would only duplicate the primary, so it is gone.
+  assert.equal(await planning.getByRole('button', {name: 'Plan work', exact: true}).count(), 0);
   assert.equal(
     await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length),
     postsBefore
@@ -1339,6 +1340,14 @@ test('immediate attention plan asks for the decision without a running text', as
     await planning.getByText('Planning is running. The status below follows the run.', {exact: true}).count(),
     0
   );
+  // The primary stays usable: Edit request only focuses the Desired outcome,
+  // with no save and no planning call.
+  const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await planning.getByRole('button', {name: 'Edit request', exact: true}).click();
+  await page.waitForFunction(
+    () => document.querySelector('soda-intent')?.shadowRoot?.activeElement?.tagName === 'TEXTAREA'
+  );
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBefore);
 });
 
 test('walkthrough findings block acceptance until the direction is corrected', async (t) => {
