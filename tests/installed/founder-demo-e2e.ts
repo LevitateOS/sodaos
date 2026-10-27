@@ -205,7 +205,10 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
   );
   // Answer the material assumption through the product's own correction box,
   // then Update proposal. Recorded owner correction (equipment spirit) is above.
-  // The box lives inside the closed "Recorded choices (1)" disclosure: open it first.
+  // The box lives inside the closed "Recorded choices" disclosure: open it first.
+  // After the FUX09 producer fix is installed, the re-explore must render a
+  // "Questions needing your answer" section (one article per pending material
+  // assumption); the test asserts it instead of silently continuing generic.
   const correction = spaces.getByLabel(/^Correct the automatic choice:/);
   if ((await correction.count()) > 0) {
     if (!(await correction.first().isVisible())) {
@@ -231,6 +234,14 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
       assert.equal(re.status(), 201, `Decide: Update proposal explore must return 201, got ${re.status()}`);
       await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
       await shot(page, `${out}/decide-updated.png`);
+      // Read-only check that the fixed producer asked its questions: every
+      // pending material assumption must render an answerable article.
+      const questions = spaces.locator('section[aria-label="Questions needing your answer"] article');
+      await shot(page, `${out}/decide-questions-after-update.png`);
+      assert(
+        (await questions.count()) > 0,
+        'Decide: after Update proposal the fixed producer must render "Questions needing your answer" for the pending material assumptions'
+      );
     }
   }
 }
