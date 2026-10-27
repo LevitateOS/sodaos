@@ -129,6 +129,10 @@ export function classifyFeedStatus(status: string | undefined): FeedStatusClass 
   )
     return 'failure';
   if (/^route:(?:discussion|existing_work)$/.test(text)) return 'settled';
+  // A recorded run end is settled (shown neutral, not as done work); an
+  // assignment only says the work started and may still be running.
+  if (text === 'run:succeeded') return 'settled';
+  if (text === 'dispatch:assigned') return 'waiting';
   if (text === 'feedback:delivered') return 'settled';
   if (/^(?:judgment:applied|draft:valid|effect:created)$/.test(text)) return 'settled';
   if (text.includes(':')) {
@@ -225,6 +229,9 @@ export interface FeedFamilyModel {
   readonly refText: string | undefined;
   readonly nextText: string;
   readonly statusClass: FeedStatusClass;
+  // A run that ended is settled but neutral: the run finishing says
+  // nothing yet about whether the work it carried is done.
+  readonly neutral?: boolean;
   readonly sourceLinks: readonly {label: string; href: string}[];
   // Designed role component blocks (catalog PL/AR/BU/IN/FX/ST/TP/K/S):
   // the focal structured section per family, built only from recorded
@@ -247,6 +254,7 @@ export type FeedBlock = (
   | {kind: 'graph'; heading: string; items: readonly FeedGraphItem[]}
   | {kind: 'rows'; heading: string; rows: readonly {term: string; value: string}[]}
   | {kind: 'checks'; heading: string; rows: readonly {name: string; result: string}[]}
+  | {kind: 'details'; heading: string; text: string}
   | {
       kind: 'beforeAfter';
       heading: string;
@@ -1287,7 +1295,11 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
         ? 'Proposal ready'
         : entry.status === 'effect:created'
           ? 'Work created'
-          : undefined;
+          : entry.status === 'run:succeeded'
+            ? 'Run ended'
+            : entry.status === 'dispatch:assigned'
+              ? 'Started'
+              : undefined;
   const payload = entry.payload;
   const typed: FeedBlock[] =
     payload === undefined
@@ -1320,12 +1332,23 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
     refText: entry.ref ? `Candidate reference: ${entry.ref}.` : undefined,
     nextText: nextTextFor(statusClass),
     statusClass,
+    ...(entry.status === 'run:succeeded' ? {neutral: true} : {}),
     sourceLinks: familyLinks(family, repository, entry),
     blocks: typed.length
       ? typed
       : statusClass === 'failure' && (family === 'plan' || family === 'issue')
         ? entry.summary
-          ? [{kind: 'brief' as const, heading: 'What happened', text: entry.summary}]
+          ? [
+              {
+                kind: 'brief' as const,
+                heading: 'What happened',
+                text:
+                  family === 'plan'
+                    ? 'Planning stopped before a plan was accepted.'
+                    : 'This work needs attention before it can continue.',
+              },
+              {kind: 'details' as const, heading: 'Technical details', text: entry.summary},
+            ]
           : []
         : familyBlocks(family, entry, parseFeedStatusSegments(entry.status)),
   };
@@ -1393,6 +1416,11 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
         </table>
         ${note}
       </div>`;
+    case 'details':
+      return html`<details class="soda-feed-technical-details">
+          <summary>${block.heading}</summary>
+          <p>${block.text}</p>
+        </details>${note}`;
     case 'beforeAfter':
       return html`<div class="soda-feed-beforeafter">
         <h4>${block.heading}</h4>

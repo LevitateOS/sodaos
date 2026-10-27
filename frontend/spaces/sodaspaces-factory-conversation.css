@@ -11,18 +11,26 @@
   gap: 0.45rem;
 }
 .soda-feed-filters nav button {
-  border: 1px solid var(--color-secondary, #d6d8de);
-  border-radius: 1rem;
+  border: 1px solid var(--soda-feed-edge, var(--color-secondary, #d6d8de));
+  border-radius: var(--soda-control-radius, 4px);
   padding: 0.3rem 0.75rem;
   background: transparent;
   color: inherit;
 }
 .soda-feed-filters nav button[aria-pressed='true'] {
-  background: var(--color-primary, #395cba);
-  border-color: var(--color-primary, #395cba);
-  color: white;
+  background: var(--soda-button-primary-bg, var(--color-primary, #395cba));
+  border-color: var(--soda-button-primary-border, var(--color-primary, #395cba));
+  color: var(--soda-button-primary-text, white);
 }
 .soda-feed-filters input[type='search'] {
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--soda-feed-edge, var(--color-secondary, #d6d8de));
+  background: var(--soda-page-surface, transparent);
+  color: var(--soda-page-text, inherit);
+  font: inherit;
+  border-radius: var(--soda-control-radius, 4px);
   min-width: 9rem;
   flex: 1 1 10rem;
   max-width: 22rem;

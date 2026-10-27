@@ -29,7 +29,7 @@ export function actionIcon(action: string): TemplateResult {
 export function feedItemTone(state: string | undefined): string {
   if (!state) return 'pending';
   if (/fail|blocked|stuck|missing|incomplete|stale|reject|disput|conflict|unknown|not\b|unverified|waiting/i.test(state)) return 'attention';
-  if (/pass|verified|complete|resolved|accepted|done/i.test(state)) return 'positive';
+  if (/pass|verified|complete|resolved|accepted|done|succeed|finished/i.test(state)) return 'positive';
   return 'pending';
 }
 
@@ -82,10 +82,12 @@ function reason(c: FeedCommunication, label = 'Why'): TemplateResult | string {
 
 function decision(c: FeedCommunication): TemplateResult {
   const jev = c.componentId === 'F03' || c.componentId === 'F04';
+  // A draft build request is a proposal, not a recorded decision.
+  const draft = c.intentSource?.state === 'draft';
   return html`<div class="soda-action-decision">
     ${c.items.length ? html`<section class="soda-decision-inputs"><h4>Considered</h4>${actionItems(c.items, 'options', c.kind !== 'system')}</section>` : c.evidenceRefs.length ? html`<section class="soda-decision-inputs">${actionList('Evidence considered', c.evidenceRefs)}</section>` : ''}
-    <div class="soda-decision-route"><span aria-hidden="true">↓</span><strong>${jev ? 'JEV' : 'Decision'}</strong><span aria-hidden="true">↓</span></div>
-    <section class="soda-decision-choice"><h4>${c.kind === 'suggest' ? 'Proposed choice' : 'Recorded choice'}</h4><p>${c.decision ?? 'No choice recorded'}</p>${reason(c)}</section>
+    <div class="soda-decision-route"><span aria-hidden="true">↓</span><strong>${jev ? 'JEV' : draft ? 'Proposal' : 'Decision'}</strong><span aria-hidden="true">↓</span></div>
+    <section class="soda-decision-choice"><h4>${c.kind === 'suggest' || draft ? 'Proposed choice' : 'Recorded choice'}</h4><p>${c.decision ?? 'No choice recorded'}</p>${reason(c)}</section>
     ${c.alternatives.length ? html`<details class="soda-action-more"><summary>Other options considered · ${c.alternatives.length}</summary>${actionList('Alternatives', c.alternatives)}</details>` : ''}
     ${nextStep(c)}
   </div>`;
@@ -130,7 +132,7 @@ export function renderFeedAction(c: FeedCommunication, presentation: string, ent
     case 'progress':
     case 'incomplete': body = html`<section class="soda-action-work">${workBalance(c)}${actionItems(c.items, 'tasks')}${reason(c)}${nextStep(c, action === 'incomplete' ? 'Continue from here' : 'Next step')}</section>`; break;
     case 'blocker': body = html`<section class="soda-action-blocker"><div class="soda-blocker-stop">${actionIcon('blocker')}<strong>${c.kind === 'flag' ? 'Attention needed' : 'Work is waiting'}</strong></div>${actionItems(c.items, 'obstacles')}${reason(c)}${nextStep(c, 'Can continue when')}${workBalance(c)}</section>`; break;
-    case 'diagnosis': body = html`<section class="soda-action-diagnosis"><h4>${actionIcon('diagnosis')} Investigation in progress</h4>${actionList('Already tried', c.attempts, 'soda-action-attempts')}${actionItems(c.items, 'hypotheses')}${reason(c, 'Current explanation')}${nextStep(c, 'What to investigate next')}</section>`; break;
+    case 'diagnosis': body = html`<section class="soda-action-diagnosis"><h4>${actionIcon('diagnosis')} What the agent investigated</h4>${actionList('Already tried', c.attempts, 'soda-action-attempts')}${actionItems(c.items, 'hypotheses')}${reason(c, 'Current explanation')}${nextStep(c, 'What to investigate next')}</section>`; break;
     case 'checks': body = html`<section class="soda-action-checksheet"><header>${actionIcon('checks')}<h4>${c.kind === 'system' ? 'Recorded checks' : 'Reported checks'}</h4><span>${c.items.length} listed</span></header>${actionItems(c.items, 'checks', c.kind !== 'system')}${actionComparison(c.before, c.after)}${reason(c)}${nextStep(c)}</section>`; break;
     case 'journey': body = html`<section class="soda-action-journey"><h4>${actionIcon('journey')} Following the experience</h4>${actionItems(c.items, 'journey')}${actionComparison(c.before, c.after, ['Expected', 'Observed'])}${reason(c)}${nextStep(c)}</section>`; break;
     case 'knowledge': body = html`<section class="soda-action-notebook"><div class="soda-notebook-label">${actionIcon('knowledge')}<strong>Project knowledge</strong>${c.scope ? html`<span>${c.scope}</span>` : ''}</div><blockquote>${c.decision ?? c.summary}</blockquote>${reason(c, 'What we learned')}${actionItems(c.items, 'notes')}${nextStep(c, 'Apply this when')}</section>`; break;
