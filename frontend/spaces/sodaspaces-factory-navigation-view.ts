@@ -5,6 +5,8 @@ import {repeat} from 'lit/directives/repeat.js';
 export interface FactoryRunRow {
   readonly key: string;
   readonly text: string;
+  readonly title: string;
+  readonly active: boolean;
   readonly watching: boolean;
   readonly disabled: boolean;
   readonly toggle: () => void;
@@ -23,8 +25,11 @@ export function renderFactoryRuns(
 ): TemplateResult {
   return html`
     <section class="soda-factory-group">
-      <details ?open=${rows.length > 0}>
-        <summary>Factory runs ${atCap ? html`<small>Watch up to 8 runs</small>` : ''}</summary>
+      <details ?open=${rows.some((row) => row.active) || watches.some((slot) => !slot.hidden)}>
+        <summary>
+          ${rows.some((row) => row.active) ? 'Runs' : 'Earlier runs'} (${rows.length})
+          ${atCap ? html`<small>Watch up to 8 runs</small>` : ''}
+        </summary>
         <div class="soda-session-list">
           ${repeat(
             rows,
@@ -33,11 +38,12 @@ export function renderFactoryRuns(
               <button
                 class="ui button"
                 data-run-id=${row.key}
+                title=${row.title}
                 aria-pressed=${row.watching ? 'true' : 'false'}
                 ?disabled=${row.disabled}
                 @click=${row.toggle}
               >
-                <span>${row.watching ? 'Watching' : 'Watch'} · ${row.text}</span>
+                <span>${row.watching ? 'Watching' : row.active ? 'Watch' : 'View'} · ${row.text}</span>
               </button>
             `
           )}

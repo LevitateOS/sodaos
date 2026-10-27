@@ -48,6 +48,9 @@ export class SodaFactoryWatch extends LitElement {
     message: {
       state: true,
     },
+    technical: {
+      state: true,
+    },
     screenVisible: {
       state: true,
     },
@@ -60,6 +63,7 @@ export class SodaFactoryWatch extends LitElement {
   };
   declare private state: 'idle' | 'opening' | 'ready' | 'closed' | 'stale';
   declare private message: string;
+  declare private technical: string;
   declare private screenVisible: boolean;
   declare private statusLine: string;
   declare private notice: boolean;
@@ -84,6 +88,7 @@ export class SodaFactoryWatch extends LitElement {
     this.screenVisible = false;
     this.statusLine = '';
     this.message = 'Not watching.';
+    this.technical = '';
   }
   protected createRenderRoot() {
     return this;
@@ -116,6 +121,7 @@ export class SodaFactoryWatch extends LitElement {
       readDisposed: () => this.disposed,
       readState: () => this.state,
       readMessage: () => this.message,
+      readTechnical: () => this.technical,
       readNotice: () => this.notice,
       readScreenVisible: () => this.screenVisible,
       readStatusLine: () => this.statusLine,
@@ -167,6 +173,7 @@ export class SodaFactoryWatch extends LitElement {
     this.observer = undefined;
     this.closeSocket();
     this.message = message;
+    this.technical = '';
   }
   invalidate() {
     this.detach('Page context changed. No action was replayed; watch through a fresh authorized page.', true);
@@ -232,6 +239,9 @@ export class SodaFactoryWatch extends LitElement {
       detach: (message, stale) => this.detach(message, stale),
       setMessage: (message) => {
         this.message = message;
+      },
+      setTechnical: (technical) => {
+        this.technical = technical;
       },
       setNotice: (notice) => {
         this.notice = notice;

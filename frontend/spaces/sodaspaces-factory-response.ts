@@ -87,12 +87,35 @@ export function spaceFactoryControl(row: Record<string, unknown>) {
     ...(cause ? {withdrawal_cause: cause} : {}),
   };
 }
+// factoryOutcomeText words a recorded run outcome for people. A recorded
+// "succeeded" only says the run finished, not that its work landed, so it
+// reads "ended"; the run's own output carries the result.
+const factoryOutcomeWords: Readonly<Record<NonNullable<FactoryRun['outcome']>, string>> = {
+  succeeded: 'ended',
+  failed: 'stopped with an error',
+  cancelled: 'cancelled',
+  'needs-human': 'needs your decision',
+};
+function factoryOutcomeText(run: FactoryRun) {
+  return run.outcome ? factoryOutcomeWords[run.outcome] : 'active';
+}
 // factoryRunText renders one recorded run as a bounded status line: its role,
 // issue or attempt binding and recorded outcome. Liveness stays on the run
 // status route; this text never claims the process is running.
 export function factoryRunText(run: FactoryRun) {
   const target = run.issue ? `issue #${run.issue}` : run.attempt ? run.attempt : `run ${run.id.slice(0, 8)}`;
-  return `${run.role} · ${target} · ${run.outcome || 'active'}`;
+  return `${run.role} · ${target} · ${factoryOutcomeText(run)}`;
+}
+const factoryRoleNames: Readonly<Record<string, string>> = {
+  'soda-coder': 'Coding agent',
+  'soda-reviewer': 'Review agent',
+};
+// factoryRunLabel is the short row label: a plain role name, the issue when
+// there is one, and the outcome. Attempt and run identifiers stay in
+// factoryRunText, which the row carries as its title.
+export function factoryRunLabel(run: FactoryRun) {
+  const role = factoryRoleNames[run.role] ?? run.role;
+  return [role, ...(run.issue ? [`issue #${run.issue}`] : []), factoryOutcomeText(run)].join(' · ');
 }
 const factoryOutcome = (value: unknown): value is FactoryRun['outcome'] =>
   value === 'succeeded' || value === 'failed' || value === 'cancelled' || value === 'needs-human';

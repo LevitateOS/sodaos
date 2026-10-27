@@ -1,5 +1,5 @@
 import type {TemplateResult} from 'lit';
-import {factoryRunText} from './sodaspaces-factory-response.js';
+import {factoryRunLabel, factoryRunText} from './sodaspaces-factory-response.js';
 import type {FactoryRun} from './sodaspaces-factory-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import {mountFactoryWatch} from './sodaspaces-factory.js';
@@ -84,14 +84,18 @@ export interface FactorySectionInput extends FactoryWatchMutation {
 export function factorySection(input: FactorySectionInput): TemplateResult | string {
   const current = input.readWatches();
   const rows = input.space.factory_runs.filter(
-    (run) => !input.query || factoryRunText(run).toLocaleLowerCase().includes(input.query)
+    (run) =>
+      !input.query ||
+      `${factoryRunText(run)} ${factoryRunLabel(run)}`.toLocaleLowerCase().includes(input.query)
   );
   const watches = current.filter((watch) => watch.environmentId === input.space.environment.id);
   if (!rows.length && !watches.length) return '';
   return renderFactoryRuns(
     rows.map((run) => ({
       key: run.id,
-      text: factoryRunText(run),
+      text: factoryRunLabel(run),
+      title: factoryRunText(run),
+      active: run.outcome === undefined,
       watching: factoryWatching(current, run.id),
       disabled: factoryRowDisabled({stale: input.isStale(), available: input.available}, input.space, run, current),
       toggle: () => toggleFactoryWatch(input, input.space, run),

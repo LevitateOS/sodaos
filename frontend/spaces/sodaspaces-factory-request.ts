@@ -15,6 +15,7 @@ export interface RequestInput {
   isLive: (generation: number) => boolean;
   detach: (message: string, stale?: boolean) => void;
   setMessage: (message: string) => void;
+  setTechnical: (technical: string) => void;
   setNotice: (notice: boolean) => void;
   setStatusLine: (line: string) => void;
   readRetries: () => number;
@@ -45,6 +46,10 @@ function blockedWatch(input: RequestInput) {
   );
 }
 
+// A finished run cannot be reattached. The view says so in plain words and
+// keeps the run's recorded status and last output, without the result fence,
+// in a collapsed Technical details block, so the only recorded cause stays
+// reachable.
 function endedRun(
   input: RequestInput,
   detail: {state?: {phase: string; exit_code?: number; output?: string; output_truncated: boolean}}
@@ -52,9 +57,11 @@ function endedRun(
   const state = detail.state;
   const statusLine = state ? statusText(state.phase, false, true, state.exit_code ?? null) : 'ended';
   input.setStatusLine(statusLine);
-  const excerpt = state?.output ? `\nLast output:\n${state.output}` : '';
+  const exit = state?.exit_code !== undefined ? ` (exit ${state.exit_code})` : '';
+  input.detach(`This run has finished${exit}. Live view is not available for finished runs.`);
+  const output = (state?.output ?? '').replace(/^\s*```[\w-]*\s*$/gm, '').trim();
   const cut = state?.output_truncated ? '\n… output truncated …' : '';
-  input.detach(`Run ended (${statusLine}). Reattachment is unavailable; this view keeps its status.${excerpt}${cut}`);
+  input.setTechnical(`Status: ${statusLine}${output ? `\nLast output:\n${output}` : ''}${cut}`);
 }
 
 async function inspectRun(input: RequestInput, n: number, request: AbortController) {

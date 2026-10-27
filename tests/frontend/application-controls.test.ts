@@ -193,7 +193,7 @@ test('App distinguishes unavailable, loading and empty inventory and offers read
   await page
     .getByText('Applications could not be loaded. Reconnect to Soda Forge, then refresh applications.', {exact: true})
     .waitFor();
-  assert.equal(await page.getByText(/No application is available to you for this project/).count(), 0);
+  assert.equal(await page.getByText(/No app is available here yet/).count(), 0);
   const statusRegion = () =>
     page.evaluate(() => {
       // SodaApplications renders into light DOM (createRenderRoot returns
@@ -243,7 +243,7 @@ test('App distinguishes unavailable, loading and empty inventory and offers read
     };
   });
   await page.getByText('Loading applications…', {exact: true}).waitFor();
-  assert.equal(await page.getByText(/No application is available to you for this project/).count(), 0);
+  assert.equal(await page.getByText(/No app is available here yet/).count(), 0);
   const loadingStatus = await statusRegion();
   assert.equal(loadingStatus.role, 'status');
   assert.deepEqual(loadingStatus.childRoles, []);
@@ -259,13 +259,24 @@ test('App distinguishes unavailable, loading and empty inventory and offers read
     true
   );
   await page.evaluate(() => window.applicationFixture.release?.());
-  await page.getByText(/No application is available to you for this project yet/).waitFor();
+  await page.getByText(/No app is available here yet/).waitFor();
   await page
     .getByText(
-      'No application is available to you for this project yet. Check the project Feed for updates or ask an application administrator about access.',
+      'No app is available here yet. Apps appear once a build is verified and released.',
       {exact: true}
     )
     .waitFor();
+  assert.equal(await page.getByText('Application setup and updates are handled by an operator.', {exact: true}).count(), 0);
+  const workOpen = page.evaluate(
+    () =>
+      new Promise<unknown>((resolve) => {
+        window.addEventListener('soda-project-work-open', (event) => resolve((event as CustomEvent).detail), {
+          once: true,
+        });
+      })
+  );
+  await page.getByRole('button', {name: 'Open Work', exact: true}).click();
+  assert.deepEqual(await workOpen, {repository: '7'});
   assert.equal(await page.locator('soda-application-surface').count(), 0);
   assert.equal(await page.evaluate(() => window.applicationFixture.calls.some((call) => !!call.body)), false);
   const emptyStatus = await statusRegion();

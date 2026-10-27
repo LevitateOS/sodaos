@@ -171,8 +171,16 @@ export function createIntentModel() {
         );
       }
       if (!plans.has(head.id)) return Response.json({revision: head.id, state: 'none', candidates: 0});
-      const walkthroughs = planWalkthroughs(head);
       const marker = head.objective.toLowerCase();
+      // A recorded planning run that stopped for a product decision.
+      if (marker.includes('needs-decision'))
+        return Response.json({
+          revision: head.id,
+          state: 'attention',
+          candidates: 0,
+          attention: 'Choose who can see the list.',
+        });
+      const walkthroughs = planWalkthroughs(head);
       // Fixture variants for Work return replay: a recorded completed plan
       // serves its walkthroughs with no check yet (Plan-ready) or with a
       // blocking finding (Needs-correction), without any new POST.
