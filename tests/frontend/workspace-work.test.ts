@@ -424,7 +424,7 @@ test('Factory watch stays connected across project filtering and work-view chang
     await window.workspaceFixture.api.refresh();
   });
   await openProjectPlans(page);
-  await page.getByRole('button', {name: /^Watch · soda-coder/}).click();
+  await page.getByRole('button', {name: /^Watch · Coding agent/}).click();
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
   const owner = await page.locator('soda-factory-watch').elementHandle();
   const renderer = await page.locator('.soda-factory .xterm').elementHandle();

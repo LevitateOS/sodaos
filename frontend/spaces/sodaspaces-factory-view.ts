@@ -10,6 +10,8 @@ export interface FactoryWatchPresentation {
   readonly title: string;
   readonly status: string;
   readonly message: string;
+  /** Recorded status and last output of a finished run, shown collapsed. */
+  readonly technical: string;
   readonly notice: boolean;
   readonly screenVisible: boolean;
 }
@@ -49,6 +51,14 @@ export function renderFactoryWatch(view: FactoryWatchPresentation, commands: Fac
       <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">
         ${view.message}
       </p>
+      ${
+        view.technical
+          ? html`<details class="soda-factory-technical">
+              <summary>Technical details</summary>
+              <pre>${view.technical}</pre>
+            </details>`
+          : ''
+      }
       <!-- Xterm exclusively owns this stable, unconditional node's descendants. -->
       <div
         class="soda-terminal-screen"

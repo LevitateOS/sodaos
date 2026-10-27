@@ -6,6 +6,7 @@ export interface DisplayInput {
   readDisposed: () => boolean;
   readState: () => FactoryWatchState;
   readMessage: () => string;
+  readTechnical: () => string;
   readNotice: () => boolean;
   readScreenVisible: () => boolean;
   readStatusLine: () => string;
@@ -54,6 +55,7 @@ export function watchPresentation(input: DisplayInput): FactoryWatchPresentation
     title: watchTitle(input),
     status: input.readStatusLine() || 'Not watching.',
     message: input.readMessage(),
+    technical: input.readTechnical(),
     notice: input.readNotice(),
     screenVisible: input.readScreenVisible(),
   };
