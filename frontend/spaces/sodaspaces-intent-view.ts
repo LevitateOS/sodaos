@@ -85,8 +85,10 @@ function input(event: Event): string {
 }
 function bounds(view: IntentView) {
   const locked = view.busy || view.blocked || view.plan?.state === 'pending';
+  const issues = plural(view.maxIssues, 'work item', 'work items');
+  const steps = plural(view.planningCalls, 'AI planning step', 'AI planning steps');
   return html`<details class="bounds">
-    <summary>Planning limits: ${view.maxIssues} work items · ${view.planningCalls} calls</summary>
+    <summary>More options · up to ${issues}, ${steps}</summary>
     <label
       >Maximum work items<input
         type="number"
@@ -105,7 +107,7 @@ function bounds(view: IntentView) {
         ?disabled=${locked}
         @input=${(event: Event) => view.setBound('planningCalls', Number(input(event)))}
     /></label>
-    <p>Work still needs its own access and funded execution limits.</p>
+    <p>Planning uses only these steps. Building is approved and budgeted separately.</p>
   </details>`;
 }
 function entryActions(view: IntentView) {

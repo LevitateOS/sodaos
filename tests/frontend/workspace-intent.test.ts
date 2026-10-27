@@ -2273,7 +2273,7 @@ async function reseedCurrentRevision(page: Page) {
   });
 }
 async function setPlanningCalls(page: Page, value: string) {
-  await page.locator('summary', {hasText: 'Planning limits:'}).click();
+  await page.locator('summary', {hasText: 'More options'}).click();
   await page.getByLabel('Planning calls', {exact: true}).fill(value);
 }
 async function seedAllowance(page: Page, entry: Record<string, unknown>) {
@@ -5344,7 +5344,7 @@ test('a visible planning-calls edit narrows scope while preserving recovery with
   const draftsBefore = await revisionPostCount(page);
   // Visible limit edit only: the Planning calls input, no decision touched.
   await setPlanningCalls(page, '6');
-  await page.getByText('Planning limits: 20 work items · 6 calls', {exact: true}).waitFor();
+  await page.getByText('More options · up to 20 work items, 6 AI planning steps', {exact: true}).waitFor();
   await updateProposal(page);
   const narrowed = await lastPostedBody(page, 'draft');
   assert.equal(narrowed.planning_calls, 6, 'the visible edit must narrow the saved planning scope');
