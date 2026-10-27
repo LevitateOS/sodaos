@@ -25,21 +25,42 @@ export interface ProjectWorkView {
 // Work return replays the recorded plan/check state, never a saved-scope
 // guess. The list entry carries only saved scope counts
 // (effective_count/task_count derive from the current revision content, see
-// internal/factory/intent.go Summary). The state label and action below derive
+// internal/factory/intent.go Summary). The state slug and action below derive
 // from the authorized same-intent/revision owner GET plan status:
 // completed + walkthroughs + clean check = Checked, completed + walkthroughs +
 // blocking findings = Needs-correction, completed + walkthroughs without a
-// recorded check = Plan-ready. Anything else stays neutral (Draft for drafts,
-// Accepted/Closed for decided work). Reads are replay-only: a missing plan,
-// a mismatched revision, an undecided run, or a failed read never claims a
-// check and never starts planning.
+// recorded check = Plan-ready. A recorded planning run that is still going,
+// asks for a product decision, failed, or was cancelled names that state
+// (Planning, Needs-decision, Planning-failed, Planning-cancelled) so a stopped
+// request never reads as an untouched Draft. Anything else stays neutral
+// (Draft for drafts, Accepted/Closed for decided work). Reads are replay-only:
+// a missing plan, a mismatched revision, or a failed read never claims a
+// check and never starts planning. The slug stays in data-state; the badge
+// shows the plain-language label from WORK_STATE_LABELS.
 export function workPlanState(plan: SavedRequest, status: IntentPlanStatus | undefined) {
   if (plan.state === 'accepted') return 'Accepted';
   if (plan.state !== 'draft') return 'Closed';
   if (!status || status.revision !== plan.revision) return 'Draft';
+  if (status.state === 'attention') return 'Needs-decision';
+  if (status.state === 'pending') return 'Planning';
+  if (status.state === 'failed') return 'Planning-failed';
+  if (status.state === 'cancelled') return 'Planning-cancelled';
   if (status.state !== 'completed' || !status.walkthroughs) return 'Draft';
   if (!status.review || !status.review.consistency) return 'Plan-ready';
   return status.review.consistency.mismatches.length ? 'Needs-correction' : 'Checked';
+}
+
+const WORK_STATE_LABELS: Readonly<Record<string, string>> = {
+  'Needs-decision': 'Needs your decision',
+  Planning: 'Planning…',
+  'Planning-failed': 'Planning failed',
+  'Planning-cancelled': 'Planning cancelled',
+  'Plan-ready': 'Plan ready',
+  'Needs-correction': 'Needs correction',
+};
+
+function workStateLabel(state: string) {
+  return WORK_STATE_LABELS[state] ?? state;
 }
 
 function planState(plan: SavedRequest, statuses: ReadonlyMap<string, IntentPlanStatus>) {
@@ -51,6 +72,9 @@ function planAction(plan: SavedRequest, statuses: ReadonlyMap<string, IntentPlan
   if (state === 'Checked') return 'Review check';
   if (state === 'Needs-correction') return 'Resolve blockers';
   if (state === 'Plan-ready') return 'Check walkthrough';
+  if (state === 'Needs-decision') return 'Review decision';
+  if (state === 'Planning') return 'View progress';
+  if (state === 'Planning-failed' || state === 'Planning-cancelled') return 'Review';
   if (plan.state === 'draft') return 'Continue planning';
   if (plan.state === 'accepted') return 'View progress';
   return 'Review';
@@ -65,7 +89,7 @@ function renderPlan(plan: SavedRequest, view: ProjectWorkView) {
   const state = planState(plan, view.planStatuses);
   return html`<article class="soda-work-item" data-intent-id=${plan.intent}>
     <div class="soda-work-item-heading">
-      <span class="soda-work-state" data-state=${state.toLocaleLowerCase()}>${state}</span>
+      <span class="soda-work-state" data-state=${state.toLocaleLowerCase()}>${workStateLabel(state)}</span>
       ${
         view.mode === 'all-plans'
           ? html`<span class="soda-work-repository">${repositoryName(plan, view.repositoryNames)}</span>`

@@ -595,6 +595,7 @@ test('Work return replays the recorded plan check without creating work', async 
     {objective: 'Checked draft shows its recorded check', repository: '7', state: 'draft'},
     {objective: 'Needs-correction draft names its blockers', repository: '7', state: 'draft'},
     {objective: 'Plan-ready draft waits for its check', repository: '7', state: 'draft'},
+    {objective: 'Needs-decision draft waits for its owner', repository: '7', state: 'draft'},
   ]);
   // Planning and checks were recorded earlier through the Describe flow; the
   // Work return below must only replay them with owner GETs.
@@ -612,9 +613,11 @@ test('Work return replays the recorded plan check without creating work', async 
   const work = await openProjectPlans(page);
   await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
   await work.getByText('Checked', {exact: true}).waitFor();
-  await work.getByText('Needs-correction', {exact: true}).waitFor();
-  await work.getByText('Plan-ready', {exact: true}).waitFor();
-  assert.equal(await work.locator('.soda-work-item').count(), 4);
+  await work.getByText('Needs correction', {exact: true}).waitFor();
+  await work.getByText('Plan ready', {exact: true}).waitFor();
+  await work.getByText('Needs your decision', {exact: true}).waitFor();
+  assert.equal(await work.locator('.soda-work-state[data-state="needs-decision"]').count(), 1);
+  assert.equal(await work.locator('.soda-work-item').count(), 5);
   assert.equal(await work.getByText('Draft', {exact: true}).count(), 1);
   await work.getByRole('button', {name: 'Continue planning: Unplanned draft stays Draft', exact: true}).waitFor();
   await work.getByRole('button', {name: 'Review check: Checked draft shows its recorded check', exact: true}).waitFor();
@@ -624,6 +627,10 @@ test('Work return replays the recorded plan check without creating work', async 
   await work
     .getByRole('button', {name: 'Check walkthrough: Plan-ready draft waits for its check', exact: true})
     .waitFor();
+  await work
+    .getByRole('button', {name: 'Review decision: Needs-decision draft waits for its owner', exact: true})
+    .waitFor();
+  assert.equal(await work.getByRole('button', {name: /^Continue planning: Needs-decision/}).count(), 0);
   const calls = await page.evaluate(() =>
     window.workspaceFixture.calls.map((call) => ({method: call.method, path: call.path}))
   );
@@ -679,8 +686,8 @@ test('Work return keeps edited, unbound, and decided work neutral without claimi
   assert.equal(await work.getByText('Draft', {exact: true}).count(), 2);
   assert.equal(await work.getByText('Accepted', {exact: true}).count(), 1);
   assert.equal(await work.getByText('Checked', {exact: true}).count(), 0);
-  assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
-  assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Needs correction', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Plan ready', {exact: true}).count(), 0);
   await work
     .getByRole('button', {name: 'Continue planning: Edited draft stays Draft after its direction changes', exact: true})
     .waitFor();
@@ -773,8 +780,8 @@ for (const status of [404, 409, 503])
     await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
     await work.getByText('Draft', {exact: true}).waitFor();
     assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a failed replay never retains Checked');
-    assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
-    assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+    assert.equal(await work.getByText('Needs correction', {exact: true}).count(), 0);
+    assert.equal(await work.getByText('Plan ready', {exact: true}).count(), 0);
     await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
     assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a failed replay never surfaces a list error');
     assert.equal(await writes(page), 0, 'replaying a failed plan must not start planning or a check');
@@ -1088,8 +1095,8 @@ test('a formerly Checked draft stays neutral when its plan replay hangs past the
     {timeout: 2000}
   );
   assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a hung replay never retains Checked');
-  assert.equal(await work.getByText('Needs-correction', {exact: true}).count(), 0);
-  assert.equal(await work.getByText('Plan-ready', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Needs correction', {exact: true}).count(), 0);
+  assert.equal(await work.getByText('Plan ready', {exact: true}).count(), 0);
   await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
   assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a hung replay never surfaces a list error');
   assert.equal(await writes(page), 0, 'replaying a hung plan must not start planning or a check');
