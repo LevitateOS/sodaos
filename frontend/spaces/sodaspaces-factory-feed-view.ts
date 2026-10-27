@@ -110,6 +110,8 @@ const systemStatusLabels: Readonly<Record<string, string>> = {
   'run:failed': 'Failed',
   'run:cancelled': 'Stopped',
   'dispatch:assigned': 'Started',
+  'dispatch:paused': 'Paused',
+  'dispatch:resumed': 'Resumed',
   'intent:draft': 'Draft',
   'intent:accepted': 'Accepted',
   'intent:declined': 'Declined',

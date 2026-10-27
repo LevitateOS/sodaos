@@ -27,10 +27,10 @@ const audienceCaption: Readonly<Record<string, string>> = {
   F05: 'Work created',
   F06: 'Merged',
   F07: 'Ready',
-  F08: 'Run stopped',
   F09: 'Run problem',
   F10: 'App ready',
-  F11: 'Proposal',
+  // Drafts are captioned as proposals above; recorded F11 posts are decisions.
+  F11: 'Decision',
 };
 
 function componentCaption(c: FeedCommunication, label: string | undefined): string | undefined {
