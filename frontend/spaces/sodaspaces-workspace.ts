@@ -868,6 +868,9 @@ export class SodaSpaces extends LitElement {
   }
   private renderWelcomeFooter() {
     if (!this.welcomeScreen && !this.setup) return '';
+    // A request started inside an existing project never creates a project,
+    // so the new-project stepper does not apply.
+    if (this.setup === 'intent' && this.suggestedSetupRepository()) return '';
     const step =
       this.setup === 'configure' ? 3 : this.setup === 'repositories' ? 2 : this.setup === 'intent' ? 1 : undefined;
     return renderWelcomeSteps(step);
