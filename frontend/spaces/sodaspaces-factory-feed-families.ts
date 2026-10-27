@@ -247,6 +247,7 @@ export type FeedBlock = (
   | {kind: 'graph'; heading: string; items: readonly FeedGraphItem[]}
   | {kind: 'rows'; heading: string; rows: readonly {term: string; value: string}[]}
   | {kind: 'checks'; heading: string; rows: readonly {name: string; result: string}[]}
+  | {kind: 'details'; heading: string; text: string}
   | {
       kind: 'beforeAfter';
       heading: string;
@@ -1325,7 +1326,17 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
       ? typed
       : statusClass === 'failure' && (family === 'plan' || family === 'issue')
         ? entry.summary
-          ? [{kind: 'brief' as const, heading: 'What happened', text: entry.summary}]
+          ? [
+              {
+                kind: 'brief' as const,
+                heading: 'What happened',
+                text:
+                  family === 'plan'
+                    ? 'Planning stopped before a plan was accepted.'
+                    : 'This work needs attention before it can continue.',
+              },
+              {kind: 'details' as const, heading: 'Technical details', text: entry.summary},
+            ]
           : []
         : familyBlocks(family, entry, parseFeedStatusSegments(entry.status)),
   };
@@ -1393,6 +1404,11 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
         </table>
         ${note}
       </div>`;
+    case 'details':
+      return html`<details class="soda-feed-technical-details">
+          <summary>${block.heading}</summary>
+          <p>${block.text}</p>
+        </details>${note}`;
     case 'beforeAfter':
       return html`<div class="soda-feed-beforeafter">
         <h4>${block.heading}</h4>
