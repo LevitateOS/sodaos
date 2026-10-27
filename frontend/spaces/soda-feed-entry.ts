@@ -27,6 +27,12 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const parts = location.pathname.slice(prefix.length).split('/').filter(Boolean);
   const name = global ? undefined : parts.slice(0, 2).map(decodeURIComponent).join('/');
   let visible = true;
+  // The standalone Applications page has no workspace to switch views in, so
+  // App's project links open that project's workspace instead.
+  const openProject = (event: CustomEvent<{repository: string}>) => {
+    if (/^[1-9][0-9]*$/.test(event.detail.repository))
+      location.assign(`${prefix}/workspace?repository=${event.detail.repository}`);
+  };
   const show = () =>
     render(
       html`
@@ -62,6 +68,8 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
                 .sessionKey=${transport.generation}
                 .expanded=${true}
                 .repository=${repository}
+                @soda-project-feed-open=${openProject}
+                @soda-project-work-open=${openProject}
               ></soda-applications>`
             : html`<soda-factory-feed
                 .context=${visible ? {transport, repository, repositoryName: name, global} : undefined}
