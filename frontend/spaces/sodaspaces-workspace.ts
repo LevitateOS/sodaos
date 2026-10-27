@@ -267,6 +267,8 @@ export class SodaSpaces extends LitElement {
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
   private workRepository: string | undefined;
+  // The project view a settings or project-list detour returns to (UI-53).
+  private previousProjectView: 'feed' | 'app' | 'work' = 'feed';
   declare private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
@@ -1050,10 +1052,14 @@ export class SodaSpaces extends LitElement {
             this.spaces.map((space) => [space.environment.repository_id, this.projectName(space)])
           ),
           account: this.actor.id,
+          // Only an account that may execute reads verification state, so
+          // reviewers are not shown authorization failures (UI-51/180).
           verificationRuns:
-            this.selectedSpace?.factory_runs
-              .filter((run) => run.reconciled && run.issue === undefined)
-              .map((run) => run.id) ?? [],
+            this.selectedSpace?.execution_allowed && !this.selectedSpace.authority_unavailable
+              ? this.selectedSpace.factory_runs
+                  .filter((run) => run.reconciled && run.issue === undefined)
+                  .map((run) => run.id)
+              : [],
         }
       : undefined;
   }
@@ -1659,10 +1665,13 @@ export class SodaSpaces extends LitElement {
     });
   }
   private back() {
-    this.view = this.binding?.kind === 'page' ? 'feed' : 'terminal';
+    this.view = this.binding?.kind === 'page' ? this.previousProjectView : 'terminal';
     this.choosingPane = undefined;
     this.restoreFocus();
     this.markViewed();
+  }
+  private rememberProjectView() {
+    if (this.view === 'feed' || this.view === 'app' || this.view === 'work') this.previousProjectView = this.view;
   }
   private newTerminalInput(): NewTerminalInput {
     return {
@@ -2128,6 +2137,7 @@ export class SodaSpaces extends LitElement {
     this.rememberFocus();
     this.project = repositoryId;
     this.managementMode = mode;
+    this.rememberProjectView();
     this.view = 'project';
     const n = this.epoch;
     await this.updateComplete;
