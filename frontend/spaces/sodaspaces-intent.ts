@@ -2456,7 +2456,7 @@ export class SodaIntent extends LitElement {
           const findings = review.consistency?.mismatches.length || 0;
           this.planNotice = findings
             ? 'The authored walkthrough needs a correction. Correct or clarify the request above (your objective and choices stay with your authorship), then plan again and check before accepting.'
-            : 'JEV checked the authored walkthrough. Review it above, then accept to build.';
+            : 'JEV checked the walkthrough: no findings. Accept and build when you are satisfied.';
           // An explicit Check that blocks on findings lands focus on the
           // real findings; the near-top summary keeps the state, action and
           // a second link visible without scrolling.
