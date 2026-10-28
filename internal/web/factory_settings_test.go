@@ -279,6 +279,9 @@ func TestFactoryEnvironmentGrantIsOwnerOnly(t *testing.T) {
 
 func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	s := factoryEncryptedServer(t)
+	if err := s.Store.CreateProject(t.Context(), store.Project{ID: factorySettingsProject, Name: "factory", RepositoryID: 7, OwnerID: 1, Repository: "alice/factory"}); err != nil {
+		t.Fatal(err)
+	}
 	s.API.Identity = &stubIdentityClient{
 		connections: []identity.Connection{
 			{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready},

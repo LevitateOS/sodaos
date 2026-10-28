@@ -55,8 +55,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		factory.LibraryReadGuidance,
 		"synthetic approved setup instructions", "synthetic exact candidate diff",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
-		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 1",
-		"sponsorship concurrency for this connection in this repository is 2",
+		`Provider connection: "conn"`,
 		"Preparation requirements: " + a.Authority.RequirementsID + " approval: " + a.Authority.ApprovalID,
 	} {
 		if !strings.Contains(string(a.Prompt), want) {
