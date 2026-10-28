@@ -2,6 +2,7 @@ package factory
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -174,7 +175,7 @@ func checkProposedTaskCoverage(r IntentRevision, tasks []IntentTask) error {
 	}
 	for _, id := range resolved {
 		if !covered[id] {
-			return errors.New("candidate leaves authorized outcomes uncovered")
+			return fmt.Errorf("candidate leaves an authorized outcome uncovered: %s (the candidate's tasks together must cite every one of %v in idea_ids)", id, resolved)
 		}
 	}
 	return nil

@@ -635,6 +635,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 				if err == nil {
 					err = s.checkProductPlanWalkthroughs(ctx, capability, args.Payload)
 				}
+				if err == nil {
+					err = s.checkProductPlanSemantics(ctx, capability, raw)
+				}
 			}
 			if err != nil {
 				release()
