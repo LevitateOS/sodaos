@@ -4,13 +4,18 @@
 // itself. Views that must survive a place switch (a request's composer, the
 // terminals) stay mounted here, hidden, until this entry is disposed or
 // retired. Each place's view lives in its own soda-place-*.ts file.
+//
+// On track 2 (Fountain named routes) the same entry also mounts the separate
+// `repository-settings` page at /{owner}/{repo}/settings/sodaos/{section}:
+// settings only, with no place bar, because the native settings layout is
+// around it. Old /workspace/… addresses are forwarded in the browser.
 import {html, render} from 'lit';
 import type {TemplateResult} from 'lit';
 import type {ContributionPresentation, MountHandle, ResumeValidation} from './fountain-browser-contract.js';
 import type {ExtensionMountContext} from './soda-extension.js';
 import {prepareExtensionMount} from './soda-extension.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
-import {newRequestID, placeFromPath, repositoryPlaces} from './soda-places.js';
+import {forwardedAddress, newRequestID, placeFromPath, repositoryPlaces} from './soda-places.js';
 import type {Place, PlaceName, SodaPlaces} from './soda-places.js';
 import {noticePlace} from './soda-place-view.js';
 import type {PlaceContext, PlaceMount, PlaceView, PlaceViewer} from './soda-place-view.js';
@@ -140,7 +145,8 @@ function slugFromPath(pathname: string, prefix: string): string {
 }
 
 export function mount(root: HTMLElement, context: ExtensionMountContext): MountHandle {
-  if (context.pageId !== 'repository-feed' || context.panelId || !context.repositoryId)
+  const settingsOnly = context.pageId === 'repository-settings';
+  if ((context.pageId !== 'repository-feed' && !settingsOnly) || context.panelId || !context.repositoryId)
     throw Error('Invalid SodaOS repository mount');
   const transport = prepareExtensionMount(root, context);
   const styles = ['components.css', 'sodaspaces.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css'].map((name) => {
@@ -180,7 +186,10 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const retained = new Map<string, LiveView>();
 
   const drawChrome = () => {
-    render(headerHasSodaTabs(root) ? html`` : placeBar(placeBarItems(places, prefix, viewer, place)), bar);
+    render(
+      settingsOnly || headerHasSodaTabs(root) ? html`` : placeBar(placeBarItems(places, prefix, viewer, place)),
+      bar
+    );
     render(
       html`<soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>`,
       providers
@@ -278,6 +287,16 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   };
 
   const route = (address: string) => {
+    const forward = settingsOnly ? undefined : forwardedAddress(address, prefix);
+    if (forward) {
+      // Settings → SodaOS is another host page (inside the settings layout).
+      if (placeFromPath(forward, prefix)?.place.place === 'settings') {
+        location.replace(forward);
+        return;
+      }
+      history.replaceState(history.state, '', forward);
+      address = forward;
+    }
     const parsed = placeFromPath(address, prefix);
     if (parsed && parsed.slug !== slug) {
       // A different repository's place: nothing of this one may stay alive.
@@ -287,7 +306,8 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       showPlace(undefined);
       return;
     }
-    showPlace(parsed?.place);
+    // The settings page shows only settings.
+    showPlace(settingsOnly && parsed?.place.place !== 'settings' ? undefined : parsed?.place);
   };
 
   const setVisible = (value: boolean) => {

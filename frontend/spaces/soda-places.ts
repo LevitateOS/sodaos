@@ -13,8 +13,28 @@
 //   /{owner}/{repo}/workspace/terminals?run=       Terminals
 //   /{owner}/{repo}/workspace/settings/{section}   SodaOS settings
 //   /{owner}/{repo}/workspace/issues[/{issue}]     Factory status
-// Track 2 (after Fountain F1-F4): /{owner}/{repo}/requests…, /feed, /app,
-// /terminals, /knowledge, /issues/{n}/factory, /settings/sodaos/{section}.
+// Track 2 (Fountain F1-F4 named repository routes, PLACES_TRACK === 2):
+//   /{owner}/{repo}/feed                           Feed
+//   /{owner}/{repo}/requests                       Requests
+//   /{owner}/{repo}/requests/{id|new}              Request / New request
+//   /{owner}/{repo}/app?delivery=                  App
+//   /{owner}/{repo}/knowledge?item=                Knowledge
+//   /{owner}/{repo}/terminals?run=                 Terminals
+//   /{owner}/{repo}/settings/sodaos/{section}      SodaOS settings (own page)
+//   /{owner}/{repo}/issues/{issue}/factory         Factory status, one issue
+//   /{owner}/{repo}/workspace/issues               Factory status lookup
+// On track 2 the hidden `workspace` route still serves every track-1 address;
+// the entry forwards it in the browser (forwardedAddress), except the lookup,
+// which has no named route.
+
+declare const SODA_PLACES_TRACK: string | undefined;
+/**
+ * The address set, chosen when the package is built
+ * (scripts/build-soda-extension.ts --track=2 defines SODA_PLACES_TRACK). The
+ * manifest built with it (extension.json or extension.track2.json) must match.
+ */
+export const PLACES_TRACK: 1 | 2 =
+  typeof SODA_PLACES_TRACK === 'string' && SODA_PLACES_TRACK === '2' ? 2 : 1;
 
 /**
  * THE SWITCH (install B). While false, request and newRequest links point to
@@ -74,10 +94,12 @@ function encodeSlug(slug: string): string {
 /** Address builders for the repository `owner/repo` under the installation prefix (appSubUrl). */
 export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
   const repository = `${prefix}/${encodeSlug(slug)}`;
-  const root = `${repository}/workspace`;
+  const workspace = `${repository}/workspace`;
+  const named = PLACES_TRACK === 2;
+  const root = named ? repository : workspace;
   const places: SodaPlaces = {
     slug,
-    feed: () => root,
+    feed: () => (named ? `${repository}/feed` : root),
     requests: () => `${root}/requests`,
     request: (id) =>
       REQUESTS_IN_REPOSITORY ? `${root}/requests/${encodeURIComponent(id)}` : requestRouteFor(prefix, id),
@@ -85,9 +107,15 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     app: (delivery) => `${root}/app${query('delivery', delivery)}`,
     knowledge: (item) => `${root}/knowledge${query('item', item)}`,
     terminals: (run) => `${root}/terminals${query('run', run)}`,
-    settings: (section) => `${root}/settings/${encodeURIComponent(section)}`,
+    settings: (section) =>
+      `${named ? `${repository}/settings/sodaos` : `${root}/settings`}/${encodeURIComponent(section)}`,
+    // The lookup has no named route: it stays on the (hidden) workspace route.
     factoryStatus: (issue) =>
-      issue === undefined ? `${root}/issues` : `${root}/issues/${encodeURIComponent(String(issue))}`,
+      issue === undefined
+        ? `${workspace}/issues`
+        : named
+          ? `${repository}/issues/${encodeURIComponent(String(issue))}/factory`
+          : `${root}/issues/${encodeURIComponent(String(issue))}`,
     to(place) {
       switch (place.place) {
         case 'feed':
@@ -129,24 +157,86 @@ export function placeFromPath(address: string, prefix: string): {slug: string; p
   } catch {
     return undefined;
   }
-  const [owner, repo, fixed, first, second, ...rest] = decoded;
-  if (!owner || !repo || fixed !== 'workspace' || rest.length) return undefined;
+  const [owner, repo, fixed, ...path] = decoded;
+  if (!owner || !repo) return undefined;
   const slug = `${owner}/${repo}`;
   const param = (name: string) => url.searchParams.get(name) || undefined;
-  const optional = <K extends string>(key: K, value: string | undefined) =>
-    (value === undefined ? {} : {[key]: value}) as {[P in K]?: string};
-  let place: Place | undefined;
-  if (first === undefined) place = {place: 'feed'};
-  else if (first === 'requests')
-    place = second === undefined ? {place: 'requests'} : {place: 'request', request: second};
-  else if (second !== undefined) {
-    if (first === 'settings') place = {place: 'settings', section: second};
-    else if (first === 'issues') place = {place: 'factory-status', issue: second};
-  } else if (first === 'app') place = {place: 'app', ...optional('delivery', param('delivery'))};
-  else if (first === 'knowledge') place = {place: 'knowledge', ...optional('item', param('item'))};
-  else if (first === 'terminals') place = {place: 'terminals', ...optional('run', param('run'))};
-  else if (first === 'issues') place = {place: 'factory-status'};
+  const place =
+    fixed === 'workspace'
+      ? workspacePlace(path, param)
+      : PLACES_TRACK === 2 && fixed !== undefined
+        ? namedPlace(fixed, path, param)
+        : undefined;
   return place && {slug, place};
+}
+
+type Param = (name: string) => string | undefined;
+
+function optional<K extends string>(key: K, value: string | undefined) {
+  return (value === undefined ? {} : {[key]: value}) as {[P in K]?: string};
+}
+
+/** A place under the `workspace` segment (track 1; the hidden route on track 2). */
+function workspacePlace([first, second, ...rest]: string[], param: Param): Place | undefined {
+  if (rest.length) return undefined;
+  if (first === undefined) return {place: 'feed'};
+  if (first === 'requests') return second === undefined ? {place: 'requests'} : {place: 'request', request: second};
+  if (second !== undefined) {
+    if (first === 'settings') return {place: 'settings', section: second};
+    if (first === 'issues') return {place: 'factory-status', issue: second};
+    return undefined;
+  }
+  if (first === 'app') return {place: 'app', ...optional('delivery', param('delivery'))};
+  if (first === 'knowledge') return {place: 'knowledge', ...optional('item', param('item'))};
+  if (first === 'terminals') return {place: 'terminals', ...optional('run', param('run'))};
+  if (first === 'issues') return {place: 'factory-status'};
+  return undefined;
+}
+
+/** A place on one of Fountain's named repository routes (track 2). */
+function namedPlace(route: string, path: string[], param: Param): Place | undefined {
+  const [first, second, ...rest] = path;
+  switch (route) {
+    case 'feed':
+      return path.length ? undefined : {place: 'feed'};
+    case 'requests':
+      if (second !== undefined) return undefined;
+      return first === undefined ? {place: 'requests'} : {place: 'request', request: first};
+    case 'app':
+      return path.length ? undefined : {place: 'app', ...optional('delivery', param('delivery'))};
+    case 'knowledge':
+      return path.length ? undefined : {place: 'knowledge', ...optional('item', param('item'))};
+    case 'terminals':
+      return path.length ? undefined : {place: 'terminals', ...optional('run', param('run'))};
+    case 'settings':
+      if (first !== 'sodaos' || rest.length) return undefined;
+      return {place: 'settings', section: second ?? settingsSections[0]};
+    case 'issues':
+      return first !== undefined && second === 'factory' && !rest.length
+        ? {place: 'factory-status', issue: first}
+        : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Track 2: the named address an old /{owner}/{repo}/workspace/… address
+ * forwards to, keeping its query and hash. Undefined on track 1, for any other
+ * address, and for the Factory status lookup, which has no named route.
+ */
+export function forwardedAddress(address: string, prefix: string): string | undefined {
+  if (PLACES_TRACK !== 2) return undefined;
+  const parsed = placeFromPath(address, prefix);
+  if (!parsed) return undefined;
+  const url = new URL(address, 'http://soda.invalid');
+  const fixed = url.pathname.slice(prefix.length).split('/').filter(Boolean)[2];
+  if (fixed !== 'workspace') return undefined;
+  const target = new URL(repositoryPlaces(prefix, parsed.slug).to(parsed.place), url);
+  if (target.pathname === url.pathname) return undefined;
+  for (const [name, value] of url.searchParams) {
+    if (!target.searchParams.has(name)) target.searchParams.append(name, value);
+  }
+  return `${target.pathname}${target.search}${url.hash}`;
 }
 
 // The global Workspace page's own addresses. They live here so the Workspace

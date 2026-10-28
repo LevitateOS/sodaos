@@ -20,7 +20,10 @@ export function resumeGenerationRefused(generation: string, validation?: ResumeV
 export type ExtensionMountContext = MountContext;
 
 function isPageMount(context: ExtensionMountContext): boolean {
-  return ['spaces', 'feed', 'repository-feed', 'applications'].includes(context.pageId ?? '') && !context.panelId;
+  return (
+    ['spaces', 'feed', 'repository-feed', 'repository-settings', 'applications'].includes(context.pageId ?? '') &&
+    !context.panelId
+  );
 }
 
 function isPanelMount(context: ExtensionMountContext): boolean {
