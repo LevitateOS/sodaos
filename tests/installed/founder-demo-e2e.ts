@@ -1317,11 +1317,25 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
 
 async function phaseCheck(page: Page, out: string, intent: string): Promise<void> {
   const spaces = await mountRepoPage(page, null);
+  const walkthrough = spaces.getByRole('button', {name: 'Check walkthrough', exact: true});
+  if ((await walkthrough.count()) === 0) {
+    // A completed review replaces the Check button with its outcome. Open
+    // the stored findings (GET only, no new spend) and report them.
+    const findings = spaces.getByRole('button', {name: /see findings/i});
+    assert((await findings.count()) > 0, 'Check: neither Check walkthrough nor See findings is present');
+    await findings.first().scrollIntoViewIfNeeded();
+    await findings.first().click();
+    await page.waitForTimeout(1500);
+    const text = await visibleText(page, 6000);
+    await writeFile(`${out}/check-findings.txt`, text);
+    await shot(page, `${out}/check-findings.png`);
+    assert.fail(`Check: stored review needs correction before Accept. Findings: ${text.slice(0, 1500)}`);
+  }
   const checking = page.waitForResponse(
     (r) => r.url().endsWith(`/api/factory/intents/${intent}/plan/review`) && r.request().method() === 'POST',
     {timeout: 180000}
   );
-  await spaces.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
+  await walkthrough.first().click();
   const checked = await checking;
   assert.equal(checked.status(), 200, `Check: walkthrough review must return 200, got ${checked.status()}`);
   const review = (await checked.json()) as {consistency?: {mismatches?: unknown[]}};
