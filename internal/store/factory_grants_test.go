@@ -268,7 +268,7 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
 	if err != nil || !created || stored.Finished == "" {
 		t.Fatalf("apply policy command: %+v created=%t err=%v", stored, created, err)
 	}
@@ -296,7 +296,7 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 	if err != nil || !withdrawnMerge.WithdrawRequested {
 		t.Fatalf("merge intent not committed: %+v %v", withdrawnMerge, err)
 	}
-	replay, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
+	replay, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
 	if err != nil || created || replay.Outcome != stored.Outcome || replay.Finished != stored.Finished {
 		t.Fatalf("command replay changed immutable receipt: %+v created=%t err=%v", replay, created, err)
 	}
@@ -341,7 +341,7 @@ END $$;`)
 		ID: commandID, Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	_, _, err = db.ApplyRepositoryPolicyCommand(ctx, cmd, paused, grantTestTime())
+	_, _, err = db.ApplyFactoryGrantCommand(ctx, cmd, paused, grantTestTime())
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Message != "injected command receipt write failure" {
 		t.Fatalf("policy withdrawal did not reach the injected receipt failure: %v", err)
@@ -401,7 +401,7 @@ func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
 		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
 	if err != nil || !created || stored.Finished == "" {
 		t.Fatalf("apply bounded policy command: %+v created=%t err=%v", stored, created, err)
 	}

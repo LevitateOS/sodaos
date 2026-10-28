@@ -81,7 +81,7 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyPolicy(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, policy)
+	receipt, err := s.Coordinator.ApplyPolicy(r.Context(), in.CommandID, factoryPrincipal(v), policy)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
@@ -115,7 +115,7 @@ func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store
 		auth.JSONError(w, 400, "invalid_capacity", "Appliance capacity is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyCapacity(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, capacity)
+	receipt, err := s.Coordinator.ApplyCapacity(r.Context(), in.CommandID, factoryPrincipal(v), capacity)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
@@ -146,7 +146,7 @@ func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v 
 		auth.JSONError(w, 400, "invalid_operator_grant", "Operator grant is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyOperatorGrant(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, grant)
+	receipt, err := s.Coordinator.ApplyOperatorGrant(r.Context(), in.CommandID, factoryPrincipal(v), grant)
 	if err != nil {
 		factoryCommandError(w, err)
 		return

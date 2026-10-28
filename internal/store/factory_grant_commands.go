@@ -162,26 +162,6 @@ func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository in
 	return in, nil
 }
 
-func (s *Store) ApplyRepositoryPolicyCommand(ctx context.Context, cmd factory.Command, change factory.RepositoryPolicy, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
-func (s *Store) ApplyCapacityCommand(ctx context.Context, cmd factory.Command, change factory.Capacity, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
-func (s *Store) ApplyOperatorGrantCommand(ctx context.Context, cmd factory.Command, change factory.OperatorGrant, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
-func (s *Store) ApplySponsorshipCommand(ctx context.Context, cmd factory.Command, change factory.Sponsorship, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
-func (s *Store) ApplyEnvironmentGrantCommand(ctx context.Context, cmd factory.Command, change project.EnvironmentGrant, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
 // grantCommandResolution binds one grant change to its command
 // target, scope, revision, withdrawal cause and validator.
 type grantCommandResolution struct {
@@ -294,7 +274,10 @@ func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, 
 	return nil
 }
 
-func (s *Store) applyFactoryGrantCommand(ctx context.Context, cmd factory.Command, change any, now time.Time) (factory.Command, bool, error) {
+// ApplyFactoryGrantCommand records one settings command and saves its grant
+// (a policy, capacity, operator grant, sponsorship or environment grant)
+// under the record's expected revision in one transaction.
+func (s *Store) ApplyFactoryGrantCommand(ctx context.Context, cmd factory.Command, change any, now time.Time) (factory.Command, bool, error) {
 	if err := cmd.Validate(); err != nil {
 		return factory.Command{}, false, err
 	}

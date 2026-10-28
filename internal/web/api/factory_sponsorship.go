@@ -59,7 +59,7 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 		auth.JSONError(w, 400, "invalid_sponsorship", "Sponsorship is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplySponsorship(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, sponsorship)
+	receipt, err := s.Coordinator.ApplySponsorship(r.Context(), in.CommandID, factoryPrincipal(v), sponsorship)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
@@ -182,7 +182,7 @@ func (s *API) apiFactoryEnvironmentGrant(w http.ResponseWriter, r *http.Request,
 		auth.JSONError(w, 400, "invalid_environment_grant", "Environment grant is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyEnvironmentGrant(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, grant)
+	receipt, err := s.Coordinator.ApplyEnvironmentGrant(r.Context(), in.CommandID, factoryPrincipal(v), grant)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
