@@ -758,7 +758,13 @@ export class SodaApplications extends LitElement {
         ${application.name} · version ${application.revision} · ${this.environmentLabel(environment)} ·
         <span class="soda-application-status">${readiness}</span>
       </p>
-      <p>Runs at its own address with its own accounts and data.</p>
+      <p>
+        ${
+          environment === 'preview'
+            ? 'Runs at its own address with its own accounts and sample data, separate from the company version.'
+            : 'Runs at its own address with its own accounts and data.'
+        }
+      </p>
       ${
         usable
           ? html`<div class="soda-application-actions">${this.openApplication(application)}</div>`
@@ -1110,13 +1116,6 @@ export class SodaApplications extends LitElement {
         <span class="soda-application-status">${version}</span>
       </header>
       ${this.layout === 'apps' ? this.builtFrom(card.project) : ''}
-      <p>
-        ${
-          card.environment === 'preview'
-            ? 'Preview keeps its own accounts and sample data at its own address, separate from the company version and from Soda Forge.'
-            : 'Accounts and company data live with this app at its own address, separate from Soda Forge.'
-        }
-      </p>
       ${this.appCard(card.application, card.state, card.environment, card.canInspect)}
     </li>`;
   }
