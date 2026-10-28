@@ -24,8 +24,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 10 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -361,6 +361,26 @@ async function phaseBind(page: Page, out: string): Promise<string | null> {
   return revision;
 }
 
+async function phaseRaise(page: Page, out: string, amount: number): Promise<void> {
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  await spaces.locator('details.bounds > summary').first().click();
+  const calls = spaces.getByLabel('Planning calls', {exact: true});
+  const before = await calls.inputValue();
+  if (before === String(amount)) {
+    await shot(page, `${out}/decide-allowance-already.png`);
+    return;
+  }
+  await calls.fill(String(amount));
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 120000}
+  );
+  await spaces.getByRole('button', {name: 'Update proposal'}).click();
+  assert.equal((await saving).status(), 201, `Raise: allowance save must return 201`);
+  await shot(page, `${out}/decide-allowance-raised.png`);
+}
+
 async function phaseStartPlan(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
   const cont = spaces.getByRole('button', {name: 'Continue to planning', exact: true});
@@ -521,6 +541,7 @@ async function main() {
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
     if (only === 'all' || only === 'answers') await phaseAnswerQuestions(s.page, dir);
+    if (only === 'all' || only === 'raise') await phaseRaise(s.page, dir, 24);
     let revision: string | null = null;
     if (only === 'all' || only === 'plan') {
       revision = await phaseBind(s.page, dir);
