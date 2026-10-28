@@ -401,7 +401,7 @@ new candidate. Preserve these criteria when touching their boundary:
 - Installed bytes/schema and retained-data checks bind actual identities. Earlier
   frontend installation proof does not qualify a different complete release.
 
-The [Spaces UX](../design/spaces-ux.md) and [feed design](../design/factory-feed-and-ralph-integration.md)
+The [Spaces UX](../design/spaces-ux.md) and feed design
 own the intended presentation; these are regression boundaries, not a second backlog.
 
 ## Canlang qualification boundaries

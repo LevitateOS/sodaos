@@ -48,7 +48,7 @@ records their scope and source revisions.
 
 ## Factory MCP role interface
 
-The adopted [feed/comment direction](../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work)
+The adopted feed/comment direction
 adds one combined subscribed feed, newest posts first, with persisted human
 comments that admitted agents can use to produce linked plans/issues. These are
 target additions under R30–R32/R42/R43 and the existing planning/adoption owners,

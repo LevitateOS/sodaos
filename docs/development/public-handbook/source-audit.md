@@ -89,8 +89,8 @@ onboarding links to these owners instead of repeating enrollment.
 ## S04 Role communication, research, Feed and Library
 
 **Intended model:** [worker design](../../design/factory-worker-mcp.md),
-[Feed direction](../../design/factory-feed-and-ralph-integration.md) and
-[component semantics](../../design/factory-feed-components.md). Required
+Feed direction and
+component semantics. Required
 capability and proposed method/profile names are distinct.
 
 **Source trace:** `internal/factory/mcp_profile.go::{MCPProfiles,MCPPhaseOf,

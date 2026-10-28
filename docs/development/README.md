@@ -51,7 +51,7 @@ Take the smallest useful slice covered by the current request.
 
 The [workflow contracts](factory-workflow-contracts.md) own schemas, algorithms,
 limits and decisive cases; [factory interfaces](../architecture/factory-interfaces.md)
-own component APIs and records. Product, trust and [feed design](../design/factory-feed-and-ralph-integration.md)
+own component APIs and records. Product, trust and feed design
 own their respective behavior, authority and presentation decisions. Old parallel
 plans and run schedules were absorbed and removed; Git retains their history.
 
