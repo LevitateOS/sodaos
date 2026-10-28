@@ -6,7 +6,7 @@
 //   bun tests/installed/founder-demo-e2e.ts [--resume <intentId>] [--out <dir>] [--phase <describe|explore|decide|plan|check|accept|build|app|improve|all>]
 // Run artifacts stay outside the repo under ~/Projects/.soda-demo-checks/e2e/run-*/.
 import assert from 'node:assert/strict';
-import {mkdir, readFile, writeFile} from 'node:fs/promises';
+import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import type {Page} from 'playwright';
 import {launchNativeBrowser} from './native-browser.ts';
@@ -541,35 +541,69 @@ export function assertMuseProvenance(details: string, where: string): void {
   );
 }
 
+const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
+
 async function phaseBuildFollow(page: Page, out: string, intent: string): Promise<void> {
   const started = Date.now();
-  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
-  await nativeSpacesMount(page);
-  const spaces = await spacesContent(page);
-  await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
-  await page.waitForTimeout(2000);
-  const text = await visibleText(page, 8000);
-  assert(
-    text.includes(intent.slice(0, 8)) || /Run ended|Started|Run problem|needs your decision/i.test(text),
-    `Build: no Factory run post visible yet for the journey in Feed (page: ${text.slice(0, 300)})`
-  );
-  await shot(page, `${out}/build-feed.png`);
-  // Provenance comes from the run post's Technical details on the VM; assert
-  // it here once a run post exists. Until then the text scan above fails first.
-  const details = await page.evaluate(() => {
-    const parts: string[] = [];
-    const scan = (root: Document | ShadowRoot) => {
-      for (const d of Array.from(root.querySelectorAll('details'))) {
-        const t = (d.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
-        if (/muse|harness|model|contributor|assignment|run/i.test(t)) parts.push(t);
-      }
-      for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
-    };
-    scan(document);
-    return parts.join('\n---\n');
-  });
-  await writeFile(`${out}/build-provenance.txt`, `started=${new Date(started).toISOString()}\n${details.slice(0, 4000)}\n`);
-  assertMuseProvenance(details, 'Build');
+  const deadline = started + BUILD_TIMEOUT_MS;
+  const seen = new Set<string>();
+  const logMilestone = async (name: string, text: string) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    await appendFile(`${out}/build-milestones.log`, `${new Date().toISOString()} ${name}: ${text.slice(0, 300)}\n`).catch(() => {});
+  };
+  await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent}\n`);
+  for (;;) {
+    assert(Date.now() < deadline, 'Build: 35-minute follow window expired; retain the last observed state');
+    await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+    await nativeSpacesMount(page);
+    const spaces = await spacesContent(page);
+    await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
+    await page.waitForTimeout(4000);
+    const text = await visibleText(page, 8000);
+    await shot(page, `${out}/build-feed.png`);
+    const details = await page.evaluate(() => {
+      const parts: string[] = [];
+      const scan = (root: Document | ShadowRoot) => {
+        for (const d of Array.from(root.querySelectorAll('details'))) {
+          const t = (d.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
+          if (/muse|harness|model|contributor|assignment|run/i.test(t)) parts.push(t);
+        }
+        for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
+      };
+      scan(document);
+      const links: string[] = [];
+      const scanLinks = (root: Document | ShadowRoot) => {
+        for (const a of Array.from(root.querySelectorAll('a[href]'))) {
+          if (/open app/i.test(a.textContent || '')) links.push((a as HTMLAnchorElement).href);
+        }
+        for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scanLinks((el as Element).shadowRoot as ShadowRoot);
+      };
+      scanLinks(document);
+      return {text: parts.join('\n---\n'), links};
+    });
+    await writeFile(`${out}/build-provenance.txt`, `started=${new Date(started).toISOString()}\n${details.text.slice(0, 4000)}\nlinks=${JSON.stringify(details.links)}\n`);
+    for (const [name, re] of Object.entries({
+      'run-active': /Started|in progress|running/i,
+      'run-ended': /Run ended|completed|delivered/i,
+      'run-problem': /Run problem|failed|cancelled|blocked|needs your decision/i,
+      'review': /review/i,
+      'checks': /check/i,
+      'open-app': /open app/i,
+    }) as [string, RegExp][]) {
+      if (re.test(text)) await logMilestone(name, text);
+    }
+    if (details.links.length > 0) {
+      await logMilestone('open-app-link', details.links.join(','));
+      if (/muse/i.test(details.text)) assertMuseProvenance(details.text, 'Build');
+      return;
+    }
+    if (/Run problem|failed|cancelled|blocked/i.test(text)) {
+      assert.fail(`Build: run post reports a problem state (page: ${text.slice(0, 500)})`);
+    }
+    if (/muse/i.test(details.text)) assertMuseProvenance(details.text, 'Build');
+    await page.waitForTimeout(30000);
+  }
 }
 
 async function phaseCheck(page: Page, out: string, intent: string): Promise<void> {
