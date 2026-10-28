@@ -494,6 +494,11 @@ async function phaseAppUse(page: Page, out: string): Promise<void> {
   // Forge shows only status/version plus an Open app link. This phase never
   // asserts an embedded frame and builds no in-Forge embedding: it opens the
   // app's own origin in a new page and uses it there.
+  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+  await nativeSpacesMount(page);
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('button', {name: 'App', exact: true}).first().click();
+  await spaces.getByText('Applications').first().waitFor({timeout: 30000});
   const found = await page.evaluate(() => {
     const links: string[] = [];
     let iframes = 0;
