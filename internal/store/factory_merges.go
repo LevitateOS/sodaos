@@ -240,7 +240,6 @@ func mergeHistoryPrefixStable(old, next factory.Merge) error {
 	// History is append-only: an ordinary same-generation update carries
 	// every prior snapshot exactly. Any equal-length rewrite — receipt,
 	// authorization, effect or tuple — refuses with zero writes.
-	// Replacements snapshot through mergeReplacementAllowed above.
 	for i := range old.History {
 		if !reflect.DeepEqual(old.History[i], next.History[i]) {
 			return ErrMergeConflict
@@ -291,12 +290,9 @@ func mergeIdentityStable(old, next factory.Merge) error {
 }
 
 func mergeUpdateAllowed(old, next factory.Merge) error {
-	// A history length change is a generation replacement: the
-	// finalized predecessor snapshots exactly once and the live fields
-	// become the fresh generation. Anything else is a current-generation
-	// update under immutable bindings.
+	// History is never rewritten: authorization binds generation one only.
 	if len(next.History) != len(old.History) {
-		return mergeReplacementAllowed(old, next)
+		return ErrMergeConflict
 	}
 	if err := mergeHistoryPrefixStable(old, next); err != nil {
 		return err
@@ -316,105 +312,6 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 		return ErrMergeConflict
 	}
 	if !mergeOperationUpdateAllowed(old.Operation, next.Operation) {
-		return ErrMergeConflict
-	}
-	return nil
-}
-
-// mergeReplacementAllowed enforces one generation replacement (D09/H3).
-// The ledger identity stays stable — same publication, repository,
-// issue, PR and review bindings — while exactly the finalized
-// predecessor appends and the live fields become the fresh generation.
-// The immutable history prefix is never rewritten or shortened; the
-// appended snapshot is exactly the stored predecessor; the predecessor
-// operation proves replaceability (confirmed not_committed+cancelled or
-// deterministic no-effect refusal) from a matching terminal stage; and
-// only the generation-owned tuple, authority, deadline and
-// admission-withdrawal move, onto the fresh generation's exact values.
-// Pending, uncertain and committed predecessors forbid replacement: a
-// committed merge recovers and adopts instead of replacing. No new PR
-// is created, no receipt is discarded and no allowance resets — the
-// predecessor receipt rests in its snapshot and the new generation
-// drives its own derived operation identity.
-func mergeReplacementIdentity(old, next factory.Merge) error {
-	if old.ID != next.ID || old.PublicationID != next.PublicationID || old.AssignmentID != next.AssignmentID ||
-		old.ProjectID != next.ProjectID || old.Role != next.Role || old.Acceptance != next.Acceptance ||
-		old.Repository != next.Repository || old.Issue != next.Issue || old.PRNumber != next.PRNumber ||
-		old.PRID != next.PRID || old.IssueID != next.IssueID || old.PRAuthorID != next.PRAuthorID ||
-		old.ReviewerID != next.ReviewerID || old.HeadRef != next.HeadRef || old.BaseRef != next.BaseRef ||
-		old.CreatedUnix != next.CreatedUnix {
-		return ErrMergeConflict
-	}
-	return nil
-}
-
-func mergePredecessorFinalized(old factory.Merge) error {
-	if !old.Authorization.Bound() {
-		return ErrMergeConflict
-	}
-	proof, err := factory.MergePredecessorProofOf(old.Authorization.Generation.Generation, old.Operation)
-	if err != nil {
-		return ErrMergeConflict
-	}
-	// The predecessor stands finalized in its matching terminal stage:
-	// a confirmed cancel behind withdrawal, a deterministic refusal
-	// behind failure. Anything else is not finalized for replacement.
-	if proof.Cancellation == factory.OpCancelCancelled {
-		if old.Stage != factory.MergeWithdrawn || old.Outcome != factory.Cancelled || old.Reason != factory.MergeReasonWithdrawn {
-			return ErrMergeConflict
-		}
-	} else {
-		if old.Stage != factory.MergeFailed || old.Outcome != factory.Failed || old.Reason != factory.MergeReasonRefused {
-			return ErrMergeConflict
-		}
-	}
-	return nil
-}
-
-func mergeReplacementAllowed(old, next factory.Merge) error {
-	if err := mergeReplacementIdentity(old, next); err != nil {
-		return err
-	}
-	// Immutable prefix plus exactly one appended snapshot.
-	if len(next.History) != len(old.History)+1 {
-		return ErrMergeConflict
-	}
-	for i := range old.History {
-		if !reflect.DeepEqual(old.History[i], next.History[i]) {
-			return ErrMergeConflict
-		}
-	}
-	// The appended snapshot is exactly the finalized predecessor: its
-	// authorization, native operation with intent, observations and
-	// receipts, and terminal effect, stage, outcome and finish.
-	want := factory.SnapshotMergeGeneration(old.Authorization, old.Operation, old.Stage, old.Outcome, old.Reason, old.FinishedUnix)
-	if !reflect.DeepEqual(next.History[len(old.History)], want) {
-		return ErrMergeConflict
-	}
-	if err := mergePredecessorFinalized(old); err != nil {
-		return err
-	}
-	return mergeReplacementFresh(next)
-}
-
-func mergeReplacementFresh(next factory.Merge) error {
-	// The live fields become exactly the fresh generation, once: the
-	// next number in line, its exact tuple and authority, its undriven
-	// operation and observations, and a cleared admission.
-	if !next.Authorization.Bound() ||
-		next.Authorization.Generation.Generation != len(next.History)+1 {
-		return ErrMergeConflict
-	}
-	generation := next.Authorization.Generation
-	if next.Authority != generation.Authority ||
-		next.HeadOID != generation.Head || next.BaseOID != generation.Base {
-		return ErrMergeConflict
-	}
-	if next.WithdrawRequested || next.Stage != factory.MergeOpen ||
-		next.NativeRev != 0 || next.ObservedUnix != 0 {
-		return ErrMergeConflict
-	}
-	if !reflect.DeepEqual(next.Operation, factory.MergeOperation{Kind: factory.OpMerge}) {
 		return ErrMergeConflict
 	}
 	return nil

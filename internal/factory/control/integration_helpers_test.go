@@ -18,26 +18,6 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// deliveryChooser is the deterministic FW21 adapter: scripted answers, no
-// live Jev consultation.
-type deliveryChooser struct {
-	calls  int
-	answer func(fingerprint string) (factory.DeliveryAnswer, error)
-}
-
-func (f *deliveryChooser) SelectDelivery(_ context.Context, state any, _ string, _ map[string]any) (factory.DeliveryAnswer, error) {
-	f.calls++
-	in, ok := state.(factory.DeliveryFingerprintInput)
-	if !ok {
-		return factory.DeliveryAnswer{}, errors.New("delivery state is not its evidence input")
-	}
-	fingerprint, err := factory.DeliveryFingerprint(in)
-	if err != nil {
-		return factory.DeliveryAnswer{}, err
-	}
-	return f.answer(fingerprint)
-}
-
 func readyDeliveryAnswer(fingerprint string) (factory.DeliveryAnswer, error) {
 	return factory.DeliveryAnswer{
 		Probabilities: map[string]float64{factory.DeliveryReviewAgain: 0.1, factory.DeliveryReadyToMerge: 0.9},
@@ -58,78 +38,6 @@ func reviewDeliveryAnswer(fingerprint string) (factory.DeliveryAnswer, error) {
 		Probability:   0.9,
 		Confidence:    0.9,
 	}, nil
-}
-
-// deliveryFunding mirrors the store funding contract in memory:
-// attempt-root subledger plus a global ceiling, reserved in one step,
-// with fingerprint-keyed receipts.
-type deliveryFunding struct {
-	subledgerLimit int
-	globalBudget   int
-	subledger      []string
-	requestOwner   map[string]string
-	spent          int
-	reserved       map[string]bool
-	receipts       map[string]factory.DeliveryReceipt
-	reserveCalls   int
-}
-
-func newDeliveryFunding(subledgerLimit, globalBudget int) *deliveryFunding {
-	return &deliveryFunding{
-		subledgerLimit: subledgerLimit,
-		globalBudget:   globalBudget,
-		requestOwner:   map[string]string{},
-		reserved:       map[string]bool{},
-		receipts:       map[string]factory.DeliveryReceipt{},
-	}
-}
-
-func (f *deliveryFunding) DeliveryJudgment(_ context.Context, fingerprint string) (factory.DeliveryReceipt, error) {
-	r, ok := f.receipts[fingerprint]
-	if !ok {
-		return factory.DeliveryReceipt{}, store.ErrNotFound
-	}
-	return r, nil
-}
-
-func (f *deliveryFunding) ReserveDeliveryJudgment(_ context.Context, _, _ int64, _, request, fingerprint string) (bool, error) {
-	f.reserveCalls++
-	if !factory.ValidID(request) || !factory.ValidDigest(fingerprint) {
-		return false, errors.New("invalid delivery reservation")
-	}
-	if f.reserved[fingerprint] {
-		return false, nil
-	}
-	if owner, seen := f.requestOwner[request]; seen && owner != fingerprint {
-		return false, store.ErrCommandConflict
-	}
-	for _, seen := range f.subledger {
-		if seen == request {
-			return false, store.ErrCommandConflict
-		}
-	}
-	if len(f.subledger) >= f.subledgerLimit || f.spent >= f.globalBudget {
-		return false, nil
-	}
-	f.subledger = append(append([]string(nil), f.subledger...), request)
-	f.requestOwner[request] = fingerprint
-	f.spent++
-	f.reserved[fingerprint] = true
-	return true, nil
-}
-
-func (f *deliveryFunding) RecordDeliveryJudgment(_ context.Context, r factory.DeliveryReceipt) error {
-	if err := r.Validate(); err != nil {
-		return err
-	}
-	if !f.reserved[r.Fingerprint] {
-		return store.ErrCommandConflict
-	}
-	if _, done := f.receipts[r.Fingerprint]; done {
-		return store.ErrCommandConflict
-	}
-	f.receipts[r.Fingerprint] = r
-	return nil
 }
 
 type fakeReviewer struct {
@@ -749,59 +657,6 @@ func correctionTestDigest(t *testing.T, keys ...string) string {
 		t.Fatal(err)
 	}
 	return digest
-}
-
-func correctionTestCycle(t *testing.T, publicationID string, head, base string, round int, digest string) factory.ReviewCycle {
-	t.Helper()
-	attemptRoot := strings.Repeat("b", 32)
-	return factory.ReviewCycle{
-		PublicationID: publicationID, AttemptRoot: attemptRoot,
-		ID:                 factory.ReviewCycleID(publicationID, attemptRoot, round, "review"),
-		Phase:              "review",
-		TriggerDecision:    factory.DeliveryReviewAgain,
-		TriggerReason:      "correction set needs another inspection",
-		Head:               head,
-		BaseOID:            base,
-		FindingDigest:      digest,
-		ReviewerAssignment: strings.Repeat("4", 32),
-		Round:              round,
-	}
-}
-
-func correctionTestReport(candidate string, findings []factory.Finding, dispositions []factory.CorrectionDisposition) factory.CorrectionReport {
-	keys := make([]string, 0, len(findings))
-	for _, finding := range findings {
-		keys = append(keys, finding.Key)
-	}
-	digest, err := factory.FindingSetDigest(keys)
-	if err != nil {
-		return factory.CorrectionReport{}
-	}
-	return factory.CorrectionReport{SetDigest: digest, NewCandidate: candidate, Findings: findings, Dispositions: dispositions}
-}
-
-func correctionTestChecks(head, base string) *factory.CheckAssessment {
-	checks := []string{"ci"}
-	return &factory.CheckAssessment{
-		Results:          []factory.CheckResult{{Context: "ci", State: factory.CheckStateSuccess, Passed: true}},
-		Checks:           checks,
-		Repository:       7,
-		PRNumber:         3,
-		PRID:             5,
-		IssueID:          9,
-		PolicyRevision:   1,
-		NativeRev:        2,
-		Revision:         1,
-		AssessedUnix:     time.Now().Unix(),
-		ObservedContexts: 1,
-		HeadRef:          "refs/heads/fix",
-		BaseRef:          "refs/heads/main",
-		HeadOID:          head,
-		BaseOID:          base,
-		ChecksDigest:     factory.ChecksDigest(checks),
-		Verdict:          factory.CheckPass,
-		Reason:           factory.CheckReasonPass,
-	}
 }
 
 func clearTestReviewer(t *testing.T, reviewer, head, base string, cycle factory.ReviewCycle, assessments []factory.FindingAssessment, carried []factory.Finding) factory.Assignment {

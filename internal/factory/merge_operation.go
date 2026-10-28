@@ -500,14 +500,6 @@ func (g MergeGeneration) validateUnionShape() error {
 	return nil
 }
 
-// SupersededByBase reports whether a new base invalidates this
-// generation's pending acceptance. FW22 refreshes the publication tuple
-// from native refs on true and dispatches bounded coder correction when
-// the new base is not already an ancestor of the candidate.
-func (g MergeGeneration) SupersededByBase(newBase string) bool {
-	return newBase != g.Base
-}
-
 // MergePredecessorProof is the confirmed predecessor effect behind a
 // replacement: either the predecessor proven not_committed with confirmed
 // cancellation, or a deterministic no-effect refusal. Pending,
@@ -548,15 +540,6 @@ type MergeLedger struct {
 	Repository    int64             `json:"repository,string"`
 	Issue         int64             `json:"issue,string"`
 	Adopted       bool              `json:"adopted"`
-}
-
-// NewMergeLedger opens the empty ledger for one publication.
-func NewMergeLedger(publicationID string, repository, issue int64) (MergeLedger, error) {
-	ledger := MergeLedger{PublicationID: publicationID, Repository: repository, Issue: issue}
-	if err := ledger.Validate(); err != nil {
-		return MergeLedger{}, err
-	}
-	return ledger, nil
 }
 
 // Validate checks append-only history: consecutive generations from one,
@@ -600,100 +583,6 @@ func (l MergeLedger) Validate() error {
 		return errors.New("unadopted merge carries no realized commit")
 	}
 	return nil
-}
-
-// Ledger update kinds. Registration captures a generation; supersession
-// closes the current admission on proven predecessor effect; adoption
-// observes an already-committed merge without resubmitting it.
-const (
-	MergeLedgerRegister  = "register"
-	MergeLedgerSupersede = "supersede"
-	MergeLedgerAdopt     = "adopt"
-)
-
-// MergeLedgerUpdate is one append-only ledger transition.
-type MergeLedgerUpdate struct {
-	Generation    MergeGeneration       `json:"generation,omitempty"`
-	Proof         MergePredecessorProof `json:"proof,omitempty"`
-	AdoptedCommit string                `json:"adopted_commit,omitempty"`
-	Kind          string                `json:"kind"`
-}
-
-// Apply validates one transition and returns the next ledger. Unknown,
-// uncertain or committed-predecessor replacements refuse; adoption of an
-// already-adopted identical commit replays identically.
-func (l MergeLedger) Apply(u MergeLedgerUpdate) (MergeLedger, error) {
-	if err := l.Validate(); err != nil {
-		return MergeLedger{}, err
-	}
-	switch u.Kind {
-	case MergeLedgerRegister:
-		return l.register(u.Generation)
-	case MergeLedgerSupersede:
-		return l.supersede(u.Proof)
-	case MergeLedgerAdopt:
-		return l.adopt(u.AdoptedCommit)
-	default:
-		return MergeLedger{}, errors.New("invalid merge ledger update")
-	}
-}
-
-func (l MergeLedger) register(generation MergeGeneration) (MergeLedger, error) {
-	if l.Adopted {
-		return MergeLedger{}, errors.New("committed merge forbids replacement")
-	}
-	if l.Current.Generation != 0 {
-		return MergeLedger{}, errors.New("current authorization still occupies its ledger")
-	}
-	if err := generation.Validate(); err != nil {
-		return MergeLedger{}, err
-	}
-	if generation.PublicationID != l.PublicationID {
-		return MergeLedger{}, errors.New("merge generation differs from its ledger")
-	}
-	if generation.Generation != len(l.History)+1 {
-		return MergeLedger{}, errors.New("merge generation breaks its history")
-	}
-	if len(l.History)+1 > MaxMergeGenerations {
-		return MergeLedger{}, errors.New("merge generation history at its ceiling")
-	}
-	l.Current = generation
-	return l, nil
-}
-
-func (l MergeLedger) supersede(proof MergePredecessorProof) (MergeLedger, error) {
-	if l.Adopted {
-		return MergeLedger{}, errors.New("committed merge forbids replacement")
-	}
-	if l.Current.Generation == 0 {
-		return MergeLedger{}, errors.New("no current authorization to supersede")
-	}
-	if err := proof.Validate(); err != nil {
-		return MergeLedger{}, err
-	}
-	if proof.Generation != l.Current.Generation {
-		return MergeLedger{}, errors.New("supersede proof differs from its current generation")
-	}
-	l.History = append(l.History, l.Current)
-	l.Current = MergeGeneration{}
-	return l, nil
-}
-
-func (l MergeLedger) adopt(commit string) (MergeLedger, error) {
-	if l.Current.Generation == 0 {
-		return MergeLedger{}, errors.New("no current authorization to adopt")
-	}
-	if !ValidCommit(commit) || commit != l.Current.Head {
-		return MergeLedger{}, errors.New("adopted merge differs from its exact head")
-	}
-	if l.Adopted {
-		if l.AdoptedCommit != commit {
-			return MergeLedger{}, errors.New("adopted merge differs from its recorded commit")
-		}
-		return l, nil
-	}
-	l.Adopted, l.AdoptedCommit = true, commit
-	return l, nil
 }
 
 // MergeAuthorization is one merge row's admitted authorization (D09):

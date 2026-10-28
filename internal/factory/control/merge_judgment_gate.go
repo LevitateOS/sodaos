@@ -1,7 +1,6 @@
 package control
 
 import (
-	"context"
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -21,27 +20,6 @@ type MergeNativeGate struct {
 	BaseOID          string
 	Visible          bool
 	Complete         bool
-}
-
-// mergeableGate returns the native fixture for an eligible, approved
-// candidate on the exact head/base.
-func mergeableGate(head, base string) MergeNativeGate {
-	return MergeNativeGate{
-		Eligible: true, Approved: true,
-		HeadOID: head, BaseOID: base,
-		Visible: true, Complete: true,
-	}
-}
-
-// blockedGate returns the native fixture for one exact native blocker.
-// Eligible stays false; approval/review flags stay as supplied so tests
-// can model approvals-blocked vs protection-blocked distinctly.
-func blockedGate(head, base, blocker string, approved bool) MergeNativeGate {
-	return MergeNativeGate{
-		Eligible: false, Blocker: blocker, Approved: approved,
-		HeadOID: head, BaseOID: base,
-		Visible: true, Complete: true,
-	}
 }
 
 // Validate checks the gate shape: exact tips plus the bounded blocker
@@ -261,44 +239,4 @@ func checkJudgmentNative(in MergeJudgmentGateInput) error {
 		return &factory.PublicationWait{Reason: in.Native.Blocker}
 	}
 	return nil
-}
-
-// AdviseMergeJudgment funds one T24/T25 delivery judgment behind the
-// pre-spend gate and binds it to the generation's common merge gate. The
-// cheap gate runs first so superseded or protected merges never reserve
-// funding or consult the provider. The delivery fingerprint must exactly
-// match the generation; stale semantic evidence refuses without spending.
-// A funded failure stays charged and unavailable with no refund, per FW21;
-// a funded ready decision still passes CheckMergeDecisionGate before any
-// mutation path may use it. D13 completion stays out of scope.
-func (c *Coordinator) AdviseMergeJudgment(ctx context.Context, gate MergeJudgmentGateInput, advice DeliveryAdvice, currentAuthority factory.AuthorityRef) (factory.DeliveryDecision, bool, error) {
-	var empty factory.DeliveryDecision
-	fingerprint, err := factory.DeliveryFingerprint(advice.Input)
-	if err != nil {
-		return empty, false, err
-	}
-	if fingerprint != gate.Generation.Fingerprint {
-		return empty, false, &factory.PublicationRefusal{Reason: "judgment_stale"}
-	}
-	if err := CheckMergeJudgmentReady(gate); err != nil {
-		return empty, false, err
-	}
-	decision, reused, err := c.AdviseDelivery(ctx, advice)
-	if err != nil {
-		return empty, false, err
-	}
-	outcome, err := ReconcileAcceptedResolutions(gate.Acceptance, gate.Admission, gate.Planned, gate.Confirmed)
-	if err != nil {
-		return empty, false, &factory.PublicationRefusal{Reason: "invalid_work"}
-	}
-	gateIn := factory.MergeDecisionInput{
-		Generation:           gate.Generation,
-		Decision:             decision,
-		CurrentAuthority:     currentAuthority,
-		ResolutionsConfirmed: len(outcome.Waits) == 0,
-	}
-	if err := factory.CheckMergeDecisionGate(gateIn); err != nil {
-		return empty, false, err
-	}
-	return decision, reused, nil
 }
