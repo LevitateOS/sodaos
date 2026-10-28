@@ -33,7 +33,14 @@ import type {
   SavedRequest,
   SavedReviewRead,
 } from './sodaspaces-intent-response.js';
-import {describeIntent, reviewIntent, departmentDialog, reviewReady, attentionText} from './sodaspaces-intent-view.js';
+import {
+  describeIntent,
+  reviewIntent,
+  departmentDialog,
+  reviewReady,
+  attentionText,
+  plannerStopped,
+} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
 type IntentAPI = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>;
@@ -2433,7 +2440,8 @@ export class SodaIntent extends LitElement {
         this.plan = planned;
         if (planned.state !== 'completed') {
           this.plan = planned;
-          if (['none', 'failed', 'cancelled'].includes(planned.state)) await this.planLiveAttempt(current, signal);
+          if (['none', 'failed', 'cancelled'].includes(planned.state) || plannerStopped(planned))
+            await this.planLiveAttempt(current, signal);
           else this.generationNotice = 'Your request is saved. Its planning progress and any question appear here.';
           return;
         }
@@ -2509,9 +2517,10 @@ export class SodaIntent extends LitElement {
   };
   // One settled-retry contract for both planning buttons: the retry
   // decision never comes from cached state. A failed fetch, a mismatched
-  // revision, or a live pending/attention state stops with truthful
-  // guidance and never POSTs. Only a verified settled terminal plan
-  // (failed, cancelled, or completed without walkthroughs) authors a
+  // revision, a live pending state or attention that asks a product
+  // question stops with truthful guidance and never POSTs. Only a verified
+  // settled terminal plan (failed, cancelled, a planner that stopped
+  // without a usable answer, or completed without walkthroughs) authors a
   // successor draft; only a verified none plans this revision directly.
   // The save preserves the direction, choices and finite limits; the
   // settled history stays recorded and planning targets the new revision.
@@ -2534,6 +2543,7 @@ export class SodaIntent extends LitElement {
     if (
       fresh.state === 'failed' ||
       fresh.state === 'cancelled' ||
+      plannerStopped(fresh) ||
       (fresh.state === 'completed' && !fresh.walkthroughs)
     ) {
       const bound = await this.save('draft', revision.repository, signal);
