@@ -75,7 +75,7 @@ after(async () => {
   server?.stop(true);
 });
 
-type WorkView = 'overview' | 'detail' | 'plan' | 'direction' | 'effects';
+type WorkView = 'overview' | 'detail' | 'detail-settled' | 'plan' | 'direction' | 'effects';
 
 async function openView(t: TestContext, view: WorkView, routes: StubRoute[]): Promise<Page> {
   const page = await browser.newPage();
@@ -2008,6 +2008,69 @@ test('work journey dedups delivered evidence on unchanged rebind with preserved 
   assert.ok(refreshCalls.some((call) => call.path === 'repositories/7/factory/issues/12'));
   assert.equal(
     refreshCalls.filter((call) => call.method !== 'GET').length,
+    0
+  );
+});
+
+test('settled work retries the latest recorded run without a live selection', async (t) => {
+  const RUN_NEW = 'e'.repeat(32);
+  const settled = (id: string) => ({
+    run: {
+      id,
+      project_id: PROJECT,
+      role: 'soda-coder',
+      harness: 'muse-fixture',
+      model: 'muse-spark-fixture',
+      input_sha: HEAD,
+      reconciled: true,
+      outcome: 'cancelled',
+    },
+  });
+  const page = await openView(t, 'detail-settled', [
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {method: 'GET', path: `factory/runs/${RUN_NEW}`, status: 200, json: settled(RUN_NEW)},
+    {method: 'GET', path: `factory/runs/${RUN}`, status: 200, json: settled(RUN)},
+    {
+      method: 'POST',
+      path: `factory/runs/${RUN_NEW}/actions`,
+      action: 'retry',
+      status: 200,
+      echoCommand: true,
+      json: {prior_run: RUN_NEW, command_id: '', reason: 'stop_before_start_retry', queued: true},
+    },
+  ]);
+  const detail = page.locator('soda-factory-work-detail');
+  const retry = detail.getByRole('button', {name: 'Retry run', exact: true});
+  await retry.waitFor();
+  await page.waitForFunction(() => {
+    const button = document.querySelector('soda-factory-work-detail')?.shadowRoot ?? document;
+    return Array.from(button.querySelectorAll('button')).some(
+      (entry) => entry.textContent?.trim() === 'Retry run' && !entry.disabled
+    );
+  });
+  await retry.click();
+  await detail.getByText('Retry queued. The prior run stays settled; no other attempt was created.').waitFor();
+  const posts = (await workCalls(page)).filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 1);
+  const only = posts[0];
+  assert(only !== undefined);
+  assert.equal(only.path, `factory/runs/${RUN_NEW}/actions`);
+  assert.equal((only.body as {action?: string}).action, 'retry');
+});
+
+test('retry stays disabled when no run is recorded on the work', async (t) => {
+  const page = await openView(t, 'detail-settled', [
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+  ]);
+  const detail = page.locator('soda-factory-work-detail');
+  const retry = detail.getByRole('button', {name: 'Retry run', exact: true});
+  await retry.waitFor();
+  await page.waitForFunction(() => window.factoryWork.calls().length >= 2);
+  assert.equal(await retry.isDisabled(), true);
+  assert.equal(
+    (await workCalls(page)).filter((call) => call.method !== 'GET').length,
     0
   );
 });
