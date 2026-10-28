@@ -19,6 +19,8 @@ const STAGE = '/home/vince/Projects/.soda-demo-checks/demo-native-20261026T07343
 const RUN_BASE = '/home/vince/Projects/.soda-demo-checks/e2e';
 const REPOSITORY = '1';
 const REPOSITORY_SLUG = 'maya/northstar-equipment';
+const INTENT_DD00 = 'dd00cb3160885e5f707ec7d95';
+const STOPPED_RUN = '00976679f6258efbc2c82b7ce1719b87';
 // Owner decision (via Claude): apps run at their own address, not inside
 // Soda Forge — so new requests say "a small web app". dd00cb31's recorded
 // request text is history and stays untouched (resume never refills it).
@@ -561,10 +563,11 @@ const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
  * (RetryRun path for stop-before-start). Fails naming the exact state when
  * the page offers no usable Retry for the stopped run. */
 async function phaseRetryBuild(page: Page, out: string, run: string): Promise<void> {
-  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+  // The run interventions (incl. "Retry run") render in the per-issue work
+  // detail on the request route, not in the project Work view.
+  await page.goto(`${ORIGIN}/workspace/requests/${INTENT_DD00}`);
   await nativeSpacesMount(page);
   const spaces = await spacesContent(page);
-  await spaces.getByRole('button', {name: 'Work', exact: true}).first().click();
   await page.waitForTimeout(4000);
   await shot(page, `${out}/retry-work.png`);
   const text = await visibleText(page, 8000);
@@ -573,9 +576,21 @@ async function phaseRetryBuild(page: Page, out: string, run: string): Promise<vo
     text.includes(run.slice(0, 8)) || /Earlier runs|Retry run/i.test(text),
     `Retry: expected the stopped run ${run.slice(0, 8)} or an Earlier-runs/Retry control in Work (page: ${text.slice(0, 300)})`
   );
+  const buttons = await page.evaluate(() => {
+    const out: {text: string; disabled: boolean; section: string}[] = [];
+    for (const b of Array.from(document.querySelectorAll('button'))) {
+      const t = (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+      if (!t) continue;
+      const section = b.closest('details, section, li, article');
+      const heading = section?.querySelector('summary, h1, h2, h3')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 120) ?? '';
+      out.push({text: t, disabled: (b as HTMLButtonElement).disabled, section: heading});
+    }
+    return out;
+  });
+  await writeFile(`${out}/retry-buttons.json`, JSON.stringify(buttons, null, 2));
   const retry = spaces.getByRole('button', {name: 'Retry run'});
   const count = await retry.count();
-  assert(count >= 1, `Retry: no "Retry run" button offered in Work (page: ${text.slice(0, 300)})`);
+  assert(count >= 1, `Retry: no "Retry run" button offered in Work (buttons: ${JSON.stringify(buttons).slice(0, 600)})`);
   assert(count === 1, `Retry: ${count} "Retry run" buttons; cannot tell which one retries run ${run.slice(0, 8)}`);
   const button = retry.first();
   assert(await button.isEnabled(), `Retry: the "Retry run" button is disabled for run ${run.slice(0, 8)}`);
@@ -775,7 +790,8 @@ async function main() {
     // click, then a follow with a ~6-minute launch deadline. Standalone
     // phase only — never part of `all`.
     if (only === 'retry-build') {
-      await phaseRetryBuild(s.page, dir, '00976679f6258efbc2c82b7ce1719b87');
+      assert(intent === INTENT_DD00, `retry-build: approved only for the journey request ${INTENT_DD00}, got ${intent}`);
+      await phaseRetryBuild(s.page, dir, STOPPED_RUN);
       await phaseBuildFollow(s.page, dir, intent, 6 * 60 * 1000);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
