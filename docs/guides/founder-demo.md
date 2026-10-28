@@ -18,7 +18,7 @@ comments, business records or successful outcomes.
 | Build | Start the authorized work and follow Feed. | Actual role posts, progress, checks and interruptions. A wait names its cause and the supported next action. Technical controls remain available in detail. |
 | Understand | Open a decision or an actual consultation in its post thread. | The agent's actual question to JEV, returned result and separate explanation. The agent's own explanation stays visible above the consultation block. Every non-returned JEV state names its next action in plain words. A failed discussion load offers “Retry loading discussion text” on that post. Other roles' comments appear only when they actually contribute. |
 | Find | Filter the same feed to Decisions or Knowledge and open a post. | The same post, comments and history, with its current decision state. |
-| Use | Open App when a usable version is actually available. Complete an action yourself. | The real application inside Forge, its version, account and data context. Each row states the version and origin plus where app accounts and data live, separate from Soda Forge, and whether setup is operator- or administrator-handled. Setup, unavailable and access states explain how to continue. |
+| Use | Open the app from App when a usable version is actually available. Complete an action yourself. | The real application at its own address in its own browser tab, never embedded in Forge. App shows its version, readiness and an “Open app ↗” link. Each row states the version and origin plus where app accounts and data live, separate from Soda Forge, and whether setup is operator- or administrator-handled. Setup, unavailable and access states explain how to continue. |
 | Improve | Comment with a real change you want. Review any proposed scope change and follow its actual work. | A link from the comment to its decision and work. The existing app remains available where supported. |
 | Return | Leave for Feed, return to App, and reload. | Your actual saved record and application context. “View project Feed” is available whenever a project is set, and Forge remembers your last project view. An update preserves data only when that behavior has been exercised. |
 
@@ -66,7 +66,7 @@ controls actually work, and record what happened — no invented results:
 2. Separately prepare/setup/start the company version — resume existing
    setup where it exists rather than assuming a repeat — then real company
    use with a retained record.
-3. Try the exact verified changed preview inside Forge first — before the
+3. Try the exact verified changed preview at its own address first — before the
    separate company update, never skipping straight to company release —
    then stop/apply/start the company version → reopen the same
    record/history, confirming the data survived.

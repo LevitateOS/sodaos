@@ -43,7 +43,7 @@ The requested result is a usable product flow through
 **Describe → Decide → Build → Use → Improve**, starting with the user's own
 request. A departmental application and later policy change are possible uses,
 not predetermined results to insert into that flow.
-The application runs inside Soda Forge; design decisions and knowledge are
+The application runs at its own address and opens from Forge in its own tab (never embedded in Forge; owner decision, 28 Oct); design decisions and knowledge are
 filterable posts with shared comments; real JEV consultations and useful invited
 AI contributions are visible. Existing source, issues, PRs, environments, runtime,
 library, identities and administration remain the implementation foundation.
@@ -181,8 +181,9 @@ local evidence does not check off the remaining journey.
 - [ ] **FUX16 — Connect verified results to the exact App version.**
       **Needs:** FUX11's actual verified candidate. **Owners:** FJ23–FJ25/FJ27,
       delivery/artifact admission/App result links.
-      **Done:** the result's primary action opens its real runnable version inside
-      Forge, with correct readiness, version and preview/company identity. Older
+      **Done:** the result's primary action opens its real runnable version at its
+      own address in a new tab (never embedded in Forge), with correct readiness,
+      version and preview/company identity. Older
       result links do not silently open a different version. Artifact handoff
       uses the existing product controls; the presenter assembles no deployment
       JSON. Missing artifacts remain an actionable incomplete result.
@@ -195,7 +196,7 @@ local evidence does not check off the remaining journey.
       sign-in per user whenever multiple users are needed — no shared-session
       shortcuts. Expired login/interrupted setup recovers the same context;
       unrelated users cannot see private data.
-- [ ] **FUX18 — Complete real application work inside Forge.**
+- [ ] **FUX18 — Complete real application work in the app.**
       **Needs:** FUX17. **Owners:** FJ27/FJ29, generated Canlang application/runtime.
       **Done:** real users perform the accepted workflow through the app UI;
       actions enforce the actual permissions and persist. Create records by
@@ -229,7 +230,7 @@ local evidence does not check off the remaining journey.
       **Needs:** FUX20 and the reused FUX11/FUX16 pipeline. **Owners:** FJ34/FJ35,
       verification/App update/runtime.
       **Done:** the real change passes its behavior and permission checks; the
-      exact verified changed preview is tried inside Forge first, before the
+      exact verified changed preview is tried at its own address first, before the
       separate company update — no skipping straight to company release. Only
       then does the authorized update select the exact verified version and
       observe availability. Reopen the same previously created record with its
@@ -468,13 +469,13 @@ FUX23–25 and the capability map below remain unfinished.
       competing issue/decision/deployment store; missing relationships have exact
       owning fields/projections and distinguish proposed, saved, adopted and observed.
 
-- [x] **FJ03 — Prove real application use and authentication inside Soda Forge.**
+- [x] **FJ03 — Prove real application use and authentication at the app's own origin.**
       **Needs:** FJ01. **Home:** native Fountain workspace integration,
       `frontend/spaces/sodaspaces-applications.ts`, Soda ingress and Canlang Runtime/
       Identity. Use a small real existing application to resolve the host boundary
       before visual polish. Preserve the separate origin and app-local identity.
-      First-owner setup currently refuses framing; an iframe mockup is insufficient.
-      **Done:** inside Forge, a real user logs in, performs a persisted app action,
+      Apps are never framed inside Forge (owner decision, 28 Oct); App links to the
+      app's own origin. **Done:** from App, a real user opens the app, logs in, performs a persisted app action,
       reloads and returns from Feed to the same application. Resolve any demonstrated
       host-contract gap at the existing extension boundary. Retain a concrete working
       integration choice for FJ26–FJ30, including first-use and expired-session behavior.
@@ -676,7 +677,7 @@ FUX23–25 and the capability map below remain unfinished.
       runtime/tools/storage references, ready preview and eventual company version.
       Opening an older result never silently substitutes an unrelated newer build.
 
-### Make the application usable and operable in Forge
+### Make the application usable and operable from Forge
 
 - [ ] **FJ25 — Carry generated artifacts into native application admission.**
       **Needs:** FJ24. **Home:** application references, packaging and trusted native
@@ -694,9 +695,9 @@ FUX23–25 and the capability map below remain unfinished.
       access is not silently app-data access; expired sessions and account changes
       return to the correct app without stale personal data.
 
-- [ ] **FJ27 — Open the exact verified preview inside Soda Forge.**
+- [ ] **FJ27 — Open the exact verified preview from Soda Forge.**
       **Needs:** FJ03, FJ24, FJ26. **Home:** native App surface and Canlang preview
-      lifecycle. **Done:** Try this version opens a real runnable app with its
+      lifecycle. **Done:** Try this version opens a real runnable app at its own address with its
       identifiable preview data; the accepted direction's actual actors act under
       its contract and their actions persist across Feed/App navigation and
       reload. First company release is not required to try it.
@@ -717,7 +718,7 @@ FUX23–25 and the capability map below remain unfinished.
       Company data is separate from preview data. Universal requirement ends here;
       the following is the one specific FJ04 Northstar rehearsal scenario, not a
       universal product requirement: the four real accounts complete the workflow
-      inside Forge, creating the retained €420 company record; a
+      in the app, creating the retained €420 company record; a
       nonoperator sees the responsible handoff instead of unavailable controls.
 
 - [ ] **FJ30 — Support direct return and everyday application use.**
@@ -761,7 +762,7 @@ FUX23–25 and the capability map below remain unfinished.
 - [ ] **FJ34 — Verify the Finance rule against a compatible persisted model.**
       **Needs:** FJ33 and the reusable FJ21–FJ24 pipeline. **Home:** generated Canlang
       app, Test Pilot and trusted checks. **Done:** the exact changed preview is tried
-      inside Forge first, before the separate company update — no skipping
+      at its own address first, before the separate company update — no skipping
       straight to company release. The accepted change's behavior, access rules
       and retention requirements are verified against a compatible persisted
       model through actual actions — conditional on what the accepted
@@ -775,7 +776,7 @@ FUX23–25 and the capability map below remain unfinished.
 - [ ] **FJ35 — Replace, start and verify the running company version.**
       **Needs:** FJ29, FJ34. **Home:** existing Replace API/native host and new App
       update control. **Done:** only after the exact verified changed preview has
-      been tried inside Forge, the authorized update consumes the exact verified
+      been tried at its own address, the authorized update consumes the exact verified
       artifact for the separate company release, performs required
       stop/replace/start steps and observes v2. Reload
       and reopen the same company record with its original ID/history (and any

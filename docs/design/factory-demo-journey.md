@@ -34,7 +34,7 @@ journey qualification.
 The journey is the leading way of using SodaOS and Canlang, including daily use
 after the first build. It must connect the existing product's capabilities rather
 than become a demo-only wizard. The user's additional requirements are a working
-application usable directly inside Soda Forge, every design decision published as
+application one click away from Soda Forge, running at its own address, every design decision published as
 a post with comments, and knowledge and decisions discoverable by filtering those
 same posts. Keep existing native records, role components, tools and controls;
 adapt their entry points and handoffs around the journey. This brief supersedes
@@ -65,7 +65,7 @@ list of unchanged defects.
 | Feed | [Role posts](factory-feed-components.md) support artifacts, findings, questions, decisions and discussion; human comments have durable intake and linked outcomes. | Keep the social feed as the main communication surface. |
 | Decisions and knowledge | [Project library](../../frontend/spaces/sodaspaces-factory-library.ts), decision/knowledge post components and revisioned Library Admin controls already exist. | Expose every design decision and reusable lesson as a commentable post; filter the same posts to find decisions or knowledge, with currentness and history retained. |
 | Verification | [App completion](../product/overview.md#recovery-and-completion-of-an-app-version) requires integrated outcome coverage and exact evidence; [delivery admission](../../internal/factory/control/delivery_admission.go) implements scoped Test Pilot work. | Distinguish an issue being merged from the application workflow being verified. |
-| Private apps | [Applications UI](../../frontend/spaces/sodaspaces-applications.ts), owner setup and native lifecycle/recovery operations exist. [Runtime guidance](../guides/canlang-applications.md) distinguishes preview, private app identity and production state. | Make the actual application immediately usable inside Soda Forge once ready, with its exact version, app identity and data context visible; preserve the separate authorized release path. |
+| Private apps | [Applications UI](../../frontend/spaces/sodaspaces-applications.ts), owner setup and native lifecycle/recovery operations exist. [Runtime guidance](../guides/canlang-applications.md) distinguishes preview, private app identity and production state. | Once ready, App and the result post open the actual application at its own address in a new tab, with its exact version, app identity and data context visible in App; preserve the separate authorized release path. |
 | Operator | Repository authority, provider sponsorship, preparation, finite execution limits, app artifacts and private access have independent owners. | Preconfigure the demo's operator requirements honestly; show unresolved readiness as an actionable branch. |
 
 ## The journey owns the entry points
@@ -87,7 +87,7 @@ for human approval.
 | Prepare and build | Repository association, account sponsorship, provider selection, finite limits, persistent Project, preparation, dependencies, parallel tasks and role dispatch. | Return to the retained request when prerequisites permit, with an explicit next action before starting new planning work. Meaningful work posts explain progress; missing preparation or account access opens the responsible existing control and returns to the same request. |
 | Inspect, fix and integrate | Architect plans, Builder checkpoints, Inspector findings, Fixer corrections, native PRs/reviews/Actions, merge and dependent-work reassessment. | Open source, evidence, checks or work detail from the relevant post. Return to the same feed position and app context. |
 | Resolve an interruption | Questions, dependency/resource waits, failed checks, Strategist diagnosis, bounded repair, cancellation and supported intervention. | A post names the cause, affected work, responsible actor and supported next action. Independent work continues. Preserve draft, work and limits through recovery. |
-| Use inside Soda Forge | Versioned preview, Canlang interfaces and business rules, app-local identity, complete employee/manager/Operations actions and integrated verification. | Open App in the same project workspace and complete real work there. The feed's result post opens the exact ready version. The full app has its own surface, not a whole application embedded inside a post. |
+| Use the app | Versioned preview, Canlang interfaces and business rules, app-local identity, complete employee/manager/Operations actions and integrated verification. | The feed's result post and App open the exact ready version at its own address in a new tab. The app is never embedded in Forge or in a post. |
 | Release and operate | App owner/access setup, authorized release/update, private ingress, start/stop, backup/restore and observed availability. | Carry the verified result into the release control without manual artifact assembly. Daily use remains in App; administration opens only for the responsible person and returns to the application. |
 | Improve and reuse | Human change comments, useful AI role contributions, revised requirements, retained records, new verified versions, decision/knowledge curation and reuse. | Discuss a change beside the app, follow its work, try the new version and return to use. Find prior reasoning through feed filters and link it into the next decision. |
 | Develop or administer directly | Persistent terminals/tmux, Spaces, explicit human Join, SSH/SCP/SFTP, personal Git access, files/tools/services, Project lifecycle, operator accounts, networking/Tailnet, native CI, host diagnostics and appliance updates/recovery. | Preserve existing tools and native settings. Offer contextual entries from Work, environment status or an actual blocker; retain direct expert access. These are available branches, not mandatory screens in the founder demo. |
@@ -113,25 +113,23 @@ These are source-backed observations and proposed remedies, not live reproductio
 | G6 · First release remains an operator form | [application-setup.ts:103](../../frontend/spaces/sodaspaces-application-setup.ts#L103) asks for admitted artifact/image JSON and a numeric administrator ID; line 82 ends at installed/stopped. | Consume generated artifact references directly; show address and administrator by name, then the app's own owner setup and authorized release action. |
 | G7 · Setup controls ignore operator capability | [applications.ts:431](../../frontend/spaces/sodaspaces-applications.ts#L431) mounts setup whenever no repository filter is present. [application_setup.go:16](../../internal/web/api/application_setup.go#L16) correctly restricts it to the operator. | Render supported actions by capability. For a business owner without release authority, show the responsible operator and a precise pending step. |
 | G8 · Updating has no complete release journey | [applications.ts:161](../../frontend/spaces/sodaspaces-applications.ts#L161) admits inspect/install/start/stop in its action control. [application_actions.go:142](../../internal/web/api/application_actions.go#L142) supports operator-only replacement and records its result. | Connect comment → changed work → verified candidate → authorized update → observed running version, with existing records still available. |
-| G9 · The app is not usable inside Soda Forge | [openApplication](../../frontend/spaces/sodaspaces-applications.ts#L364) opens the application origin in a new tab. [applicationOriginAllowed](../../internal/web/api/applications.go#L59) requires a hostname separate from Forge. | Provide a real App surface inside the Soda Forge workspace, connected to the ready version and its app account. Complete the actual business workflow there without manually finding artifacts, linking an app or switching to a separate application tab. |
+| G9 · Opening the ready version must be direct | [openApplication](../../frontend/spaces/sodaspaces-applications.ts#L364) opens the application origin in a new tab, and [applicationOriginAllowed](../../internal/web/api/applications.go#L59) requires a hostname separate from Forge. This is the intended model (owner decision, 28 Oct): apps run at their own address and are never embedded in Forge. | From the result post and App, “Open app ↗” opens the exact ready version at its own address without manually finding artifacts or linking an app. |
 | G10 · Ordinary app users lack a suitable launch projection | [application records](../../internal/store/applications.go#L74) and [API loading](../../internal/web/api/applications.go#L71) expose administrator/operator views. | Add permitted App launch/read access for ordinary users while keeping lifecycle administration and app-data permission separate. Authenticate the actual Canlang account inside the supported host integration. |
 
 ### App readiness must lead directly to use
 
 “Immediately usable” means that a ready result opens a functioning application
-inside Soda Forge. It is not a screenshot, a launcher or a promise that a build
-finishes instantly. The person can submit, approve and deliver a request, leave
+at its own address in its own browser tab, one click from the result. It is not
+a screenshot or a promise that a build finishes instantly. The app is never
+embedded in Soda Forge (owner decision, 28 Oct). The person can submit, approve and deliver a request, leave
 for its discussion, return and find the saved record. Once released, the same
 workspace supports everyday company use, with preview/sample data clearly
 distinguished from the running company's records.
 
-The existing separate application runtime and origin can remain implementation
-boundaries. The host integration must actually support app rendering, navigation
-and authentication. A blanket iframe is not an established solution: Canlang's
-current first-owner setup sends `frame-ancestors 'none'` in
-`packages/cloudflare/src/deploy/soda-setup.ts`. Design and verify the supported
-host integration and first-use/access path; do not remove an isolation control
-merely to make a mockup appear implemented. Account setup and unavailable-app
+The separate application runtime, origin and app-local identity are the
+product boundary, not an obstacle. Forge links to the app; it does not frame it.
+Canlang's `frame-ancestors 'none'` stays as an isolation control. Design and
+verify the first-use/access path at the app's own address. Account setup and unavailable-app
 states must retain the same application context and offer the real next action.
 
 The verified preview should become usable without requiring company release
@@ -351,8 +349,8 @@ as the output of a live action that did not produce it.
 | 3 · Build feed | 1:45–2:30 | Start the admitted build. Architect explains the approach; Builder shows an actual checkpoint. Open a relevant JEV consultation beneath its author's work post: actual question → recorded result → agent's decision. The app header states what is underway. |
 | 4 · Meaningful question | 2:30–3:15 | If genuinely unresolved, Product Lead asks whether everyone may see colleagues' requests. Maya chooses own requests plus assigned approvers/Operations. Show the decision post and its comments, find the same post through Decisions/Knowledge filters, then return to the continuing work. |
 | 5 · Review and fix | 3:15–4:15 | Open an actual Inspector finding and Fixer correction with before/after evidence. If review found nothing, show its truthful clear result instead of manufacturing a defect. |
-| 6 · Try the workflow | 4:15–5:30 | Open the versioned app inside Soda Forge directly from its result. Alex submits €420, Jordan approves and Maya marks delivered. Alex sees the final state. Return to the feed and back to the same saved request. Test Pilot's result identifies the exercised outcomes. |
-| 7 · Release and access | 5:30–6:15 | Show the explicit release/access handoff, actual application address and app account context. Use the running company version in the same Soda Forge App surface after confirmed availability. |
+| 6 · Try the workflow | 4:15–5:30 | Open the versioned app at its own address directly from its result. Alex submits €420, Jordan approves and Maya marks delivered. Alex sees the final state. Return to the feed and back to the same saved request. Test Pilot's result identifies the exercised outcomes. |
+| 7 · Release and access | 5:30–6:15 | Show the explicit release/access handoff, actual application address and app account context. Open the running company version at its own address from App after confirmed availability. |
 | 8 · Change by comment | 6:15–7:30 | Maya comments: “Above €1,000 also needs Finance approval before fulfillment.” JEV may invite Architect to explain the added step and Inspector to identify the boundary cases. Show the request linked to admitted work. |
 | 9 · Verify and release change | 7:30–9:30 | Show €1,000 following the original path and €1,001 waiting for Robin. Operations cannot fulfill before Finance approval. Release the verified version and reopen the earlier €420 request with its history retained. |
 
