@@ -108,24 +108,6 @@ func happyMerger() *fakeMerger {
 	}
 }
 
-// pendingMerger observes pending live checks: MergePass opens its row
-// but reconcile waits, leaving the row open and undriven for tests
-// that regress the stored evidence afterwards.
-func pendingMerger() *fakeMerger {
-	exec := happyMerger()
-	observe := exec.observe
-	exec.observe = func(w factory.MergeWork) (factory.MergeObservation, error) {
-		observation, err := observe(w)
-		if err != nil {
-			return observation, err
-		}
-		observation.Checks.Checks = nil
-		observation.Checks.ObservedContexts = 0
-		return observation, nil
-	}
-	return exec
-}
-
 type mergeFixture struct {
 	publish *publishFixture
 	exec    *fakeMerger

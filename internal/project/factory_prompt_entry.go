@@ -10,8 +10,6 @@
 // entry this validation refuses, plus stale/cancelled intents at launch.
 package project
 
-import "errors"
-
 // Prompt-first investigation entry route: the investigate phase only. Any
 // other phase routed through this entry is a misuse and refuses.
 const PromptEntryPhase = ExecutionInvestigate
@@ -50,43 +48,6 @@ type FactoryPromptEntry struct {
 	Assignment  string `json:"assignment"`
 }
 
-// Validate checks the entry shape: intent identity and accepted state,
-// existing-session sponsorship, investigation route (phase/role),
-// preparation directory reference and harness flags, and the prompt/record
-// round-trip (bytes within the investigate bound with a matching digest).
-func (e FactoryPromptEntry) Validate() error {
-	if !ValidDecisionID(e.Intent) || e.Revision == 0 {
-		return errors.New("invalid prompt entry intent or revision")
-	}
-	if e.IntentState != PromptIntentAccepted {
-		return errors.New("prompt entry needs an accepted intent")
-	}
-	// Existing session sponsorship: the entry reuses the authenticated
-	// session's account/project triple; empty or unshaped values select
-	// nothing and refuse.
-	if !ValidID(e.Project) || e.Actor <= 0 || e.Connection == "" || len(e.Connection) > 128 {
-		return errors.New("invalid prompt entry session")
-	}
-	// Route: prompt-first entry opens investigations only. A wrong phase,
-	// role, preparation reference or harness pin is launcher misuse.
-	if e.Phase != PromptEntryPhase || !ValidFactoryRole(e.Role) {
-		return errors.New("invalid prompt entry route")
-	}
-	if !ValidPreparationID(e.Preparation) {
-		return errors.New("invalid prompt entry directory")
-	}
-	if !ValidHarnessFamily(e.Harness) || !ValidHarnessVersion(e.HarnessVers) {
-		return errors.New("unsupported prompt entry harness")
-	}
-	if len(e.Prompt) == 0 || len(e.Prompt) > MaxPromptForPhase(e.Phase) {
-		return errors.New("invalid prompt entry size")
-	}
-	if FactoryPromptDigest(e.Prompt) != e.Assignment {
-		return errors.New("prompt entry bytes do not match their digest")
-	}
-	return nil
-}
-
 // FactoryPromptRecord is the admitted investigation bound to one intent:
 // the revision that opened it and the prompt digest it recorded. Cancelled
 // marks a fenced record that admits no further revision.
@@ -95,36 +56,4 @@ type FactoryPromptRecord struct {
 	Revision   uint64 `json:"revision"`
 	Assignment string `json:"assignment"`
 	Cancelled  bool   `json:"cancelled"`
-}
-
-// AdmitPromptEntry enforces exactly one investigation per intent against the
-// recorded admission. A nil record admits the first revision; repeating the
-// recorded revision with identical bytes is a replay (no duplicate
-// investigation, replay=true); a higher revision supersedes (the old attempt
-// stays fenced until FW11 Retry advancement); a lower revision is stale; a
-// cancelled record, or an entry for another intent, refuses.
-func AdmitPromptEntry(recorded *FactoryPromptRecord, incoming FactoryPromptEntry) (FactoryPromptRecord, bool, error) {
-	if err := incoming.Validate(); err != nil {
-		return FactoryPromptRecord{}, false, err
-	}
-	if recorded == nil {
-		return FactoryPromptRecord{Intent: incoming.Intent, Revision: incoming.Revision, Assignment: incoming.Assignment}, false, nil
-	}
-	if recorded.Intent != incoming.Intent {
-		return FactoryPromptRecord{}, false, errors.New("prompt entry intent mismatch")
-	}
-	if recorded.Cancelled {
-		return FactoryPromptRecord{}, false, errors.New("prompt entry intent is cancelled")
-	}
-	switch {
-	case incoming.Revision == recorded.Revision:
-		if incoming.Assignment != recorded.Assignment {
-			return FactoryPromptRecord{}, false, errors.New("prompt entry revision conflict")
-		}
-		return *recorded, true, nil
-	case incoming.Revision > recorded.Revision:
-		return FactoryPromptRecord{Intent: incoming.Intent, Revision: incoming.Revision, Assignment: incoming.Assignment}, false, nil
-	default:
-		return FactoryPromptRecord{}, false, errors.New("stale prompt entry revision")
-	}
 }

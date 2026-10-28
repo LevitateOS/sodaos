@@ -93,41 +93,6 @@ func AdmitIntentPlanning(subject factory.ExecutionSubject, phase, role string, h
 	return nil
 }
 
-// PlanIntentDecomposition admits one pre-issue semantic planning run and
-// assesses its answer. The handler consumes planner outputs only: no
-// accepted graph or history is consulted at any step, and a first
-// repository-bound draft with no tasks plans without prerequisites beyond
-// its association, attributed effective scope and source investigation. A nil planner reports the
-// precise external gate (missing funded account or capability) instead of
-// substituting canned output. Provider failures and invalid answers are
-// returned for the caller to record; an explicit Retry can start a
-// reconciled run, and neither edits nor replay refill the allowance here.
-// An attention answer (decomposition_needs_attention) returns without
-// error and without candidates: the product decision it names needs human
-// review, not another automatic batch.
-func PlanIntentDecomposition(ctx context.Context, subject factory.ExecutionSubject, phase, role string, head factory.IntentRevision, allowanceAvailable bool, in factory.SemanticPlannerInput, planner SemanticPlanner) (factory.SemanticPlannerOutput, error) {
-	if err := ctx.Err(); err != nil {
-		return factory.SemanticPlannerOutput{}, fmt.Errorf("%w: %v", ErrIntentPlanningCancelled, err)
-	}
-	if err := AdmitIntentPlanning(subject, phase, role, head, allowanceAvailable, in); err != nil {
-		return factory.SemanticPlannerOutput{}, err
-	}
-	if planner == nil {
-		return factory.SemanticPlannerOutput{}, fmt.Errorf("%w: no funded semantic account is enrolled for intent %s", ErrIntentPlanningExternal, head.Intent)
-	}
-	out, err := planner.PlanSemantic(ctx, in)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return factory.SemanticPlannerOutput{}, fmt.Errorf("%w: %v", ErrIntentPlanningCancelled, err)
-		}
-		return factory.SemanticPlannerOutput{}, err
-	}
-	if err := factory.AssessSemanticOutput(in, out); err != nil {
-		return factory.SemanticPlannerOutput{}, err
-	}
-	return out, nil
-}
-
 // ChosenIntentPlan is the single planner candidate the Generate work command
 // adopts exactly. It binds the assessed planning input (intent, revision,
 // operation) to the one chosen candidate key and its task graph. Native
@@ -175,25 +140,6 @@ func ChooseSingleCandidate(in factory.SemanticPlannerInput, out factory.Semantic
 		return ChosenIntentPlan{}, errors.New("chosen planner candidate lacks its key")
 	}
 	return chosen, nil
-}
-
-// PlanSingleIntentDecomposition is the plan-time joint for the pre-issue
-// semantic planning run behind the Generate work command: it admits one
-// run, consumes the funded planner answer, assesses it, and reduces a
-// single candidate to the choice native adoption binds. Deterministic
-// orchestration (admission, assessment, single choice) stays separate from
-// provider semantics: a missing funded account reports the precise
-// external gate, provider failures and invalid answers return for the
-// caller to record, and attention stays visible instead of triggering
-// another batch. A multi-candidate answer refuses here without spending:
-// resolving alternatives needs the finite funded choice at serve time
-// (see ChoosePlannedCandidate), never a silent first-pick.
-func PlanSingleIntentDecomposition(ctx context.Context, subject factory.ExecutionSubject, phase, role string, head factory.IntentRevision, allowanceAvailable bool, in factory.SemanticPlannerInput, planner SemanticPlanner) (ChosenIntentPlan, error) {
-	out, err := PlanIntentDecomposition(ctx, subject, phase, role, head, allowanceAvailable, in, planner)
-	if err != nil {
-		return ChosenIntentPlan{}, err
-	}
-	return ChooseSingleCandidate(in, out)
 }
 
 // plannedChoiceRubric judges planner-produced candidates against the

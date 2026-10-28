@@ -173,7 +173,7 @@ func TestQualificationJourneyLostHTTPResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	file, err := os.OpenFile(filepath.Join(out, "server-result.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(filepath.Join(out, "server-result.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,10 +435,6 @@ func journeyPublicationFixture(root factory.Assignment, effect, severity string)
 		Repository: journeyRepo, Issue: journeyIssue, Stage: factory.PublicationOpen,
 		PRNumber: 12, PRID: 34, CreatedUnix: 1700000000,
 	}
-}
-
-func journeyFindingFixture() factory.Finding {
-	return journeyFindingWithSeverity(factory.FindingSeverityMajor)
 }
 
 func journeyFindingWithSeverity(severity string) factory.Finding {

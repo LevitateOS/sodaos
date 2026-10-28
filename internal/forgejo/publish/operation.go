@@ -56,10 +56,6 @@ type Wait struct{ Reason string }
 
 func (e *Wait) Error() string { return "publication waits: " + e.Reason }
 
-// Operation intent lifetimes. Submit deadlines stay well inside the
-// native one-hour maximum; host time authorizes them at submit.
-const operationLifetime = 10 * time.Minute
-
 // PublishOpIntent is one branch-publication submit: the persisted
 // operation identity, the policy-bound actor and authority, the bracketed
 // observation and the exact ref tuple. A nonzero correction binds an

@@ -144,33 +144,6 @@ type ReassessmentJournal struct {
 	Cursor                  int
 }
 
-// ValidateReassessmentAdoption validates one coherent proposal against
-// its frozen priors and current authority before any paid call or native
-// effect (T36–T37), preflights every per-intent packet, and returns the
-// staged serial journal with its deterministic validation report. Any
-// attention entry, refused judgment, stale freshness or oversized packet
-// refuses before any prefix commits.
-func ValidateReassessmentAdoption(
-	report factory.ReassessmentReport,
-	priors map[string]ReassessmentPrior,
-	authority ReassessmentAuthority,
-	judgment ReassessmentProposalJudgment,
-	freshness ReassessmentFreshness,
-	sealedInventoryDigest string,
-	inventory []int64,
-	changedIssueIndexes []int64,
-	completionID, cycleID string,
-) ([]ReassessmentIntentPacket, factory.ReassessmentValidationReport, ReassessmentJournal, error) {
-	packets, validation, journal, err := preflightReassessmentAdoption(report, priors, authority, freshness, sealedInventoryDigest, inventory, changedIssueIndexes, completionID, cycleID)
-	if err != nil {
-		return nil, factory.ReassessmentValidationReport{}, ReassessmentJournal{}, err
-	}
-	if !factory.ValidReassessmentProposal(judgment.Option, judgment.Probability, judgment.Confidence) {
-		return nil, factory.ReassessmentValidationReport{}, ReassessmentJournal{}, errors.New("reassessment proposal is not acceptable")
-	}
-	return packets, validation, journal, nil
-}
-
 // Deterministic preflight grants no adoption authority. Both the paid-proposal
 // producer and the read-only worker preview use it without inventing a judgment.
 func preflightReassessmentAdoption(

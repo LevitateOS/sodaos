@@ -30,11 +30,6 @@ const (
 // forever.
 const MaxDispatchAttempts = 3
 
-// ValidAssignmentStage reports whether stage is a known assignment stage.
-func ValidAssignmentStage(stage string) bool {
-	return stage == AssignmentAssigned || stage == AssignmentFinished
-}
-
 // Assignment finish reasons. Bounded codes: views expose why an
 // assignment finished, never the evidence bytes behind it.
 const (
@@ -179,85 +174,6 @@ func (s ExecutionSubject) SubjectKey(repository int64) string {
 		return "collection:" + s.Collection.CollectionID
 	}
 	return ""
-}
-
-// ParseSubjectKey splits a canonical subject key into kind, repository and
-// issue/intent/completion/stall/delivery/delivery-repair identity. Only
-// issue keys carry a repository segment; delivery-repair keys carry the
-// delivery identity plus its failed verification run.
-func ParseSubjectKey(key string) (kind string, repository, issue int64, intent, completion, stall, delivery, deliveryRepair, collection string, err error) {
-	fail := func(detail string) (string, int64, int64, string, string, string, string, string, string, error) {
-		return "", 0, 0, "", "", "", "", "", "", errors.New(detail)
-	}
-	if rest, ok := strings.CutPrefix(key, "intent:"); ok {
-		if !project.ValidDecisionID(rest) {
-			return fail("invalid intent subject key")
-		}
-		return SubjectIntent, 0, 0, rest, "", "", "", "", "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "completion:"); ok {
-		if !ValidID(rest) {
-			return fail("invalid completion subject key")
-		}
-		return SubjectCompletion, 0, 0, "", rest, "", "", "", "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "stall:"); ok {
-		if !ValidID(rest) {
-			return fail("invalid stall subject key")
-		}
-		return SubjectStall, 0, 0, "", "", rest, "", "", "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "delivery_repair:"); ok {
-		id, run, found := strings.Cut(rest, ":")
-		if !found || !ValidID(id) || !ValidID(run) {
-			return fail("invalid delivery repair subject key")
-		}
-		return SubjectDeliveryRepair, 0, 0, "", "", "", "", id + ":" + run, "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "delivery:"); ok {
-		if !ValidID(rest) {
-			return fail("invalid delivery subject key")
-		}
-		return SubjectDelivery, 0, 0, "", "", "", rest, "", "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "research:"); ok {
-		repo, num, found := strings.Cut(rest, ":")
-		if !found {
-			return fail("invalid research subject key")
-		}
-		repository, err = strconv.ParseInt(repo, 10, 64)
-		if err != nil || repository <= 0 {
-			return fail("invalid research subject key")
-		}
-		issue, err = strconv.ParseInt(num, 10, 64)
-		if err != nil || issue <= 0 || strings.Trim(num, "0123456789") != "" {
-			return fail("invalid research subject key")
-		}
-		return SubjectResearch, repository, issue, "", "", "", "", "", "", nil
-	}
-	if rest, ok := strings.CutPrefix(key, "collection:"); ok {
-		if !ValidCollectionID(rest) {
-			return fail("invalid collection subject key")
-		}
-		return SubjectCollection, 0, 0, "", "", "", "", "", rest, nil
-	}
-	rest, ok := strings.CutPrefix(key, "issue:")
-	if !ok {
-		return fail("unknown subject key")
-	}
-	repo, num, found := strings.Cut(rest, ":")
-	if !found {
-		return fail("invalid issue subject key")
-	}
-	repository, err = strconv.ParseInt(repo, 10, 64)
-	if err != nil || repository <= 0 {
-		return fail("invalid issue subject key")
-	}
-	issue, err = strconv.ParseInt(num, 10, 64)
-	if err != nil || issue <= 0 || strings.Trim(num, "0123456789") != "" {
-		return fail("invalid issue subject key")
-	}
-	return SubjectIssue, repository, issue, "", "", "", "", "", "", nil
 }
 
 // ValidCollectionID reports whether id names a library collection:

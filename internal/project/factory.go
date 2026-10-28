@@ -379,40 +379,6 @@ type FactoryState struct {
 	VerificationChecks *FactoryVerificationChecksState `json:"verification_checks,omitempty"`
 }
 
-// FactoryRunPaths derives the fixed container paths for one run. The checkout
-// comes from the run's preparation; the run home is fresh per run and holds
-// the staged credential, prompt, gate marker and bounded output. Empty
-// strings report an invalid identity; no caller-supplied path is accepted.
-func FactoryRunPaths(role, preparation, run string) (checkout, runDir, home, codexHome string) {
-	if !ValidFactoryRole(role) || !ValidPreparationID(preparation) || !ValidFactoryRunID(run) {
-		return "", "", "", ""
-	}
-	checkout = "/home/" + role + "/checkouts/" + preparation
-	runDir = checkout + "/.soda-home/runs/" + run
-	home = runDir + "/home"
-	codexHome = home + "/.codex"
-	return checkout, runDir, home, codexHome
-}
-
-// FactoryCodexGuest is the fixed versioned guest path for staged harness
-// bytes. One immutable path per proved version; concurrent runs share it.
-func FactoryCodexGuest(version string) string {
-	if !ValidHarnessVersion(version) {
-		return ""
-	}
-	return "/usr/local/bin/codex-factory-" + version
-}
-
-// FactoryUnitName is the transient host unit supervising one run. The name is
-// deterministic per run identity, so a second start refuses and recovery can
-// address a unit whose binding was never recorded.
-func FactoryUnitName(run string) string {
-	if !ValidFactoryRunID(run) {
-		return ""
-	}
-	return "soda-factory-" + run + ".service"
-}
-
 // FactoryInspect addresses a run before or after completion.
 type FactoryInspect struct {
 	Project string `json:"project"`

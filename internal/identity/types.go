@@ -2,11 +2,8 @@
 package identity
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -195,20 +192,6 @@ func (e Execution) Validate() error {
 		}
 	}
 	return nil
-}
-
-// AcquisitionDigest binds an acquire request to its execution identity. The
-// deadline is a bound, not identity: retries keep the original lease deadline.
-func AcquisitionDigest(in AcquireRequest) string {
-	canonical := strings.Join([]string{
-		in.Kind, in.ExecutionID, in.ProviderID, in.ConnectionID,
-		strings.TrimSpace(strings.ToLower(in.Role)),
-		in.ProjectID,
-		strconv.FormatInt(in.ActorID, 10),
-		strconv.FormatInt(in.RepositoryID, 10),
-	}, "\x00")
-	sum := sha256.Sum256([]byte(canonical))
-	return hex.EncodeToString(sum[:])
 }
 
 // ProviderValid identifies the supported native account adapters. Execution

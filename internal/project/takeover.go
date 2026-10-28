@@ -60,19 +60,3 @@ func (r TakeoverResult) Validate() error {
 	}
 	return nil
 }
-
-// TakeoverExcluded reports whether a top-level checkout entry is excluded
-// from the takeover copy: role Git state and the private run homes that
-// hold credentials, prompts and bounded output.
-func TakeoverExcluded(name string) bool {
-	return name == ".git" || name == ".soda-home"
-}
-
-// TakeoverSource validates a role checkout source path derived from fixed
-// segments. It rejects anything but the exact fixed layout.
-func TakeoverSource(path, role, preparation string) bool {
-	if !ValidFactoryRole(role) || !ValidPreparationID(preparation) {
-		return false
-	}
-	return path == "/home/"+role+"/checkouts/"+preparation
-}

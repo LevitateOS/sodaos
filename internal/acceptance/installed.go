@@ -52,12 +52,6 @@ func failParen(prefix, suffix string, err error) error {
 	return &probeFailure{prefix: prefix, suffix: suffix, cause: err}
 }
 
-// failDetail annotates a probe error whose operational message is safe to
-// report alongside the failure type.
-func failDetail(prefix, detail string, err error) error {
-	return &probeFailure{prefix: prefix, cause: err, detail: detail}
-}
-
 const maxPrivateInputBytes = 1 << 20
 
 // privateFile reads one restricted regular file from the same no-follow

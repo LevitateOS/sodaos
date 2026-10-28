@@ -261,43 +261,6 @@ func (r ReviewReport) Validate() error {
 	return nil
 }
 
-// ParseReviewReport extracts the last fenced review block from reviewer
-// output and validates it strictly. Unknown fields refuse; anything
-// unparseable reports false instead of guessing a verdict.
-func ParseReviewReport(output string) (ReviewReport, bool) {
-	start := strings.LastIndex(output, "```"+ReviewReportFence)
-	if start < 0 {
-		return ReviewReport{}, false
-	}
-	rest := output[start+len("```"+ReviewReportFence):]
-	// The JSON payload may itself contain nested fences (quoted diffs,
-	// code samples), so the first fence after the opener is unreliable:
-	// try every closing fence in order until one decodes. The first
-	// valid payload wins; trailing chatter never mis-terminates it.
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			return ReviewReport{}, false
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		if body == "" || len(body) > MaxReviewReportBytes {
-			continue
-		}
-		var report ReviewReport
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&report); err != nil {
-			continue
-		}
-		if report.Validate() != nil {
-			continue
-		}
-		return report, true
-	}
-	return ReviewReport{}, false
-}
-
 // Frozen D04 review/finding bounds (FW06C). At most MaxFindingsPerReport
 // findings per report and MaxOutstandingFindings outstanding carried
 // findings; one finding's combined defect/evidence/outcome prose fits
@@ -550,24 +513,6 @@ func (f Finding) InlineComment() (FindingComment, error) {
 		Line: f.Location.Line,
 		Body: findingCommentBody(f),
 	}, nil
-}
-
-// FindingCommentsForFindings maps one finding set to its stable native
-// inline comments, preserving input order. Unlocated findings refuse: the
-// caller represents them in the review summary with their keys.
-func FindingCommentsForFindings(findings []Finding) ([]FindingComment, error) {
-	comments := make([]FindingComment, 0, len(findings))
-	for _, finding := range findings {
-		comment, err := finding.InlineComment()
-		if err != nil {
-			return nil, err
-		}
-		comments = append(comments, comment)
-	}
-	if err := validateFindingComments(comments); err != nil {
-		return nil, err
-	}
-	return comments, nil
 }
 
 // ReviewWorkEqual reports whether two recorded review authorizations carry
@@ -997,51 +942,6 @@ func ClearCoverageDigest(head, baseOID, contentDigest string) (string, error) {
 	}
 	sum := sha256.Sum256([]byte("clear-coverage-v1\x00" + head + "\x00" + baseOID + "\x00" + contentDigest))
 	return hex.EncodeToString(sum[:]), nil
-}
-
-// ParseClearReviewReport extracts the last fenced explicit-clear block from
-// reviewer output and validates its shape strictly (carried-set binding
-// belongs to Validate, which sees the controller's canonical findings).
-// Unknown fields refuse; silence, an empty block, an approve verdict or any
-// other unparseable output reports false instead of guessing clear.
-func ParseClearReviewReport(output string) (ClearReviewReport, bool) {
-	start := strings.LastIndex(output, "```"+ClearReviewReportFence)
-	if start < 0 {
-		return ClearReviewReport{}, false
-	}
-	rest := output[start+len("```"+ClearReviewReportFence):]
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			return ClearReviewReport{}, false
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		if body == "" || len(body) > MaxReviewReportBytes {
-			continue
-		}
-		var report ClearReviewReport
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&report); err != nil {
-			continue
-		}
-		if decoder.More() {
-			continue
-		}
-		if report.Conclusion != ClearReviewConclusion || !ValidID(report.CycleID) ||
-			!ValidCommit(report.Head) || !ValidCommit(report.BaseOID) || report.Head == report.BaseOID ||
-			!ValidDigest(report.CoverageDigest) {
-			continue
-		}
-		for _, assessment := range report.Assessments {
-			if assessment.Validate() != nil {
-				return ClearReviewReport{}, false
-			}
-		}
-		return report, true
-	}
-	return ClearReviewReport{}, false
 }
 
 // ReviewOutcome is the attributable native review identity adopted from its

@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -50,8 +49,10 @@ type ApprovedCheck struct {
 	Fixtures        []string `json:"fixtures"`
 }
 
-const ProjectCheckReceiptArtifact = project.VerificationReceiptArtifact
-const ProjectCheckPreparedFixture = project.VerificationPreparedFixture
+const (
+	ProjectCheckReceiptArtifact = project.VerificationReceiptArtifact
+	ProjectCheckPreparedFixture = project.VerificationPreparedFixture
+)
 
 // ApprovedProjectCheckCatalog binds the existing approved Project check to its
 // protected preparation. It grants no arbitrary executable, parameter, artifact
@@ -312,36 +313,4 @@ func containsManifestRef(refs []string, want string) bool {
 		}
 	}
 	return false
-}
-
-// ManifestCoverage reports the outcomes covered by the proposal in
-// sorted order for adoption diagnostics.
-func ManifestCoverage(proposal VerificationManifestProposal) []string {
-	covered := map[string]bool{}
-	for _, check := range proposal.Checks {
-		covered[check.Outcome] = true
-	}
-	out := make([]string, 0, len(covered))
-	for outcome := range covered {
-		out = append(out, outcome)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// ManifestUncovered lists accepted outcomes with no required check:
-// the named preparation gate FW40 reports when coverage is missing.
-func ManifestUncovered(proposal VerificationManifestProposal) []string {
-	covered := map[string]bool{}
-	for _, check := range proposal.Checks {
-		covered[check.Outcome] = true
-	}
-	var missing []string
-	for _, outcome := range proposal.Outcomes {
-		if !covered[outcome] {
-			missing = append(missing, outcome)
-		}
-	}
-	sort.Strings(missing)
-	return missing
 }

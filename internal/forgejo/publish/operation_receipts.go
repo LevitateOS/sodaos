@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-	"time"
 
 	extensions "forgejo.org/extension-sdk"
 
@@ -105,10 +104,4 @@ func DecodePRCreateReceipt(outcome factory.OperationOutcome, headRef, baseRef, h
 	created.HeadRef, created.BaseRef, created.HeadOID, created.BaseOID = receipt.HeadRef, receipt.BaseRef, receipt.HeadOID, receipt.BaseOID
 	created.PRNumber, created.PRID, created.IssueID, created.AuthorID = receipt.PRNumber, receipt.PRID, receipt.IssueID, receipt.AuthorID
 	return created, nil
-}
-
-// OperationNotAfter returns the submit deadline for one operation: ten
-// minutes of host time from now, inside the native maximum.
-func OperationNotAfter(now time.Time) int64 {
-	return now.Add(operationLifetime).Unix()
 }

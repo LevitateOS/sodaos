@@ -2,9 +2,7 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -14,39 +12,6 @@ import (
 // finding set as a review report plus one small disposition per key, so it
 // shares the review-report ceiling: worst valid encodings stay below 2 MiB.
 const MaxCorrectionReportBytes = 2 << 20
-
-// ParseCorrectionReport extracts the last fenced correction block from
-// corrector output and validates it strictly. Unknown fields refuse; anything
-// unparseable reports false instead of guessing dispositions.
-func ParseCorrectionReport(output string) (factory.CorrectionReport, bool) {
-	start := strings.LastIndex(output, "```"+factory.CorrectionReportFence)
-	if start < 0 {
-		return factory.CorrectionReport{}, false
-	}
-	rest := output[start+len("```"+factory.CorrectionReportFence):]
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			return factory.CorrectionReport{}, false
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		if body == "" || len(body) > MaxCorrectionReportBytes {
-			continue
-		}
-		var report factory.CorrectionReport
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&report); err != nil {
-			continue
-		}
-		if report.Validate() != nil {
-			continue
-		}
-		return report, true
-	}
-	return factory.CorrectionReport{}, false
-}
 
 // CorrectionAdmission is one corrector run's admitted report: the cycle and
 // run it answered, the finding-set digest covered, and the disposition keys

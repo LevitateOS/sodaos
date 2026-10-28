@@ -675,20 +675,6 @@ func (s *stubSettleStore) FinishAssignment(_ context.Context, a factory.Assignme
 	return nil
 }
 
-func settleStub(assigned factory.Assignment, tool factory.MCPTool, fields map[string]string) *stubSettleStore {
-	raw, _ := json.Marshal(fields)
-	submission := factory.MCPSubmission{
-		AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
-		ExpectedInputDigest: strings.Repeat("e", 64),
-		PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
-	}
-	return &stubSettleStore{
-		assignment: assigned, assignmentOK: true,
-		submission: submission, terminalOK: true,
-		receiptState: factory.MCPReceiptRecorded,
-	}
-}
-
 func fw40Stub(t *testing.T, assigned factory.Assignment, tool factory.MCPTool, payload map[string]any) *stubSettleStore {
 	t.Helper()
 	raw, err := json.Marshal(payload)

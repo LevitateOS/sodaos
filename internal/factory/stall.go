@@ -77,19 +77,6 @@ const (
 	StallWaitPendingCompletion = "pending_completion"
 )
 
-// ValidStallWaitKind reports whether kind is a named D15 wait.
-func ValidStallWaitKind(kind string) bool {
-	switch kind {
-	case StallWaitActiveWork, StallWaitCIChecks, StallWaitCapacity,
-		StallWaitQuota, StallWaitPreparation, StallWaitPermissions,
-		StallWaitExplicitPause, StallWaitProductChoice,
-		StallWaitPendingCompletion:
-		return true
-	default:
-		return false
-	}
-}
-
 // StallEvent is one bound stall episode observation. Uniqueness is
 // (repository, progress_generation, input_fingerprint); the episode
 // identity is (repository, progress_generation). Progress advances

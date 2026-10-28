@@ -48,17 +48,6 @@ func selectInitialIssuePhase(ctx context.Context, deps DispatchDeps, repository,
 	return project.ExecutionInvestigate, project.RoleCoder, nil, nil
 }
 
-// issueResearchRequest reads an explicit research inquiry from accepted
-// issue metadata through the canonical Soda block parser. Ordinary prose
-// never opens a research root: the soda block must name the research role.
-func issueResearchRequest(body string) (bool, error) {
-	block, err := factory.ParseSodaIssueBlock(body)
-	if err != nil {
-		return false, err
-	}
-	return block.Role == factory.SodaRoleResearch, nil
-}
-
 func settleLibraryMaintenance(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) (factory.Assignment, string, bool, error) {
 	if assigned.Phase != project.ExecutionMaintainLibrary {
 		return fenceFW40(assigned, submission, now, "library finish does not match its assignment phase")

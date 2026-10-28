@@ -1604,14 +1604,3 @@ func (m CompletionMaterial) Digest() (string, error) {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:]), nil
 }
-
-// SortedCompletionRoles returns the permitted role names in canonical
-// order for the authority projection.
-func SortedCompletionRoles(roles map[string]RoleSelection) []string {
-	names := make([]string, 0, len(roles))
-	for name := range roles {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}

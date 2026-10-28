@@ -28,16 +28,6 @@ const (
 	PublicationFenced    = "fenced"
 )
 
-// ValidPublicationStage reports whether stage is a known publication stage.
-func ValidPublicationStage(stage string) bool {
-	switch stage {
-	case PublicationOpen, PublicationPublished, PublicationFailed, PublicationWithdrawn, PublicationFenced:
-		return true
-	default:
-		return false
-	}
-}
-
 // MaxPublicationAttempts permits one immutable operation per kind. A
 // terminal refusal never creates a replacement identity automatically.
 const MaxPublicationAttempts = 1

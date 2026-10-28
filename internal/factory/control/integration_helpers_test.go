@@ -132,41 +132,6 @@ func (f *deliveryFunding) RecordDeliveryJudgment(_ context.Context, r factory.De
 	return nil
 }
 
-func deliveryTestInput() factory.DeliveryFingerprintInput {
-	return factory.DeliveryFingerprintInput{
-		Reviews:        []string{strings.Repeat("1", 32)},
-		Conversations:  []string{strings.Repeat("2", 64)},
-		Constraints:    []string{"protected-files:docs/public"},
-		AttemptRoot:    strings.Repeat("3", 32),
-		PublicationID:  strings.Repeat("4", 32),
-		ScopeDigest:    strings.Repeat("5", 64),
-		FixDigest:      strings.Repeat("6", 64),
-		DiffDigest:     strings.Repeat("7", 64),
-		CheckDigest:    strings.Repeat("8", 64),
-		TreeDigest:     strings.Repeat("9", 64),
-		Head:           strings.Repeat("a", 40),
-		Base:           strings.Repeat("b", 40),
-		Model:          "jev-test",
-		Rubric:         "ready_to_merge only with full evidence cover",
-		PolicyRevision: 3,
-		Round:          1,
-	}
-}
-
-func deliveryTestAdvice(funding *deliveryFunding, chooser *deliveryChooser, in factory.DeliveryFingerprintInput, reviewsFit bool) DeliveryAdvice {
-	return DeliveryAdvice{
-		Input:                  in,
-		Repository:             7,
-		Issue:                  3,
-		AttemptRoot:            strings.Repeat("3", 32),
-		RequestID:              factory.NewID(),
-		ReviewsFit:             reviewsFit,
-		ObservedNativeRevision: 41,
-		Chooser:                chooser,
-		Funding:                funding,
-	}
-}
-
 type fakeReviewer struct {
 	observed     factory.ReviewObservation
 	outcome      factory.OperationOutcome
@@ -282,6 +247,7 @@ func phaseTestRepairAssignment(t *testing.T, phase, role string, subject factory
 	}
 	return a
 }
+
 func phasedDeliverySubject() factory.ExecutionSubject {
 	return factory.ExecutionSubject{
 		Kind: factory.SubjectDelivery,
@@ -300,80 +266,6 @@ func phaseTestSHA(seed string) string {
 }
 
 func phaseTestCommit() string { return strings.Repeat("c", 40) }
-
-func testMaterialLocal() factory.CompletionLocal {
-	acceptance := factory.Acceptance{
-		ID: "d" + strings.Repeat("0", 24), Repository: 7, IssueIndex: "3",
-		Approver: 5, NativeRev: 41,
-		TitleDigest: strings.Repeat("a", 64), TitleOccurrence: factory.OriginalOccurrence,
-		ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
-		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
-	}
-	material := factory.CompletionMaterial{
-		Intents:     []factory.CompletionIntentScope{},
-		Acceptances: []factory.Acceptance{acceptance},
-		Withdrawals: []factory.CompletionWithdrawal{},
-		Controls: []factory.IssueControl{{
-			Repository: 7, Issue: 7,
-			Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
-			Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
-		}},
-		Preparations: []factory.CompletionPreparation{},
-		Plans:        []factory.InvestigationPlan{},
-		PlanHeads:    []factory.CompletionPlanHead{},
-		PlanTasks:    []factory.CompletionPlanTask{},
-		Assignments:  []factory.CompletionAssignment{},
-		Publications: []factory.CompletionPublication{},
-		Merges:       []factory.CompletionMerge{},
-		Checks:       []factory.CompletionCheck{},
-		Authority: factory.CompletionAuthority{
-			Effective: factory.EffectiveAuthority{
-				Missing: []string{}, Effective: true, DispatchOpen: true,
-				Authority: factory.AuthorityRef{
-					RequirementsID: "d" + strings.Repeat("c", 24),
-					ApprovalID:     "d" + strings.Repeat("e", 24),
-				},
-			},
-			ProjectID:               "p" + strings.Repeat("d", 24),
-			RequirementSourceCommit: strings.Repeat("c", 40),
-			RequirementSetupDigest:  strings.Repeat("e", 64),
-			RequirementInputsDigest: strings.Repeat("f", 64),
-			ApprovalEffectsDigest:   strings.Repeat("0", 64),
-			ApprovalReadinessDigest: strings.Repeat("1", 64),
-			ApprovalVerified:        false,
-			TargetBranch:            "refs/heads/main",
-			Roles:                   []string{"soda-coder", "soda-reviewer"},
-			ReassessmentMinutes:     factory.DefaultReassessmentMinutes,
-		},
-		Repository: 7,
-	}
-	digest, err := material.Digest()
-	if err != nil {
-		panic(err)
-	}
-	return factory.CompletionLocal{
-		Material:             &material,
-		SourceCommit:         strings.Repeat("a", 40),
-		PreparationDigest:    strings.Repeat("b", 64),
-		ScopeDigest:          digest,
-		AuthorityFingerprint: "authority-fingerprint",
-	}
-}
-
-func testLocal() factory.CompletionLocal {
-	return testMaterialLocal()
-}
-
-// digestOnlyLocal is the pre-077 shape: valid four bindings but no
-// material body. Every consumer must refuse it before any spend.
-func digestOnlyLocal() factory.CompletionLocal {
-	return factory.CompletionLocal{
-		SourceCommit:         strings.Repeat("a", 40),
-		PreparationDigest:    strings.Repeat("b", 64),
-		ScopeDigest:          strings.Repeat("c", 64),
-		AuthorityFingerprint: "authority-fingerprint",
-	}
-}
 
 // fixtureEnumerator serves scripted pages with a stable revision
 // bracket unless told to move it.
@@ -590,9 +482,11 @@ func (h *producerFlowHost) InspectPreparation(_ context.Context, in project.Prep
 		for _, candidate := range h.preparations {
 			prep := candidate.Preparation
 			if prep.ID == in.ID && prep.Project == in.Project {
-				return project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role,
+				return project.PrepareState{
+					ID: prep.ID, Project: prep.Project, Role: prep.Role,
 					Phase: h.prepPhase, Container: strings.Repeat("d", 64), SourceCommit: prep.SourceCommit,
-					SetupDigest: prep.SetupDigest, Ready: h.prepPhase == project.PrepareReady}, nil
+					SetupDigest: prep.SetupDigest, Ready: h.prepPhase == project.PrepareReady,
+				}, nil
 			}
 		}
 	}
@@ -884,10 +778,6 @@ func correctionTestReport(candidate string, findings []factory.Finding, disposit
 		return factory.CorrectionReport{}
 	}
 	return factory.CorrectionReport{SetDigest: digest, NewCandidate: candidate, Findings: findings, Dispositions: dispositions}
-}
-
-func correctionTestHeads() (head, base, candidate string) {
-	return strings.Repeat("c", 40), strings.Repeat("b", 40), strings.Repeat("d", 40)
 }
 
 func correctionTestChecks(head, base string) *factory.CheckAssessment {

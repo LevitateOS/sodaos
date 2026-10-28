@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -343,40 +342,3 @@ func ResultSynthesized(assignmentID, runID, status, summary string, recordedUnix
 // CLI to close its work with exactly one fenced result-json block, and
 // the supervisor parses the last such block strictly.
 const ResultFence = "result-json"
-
-// ParseHarnessResult extracts the last fenced result block from harness
-// output and validates it strictly. Unknown fields refuse; anything
-// unparseable reports false instead of guessing a result.
-func ParseHarnessResult(output string) (Result, bool) {
-	start := strings.LastIndex(output, "```"+ResultFence)
-	if start < 0 {
-		return Result{}, false
-	}
-	rest := output[start+len("```"+ResultFence):]
-	// The JSON payload may itself contain nested fences (quoted diffs,
-	// code samples), so the first fence after the opener is unreliable:
-	// try every closing fence in order until one decodes. The first
-	// valid payload wins; trailing chatter never mis-terminates it.
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			return Result{}, false
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		if body == "" || len(body) > project.MaxFactoryOutput {
-			continue
-		}
-		var result Result
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&result); err != nil {
-			continue
-		}
-		if result.Validate() != nil {
-			continue
-		}
-		return result, true
-	}
-	return Result{}, false
-}

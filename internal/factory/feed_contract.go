@@ -2,7 +2,6 @@ package factory
 
 import (
 	"errors"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -475,19 +474,6 @@ func ParseFeedCursor(cursor string) (int64, error) {
 		return 0, errors.New("feed cursor needs its positive order bound")
 	}
 	return seq, nil
-}
-
-// SortFeedEntriesNewestFirst orders one feed window newest-first by
-// the global order key. Seq is unique, so the order is deterministic
-// regardless of page arrival order; the ID comparison only defends
-// against a duplicated order key, which never outranks it.
-func SortFeedEntriesNewestFirst(entries []FeedEntry) {
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Seq != entries[j].Seq {
-			return entries[i].Seq > entries[j].Seq
-		}
-		return entries[i].ID < entries[j].ID
-	})
 }
 
 // WindowFeedEntries cuts one newest-first read of up to limit+1

@@ -4,8 +4,6 @@ import (
 	"context"
 
 	extensions "forgejo.org/extension-sdk"
-
-	"github.com/levitateos/sodaos/internal/factory"
 )
 
 // fakeBackgroundOps doubles the native-operation boundary for the restored
@@ -64,13 +62,4 @@ func (f *fakeBackgroundOps) PublishPushEnv(_ context.Context, _ string, rebind b
 		return nil, f.pushErr
 	}
 	return f.pushEnv, nil
-}
-
-func pendingRecord(opID string) extensions.OperationRecord {
-	return extensions.OperationRecord{
-		InstallationID: "install-1", OperationID: opID, Outcome: factory.OpEffectPending,
-		ActorID: "5", RepositoryID: "7", Kind: factory.OpRefPublish,
-		EffectState: factory.OpEffectPending, CancellationStatus: factory.OpCancelNone,
-		CompletionState: factory.OpCompletionPending,
-	}
 }

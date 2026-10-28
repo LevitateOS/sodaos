@@ -8,7 +8,6 @@ internal/acceptance/workload_exec_test.go
 internal/avatar/avatar_test.go
 internal/factory/control/acceptance_withdrawal_stop_test.go
 internal/factory/control/app_verification_test.go
-internal/factory/control/checks_native_fixture_test.go
 internal/factory/control/completion_serving_pg_test.go
 internal/factory/control/context_bundle_gap_test.go
 internal/factory/control/coordinator_test.go
@@ -28,7 +27,6 @@ internal/factory/control/dispatch_terminal_phase_test.go
 internal/factory/control/dispatch_test.go
 internal/factory/control/dispatch_timeonly_test.go
 internal/factory/control/dispatch_wait_test.go
-internal/factory/control/integration_helpers_external_test.go
 internal/factory/control/integration_helpers_test.go
 internal/factory/control/intent_generation_binding_test.go
 internal/factory/control/intent_generation_mechanics_test.go
@@ -47,7 +45,6 @@ internal/factory/control/merge_native_deadline_test.go
 internal/factory/control/merge_native_fixture_test.go
 internal/factory/control/planning_admission_test.go
 internal/factory/control/planning_test.go
-internal/factory/control/postgres_fixture_external_test.go
 internal/factory/control/postgres_fixture_test.go
 internal/factory/control/preparation_start_test.go
 internal/factory/control/priority_test.go
@@ -61,17 +58,7 @@ internal/factory/control/review_tuple_test.go
 internal/factory/control/serving_due_work_test.go
 internal/factory/control/serving_priority_starvation_test.go
 internal/factory/control/st15_demo_accept_test.go
-internal/factory/control/st15_demo_broker_test.go
-internal/factory/control/st15_demo_coding_test.go
-internal/factory/control/st15_demo_completion_test.go
-internal/factory/control/st15_demo_coordinator_test.go
-internal/factory/control/st15_demo_native_test.go
-internal/factory/control/st15_demo_project_test.go
-internal/factory/control/st15_demo_review_test.go
 internal/factory/control/st15_demo_runs_test.go
-internal/factory/control/st15_demo_seed_test.go
-internal/factory/control/st15_demo_stack_test.go
-internal/factory/control/staged_seed_test.go
 internal/factory/control/stall_detect_test.go
 internal/factory/control/stall_serve_test.go
 internal/factory/control/systemone_typesafe_test.go
@@ -205,7 +192,6 @@ internal/web/extension_terminal_test.go
 internal/web/factory_activity_test.go
 internal/web/factory_intake_route_test.go
 internal/web/factory_lifecycle_test.go
-internal/web/factory_output_fixture_test.go
 internal/web/factory_settings_test.go
 internal/web/factory_views_test.go
 internal/web/forgejo_keys_test.go

@@ -10,10 +10,6 @@ package factory
 // catalog (web/api factory_mcp_p6.go) proves transport only; this is
 // the workflow authority FW40/FW41/FW42/FW44/FW45 consume.
 
-import (
-	"errors"
-)
-
 // MCPProfile is one admitted Factory agent profile. Profile names are
 // workflow roles, never native account identities: native
 // coder/reviewer accounts remain the two execution identities (D14).
@@ -365,16 +361,4 @@ func MCPDiscovery(profile MCPProfile) []MCPTool {
 		}
 	}
 	return tools
-}
-
-// ValidateMCPEnvelope bounds one request/response envelope before any
-// admission work: oversize bytes refuse without creating a receipt.
-func ValidateMCPEnvelope(payload []byte) error {
-	if len(payload) == 0 {
-		return errors.New("empty MCP envelope")
-	}
-	if len(payload) > MCPMaxRequestEnvelopeBytes {
-		return errors.New("MCP envelope exceeds 96 KiB")
-	}
-	return nil
 }

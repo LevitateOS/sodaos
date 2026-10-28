@@ -1,12 +1,10 @@
 package project
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
 )
 
 // Typed task-event stream bounds (D05). The per-run journal is bounded;
@@ -53,11 +51,6 @@ func ValidTaskEventType(eventType string) bool {
 		return false
 	}
 }
-
-// TaskEventTerminalType reports whether the type ends the event stream.
-// run_stopped is the only terminal type; task_failed ends its task, not
-// the run, and new task admission stops through the run record.
-func TaskEventTerminalType(eventType string) bool { return eventType == TaskEventRunStopped }
 
 // TaskEvent is one typed native observation inside an admitted parent run.
 // Sequence numbers start at 1 and advance contiguously; PrevDigest chains
@@ -188,28 +181,6 @@ type FactoryTaskEvents struct {
 	ID            string `json:"id"`
 	AfterSequence int64  `json:"after_sequence"`
 	ByteLimit     int64  `json:"byte_limit"`
-}
-
-// ParseFactoryTaskEvents decodes one events request with unknown fields
-// and trailing JSON refused.
-func ParseFactoryTaskEvents(data []byte) (FactoryTaskEvents, error) {
-	var req FactoryTaskEvents
-	if len(data) == 0 || len(data) > 4096 {
-		return req, errors.New("invalid task events request")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		return FactoryTaskEvents{}, errors.New("invalid task events request")
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return FactoryTaskEvents{}, errors.New("invalid task events request")
-	}
-	if err := req.Validate(); err != nil {
-		return FactoryTaskEvents{}, err
-	}
-	return req, nil
 }
 
 func (r FactoryTaskEvents) Validate() error {

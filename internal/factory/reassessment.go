@@ -364,17 +364,6 @@ func (e CompletionEvent) SubjectKey() string {
 	return "completion:" + e.ID
 }
 
-// NextCompletionGeneration is the repository generation joint FW31 uses
-// when recording a completion: generations order events per repository
-// and the dispatch fence compares pending generations. The first
-// completion of a repository carries generation 1.
-func NextCompletionGeneration(current int64) (int64, error) {
-	if current < 0 {
-		return 0, errors.New("invalid completion generation")
-	}
-	return current + 1, nil
-}
-
 // ReassessmentLedger is the two-call/one-run funding ledger for one
 // cycle. Reservations are recorded before the outcome is known and stay
 // charged whatever happens; no poll, input edit or policy edit refills

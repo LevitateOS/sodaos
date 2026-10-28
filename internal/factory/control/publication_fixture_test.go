@@ -415,12 +415,6 @@ func committedOutcome(receipt string) factory.OperationOutcome {
 	}
 }
 
-func refusedOutcome(reason string) factory.OperationOutcome {
-	return factory.OperationOutcome{
-		Effect: factory.OpEffectNotCommitted, Cancellation: factory.OpCancelNone, Reason: reason,
-	}
-}
-
 func happyPublisher() *fakePublisher {
 	comparison := strings.Repeat("1", 40)
 	published := map[string]string{}

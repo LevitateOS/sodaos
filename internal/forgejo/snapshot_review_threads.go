@@ -150,11 +150,3 @@ func validThread(item ThreadEvidence) error {
 	}
 	return checkThreadMembers(item)
 }
-
-// threadLocation renders one member location in the canonical digest
-// encoding shared with the Fountain host: path, side and unsigned line
-// joined by vertical bars. The single SDK implementation is the source of
-// truth; this alias keeps Soda reconstruction byte-identical.
-func threadLocation(path, side string, line int64) string {
-	return extensions.RenderThreadLocation(path, side, line)
-}
