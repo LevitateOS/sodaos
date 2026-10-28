@@ -24,22 +24,21 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   root.append(content);
   const prefix = nativeAppSubUrl(context);
   const applications = context.pageId === 'applications';
-  let repository = applications ? (new URLSearchParams(location.search).get('repository') ?? '') : '';
+  const repository = '';
   let visible = true;
-  // The standalone Applications page has no workspace to switch views in, so
-  // App's project links open that project's workspace instead.
-  const openProject = (event: CustomEvent<{repository: string}>) => {
-    if (/^[1-9][0-9]*$/.test(event.detail.repository))
-      location.assign(`${prefix}/workspace?repository=${event.detail.repository}`);
-  };
   const show = () =>
     render(
       html`
         ${
           // The providers dialog host stays mounted on every feed page for
-          // the navbar button.
-          html`<header class="soda-feed-page-heading">
-                <div>${applications ? html`<p class="soda-page-eyebrow">Your software</p>` : ''}<h1>${applications ? 'Applications' : 'Feed'}</h1><p>${applications ? 'Open and manage the software your projects deliver.' : 'Role updates, choices and results from the repositories you follow.'}</p></div>
+          // the navbar button. Apps (M14) has no sub-menu: each launch card
+          // links to the App tab of the repository it was built from.
+          applications
+            ? html`<header class="soda-feed-page-heading">
+                <div><h1>Apps</h1><p>Open the apps your repositories build. Each app opens at its own address in a new tab.</p></div>
+              </header>`
+            : html`<header class="soda-feed-page-heading">
+                <div><h1>Feed</h1><p>Role updates, choices and results from the repositories you follow.</p></div>
               </header>`
         }
         <soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>
@@ -59,9 +58,8 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
                 .active=${visible}
                 .sessionKey=${transport.generation}
                 .expanded=${true}
-                .repository=${repository}
-                @soda-project-feed-open=${openProject}
-                @soda-project-work-open=${openProject}
+                .layout=${'apps'}
+                .prefix=${prefix}
               ></soda-applications>`
             : html`<soda-factory-feed
                 .context=${visible ? {transport, repository, global: true, prefix} : undefined}
@@ -73,7 +71,6 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   show();
   return {
     update(presentation) {
-      if (applications) repository = new URLSearchParams(location.search).get('repository') ?? '';
       visible = presentation.visible;
       show();
     },

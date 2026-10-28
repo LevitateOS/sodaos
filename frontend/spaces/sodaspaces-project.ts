@@ -66,6 +66,12 @@ export interface ProjectContext {
   repositoryId: string;
   page?: boolean;
   settings?: boolean;
+  /**
+   * Settings → SodaOS (M19): the place draws the section links itself, so the
+   * tablist, link row and personal controls (your keys, AI account connect)
+   * stay out of this presentation.
+   */
+  place?: boolean;
   transport: PreparedExtensionMount;
   forgejoPrefix?: string;
 }
@@ -418,7 +424,11 @@ export class SodaProjectControls extends LitElement {
     if (!this.identityPresentationReady() || !this.binding || this.journeyIdentityHidden()) return html``;
     const actor = this.binding?.expectedUserId;
     if (!actor) return html``;
+    // In Settings → SodaOS only the per-environment sharing shows, under Members & access.
+    const place = !!this.binding.place;
+    if (place && (this.selected !== 'access' || !this.environment)) return html``;
     return html`<soda-identity
+      .sharingOnly=${place}
       .context=${{actor, transport: this.binding.transport, project: this.environment?.id || ''}}
     ></soda-identity>`;
   }
@@ -429,6 +439,7 @@ export class SodaProjectControls extends LitElement {
     return {
       readBindingSettings: () => !!this.binding?.settings || this.presentation === 'settings',
       readBindingPage: () => !!this.binding?.page,
+      readBindingPlace: () => !!this.binding?.place,
       readBindingRepository: () => this.binding?.repositoryId || '',
       readFactoryTransport: () => this.binding?.transport,
       readRepository: () => this.repository,
