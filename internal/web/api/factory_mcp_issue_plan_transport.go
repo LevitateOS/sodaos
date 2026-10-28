@@ -42,6 +42,7 @@ func (s *factoryCatalogServer) addIssuePlanTool(server *mcp.Server, definition *
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
 			return refuse(err)
 		}
+		args.SubmissionID = mcpSubmissionID(args.SubmissionID)
 		result, _, err := s.serveMutation(ctx, factory.MCPToolFinishIssuePlan, args)
 		if err != nil {
 			return refuse(err)
