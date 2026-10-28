@@ -170,13 +170,6 @@ test('Project Work opens explicit requirements review for an imported native iss
     .getByRole('status')
     .filter({hasText: 'Repair graph adopted. Fresh readiness and application verification are still required.'})
     .waitFor();
-  await page.evaluate(() => window.workspaceFixture.setRepairProgress('investigating', true));
-  await verification.getByRole('button', {name: 'Refresh verification', exact: true}).click();
-  await verification
-    .getByRole('status')
-    .filter({hasText: 'Could not read current verification or repair progress.'})
-    .waitFor();
-  await progress.getByRole('status').filter({hasText: 'Repair graph adopted.'}).waitFor();
   // An independent retained Attention snapshot must show its actual low
   // confidence judgment, rather than treating worker success as adoption.
   const attentionPage = await fixture(t);

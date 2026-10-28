@@ -1,5 +1,4 @@
-import {check, id, object, projectId} from './sodaspaces-api.js';
-import {terminalID} from './sodaspaces-terminal-response.js';
+import {flag, list, num, object, optionalNum, optionalText, record, text, texts} from './sodaspaces-api.js';
 
 export interface FactoryAuthority {
   effective: boolean;
@@ -45,45 +44,19 @@ export function factoryControlText(control: FactoryControl | undefined) {
 export function factoryCommandId() {
   return crypto.randomUUID().replace(/-/g, '');
 }
-export function spaceFactoryAuthority(row: Record<string, unknown>) {
-  const authority = row.factory_authority;
-  if (authority === undefined) return undefined;
-  const detail = object(authority);
-  check(
-    typeof detail.effective === 'boolean' &&
-      typeof detail.dispatch_open === 'boolean' &&
-      Array.isArray(detail.missing) &&
-      detail.missing.length <= 16 &&
-      detail.missing.every((reason: unknown) => typeof reason === 'string' && /^[a-z_]{1,64}$/.test(reason)) &&
-      (detail.missing.length === 0) === detail.effective
-  );
-  const missing = detail.missing as string[];
+export function spaceFactoryAuthority(row: Record<string, unknown>): FactoryAuthority | undefined {
+  if (row.factory_authority === undefined) return undefined;
+  const detail = record(row.factory_authority);
+  return {effective: flag(detail.effective), dispatch_open: flag(detail.dispatch_open), missing: texts(detail.missing)};
+}
+export function spaceFactoryControl(row: Record<string, unknown>): FactoryControl | undefined {
+  if (row.factory_control === undefined) return undefined;
+  const detail = record(row.factory_control);
+  const cause = text(detail.withdrawal_cause);
   return {
-    effective: detail.effective as boolean,
-    dispatch_open: detail.dispatch_open as boolean,
-    missing,
-  };
-}
-function admitUnsettledRuns(value: unknown) {
-  check(typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 1000);
-  return value as number;
-}
-function admitWithdrawalCause(cause: unknown, open: boolean) {
-  check(open || cause !== undefined);
-  check(cause === undefined || (typeof cause === 'string' && /^[a-z_]{1,256}$/.test(cause)));
-  return typeof cause === 'string' ? cause : undefined;
-}
-export function spaceFactoryControl(row: Record<string, unknown>) {
-  const control = row.factory_control;
-  if (control === undefined) return undefined;
-  const detail = object(control);
-  check(typeof detail.dispatch_open === 'boolean' && typeof detail.paused === 'boolean');
-  const open = detail.dispatch_open as boolean;
-  const cause = admitWithdrawalCause(detail.withdrawal_cause, open);
-  return {
-    dispatch_open: open,
-    paused: detail.paused as boolean,
-    unsettled_runs: admitUnsettledRuns(detail.unsettled_runs),
+    dispatch_open: flag(detail.dispatch_open),
+    paused: flag(detail.paused),
+    unsettled_runs: num(detail.unsettled_runs),
     ...(cause ? {withdrawal_cause: cause} : {}),
   };
 }
@@ -97,7 +70,7 @@ const factoryOutcomeWords: Readonly<Record<NonNullable<FactoryRun['outcome']>, s
   'needs-human': 'needs your decision',
 };
 function factoryOutcomeText(run: FactoryRun) {
-  return run.outcome ? factoryOutcomeWords[run.outcome] : 'active';
+  return run.outcome ? (factoryOutcomeWords[run.outcome] ?? run.outcome) : 'active';
 }
 // factoryRunText renders one recorded run as a bounded status line: its role,
 // issue or attempt binding and recorded outcome. Liveness stays on the run
@@ -117,43 +90,22 @@ export function factoryRunLabel(run: FactoryRun) {
   const role = factoryRoleNames[run.role] ?? run.role;
   return [role, ...(run.issue ? [`issue #${run.issue}`] : []), factoryOutcomeText(run)].join(' · ');
 }
-const factoryOutcome = (value: unknown): value is FactoryRun['outcome'] =>
-  value === 'succeeded' || value === 'failed' || value === 'cancelled' || value === 'needs-human';
-const factoryAttempt = (value: unknown): value is string =>
-  typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value);
-function admitFactoryRunIdentity(run: Record<string, unknown>) {
-  check(terminalID(run.id) && typeof run.role === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(run.role));
-  return {id: run.id, role: run.role};
-}
-function admitFactoryRunOutcome(run: Record<string, unknown>) {
-  check(typeof run.reconciled === 'boolean');
-  check(run.outcome === undefined || factoryOutcome(run.outcome));
-  return {
-    reconciled: run.reconciled,
-    ...(run.outcome === undefined ? {} : {outcome: run.outcome}),
-  };
-}
-function admitFactoryRunBinding(run: Record<string, unknown>) {
-  check(run.issue === undefined || id(run.issue));
-  check(run.attempt === undefined || factoryAttempt(run.attempt));
-  return {
-    ...(run.issue === undefined ? {} : {issue: run.issue}),
-    ...(run.attempt === undefined ? {} : {attempt: run.attempt}),
-  };
-}
 function spaceFactoryRun(value: unknown): FactoryRun {
-  const run = object(value);
-  return {...admitFactoryRunIdentity(run), ...admitFactoryRunOutcome(run), ...admitFactoryRunBinding(run)};
+  const run = record(value);
+  const issue = optionalText(run.issue),
+    attempt = optionalText(run.attempt),
+    outcome = optionalText(run.outcome);
+  return {
+    id: text(run.id),
+    role: text(run.role),
+    reconciled: flag(run.reconciled),
+    ...(outcome ? {outcome: outcome as NonNullable<FactoryRun['outcome']>} : {}),
+    ...(issue ? {issue} : {}),
+    ...(attempt ? {attempt} : {}),
+  };
 }
 export function spaceFactoryRuns(row: Record<string, unknown>) {
-  check(Array.isArray(row.factory_runs) && row.factory_runs.length <= 64);
-  const seen = new Set<string>();
-  return row.factory_runs.map((value: unknown) => {
-    const run = spaceFactoryRun(value);
-    check(!seen.has(run.id));
-    seen.add(run.id);
-    return run;
-  });
+  return list(row.factory_runs).map(spaceFactoryRun);
 }
 export interface FactoryRunView {
   repository: string;
@@ -201,43 +153,32 @@ export interface DeliveryRepairProgress {
   judgment?: {option: 'accept' | 'needs_attention'; accept_probability: number; confidence: number};
 }
 function deliveryRepairProgress(value: unknown, run: string): DeliveryRepairProgress {
-  const data = object(value),
-    states = ['collecting', 'ready', 'investigating', 'assessing', 'applying', 'adopted', 'attention', 'stale'];
-  check(terminalID(data.cause_id) && terminalID(data.cycle_id) && data.failed_run === run);
-  check(typeof data.source_commit === 'string' && /^[a-f0-9]{40}$/.test(data.source_commit));
-  check(typeof data.state === 'string' && states.includes(data.state));
-  check(data.reason === undefined || (typeof data.reason === 'string' && data.reason.length <= 256));
-  check(data.run_id === undefined || terminalID(data.run_id));
-  check(Array.isArray(data.failures) && data.failures.length > 0 && data.failures.length <= 8);
-  check(Number.isSafeInteger(data.failure_count) && (data.failure_count as number) >= data.failures.length);
-  const failures = data.failures.map((value: unknown) => {
-    const failure = object(value);
-    check(typeof failure.check_ref === 'string' && failure.check_ref.length > 0 && failure.check_ref.length <= 1024);
-    check(typeof failure.detail === 'string' && failure.detail.length > 0 && failure.detail.length <= 4096);
-    return {check_ref: failure.check_ref, detail: failure.detail};
+  const data = record(value);
+  const failures = list(data.failures).map((item) => {
+    const failure = record(item);
+    return {check_ref: text(failure.check_ref), detail: text(failure.detail)};
   });
+  const reason = optionalText(data.reason),
+    runId = optionalText(data.run_id);
   let judgment: DeliveryRepairProgress['judgment'];
-  if (data.judgment !== undefined) {
-    const row = object(data.judgment);
-    const probability = (value: unknown): value is number =>
-      typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
-    check(
-      (row.option === 'accept' || row.option === 'needs_attention') &&
-        probability(row.accept_probability) &&
-        probability(row.confidence)
-    );
-    judgment = {option: row.option, accept_probability: row.accept_probability, confidence: row.confidence};
+  if (data.judgment !== undefined && data.judgment !== null) {
+    const row = record(data.judgment);
+    judgment = {
+      option: text(row.option) as 'accept' | 'needs_attention',
+      accept_probability: num(row.accept_probability),
+      confidence: num(row.confidence),
+    };
   }
   return {
-    cause_id: data.cause_id,
-    cycle_id: data.cycle_id,
+    cause_id: text(data.cause_id),
+    cycle_id: text(data.cycle_id),
     failed_run: run,
-    source_commit: data.source_commit,
-    state: data.state as DeliveryRepairProgress['state'],
+    source_commit: text(data.source_commit),
+    state: text(data.state) as DeliveryRepairProgress['state'],
     failures,
-    failure_count: data.failure_count as number,
-    ...(data.reason === undefined ? {} : {reason: data.reason}),
-    ...(data.run_id === undefined ? {} : {run_id: data.run_id}),
+    failure_count: num(data.failure_count, failures.length),
+    ...(reason === undefined ? {} : {reason}),
+    ...(runId === undefined ? {} : {run_id: runId}),
     ...(judgment ? {judgment} : {}),
   };
 }
@@ -251,170 +192,77 @@ export interface FactoryContextSelection {
   can_use_current: boolean;
 }
 function factoryContextSelection(value: unknown): FactoryContextSelection {
-  const row = object(value);
-  const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-  check(digest(row.fingerprint) && digest(row.scope_digest));
-  check(row.required_digest === undefined || digest(row.required_digest));
-  check(
-    typeof row.availability === 'string' &&
-      row.availability.length <= 64 &&
-      typeof row.reason === 'string' &&
-      row.reason.length <= 128
-  );
-  check(row.action === 'hold' || row.action === 'serve' || row.action === 'stop');
-  check(typeof row.can_use_current === 'boolean');
+  const row = record(value);
+  const required = optionalText(row.required_digest);
   return {
-    fingerprint: row.fingerprint,
-    scope_digest: row.scope_digest,
-    ...(row.required_digest === undefined ? {} : {required_digest: row.required_digest}),
-    availability: row.availability,
-    reason: row.reason,
-    action: row.action,
-    can_use_current: row.can_use_current,
+    fingerprint: text(row.fingerprint),
+    scope_digest: text(row.scope_digest),
+    ...(required === undefined ? {} : {required_digest: required}),
+    availability: text(row.availability),
+    reason: text(row.reason),
+    action: text(row.action) as FactoryContextSelection['action'],
+    can_use_current: flag(row.can_use_current),
   };
 }
-const factoryPhase = (value: unknown): value is string =>
-  value === 'approved' ||
-  value === 'running' ||
-  value === 'completed' ||
-  value === 'failed' ||
-  value === 'stopped' ||
-  value === 'uncertain';
 function factoryRunDetailView(value: unknown, repositoryId: string): FactoryRunView {
-  const view = object(value);
-  check(view.repository === repositoryId);
-  check(view.issue === undefined || id(view.issue));
-  check(view.attempt === undefined || factoryAttempt(view.attempt));
-  return {
-    repository: repositoryId,
-    ...(view.issue === undefined ? {} : {issue: view.issue}),
-    ...(view.attempt === undefined ? {} : {attempt: view.attempt}),
-  };
-}
-function factoryStateIdentity(state: Record<string, unknown>) {
-  check(
-    factoryPhase(state.phase) &&
-      typeof state.live === 'boolean' &&
-      typeof state.terminal === 'boolean' &&
-      typeof state.output_truncated === 'boolean'
-  );
-  return {phase: state.phase, live: state.live, terminal: state.terminal, output_truncated: state.output_truncated};
-}
-function factoryStateBinding(state: Record<string, unknown>) {
-  check(
-    state.container === undefined || (typeof state.container === 'string' && /^[0-9a-f]{64}$/.test(state.container))
-  );
-  check(
-    state.unit === undefined ||
-      (typeof state.unit === 'string' && /^soda-factory-[0-9a-f]{32}\.service$/.test(state.unit))
-  );
-  check(state.invocation === undefined || terminalID(state.invocation));
-  return {
-    ...(state.container === undefined ? {} : {container: state.container}),
-    ...(state.unit === undefined ? {} : {unit: state.unit}),
-    ...(state.invocation === undefined ? {} : {invocation: state.invocation}),
-  };
-}
-function factoryStateExit(state: Record<string, unknown>) {
-  check(
-    state.exit_code === undefined ||
-      (typeof state.exit_code === 'number' &&
-        Number.isInteger(state.exit_code) &&
-        state.exit_code >= 0 &&
-        state.exit_code <= 255)
-  );
-  if (state.exit_code === undefined) return {};
-  return {exit_code: state.exit_code};
-}
-function factoryStateReason(state: Record<string, unknown>) {
-  check(
-    state.reason === undefined || (typeof state.reason === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(state.reason))
-  );
-  check(state.retirement === undefined || state.retirement === 'confirmed' || state.retirement === 'uncertain');
-  return {
-    ...(state.reason === undefined ? {} : {reason: state.reason}),
-    ...(state.retirement === undefined ? {} : {retirement: state.retirement}),
-  };
-}
-function factoryStateOutput(state: Record<string, unknown>) {
-  check(state.output === undefined || (typeof state.output === 'string' && state.output.length <= 16384));
-  if (state.output === undefined) return {};
-  return {output: state.output};
-}
-function factoryStateOutcome(state: Record<string, unknown>) {
-  return {...factoryStateReason(state), ...factoryStateOutput(state)};
+  const view = record(value);
+  const issue = optionalText(view.issue),
+    attempt = optionalText(view.attempt);
+  return {repository: repositoryId, ...(issue ? {issue} : {}), ...(attempt ? {attempt} : {})};
 }
 function factoryRunDetailState(value: unknown): FactoryRunState {
-  const state = object(value);
-  const identity = factoryStateIdentity(state);
-  check(!identity.output_truncated || state.output !== undefined);
-  return {...identity, ...factoryStateBinding(state), ...factoryStateExit(state), ...factoryStateOutcome(state)};
-}
-function factoryRecordIdentity(record: Record<string, unknown>, runId: string) {
-  check(
-    record.id === runId &&
-      projectId(record.project_id) &&
-      typeof record.role === 'string' &&
-      /^[a-z][a-z0-9-]{0,63}$/.test(record.role) &&
-      typeof record.reconciled === 'boolean'
-  );
-  return {id: runId, project_id: record.project_id, role: record.role, reconciled: record.reconciled};
-}
-function factoryRecordHarness(record: Record<string, unknown>) {
-  check(
-    typeof record.harness === 'string' &&
-      record.harness.length > 0 &&
-      record.harness.length <= 128 &&
-      typeof record.model === 'string' &&
-      record.model.length > 0 &&
-      record.model.length <= 128
-  );
-  check(typeof record.input_sha === 'string' && /^[0-9a-f]{40}$/.test(record.input_sha));
-  return {harness: record.harness, model: record.model};
-}
-function factoryRecordOutcome(record: Record<string, unknown>) {
-  check(record.outcome === undefined || factoryOutcome(record.outcome));
-  check(record.summary === undefined || (typeof record.summary === 'string' && record.summary.length <= 16384));
+  const state = record(value);
+  const optional = {
+    container: optionalText(state.container),
+    unit: optionalText(state.unit),
+    invocation: optionalText(state.invocation),
+    exit_code: optionalNum(state.exit_code),
+    reason: optionalText(state.reason),
+    retirement: optionalText(state.retirement),
+    output: optionalText(state.output),
+  };
   return {
-    ...(record.outcome === undefined ? {} : {outcome: record.outcome}),
-    ...(record.summary === undefined ? {} : {summary: record.summary}),
+    phase: text(state.phase),
+    live: flag(state.live),
+    terminal: flag(state.terminal),
+    output_truncated: flag(state.output_truncated),
+    ...Object.fromEntries(Object.entries(optional).filter(([, entry]) => entry !== undefined)),
   };
 }
-function factoryRecordProvenance(record: Record<string, unknown>) {
-  return {...factoryRecordHarness(record), ...factoryRecordOutcome(record)};
-}
-// factoryRunStatusResponse binds one run status read to its exact run and
-// repository. Native IDs stay decimal strings; the phase set is closed.
+const optionalSection = (value: unknown) => value !== undefined && value !== null;
+// factoryRunStatusResponse reads one run status. The run and repository come
+// from the caller; the reply supplies only what the views show.
 export function factoryRunStatusResponse(value: unknown, runId: string, repositoryId: string): FactoryRunDetail {
   const data = object(value),
-    record = object(data.run);
-  check(data.view === undefined || typeof data.view === 'object');
-  check(data.state === undefined || typeof data.state === 'object');
-  let verificationRetry: {available: boolean} | undefined;
-  if (data.verification_retry !== undefined) {
-    const retry = object(data.verification_retry);
-    check(typeof retry.available === 'boolean');
-    verificationRetry = {available: retry.available};
-  }
-  let deliveryRepair: FactoryRunDetail['delivery_repair'];
-  if (data.delivery_repair !== undefined) {
-    const repair = object(data.delivery_repair);
-    check(typeof repair.available === 'boolean');
-    deliveryRepair = {
-      available: repair.available,
-      ...(repair.progress === undefined ? {} : {progress: deliveryRepairProgress(repair.progress, runId)}),
-    };
-  }
+    run = record(data.run);
+  const outcome = optionalText(run.outcome),
+    summary = optionalText(run.summary);
+  const repair = record(data.delivery_repair);
   return {
-    ...factoryRecordIdentity(record, runId),
-    ...factoryRecordProvenance(record),
-    ...(data.view === undefined ? {} : {view: factoryRunDetailView(data.view, repositoryId)}),
-    ...(data.state === undefined ? {} : {state: factoryRunDetailState(data.state)}),
-    ...(data.context_selection === undefined
-      ? {}
-      : {context_selection: factoryContextSelection(data.context_selection)}),
-    ...(verificationRetry === undefined ? {} : {verification_retry: verificationRetry}),
-    ...(deliveryRepair === undefined ? {} : {delivery_repair: deliveryRepair}),
+    id: runId,
+    project_id: text(run.project_id),
+    role: text(run.role),
+    reconciled: flag(run.reconciled),
+    harness: text(run.harness),
+    model: text(run.model),
+    ...(outcome ? {outcome: outcome as NonNullable<FactoryRun['outcome']>} : {}),
+    ...(summary === undefined ? {} : {summary}),
+    ...(optionalSection(data.view) ? {view: factoryRunDetailView(data.view, repositoryId)} : {}),
+    ...(optionalSection(data.state) ? {state: factoryRunDetailState(data.state)} : {}),
+    ...(optionalSection(data.context_selection)
+      ? {context_selection: factoryContextSelection(data.context_selection)}
+      : {}),
+    ...(optionalSection(data.verification_retry)
+      ? {verification_retry: {available: flag(record(data.verification_retry).available)}}
+      : {}),
+    ...(optionalSection(data.delivery_repair)
+      ? {
+          delivery_repair: {
+            available: flag(repair.available),
+            ...(optionalSection(repair.progress) ? {progress: deliveryRepairProgress(repair.progress, runId)} : {}),
+          },
+        }
+      : {}),
   };
 }
 export interface FactoryStatus {
@@ -428,37 +276,20 @@ export interface FactoryStatus {
   terminal: boolean;
   exit_code: number | null;
 }
-function factoryFrameIdentity(frame: Record<string, unknown>, runId: string) {
-  check(frame.type === 'status' && frame.run_id === runId && factoryPhase(frame.phase));
-  check(typeof frame.live === 'boolean' && typeof frame.terminal === 'boolean');
-  return {run_id: runId, phase: frame.phase, live: frame.live, terminal: frame.terminal};
-}
-function factoryFrameBinding(frame: Record<string, unknown>) {
-  check(typeof frame.container === 'string' && (frame.container === '' || /^[0-9a-f]{64}$/.test(frame.container)));
-  check(
-    typeof frame.unit === 'string' && (frame.unit === '' || /^soda-factory-[0-9a-f]{32}\.service$/.test(frame.unit))
-  );
-  check(typeof frame.invocation === 'string' && (frame.invocation === '' || terminalID(frame.invocation)));
-  return {container: frame.container, unit: frame.unit, invocation: frame.invocation};
-}
-function factoryFrameOutcome(frame: Record<string, unknown>) {
-  check(typeof frame.reason === 'string' && (frame.reason === '' || /^[a-z][a-z0-9-]{0,63}$/.test(frame.reason)));
-  check(
-    frame.exit_code === null ||
-      (typeof frame.exit_code === 'number' &&
-        Number.isInteger(frame.exit_code) &&
-        frame.exit_code >= 0 &&
-        frame.exit_code <= 255)
-  );
-  return {reason: frame.reason, exit_code: frame.exit_code};
-}
-// factoryStatusFrame admits one status frame with its exact run binding and
-// fixed key set. Empty container/unit/invocation means no process binding
-// was ever recorded; the viewer never guesses one.
+// factoryStatusFrame reads one status frame of the run the viewer is
+// attached to. Empty container/unit/invocation means no process binding was
+// ever recorded; the viewer never guesses one.
 export function factoryStatusFrame(value: unknown, runId: string): FactoryStatus {
-  const frame = object(value);
-  check(
-    Object.keys(frame).sort().join(',') === 'container,exit_code,invocation,live,phase,reason,run_id,terminal,type,unit'
-  );
-  return {...factoryFrameIdentity(frame, runId), ...factoryFrameBinding(frame), ...factoryFrameOutcome(frame)};
+  const frame = record(value);
+  return {
+    run_id: runId,
+    phase: text(frame.phase),
+    live: flag(frame.live),
+    terminal: flag(frame.terminal),
+    container: text(frame.container),
+    unit: text(frame.unit),
+    invocation: text(frame.invocation),
+    reason: text(frame.reason),
+    exit_code: optionalNum(frame.exit_code) ?? null,
+  };
 }

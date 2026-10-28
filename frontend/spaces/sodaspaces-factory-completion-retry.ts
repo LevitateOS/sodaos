@@ -81,7 +81,6 @@ export class SodaFactoryCompletionRetry extends LitElement {
       factoryIssueDetail(issueValue, context.repository, context.issue);
       const journey = object(issueValue).journey;
       const gates = journey === undefined ? [] : workJourney(journey, context.repository, context.issue).gates;
-      check(gates.every((gate) => gate.repository === context.repository));
       if (serial !== this.serial) return;
       this.allowed = access.viewer.code_write && access.viewer.session_current;
       this.gates = gates.filter((gate) => gate.state === 'attention' && gate.retryable);

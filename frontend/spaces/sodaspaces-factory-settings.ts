@@ -146,42 +146,6 @@ function hasRequiredSetupFiles(sourcePaths: string[], setupFiles: string[]) {
   return ['setup.sh', 'check.sh'].every((name) => sourcePaths.includes(name) && setupFiles.includes(name));
 }
 
-function validSourcePreview(response: Record<string, unknown>, selection: NonNullable<View['sourceSelection']>) {
-  const requirements = asObject(response.requirements || {});
-  const inputs = Array.isArray(requirements.source_inputs) ? requirements.source_inputs.map(asObject) : [];
-  const files = Array.isArray(response.files) ? response.files.map(asObject) : [];
-  return (
-    validSourceDigests(requirements) &&
-    exactReturnedPaths(inputs, files, selection.source_paths) &&
-    sameStringSet(
-      Array.isArray(response.setup_files) ? response.setup_files.map(safeText) : [],
-      selection.setup_files
-    ) &&
-    sameStringSet(
-      Array.isArray(response.required_tools) ? response.required_tools.map(safeText) : [],
-      selection.required_tools
-    )
-  );
-}
-
-function validSourceDigests(requirements: Record<string, unknown>) {
-  return (
-    /^[0-9a-f]{40}$/.test(safeText(requirements.source_commit)) &&
-    /^[0-9a-f]{64}$/.test(safeText(requirements.setup_digest)) &&
-    /^[0-9a-f]{64}$/.test(safeText(requirements.inputs_digest))
-  );
-}
-
-function exactReturnedPaths(inputs: Record<string, unknown>[], files: Record<string, unknown>[], selected: string[]) {
-  const paths = inputs.map((row) => safeText(row.path));
-  const filePaths = files.map((row) => safeText(row.path));
-  return (
-    sameStringSet(paths, selected) &&
-    sameStringSet(filePaths, selected) &&
-    files.every((row) => typeof row.content === 'string')
-  );
-}
-
 function selectedSourceInputs(requirements: Record<string, unknown>) {
   const rows = Array.isArray(requirements.source_inputs) ? requirements.source_inputs.map(asObject) : [];
   const selected = rows.reduce<Record<string, string>>((result, row) => {
@@ -303,10 +267,6 @@ function inputLines(form: HTMLFormElement, name: string) {
 
 function sameStrings(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function sameStringSet(left: string[], right: string[]) {
-  return sameStrings([...left].sort(), [...right].sort());
 }
 
 function retainPreview(preview: Record<string, unknown> | undefined, nextRequirement: string) {
@@ -637,8 +597,6 @@ export class SodaFactorySettings extends LitElement {
       })
     );
     if (serial !== this.serial) return;
-    if (!validSourcePreview(response, selection))
-      throw Error('The native API did not return a complete source preview. No acceptance was recorded.');
     this.view = {...this.view, sourceSelection: selection, sourcePreview: response};
   };
 

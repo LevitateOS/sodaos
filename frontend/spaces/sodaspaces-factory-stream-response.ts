@@ -8,14 +8,13 @@ export interface FactoryOutput {
   truncated: boolean;
 }
 function factoryOutputBytes(data: unknown): Uint8Array {
-  check(typeof data === 'string' && data.length <= 65536);
+  check(typeof data === 'string');
   let decoded = '';
   try {
     decoded = atob(data);
   } catch {
     check(false);
   }
-  check(decoded.length <= 32768);
   return Uint8Array.from(decoded, (c) => c.charCodeAt(0));
 }
 // factoryOutputFrame admits one output slice with server-chosen cursors. The
@@ -23,8 +22,6 @@ function factoryOutputBytes(data: unknown): Uint8Array {
 // the recorded size instead of inventing bytes.
 export function factoryOutputFrame(value: unknown): FactoryOutput {
   const frame = object(value);
-  check(Object.keys(frame).sort().join(',') === 'cursor,data,gap,next,truncated,type');
-  check(frame.type === 'output' && typeof frame.gap === 'boolean' && typeof frame.truncated === 'boolean');
   check(
     typeof frame.cursor === 'number' &&
       Number.isSafeInteger(frame.cursor) &&
@@ -35,7 +32,7 @@ export function factoryOutputFrame(value: unknown): FactoryOutput {
   );
   const bytes = factoryOutputBytes(frame.data);
   check(frame.next - frame.cursor === bytes.length);
-  return {bytes, cursor: frame.cursor, next: frame.next, gap: frame.gap, truncated: frame.truncated};
+  return {bytes, cursor: frame.cursor, next: frame.next, gap: frame.gap === true, truncated: frame.truncated === true};
 }
 // factoryOutputCursor admits one output slice against the viewer's position
 // and returns the advanced cursor. A truncated first frame jumps a
@@ -50,9 +47,5 @@ export function factoryOutputCursor(viewer: number, frame: FactoryOutput): numbe
 // ends the view; unknown reasons still end it rather than stalling.
 export function factoryClosedReason(value: unknown): string {
   const frame = object(value);
-  check(Object.keys(frame).sort().join(',') === 'reason,type');
-  check(
-    frame.type === 'closed' && typeof frame.reason === 'string' && frame.reason.length > 0 && frame.reason.length <= 64
-  );
-  return frame.reason;
+  return typeof frame.reason === 'string' && frame.reason ? frame.reason : 'closed';
 }

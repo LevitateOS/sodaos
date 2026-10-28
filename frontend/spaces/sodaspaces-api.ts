@@ -11,7 +11,7 @@ async function sodaJSONReader(response: Response, maxBytes: number) {
   return response.body.getReader();
 }
 
-export async function readSodaJSON(response: Response, maxBytes = 65536): Promise<unknown> {
+export async function readSodaJSON(response: Response, maxBytes = 4 * 1024 * 1024): Promise<unknown> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 4 * 1024 * 1024) throw Error('Invalid Soda response bound');
   const reader = await sodaJSONReader(response, maxBytes),
     decoder = new TextDecoder('utf-8', {fatal: true});
@@ -40,6 +40,21 @@ export function object(value: unknown): Record<string, unknown> {
 export function check(condition: unknown): asserts condition {
   if (!condition) throw Error('Invalid or mismatched Soda response');
 }
+// Lenient readers for SodaOS's own JSON. A view reads only the fields it
+// uses, with a default when a field is missing or has another type; extra
+// fields and unknown enum values are kept as plain data, never refused.
+export const record = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+export const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+export const text = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback);
+export const num = (value: unknown, fallback = 0): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+export const flag = (value: unknown): boolean => value === true;
+export const optionalText = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+export const optionalNum = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+export const texts = (value: unknown): string[] =>
+  list(value).filter((item): item is string => typeof item === 'string');
 export const id = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
 export const projectId = (value: unknown): value is string =>

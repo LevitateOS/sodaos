@@ -68,7 +68,7 @@ test('Factory activity preserves exact native links and saves only local display
   assert.equal((await writes(page)).filter((call) => !call.url.endsWith('/factory/activity')).length, 0);
 });
 
-test('Factory activity rejects foreign repository links instead of displaying them', async (t) => {
+test('Factory activity leaves out foreign repository links instead of displaying them', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {
     window.drawerFixture.setReply(async (call) =>
@@ -98,7 +98,7 @@ test('Factory activity rejects foreign repository links instead of displaying th
   await page.getByRole('tab', {name: 'Factory'}).click();
   const activity = page.locator('soda-factory-activity');
   await activity.getByRole('button', {name: 'Refresh activity', exact: true}).click();
-  await activity.locator('[data-activity-message]').filter({hasText: 'Invalid Factory activity item.'}).waitFor();
+  await activity.getByText('No recorded activity yet.').waitFor();
   assert.equal(await activity.getByRole('link').count(), 0);
 });
 
@@ -630,8 +630,11 @@ test('initial source, exact-input acceptance, operational approval and role prep
   await settings.locator('[name="required_tools"]').fill('node');
   await settings.getByRole('button', {name: 'Preview selected source'}).click();
   await settings.getByText(sourceCommit).first().waitFor();
-  await settings.locator('details').first().locator('summary').click();
-  assert.match(await settings.locator('details').first().innerText(), /printf setup/);
+  await settings.locator('form[data-action="source-preview"] details').first().locator('summary').click();
+  assert.match(
+    await settings.locator('form[data-action="source-preview"] details').first().innerText(),
+    /printf setup/
+  );
   let calls = await writes(page);
   const sourcePreview = calls.find((call) => JSON.parse(call.body || '{}').action === 'source-preview');
   assert(sourcePreview);
@@ -1204,9 +1207,7 @@ test('Factory execution usage reports exact minutes, editability and required ac
               sponsorships: [{connection: 'c1', editable: true}],
             },
             effective: {missing: [], effective: true, dispatch_open: true},
-            required_actions: [
-              {code: 'sponsorship_missing', resolve_by: 'connection_owner', setting: 'sponsorships'},
-            ],
+            required_actions: [{code: 'sponsorship_missing', resolve_by: 'connection_owner', setting: 'sponsorships'}],
             preparation: null,
             usage: [
               {connection: 'c1', unit: 'minutes', budget_minutes: 360, used_minutes: 41},
@@ -1284,7 +1285,7 @@ test('Factory settings reload after a tab flap during load instead of sticking b
       effective: {effective: false, dispatch_open: false, missing: ['policy_missing'], authority: {}},
     });
   });
-  await page.locator('[data-factory-settings]').filter({hasText: 'Capacity: 2 concurrent runs, 8 queued'}).waitFor();
+  await page.locator('[data-factory-settings]').filter({hasText: 'Capacity: 2 concurrent runs'}).waitFor();
   const refreshButton = page.locator('soda-factory-settings').getByRole('button', {name: 'Refresh current authority'});
   assert.equal(await refreshButton.isDisabled(), false);
 });
