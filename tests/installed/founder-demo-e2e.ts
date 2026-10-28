@@ -1479,9 +1479,14 @@ async function phaseCorrect(page: Page, out: string): Promise<void> {
   );
   await spaces.getByRole('button', {name: 'Submit change', exact: true}).first().click();
   const explored = await exploring;
-  assert.equal(explored.status(), 201, `Correct: Submit change must re-explore with 201, got ${explored.status()}`);
-  const exploreBody = (await explored.json()) as {intent?: string};
-  await writeFile(`${out}/correct-explore.json`, JSON.stringify({intent: exploreBody.intent}, null, 2));
+  let exploreBody: {intent?: string; error?: {code?: string; message?: string}} = {};
+  try {
+    exploreBody = (await explored.json()) as typeof exploreBody;
+  } catch {
+    exploreBody = {};
+  }
+  await writeFile(`${out}/correct-explore.json`, JSON.stringify({status: explored.status(), body: exploreBody}, null, 2));
+  assert.equal(explored.status(), 201, `Correct: Submit change must re-explore with 201, got ${explored.status()} (${exploreBody.error?.code ?? 'no code'}: ${(exploreBody.error?.message ?? '').slice(0, 300)})`);
   await page.waitForTimeout(3000);
   await shot(page, `${out}/correct-explored.png`);
   const text = await visibleText(page, 6000);
