@@ -111,7 +111,6 @@ type LibraryInventory struct {
 }
 
 type LibraryChange struct {
-	ComponentID    string           `json:"component_id,omitempty"`
 	Title          string           `json:"title,omitempty"`
 	Summary        string           `json:"summary,omitempty"`
 	Reason         string           `json:"reason,omitempty"`
@@ -126,6 +125,9 @@ type LibraryChange struct {
 	EvidenceRefs   []string         `json:"evidence_refs,omitempty"`
 	Completed      []string         `json:"completed,omitempty"`
 	Remaining      []string         `json:"remaining,omitempty"`
+
+	// LegacyComponentID accepts the retired presentation ID and ignores it.
+	LegacyComponentID string `json:"component_id,omitempty"`
 }
 
 func MCPIsLibraryRead(tool MCPTool) bool {
@@ -142,29 +144,38 @@ func MCPIsLibraryMutation(tool MCPTool) bool {
 	}
 	return false
 }
-func LibraryComponent(tool MCPTool) string {
-	switch string(tool) {
-	case "factory.begin_library_maintenance":
-		return "LA01"
-	case "factory.edit_library_item":
-		return "LA02"
-	case "factory.consolidate_library_items":
-		return "LA03"
-	case "factory.split_library_item":
-		return "LA04"
-	case "factory.remove_library_item", "factory.restore_library_item":
-		return "LA05"
-	case "factory.supersede_library_item":
-		return "LA06"
-	case "factory.relate_library_items":
-		return "LA07"
-	case "factory.report_library_impact":
-		return "LA08"
-	case "factory.finish_library_maintenance":
-		return "LA09"
+// LibraryOperationTitle names a library operation for its feed post when
+// the report supplies no title of its own.
+func LibraryOperationTitle(tool MCPTool) string {
+	switch tool {
+	case MCPToolBeginLibraryMaintenance:
+		return "Maintenance scope"
+	case MCPToolEditLibraryItem:
+		return "Item edited"
+	case MCPToolConsolidateLibraryItems:
+		return "Consolidation"
+	case MCPToolSplitLibraryItem:
+		return "Split"
+	case MCPToolRemoveLibraryItem, MCPToolRestoreLibraryItem:
+		return "Removal and restoration"
+	case MCPToolSupersedeLibraryItem:
+		return "Replacement"
+	case MCPToolRelateLibraryItems:
+		return "Relationship and conflict"
+	case MCPToolReportLibraryImpact:
+		return "Affected work"
+	case MCPToolFinishLibraryMaintenance:
+		return "Maintenance result"
 	}
 	return ""
 }
+
+// libraryReport is true for the operations that only report: they change
+// no item and need a title and summary instead of a reason.
+func libraryReport(tool MCPTool) bool {
+	return tool == MCPToolBeginLibraryMaintenance || tool == MCPToolReportLibraryImpact || tool == MCPToolFinishLibraryMaintenance
+}
+
 func DecodeLibraryChange(tool MCPTool, raw []byte) (LibraryChange, error) {
 	var c LibraryChange
 	if !MCPIsLibraryMutation(tool) {
@@ -177,9 +188,6 @@ func DecodeLibraryChange(tool MCPTool, raw []byte) (LibraryChange, error) {
 	d.DisallowUnknownFields()
 	if err := d.Decode(&c); err != nil {
 		return c, err
-	}
-	if c.ComponentID != "" && c.ComponentID != LibraryComponent(tool) {
-		return c, errors.New("component does not describe this library operation")
 	}
 	if len(c.Sources) > 24 || len(c.Items) > 24 || len(c.EvidenceRefs) > 24 || len(c.Completed) > 24 || len(c.Remaining) > 24 {
 		return c, errors.New("library list exceeds 24 entries")
@@ -199,7 +207,7 @@ func DecodeLibraryChange(tool MCPTool, raw []byte) (LibraryChange, error) {
 			return c, errors.New("library content needs bounded title, body and scope")
 		}
 	}
-	if strings.TrimSpace(c.Reason) == "" && LibraryComponent(tool) != "LA01" && LibraryComponent(tool) != "LA08" && LibraryComponent(tool) != "LA09" {
+	if strings.TrimSpace(c.Reason) == "" && !libraryReport(tool) {
 		return c, errors.New("library change needs a reason")
 	}
 	if c.ID != "" && (!ValidID(c.ID) || c.Revision < 1) {
@@ -213,32 +221,32 @@ func DecodeLibraryChange(tool MCPTool, raw []byte) (LibraryChange, error) {
 	if c.Target != nil && (!ValidID(c.Target.ID) || c.Target.Revision < 1) {
 		return c, errors.New("target needs exact id and revision")
 	}
-	switch LibraryComponent(tool) {
-	case "LA01", "LA08", "LA09":
+	switch tool {
+	case MCPToolBeginLibraryMaintenance, MCPToolReportLibraryImpact, MCPToolFinishLibraryMaintenance:
 		if strings.TrimSpace(c.Title) == "" || strings.TrimSpace(c.Summary) == "" {
 			return c, errors.New("maintenance report needs title and summary")
 		}
-	case "LA02":
+	case MCPToolEditLibraryItem:
 		if c.ID == "" || c.Content == nil {
 			return c, errors.New("edit needs item and content")
 		}
-	case "LA03":
+	case MCPToolConsolidateLibraryItems:
 		if len(c.Sources) < 1 || c.Target == nil || c.Content == nil {
 			return c, errors.New("consolidation needs sources, target and content")
 		}
-	case "LA04":
+	case MCPToolSplitLibraryItem:
 		if c.ID == "" || len(c.Items) < 2 {
 			return c, errors.New("split needs item and at least two parts")
 		}
-	case "LA05":
+	case MCPToolRemoveLibraryItem, MCPToolRestoreLibraryItem:
 		if c.ID == "" {
 			return c, errors.New("removal/restoration needs item")
 		}
-	case "LA06":
+	case MCPToolSupersedeLibraryItem:
 		if c.ID == "" || c.Target == nil || len(c.EvidenceRefs) == 0 {
 			return c, errors.New("replacement needs item, replacement and evidence")
 		}
-	case "LA07":
+	case MCPToolRelateLibraryItems:
 		if c.ID == "" || c.Target == nil {
 			return c, errors.New("relationship needs both items")
 		}

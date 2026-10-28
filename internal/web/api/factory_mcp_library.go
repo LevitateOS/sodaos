@@ -106,7 +106,7 @@ func libraryPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		}
 		return o
 	}
-	for _, key := range []string{"component_id", "title", "summary", "reason", "id", "relation"} {
+	for _, key := range []string{"title", "summary", "reason", "id", "relation"} {
 		o.Properties[key] = text()
 	}
 	o.Properties["revision"] = &jsonschema.Schema{Type: "integer"}
@@ -118,20 +118,20 @@ func libraryPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range []string{"evidence_refs", "completed", "remaining"} {
 		o.Properties[key] = texts()
 	}
-	switch factory.LibraryComponent(tool) {
-	case "LA01", "LA08", "LA09":
+	switch tool {
+	case factory.MCPToolBeginLibraryMaintenance, factory.MCPToolReportLibraryImpact, factory.MCPToolFinishLibraryMaintenance:
 		o.Required = []string{"title", "summary"}
-	case "LA02":
+	case factory.MCPToolEditLibraryItem:
 		o.Required = []string{"id", "revision", "reason", "content"}
-	case "LA03":
+	case factory.MCPToolConsolidateLibraryItems:
 		o.Required = []string{"sources", "target", "reason", "content"}
-	case "LA04":
+	case factory.MCPToolSplitLibraryItem:
 		o.Required = []string{"id", "revision", "reason", "items"}
-	case "LA05":
+	case factory.MCPToolRemoveLibraryItem, factory.MCPToolRestoreLibraryItem:
 		o.Required = []string{"id", "revision", "reason"}
-	case "LA06":
+	case factory.MCPToolSupersedeLibraryItem:
 		o.Required = []string{"id", "revision", "reason", "target", "evidence_refs"}
-	case "LA07":
+	case factory.MCPToolRelateLibraryItems:
 		o.Required = []string{"id", "revision", "reason", "target", "relation"}
 	}
 	return o

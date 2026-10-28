@@ -399,7 +399,7 @@ func (s *Store) LibraryPreview(ctx context.Context, cap factory.MCPCapability, t
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"tool": tool, "component_id": factory.LibraryComponent(tool), "items": items, "applied": false}, nil
+	return map[string]any{"tool": tool, "items": items, "applied": false}, nil
 }
 
 // libraryAffectedRefsTx collects every relation another repository
@@ -462,10 +462,9 @@ func recordMCPLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabili
 	if err != nil {
 		return err
 	}
-	component, _ := factory.FeedComponentByID(factory.LibraryComponent(submission.Tool))
-	content := factory.FeedCommunication{Kind: "library_maintenance", ComponentID: component.ID, Title: change.Title, Summary: change.Summary, EvidenceRefs: change.EvidenceRefs, Completed: change.Completed, Remaining: change.Remaining}
+	content := factory.FeedCommunication{Kind: "library_maintenance", Title: change.Title, Summary: change.Summary, EvidenceRefs: change.EvidenceRefs, Completed: change.Completed, Remaining: change.Remaining}
 	if content.Title == "" {
-		content.Title = component.Label
+		content.Title = factory.LibraryOperationTitle(submission.Tool)
 	}
 	if content.Summary == "" {
 		content.Summary = change.Reason
@@ -574,10 +573,10 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 		item.EvidenceRefs = mergeLibraryRefs(item.EvidenceRefs, body.EvidenceRefs)
 		return item
 	}
-	switch factory.LibraryComponent(tool) {
-	case "LA01", "LA08", "LA09":
+	switch tool {
+	case factory.MCPToolBeginLibraryMaintenance, factory.MCPToolReportLibraryImpact, factory.MCPToolFinishLibraryMaintenance:
 		return []factory.LibraryItem{}, nil
-	case "LA02":
+	case factory.MCPToolEditLibraryItem:
 		item := items[c.ID]
 		if err := active(item); err != nil {
 			return nil, err
@@ -586,7 +585,7 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 			return nil, errors.New("editing cannot change a decision's authorized scope")
 		}
 		put(content(item, *c.Content))
-	case "LA03":
+	case factory.MCPToolConsolidateLibraryItems:
 		target := items[c.Target.ID]
 		if err := active(target); err != nil {
 			return nil, err
@@ -616,7 +615,7 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 			put(item)
 		}
 		put(target)
-	case "LA04":
+	case factory.MCPToolSplitLibraryItem:
 		source := items[c.ID]
 		if err := active(source); err != nil {
 			return nil, err
@@ -637,7 +636,7 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 		source.Removed = true
 		source.Replacements = replacements
 		put(source)
-	case "LA05":
+	case factory.MCPToolRemoveLibraryItem, factory.MCPToolRestoreLibraryItem:
 		item := items[c.ID]
 		remove := string(tool) == "factory.remove_library_item"
 		if item.Removed == remove {
@@ -645,7 +644,7 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 		}
 		item.Removed = remove
 		put(item)
-	case "LA06":
+	case factory.MCPToolSupersedeLibraryItem:
 		item, target := items[c.ID], items[c.Target.ID]
 		if err := active(item); err != nil {
 			return nil, err
@@ -663,7 +662,7 @@ func applyLibraryChangeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabi
 		item.Replacements = []string{target.ID}
 		item.EvidenceRefs = mergeLibraryRefs(item.EvidenceRefs, c.EvidenceRefs)
 		put(item)
-	case "LA07":
+	case factory.MCPToolRelateLibraryItems:
 		item, target := items[c.ID], items[c.Target.ID]
 		if err := active(item); err != nil {
 			return nil, err
