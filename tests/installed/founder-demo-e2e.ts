@@ -50,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'correct' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'correct', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -1345,6 +1345,50 @@ async function phaseCheck(page: Page, out: string, intent: string): Promise<void
   assert.equal(mismatches.length, 0, `Check: JEV found ${mismatches.length} mismatch(s); correct before Accept`);
 }
 
+async function phaseCorrect(page: Page, out: string): Promise<void> {
+  const spaces = await mountRepoPage(page, null);
+  const more = spaces.locator('summary', {hasText: 'More options'});
+  if ((await more.count()) > 0) {
+    await more.first().scrollIntoViewIfNeeded();
+    await more.first().click();
+    await page.waitForTimeout(1500);
+    await shot(page, `${out}/correct-more-options.png`);
+    const planning = page.getByLabel(/Planning calls/i);
+    if ((await planning.count()) > 0) {
+      await writeFile(`${out}/correct-planning-value.txt`, await planning.first().inputValue());
+    }
+  }
+  const text0 = await visibleText(page, 6000);
+  await writeFile(`${out}/correct-ui.txt`, text0);
+  await shot(page, `${out}/correct-ui.png`);
+  // Recovery path the product offers: "Change something" under Needs
+  // attention. "Correct walkthrough first" is disabled in this state.
+  const change = spaces.getByRole('button', {name: 'Change something', exact: true});
+  assert((await change.count()) > 0, 'Correct: neither correction path is present');
+  await change.first().scrollIntoViewIfNeeded();
+  await change.first().click();
+  await page.waitForTimeout(2000);
+  const text1 = await visibleText(page, 8000);
+  await writeFile(`${out}/correct-change-ui.txt`, text1);
+  await shot(page, `${out}/correct-change-ui.png`);
+  const button = spaces.getByRole('button', {name: 'Correct walkthrough first', exact: true});
+  assert((await button.count()) > 0, 'Correct: Correct walkthrough first button not present');
+  const state = await button.first().evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return {disabled: (el as HTMLButtonElement).disabled, box: {x: r.x, y: r.y, w: r.width, h: r.height}};
+  });
+  await writeFile(`${out}/correct-button.json`, JSON.stringify(state));
+  await button.first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  await shot(page, `${out}/correct-before-click.png`);
+  await button.first().click({timeout: 10000});
+  await page.waitForTimeout(2000);
+  const text = await visibleText(page, 6000);
+  await writeFile(`${out}/correct-ui.txt`, text);
+  await shot(page, `${out}/correct-ui.png`);
+  assert.fail(`Correct: correction UI captured, submit not automated yet. UI: ${text.slice(0, 1500)}`);
+}
+
 async function phaseAccept(page: Page, out: string, _intent: string): Promise<void> {
   const spaces = await mountRepoPage(page, null);
   const accepted = page.waitForResponse(
@@ -1423,6 +1467,9 @@ async function main() {
       await phasePlan(s.page, dir, intent, revision);
     }
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
+    // Standalone only: open the walkthrough correction UI after a flagged
+    // check and record what the product asks (no submit yet).
+    if (only === 'correct') await phaseCorrect(s.page, dir);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
     if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
     // Approved single build retry (see BUILD-RETRY-GO.md): one Retry run
