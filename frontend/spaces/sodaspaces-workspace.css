@@ -1005,3 +1005,8 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-place-placeholder, .soda-place-notice { padding: 24px 0; }
 .soda-place-placeholder h2, .soda-place-notice h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 8px; }
 .soda-place-placeholder p, .soda-place-notice p { color: var(--soda-page-muted); margin: 0; }
+.soda-factory-status h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 12px; }
+.soda-factory-status h3 { margin: 20px 0 8px; }
+.soda-factory-status-lookup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.soda-factory-status-lookup input { width: 8em; }
+.soda-factory-status-issues { margin: 0; padding-left: 20px; }
