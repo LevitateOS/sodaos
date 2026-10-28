@@ -592,6 +592,52 @@ async function phaseAllowance(page: Page, out: string): Promise<void> {
   const text = await visibleText(page, 8000);
   await writeFile(`${out}/allowance-settings-text.txt`, text);
   assert(/Allowance minutes/i.test(text), `Allowance: no sponsorship allowance control in Factory settings (page: ${text.slice(0, 400)})`);
+  // The sponsorship submit requires the provider connection selected. Never
+  // guess: proceed only when the inventory offers exactly one connection.
+  const readOptions = () =>
+    page.evaluate(() => {
+      const select = document.querySelector('select[name="selected_connection"]');
+      if (!select) return null;
+      return Array.from(select.querySelectorAll('option')).map((o) => ({
+        value: (o as HTMLOptionElement).value,
+        label: (o.textContent || '').replace(/\s+/g, ' ').trim(),
+      }));
+    });
+  let options = await readOptions();
+  if (options !== null && options.filter((o) => o.value !== '').length === 0) {
+    // Inventory can load behind the form: use the page's own refresh once,
+    // then give the list a bounded wait before calling it a refusal.
+    const refresh = spaces.getByRole('button', {name: 'Refresh status'});
+    if ((await refresh.count()) > 0) await refresh.first().click();
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll('select[name="selected_connection"] option').length > 1,
+        {timeout: 20000}
+      );
+    } catch {
+      // Fall through to the refusal below with the recorded state.
+    }
+    options = await readOptions();
+  }
+  await writeFile(`${out}/allowance-connections.json`, JSON.stringify(options, null, 2));
+  assert(options !== null, 'Allowance: provider-connection select not found');
+  const candidates = (options as {value: string; label: string}[]).filter((o) => o.value !== '');
+  assert(candidates.length >= 1, `Allowance: no provider connection in the account inventory (page: ${text.slice(0, 300)})`);
+  assert(candidates.length === 1, `Allowance: ${candidates.length} provider connections; owner must choose: ${JSON.stringify(candidates)}`);
+  const only = candidates[0];
+  assert(only !== undefined);
+  await spaces.locator('select[name="selected_connection"]').first().selectOption(only.value);
+  // Selecting the connection reloads grants and the existing sponsorship;
+  // wait for the grant list before touching the form.
+  try {
+    await page.waitForFunction(
+      () => document.querySelectorAll('select[name="grant_id"] option').length > 1,
+      {timeout: 30000}
+    );
+  } catch {
+    const afterGrant = await visibleText(page, 2000);
+    assert.fail(`Allowance: no grant loaded for the selected connection (page: ${afterGrant.slice(0, 300)})`);
+  }
   const minutes = spaces.getByLabel(/Allowance minutes/i);
   assert((await minutes.count()) >= 1, 'Allowance: allowance minutes input not found');
   const before = await minutes.first().inputValue();
@@ -600,8 +646,18 @@ async function phaseAllowance(page: Page, out: string): Promise<void> {
     (r) => /\/api\/repositories\/1\/factory\/sponsorships\/.+$/.test(new URL(r.url()).pathname) && r.request().method() === 'PUT',
     {timeout: 120000}
   );
-  await spaces.getByRole('button', {name: 'Save sponsorship'}).first().click();
-  const reply = await acted;
+  const save = spaces.getByRole('button', {name: 'Save sponsorship'}).first();
+  assert(await save.isEnabled(), 'Allowance: Save sponsorship is disabled for this account');
+  await save.click();
+  let reply;
+  try {
+    reply = await acted;
+  } catch (error) {
+    const refused = await visibleText(page, 3000);
+    await writeFile(`${out}/allowance-refused.txt`, refused);
+    await shot(page, `${out}/allowance-refused.png`);
+    throw new Error(`Allowance: Save sponsorship sent no request (form refusal: ${refused.slice(0, 400)})`, {cause: error});
+  }
   const body = await reply.json().catch(() => ({}));
   await writeFile(`${out}/allowance-reply.json`, JSON.stringify({before, after: '480', status: reply.status(), body}, null, 2));
   await shot(page, `${out}/allowance-saved.png`);
