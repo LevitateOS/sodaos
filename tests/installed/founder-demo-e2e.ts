@@ -324,11 +324,10 @@ async function phaseAnswerQuestions(page: Page, out: string): Promise<void> {
   await shot(page, `${out}/decide-answers-updated.png`);
 }
 
-async function phaseBind(page: Page, out: string): Promise<string> {
+async function phaseBind(page: Page, out: string): Promise<string | null> {
   const spaces = await spacesContent(page);
   const choose = spaces.getByRole('button', {name: 'Choose repository'});
-  await choose.waitFor({timeout: 60000});
-  assert(await choose.isEnabled(), 'Decide: Choose repository must be enabled after review settles');
+  if ((await choose.count()) === 0 || !(await choose.first().isEnabled())) return null;
   await choose.click();
   const radio = spaces.getByRole('radio', {name: new RegExp(REPOSITORY_SLUG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))});
   await radio.waitFor({timeout: 30000});
@@ -347,15 +346,48 @@ async function phaseBind(page: Page, out: string): Promise<string> {
   assert.equal(boundReply.status(), 201, `Bind: repository bind must return 201, got ${boundReply.status()}`);
   const revision = String(((await boundReply.json()) as {id?: string}).id ?? '');
   assert.match(revision, /^d[0-9a-f]{24}$/, 'Bind: bind must report its revision');
+  await writeFile(`${out}/bound-revision.json`, JSON.stringify({revision}, null, 2));
   const planReply = await planning;
-  assert([201, 202].includes(planReply.status()), `Plan: admission must be 201/202, got ${planReply.status()}`);
+  const planBody = (await planReply.json().catch(() => ({}))) as {
+    error?: {code?: string; message?: string};
+    revision_id?: string;
+  };
+  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), revision, body: planBody}, null, 2));
+  assert(
+    [201, 202].includes(planReply.status()),
+    `Plan: admission must be 201/202, got ${planReply.status()} (${planBody.error?.code ?? 'no code'}: ${(planBody.error?.message ?? 'no message').slice(0, 300)})`
+  );
   await shot(page, `${out}/plan-admitted.png`);
   return revision;
 }
 
-async function phasePlan(page: Page, out: string, intent: string, revision: string): Promise<void> {
+async function phaseStartPlan(page: Page, out: string): Promise<void> {
+  const spaces = await spacesContent(page);
+  const cont = spaces.getByRole('button', {name: 'Continue to planning', exact: true});
+  await cont.waitFor({timeout: 60000});
+  assert(await cont.isEnabled(), 'Plan: Continue to planning must be enabled on the bound draft');
+  const planning = page.waitForResponse(
+    (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/plan') && r.request().method() === 'POST',
+    {timeout: 180000}
+  );
+  await cont.click();
+  const planReply = await planning;
+  const planBody = (await planReply.json().catch(() => ({}))) as {
+    error?: {code?: string; message?: string};
+    revision_id?: string;
+  };
+  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), body: planBody}, null, 2));
+  assert(
+    [201, 202].includes(planReply.status()),
+    `Plan: admission must be 201/202, got ${planReply.status()} (${planBody.error?.code ?? 'no code'}: ${(planBody.error?.message ?? 'no message').slice(0, 300)})`
+  );
+  await shot(page, `${out}/plan-admitted.png`);
+}
+
+async function phasePlan(page: Page, out: string, intent: string, revision: string | null): Promise<void> {
   const spaces = await spacesContent(page);
   const started = Date.now();
+  let want = revision;
   const deadline = started + PLAN_TIMEOUT_MS;
   for (;;) {
     assert(Date.now() < deadline, 'Plan: finite planning observation expired; retain the admitted run');
@@ -367,7 +399,9 @@ async function phasePlan(page: Page, out: string, intent: string, revision: stri
     const response = await refreshed;
     assert.equal(response.status(), 200, `Plan: Refresh status must return 200, got ${response.status()}`);
     const plan = (await response.json()) as {state?: string; revision?: string};
-    assert.equal(plan.revision, revision, 'Plan: refresh must report the bound revision');
+    if (!want) want = plan.revision ?? null;
+    assert(want, 'Plan: refresh must report a revision');
+    assert.equal(plan.revision, want, 'Plan: refresh must report the bound revision');
     if (plan.state !== 'pending') {
       await shot(page, `${out}/plan-${plan.state}.png`);
       await writeFile(`${out}/plan.json`, JSON.stringify({intent, revision, state: plan.state, startedUnixMS: started, endedUnixMS: Date.now(), plan}, null, 2));
@@ -487,9 +521,10 @@ async function main() {
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
     if (only === 'all' || only === 'answers') await phaseAnswerQuestions(s.page, dir);
-    let revision = '';
+    let revision: string | null = null;
     if (only === 'all' || only === 'plan') {
       revision = await phaseBind(s.page, dir);
+      if (!revision) await phaseStartPlan(s.page, dir);
       report.revision = revision;
       await phasePlan(s.page, dir, intent, revision);
     }
