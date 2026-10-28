@@ -19,6 +19,27 @@ const STAGE = '/home/vince/Projects/.soda-demo-checks/demo-native-20261026T07343
 const RUN_BASE = '/home/vince/Projects/.soda-demo-checks/e2e';
 const REPOSITORY = '1';
 const REPOSITORY_SLUG = 'maya/northstar-equipment';
+// Repo-first places (UI installs A–E; the global /workspace is gone).
+const PLACES = {
+  feed: `/${REPOSITORY_SLUG}/feed`,
+  requests: `/${REPOSITORY_SLUG}/requests`,
+  request: (id: string) => `/${REPOSITORY_SLUG}/requests/${id}`,
+  app: `/${REPOSITORY_SLUG}/app`,
+  settings: `/${REPOSITORY_SLUG}/settings/sodaos`,
+  settingsFactory: `/${REPOSITORY_SLUG}/settings/sodaos/factory`,
+};
+/** Mount a repo-first place: the owner element carries the page id
+ * (repository-feed, repository-settings). Unknown pages just need load. */
+async function mountRepoPage(page: Page, pageId: string | null): Promise<Page> {
+  if (pageId === null) {
+    await page.waitForLoadState('domcontentloaded');
+    return page;
+  }
+  const owner = page.locator(`[data-extension-page-id="${pageId}"]`);
+  await owner.first().waitFor({timeout: 30000});
+  assert((await owner.count()) >= 1, `Repo place: expected owner element ${pageId}`);
+  return page;
+}
 const INTENT_DD00 = 'dd00cb3160885e5f707ec7d95';
 const STOPPED_RUN = '00976679f6258efbc2c82b7ce1719b87';
 // Owner decision (via Claude): apps run at their own address, not inside
@@ -29,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -76,8 +97,13 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   b.context.on('response', (response) => {
     const url = new URL(response.url());
     if (url.origin !== ORIGIN || response.ok()) return;
-    if (!url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) return;
-    const key = `${response.status()} ${url.pathname.slice('/-/native/pages/soda/spaces/api'.length)}${url.search.slice(0, 120)}`;
+    const marker = '/-/native/pages/soda/';
+    const at = url.pathname.indexOf(marker);
+    if (at < 0) return;
+    const rest = url.pathname.slice(at + marker.length);
+    const apiAt = rest.indexOf('/api/');
+    if (apiAt < 0) return;
+    const key = `${response.status()} /api/${rest.slice(apiAt + 5).split('?')[0]}${url.search.slice(0, 120)}`;
     void response
       .text()
       .then((body) => {
@@ -136,15 +162,14 @@ async function visibleText(page: Page, chars = 6000): Promise<string> {
 
 async function phaseDescribe(page: Page, out: string, resume?: string): Promise<string> {
   if (resume) {
-    await page.goto(`${ORIGIN}/-/native/pages/soda/spaces/api/`.replace(/\/-\/native\/pages\/soda\/spaces\/api\/$/, '') + `/workspace/requests/${resume}`);
-    // The mount above is indirect; navigate via known workspace route instead.
-    await page.goto(`${ORIGIN}/workspace/requests/${resume}`);
-    await nativeSpacesMount(page);
+    // Repo-first request route (the global /workspace is gone).
+    await page.goto(`${ORIGIN}${PLACES.request(resume)}`);
+    await mountRepoPage(page, null);
     await shot(page, `${out}/describe-resumed.png`);
     return resume;
   }
-  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
-  await nativeSpacesMount(page);
+  await page.goto(`${ORIGIN}${PLACES.feed}`);
+  await mountRepoPage(page, 'repository-feed');
   const spaces = await spacesContent(page);
   await spaces.getByRole('button', {name: 'Work', exact: true}).first().waitFor({timeout: 30000});
   await spaces.getByRole('button', {name: 'Work', exact: true}).first().click();
@@ -511,17 +536,18 @@ async function phaseAppUse(page: Page, out: string): Promise<void> {
   // Forge shows only status/version plus an Open app link. This phase never
   // asserts an embedded frame and builds no in-Forge embedding: it opens the
   // app's own origin in a new page and uses it there.
-  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
-  await nativeSpacesMount(page);
-  const spaces = await spacesContent(page);
-  await spaces.getByRole('button', {name: 'App', exact: true}).first().click();
-  await spaces.getByText('Applications').first().waitFor({timeout: 30000});
+  await page.goto(`${ORIGIN}${PLACES.app}`);
+  await mountRepoPage(page, null);
+  await page.getByRole('heading', {name: /^App$/}).first().waitFor({timeout: 30000});
   const found = await page.evaluate(() => {
     const links: string[] = [];
     let iframes = 0;
     const scan = (root: Document | ShadowRoot) => {
       for (const a of Array.from(root.querySelectorAll('a[href]'))) {
-        if (/open app/i.test(a.textContent || '')) links.push((a as HTMLAnchorElement).href);
+        // Lane A delivery anchor carries data-feed-open-app ("Open app ↗").
+        if ((a as HTMLAnchorElement).hasAttribute('data-feed-open-app') || /open app/i.test(a.textContent || '')) {
+          links.push((a as HTMLAnchorElement).href);
+        }
       }
       iframes += root.querySelectorAll('iframe').length;
       for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
@@ -570,6 +596,7 @@ interface FeedCard {
   role: string;
   text: string;
   appKeys: string[];
+  appLinks: string[];
 }
 
 /** Owner-approved allowance raise (ALLOWANCE-RETRY-GO.md): repo 1 coder-time
@@ -577,16 +604,17 @@ interface FeedCard {
  * "Save sponsorship" control. Fails naming the exact state when the page
  * offers no such control; touches nothing else on the form. */
 async function phaseAllowance(page: Page, out: string): Promise<void> {
-  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
-  await nativeSpacesMount(page);
-  const spaces = await spacesContent(page);
-  const settings = spaces.getByRole('button', {name: 'Project settings'});
-  await settings.first().waitFor({timeout: 30000});
-  await settings.first().click();
-  await page.waitForTimeout(3000);
-  const factoryTab = spaces.getByRole('tab', {name: 'Factory'});
-  assert((await factoryTab.count()) >= 1, 'Allowance: no Factory tab in project settings');
-  await factoryTab.first().click();
+  await page.goto(`${ORIGIN}${PLACES.settingsFactory}`);
+  const spaces = await mountRepoPage(page, 'repository-settings');
+  await spaces.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
+  // The factory section may need selecting when the page opens elsewhere.
+  const sponsorshipFormPresent = async () =>
+    (await spaces.locator('form[data-action="sponsorship"]').count()) > 0;
+  if (!(await sponsorshipFormPresent())) {
+    const factoryTab = spaces.getByRole('tab', {name: 'Factory'});
+    assert((await factoryTab.count()) >= 1, 'Allowance: no Factory tab in project settings');
+    await factoryTab.first().click();
+  }
   await page.waitForTimeout(3000);
   await shot(page, `${out}/allowance-settings.png`);
   const text = await visibleText(page, 8000);
@@ -702,6 +730,88 @@ async function phaseAllowance(page: Page, out: string): Promise<void> {
   assert(reply.ok(), `Allowance: sponsorship save must succeed, got HTTP ${reply.status()}: ${JSON.stringify(body).slice(0, 300)}`);
 }
 
+/** Read-only migration check (UI installs A–E): visits each repo-first
+ * place, asserts its heading, and records the Feed v2 post structure the
+ * follow-up scopes to. No clicks that write or spend. */
+async function phasePlaces(page: Page, out: string, intent: string): Promise<void> {
+  const structure: Record<string, unknown> = {};
+  const visit = async (name: string, url: string, pageId: string | null, heading: RegExp | null) => {
+    await page.goto(`${ORIGIN}${url}`);
+    await mountRepoPage(page, pageId);
+    if (heading !== null) {
+      await page.getByRole('heading', {name: heading}).first().waitFor({timeout: 30000});
+    } else {
+      await page.waitForTimeout(4000);
+    }
+    await shot(page, `${out}/places-${name}.png`);
+    structure[name] = {url, text: (await visibleText(page, 2000)).slice(0, 600)};
+    await writeFile(`${out}/places.json`, JSON.stringify(structure, null, 2));
+  };
+  await visit('feed', PLACES.feed, 'repository-feed', /^Feed$/);
+  // Header tabs move between the repo places.
+  const tabs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('a[data-soda-place]')).map((a) => (a as HTMLAnchorElement).getAttribute('data-soda-place'))
+  );
+  structure['tabs'] = tabs;
+  assert(tabs.includes('feed'), `Places: header tabs must include feed (tabs: ${JSON.stringify(tabs)})`);
+  // Feed v2 post structure the follow-up scopes to.
+  const posts = await page.evaluate(() => {
+    const scoped = Array.from(document.querySelectorAll('article.soda-feed-post'));
+    const all = Array.from(document.querySelectorAll('article')).map((a) => a.className);
+    const first = document.querySelector('article.soda-feed-post');
+    const openApp = Array.from(document.querySelectorAll('a[data-feed-open-app]')).map((a) => ({
+      href: (a as HTMLAnchorElement).href,
+      text: (a.textContent || '').trim().slice(0, 80),
+    }));
+    const buttons = Array.from(document.querySelectorAll('button[data-feed-open-app]')).map((b) => (b.textContent || '').trim().slice(0, 80));
+    return {
+      scoped: scoped.length,
+      articles: all.slice(0, 8),
+      first: first ? (first.textContent || '').replace(/\s+/g, ' ').slice(0, 400) : null,
+      openApp,
+      buttons,
+    };
+  });
+  structure['feed-posts'] = posts;
+  await writeFile(`${out}/places-feed.json`, JSON.stringify(posts, null, 2));
+  assert(posts.scoped > 0, `Places: no article.soda-feed-post on the repo Feed (articles: ${JSON.stringify(posts.articles)})`);
+  await visit('requests', PLACES.requests, null, /^Requests$/);
+  await visit('request', PLACES.request(intent), null, null);
+  {
+    const text = String((structure['request'] as {text?: string} | undefined)?.text ?? '');
+    assert(
+      /Issue #1|equipment-request|northstar-equipment/i.test(text),
+      `Places: request page does not look like the journey request (page: ${text.slice(0, 300)})`
+    );
+    // Button inventory for the next go-ahead (presence only, never clicked):
+    // Retry run, Check walkthrough, Accept and build.
+    structure['request-buttons'] = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('button'))
+        .map((b) => {
+          const section = b.closest('details, section, li, article');
+          const hosts: string[] = [];
+          let node = b.parentElement;
+          while (node && hosts.length < 4) {
+            if (node.tagName.includes('-')) hosts.push(node.tagName.toLowerCase());
+            node = node.parentElement;
+          }
+          return {
+            text: (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+            disabled: (b as HTMLButtonElement).disabled,
+            section: (section?.querySelector('summary, h1, h2, h3')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+            hosts,
+          };
+        })
+        .filter((b) => b.text !== '')
+    );
+  }
+  await visit('app', PLACES.app, null, /^App$/);
+  await visit('settings', PLACES.settingsFactory, 'repository-settings', /^SodaOS$/);
+  const sponsorship = await page.evaluate(() => !!document.querySelector('form[data-action="sponsorship"]'));
+  structure['settings-sponsorship'] = sponsorship;
+  await writeFile(`${out}/places.json`, JSON.stringify(structure, null, 2));
+}
+
 const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
 
 /** Retry the cancelled build ONCE through the product's own Retry control
@@ -710,9 +820,8 @@ const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
 async function phaseRetryBuild(page: Page, out: string, run: string): Promise<void> {
   // The run interventions (incl. "Retry run") render in the per-issue work
   // detail on the request route, not in the project Work view.
-  await page.goto(`${ORIGIN}/workspace/requests/${INTENT_DD00}`);
-  await nativeSpacesMount(page);
-  const spaces = await spacesContent(page);
+  await page.goto(`${ORIGIN}${PLACES.request(INTENT_DD00)}`);
+  const spaces = await mountRepoPage(page, null);
   await page.waitForTimeout(4000);
   await shot(page, `${out}/retry-work.png`);
   const text = await visibleText(page, 8000);
@@ -762,10 +871,8 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
   await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent} launchGraceMs=${launchGraceMs}\n`);
   for (;;) {
     assert(Date.now() < deadline, 'Build: 35-minute follow window expired; retain the last observed state');
-    await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
-    await nativeSpacesMount(page);
-    const spaces = await spacesContent(page);
-    await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
+    await page.goto(`${ORIGIN}${PLACES.feed}`);
+    await mountRepoPage(page, 'repository-feed');
     // Feed cards render asynchronously and the activity read can fail
     // transiently (e.g. right after an install); retry the read through
     // the page's own control before failing on an empty Feed.
@@ -775,7 +882,7 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
         await page.waitForFunction(() => document.querySelectorAll('article.soda-feed-post').length > 0, {timeout: 30000});
         loaded = true;
       } catch {
-        const retry = spaces.getByRole('button', {name: 'Retry loading activity'});
+        const retry = page.getByRole('button', {name: 'Retry loading activity'});
         if ((await retry.count()) === 0) break;
         await retry.first().click();
       }
@@ -797,12 +904,18 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
         const appKeys = Array.from(el.querySelectorAll('button[data-feed-open-app]')).map(
           (b) => b.getAttribute('data-feed-open-app') || ''
         );
+        // Feed v2 delivers "Open app ↗" as an anchor carrying
+        // data-feed-open-app on the result card.
+        const appLinks = Array.from(el.querySelectorAll('a[data-feed-open-app]')).map(
+          (a) => (a as HTMLAnchorElement).href
+        );
         found.push({
           id: el.id || '',
           status: el.getAttribute('data-status') || '',
           role: el.getAttribute('data-role') || '',
           text,
           appKeys,
+          appLinks,
         });
       }
       return found;
@@ -854,7 +967,7 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
         );
       }
     }
-    const appCards = cards.filter((card) => card.appKeys.length > 0);
+    const appCards = cards.filter((card) => card.appKeys.length > 0 || card.appLinks.length > 0);
     if (appCards.length > 1) {
       assert.fail(
         `Build: ${appCards.length} "Open project app" cards in Feed; cannot tell which delivery is the journey's`
@@ -869,7 +982,7 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
       await writeFile(`${out}/build-delivery.json`, JSON.stringify(delivery, null, 2));
       await appendFile(
         `${out}/build-milestones.log`,
-        `${new Date().toISOString()} app-ready key=${delivery.appKeys[0]}: ${delivery.text.slice(0, 300)}\n`
+        `${new Date().toISOString()} app-ready key=${delivery.appKeys[0] ?? ''} link=${delivery.appLinks[0] ?? ''}: ${delivery.text.slice(0, 300)}\n`
       );
       return;
     }
@@ -940,8 +1053,8 @@ async function main() {
     } else if (resume) intent = resume;
     assert(intent, 'need a request id: run describe first or pass --resume <intent>');
     if (only !== 'all' && only !== 'describe') {
-      await s.page.goto(`${ORIGIN}/workspace/requests/${intent}`);
-      await nativeSpacesMount(s.page);
+      await s.page.goto(`${ORIGIN}${PLACES.request(intent)}`);
+      await mountRepoPage(s.page, null);
       await shot(s.page, `${dir}/resumed-${only}.png`);
     }
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
@@ -983,6 +1096,10 @@ async function main() {
     // ALLOWANCE-RETRY-GO.md: raise repo 1 coder-time sponsorship 120 -> 480.
     if (only === 'allowance') {
       await phaseAllowance(s.page, dir);
+    }
+    // Read-only migration check (UI installs A–E). Standalone only.
+    if (only === 'places') {
+      await phasePlaces(s.page, dir, intent);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
