@@ -1326,6 +1326,7 @@ async function phaseCheck(page: Page, out: string, intent: string): Promise<void
   assert.equal(checked.status(), 200, `Check: walkthrough review must return 200, got ${checked.status()}`);
   const review = (await checked.json()) as {consistency?: {mismatches?: unknown[]}};
   const mismatches = (review.consistency as {mismatches?: unknown[]})?.mismatches ?? [];
+  await writeFile(`${out}/check-review.json`, JSON.stringify(review, null, 2));
   await shot(page, `${out}/check-walkthrough.png`);
   assert.equal(mismatches.length, 0, `Check: JEV found ${mismatches.length} mismatch(s); correct before Accept`);
 }
