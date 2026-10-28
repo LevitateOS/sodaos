@@ -12,13 +12,11 @@ pub mod docker;
 pub mod document;
 pub(crate) mod json_serde;
 pub mod model;
-pub mod native;
 pub mod oci;
 pub mod payload;
 pub mod prepare;
 pub mod publish;
 
-pub use model::{Permit, Trust};
 pub use payload::{Image, Payload, Role};
 
 /// Validation/transport failure with a diagnostic message.

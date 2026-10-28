@@ -263,15 +263,8 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         w.arguments.push(r.live_inputs.clone());
     }
     if r.wants_media() {
-        w.read_only.push(format!(
-            "{}:/run/soda-media-authority",
-            c.media_authority_directory
-        ));
         w.arguments.push("--rootfs-base-url".to_owned());
         w.arguments.push(r.rootfs_base_url.clone());
-        w.arguments.push("--media-authority".to_owned());
-        w.arguments
-            .push("/run/soda-media-authority/config.json".to_owned());
     }
     Ok(w)
 }

@@ -12,7 +12,6 @@ pub struct Request {
     pub repository_prefix: String,
     pub revision: String,
     pub rootfs_base_url: String,
-    pub media_authority: String,
     pub live_inputs: String,
     pub forgejo_source: String,
     pub forgejo_revision: String,
@@ -52,7 +51,7 @@ impl Request {
             ));
         }
         if !self.wants_media() {
-            if !self.rootfs_base_url.is_empty() || !self.media_authority.is_empty() {
+            if !self.rootfs_base_url.is_empty() {
                 return Err(Error::msg("candidate target refuses media-only inputs"));
             }
             return Ok(());
@@ -61,8 +60,7 @@ impl Request {
     }
 
     /// `ValidateTarget` rejects implicit partial production and irrelevant
-    /// media inputs. MediaAuthority is admitted separately inside the
-    /// isolated media worker.
+    /// media inputs.
     fn validate_development_pairing(&self) -> std::result::Result<(), Error> {
         if !self.upgrade_from.is_empty() {
             soda_build_tools::project_support::validate_upgrade_sources(

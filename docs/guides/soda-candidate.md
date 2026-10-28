@@ -22,8 +22,7 @@ sudo soda-candidate
 The setup tool builds both tools from committed source, installs the wrapper
 where sudo resolves it (`/usr/sbin`, since `secure_path` excludes
 `/usr/local/bin`), admits the controller, creates the worker directories,
-and writes the restricted worker config plus a fixture-only media authority.
-Fixture scope only: it never creates qualification or signing configs.
+and writes the restricted worker config.
 Manual equivalent of each step is printed by the script as it goes.
 
 One overview screen shows every choice (mode, output with freshness status,

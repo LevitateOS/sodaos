@@ -31,7 +31,7 @@ fn docker_inputs_are_admitted_before_worker_dispatch() {
         // distribution; a mismatched pairing refuses before dispatch.
         (vec!["--development", "--target", "all", "--distribution", "appliance", "--release-tag", "v9.9.9-dev", "--rootfs-base-url", "https://example.invalid"], "development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"),
         (vec!["--distribution", "all", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://github.com/LevitateOS/sodaos/releases/download/v1.2.4/"], "all distribution requires a rootfs URL for the same release tag"),
-        (vec!["--distribution", "docker", "--release-tag", "v1.2.3"], "root-owned --worker-config required; media authority belongs to the isolated worker"),
+        (vec!["--distribution", "docker", "--release-tag", "v1.2.3"], "root-owned --worker-config required"),
     ] {
         let (code, out, err) = run(&build_bin(), &scratch.path, &args);
         assert_eq!(code, 1, "{args:?}");
@@ -95,7 +95,7 @@ fn build_admission_matrix_preserves_release_boundaries() {
                 "--rootfs-base-url",
                 "https://example.invalid",
             ],
-            "root-owned --worker-config required; media authority belongs to the isolated worker\n",
+            "root-owned --worker-config required\n",
         ),
         (
             vec![
@@ -105,7 +105,7 @@ fn build_admission_matrix_preserves_release_boundaries() {
                 "--release-tag",
                 "v9.9.9-dev",
             ],
-            "root-owned --worker-config required; media authority belongs to the isolated worker\n",
+            "root-owned --worker-config required\n",
         ),
         (
             vec!["--development", "--target", "media"],

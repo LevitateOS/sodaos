@@ -23,8 +23,6 @@ from [release-tools](../soda-release-tools/README.md).
   it whenever a `docker/` artifact directory is present. `docker::admit_publication`
   additionally requires production purpose. These APIs do not build, publish or
   qualify a runtime; the integrated producer and GHCR transport are separate owners.
-- `native` retains the restricted Skopeo boundary for local OCI artifact signing
-  and verification. These packaging keys do not replace GitHub's release attestation.
 
 GitHub owns release immutability and publication state. Registry promotion moves
 only the staged digest recommendation; it adds no observed-authority database
@@ -38,9 +36,8 @@ source; the operator smoke-installs the downloaded media before promotion.
 
 The `gh` client needs repository Contents write and Actions read permission. Staging also reads the
 repository's immutable-release setting, which requires Administration read access;
-enabling it is a one-time Administration write operation. Local signing uses the
-Skopeo version in [tools.json](tools.json) and restricted private-file inputs.
-Keys, passphrases, credentials and private VM state never enter the asset set.
+enabling it is a one-time Administration write operation.
+Credentials and private VM state never enter the asset set.
 
 These operations do not install images, activate a host or reboot. Follow the
 [release workflow](../../docs/development/release.md) for commands and the

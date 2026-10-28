@@ -240,7 +240,7 @@ fn admit_build_request(
     if !crate::worker::valid_worker_task_paths(config, &request) {
         return Err("build output does not match admitted worker paths".into());
     }
-    for path in crate::worker::worker_config_paths(config, &request) {
+    for path in crate::worker::worker_config_paths(config) {
         crate::worker::valid_worker_path(&path)?;
     }
     Ok((build, request))

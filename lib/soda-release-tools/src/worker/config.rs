@@ -28,7 +28,6 @@ pub struct WorkerConfig {
     pub build_home: String,
     pub runtime: String,
     pub tools: String,
-    pub media_authority_directory: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -186,8 +185,8 @@ pub fn admit_loaded_worker_config(c: &WorkerConfig, r: &Request) -> Result<(), S
     worker_executable_matches(&c.executable)
 }
 
-pub fn worker_config_paths(c: &WorkerConfig, r: &Request) -> Vec<String> {
-    let mut paths = vec![
+pub fn worker_config_paths(c: &WorkerConfig) -> Vec<String> {
+    vec![
         c.source.clone(),
         c.forgejo_source.clone(),
         c.output_parent.clone(),
@@ -195,11 +194,7 @@ pub fn worker_config_paths(c: &WorkerConfig, r: &Request) -> Vec<String> {
         c.build_home.clone(),
         c.runtime.clone(),
         c.tools.clone(),
-    ];
-    if r.wants_media() {
-        paths.push(c.media_authority_directory.clone());
-    }
-    paths
+    ]
 }
 
 pub fn admit_storage_root(c: &WorkerConfig) -> Result<(), String> {
@@ -295,7 +290,6 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         "BuildHome",
         "Runtime",
         "Tools",
-        "MediaAuthorityDirectory",
     ];
     let text = std::str::from_utf8(data).map_err(|e| e.to_string())?;
     let root: Box<RawValue> =
@@ -321,8 +315,6 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         build_home: strict_string_field(&entries, "BuildHome").unwrap_or_default(),
         runtime: strict_string_field(&entries, "Runtime").unwrap_or_default(),
         tools: strict_string_field(&entries, "Tools").unwrap_or_default(),
-        media_authority_directory: strict_string_field(&entries, "MediaAuthorityDirectory")
-            .unwrap_or_default(),
     })
 }
 
@@ -353,7 +345,7 @@ pub fn load_worker_config(path: &str, r: &Request) -> Result<WorkerConfig, Strin
     let c = read_worker_config(path)?;
     admit_storage_root(&c)?;
     admit_loaded_worker_config(&c, r)?;
-    for p in worker_config_paths(&c, r) {
+    for p in worker_config_paths(&c) {
         valid_worker_path(&p)?;
     }
     Ok(c)

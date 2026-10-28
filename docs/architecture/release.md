@@ -103,20 +103,6 @@ installation and boot with exact installed revision and acquired-image readback.
 Repeat a check only after failure or a relevant change. This does not claim
 hardware coverage, product-wide acceptance, or upgrade/recovery qualification.
 
-## Trust-key admission
-
-Local packaging trust keys use one `PUBLIC KEY` PEM block with only ASCII whitespace
-around it, within the existing 1 MiB trust-document bound. Image and delivery
-share the typed admission adapter in `lib/release-inputs`: it requires strict
-DER SPKI, the P-256 algorithm and curve identifiers, and an uncompressed point
-on the curve. Fingerprints use the original decoded DER bytes. The artifact role
-authenticates local packaging inputs. GitHub's immutable-release attestation binds
-the public release assets and tag; local packaging keys do not replace it.
-
-Installer ECDSA signatures use strict DER on P-224, P-256, P-384 and P-521.
-Verification hashes the certificate's original signed TBS bytes; certificate
-authority, key-usage and signature-algorithm policy remain with the installer.
-
 ## Host update ownership
 
 The following applies to appliance installations. The

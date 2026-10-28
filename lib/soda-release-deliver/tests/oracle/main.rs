@@ -7,8 +7,7 @@
 //! deterministic output and content round-trip, not the retired Go tar hash.
 
 use serde_json::Value as JsonValue;
-use soda_release_deliver::model::{Candidate, Trust};
-use soda_release_deliver::native::merge_policy;
+use soda_release_deliver::model::Candidate;
 use soda_release_deliver::payload::Payload;
 
 mod artifacts;
@@ -34,11 +33,6 @@ fn golden_ok(g: &JsonValue, name: &str) -> bool {
     entry.get("ok").and_then(|v| v.as_bool()).unwrap_or(false)
 }
 
-fn decode_trust(g: &JsonValue) -> Trust {
-    let raw = golden_str(g, "trust");
-    serde_json::from_str(&raw).expect("trust decode")
-}
-
 fn decode_payload(g: &JsonValue) -> (Payload, Vec<u8>) {
     let raw = golden_str(g, "payload");
     let payload = serde_json::from_str(&raw).expect("payload decode");
@@ -49,48 +43,6 @@ fn decode_candidate(g: &JsonValue) -> (Candidate, Vec<u8>) {
     let raw = golden_str(g, "candidate");
     let candidate = serde_json::from_str(&raw).expect("candidate decode");
     (candidate, raw.into_bytes())
-}
-
-#[test]
-fn merge_policy_matches_oracle_semantically() {
-    let g = goldens();
-    let trust = decode_trust(&g);
-    let original = br#"{"default":[{"type":"insecureAcceptAnything"}],"transports":{"docker":{"registry.example.com/app":[{"type":"insecureAcceptAnything"}]}}}"#;
-    let merged = merge_policy(&trust, original).expect("policy.merge");
-    // Preserved scopes are re-emitted (not byte-kept), so compare as DOM.
-    let got: JsonValue = serde_json::from_slice(&merged).unwrap();
-    let repository = format!("{}-release", trust.prefix);
-    let requirement = &got["transports"]["docker"][&repository][0];
-    assert_eq!(
-        requirement["signedIdentity"]["dockerRepository"],
-        repository
-    );
-    assert_eq!(requirement["type"], "sigstoreSigned");
-
-    let conflict = format!(
-        r#"{{"default":[{{"type":"insecureAcceptAnything"}}],"transports":{{"docker":{{"{}-release:tag":[{{"type":"insecureAcceptAnything"}}]}}}}}}"#,
-        trust.prefix
-    );
-    let ok = golden_ok(&g, "policy.override_refused");
-    let result = merge_policy(&trust, conflict.as_bytes());
-    assert_eq!(result.is_ok(), ok);
-}
-
-#[test]
-fn merge_policy_preserves_arbitrary_object_order_and_number_tokens() {
-    let trust = decode_trust(&goldens());
-    let original = br#"{"default":{"z":1e2,"a":{"y":-0,"x":1e400}},"transports":{"z-transport":{"scope":[{"second":-0,"first":1e400}]}}}"#;
-    let merged = merge_policy(&trust, original).expect("policy.merge");
-    let text = String::from_utf8(merged).unwrap();
-
-    let default_start = text.find("\"default\": {").unwrap();
-    let transports_start = text.find("\"transports\": {").unwrap();
-    let default = &text[default_start..transports_start];
-    assert!(default.find("\"z\": 1e2").unwrap() < default.find("\"a\": {").unwrap());
-    assert!(default.find("\"y\": -0").unwrap() < default.find("\"x\": 1e400").unwrap());
-
-    let custom = &text[text.find("\"z-transport\"").unwrap()..];
-    assert!(custom.find("\"second\": -0").unwrap() < custom.find("\"first\": 1e400").unwrap());
 }
 
 fn temp_dir(prefix: &str) -> String {

@@ -60,7 +60,7 @@ including the required `--forgejo-source` input: it suggests the sibling
 `forgejo-ext` checkout when one is present, asks otherwise, and forwards the
 answer to the controller. Flags only pre-seed answers. See the
 [candidate operator guide](../../docs/guides/soda-candidate.md) and native support
-guide for rootfs pickup and fixture authority. Builds write artifacts and logs
+guide for rootfs pickup. Builds write artifacts and logs
 and execute native tools. Development output is never a qualified release.
 Output leaf names use lowercase letters, digits or dashes and must be fresh.
 

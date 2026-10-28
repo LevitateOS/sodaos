@@ -12,7 +12,6 @@ pub struct Request {
     pub repository_prefix: String,
     pub revision: String,
     pub rootfs_base_url: String,
-    pub media_authority: String,
     pub live_inputs: String,
     pub forgejo_source: String,
     pub forgejo_revision: String,

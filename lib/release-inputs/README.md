@@ -29,17 +29,6 @@ The main entry points are:
 - [`elf::elf64_le_header`](src/elf.rs): bounded ELF64 little-endian header
   access; consumers retain their machine and file-type allowlists.
 
-## Optional trust-key admission
-
-Enable the `trust-key` Cargo feature to use
-`trust_key::parse_p256_public_key(&str)`. It accepts one bounded `PUBLIC KEY`
-PEM block containing a strict P-256 SPKI and returns the original DER bytes
-for fingerprinting. Invalid keys return `Err(())`.
-
-The [release architecture](../../docs/architecture/release.md#trust-key-admission)
-owns trust-key requirements. This parser does not grant signer authority or
-verify a release signature.
-
 ## Limits and effects
 
 Only Soda's supported `x86_64` architecture is admitted; OCI spells it `amd64`.

@@ -8,7 +8,6 @@ use crate::sys;
 
 mod candidate;
 mod payload;
-mod trust;
 mod url;
 
 pub use candidate::{valid_candidate_content, Candidate, ForgejoToolchain};
@@ -33,7 +32,6 @@ pub use payload::{
     MAX_PACKAGE_BYTES, SODA_CAPABILITIES, SODA_PACKAGE_ID, TAILNET_CAPABILITIES,
     TAILNET_PACKAGE_ID,
 };
-pub use trust::{Permit, SecretFiles, Trust};
 pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};
 
 pub const DELIVER_PATH: &str = "/usr/share/soda/release.json";

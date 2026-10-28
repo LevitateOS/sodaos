@@ -85,20 +85,12 @@ pub fn verify_committed_revision(
     Ok(revision)
 }
 
-pub fn admit_build_output(
-    out: &str,
-    source: &str,
-    wants_media: bool,
-    authority: &str,
-) -> Result<(), Error> {
+pub fn admit_build_output(out: &str, source: &str) -> Result<(), Error> {
     let below = sys::join(&[source, ".artifacts/releases"]);
     if !sys::is_clean_abs(out) || !out.starts_with(&format!("{below}/")) {
         return Err(Error::msg(
             "fresh output must be below .artifacts/releases; parent must exist",
         ));
-    }
-    if wants_media && sys::private_file(authority).is_err() {
-        return Err(Error::msg("restricted media authority file required"));
     }
     sys::fresh_directory(out)
 }
@@ -148,11 +140,6 @@ pub fn admit_build_inputs(request: &request::Request, runner: &Runner) -> Result
     {
         return Err(Error::msg("SDK contains unrecorded files"));
     }
-    admit_build_output(
-        &request.out,
-        &source,
-        request.wants_media(),
-        &request.media_authority,
-    )?;
+    admit_build_output(&request.out, &source)?;
     Ok(revision)
 }

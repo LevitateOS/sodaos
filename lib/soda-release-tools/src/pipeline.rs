@@ -29,15 +29,12 @@ use soda_release_build::production::{
     ProducedImage as BuildProducedImage, Production as BuildProduction,
 };
 use soda_release_build::Error as BuildError;
-use soda_release_deliver::model::{Permit as DeliverPermit, Trust as DeliverTrust};
-use soda_release_deliver::native::SecretFiles as DeliverSecrets;
+use soda_release_deliver::content;
 use soda_release_deliver::payload::Payload as DeliverPayload;
 use soda_release_deliver::Error as DeliverError;
-use soda_release_deliver::{content, document, native};
 use soda_release_image::build::ProductionInputs;
 use soda_release_image::build_runner::{Cancel, Runner};
 use soda_release_image::error::Error as ImageError;
-use soda_release_image::foreign::PackagingInputs;
 use soda_release_image::foreign::{Production as ImageProduction, Progress as ImageProgress};
 use soda_release_image::{model, request};
 
@@ -55,7 +52,6 @@ pub fn image_request(r: &build_spec::Request) -> request::Request {
         repository_prefix: r.repository_prefix.clone(),
         revision: r.revision.clone(),
         rootfs_base_url: r.rootfs_base_url.clone(),
-        media_authority: r.media_authority.clone(),
         live_inputs: r.live_inputs.clone(),
         forgejo_source: r.forgejo_source.clone(),
         forgejo_revision: r.forgejo_revision.clone(),
@@ -117,35 +113,6 @@ fn deliver_payload_of(payload: &model::Payload) -> DeliverPayload {
     // Both crates share the canonical Payload v4 definition; the producer
     // record is the deliver document with no conversion.
     payload.clone()
-}
-
-fn deliver_trust_of(trust: &model::Trust) -> DeliverTrust {
-    DeliverTrust {
-        format: trust.format,
-        prefix: trust.prefix.clone(),
-        epoch: trust.epoch,
-        keys: trust.keys.iter().cloned().collect(),
-        not_before: trust.not_before,
-        max_age_seconds: trust.max_age_seconds,
-        clock_skew_seconds: trust.clock_skew_seconds,
-    }
-}
-
-fn deliver_permit_of(permit: &model::Permit) -> DeliverPermit {
-    DeliverPermit {
-        format: permit.format,
-        repository: permit.repository.clone(),
-        digest: permit.digest.clone(),
-        previous: permit.previous.clone(),
-        expires: permit.expires,
-    }
-}
-
-fn deliver_secrets_of(secrets: &model::SecretFiles) -> DeliverSecrets {
-    DeliverSecrets {
-        key: secrets.key.clone(),
-        passphrase: secrets.passphrase.clone(),
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -317,59 +284,6 @@ impl ImageProduction for RealProduction {
 
     fn read_live_inputs(&self, path: &str) -> Result<LiveInputs, ImageError> {
         soda_release_build::live_inputs::read_live_inputs(Path::new(path)).map_err(build_err)
-    }
-
-    fn check_native(&self, trust_home: &str) -> Result<(), ImageError> {
-        // Go runs these against `deliver.Native{Home: <trust home>}` with the
-        // ambient context; the Rust owner takes no context.
-        let runner = native::Native {
-            home: trust_home.to_string(),
-        };
-        native::check_native(&runner).map_err(deliver_err)
-    }
-
-    fn sign_media(
-        &self,
-        trust: &model::Trust,
-        permit: &model::Permit,
-        transport: &str,
-        input: &str,
-        out: &str,
-        keys: &model::SecretFiles,
-        trust_home: &str,
-    ) -> Result<(), ImageError> {
-        let runner = native::Native {
-            home: trust_home.to_string(),
-        };
-        native::sign(
-            &runner,
-            &deliver_trust_of(trust),
-            &deliver_permit_of(permit),
-            transport,
-            input,
-            out,
-            &deliver_secrets_of(keys),
-        )
-        .map_err(deliver_err)
-    }
-
-    fn verify_copy(
-        &self,
-        trust: &model::Trust,
-        reference: &str,
-        source: &str,
-        out: &str,
-        trust_home: &str,
-    ) -> Result<(), ImageError> {
-        let runner = native::Native {
-            home: trust_home.to_string(),
-        };
-        native::verify_copy(&runner, &deliver_trust_of(trust), reference, source, out)
-            .map_err(deliver_err)
-    }
-
-    fn write_document(&self, path: &str, value: &PackagingInputs) -> Result<String, ImageError> {
-        document::write_document(path, value).map_err(deliver_err)
     }
 }
 
