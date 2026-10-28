@@ -149,7 +149,7 @@ The docs include:
 
 ### What this branch did
 
-The branch is `simplify/over-engineering`, cut from `main`, with `prod-hardening` merged in. The first eleven commits are behaviour-preserving. The later ones, made on the owner's go-ahead, change visible behaviour or model-facing tool contracts; none adds a DB migration (unused tables stay in the schema). Across the branch about 65,000 lines are removed.
+The branch is `simplify/over-engineering`, cut from `main`, with `prod-hardening` merged in. The first eleven commits are behaviour-preserving. The later ones, made on the owner's go-ahead, change visible behaviour or model-facing tool contracts; none adds a DB migration (unused tables stay in the schema). Across the branch about 92,000 lines are deleted and 12,000 added, about 80,000 net.
 
 | Commit | Change | Lines removed |
 |---|---|---|
@@ -188,7 +188,7 @@ On 2026-10-28 the owner asked for complexity to come down overall, not just dead
 
 Each of these changes a visible feature, a model-facing tool contract or the DB schema. They are listed roughly by payoff.
 
-Done on this branch: 1 (budgets, except the spend-cap and connection-budget settings records), 2 (JEV calls plain and retryable; the gates whose answers reach nothing are still open), 3 (bindings; one result channel per phase is still open), 4 (component catalog; card renderers and the thread cache are still open), and from 6 the lifecycle effects, Codex factory harness and Library Admin/Researcher roles, and most of 8 (qualification, the project-maintain release path, media self-signing, release docs and the tracker body). Still open: the rest of 2, 4 and 5, Departments and Tailnet in 6, 7, and from 8 the build sandbox (REL-3), the remaining Factory specs (DOC-2) and the founder-demo checklist (DOC-1).
+Done on this branch: 1 (budgets, including the connection usage budget and the dead concurrency settings), 2 (JEV calls plain and retryable; the assumption and planning-freshness calls whose answers reached nothing are gone, and the four whose answers do reach a gate or a person stay), 3 (bindings and one result channel per phase: MCP finish tools only), 4 (component catalog, one card render path, plain JSON reads and one Feed refresh), the settings and frontend parser sprawl, and from 6 the lifecycle effects, Codex factory harness and Library Admin/Researcher roles, and most of 8 (qualification, the project-maintain release path, media self-signing, release docs and the tracker body). Still open: 5, Departments (with the Workspace removal) and Tailnet (in the installed product; a product decision) in 6, 7, and from 8 the build sandbox (REL-3), the remaining Factory specs (DOC-2) and the founder-demo checklist (DOC-1).
 
 1. **Budgets:** replace the budget stack with one per-run clock started at launch, one soft spend cap and charging only for runs that reached the host (theme 1). Delete the JEV rationing: planning-call allowance, delivery-call budget, funding journal.
 2. **JEV classifiers:** keep them as plain calls that retry and fall back to a default instead of holding the run. Delete their funding ledgers, call budgets and receipt re-checks. Route or drop the classifications whose answer reaches nothing (planning freshness, walkthrough consistency, reassessment fence, priority tournament, role contributions).
@@ -3790,7 +3790,7 @@ Where: `internal/project/factory_prompt_entry.go:1-59`, `lib/host/src/terminal/f
 
 ### PLN-11: Departments: a speculative private org label with its own table, routes, owner check, unused list filter and creation dialog
 
-Intent to plan (Product Lead, Architect, research, decomposition). speculative-abstraction. partially-confirmed. ~320 lines, risk low. Visible change: UI, DB schema. Behaviour-preserving: yes. **Status:** owner decision.
+Intent to plan (Product Lead, Architect, research, decomposition). speculative-abstraction. partially-confirmed. ~320 lines, risk low. Visible change: UI, DB schema. Behaviour-preserving: yes. **Status:** deferred to the Workspace removal (repo-first-ui). The routes and dialog live in the Workspace UI that session is replacing, so the table, routes and owner check go with it.
 
 Where: `internal/factory/intent.go:14-28,74,113,341,357,368,379`, `internal/store/factory_intents.go:13-54,80-89,195`, `internal/web/api/factory_intents.go:15-42,77`, `internal/web/api/extension_native.go:192-193`, `internal/web/api/extension.go:231-232`, `internal/web/api/factory_request_view.go:68-74,238`, and 6 more.
 
