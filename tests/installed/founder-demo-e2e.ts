@@ -508,17 +508,28 @@ async function phaseStartPlan(page: Page, out: string): Promise<void> {
   );
   await cont.click();
   const planReply = await planning;
-  const planBody = (await planReply.json().catch(() => ({}))) as {
-    error?: {code?: string; message?: string};
-    revision_id?: string;
-  };
-  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), body: planBody}, null, 2));
-  if (![201, 202].includes(planReply.status())) {
-    // fux26: the click may show a 502 while the run still starts. Watch the
-    // page's own plan status poll for up to 3 min before calling it a failure.
+  // The click may navigate the page before the body is readable; the
+  // status line survives, the body is best-effort.
+  let planStatus = 0;
+  try {
+    planStatus = planReply.status();
+  } catch {
+    planStatus = 0;
+  }
+  let planBody: {error?: {code?: string; message?: string}; revision_id?: string};
+  try {
+    planBody = (await planReply.json()) as typeof planBody;
+  } catch {
+    planBody = {};
+  }
+  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planStatus, body: planBody}, null, 2));
+  if (![201, 202].includes(planStatus)) {
+    // fux26: the click may show a 502 (or an unreadable reply after
+    // navigation) while the run still starts. Watch the page's own plan
+    // status poll for up to 3 min before calling it a failure.
     const watchUntil = Date.now() + 3 * 60 * 1000;
     for (;;) {
-      assert(Date.now() < watchUntil, `Plan: admission got ${planReply.status()} and no plan appeared within 3 min`);
+      assert(Date.now() < watchUntil, `Plan: admission got ${planStatus} and no plan appeared within 3 min`);
       const refreshed = page.waitForResponse(
         (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/plan') && r.request().method() === 'GET',
         {timeout: 60000}
@@ -526,7 +537,12 @@ async function phaseStartPlan(page: Page, out: string): Promise<void> {
       await spaces.getByRole('button', {name: 'Refresh status', exact: true}).first().click();
       const response = await refreshed;
       if (response.status() === 200) {
-        const plan = (await response.json()) as {state?: string; revision?: string};
+        let plan: {state?: string; revision?: string} = {};
+        try {
+          plan = (await response.json()) as typeof plan;
+        } catch {
+          plan = {};
+        }
         if (plan.revision) {
           await writeFile(`${out}/plan-admitted-late.json`, JSON.stringify({admissionStatus: planReply.status(), plan}, null, 2));
           await shot(page, `${out}/plan-admitted-late.png`);
