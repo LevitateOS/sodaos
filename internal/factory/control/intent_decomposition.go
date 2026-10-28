@@ -45,42 +45,6 @@ func (c *Coordinator) scopedIntentTasksFromChosen(_ context.Context, r factory.I
 	return work.Tasks, nil
 }
 
-// scopedIntentTasks selects the S07-advised task graph for native writes and
-// enforces it inside accepted scope before any native observation. Review
-// verdicts hold for a human challenge; funding failures surface for retry.
-func (c *Coordinator) scopedIntentTasks(ctx context.Context, r factory.IntentRevision, previous *factory.IntentRevision) ([]factory.IntentTask, error) {
-	decomp, err := c.RecomposeDecomposition(ctx, r, previous)
-	if err != nil {
-		return nil, err
-	}
-	if err = decomp.Validate(); err != nil {
-		return nil, err
-	}
-	if decomp.Intent != r.Intent || decomp.Revision != r.ID {
-		return nil, errors.New("scoped decomposition revision mismatch")
-	}
-	work := r
-	work.Tasks = decomp.Tasks
-	if err = work.Validate(); err != nil {
-		return nil, errors.New("scoped decomposition exceeds accepted scope")
-	}
-	return decomp.Tasks, nil
-}
-
-// prepareIntentGraph expresses a reviewed decomposition change through the
-// existing native issue owner. Reused open keys retain issue IDs and history;
-// retired open tasks receive a visible supersession note without closing
-// them. Delivered (closed) records are never edited: materially unchanged
-// keys rebind the delivered issue, changed work creates a new issue under
-// the stable key, and removed delivered keys are retained silently. It
-// returns the submitted task graph and delivered bindings alongside the
-// payload; callers persist them so adoption and later deltas bind submitted
-// truth rather than re-deriving it.
-// prepareIntentGraphWithChoice expresses a reviewed decomposition change
-// through the existing native issue owner, adopting either the serving
-// advised graph (nil choice) or exactly one pre-chosen planner candidate.
-// The chosen path performs no triplet or template evaluation: submitted,
-// adopted and delivered bindings all derive from the same chosen tasks.
 // intentDeltaEdge binds one accepted dependency to its native issue pair.
 type intentDeltaEdge struct{ a, b int64 }
 
@@ -107,6 +71,11 @@ type intentDeltaBuild struct {
 	oldEdges      map[intentDeltaEdge]bool
 }
 
+// prepareIntentGraphWithChoice expresses a reviewed decomposition change
+// through the existing native issue owner, adopting exactly the one
+// pre-chosen planner candidate. Reused open keys retain issue IDs and
+// history; delivered (closed) records are never edited. It returns the
+// submitted task graph and delivered bindings alongside the payload.
 func (c *Coordinator) prepareIntentGraphWithChoice(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
 	previous, err := c.Store.PreviousGeneratedIntent(ctx, r.Intent, r.ID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -128,13 +97,7 @@ func (c *Coordinator) prepareIntentGraphWithChoice(ctx context.Context, r factor
 // prepareFirstIntentGraph scopes and packs the first generation
 // behind one accepted intent, which has no previous revision.
 func (c *Coordinator) prepareFirstIntentGraph(ctx context.Context, r factory.IntentRevision, chosen *ChosenIntentPlan) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
-	var tasks []factory.IntentTask
-	var err error
-	if chosen != nil {
-		tasks, err = c.scopedIntentTasksFromChosen(ctx, r, chosen)
-	} else {
-		tasks, err = c.scopedIntentTasks(ctx, r, nil)
-	}
+	tasks, err := c.scopedIntentTasksFromChosen(ctx, r, chosen)
 	if err != nil {
 		return sdk.IssueGraphPayload{}, nil, nil, nil, err
 	}
@@ -159,12 +122,7 @@ func (c *Coordinator) loadIntentDeltaBuild(ctx context.Context, r factory.Intent
 	}
 	priorSubmitted := previous
 	priorSubmitted.Tasks = generation.SubmittedTasks
-	var tasks []factory.IntentTask
-	if chosen != nil {
-		tasks, err = c.scopedIntentTasksFromChosen(ctx, r, chosen)
-	} else {
-		tasks, err = c.scopedIntentTasks(ctx, r, &priorSubmitted)
-	}
+	tasks, err := c.scopedIntentTasksFromChosen(ctx, r, chosen)
 	if err != nil {
 		return nil, err
 	}

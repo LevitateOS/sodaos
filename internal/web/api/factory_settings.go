@@ -28,8 +28,6 @@ func factoryCommandError(w http.ResponseWriter, err error) {
 		auth.JSONResponse(w, 202, map[string]any{"running": true})
 	case errors.Is(err, control.ErrIneffectiveAuthority):
 		auth.JSONError(w, 409, "authority_ineffective", "Current grants do not authorize this action.")
-	case errors.Is(err, control.ErrIntentDecompositionReview):
-		auth.JSONError(w, 409, "intent_review_required", "The product direction is saved, but proposed work needs reconsideration before native work can be created.")
 	default:
 		auth.JSONError(w, 503, "store_unavailable", "Factory authority storage is unavailable.")
 	}
