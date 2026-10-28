@@ -42,7 +42,7 @@ pub fn factory_muse_run_paths(
     Some((checkout, run_dir, home, muse_config))
 }
 
-/// `factoryCodexPaths` shape for Muse runs: validated run identities to
+/// Muse `Paths` shape: validated run identities to
 /// fixed paths. The guest pins the run's harness version.
 pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> {
     run.validate()?;
@@ -71,7 +71,7 @@ pub fn factory_muse_paths(run: &FactoryRun) -> Result<FactoryMusePaths, String> 
     })
 }
 
-/// `factoryCodexBinding` shape for Muse runs: supervised
+/// Muse `Binding` shape: supervised
 /// factory-muse binding check plus derived run paths. The recorded
 /// credential root must equal the derived run directory. Family policy
 /// (factory role, generation) wraps the shared `binding` checks.
@@ -110,7 +110,7 @@ pub fn factory_muse_binding(lease: &Lease) -> Result<FactoryMusePaths, String> {
     })
 }
 
-/// `FactoryCodexGuest` shape for Muse runs: fixed versioned guest path
+/// Muse guest path: fixed versioned guest path
 /// for staged harness bytes.
 pub fn factory_muse_guest(version: &str) -> Option<String> {
     if !valid_harness_version(version) {

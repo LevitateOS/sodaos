@@ -4,7 +4,7 @@ use crate::preparation;
 use super::{valid_harness_family, valid_harness_version};
 
 /// One observed output slice with its cursor placement, mirroring
-/// `terminal.FactoryCodexOutputSlice`.
+/// `terminal::factory::output::FactoryOutputSlice`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OutputSlice {
     pub data: Vec<u8>,

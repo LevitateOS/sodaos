@@ -253,7 +253,7 @@ impl<E: Executor> Service<E> {
     }
 
     /// Shared capture core: one bounded read of the staged credential
-    /// file. Codex rotates on these bytes; muse only echoes them for
+    /// file. Muse only echoes these bytes for
     /// the in-process return path (the broker ignores muse bytes).
     pub(crate) fn factory_capture_valid(
         &self,

@@ -151,7 +151,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     ) -> Result<FactoryState, FactoryError> {
         let run_deadline = drive_deadline(deadline, deadline_nanos);
         // The validated harness family names its broker provider
-        // ("codex"/"muse" are both); the lease must come from the run's
+        // ("muse"); the lease must come from the run's
         // own provider or the broker denies the connection mismatch.
         let lease = match self.broker.acquire(
             &AcquireRequest {

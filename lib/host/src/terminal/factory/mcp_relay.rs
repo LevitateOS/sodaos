@@ -10,23 +10,18 @@
 /// Staged user-prompt bytes bound (16 KiB, D14).
 pub const MAX_INSTRUCTION: usize = 16 * 1024;
 
-/// C11-proven per-run developer-instruction route per admitted harness
-/// family (evidence: `evidence/instruction-channel/`, pinned
-/// `codex-cli 0.161.0` and `Muse Code 1.4.9`).
+/// C11-proven per-run developer-instruction route for the admitted
+/// harness family (evidence: `evidence/instruction-channel/`, pinned
+/// `Muse Code 1.4.9`).
 ///
-/// Codex `exec -c developer_instructions="<text>"` parses the value as
-/// TOML with the highest precedence over `config.toml`: the marker
-/// lands first in the role=developer input item while skills,
-/// multi-agent, project-doc, env-context and user items are preserved;
-/// a base-file value is REPLACED and the file itself stays byte-intact.
 /// Muse `exec -c run.developer_prompt="<text>"` takes a JSON value and
 /// records it with `developer_prompt_source=settings` (reviewed for
 /// approval authorization) while sibling run config stays intact; bare
 /// `developer_instructions`/`developer_prompt`, `run.base_instructions`
 /// and the base-instructions-slot `run.system_prompt` are NOT this
-/// route. Model-template composition (Codex) and real-provider wire
-/// placement (Muse) need authed custody and stay unproven: P6/P7 gates
-/// stay OPEN and this plumbing claims nothing about them.
+/// route. Real-provider wire placement needs authed custody and stays
+/// unproven: P6/P7 gates stay OPEN and this plumbing claims nothing
+/// about them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PerRunInstructionRoute {
     /// Muse reads per-run developer instructions from
@@ -62,7 +57,7 @@ fn json_string_body(text: &str) -> String {
 ///
 /// Per-run only: the pair rides the harness argv. It writes no config
 /// file, loads no global user config and overrides none — the relay
-/// never points a harness at a rewritten `config.toml`/`settings.json`
+/// never points a harness at a rewritten `settings.json`
 /// — and base instructions are preserved (C11: the pair replaces only
 /// the same-key file value while non-config items and sibling run
 /// config stay intact). Standard CLI override gives the pair

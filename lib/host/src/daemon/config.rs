@@ -31,8 +31,6 @@ pub struct Config {
     pub codex_harness: String,
     pub codex_harness_sha256: String,
     pub codex_harness_version: String,
-    pub codex_model_catalog: String,
-    pub codex_model_catalog_sha256: String,
     pub muse_harness: String,
     pub muse_harness_sha256: String,
     pub muse_harness_version: String,
@@ -89,8 +87,6 @@ impl<'de> Deserialize<'de> for Config {
                     string_field!("codex_harness", codex_harness);
                     string_field!("codex_harness_sha256", codex_harness_sha256);
                     string_field!("codex_harness_version", codex_harness_version);
-                    string_field!("codex_model_catalog", codex_model_catalog);
-                    string_field!("codex_model_catalog_sha256", codex_model_catalog_sha256);
                     string_field!("muse_harness", muse_harness);
                     string_field!("muse_harness_sha256", muse_harness_sha256);
                     string_field!("muse_harness_version", muse_harness_version);
@@ -109,8 +105,6 @@ impl<'de> Deserialize<'de> for Config {
                             "codex_harness",
                             "codex_harness_sha256",
                             "codex_harness_version",
-                            "codex_model_catalog",
-                            "codex_model_catalog_sha256",
                             "muse_harness",
                             "muse_harness_sha256",
                             "muse_harness_version",
@@ -296,13 +290,6 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
 /// family: each configured family needs the runtime socket and a
 /// verified pin, exactly like codex.
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {
-    if (!c.codex_model_catalog.is_empty() || !c.codex_model_catalog_sha256.is_empty())
-        && (c.codex_harness.is_empty()
-            || !crate::terminal::is_clean_absolute_path(&c.codex_model_catalog)
-            || !crate::preparation::valid_digest(&c.codex_model_catalog_sha256))
-    {
-        return Err("explicit pinned Codex model catalog required".into());
-    }
     if !c.codex_harness.is_empty() {
         if !crate::terminal::is_clean_absolute_path(&c.identity_socket)
             || !crate::terminal::is_clean_absolute_path(&c.codex_harness)

@@ -116,9 +116,6 @@ pub struct BackendConfig {
     pub project: project::Config,
     pub codex_harness: String,
     pub codex_harness_sha256: String,
-    pub codex_harness_version: String,
-    pub codex_model_catalog: String,
-    pub codex_model_catalog_sha256: String,
     pub muse_harness: String,
     pub muse_harness_sha256: String,
     pub muse_harness_version: String,
@@ -137,18 +134,13 @@ pub struct MuseConfig {
     pub sha256: String,
 }
 
-/// Terminal side of supervised factory runs. Delegates to the `tcodex`
+/// Terminal side of supervised factory runs. Delegates to the Muse factory
 /// service operations over the shared native executor shape.
 pub struct TerminalSeam {
     state_dir: String,
     native_channels: std::sync::Mutex<
         std::collections::BTreeMap<String, terminal::factory::native_io::NativeChannels>,
     >,
-    harness: String,
-    harness_version: String,
-    harness_sha256: String,
-    model_catalog: String,
-    model_catalog_sha256: String,
     muse_harness: String,
     muse_harness_version: String,
     muse_harness_sha256: String,
@@ -191,9 +183,6 @@ impl DaemonBackend {
                 exec: project::Native,
                 codex_harness: cfg.codex_harness.clone(),
                 codex_harness_sha256: cfg.codex_harness_sha256.clone(),
-                codex_harness_version: cfg.codex_harness_version.clone(),
-                codex_model_catalog: cfg.codex_model_catalog.clone(),
-                codex_model_catalog_sha256: cfg.codex_model_catalog_sha256.clone(),
                 muse_harness: cfg.muse_harness.clone(),
                 muse_harness_sha256: cfg.muse_harness_sha256.clone(),
                 muse_harness_version: cfg.muse_harness_version.clone(),
@@ -269,11 +258,6 @@ impl DaemonBackend {
                     TerminalSeam {
                         state_dir: self.factory_state_dir.clone(),
                         native_channels: Default::default(),
-                        harness: self.terminal.codex_harness.clone(),
-                        harness_version: self.terminal.codex_harness_version.clone(),
-                        harness_sha256: self.terminal.codex_harness_sha256.clone(),
-                        model_catalog: self.terminal.codex_model_catalog.clone(),
-                        model_catalog_sha256: self.terminal.codex_model_catalog_sha256.clone(),
                         muse_harness: self.terminal.muse_harness.clone(),
                         muse_harness_version: self.terminal.muse_harness_version.clone(),
                         muse_harness_sha256: self.terminal.muse_harness_sha256.clone(),

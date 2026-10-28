@@ -6,7 +6,7 @@ use crate::terminal::{self, Binding, Lease, Service};
 use std::time::Instant;
 
 impl<E: Executor> Service<E> {
-    /// `Service.FactoryCodexWait` shape for Muse runs.
+    /// Muse `Wait` operation.
     pub fn factory_muse_wait(
         &self,
         lease: &Lease,
@@ -27,14 +27,14 @@ impl<E: Executor> Service<E> {
         )
     }
 
-    /// `Service.FactoryCodexValidate` shape for Muse runs.
+    /// Muse `Validate` operation.
     pub fn factory_muse_validate(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         factory_muse_binding(lease)?;
         let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
         self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)
     }
 
-    /// `Service.FactoryCodexStop` shape for Muse runs. Idempotent.
+    /// Muse `Stop` operation. Idempotent.
     pub fn factory_muse_stop(&self, lease: &Lease, deadline: Instant) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
         let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
@@ -47,7 +47,7 @@ impl<E: Executor> Service<E> {
         )
     }
 
-    /// `Service.FactoryCodexStopUnbound` shape for Muse runs.
+    /// Muse `StopUnbound` operation.
     pub fn factory_muse_stop_unbound(
         &self,
         run: &FactoryRun,
@@ -63,7 +63,7 @@ impl<E: Executor> Service<E> {
         )
     }
 
-    /// `Service.FactoryCodexCapture` shape for Muse runs: echo the
+    /// Muse `Capture` operation: echo the
     /// daemon-staged `auth.json` copy (never the CLI's live lookup file)
     /// for the in-process factory return path. The broker ignores these
     /// bytes for muse (borrow: forget on return), so capture failure here
@@ -82,12 +82,12 @@ impl<E: Executor> Service<E> {
         self.factory_capture_valid(&project, &p.credential, deadline)
     }
 
-    /// `Service.FactoryCodexLive` shape for Muse runs.
+    /// Muse `Live` operation.
     pub fn factory_muse_live(&self, binding: &Binding, deadline: Instant) -> bool {
         self.factory_live_scoped(binding, FACTORY_SCOPE_MUSE, deadline)
     }
 
-    /// `Service.FactoryCodexOutput` shape for Muse runs.
+    /// Muse `Output` operation.
     pub fn factory_muse_output(
         &self,
         project_id: &str,

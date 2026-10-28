@@ -3,10 +3,6 @@ use crate::terminal;
 
 // ---------- factory domain (internal/project) ----------
 
-/// Fixed factory execution discriminator for supervised Codex runs.
-pub const FACTORY_SCOPE_CODEX: &str = "factory-codex";
-/// First harness family.
-pub const FACTORY_HARNESS_CODEX: &str = "codex";
 /// Fixed factory execution discriminator for supervised Muse Code runs.
 pub const FACTORY_SCOPE_MUSE: &str = "factory-muse";
 /// Muse Code CLI harness family (`muse exec` runs backed by the native
@@ -15,7 +11,7 @@ pub const FACTORY_HARNESS_MUSE: &str = "muse";
 
 /// Supported supervised CLI families.
 pub fn valid_harness_family(family: &str) -> bool {
-    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE
+    family == FACTORY_HARNESS_MUSE
 }
 /// Fixed factory role logins.
 pub const ROLE_CODER: &str = "soda-coder";

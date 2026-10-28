@@ -216,7 +216,7 @@ impl FactoryBroker for NativeFactoryFixture {
             execution_id: request.execution_id.clone(),
             kind: "factory".into(),
             generation: 1,
-            provider_id: "codex".into(),
+            provider_id: "muse".into(),
             actor_id: 1,
             project_id: request.project_id.clone(),
             connection_id: request.connection_id.clone(),
@@ -282,7 +282,7 @@ impl FactoryBroker for NativeFactoryFixture {
 impl FactoryTerminal for NativeFactoryFixture {
     fn harness_pin(&self, _: &str) -> Result<factory::FactoryHarnessPin, String> {
         Ok(factory::FactoryHarnessPin {
-            harness: "codex".into(),
+            harness: "muse".into(),
             version: "native-fixture".into(),
             sha256: "a".repeat(64),
             image: String::new(),
@@ -304,7 +304,7 @@ impl FactoryTerminal for NativeFactoryFixture {
             login: run.role.clone(),
             uid: unsafe { libc::geteuid() }.into(),
             gid: unsafe { libc::getegid() }.into(),
-            scope: "codex".into(),
+            scope: "muse".into(),
             invocation_id: "a".repeat(32),
             generation: 1,
             child_id: PID.into(),
@@ -1172,7 +1172,7 @@ fn oracle_start_runs_detached_to_ready() {
                 project: manifest.project.clone(),
                 role: "soda-reviewer".into(),
                 preparation: PID.into(),
-                harness: "codex".into(),
+                harness: "muse".into(),
                 harness_vers: "native-fixture".into(),
                 assignment: soda_host::sha256::hex_lower(&soda_host::sha256::digest(&prompt)),
                 source_commit: commit.clone(),
@@ -1833,13 +1833,13 @@ fn oracle_v7_recorded_receipt_survives_current_advance() {
     let factory_dir = root.join("factory");
     std::fs::create_dir_all(&factory_dir).unwrap();
     let pin_a = factory::FactoryHarnessPin {
-        harness: "codex".into(),
+        harness: "muse".into(),
         version: "1.4.0".into(),
         sha256: "a".repeat(64),
         image: String::new(),
     };
     let pin_b = factory::FactoryHarnessPin {
-        harness: "codex".into(),
+        harness: "muse".into(),
         version: "1.4.13".into(),
         sha256: "b".repeat(64),
         image: String::new(),
@@ -1882,7 +1882,7 @@ fn oracle_v7_recorded_receipt_survives_current_advance() {
             project: "p0123456789abcdef01234567".into(),
             role: "soda-reviewer".into(),
             preparation: PID.into(),
-            harness: "codex".into(),
+            harness: "muse".into(),
             harness_vers: "1.4.0".into(),
             assignment,
             source_commit: COMMIT.into(),
@@ -1977,7 +1977,7 @@ fn oracle_v7_recorded_receipt_survives_own_deadline_expiry() {
     let terminal = V7PinTerminal {
         inner: fixture.clone(),
         pin: Arc::new(Mutex::new(factory::FactoryHarnessPin {
-            harness: "codex".into(),
+            harness: "muse".into(),
             version: "1.4.0".into(),
             sha256: "a".repeat(64),
             image: String::new(),
@@ -2009,7 +2009,7 @@ fn oracle_v7_recorded_receipt_survives_own_deadline_expiry() {
             project: "p0123456789abcdef01234567".into(),
             role: "soda-reviewer".into(),
             preparation: PID.into(),
-            harness: "codex".into(),
+            harness: "muse".into(),
             harness_vers: "1.4.0".into(),
             assignment,
             source_commit: COMMIT.into(),

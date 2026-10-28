@@ -83,7 +83,7 @@ pub(crate) fn muse_controlled_argv(
     ]
 }
 
-/// `factoryCodexSetup` directory-preparation shape for Muse runs.
+/// Muse directory-preparation script.
 pub fn muse_setup_script(p: &FactoryMusePaths, uid: i64, gid: i64) -> String {
     format!(
         "set -u\nmkdir -p -m 700 {} {}\nchown {uid}:{gid} {} {} {}\nchmod 700 {} {} {}\n",
@@ -98,7 +98,7 @@ pub fn muse_setup_script(p: &FactoryMusePaths, uid: i64, gid: i64) -> String {
     )
 }
 
-/// `FactoryCodexStart` staging-gate shape for Muse runs: a non-empty
+/// Muse staging-gate script: a non-empty
 /// staged `auth.json` and prompt plus the started-or-pending marker.
 pub fn muse_start_gate_script(p: &FactoryMusePaths) -> String {
     format!(

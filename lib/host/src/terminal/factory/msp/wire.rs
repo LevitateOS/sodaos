@@ -69,19 +69,6 @@ pub struct TurnFailure {
 
 #[derive(Clone)]
 pub enum Notice {
-    /// A frame from the separate native Codex app-server schema. Its item and
-    /// child vocabulary must be interpreted by the Codex owner, never Muse.
-    Codex {
-        method: String,
-        params: Value,
-    },
-    /// A native server request. Its arguments remain untrusted until the
-    /// admitted run owner validates the exact tool and parent/turn binding.
-    CodexRequest {
-        id: Value,
-        method: String,
-        params: Value,
-    },
     Item {
         session: String,
         item: Item,

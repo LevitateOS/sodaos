@@ -29,7 +29,7 @@ impl GitContext {
         gid: i64,
         key: &str,
     ) -> Self {
-        let (checkout, _, home, _) = factory_run_paths(&run.role, &run.preparation, &run.id);
+        let (checkout, _, home) = factory_run_paths(&run.role, &run.preparation, &run.id);
         Self {
             container: req.container.clone(),
             role: run.role.clone(),
