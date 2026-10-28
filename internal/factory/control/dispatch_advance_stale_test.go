@@ -71,7 +71,7 @@ func TestStaleSourceCannotLaunchImplementation(t *testing.T) {
 	if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
 		t.Fatalf("stale advancement packet refused: %v", err)
 	}
-	finished, err := finishAssignmentFromRun(a, runWithOutcome(run, factory.Succeeded), fencedResult(t, factory.PhaseResult{
+	finished, err := buildRunFinish(t, a, runWithOutcome(run, factory.Succeeded), phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
 		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 	}), now)

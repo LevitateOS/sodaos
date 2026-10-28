@@ -1140,7 +1140,7 @@ func planLongWalkthroughContent(t *testing.T, head factory.IntentRevision) facto
 	return content
 }
 
-// planSettledAnswer fences one decompose answer for the saved draft head:
+// planSettledAnswer encodes one decompose answer for the saved draft head:
 // a covering single candidate, or attention-only when attention is set.
 func planSettledAnswer(t *testing.T, status, attention string, walkthroughs ...factory.ProposalContent) string {
 	t.Helper()
@@ -1168,20 +1168,63 @@ func planSettledAnswer(t *testing.T, status, attention string, walkthroughs ...f
 	if err != nil {
 		t.Fatal(err)
 	}
-	return "work log\n```result-json\n" + string(data) + "\n```\ntrailer\n"
+	return string(data)
 }
 
+// settlePlanRun records the planning worker's MCP finish for one decompose
+// answer, then retires and accounts its run: completed answers finish
+// through finish_product_plan, anything else through finish_incomplete.
 func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, answer string) {
 	t.Helper()
 	run, err := s.FactoryRun(ctx, runID)
 	if err != nil {
 		t.Fatal(err)
 	}
+	launched, err := s.AssignmentByRun(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparation, err := s.Preparation(ctx, launched.Preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap, err := control.BuildMCPCapability(launched, run, preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.StageMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ActivateObservedMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	var parsed factory.PhaseResult
+	if err := json.Unmarshal([]byte(answer), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	decomposition := parsed.Output.Decomposition
+	tool := factory.MCPToolFinishIncomplete
+	payload := map[string]any{"outcome": parsed.Status, "cause": parsed.Summary + ": " + decomposition.Attention, "evidence_refs": []string{"planning input"}}
+	if parsed.Status == "completed" {
+		tool = factory.MCPToolFinishProductPlan
+		payload = map[string]any{"candidates": decomposition.Candidates, "coverage": []string{"Every authorized outcome is planned."}, "evidence_refs": []string{"planning input"}}
+		if decomposition.Walkthroughs != nil {
+			payload["walkthroughs"] = decomposition.Walkthroughs
+		}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	submission := factory.MCPSubmission{AssignmentID: launched.ID, CapabilityID: cap.ID, SubmissionID: factory.NewID(), Tool: tool, Payload: raw, PayloadHash: factory.MCPInputDigest(raw)}
+	if _, err := s.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+		t.Fatal(err)
+	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
 	if err := s.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := control.AccountSettledRun(ctx, s, run, answer, time.Now()); !ok {
+	if _, ok := control.AccountSettledRun(ctx, s, run, time.Now()); !ok {
 		t.Fatal("plan run unsettled")
 	}
 }
@@ -1322,7 +1365,7 @@ func TestIntentPlanStatusReadsAttention(t *testing.T) {
 	if err := json.Unmarshal(body, &viewed); err != nil {
 		t.Fatal(err)
 	}
-	if viewed.State != "attention" || viewed.Candidates != 0 || viewed.Attention != "Decide whether managers review in the same queue before issues can split." {
+	if viewed.State != "attention" || viewed.Candidates != 0 {
 		t.Fatalf("attention status not exact: %+v", viewed)
 	}
 }

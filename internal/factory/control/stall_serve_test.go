@@ -157,8 +157,8 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 			t.Fatal(err)
 		}
 		proposal := factory.StallRepairReport{StallID: record.ID, CycleID: cycle.ID, InventoryDigest: cycle.InventoryDigest, SourceCommit: cycle.Local.SourceCommit, PreparationDigest: cycle.Local.PreparationDigest, Causes: []factory.CheckFailure{{CheckRef: "dependency_cycle", Detail: "The recorded dependency cycle still has no viable producer."}}, RetainedIssueIndexes: []int64{3}, Outcome: factory.RepairOutcomeNoChange}
-		output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "No graph change proposed; the real stall remains.", Output: &factory.PhaseOutput{Repair: &proposal}})
-		if a, ok := AccountSettledRun(ctx, serving, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+		output := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "No graph change proposed; the real stall remains.", Output: &factory.PhaseOutput{Repair: &proposal}})
+		if a, ok := accountRunFinish(t, ctx, serving, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
 			t.Fatalf("repair typed finish refused: %s %s %v", a.Outcome, a.Reason, ok)
 		}
 		for i := 0; i < 3; i++ {
@@ -239,7 +239,7 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 		if err = sqlDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, second.AssignmentID).Scan(&allowanceRaw); err != nil || json.Unmarshal(allowanceRaw, &afterAllowance) != nil || afterAllowance.Active || !afterAllowance.Closed || afterAllowance.Limits != beforeAllowance.Limits || afterAllowance.ActiveSeconds < beforeAllowance.ActiveSeconds {
 			t.Fatal("retired typed root did not freeze the same cumulative allowance", err)
 		}
-		if _, created := AccountSettledRun(ctx, serving, run, "", time.Now()); created {
+		if _, created := AccountSettledRun(ctx, serving, run, time.Now()); created {
 			t.Fatal("retirement replaced an already fenced terminal")
 		}
 		finishedSecond, err := serving.Assignment(ctx, second.AssignmentID)
@@ -991,7 +991,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal(err)
 		}
 	}
-	output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Repair the idle accepted graph and preserve protected work.", Output: phaseOutput})
+	output := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionRepair, Status: "completed", Summary: "Repair the idle accepted graph and preserve protected work.", Output: phaseOutput})
 	if deliveryMode {
 		payload, _ := json.Marshal(map[string]any{"report": phaseOutput.DeliveryRepair})
 		submission := testMCPSubmission(repairCapability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
@@ -1004,7 +1004,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if a, e := db.Assignment(ctx, cycle.AssignmentID); e != nil || a.Outcome != factory.Succeeded {
 			t.Fatal("authenticated repair finish", a.Outcome, a.Reason, e)
 		}
-	} else if a, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
+	} else if a, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); !ok || a.Outcome != factory.Succeeded {
 		t.Fatalf("repair finish outcome=%s reason=%s recorded=%v", a.Outcome, a.Reason, ok)
 	}
 	if mode == "append_producer" || mode == "delivery_repair" {

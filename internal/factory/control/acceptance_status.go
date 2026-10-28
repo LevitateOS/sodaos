@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -377,16 +376,7 @@ func (c *Coordinator) accountWithdrawalRun(ctx context.Context, runID string, re
 	}
 	latest, lookupErr := c.Store.AssignmentByRun(ctx, runID)
 	if lookupErr == nil && latest.Stage == factory.AssignmentAssigned {
-		if c.Host == nil {
-			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "accounting output unavailable"}}
-			return ErrCommandRunning
-		}
-		state, inspectErr := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: current.ProjectID, ID: runID})
-		if inspectErr != nil {
-			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run inspection unconfirmed"}}
-			return ErrCommandRunning
-		}
-		if _, accounted := AccountSettledRun(ctx, c.Store, current, state.Output, time.Now()); !accounted {
+		if _, accounted := AccountSettledRun(ctx, c.Store, current, time.Now()); !accounted {
 			receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run accounting pending"}}
 			return ErrCommandRunning
 		}

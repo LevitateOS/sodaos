@@ -215,11 +215,6 @@ func ReviewAuthRevision(assignmentID, runID string) string {
 	return "soda-assignment:" + assignmentID + ":review-run:" + runID
 }
 
-// ReviewReportFence delimits the reviewer report block: the review prompt
-// instructs the CLI to close its work with exactly one fenced review-json
-// block, and the supervisor parses the last such block strictly.
-const ReviewReportFence = "review-json"
-
 // ReviewReport is one reviewer agent's genuine verdict on an exact
 // candidate: approve it or request changes with concrete findings.
 type ReviewReport struct {
@@ -816,15 +811,6 @@ func CheckSubmittedFindings(canonical, submitted []Finding) error {
 // approval, an empty array, silence, process exit or an approve verdict
 // without this conclusion never creates clean acceptance.
 const ClearReviewConclusion = "clear"
-
-// ClearReviewReportFence delimits the explicit clear block: the review
-// prompt instructs the CLI to close a nothing-found round with exactly one
-// fenced clear-review-json block, and the supervisor parses the last such
-// block strictly. The report carries no finding-content fields by design:
-// a clear round asserts zero new findings (including optional ones) and
-// assesses carried actionable findings verified, so there is no submitted
-// content an agent could substitute for the controller's canonical set.
-const ClearReviewReportFence = "clear-review-json"
 
 // ClearReviewReport is one reviewer round's explicit clear verdict over an
 // exact candidate: the cycle it answers, the complete head/base it covered,

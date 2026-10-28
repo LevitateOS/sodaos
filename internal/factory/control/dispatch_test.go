@@ -153,11 +153,11 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
-	output := fencedResult(t, factory.PhaseResult{
+	output := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
 		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 	})
-	finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, output, time.Now())
 	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
 		t.Fatalf("accounted = %+v %v", finished, ok)
 	}

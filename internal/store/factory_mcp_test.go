@@ -274,18 +274,6 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); err == nil {
 		t.Fatal("post-terminal output recorded")
 	}
-	// Handoff counting for the admission cap, on a live assignment
-	// under its own activated capability.
-	liveCap := testMCPCapabilityRow()
-	liveCap.AssignmentID = factory.NewID()
-	live := activateMCPCapability(t, ctx, db, liveCap)
-	edge := testMCPSubmissionRow(live, factory.MCPToolRequestHandoff, []byte(`{"predecessor_task":"a","successor_task":"b"}`))
-	if _, err := db.RecordMCPSubmission(ctx, edge, testMCPRecordedReceipt(edge)); err != nil {
-		t.Fatalf("live handoff refused: %v", err)
-	}
-	if count, err := db.MCPHandoffCount(ctx, live.AssignmentID); err != nil || count != 1 {
-		t.Fatalf("handoff count = %d, err = %v", count, err)
-	}
 	// Revoke then retire transitions.
 	if err := db.RetireMCPCapability(ctx, capability.ID); err != nil {
 		t.Fatalf("retire: %v", err)
@@ -399,42 +387,6 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 		}
 		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
 			t.Fatalf("submission count = %d, err = %v, want exactly one row", count, err)
-		}
-	})
-
-	// Handoff cap at insert: 250 recorded, 16 racing for the last 6
-	// slots. Exactly 6 record; the rest hit the cap; the total is
-	// exactly 256 under any schedule.
-	t.Run("handoff cap", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-		defer cancel()
-		active, record := liveAssignment(t, ctx)
-		edge := []byte(`{"predecessor_task":"a","successor_task":"b"}`)
-		for i := 0; i < 250; i++ {
-			if _, err := record(factory.MCPToolRequestHandoff, edge); err != nil {
-				t.Fatalf("prefill %d: %v", i, err)
-			}
-		}
-		const racers = 16
-		_, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
-			return record(factory.MCPToolRequestHandoff, edge)
-		})
-		recorded, capped := 0, 0
-		for i := range errs {
-			switch {
-			case errs[i] == nil:
-				recorded++
-			case errors.Is(errs[i], ErrMCPSubmissionHandoffCap):
-				capped++
-			default:
-				t.Fatalf("racer %d: err = %v, want cap or success", i, errs[i])
-			}
-		}
-		if recorded != 6 || capped != racers-6 {
-			t.Fatalf("recorded = %d, capped = %d, want 6 and %d", recorded, capped, racers-6)
-		}
-		if count, err := db.MCPHandoffCount(ctx, active.AssignmentID); err != nil || count != factory.MCPMaxHandoffs {
-			t.Fatalf("handoff count = %d, err = %v, want %d", count, err, factory.MCPMaxHandoffs)
 		}
 	})
 

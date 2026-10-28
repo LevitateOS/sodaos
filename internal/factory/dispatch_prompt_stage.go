@@ -120,31 +120,11 @@ func writePromptStage(b *strings.Builder, in PromptInputs) {
 	writePromptTypedVerdict(b, in)
 }
 
-// writePromptTypedReviewContract directs a re-review: close with exactly
-// one v2 phase result carrying exactly one typed verdict — the findings
-// verdict with new keyed defects and verified|still_open dispositions,
-// or the explicit clear when nothing blocks — answering the carried
-// cycle identity. A findings verdict with no new defect and no
-// still-open assessment refuses; report the explicit clear instead.
+// writePromptMCPReviewContract directs a review to its finish_review call.
 func writePromptMCPReviewContract(b *strings.Builder) {
 	b.WriteString("Begin with factory.context and read current_role_page continuations until collection_complete. Its required review input names the exact cycle, admitted/current candidate tuple, canonical carried findings and clear_coverage_digest. Inspect the prepared candidate and diff independently. The review.implementation field contains the original published implementation's admitted task/check definitions, committed task receipts and trusted final checkpoint; review.correction_facts separately describes later corrections on the current tuple. review.check_assessment supplies the settled native CI status evidence required before admission on this exact head/base; refresh context before reporting missing required evidence. These receipts are evidence, not a coding conversation or a worker's claimed approval.\n\n")
 	b.WriteString("Finish through factory.finish_review using the advertised current.role.result_schema. SodaOS fills the review tuple and coverage from review.cycle; supply evidence_refs for evidence actually inspected. Use conclusion clear only after complete inspection with no remaining findings; include carried_assessments proving every carried actionable finding verified. Otherwise use conclusion findings with structured findings and carried_assessments, preserving stable keys and required outcomes. A missing local file named after a CI status context is not a failed required check. If required evidence is unavailable, use factory.finish_incomplete with the concrete missing input. Poll the immutable submission receipt before ending.\n\n")
-	b.WriteString("Do not substitute a legacy review-json block, an approve string, an empty finding list or process exit for this durable typed result. Never change the candidate or its checks to obtain approval.\n")
-}
-
-func writePromptTypedReviewContract(b *strings.Builder, in PromptInputs) {
-	cycle := ""
-	if in.TypedReview != nil {
-		cycle = in.TypedReview.CycleID
-	} else if in.TypedClear != nil {
-		cycle = in.TypedClear.CycleID
-	}
-	b.WriteString("Close your work with exactly one fenced block carrying the strict v2 phase result for phase \"review\" with exactly one typed verdict:\n\n")
-	b.WriteString("```" + ResultFence + "\n")
-	b.WriteString(`{"version":2,"phase":"review","status":"completed|blocked|failed|cancelled","summary":"...","output":{"review":{"cycle_id":"` + cycle + `","new_findings":[{"key":"...","severity":"...","defect":"...","evidence":"...","required_outcome":"...","fix_kind":"...","actionable":true}],"assessments":[{"key":"...","status":"verified|still_open","evidence":"..."}]} OR "clear":{...}}}` + "\n")
-	b.WriteString("```\n\n")
-	b.WriteString("Answer cycle " + cycle + " on the exact candidate: assess every carried actionable finding explicitly as verified|still_open with evidence; report new defects with stable keys, severity, evidence and required outcome. " +
-		"Report the explicit clear only when no blocking correctness, security, acceptance or required-check finding remains. Never change the candidate to approve your own correction.\n")
+	b.WriteString("Do not substitute an approve string, an empty finding list or process exit for this durable typed result. Never change the candidate or its checks to obtain approval.\n")
 }
 
 // writePromptTypedVerdict renders the phased current verdict a re-review
@@ -166,18 +146,18 @@ func writePromptTypedVerdict(b *strings.Builder, in PromptInputs) {
 		b.WriteString("Findings verdict for cycle " + r.CycleID + " on candidate " + in.SourceCommit + " at base " + in.BaseCommit + ".\n")
 		for _, finding := range r.NewFindings {
 			b.WriteString("- [" + finding.Key + "] (" + finding.Severity + "/" + finding.FixKind + ") defect: " +
-				fenceCollision(finding.Defect) + " evidence: " + fenceCollision(finding.Evidence) +
-				" required outcome: " + fenceCollision(finding.RequiredOutcome) + "\n")
+				finding.Defect + " evidence: " + finding.Evidence +
+				" required outcome: " + finding.RequiredOutcome + "\n")
 		}
 		for _, assessment := range r.Assessments {
-			b.WriteString("- [" + assessment.Key + "] " + assessment.Status + ": " + fenceCollision(assessment.Evidence) + "\n")
+			b.WriteString("- [" + assessment.Key + "] " + assessment.Status + ": " + assessment.Evidence + "\n")
 		}
 		return
 	}
 	c := in.TypedClear
 	b.WriteString("Explicit clear for cycle " + c.CycleID + " on candidate " + c.Head + " at base " + c.BaseOID + ".\n")
 	for _, assessment := range c.Assessments {
-		b.WriteString("- [" + assessment.Key + "] verified: " + fenceCollision(assessment.Evidence) + "\n")
+		b.WriteString("- [" + assessment.Key + "] verified: " + assessment.Evidence + "\n")
 	}
 }
 

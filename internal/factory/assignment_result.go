@@ -276,8 +276,3 @@ func ResultSynthesized(assignmentID, runID, status, summary string, recordedUnix
 		Reported: false, RecordedUnix: recordedUnix,
 	}
 }
-
-// ResultFence delimits the harness report block: the prompt instructs the
-// CLI to close its work with exactly one fenced result-json block, and
-// the supervisor parses the last such block strictly.
-const ResultFence = "result-json"

@@ -54,7 +54,7 @@ func TestSettlementConcurrentDoubleFinish(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			_, acked[i] = AccountSettledRun(ctx, db, run, "", time.Now())
+			_, acked[i] = AccountSettledRun(ctx, db, run, time.Now())
 		}(i)
 	}
 	close(start)
@@ -87,7 +87,7 @@ func TestSettlementConcurrentDoubleFinish(t *testing.T) {
 		t.Fatalf("reservation = %+v %v, want consumed once", reservation, err)
 	}
 	// A sequential replay after the race settles nothing twice.
-	if again, ok := AccountSettledRun(ctx, db, run, "", time.Now()); ok || again.Stage != "" {
+	if again, ok := AccountSettledRun(ctx, db, run, time.Now()); ok || again.Stage != "" {
 		t.Fatalf("replay = %+v %v, want silent refusal", again, ok)
 	}
 	if replayed, err := db.UsageTotal(ctx, a.Repository, a.Connection); err != nil || replayed != total {
@@ -114,7 +114,7 @@ func TestSettlementConsumeThenCrashReplay(t *testing.T) {
 		t.Fatalf("assignment = %+v %v, want still assigned before replay", current, err)
 	}
 
-	finished, ok := AccountSettledRun(ctx, db, run, "", now)
+	finished, ok := AccountSettledRun(ctx, db, run, now)
 	if !ok || finished.Stage != factory.AssignmentFinished || finished.Outcome != factory.Failed {
 		t.Fatalf("replay = %+v %v, want the completed failed settlement", finished, ok)
 	}
@@ -125,7 +125,7 @@ func TestSettlementConsumeThenCrashReplay(t *testing.T) {
 	if _, err := db.RunUsage(ctx, run.ID); err != nil {
 		t.Fatalf("usage row: %v", err)
 	}
-	if again, ok := AccountSettledRun(ctx, db, run, "", time.Now()); ok || again.Stage != "" {
+	if again, ok := AccountSettledRun(ctx, db, run, time.Now()); ok || again.Stage != "" {
 		t.Fatalf("second replay = %+v %v, want silent refusal", again, ok)
 	}
 	if replayed, err := db.UsageTotal(ctx, a.Repository, a.Connection); err != nil || replayed != total {

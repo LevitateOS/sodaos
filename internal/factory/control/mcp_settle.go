@@ -1,26 +1,14 @@
 package control
 
-// MCP terminal-proposal settlement (Lane A execution join).
+// MCP terminal-proposal settlement.
 //
-// FW38 records typed worker finishes as immutable terminal proposals
-// with a recorded receipt, but no consumer ever settles them: the
-// assignment stays assigned forever, holding its reservation and
-// blocking redispatch, while the proposal's outcome never reaches a
-// finished row Lane B feed producers can project. This settler closes
-// that join: it maps one recorded terminal proposal to the existing
-// FinishAssignment store owner and advances the receipt
-// recorded→accepted, reusing the repair-chain and readiness joints
-// the run-output settlement path already owns.
-//
-// Only proposals the settler can prove settle: worker-reported
-// terminal states (finish_incomplete), Builder/Fixer nominations
-// carrying a verifiable commit candidate (finish_implementation,
-// finish_correction), and FW40 role finishes whose structured
-// carrier strictly decodes into the typed phase result for their
-// assignment (mcp_fw40.go). Planning, review, reassessment and app
-// verification finishes without that carrier stay recorded and
-// parked instead of settling as fabricated success. Parking is
-// explicit: the settler reports settled=false and touches nothing.
+// The finish tools are the only result channel. The MCP handler checks
+// each new finish with the same mapping this settler uses, so a bad finish
+// is refused before anything is recorded. This settler maps one recorded
+// terminal proposal to the FinishAssignment store owner and advances the
+// receipt recorded→accepted, reusing the repair-chain joint. Builder and
+// Fixer finishes wait for their native final checkpoint; nothing else
+// parks.
 //
 // Ordering is crash-safe: FinishAssignment commits first, then the
 // receipt advances recorded→accepted under its expected-state guard.
@@ -42,7 +30,6 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -94,9 +81,9 @@ const mcpSettleNoteChars = 200
 // SettleMCPTerminalProposal settles one assignment's recorded terminal
 // proposal. It reports settled=true only when the assignment finished
 // through this proposal and the receipt advanced to accepted. A
-// parked proposal (settled=false, nil error) needs its FW40 role
-// consumer; anything else either has no terminal yet or already
-// settled.
+// Builder or Fixer finish waits (settled=false, nil error) for its
+// native final checkpoint; anything else either has no terminal yet or
+// already settled.
 func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, assignmentID string, now time.Time) (settled bool, err error) {
 	if st == nil || !factory.ValidID(assignmentID) {
 		return false, errors.New("mcp settlement lacks its assignment")
@@ -125,12 +112,14 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if assigned.Stage != factory.AssignmentAssigned {
 		return advanceSettledTerminal(ctx, st, submission, "assignment already finished; proposal recorded for inspection")
 	}
-	finished, note, ok, err := mapMCPTerminalFinish(assigned, submission, now)
-	if err != nil {
-		return false, err
+	// Admission already ran this mapping; a refusal here (inputs that
+	// changed after recording) fences instead of wedging the assignment.
+	finished, note, err := mapMCPTerminalFinish(assigned, submission, now)
+	if err == nil {
+		err = finished.Validate()
 	}
-	if !ok {
-		return false, nil
+	if err != nil {
+		finished, note = fenceMCPTerminal(assigned, submission, now, "terminal refused: "+err.Error()), "refused terminal fenced for human attention"
 	}
 	ready, refusal, err := checkpointTerminalReady(ctx, st, finished)
 	if err != nil {
@@ -202,63 +191,48 @@ func advanceSettledTerminal(ctx context.Context, st MCPTerminalSettleStore, subm
 	return true, nil
 }
 
-// mapMCPTerminalFinish maps one recorded terminal proposal to its
-// finished assignment. ok=false parks the proposal untouched: an
-// FW40 role finish without its structured carrier, or an unknown
-// tool. Mapping failures inside a handled tool fence the assignment
-// as blocked for human attention, following the refusePhasedAttempt
-// precedent: an invalid worker report never wedges its assignment.
-func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) (finished factory.Assignment, note string, ok bool, err error) {
+// mapMCPTerminalFinish maps one terminal proposal to its finished
+// assignment, or refuses it with the defect the worker must correct. The
+// MCP handler runs it before recording (CheckMCPTerminalFinish), so a
+// recorded proposal normally maps; the settler fences any refusal instead
+// of leaving the assignment wedged.
+func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) (factory.Assignment, string, error) {
 	if assigned.Stage != factory.AssignmentAssigned {
-		return factory.Assignment{}, "", false, errors.New("mcp settlement maps only assigned work")
+		return factory.Assignment{}, "", errors.New("the assignment is no longer assigned")
 	}
 	var built factory.Assignment
+	var note string
+	var err error
 	switch submission.Tool {
-	case factory.MCPToolFinishProductPlan, factory.MCPToolFinishIssuePlan,
-		factory.MCPToolFinishReview, factory.MCPToolFinishReassessment,
-		factory.MCPToolFinishAppVerify:
-		built, note, ok, err = mapFW40Terminal(assigned, submission, now)
-		if err != nil || !ok {
-			return factory.Assignment{}, "", ok, err
-		}
-	case factory.MCPToolFinishCorrection:
-		built, note, ok, err = settleCorrectionFinish(assigned, submission, now)
-		if err != nil || !ok {
-			return factory.Assignment{}, "", ok, err
-		}
-	case factory.MCPToolFinishIncomplete, factory.MCPToolFinishImplement:
+	case factory.MCPToolFinishIncomplete:
 		payload, derr := decodeMCPTerminalPayload(submission)
 		if derr != nil {
-			built, note = fenceMCPTerminal(assigned, submission, now, "terminal payload refused: "+derr.Error()), "unparseable terminal fenced for human attention"
-			break
+			return factory.Assignment{}, "", fmt.Errorf("finish payload is not a JSON object: %w", derr)
 		}
-		switch submission.Tool {
-		case factory.MCPToolFinishIncomplete:
-			built, note = settleIncomplete(assigned, submission, payload, now), "worker-reported terminal settled"
-		case factory.MCPToolFinishImplement:
-			if assigned.Phase == project.ExecutionImplement && factory.ValidCommit(payload["candidate"]) {
-				built, note = settleTypedImplementation(assigned, submission, payload["candidate"], now), "code finish settled"
-			} else {
-				built, note = settleCodeFinish(assigned, submission, payload, now), "code finish settled"
-			}
-		default:
-			built, note = settleCodeFinish(assigned, submission, payload, now), "code finish settled"
+		built, note = settleIncomplete(assigned, submission, payload, now), "worker-reported terminal settled"
+	case factory.MCPToolFinishImplement:
+		var fields map[string]json.RawMessage
+		if derr := json.Unmarshal(submission.Payload, &fields); derr != nil {
+			return factory.Assignment{}, "", fmt.Errorf("finish payload is not a JSON object: %w", derr)
 		}
+		built, note, err = settleImplementation(assigned, submission, fields, now)
 	default:
-		return factory.Assignment{}, "", false, nil
+		built, note, err = mapFW40Terminal(assigned, submission, now)
 	}
-	// A reported success the assignment cannot carry (for example a
-	// completion nominated against a reviewer-role assignment) fences
-	// for attention instead of wedging on a store refusal: the worker
-	// report stays inspectable through the accepted receipt.
-	if err := built.Validate(); err != nil {
-		built = fenceMCPTerminal(assigned, submission, now, "terminal report does not fit its assignment: "+err.Error())
-		if verr := built.Validate(); verr != nil {
-			return factory.Assignment{}, "", false, verr
-		}
-		note = "mismatched terminal fenced for human attention"
+	return built, note, err
+}
+
+// CheckMCPTerminalFinish runs the settlement mapping for one new finish
+// before anything is recorded. A refusal reaches the worker while it can
+// still correct the payload and finish again.
+func CheckMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) error {
+	if !factory.MCPIsTerminal(submission.Tool) {
+		return nil
 	}
-	return built, note, true, nil
+	if _, _, err := mapMCPTerminalFinish(assigned, submission, now); err != nil {
+		return fmt.Errorf("%s refused, nothing recorded: %w; correct it and finish again", submission.Tool, err)
+	}
+	return nil
 }
 
 // decodeMCPTerminalPayload decodes one recorded terminal payload to
@@ -299,7 +273,7 @@ func mcpTerminalSummary(tool factory.MCPTool, submissionID, text, fallback strin
 // proposal stays inspectable through the accepted receipt.
 func fenceMCPTerminal(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time, detail string) factory.Assignment {
 	finished := assigned
-	result := factory.ResultSynthesized(assigned.ID, assigned.Run, "blocked",
+	result := synthesizePhased(assigned, "blocked",
 		mcpTerminalSummary(submission.Tool, submission.SubmissionID, detail, "terminal needs human attention"), now.Unix())
 	finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.NeedsHuman, factory.AssignReasonNoReport
 	finished.FinishedUnix = now.Unix()
@@ -330,29 +304,6 @@ func settleIncomplete(assigned factory.Assignment, submission factory.MCPSubmiss
 	finished.FinishedUnix = now.Unix()
 	finished.Result = &result
 	return finished
-}
-
-// settleCodeFinish settles a Builder/Fixer finish. A verifiable commit
-// candidate nominates the resulting tree as the reported harness
-// result; publication still validates it before use. Anything else
-// (unchanged, missing or malformed candidate) fences for attention:
-// no-change work needs no fake commit and an unverifiable nomination
-// authorizes nothing.
-func settleCodeFinish(assigned factory.Assignment, submission factory.MCPSubmission, payload map[string]string, now time.Time) factory.Assignment {
-	if candidate := payload["candidate"]; factory.ValidCommit(candidate) {
-		finished := assigned
-		reported := factory.Result{
-			Status:    "completed",
-			Summary:   mcpTerminalSummary(submission.Tool, submission.SubmissionID, "", "worker nominates "+candidate),
-			Candidate: candidate,
-		}
-		result := factory.ResultFromHarness(assigned.ID, assigned.Run, reported, now.Unix())
-		finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
-		finished.FinishedUnix = now.Unix()
-		finished.Result = &result
-		return finished
-	}
-	return fenceMCPTerminal(assigned, submission, now, "code finish names no verifiable candidate")
 }
 
 // driveMCPTerminals settles one bounded page of recorded terminal

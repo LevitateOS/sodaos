@@ -169,7 +169,7 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 		t.Fatal(err)
 	}
 	submission := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), payload)
-	if err := AdmitMCPSubmission(ctx, c.Store, capability, submission); err != nil {
+	if _, err := AdmitMCPSubmission(ctx, c.Store, capability, submission); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c.Store.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
@@ -447,11 +447,11 @@ func finishReportedInvestigation(t *testing.T, ctx context.Context, db *store.St
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatalf("investigation run unsettled: %v", err)
 	}
-	output := fencedResult(t, factory.PhaseResult{
+	output := phaseFinish(t, factory.PhaseResult{
 		Version: 2, Phase: project.ExecutionInvestigate, Status: "completed",
 		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 	})
-	if _, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok {
+	if _, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); !ok {
 		t.Fatal("completed investigation unaccounted")
 	}
 	return plan
@@ -627,11 +627,11 @@ func TestAdmitInvestigationPlanBindings(t *testing.T) {
 	ctx := context.Background()
 	owner := phaseTestAssignment(t, project.ExecutionInvestigate, project.RoleCoder, true)
 	plan := phaseTestPlan(t, owner.AttemptRoot, owner.SourceCommit, owner.Preparation)
-	output := fencedResult(t, factory.PhaseResult{
+	output := phaseFinish(t, factory.PhaseResult{
 		Version: 2, Phase: project.ExecutionInvestigate, Status: "completed",
 		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 	})
-	finished, err := finishAssignmentFromRun(owner, phaseTestRun(owner, factory.Succeeded), output, time.Now())
+	finished, err := buildRunFinish(t, owner, phaseTestRun(owner, factory.Succeeded), output, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

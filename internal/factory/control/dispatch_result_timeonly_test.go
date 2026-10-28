@@ -136,7 +136,7 @@ func settleIntentOutput(t *testing.T, intentID, revisionID string) string {
 			}},
 		}},
 	}
-	return fencedResult(t, factory.PhaseResult{
+	return phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "single choice ready", Output: &factory.PhaseOutput{Decomposition: &answer},
 	})
@@ -158,7 +158,7 @@ func TestAccountSettledRunSettlesIntentRoot(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intentID, revisionID := "d777777777777777777777777", "d888888888888888888888888"
 	a, run := settleIntentPacket(t, ctx, db, fx, coord, intentID, revisionID, factory.Succeeded, now)
-	finished, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, intentID, revisionID), time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, settleIntentOutput(t, intentID, revisionID), time.Now())
 	if !ok || finished.Outcome != factory.Succeeded || finished.Reason != factory.AssignReasonReported {
 		t.Fatalf("accounted = %+v %v", finished, ok)
 	}
@@ -179,7 +179,7 @@ func TestAccountSettledRunSettlesIntentRoot(t *testing.T) {
 	if !allowance.Closed || allowance.Active {
 		t.Fatalf("settled intent did not close+stop: %+v", allowance)
 	}
-	if again, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, intentID, revisionID), time.Now()); ok || again.Stage != "" {
+	if again, ok := accountRunFinish(t, ctx, db, run, settleIntentOutput(t, intentID, revisionID), time.Now()); ok || again.Stage != "" {
 		t.Fatalf("second accounting = %+v %v", again, ok)
 	}
 }
@@ -199,7 +199,7 @@ func TestAccountSettledRunChargesFailedIntentRun(t *testing.T) {
 	coord := &Coordinator{Store: db, Host: fx.host}
 	now := time.Now().UTC().Truncate(time.Second)
 	a, run := settleIntentPacket(t, ctx, db, fx, coord, "d777777777777777777777777", "d888888888888888888888888", factory.Failed, now)
-	finished, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+	finished, ok := AccountSettledRun(ctx, db, run, time.Now())
 	if !ok || finished.Outcome != factory.Failed || finished.Reason != factory.AssignReasonRunFailed {
 		t.Fatalf("accounted = %+v %v", finished, ok)
 	}
@@ -225,7 +225,7 @@ func TestAccountSettledRunRefusesUnparseableIntentOutput(t *testing.T) {
 	coord := &Coordinator{Store: db, Host: fx.host}
 	now := time.Now().UTC().Truncate(time.Second)
 	_, run := settleIntentPacket(t, ctx, db, fx, coord, "d777777777777777777777777", "d888888888888888888888888", factory.Succeeded, now)
-	finished, ok := AccountSettledRun(ctx, db, run, "chatty output, no fence", time.Now())
+	finished, ok := AccountSettledRun(ctx, db, run, time.Now())
 	if !ok || finished.Outcome != factory.NeedsHuman || finished.Result.Status != "blocked" {
 		t.Fatalf("accounted = %+v %v", finished, ok)
 	}
@@ -250,7 +250,7 @@ func TestAccountSettledRunRefusesMissingStagedIntentInput(t *testing.T) {
 	coord := &Coordinator{Store: db, Host: fx.host}
 	now := time.Now().UTC().Truncate(time.Second)
 	a, run := settleIntentPacketWithPrompt(t, ctx, db, fx, coord, "d777777777777777777777777", "d888888888888888888888888", factory.Succeeded, now, false)
-	finished, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, a.Subject.Intent.IntentID, a.Subject.Intent.RevisionID), time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, settleIntentOutput(t, a.Subject.Intent.IntentID, a.Subject.Intent.RevisionID), time.Now())
 	if !ok || finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport {
 		t.Fatalf("unstaged answer settled: %+v %v", finished, ok)
 	}
@@ -327,7 +327,7 @@ func settlePlanAnswerWithOperation(t *testing.T, ctx context.Context, db *store.
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	return AccountSettledRun(ctx, db, run, answer, time.Now())
+	return accountRunFinish(t, ctx, db, run, answer, time.Now())
 }
 
 // TestSettledDecomposeRetainsMultipleCandidates proves the serving
@@ -339,7 +339,7 @@ func TestSettledDecomposeRetainsMultipleCandidates(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	head := semanticTwoScopeHead(fx.repo)
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "two views ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
@@ -367,33 +367,6 @@ func TestSettledDecomposeRetainsMultipleCandidates(t *testing.T) {
 	}
 }
 
-// TestSettledDecomposeRetainsAttentionWithoutCandidates proves a blocked
-// plan settles as needs-human with its typed attention preserved and no
-// candidates: attention never auto-replans or mints another allowance.
-func TestSettledDecomposeRetainsAttentionWithoutCandidates(t *testing.T) {
-	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
-	fx := dispatchSeed(t, db)
-	head := semanticTwoScopeHead(fx.repo)
-	answer := fencedResult(t, factory.PhaseResult{
-		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "blocked",
-		Summary: "waiting on product decision",
-		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
-			Intent: head.Intent, Revision: head.ID, Operation: factory.IntentPlanningPropose,
-			Attention: "Decide whether managers review in the same queue before issues can split.",
-		}},
-	})
-	finished, ok := settlePlanAnswer(t, ctx, db, fx, head, answer)
-	if !ok || finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport {
-		t.Fatalf("attention answer unsettled: %+v %v", finished, ok)
-	}
-	decomposition := finished.Result.PhaseResult.Output.Decomposition
-	if decomposition == nil || len(decomposition.Candidates) != 0 ||
-		decomposition.Attention != "Decide whether managers review in the same queue before issues can split." {
-		t.Fatalf("attention not preserved: %+v", finished.Result)
-	}
-}
-
 // TestSettledDecomposeRefusesOmittedAuthorizedOutcome adopts the
 // independent review-027 probe at the serving boundary: an answer whose
 // tasks omit an authorized effective outcome refuses even though every
@@ -403,7 +376,7 @@ func TestSettledDecomposeRefusesOmittedAuthorizedOutcome(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	head := semanticTwoScopeHead(fx.repo)
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "partial choice ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
@@ -434,7 +407,7 @@ func TestSettledDecomposeRefusesWrongOperation(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	head := semanticTwoScopeHead(fx.repo)
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "options choice ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
@@ -476,7 +449,7 @@ func TestRecoveryRefusesMissingStagedInput(t *testing.T) {
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := finishFromRun(ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
+	if err := finishRunWithErr(t, ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := db.Assignment(ctx, a.ID)
@@ -515,7 +488,7 @@ func TestRecoverySettlesStagedIntentAnswer(t *testing.T) {
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := finishFromRun(ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
+	if err := finishRunWithErr(t, ctx, db, a, run, settleIntentOutput(t, intentID, revisionID), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := db.Assignment(ctx, a.ID)

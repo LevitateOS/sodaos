@@ -95,31 +95,26 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 			t.Fatalf("foreign retired run claimed terminal: %v/%v", handled, err)
 		}
 		if index != 1 {
-			if err := finishFromRun(ctx, db, a, retired, "", time.Now()); err != nil {
+			if err := finishFromRun(ctx, db, a, retired, time.Now()); err != nil {
 				t.Fatal(err)
 			}
-		} else if _, accounted := AccountSettledRun(ctx, db, retired, "", time.Now()); !accounted {
+		} else if _, accounted := AccountSettledRun(ctx, db, retired, time.Now()); !accounted {
 			t.Fatal("retired MCP run was not accounted through its terminal")
 		}
 		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || settled {
-			mapped, note, handled, mapErr := mapMCPTerminalFinish(a, submission, time.Now())
+			mapped, note, mapErr := mapMCPTerminalFinish(a, submission, time.Now())
 			receipt, found, receiptErr := db.TerminalMCPProposal(ctx, a.ID)
-			t.Fatalf("correction case=%d settlement=%v err=%v map=%v/%v/%s outcome=%s result=%+v receipt=%+v/%v/%v", index, settled, err, handled, mapErr, note, mapped.Outcome, mapped.Result, receipt, found, receiptErr)
+			t.Fatalf("correction case=%d settlement=%v err=%v map=%v/%s outcome=%s result=%+v receipt=%+v/%v/%v", index, settled, err, mapErr, note, mapped.Outcome, mapped.Result, receipt, found, receiptErr)
 		}
 		finished, err := db.Assignment(ctx, a.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if index == 2 {
-			receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
-			if err != nil || finished.Stage != factory.AssignmentAssigned || receipt.State != factory.MCPReceiptRecorded {
-				t.Fatal("parked strict carrier was replaced by native no-report finish")
-			}
-			continue
-		}
-		if malformed {
+		// A recorded finish the settler cannot map (a foreign finding
+		// key, or no dispositions at all) fences instead of parking.
+		if malformed || index == 2 {
 			if finished.Outcome != factory.NeedsHuman {
-				t.Fatal("foreign finding key did not fence")
+				t.Fatal("unmappable correction finish did not fence")
 			}
 		} else if finished.Outcome != factory.Succeeded || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Correction == nil || finished.Result.Candidate != candidate || len(finished.Result.PhaseResult.Output.Correction.Evidence) != 1 || finished.Result.PhaseResult.Output.Correction.Findings[0].Defect != finding.Defect {
 			t.Fatalf("typed correction report lost: %+v", finished)
@@ -128,7 +123,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		if err != nil || receipt.State != factory.MCPReceiptAccepted {
 			t.Fatalf("correction receipt: %+v err=%v", receipt, err)
 		}
-		if err := finishFromRun(ctx, db, a, retired, "", time.Now()); err != nil {
+		if err := finishFromRun(ctx, db, a, retired, time.Now()); err != nil {
 			t.Fatalf("retired finish replay: %v", err)
 		}
 		replayed, err := db.Assignment(ctx, a.ID)
@@ -364,7 +359,7 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 		}
 		run := phaseTestRun(a, factory.Succeeded)
 		run.Reconciled = true
-		if err := finishFromRun(ctx, db, a, run, "", time.Now()); err != nil {
+		if err := finishFromRun(ctx, db, a, run, time.Now()); err != nil {
 			t.Fatal(err)
 		}
 		finished, err := db.Assignment(ctx, a.ID)

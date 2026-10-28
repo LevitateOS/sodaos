@@ -83,7 +83,7 @@ func reviewVerdictOutput(cycleID string, findings ...factory.Finding) string {
 	if err != nil {
 		panic(err)
 	}
-	return "review recorded\n```" + factory.ResultFence + "\n" + string(raw) + "\n```\n"
+	return string(raw)
 }
 
 // reviewerCycleID returns the review cycle that admitted the given reviewer
@@ -236,7 +236,7 @@ func correctionOutput(candidate string) string {
 	if err != nil {
 		panic(err)
 	}
-	return "correction recorded\n```" + factory.ResultFence + "\n" + string(raw) + "\n```\n"
+	return string(raw)
 }
 
 // phaseTestRun builds a run record bound to the given assignment.

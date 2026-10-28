@@ -390,7 +390,7 @@ func TestDispatchNeverFallsBackToAnotherConnection(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := AccountSettledRun(ctx, db, run, "", time.Now()); !ok {
+	if _, ok := AccountSettledRun(ctx, db, run, time.Now()); !ok {
 		t.Fatal("settled run unaccounted")
 	}
 	head2 := fx.accept(t, 5, "d555555555555555555555555")

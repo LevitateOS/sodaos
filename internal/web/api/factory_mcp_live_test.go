@@ -369,7 +369,7 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 			write(`UPDATE factory_dispatch SET open=false WHERE repository=7`)
 			refused(scenario.allowed, args)
 			write(`UPDATE factory_dispatch SET open=true WHERE repository=7`)
-			terminal, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.finish_incomplete", Arguments: map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"outcome": "blocked", "cause": "awaiting_input", "evidence_refs": []string{}, "affected_task_ids": []string{"proof"}, "requested_resolution": "Retain the actual task and request its missing input."}}})
+			terminal, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.finish_incomplete", Arguments: map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"outcome": "blocked", "cause": "awaiting_input", "evidence_refs": []string{}}}})
 			if catalogRefused(terminal, err) {
 				t.Fatal("could not record actual terminal proposal", terminal, err)
 			}

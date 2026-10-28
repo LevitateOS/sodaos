@@ -45,7 +45,7 @@ func TestDispatchAccountingNeverRefreshes(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := AccountSettledRun(ctx, db, run, "", time.Now()); !ok {
+	if _, ok := AccountSettledRun(ctx, db, run, time.Now()); !ok {
 		t.Fatal("settled run unaccounted")
 	}
 	if total, _ := db.UsageTotal(ctx, fx.repo, "conn"); total != 1 {
@@ -404,13 +404,13 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			if err := fixtureDB.QueryRowContext(ctx, `SELECT data->>'settled_at' FROM factory_runs WHERE id=$1`, settledRun.ID).Scan(&replayedSettlement); err != nil || replayedSettlement != originalSettlement {
 				t.Fatal("run replay replaced the original settlement clock", err)
 			}
-			AccountSettledRun(ctx, db, settledRun, "", time.Now().Add(time.Hour))
+			AccountSettledRun(ctx, db, settledRun, time.Now().Add(time.Hour))
 			replayed, err := db.RunUsage(ctx, settledRun.ID)
 			if err != nil || !reflect.DeepEqual(usage, replayed) {
 				t.Fatal("accounting replay changed actual usage", err)
 			}
 		}
-		finished, ok := AccountSettledRun(ctx, db, settledRun, "", time.Now())
+		finished, ok := AccountSettledRun(ctx, db, settledRun, time.Now())
 		if i < 2 {
 			finished, err = db.Assignment(ctx, currentCommand)
 			if err != nil || ok {
@@ -508,7 +508,7 @@ func TestExplicitRetryRejectsPartialAccounting(t *testing.T) {
 	if _, err = db.FactoryCommand(ctx, commandID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("unsettled retry left a durable command: %v", err)
 	}
-	if err = finishFromRun(ctx, db, assignment, prior, "", time.Now()); err != nil {
+	if err = finishFromRun(ctx, db, assignment, prior, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	reservation, err := db.Reservation(ctx, assignment.ID)
@@ -674,11 +674,11 @@ func TestAccountSettledRunResults(t *testing.T) {
 		// strict v2 phase result reports, and completed planning never
 		// names a publishable candidate.
 		plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
-		output := fencedResult(t, factory.PhaseResult{
+		output := phaseFinish(t, factory.PhaseResult{
 			Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
 			Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 		})
-		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		finished, ok := accountRunFinish(t, ctx, db, run, output, time.Now())
 		if !ok || finished.Outcome != factory.Succeeded || finished.Reason != factory.AssignReasonReported {
 			t.Fatalf("accounted = %+v %v", finished, ok)
 		}
@@ -691,22 +691,23 @@ func TestAccountSettledRunResults(t *testing.T) {
 		if total, _ := db.UsageTotal(ctx, 7, "conn"); total < 1 {
 			t.Fatalf("usage = %d", total)
 		}
-		if again, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || again.Stage != "" {
+		if again, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); ok || again.Stage != "" {
 			t.Fatalf("second accounting = %+v %v", again, ok)
 		}
 	})
-	t.Run("completed without report needs human", func(t *testing.T) {
+	t.Run("completed without a finish call settles incomplete", func(t *testing.T) {
 		db, _, run := setup(t)
 		run = settle(t, db, run, factory.Succeeded)
-		finished, ok := AccountSettledRun(ctx, db, run, "chatty output, no fence", time.Now())
-		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result.Status != "blocked" {
+		finished, ok := AccountSettledRun(ctx, db, run, time.Now())
+		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result.Status != "blocked" ||
+			!strings.Contains(finished.Result.Summary, string(factory.MCPToolFinishIssuePlan)) {
 			t.Fatalf("accounted = %+v %v", finished, ok)
 		}
 	})
 	t.Run("failed run", func(t *testing.T) {
 		db, _, run := setup(t)
 		run = settle(t, db, run, factory.Failed)
-		finished, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+		finished, ok := AccountSettledRun(ctx, db, run, time.Now())
 		if !ok || finished.Outcome != factory.Failed || finished.Result.Status != "failed" {
 			t.Fatalf("accounted = %+v %v", finished, ok)
 		}
@@ -714,7 +715,7 @@ func TestAccountSettledRunResults(t *testing.T) {
 	t.Run("cancelled run", func(t *testing.T) {
 		db, _, run := setup(t)
 		run = settle(t, db, run, factory.Cancelled)
-		finished, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+		finished, ok := AccountSettledRun(ctx, db, run, time.Now())
 		if !ok || finished.Outcome != factory.Cancelled || finished.Result.Status != "cancelled" {
 			t.Fatalf("accounted = %+v %v", finished, ok)
 		}
@@ -727,7 +728,7 @@ func TestAccountSettledRunResults(t *testing.T) {
 			Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
 			Outcome: factory.Succeeded, Summary: "ok", Reconciled: true,
 		}
-		if _, ok := AccountSettledRun(ctx, db, human, "", time.Now()); ok {
+		if _, ok := AccountSettledRun(ctx, db, human, time.Now()); ok {
 			t.Fatal("unassigned run accounted")
 		}
 	})
@@ -736,7 +737,7 @@ func TestAccountSettledRunResults(t *testing.T) {
 		run = settle(t, db, run, factory.Succeeded)
 		// The phased reviewer reports a strict v2 explicit clear: no
 		// candidate, no legacy review report, head bound to its source.
-		output := fencedResult(t, factory.PhaseResult{
+		output := phaseFinish(t, factory.PhaseResult{
 			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
 			Summary: "No blocking findings.",
 			Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{
@@ -745,7 +746,7 @@ func TestAccountSettledRunResults(t *testing.T) {
 				CoverageDigest: strings.Repeat("c", 64),
 			}},
 		})
-		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		finished, ok := accountRunFinish(t, ctx, db, run, output, time.Now())
 		if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Clear == nil {
 			t.Fatalf("reviewer result = %+v, %v", finished, ok)
 		}
@@ -761,7 +762,7 @@ func TestAccountSettledRunResults(t *testing.T) {
 		if replay, err := db.Assignment(ctx, assignment.ID); err != nil || replay.Result == nil || !reflect.DeepEqual(replay.Result.PhaseResult, finished.Result.PhaseResult) {
 			t.Fatalf("persisted reviewer result = %+v, %v", replay.Result, err)
 		}
-		if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
+		if replayed, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
 			t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
 		}
 	})
@@ -771,14 +772,14 @@ func TestAccountSettledRunResults(t *testing.T) {
 		// A blocking verdict carries the typed findings report over the
 		// same strict v2 wire.
 		finding := correctionFinding()
-		output := fencedResult(t, factory.PhaseResult{
+		output := phaseFinish(t, factory.PhaseResult{
 			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
 			Summary: "Fix the edge case.",
 			Output: &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
 				CycleID: cycleID, NewFindings: []factory.Finding{finding},
 			}},
 		})
-		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		finished, ok := accountRunFinish(t, ctx, db, run, output, time.Now())
 		if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Review == nil {
 			t.Fatalf("reviewer result = %+v, %v", finished, ok)
 		}
@@ -789,32 +790,8 @@ func TestAccountSettledRunResults(t *testing.T) {
 		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
 			t.Fatalf("review reservation = %+v, %v", reservation, err)
 		}
-		if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
+		if replayed, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
 			t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
-		}
-	})
-	t.Run("malformed reviewer report needs human", func(t *testing.T) {
-		db, assignment, run, _ := setupReviewer(t)
-		run = settle(t, db, run, factory.Succeeded)
-		// The legacy review-json wire no longer parses: an unparseable
-		// strict v2 report holds for a human with no report recorded.
-		output := "```review-json\n{\"verdict\":\"maybe\",\"summary\":\"unclear\",\"body\":\"\",\"findings\":[]}\n```"
-		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
-		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || (finished.Result.PhaseResult != nil && finished.Result.PhaseResult.Output != nil) {
-			t.Fatalf("malformed reviewer result = %+v %v", finished, ok)
-		}
-		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
-			t.Fatalf("malformed review reservation = %+v, %v", reservation, err)
-		}
-	})
-	t.Run("review fence is not a coder report", func(t *testing.T) {
-		db, _, run := setup(t)
-		run = settle(t, db, run, factory.Succeeded)
-		output := "```review-json\n" +
-			`{"verdict":"approve","summary":"approved","body":"","findings":[]}` + "\n```"
-		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
-		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || finished.Result.Review != nil {
-			t.Fatalf("coder accepted reviewer fence: %+v %v", finished, ok)
 		}
 	})
 }

@@ -515,7 +515,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					if err := db.SaveFactoryRun(ctx, run); err != nil {
 						t.Fatal(err)
 					}
-					finished, settled := AccountSettledRun(ctx, db, run, "", time.Now())
+					finished, settled := AccountSettledRun(ctx, db, run, time.Now())
 					if !settled || finished.Outcome != factory.Failed || finished.Result == nil || finished.Result.Reported || finished.Result.PhaseResult != nil && finished.Result.PhaseResult.Output != nil && finished.Result.PhaseResult.Output.Verification != nil {
 						t.Fatal("pre-CLI check failure invented a Test Pilot report", settled, finished.Outcome)
 					}

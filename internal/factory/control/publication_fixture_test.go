@@ -393,7 +393,7 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 func accountChildResult(t *testing.T, fx *publishFixture, run factory.Run, output string) factory.Assignment {
 	t.Helper()
 	ctx := context.Background()
-	a, accounted := AccountSettledRun(ctx, fx.db, run, output, time.Now())
+	a, accounted := accountRunFinish(t, ctx, fx.db, run, output, time.Now())
 	if !accounted || a.Result == nil || !a.Result.Reported {
 		t.Fatalf("settled child result was not accounted: assignment=%+v accounted=%t", a, accounted)
 	}

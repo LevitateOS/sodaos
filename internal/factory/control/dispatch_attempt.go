@@ -645,10 +645,6 @@ func advanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occupancy 
 // is always last, so phased rendering replaces from this marker.
 const phasedReportMarker = "\n## Report\n\n"
 
-// promptFenceGuard keeps recorded plan text from forging the harness
-// report block, mirroring the template's own collision guard.
-var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+factory.ResultFence, "```"+factory.ReviewReportFence, "``` "+factory.ReviewReportFence)
-
 // renderPhasedDispatchPrompt replaces the trailing report section
 // with the strict v2 phase contract and, for an advanced implementation,
 // stages the recorded investigation plan the run must execute. Prompts
@@ -688,8 +684,7 @@ func renderPhasedDispatchPrompt(prompt []byte, phase string, plan *factory.Inves
 
 // renderRecordedPlan stages one validated executable investigation plan
 // for its implementation run: identity and digest bindings, the approach,
-// and the ordered task/check graph. Agent-visible text carries the fence
-// guard so recorded content can never forge a report block.
+// and the ordered task/check graph.
 func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 	if err := plan.Validate(); err != nil {
 		return nil, err
@@ -700,12 +695,12 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 	var b strings.Builder
 	b.WriteString("\n## Implementation approach\n\n")
 	b.WriteString("Recorded plan " + plan.ID + " generation " + strconv.Itoa(plan.Generation) + " digest " + plan.Digest + ". Execute exactly this plan.\n")
-	b.WriteString(promptFenceGuard.Replace(plan.Approach) + "\n")
+	b.WriteString(plan.Approach + "\n")
 	for _, task := range plan.Tasks {
-		b.WriteString("- " + task.ID + " [" + task.Lane + "]: " + promptFenceGuard.Replace(task.Objective) + "\n")
+		b.WriteString("- " + task.ID + " [" + task.Lane + "]: " + task.Objective + "\n")
 		b.WriteString("  accept: " + strings.Join(task.AcceptanceRefs, ", ") + "; needs: " + strings.Join(task.DependsOn, ", ") + "; checks: " + strings.Join(task.CheckIDs, ", ") + "\n")
 		if len(task.Outputs) != 0 {
-			b.WriteString("  outputs: " + promptFenceGuard.Replace(strings.Join(task.Outputs, "; ")) + "\n")
+			b.WriteString("  outputs: " + strings.Join(task.Outputs, "; ") + "\n")
 		}
 		if paths := append(append([]string(nil), task.OwnedPaths...), task.InterfaceWrite...); len(paths) != 0 {
 			b.WriteString("  writes: " + strings.Join(paths, ", ") + "\n")
@@ -717,30 +712,22 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// phasedReportContract renders the strict v2 result contract for one
-// admitted dispatcher phase. Completed planning carries its plan and never
-// a publishable candidate; completed implementation names its exact
-// candidate commit. Planning finishes without a commit or PR and can never
-// publish.
+// phasedReportContract renders the finish instruction for one admitted
+// dispatcher phase. The MCP finish tool is the only result channel.
+// Planning finishes without a commit or PR and can never publish.
 func phasedReportContract(phase string) string {
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)
 	b.WriteString(factory.LibraryReadGuidance)
-	b.WriteString("Close your work with exactly one fenced block:\n\n")
-	b.WriteString("```" + factory.ResultFence + "\n")
-	if phase == project.ExecutionInvestigate {
-		b.WriteString(`{"version":2,"phase":"investigate","status":"completed|blocked|failed|cancelled","summary":"...","output":{"plan":{...}}}` + "\n")
-		b.WriteString("```\n\n")
-		b.WriteString("Report \"completed\" only with the executable investigation plan in \"output.plan\". Investigation creates no candidate: do not create commits, open a PR or publish; echo the existing source commit in the plan bindings. " + factory.InvestigationPlanGuidance + " \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
-	} else if phase == project.ExecutionDecompose {
-		b.WriteString(`{"version":2,"phase":"decompose","status":"completed|blocked|failed|cancelled","summary":"...","output":{"decomposition":{"intent":"<decision-id>","revision":"<decision-id>","operation":"<this run's operation>","candidates":[{"key":"<candidate key>","rationale":"...","tasks":[{"key":"<task decision-id>","objective":"<task objective>","outcomes":["<observable outcome>"],"idea_ids":["<authorized idea IDs this task serves>"],"depends_on":[]}]}],"walkthroughs":{"producer":"soda-planning-agent-v1","supported":true,"intent":"...","revision":"...","objective":"...","facts":["..."],"unknowns":["..."],"alternatives":[...]}}}}` + "\n")
-		b.WriteString("```\n\n")
-		b.WriteString("Report \"completed\" only with one to three candidate task graphs in \"output.decomposition\" answering this run's exact intent, revision and operation; every candidate covers the authorized outcomes the admitted input records. A walkthrough required for the plan sits inside \"output.decomposition\" beside \"candidates\"; \"output\" carries nothing but \"decomposition\". Each candidate's tasks together cite every authorized idea ID in idea_ids, accepted and edited assumptions included: cite a constraint in the tasks it constrains. When factory.finish_product_plan is offered, submit the plan through it before closing: it runs the checks settlement runs and names any defect, such as an uncovered idea ID. Correct exactly that and resubmit until it is accepted; the accepted finish owns the result. Each task uses key, objective, outcomes, idea_ids and optional depends_on exactly as shown. Task keys must be unique decision IDs matching d followed by exactly 24 lowercase hexadecimal digits, never readable slugs. depends_on references those task decision IDs within the same candidate. Bind idea_ids to the effective admitted idea IDs and write observable outcomes within their scope. Do not substitute title or description fields. Planning carries no candidate: never name a commit, open a PR or publish. \"blocked\" carries attention with no candidates when the input cannot plan; agent failure without findings is \"failed\". ")
-	} else {
-		b.WriteString(`{"version":2,"phase":"implement","status":"completed|blocked|failed|cancelled","summary":"...","output":{"implementation":{"candidate":"<40-hex commit or empty>"}}}` + "\n")
-		b.WriteString("```\n\n")
-		b.WriteString("Report \"completed\" only with the exact candidate commit the executed plan produced and no diagnostic references. Non-completed runs name no candidate. ")
+	switch phase {
+	case project.ExecutionInvestigate:
+		b.WriteString("Finish through factory.finish_issue_plan with approach and the complete executable investigation plan in tasks. Investigation creates no candidate: do not create commits, open a PR or publish. " + factory.InvestigationPlanGuidance + " ")
+	case project.ExecutionDecompose:
+		b.WriteString("Finish through factory.finish_product_plan with one to three candidate task graphs in candidates, answering this run's exact intent, revision and operation; every candidate covers the authorized outcomes the admitted input records. Each candidate's tasks together cite every authorized idea ID in idea_ids, accepted and edited assumptions included: cite a constraint in the tasks it constrains. Each candidate has key, rationale and tasks; each task uses key, objective, outcomes, idea_ids and optional depends_on. Task keys must be unique decision IDs matching d followed by exactly 24 lowercase hexadecimal digits, never readable slugs. depends_on references those task decision IDs within the same candidate. Bind idea_ids to the effective admitted idea IDs and write observable outcomes within their scope. Do not substitute title or description fields. The finish runs the checks settlement runs and names any defect, such as an uncovered idea ID: correct exactly that and finish again. Planning carries no candidate: never name a commit, open a PR or publish. ")
+	default:
+		b.WriteString("Finish through factory.finish_implementation once every task checkpoint and the final integration checkpoint are committed, with the exact candidate commit the executed plan produced. ")
 	}
-	b.WriteString("Any other shape, unknown field or trailing JSON is refused. Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
+	b.WriteString(factory.PromptFinishReminder)
+	b.WriteString("Never print credentials, tokens or secret files.\n")
 	return b.String()
 }

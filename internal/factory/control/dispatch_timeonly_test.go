@@ -767,8 +767,8 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionReassess, Status: "completed", Summary: proposal.Summary, Output: &factory.PhaseOutput{Reassessment: &proposal}})
-	if assignment, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || assignment.Outcome != factory.Succeeded {
+	output := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionReassess, Status: "completed", Summary: proposal.Summary, Output: &factory.PhaseOutput{Reassessment: &proposal}})
+	if assignment, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); !ok || assignment.Outcome != factory.Succeeded {
 		t.Fatalf("typed reassessment result did not settle: %+v %v", assignment, ok)
 	}
 	coord.DriveCompletions(ctx, deps)             // settled coder -> proposal assessment
@@ -959,8 +959,8 @@ func TestReassessmentSerialAdoptionPG(t *testing.T) {
 			if err := db.SaveFactoryRun(ctx, run); err != nil {
 				t.Fatal(err)
 			}
-			output := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionReassess, Status: "completed", Summary: proposal.Summary, Output: &factory.PhaseOutput{Reassessment: &proposal}})
-			if assignment, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok || assignment.Outcome != factory.Succeeded {
+			output := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionReassess, Status: "completed", Summary: proposal.Summary, Output: &factory.PhaseOutput{Reassessment: &proposal}})
+			if assignment, ok := accountRunFinish(t, ctx, db, run, output, time.Now()); !ok || assignment.Outcome != factory.Succeeded {
 				t.Fatalf("typed proposal did not settle: outcome=%s reason=%s recorded=%v", assignment.Outcome, assignment.Reason, ok)
 			}
 			var last CompletionDriveReport
@@ -1143,7 +1143,7 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	finished, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now())
 	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
 		t.Fatalf("bound answer unsettled: %+v %v", finished, ok)
 	}
@@ -1151,7 +1151,7 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 	if decomposition == nil || decomposition.Intent != head.Intent || decomposition.Revision != head.ID {
 		t.Fatalf("typed result not bound to its inputs: %+v", finished.Result)
 	}
-	if again, ok := AccountSettledRun(ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now()); ok || again.Stage != "" {
+	if again, ok := accountRunFinish(t, ctx, db, run, settleIntentOutput(t, head.Intent, head.ID), time.Now()); ok || again.Stage != "" {
 		t.Fatalf("second accounting = %+v %v", again, ok)
 	}
 	t.Run("incomplete planning terminal precedes native retirement", func(t *testing.T) {
@@ -1360,7 +1360,7 @@ func TestSettledDecomposeRefusesUnrecordedIdeaBinding(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	stranger := fencedResult(t, factory.PhaseResult{
+	stranger := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "single choice ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
@@ -1374,7 +1374,7 @@ func TestSettledDecomposeRefusesUnrecordedIdeaBinding(t *testing.T) {
 			}},
 		}},
 	})
-	finished, ok := AccountSettledRun(ctx, db, run, stranger, time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, stranger, time.Now())
 	if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported {
 		t.Fatalf("unbound answer settled: %+v %v", finished, ok)
 	}

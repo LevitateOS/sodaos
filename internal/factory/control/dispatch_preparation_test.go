@@ -41,11 +41,11 @@ func consumedCoderRetry(t *testing.T) (dispatchFixture, *Coordinator, string, fa
 		t.Fatal(err)
 	}
 	plan := phaseTestPlan(t, prior.AttemptRoot, prior.SourceCommit, prior.Preparation)
-	output := fencedResult(t, factory.PhaseResult{
+	output := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
 		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
 	})
-	finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+	finished, ok := accountRunFinish(t, ctx, db, run, output, time.Now())
 	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
 		t.Fatalf("first coder was not accounted reported: %+v %v", finished, ok)
 	}

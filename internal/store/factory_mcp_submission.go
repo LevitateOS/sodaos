@@ -69,10 +69,6 @@ var (
 	// ErrMCPSubmissionFrozen reports a new submission identity after
 	// the assignment recorded a terminal proposal.
 	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read the result with factory.receipt and the first submission_id")
-	// ErrMCPSubmissionHandoffCap reports a handoff past the 256-edge
-	// bound: terminal receipt capacity stays reserved regardless of
-	// task traffic.
-	ErrMCPSubmissionHandoffCap = errors.New("assignment handoff bound reached (256 task handoffs): finish the assignment with its finish tool")
 	// ErrMCPSubmissionCapabilityInactive reports a submission whose
 	// bound capability is not active for its assignment at insert
 	// time: unknown, staged, revoked or retired capabilities, an
@@ -138,9 +134,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	}
 	if terminal, done, err := freezeTerminalMCPSubmissionTx(ctx, tx, submission); done || err != nil {
 		return terminal, err
-	}
-	if err = checkMCPHandoffCapTx(ctx, tx, submission); err != nil {
-		return factory.MCPReceipt{}, err
 	}
 	// A finished assignment admits no new submission identities: the
 	// attempt is over and a late answer needs fresh authorized
@@ -328,24 +321,6 @@ func freezeTerminalMCPSubmissionTx(ctx context.Context, tx *sql.Tx, submission f
 	return factory.MCPReceipt{}, true, ErrMCPSubmissionFrozen
 }
 
-// checkMCPHandoffCapTx binds the handoff cap at insert under the
-// same guard, so a burst of concurrent handoffs cannot overshoot 256
-// before any of them commits.
-func checkMCPHandoffCapTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) error {
-	if submission.Tool != factory.MCPToolRequestHandoff {
-		return nil
-	}
-	var handoffs int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`,
-		submission.AssignmentID, string(factory.MCPToolRequestHandoff)).Scan(&handoffs); err != nil {
-		return err
-	}
-	if handoffs >= factory.MCPMaxHandoffs {
-		return ErrMCPSubmissionHandoffCap
-	}
-	return nil
-}
-
 // MCPReceipt recovers the durable receipt for one submission: the
 // lost-response path. Unknown IDs report not-found without
 // disclosing other assignments.
@@ -445,21 +420,10 @@ func (s *Store) TerminalMCPSubmission(ctx context.Context, assignmentID string) 
 	}
 	out := factory.MCPSubmission{
 		AssignmentID: assignmentID, SubmissionID: submission, CapabilityID: capabilityID,
-		Tool: factory.MCPTool(tool),
+		Tool:        factory.MCPTool(tool),
 		PayloadHash: payloadHash, Payload: payload,
 	}
 	return out, true, rows.Close()
-}
-
-// MCPHandoffCount counts recorded handoff submissions for one
-// assignment so admission reserves terminal capacity.
-func (s *Store) MCPHandoffCount(ctx context.Context, assignmentID string) (int, error) {
-	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`,
-		assignmentID, string(factory.MCPToolRequestHandoff)).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
 }
 
 // MCPSubmissionCount counts recorded submissions for one assignment

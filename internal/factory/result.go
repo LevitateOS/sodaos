@@ -3,8 +3,6 @@ package factory
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -522,42 +520,6 @@ func (r PhaseResult) bindVerificationResult(a Assignment) error {
 	return nil
 }
 
-// ParsePhaseResult extracts the last fenced result block from harness output
-// and validates it as a strict v2 phase result. Unknown fields and trailing
-// JSON refuse; anything unparseable reports false instead of guessing.
-func ParsePhaseResult(output string) (PhaseResult, bool) {
-	start := strings.LastIndex(output, "```"+ResultFence)
-	if start < 0 {
-		return PhaseResult{}, false
-	}
-	rest := output[start+len("```"+ResultFence):]
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			return PhaseResult{}, false
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		if body == "" || len(body) > MaxPhaseResultBytes {
-			continue
-		}
-		var result PhaseResult
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&result); err != nil {
-			continue
-		}
-		if decoder.More() {
-			continue
-		}
-		if result.Validate() != nil {
-			continue
-		}
-		return result, true
-	}
-	return PhaseResult{}, false
-}
-
 // Result is the process contract. A completed harness reports an outcome; the
 // platform still verifies its candidate, independent review and CI evidence.
 type Result struct {
@@ -567,8 +529,6 @@ type Result struct {
 	ReviewPassed bool     `json:"review_passed"`
 	Findings     []string `json:"findings"`
 }
-
-const ResultSchema = `{"type":"object","additionalProperties":false,"properties":{"status":{"type":"string","enum":["completed","blocked","failed","cancelled"]},"summary":{"type":"string"},"candidate":{"type":"string","pattern":"^([a-f0-9]{40})?$"},"review_passed":{"type":"boolean"},"findings":{"type":"array","items":{"type":"string"}}},"required":["status","summary","candidate","review_passed","findings"]}`
 
 // CompletedCandidate returns the exact candidate a finished harness run
 // reported. Any unfinished process (blocked, failed, cancelled) refuses:
@@ -602,56 +562,4 @@ func (r Result) Validate() error {
 		}
 	}
 	return nil
-}
-
-// PhaseResultProblem names why ParsePhaseResult found no result, so a
-// run that ends without one says what it was missing instead of only
-// that nothing parsed. It reports the last candidate block's problem.
-func PhaseResultProblem(output string) string {
-	start := strings.LastIndex(output, "```"+ResultFence)
-	if start < 0 {
-		return "the run recorded no finish call and its output has no ```" + ResultFence + " block"
-	}
-	rest := output[start+len("```"+ResultFence):]
-	problem := "the ```" + ResultFence + " block is never closed"
-	for offset := 0; offset < len(rest); {
-		rel := strings.Index(rest[offset:], "```")
-		if rel < 0 {
-			break
-		}
-		body := strings.TrimSpace(rest[:offset+rel])
-		offset += rel + len("```")
-		switch {
-		case body == "":
-			problem = "the ```" + ResultFence + " block is empty"
-			continue
-		case len(body) > MaxPhaseResultBytes:
-			problem = fmt.Sprintf("the ```%s block exceeds %d bytes", ResultFence, MaxPhaseResultBytes)
-			continue
-		}
-		var result PhaseResult
-		decoder := json.NewDecoder(strings.NewReader(body))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&result); err != nil {
-			problem = "the ```" + ResultFence + " block is not a phase result: " + clipProblem(err.Error())
-			continue
-		}
-		if decoder.More() {
-			problem = "the ```" + ResultFence + " block holds more than one JSON value"
-			continue
-		}
-		if err := result.Validate(); err != nil {
-			problem = "the ```" + ResultFence + " phase result is invalid: " + clipProblem(err.Error())
-			continue
-		}
-		return ""
-	}
-	return problem
-}
-
-func clipProblem(text string) string {
-	if len(text) > 200 {
-		return text[:200] + "…"
-	}
-	return text
 }

@@ -31,6 +31,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -82,6 +83,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 		assignments: map[string]factory.Assignment{
 			capability.AssignmentID: {
 				ID: capability.AssignmentID, Phase: string(factory.MCPPhaseOf(capability.Profile)),
+				Stage: factory.AssignmentAssigned, Role: project.RoleCoder, Run: strings.Repeat("a", 32),
 				SourceCommit: strings.Repeat("c", 40), Preparation: "prep-1",
 				PromptSHA: strings.Repeat("d", 64),
 			},
@@ -223,18 +225,6 @@ func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID st
 		}
 	}
 	return factory.MCPReceipt{}, false, nil
-}
-
-func (f *fakeCatalogSink) MCPHandoffCount(_ context.Context, assignmentID string) (int, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	count := 0
-	for key, current := range f.submissions {
-		if strings.HasPrefix(key, assignmentID+"/") && current.tool == factory.MCPToolRequestHandoff {
-			count++
-		}
-	}
-	return count, nil
 }
 
 func (f *fakeCatalogSink) MCPSubmissionCount(_ context.Context, assignmentID string) (int, error) {
@@ -510,7 +500,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	}
 
 	// Immutable mutation: record, replay, conflict, recovery.
-	implPayload, _ := catalogPayload(map[string]any{"candidate": "cand-1"}, admittedDigest)
+	implPayload, _ := catalogPayload(map[string]any{"candidate": strings.Repeat("e", 40)}, admittedDigest)
 	finishID := strings.Repeat("2", 32)
 	finish := map[string]any{
 		"capability_id": capability, "submission_id": finishID,
@@ -1176,8 +1166,10 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	plain := map[string]any{
 		"candidates": []any{"g1"}, "evidence_refs": []any{"r1"}, "coverage": "all",
 	}
-	if _, _, err := server.serve(ctx, factory.MCPToolFinishProductPlan, argsFor(plain)); err != nil {
-		t.Fatalf("plan without proposal refused: %v", err)
+	// A loose plan that settlement could not map is refused before it can
+	// freeze the assignment.
+	if _, _, err := server.serve(ctx, factory.MCPToolFinishProductPlan, argsFor(plain)); err == nil || !strings.Contains(err.Error(), "nothing recorded") {
+		t.Fatalf("unmappable plan was not refused before recording: %v", err)
 	}
 	// The FJ-v3-553 optional-carrier rule: documented optional fields
 	// ride the same finish without changing the required outcome. The
@@ -1197,8 +1189,8 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	if _, _, err := optionalServer.serve(ctx, factory.MCPToolFinishProductPlan, mcpCallArgs{
 		CapabilityID: optionalSink.capability.ID, SubmissionID: factory.NewID(),
 		Payload: withOptional,
-	}); err != nil {
-		t.Fatalf("plan with documented optional carriers refused: %v", err)
+	}); err == nil || strings.Contains(err.Error(), "unknown payload field") {
+		t.Fatalf("documented optional carriers did not reach the settlement check: %v", err)
 	}
 	// The FJ-v3-526 worker inlined the admitted objective+facts as
 	// top-level finish arguments and was refused before settlement:

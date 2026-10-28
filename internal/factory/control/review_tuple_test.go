@@ -327,7 +327,7 @@ func tupleReviewSeed(t *testing.T, p factory.Publication, fx *publishFixture, ru
 	if err != nil {
 		t.Fatal(err)
 	}
-	output := fencedResult(t, factory.PhaseResult{
+	output := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
 		Summary: "solid",
 		Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{

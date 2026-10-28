@@ -222,7 +222,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	if !catalogRefused(result, err) {
 		t.Fatal("model could supply identity")
 	}
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"outcome": "blocked", "cause": "missing_required_context", "evidence_refs": []string{}, "affected_task_ids": []string{}, "requested_resolution": "Restore current context before new work."}}})
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"outcome": "blocked", "cause": "missing_required_context", "evidence_refs": []string{}}}})
 	if catalogRefused(result, err) {
 		t.Fatalf("default bound revision refused: %v %v", result, err)
 	}
@@ -927,7 +927,16 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	encodePlan()
 	catalog := &factoryCatalogServer{deps: FactoryMCPDeps{Submissions: st, Assignments: st}}
-	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err == nil || !strings.Contains(err.Error(), "expected_plan_digest=") || !strings.Contains(err.Error(), "no terminal proposal recorded") {
+	// The admission path: a retained identity replays, anything new runs
+	// the settler's own mapping before it can freeze the assignment.
+	validateFinish := func() error {
+		replay, err := control.AdmitMCPSubmission(ctx, st, architectCap, proposal)
+		if err != nil || replay {
+			return err
+		}
+		return catalog.checkNewFinish(ctx, architectCap, proposal, nil)
+	}
+	if err := validateFinish(); err == nil || !strings.Contains(err.Error(), "expected_plan_digest=") || !strings.Contains(err.Error(), "nothing recorded") {
 		t.Fatal("invalid plan did not return a correctable refusal", err)
 	}
 	if count, err := st.MCPSubmissionCount(ctx, architect.ID); err != nil || count != 0 {
@@ -939,7 +948,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	plan.ID, plan.IntegrationCommit = factory.NewID(), architect.SourceCommit
 	plan.Digest, _ = factory.PlanDigest(plan)
 	encodePlan()
-	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err != nil {
+	if err := validateFinish(); err != nil {
 		t.Fatal("corrected same submission identity was not recoverable", err)
 	}
 	if _, err := st.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
@@ -952,7 +961,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	originalPlanID := plan.ID
 	plan.ID = "invalid-after-recording"
 	encodePlan()
-	if err := catalog.validateIssuePlanSubmission(ctx, proposal); err != nil {
+	if err := validateFinish(); err != nil {
 		t.Fatal("new validation prevented immutable replay/conflict recovery", err)
 	}
 	conflictReceipt := factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}

@@ -290,7 +290,7 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	// Settlement records accounting and the result. Reassessing dependants is
 	// local bookkeeping only; automatic publication/review/correction happens
 	// at the existing Start and Dispatch advancement boundaries.
-	_, _ = AccountSettledRun(ctx, c.Store, run, state.Output, time.Now())
+	_, _ = AccountSettledRun(ctx, c.Store, run, time.Now())
 	// A recorded MCP terminal behind this run advances promptly now
 	// that run-output accounting finished its assignment; the progress
 	// drive remains the recovery path for replays and crashes.

@@ -51,7 +51,8 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 		t.Fatalf("readback: %v", err)
 	}
 	admit := func(submission factory.MCPSubmission) error {
-		return AdmitMCPSubmission(ctx, s, capability, submission)
+		_, err := AdmitMCPSubmission(ctx, s, capability, submission)
+		return err
 	}
 	persist := func(submission factory.MCPSubmission) factory.MCPReceipt {
 		t.Helper()
@@ -145,7 +146,7 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 		t.Fatalf("live readback: %v", err)
 	}
 	paused := testMCPSubmission(liveActive, factory.MCPToolSubmitTaskOutput, factory.NewID(), []byte(`{"task_id":"t10"}`))
-	if err := AdmitMCPSubmission(ctx, s, liveActive, paused); err != nil {
+	if _, err := AdmitMCPSubmission(ctx, s, liveActive, paused); err != nil {
 		t.Fatalf("pre-revoke admission refused: %v", err)
 	}
 	if err := s.RevokeMCPCapability(ctx, live.ID); err != nil {
@@ -205,11 +206,11 @@ func TestAdmitMCPSubmissionExpiryEndToEnd(t *testing.T) {
 		t.Fatalf("live capability admission refused: %v", err)
 	}
 	early := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), []byte(`{"task_id":"t-early"}`))
-	if err := AdmitMCPSubmission(ctx, s, capability, early); err != nil {
+	if _, err := AdmitMCPSubmission(ctx, s, capability, early); err != nil {
 		t.Fatalf("live submission admission refused: %v", err)
 	}
 	queued := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), []byte(`{"task_id":"t-queued"}`))
-	if err := AdmitMCPSubmission(ctx, s, capability, queued); err != nil {
+	if _, err := AdmitMCPSubmission(ctx, s, capability, queued); err != nil {
 		t.Fatalf("queued submission admission refused: %v", err)
 	}
 	// One receipt records before expiry so the post-expiry read

@@ -33,7 +33,7 @@ func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	assignment, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+	assignment, ok := AccountSettledRun(ctx, db, run, time.Now())
 	if !ok || assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Failed {
 		t.Fatalf("failed coder not reconciled: stage=%s outcome=%s recorded=%v", assignment.Stage, assignment.Outcome, ok)
 	}

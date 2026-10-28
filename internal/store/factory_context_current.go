@@ -292,8 +292,11 @@ func currentPlanTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, run fa
 	return nil
 }
 
+// maxCurrentSubmissions bounds the submissions one context read projects.
+const maxCurrentSubmissions = 257
+
 func currentSubmissionsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
-	rows, err := tx.QueryContext(ctx, `SELECT submission,tool,input_digest,payload_hash,state,reason,receipt FROM factory_mcp_submissions WHERE assignment=$1 ORDER BY submission LIMIT $2`, a.ID, factory.MCPMaxHandoffs+2)
+	rows, err := tx.QueryContext(ctx, `SELECT submission,tool,input_digest,payload_hash,state,reason,receipt FROM factory_mcp_submissions WHERE assignment=$1 ORDER BY submission LIMIT $2`, a.ID, maxCurrentSubmissions+1)
 	if err != nil {
 		return err
 	}
@@ -312,7 +315,7 @@ func currentSubmissionsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment,
 		}
 		projected.InputDigest = receipt.InputDigest
 		out.Role.Submissions = append(out.Role.Submissions, projected)
-		if len(out.Role.Submissions) > factory.MCPMaxHandoffs+1 {
+		if len(out.Role.Submissions) > maxCurrentSubmissions {
 			return errors.New("current submissions exceed assignment bound")
 		}
 	}

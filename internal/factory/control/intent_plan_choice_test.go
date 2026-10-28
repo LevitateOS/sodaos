@@ -77,7 +77,7 @@ func choicePlanCoordinator(t *testing.T, db *store.Store, fx dispatchFixture, st
 func choicePlanAnswer(t *testing.T, draft factory.IntentRevision, status string, keys ...string) string {
 	t.Helper()
 	out := choicePlannerOutput(draft, keys...)
-	return fencedResult(t, factory.PhaseResult{
+	return phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: status,
 		Summary: "recorded choice ready", Output: &factory.PhaseOutput{Decomposition: &out},
 	})
@@ -209,39 +209,6 @@ func TestResolveAcceptedPlanChoiceWithoutPredecessorRefuses(t *testing.T) {
 	}
 }
 
-// A recorded attention answer surfaces its product decision instead of
-// funding a choice past it.
-func TestResolveAcceptedPlanChoiceAttentionRefuses(t *testing.T) {
-	ctx := context.Background()
-	db, _ := dispatchTestDB(t)
-	fx := dispatchSeed(t, db)
-	draft := choicePlanDraft(fx.repo)
-	attention := "Decide whether managers review in the same queue before issues can split."
-	answer := fencedResult(t, factory.PhaseResult{
-		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "blocked",
-		Summary: "waiting on product decision",
-		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
-			Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Attention: attention,
-		}},
-	})
-	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
-		t.Fatal("attention answer did not settle")
-	}
-	accepted := choicePlanAccepted(t, fx.repo)
-	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
-		t.Fatal(err)
-	}
-	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
-	c := choicePlanCoordinator(t, db, fx, stub)
-	_, _, err := c.ResolveAcceptedPlanChoice(ctx, 7, accepted)
-	if !errors.Is(err, ErrPlanChoiceAttention) || !strings.Contains(err.Error(), attention) {
-		t.Fatalf("attention must surface its decision: %v", err)
-	}
-	if stub.calls != 0 {
-		t.Fatalf("attention funded %d comparative calls", stub.calls)
-	}
-}
-
 // A failed recorded run refuses with its recorded summary: failure is
 // retried at the plan, never papered over by a choice.
 func TestResolveAcceptedPlanChoiceFailedRefuses(t *testing.T) {
@@ -254,7 +221,7 @@ func TestResolveAcceptedPlanChoiceFailedRefuses(t *testing.T) {
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	finished, ok := AccountSettledRun(ctx, db, run, "", time.Now())
+	finished, ok := AccountSettledRun(ctx, db, run, time.Now())
 	if !ok || finished.Outcome != factory.Failed {
 		t.Fatalf("failed run not charged: %+v %v", finished, ok)
 	}
@@ -515,7 +482,7 @@ func TestGenerateFromResolvedPlanChoiceAdoptsExactly(t *testing.T) {
 		proposal.Checks = append(proposal.Checks, factory.ManifestCheckRef{Outcome: outcome, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}})
 	}
 	out.VerificationManifestProposal = proposal
-	answer := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "recorded graph and approved check proposal", Output: &factory.PhaseOutput{Decomposition: &out}})
+	answer := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "recorded graph and approved check proposal", Output: &factory.PhaseOutput{Decomposition: &out}})
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, db, fx, draft, factory.IntentPlanningOptions, answer); !ok {
 		t.Fatal("recorded plan did not settle")
 	}
@@ -724,7 +691,7 @@ func TestResolveAcceptedProposalAdoptsRecordedGraph(t *testing.T) {
 		t.Fatal("authored task-board scope must not acquire a canned workflow")
 	}
 	proposalWalkthroughs := choicePlanWalkthroughs(draft)
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "propose ready",
 		Output: &factory.PhaseOutput{Decomposition: &factory.SemanticPlannerOutput{
@@ -889,7 +856,7 @@ func TestResolveAcceptedPlanChoiceWithoutWalkthroughRefuses(t *testing.T) {
 	draft := choicePlanDraft(fx.repo)
 	bare := choicePlannerOutput(draft, "cand-a")
 	bare.Walkthroughs = nil
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "recorded choice ready", Output: &factory.PhaseOutput{Decomposition: &bare},
 	})
@@ -1058,7 +1025,7 @@ func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *tes
 	}
 	financeWalkthroughs := choicePlanWalkthroughs(draft)
 	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &financeWalkthroughs, Candidates: []factory.SemanticCandidate{{Key: "finance", Rationale: "Keep delivered tasks and add only the requested approval rule.", Tasks: tasks}}, VerificationManifestProposal: proposal}
-	answer := fencedResult(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "Finance change planned against the retained product", Output: &factory.PhaseOutput{Decomposition: &out}})
+	answer := phaseFinish(t, factory.PhaseResult{Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed", Summary: "Finance change planned against the retained product", Output: &factory.PhaseOutput{Decomposition: &out}})
 	if _, ok := settlePlanAnswerWithOperation(t, ctx, c.Store, fx, draft, factory.IntentPlanningOptions, answer); !ok {
 		t.Fatal("second recorded planner did not settle")
 	}
@@ -1196,7 +1163,7 @@ func TestResolveAcceptedPlanChoiceExactSubsetAdopts(t *testing.T) {
 			Outcomes: []string{"Requests can be recorded"}, IdeaIDs: []string{"d555555555555555555555555"},
 		}},
 	}}
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "exact subset ready", Output: &factory.PhaseOutput{Decomposition: &exact},
 	})
@@ -1347,7 +1314,7 @@ func persistedCompatAnswer(t *testing.T, draft factory.IntentRevision, walkthrou
 	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
 	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &walkthroughs}
 	out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: key, Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
-	return fencedResult(t, factory.PhaseResult{
+	return phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "recorded compat choice ready", Output: &factory.PhaseOutput{Decomposition: &out},
 	})
@@ -1624,7 +1591,7 @@ func TestResolveAcceptedPlanChoicePersistedMalformedSettleRefuses(t *testing.T) 
 	tasks := append([]factory.IntentTask(nil), broadJoinAcceptedRevision().Tasks...)
 	out := factory.SemanticPlannerOutput{Intent: draft.Intent, Revision: draft.ID, Operation: factory.IntentPlanningOptions, Walkthroughs: &unrelated}
 	out.Candidates = append(out.Candidates, factory.SemanticCandidate{Key: "cand-a", Rationale: "Cohesive feature issues with independent roots joined once.", Tasks: tasks})
-	answer := fencedResult(t, factory.PhaseResult{
+	answer := phaseFinish(t, factory.PhaseResult{
 		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
 		Summary: "malformed compat choice", Output: &factory.PhaseOutput{Decomposition: &out},
 	})
@@ -1639,7 +1606,7 @@ func TestResolveAcceptedPlanChoicePersistedMalformedSettleRefuses(t *testing.T) 
 		t.Fatalf("malformed settle reported a decomposition: %+v", finished.Result)
 	}
 	phased := finished.Result.PhaseResult
-	if phased == nil || phased.Status != "blocked" || phased.Summary != mismatchDetail {
+	if phased == nil || phased.Status != "blocked" || !strings.Contains(phased.Summary, mismatchDetail) {
 		t.Fatalf("malformed settle status=%+v, want blocked with the exact validator message", phased)
 	}
 	if phased.Output != nil && phased.Output.Decomposition != nil {

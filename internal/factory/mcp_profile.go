@@ -58,6 +58,29 @@ func MCPPhaseOf(profile MCPProfile) string {
 	}
 }
 
+// MCPFinishToolOf returns the typed finish tool that records a profile's
+// result. Every profile may also end with finish_incomplete.
+func MCPFinishToolOf(profile MCPProfile) MCPTool {
+	switch profile {
+	case MCPProfileProductLead:
+		return MCPToolFinishProductPlan
+	case MCPProfileArchitect:
+		return MCPToolFinishIssuePlan
+	case MCPProfileBuilder:
+		return MCPToolFinishImplement
+	case MCPProfileInspector:
+		return MCPToolFinishReview
+	case MCPProfileFixer:
+		return MCPToolFinishCorrection
+	case MCPProfileStrategist:
+		return MCPToolFinishReassessment
+	case MCPProfileTestPilot:
+		return MCPToolFinishAppVerify
+	default:
+		return MCPToolFinishIncomplete
+	}
+}
+
 // MCPTool is one tool in the shared role-filtered catalog.
 type MCPTool string
 
@@ -103,7 +126,6 @@ const (
 	MCPToolSubmitTaskOutput     MCPTool = "factory.submit_task_output"
 	MCPToolStartTask            MCPTool = "factory.start_task"
 	MCPToolReleaseOutput        MCPTool = "factory.release_output"
-	MCPToolRequestHandoff       MCPTool = "factory.request_handoff"
 )
 
 // MCPTools lists shared reads and communication before role work/results.
@@ -148,7 +170,6 @@ var MCPTools = []MCPTool{
 	MCPToolSubmitTaskOutput,
 	MCPToolStartTask,
 	MCPToolReleaseOutput,
-	MCPToolRequestHandoff,
 	MCPToolResolvePost,
 }
 
@@ -159,7 +180,6 @@ const (
 	MCPMaxResultPayloadBytes   = 64 * 1024
 	MCPMaxPageBytes            = 32 * 1024
 	MCPMaxPageRefs             = 50
-	MCPMaxHandoffs             = 256
 	MCPMaxConcurrentRequests   = 4
 	MCPMaxCallsPerMinute       = 60
 	MCPMaxInstructionBytes     = 16 * 1024
@@ -211,7 +231,7 @@ func MCPIsTerminal(tool MCPTool) bool { return mcpTerminalTools[tool] }
 
 // mcpToolProfiles is the admitted caller set per tool. All seven
 // profiles read; finish_incomplete is the every-parent terminal;
-// typed finishes, task output and handoff stay with their role.
+// typed finishes and task output stay with their role.
 var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolVerificationEvidence: singleMCPProfile(MCPProfileTestPilot),
 	MCPToolVerificationScope:    singleMCPProfile(MCPProfileTestPilot),
@@ -255,9 +275,8 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 		MCPProfileBuilder: true,
 		MCPProfileFixer:   true,
 	},
-	MCPToolRequestHandoff: singleMCPProfile(MCPProfileBuilder),
-	MCPToolStartTask:      singleMCPProfile(MCPProfileBuilder),
-	MCPToolReleaseOutput:  singleMCPProfile(MCPProfileFixer),
+	MCPToolStartTask:     singleMCPProfile(MCPProfileBuilder),
+	MCPToolReleaseOutput: singleMCPProfile(MCPProfileFixer),
 }
 
 func allMCPProfiles() map[MCPProfile]bool {

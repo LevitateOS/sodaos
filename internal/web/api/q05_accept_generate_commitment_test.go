@@ -220,7 +220,7 @@ func generateAnswer(t *testing.T, head factory.IntentRevision, operation string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return "work log\n```result-json\n" + string(data) + "\n```\ntrailer\n"
+	return string(data)
 }
 
 // recordGeneratePlan saves the options draft, funds the repository,

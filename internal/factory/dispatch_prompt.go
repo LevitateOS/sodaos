@@ -83,13 +83,6 @@ type PromptInputs struct {
 	NativeRev             int64
 }
 
-// fenceCollision marks the fenced report opener inside native text so a
-// pasted fence cannot forge the harness report block. The visible text is
-// preserved with a separating space.
-func fenceCollision(text string) string {
-	return strings.NewReplacer("```"+ResultFence, "``` "+ResultFence, "```"+ReviewReportFence, "``` "+ReviewReportFence, "```"+CorrectionReportFence, "``` "+CorrectionReportFence).Replace(text)
-}
-
 // BuildDispatchPrompt renders the deterministic assignment prompt from
 // verified accepted inputs. The shape is fixed: locator and exact
 // references, the accepted objective, accepted sources and resolutions,
@@ -133,7 +126,7 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	}
 	writePromptStage(&b, in)
 	writePromptReport(&b, in)
-	b.WriteString("Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
+	b.WriteString("Never print credentials, tokens or secret files.\n")
 	prompt := []byte(b.String())
 	if len(prompt) > project.MaxFactoryPrompt {
 		return nil, errors.New("dispatch prompt exceeds the transport bound")
@@ -370,9 +363,9 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 // writePromptObjective renders the objective block with its sources.
 func writePromptObjective(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Objective\n\n")
-	b.WriteString(fenceCollision(in.Title) + "\n\n")
+	b.WriteString(in.Title + "\n\n")
 	if in.Body != "" {
-		b.WriteString(fenceCollision(in.Body) + "\n")
+		b.WriteString(in.Body + "\n")
 	}
 	writePromptSection(b, "Accepted sources", in.Sources)
 	if in.Phase == project.ExecutionInvestigate {
@@ -380,50 +373,26 @@ func writePromptObjective(b *strings.Builder, in PromptInputs) {
 	}
 }
 
-// writePromptReport renders the role-specific report contract and the
-// completion reminder.
+// writePromptReport renders the role's finish instruction. The MCP finish
+// tools are the only result channel: nothing in the final message is read.
 func writePromptReport(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Report\n\n")
-	if in.Role == project.RoleReviewer {
-		if in.Phase == project.ExecutionReview {
-			writePromptMCPReviewContract(b)
-		} else if in.TypedReview != nil || in.TypedClear != nil {
-			writePromptTypedReviewContract(b, in)
-		} else {
-			b.WriteString("Close your work with exactly one fenced block:\n\n")
-			b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
-			b.WriteString("```" + ReviewReportFence + "\n")
-			b.WriteString(`{"verdict":"request-changes","summary":"Blocking finding","body":"Describe the location, evidence and required outcome.","findings":["path:line: evidence; required outcome."]}` + "\n")
-			b.WriteString("```\n\n")
-		}
-	} else if in.PublicationAssignment != "" {
-		b.WriteString("Close your work with exactly two fenced blocks: the result block naming your candidate, ")
-		b.WriteString("and a correction block accounting every supplied finding exactly once with its finding-set digest:\n\n")
-		b.WriteString("```" + ResultFence + "\n")
-		if in.TypedReview != nil || in.TypedClear != nil {
-			b.WriteString(`{"version":2,"phase":"correct","status":"completed|blocked|failed|cancelled","summary":"...","output":{"correction":{"set_digest":"<finding-set digest from the evidence above>","new_candidate":"<40-hex commit of your resulting tree>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}],"evidence":[{"key":"<finding key>","changed_paths":["<path>"],"commits":["<40-hex commit>"]}]}}}` + "\n")
-		} else {
-			b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
-		}
-		b.WriteString("```\n\n")
-		b.WriteString("```" + CorrectionReportFence + "\n")
-		b.WriteString(`{"set_digest":"<finding-set digest from the evidence above>","new_candidate":"<40-hex commit of your resulting tree>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}],"evidence":[{"key":"<finding key>","changed_paths":["<path>"],"commits":["<40-hex commit>"]}]}` + "\n")
-		b.WriteString("```\n\n")
-		b.WriteString("Account every finding: missing, duplicate, unknown or stale dispositions refuse, and disputed findings need maintainer intervention. ")
-		b.WriteString("Report fixed for a code finding only with the changed candidate and its relevant changed paths and commits; ")
-		b.WriteString("a verification finding may keep the same head only with new passing checks proving its required outcome. ")
-	} else {
-		b.WriteString("Close your work with exactly one fenced block:\n\n")
-		b.WriteString("```" + ResultFence + "\n")
-		b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
-		b.WriteString("```\n\n")
+	switch {
+	case in.Role == project.RoleReviewer:
+		writePromptMCPReviewContract(b)
+	case in.PublicationAssignment != "":
+		b.WriteString("Finish through factory.finish_correction. SodaOS fills finding_digest from the supplied finding set. Supply candidate (the exact 40-hex commit of your resulting tree), dispositions with one {\"key\",\"disposition\"} entry per supplied finding using fixed, unresolved, disputed or declined_optional, fix_evidence {\"key\",\"changed_paths\",\"commits\"} for each fixed code finding, and evidence_refs. ")
+		b.WriteString("Account every finding exactly once: missing, duplicate or unknown dispositions are refused, and disputed findings need maintainer intervention. ")
+		b.WriteString("Report fixed for a code finding only with the changed candidate and its relevant changed paths and commits; a verification finding may keep the same head only with new passing checks proving its required outcome. ")
+	default:
+		b.WriteString("Finish through factory.finish_implementation with the exact candidate commit your change produced. ")
 	}
-	if in.Role == project.RoleReviewer {
-		b.WriteString("Approve only when no blocking correctness, security, acceptance or required-check finding remains. Distinguish optional suggestions; each blocker needs its location, evidence and required outcome. Never change the candidate to approve your own correction. ")
-	} else {
-		b.WriteString("Report \"completed\" only with the exact commit your change produced. ")
-	}
+	b.WriteString(PromptFinishReminder)
 }
+
+// PromptFinishReminder closes every worker prompt: the finish call is the
+// only way a result is recorded.
+const PromptFinishReminder = "If the work cannot be completed, call factory.finish_incomplete with the concrete cause. A run that ends without a finish call records no result and settles as incomplete.\n"
 
 func writeRepositoryContext(b *strings.Builder, context project.FactoryPreparationContext) {
 	b.WriteString("\n## Prepared repository context\n\n")
@@ -486,6 +455,6 @@ func writePromptSection(b *strings.Builder, title string, sources []PromptSource
 	b.WriteString("\n## " + title + "\n")
 	for _, source := range sources {
 		b.WriteString("\n### comment " + source.ID + "\n\n")
-		b.WriteString(fenceCollision(source.Content) + "\n")
+		b.WriteString(source.Content + "\n")
 	}
 }

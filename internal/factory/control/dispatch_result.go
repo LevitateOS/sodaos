@@ -12,8 +12,9 @@ import (
 )
 
 // finishFromRun finishes one assigned assignment from its settled latest
-// run, deriving the recorded result from the run outcome and output.
-func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, output string, now time.Time) error {
+// run: a recorded MCP finish owns the result, and without one the run
+// outcome alone settles it.
+func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, now time.Time) error {
 	current, err := db.Assignment(ctx, a.ID)
 	if err != nil {
 		return err
@@ -24,7 +25,7 @@ func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, r
 	if handled, err := settleRecordedMCPBeforeRun(ctx, db, current, run, now); handled || err != nil {
 		return err
 	}
-	finished, err := finishAssignmentFromRun(current, run, output, now)
+	finished, err := finishAssignmentFromRun(current, run, now)
 	if err != nil {
 		return err
 	}
@@ -36,9 +37,8 @@ func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, r
 }
 
 // A durable authenticated terminal owns the assignment result even when native
-// retirement arrives before the periodic MCP drive. Parked strict carriers and
-// pending final checkpoints keep their existing consumer; stdout cannot replace
-// them with a synthesized no-report result.
+// retirement arrives before the periodic MCP drive. A pending final checkpoint
+// keeps its consumer; the run end cannot replace it with an incomplete result.
 func settleRecordedMCPBeforeRun(ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, now time.Time) (bool, error) {
 	if run.ID != a.Run || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit {
 		return false, nil
@@ -148,22 +148,14 @@ func refuseUnprovenRepair(finished factory.Assignment, now time.Time) factory.As
 	return finished
 }
 
-func finishAssignmentFromRun(a factory.Assignment, run factory.Run, output string, now time.Time) (factory.Assignment, error) {
+func finishAssignmentFromRun(a factory.Assignment, run factory.Run, now time.Time) (factory.Assignment, error) {
 	if a.Stage != factory.AssignmentAssigned {
 		return a, nil
 	}
-	result, outcome, reason := derivePhasedAttemptResult(a, run, output, run.Summary, now.Unix())
+	result, outcome, reason := deriveUnfinishedRunResult(a, run, run.Summary, now.Unix())
 	a.Stage, a.Outcome, a.Reason = factory.AssignmentFinished, outcome, reason
 	a.FinishedUnix = now.Unix()
 	a.Result = &result
-	// Every reported decompose answer settles against its assignment's
-	// recorded staged input on this one joint, which normal settlement
-	// and recovery share: neither path keeps a semantic bypass.
-	if result.Reported && a.Phase == project.ExecutionDecompose && a.Subject.Intent != nil {
-		if settled, valid := settleDecomposeSemantic(a, now); !valid {
-			a.Outcome, a.Reason, a.Result = settled.Outcome, settled.Reason, settled.Result
-		}
-	}
 	if err := a.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
@@ -183,14 +175,6 @@ func recordConfirmedUsage(ctx context.Context, db *store.Store, a factory.Assign
 	})
 }
 
-// derivePhasedAttemptResult maps one settled run to the recorded result.
-// The settled run must match its assignment; the role must be the phase's
-// admitted account; and a reported result must be a strict v2 phase result
-// bound to that same phase. Cross-phase payloads, extra JSON and legacy
-// harness shapes refuse to a synthesized blocked result: planning outputs
-// never authorize effects, and completed planning never names a
-// publishable candidate. Reviewer runs report the same v2 contract with
-// the typed review verdict.
 // refusePhasedAttempt maps one invalid phased run to a synthesized
 // blocked result.
 func refusePhasedAttempt(a factory.Assignment, recordedUnix int64, detail string) (factory.AssignmentResult, factory.Outcome, string) {
@@ -198,54 +182,37 @@ func refusePhasedAttempt(a factory.Assignment, recordedUnix int64, detail string
 	return phased, factory.NeedsHuman, factory.AssignReasonNoReport
 }
 
-func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+// deriveUnfinishedRunResult maps one settled run that recorded no MCP
+// finish to its result. The finish tools are the only result channel:
+// a cancelled or failed run keeps its observed outcome, and a run that
+// ended cleanly without calling its finish tool settles incomplete
+// (blocked for attention) with a reason naming the tool it never called.
+func deriveUnfinishedRunResult(a factory.Assignment, run factory.Run, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
 	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
 		return refusePhasedAttempt(a, recordedUnix, "settled run does not match its assignment")
 	}
 	if !factory.ValidPhaseRole(a.Phase, a.Role) {
 		return refusePhasedAttempt(a, recordedUnix, "assignment role does not match its execution phase")
 	}
-	// A non-successful settled run never reports: the supervisor maps the
-	// observed outcome, and only a successful run may carry a v2 payload.
-	if result, outcome, reason, done := mapPhasedRunOutcome(a, run, summary, recordedUnix); done {
-		return result, outcome, reason
-	}
-	if a.Role == project.RoleReviewer {
-		return reportPhasedReviewerResult(a, run, output, summary, recordedUnix)
-	}
-	parsed, ok := factory.ParsePhaseResult(output)
-	if !ok {
-		return refusePhasedAttempt(a, recordedUnix, "run completed without a parseable phase result: "+factory.PhaseResultProblem(output))
-	}
-	if err := parsed.BindAssignment(a); err != nil {
-		return refusePhasedAttempt(a, recordedUnix, "phase result does not match its assignment phase")
-	}
-	return buildPhasedCoderResult(a, parsed, recordedUnix)
-}
-
-// mapPhasedRunOutcome maps one non-successful settled run to its
-// recorded result, reporting done when the outcome already settles it.
-func mapPhasedRunOutcome(a factory.Assignment, run factory.Run, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string, bool) {
-	var empty factory.AssignmentResult
 	switch run.Outcome {
 	case factory.Succeeded:
-		return empty, "", "", false
 	case factory.Cancelled:
 		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
-		return cancelled, factory.Cancelled, factory.AssignReasonCancelled, true
+		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
 	default:
 		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
-		return failed, factory.Failed, factory.AssignReasonRunFailed, true
+		return failed, factory.Failed, factory.AssignReasonRunFailed
 	}
+	return refusePhasedAttempt(a, recordedUnix, unfinishedRunReason(a.Phase))
 }
 
-// reportPhasedReviewerResult maps one settled reviewer run to its
-// recorded result under the phased contract.
-func reportPhasedReviewerResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
-	if a.Phase == project.ExecutionVerify {
-		return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
+// unfinishedRunReason names the finish call a cleanly ended run never made.
+func unfinishedRunReason(phase string) string {
+	finish := "its finish tool"
+	if profile, err := mcpProfileForPhase(phase); err == nil {
+		finish = string(factory.MCPFinishToolOf(profile))
 	}
-	return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
+	return "incomplete: the run ended without calling " + finish + " or " + string(factory.MCPToolFinishIncomplete) + ", so no result was recorded"
 }
 
 // buildPhasedCoderResult builds one successful coder run's recorded
@@ -296,181 +263,34 @@ func buildPhasedCoderResult(a factory.Assignment, parsed factory.PhaseResult, re
 	return result, outcome, reason
 }
 
-// derivePhasedReviewAttemptResult maps one settled reviewer run to the
-// recorded result for a phased review assignment. The report is the same
-// strict v2 phase contract every other phase uses, carrying exactly one
-// typed review verdict (findings verdict or explicit clear) for a
-// completed run and no verdict otherwise. A completed review records no
-// candidate and no legacy string findings: assessing findings never
-// authorizes publication. Anything unparseable, cross-phase or legacy
-// refuses to a synthesized blocked result; no legacy review reader is
-// added on this path.
-func derivePhasedReviewAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
-	refuse := func(detail string) (factory.AssignmentResult, factory.Outcome, string) {
-		phased := synthesizePhased(a, "blocked", detail, recordedUnix)
-		return phased, factory.NeedsHuman, factory.AssignReasonNoReport
-	}
-	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
-		return refuse("settled run does not match its assignment")
-	}
-	if a.Phase != project.ExecutionReview || !factory.ValidPhaseRole(a.Phase, a.Role) {
-		return refuse("assignment role does not match its execution phase")
-	}
-	switch run.Outcome {
-	case factory.Succeeded:
-	case factory.Cancelled:
-		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
-		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
-		return failed, factory.Failed, factory.AssignReasonRunFailed
-	}
-	parsed, ok := factory.ParsePhaseResult(output)
-	if !ok {
-		return refuse("review completed without a parseable phase result: " + factory.PhaseResultProblem(output))
-	}
-	if err := parsed.BindAssignment(a); err != nil {
-		return refuse("phase result does not match its assignment phase")
-	}
-	result := factory.AssignmentResult{
-		AssignmentID: a.ID, RunID: a.Run, Phase: a.Phase, PhaseResult: &parsed,
-		Summary: parsed.Summary, Findings: []string{},
-		Reported: true, RecordedUnix: recordedUnix,
-	}
-	switch parsed.Status {
-	case "completed":
-		result.Status = "completed"
-	case "blocked":
-		result.Status = "blocked"
-	case "failed":
-		result.Status = "failed"
-		return result, factory.Failed, factory.AssignReasonRunFailed
-	case "cancelled":
-		result.Status = "cancelled"
-		return result, factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		return refuse("phase result carries an unknown status")
-	}
-	if err := result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
-		return refuse("phased result does not bind its assignment phase")
-	}
-	outcome := factory.Outcome(factory.Succeeded)
-	reason := factory.AssignReasonReported
-	if parsed.Status == "blocked" {
-		outcome, reason = factory.NeedsHuman, factory.AssignReasonNoReport
-	}
-	return result, outcome, reason
-}
-
-// derivePhasedVerifyAttemptResult maps one settled reviewer run to the
-// recorded result for a phased verify assignment. The report is the same
-// strict v2 phase contract every other phase uses, carrying exactly the
-// app verification report for a completed run and no report otherwise. A
-// completed verification records no candidate and no legacy string
-// findings: checking a delivery never authorizes publication. Anything
-// unparseable, cross-phase or legacy refuses to a synthesized blocked
-// result; no legacy verification reader is added on this path.
-func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
-	refuse := func(detail string) (factory.AssignmentResult, factory.Outcome, string) {
-		phased := synthesizePhased(a, "blocked", detail, recordedUnix)
-		return phased, factory.NeedsHuman, factory.AssignReasonNoReport
-	}
-	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
-		return refuse("settled run does not match its assignment")
-	}
-	if a.Phase != project.ExecutionVerify || !factory.ValidPhaseRole(a.Phase, a.Role) {
-		return refuse("assignment role does not match its execution phase")
-	}
-	switch run.Outcome {
-	case factory.Succeeded:
-	case factory.Cancelled:
-		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
-		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
-		return failed, factory.Failed, factory.AssignReasonRunFailed
-	}
-	parsed, ok := factory.ParsePhaseResult(output)
-	if !ok {
-		return refuse("verification completed without a parseable phase result: " + factory.PhaseResultProblem(output))
-	}
-	if err := parsed.BindAssignment(a); err != nil {
-		return refuse("phase result does not match its assignment phase")
-	}
-	result := factory.AssignmentResult{
-		AssignmentID: a.ID, RunID: a.Run, Phase: a.Phase, PhaseResult: &parsed,
-		Summary: parsed.Summary, Findings: []string{},
-		Reported: true, RecordedUnix: recordedUnix,
-	}
-	switch parsed.Status {
-	case "completed":
-		result.Status = "completed"
-	case "blocked":
-		result.Status = "blocked"
-	case "failed":
-		result.Status = "failed"
-		return result, factory.Failed, factory.AssignReasonRunFailed
-	case "cancelled":
-		result.Status = "cancelled"
-		return result, factory.Cancelled, factory.AssignReasonCancelled
-	default:
-		return refuse("phase result carries an unknown status")
-	}
-	if err := result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
-		return refuse("phased result does not bind its assignment phase")
-	}
-	outcome := factory.Outcome(factory.Succeeded)
-	reason := factory.AssignReasonReported
-	if parsed.Status == "blocked" {
-		outcome, reason = factory.NeedsHuman, factory.AssignReasonNoReport
-	}
-	return result, outcome, reason
-}
-
-// settleDecomposeSemantic settles one reported decompose result
-// against its assignment's recorded staged input. A missing or corrupt
-// recorded input refuses the semantic result: there is no legacy
-// compatibility path around the staged contract. The staged input must
-// answer the funded subject triple, every inspected source must still
-// be the admitted source commit, and the original answer must assess
-// through AdmitIntentBoundResult — revision/operation binding plus full
-// candidate coverage and graph validation, or attention-only admission.
-// Anything failing the semantic contract converts to needs-human with
-// no report, mirroring the derive path's refusal shape. Usage and
-// consumption already recorded stay untouched.
-func settleDecomposeSemantic(a factory.Assignment, now time.Time) (factory.Assignment, bool) {
-	assess := func(detail string) (factory.Assignment, bool) {
-		converted := a
-		converted.Outcome, converted.Reason = factory.NeedsHuman, factory.AssignReasonNoReport
-		blocked := synthesizePhased(a, "blocked", detail, now.Unix())
-		converted.Result = &blocked
-		if err := converted.Validate(); err != nil {
-			return factory.Assignment{}, false
-		}
-		return converted, false
-	}
+// checkDecomposeSemantic checks one reported decompose result against its
+// assignment's recorded staged input. A missing or corrupt recorded input
+// refuses: there is no legacy compatibility path around the staged
+// contract. The staged input must answer the funded subject triple, every
+// inspected source must still be the admitted source commit, and the answer
+// must assess through AdmitIntentBoundResult — revision/operation binding
+// plus full candidate coverage and graph validation, or attention-only
+// admission.
+func checkDecomposeSemantic(a factory.Assignment) error {
 	in, staged, err := ParseStagedPlanningInput(a.Prompt)
 	if err != nil || !staged {
-		return assess("staged planning input is missing or corrupt")
+		return errors.New("staged planning input is missing or corrupt")
 	}
 	subject := a.Subject.Intent
 	if subject == nil || in.Head.Digest() != subject.ScopeDigest || in.Head.ID != subject.RevisionID ||
 		in.Head.Intent != subject.IntentID || in.Head.Owner != subject.OwnerID {
-		return assess("staged input answers another funded operation")
+		return errors.New("staged input answers another funded operation")
 	}
 	if a.Result == nil || a.Result.PhaseResult == nil || a.Result.PhaseResult.Output == nil ||
 		a.Result.PhaseResult.Output.Decomposition == nil {
-		return assess("staged answer carries no decomposition")
+		return errors.New("staged answer carries no decomposition")
 	}
 	for _, ref := range in.Inspected {
 		if ref.Commit != a.SourceCommit {
-			return assess("staged answer inspects another source commit")
+			return errors.New("staged answer inspects another source commit")
 		}
 	}
-	if err := AdmitIntentBoundResult(a.Subject, a.Phase, in, *a.Result.PhaseResult.Output.Decomposition); err != nil {
-		return assess(err.Error())
-	}
-	return a, true
+	return AdmitIntentBoundResult(a.Subject, a.Phase, in, *a.Result.PhaseResult.Output.Decomposition)
 }
 
 // synthesizePhased binds one supervisor-derived result to a phased
@@ -515,7 +335,7 @@ func boundSummary(summary, fallback string) string {
 // its usage still records without replacing that finished domain result. The
 // settle path calls this best-effort; recovery replays anything it
 // misses, so a false return never loses accounting.
-func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, output string, now time.Time) (factory.Assignment, bool) {
+func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, now time.Time) (factory.Assignment, bool) {
 	if db == nil || !run.Reconciled {
 		return factory.Assignment{}, false
 	}
@@ -546,7 +366,7 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 		finished, err := db.Assignment(ctx, a.ID)
 		return finished, err == nil && finished.Stage == factory.AssignmentFinished
 	}
-	finished, err := finishAssignmentFromRun(a, run, output, now)
+	finished, err := finishAssignmentFromRun(a, run, now)
 	if err != nil {
 		return factory.Assignment{}, false
 	}

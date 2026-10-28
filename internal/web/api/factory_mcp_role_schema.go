@@ -18,10 +18,8 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range spec.required {
 		props[key] = &jsonschema.Schema{Description: "Required result field."}
 	}
-	for _, key := range []string{"unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "walkthroughs", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
-		if mcpOptionalPayloadKey(tool, key) {
-			props[key] = &jsonschema.Schema{}
-		}
+	for _, key := range spec.optional {
+		props[key] = &jsonschema.Schema{}
 	}
 	set := func(key, description string, shape *jsonschema.Schema) {
 		if _, ok := props[key]; !ok {
@@ -41,8 +39,6 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolFinishIncomplete:
 		set("cause", "Short cause code or explanation for ending without a complete result.", text)
 		set("cause_detail", "Optional supporting explanation.", text)
-		set("affected_task_ids", "IDs of tasks left unfinished.", strings)
-		set("requested_resolution", "What needs to change before this work can proceed.", text)
 	case factory.MCPToolFinishProductPlan:
 		set("candidates", "One to three structured semantic graph candidates. Each contains key, rationale and full task metadata. String candidate names alone cannot settle a product plan. "+control.FinishProductPlanArgsGuidance, mcpCarrier[[]factory.SemanticCandidate]())
 		set("coverage", "Explain how the candidates cover the accepted requested outcomes.", strings)
@@ -53,10 +49,8 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolFinishIssuePlan:
 		set("approach", "Approach chosen after source investigation; must match tasks.approach.", text)
 		props["tasks"] = investigationPlanSchema()
-		set("alternatives", "Rejected approaches and why they were rejected.", mcpCarrier[[]factory.RejectedAlternative]())
-		set("unresolved_facts", "Unresolved facts; required unresolved facts prevent executable adoption.", strings)
 	case factory.MCPToolFinishImplement:
-		set("unchanged", "Use true only when the assigned work is completed without producing a changed candidate; otherwise supply candidate.", &jsonschema.Schema{Type: "boolean"})
+		set("candidate", "Filled by SodaOS from the committed final integration checkpoint; send the exact candidate commit only when the run has no integration checkpoint.", text)
 	case factory.MCPToolFinishReview:
 		set("coverage", serverFilled, text)
 		set("tuple", serverFilled, &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"cycle_id": {Type: "string"}, "head": {Type: "string"}, "base_oid": {Type: "string"}}, Required: []string{"cycle_id", "head", "base_oid"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}})
@@ -88,13 +82,9 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolSubmitTaskOutput:
 		set("task_id", "Task ID in the admitted execution manifest.", text)
 		set("manifest_digest", serverFilled, text)
-		set("output_digest", "Digest of the observed task output.", text)
-		set("native_child_ref", "Builder: observed child identity. Fixer: omit because correction runs in the bound parent.", text)
-	case factory.MCPToolRequestHandoff:
-		set("predecessor_task", "Approved predecessor task ID.", text)
-		set("successor_task", "Approved dependent task ID; this must already be an edge in the admitted plan.", text)
-		set("manifest_digest", serverFilled, text)
-		set("output_submission_id", "Recorded predecessor output submission; release still requires trusted checkpoint observation.", text)
+		set("output_digest", serverFilled, text)
+		set("native_child_ref", serverFilled, text)
+
 	}
 	for field, values := range spec.enums {
 		enums := make([]any, len(values))

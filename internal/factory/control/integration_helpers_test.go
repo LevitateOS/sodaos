@@ -320,13 +320,82 @@ func phaseTestAssignment(t *testing.T, phase, role string, validate bool) factor
 	return a
 }
 
-func fencedResult(t *testing.T, v any) string {
+// phaseFinish encodes one typed phase result as the worker's MCP finish
+// for accountRunFinish, finishRunWith and buildRunFinish.
+func phaseFinish(t *testing.T, v any) string {
 	t.Helper()
 	data, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return "work log\n```" + factory.ResultFence + "\n" + string(data) + "\n```\ntrailer\n"
+	return string(data)
+}
+
+// buildRunFinish maps one settled run plus the worker's finish the way the
+// MCP settler does: a completed typed result maps through the shared
+// builders (a refusal fences for attention), a non-completed one settles
+// as finish_incomplete, and no finish settles from the run outcome alone.
+func buildRunFinish(t *testing.T, a factory.Assignment, run factory.Run, finish string, now time.Time) (factory.Assignment, error) {
+	t.Helper()
+	if finish == "" || run.Outcome != factory.Succeeded {
+		return finishAssignmentFromRun(a, run, now)
+	}
+	var parsed factory.PhaseResult
+	if err := json.Unmarshal([]byte(finish), &parsed); err != nil {
+		t.Fatalf("finish fixture is not a phase result: %v", err)
+	}
+	submission := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIncomplete}
+	if parsed.Status != "completed" {
+		return settleIncomplete(a, submission, map[string]string{"outcome": parsed.Status, "cause": parsed.Summary}, now), nil
+	}
+	if profile, err := mcpProfileForPhase(a.Phase); err == nil {
+		submission.Tool = factory.MCPFinishToolOf(profile)
+	}
+	finished, err := finishFromMCPPhaseResult(a, parsed, now)
+	if err != nil {
+		finished = fenceMCPTerminal(a, submission, now, "terminal refused: "+err.Error())
+	}
+	return finished, nil
+}
+
+// finishRunWith finishes one assigned assignment from its settled run and
+// the worker's finish, persisting through the repair chain like settlement.
+func finishRunWith(t *testing.T, ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, finish string, now time.Time) (factory.Assignment, error) {
+	t.Helper()
+	current, err := db.Assignment(ctx, a.ID)
+	if err != nil || current.Stage != factory.AssignmentAssigned {
+		return current, err
+	}
+	finished, err := buildRunFinish(t, current, run, finish, now)
+	if err != nil {
+		return factory.Assignment{}, err
+	}
+	if finished, err = settleRepairChain(ctx, db, finished, now); err != nil {
+		return factory.Assignment{}, err
+	}
+	return finished, db.FinishAssignment(ctx, finished)
+}
+
+// accountRunFinish accounts one settled run whose worker sent the given
+// finish: usage and reservation as AccountSettledRun records them, then
+// the finish settles the assignment.
+func accountRunFinish(t *testing.T, ctx context.Context, db *store.Store, run factory.Run, finish string, now time.Time) (factory.Assignment, bool) {
+	t.Helper()
+	a, err := db.AssignmentByRun(ctx, run.ID)
+	if err != nil || !run.Reconciled || a.Stage != factory.AssignmentAssigned || finish == "" {
+		return AccountSettledRun(ctx, db, run, now)
+	}
+	if err := recordConfirmedUsage(ctx, db, a, run, now); err != nil {
+		return factory.Assignment{}, false
+	}
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil && !errors.Is(err, store.ErrNotFound) {
+		return factory.Assignment{}, false
+	}
+	finished, err := finishRunWith(t, ctx, db, a, run, finish, now)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return factory.Assignment{}, false
+	}
+	return finished, true
 }
 
 func authorizeMergeFixtureRound(t *testing.T, ctx context.Context, db *store.Store, coord *Coordinator, p factory.Publication, round int) {
@@ -691,6 +760,60 @@ func grantFullAuthority(t *testing.T, c *Coordinator) {
 	}
 	if _, err := c.ApplyEnvironmentGrant(ctx, factory.NewID(), "native:7", 0,
 		project.EnvironmentGrant{Repository: 42, Owner: 7, Profile: grantProfile(), Active: true}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// finishRunWithErr is finishRunWith for callers that only need its error.
+func finishRunWithErr(t *testing.T, ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, finish string, now time.Time) error {
+	t.Helper()
+	_, err := finishRunWith(t, ctx, db, a, run, finish, now)
+	return err
+}
+
+// recordPhaseFinishMCP records the worker's finish for one assigned
+// assignment as its MCP terminal proposal, under a freshly activated
+// capability, so settlement consumes it exactly as in production.
+func recordPhaseFinishMCP(t *testing.T, ctx context.Context, db *store.Store, a factory.Assignment, finish string) {
+	t.Helper()
+	var parsed factory.PhaseResult
+	if err := json.Unmarshal([]byte(finish), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := mcpProfileForPhase(a.Phase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tool factory.MCPTool
+	var payload map[string]any
+	switch {
+	case parsed.Status != "completed":
+		tool, payload = factory.MCPToolFinishIncomplete, map[string]any{"outcome": parsed.Status, "cause": parsed.Summary}
+	case parsed.Output != nil && parsed.Output.Plan != nil:
+		tool, payload = factory.MCPToolFinishIssuePlan, map[string]any{"approach": parsed.Output.Plan.Approach, "tasks": parsed.Output.Plan, "evidence_refs": []string{"inspected source"}}
+	case parsed.Output != nil && parsed.Output.Implementation != nil:
+		tool, payload = factory.MCPToolFinishImplement, map[string]any{"candidate": parsed.Output.Implementation.Candidate}
+	default:
+		t.Fatalf("no MCP finish fixture for phase %s", parsed.Phase)
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged := testMCPCapability()
+	staged.AssignmentID, staged.RunID, staged.Profile, staged.State = a.ID, a.Run, profile, factory.MCPCapabilityStaged
+	if err := db.StageMCPCapability(ctx, staged); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ActivateMCPCapability(ctx, staged.ID, staged.Generation, staged.RunID, staged.AssignmentID, staged.Authority, time.Now().Unix(), false); err != nil {
+		t.Fatal(err)
+	}
+	capability, err := db.GetMCPCapability(ctx, staged.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	submission := testMCPSubmission(capability, tool, factory.NewID(), raw)
+	if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
 		t.Fatal(err)
 	}
 }

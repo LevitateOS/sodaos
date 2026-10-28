@@ -290,76 +290,77 @@ func canonicalPayload(payload map[string]any) ([]byte, error) {
 	return raw, nil
 }
 
-// mcpPayloadSpec is the strict per-tool payload shape: required
-// keys, enum-constrained fields and hex-digest fields. Unknown
-// payload keys refuse.
+// mcpPayloadSpec is the one key definition per tool payload: required
+// keys, documented optional keys and enum-constrained fields. The
+// advertised schema is built from it and admission enforces it; the
+// typed carriers inside are decoded by the settler (CheckMCPTerminalFinish
+// runs that decode before anything is recorded). Unknown keys refuse.
 type mcpPayloadSpec struct {
 	required []string
+	optional []string
 	enums    map[string][]string
-	hex      []string
 }
 
 var mcpMutationPayloads = map[factory.MCPTool]mcpPayloadSpec{
 	factory.MCPToolFinishIncomplete: {
-		required: []string{"outcome", "cause", "evidence_refs", "affected_task_ids", "requested_resolution"},
+		required: []string{"outcome", "cause"},
+		optional: []string{"cause_detail", "evidence_refs"},
 		enums:    map[string][]string{"outcome": {"blocked", "failed", "cancelled"}},
 	},
 	factory.MCPToolFinishProductPlan: {
 		required: []string{"candidates", "evidence_refs", "coverage"},
+		optional: []string{"questions", "verification_manifest_proposal", "walkthroughs"},
 	},
 	factory.MCPToolFinishIssuePlan: {
 		required: []string{"evidence_refs", "approach", "tasks"},
 	},
 	factory.MCPToolFinishImplement: {
-		required: []string{},
+		optional: []string{"candidate"},
 	},
 	factory.MCPToolFinishReview: {
-		required: []string{"conclusion", "coverage", "evidence_refs"},
+		required: []string{"conclusion", "evidence_refs"},
+		optional: []string{"tuple", "coverage", "carried_assessments", "findings"},
 		enums:    map[string][]string{"conclusion": {"clear", "findings", "incomplete"}},
 	},
 	factory.MCPToolFinishCorrection: {
-		required: []string{"finding_digest", "dispositions", "evidence_refs"},
-		hex:      []string{"finding_digest"},
+		required: []string{"candidate", "dispositions", "evidence_refs"},
+		optional: []string{"finding_digest", "fix_evidence"},
 	},
 	factory.MCPToolFinishReassessment: {
 		required: []string{"subject", "report"},
+		optional: []string{"input_digest"},
 	},
 	factory.MCPToolFinishAppVerify: {
-		required: []string{"delivery_id", "outcome", "coverage"},
+		required: []string{"outcome", "coverage"},
+		optional: []string{"delivery_id", "input_digest", "check_receipts", "artifact_refs", "failures", "evidence_refs"},
 		enums:    map[string][]string{"outcome": {"verified", "failed", "incomplete"}},
 	},
 	factory.MCPToolSubmitTaskOutput: {
-		required: []string{"task_id", "manifest_digest", "output_digest", "evidence_refs"},
-		hex:      []string{"manifest_digest", "output_digest"},
-	},
-	factory.MCPToolRequestHandoff: {
-		required: []string{"predecessor_task", "successor_task", "manifest_digest", "output_submission_id"},
-		hex:      []string{"manifest_digest", "output_submission_id"},
+		required: []string{"task_id", "evidence_refs"},
+		optional: []string{"manifest_digest", "output_digest", "native_child_ref"},
 	},
 }
 
-func isHex64(value string) bool {
-	if len(value) != 64 {
-		return false
+// payloadKeyKnown reports whether the spec names the key. A retired
+// presentation ID from an old worker is accepted and ignored.
+func (spec mcpPayloadSpec) payloadKeyKnown(key string) bool {
+	if key == "component_id" {
+		return true
 	}
-	for _, c := range []byte(value) {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
-			return false
+	for _, list := range [][]string{spec.required, spec.optional} {
+		for _, want := range list {
+			if key == want {
+				return true
+			}
 		}
 	}
-	return true
+	return false
 }
 
 func checkPayloadKeys(tool factory.MCPTool, payload map[string]any, spec mcpPayloadSpec) error {
 	for key := range payload {
-		known := false
-		for _, want := range spec.required {
-			if key == want {
-				known = true
-			}
-		}
-		if !known && !mcpOptionalPayloadKey(tool, key) {
-			return fmt.Errorf("unknown payload field %q: %s takes %s and its documented optional fields", key, tool, strings.Join(spec.required, ", "))
+		if !spec.payloadKeyKnown(key) {
+			return fmt.Errorf("unknown payload field %q: %s takes %s", key, tool, strings.Join(append(append([]string(nil), spec.required...), spec.optional...), ", "))
 		}
 	}
 	return nil
@@ -394,47 +395,7 @@ func checkPayloadEnums(payload map[string]any, spec mcpPayloadSpec) error {
 	return nil
 }
 
-func checkPayloadHex(payload map[string]any, spec mcpPayloadSpec) error {
-	for _, field := range spec.hex {
-		text, _ := payload[field].(string)
-		if !isHex64(text) && !factory.ValidID(text) {
-			return fmt.Errorf("payload field %q is not a digest: it must be 64 lowercase hex digits (a sha256) or a 32-hex identity", field)
-		}
-	}
-	return nil
-}
-
-func (s *factoryCatalogServer) checkPayloadOutcome(tool factory.MCPTool, payload map[string]any) error {
-	if tool == factory.MCPToolFinishImplement {
-		if _, unchanged := payload["unchanged"]; unchanged {
-			return nil
-		}
-		if _, candidate := payload["candidate"]; !candidate {
-			return fmt.Errorf("implementation finish needs a candidate or an explicit unchanged outcome")
-		}
-	}
-	if tool == factory.MCPToolFinishProductPlan {
-		if candidates, ok := payload["candidates"].([]any); !ok || len(candidates) < 1 || len(candidates) > 3 {
-			return fmt.Errorf("product plan needs 1-3 graph candidates")
-		}
-	}
-	return nil
-}
-
-// checkReviewPayload enforces the finish_review shape.
-func checkReviewPayload(payload map[string]any) error {
-	spec := mcpMutationPayloads[factory.MCPToolFinishReview]
-	if err := checkPayloadKeys(factory.MCPToolFinishReview, payload, spec); err != nil {
-		return err
-	}
-	if err := checkPayloadRequired(payload, spec); err != nil {
-		return err
-	}
-	return checkPayloadEnums(payload, spec)
-}
-
-// checkPayload enforces the strict per-tool shape plus the D16
-// manifest-proposal contract on product plans.
+// checkPayload enforces the strict per-tool key shape.
 func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
 	if tool == factory.MCPToolRecordJourneyResult {
 		return checkVerificationJourneyPayload(payload)
@@ -454,9 +415,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if factory.MCPIsCommunication(tool) {
 		return checkCommunicationPayload(tool, payload)
 	}
-	if tool == factory.MCPToolFinishReview {
-		return checkReviewPayload(payload)
-	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
 		return fmt.Errorf("unsupported factory tool %q: call one of the tools this server lists", tool)
@@ -467,51 +425,13 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if err := checkPayloadRequired(payload, spec); err != nil {
 		return err
 	}
-	if err := checkPayloadEnums(payload, spec); err != nil {
-		return err
-	}
-	if err := checkPayloadHex(payload, spec); err != nil {
-		return err
-	}
-	return s.checkPayloadOutcome(tool, payload)
+	return checkPayloadEnums(payload, spec)
 }
 
-// mcpOptionalPayloadKey admits documented optional keys beyond the
-// required set without opening arbitrary input.
-func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
-	// A retired presentation ID from an old worker is accepted and ignored.
-	if key == "component_id" {
-		return true
-	}
-	switch tool {
-	case factory.MCPToolFinishImplement:
-		return key == "unchanged" || key == "candidate"
-	case factory.MCPToolFinishProductPlan:
-		return key == "questions" || key == "verification_manifest_proposal" || key == "walkthroughs"
-	case factory.MCPToolFinishIssuePlan:
-		return key == "alternatives" || key == "unresolved_facts"
-	case factory.MCPToolFinishReview:
-		return key == "tuple" || key == "carried_assessments" || key == "findings"
-	case factory.MCPToolFinishIncomplete:
-		return key == "cause_detail"
-	case factory.MCPToolSubmitTaskOutput:
-		return key == "native_child_ref"
-	case factory.MCPToolFinishAppVerify:
-		return key == "check_receipts" || key == "artifact_refs" || key == "failures" || key == "input_digest" || key == "evidence_refs"
-	case factory.MCPToolFinishReassessment:
-		return key == "input_digest"
-	case factory.MCPToolFinishCorrection:
-		return key == "candidate" || key == "fix_evidence"
-	default:
-		return false
-	}
-}
-
-// checkManifestProposal releases the D16 contract: when the product
-// plan carries a verification_manifest_proposal, admission validates
-// outcome coverage, approved catalog references, parameter bounds
-// and artifact/fixture requirements. FW40 adopts valid proposals;
-// FW45 verifies against adopted manifests.
+// checkManifestProposal validates a product plan's
+// verification_manifest_proposal against the approved check catalog:
+// catalog references, parameter bounds and artifact/fixture requirements.
+// Outcome coverage against the planning scope is checked by settlement.
 func (s *factoryCatalogServer) checkManifestProposal(ctx context.Context, cap factory.MCPCapability, payload map[string]any) error {
 	raw, present := payload["verification_manifest_proposal"]
 	if !present {
@@ -535,21 +455,7 @@ func (s *factoryCatalogServer) checkManifestProposal(ctx context.Context, cap fa
 	if err != nil {
 		return err
 	}
-	if err := factory.ValidateManifestProposal(proposal, catalog); err != nil {
-		return err
-	}
-	if s.deps.Assignments == nil {
-		return errors.New("planning scope is unavailable")
-	}
-	a, err := s.deps.Assignments.Assignment(ctx, cap.AssignmentID)
-	if err != nil || a.Subject.Intent == nil {
-		return errors.New("planning scope is unavailable")
-	}
-	in, staged, err := control.ParseStagedPlanningInput(a.Prompt)
-	if err != nil || !staged || in.Head.ID != a.Subject.Intent.RevisionID || in.Head.Digest() != a.Subject.Intent.ScopeDigest {
-		return errors.New("verification manifest has no recorded planning scope")
-	}
-	return proposal.ValidateOutcomes(in.Head)
+	return factory.ValidateManifestProposal(proposal, catalog)
 }
 
 // admitMutation runs the shared mutation gate after admitCall:
@@ -580,32 +486,13 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
-	if err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission); err != nil {
+	replay, err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission)
+	if err == nil && !replay {
+		err = s.checkNewFinish(ctx, capability, submission, args.Payload)
+	}
+	if err != nil {
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-	}
-	if tool == factory.MCPToolFinishProductPlan {
-		_, receiptErr := s.deps.Submissions.MCPReceipt(ctx, submission.AssignmentID, submission.SubmissionID)
-		if receiptErr != nil && !errors.Is(receiptErr, store.ErrNotFound) {
-			release()
-			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, receiptErr
-		}
-		if errors.Is(receiptErr, store.ErrNotFound) {
-			terminal, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, submission.AssignmentID)
-			if err == nil && !(frozen && terminal.Tool == tool && terminal.InputDigest == submission.PayloadHash) {
-				err = s.checkManifestProposal(ctx, capability, args.Payload)
-				if err == nil {
-					err = s.checkProductPlanWalkthroughs(ctx, capability, args.Payload)
-				}
-				if err == nil {
-					err = s.checkProductPlanSemantics(ctx, capability, raw)
-				}
-			}
-			if err != nil {
-				release()
-				return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-			}
-		}
 	}
 	if err := s.requireNewSubmissionContext(ctx, capability, submission); err != nil {
 		release()
@@ -998,9 +885,6 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 		return nil, nil, err
 	}
 	defer release()
-	if err := s.validateIssuePlanSubmission(ctx, submission); err != nil {
-		return nil, nil, err
-	}
 	receipt := factory.MCPReceipt{
 		SubmissionID: submission.SubmissionID, Tool: tool,
 		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,

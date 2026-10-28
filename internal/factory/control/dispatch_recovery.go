@@ -210,7 +210,6 @@ func recoverSettled(ctx context.Context, deps DispatchDeps, a factory.Assignment
 	}
 	switch reservation.State {
 	case factory.ReservationHeld:
-		output := recoverOutput(ctx, deps, a, latest)
 		if err := recordConfirmedUsage(ctx, deps.Store, a, latest, time.Now()); err != nil {
 			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "confirmed usage unrecorded"})
 			return
@@ -219,7 +218,7 @@ func recoverSettled(ctx context.Context, deps DispatchDeps, a factory.Assignment
 			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "reservation consume failed"})
 			return
 		}
-		if err := finishFromRun(ctx, deps.Store, a, latest, output, time.Now()); err != nil {
+		if err := finishFromRun(ctx, deps.Store, a, latest, time.Now()); err != nil {
 			if !errors.Is(err, store.ErrNotFound) {
 				report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "assignment finish failed"})
 			}
@@ -227,8 +226,7 @@ func recoverSettled(ctx context.Context, deps DispatchDeps, a factory.Assignment
 		}
 		report.Recovered = append(report.Recovered, a.ID)
 	case factory.ReservationConsumed:
-		output := recoverOutput(ctx, deps, a, latest)
-		if err := finishFromRun(ctx, deps.Store, a, latest, output, time.Now()); err != nil {
+		if err := finishFromRun(ctx, deps.Store, a, latest, time.Now()); err != nil {
 			if !errors.Is(err, store.ErrNotFound) {
 				report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "assignment finish failed"})
 			}
@@ -237,8 +235,7 @@ func recoverSettled(ctx context.Context, deps DispatchDeps, a factory.Assignment
 		report.Recovered = append(report.Recovered, a.ID)
 	default:
 		if latest.Outcome == factory.Succeeded {
-			output := recoverOutput(ctx, deps, a, latest)
-			if err := finishFromRun(ctx, deps.Store, a, latest, output, time.Now()); err != nil {
+			if err := finishFromRun(ctx, deps.Store, a, latest, time.Now()); err != nil {
 				if !errors.Is(err, store.ErrNotFound) {
 					report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "assignment finish failed"})
 				}
@@ -346,15 +343,4 @@ func finishTerminal(ctx context.Context, deps DispatchDeps, a factory.Assignment
 		return
 	}
 	report.Recovered = append(report.Recovered, a.ID)
-}
-
-// recoverOutput re-reads a settled run's output for result derivation.
-// An unreadable run reports without output: the recorded outcome stays
-// authoritative either way.
-func recoverOutput(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run) string {
-	state, err := deps.Host.FactoryInspect(ctx, project.FactoryInspect{Project: a.ProjectID, ID: run.ID})
-	if err != nil || state.ID != run.ID {
-		return ""
-	}
-	return state.Output
 }
