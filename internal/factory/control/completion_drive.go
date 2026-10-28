@@ -422,10 +422,6 @@ func (d *decidingDrive) routeDecisionError(decided store.ReassessmentRecord, err
 		d.report.Held = append(d.report.Held, d.cycleID+":decision_in_flight")
 		return true
 	}
-	if errors.Is(err, errReassessmentExhausted) {
-		d.attend("funding_exhausted")
-		return true
-	}
 	if decided.WaitReason != "" {
 		d.record = decided
 		d.attend(decided.WaitReason)

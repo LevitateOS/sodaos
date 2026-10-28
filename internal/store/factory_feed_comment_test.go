@@ -325,17 +325,17 @@ func TestReserveCommentJudgmentIsIdempotent(t *testing.T) {
 	if err != nil || !funded {
 		t.Fatalf("reservation = %v %v", funded, err)
 	}
-	// The same source revision replays without new spend.
+	// An unanswered call retries under the same source revision.
 	again, err := s.ReserveCommentJudgment(ctx, id, 0)
-	if err != nil || again {
-		t.Fatalf("replay reservation = %v %v", again, err)
+	if err != nil || !again {
+		t.Fatalf("retry reservation = %v %v", again, err)
 	}
-	var spent int
-	if err := s.db.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1`).Scan(&spent); err != nil {
+	if err := s.RecordCommentJudgmentReceipt(ctx, id, 0, factory.PriorityReceipt{Snapshot: CommentJudgmentSnapshot(id, 0), CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if spent != 1 {
-		t.Fatalf("judgment spend = %d, want 1", spent)
+	// A recorded answer replays without another call.
+	if decided, err := s.ReserveCommentJudgment(ctx, id, 0); err != nil || decided {
+		t.Fatalf("decided reservation = %v %v", decided, err)
 	}
 }
 

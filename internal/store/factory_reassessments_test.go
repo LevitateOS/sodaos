@@ -337,15 +337,6 @@ func TestCaptureCompletionLocalControlFreshness(t *testing.T) {
 	}
 }
 
-func TestCompletionFenceErrorsDistinct(t *testing.T) {
-	if ErrCompletionFenced == nil || ErrReassessmentBudgetExhausted == nil {
-		t.Fatal("fence errors missing")
-	}
-	if ErrCompletionFenced.Error() == ErrReassessmentBudgetExhausted.Error() {
-		t.Fatal("fence errors collide")
-	}
-}
-
 // mergedCompletionRecord builds a valid merged merge value: the exact
 // shape the first UpdateMerge recording a completion carries, without
 // needing the merge journey itself.
@@ -467,22 +458,28 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 		t.Fatal("sealed bodies dropped")
 	}
 
-	// Calls reserve against the cycle ledger; repeats reconcile instead
-	// of charging again. Historical global usage does not gate free JEV calls.
+	// Calls reserve against the cycle ledger. A retry of an unanswered
+	// call reuses its ledger entry; a recorded receipt is reused instead.
 	call := factory.NewID()
 	fingerprint := strings.Repeat("0", 64)
 	reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint)
 	if err != nil || !reserved {
-		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
+		t.Fatalf("reserved=%v err=%v, want a reservation", reserved, err)
 	}
-	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || reserved {
-		t.Fatalf("reserved=%v err=%v, want reconcile without recharge", reserved, err)
+	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want a retry of the unanswered call", reserved, err)
 	}
-	if _, err := db.db.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=1000 WHERE id=1`); err != nil {
+	if retried, err := db.ReassessmentRecord(ctx, sealed.Cycle.CycleID); err != nil || len(retried.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("retry took another ledger entry: %+v %v", retried.Cycle.Ledger, err)
+	}
+	if err := db.RecordPriorityJudgment(ctx, factory.PriorityReceipt{Snapshot: fingerprint, CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}
+	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || reserved {
+		t.Fatalf("reserved=%v err=%v, want the recorded receipt reused", reserved, err)
+	}
 	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", strings.Repeat("1", 64)); err != nil || !reserved {
-		t.Fatalf("reservation after historical usage: %v %v", reserved, err)
+		t.Fatalf("second call: %v %v", reserved, err)
 	}
 
 	// The fenced repository refuses packet admission while the open
@@ -614,18 +611,14 @@ func TestReassessmentLocalEqualCAS(t *testing.T) {
 	}
 }
 
-// reassessmentBudgetSpent reads the global consultation spend and the
-// charged-receipt count so prefix tests prove no recharge happened.
-func reassessmentBudgetSpent(t *testing.T, db *Store) (spent, receipts int) {
+// reassessmentReceipts counts judgment rows so prefix tests prove no extra
+// call was admitted.
+func reassessmentReceipts(t *testing.T, db *Store) (receipts int) {
 	t.Helper()
-	ctx := context.Background()
-	if err := db.db.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1`).Scan(&spent); err != nil {
+	if err := db.db.QueryRowContext(context.Background(), `SELECT count(*) FROM factory_priority_judgments`).Scan(&receipts); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments`).Scan(&receipts); err != nil {
-		t.Fatal(err)
-	}
-	return spent, receipts
+	return receipts
 }
 
 // decidingTestCycle records one completion and advances its cycle to
@@ -666,7 +659,7 @@ func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
 	if err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
 	}
-	spent, receipts := reassessmentBudgetSpent(t, db)
+	receipts := reassessmentReceipts(t, db)
 	stale.Cycle.State = factory.ReassessmentAttention
 	stale.WaitReason = "decision_unavailable"
 	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, stale); err != nil {
@@ -682,8 +675,8 @@ func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
 	if len(stored.Cycle.Ledger.DecisionCalls) != 1 || stored.Cycle.Ledger.DecisionCalls[0] != call {
 		t.Fatalf("calls=%v, want the exact locked paid call", stored.Cycle.Ledger.DecisionCalls)
 	}
-	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
-		t.Fatalf("spent=%d->%d receipts=%d->%d, want no recharge", spent, spentAfter, receipts, receiptsAfter)
+	if receiptsAfter := reassessmentReceipts(t, db); receiptsAfter != receipts {
+		t.Fatalf("receipts=%d->%d, want no recharge", receipts, receiptsAfter)
 	}
 }
 
@@ -717,7 +710,7 @@ func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 		call2, factory.ReassessmentProposalPurpose, factory.ReassessmentOptionReassess, strings.Repeat("4", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want the admitted proposal call", reserved, err)
 	}
-	spent, receipts := reassessmentBudgetSpent(t, db)
+	receipts := reassessmentReceipts(t, db)
 	stale.Cycle.State = factory.ReassessmentAttention
 	stale.WaitReason = "decision_unavailable"
 	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, stale); err != nil {
@@ -734,8 +727,8 @@ func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 	if stored.Cycle.Decision != factory.ReassessmentOptionReassess {
 		t.Fatalf("decision=%q, want the recorded reassess decision", stored.Cycle.Decision)
 	}
-	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
-		t.Fatalf("spent=%d->%d receipts=%d->%d, want no recharge", spent, spentAfter, receipts, receiptsAfter)
+	if receiptsAfter := reassessmentReceipts(t, db); receiptsAfter != receipts {
+		t.Fatalf("receipts=%d->%d, want no recharge", receipts, receiptsAfter)
 	}
 }
 
@@ -759,7 +752,7 @@ func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
 			t.Fatalf("reservation %d: reserved=%v err=%v", i, reserved, err)
 		}
 	}
-	spent, receipts := reassessmentBudgetSpent(t, db)
+	receipts := reassessmentReceipts(t, db)
 	current, err := db.ReassessmentRecord(ctx, cycleID)
 	if err != nil {
 		t.Fatal(err)
@@ -790,8 +783,8 @@ func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
 	if stored.Cycle.State != factory.ReassessmentDeciding {
 		t.Fatalf("state=%q, want the refused row untouched", stored.Cycle.State)
 	}
-	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
-		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	if receiptsAfter := reassessmentReceipts(t, db); receiptsAfter != receipts {
+		t.Fatalf("receipts=%d->%d, want no change on refusal", receipts, receiptsAfter)
 	}
 }
 
@@ -809,7 +802,7 @@ func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
 		call1, factory.ReassessmentDecisionPurpose, "", strings.Repeat("8", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
 	}
-	spent, receipts := reassessmentBudgetSpent(t, db)
+	receipts := reassessmentReceipts(t, db)
 	current, err := db.ReassessmentRecord(ctx, cycleID)
 	if err != nil {
 		t.Fatal(err)
@@ -828,8 +821,8 @@ func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
 	if len(stored.Cycle.Ledger.DecisionCalls) != 1 || stored.Cycle.Ledger.DecisionCalls[0] != call1 {
 		t.Fatalf("calls=%v, want the single locked call untouched", stored.Cycle.Ledger.DecisionCalls)
 	}
-	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
-		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	if receiptsAfter := reassessmentReceipts(t, db); receiptsAfter != receipts {
+		t.Fatalf("receipts=%d->%d, want no change on refusal", receipts, receiptsAfter)
 	}
 }
 
@@ -879,7 +872,7 @@ func TestCasPrefixKeepsSealAndStaleRefusals(t *testing.T) {
 		stored.Cycle.Ledger.DecisionCalls[0] != call {
 		t.Fatalf("sealing lost its seal or its paid call: %+v", stored.Cycle.Ledger.DecisionCalls)
 	}
-	spent, receipts := reassessmentBudgetSpent(t, db)
+	receipts := reassessmentReceipts(t, db)
 	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentCollecting, stored); !errors.Is(err, ErrStaleRevision) {
 		t.Fatalf("stale expected state: %v", err)
 	}
@@ -923,7 +916,7 @@ func TestCasPrefixKeepsSealAndStaleRefusals(t *testing.T) {
 		len(kept.Cycle.Ledger.DecisionCalls) != 1 || kept.Cycle.Ledger.DecisionCalls[0] != call {
 		t.Fatal("refused seal rewrites mutated the row")
 	}
-	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
-		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	if receiptsAfter := reassessmentReceipts(t, db); receiptsAfter != receipts {
+		t.Fatalf("receipts=%d->%d, want no change on refusal", receipts, receiptsAfter)
 	}
 }

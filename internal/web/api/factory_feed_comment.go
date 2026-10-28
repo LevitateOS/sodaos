@@ -725,11 +725,8 @@ func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.Com
 }
 
 // driveCommentJudgment runs one JEV Choice call behind the comment
-// source revision. JEV calls are free; a reservation is taken before
-// the first call as duplicate-effect protection and a provider-limit
-// bound, not a monetary gate. A lost or failed call retries under the
-// still-open reservation, bounded by the attempt count. A refused
-// reservation with no open call waits on the provider limit. A
+// source revision. A lost or failed call retries under the same
+// snapshot, bounded by the attempt count. A
 // receipt already recorded behind this revision — a crash between
 // recording the answer and advancing the pipeline — replays its
 // stored selection without a second call, so restart resumes the
@@ -746,15 +743,9 @@ func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJud
 		}
 		return true, nil
 	}
-	funded, err := st.ReserveCommentJudgment(ctx, pipe.Comment, pipe.Revision)
-	if err != nil {
+	reserved, err := st.ReserveCommentJudgment(ctx, pipe.Comment, pipe.Revision)
+	if err != nil || !reserved {
 		return false, err
-	}
-	if !funded {
-		open, err := st.CommentJudgmentReservationOpen(ctx, pipe.Comment, pipe.Revision)
-		if err != nil || !open {
-			return false, err
-		}
 	}
 	input, err := collectCommentJudgeInput(ctx, st, detail)
 	if err != nil {

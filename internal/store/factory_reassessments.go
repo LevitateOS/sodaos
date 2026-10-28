@@ -19,12 +19,6 @@ import (
 // wait.
 var ErrCompletionFenced = errors.New("repository completion fence is closed")
 
-// ErrReassessmentBudgetExhausted reports a funded reassessment request
-// the existing global consultation ceiling refused. Nothing was
-// charged; the event holds with attention and waits for explicit
-// Retry, never an automatic repeat.
-var ErrReassessmentBudgetExhausted = errors.New("reassessment consultation budget is exhausted")
-
 // ReassessmentRecord is one persisted bounded cycle: the FW30 domain
 // cycle plus the sealed completion event, the complete sealed issue
 // bodies with their inventory digest and native revision bracket, the
@@ -576,18 +570,6 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	return tx.Commit()
 }
 
-// ReserveReassessmentCall charges one funded Jev request against the
-// cycle ledger and the existing global consultation ceiling in a single
-// transaction. The reservation lands before the provider is consulted
-// and stays charged whatever happens: failed or indeterminate requests
-// are never refunded and never silently repeated. A spent global budget
-// or an already-reserved fingerprint refuses with reserved=false and no
-// charge. Cached completed receipts bypass reservation entirely through
-// the shared judgment read path, keyed by the fingerprint that already
-// embeds the cycle, purpose, rubric, model and complete evidence. A
-// spent global budget refuses with ErrReassessmentBudgetExhausted; an
-// already-reserved fingerprint or a full ledger refuses with
-// reserved=false so the caller reconciles instead of charging again.
 // lockedReassessmentRowTx reads one reassessment row under the caller's
 // open transaction with a write lock, refusing missing rows and stale
 // states.
@@ -610,6 +592,11 @@ func lockedReassessmentRowTx(ctx context.Context, tx *sql.Tx, cycleID, expectedS
 	return record, nil
 }
 
+// ReserveReassessmentCall admits one Jev request for the cycle. A recorded
+// receipt for fingerprint is reused (false). An earlier call for the same
+// fingerprint that left no receipt retries under its existing ledger entry
+// (true). A new fingerprint takes a ledger entry; a full ledger refuses
+// (false) so the caller reconciles.
 func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedState, callID, purpose, decision, fingerprint string) (bool, error) {
 	if !factory.ValidID(cycleID) || !factory.ValidID(callID) || !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid reassessment reservation")
@@ -625,6 +612,17 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 	}
 	if purpose != factory.ReassessmentDecisionPurpose && purpose != factory.ReassessmentProposalPurpose {
 		return false, errors.New("invalid reassessment call purpose")
+	}
+	var decided bool
+	err = tx.QueryRowContext(ctx, `SELECT data IS NOT NULL FROM factory_priority_judgments WHERE snapshot=$1 FOR UPDATE`, fingerprint).Scan(&decided)
+	if err == nil {
+		if decided {
+			return false, nil
+		}
+		return true, tx.Commit()
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
 	}
 	if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
 		return false, nil
@@ -644,17 +642,6 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 		}
 		record.ProposalFingerprint = fingerprint
 	}
-	var existing int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, fingerprint).Scan(&existing); err != nil {
-		return false, err
-	}
-	if existing > 0 {
-		return false, nil
-	}
-	var spent int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
-		return false, err
-	}
 	record.Cycle.Ledger = ledger
 	recordData, err := json.Marshal(record)
 	if err != nil {
@@ -664,9 +651,6 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 		return false, err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
 		return false, err
 	}
 	return true, tx.Commit()

@@ -55,15 +55,14 @@ guards and the actionable MCP refusals.
 
 ## JEV and context selection
 
-- **A failed JEV context-bundle choice is never retried for the same run.**
-  `PrepareContextBundleSelection`
-  (`internal/factory/control/context_bundle_prepare.go:13-17`) funds the
-  choice once per immutable capability: a failed or uncertain consultation
-  keeps its reservation, and later attempts reuse the frozen selection
-  without another call (`:53-68`). One provider timeout holds the run on
-  `context_selection_unavailable` until the owner retries the whole run.
-  A bounded retry (for example one more call after a transport failure, not
-  after a confident answer) would let the run continue.
+- **Fixed on `simplify/jev-plain-calls`: failed JEV calls now retry.** JEV is
+  a plain classifier with no funding. A failed or interrupted call records no
+  receipt, so the next pass asks again, for the context-bundle choice and
+  every other JEV purpose. A recorded answer is still reused for the same
+  fingerprint, and a recorded context-bundle choice stays frozen for the run.
+  The per-intent planning-call allowance, the per-attempt delivery-call
+  budget and the global `factory_judgment_budget` counter no longer gate or
+  count calls; their tables stay in the schema, unused.
 
 ## Robustness
 

@@ -9,9 +9,10 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// ReserveContextBundleSelection claims the capability's single preparation-time
-// consultation and its existing priority receipt in one transaction. A changed
-// fingerprint, failed request or restart cannot buy another call for this run.
+// ReserveContextBundleSelection binds the capability's preparation-time
+// consultation to fingerprint in one transaction. A recorded selection stays
+// frozen for the run (false); an earlier call that left no receipt, including
+// one for an older fingerprint, may retry (true).
 func (s *Store) ReserveContextBundleSelection(ctx context.Context, capability factory.MCPCapability, fingerprint string) (bool, error) {
 	if capability.Validate() != nil || !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid context selection binding")
@@ -21,10 +22,6 @@ func (s *Store) ReserveContextBundleSelection(ctx context.Context, capability fa
 		return false, err
 	}
 	defer tx.Rollback()
-	var spent int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
-		return false, err
-	}
 	var raw []byte
 	var state string
 	var prior string
@@ -41,19 +38,20 @@ func (s *Store) ReserveContextBundleSelection(ctx context.Context, capability fa
 	if state != factory.MCPCapabilityStaged || recorded.Expired(time.Now()) {
 		return false, ErrMCPCapabilityState
 	}
-	if prior != "" {
-		return false, nil
+	if prior != "" && prior != fingerprint {
+		var decided bool
+		if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_priority_judgments WHERE snapshot=$1 AND data IS NOT NULL)`, prior).Scan(&decided); err != nil || decided {
+			return false, err
+		}
 	}
 	if err = checkMCPWorkActiveTx(ctx, tx, capability); err != nil {
 		return false, err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
+	reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
+	if err != nil || !reserved {
 		return false, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_mcp_capabilities SET data=jsonb_set(data,'{context_selection_snapshot}',to_jsonb($2::text)) WHERE id=$1`, capability.ID, fingerprint); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
 		return false, err
 	}
 	return true, tx.Commit()

@@ -156,32 +156,21 @@ func applyReassessmentAnswer(cycle factory.ReassessmentCycle, answer factory.Pri
 	return cycle.RecordDecision(answer.Selected, answer.Confidence)
 }
 
-// errReassessmentExhausted reports a funded decision the global
-// consultation ceiling refused. The event holds with attention and
-// waits for explicit Retry; nothing was charged.
-var errReassessmentExhausted = errors.New("reassessment funding exhausted")
-
-// DecideReassessment consults funded Jev for one deciding cycle and
-// files the outcome. The call reserves against the cycle ledger and
-// the existing global consultation ceiling atomically before any
-// provider spend; the reservation stays charged whatever happens.
-// Cached completed receipts bypass reservation through the shared
-// judgment read path. Outcomes:
+// DecideReassessment consults Jev for one deciding cycle and files the
+// outcome. Cached completed receipts bypass reservation through the
+// shared judgment read path. Outcomes:
 //
 //   - a valid reassess or continue decision is recorded on the cycle;
-//   - low confidence, malformed or unavailable answers hold with
-//     attention instead of inferring continue or calling again;
-//   - an exhausted ceiling holds with attention without charge;
-//   - an in-flight reservation (fingerprint taken, no receipt yet)
-//     defers without state change so the next drive re-reads.
+//   - low confidence or a malformed recorded answer holds with
+//     attention instead of inferring continue;
+//   - a failed call records nothing and defers without state change so
+//     the next drive asks again.
 //
-// No ordinary poll, input edit or policy edit refills a cycle and no
-// automatic extra agent call ever follows: only explicit authorized
+// No automatic extra agent call ever follows: only explicit authorized
 // Retry supersedes an attention cycle.
 
 // errReassessmentDeferred reports a decision attempt that changed
-// nothing: another drive holds the in-flight reservation. The next
-// drive re-reads the shared receipt instead of charging again.
+// nothing: the call failed or is in flight. The next drive asks again.
 var errReassessmentDeferred = errors.New("reassessment decision in flight")
 
 func checkReassessmentDecisionInput(c *Coordinator, record store.ReassessmentRecord, state ReassessmentDecisionState) error {
@@ -211,46 +200,23 @@ func checkReassessmentDecisionInput(c *Coordinator, record store.ReassessmentRec
 	return nil
 }
 
-func (c *Coordinator) reserveReassessmentDecision(ctx context.Context, cycleID, decision, fingerprint string) (bool, error) {
-	reserved, err := c.Store.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, decision, fingerprint)
-	if err != nil {
-		if errors.Is(err, store.ErrReassessmentBudgetExhausted) {
-			return false, errReassessmentExhausted
-		}
-		return false, err
-	}
-	if !reserved {
-		// Fingerprint taken without a completed receipt yet, or
-		// the ledger already holds this call: reconcile against
-		// the shared read path instead of charging again.
-		if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprint); readErr == nil && len(prior.Calls) == 1 && prior.Calls[0].Failure == "" {
-			return false, nil
-		}
-	}
-	return reserved, nil
-}
-
 func (c *Coordinator) recoverReassessmentDecision(ctx context.Context, record store.ReassessmentRecord, state ReassessmentDecisionState, adviceErr error) (store.ReassessmentRecord, error) {
-	// The shared receipt tells a charged failure from an
-	// in-flight reservation. A completed receipt never hides
-	// behind this error: apply it, or hold with attention
-	// when it is not actionable. Without any receipt the
-	// reservation is still in flight (or its ledger is spent
-	// with receipts lost): defer while calls remain, attend
-	// when the ledger is exhausted so explicit Retry can
-	// reconcile. Nothing here infers continue.
+	// A completed receipt never hides behind this error: apply it, or
+	// hold with attention when it is not actionable. A failed call
+	// defers so the next drive asks again. Otherwise a full ledger
+	// attends so explicit Retry can reconcile. Nothing here infers
+	// continue.
 	if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); readErr == nil && len(prior.Calls) == 1 {
-		if prior.Calls[0].Failure == "" {
-			updated, applyErr := applyReassessmentAnswer(record.Cycle, prior.Calls[0].Answer)
-			if applyErr != nil {
-				record.WaitReason = "decision_not_actionable"
-				return record, applyErr
-			}
-			record.Cycle = updated
-			return record, nil
+		updated, applyErr := applyReassessmentAnswer(record.Cycle, prior.Calls[0].Answer)
+		if applyErr != nil {
+			record.WaitReason = "decision_not_actionable"
+			return record, applyErr
 		}
-		record.WaitReason = "decision_unavailable"
-		return record, adviceErr
+		record.Cycle = updated
+		return record, nil
+	}
+	if errors.Is(adviceErr, ErrConsultationFailed) {
+		return record, errReassessmentDeferred
 	}
 	if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
 		record.WaitReason = "decision_unavailable"
@@ -265,7 +231,7 @@ func (c *Coordinator) DecideReassessment(ctx context.Context, record store.Reass
 	}
 	cycleID, decision := record.Cycle.CycleID, record.Cycle.Decision
 	reserve := func(ctx context.Context, fingerprint string) (bool, error) {
-		return c.reserveReassessmentDecision(ctx, cycleID, decision, fingerprint)
+		return c.Store.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, decision, fingerprint)
 	}
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose: factory.JudgmentPurpose(factory.ReassessmentDecisionPurpose),
@@ -273,10 +239,6 @@ func (c *Coordinator) DecideReassessment(ctx context.Context, record store.Reass
 		Outcome: ReassessmentDecisionOutcome, Reserve: reserve,
 	})
 	if err != nil {
-		if errors.Is(err, errReassessmentExhausted) {
-			record.WaitReason = "funding_exhausted"
-			return record, errReassessmentExhausted
-		}
 		if errors.Is(err, ErrPriorityUnavailable) {
 			return c.recoverReassessmentDecision(ctx, record, state, err)
 		}

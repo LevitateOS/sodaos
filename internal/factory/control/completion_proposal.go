@@ -193,7 +193,8 @@ func (c *Coordinator) assessReassessmentProposal(ctx context.Context, record sto
 		},
 	})
 	if err != nil {
-		c.holdCompletion(ctx, record, "reassessment_proposal_unavailable", report, true)
+		// A failed call retries on the next drive; anything else needs attention.
+		c.holdCompletion(ctx, record, "reassessment_proposal_unavailable", report, !errors.Is(err, ErrConsultationFailed))
 		return
 	}
 	cycle, err := record.Cycle.RecordProposal(answer.Selected, answer.Probabilities[factory.ReassessmentOptionAccept], answer.Confidence)

@@ -264,10 +264,25 @@ func (s *Store) IntentHistory(ctx context.Context, intent string, owner int64, l
 	return result, nil
 }
 
-// ReservePriorityJudgment consumes the maximum possible call count before any
-// request. Failed or interrupted consultations retain the reservation.
+// reserveJudgmentTx admits one JEV call for snapshot. JEV is free, so this
+// is not funding: a recorded receipt means the question is already answered
+// and the caller reuses it (false); a row without a receipt is an earlier
+// failed or interrupted call and the caller retries it (true).
+func reserveJudgmentTx(ctx context.Context, tx *sql.Tx, snapshot string, maxCalls int) (bool, error) {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,$2) ON CONFLICT(snapshot) DO NOTHING`, snapshot, maxCalls); err != nil {
+		return false, err
+	}
+	var decided bool
+	if err := tx.QueryRowContext(ctx, `SELECT data IS NOT NULL FROM factory_priority_judgments WHERE snapshot=$1 FOR UPDATE`, snapshot).Scan(&decided); err != nil {
+		return false, err
+	}
+	return !decided, nil
+}
+
+// ReservePriorityJudgment admits the calls for one snapshot: false once a
+// receipt is recorded, true otherwise, including a retry of a failed call.
 func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, maxCalls int) (bool, error) {
-	// The cap is the largest single-tournament reservation:
+	// The cap is the largest single-tournament call count:
 	// priorityCallCount(4096) is 18 for the 4,096-issue control
 	// reads, matching control.PriorityDefaultMaxCalls. A future
 	// inventory change must move both bounds together.
@@ -279,21 +294,8 @@ func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, ma
 		return false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var spent int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
-		return false, err
-	}
-	var existing int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, snapshot).Scan(&existing); err != nil {
-		return false, err
-	}
-	if existing > 0 {
-		return false, nil
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,$2)`, snapshot, maxCalls); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+$1 WHERE id=1`, maxCalls); err != nil {
+	reserved, err := reserveJudgmentTx(ctx, tx, snapshot, maxCalls)
+	if err != nil || !reserved {
 		return false, err
 	}
 	return true, tx.Commit()
@@ -325,12 +327,8 @@ func (s *Store) RecordPriorityJudgment(ctx context.Context, r factory.PriorityRe
 	return err
 }
 
-// ReserveIntentJudgment admits one planning consultation against the current
-// independent allowance for this owner-private intent, plus the operator's
-// global consultation ceiling, under one transaction. The embedded revision
-// PlanningCalls field no longer funds anything: a missing allowance or an
-// exhausted amount refuses with ErrPlanningAllowanceExhausted, without
-// fallback and without inventing funding.
+// ReserveIntentJudgment admits one planning consultation for the current
+// revision of an owner-private intent.
 func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevision, snapshot string) (bool, error) {
 	if !factory.ValidDigest(snapshot) {
 		return false, errors.New("invalid planning snapshot")
@@ -347,64 +345,20 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	return true, tx.Commit()
 }
 
-// reserveIntentJudgmentTx reserves planning usage in the caller's transaction.
+// reserveIntentJudgmentTx admits planning usage in the caller's transaction.
 // The caller owns commit/rollback and must make provider calls outside the transaction.
 func (s *Store) reserveIntentJudgmentTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, snapshot string) (bool, error) {
 	if !factory.ValidDigest(snapshot) {
 		return false, errors.New("invalid planning snapshot")
 	}
-	var err error
 	var head string
-	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&head); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&head); err != nil {
 		return false, err
 	}
 	if head != r.ID {
 		return false, ErrStaleRevision
 	}
-	var allowanceRevision string
-	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_allowance_heads WHERE intent=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&allowanceRevision); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, ErrPlanningAllowanceExhausted
-		}
-		return false, err
-	}
-	var allowanceRaw []byte
-	var allowance factory.PlanningAllowance
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, allowanceRevision).Scan(&allowanceRaw); err != nil {
-		return false, err
-	}
-	if err = json.Unmarshal(allowanceRaw, &allowance); err != nil {
-		return false, err
-	}
-	if allowance.Intent != r.Intent || allowance.Owner != r.Owner || allowance.Unit != factory.PlanningAllowanceUnit {
-		return false, errors.New("planning allowance identity mismatch")
-	}
-	var spent, used, existing int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
-		return false, err
-	}
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_planning_calls WHERE intent=$1`, r.Intent).Scan(&used); err != nil {
-		return false, err
-	}
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, snapshot).Scan(&existing); err != nil {
-		return false, err
-	}
-	if used >= allowance.Amount {
-		return false, ErrPlanningAllowanceExhausted
-	}
-	if existing > 0 {
-		return false, nil
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, snapshot); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_planning_calls(intent,snapshot) VALUES($1,$2)`, r.Intent, snapshot); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
-		return false, err
-	}
-	return true, nil
+	return reserveJudgmentTx(ctx, tx, snapshot, 1)
 }
 
 func (s *Store) PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error) {

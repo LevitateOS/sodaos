@@ -198,9 +198,17 @@ func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("reserve %v %v", ok, err)
 	}
+	// A call that left no receipt retries; a recorded receipt is reused.
+	ok, err = s.ReservePriorityJudgment(ctx, a, 2)
+	if err != nil || !ok {
+		t.Fatalf("retry reservation: %v %v", ok, err)
+	}
+	if err := s.RecordPriorityJudgment(ctx, factory.PriorityReceipt{Snapshot: a, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
 	ok, err = s.ReservePriorityJudgment(ctx, a, 2)
 	if err != nil || ok {
-		t.Fatal("repeated reservation")
+		t.Fatal("repeated reservation after a recorded receipt")
 	}
 	ok, err = s.ReservePriorityJudgment(ctx, b, 2)
 	if err != nil || !ok {
