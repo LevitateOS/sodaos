@@ -543,7 +543,9 @@ async function phaseStartPlan(page: Page, out: string): Promise<void> {
         } catch {
           plan = {};
         }
-        if (plan.revision) {
+        // state 'none' carries the revision id but means no plan (yet) —
+        // only a live or settled plan counts as admitted.
+        if (plan.revision && plan.state !== 'none') {
           await writeFile(`${out}/plan-admitted-late.json`, JSON.stringify({admissionStatus: planReply.status(), plan}, null, 2));
           await shot(page, `${out}/plan-admitted-late.png`);
           return;
@@ -573,6 +575,12 @@ async function phasePlan(page: Page, out: string, intent: string, revision: stri
     if (!want) want = plan.revision ?? null;
     assert(want, 'Plan: refresh must report a revision');
     assert.equal(plan.revision, want, 'Plan: refresh must report the bound revision');
+    // state 'none' means the run has not registered yet — keep polling
+    // inside the deadline; only a settled non-pending state is terminal.
+    if (plan.state === 'none') {
+      await page.waitForTimeout(15000);
+      continue;
+    }
     if (plan.state !== 'pending') {
       await shot(page, `${out}/plan-${plan.state}.png`);
       await writeFile(`${out}/plan.json`, JSON.stringify({intent, revision, state: plan.state, startedUnixMS: started, endedUnixMS: Date.now(), plan}, null, 2));
