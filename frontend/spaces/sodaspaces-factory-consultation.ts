@@ -1,7 +1,7 @@
 import {html} from 'lit';
 import type {FeedConsultation, FeedContribution} from './sodaspaces-factory-feed-response.js';
 import {object} from './sodaspaces-api.js';
-import {roleLabel} from './sodaspaces-factory-feed-families.js';
+import {roleLabel} from './sodaspaces-factory-feed-thread.js';
 
 function recorded(value: unknown): string {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2) ?? '';

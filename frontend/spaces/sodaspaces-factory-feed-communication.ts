@@ -7,6 +7,7 @@ import {
   actionList,
   communicationAction,
   commitTrail,
+  filledCommunication,
   renderFeedAction,
   sourceExcerpt,
 } from './sodaspaces-factory-feed-actions.js';
@@ -78,10 +79,11 @@ function componentSummary(summary: string): TemplateResult {
 }
 
 export function renderFeedCommunication(
-  c: FeedCommunication,
+  communication: FeedCommunication,
   entryKey: string,
   request?: FeedArtifactRequest
 ): TemplateResult {
+  const c = filledCommunication(communication);
   const event = factoryEvent(c.componentId);
   const presentation = event?.presentation ?? defaultPresentation[c.kind];
   const action = communicationAction(c, presentation);
@@ -152,10 +154,10 @@ export function renderFeedCommunication(
     ${
       c.planSource
         ? html`<details class="soda-feed-source-reference">
-            <summary>Recorded plan · generation ${c.planSource.generation}</summary>
+            <summary>Recorded plan · generation ${c.planSource.generation ?? 0}</summary>
             <p>Plan: <code>${c.planSource.plan}</code></p>
             <p>Assignment: <code>${c.planSource.attemptRoot}</code></p>
-            <p>Source commit: <code>${c.planSource.source}</code></p>
+            <p>Source commit: <code>${c.planSource.sourceCommit}</code></p>
             <p>Plan digest: <code>${c.planSource.digest}</code></p>
             <p>Recording this revision does not itself admit or implement the plan.</p>
           </details>`
@@ -169,7 +171,7 @@ export function renderFeedCommunication(
             <p>Snapshot: <code>${c.planningSource.snapshot}</code></p>
             <p>Record digest: <code>${c.planningSource.recordDigest}</code></p>
             ${
-              c.planningSource.judgment['selected']
+              c.planningSource.judgment?.['selected']
                 ? html`<details>
                     <summary>Actual JEV answer</summary>
                     <pre>${JSON.stringify(c.planningSource.judgment, null, 2)}</pre>
