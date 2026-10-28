@@ -96,8 +96,7 @@ or a limit of one finding/task/output item.
 
 All profiles expose `factory.context`, `factory.evidence`, `factory.status`,
 `factory.receipt` and `factory.finish_incomplete`. Builder/Fixer can
-`factory.submit_task_output`; Builder alone can `factory.request_handoff` to an
-already planned successor. These are the current 14 source tools across seven
+`factory.submit_task_output`. These are the current 14 source tools across seven
 profiles. The [required communication outlets](../development/factory-workflow-contracts.md#d14-communication-outlets)
 add seven distinct nonterminal MCP tools shared by every role, giving a minimum
 communication extension of 21 tools on the same server. Ask, flag, learned, suggest, partial, blocked and

@@ -335,7 +335,7 @@ Show the evolution of working software. Observed task/checkpoint records supply
 state; the worker's narrative explains meaningful decisions and obstacles.
 
 **Primary producers:** `tasks`, `task_inputs`, native task observation,
-`submit_task_output`, `request_handoff`, check/checkpoint receipts,
+`submit_task_output`, check/checkpoint receipts,
 `finish_implementation`, Partial, Flag, Suggest and artifacts.
 
 | ID / component | Compact view → expanded view | Useful interaction | Record binding and important states |
@@ -965,7 +965,6 @@ without inventing another server or a widget for each error code.
 | One task waits while other tasks are runnable | Task/readiness observation → BU01 + BU03 + S05 | Limit the wait to the affected task/edge and allow existing independent work. No repository-wide blocked badge. |
 | Child work crashes, is unattributable or has uncertain termination | Native task observation → BU01 + BU08 + F09 | Preserve confirmed output, label untrusted/unknown output and reconcile native binding. No checkpoint from an unattributed process. |
 | Output submission conflicts with the current tree/checkpoint | `submit_task_output` validation → BU07 + BU04 + S10 | Show conflicting identities and the admitted rebase/rework path. No overwrite or invented verified checkpoint. |
-| Handoff is requested before required inputs/checks are confirmed | `request_handoff` receipt → BU03 + BU06 | Show the missing predecessor evidence and keep successor unreleased. A handoff request is not dependency release. |
 | Candidate changes after checks or output submission | Candidate observation → BU04 + BU06 + BU07 + S15 | Preserve old receipts as historical; require applicable evidence for the new bytes before acceptance. |
 | Implementation proves the accepted plan insufficient | `suggest`, progress/failure evidence → BU09 + BU08 + S03 | Route a revision; continue only work still admitted and valid. Builder cannot edit the accepted task graph through a card. |
 | Useful code is preserved but no complete candidate can be delivered | `partial` or terminal `finish_incomplete` → BU07/BU04 + S04 or S12 | Distinguish observed checkpoint from unfinished changes and ongoing from ended work. |

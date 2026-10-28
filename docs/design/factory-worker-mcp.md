@@ -513,7 +513,6 @@ attempts and the exact answers to questions that affect implementation.
 | `factory.tasks` | Read task readiness, dependencies, ownership, assigned native workers and observed checkpoints. Fixer may use its admitted singleton projection. |
 | `factory.task_inputs` | Fetch the exact manifest, predecessor outputs and applicable context for one admitted task. |
 | `factory.submit_task_output` | Submit an observed native worker's output for the existing trusted checkpoint/check path; Fixer uses the singleton variant. |
-| `factory.request_handoff` | Request release to an already planned successor after the required verified output. This does not assign arbitrary work or create an unplanned dependency. |
 | `factory.finish_implementation` | Submit the coherent candidate and complete required task/integration evidence. |
 
 Native tools still edit files, run permitted commands and start/join qualified

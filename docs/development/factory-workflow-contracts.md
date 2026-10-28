@@ -1335,7 +1335,7 @@ Communication is bounded to 128 nonterminal posts per assignment and 8 KiB per p
 | --- | --- | --- | --- |
 | Product Lead | finish_product_plan | None | 24 |
 | Architect | finish_issue_plan | None | 24 |
-| Builder | finish_implementation | submit_task_output, request_handoff | 26 |
+| Builder | finish_implementation | submit_task_output | 25 |
 | Inspector | finish_review | None | 24 |
 | Fixer | finish_correction | submit_task_output | 25 |
 | Strategist | finish_reassessment | None | 24 |
@@ -1389,8 +1389,7 @@ reports incomplete evidence; it cannot become an empty successful collection.
 | `factory.verification_scope` | Optional `{after}` feed-sequence continuation → exact admitted delivery/outcome IDs plus four canonical journey observations and total/next cursor. Read-only and capability-bound. | Test Pilot |
 | `factory.record_journey_result` | Exact delivery/input/source/preparation/manifest, accepted outcome IDs, name/steps, expected/observed behavior, reported passed/failed/incomplete, evidence, owned artifact IDs and limitations. Immutable submission ID is the journey ID; receipt and TP03 post are atomic. | Test Pilot |
 | `factory.finish_app_verification` | D16 exact delivery, complete outcome/journey coverage and observed check/artifact receipts; outcome verified/failed/incomplete. | Test Pilot |
-| `factory.submit_task_output` | `{task_id,manifest_digest,native_child_ref?,output_digest,evidence_refs}` → proposal awaiting trusted observation/checkpoint. Builder requires its observed child; Fixer must omit child and uses the bound parent singleton. Agent success text is not a receipt. | Builder/Fixer parent |
-| `factory.request_handoff` | `{predecessor_task,successor_task,manifest_digest,output_submission_id}` → request against the already approved DAG. Release only follows verified predecessor checkpoint. | Builder parent |
+| `factory.submit_task_output` | `{task_id,evidence_refs}` → proposal awaiting trusted observation/checkpoint. SodaOS fills the manifest digest, observed output digest and native child from the task's output-ready receipt. Agent success text is not a receipt. | Builder/Fixer parent |
 
 Authenticated worker mutations require `{submission_id,payload}`; the server supplies the bound input digest unless the caller explicitly sends `expected_input_digest` to detect a stale view.
 `submission_id` is a 32-hex identifier. Unique `(assignment_id,submission_id)` is the idempotency key; persist tool,
@@ -1919,7 +1918,7 @@ No row is complete through a schema, prompt, helper or mocked test alone.
 | context/evidence/status/receipt | Native staged MCP → private listener in `internal/web/api` → `factory/control` admission/context → existing run/plan/review/inventory records + capability/submission tables → bounded authorized reads → real handler test and role view. |
 | finish_product_plan | Same admission → intent result/D02 validation → generation/adoption records → existing conditional Fountain graph write → issue links/current accepted graph in Work/Spaces. |
 | finish_issue_plan | Admission → planning/result validation → immutable planning/tasks/current pointer → fresh implementation packet through host → actual admitted plan/lane view. |
-| submit_task_output/request_handoff/finish_implementation | Admission → task/result controller → proposal/task/checkpoint/assignment receipts → trusted Rust native observation/checkpoint/export → publication through existing Fountain boundary → early commit links, released dependencies and exact PR. |
+| submit_task_output/finish_implementation | Admission → task/result controller → proposal/task/checkpoint/assignment receipts → trusted Rust native observation/checkpoint/export → publication through existing Fountain boundary → early commit links, released dependencies and exact PR. |
 | finish_review | Admission → full review validator/cycle → review/submission/publication records → conditional Fountain inline review → native comment IDs plus D07 acceptance/routing. |
 | finish_correction | Singleton output proposal → trusted D05 checkpoint/check receipt → terminal canonical disposition validation → correction/candidate records → checked candidate publication; only D07 acceptance permits thread resolution → per-finding evidence/current candidate. |
 | finish_reassessment | Admission → D13 completion or D15 stall controller → sealed inventory/report/judgment/adoption cursor → existing serial conditional graph journal → verified fresh readiness or named wait. |
