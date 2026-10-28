@@ -52,29 +52,15 @@ type TaskEventImport struct {
 	Events      []project.TaskEvent
 }
 
-// TaskExecutionDecisions is what one fold releases or retires. NewlyReady
-// names releasable tasks in plan order once their prerequisites complete —
-// a completion event prompts immediate downstream release while unrelated
-// lanes stay active. StopRun retires the run: no new task admission and
-// RetireChildren names live native children the executor must stop. A
-// failed prerequisite blocks its descendants; the failure itself stops the
-// whole run per D05.
-type TaskExecutionDecisions struct {
-	NewlyReady     []string
-	StopRun        bool
-	RetireChildren []string
-	LimitViolation bool
-}
-
-// TaskExecutionResult carries exact receipt writes plus decisions.
-// NextSequence is the journal cursor after the fold: the highest applied
-// or replayed sequence, for the caller's next page.
+// TaskExecutionResult carries exact receipt writes. NextSequence is the
+// journal cursor after the fold: the highest applied or replayed sequence,
+// for the caller's next page. Stop reports that the run must admit no new
+// task: a failed task was contained, the run stopped, or the journal
+// recorded more active tasks than admitted (D05).
 type TaskExecutionResult struct {
 	Writes       []store.PlanTaskReceipt
-	Decisions    TaskExecutionDecisions
 	NextSequence int64
-	Stopped      bool
-	Contained    bool
+	Stop         bool
 }
 
 // taskEventRef records one applied event on its receipt. The suffix keeps
@@ -125,7 +111,7 @@ func journalStopped(receipts []store.PlanTaskReceipt) bool {
 }
 
 // ImportTaskEvents folds one verified event page into receipt writes and
-// release decisions. Missing receipts seed as pending; identical replays
+// the stop decision. Missing receipts seed as pending; identical replays
 // emit nothing; conflicting bytes, gaps, foreign identities and lifecycle
 // violations refuse with the sentinel above.
 func ImportTaskEvents(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, imp TaskEventImport) (TaskExecutionResult, error) {
@@ -310,35 +296,18 @@ func (f *taskEventFold) foldEvent(event project.TaskEvent) error {
 	return nil
 }
 
-// finishExecution computes failure containment and release decisions
-// over the folded state.
+// finishExecution computes failure containment over the folded state.
 func (f *taskEventFold) finishExecution() {
 	f.result.NextSequence = f.next
-	f.result.Stopped = f.stopped
-	// Failure containment and release compute over the folded state.
 	failed := failedTasks(f.plan, f.pending)
 	contained := len(failed) > 0
 	if contained {
 		cancelBlocked(f.plan, f.pending, failed, f.emit)
 	}
-	// A scheduler violation is recorded truthfully and flagged, and
-	// releases freeze: the journal stays authoritative while the caller
-	// fences the over-limit run instead of adding load to it.
-	violated := overTaskLimits(f.plan, f.pending, f.imp.MaxChildren)
-	decisions := TaskExecutionDecisions{}
-	if contained {
-		decisions.StopRun = true
-		decisions.RetireChildren = activeChildren(f.plan, f.pending)
-	} else if f.stopped {
-		decisions.StopRun = true
-	} else if !violated {
-		decisions.NewlyReady = readyPlanTasks(f.plan, f.pending, f.imp.MaxChildren)
-	}
-	if violated {
-		decisions.LimitViolation = true
-	}
-	f.result.Decisions = decisions
-	f.result.Contained = contained
+	// A scheduler violation is recorded truthfully and stops the run: the
+	// journal stays authoritative while the caller fences the over-limit
+	// run instead of adding load to it.
+	f.result.Stop = contained || f.stopped || overTaskLimits(f.plan, f.pending, f.imp.MaxChildren)
 }
 
 // receiptsEqual compares two receipts ignoring no field: the caller sets
@@ -713,54 +682,6 @@ func cancelBlocked(plan factory.InvestigationPlan, pending map[string]store.Plan
 		}
 		emit(next)
 	}
-}
-
-// readyPlanTasks lists releasable tasks in plan order: pending with every
-// dependency completed, a free home lane and aggregate room. Plan order is
-// already topological, so iteration order is the specified
-// plan-order/key release order.
-func readyPlanTasks(plan factory.InvestigationPlan, pending map[string]store.PlanTaskReceipt, maxChildren int) []string {
-	laneHeld := make(map[string]bool)
-	active := 0
-	for _, task := range plan.Tasks {
-		switch pending[task.ID].State {
-		case store.PlanTaskRunning, store.PlanTaskOutputReady:
-			laneHeld[task.Lane] = true
-			active++
-		}
-	}
-	var ready []string
-	for _, task := range plan.Tasks {
-		if pending[task.ID].State != store.PlanTaskPending {
-			continue
-		}
-		blocked := false
-		for _, dep := range task.DependsOn {
-			if pending[dep].State != store.PlanTaskCompleted {
-				blocked = true
-				break
-			}
-		}
-		if blocked || laneHeld[task.Lane] || active >= maxChildren {
-			continue
-		}
-		laneHeld[task.Lane] = true
-		active++
-		ready = append(ready, task.ID)
-	}
-	return ready
-}
-
-// activeChildren names live native children for retirement ordering.
-func activeChildren(plan factory.InvestigationPlan, pending map[string]store.PlanTaskReceipt) []string {
-	var children []string
-	for _, task := range plan.Tasks {
-		receipt := pending[task.ID]
-		if !receipt.Parent && (receipt.State == store.PlanTaskRunning || receipt.State == store.PlanTaskOutputReady) {
-			children = append(children, receipt.Child)
-		}
-	}
-	return children
 }
 
 // overTaskLimits reports a scheduler violation the journal recorded

@@ -75,5 +75,5 @@ func (c *Coordinator) importRunTaskEvents(ctx context.Context, run factory.Run, 
 	if err := c.Store.SavePlanTaskReceipts(ctx, result.Writes); err != nil {
 		return false, false, err
 	}
-	return len(page.Events) == 0, result.Decisions.StopRun || result.Decisions.LimitViolation, nil
+	return len(page.Events) == 0, result.Stop, nil
 }
