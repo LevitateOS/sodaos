@@ -116,8 +116,9 @@ function suggestedNote(view: RepositoryPickerView) {
 export function renderRepositoryPicker(view: RepositoryPickerView, actions: RepositoryPickerActions) {
   const choice = view.result?.items.find((item) => item.id === view.selected);
   return html`<header class="soda-setup-step-heading">
+      <p class="soda-setup-eyebrow">Request</p>
       <h2 tabindex="-1">Repository for this request</h2>
-      <p>Soda creates this request's issues and pull requests in the repository you confirm here.</p>
+      <p>Its issues and pull requests are created here.</p>
       ${authorizationNote(view)} ${suggestedNote(view)}
     </header>
     <form class="soda-repository-search" @submit=${(event: SubmitEvent) => onRepositorySearch(event, actions.search)}>
