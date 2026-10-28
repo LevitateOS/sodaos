@@ -1425,22 +1425,33 @@ async function phaseCorrect(page: Page, out: string): Promise<void> {
   const text1 = await visibleText(page, 8000);
   await writeFile(`${out}/correct-change-ui.txt`, text1);
   await shot(page, `${out}/correct-change-ui.png`);
-  const button = spaces.getByRole('button', {name: 'Correct walkthrough first', exact: true});
-  assert((await button.count()) > 0, 'Correct: Correct walkthrough first button not present');
-  const state = await button.first().evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return {disabled: (el as HTMLButtonElement).disabled, box: {x: r.x, y: r.y, w: r.width, h: r.height}};
-  });
-  await writeFile(`${out}/correct-button.json`, JSON.stringify(state));
-  await button.first().scrollIntoViewIfNeeded();
-  await page.waitForTimeout(500);
-  await shot(page, `${out}/correct-before-click.png`);
-  await button.first().click({timeout: 10000});
-  await page.waitForTimeout(2000);
+  // Correction text (recorded rehearsal answers): resolve the two "still to
+  // establish" items — visibility limited to the three named roles, and
+  // pre-decision display limited to item/reason/date + Submitted/pending.
+  const correction = [
+    'Clarification for the two open walkthrough points.',
+    '(1) Visibility: only the requesting employee, their manager, and Operations can see a request. No other employees, no shared department visibility, nobody outside those three roles.',
+    '(2) Before a manager decision, the request shows the submitted item, reason and needed-by date with status Submitted to the employee and pending approval to the manager. Nothing about ordering, delivery, or progress appears until the manager approves.',
+  ].join(' ');
+  const field = spaces.locator('.change-field textarea');
+  assert((await field.count()) >= 1, 'Correct: What-should-change field not found');
+  await field.first().fill(correction);
+  await writeFile(`${out}/correct-submitted.txt`, correction);
+  await shot(page, `${out}/correct-filled.png`);
+  const exploring = page.waitForResponse(
+    (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+    {timeout: 180000}
+  );
+  await spaces.getByRole('button', {name: 'Submit change', exact: true}).first().click();
+  const explored = await exploring;
+  assert.equal(explored.status(), 201, `Correct: Submit change must re-explore with 201, got ${explored.status()}`);
+  const exploreBody = (await explored.json()) as {intent?: string};
+  await writeFile(`${out}/correct-explore.json`, JSON.stringify({intent: exploreBody.intent}, null, 2));
+  await page.waitForTimeout(3000);
+  await shot(page, `${out}/correct-explored.png`);
   const text = await visibleText(page, 6000);
-  await writeFile(`${out}/correct-ui.txt`, text);
-  await shot(page, `${out}/correct-ui.png`);
-  assert.fail(`Correct: correction UI captured, submit not automated yet. UI: ${text.slice(0, 1500)}`);
+  await writeFile(`${out}/correct-after.txt`, text);
+  assert.fail(`Correct: correction submitted, explore 201. Next: plan again. Page: ${text.slice(0, 1200)}`);
 }
 
 async function phaseAccept(page: Page, out: string, _intent: string): Promise<void> {
