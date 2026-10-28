@@ -17,8 +17,6 @@ const IDEA = 'd' + 'f'.repeat(24);
 const RUN = 'd'.repeat(32);
 const PROJECT = 'p0123456789abcdef01234567';
 const ENVIRONMENT = 'p' + 'f'.repeat(24);
-const ALLOWANCE = 'd' + 'b'.repeat(24);
-const ALLOWANCE_NEXT = 'd' + '1'.repeat(24);
 const HEAD = 'a'.repeat(40);
 const BASE = 'b'.repeat(40);
 const SNAPSHOT = 'a'.repeat(64);
@@ -246,18 +244,6 @@ const attentionIssueDetail = {
   },
 };
 
-const allowance = {
-  id: ALLOWANCE,
-  intent: INTENT,
-  owner: '1001',
-  amount: 40,
-  ceiling: 100,
-  reserved: 5,
-  consumed: 12,
-  unit: 'planning_calls',
-  created_unix: 1720000000,
-};
-
 const access = {
   repository: '7',
   observed_unix: 1728670000,
@@ -271,20 +257,6 @@ const access = {
   },
   effective: {effective: true, dispatch_open: true, missing: []},
   required_actions: [],
-  planning: [
-    {
-      intent: INTENT,
-      id: ALLOWANCE,
-      unit: 'planning_calls',
-      status: 'ok',
-      amount: 40,
-      reserved: 5,
-      consumed: 12,
-      available: 23,
-      ceiling: 100,
-      editable: {editable: true},
-    },
-  ],
 };
 
 const historyEntry = {
@@ -1024,100 +996,23 @@ test('stale in-flight context read resolving after scope change writes nothing',
   assert.equal(outcome.buttonDisabled, false);
 });
 
-test('direction revision shows allowance reference and history, then adjusts allowance', async (t) => {
+test('direction revision shows history without any planning-allowance read', async (t) => {
   const page = await openView(t, 'direction', [
     {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
-    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
-    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
     {
       method: 'GET',
       path: `factory/intents/${INTENT}/revisions?limit=2`,
       status: 200,
       json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
     },
-    {
-      method: 'POST',
-      path: 'factory/intent-allowances',
-      status: 201,
-      json: {...allowance, id: ALLOWANCE_NEXT, predecessor: ALLOWANCE, amount: 60, ceiling: 60},
-    },
   ]);
   const direction = page.locator('soda-factory-direction-revision');
-  await direction.getByText(/23 available/).waitFor();
   await direction.getByText('2 revisions shown, newest first.').waitFor();
   await direction.getByText('Submitted graph: 2 submitted keys.').waitFor();
-  await direction.locator('input[name="amount"]').fill('60');
-  await direction.locator('input[name="effect"]').fill('cover review queue');
-  await direction.getByRole('button', {name: 'Adjust allowance'}).click();
-  await direction.getByText('Allowance adjusted to 60 planning calls.').waitFor();
+  assert.doesNotMatch(await direction.innerText(), /allowance|planning calls/i);
 
   const calls = await workCalls(page);
-  const post = calls.find((call) => call.method === 'POST' && call.path === 'factory/intent-allowances');
-  const body = post?.body as Record<string, unknown>;
-  assert.equal(body.intent, INTENT);
-  assert.equal(body.predecessor, ALLOWANCE);
-  assert.equal(body.amount, 60);
-  assert.equal(body.ceiling, 60);
-  assert.equal(body.unit, 'planning_calls');
-  assert.equal(body.reserved, 5);
-  assert.equal(body.consumed, 12);
-  assert.equal(body.effect, 'cover review queue');
-});
-
-test('allowance increase with a blank effect records the mechanical delta effect', async (t) => {
-  const page = await openView(t, 'direction', [
-    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
-    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
-    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
-    {
-      method: 'GET',
-      path: `factory/intents/${INTENT}/revisions?limit=2`,
-      status: 200,
-      json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
-    },
-    {
-      method: 'POST',
-      path: 'factory/intent-allowances',
-      status: 201,
-      json: {...allowance, id: ALLOWANCE_NEXT, predecessor: ALLOWANCE, amount: 60, ceiling: 60},
-    },
-  ]);
-  const direction = page.locator('soda-factory-direction-revision');
-  await direction.getByText(/23 available/).waitFor();
-  await direction.locator('input[name="amount"]').fill('60');
-  await direction.getByRole('button', {name: 'Adjust allowance'}).click();
-  await direction.getByText('Allowance adjusted to 60 planning calls.').waitFor();
-
-  const calls = await workCalls(page);
-  const post = calls.find((call) => call.method === 'POST' && call.path === 'factory/intent-allowances');
-  const body = post?.body as Record<string, unknown>;
-  assert.equal(body.amount, 60);
-  assert.equal(body.ceiling, 60);
-  assert.equal(body.reserved, 5);
-  assert.equal(body.consumed, 12);
-  assert.equal(body.effect, 'Authorize 20 additional planning calls (60 total).');
-});
-
-test('allowance below recorded usage is refused locally without posting', async (t) => {
-  const page = await openView(t, 'direction', [
-    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
-    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
-    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
-    {
-      method: 'GET',
-      path: `factory/intents/${INTENT}/revisions?limit=2`,
-      status: 200,
-      json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
-    },
-  ]);
-  const direction = page.locator('soda-factory-direction-revision');
-  await direction.getByText(/23 available/).waitFor();
-  await direction.locator('input[name="amount"]').fill('10');
-  await direction.getByRole('button', {name: 'Adjust allowance'}).click();
-  await direction.getByText('Allowance amount must cover 17 reserved and consumed planning calls.').waitFor();
-
-  const calls = await workCalls(page);
-  assert.equal(calls.filter((call) => call.method === 'POST' && call.path === 'factory/intent-allowances').length, 0);
+  assert.equal(calls.filter((call) => /allowance|factory\/access/.test(call.path)).length, 0);
 });
 
 test('optional effects gate per checkpoint and save exact identity', async (t) => {
@@ -1351,7 +1246,6 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
         comparisons: [],
       },
     },
-    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
     {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
     {
       method: 'GET',
@@ -1411,7 +1305,6 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
   const paths = fresh.map((call) => call.path);
   assert.ok(paths.includes('repositories/7/factory/issues/12/plan?limit=5'));
   assert.ok(paths.includes('repositories/7/factory/issues/12'));
-  assert.ok(paths.includes(`factory/intents/${INTENT}/allowance`));
   assert.ok(paths.includes(`factory/intents/${INTENT}/revisions?limit=2`));
 
   await page.evaluate(() => {
@@ -1432,7 +1325,7 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
       !text('soda-factory-work-overview').includes('Let a team track demo work.') &&
       text('soda-factory-work-plan') === '' &&
       text('soda-factory-work-detail') === '' &&
-      text('soda-factory-direction-revision').includes('No planning allowance recorded.')
+      text('soda-factory-direction-revision').includes('No accepted direction recorded.')
     );
   });
   assert.equal(await page.locator('soda-factory-work-plan').textContent(), '');

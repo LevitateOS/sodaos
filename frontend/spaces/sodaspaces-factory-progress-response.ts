@@ -432,67 +432,6 @@ function priorityComparison(value: unknown): PriorityComparison {
     ...(typeof raw.selected === 'string' && raw.selected !== '' ? {selected: raw.selected} : {}),
   };
 }
-// issuePlan binds one issue's recorded plan, freshness and recent
-// priority comparisons to its exact repository and issue. Paging
-// cursors travel as a pair; a half cursor is rejected.
-export interface PlanningAllowanceView {
-  readonly id: string;
-  readonly intent: string;
-  readonly owner: string;
-  readonly amount: number;
-  readonly unit: string;
-  readonly reserved: number;
-  readonly consumed: number;
-  readonly ceiling: number;
-  readonly created_unix: number;
-  readonly predecessor?: string;
-  readonly effect?: string;
-}
-function allowanceAmount(raw: Record<string, unknown>) {
-  check(typeof raw.amount === 'number' && Number.isSafeInteger(raw.amount) && raw.amount >= 0 && raw.amount <= 100);
-  check(typeof raw.ceiling === 'number' && Number.isSafeInteger(raw.ceiling) && raw.ceiling >= 0 && raw.ceiling <= 100);
-  check(raw.amount <= raw.ceiling);
-  return {amount: raw.amount, ceiling: raw.ceiling};
-}
-function allowanceConsumption(raw: Record<string, unknown>) {
-  check(typeof raw.reserved === 'number' && Number.isSafeInteger(raw.reserved) && raw.reserved >= 0);
-  check(typeof raw.consumed === 'number' && Number.isSafeInteger(raw.consumed) && raw.consumed >= 0);
-  return {reserved: raw.reserved, consumed: raw.consumed};
-}
-function allowanceBounds(raw: Record<string, unknown>) {
-  const amount = allowanceAmount(raw);
-  const consumption = allowanceConsumption(raw);
-  check(consumption.reserved + consumption.consumed <= amount.amount);
-  return {...amount, ...consumption};
-}
-function allowanceEffect(value: unknown): string | undefined {
-  if (value === undefined || value === '') return undefined;
-  check(typeof value === 'string' && value.trim() !== '' && value.length <= 4000);
-  return value;
-}
-// planningAllowance binds one planning allowance record to its exact
-// intent: the bounded amount in real planning-call units with reserved
-// and consumed consumption.
-export function planningAllowance(value: unknown, intent: string): PlanningAllowanceView {
-  const data = object(value);
-  check(decisionID(data.id) && data.intent === intent && id(data.owner));
-  check(data.unit === 'planning_calls');
-  check(typeof data.created_unix === 'number' && data.created_unix > 0);
-  if (data.predecessor !== undefined && data.predecessor !== '') check(decisionID(data.predecessor));
-  const bounds = allowanceBounds(data);
-  const effect = allowanceEffect(data.effect);
-  return {
-    id: data.id,
-    intent,
-    owner: data.owner,
-    ...bounds,
-    unit: 'planning_calls',
-    created_unix: data.created_unix,
-    ...(typeof data.predecessor === 'string' && data.predecessor !== '' ? {predecessor: data.predecessor} : {}),
-    ...(effect === undefined ? {} : {effect}),
-  };
-}
-
 export interface LifecycleEffectConfig {
   readonly event: string;
   readonly revision: string;
@@ -700,10 +639,6 @@ export interface AccessViewer {
   readonly member: boolean;
   readonly session_current: boolean;
 }
-export interface AccessEntry {
-  readonly editable: boolean;
-  readonly reason?: string;
-}
 export interface AccessRequiredAction {
   readonly code: string;
   readonly resolve_by: string;
@@ -714,27 +649,12 @@ export interface AccessEffective {
   readonly dispatch_open: boolean;
   readonly missing: readonly string[];
 }
-export interface AccessPlanningEntry {
-  readonly intent: string;
-  readonly id: string;
-  readonly unit: 'planning_calls';
-  readonly status: 'ok' | 'exhausted';
-  readonly amount: number;
-  readonly reserved: number;
-  readonly consumed: number;
-  readonly available: number;
-  readonly ceiling: number;
-  readonly editable: AccessEntry;
-  readonly effect?: string;
-}
 export interface FactoryAccess {
   readonly repository: string;
   readonly observed_unix: number;
   readonly viewer: AccessViewer;
   readonly effective: AccessEffective;
   readonly required_actions: readonly AccessRequiredAction[];
-  readonly planning: readonly AccessPlanningEntry[];
-  readonly planning_truncated: boolean;
 }
 
 function accessViewer(value: unknown): AccessViewer {
@@ -750,12 +670,6 @@ function accessViewer(value: unknown): AccessViewer {
     session_current: raw.session_current as boolean,
   };
 }
-function accessEntry(value: unknown): AccessEntry {
-  const raw = object(value);
-  check(typeof raw.editable === 'boolean');
-  const reason = raw.reason === undefined || raw.reason === '' ? undefined : text(raw.reason, 64);
-  return {editable: raw.editable, ...(reason === undefined ? {} : {reason})};
-}
 function accessRequiredAction(value: unknown): AccessRequiredAction {
   const raw = object(value);
   check(typeof raw.code === 'string' && raw.code.length >= 1 && raw.code.length <= 128);
@@ -770,50 +684,19 @@ function accessEffective(value: unknown): AccessEffective {
   for (const code of raw.missing) check(typeof code === 'string' && code.length >= 1 && code.length <= 128);
   return {effective: raw.effective, dispatch_open: raw.dispatch_open, missing: raw.missing as string[]};
 }
-function accessPlanningEntry(value: unknown): AccessPlanningEntry {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.id));
-  check(raw.unit === 'planning_calls');
-  const bounds = allowanceBounds(raw);
-  check(typeof raw.available === 'number' && Number.isSafeInteger(raw.available) && raw.available >= 0);
-  const available = Math.max(0, bounds.amount - bounds.reserved - bounds.consumed);
-  check(raw.available === available);
-  check(raw.status === 'ok' || raw.status === 'exhausted');
-  check(raw.status === (available <= 0 ? 'exhausted' : 'ok'));
-  const effect = allowanceEffect(raw.effect);
-  return {
-    intent: raw.intent,
-    id: raw.id,
-    unit: 'planning_calls',
-    status: raw.status,
-    amount: bounds.amount,
-    reserved: bounds.reserved,
-    consumed: bounds.consumed,
-    available,
-    ceiling: bounds.ceiling,
-    editable: accessEntry(raw.editable),
-    ...(effect === undefined ? {} : {effect}),
-  };
-}
-// factoryAccess binds one repository's permission, authority and
-// planning-allowance listing to its exact repository. Only the
-// sections V consumes are validated: viewer standing, the effective
-// verdict with required actions, and the bounded planning listing.
+// factoryAccess binds one repository's permission and authority read to its
+// exact repository. Only the sections V consumes are validated: viewer
+// standing and the effective verdict with required actions.
 export function factoryAccess(value: unknown, repository: string): FactoryAccess {
   const data = object(value);
   check(data.repository === repository && decimalID(repository));
   check(Array.isArray(data.required_actions) && data.required_actions.length <= 32);
-  check(Array.isArray(data.planning) && data.planning.length <= 20);
-  const truncated = data.planning_truncated === undefined ? false : data.planning_truncated;
-  check(typeof truncated === 'boolean');
   return {
     repository,
     observed_unix: counter(data.observed_unix),
     viewer: accessViewer(data.viewer),
     effective: accessEffective(data.effective),
     required_actions: data.required_actions.map(accessRequiredAction),
-    planning: data.planning.map(accessPlanningEntry),
-    planning_truncated: truncated,
   };
 }
 

@@ -5,7 +5,6 @@ import type {
   IntentGenerationStatus,
   IntentPlanStatus,
   IntentRevision,
-  PlanningAllowance,
   ProductIdea,
   SavedRequest,
 } from './sodaspaces-intent-response.js';
@@ -46,12 +45,6 @@ export interface IntentView {
   departmentName: string;
   departmentDescription: string;
   maxIssues: number;
-  planningCalls: number;
-  allowance: PlanningAllowance | undefined;
-  raiseCalls: number;
-  fundingNote: string;
-  allowanceError: string;
-  retryAllowance(): void;
   planOperation: string;
   plan: IntentPlanStatus | undefined;
   planNotice: string;
@@ -64,9 +57,7 @@ export interface IntentView {
     field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
     value: string
   ): void;
-  setBound(field: 'maxIssues' | 'planningCalls', value: number): void;
-  setRaise(value: number): void;
-  raiseAllowance(): void;
+  setBound(field: 'maxIssues', value: number): void;
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
   toggleChange(open: boolean): void;
   correctProposal(text: string): void;
@@ -94,9 +85,8 @@ function input(event: Event): string {
 function bounds(view: IntentView) {
   const locked = view.busy || view.blocked || view.plan?.state === 'pending';
   const issues = plural(view.maxIssues, 'work item', 'work items');
-  const steps = plural(view.planningCalls, 'AI planning step', 'AI planning steps');
   return html`<details class="bounds">
-    <summary>More options · up to ${issues}, ${steps}</summary>
+    <summary>More options · up to ${issues}</summary>
     <label
       >Maximum work items<input
         type="number"
@@ -106,16 +96,7 @@ function bounds(view: IntentView) {
         ?disabled=${locked}
         @input=${(event: Event) => view.setBound('maxIssues', Number(input(event)))}
     /></label>
-    <label
-      >Planning calls<input
-        type="number"
-        min="1"
-        max="100"
-        .value=${String(view.planningCalls)}
-        ?disabled=${locked}
-        @input=${(event: Event) => view.setBound('planningCalls', Number(input(event)))}
-    /></label>
-    <p>Planning uses only these steps. Building is approved and budgeted separately.</p>
+    <p>Building is approved and budgeted separately.</p>
   </details>`;
 }
 function entryActions(view: IntentView) {
@@ -394,46 +375,6 @@ function reviewLead(view: IntentView) {
     </p>
     ${explorationReview(view, view.exploration)} ${view.explorationStale && !view.dirty ? refreshExploration(view) : ''}`;
 }
-// allowanceHint states the pending action's call cost without promising a
-// fixed price: exploring and checking each spend planning calls, while a
-// repeated check of the same walkthrough reuses its saved result.
-function allowanceHint(view: IntentView): string {
-  const plan = view.plan;
-  if (plan?.state === 'pending') return 'Planning is running; its consultations already hold their calls.';
-  if (plan?.state === 'completed' && plan.walkthroughs && !plan.review)
-    return 'Checking the walkthrough uses planning calls; re-checking the same walkthrough reuses the saved result.';
-  if (plan?.review?.consistency?.mismatches.length)
-    return 'Editing text uses no calls; submitting the change re-explores and can use planning calls, and checking a fresh walkthrough uses calls too. Unchanged saved judgments are reused, and a limits-only Update proposal just saves without re-exploring.';
-  return 'Updating the proposal or re-exploring can use planning calls, except a limits-only update which just saves; unchanged consultations reuse saved results.';
-}
-function fundingSection(view: IntentView) {
-  const allowance = view.allowance;
-  if (view.revision?.state !== 'draft' || (!allowance && !view.allowanceError)) return '';
-  if (!allowance)
-    return html`<details aria-label="Planning allowance">
-    <summary>Planning budget · could not load</summary>
-    <p>${view.allowanceError}</p>
-    <div class="actions">
-      <button ?disabled=${view.busy || view.blocked} @click=${view.retryAllowance}>Retry allowance load</button>
-    </div>
-  </details>`;
-  const used = allowance.reserved + allowance.consumed;
-  return html`<details aria-label="Planning allowance">
-    <summary>Planning budget: ${used} of ${allowance.amount} calls used</summary>
-    <p>${allowanceHint(view)}</p>
-    <label
-      >Raise to<input
-        type="number"
-        min="1"
-        max="100"
-        .value=${String(view.raiseCalls)}
-        ?disabled=${view.busy || view.blocked}
-        @input=${(event: Event) => view.setRaise(Number(input(event)))}
-    /></label>
-    <button ?disabled=${view.busy || view.blocked} @click=${view.raiseAllowance}>Raise allowance</button>
-    ${view.fundingNote ? html`<p>${view.fundingNote}</p>` : ''}
-  </details>`;
-}
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -697,9 +638,8 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    ${reviewLead(view)} ${revision.state === 'draft' ? bounds(view) : ''} ${fundingSection(view)}
-    ${authorizationSection(view)} ${planSection(view)}
-    ${view.generationNotice ? html`<p role="status">${view.generationNotice}</p>` : ''}
+    ${reviewLead(view)} ${revision.state === 'draft' ? bounds(view) : ''} ${authorizationSection(view)}
+    ${planSection(view)} ${view.generationNotice ? html`<p role="status">${view.generationNotice}</p>` : ''}
     <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}

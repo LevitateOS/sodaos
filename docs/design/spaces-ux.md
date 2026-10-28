@@ -165,13 +165,13 @@ Browser navigation keeps the one retained Workspace/terminal owner.
 | --- | --- | --- |
 | Global Workspace | Search, Projects, saved requests, human sessions and work needing a decision; loading/failure distinct from an empty inventory | New Project, resume a draft, open existing work or terminal; navigation only |
 | Repository Workspace | Native repository header, exact associated Project, accepted requests, current work and recent activity | Plan new work, inspect work, explicitly create/reuse/start/join the correct Project when permitted |
-| New Project | Centered objective textarea, optional Department, quiet planning allowance, saved state | Explore ideas, Save and leave; no opening repository picker or automatic provisioning |
+| New Project | Centered objective textarea, optional Department, saved state | Explore ideas, Save and leave; no opening repository picker or automatic provisioning |
 | New department dialog | Name, description and private-context explanation | Save/select or Cancel; preserves the objective and grants no access |
 | Exploring | The retained objective and the bounded operation being performed | Leave safely; stop a pending request only if its cancellation contract exists; no fake ETA |
 | Product alternatives | System One's supplied comparisons, consolidated recommendation and consequential unknowns | Inspect or correct if useful; no required vote on each alternative |
 | Product review | Plain-language user walkthrough, meaningful branches, illustrative example and necessary assumption challenges | Optional Change something; answer only an unresolved consequential assumption requiring human intent or authority |
 | Repository selection | Eligible native repositories, ownership/visibility, existing Project and native Create repository link | Choose context; Back preserves review; native repository creation returns to the saved request |
-| Work commitment/status summary | Exact repository, effective outcomes, approach, visible native effects and finite planning allowance | Progress automatically under existing explicit authorization; Create work only when initiating that effect, with no extra blanket review approval |
+| Work commitment/status summary | Exact repository, effective outcomes, approach and visible native effects | Progress automatically under existing explicit authorization; Create work only when initiating that effect, with no extra blanket review approval |
 | Generation/status | Acceptance saved; atomic native graph result, authority-linking progress and original request identity | Open created issues or inspect the original pending/refused result; never blind duplicate submission |
 | Work overview | Accepted direction, evidenced work-item counts, attention, dependencies and native issue/PR links | Inspect work, readiness and plans; change direction through a reviewed revision |
 | Project setup | Existing environment or immutable installed OS profile, authority/readiness and exact target | Explicit Create Project or reuse/start existing root; no distro switch for an existing Project |
@@ -189,7 +189,7 @@ Browser navigation keeps the one retained Workspace/terminal owner.
 The opening composition uses whitespace, one strong heading and a generously
 sized textarea. Department and planning controls are a compact secondary row.
 Keep provider grants, advanced limits and infrastructure setup off the opening
-page. If exploration cannot run, identify the planning allowance or configured
+page. If exploration cannot run, identify the configured
 judgment service and link to its owning control without throwing the description
 away. Current exploration uses the operator-configured TypeSafe service; it does
 not use the person's selected execution-provider connection.
@@ -398,7 +398,7 @@ before leaving and provide a clear return path. Context inherited from a reposit
 page is a suggestion until explicitly selected.
 
 Before committing, summarize included outcomes, consequential assumptions,
-delivery approach, exact repository and finite planning allowance. Explain that
+delivery approach and exact repository. Explain that
 generated issues become visible according to the repository's native permissions.
 The primary button is **Create work**, using the plain-language
 effect summary above. Acceptance records one exact revision; native generation
@@ -468,7 +468,7 @@ Distinguish the states people need to understand:
 A plan includes the accepted outcome, supplied evidence, chosen approach,
 unresolved facts, freshness and invalidation reasons. Reuse unchanged valid work
 instead of animating repeated model calls. Prerequisite completion refreshes the
-affected provisional details before coding. A planning allowance does not waive
+affected provisional details before coding. Planning never waives
 execution gates or fund provider execution automatically.
 
 When one issue is eligible, explain that it is next without a priority consultation.
@@ -614,7 +614,7 @@ Graphical desktop access remains deferred.
 | No saved work | Explain New Project or manual use of an existing Project; no empty dashboard of disabled controls |
 | Nothing runnable | Keep waiting work visible with named prerequisites; distinguish from no accepted work |
 | Draft or proposal changed elsewhere | Preserve local corrections and compare with current revision before acceptance |
-| Exploration unavailable | Keep description/decisions; identify planning allowance or the configured judgment service failure |
+| Exploration unavailable | Keep description/decisions; identify the configured judgment service failure |
 | Login expired/account switched | Use native authentication; retire the old authority flow and resume only with a matching authorized actor |
 | Visibility or write authority lost | Show the specific access boundary; disable protected actions/streams; no phantom new request |
 | Native generation result uncertain | Check the original durable request and show verified mappings; no generic resubmit button |

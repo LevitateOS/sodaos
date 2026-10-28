@@ -269,14 +269,7 @@ func recordGeneratePlan(t *testing.T, product *API, s *store.Store, call func(me
 	}
 	settlePlanRun(t, ctx, s, launched.RunID, answer)
 	// The walkthrough gate replays durable review receipts at serving
-	// time, so the fixture records them explicitly here with the mocked
-	// chooser: the same allowance funds both review calls, and the later
-	// serving comparison draws from the same intent funding.
-	// wireGenerateCoordinator re-saves this identical allowance revision;
-	// the duplicate save confirms without changing funding.
-	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: generateIntentID, Owner: 1, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
-		t.Fatal(err)
-	}
+	// time, so the fixture records them explicitly here with the mocked chooser.
 	judge := &exploreFixtureChooser{}
 	product.IntentExploreChooser = judge
 	code, body = call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/plan/review", `{"revision":"`+generateDraftID+`"}`)
@@ -297,9 +290,6 @@ func wireGenerateCoordinator(product *API, s *store.Store, t *testing.T, chooser
 	product.Coordinator = &control.Coordinator{
 		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
 		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: chooser},
-	}
-	if err := s.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: generateIntentID, Owner: 1, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
-		t.Fatal(err)
 	}
 	return fake
 }
@@ -475,16 +465,6 @@ func TestGenerateRecordedProposalAdoptsAssessedGraph(t *testing.T) {
 	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
 	recordGeneratePlan(t, product, s, call, "propose_intent", acceptID, "keep", "split")
 	fake := wireGenerateCoordinator(product, s, t, q05KeepChooser{})
-	ctx := context.Background()
-
-	// The explicit walkthrough check spends its own two review calls
-	// (consolidation + consistency) before any serving comparison; the
-	// serving replay costs nothing, so the fixture accounts them first.
-	reviewed, err := s.PlanningAllowance(ctx, generateIntentID, 1)
-	if err != nil || reviewed.Consumed != 2 || reviewed.Reserved != 0 {
-		t.Fatalf("explicit walkthrough check did not spend exactly two review calls: %+v %v", reviewed, err)
-	}
-
 	for pass := 0; pass < 2; pass++ {
 		code, body := call(http.MethodPost, "/api/factory/intents/"+generateIntentID+"/generate", `{}`)
 		if code != http.StatusOK {
@@ -497,10 +477,6 @@ func TestGenerateRecordedProposalAdoptsAssessedGraph(t *testing.T) {
 		if result.State != "completed" || len(result.SubmittedTasks) != 2 || result.SubmittedTasks[0].Key != generateTaskA || result.PlanAssignment == "" || fake.submits != 1 {
 			t.Fatalf("proposal graph not exact or replayed twice: %+v submits=%d", result, fake.submits)
 		}
-	}
-	allowance, err := s.PlanningAllowance(ctx, generateIntentID, 1)
-	if err != nil || allowance.Consumed != reviewed.Consumed+1 || allowance.Reserved != 0 {
-		t.Fatalf("proposal comparison did not spend exactly once beyond the two review calls: %+v %v", allowance, err)
 	}
 }
 

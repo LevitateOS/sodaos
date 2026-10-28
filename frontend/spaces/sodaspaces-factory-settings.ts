@@ -4,12 +4,7 @@ import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
 import {resumeReceipt} from './sodaspaces-factory-work-response.js';
 import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
-import type {
-  FactoryAccess,
-  FactoryAccessEditable,
-  FactoryAccessPlanning,
-  FactoryAccessUsage,
-} from './sodaspaces-factory-access-response.js';
+import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import './sodaspaces-factory-work.js';
 import './sodaspaces-factory-repair.js';
@@ -1084,7 +1079,7 @@ export class SodaFactorySettings extends LitElement {
       <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
-      ${this.renderProviderControls()} ${this.renderPlanningCalls()} ${this.renderExecutionUsage()}`;
+      ${this.renderProviderControls()} ${this.renderExecutionUsage()}`;
   }
 
   private renderSummary(status: Record<string, unknown>) {
@@ -1496,7 +1491,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.textInput('Reviewer harness version', 'reviewer_harness_version', safeText(reviewer.harness_version))}
           ${this.textInput('Reviewer model', 'reviewer_model', safeText(reviewer.model))}
           ${this.numberInput('Intent active minutes', 'intent_minutes', safeNumber(policy.intent_minutes, 0))}
-          <p>Zero leaves intent planning unfunded. Planning calls and provider limits are separate.</p>
+          <p>Zero leaves intent planning unfunded.</p>
           ${this.numberInput('Active minutes per attempt', 'active_minutes', safeNumber(limits.active_minutes, 120))}
           ${this.numberInput('Correction cycles', 'correction_cycles', safeNumber(limits.correction_cycles, 3))}
           ${this.numberInput('Repository concurrent limit', 'policy_concurrent', safeNumber(policy.max_concurrent, 1))}
@@ -1598,36 +1593,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     </form>`;
   }
 
-  private renderPlanningCalls() {
-    const access = this.view.access;
-    if (!access)
-      return html`<fieldset>
-        <legend>Planning calls</legend>
-        <p>Planning calls are unavailable. Refresh current authority to retry.</p>
-      </fieldset>`;
-    if (!access.planning.length)
-      return html`<fieldset>
-        <legend>Planning calls</legend>
-        <p>No planning allowances are bound to this repository.</p>
-      </fieldset>`;
-    return html`<fieldset>
-      <legend>Planning calls</legend>
-      <p>Planning calls only, in real call units. Execution minutes stay separate below.</p>
-      ${access.planning.map((row) => this.renderPlanningRow(row))}
-      ${access.planning_truncated ? html`<p>More bound allowances exist beyond these 20.</p>` : ''}
-    </fieldset>`;
-  }
-
-  private renderPlanningRow(row: FactoryAccessPlanning) {
-    const state = row.status === 'exhausted' ? 'exhausted' : 'ok';
-    const permission = row.editable.editable ? 'Editable.' : `Read-only: ${accessReasonText(row.editable.reason)}.`;
-    return html`<p>
-      <span title=${row.intent}>Request ${row.intent.slice(0, 8)}</span>: ${row.available} of ${row.amount} planning
-      calls available (${row.reserved} reserved, ${row.consumed} consumed, ceiling ${row.ceiling}).
-      ${row.effect ? html`Effect: ${row.effect}. ` : ''}Status: ${state}. ${permission}
-    </p>`;
-  }
-
   private renderExecutionUsage() {
     const access = this.view.access;
     if (!access)
@@ -1637,7 +1602,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       </fieldset>`;
     return html`<fieldset>
       <legend>Execution usage</legend>
-      <p>Provider execution minutes only. Planning calls are reported separately; amounts are never converted.</p>
+      <p>Provider execution minutes only.</p>
       ${
         access.usage.length
           ? access.usage.map((row) => this.renderUsageRow(row, access))

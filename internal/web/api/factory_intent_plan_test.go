@@ -1272,20 +1272,9 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 	if judge.calls != 0 || !strings.Contains(string(body), `"walkthroughs"`) || strings.Contains(string(body), `"review"`) {
 		t.Fatalf("GET must expose authored content without consulting: calls=%d body=%s", judge.calls, body)
 	}
-	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "daaaaaaaaaaaaaaaaaaaaaaaa", Intent: head.Intent, Owner: 1, Amount: 8, Ceiling: 8, Unit: factory.PlanningAllowanceUnit, CreatedUnix: time.Now().Unix()}); err != nil {
-		t.Fatal(err)
-	}
-	before, err := s.PlanningAllowance(ctx, head.Intent, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	code, body = call(http.MethodPost, statusURL+"/review", `{"revision":"`+head.ID+`"}`)
 	if code != http.StatusOK || judge.calls != 2 || !strings.Contains(string(body), `"recommended":"guided"`) {
 		t.Fatalf("explicit walkthrough review failed: status=%d calls=%d body=%s", code, judge.calls, body)
-	}
-	after, err := s.PlanningAllowance(ctx, head.Intent, 1)
-	if err != nil || after.Consumed != before.Consumed+2 {
-		t.Fatalf("explicit review charge: before=%+v after=%+v err=%v", before, after, err)
 	}
 	for range 2 {
 		code, body = call(http.MethodGet, statusURL, "")
@@ -1480,9 +1469,6 @@ func TestIntentPlanReviewAdmitsPersistedCompatByteWindow(t *testing.T) {
 		t.Fatal("HTTP walkthroughs lost byte-verbatim facts")
 	}
 	settlePlanRun(t, ctx, s, launched.RunID, planSettledAnswer(t, "completed", "", walkthroughs))
-	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "daaaaaaaaaaaaaaaaaaaaaaaa", Intent: head.Intent, Owner: 1, Amount: 8, Ceiling: 8, Unit: factory.PlanningAllowanceUnit, CreatedUnix: time.Now().Unix()}); err != nil {
-		t.Fatal(err)
-	}
 	judge := &exploreFixtureChooser{}
 	product.IntentExploreChooser = judge
 	code, body = call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan/review", `{"revision":"d888888888888888888888888"}`)

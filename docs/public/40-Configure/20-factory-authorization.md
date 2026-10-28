@@ -308,7 +308,7 @@ Each owner records their part in **Factory authority**:
 4. For that connection, select its current **Project access** grant, permitted roles, **Allowance minutes** and **Concurrent sessions**. Enable **Allow Factory to use this account** and select **Save sponsorship** for this repository.
 5. Select **Refresh current authority** and inspect **Factory is ready** or **Factory needs setup**, the missing-grant actions and whether **Dispatch** is open. A saved policy or sponsorship alone does not establish complete readiness, and readiness does not prove that an issue has run.
 
-Each grant has its own scope, owner and limit. Planning and issue generation consume a planning allowance; repository attempts have bounded execution and correction effort; integrated verification has its own intent allowance; appliance capacity and provider usage have separate constraints. A limit reached in one area does not grant more of another. The Feed and status show whether work waits on authorization, preparation, capacity or sponsorship.
+Each grant has its own scope, owner and limit. Repository attempts have bounded execution and correction effort; integrated verification has its own intent allowance; appliance capacity and provider usage have separate constraints. A limit reached in one area does not grant more of another. The Feed and status show whether work waits on authorization, preparation, capacity or sponsorship.
 
 ```mermaid
 flowchart TD

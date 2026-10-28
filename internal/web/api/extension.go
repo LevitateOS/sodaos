@@ -212,7 +212,7 @@ func extensionIntentsRevisionRoute(parts []string, method string) (admitted, han
 	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
 		return method == http.MethodGet || method == http.MethodPost, true
 	}
-	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions" || parts[3] == "review") {
+	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "overview" || parts[3] == "revisions" || parts[3] == "review") {
 		return method == http.MethodGet, true
 	}
 	if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
@@ -223,9 +223,6 @@ func extensionIntentsRevisionRoute(parts []string, method string) (admitted, han
 
 func extensionIntentsMutationRoute(parts []string, method string) (admitted, handled bool) {
 	if len(parts) == 5 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" && parts[4] == "review" {
-		return method == http.MethodPost, true
-	}
-	if len(parts) == 2 && parts[1] == "intent-allowances" {
 		return method == http.MethodPost, true
 	}
 	if len(parts) == 2 && parts[1] == "departments" {

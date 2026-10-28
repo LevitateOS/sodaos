@@ -75,7 +75,6 @@ export interface IntentRevision {
   tasks: IntentTask[];
   state: 'draft' | 'accepted' | 'declined' | 'rejected' | 'abandoned';
   max_issues: number;
-  planning_calls: number;
   approach?: 'complete_first' | 'incremental';
   effective_outcomes?: string[];
 }
@@ -120,25 +119,6 @@ export interface Exploration {
   settled: string[];
   recommendation?: ConsolidatedProposal;
   consistency?: ConsistencyReport;
-}
-export interface PlanningAllowance {
-  id: string;
-  intent: string;
-  amount: number;
-  reserved: number;
-  consumed: number;
-}
-export function planningAllowance(value: unknown, intent: string): PlanningAllowance {
-  const raw = object(value);
-  check(decisionID(raw.id) && raw.intent === intent);
-  check(raw.unit === 'planning_calls');
-  return {
-    id: String(raw.id),
-    intent: String(raw.intent),
-    amount: bound(raw.amount, 0, 100),
-    reserved: bound(raw.reserved, 0, 100),
-    consumed: bound(raw.consumed, 0, 100),
-  };
 }
 export interface SavedRequest {
   intent: string;
@@ -247,7 +227,6 @@ export function intentRevision(value: unknown): IntentRevision {
     objective: text(raw.objective, 16000),
     state,
     max_issues: maxIssues,
-    planning_calls: bound(raw.planning_calls, 0, 100),
     ...(raw.approach !== undefined ? {approach: raw.approach} : {}),
     ideas,
     tasks,

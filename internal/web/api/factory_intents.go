@@ -166,51 +166,6 @@ func (s *API) apiIntentReview(w http.ResponseWriter, r *http.Request, v store.Se
 	auth.JSONResponse(w, 200, read)
 }
 
-func (s *API) apiIntentAllowance(w http.ResponseWriter, r *http.Request, v store.Session) {
-	result, err := s.Store.PlanningAllowance(r.Context(), r.PathValue("intentID"), v.User.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 404, "allowance_not_found", "No planning allowance saved for this request.")
-		return
-	}
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 200, result)
-}
-
-func (s *API) apiIntentAllowanceSave(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.checkLifecycleSession(w, r, v) {
-		return
-	}
-	var in factory.PlanningAllowance
-	if !auth.DecodeAPIObject(w, r, &in) {
-		return
-	}
-	in.Owner = v.User.ID
-	in.CreatedUnix = time.Now().Unix()
-	if _, err := s.Store.IntentRevision(r.Context(), in.Intent, v.User.ID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			auth.JSONError(w, 404, "not_found", "Build request not found.")
-			return
-		}
-		factoryCommandError(w, err)
-		return
-	}
-	if current, err := s.Store.PlanningAllowance(r.Context(), in.Intent, v.User.ID); err == nil && current.ID == in.ID {
-		in.CreatedUnix = current.CreatedUnix
-	}
-	if err := in.Validate(); err != nil {
-		auth.JSONError(w, 400, "invalid_allowance", err.Error())
-		return
-	}
-	if err := s.Store.SavePlanningAllowance(r.Context(), in); err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 201, in)
-}
-
 func (s *API) apiIntentRevision(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
 		return
