@@ -33,7 +33,6 @@ export const REVISION = 'd' + 'c'.repeat(24);
 export const TASK_A = 'd' + 'a'.repeat(24);
 export const TASK_B = 'd' + 'b'.repeat(24);
 export const RUN = 'd'.repeat(32);
-export const RUN_NEW = 'e'.repeat(32);
 export const PROJECT = 'p0123456789abcdef01234567';
 export const ENVIRONMENT = 'p' + 'f'.repeat(24);
 
@@ -116,7 +115,7 @@ function stubTransport(): PreparedExtensionMount {
   } as unknown as PreparedExtensionMount;
 }
 
-export type WorkView = 'overview' | 'detail' | 'detail-settled' | 'plan' | 'direction' | 'effects';
+export type WorkView = 'overview' | 'detail' | 'plan' | 'direction' | 'effects';
 
 const allCapabilities = {pause: true, resume: true, stop: true, retry: true, takeover: true, project_stop: true};
 
@@ -136,19 +135,6 @@ function mount(view: WorkView): void {
       runIDs: [],
       capabilities: {...allCapabilities},
       runID: RUN,
-      projectID: PROJECT,
-      environmentID: ENVIRONMENT,
-    });
-  else if (view === 'detail-settled')
-    // No live run selected: two settled runs, newest first. Retry must
-    // target the latest recorded run; stop/takeover stay unselected.
-    mountFactoryWorkDetail(root, {
-      transport,
-      repository: '7',
-      repositoryPath: '/soda-tester/demo',
-      issue: '12',
-      runIDs: [RUN_NEW, RUN],
-      capabilities: {...allCapabilities},
       projectID: PROJECT,
       environmentID: ENVIRONMENT,
     });
