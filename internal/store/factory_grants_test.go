@@ -37,8 +37,7 @@ func grantTestPolicy() factory.RepositoryPolicy {
 		Merge:               factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
-		IntentMinutes:       factory.DefaultIntentMinutes,
-		MaxConcurrent:       2,
+		IntentMinutes:       30,
 	}
 }
 
@@ -72,13 +71,13 @@ func TestCapacityAndOperatorGrant(t *testing.T) {
 	if _, err := db.Capacity(ctx); !errors.Is(err, ErrNotFound) {
 		t.Fatal("missing capacity reported", err)
 	}
-	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2, MaxQueued: 4}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); !errors.Is(err, ErrStaleRevision) {
 		t.Fatal("stale capacity saved", err)
 	}
-	grant := factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true, MaxConcurrent: 2}
+	grant := factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true}
 	if err := db.SaveOperatorGrant(ctx, grant); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +92,7 @@ func TestSponsorships(t *testing.T) {
 	ctx := context.Background()
 	sp := factory.Sponsorship{
 		Repository: 42, GrantedBy: 9, ActorID: 8, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
-		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
+		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, Active: true,
 	}
 	if err := db.SaveSponsorship(ctx, sp); err != nil {
 		t.Fatal(err)
@@ -269,7 +268,7 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
 	if err != nil || !created || stored.Finished == "" {
 		t.Fatalf("apply policy command: %+v created=%t err=%v", stored, created, err)
 	}
@@ -297,7 +296,7 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 	if err != nil || !withdrawnMerge.WithdrawRequested {
 		t.Fatalf("merge intent not committed: %+v %v", withdrawnMerge, err)
 	}
-	replay, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
+	replay, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
 	if err != nil || created || replay.Outcome != stored.Outcome || replay.Finished != stored.Finished {
 		t.Fatalf("command replay changed immutable receipt: %+v created=%t err=%v", replay, created, err)
 	}
@@ -342,7 +341,7 @@ END $$;`)
 		ID: commandID, Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	_, _, err = db.ApplyRepositoryPolicyCommand(ctx, cmd, paused, grantTestTime())
+	_, _, err = db.ApplyFactoryGrantCommand(ctx, cmd, paused, grantTestTime())
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Message != "injected command receipt write failure" {
 		t.Fatalf("policy withdrawal did not reach the injected receipt failure: %v", err)
@@ -402,7 +401,7 @@ func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
 		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
 		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
 	}
-	stored, created, err := db.ApplyRepositoryPolicyCommand(ctx, cmd, policy, grantTestTime())
+	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
 	if err != nil || !created || stored.Finished == "" {
 		t.Fatalf("apply bounded policy command: %+v created=%t err=%v", stored, created, err)
 	}

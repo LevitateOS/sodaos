@@ -46,7 +46,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			policy.MaxConcurrent++
 			if err := db.SaveRepositoryPolicy(context.Background(), policy); err != nil {
 				t.Fatal(err)
 			}
@@ -55,7 +54,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				policy.MaxConcurrent = 2
 				if err := db.SaveRepositoryPolicy(context.Background(), policy); err != nil {
 					t.Fatal(err)
 				}
@@ -66,7 +64,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			grant.MaxConcurrent++
 			if err := db.SaveOperatorGrant(context.Background(), grant); err != nil {
 				t.Fatal(err)
 			}
@@ -75,7 +72,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				grant.MaxConcurrent = 2
 				if err := db.SaveOperatorGrant(context.Background(), grant); err != nil {
 					t.Fatal(err)
 				}
@@ -275,17 +271,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 					t.Fatal(err)
 				}
 			}
-		}},
-		{"connection budget revision", func(t *testing.T, db *Store, a *factory.Assignment, _ *factory.DispatchRegistration) func() {
-			budget, err := db.ConnectionUsageBudget(context.Background(), a.Connection)
-			if err != nil {
-				t.Fatal(err)
-			}
-			budget.RollingMinutes--
-			if err := db.SaveConnectionUsageBudget(context.Background(), budget); err != nil {
-				t.Fatal(err)
-			}
-			return func() {}
 		}},
 		{"sponsorship without coder", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
 			grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)

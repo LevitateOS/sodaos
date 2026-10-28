@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {check, object, readSodaJSON} from './sodaspaces-api.js';
+import {flag, list, num, object, readSodaJSON, record, text} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
 
 type Context = {transport: PreparedExtensionMount; repository: string};
@@ -12,67 +12,50 @@ type Episode = {episode_id: string; reason: string; cycles: Cycle[]};
 type View = {revision: number; grant?: Grant; charges: Charge[]; episodes: Episode[]};
 type Change = Limits & {command_id: string; expected_revision: number; active: boolean; effect: string};
 
-function integer(value: unknown, maximum: number): number {
-  check(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= maximum);
-  return value;
-}
-
-function text(value: unknown, maximum = 256): string {
-  check(typeof value === 'string' && value.length <= maximum);
-  return value;
-}
-
 function limits(value: Record<string, unknown>): Limits {
   return {
-    investigator_runs: integer(value.investigator_runs, 4),
-    proposal_judgments: integer(value.proposal_judgments, 4),
-    active_minutes: integer(value.active_minutes, 120),
+    investigator_runs: num(value.investigator_runs),
+    proposal_judgments: num(value.proposal_judgments),
+    active_minutes: num(value.active_minutes),
   };
 }
 
-function parseView(value: unknown, repository: string): View {
+function parseView(value: unknown): View {
   const data = object(value);
-  const revision = integer(data.revision, Number.MAX_SAFE_INTEGER);
   let grant: Grant | undefined;
-  if (data.grant !== null) {
-    const row = object(data.grant);
-    check(row.repository === repository && typeof row.active === 'boolean');
-    grant = {...limits(row), id: text(row.id), active: row.active};
+  if (data.grant !== null && data.grant !== undefined) {
+    const row = record(data.grant);
+    grant = {...limits(row), id: text(row.id), active: flag(row.active)};
   }
-  const recordedCharges = data.charges ?? [];
-  check(Array.isArray(recordedCharges) && recordedCharges.length <= 8);
-  check(Array.isArray(data.episodes) && data.episodes.length <= 16);
-  const charges = recordedCharges.map((value) => {
-    const row = object(value);
-    check((row.kind === 'run' || row.kind === 'judgment') && typeof row.failed === 'boolean');
+  const charges = list(data.charges).map((item) => {
+    const row = record(item);
     return {
       id: text(row.id),
-      kind: row.kind,
+      kind: text(row.kind),
       episode_id: text(row.episode_id),
-      cycle: integer(row.cycle, 2),
-      active_minutes: integer(row.active_minutes, 30),
-      failed: row.failed,
+      cycle: num(row.cycle),
+      active_minutes: num(row.active_minutes),
+      failed: flag(row.failed),
     };
   });
-  const episodes = data.episodes.map((value) => {
-    const row = object(value);
-    check(Array.isArray(row.cycles) && row.cycles.length <= 2);
+  const episodes = list(data.episodes).map((item) => {
+    const row = record(item);
     return {
       episode_id: text(row.episode_id),
       reason: text(row.reason),
-      cycles: row.cycles.map((value) => {
-        const cycle = object(value);
+      cycles: list(row.cycles).map((entry) => {
+        const cycle = record(entry);
         return {
           id: text(cycle.id),
-          number: integer(cycle.number, 2),
+          number: num(cycle.number),
           state: text(cycle.state),
-          reason: text(cycle.reason ?? ''),
-          run_id: text(cycle.run_id ?? ''),
+          reason: text(cycle.reason),
+          run_id: text(cycle.run_id),
         };
       }),
     };
   });
-  return {revision, ...(grant ? {grant} : {}), charges, episodes};
+  return {revision: num(data.revision), ...(grant ? {grant} : {}), charges, episodes};
 }
 
 class RepairRequestError extends Error {
@@ -137,12 +120,11 @@ export class SodaFactoryRepair extends LitElement {
     this.busy = true;
     try {
       if (change) {
-        const receipt = object(await this.request(context, change));
-        check(receipt.command_id === change.command_id && receipt.revision === change.expected_revision + 1);
+        await this.request(context, change);
         if (serial !== this.serial) return;
         this.pending = undefined;
       }
-      const view = parseView(await this.request(context), context.repository);
+      const view = parseView(await this.request(context));
       if (serial !== this.serial) return;
       if (view.grant?.id === this.pending?.command_id) this.pending = undefined;
       this.view = view;

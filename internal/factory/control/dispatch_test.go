@@ -15,7 +15,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 		t.Fatal(err)
 	}
 	const acceptedBody = "Implement app.can and client.jsx; app.cannot and notes.mdbackup are prose, not source files."
@@ -55,8 +55,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		factory.LibraryReadGuidance,
 		"synthetic approved setup instructions", "synthetic exact candidate diff",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
-		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 1",
-		"sponsorship concurrency for this connection in this repository is 2",
+		`Provider connection: "conn"`,
 		"Preparation requirements: " + a.Authority.RequirementsID + " approval: " + a.Authority.ApprovalID,
 	} {
 		if !strings.Contains(string(a.Prompt), want) {

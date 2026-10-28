@@ -153,26 +153,27 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
+	// Grants are checked by their active flags, not their revisions, so a
+	// saved number never strands registered work.
 	result, err := tx.ExecContext(ctx, `UPDATE factory_publications SET stage=$1,revision=$2,data=$3
 		WHERE assignment=$4 AND revision=$5
 		AND (NOT $6 OR (
 		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
 		 AND EXISTS(SELECT 1 FROM issue_acceptance_heads WHERE repository=$8 AND issue=$9 AND decision=$10)
 		 AND NOT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=$11 AND issue=$12 AND decision=$13)
-		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=$14 AND revision=$15)
-		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=$16 AND revision=$17)
-		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=$18 AND revision=$19)
+		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=$7
+		   AND COALESCE((data->>'enabled')::boolean,FALSE) AND NOT COALESCE((data->>'paused')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=$7 AND COALESCE((data->>'active')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=$7 AND COALESCE((data->>'active')::boolean,FALSE))
 		 AND EXISTS(SELECT 1 FROM factory_sponsorships s JOIN factory_assignments a
-		   ON a.id=$20 AND s.connection=a.data->>'connection'
-		   WHERE s.repository=$21 AND s.revision=$22)
-		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=$23 AND decision=$24)
-		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=$25 AND decision=$26)
+		   ON a.id=$14 AND s.connection=a.data->>'connection'
+		   WHERE s.repository=$7 AND COALESCE((s.data->>'active')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=$15 AND decision=$16)
+		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=$15 AND decision=$17)
 		))`,
 		p.Stage, p.Revision, string(data), p.AssignmentID, p.Revision-1, registering,
 		p.Repository, p.Repository, p.Issue, p.Acceptance, p.Repository, p.Issue, p.Acceptance,
-		p.Repository, p.Authority.Policy, p.Repository, p.Authority.Operator, p.Repository, p.Authority.Environment,
-		p.AssignmentID, p.Repository, p.Authority.Sponsorship,
-		p.ProjectID, p.Authority.RequirementsID, p.ProjectID, p.Authority.ApprovalID)
+		p.AssignmentID, p.ProjectID, p.Authority.RequirementsID, p.Authority.ApprovalID)
 	if err != nil {
 		return err
 	}

@@ -57,10 +57,6 @@ func reviewCorrectAuthority(t *testing.T, ctx context.Context, db *Store, projec
 	if err != nil {
 		t.Fatal(err)
 	}
-	budget, err := db.ConnectionUsageBudget(ctx, connection)
-	if err != nil {
-		t.Fatal(err)
-	}
 	environment, err := db.EnvironmentGrant(ctx, repository)
 	if err != nil {
 		t.Fatal(err)
@@ -76,8 +72,8 @@ func reviewCorrectAuthority(t *testing.T, ctx context.Context, db *Store, projec
 	return factory.AuthorityRef{
 		Policy: policy.Revision, Operator: operator.Revision,
 		Capacity: capacity.Revision, Sponsorship: sponsorship.Revision,
-		SponsorshipConnection: connection, ConnectionUsageBudget: budget.Revision,
-		Environment: environment.Revision, RequirementsID: requirement, ApprovalID: approval,
+		SponsorshipConnection: connection,
+		Environment:           environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
 }
 
@@ -749,7 +745,6 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		policy.MaxConcurrent = 3
 		if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
 			t.Fatal(err)
 		}

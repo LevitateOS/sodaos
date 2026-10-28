@@ -137,7 +137,7 @@ func TestPriorityRetriesRecoveredNativeContextPG(t *testing.T) {
 	}
 	defer fixtureDB.Close()
 	fx := dispatchSeed(t, db)
-	if err := db.SaveCapacity(context.Background(), factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(context.Background(), factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 		t.Fatal(err)
 	}
 	holdLaunchedRuns(fx)

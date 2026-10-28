@@ -1,4 +1,4 @@
-import {check, object, id, SodaRequestError} from './sodaspaces-api.js';
+import {check, record, list, text, num, flag, optionalNum, texts, SodaRequestError} from './sodaspaces-api.js';
 
 export interface Department {
   id: string;
@@ -134,124 +134,88 @@ export interface SavedRequest {
 }
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
-const digest = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
-const authoredProducer = 'soda-authored-v1';
-function text(value: unknown, limit: number): string {
-  check(typeof value === 'string' && value.trim() && value.length <= limit && !value.includes('\0'));
-  return value;
-}
+// Lenient readers: each field falls back to a default when missing or of
+// another type; extra fields and unknown enum values pass through.
+const nonEmpty = (value: unknown): string | undefined =>
+  typeof value === 'string' && value !== '' ? value : undefined;
 export function department(value: unknown): Department {
-  const raw = object(value);
-  check(decisionID(raw.id));
-  return {id: raw.id, name: text(raw.name, 120), description: text(raw.description, 2000)};
+  const raw = record(value);
+  return {id: text(raw.id), name: text(raw.name), description: text(raw.description)};
 }
 export function departments(value: unknown): Department[] {
-  check(Array.isArray(value) && value.length <= 200);
-  return value.map(department);
+  return list(value).map(department);
 }
 function idea(value: unknown): ProductIdea {
-  const raw = object(value);
-  check(decisionID(raw.id) && typeof raw.assumption === 'boolean');
-  check(
-    raw.decision === 'pending' || raw.decision === 'accept' || raw.decision === 'decline' || raw.decision === 'edit'
-  );
-  return {
-    id: raw.id,
-    description: text(raw.description, 4000),
-    consequence: text(raw.consequence, 4000),
-    assumption: raw.assumption,
-    decision: raw.decision,
-    ...(raw.correction ? {correction: text(raw.correction, 4000)} : {}),
-    ...provenance(raw),
+  const raw = record(value);
+  const out: ProductIdea = {
+    id: text(raw.id),
+    description: text(raw.description),
+    consequence: text(raw.consequence),
+    assumption: flag(raw.assumption),
+    decision: text(raw.decision, 'pending') as ProductIdea['decision'],
   };
-}
-const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption'];
-function provenanceKind(raw: Record<string, unknown>, out: Partial<ProductIdea>) {
-  check(raw.source === undefined || (typeof raw.source === 'string' && sourceKinds.includes(raw.source)));
-  check(raw.provenance === undefined || raw.provenance === 'human' || raw.provenance === 'autonomous');
-  if (raw.source) out.source = raw.source as NonNullable<ProductIdea['source']>;
-  if (raw.provenance) out.provenance = raw.provenance as NonNullable<ProductIdea['provenance']>;
-}
-function provenanceDetail(raw: Record<string, unknown>, out: Partial<ProductIdea>) {
-  if (raw.actor !== undefined) check(id(raw.actor));
-  if (raw.material !== undefined) check(typeof raw.material === 'boolean');
-  if (raw.actor) out.actor = String(raw.actor);
-  if (raw.evidence) out.evidence = text(raw.evidence, 4000);
-  if (raw.material !== undefined) out.material = Boolean(raw.material);
-}
-function provenance(raw: Record<string, unknown>): Partial<ProductIdea> {
-  const out: Partial<ProductIdea> = {};
-  provenanceKind(raw, out);
-  provenanceDetail(raw, out);
+  const correction = nonEmpty(raw.correction);
+  if (correction) out.correction = correction;
+  const source = nonEmpty(raw.source);
+  if (source) out.source = source as NonNullable<ProductIdea['source']>;
+  const provenance = nonEmpty(raw.provenance);
+  if (provenance) out.provenance = provenance as NonNullable<ProductIdea['provenance']>;
+  const actor = nonEmpty(raw.actor);
+  if (actor) out.actor = actor;
+  const evidence = nonEmpty(raw.evidence);
+  if (evidence) out.evidence = evidence;
+  if (typeof raw.material === 'boolean') out.material = raw.material;
   return out;
 }
 function effectiveOutcomes(raw: Record<string, unknown>): Partial<IntentRevision> {
   if (raw.effective_outcomes === undefined) return {};
-  const outcomes = array(raw.effective_outcomes, 50);
-  for (const outcome of outcomes) check(decisionID(outcome));
-  return {effective_outcomes: outcomes.map(String)};
-}
-function strings(value: unknown, limit: number): string[] {
-  check(Array.isArray(value) && value.length <= 64);
-  return value.map((item) => text(item, limit));
+  return {effective_outcomes: texts(raw.effective_outcomes)};
 }
 function task(value: unknown): IntentTask {
-  const raw = object(value);
-  check(decisionID(raw.key));
+  const raw = record(value);
   return {
-    key: raw.key,
-    objective: text(raw.objective, 4000),
-    outcomes: strings(raw.outcomes, 4000),
-    idea_ids: strings(raw.idea_ids, 25),
-    ...(raw.depends_on ? {depends_on: strings(raw.depends_on, 25)} : {}),
+    key: text(raw.key),
+    objective: text(raw.objective),
+    outcomes: texts(raw.outcomes),
+    idea_ids: texts(raw.idea_ids),
+    ...(raw.depends_on ? {depends_on: texts(raw.depends_on)} : {}),
   };
 }
-export function intentState(value: unknown): IntentRevision['state'] {
-  check(
-    value === 'draft' || value === 'accepted' || value === 'declined' || value === 'rejected' || value === 'abandoned'
-  );
-  return value as IntentRevision['state'];
+function references(raw: Record<string, unknown>) {
+  const predecessor = nonEmpty(raw.predecessor);
+  const department = nonEmpty(raw.department);
+  return {...(predecessor ? {predecessor} : {}), ...(department ? {department} : {})};
 }
 export function intentRevision(value: unknown): IntentRevision {
-  const raw = object(value);
-  check(raw.approach === undefined || raw.approach === 'complete_first' || raw.approach === 'incremental');
-  check(decisionID(raw.id) && decisionID(raw.intent) && (raw.repository === '0' || id(raw.repository)));
-  const state = intentState(raw.state);
-  const ideas = array(raw.ideas, 50).map(idea);
-  const maxIssues = bound(raw.max_issues, 1, 64);
-  const tasks = array(raw.tasks, maxIssues).map(task);
+  const raw = record(value);
+  const approach = nonEmpty(raw.approach);
   return {
-    id: raw.id,
-    intent: raw.intent,
-    repository: raw.repository,
-    objective: text(raw.objective, 16000),
-    state,
-    max_issues: maxIssues,
-    ...(raw.approach !== undefined ? {approach: raw.approach} : {}),
-    ideas,
-    tasks,
+    id: text(raw.id),
+    intent: text(raw.intent),
+    repository: text(raw.repository, '0'),
+    objective: text(raw.objective),
+    state: text(raw.state) as IntentRevision['state'],
+    max_issues: num(raw.max_issues),
+    ...(approach ? {approach: approach as NonNullable<IntentRevision['approach']>} : {}),
+    ideas: list(raw.ideas).map(idea),
+    tasks: list(raw.tasks).map(task),
     ...references(raw),
     ...effectiveOutcomes(raw),
   };
 }
-function count(value: unknown): number {
-  check(Number.isInteger(value) && Number(value) >= 0);
-  return Number(value);
-}
 function savedRequest(value: unknown): SavedRequest {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision) && (raw.repository === '0' || id(raw.repository)));
-  if (raw.department !== undefined) check(decisionID(raw.department));
+  const raw = record(value);
+  const department = nonEmpty(raw.department);
   return {
-    intent: raw.intent,
-    revision: raw.revision,
-    state: intentState(raw.state),
-    objective: text(raw.objective, 280),
-    repository: raw.repository,
-    ...(raw.department ? {department: String(raw.department)} : {}),
-    created_unix: count(raw.created_unix),
-    effective_count: count(raw.effective_count),
-    task_count: count(raw.task_count),
+    intent: text(raw.intent),
+    revision: text(raw.revision),
+    state: text(raw.state) as SavedRequest['state'],
+    objective: text(raw.objective),
+    repository: text(raw.repository, '0'),
+    ...(department ? {department} : {}),
+    created_unix: num(raw.created_unix),
+    effective_count: num(raw.effective_count),
+    task_count: num(raw.task_count),
     ...effectiveOutcomes(raw),
   };
 }
@@ -262,211 +226,131 @@ export interface IntentGenerationStatus {
   authorization?: string;
   native?: number;
 }
-function authorizationReference(value: unknown): string {
-  const raw = text(value, 90);
-  const separator = raw.indexOf(':');
-  check(separator > 0 && decisionID(raw.slice(0, separator)) && /^[0-9a-f]{64}$/.test(raw.slice(separator + 1)));
-  return raw.slice(0, separator);
-}
 export function intentGeneration(value: unknown): IntentGenerationStatus {
-  const raw = object(value);
-  check(decisionID(raw.revision_id));
-  let tasks = 0;
-  if (raw.task_issue_ids !== undefined) {
-    const bindings = object(raw.task_issue_ids);
-    const keys = Object.keys(bindings);
-    check(keys.length <= 100);
-    tasks = keys.length;
-  }
+  const raw = record(value);
   const out: IntentGenerationStatus = {
-    state: text(raw.state, 64),
-    revision: raw.revision_id,
-    tasks,
+    state: text(raw.state),
+    revision: text(raw.revision_id),
+    tasks: Object.keys(record(raw.task_issue_ids)).length,
   };
-  if (raw.authorization_revision !== undefined) out.authorization = authorizationReference(raw.authorization_revision);
-  if (raw.native_revision !== undefined) {
-    check(Number.isInteger(raw.native_revision) && Number(raw.native_revision) >= 0);
-    out.native = Number(raw.native_revision);
-  }
+  // authorization_revision is "<revision>:<digest>"; only the revision is kept.
+  const authorization = nonEmpty(raw.authorization_revision);
+  if (authorization) out.authorization = authorization.split(':')[0] ?? authorization;
+  const native = optionalNum(raw.native_revision);
+  if (native !== undefined) out.native = native;
   return out;
 }
 export function intentList(value: unknown): {intents: SavedRequest[]; next_cursor?: string} {
-  const raw = object(value);
-  const intents = array(raw.intents, 50).map(savedRequest);
-  if (raw.next_cursor !== undefined) check(decisionID(raw.next_cursor));
-  return {intents, ...(raw.next_cursor ? {next_cursor: String(raw.next_cursor)} : {})};
+  const raw = record(value);
+  const cursor = nonEmpty(raw.next_cursor);
+  return {intents: list(raw.intents).map(savedRequest), ...(cursor ? {next_cursor: cursor} : {})};
 }
 function branch(value: unknown): ProposalBranch {
-  const raw = object(value);
-  return {outcome: text(raw.outcome, 4000), result: text(raw.result, 4000)};
+  const raw = record(value);
+  return {outcome: text(raw.outcome), result: text(raw.result)};
 }
 function step(value: unknown): ProposalStep {
-  const raw = object(value);
-  const branches = raw.branches === undefined || raw.branches === null ? [] : array(raw.branches, 4).map(branch);
+  const raw = record(value);
+  const branches = list(raw.branches).map(branch);
   return {
-    actor: text(raw.actor, 4000),
-    action: text(raw.action, 4000),
-    result: text(raw.result, 4000),
+    actor: text(raw.actor),
+    action: text(raw.action),
+    result: text(raw.result),
     ...(branches.length ? {branches} : {}),
   };
 }
 function alternative(value: unknown): ProposalAlternative {
-  const raw = object(value);
-  const steps = array(raw.steps, 8).map(step);
-  check(steps.length >= 1);
-  const outcomes = array(raw.outcomes, 20).map((outcome) => text(outcome, 4000));
-  check(outcomes.length >= 1);
+  const raw = record(value);
   const out: ProposalAlternative = {
-    key: text(raw.key, 64),
-    name: text(raw.name, 4000),
-    steps,
-    outcomes,
+    key: text(raw.key),
+    name: text(raw.name),
+    steps: list(raw.steps).map(step),
+    outcomes: texts(raw.outcomes),
   };
-  if (raw.audience) out.audience = text(raw.audience, 4000);
-  if (raw.summary) out.summary = text(raw.summary, 4000);
-  if (raw.visibility) out.visibility = text(raw.visibility, 4000);
-  if (raw.consequences) out.consequences = text(raw.consequences, 4000);
-  if (raw.evidence) out.evidence = text(raw.evidence, 4000);
+  for (const field of ['audience', 'summary', 'visibility', 'consequences', 'evidence'] as const) {
+    const entry = nonEmpty(raw[field]);
+    if (entry) out[field] = entry;
+  }
   return out;
 }
-function proposalAlternatives(raw: Record<string, unknown>, supported: boolean): ProposalAlternative[] | undefined {
-  if (!supported) {
-    check(raw.alternatives === undefined || raw.alternatives === null);
-    return undefined;
-  }
-  const alternatives = array(raw.alternatives, 2).map(alternative);
-  check(alternatives.length === 2);
-  return alternatives;
-}
-function proposalBinding(raw: Record<string, unknown>, out: ProposalContent) {
-  if (raw.intent !== undefined) check(decisionID(raw.intent));
-  if (raw.revision !== undefined) check(decisionID(raw.revision));
-  if (raw.intent) out.intent = String(raw.intent);
-  if (raw.revision) out.revision = String(raw.revision);
-  if (raw.objective) out.objective = text(raw.objective, 16000);
-  if (raw.facts !== undefined) {
-    const facts = array(raw.facts, 51).map((fact) => text(fact, 16000));
-    check(facts.length >= 1);
-    out.facts = facts;
-  }
-}
-export function proposalContent(value: unknown): ProposalContent {
-  const raw = object(value);
-  check(typeof raw.supported === 'boolean');
-  const unknowns = array(raw.unknowns, 8).map((unknown) => text(unknown, 4000));
-  check(unknowns.length >= 1);
-  const out: ProposalContent = {
-    producer: text(raw.producer, 200),
-    supported: raw.supported,
-    unknowns,
-  };
-  proposalBinding(raw, out);
-  const alternatives = proposalAlternatives(raw, raw.supported);
-  if (alternatives) out.alternatives = alternatives;
-  const excluded = raw.excluded !== undefined ? excludedIDs(raw) : undefined;
-  if (excluded) out.excluded = excluded;
-  const meanings = proposalExclusions(raw, excluded);
-  if (meanings) out.exclusions = meanings;
+function proposalContent(value: unknown): ProposalContent {
+  const raw = record(value);
+  const supported = flag(raw.supported);
+  const out: ProposalContent = {producer: text(raw.producer), supported, unknowns: texts(raw.unknowns)};
+  const intent = nonEmpty(raw.intent);
+  if (intent) out.intent = intent;
+  const revision = nonEmpty(raw.revision);
+  if (revision) out.revision = revision;
+  const objective = nonEmpty(raw.objective);
+  if (objective) out.objective = objective;
+  if (raw.facts !== undefined) out.facts = texts(raw.facts);
+  if (supported) out.alternatives = list(raw.alternatives).map(alternative);
+  if (raw.excluded !== undefined) out.excluded = texts(raw.excluded);
+  if (raw.exclusions !== undefined && raw.exclusions !== null) out.exclusions = list(raw.exclusions).map(exclusion);
   return out;
 }
 function exclusion(value: unknown): Exclusion {
-  const raw = object(value);
-  check(decisionID(raw.idea));
+  const raw = record(value);
   const out: Exclusion = {
-    idea: raw.idea,
-    description: text(raw.description, 4000),
-    consequence: text(raw.consequence, 4000),
+    idea: text(raw.idea),
+    description: text(raw.description),
+    consequence: text(raw.consequence),
   };
-  if (raw.provenance !== undefined) {
-    check(raw.provenance === 'human' || raw.provenance === 'autonomous');
-    out.provenance = raw.provenance as 'human' | 'autonomous';
-  }
+  const provenance = nonEmpty(raw.provenance);
+  if (provenance) out.provenance = provenance as NonNullable<Exclusion['provenance']>;
   return out;
 }
-function proposalExclusions(raw: Record<string, unknown>, excluded: string[] | undefined): Exclusion[] | undefined {
-  if (raw.exclusions === undefined || raw.exclusions === null) {
-    check(excluded === undefined || excluded.length === 0);
-    return undefined;
-  }
-  const meanings = array(raw.exclusions, 50).map(exclusion);
-  check(excluded !== undefined && meanings.length === excluded.length);
-  meanings.forEach((meaning, index) => check(meaning.idea === excluded[index]));
-  return meanings;
-}
 function challenge(value: unknown): AssumptionChallenge {
-  const raw = object(value);
-  check(decisionID(raw.idea));
+  const raw = record(value);
   return {
-    idea: raw.idea,
-    assumption: text(raw.assumption, 4000),
-    consequence: text(raw.consequence, 4000),
-    recommendation: text(raw.recommendation, 4000),
+    idea: text(raw.idea),
+    assumption: text(raw.assumption),
+    consequence: text(raw.consequence),
+    recommendation: text(raw.recommendation),
   };
 }
 function milestone(value: unknown): Milestone {
-  const raw = object(value);
-  return {name: text(raw.name, 4000), result: text(raw.result, 4000)};
+  const raw = record(value);
+  return {name: text(raw.name), result: text(raw.result)};
 }
 function recommendation(value: unknown): ConsolidatedProposal {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision));
+  const raw = record(value);
   const other = alternative(raw.alternative);
-  check(raw.recommended === other.key);
-  const outcomes = array(raw.outcomes, 20).map((outcome) => text(outcome, 4000));
-  check(outcomes.length >= 1);
-  const milestones = array(raw.milestones, 40).map(milestone);
-  check(milestones.length >= 1);
   return {
-    producer: text(raw.producer, 200),
-    intent: raw.intent,
-    revision: raw.revision,
-    objective: text(raw.objective, 16000),
+    producer: text(raw.producer),
+    intent: text(raw.intent),
+    revision: text(raw.revision),
+    objective: text(raw.objective),
     recommended: other.key,
     alternative: other,
-    outcomes,
-    constraints: optArray(raw.constraints, 50).map((constraint) => text(constraint, 4000)),
-    ...(raw.excluded !== undefined ? {excluded: excludedIDs(raw)} : {}),
-    milestones,
-    advice: text(raw.advice, 200),
+    outcomes: texts(raw.outcomes),
+    constraints: texts(raw.constraints),
+    ...(raw.excluded !== undefined ? {excluded: texts(raw.excluded)} : {}),
+    milestones: list(raw.milestones).map(milestone),
+    advice: text(raw.advice),
   };
 }
-function excludedIDs(raw: Record<string, unknown>): string[] {
-  const excluded = optArray(raw.excluded, 50);
-  for (const id of excluded) check(decisionID(id));
-  return excluded.map(String);
-}
 function mismatch(value: unknown): ConsistencyMismatch {
-  const raw = object(value);
-  check(
-    raw.class === 'effect_added' ||
-      raw.class === 'outcome_gap' ||
-      raw.class === 'summary_drift' ||
-      raw.class === 'unverified'
-  );
-  return {class: raw.class as ConsistencyMismatch['class'], detail: text(raw.detail, 4000)};
+  const raw = record(value);
+  return {class: text(raw.class) as ConsistencyMismatch['class'], detail: text(raw.detail)};
 }
 function consistency(value: unknown): ConsistencyReport {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision));
-  check(typeof raw.confidence === 'number' && Number.isFinite(raw.confidence));
-  check(Number(raw.confidence) >= 0 && Number(raw.confidence) <= 1);
+  const raw = record(value);
   return {
-    producer: text(raw.producer, 200),
-    intent: raw.intent,
-    revision: raw.revision,
-    mismatches: optArray(raw.mismatches, 16).map(mismatch),
-    confidence: Number(raw.confidence),
-    advice: text(raw.advice, 200),
+    producer: text(raw.producer),
+    intent: text(raw.intent),
+    revision: text(raw.revision),
+    mismatches: list(raw.mismatches).map(mismatch),
+    confidence: num(raw.confidence),
+    advice: text(raw.advice),
   };
 }
 export function exploration(value: unknown): Exploration {
-  const raw = object(value);
-  const settled = array(raw.settled ?? [], 50);
-  for (const id of settled) check(decisionID(id));
+  const raw = record(value);
   const out: Exploration = {
     content: proposalContent(raw.content),
-    challenges: optArray(raw.challenges, 50).map(challenge),
-    settled: settled.map(String),
+    challenges: list(raw.challenges).map(challenge),
+    settled: texts(raw.settled),
   };
   if (raw.recommendation !== undefined && raw.recommendation !== null)
     out.recommendation = recommendation(raw.recommendation);
@@ -485,97 +369,31 @@ export interface SavedReviewRead {
   status: 'current' | 'stale' | 'missing';
   review?: SavedReview;
 }
-function reviewBindings(raw: Record<string, unknown>, payload: Exploration) {
-  check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
-  if (payload.recommendation) {
-    check(payload.recommendation.producer === authoredProducer);
-    check(payload.recommendation.intent === raw.intent && payload.recommendation.revision === raw.basis_revision);
-    check(digest(payload.recommendation.advice));
-  }
-  if (payload.consistency) {
-    check(payload.consistency.producer === authoredProducer);
-    check(payload.consistency.intent === raw.intent && payload.consistency.revision === raw.basis_revision);
-    check(digest(payload.consistency.advice));
-  }
-}
-function reviewContentShape(payload: Exploration) {
-  check(payload.content.producer === authoredProducer);
-  const objective = payload.content.objective;
-  const facts = payload.content.facts;
-  check(objective !== undefined && facts !== undefined && facts.length > 0 && facts[0] === objective);
-}
-function reviewVerdicts(payload: Exploration) {
-  const verdicts = new Set<string>();
-  for (const entry of payload.challenges) {
-    check(!verdicts.has(entry.idea));
-    verdicts.add(entry.idea);
-  }
-  for (const id of payload.settled) {
-    check(!verdicts.has(id));
-    verdicts.add(id);
-  }
-}
-export function savedReview(value: unknown): SavedReview {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.basis_revision) && decisionID(raw.result_revision));
-  check(raw.basis_revision !== raw.result_revision);
-  const payload = exploration(value);
-  reviewBindings(raw, payload);
-  reviewContentShape(payload);
-  reviewVerdicts(payload);
-  const saved = count(raw.saved_unix);
-  check(saved > 0);
+function savedReview(value: unknown): SavedReview {
+  const raw = record(value);
   return {
-    intent: raw.intent,
-    basis_revision: raw.basis_revision,
-    result_revision: raw.result_revision,
-    saved_unix: saved,
-    ...payload,
+    intent: text(raw.intent),
+    basis_revision: text(raw.basis_revision),
+    result_revision: text(raw.result_revision),
+    saved_unix: num(raw.saved_unix),
+    ...exploration(value),
   };
 }
 export function savedReviewRead(value: unknown): SavedReviewRead {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.head_revision));
-  check(raw.status === 'current' || raw.status === 'stale' || raw.status === 'missing');
-  if (raw.status === 'missing') {
-    check(raw.review === undefined || raw.review === null);
-    return {intent: raw.intent, head_revision: raw.head_revision, status: 'missing'};
-  }
-  const review = savedReview(raw.review);
-  check(review.intent === raw.intent);
-  const status = raw.status as SavedReviewRead['status'];
-  check(status === (raw.head_revision === review.result_revision ? 'current' : 'stale'));
-  return {intent: raw.intent, head_revision: raw.head_revision, status, review};
-}
-function references(raw: Record<string, unknown>) {
-  if (raw.predecessor !== undefined) check(decisionID(raw.predecessor));
-  if (raw.department !== undefined) check(decisionID(raw.department));
-  return {
-    ...(raw.predecessor ? {predecessor: String(raw.predecessor)} : {}),
-    ...(raw.department ? {department: String(raw.department)} : {}),
+  const raw = record(value);
+  const out: SavedReviewRead = {
+    intent: text(raw.intent),
+    head_revision: text(raw.head_revision),
+    status: text(raw.status, 'missing') as SavedReviewRead['status'],
   };
-}
-function bound(value: unknown, minimum: number, maximum: number) {
-  check(Number.isInteger(value) && Number(value) >= minimum && Number(value) <= maximum);
-  return Number(value);
-}
-function array(value: unknown, maximum: number): unknown[] {
-  check(Array.isArray(value) && value.length <= maximum);
-  return value;
-}
-// optArray matches Go's validated nil semantics for optional collections:
-// a null wire value is an absent collection, never a broken payload.
-// Required arrays stay strict: null fails like any other non-array.
-function optArray(value: unknown, maximum: number): unknown[] {
-  if (value === null) return [];
-  return array(value, maximum);
+  if (out.status !== 'missing' && raw.review !== undefined && raw.review !== null) out.review = savedReview(raw.review);
+  return out;
 }
 export function newDecisionID(): string {
   return (
     'd' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) => byte.toString(16).padStart(2, '0')).join('')
   );
 }
-const runID = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
 export function planActionBody(revision: string, operation: string): Record<string, unknown> {
   check(decisionID(revision) && (operation === 'propose_intent' || operation === 'decomposition_options'));
   return {revision, operation};
@@ -590,8 +408,8 @@ export const planWait = (value: unknown): value is IntentPlanWait => {
   return raw.launched === false && Array.isArray(raw.waits);
 };
 export function generationWaitNotice(value: unknown): string {
-  const raw = object(value);
-  const waits = Array.isArray(raw.waits) ? raw.waits : [];
+  const raw = record(value);
+  const waits = list(raw.waits);
   const first =
     waits.length > 0 && waits[0] && typeof waits[0] === 'object' ? (waits[0] as Record<string, unknown>) : {};
   const detail =
@@ -618,8 +436,8 @@ export function generationFailureNotice(error: unknown): string {
   return 'Your product direction is saved. Native work creation could not be confirmed. Factory will inspect the original request before retrying.';
 }
 export function planWaitNotice(value: unknown): string {
-  const raw = object(value);
-  const waits = Array.isArray(raw.waits) ? raw.waits : [];
+  const raw = record(value);
+  const waits = list(raw.waits);
   const first =
     waits.length > 0 && waits[0] && typeof waits[0] === 'object' ? (waits[0] as Record<string, unknown>) : {};
   const detail =
@@ -674,24 +492,15 @@ export interface IntentPlanLaunch {
   launchConfirmed?: boolean;
 }
 export function intentPlanLaunch(value: unknown): IntentPlanLaunch {
-  const raw = object(value);
-  check(runID(raw.assignment_id) && runID(raw.run_id) && decisionID(raw.revision_id));
-  check(raw.launch_confirmed === undefined || typeof raw.launch_confirmed === 'boolean');
+  const raw = record(value);
   return {
-    assignment: String(raw.assignment_id),
-    run: String(raw.run_id),
-    revision: String(raw.revision_id),
-    ...(raw.launch_confirmed === undefined ? {} : {launchConfirmed: raw.launch_confirmed}),
+    assignment: text(raw.assignment_id),
+    run: text(raw.run_id),
+    revision: text(raw.revision_id),
+    ...(typeof raw.launch_confirmed === 'boolean' ? {launchConfirmed: raw.launch_confirmed} : {}),
   };
 }
 export type IntentPlanState = 'none' | 'pending' | 'completed' | 'attention' | 'failed' | 'cancelled';
-const planState = (value: unknown): value is IntentPlanState =>
-  value === 'none' ||
-  value === 'pending' ||
-  value === 'completed' ||
-  value === 'attention' ||
-  value === 'failed' ||
-  value === 'cancelled';
 export interface IntentPlanStatus {
   revision: string;
   state: IntentPlanState;
@@ -704,37 +513,21 @@ export interface IntentPlanStatus {
   review?: Exploration;
 }
 export function intentPlanStatus(value: unknown): IntentPlanStatus {
-  const raw = object(value);
-  check(decisionID(raw.revision));
-  check(planState(raw.state));
-  const out: IntentPlanStatus = {revision: String(raw.revision), state: raw.state, candidates: 0};
-  if (raw.assignment_id !== undefined) {
-    check(runID(raw.assignment_id));
-    out.assignment = String(raw.assignment_id);
-  }
-  if (raw.run_id !== undefined) {
-    check(runID(raw.run_id));
-    out.run = String(raw.run_id);
-  }
-  if (raw.summary !== undefined) out.summary = text(raw.summary, 4096);
-  if (raw.candidates !== undefined) out.candidates = bound(raw.candidates, 0, 3);
-  if (raw.attention !== undefined) out.attention = text(raw.attention, 4000);
-  if (raw.walkthroughs !== undefined) {
-    out.walkthroughs = proposalContent(raw.walkthroughs);
-    check(
-      out.state === 'completed' &&
-        out.walkthroughs.producer === 'soda-planning-agent-v1' &&
-        out.walkthroughs.revision === out.revision
-    );
-  }
-  if (raw.review !== undefined) {
-    out.review = exploration(raw.review);
-    check(
-      out.walkthroughs !== undefined &&
-        out.review.content.revision === out.revision &&
-        out.review.recommendation?.revision === out.revision &&
-        out.review.consistency?.revision === out.revision
-    );
-  }
+  const raw = record(value);
+  const out: IntentPlanStatus = {
+    revision: text(raw.revision),
+    state: text(raw.state) as IntentPlanState,
+    candidates: num(raw.candidates),
+  };
+  const assignment = nonEmpty(raw.assignment_id);
+  if (assignment) out.assignment = assignment;
+  const run = nonEmpty(raw.run_id);
+  if (run) out.run = run;
+  const summary = nonEmpty(raw.summary);
+  if (summary) out.summary = summary;
+  const attention = nonEmpty(raw.attention);
+  if (attention) out.attention = attention;
+  if (raw.walkthroughs !== undefined && raw.walkthroughs !== null) out.walkthroughs = proposalContent(raw.walkthroughs);
+  if (raw.review !== undefined && raw.review !== null) out.review = exploration(raw.review);
   return out;
 }

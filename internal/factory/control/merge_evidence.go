@@ -144,8 +144,6 @@ func (c *Coordinator) mergeAuthority(ctx context.Context, m factory.Merge, repor
 		return empty, 0, false
 	}
 	current := effective.Authority
-	// Capacity changes only bound future reservations, per the existing grant contract.
-	current.Capacity = m.Authority.Capacity
 	current.RequirementsID, err = c.Store.RequirementHead(ctx, m.ProjectID)
 	if err != nil {
 		mergeError(report, m.ID, "store_unavailable")
@@ -156,7 +154,7 @@ func (c *Coordinator) mergeAuthority(ctx context.Context, m factory.Merge, repor
 		mergeError(report, m.ID, "store_unavailable")
 		return empty, 0, false
 	}
-	if current != m.Authority || policy.TargetBranch != m.BaseRef || policy.Review.ActorID != m.ReviewerID {
+	if !current.SameGrants(m.Authority) || policy.TargetBranch != m.BaseRef || policy.Review.ActorID != m.ReviewerID {
 		mergeWait(report, m.ID, "authority_changed")
 		return empty, 0, false
 	}

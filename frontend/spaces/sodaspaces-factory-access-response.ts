@@ -1,4 +1,4 @@
-import {check, object} from './sodaspaces-api.js';
+import {flag, list, num, object, optionalNum, optionalText, record, text} from './sodaspaces-api.js';
 
 /** H-R permission/usage DTO v2 (revision f06-20261011). */
 export interface FactoryAccessViewer {
@@ -37,7 +37,6 @@ export interface FactoryAccess {
     capacity: FactoryAccessEditable;
     environment_grant: FactoryAccessEditable;
     sponsorships: FactoryAccessConnectionEditable[];
-    usage_budgets: FactoryAccessConnectionEditable[];
   };
   effective: Record<string, unknown>;
   required_actions: FactoryAccessRequiredAction[];
@@ -47,61 +46,38 @@ export interface FactoryAccess {
   repository: string;
 }
 
-function reason(value: unknown): string | undefined {
-  if (value === undefined) return undefined;
-  check(typeof value === 'string' && /^[a-z_]{1,64}$/.test(value));
-  return value;
-}
 function editable(value: unknown): FactoryAccessEditable {
-  const row = object(value);
-  check(typeof row.editable === 'boolean');
-  const parsed: FactoryAccessEditable = {editable: row.editable};
-  const code = reason(row.reason);
-  if (code !== undefined) parsed.reason = code;
-  return parsed;
+  const row = record(value);
+  const reason = optionalText(row.reason);
+  return {editable: flag(row.editable), ...(reason ? {reason} : {})};
 }
 function connectionEditable(value: unknown): FactoryAccessConnectionEditable {
-  const row = object(value);
-  check(typeof row.connection === 'string' && row.connection.length > 0);
-  return {connection: row.connection, ...editable(value)};
-}
-function minutes(value: unknown): number | undefined {
-  if (value === undefined) return undefined;
-  check(typeof value === 'number' && Number.isFinite(value) && value >= 0);
-  return value;
+  return {connection: text(record(value).connection), ...editable(value)};
 }
 function usageEntry(value: unknown): FactoryAccessUsage {
-  const row = object(value);
-  check(typeof row.connection === 'string');
-  const status = reason(row.status);
-  if (status !== undefined) return {connection: row.connection, status};
-  check(row.unit === 'minutes');
-  const entry: FactoryAccessUsage = {connection: row.connection, unit: 'minutes'};
-  const budget = minutes(row.budget_minutes),
-    used = minutes(row.used_minutes);
-  if (budget !== undefined) entry.budget_minutes = budget;
-  if (used !== undefined) entry.used_minutes = used;
-  return entry;
+  const row = record(value);
+  const connection = text(row.connection);
+  const status = optionalText(row.status);
+  if (status) return {connection, status};
+  const budget = optionalNum(row.budget_minutes),
+    used = optionalNum(row.used_minutes);
+  return {
+    connection,
+    unit: text(row.unit, 'minutes'),
+    ...(budget === undefined ? {} : {budget_minutes: budget}),
+    ...(used === undefined ? {} : {used_minutes: used}),
+  };
 }
 function requiredAction(value: unknown): FactoryAccessRequiredAction {
-  const row = object(value);
-  check(
-    typeof row.code === 'string' &&
-      row.code.length > 0 &&
-      typeof row.resolve_by === 'string' &&
-      row.resolve_by.length > 0 &&
-      typeof row.setting === 'string' &&
-      row.setting.length > 0
-  );
-  return {code: row.code, resolve_by: row.resolve_by, setting: row.setting};
+  const row = record(value);
+  return {code: text(row.code), resolve_by: text(row.resolve_by), setting: text(row.setting)};
 }
 function preparation(value: unknown): FactoryAccess['preparation'] {
-  if (value === null) return null;
-  const row = object(value);
-  check(row.project === undefined || typeof row.project === 'string');
-  check(row.ready === undefined || typeof row.ready === 'boolean');
+  if (value === null || value === undefined) return null;
+  const row = record(value);
+  const project = optionalText(row.project);
   return {
-    ...(typeof row.project === 'string' ? {project: row.project} : {}),
+    ...(project === undefined ? {} : {project}),
     ...(typeof row.ready === 'boolean' ? {ready: row.ready} : {}),
     ...(row.requirements !== undefined ? {requirements: row.requirements} : {}),
     ...(row.approval !== undefined ? {approval: row.approval} : {}),
@@ -109,22 +85,16 @@ function preparation(value: unknown): FactoryAccess['preparation'] {
 }
 export function factoryAccessResponse(value: unknown): FactoryAccess {
   const data = object(value);
-  const viewer = object(data.viewer);
-  for (const key of ['code_write', 'owner_or_admin', 'environment_owner', 'operator', 'member', 'session_current'])
-    check(typeof viewer[key] === 'boolean');
-  const edit = object(data.editable);
-  check(Array.isArray(edit.sponsorships) && Array.isArray(edit.usage_budgets));
-  check(Array.isArray(data.required_actions) && Array.isArray(data.usage));
-  check(typeof data.observed_unix === 'number' && Number.isFinite(data.observed_unix));
-  check(typeof data.repository === 'string' && data.repository.length > 0);
+  const viewer = record(data.viewer);
+  const edit = record(data.editable);
   return {
     viewer: {
-      code_write: viewer.code_write as boolean,
-      owner_or_admin: viewer.owner_or_admin as boolean,
-      environment_owner: viewer.environment_owner as boolean,
-      operator: viewer.operator as boolean,
-      member: viewer.member as boolean,
-      session_current: viewer.session_current as boolean,
+      code_write: flag(viewer.code_write),
+      owner_or_admin: flag(viewer.owner_or_admin),
+      environment_owner: flag(viewer.environment_owner),
+      operator: flag(viewer.operator),
+      member: flag(viewer.member),
+      session_current: flag(viewer.session_current),
     },
     editable: {
       policy: editable(edit.policy),
@@ -132,14 +102,13 @@ export function factoryAccessResponse(value: unknown): FactoryAccess {
       operator_grant: editable(edit.operator_grant),
       capacity: editable(edit.capacity),
       environment_grant: editable(edit.environment_grant),
-      sponsorships: edit.sponsorships.map(connectionEditable),
-      usage_budgets: edit.usage_budgets.map(connectionEditable),
+      sponsorships: list(edit.sponsorships).map(connectionEditable),
     },
-    effective: object(data.effective),
-    required_actions: (data.required_actions as unknown[]).map(requiredAction),
+    effective: record(data.effective),
+    required_actions: list(data.required_actions).map(requiredAction),
     preparation: preparation(data.preparation),
-    usage: (data.usage as unknown[]).map(usageEntry),
-    observed_unix: data.observed_unix,
-    repository: data.repository,
+    usage: list(data.usage).map(usageEntry),
+    observed_unix: num(data.observed_unix),
+    repository: text(data.repository),
   };
 }

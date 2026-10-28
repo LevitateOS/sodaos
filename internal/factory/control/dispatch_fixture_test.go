@@ -205,25 +205,19 @@ func dispatchSeed(t *testing.T, db *store.Store, sourceInputs ...map[string]stri
 		Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge),
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
-		MaxConcurrent:       2,
 	}
 	if err := db.SaveRepositoryPolicy(ctx, fx.policy); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: fx.repo, GrantedBy: 7, MaxConcurrent: 2, Active: true}); err != nil {
+	if err := db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: fx.repo, GrantedBy: 7, Active: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.SaveSponsorship(ctx, factory.Sponsorship{
 		Repository: fx.repo, GrantedBy: 7, ActorID: 7, ProjectID: fx.proj, Generation: 1, Connection: "conn", GrantID: "grant",
-		Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
-		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
+		Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, Active: true,
 	}); err != nil {
 		t.Fatal(err)
 	}

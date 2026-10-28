@@ -1,63 +1,13 @@
-import {check, id, object, projectId} from './sodaspaces-api.js';
-import {decisionID} from './sodaspaces-intent-response.js';
+import {flag, list, num, optionalNum, record, text, texts} from './sodaspaces-api.js';
 import {issueBlocker} from './sodaspaces-factory-work-response.js';
 import type {IssueBlocker} from './sodaspaces-factory-work-response.js';
 
-// Parsers for the H-R request-overview (F01), issue-plan (F03),
-// repository-access (F06) and scope-revision (F04) reads plus H-A
-// and allowance shapes. Each parser binds its exact
-// intent, issue or repository identity; absent records leave the view
-// without a verdict, never a guessed state.
+// Lenient readers for the request-overview, issue-plan, repository-access
+// and scope-revision reads. Missing or mistyped fields fall back to
+// defaults; extra fields and unknown states pass through as text.
 
-const decimalID = (value: unknown): value is string =>
-  typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n;
-const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-
-function text(value: unknown, limit: number): string {
-  check(typeof value === 'string' && value.length > 0 && value.length <= limit);
-  return value;
-}
-function counter(value: unknown): number {
-  check(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0);
-  return value;
-}
-function fraction(value: unknown): number {
-  check(typeof value === 'number' && !Number.isNaN(value) && value >= 0 && value <= 1);
-  return value;
-}
-function optionalLabel(value: unknown, limit: number): string | undefined {
-  if (value === undefined || value === '') return undefined;
-  return text(value, limit);
-}
-function judgmentNumbers(raw: Record<string, unknown>) {
-  return {
-    ...(typeof raw.confidence === 'number' ? {confidence: fraction(raw.confidence)} : {}),
-    ...(typeof raw.input_tokens === 'number' ? {input_tokens: counter(raw.input_tokens)} : {}),
-    ...(typeof raw.output_tokens === 'number' ? {output_tokens: counter(raw.output_tokens)} : {}),
-  };
-}
-function countMap(value: unknown, allowed: readonly string[]): Record<string, number> {
-  const raw = object(value);
-  const keys = Object.keys(raw);
-  check(keys.length <= allowed.length);
-  const out: Record<string, number> = {};
-  for (const key of keys) {
-    check(allowed.includes(key));
-    out[key] = counter(raw[key]);
-  }
-  return out;
-}
-function probabilityMap(value: unknown): Record<string, number> {
-  const raw = object(value);
-  const keys = Object.keys(raw);
-  check(keys.length <= 256);
-  const out: Record<string, number> = {};
-  for (const key of keys) {
-    check(key.length >= 1 && key.length <= 128);
-    out[key] = fraction(raw[key]);
-  }
-  return out;
-}
+const nonEmpty = (value: unknown): string | undefined =>
+  typeof value === 'string' && value !== '' ? value : undefined;
 
 export interface RequestDirection {
   readonly objective: string;
@@ -108,113 +58,88 @@ export interface RequestOverview {
   readonly state: string;
   readonly observed_unix: number;
 }
-
-const intentStates = ['draft', 'accepted', 'declined', 'rejected', 'abandoned'];
-const attentionCodes = ['generation_refused', 'work_attention', 'unresolved_assumption'];
-const setupStates = ['repository_unassigned', 'project_missing', 'preparing', 'ready'];
-const decisionKinds = ['pending', 'accept', 'decline', 'edit'];
-const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption', 'unclassified'];
-
+function countMap(value: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, count] of Object.entries(record(value))) if (typeof count === 'number') out[key] = count;
+  return out;
+}
 function requestDirection(value: unknown): RequestDirection {
-  const raw = object(value);
-  check(Array.isArray(raw.effective_outcomes) && raw.effective_outcomes.length <= 64);
-  for (const outcome of raw.effective_outcomes) check(decisionID(outcome));
-  if (raw.approach !== undefined) check(raw.approach === 'incremental' || raw.approach === 'complete_first');
+  const raw = record(value);
+  const approach = nonEmpty(raw.approach);
   return {
-    objective: text(raw.objective, 4096),
-    ideas_by_decision: countMap(raw.ideas_by_decision, decisionKinds),
-    ideas_by_source: countMap(raw.ideas_by_source, sourceKinds),
-    effective_outcomes: raw.effective_outcomes as string[],
-    ideas_total: counter(raw.ideas_total),
-    tasks_total: counter(raw.tasks_total),
-    unresolved_assumptions: counter(raw.unresolved_assumptions),
-    ...(raw.approach === undefined ? {} : {approach: raw.approach as string}),
+    objective: text(raw.objective),
+    ideas_by_decision: countMap(raw.ideas_by_decision),
+    ideas_by_source: countMap(raw.ideas_by_source),
+    effective_outcomes: texts(raw.effective_outcomes),
+    ideas_total: num(raw.ideas_total),
+    tasks_total: num(raw.tasks_total),
+    unresolved_assumptions: num(raw.unresolved_assumptions),
+    ...(approach === undefined ? {} : {approach}),
   };
 }
 function requestContext(value: unknown): RequestContext {
-  const raw = object(value);
-  check(decimalID(raw.repository));
-  if (raw.department !== undefined) check(decisionID(raw.department));
-  return {
-    repository: raw.repository,
-    ...(raw.department === undefined ? {} : {department: raw.department as string}),
-  };
+  const raw = record(value);
+  const department = nonEmpty(raw.department);
+  return {repository: text(raw.repository), ...(department === undefined ? {} : {department})};
 }
 function requestMapping(value: unknown): RequestMapping {
-  const raw = object(value);
-  check(decisionID(raw.task_key) && decimalID(raw.issue_id) && id(raw.issue_index));
-  check(typeof raw.effective === 'boolean');
+  const raw = record(value);
   return {
-    task_key: raw.task_key,
-    issue_id: raw.issue_id,
-    issue_index: raw.issue_index,
-    acceptance_id: text(raw.acceptance_id, 128),
-    created_unix: counter(raw.created_unix),
-    effective: raw.effective,
+    task_key: text(raw.task_key),
+    issue_id: text(raw.issue_id),
+    issue_index: text(raw.issue_index),
+    acceptance_id: text(raw.acceptance_id),
+    created_unix: num(raw.created_unix),
+    effective: flag(raw.effective),
   };
 }
-// requestCounts binds evidenced work-item counts. The backend omits
-// zero by_state buckets (sparse maps), so absent canonical buckets
-// read as zero; provided values, unknown keys, totals and outcome
-// counters still validate exactly.
+// The backend omits zero by_state buckets (sparse maps), so absent buckets
+// read as zero.
 function requestCounts(value: unknown): RequestCounts {
-  const raw = object(value);
-  const by = countMap(raw.by_state, ['delivered', 'working', 'waiting', 'attention']);
+  const raw = record(value);
+  const by = record(raw.by_state);
   return {
-    delivered: by.delivered ?? 0,
-    working: by.working ?? 0,
-    waiting: by.waiting ?? 0,
-    attention: by.attention ?? 0,
-    total: counter(raw.total),
-    outcomes_total: counter(raw.outcomes_total),
-    outcomes_evidenced: counter(raw.outcomes_evidenced),
+    delivered: num(by.delivered),
+    working: num(by.working),
+    waiting: num(by.waiting),
+    attention: num(by.attention),
+    total: num(raw.total),
+    outcomes_total: num(raw.outcomes_total),
+    outcomes_evidenced: num(raw.outcomes_evidenced),
   };
 }
 function requestAttention(value: unknown): RequestAttention {
-  const raw = object(value);
-  check(typeof raw.code === 'string' && attentionCodes.includes(raw.code));
-  if (raw.issue !== undefined) check(id(raw.issue));
-  if (raw.idea !== undefined) check(decisionID(raw.idea));
+  const raw = record(value);
+  const issue = nonEmpty(raw.issue);
+  const idea = nonEmpty(raw.idea);
   return {
-    code: raw.code,
-    ...(raw.issue === undefined ? {} : {issue: raw.issue as string}),
-    ...(raw.idea === undefined ? {} : {idea: raw.idea as string}),
+    code: text(raw.code),
+    ...(issue === undefined ? {} : {issue}),
+    ...(idea === undefined ? {} : {idea}),
   };
 }
 function requestSetup(value: unknown): {state: string; project?: string} {
-  const raw = object(value);
-  check(typeof raw.state === 'string' && setupStates.includes(raw.state));
-  if (raw.project !== undefined) check(projectId(raw.project));
-  return {state: raw.state, ...(raw.project === undefined ? {} : {project: raw.project as string})};
+  const raw = record(value);
+  const project = nonEmpty(raw.project);
+  return {state: text(raw.state), ...(project === undefined ? {} : {project})};
 }
-// requestOverview binds one owner-private request overview to its exact
-// intent. Generation states pass through verbatim; counts are evidenced
-// work-item facts, never percentages.
+// requestOverview reads one owner-private request overview. Generation
+// states pass through verbatim; counts are evidenced work-item facts.
 export function requestOverview(value: unknown, intent: string): RequestOverview {
-  const data = object(value);
-  check(data.intent === intent && decisionID(data.revision));
-  check(typeof data.state === 'string' && intentStates.includes(data.state));
-  check(Array.isArray(data.mappings) && data.mappings.length <= 64);
-  check(Array.isArray(data.attention) && data.attention.length <= 64);
+  const data = record(value);
   return {
     direction: requestDirection(data.direction),
     context: requestContext(data.context),
-    generation: generationState(data.generation),
+    generation: typeof data.generation === 'string' ? data.generation : text(record(data.generation).state),
     setup: requestSetup(data.setup),
     work_items: requestCounts(data.work_items),
-    mappings: data.mappings.map(requestMapping),
-    attention: data.attention.map(requestAttention),
+    mappings: list(data.mappings).map(requestMapping),
+    attention: list(data.attention).map(requestAttention),
     intent,
-    revision: data.revision,
-    state: data.state,
-    observed_unix: counter(data.observed_unix),
+    revision: text(data.revision),
+    state: text(data.state),
+    observed_unix: num(data.observed_unix),
   };
-}
-
-function generationState(value: unknown): string {
-  if (typeof value === 'string') return text(value, 64);
-  const raw = object(value);
-  return text(raw.state, 64);
 }
 
 export interface PlanCandidate {
@@ -296,113 +221,84 @@ export interface IssuePlan {
   readonly next_before_unix?: number;
   readonly next_before_snapshot?: string;
 }
-
-const readinessStates = [
-  'not_authorized',
-  'blocked',
-  'queued',
-  'active',
-  'needs_intervention',
-  'cancelled',
-  'completed',
-];
-const freshnessStates = ['missing', 'stale', 'provisional', 'current'];
-const freshnessReasons = ['current_readiness_missing', 'acceptance_changed', 'inputs_changed'];
-
-function planCandidate(value: unknown): PlanCandidate {
-  const raw = object(value);
-  check(id(raw.repository) && id(raw.issue));
-  check(typeof raw.readiness === 'string' && readinessStates.includes(raw.readiness));
-  if (raw.acceptance !== undefined) check(typeof raw.acceptance === 'string' && raw.acceptance.length <= 256);
+function judgmentNumbers(raw: Record<string, unknown>) {
   return {
-    id: text(raw.id, 128),
-    repository: raw.repository,
-    issue: raw.issue,
-    readiness: raw.readiness,
-    first_seen_unix: counter(raw.first_seen_unix),
-    ...(typeof raw.acceptance === 'string' && raw.acceptance !== '' ? {acceptance: raw.acceptance} : {}),
+    ...(typeof raw.confidence === 'number' ? {confidence: raw.confidence} : {}),
+    ...(typeof raw.input_tokens === 'number' ? {input_tokens: raw.input_tokens} : {}),
+    ...(typeof raw.output_tokens === 'number' ? {output_tokens: raw.output_tokens} : {}),
+  };
+}
+function probabilities(raw: Record<string, unknown>): {probabilities?: Record<string, number>} {
+  return raw.probabilities === undefined ? {} : {probabilities: countMap(raw.probabilities)};
+}
+function planCandidate(value: unknown): PlanCandidate {
+  const raw = record(value);
+  const acceptance = nonEmpty(raw.acceptance);
+  return {
+    id: text(raw.id),
+    repository: text(raw.repository),
+    issue: text(raw.issue),
+    readiness: text(raw.readiness),
+    first_seen_unix: num(raw.first_seen_unix),
+    ...(acceptance === undefined ? {} : {acceptance}),
   };
 }
 function planJudgment(value: unknown): PlanJudgment | undefined {
-  if (value === undefined) return undefined;
-  const raw = object(value);
-  const probabilities = raw.probabilities === undefined ? undefined : probabilityMap(raw.probabilities);
-  const selected = optionalLabel(raw.selected, 128);
-  const model = optionalLabel(raw.model, 128);
+  if (value === undefined || value === null) return undefined;
+  const raw = record(value);
+  const selected = nonEmpty(raw.selected);
+  const model = nonEmpty(raw.model);
   return {
-    probability_count: counter(raw.probability_count),
-    ...(probabilities === undefined ? {} : {probabilities}),
+    probability_count: num(raw.probability_count),
+    ...probabilities(raw),
     ...(selected === undefined ? {} : {selected}),
     ...(model === undefined ? {} : {model}),
     ...judgmentNumbers(raw),
   };
 }
 function recordedPlan(value: unknown): RecordedPlan {
-  const raw = object(value);
-  check(Array.isArray(raw.missing) && raw.missing.length <= 64);
-  check(Array.isArray(raw.steps) && raw.steps.length <= 32);
-  for (const step of raw.steps) check(typeof step === 'string' && step.length <= 256);
-  check(digest(raw.snapshot));
+  const raw = record(value);
   const judgment = planJudgment(raw.judgment);
   return {
     candidate: planCandidate(raw.candidate),
-    missing: raw.missing.map(issueBlocker),
-    steps: raw.steps as string[],
-    strategy: text(raw.strategy, 128),
-    snapshot: raw.snapshot,
-    outcome: text(raw.outcome, 64),
-    created_unix: counter(raw.created_unix),
+    missing: list(raw.missing).map(issueBlocker),
+    steps: texts(raw.steps),
+    strategy: text(raw.strategy),
+    snapshot: text(raw.snapshot),
+    outcome: text(raw.outcome),
+    created_unix: num(raw.created_unix),
     ...(judgment === undefined ? {} : {judgment}),
   };
 }
 function planFreshness(value: unknown): PlanFreshness {
-  const raw = object(value);
-  check(typeof raw.state === 'string' && freshnessStates.includes(raw.state));
-  check(typeof raw.provisional === 'boolean');
-  const reasons = raw.reasons === undefined ? [] : raw.reasons;
-  check(Array.isArray(reasons) && reasons.length <= 3);
-  for (const reason of reasons) check(freshnessReasons.includes(reason as string));
-  return {state: raw.state, provisional: raw.provisional, reasons: reasons as string[]};
+  const raw = record(value);
+  return {state: text(raw.state), provisional: flag(raw.provisional), reasons: texts(raw.reasons)};
 }
 function priorityCandidate(value: unknown): PriorityCandidate {
-  const raw = object(value);
-  check(id(raw.repository) && id(raw.issue));
-  check(typeof raw.readiness === 'string' && readinessStates.includes(raw.readiness));
-  const reason = optionalLabel(raw.reason, 256);
-  const acceptance = optionalLabel(raw.acceptance, 256);
+  const raw = record(value);
+  const reason = nonEmpty(raw.reason);
+  const acceptance = nonEmpty(raw.acceptance);
   return {
-    id: text(raw.id, 128),
-    repository: raw.repository,
-    issue: raw.issue,
-    readiness: raw.readiness,
-    first_seen_unix: counter(raw.first_seen_unix),
-    assessed_unix: counter(raw.assessed_unix),
-    age_seconds: counter(raw.age_seconds),
-    ...candidateFlags(raw),
+    id: text(raw.id),
+    repository: text(raw.repository),
+    issue: text(raw.issue),
+    readiness: text(raw.readiness),
+    first_seen_unix: num(raw.first_seen_unix),
+    assessed_unix: num(raw.assessed_unix),
+    age_seconds: num(raw.age_seconds),
+    impact_known: flag(raw.impact_known),
+    risk_known: flag(raw.risk_known),
+    effort_known: flag(raw.effort_known),
     ...(reason === undefined ? {} : {reason}),
     ...(acceptance === undefined ? {} : {acceptance}),
-    blocker_codes: blockerCodes(raw.blocker_codes),
+    blocker_codes: texts(raw.blocker_codes),
   };
 }
-function candidateFlags(raw: Record<string, unknown>) {
-  check(
-    typeof raw.impact_known === 'boolean' &&
-      typeof raw.risk_known === 'boolean' &&
-      typeof raw.effort_known === 'boolean'
-  );
-  return {impact_known: raw.impact_known, risk_known: raw.risk_known, effort_known: raw.effort_known};
-}
-function blockerCodes(value: unknown): string[] {
-  if (value === undefined) return [];
-  check(Array.isArray(value) && value.length <= 16);
-  for (const code of value) check(typeof code === 'string' && /^[a-z_]{1,64}$/.test(code));
-  return value as string[];
-}
 function priorityCall(value: unknown): PriorityCall {
-  const raw = object(value);
-  const selected = optionalLabel(raw.selected, 128);
-  const model = optionalLabel(raw.model, 128);
-  const failure = optionalLabel(raw.failure, 256);
+  const raw = record(value);
+  const selected = nonEmpty(raw.selected);
+  const model = nonEmpty(raw.model);
+  const failure = nonEmpty(raw.failure);
   return {
     ...(selected === undefined ? {} : {selected}),
     ...(model === undefined ? {} : {model}),
@@ -411,50 +307,39 @@ function priorityCall(value: unknown): PriorityCall {
   };
 }
 function priorityComparison(value: unknown): PriorityComparison {
-  const raw = object(value);
-  check(Array.isArray(raw.candidates) && raw.candidates.length <= 64);
-  check(Array.isArray(raw.calls) && raw.calls.length <= 16);
-  check(digest(raw.snapshot));
-  check(typeof raw.selected_visible === 'boolean' && typeof raw.probabilities_full === 'boolean');
-  const probabilities = raw.probabilities === undefined ? undefined : probabilityMap(raw.probabilities);
+  const raw = record(value);
+  const selected = nonEmpty(raw.selected);
   return {
-    candidates: raw.candidates.map(priorityCandidate),
-    calls: raw.calls.map(priorityCall),
-    snapshot: raw.snapshot,
-    outcome: text(raw.outcome, 64),
-    created_unix: counter(raw.created_unix),
-    candidates_total: counter(raw.candidates_total),
-    other_count: counter(raw.other_count),
-    probability_count: counter(raw.probability_count),
-    selected_visible: raw.selected_visible,
-    probabilities_full: raw.probabilities_full,
-    ...(probabilities === undefined ? {} : {probabilities}),
-    ...(typeof raw.selected === 'string' && raw.selected !== '' ? {selected: raw.selected} : {}),
+    candidates: list(raw.candidates).map(priorityCandidate),
+    calls: list(raw.calls).map(priorityCall),
+    snapshot: text(raw.snapshot),
+    outcome: text(raw.outcome),
+    created_unix: num(raw.created_unix),
+    candidates_total: num(raw.candidates_total),
+    other_count: num(raw.other_count),
+    probability_count: num(raw.probability_count),
+    selected_visible: flag(raw.selected_visible),
+    probabilities_full: flag(raw.probabilities_full),
+    ...probabilities(raw),
+    ...(selected === undefined ? {} : {selected}),
   };
 }
-
-function planCursor(data: Record<string, unknown>): {next_before_unix?: number; next_before_snapshot?: string} {
-  if (data.next_before_unix === undefined && data.next_before_snapshot === undefined) return {};
-  check(typeof data.next_before_unix === 'number' && Number.isSafeInteger(data.next_before_unix));
-  check(data.next_before_unix > 0 && digest(data.next_before_snapshot));
-  return {next_before_unix: data.next_before_unix, next_before_snapshot: data.next_before_snapshot};
-}
-// issuePlan binds one issue's recorded plan, freshness and recent
-// priority comparisons to its exact repository and issue. Paging
-// cursors travel as a pair; a half cursor is rejected.
+// issuePlan reads one issue's recorded plan, freshness and recent priority
+// comparisons. Paging cursors travel as a pair; a half cursor is dropped.
 export function issuePlan(value: unknown, repository: string, issue: string): IssuePlan {
-  const data = object(value);
-  check(data.repository === repository && data.issue === issue);
-  check(Array.isArray(data.comparisons) && data.comparisons.length <= 20);
-  const plan = data.plan === undefined ? undefined : recordedPlan(data.plan);
+  const data = record(value);
+  const before = optionalNum(data.next_before_unix);
+  const snapshot = nonEmpty(data.next_before_snapshot);
   return {
     freshness: planFreshness(data.freshness),
-    comparisons: data.comparisons.map(priorityComparison),
+    comparisons: list(data.comparisons).map(priorityComparison),
     repository,
     issue,
-    observed_unix: counter(data.observed_unix),
-    ...(plan === undefined ? {} : {plan}),
-    ...planCursor(data),
+    observed_unix: num(data.observed_unix),
+    ...(data.plan === undefined || data.plan === null ? {} : {plan: recordedPlan(data.plan)}),
+    ...(before === undefined || snapshot === undefined
+      ? {}
+      : {next_before_unix: before, next_before_snapshot: snapshot}),
   };
 }
 
@@ -483,47 +368,32 @@ export interface FactoryAccess {
   readonly effective: AccessEffective;
   readonly required_actions: readonly AccessRequiredAction[];
 }
-
-function accessViewer(value: unknown): AccessViewer {
-  const raw = object(value);
-  for (const key of ['code_write', 'owner_or_admin', 'environment_owner', 'operator', 'member', 'session_current'])
-    check(typeof raw[key] === 'boolean');
-  return {
-    code_write: raw.code_write as boolean,
-    owner_or_admin: raw.owner_or_admin as boolean,
-    environment_owner: raw.environment_owner as boolean,
-    operator: raw.operator as boolean,
-    member: raw.member as boolean,
-    session_current: raw.session_current as boolean,
-  };
-}
-function accessRequiredAction(value: unknown): AccessRequiredAction {
-  const raw = object(value);
-  check(typeof raw.code === 'string' && raw.code.length >= 1 && raw.code.length <= 128);
-  check(typeof raw.resolve_by === 'string' && raw.resolve_by.length <= 128);
-  check(typeof raw.setting === 'string' && raw.setting.length <= 128);
-  return {code: raw.code, resolve_by: raw.resolve_by, setting: raw.setting};
-}
-function accessEffective(value: unknown): AccessEffective {
-  const raw = object(value);
-  check(typeof raw.effective === 'boolean' && typeof raw.dispatch_open === 'boolean');
-  check(Array.isArray(raw.missing) && raw.missing.length <= 32);
-  for (const code of raw.missing) check(typeof code === 'string' && code.length >= 1 && code.length <= 128);
-  return {effective: raw.effective, dispatch_open: raw.dispatch_open, missing: raw.missing as string[]};
-}
-// factoryAccess binds one repository's permission and authority read to its
-// exact repository. Only the sections V consumes are validated: viewer
-// standing and the effective verdict with required actions.
+// factoryAccess reads one repository's viewer standing and effective
+// verdict with required actions.
 export function factoryAccess(value: unknown, repository: string): FactoryAccess {
-  const data = object(value);
-  check(data.repository === repository && decimalID(repository));
-  check(Array.isArray(data.required_actions) && data.required_actions.length <= 32);
+  const data = record(value);
+  const viewer = record(data.viewer);
+  const effective = record(data.effective);
   return {
     repository,
-    observed_unix: counter(data.observed_unix),
-    viewer: accessViewer(data.viewer),
-    effective: accessEffective(data.effective),
-    required_actions: data.required_actions.map(accessRequiredAction),
+    observed_unix: num(data.observed_unix),
+    viewer: {
+      code_write: flag(viewer.code_write),
+      owner_or_admin: flag(viewer.owner_or_admin),
+      environment_owner: flag(viewer.environment_owner),
+      operator: flag(viewer.operator),
+      member: flag(viewer.member),
+      session_current: flag(viewer.session_current),
+    },
+    effective: {
+      effective: flag(effective.effective),
+      dispatch_open: flag(effective.dispatch_open),
+      missing: texts(effective.missing),
+    },
+    required_actions: list(data.required_actions).map((entry) => {
+      const raw = record(entry);
+      return {code: text(raw.code), resolve_by: text(raw.resolve_by), setting: text(raw.setting)};
+    }),
   };
 }
 
@@ -608,239 +478,121 @@ export interface RevisionHistory {
   readonly revisions: readonly RevisionEntry[];
   readonly truncated: boolean;
 }
-
-const revisionStates: readonly unknown[] = ['draft', 'accepted', 'declined'];
-const revisionTaskFields: readonly unknown[] = ['objective', 'outcomes', 'idea_ids', 'depends_on'];
-const revisionDecisions: readonly unknown[] = ['pending', 'accept', 'decline', 'edit'];
-const revisionGeneration: readonly unknown[] = ['pending', 'committed', 'refused', 'completed', 'not_requested'];
-const revisionWorkStates: readonly unknown[] = ['delivered', 'working', 'waiting', 'attention'];
-const revisionAuthority: readonly unknown[] = ['current', 'superseded', 'unknown'];
-
-function revisionOutcomes(value: unknown): string[] {
-  check(Array.isArray(value) && value.length >= 1 && value.length <= 20);
-  return value.map((outcome) => text(outcome, 4000));
-}
-function revisionIDList(value: unknown, limit: number, min = 0): string[] {
-  check(Array.isArray(value) && value.length >= min && value.length <= limit);
-  for (const entry of value) check(decisionID(entry));
-  return value as string[];
-}
 function revisionTask(value: unknown): RevisionTask {
-  const raw = object(value);
-  check(decisionID(raw.key));
-  const depends = raw.depends_on === undefined ? [] : revisionIDList(raw.depends_on, 64);
+  const raw = record(value);
   return {
-    key: raw.key,
-    objective: text(raw.objective, 4000),
-    outcomes: revisionOutcomes(raw.outcomes),
-    idea_ids: revisionIDList(raw.idea_ids, 50, 1),
-    depends_on: depends,
+    key: text(raw.key),
+    objective: text(raw.objective),
+    outcomes: texts(raw.outcomes),
+    idea_ids: texts(raw.idea_ids),
+    depends_on: texts(raw.depends_on),
   };
 }
-function revisionChangedTexts(
-  raw: Record<string, unknown>,
-  fields: readonly string[],
-  field: string
-): {old?: string; current?: string} {
-  const oldKey = `old_${field}`;
-  const newKey = `new_${field}`;
-  if (!fields.includes(field)) {
-    check(raw[oldKey] === undefined && raw[newKey] === undefined);
-    return {};
-  }
-  return {old: text(raw[oldKey], 4000), current: text(raw[newKey], 4000)};
-}
-function revisionChangedOutcomes(
-  raw: Record<string, unknown>,
-  fields: readonly string[]
-): {old?: string[]; current?: string[]} {
-  if (!fields.includes('outcomes')) {
-    check(raw.old_outcomes === undefined && raw.new_outcomes === undefined);
-    return {};
-  }
-  return {old: revisionOutcomes(raw.old_outcomes), current: revisionOutcomes(raw.new_outcomes)};
-}
+// old/new texts travel only with their changed field.
 function revisionTaskChange(value: unknown): RevisionTaskChange {
-  const raw = object(value);
-  check(decisionID(raw.key));
-  check(Array.isArray(raw.changed_fields) && raw.changed_fields.length >= 1 && raw.changed_fields.length <= 4);
-  for (const field of raw.changed_fields) check(revisionTaskFields.includes(field));
-  const fields = raw.changed_fields as string[];
-  const objective = revisionChangedTexts(raw, fields, 'objective');
-  const outcomes = revisionChangedOutcomes(raw, fields);
+  const raw = record(value);
+  const fields = texts(raw.changed_fields);
   return {
-    key: raw.key,
+    key: text(raw.key),
     changed_fields: fields,
-    ...(objective.old === undefined ? {} : {old_objective: objective.old, new_objective: objective.current ?? ''}),
-    ...(outcomes.old === undefined ? {} : {old_outcomes: outcomes.old, new_outcomes: outcomes.current ?? []}),
+    ...(fields.includes('objective')
+      ? {old_objective: text(raw.old_objective), new_objective: text(raw.new_objective)}
+      : {}),
+    ...(fields.includes('outcomes')
+      ? {old_outcomes: texts(raw.old_outcomes), new_outcomes: texts(raw.new_outcomes)}
+      : {}),
   };
-}
-function revisionTaskList(value: unknown): RevisionTask[] {
-  check(Array.isArray(value) && value.length <= 64);
-  return value.map(revisionTask);
 }
 function revisionTaskDiff(value: unknown): RevisionTaskDiff {
-  const raw = object(value);
-  check(Array.isArray(raw.changed) && raw.changed.length <= 64);
-  const reused = revisionIDList(raw.reused, 64);
-  const unchanged = counter(raw.unchanged_count);
-  check(unchanged === reused.length);
+  const raw = record(value);
   return {
-    added: revisionTaskList(raw.added),
-    removed: revisionTaskList(raw.removed),
-    changed: raw.changed.map(revisionTaskChange),
-    reused,
-    unchanged_count: unchanged,
+    added: list(raw.added).map(revisionTask),
+    removed: list(raw.removed).map(revisionTask),
+    changed: list(raw.changed).map(revisionTaskChange),
+    reused: texts(raw.reused),
+    unchanged_count: num(raw.unchanged_count),
   };
 }
 function revisionIdeaBody(value: unknown): RevisionIdeaBody {
-  const raw = object(value);
-  check(decisionID(raw.id));
-  check(revisionDecisions.includes(raw.decision));
-  return {id: raw.id, description: text(raw.description, 4000), decision: raw.decision as string};
-}
-function revisionIdeaBodyList(value: unknown): RevisionIdeaBody[] {
-  check(Array.isArray(value) && value.length <= 50);
-  return value.map(revisionIdeaBody);
+  const raw = record(value);
+  return {id: text(raw.id), description: text(raw.description), decision: text(raw.decision)};
 }
 function revisionIdeaChange(value: unknown): RevisionIdeaChange {
-  const raw = object(value);
-  check(decisionID(raw.id));
-  check(revisionDecisions.includes(raw.from_decision) && revisionDecisions.includes(raw.to_decision));
-  check(typeof raw.correction_changed === 'boolean' && typeof raw.content_changed === 'boolean');
+  const raw = record(value);
   return {
-    id: raw.id,
-    from_decision: raw.from_decision as string,
-    to_decision: raw.to_decision as string,
-    correction_changed: raw.correction_changed,
-    content_changed: raw.content_changed,
+    id: text(raw.id),
+    from_decision: text(raw.from_decision),
+    to_decision: text(raw.to_decision),
+    correction_changed: flag(raw.correction_changed),
+    content_changed: flag(raw.content_changed),
   };
 }
 function revisionIdeaDiff(value: unknown): RevisionIdeaDiff {
-  const raw = object(value);
-  check(Array.isArray(raw.changed) && raw.changed.length <= 50);
+  const raw = record(value);
   return {
-    added: revisionIdeaBodyList(raw.added),
-    removed: revisionIdeaBodyList(raw.removed),
-    changed: raw.changed.map(revisionIdeaChange),
+    added: list(raw.added).map(revisionIdeaBody),
+    removed: list(raw.removed).map(revisionIdeaBody),
+    changed: list(raw.changed).map(revisionIdeaChange),
   };
 }
-function revisionScalarChange(
-  value: unknown,
-  allowed: readonly unknown[],
-  numeric: boolean
-): RevisionScalarChange | undefined {
-  if (value === undefined) return undefined;
-  const raw = object(value);
-  if (numeric) check(decimalID(raw.from) && decimalID(raw.to));
-  else check(allowed.includes(raw.from) && allowed.includes(raw.to));
-  return {from: raw.from as string, to: raw.to as string};
-}
-function revisionEffectiveDiff(value: unknown): {added: string[]; removed: string[]} {
-  const raw = object(value);
-  return {added: revisionIDList(raw.added, 50), removed: revisionIDList(raw.removed, 50)};
-}
-function checkEmptyInitial(
-  tasks: RevisionTaskDiff,
-  ideas: RevisionIdeaDiff,
-  effective: {added: string[]; removed: string[]},
-  edgesChanged: boolean
-) {
-  check(
-    tasks.added.length === 0 && tasks.removed.length === 0 && tasks.changed.length === 0 && tasks.reused.length === 0
-  );
-  check(
-    ideas.added.length === 0 &&
-      ideas.removed.length === 0 &&
-      ideas.changed.length === 0 &&
-      effective.added.length === 0 &&
-      effective.removed.length === 0 &&
-      !edgesChanged
-  );
+function revisionScalarChange(value: unknown): RevisionScalarChange | undefined {
+  if (value === undefined || value === null) return undefined;
+  const raw = record(value);
+  return {from: text(raw.from), to: text(raw.to)};
 }
 function revisionComparison(value: unknown): RevisionComparison {
-  const raw = object(value);
-  const initial = raw.initial === undefined ? false : raw.initial;
-  check(typeof initial === 'boolean');
-  check(typeof raw.edges_changed === 'boolean');
-  const tasks = revisionTaskDiff(raw.tasks);
-  const ideas = revisionIdeaDiff(raw.ideas);
-  const effective = revisionEffectiveDiff(raw.effective_outcomes);
-  const repository = revisionScalarChange(raw.repository_change, [], true);
-  const state = revisionScalarChange(raw.state_change, revisionStates, false);
-  if (initial) checkEmptyInitial(tasks, ideas, effective, raw.edges_changed);
+  const raw = record(value);
+  const effective = record(raw.effective_outcomes);
+  const repository = revisionScalarChange(raw.repository_change);
+  const state = revisionScalarChange(raw.state_change);
   return {
-    tasks,
-    ideas,
-    effective_added: effective.added,
-    effective_removed: effective.removed,
+    tasks: revisionTaskDiff(raw.tasks),
+    ideas: revisionIdeaDiff(raw.ideas),
+    effective_added: texts(effective.added),
+    effective_removed: texts(effective.removed),
     ...(repository === undefined ? {} : {repository_change: repository}),
     ...(state === undefined ? {} : {state_change: state}),
-    initial,
-    edges_changed: raw.edges_changed,
+    initial: flag(raw.initial),
+    edges_changed: flag(raw.edges_changed),
   };
 }
 function revisionWork(value: unknown): RevisionWork {
-  const raw = object(value);
-  check(decisionID(raw.task_key) && id(raw.issue_index));
-  check(revisionWorkStates.includes(raw.state) && revisionAuthority.includes(raw.authority));
+  const raw = record(value);
   return {
-    task_key: raw.task_key,
-    issue_index: raw.issue_index,
-    state: raw.state as string,
-    authority: raw.authority as string,
-    content_version: counter(raw.content_version),
+    task_key: text(raw.task_key),
+    issue_index: text(raw.issue_index),
+    state: text(raw.state),
+    authority: text(raw.authority),
+    content_version: num(raw.content_version),
   };
 }
-function entryGeneration(value: unknown): RevisionGeneration {
-  const raw = object(value);
-  check(revisionGeneration.includes(raw.state));
-  const keys = raw.submitted_keys === undefined ? [] : revisionIDList(raw.submitted_keys, 64);
-  const differs = raw.submitted_differs === undefined ? false : raw.submitted_differs;
-  check(typeof differs === 'boolean');
-  const state = raw.state as string;
-  if (state === 'not_requested') check(keys.length === 0 && !differs);
-  else check(keys.length >= 1);
-  if (differs) check(keys.length >= 1);
-  return {state, submitted_keys: keys, submitted_differs: differs};
-}
 function revisionEntry(value: unknown): RevisionEntry {
-  const raw = object(value);
-  check(decisionID(raw.revision) && decimalID(raw.repository));
-  check(revisionStates.includes(raw.state));
-  check(typeof raw.created_unix === 'number' && Number.isSafeInteger(raw.created_unix) && raw.created_unix > 0);
-  const generation = entryGeneration(raw.generation);
-  check(Array.isArray(raw.work) && raw.work.length <= 64);
-  const from = raw.generated_from === undefined || raw.generated_from === '' ? undefined : raw.generated_from;
-  if (from !== undefined) check(decisionID(from));
+  const raw = record(value);
+  const generation = record(raw.generation);
+  const from = nonEmpty(raw.generated_from);
   return {
-    revision: raw.revision,
-    state: raw.state as string,
-    repository: raw.repository,
-    created_unix: raw.created_unix,
-    generation,
+    revision: text(raw.revision),
+    state: text(raw.state),
+    repository: text(raw.repository),
+    created_unix: num(raw.created_unix),
+    generation: {
+      state: text(generation.state),
+      submitted_keys: texts(generation.submitted_keys),
+      submitted_differs: flag(generation.submitted_differs),
+    },
     comparison: revisionComparison(raw.comparison),
-    work: raw.work.map(revisionWork),
+    work: list(raw.work).map(revisionWork),
     ...(from === undefined ? {} : {generated_from: from}),
   };
 }
-// revisionHistory binds one request's scope-revision page to its
-// exact intent: newest-first revisions with structural before/after
-// and affected work. The first revision renders initial with empty
-// diffs; old/new texts travel only with their changed field. The
-// confirmed submitted graph stays distinct from accepted direction:
-// keys travel only with a generation record, and a differs flag
-// requires submitted keys.
+// revisionHistory reads one request's scope-revision page: newest-first
+// revisions with structural before/after and affected work.
 export function revisionHistory(value: unknown, intent: string): RevisionHistory {
-  const data = object(value);
-  check(data.intent === intent && decisionID(intent));
-  check(Array.isArray(data.revisions) && data.revisions.length >= 1 && data.revisions.length <= 5);
-  const truncated = data.truncated === undefined ? false : data.truncated;
-  check(typeof truncated === 'boolean');
+  const data = record(value);
   return {
     intent,
-    observed_unix: counter(data.observed_unix),
-    revisions: data.revisions.map(revisionEntry),
-    truncated,
+    observed_unix: num(data.observed_unix),
+    revisions: list(data.revisions).map(revisionEntry),
+    truncated: flag(data.truncated),
   };
 }

@@ -32,34 +32,32 @@ type attemptLineage struct {
 // source, the verified prompt bytes, and the deadline the reservation
 // will hold.
 type attemptPlan struct {
-	effective            factory.EffectiveAuthority
-	policy               factory.RepositoryPolicy
-	sponsorship          factory.Sponsorship
-	prep                 project.StoredPreparation
-	pin                  project.FactoryHarnessPin
-	acceptance           factory.Acceptance
-	control              factory.IssueControl
-	subject              factory.ExecutionSubject
-	advancePlan          *factory.InvestigationPlan
-	inputs               DispatchInputs
-	projectID            string
-	attemptRoot          string
-	preparationOwner     string
-	phase                string
-	parent               string
-	prompt               []byte
-	promptSHA            string
-	acceptedContext      *factory.AcceptedContext
-	reviewContext        *factory.CurrentReviewContext
-	deadline             time.Time
-	requirement          string
-	approval             string
-	planned              int
-	gateRev              int64
-	applianceConcurrent  int
-	repositoryConcurrent int
-	freshAttempt         bool
-	attemptLimits        factory.AttemptLimits
+	effective        factory.EffectiveAuthority
+	policy           factory.RepositoryPolicy
+	sponsorship      factory.Sponsorship
+	prep             project.StoredPreparation
+	pin              project.FactoryHarnessPin
+	acceptance       factory.Acceptance
+	control          factory.IssueControl
+	subject          factory.ExecutionSubject
+	advancePlan      *factory.InvestigationPlan
+	inputs           DispatchInputs
+	projectID        string
+	attemptRoot      string
+	preparationOwner string
+	phase            string
+	parent           string
+	prompt           []byte
+	promptSHA        string
+	acceptedContext  *factory.AcceptedContext
+	reviewContext    *factory.CurrentReviewContext
+	deadline         time.Time
+	requirement      string
+	approval         string
+	planned          int
+	gateRev          int64
+	freshAttempt     bool
+	attemptLimits    factory.AttemptLimits
 }
 
 // dispatchOne dispatches one queued issue or reports exactly why it
@@ -222,8 +220,6 @@ func admissionWait(err error) *planWait {
 		return waitFor(WaitCapacity, "appliance runs at its limit")
 	case errors.Is(err, store.ErrRepositoryFull):
 		return waitFor(WaitRepository, "repository runs at its limit")
-	case errors.Is(err, store.ErrSponsorshipFull):
-		return waitFor(WaitSponsorship, "sponsorship runs at its limit")
 	case errors.Is(err, store.ErrAllowanceExhausted):
 		return waitFor(WaitAllowance, "sponsorship allowance is exhausted")
 	case errors.Is(err, factory.ErrAttemptTimeExhausted):
@@ -445,13 +441,10 @@ func renderAttemptPrompt(ctx context.Context, deps DispatchDeps, plan *attemptPl
 		Preparation:    plan.prep.Preparation.ID,
 		RequirementsID: plan.requirement, ApprovalID: plan.approval,
 		Harness: plan.pin.Harness, Model: selection.Model, Role: role,
-		ProviderConnection:    plan.sponsorship.Connection,
-		RequiredChecks:        policy.Checks,
-		ApplianceConcurrent:   plan.applianceConcurrent,
-		RepositoryConcurrent:  plan.repositoryConcurrent,
-		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
-		AttemptLimits:         plan.attemptLimits,
-		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
+		ProviderConnection: plan.sponsorship.Connection,
+		RequiredChecks:     policy.Checks,
+		AttemptLimits:      plan.attemptLimits,
+		Title:              plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
 		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,

@@ -145,7 +145,7 @@ function dispatchFrame(
     acceptStatus(input, factoryStatusFrame(frame, input.readBinding()!.runId));
   else if (frame.type === 'output') acceptOutput(input, factoryOutputFrame(frame), terminal, queued);
   else if (frame.type === 'closed') detachClosed(input, factoryClosedReason(frame));
-  else throw Error('frame');
+  // Frame types this view does not know are ignored.
 }
 
 function detachClosed(input: RequestInput, reason: string) {

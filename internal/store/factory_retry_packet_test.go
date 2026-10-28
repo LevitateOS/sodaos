@@ -202,7 +202,7 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	if err != nil || held.State != factory.ReservationHeld || held.PlannedMinutes != 45 {
 		t.Fatalf("reservation not reheld: %+v %v", held, err)
 	}
-	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 		t.Fatal(err)
 	}
 	b, r2, run2, view2 := dispatchTestPacket(t, now)

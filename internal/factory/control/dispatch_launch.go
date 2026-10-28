@@ -695,7 +695,7 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 	if launch.Run.Harness == project.FactoryHarnessMuse && run.Admission != nil {
 		selection, ok := run.Admission.Policy.Roles[a.Role]
 		profile := factory.EffectiveExecutionProfile(&selection.Profile)
-		if !ok || selection.Harness != launch.Run.Harness || selection.HarnessVers != launch.Run.HarnessVers || selection.Model != launch.Run.Model || profile.Validate(selection.Harness) != nil {
+		if !ok || selection.Harness != launch.Run.Harness || selection.Model != launch.Run.Model || profile.Validate(selection.Harness) != nil {
 			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded Muse execution profile unavailable"})
 			return
 		}

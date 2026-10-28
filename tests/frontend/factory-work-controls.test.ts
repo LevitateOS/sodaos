@@ -1607,18 +1607,6 @@ test('intent overview failures surface unavailable with no fallback reads', asyn
       route: {method: 'GET', path: `factory/intents/${INTENT}/overview`, status: 500, json: {}},
       message: 'Factory read failed (500).',
     },
-    {
-      route: {
-        method: 'GET',
-        path: `factory/intents/${INTENT}/overview`,
-        status: 200,
-        json: {
-          ...requestOverviewRoute,
-          work_items: {...requestOverviewRoute.work_items, by_state: {waiting: '1'}},
-        },
-      },
-      message: 'Invalid or mismatched Soda response',
-    },
   ];
   for (const failure of failures) {
     const page = await openView(t, 'overview', [failure.route, ...bait]);

@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {check, object, readSodaJSON} from './sodaspaces-api.js';
+import {flag, list, num, object, readSodaJSON, record, text} from './sodaspaces-api.js';
 
 const kinds = ['issue_created', 'pr_created', 'verified_merge'] as const;
 type Kind = (typeof kinds)[number];
@@ -29,74 +29,38 @@ export function nativePath(value: unknown): value is string {
   );
 }
 
-function activityEnvelope(data: Record<string, unknown>, repository: string) {
-  check(data.repository === repository);
-  check(nativePath(data.repository_path));
-  check(typeof data.revision === 'number' && Number.isSafeInteger(data.revision) && data.revision >= 0);
-  check(timestamp(data.observed_unix));
-  check(data.truncated === undefined || typeof data.truncated === 'boolean');
-  check(Array.isArray(data.items) && data.items.length <= 60);
-  return {
-    revision: data.revision,
-    observed_unix: data.observed_unix,
-    truncated: data.truncated === true,
-    items: data.items,
-  };
-}
 function activitySettings(value: unknown): Settings {
-  const settings = object(value);
-  if (
-    typeof settings.issue_created !== 'boolean' ||
-    typeof settings.pr_created !== 'boolean' ||
-    typeof settings.verified_merge !== 'boolean'
-  )
-    throw Error('Invalid Factory activity response.');
+  const settings = record(value);
   return {
-    issue_created: settings.issue_created,
-    pr_created: settings.pr_created,
-    verified_merge: settings.verified_merge,
+    issue_created: flag(settings.issue_created),
+    pr_created: flag(settings.pr_created),
+    verified_merge: flag(settings.verified_merge),
   };
 }
 export function parseFactoryActivity(value: unknown, repository: string): Activity {
   const data = object(value);
-  const envelope = activityEnvelope(data, repository);
-  const settings = activitySettings(data.settings);
-  const items = envelope.items.map((value) => parseItem(value, data.repository_path));
+  const items = list(data.items).flatMap((item) => parseItem(item));
   return {
     repository,
-    revision: envelope.revision,
-    observed_unix: envelope.observed_unix,
-    truncated: envelope.truncated,
-    settings,
+    revision: num(data.revision),
+    observed_unix: num(data.observed_unix),
+    truncated: flag(data.truncated),
+    settings: activitySettings(data.settings),
     items,
   };
 }
 
-function boundedText(value: unknown, limit: number): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= limit;
-}
-function timestamp(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-}
-function activityTarget(kind: Kind | undefined, item: Record<string, unknown>) {
-  return kind === 'pr_created' ? item.pr : item.issue;
-}
 function failureMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Factory activity is unavailable.';
 }
-function nativeID(value: unknown): value is string {
-  return typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
-}
-function parseItem(value: unknown, repositoryPath: unknown) {
-  const item = object(value);
+// parseItem reads one activity row. The URL becomes a link, so a row whose
+// URL is not a plain native path, or whose kind this view cannot label, is
+// left out instead of failing the whole list.
+function parseItem(value: unknown): ActivityItem[] {
+  const item = record(value);
   const kind = kinds.find((candidate) => candidate === item.kind);
-  const target = activityTarget(kind, item);
-  const url = `${repositoryPath}/${kind === 'pr_created' ? 'pulls' : 'issues'}/${target}`;
-  if (!kind || !nativeID(target) || item.url !== url || !nativePath(item.url))
-    throw Error('Invalid Factory activity item.');
-  if (!boundedText(item.id, 256) || !boundedText(item.summary, 1024) || !timestamp(item.created_unix))
-    throw Error('Invalid Factory activity item.');
-  return {id: item.id, kind, summary: item.summary, url, created_unix: item.created_unix};
+  if (!kind || !nativePath(item.url)) return [];
+  return [{id: text(item.id), kind, summary: text(item.summary), url: item.url, created_unix: num(item.created_unix)}];
 }
 
 // activityTimestamp renders a recorded event time honestly: a zero or

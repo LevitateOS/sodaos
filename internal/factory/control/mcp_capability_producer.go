@@ -64,7 +64,6 @@ func mcpAuthorityDigest(a factory.Assignment) string {
 		strconv.FormatInt(authority.Operator, 10),
 		strconv.FormatInt(authority.Capacity, 10),
 		strconv.FormatInt(authority.Sponsorship, 10),
-		strconv.FormatInt(authority.ConnectionUsageBudget, 10),
 		strconv.FormatInt(authority.Environment, 10),
 		a.Connection,
 		strconv.FormatInt(a.ActorID, 10),

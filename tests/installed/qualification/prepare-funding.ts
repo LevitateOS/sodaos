@@ -63,20 +63,6 @@ export async function prepareFunding(s: QualificationScenario, owner: string, io
   }
   assert(grants.length === 1 && /^[a-f0-9]{32}$/.test(grants[0].id), 'project_grant_unconfirmed');
   const grant = grants[0];
-  const budgetRoute = 'factory/connections/' + f.connection_id + '/usage-budget';
-  let budget = await read(budgetRoute);
-  assert(budget.connection === f.connection_id && Number.isSafeInteger(budget.revision));
-  if (budget.rolling_minutes !== limits.rolling_minutes) {
-    assert.equal(budget.rolling_minutes, 15, 'existing_rolling_scope_changed');
-    assert.equal(limits.rolling_minutes, 25, 'approved_rolling_scope_required');
-    await once('rolling-budget', budgetRoute, 'PUT', {
-      command_id: factoryCommandID(f.operation_id, 'prepare-rolling-budget'),
-      expected_revision: budget.revision,
-      rolling_minutes: limits.rolling_minutes,
-    });
-    budget = await read(budgetRoute);
-  }
-  assert.equal(budget.rolling_minutes, limits.rolling_minutes, 'rolling_budget_unconfirmed');
   const sponsorships = async () => {
     const view = await read(factoryRoute);
     assert(view.policy?.paused === true && view.queue?.active === 0, 'factory_must_remain_paused');
@@ -89,11 +75,8 @@ export async function prepareFunding(s: QualificationScenario, owner: string, io
     await once('sponsorship', factoryRoute + '/sponsorships/' + f.connection_id, 'PUT', {
       command_id: factoryCommandID(f.operation_id, 'prepare-sponsorship'),
       expected_revision: 0,
-      grant_id: grant.id,
-      generation: connection.generation,
       roles: ['soda-coder', 'soda-reviewer'],
       allowance_minutes: limits.sponsor_minutes,
-      max_concurrent: limits.max_concurrent,
       active: true,
     });
     sponsors = await sponsorships();
@@ -107,8 +90,7 @@ export async function prepareFunding(s: QualificationScenario, owner: string, io
       sponsor.grant_id === grant.id &&
       sponsor.generation === connection.generation &&
       sponsor.active === true &&
-      sponsor.allowance_minutes === limits.sponsor_minutes &&
-      sponsor.max_concurrent === limits.max_concurrent,
+      sponsor.allowance_minutes === limits.sponsor_minutes,
     'sponsorship_scope_changed'
   );
   assert.deepEqual([...sponsor.roles].sort(), ['soda-coder', 'soda-reviewer']);
@@ -120,8 +102,6 @@ export async function prepareFunding(s: QualificationScenario, owner: string, io
     repository: f.repository_id,
     project: f.project_id,
     sponsor_minutes: limits.sponsor_minutes,
-    rolling_minutes: budget.rolling_minutes,
-    max_concurrent: limits.max_concurrent,
     dispatch_opened: false,
     model_calls: 0,
     automatic_retry: false,

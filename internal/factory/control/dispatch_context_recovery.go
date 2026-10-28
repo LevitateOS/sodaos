@@ -79,7 +79,7 @@ func pendingContextLaunch(ctx context.Context, deps DispatchDeps, a factory.Assi
 		return launch, waitFor(WaitPreparation, "pending launch preparation decisions unavailable"), false
 	}
 	effective.Authority.RequirementsID, effective.Authority.ApprovalID = requirement, approval
-	if effective.Authority != a.Authority || run.Admission.Authority != a.Authority {
+	if !effective.Authority.SameGrants(a.Authority) || run.Admission.Authority != a.Authority {
 		return launch, nil, true
 	}
 	capability, err := deps.Store.GetMCPCapability(ctx, run.ID)

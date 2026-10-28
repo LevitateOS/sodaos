@@ -29,7 +29,6 @@ var (
 	ErrDispatchControlStale = errors.New("queued issue control changed during dispatch")
 	ErrCapacityFull         = errors.New("appliance runs at its limit")
 	ErrRepositoryFull       = errors.New("repository runs at its limit")
-	ErrSponsorshipFull      = errors.New("sponsorship runs at its limit")
 	ErrAllowanceExhausted   = errors.New("sponsorship allowance is exhausted")
 	ErrAdmissionChanged     = errors.New("admission grants changed during dispatch")
 )
@@ -944,7 +943,6 @@ type admissionGrants struct {
 	policy      factory.RepositoryPolicy
 	operator    factory.OperatorGrant
 	sponsorship factory.Sponsorship
-	usageBudget factory.ConnectionUsageBudget
 	environment project.EnvironmentGrant
 }
 
@@ -1014,12 +1012,6 @@ func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, con
 		return admissionGrants{}, err
 	}
 	grants.sponsorship = sponsorship
-	if err := loadGrantDocumentTx(ctx, t, &grants.usageBudget, `SELECT data FROM factory_connection_usage_budgets WHERE connection=$1 FOR UPDATE`, connection); err != nil {
-		return admissionGrants{}, err
-	}
-	if grants.usageBudget.Connection != connection || grants.usageBudget.Validate() != nil {
-		return admissionGrants{}, ErrAdmissionChanged
-	}
 	if err := loadGrantDocumentTx(ctx, t, &grants.environment, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, repository); err != nil {
 		return admissionGrants{}, err
 	}
@@ -1055,8 +1047,8 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 	current := factory.AuthorityRef{
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
-		SponsorshipConnection: grants.sponsorship.Connection, ConnectionUsageBudget: grants.usageBudget.Revision,
-		Environment: grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
+		SponsorshipConnection: grants.sponsorship.Connection,
+		Environment:           grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
 	if current != expected || requirement != a.Authority.RequirementsID || approval != a.Authority.ApprovalID {
 		return ErrAdmissionChanged
@@ -1127,13 +1119,6 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 	}
 	if repoAttempts > 1 {
 		return ErrRepositoryFull
-	}
-	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, grants.sponsorship.MaxConcurrent+1, repository, connection)
-	if err != nil {
-		return err
-	}
-	if slots > grants.sponsorship.MaxConcurrent {
-		return ErrSponsorshipFull
 	}
 	var used int
 	err = t.QueryRowContext(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=$1 AND connection=$2`,

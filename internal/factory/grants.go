@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"math"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -46,7 +45,6 @@ const (
 	CommandOperatorGrant         = "operator-grant"
 	CommandCapacity              = "capacity"
 	CommandSponsorship           = "sponsorship"
-	CommandConnectionUsageBudget = "connection-usage-budget"
 	CommandEnvironmentGrant      = "environment-grant"
 	CommandRequirement           = "preparation-requirement"
 	CommandApproval              = "preparation-approval"
@@ -88,7 +86,7 @@ const (
 // through the admitted browser controls, never the operator endpoint.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
+	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
@@ -123,20 +121,21 @@ func (a ActorBindingRef) Validate() error {
 	return nil
 }
 
-// RoleSelection pins the harness family, version, model and execution
-// profile for one factory role. Only harnesses with their own proof are
-// selectable at dispatch; the policy records the selection without proving
-// it. An omitted profile resolves to the product defaults at policy
-// creation; running snapshots are always explicit.
+// RoleSelection pins the harness family, model and execution profile for
+// one factory role. The harness version comes from the staged pin at
+// dispatch; HarnessVers survives only on records saved before that, where
+// it is the recorded identity of runs admitted without tool proof. An
+// omitted profile resolves to the product defaults at policy creation;
+// running snapshots are always explicit.
 type RoleSelection struct {
 	Profile     ExecutionProfile `json:"profile,omitempty"`
 	Harness     string           `json:"harness"`
-	HarnessVers string           `json:"harness_version"`
+	HarnessVers string           `json:"harness_version,omitempty"`
 	Model       string           `json:"model"`
 }
 
 func (s RoleSelection) Validate() error {
-	if !project.ValidHarnessFamily(s.Harness) || !project.ValidHarnessVersion(s.HarnessVers) {
+	if !project.ValidHarnessFamily(s.Harness) || (s.HarnessVers != "" && !project.ValidHarnessVersion(s.HarnessVers)) {
 		return errors.New("invalid role harness selection")
 	}
 	if s.Model == "" || len(s.Model) > 128 || strings.IndexFunc(s.Model, func(r rune) bool {
@@ -157,8 +156,6 @@ const (
 	MaxRequiredChecks = 32
 	// MaxCheckName bounds one required check name.
 	MaxCheckName = 128
-	// MaxPolicyConcurrent bounds repository execution parallelism.
-	MaxPolicyConcurrent = 32
 )
 
 // ValidTargetBranch reports whether branch is one full native branch ref.
@@ -191,13 +188,6 @@ func EffectiveReassessmentMinutes(minutes int) int {
 	return minutes
 }
 
-// Frozen intent planning allowance default: the explicit funded horizon
-// fixtures and admission carry for one intent decompose root. Unlike the
-// reassessment allowance there is no omission fill: zero is the valid
-// unfunded posture that funds nothing, and funding itself enforces the
-// finite-positive bound from the allowance rule.
-const DefaultIntentMinutes = 30
-
 // RepositoryPolicy is the repository owner's standing factory authorization:
 // enablement, target, role selections, required native checks, merge method,
 // repository limits, the post-completion reassessment allowance and the
@@ -219,7 +209,6 @@ type RepositoryPolicy struct {
 	AttemptLimits       AttemptLimits            `json:"attempt_limits"`
 	ReassessmentMinutes int                      `json:"reassessment_minutes"`
 	IntentMinutes       int                      `json:"intent_minutes"`
-	MaxConcurrent       int                      `json:"max_concurrent"`
 	Enabled             bool                     `json:"enabled"`
 	Paused              bool                     `json:"paused"`
 }
@@ -242,9 +231,6 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if err := checkPolicyBindings(p); err != nil {
 		return err
-	}
-	if p.MaxConcurrent < 1 || p.MaxConcurrent > MaxPolicyConcurrent {
-		return errors.New("invalid repository concurrency limit")
 	}
 	if p.ReassessmentMinutes < MinReassessmentMinutes || p.ReassessmentMinutes > MaxReassessmentMinutes {
 		return errors.New("policy reassessment minutes outside their bound")
@@ -313,64 +299,30 @@ type Capacity struct {
 	Revision          int64 `json:"revision"`
 	UpdatedBy         int64 `json:"updated_by,string"`
 	MaxConcurrentRuns int   `json:"max_concurrent_runs"`
-	MaxQueued         int   `json:"max_queued"`
 }
 
 func (c Capacity) Validate() error {
 	if c.Revision < 0 || c.UpdatedBy <= 0 {
 		return errors.New("invalid capacity identity")
 	}
-	if c.MaxConcurrentRuns < 1 || c.MaxConcurrentRuns > 64 || c.MaxQueued < 0 || c.MaxQueued > 4096 {
+	if c.MaxConcurrentRuns < 1 || c.MaxConcurrentRuns > 64 {
 		return errors.New("invalid appliance capacity limits")
 	}
 	return nil
 }
 
-// DefaultConnectionUsageBudgetMinutes is recorded when the first active
-// sponsorship enables a provider connection for factory use. The owner may
-// later revise it; it is an initial value, not a ceiling.
-const DefaultConnectionUsageBudgetMinutes int64 = 360
-
-// UsageMicrosPerMinute is the persisted rolling-window accounting unit.
-const UsageMicrosPerMinute int64 = 60_000_000
-
-// ConnectionUsageBudget is the provider owner's rolling connection-wide
-// factory session-time limit. Its key is the canonical broker connection ID;
-// credential and owner metadata remain with the broker.
-type ConnectionUsageBudget struct {
-	Connection     string `json:"connection"`
-	Revision       int64  `json:"revision"`
-	RollingMinutes int64  `json:"rolling_minutes"`
-}
-
-func (b ConnectionUsageBudget) Validate() error {
-	if b.Connection == "" || len(b.Connection) > 128 || strings.TrimSpace(b.Connection) != b.Connection ||
-		strings.IndexFunc(b.Connection, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 ||
-		b.Revision < 0 || b.RollingMinutes < 1 {
-		return errors.New("invalid connection usage budget")
-	}
-	if b.RollingMinutes > math.MaxInt64/UsageMicrosPerMinute {
-		return errors.New("connection usage budget exceeds microsecond accounting range")
-	}
-	return nil
-}
-
-// OperatorGrant permits one repository to use appliance capacity within its
-// own limit. It grants no repository access or merge rights.
+// OperatorGrant permits one repository to use appliance capacity. It
+// grants no repository access or merge rights.
 type OperatorGrant struct {
-	Repository    int64 `json:"repository,string"`
-	Revision      int64 `json:"revision"`
-	GrantedBy     int64 `json:"granted_by,string"`
-	MaxConcurrent int   `json:"max_concurrent"`
-	Active        bool  `json:"active"`
+	Repository int64 `json:"repository,string"`
+	Revision   int64 `json:"revision"`
+	GrantedBy  int64 `json:"granted_by,string"`
+	Active     bool  `json:"active"`
 }
 
 func (g OperatorGrant) Validate() error {
 	if g.Repository <= 0 || g.Revision < 0 || g.GrantedBy <= 0 {
 		return errors.New("invalid operator grant identity")
-	}
-	if g.MaxConcurrent < 1 || g.MaxConcurrent > MaxPolicyConcurrent {
-		return errors.New("invalid operator concurrency limit")
 	}
 	return nil
 }
@@ -387,26 +339,35 @@ type AuthorityRef struct {
 	Operator              int64  `json:"operator"`
 	Capacity              int64  `json:"capacity"`
 	Sponsorship           int64  `json:"sponsorship"`
-	ConnectionUsageBudget int64  `json:"connection_usage_budget"`
 	Environment           int64  `json:"environment"`
+}
+
+// SameGrants reports whether current authority still names the grants
+// bound into existing work: the same sponsored connection and the same
+// requirement and approval decisions. Grant revisions are left out on
+// purpose. Saving a number (an allowance, a limit, a check list) bumps a
+// revision but withdraws nothing; disabling, pausing or withdrawing a grant
+// closes the dispatch gate, which callers check as effective authority.
+func (r AuthorityRef) SameGrants(bound AuthorityRef) bool {
+	return r.SponsorshipConnection == bound.SponsorshipConnection &&
+		r.RequirementsID == bound.RequirementsID && r.ApprovalID == bound.ApprovalID
 }
 
 // Missing-authority reason codes. Bounded and credential-free: controls
 // expose which authorization is missing or withdrawn, never secrets.
 const (
-	MissingPolicy                = "policy_missing"
-	MissingPolicyDisabled        = "policy_disabled"
-	MissingPolicyPaused          = "policy_paused"
-	MissingOperatorGrant         = "operator_grant_missing"
-	MissingOperatorWithdrawn     = "operator_grant_withdrawn"
-	MissingCapacity              = "capacity_missing"
-	MissingSponsorship           = "sponsorship_missing"
-	MissingSponsorshipGone       = "sponsorship_withdrawn"
-	MissingConnectionUsageBudget = "connection_usage_budget_missing"
-	MissingEnvironment           = "environment_grant_missing"
-	MissingEnvironmentGone       = "environment_grant_withdrawn"
-	MissingPreparation           = "preparation_not_ready"
-	MissingDispatch              = "dispatch_closed"
+	MissingPolicy            = "policy_missing"
+	MissingPolicyDisabled    = "policy_disabled"
+	MissingPolicyPaused      = "policy_paused"
+	MissingOperatorGrant     = "operator_grant_missing"
+	MissingOperatorWithdrawn = "operator_grant_withdrawn"
+	MissingCapacity          = "capacity_missing"
+	MissingSponsorship       = "sponsorship_missing"
+	MissingSponsorshipGone   = "sponsorship_withdrawn"
+	MissingEnvironment       = "environment_grant_missing"
+	MissingEnvironmentGone   = "environment_grant_withdrawn"
+	MissingPreparation       = "preparation_not_ready"
+	MissingDispatch          = "dispatch_closed"
 )
 
 // EffectiveAuthority is the visible enablement verdict for one repository:
@@ -436,15 +397,14 @@ type GrantReceipt struct {
 // record means no grant was ever recorded. PreparationReady applies only
 // when a Project exists for the repository.
 type AuthorityInput struct {
-	Policy                *RepositoryPolicy
-	Operator              *OperatorGrant
-	Appliance             *Capacity
-	Sponsorship           *Sponsorship
-	ConnectionUsageBudget *ConnectionUsageBudget
-	Environment           *project.EnvironmentGrant
-	ProjectExists         bool
-	PreparationReady      bool
-	DispatchOpen          bool
+	Policy           *RepositoryPolicy
+	Operator         *OperatorGrant
+	Appliance        *Capacity
+	Sponsorship      *Sponsorship
+	Environment      *project.EnvironmentGrant
+	ProjectExists    bool
+	PreparationReady bool
+	DispatchOpen     bool
 }
 
 // DispatchRegistration is one outstanding dispatch captured by withdrawal in

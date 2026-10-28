@@ -135,20 +135,19 @@ func applyMergeUpdateTx(ctx context.Context, tx *sql.Tx, m factory.Merge, regist
 		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
 		 AND EXISTS(SELECT 1 FROM issue_acceptance_heads WHERE repository=$8 AND issue=$9 AND decision=$10)
 		 AND NOT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=$11 AND issue=$12 AND decision=$13)
-		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=$14 AND revision=$15)
-		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=$16 AND revision=$17)
-		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=$18 AND revision=$19)
+		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=$7
+		   AND COALESCE((data->>'enabled')::boolean,FALSE) AND NOT COALESCE((data->>'paused')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=$7 AND COALESCE((data->>'active')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=$7 AND COALESCE((data->>'active')::boolean,FALSE))
 		 AND EXISTS(SELECT 1 FROM factory_sponsorships s JOIN factory_assignments a
-		   ON a.id=$20 AND s.connection=a.data->>'connection'
-		   WHERE s.repository=$21 AND s.revision=$22)
-		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=$23 AND decision=$24)
-		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=$25 AND decision=$26)
+		   ON a.id=$14 AND s.connection=a.data->>'connection'
+		   WHERE s.repository=$7 AND COALESCE((s.data->>'active')::boolean,FALSE))
+		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=$15 AND decision=$16)
+		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=$15 AND decision=$17)
 		))`,
 		m.Stage, m.Revision, string(data), m.PublicationID, m.Revision-1, registering,
 		m.Repository, m.Repository, m.Issue, m.Acceptance, m.Repository, m.Issue, m.Acceptance,
-		m.Repository, m.Authority.Policy, m.Repository, m.Authority.Operator, m.Repository, m.Authority.Environment,
-		m.AssignmentID, m.Repository, m.Authority.Sponsorship,
-		m.ProjectID, m.Authority.RequirementsID, m.ProjectID, m.Authority.ApprovalID)
+		m.AssignmentID, m.ProjectID, m.Authority.RequirementsID, m.Authority.ApprovalID)
 }
 
 func (s *Store) settleMergeUpdateTx(ctx context.Context, tx *sql.Tx, previous, m factory.Merge, registering bool, result sql.Result) error {

@@ -1,43 +1,17 @@
-import {check, id, object} from './sodaspaces-api.js';
-import {decisionID} from './sodaspaces-intent-response.js';
+import {flag, list, num, object, optionalNum, record, text, texts} from './sodaspaces-api.js';
 
-// Parsers for the work-journey read: one issue's recorded phases, tasks
-// with lanes, commit/PR evidence, structured findings with corrections,
-// Jev judgments with effective waits, D13 completion gates with proposals
-// and adoption, delivered-task evidence behind each adoption binding, and
-// the verified application revision behind each adopted revision. Each
-// parser binds its exact repository/issue identity; absent sections read
-// as empty, never as guessed work. Evidence identities stay text here:
-// native navigation links are built only in the view layer.
+// Lenient readers for the work-journey read: one issue's recorded phases,
+// tasks with lanes, commit/PR evidence, structured findings with
+// corrections, Jev judgments with effective waits, D13 completion gates with
+// proposals and adoption, delivered-task evidence behind each adoption
+// binding, and the verified application revision behind each adopted
+// revision. Absent sections read as empty, never as guessed work; unknown
+// values pass through as text. Evidence identities stay text here: native
+// navigation links are built only in the view layer.
 
-const commitID = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
-const digest = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-
-function counter(value: unknown): number {
-  check(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0);
-  return value;
-}
-
-function fraction(value: unknown): number {
-  check(typeof value === 'number' && !Number.isNaN(value) && value >= 0 && value <= 1);
-  return value;
-}
-
-function boundedText(value: unknown, limit: number): string {
-  check(typeof value === 'string' && value.length > 0 && value.length <= limit);
-  check(!value.split('').some((char) => char < ' ' || char === '\u007f'));
-  return value;
-}
-
-function optionalText(value: unknown, limit: number): string | undefined {
-  if (value === undefined || value === '') return undefined;
-  return boundedText(value, limit);
-}
-
-function closedSet(value: unknown, allowed: readonly string[]): string {
-  check(typeof value === 'string' && allowed.includes(value));
-  return value;
-}
+// nonEmpty reads an optional string, treating '' as absent.
+const nonEmpty = (value: unknown): string | undefined =>
+  typeof value === 'string' && value !== '' ? value : undefined;
 
 export interface JourneyPhase {
   readonly phase: string;
@@ -140,280 +114,141 @@ export interface WorkJourney {
   readonly verifications: readonly JourneyVerifiedApp[];
 }
 
-const executionPhases = ['decompose', 'investigate', 'implement', 'review', 'correct', 'reassess'];
-const journeyStates = ['pending', 'active', 'complete', 'attention'];
-const journeyLanes = ['a', 'b', 'c', 'unassigned'];
-const findingSeverities = ['critical', 'major', 'minor'];
-const findingFixKinds = ['code', 'verification'];
-const opEffects = ['pending', 'committed', 'not_committed', 'indeterminate'];
-const opCompletions = ['pending', 'complete', 'needs_intervention'];
-const judgmentKinds = ['priority', 'delivery', 'reassessment-decision', 'reassessment-proposal'];
-const deliveryChoices = ['review_again', 'ready_to_merge'];
-const reassessDecisions = ['reassess', 'continue'];
-const reassessProposals = ['accept', 'needs_attention'];
-const gateStates = [
-  'collecting',
-  'deciding',
-  'reassessing',
-  'assessing',
-  'applying',
-  'released',
-  'attention',
-  'superseded',
-];
-const adoptionStates = ['proposed', 'adopted', 'released'];
-
 function journeyPhase(value: unknown): JourneyPhase {
-  const raw = object(value);
-  return {phase: closedSet(raw.phase, executionPhases), state: closedSet(raw.state, journeyStates)};
+  const raw = record(value);
+  return {phase: text(raw.phase), state: text(raw.state)};
 }
 
 function journeyTask(value: unknown): JourneyTask {
-  const raw = object(value);
-  const issue = optionalText(raw.issue, 19);
-  if (issue !== undefined) check(id(issue));
+  const raw = record(value);
+  const issue = nonEmpty(raw.issue);
   return {
-    key: boundedText(raw.key, 128),
-    lane: closedSet(raw.lane, journeyLanes),
-    state: closedSet(raw.state, journeyStates),
+    key: text(raw.key),
+    lane: text(raw.lane),
+    state: text(raw.state),
     ...(issue === undefined ? {} : {issue}),
   };
 }
 
 function journeyCommit(value: unknown): JourneyCommit {
-  const raw = object(value);
-  check(commitID(raw.commit) && commitID(raw.base) && raw.commit !== raw.base);
-  check(id(raw.pr_number) && id(raw.pr_id));
-  return {
-    commit: raw.commit as string,
-    base: raw.base as string,
-    pr_number: raw.pr_number as string,
-    pr_id: raw.pr_id as string,
-  };
+  const raw = record(value);
+  return {commit: text(raw.commit), base: text(raw.base), pr_number: text(raw.pr_number), pr_id: text(raw.pr_id)};
 }
 
 function journeyFinding(value: unknown): JourneyFinding {
-  const raw = object(value);
-  check(typeof raw.key === 'string' && /^[a-f0-9]{32}$/.test(raw.key));
-  return {
-    key: raw.key,
-    severity: closedSet(raw.severity, findingSeverities),
-    defect: boundedText(raw.defect, 4096),
-    fix_kind: closedSet(raw.fix_kind, findingFixKinds),
-  };
+  const raw = record(value);
+  return {key: text(raw.key), severity: text(raw.severity), defect: text(raw.defect), fix_kind: text(raw.fix_kind)};
 }
 
 function journeyCorrection(value: unknown): JourneyCorrection {
-  const raw = object(value);
-  const candidate = optionalText(raw.candidate, 40);
-  if (candidate !== undefined) check(commitID(candidate));
-  const effect = optionalText(raw.effect, 16);
-  if (effect !== undefined) check(opEffects.includes(effect));
-  const completion = optionalText(raw.completion, 32);
-  if (completion !== undefined) check(opCompletions.includes(completion));
+  const raw = record(value);
+  const candidate = nonEmpty(raw.candidate);
+  const effect = nonEmpty(raw.effect);
+  const completion = nonEmpty(raw.completion);
+  const reason = nonEmpty(raw.reason);
   return {
     ...(candidate === undefined ? {} : {candidate}),
     ...(effect === undefined ? {} : {effect}),
     ...(completion === undefined ? {} : {completion}),
-    ...(optionalText(raw.reason, 256) === undefined ? {} : {reason: raw.reason as string}),
-  };
-}
-
-function judgmentChoice(kind: string, selected: unknown): string {
-  if (kind === 'priority') return boundedText(selected, 128);
-  if (kind === 'delivery') return closedSet(selected, deliveryChoices);
-  if (kind === 'reassessment-decision') return closedSet(selected, reassessDecisions);
-  return closedSet(selected, reassessProposals);
-}
-
-function judgmentThreshold(kind: string, confidence: number, probability: number): void {
-  if (kind === 'reassessment-decision') check(confidence >= 0.5);
-  if (kind === 'reassessment-proposal') check(probability >= 0.8 && confidence >= 0.8);
-}
-
-function judgmentScores(kind: string, raw: Record<string, unknown>, closed: boolean): {confidence?: number; probability?: number} {
-  const confidence = raw.confidence === undefined ? undefined : fraction(raw.confidence);
-  const probability = raw.probability === undefined ? undefined : fraction(raw.probability);
-  if (raw.wait !== true && !closed) judgmentThreshold(kind, confidence ?? 0, probability ?? 0);
-  return {
-    ...(confidence === undefined ? {} : {confidence}),
-    ...(probability === undefined ? {} : {probability}),
+    ...(reason === undefined ? {} : {reason}),
   };
 }
 
 function journeyJudgment(value: unknown): JourneyJudgment {
-  const raw = object(value);
-  const kind = closedSet(raw.kind, judgmentKinds);
-  const selected = judgmentChoice(kind, raw.selected);
-  const cycleID = optionalText(raw.cycle_id, 32), cycleState = optionalText(raw.cycle_state, 32);
-  check((cycleID === undefined) === (cycleState === undefined));
-  if (cycleID !== undefined) {
-    check(/^[a-f0-9]{32}$/.test(cycleID) && kind.startsWith('reassessment-'));
-    closedSet(cycleState, gateStates);
-  }
-  const closed = cycleState === 'superseded' || cycleState === 'released';
-  const scores = judgmentScores(kind, raw, closed);
-  const model = optionalText(raw.model, 128);
-  check(typeof raw.wait === 'boolean');
-  if (closed) check(raw.wait === false);
-  const waitReason = optionalText(raw.wait_reason, 256);
-  if (raw.wait === true) check(waitReason !== undefined);
-  else check(waitReason === undefined);
+  const raw = record(value);
+  const cycleID = nonEmpty(raw.cycle_id);
+  const cycleState = nonEmpty(raw.cycle_state);
+  const model = nonEmpty(raw.model);
+  const confidence = optionalNum(raw.confidence);
+  const probability = optionalNum(raw.probability);
+  const waitReason = nonEmpty(raw.wait_reason);
   return {
-    kind,
-    selected,
-    wait: raw.wait as boolean,
-    ...(cycleID === undefined ? {} : {cycle_id: cycleID, cycle_state: cycleState!}),
+    kind: text(raw.kind),
+    selected: text(raw.selected),
+    wait: flag(raw.wait),
+    ...(cycleID === undefined ? {} : {cycle_id: cycleID}),
+    ...(cycleState === undefined ? {} : {cycle_state: cycleState}),
     ...(model === undefined ? {} : {model}),
-    ...scores,
+    ...(confidence === undefined ? {} : {confidence}),
+    ...(probability === undefined ? {} : {probability}),
     ...(waitReason === undefined ? {} : {wait_reason: waitReason}),
-  };
-}
-
-function gateDigest(value: unknown): string | undefined {
-  if (value === undefined || value === '') return undefined;
-  check(digest(value));
-  return value as string;
-}
-
-interface GateScope {
-  readonly completion_id: string;
-  readonly cycle_id: string;
-  readonly state: string;
-  readonly repository: string;
-  readonly generation: number;
-  readonly retryable: boolean;
-}
-
-function gateScope(raw: Record<string, unknown>): GateScope {
-  check(typeof raw.completion_id === 'string' && /^[a-f0-9]{32}$/.test(raw.completion_id));
-  check(typeof raw.cycle_id === 'string' && /^[a-f0-9]{32}$/.test(raw.cycle_id));
-  const generation = counter(raw.generation);
-  check(generation >= 1 && id(raw.repository) && typeof raw.retryable === 'boolean');
-  return {
-    completion_id: raw.completion_id as string,
-    cycle_id: raw.cycle_id as string,
-    state: closedSet(raw.state, gateStates),
-    repository: raw.repository as string,
-    generation,
-    retryable: raw.retryable as boolean,
-  };
-}
-
-interface GateVerdict {
-  readonly decision?: string;
-  readonly proposal?: string;
-  readonly wait_reason?: string;
-}
-
-function gateVerdict(raw: Record<string, unknown>, state: string, retryable: boolean): GateVerdict {
-  const decision = optionalText(raw.decision, 32);
-  if (decision !== undefined) check(reassessDecisions.includes(decision));
-  const proposal = optionalText(raw.proposal, 32);
-  if (proposal !== undefined) check(reassessProposals.includes(proposal));
-  const waitReason = optionalText(raw.wait_reason, 256);
-  if (state === 'attention') check(waitReason !== undefined);
-  if (retryable) check(state === 'attention');
-  return {
-    ...(decision === undefined ? {} : {decision}),
-    ...(proposal === undefined ? {} : {proposal}),
-    ...(waitReason === undefined ? {} : {wait_reason: waitReason}),
-  };
-}
-
-interface GateEvidence {
-  readonly proposal_digest?: string;
-  readonly inventory_digest?: string;
-  readonly receipt_digests: readonly string[];
-}
-
-function gateEvidence(raw: Record<string, unknown>): GateEvidence {
-  const receipts = raw.receipt_digests === undefined ? [] : raw.receipt_digests;
-  check(Array.isArray(receipts) && receipts.length <= 8);
-  for (const receipt of receipts) check(digest(receipt));
-  return {
-    ...(gateDigest(raw.proposal_digest) === undefined ? {} : {proposal_digest: raw.proposal_digest as string}),
-    ...(gateDigest(raw.inventory_digest) === undefined ? {} : {inventory_digest: raw.inventory_digest as string}),
-    receipt_digests: receipts as string[],
   };
 }
 
 function journeyGate(value: unknown): JourneyGate {
-  const raw = object(value);
-  const scope = gateScope(raw);
-  return {...scope, ...gateVerdict(raw, scope.state, scope.retryable), ...gateEvidence(raw)};
-}
-
-function journeyAdoption(value: unknown): JourneyAdoption {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision) && decisionID(raw.acceptance));
-  check(id(raw.issue_id));
+  const raw = record(value);
+  const decision = nonEmpty(raw.decision);
+  const proposal = nonEmpty(raw.proposal);
+  const waitReason = nonEmpty(raw.wait_reason);
+  const proposalDigest = nonEmpty(raw.proposal_digest);
+  const inventoryDigest = nonEmpty(raw.inventory_digest);
   return {
-    intent: raw.intent as string,
-    revision: raw.revision as string,
-    state: closedSet(raw.state, adoptionStates),
-    task: boundedText(raw.task, 128),
-    issue_id: raw.issue_id as string,
-    acceptance: raw.acceptance as string,
+    completion_id: text(raw.completion_id),
+    cycle_id: text(raw.cycle_id),
+    state: text(raw.state),
+    repository: text(raw.repository),
+    generation: num(raw.generation),
+    retryable: flag(raw.retryable),
+    ...(decision === undefined ? {} : {decision}),
+    ...(proposal === undefined ? {} : {proposal}),
+    ...(waitReason === undefined ? {} : {wait_reason: waitReason}),
+    ...(proposalDigest === undefined ? {} : {proposal_digest: proposalDigest}),
+    ...(inventoryDigest === undefined ? {} : {inventory_digest: inventoryDigest}),
+    receipt_digests: texts(raw.receipt_digests),
   };
 }
 
-const evidenceID = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+function journeyAdoption(value: unknown): JourneyAdoption {
+  const raw = record(value);
+  return {
+    intent: text(raw.intent),
+    revision: text(raw.revision),
+    state: text(raw.state),
+    task: text(raw.task),
+    issue_id: text(raw.issue_id),
+    acceptance: text(raw.acceptance),
+  };
+}
 
 function journeyDeliveredTask(value: unknown): JourneyDeliveredTask {
-  const raw = object(value);
-  check(decisionID(raw.acceptance) && evidenceID(raw.completion) && evidenceID(raw.publication));
-  check(id(raw.issue));
-  const generation = counter(raw.generation);
-  check(generation >= 1);
+  const raw = record(value);
   return {
-    task: boundedText(raw.task, 128),
-    issue: raw.issue as string,
-    acceptance: raw.acceptance as string,
-    completion: raw.completion as string,
-    publication: raw.publication as string,
-    generation,
+    task: text(raw.task),
+    issue: text(raw.issue),
+    acceptance: text(raw.acceptance),
+    completion: text(raw.completion),
+    publication: text(raw.publication),
+    generation: num(raw.generation),
   };
 }
 
 function journeyVerifiedApp(value: unknown): JourneyVerifiedApp {
-  const raw = object(value);
-  check(decisionID(raw.intent) && decisionID(raw.revision));
-  check(commitID(raw.source_commit) && digest(raw.manifest));
+  const raw = record(value);
   return {
-    intent: raw.intent as string,
-    revision: raw.revision as string,
-    source_commit: raw.source_commit as string,
-    manifest: raw.manifest as string,
+    intent: text(raw.intent),
+    revision: text(raw.revision),
+    source_commit: text(raw.source_commit),
+    manifest: text(raw.manifest),
   };
 }
 
-function boundedList<T>(value: unknown, limit: number, parse: (entry: unknown) => T): readonly T[] {
-  check(Array.isArray(value) && value.length <= limit);
-  return (value as unknown[]).map(parse);
-}
-
-// workJourney binds one issue's recorded work journey to its exact
-// repository and issue. Section bounds match the API surface: at most
-// one delivered-task row and one verified application row per adoption,
-// so the adoption bound covers them. Absent newer sections read as
-// empty for older reads, never as guessed work.
+// workJourney reads one issue's recorded work journey. Absent sections
+// (including newer ones on older reads) read as empty.
 export function workJourney(value: unknown, repository: string, issue: string): WorkJourney {
   const data = object(value);
-  check(data.repository === repository && data.issue === issue && id(repository) && id(issue));
   return {
     repository,
     issue,
-    observed_unix: counter(data.observed_unix),
-    phases: boundedList(data.phases, 8, journeyPhase),
-    tasks: boundedList(data.tasks, 32, journeyTask),
-    commits: boundedList(data.commits, 16, journeyCommit),
-    findings: boundedList(data.findings, 64, journeyFinding),
-    corrections: boundedList(data.corrections, 20, journeyCorrection),
-    judgments: boundedList(data.judgments, 8, journeyJudgment),
-    gates: boundedList(data.gates, 8, journeyGate),
-    adoptions: boundedList(data.adoptions, 16, journeyAdoption),
-    delivered_tasks: data.delivered_tasks === undefined ? [] : boundedList(data.delivered_tasks, 16, journeyDeliveredTask),
-    verifications: data.verifications === undefined ? [] : boundedList(data.verifications, 16, journeyVerifiedApp),
+    observed_unix: num(data.observed_unix),
+    phases: list(data.phases).map(journeyPhase),
+    tasks: list(data.tasks).map(journeyTask),
+    commits: list(data.commits).map(journeyCommit),
+    findings: list(data.findings).map(journeyFinding),
+    corrections: list(data.corrections).map(journeyCorrection),
+    judgments: list(data.judgments).map(journeyJudgment),
+    gates: list(data.gates).map(journeyGate),
+    adoptions: list(data.adoptions).map(journeyAdoption),
+    delivered_tasks: list(data.delivered_tasks).map(journeyDeliveredTask),
+    verifications: list(data.verifications).map(journeyVerifiedApp),
   };
 }

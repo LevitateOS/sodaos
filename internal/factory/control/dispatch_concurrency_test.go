@@ -75,7 +75,7 @@ func TestConcurrentDispatchPassesPreserveCapacityAndBudget(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 		t.Fatal(err)
 	}
 	oldHead := fx.accept(t, 3, "d333333333333333333333333")

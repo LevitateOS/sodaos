@@ -22,8 +22,6 @@ type View = {
   preparation?: Record<string, unknown>;
   access?: FactoryAccess;
   connections: Record<string, unknown>[];
-  grants: Record<string, unknown>[];
-  usageBudget?: Record<string, unknown>;
   sourceSelection?: {
     source_commit: string;
     source_paths: string[];
@@ -146,42 +144,6 @@ function inputChecked(form: HTMLFormElement, name: string) {
 
 function hasRequiredSetupFiles(sourcePaths: string[], setupFiles: string[]) {
   return ['setup.sh', 'check.sh'].every((name) => sourcePaths.includes(name) && setupFiles.includes(name));
-}
-
-function validSourcePreview(response: Record<string, unknown>, selection: NonNullable<View['sourceSelection']>) {
-  const requirements = asObject(response.requirements || {});
-  const inputs = Array.isArray(requirements.source_inputs) ? requirements.source_inputs.map(asObject) : [];
-  const files = Array.isArray(response.files) ? response.files.map(asObject) : [];
-  return (
-    validSourceDigests(requirements) &&
-    exactReturnedPaths(inputs, files, selection.source_paths) &&
-    sameStringSet(
-      Array.isArray(response.setup_files) ? response.setup_files.map(safeText) : [],
-      selection.setup_files
-    ) &&
-    sameStringSet(
-      Array.isArray(response.required_tools) ? response.required_tools.map(safeText) : [],
-      selection.required_tools
-    )
-  );
-}
-
-function validSourceDigests(requirements: Record<string, unknown>) {
-  return (
-    /^[0-9a-f]{40}$/.test(safeText(requirements.source_commit)) &&
-    /^[0-9a-f]{64}$/.test(safeText(requirements.setup_digest)) &&
-    /^[0-9a-f]{64}$/.test(safeText(requirements.inputs_digest))
-  );
-}
-
-function exactReturnedPaths(inputs: Record<string, unknown>[], files: Record<string, unknown>[], selected: string[]) {
-  const paths = inputs.map((row) => safeText(row.path));
-  const filePaths = files.map((row) => safeText(row.path));
-  return (
-    sameStringSet(paths, selected) &&
-    sameStringSet(filePaths, selected) &&
-    files.every((row) => typeof row.content === 'string')
-  );
 }
 
 function selectedSourceInputs(requirements: Record<string, unknown>) {
@@ -307,10 +269,6 @@ function sameStrings(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function sameStringSet(left: string[], right: string[]) {
-  return sameStrings([...left].sort(), [...right].sort());
-}
-
 function retainPreview(preview: Record<string, unknown> | undefined, nextRequirement: string) {
   const requirement = asObject(asObject(preview || {}).requirements || {});
   return preview && safeText(requirement.predecessor) === nextRequirement ? preview : undefined;
@@ -350,7 +308,7 @@ export class SodaFactorySettings extends LitElement {
   constructor() {
     super();
     this.contextValue = undefined;
-    this.view = {connections: [], grants: [], selectedConnection: '', message: '', busy: false};
+    this.view = {connections: [], selectedConnection: '', message: '', busy: false};
   }
 
   protected createRenderRoot() {
@@ -368,7 +326,7 @@ export class SodaFactorySettings extends LitElement {
       return;
     this.contextValue = value;
     this.serial++;
-    this.view = {connections: [], grants: [], selectedConnection: '', message: '', busy: false};
+    this.view = {connections: [], selectedConnection: '', message: '', busy: false};
     this.needsLoad = true;
   }
 
@@ -485,7 +443,6 @@ export class SodaFactorySettings extends LitElement {
     const selected = connections.some((item) => item.id === this.view.selectedConnection)
       ? this.view.selectedConnection
       : safeText(connections[0]?.id);
-    const related = await this.connectionFacts(selected);
     return {
       ...(status === undefined ? {} : {status: asObject(status)}),
       ...(preparation === undefined ? {} : {preparation: nextPreparation}),
@@ -494,7 +451,6 @@ export class SodaFactorySettings extends LitElement {
       ...(sourcePreview === undefined ? {} : {sourcePreview}),
       connections,
       selectedConnection: selected,
-      ...related,
       message,
       busy: false,
     };
@@ -534,40 +490,10 @@ export class SodaFactorySettings extends LitElement {
     this.view = {...this.view, busy: false, message: 'Source preview returned by the current native API.'};
   }
 
-  private async connectionFacts(connection: string) {
-    if (!connection) return {grants: [] as Record<string, unknown>[]};
-    const [grants, usageBudget] = await Promise.all([
-      this.request(`/api/identity/connections/${encodeURIComponent(connection)}/grants`),
-      this.request(`/api/factory/connections/${encodeURIComponent(connection)}/usage-budget`).catch((error) => {
-        if (error instanceof FactoryRequestError && error.status === 404) return undefined;
-        throw error;
-      }),
-    ]);
-    return {
-      grants: Array.isArray(grants) ? grants.map(asObject) : [],
-      ...(usageBudget === undefined ? {} : {usageBudget: asObject(usageBudget)}),
-    };
-  }
-
-  private changeConnection = async (event: Event) => {
+  private changeConnection = (event: Event) => {
     const select = event.currentTarget;
     if (!(select instanceof HTMLSelectElement)) return;
-    const connection = select.value;
-    const serial = this.serial;
-    const {usageBudget: _oldBudget, ...withoutBudget} = this.view;
-    this.view = {...withoutBudget, selectedConnection: connection, grants: [], busy: true};
-    try {
-      const facts = await this.connectionFacts(connection);
-      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
-      this.view = {...this.view, ...facts, busy: false};
-    } catch {
-      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
-      this.view = {
-        ...this.view,
-        busy: false,
-        message: 'Provider connection details are unavailable. Refresh before changing sponsorship or budget.',
-      };
-    }
+    this.view = {...this.view, selectedConnection: select.value};
   };
 
   private async act(form: HTMLFormElement, action: (form: HTMLFormElement) => Promise<void>, refreshAfter = true) {
@@ -607,7 +533,6 @@ export class SodaFactorySettings extends LitElement {
       prepare: this.submitPrepare,
       approval: this.submitApproval,
       capacity: this.submitCapacity,
-      budget: this.submitBudget,
       sponsorship: this.submitSponsorship,
       'operator-grant': this.submitOperatorGrant,
       'environment-grant': this.submitEnvironmentGrant,
@@ -635,10 +560,6 @@ export class SodaFactorySettings extends LitElement {
         return access.editable.environment_grant.editable;
       case 'sponsorship':
         return access.editable.sponsorships.some(
-          (row) => row.connection === this.view.selectedConnection && row.editable
-        );
-      case 'budget':
-        return access.editable.usage_budgets.some(
           (row) => row.connection === this.view.selectedConnection && row.editable
         );
       default:
@@ -676,8 +597,6 @@ export class SodaFactorySettings extends LitElement {
       })
     );
     if (serial !== this.serial) return;
-    if (!validSourcePreview(response, selection))
-      throw Error('The native API did not return a complete source preview. No acceptance was recorded.');
     this.view = {...this.view, sourceSelection: selection, sourcePreview: response};
   };
 
@@ -859,26 +778,6 @@ export class SodaFactorySettings extends LitElement {
       command_id: factoryCommandId(),
       expected_revision: Number(capacity.revision || 0),
       max_concurrent_runs: integer(form, 'max_concurrent_runs', 1),
-      max_queued: integer(form, 'max_queued'),
-    });
-  };
-
-  private submitBudget = async (form: HTMLFormElement) => {
-    const context = this.contextValue;
-    if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
-    const connection = this.view.selectedConnection;
-    if (!connection) throw Error('Select a provider connection from the current account inventory.');
-    const path = `/api/factory/connections/${encodeURIComponent(connection)}/usage-budget`;
-    let currentBudget: Record<string, unknown> = {};
-    try {
-      currentBudget = asObject(this.view.usageBudget || (await this.request(path)));
-    } catch (error) {
-      if (!(error instanceof FactoryRequestError) || error.status !== 404) throw error;
-    }
-    await this.request(path, 'PUT', {
-      command_id: factoryCommandId(),
-      expected_revision: Number(currentBudget.revision || 0),
-      rolling_minutes: integer(form, 'rolling_minutes', 1),
     });
   };
 
@@ -890,8 +789,6 @@ export class SodaFactorySettings extends LitElement {
     if (!connection) throw Error('Select a provider connection from the current account inventory.');
     const sponsorships = Array.isArray(status.sponsorships) ? status.sponsorships.map(asObject) : [];
     const existing = sponsorships.find((item) => item.connection === connection) || {};
-    const grant = this.view.grants.find((item) => item.id === inputValue(form, 'grant_id') && item.revoked !== true);
-    if (!grant) throw Error('Select a current, unrevoked broker grant from this connection.');
     const roles = ['coder', 'reviewer']
       .filter((role) => {
         const element = form.elements.namedItem(role);
@@ -903,12 +800,9 @@ export class SodaFactorySettings extends LitElement {
       'PUT',
       {
         command_id: factoryCommandId(),
-        grant_id: safeText(grant.id),
         expected_revision: Number(existing.revision || 0),
-        generation: safeNumber(this.view.connections.find((item) => item.id === connection)?.generation, 0),
         roles,
         allowance_minutes: integer(form, 'allowance_minutes', 1),
-        max_concurrent: integer(form, 'max_concurrent', 1),
         active: inputChecked(form, 'sponsorship_active'),
       }
     );
@@ -922,7 +816,6 @@ export class SodaFactorySettings extends LitElement {
     await this.request(`/api/repositories/${context.repository}/factory/operator-grant`, 'PUT', {
       command_id: factoryCommandId(),
       expected_revision: Number(grant.revision || 0),
-      max_concurrent: integer(form, 'operator_concurrent', 1),
       active: inputChecked(form, 'operator_active'),
     });
   };
@@ -976,12 +869,10 @@ export class SodaFactorySettings extends LitElement {
     const roles = {
       'soda-coder': {
         harness: FACTORY_HARNESS,
-        harness_version: inputValue(form, 'coder_harness_version'),
         model: inputValue(form, 'coder_model'),
       },
       'soda-reviewer': {
         harness: FACTORY_HARNESS,
-        harness_version: inputValue(form, 'reviewer_harness_version'),
         model: inputValue(form, 'reviewer_model'),
       },
     };
@@ -1010,7 +901,6 @@ export class SodaFactorySettings extends LitElement {
       },
       intent_minutes: integer(form, 'intent_minutes'),
       reassessment_minutes: policy.reassessment_minutes ?? 30,
-      max_concurrent: integer(form, 'policy_concurrent', 1),
     };
   }
 
@@ -1087,7 +977,6 @@ export class SodaFactorySettings extends LitElement {
       capacity_missing: ['Set how many jobs can run', 'capacity'],
       sponsorship_missing: ['Choose an account for Factory to use', 'sponsorship'],
       sponsorship_withdrawn: ['Restore Factory account access', 'sponsorship'],
-      connection_usage_budget_missing: ['Set the account’s usage allowance', 'budget'],
       environment_grant_missing: ['Allow project preparation', 'environment-grant'],
       environment_grant_withdrawn: ['Restore project preparation permission', 'environment-grant'],
       preparation_not_ready: ['Prepare the project’s tools and checks', 'source-preview'],
@@ -1123,8 +1012,7 @@ export class SodaFactorySettings extends LitElement {
   private renderCapacitySummary(status: Record<string, unknown>) {
     const capacity = asObject(status.appliance || status.capacity || {});
     return html`<p>
-      Capacity: ${capacity.max_concurrent_runs ?? 'unset'} concurrent runs, ${capacity.max_queued ?? 'unset'} queued
-      (revision ${capacity.revision ?? 0}).
+      Capacity: ${capacity.max_concurrent_runs ?? 'unset'} concurrent runs (revision ${capacity.revision ?? 0}).
     </p>`;
   }
 
@@ -1409,7 +1297,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <form data-action="capacity" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('capacity')}>
           ${this.numberInput('Concurrent runs', 'max_concurrent_runs', safeNumber(capacity.max_concurrent_runs, 1))}
-          ${this.numberInput('Queued runs', 'max_queued', safeNumber(capacity.max_queued, 0))}
           ${this.submitButton('Save capacity')}
         </fieldset>
       </form>
@@ -1423,7 +1310,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <legend>Project grants</legend>
       <form data-action="operator-grant" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
-          ${this.numberInput('Operator concurrent limit', 'operator_concurrent', safeNumber(operator.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="operator_active" .checked=${operator.active === true} /> Active operator
             grant</label
@@ -1457,16 +1343,13 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.renderPolicyBindings(policy)}
           ${this.textInput('Target branch ref', 'target_branch', safeText(policy.target_branch))}
           ${this.textInput('Required checks (comma separated)', 'required_checks', Array.isArray(policy.required_checks) ? policy.required_checks.join(', ') : '')}
-          <p>Factory workers run on Muse.</p>
-          ${this.textInput('Coder Muse version', 'coder_harness_version', safeText(coder.harness_version))}
+          <p>Factory workers run on the staged Muse version.</p>
           ${this.textInput('Coder model', 'coder_model', safeText(coder.model))}
-          ${this.textInput('Reviewer Muse version', 'reviewer_harness_version', safeText(reviewer.harness_version))}
           ${this.textInput('Reviewer model', 'reviewer_model', safeText(reviewer.model))}
           ${this.numberInput('Intent active minutes', 'intent_minutes', safeNumber(policy.intent_minutes, 0))}
           <p>Zero leaves intent planning unfunded.</p>
           ${this.numberInput('Active minutes per attempt', 'active_minutes', safeNumber(limits.active_minutes, 120))}
           ${this.numberInput('Correction cycles', 'correction_cycles', safeNumber(limits.correction_cycles, 3))}
-          ${this.numberInput('Repository concurrent limit', 'policy_concurrent', safeNumber(policy.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="policy_enabled" .checked=${policy.enabled === true} /> Enable automatic
             factory dispatch</label
@@ -1512,8 +1395,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
 
   private renderProviderControls() {
     const connection = this.view.selectedConnection;
-    const generation = safeNumber(this.view.connections.find((row) => row.id === connection)?.generation, 0);
-    const grants = this.view.grants.filter((grant) => grant.revoked !== true);
     const sponsorship =
       (Array.isArray(this.view.status?.sponsorships) ? this.view.status.sponsorships.map(asObject) : []).find(
         (row) => row.connection === connection
@@ -1522,25 +1403,17 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     return html`<fieldset>
       <legend>Provider allowance and sponsorship</legend>
       <label
-        >Provider connection<select name="selected_connection" .value=${connection} @change=${this.changeConnection}>
-          <option value="">Select a current connection</option>
-          ${this.view.connections.map((row) => html`<option value=${safeText(row.id)}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
+        >Provider connection<select name="selected_connection" @change=${this.changeConnection}>
+          <option value="" ?selected=${!connection}>Select a current connection</option>
+          ${this.view.connections.map((row) => html`<option value=${safeText(row.id)} ?selected=${safeText(row.id) === connection}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
         </select></label
       >
-      ${this.renderBudgetForm()}
       <form data-action="sponsorship" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('sponsorship')}>
-          <label
-            >Project access<select name="grant_id" .value=${safeText(sponsorship.grant_id)}>
-              <option value="">Select a current grant</option>
-              ${grants.map((grant) => html`<option value=${safeText(grant.id)}>${safeText(grant.project_id)} · ${safeText(grant.id)}</option>`)}
-            </select></label
-          >
-          <p>Credential generation ${generation}.</p>
+          <p>Factory uses this account through the Project's own access to it.</p>
           <label><input type="checkbox" name="coder" .checked=${roles.includes('soda-coder')} /> Builder</label>
           <label><input type="checkbox" name="reviewer" .checked=${roles.includes('soda-reviewer')} /> Inspector</label>
           ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 60))}
-          ${this.numberInput('Concurrent sessions', 'max_concurrent', safeNumber(sponsorship.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="sponsorship_active" .checked=${sponsorship.active === true} /> Allow Factory
             to use this account</label
@@ -1549,20 +1422,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
         </fieldset>
       </form>
     </fieldset>`;
-  }
-
-  private renderBudgetForm() {
-    const budget = this.view.usageBudget;
-    return html`<form data-action="budget" @submit=${this.submit}>
-      <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('budget')}>
-        <p>
-          Current rolling allowance:
-          ${budget ? `${budget.rolling_minutes} minutes (revision ${budget.revision})` : 'not configured'}.
-        </p>
-        ${this.numberInput('Rolling minutes', 'rolling_minutes', safeNumber(budget?.rolling_minutes, 360))}
-        ${this.submitButton('Save connection budget')}
-      </fieldset>
-    </form>`;
   }
 
   private renderExecutionUsage() {
@@ -1577,25 +1436,20 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <p>Provider execution minutes only.</p>
       ${
         access.usage.length
-          ? access.usage.map((row) => this.renderUsageRow(row, access))
+          ? access.usage.map((row) => this.renderUsageRow(row))
           : html`<p>No sponsored execution connections.</p>`
       }
       ${this.renderAccessPermissions(access)} ${this.renderRequiredActions(access)}
     </fieldset>`;
   }
 
-  private renderUsageRow(row: FactoryAccessUsage, access: FactoryAccess) {
+  private renderUsageRow(row: FactoryAccessUsage) {
     if (row.status !== undefined)
       return html`<p>${safeText(row.connection) || 'Connection'}: ${accessUsageStatusText(row.status)}.</p>`;
-    const budget = row.budget_minutes === undefined ? 'budget unavailable' : `${row.budget_minutes} minutes budget`;
+    const allowance =
+      row.budget_minutes === undefined ? 'allowance unavailable' : `${row.budget_minutes} minutes allowance`;
     const used = row.used_minutes === undefined ? 'used unavailable' : `${row.used_minutes} minutes used`;
-    const budgetEdit = access.editable.usage_budgets.find((item) => item.connection === row.connection);
-    const permission = !budgetEdit
-      ? ''
-      : budgetEdit.editable
-        ? 'Budget editable.'
-        : `Budget read-only: ${accessReasonText(budgetEdit.reason)}.`;
-    return html`<p>${safeText(row.connection) || 'Connection'}: ${budget}; ${used}. ${permission}</p>`;
+    return html`<p>${safeText(row.connection) || 'Connection'}: ${allowance}; ${used}.</p>`;
   }
 
   private renderAccessPermissions(access: FactoryAccess) {

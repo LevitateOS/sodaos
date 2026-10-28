@@ -65,22 +65,19 @@ type PromptInputs struct {
 	// PlanPrerequisites carries the canonical prerequisite binding digests
 	// an investigation run echoes into its reported plan. Empty unless the
 	// phase is investigate.
-	PlanPrerequisites     []string
-	Preparation           string
-	RequirementsID        string
-	ApprovalID            string
-	Harness               string
-	Model                 string
-	Role                  string
-	ProviderConnection    string
-	RequiredChecks        []string
-	ApplianceConcurrent   int
-	RepositoryConcurrent  int
-	SponsorshipConcurrent int
-	AttemptLimits         AttemptLimits
-	Repository            int64
-	Issue                 int64
-	NativeRev             int64
+	PlanPrerequisites  []string
+	Preparation        string
+	RequirementsID     string
+	ApprovalID         string
+	Harness            string
+	Model              string
+	Role               string
+	ProviderConnection string
+	RequiredChecks     []string
+	AttemptLimits      AttemptLimits
+	Repository         int64
+	Issue              int64
+	NativeRev          int64
 }
 
 // BuildDispatchPrompt renders the deterministic assignment prompt from
@@ -214,7 +211,7 @@ func admitPromptReferences(in *PromptInputs) error {
 // controller inputs: title, valid limits, positive concurrency,
 // required checks and provider connection.
 func admitPromptControllerInputs(in PromptInputs) error {
-	if in.Title == "" || in.AttemptLimits.Validate() != nil || in.ApplianceConcurrent < 1 || in.RepositoryConcurrent < 1 || in.SponsorshipConcurrent < 1 || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
+	if in.Title == "" || in.AttemptLimits.Validate() != nil || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
 		return errors.New("dispatch prompt needs selected controller inputs")
 	}
 	return nil
@@ -339,7 +336,6 @@ func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 		b.WriteString("Permitted actions: inspect and modify the prepared checkout to implement the accepted objective; run relevant local checks; report the resulting candidate and evidence. Do not change grants, select another provider or model, publish refs, create or merge pull requests, or expose credentials.\n")
 	}
 	b.WriteString("Recorded attempt active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. Automatic retries and accepted edits do not replenish it. Only an explicit maintainer Retry starts a fresh allowance under current policy. The host enforces each run's absolute deadline within the remaining attempt and provider allowances.\n")
-	b.WriteString("Concurrency limits: appliance concurrency is " + strconv.Itoa(in.ApplianceConcurrent) + " and repository concurrency is " + strconv.Itoa(in.RepositoryConcurrent) + "; sponsorship concurrency for this connection in this repository is " + strconv.Itoa(in.SponsorshipConcurrent) + ".\n")
 	if len(in.RequiredChecks) > 0 {
 		b.WriteString("Required evidence checks: " + strings.Join(in.RequiredChecks, "; ") + "\n")
 		b.WriteString("These are native CI status context names, not executable commands or repository paths. Do not turn a status name into a shell command. Use the recorded check evidence for its exact head; run only actual approved repository checks or commands justified by inspected source.\n")
