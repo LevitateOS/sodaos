@@ -16,6 +16,10 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
+// FactoryMCPRoute is the fixed Factory-only listener route. Clients
+// choose no socket, URL or listener; the relay forwards here.
+const FactoryMCPRoute = "/mcp"
+
 // prepareFactoryWorkerMCP activates a staged interface only after the host sees
 // its real supervised process. Every request repeats that observation and the
 // stored stop checks, so a retained credential cannot outlive the worker.

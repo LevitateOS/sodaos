@@ -172,7 +172,6 @@ internal/web/api/factory_intent_review_test.go
 internal/web/api/factory_journey_readback_test.go
 internal/web/api/factory_mcp_bound_test.go
 internal/web/api/factory_mcp_live_test.go
-internal/web/api/factory_mcp_p6_test.go
 internal/web/api/factory_mcp_systemone_test.go
 internal/web/api/factory_mcp_test.go
 internal/web/api/factory_output_test.go

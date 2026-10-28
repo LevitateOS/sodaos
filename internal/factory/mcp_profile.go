@@ -6,9 +6,7 @@ package factory
 // communication outlets and role-specific result tools. This file freezes the canonical names, the execution phase
 // each profile serves, and which profile may call which tool. Admission
 // (control), persistence (store) and transport (web/api) enforce this
-// matrix; nothing else invents a profile or tool name. The P6 fixture
-// catalog (web/api factory_mcp_p6.go) proves transport only; this is
-// the workflow authority FW40/FW41/FW42/FW44/FW45 consume.
+// matrix; nothing else invents a profile or tool name.
 
 // MCPProfile is one admitted Factory agent profile. Profile names are
 // workflow roles, never native account identities: native
