@@ -1380,10 +1380,10 @@ async function phaseCheck(page: Page, out: string, intent: string): Promise<void
   assert.equal(mismatches.length, 0, `Check: JEV found ${mismatches.length} mismatch(s); correct before Accept`);
 }
 
-/** Owner-approved planning raise (12 -> 20): the Settings → SodaOS planning
- * rows are display-only (verified: row click opens nothing), so the raise
- * goes through the request page's own Planning calls bound + its single
- * Update proposal save — the same path that raised dd00 12→20→24. Ideas are
+/** Owner-approved bound raise (Max 1->2, Planning 20->30): applied through
+ * the request page's own bound inputs + its single Update proposal save
+ * (the product's own controls; the Settings sweep proved Settings → SodaOS
+ * has no Max/Planning inputs — planning rows are display-only). Ideas are
  * untouched, so the page takes its limit-edit branch (save + allowance
  * top-up, no re-explore). Verified read-only in Settings afterwards. */
 async function phaseRaisePlanning(page: Page, out: string, intent: string): Promise<void> {
@@ -1391,14 +1391,19 @@ async function phaseRaisePlanning(page: Page, out: string, intent: string): Prom
   const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   await spaces.locator('details.bounds > summary, details:has(summary:has-text("More options")) > summary').first().click();
-  const calls = spaces.getByLabel('Planning calls', {exact: true});
-  assert((await calls.count()) === 1, 'Raise-planning: Planning calls input not found');
-  const before = await calls.inputValue();
-  if (before !== '20') {
-    await calls.fill('20');
-    const readBack = await calls.first().inputValue();
-    assert(readBack === '20', `Raise-planning: bound did not take (shows ${readBack})`);
-  }
+  const setNumber = async (match: RegExp, value: string) => {
+    const field = spaces.getByLabel(match, {exact: true});
+    assert((await field.count()) === 1, `Raise-planning: ${match} input not found`);
+    const before = await field.first().inputValue();
+    if (before !== value) {
+      await field.first().fill(value);
+      const readBack = await field.first().inputValue();
+      assert(readBack === value, `Raise-planning: ${match} did not take (want ${value}, shows ${readBack})`);
+    }
+    return before;
+  };
+  const beforeMax = await setNumber(/Maximum work items/i, '2');
+  const beforeCalls = await setNumber(/Planning calls/i, '30');
   const saving = page.waitForResponse(
     (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
     {timeout: 120000}
@@ -1413,16 +1418,16 @@ async function phaseRaisePlanning(page: Page, out: string, intent: string): Prom
   const topUp = await toppedUp;
   assert.equal(topUp.status(), 201, `Raise-planning: allowance top-up must return 201, got ${topUp.status()}`);
   const topUpBody = (await topUp.json()) as {amount?: number};
-  await writeFile(`${out}/raise-planning.json`, JSON.stringify({before, after: '20', allowance: topUpBody}, null, 2));
+  await writeFile(`${out}/raise-planning.json`, JSON.stringify({beforeMax, beforeCalls, afterMax: '2', afterCalls: '30', allowance: topUpBody}, null, 2));
   await shot(page, `${out}/raise-planning-saved.png`);
   // Read-only verification in Settings → SodaOS.
   await page.goto(`${ORIGIN}${PLACES.settingsFactory}`);
-  await mountRepoPage(page, 'repository-settings');
-  await spaces.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
+  const settings = await mountRepoPage(page, 'repository-settings');
+  await settings.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
   await page.waitForTimeout(3000);
   let text = await visibleText(page, 10000);
   if (/Planning calls are unavailable/i.test(text)) {
-    const refresh = spaces.getByRole('button', {name: /refresh (current authority|status)/i});
+    const refresh = settings.getByRole('button', {name: /refresh (current authority|status)/i});
     if ((await refresh.count()) >= 1) {
       await refresh.first().click();
       await page.waitForTimeout(5000);
@@ -1431,7 +1436,7 @@ async function phaseRaisePlanning(page: Page, out: string, intent: string): Prom
   }
   await writeFile(`${out}/raise-planning-settings.txt`, text);
   const row = text.match(/Request d8978582[^.]*\./)?.[0] ?? '';
-  assert(/20/.test(row), `Raise-planning: Settings row does not show 20: ${row.slice(0, 300)}`);
+  assert(/30/.test(row), `Raise-planning: Settings row does not show 30: ${row.slice(0, 300)}`);
 }
 
 async function phaseCorrect(page: Page, out: string): Promise<void> {
