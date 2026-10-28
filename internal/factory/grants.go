@@ -356,18 +356,18 @@ func (r AuthorityRef) SameGrants(bound AuthorityRef) bool {
 // Missing-authority reason codes. Bounded and credential-free: controls
 // expose which authorization is missing or withdrawn, never secrets.
 const (
-	MissingPolicy                = "policy_missing"
-	MissingPolicyDisabled        = "policy_disabled"
-	MissingPolicyPaused          = "policy_paused"
-	MissingOperatorGrant         = "operator_grant_missing"
-	MissingOperatorWithdrawn     = "operator_grant_withdrawn"
-	MissingCapacity              = "capacity_missing"
-	MissingSponsorship           = "sponsorship_missing"
-	MissingSponsorshipGone       = "sponsorship_withdrawn"
-	MissingEnvironment           = "environment_grant_missing"
-	MissingEnvironmentGone       = "environment_grant_withdrawn"
-	MissingPreparation           = "preparation_not_ready"
-	MissingDispatch              = "dispatch_closed"
+	MissingPolicy            = "policy_missing"
+	MissingPolicyDisabled    = "policy_disabled"
+	MissingPolicyPaused      = "policy_paused"
+	MissingOperatorGrant     = "operator_grant_missing"
+	MissingOperatorWithdrawn = "operator_grant_withdrawn"
+	MissingCapacity          = "capacity_missing"
+	MissingSponsorship       = "sponsorship_missing"
+	MissingSponsorshipGone   = "sponsorship_withdrawn"
+	MissingEnvironment       = "environment_grant_missing"
+	MissingEnvironmentGone   = "environment_grant_withdrawn"
+	MissingPreparation       = "preparation_not_ready"
+	MissingDispatch          = "dispatch_closed"
 )
 
 // EffectiveAuthority is the visible enablement verdict for one repository:
@@ -397,14 +397,14 @@ type GrantReceipt struct {
 // record means no grant was ever recorded. PreparationReady applies only
 // when a Project exists for the repository.
 type AuthorityInput struct {
-	Policy                *RepositoryPolicy
-	Operator              *OperatorGrant
-	Appliance             *Capacity
-	Sponsorship           *Sponsorship
-	Environment           *project.EnvironmentGrant
-	ProjectExists         bool
-	PreparationReady      bool
-	DispatchOpen          bool
+	Policy           *RepositoryPolicy
+	Operator         *OperatorGrant
+	Appliance        *Capacity
+	Sponsorship      *Sponsorship
+	Environment      *project.EnvironmentGrant
+	ProjectExists    bool
+	PreparationReady bool
+	DispatchOpen     bool
 }
 
 // DispatchRegistration is one outstanding dispatch captured by withdrawal in

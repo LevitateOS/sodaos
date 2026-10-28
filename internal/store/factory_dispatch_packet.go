@@ -1048,7 +1048,7 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
 		SponsorshipConnection: grants.sponsorship.Connection,
-		Environment: grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
+		Environment:           grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
 	if current != expected || requirement != a.Authority.RequirementsID || approval != a.Authority.ApprovalID {
 		return ErrAdmissionChanged
