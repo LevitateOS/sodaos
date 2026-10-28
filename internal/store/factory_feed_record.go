@@ -137,9 +137,6 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 	if err := s.feedTaskStates(ctx, taskRoots, out); err != nil {
 		return nil, err
 	}
-	if err := s.feedSubmissionComponents(ctx, ids, out); err != nil {
-		return nil, err
-	}
 	return out, nil
 }
 

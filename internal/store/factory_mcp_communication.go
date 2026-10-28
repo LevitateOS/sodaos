@@ -27,9 +27,6 @@ func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factor
 	if !factory.MCPToolAdmitted(capability.Profile, submission.Tool) {
 		return errors.New("communication outlet not admitted for this worker")
 	}
-	if err := factory.ValidateFeedComponent(content.ComponentID, capability.Profile, submission.Tool); err != nil {
-		return err
-	}
 	var count int
 	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
 		return err
@@ -149,50 +146,6 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 		detail.Contribution = data.Contribution
 	}
 	return nil
-}
-
-// feedSubmissionComponents keeps the worker's chosen presentation beside the
-// canonical result, without replacing its observed lifecycle status or adding
-// a second finish post. Only the role's admitted terminal tool can select it.
-func (s *Store) feedSubmissionComponents(ctx context.Context, ids []string, out map[string]FeedRecordDetail) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT assignment,tool,payload FROM factory_mcp_submissions WHERE assignment = ANY($1)`, ids)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var assignment string
-		var tool factory.MCPTool
-		var raw []byte
-		if err := rows.Scan(&assignment, &tool, &raw); err != nil {
-			return err
-		}
-		if !factory.MCPIsTerminal(tool) {
-			continue
-		}
-		var report struct {
-			ComponentID string `json:"component_id"`
-		}
-		if err := json.Unmarshal(raw, &report); err != nil {
-			return err
-		}
-		if report.ComponentID == "" {
-			continue
-		}
-		detail, ok := out[assignment]
-		if !ok {
-			continue
-		}
-		if err := factory.ValidateFeedComponent(report.ComponentID, factory.MCPProfile(detail.Actor), tool); err != nil {
-			continue
-		}
-		if detail.Payload == nil {
-			detail.Payload = &factory.FeedPayload{}
-		}
-		detail.Payload.ComponentID = report.ComponentID
-		out[assignment] = detail
-	}
-	return rows.Err()
 }
 
 // feedQuestionStates derives response arrival without mutating the original

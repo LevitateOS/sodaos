@@ -51,7 +51,7 @@ func recordMCPRepairDraftTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapa
 	if count >= factory.MaxRepairObservations {
 		return errors.New("repair draft limit reached; finish remains available")
 	}
-	content := factory.FeedCommunication{Kind: "repair_draft", ComponentID: "ST06", Title: "Proposed repair graph", Summary: "Recorded draft (" + proposal.Outcome + "). Not submitted for judgment or adopted; graph and readiness are unchanged.", Scope: cap.Subject, Before: "Sealed inventory " + proposal.InventoryDigest, After: "Proposed tasks only; use preview for deterministic adoption feedback.", EvidenceRefs: append([]string{}, draft.DiagnosisRefs...)}
+	content := factory.FeedCommunication{Kind: "repair_draft", Title: "Proposed repair graph", Summary: "Recorded draft (" + proposal.Outcome + "). Not submitted for judgment or adopted; graph and readiness are unchanged.", Scope: cap.Subject, Before: "Sealed inventory " + proposal.InventoryDigest, After: "Proposed tasks only; use preview for deterministic adoption feedback.", EvidenceRefs: append([]string{}, draft.DiagnosisRefs...)}
 	content.EvidenceRefs = append(content.EvidenceRefs, proposal.SourceCommit, "input:"+cap.ScopeDigest(), "inventory:"+proposal.InventoryDigest, "draft:"+sub.SubmissionID)
 	rows, abbreviated := 0, false
 	appendPreview := func(item factory.FeedCommunicationItem) {
@@ -76,9 +76,6 @@ func recordMCPRepairDraftTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapa
 	content.Remaining = []string{fmt.Sprintf("Preview shows %d of %d proposed graph rows. Recover the complete immutable report through draft:%s.", len(content.Items), rows, sub.SubmissionID)}
 	if abbreviated {
 		content.Remaining = append(content.Remaining, "Long text or prerequisite lists are abbreviated in this preview; the recorded draft retains every byte.")
-	}
-	if err := factory.ValidateFeedComponent(content.ComponentID, cap.Profile, sub.Tool); err != nil {
-		return err
 	}
 	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)
 }

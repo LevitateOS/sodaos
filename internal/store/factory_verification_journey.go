@@ -62,7 +62,7 @@ func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory
 	if count >= factory.MaxVerificationJourneys {
 		return errors.New("journey observation limit reached; finish remains available")
 	}
-	content := factory.FeedCommunication{Kind: "journey", ComponentID: "TP03", Title: o.Name, Summary: "Recorded journey observation: " + o.Result + ". Application verification is unchanged.", Scope: o.DeliveryID, Before: o.Expected, After: o.Observed, EvidenceRefs: append([]string(nil), o.EvidenceRefs...), Remaining: append([]string(nil), o.Limitations...)}
+	content := factory.FeedCommunication{Kind: "journey", Title: o.Name, Summary: "Recorded journey observation: " + o.Result + ". Application verification is unchanged.", Scope: o.DeliveryID, Before: o.Expected, After: o.Observed, EvidenceRefs: append([]string(nil), o.EvidenceRefs...), Remaining: append([]string(nil), o.Limitations...)}
 	for i, step := range o.Steps {
 		content.Items = append(content.Items, factory.FeedCommunicationItem{Label: fmt.Sprintf("%d. %s", i+1, step), State: "reported"})
 	}
@@ -78,9 +78,6 @@ func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory
 		content.Artifacts = append(content.Artifacts, factory.FeedArtifact{ID: id})
 	}
 	if err := resolveCommunicationArtifactsTx(ctx, tx, cap.Repository, &content); err != nil {
-		return err
-	}
-	if err := factory.ValidateFeedComponent(content.ComponentID, cap.Profile, sub.Tool); err != nil {
 		return err
 	}
 	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)

@@ -504,6 +504,7 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 // mcpOptionalPayloadKey admits documented optional keys beyond the
 // required set without opening arbitrary input.
 func mcpOptionalPayloadKey(tool factory.MCPTool, key string) bool {
+	// A retired presentation ID from an old worker is accepted and ignored.
 	if key == "component_id" {
 		return true
 	}
@@ -595,17 +596,6 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	if err := s.checkPayload(tool, args.Payload); err != nil {
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-	}
-	if value, exists := args.Payload["component_id"]; exists {
-		id, ok := value.(string)
-		if !ok || id == "" {
-			release()
-			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, errors.New("component_id must name a feed component")
-		}
-		if err := factory.ValidateFeedComponent(id, capability.Profile, tool); err != nil {
-			release()
-			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-		}
 	}
 	submission := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: args.SubmissionID,
@@ -910,7 +900,6 @@ func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, for
 		"limits":                map[string]any{"page_bytes": factory.MCPMaxPageBytes, "page_refs": factory.MCPMaxPageRefs, "result_bytes": factory.MCPMaxResultPayloadBytes},
 		"source_digest":         capability.SourceDigest,
 		"scope_digest":          capability.ScopeDigest(),
-		"feed_components":       workerFeedComponents(capability.Profile),
 		"replies_tool":          string(factory.MCPToolInbox),
 		"discussion_guidance":   "Read factory.inbox before finishing. A recorded role invitation grants only its exact discussion context and one useful reply through factory.reply with reply_to set to the invited post ID. It does not expand your assignment, execution authority or budget. Skip redundant contributions, explain concrete relevant evidence, and preserve the source identity. Do not invite other roles recursively.",
 		"work_post":             map[string]any{"kind": "record", "id": assignment.ID},

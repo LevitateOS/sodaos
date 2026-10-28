@@ -777,7 +777,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal("cause-bound diagnosis was not recorded with feed receipt", e)
 		}
 		post, e := db.FeedComment(ctx, receipt.FeedPostID)
-		if e != nil || post.Actor != "strategist" || post.Assignment != cycle.AssignmentID || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.ComponentID != "ST02" || len(post.Payload.Communication.Items) != len(diagnosis.Causes) || len(post.Payload.Communication.Alternatives) != 1 || len(post.Payload.Communication.Remaining) != 1 || !strings.Contains(post.Payload.Communication.Summary, "unchanged") {
+		if e != nil || post.Actor != "strategist" || post.Assignment != cycle.AssignmentID || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.Kind != "diagnosis" || len(post.Payload.Communication.Items) != len(diagnosis.Causes) || len(post.Payload.Communication.Alternatives) != 1 || len(post.Payload.Communication.Remaining) != 1 || !strings.Contains(post.Payload.Communication.Summary, "unchanged") {
 			t.Fatal("diagnosis lost typed evidence, attribution or uncertainty", e)
 		}
 		if replay, e := db.RecordMCPSubmission(ctx, submission, proposedReceipt); e != nil || replay.FeedPostID != receipt.FeedPostID {
@@ -872,7 +872,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			t.Fatal("cause-bound draft was not recorded", e)
 		}
 		draftPost, e := db.FeedComment(ctx, draftReceipt.FeedPostID)
-		if e != nil || draftPost.Payload == nil || draftPost.Payload.Communication == nil || draftPost.Payload.Communication.ComponentID != "ST06" || len(draftPost.Payload.Communication.Items) != len(tasks)+1 || !strings.Contains(draftPost.Payload.Communication.Summary, "Not submitted") || draftPost.Payload.Communication.Items[1].ID != tasks[0].Key {
+		if e != nil || draftPost.Payload == nil || draftPost.Payload.Communication == nil || draftPost.Payload.Communication.Kind != "repair_draft" || len(draftPost.Payload.Communication.Items) != len(tasks)+1 || !strings.Contains(draftPost.Payload.Communication.Summary, "Not submitted") || draftPost.Payload.Communication.Items[1].ID != tasks[0].Key {
 			t.Fatal("draft lost its typed proposed graph or authority boundary", e)
 		}
 		if len(draftPost.Payload.Communication.Remaining) < 2 || len([]rune(draftPost.Payload.Communication.Items[0].Detail)) > store.FeedSummaryLimit {

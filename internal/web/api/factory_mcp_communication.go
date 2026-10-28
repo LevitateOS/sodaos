@@ -15,7 +15,7 @@ func communicationPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		return nil
 	}
 	props := map[string]*jsonschema.Schema{}
-	for _, key := range []string{"title", "summary", "component_id", "question", "resolution", "scope", "decision", "rationale", "reply_to", "before", "after"} {
+	for _, key := range []string{"title", "summary", "question", "resolution", "scope", "decision", "rationale", "reply_to", "before", "after"} {
 		props[key] = &jsonschema.Schema{Type: "string"}
 	}
 	props["severity"] = &jsonschema.Schema{Type: "string", Enum: []any{"info", "warning", "critical"}}
