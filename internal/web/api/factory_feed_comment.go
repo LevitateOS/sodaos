@@ -365,17 +365,35 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		auth.JSONError(w, 404, "comment_not_found", "Feed comment is not found.")
 		return
 	}
-	if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
-		auth.JSONResponse(w, 200, feedWorkerCommentResponse(detail))
-		return
-	}
-	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
+	view, err := s.feedComment(r, v, detail)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read the comment request.")
 		return
 	}
+	auth.JSONResponse(w, 200, view)
+}
+
+// feedCommentView reads one stored comment as every feed surface serves it.
+func (s *API) feedCommentView(r *http.Request, v store.Session, id string) (map[string]any, error) {
+	detail, err := s.Store.FeedComment(r.Context(), id)
+	if err != nil {
+		return nil, err
+	}
+	return s.feedComment(r, v, detail)
+}
+
+// feedComment renders one stored comment: a worker post as recorded, a
+// human comment with its pipeline outcome. It reads stored state only.
+func (s *API) feedComment(r *http.Request, v store.Session, detail store.FeedCommentDetail) (map[string]any, error) {
+	if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
+		return feedWorkerCommentResponse(detail), nil
+	}
+	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
+	if err != nil {
+		return nil, err
+	}
 	progress, _ := s.Store.CommentProgress(r.Context(), detail.Record.ID)
-	auth.JSONResponse(w, 200, s.feedCommentWithProduct(r, v, detail, pipe, progress))
+	return s.feedCommentWithProduct(r, v, detail, pipe, progress), nil
 }
 
 func (s *API) feedCommentWithWork(ctx context.Context, detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
@@ -437,22 +455,12 @@ func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v st
 	}
 	items := []map[string]any{}
 	for _, id := range ids {
-		detail, err := s.Store.FeedComment(r.Context(), id)
+		item, err := s.feedCommentView(r, v, id)
 		if err != nil {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
 			return
 		}
-		if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
-			items = append(items, feedWorkerCommentResponse(detail))
-			continue
-		}
-		pipe, err := s.Store.CommentPipeline(r.Context(), id)
-		if err != nil {
-			auth.JSONError(w, 503, "store_unavailable", "Could not read reply progress.")
-			return
-		}
-		progress, _ := s.Store.CommentProgress(r.Context(), id)
-		items = append(items, s.feedCommentWithProduct(r, v, detail, pipe, progress))
+		items = append(items, item)
 	}
 	auth.JSONResponse(w, 200, map[string]any{"items": items, "next_before": next})
 }

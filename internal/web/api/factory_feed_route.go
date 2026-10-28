@@ -99,6 +99,13 @@ func (s *API) apiFactoryFeed(w http.ResponseWriter, r *http.Request, v store.Ses
 	}
 	enrichFeedPosts(r.Context(), s.Store, projects, view.Entries)
 	enrichFeedRecords(r.Context(), s.Store, projects, view.Entries)
+	for i, entry := range view.Entries {
+		if entry.Kind == factory.FeedKindPost && (entry.Payload == nil || entry.Payload.Communication == nil) {
+			if comment, err := s.feedCommentView(r, v, entry.ID); err == nil {
+				view.Entries[i].Comment = comment
+			}
+		}
+	}
 	auth.JSONResponse(w, 200, view)
 }
 
