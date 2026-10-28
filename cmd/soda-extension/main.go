@@ -61,7 +61,7 @@ func allowedContribution(request extensions.ContributionRequest) bool {
 		switch contribution.ID {
 		case "spaces", "feed", "applications":
 			return contribution.Scope == "global"
-		case "repository-feed":
+		case "repository-feed", "repository-settings":
 			return contribution.Scope == "repository" && request.RepositoryID != ""
 		default:
 			return false

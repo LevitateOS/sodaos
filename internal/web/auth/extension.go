@@ -49,6 +49,6 @@ func ExtensionContribution(packageID string, contribution extensions.Contributio
 		return false
 	}
 	return contribution.Kind == "page" && (contribution.ID == "spaces" || contribution.ID == "feed" || contribution.ID == "applications") && contribution.Scope == "global" ||
-		contribution.Kind == "page" && contribution.ID == "repository-feed" && contribution.Scope == "repository" ||
+		contribution.Kind == "page" && (contribution.ID == "repository-feed" || contribution.ID == "repository-settings") && contribution.Scope == "repository" ||
 		contribution.Kind == "panel" && contribution.ID == "workspace" && contribution.Scope == "panel"
 }
