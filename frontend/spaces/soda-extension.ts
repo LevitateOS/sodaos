@@ -32,7 +32,7 @@ function validateMountContext(context: ExtensionMountContext): void {
   // The host dataset already refuses mismatches; this binds the consumer
   // build to a compatible host runtime.
   if (context.contractVersion !== 1) throw Error('Unsupported native contract version');
-  if (!context.sessionGeneration) throw Error('Invalid workspace mount context');
+  if (!context.sessionGeneration) throw Error('This SodaOS page could not load');
   if (context.extensionId === 'tailnet') {
     if (
       context.pageId !== 'tailnet' ||
@@ -45,8 +45,8 @@ function validateMountContext(context: ExtensionMountContext): void {
     nativeAppSubUrl(context);
     return;
   }
-  if (context.extensionId !== 'soda') throw Error('Invalid workspace mount context');
-  if (!isPageMount(context) && !isPanelMount(context)) throw Error('Invalid workspace mount context');
+  if (context.extensionId !== 'soda') throw Error('This SodaOS page could not load');
+  if (!isPageMount(context) && !isPanelMount(context)) throw Error('This SodaOS page could not load');
   validateOwner(context);
   nativeAppSubUrl(context);
   validateRepository(context.repositoryId);
@@ -57,8 +57,8 @@ function validateOwner(context: ExtensionMountContext): void {
   // names one retained owner. Soda declares exactly one, "workspace",
   // linking the spaces page and the workspace panel on one entry.
   if (context.ownerId === undefined) return;
-  if (context.ownerId !== 'workspace') throw Error('Invalid workspace mount context');
-  if (context.pageId !== 'spaces' && context.panelId !== 'workspace') throw Error('Invalid workspace mount context');
+  if (context.ownerId !== 'workspace') throw Error('This SodaOS page could not load');
+  if (context.pageId !== 'spaces' && context.panelId !== 'workspace') throw Error('This SodaOS page could not load');
 }
 
 function requireHostTransport(context: ExtensionMountContext) {

@@ -176,7 +176,7 @@ export function renderRepositoryContext(input: SettingsViewInput) {
 }
 
 export function renderViewTabs(input: SettingsViewInput) {
-  return html`<div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">
+  return html`<div class="soda-spaces-tabs" role="tablist" aria-label="SodaOS settings">
     ${views.map(
       (view) => html` <button
         type="button"
