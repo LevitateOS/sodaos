@@ -28,8 +28,6 @@ type PlanningJudgments struct {
 	Chooser ProductJudgment
 }
 
-var errNonCodePlanning = errors.New("accepted non-code work has no implementation plan")
-
 // PlanningPass records bounded implementation approaches over stable accepted
 // scope, even while visible prerequisite outcomes are pending. Classification
 // does not invent source changes or execute work; blocked portions stay explicit.
@@ -82,13 +80,6 @@ func (c *Coordinator) planningInput(ctx context.Context, control factory.IssueCo
 	plan := &attemptPlan{control: control, acceptance: *status.Acceptance, effective: authority, projectID: p.ID, policy: policy}
 	if wait, failed := readAttemptInputs(ctx, deps, plan, control.Repository, control.Issue); wait != nil || failed != nil {
 		return factory.PlanningInput{}, ErrPriorityUnavailable
-	}
-	block, err := factory.ParseSodaIssueBlock(plan.inputs.Issue.Body)
-	if err != nil {
-		return factory.PlanningInput{}, err
-	}
-	if block.Role == factory.SodaRoleResearch || block.Role == factory.SodaRoleLibraryAdmin {
-		return factory.PlanningInput{}, errNonCodePlanning
 	}
 	sponsorship, wait, failed := selectSponsorship(ctx, deps, control.Repository, authority, project.RoleCoder)
 	if wait != nil || failed != nil || sponsorship.ProjectID != p.ID {
@@ -177,7 +168,7 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 		return nil
 	}
 	input, err := c.planningInput(ctx, control)
-	if errors.Is(err, ErrIneffectiveAuthority) || errors.Is(err, errNonCodePlanning) {
+	if errors.Is(err, ErrIneffectiveAuthority) {
 		return nil
 	}
 	if err != nil {

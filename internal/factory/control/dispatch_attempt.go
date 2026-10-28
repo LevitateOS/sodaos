@@ -263,11 +263,7 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if retry != nil {
 		id = retry.CommandID
 	}
-	phase, role, wait, failed := selectInitialIssuePhase(ctx, deps, repository, issue, head)
-	if wait != nil || failed != nil {
-		return nil, wait, failed
-	}
-	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, role, "", false, id, attemptLineage{phase: phase})
+	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, project.RoleCoder, "", false, id, attemptLineage{phase: project.ExecutionInvestigate})
 }
 
 // planAttemptForRole shares the mutable dispatch checks between initial coder
@@ -510,12 +506,6 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 	}
 	if wait, failed := prepareAttemptInputs(ctx, deps, occupancy, plan, role, preparation, repository, issue, control); failed != nil || wait != nil {
 		return nil, wait, failed
-	}
-	if lineage.parent == "" {
-		maintenance, err := issueLibraryMaintenance(plan.inputs.Issue.Body)
-		if err != nil || maintenance != (lineage.phase == project.ExecutionMaintainLibrary) {
-			return nil, waitFor(WaitInputsChanged, "accepted issue work role changed"), nil
-		}
 	}
 	if wait := confirmAttemptPreparation(ctx, deps, plan, role, recordedPrompt, retryID); wait != nil {
 		return nil, wait, nil

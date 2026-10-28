@@ -31,7 +31,6 @@ internal/factory/control/intent_generation_binding_test.go
 internal/factory/control/intent_generation_mechanics_test.go
 internal/factory/control/intent_plan_assembly_test.go
 internal/factory/control/intent_plan_choice_test.go
-internal/factory/control/library_maintenance_test.go
 internal/factory/control/mcp_admission_pg_test.go
 internal/factory/control/mcp_capability_producer_test.go
 internal/factory/control/mcp_settle_pg_test.go
