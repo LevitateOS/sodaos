@@ -290,8 +290,8 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 			{ID: "grant-3", ConnectionID: "conn-2", UserID: 2, ProjectID: factorySettingsProject},
 		},
 	}
-	sponsor := func(command, grant string, generation int64) string {
-		return `{"command_id":"` + command + `","expected_revision":0,"grant_id":"` + grant + `","generation":` + strconv.FormatInt(generation, 10) +
+	sponsor := func(command string, revision int64) string {
+		return `{"command_id":"` + command + `","expected_revision":` + strconv.FormatInt(revision, 10) +
 			`,"roles":["soda-coder"],"allowance_minutes":60,"active":true}`
 	}
 	put := func(connection, body, login string) *httptest.ResponseRecorder {
@@ -299,39 +299,40 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 		nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/"+connection, body, login))
 		return w
 	}
-	w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice")
+	w := put("conn-1", sponsor(factory.NewID(), 0), "alice")
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	stored, err := s.Store.Sponsorship(t.Context(), 7, "conn-1")
-	if err != nil || stored.ActorID != 1 || stored.ProjectID != factorySettingsProject {
-		t.Fatalf("sponsorship did not preserve selected broker actor/project: %+v %v", stored, err)
+	if err != nil || stored.GrantID != "grant-1" || stored.Generation != 1 || stored.ActorID != 1 || stored.ProjectID != factorySettingsProject {
+		t.Fatalf("sponsorship did not resolve the live broker grant: %+v %v", stored, err)
 	}
-	delegated := put("conn-2", sponsor(factory.NewID(), "grant-3", 1), "alice")
+	delegated := put("conn-2", sponsor(factory.NewID(), 0), "alice")
 	if delegated.Code != http.StatusOK {
-		t.Fatal("connection owner could not select delegated grant", delegated.Code, delegated.Body.String())
+		t.Fatal("connection owner could not sponsor through a delegated grant", delegated.Code, delegated.Body.String())
 	}
 	stored, err = s.Store.Sponsorship(t.Context(), 7, "conn-2")
-	if err != nil || stored.GrantedBy != 1 || stored.ActorID != 2 || stored.ProjectID != factorySettingsProject {
+	if err != nil || stored.GrantID != "grant-3" || stored.GrantedBy != 1 || stored.ActorID != 2 || stored.ProjectID != factorySettingsProject {
 		t.Fatalf("delegated sponsorship did not separate sponsor from broker actor: %+v %v", stored, err)
 	}
 	assertNoSecrets(t, w.Body.String())
-	foreign := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "bob")
+	foreign := put("conn-1", sponsor(factory.NewID(), 1), "bob")
 	if foreign.Code != 404 {
 		t.Fatal("non-owner saw the connection", foreign.Code, foreign.Body.String())
 	}
-	rotated := put("conn-1", sponsor(factory.NewID(), "grant-1", 2), "alice")
-	if rotated.Code != 409 {
-		t.Fatal("rotated credential generation accepted", rotated.Code, rotated.Body.String())
+	stub := s.API.Identity.(*stubIdentityClient)
+	stub.connections[0].Generation = 2
+	if rotated := put("conn-1", sponsor(factory.NewID(), 1), "alice"); rotated.Code != 200 {
+		t.Fatal("a rotated credential needed a re-pick", rotated.Code, rotated.Body.String())
 	}
-	missing := put("conn-1", sponsor(factory.NewID(), "grant-9", 1), "alice")
-	if missing.Code != 404 {
-		t.Fatal("unknown grant accepted", missing.Code, missing.Body.String())
+	if stored, err = s.Store.Sponsorship(t.Context(), 7, "conn-1"); err != nil || stored.Generation != 2 || stored.GrantID != "grant-1" {
+		t.Fatalf("sponsorship did not record the current generation: %+v %v", stored, err)
 	}
-	revoked := put("conn-1", sponsor(factory.NewID(), "grant-2", 1), "alice")
-	if revoked.Code != 409 {
-		t.Fatal("revoked grant accepted", revoked.Code, revoked.Body.String())
+	stub.grants[0].Revoked = true
+	if revoked := put("conn-1", sponsor(factory.NewID(), 2), "alice"); revoked.Code != 409 {
+		t.Fatal("sponsorship without a live grant accepted", revoked.Code, revoked.Body.String())
 	}
+	stub.grants[0].Revoked = false
 	status := httptest.NewRecorder()
 	nativeAPIServe(t, s, status, apiTestRequest(http.MethodGet, "/api/repositories/7/factory", "", "bob"))
 	if status.Code != 200 {
@@ -346,23 +347,22 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	if len(view.Sponsorships) != 2 || view.Sponsorships[0].Allowance != 0 || view.Sponsorships[1].Allowance != 0 {
 		t.Fatalf("allowance leaked to non-owner: %+v", view.Sponsorships)
 	}
-	stub := s.API.Identity.(*stubIdentityClient)
 	stub.grantsErr = identity.ErrDenied
-	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 403 {
+	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 403 {
 		t.Fatal("denied broker grant accepted", w.Code, w.Body.String())
 	}
 	stub.grantsErr = errStubIdentity
-	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
 		t.Fatal("broken broker grant accepted", w.Code, w.Body.String())
 	}
 	stub.grantsErr = nil
 	stub.connErr = errStubIdentity
-	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
 		t.Fatal("broken broker connection accepted", w.Code, w.Body.String())
 	}
 	stub.connErr = nil
 	s.API.Identity = nil
-	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
 		t.Fatal("missing identity service accepted", w.Code, w.Body.String())
 	}
 }

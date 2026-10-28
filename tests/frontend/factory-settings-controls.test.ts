@@ -980,7 +980,7 @@ test('reaccepting requirements leaves the prior approval stale and blocks prepar
   assert.equal((await writes(page)).filter((call) => JSON.parse(call.body || '{}').action === 'prepare').length, 0);
 });
 
-test('provider budget and sponsorship use observed connection and grant records and surface stale authority once', async (t) => {
+test('sponsorship sends only the owner choices and surfaces stale authority once', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() =>
     window.drawerFixture.setReply(async (call) => {
@@ -1007,18 +1007,8 @@ test('provider budget and sponsorship use observed connection and grant records 
             state: 'active',
           },
         ]);
-      if (call.url.endsWith('/api/identity/connections/connection-observed/grants'))
-        return Response.json([
-          {
-            id: 'grant-observed',
-            connection_id: 'connection-observed',
-            project_id: 'p123456789abcdef012345678',
-            revision: 2,
-            revoked: false,
-          },
-        ]);
       if (call.method === 'PUT' && call.url.includes('/factory/sponsorships/'))
-        return Response.json({error: {code: 'stale_credential_generation'}}, {status: 409});
+        return Response.json({error: {code: 'stale_revision'}}, {status: 409});
       return null;
     })
   );
@@ -1034,8 +1024,8 @@ test('provider budget and sponsorship use observed connection and grant records 
   });
   assert.match(await settings.innerText(), /Primary · active/);
   assert.equal(await settings.locator('[name="connection"]').count(), 0);
-  assert.equal(await settings.locator('[name="grant_id"]').inputValue(), '');
-  await settings.locator('[name="grant_id"]').selectOption('grant-observed');
+  assert.equal(await settings.locator('[name="grant_id"]').count(), 0);
+  assert.doesNotMatch(await settings.innerText(), /Credential generation/);
   await settings.locator('[name="coder"]').check();
   await settings.getByRole('button', {name: 'Save sponsorship'}).click();
   await settings.getByRole('status').filter({hasText: 'Authority changed.'}).waitFor();
@@ -1044,8 +1034,13 @@ test('provider budget and sponsorship use observed connection and grant records 
   assert(sponsor);
   assert.equal(sponsor.method, 'PUT');
   const payload = JSON.parse(sponsor.body || '{}') as Record<string, unknown>;
-  assert.equal(payload.grant_id, 'grant-observed');
-  assert.equal(payload.generation, 7);
+  assert.deepEqual(Object.keys(payload).sort(), [
+    'active',
+    'allowance_minutes',
+    'command_id',
+    'expected_revision',
+    'roles',
+  ]);
   assert.deepEqual(payload.roles, ['soda-coder']);
   assert.equal(writesSent.filter((call) => call.url.includes('/factory/sponsorships/')).length, 1);
 });

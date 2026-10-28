@@ -22,7 +22,6 @@ type View = {
   preparation?: Record<string, unknown>;
   access?: FactoryAccess;
   connections: Record<string, unknown>[];
-  grants: Record<string, unknown>[];
   sourceSelection?: {
     source_commit: string;
     source_paths: string[];
@@ -349,7 +348,7 @@ export class SodaFactorySettings extends LitElement {
   constructor() {
     super();
     this.contextValue = undefined;
-    this.view = {connections: [], grants: [], selectedConnection: '', message: '', busy: false};
+    this.view = {connections: [], selectedConnection: '', message: '', busy: false};
   }
 
   protected createRenderRoot() {
@@ -367,7 +366,7 @@ export class SodaFactorySettings extends LitElement {
       return;
     this.contextValue = value;
     this.serial++;
-    this.view = {connections: [], grants: [], selectedConnection: '', message: '', busy: false};
+    this.view = {connections: [], selectedConnection: '', message: '', busy: false};
     this.needsLoad = true;
   }
 
@@ -484,7 +483,6 @@ export class SodaFactorySettings extends LitElement {
     const selected = connections.some((item) => item.id === this.view.selectedConnection)
       ? this.view.selectedConnection
       : safeText(connections[0]?.id);
-    const related = await this.connectionFacts(selected);
     return {
       ...(status === undefined ? {} : {status: asObject(status)}),
       ...(preparation === undefined ? {} : {preparation: nextPreparation}),
@@ -493,7 +491,6 @@ export class SodaFactorySettings extends LitElement {
       ...(sourcePreview === undefined ? {} : {sourcePreview}),
       connections,
       selectedConnection: selected,
-      ...related,
       message,
       busy: false,
     };
@@ -533,30 +530,10 @@ export class SodaFactorySettings extends LitElement {
     this.view = {...this.view, busy: false, message: 'Source preview returned by the current native API.'};
   }
 
-  private async connectionFacts(connection: string) {
-    if (!connection) return {grants: [] as Record<string, unknown>[]};
-    const grants = await this.request(`/api/identity/connections/${encodeURIComponent(connection)}/grants`);
-    return {grants: Array.isArray(grants) ? grants.map(asObject) : []};
-  }
-
-  private changeConnection = async (event: Event) => {
+  private changeConnection = (event: Event) => {
     const select = event.currentTarget;
     if (!(select instanceof HTMLSelectElement)) return;
-    const connection = select.value;
-    const serial = this.serial;
-    this.view = {...this.view, selectedConnection: connection, grants: [], busy: true};
-    try {
-      const facts = await this.connectionFacts(connection);
-      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
-      this.view = {...this.view, ...facts, busy: false};
-    } catch {
-      if (serial !== this.serial || this.view.selectedConnection !== connection) return;
-      this.view = {
-        ...this.view,
-        busy: false,
-        message: 'Provider connection details are unavailable. Refresh before changing sponsorship.',
-      };
-    }
+    this.view = {...this.view, selectedConnection: select.value};
   };
 
   private async act(form: HTMLFormElement, action: (form: HTMLFormElement) => Promise<void>, refreshAfter = true) {
@@ -854,8 +831,6 @@ export class SodaFactorySettings extends LitElement {
     if (!connection) throw Error('Select a provider connection from the current account inventory.');
     const sponsorships = Array.isArray(status.sponsorships) ? status.sponsorships.map(asObject) : [];
     const existing = sponsorships.find((item) => item.connection === connection) || {};
-    const grant = this.view.grants.find((item) => item.id === inputValue(form, 'grant_id') && item.revoked !== true);
-    if (!grant) throw Error('Select a current, unrevoked broker grant from this connection.');
     const roles = ['coder', 'reviewer']
       .filter((role) => {
         const element = form.elements.namedItem(role);
@@ -867,9 +842,7 @@ export class SodaFactorySettings extends LitElement {
       'PUT',
       {
         command_id: factoryCommandId(),
-        grant_id: safeText(grant.id),
         expected_revision: Number(existing.revision || 0),
-        generation: safeNumber(this.view.connections.find((item) => item.id === connection)?.generation, 0),
         roles,
         allowance_minutes: integer(form, 'allowance_minutes', 1),
         active: inputChecked(form, 'sponsorship_active'),
@@ -1464,8 +1437,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
 
   private renderProviderControls() {
     const connection = this.view.selectedConnection;
-    const generation = safeNumber(this.view.connections.find((row) => row.id === connection)?.generation, 0);
-    const grants = this.view.grants.filter((grant) => grant.revoked !== true);
     const sponsorship =
       (Array.isArray(this.view.status?.sponsorships) ? this.view.status.sponsorships.map(asObject) : []).find(
         (row) => row.connection === connection
@@ -1474,20 +1445,14 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     return html`<fieldset>
       <legend>Provider allowance and sponsorship</legend>
       <label
-        >Provider connection<select name="selected_connection" .value=${connection} @change=${this.changeConnection}>
-          <option value="">Select a current connection</option>
-          ${this.view.connections.map((row) => html`<option value=${safeText(row.id)}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
+        >Provider connection<select name="selected_connection" @change=${this.changeConnection}>
+          <option value="" ?selected=${!connection}>Select a current connection</option>
+          ${this.view.connections.map((row) => html`<option value=${safeText(row.id)} ?selected=${safeText(row.id) === connection}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
         </select></label
       >
       <form data-action="sponsorship" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('sponsorship')}>
-          <label
-            >Project access<select name="grant_id" .value=${safeText(sponsorship.grant_id)}>
-              <option value="">Select a current grant</option>
-              ${grants.map((grant) => html`<option value=${safeText(grant.id)}>${safeText(grant.project_id)} · ${safeText(grant.id)}</option>`)}
-            </select></label
-          >
-          <p>Credential generation ${generation}.</p>
+          <p>Factory uses this account through the Project's own access to it.</p>
           <label><input type="checkbox" name="coder" .checked=${roles.includes('soda-coder')} /> Builder</label>
           <label><input type="checkbox" name="reviewer" .checked=${roles.includes('soda-reviewer')} /> Inspector</label>
           ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 60))}
