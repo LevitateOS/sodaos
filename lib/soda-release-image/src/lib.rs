@@ -25,7 +25,6 @@ pub mod complete;
 pub mod compression;
 pub mod error;
 pub mod events;
-pub mod extension;
 pub mod files;
 pub mod foreign;
 pub mod forgejo;

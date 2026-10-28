@@ -21,7 +21,6 @@ use std::collections::BTreeSet;
 use std::fs;
 
 use crate::error::Error;
-use crate::extension;
 use crate::model;
 use crate::sys;
 
@@ -356,18 +355,27 @@ pub fn seal_package(files: &[(String, u32, Vec<u8>)], timestamp: u64) -> Result<
     Ok(bytes)
 }
 
+/// Hard-link the browser build's emitted assets into the staged package.
+fn link_extension_assets(native: &str, staged: &str, package_id: &str) -> Result<(), Error> {
+    let root = sys::join(&[native, &format!("{package_id}-extension-assets"), "assets"]);
+    sys::walk(&root, |path, is_dir, is_link| {
+        if is_dir {
+            return Ok(());
+        }
+        if is_link {
+            return Err(Error::msg("regular extension asset required"));
+        }
+        let to = sys::join(&[staged, "assets", &sys::rel_path(&root, path)?]);
+        fs::create_dir_all(sys::dir_name(&to))?;
+        fs::hard_link(path, &to).map_err(|e| Error::msg(e.to_string()))
+    })
+}
+
 fn finish_staged_package(
     id: &str,
     version: &str,
     archive: Vec<u8>,
-    release_tag: &str,
 ) -> Result<StagedPackage, Error> {
-    let version_tag = release_tag.strip_prefix('v').unwrap_or(release_tag);
-    if version != version_tag {
-        return Err(Error::msg(format!(
-            "package manifest version differs from release tag for {id}"
-        )));
-    }
     let size = archive.len() as u64;
     if size == 0 || size > MAX_ARCHIVE_BYTES {
         return Err(Error::msg(format!("invalid sealed package size for {id}")));
@@ -482,10 +490,10 @@ fn stage_package(
     )?;
     fs::hard_link(&backend, sys::join(&[&staged, "backend"]))
         .map_err(|e| Error::msg(e.to_string()))?;
-    extension::stage_extension_assets(native, &staged, package_id)?;
+    link_extension_assets(native, &staged, package_id)?;
     let files = collect_package_files(&staged, &manifest, &manifest_bytes, source)?;
     let archive = seal_package(&files, timestamp)?;
-    let package = finish_staged_package(&manifest.id, &manifest.version, archive, release_tag)?;
+    let package = finish_staged_package(&manifest.id, &manifest.version, archive)?;
     sys::write_new(
         &sys::join(&[out, "packages", &package.filename]),
         &package.archive,

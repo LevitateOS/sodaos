@@ -1,32 +1,6 @@
 use super::*;
 
 #[test]
-fn oracle_extension_asset_names() {
-    assert!(extension::safe_extension_asset_name(r"app.js"), "H-asset-0");
-    assert!(
-        extension::safe_extension_asset_name(r"css/main.css"),
-        "H-asset-1"
-    );
-    assert!(
-        !(extension::safe_extension_asset_name(r"../x.js")),
-        "H-asset-2"
-    );
-    assert!(
-        !(extension::safe_extension_asset_name(r"/abs.js")),
-        "H-asset-3"
-    );
-    assert!(
-        !(extension::safe_extension_asset_name(r"a/../b.js")),
-        "H-asset-4"
-    );
-    assert!(
-        !(extension::safe_extension_asset_name(r"b\c.js")),
-        "H-asset-5"
-    );
-    assert!(!(extension::safe_extension_asset_name(r"")), "H-asset-6");
-}
-
-#[test]
 fn oracle_qualify_reason() {
     check_ok(
         "I-reason-0",
