@@ -22,7 +22,7 @@ const REPOSITORY_SLUG = 'maya/northstar-equipment';
 const OBJECTIVE = `Replace our equipment-request spreadsheet with a small app inside Soda Forge. Employees submit a request for a laptop, monitor or other equipment, with a reason and a needed-by date. Their manager approves or rejects it with a comment. Operations sees approved requests and marks them ordered, then delivered. Employees see the status of their own requests only.`;
 const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
-const PLAN_TIMEOUT_MS = 10 * 60 * 1000;
+const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
 type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
 const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
