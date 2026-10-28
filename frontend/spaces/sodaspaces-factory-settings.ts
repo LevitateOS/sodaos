@@ -10,7 +10,6 @@ import type {
   FactoryAccessPlanning,
   FactoryAccessUsage,
 } from './sodaspaces-factory-access-response.js';
-import {nativePath} from './sodaspaces-factory-activity.js';
 import './sodaspaces-factory-work.js';
 import './sodaspaces-factory-repair.js';
 import './soda-providers.js';
@@ -22,16 +21,6 @@ type FactoryContext = {
   profile?: unknown;
   repositoryURL?: string;
 };
-
-// effectsRepositoryPath derives the validated native repository path
-// (installation prefix plus /owner/name) from the settings page URL.
-// Absent, foreign-origin or malformed input yields undefined so result
-// links degrade to text instead of breaking the mount.
-function effectsRepositoryPath(repositoryURL: string | undefined): string | undefined {
-  if (!repositoryURL || !repositoryURL.startsWith(location.origin)) return undefined;
-  const path = repositoryURL.slice(location.origin.length);
-  return nativePath(path) ? path : undefined;
-}
 
 type View = {
   status?: Record<string, unknown>;
@@ -1045,23 +1034,6 @@ export class SodaFactorySettings extends LitElement {
     </section>`;
   }
 
-  // effectsContext binds the optional-effects child to the current
-  // repository with its validated native path. Settings carries no
-  // issue, so the child performs config reads only. Like activity,
-  // an inactive (hidden or stale) view retires the context.
-  private effectsContext():
-    | {transport: PreparedExtensionMount; repository: string; repositoryPath?: string}
-    | undefined {
-    const context = this.contextValue;
-    if (!context || !this.activeValue) return undefined;
-    const repositoryPath = effectsRepositoryPath(context.repositoryURL);
-    return {
-      transport: context.transport,
-      repository: context.repository,
-      ...(repositoryPath === undefined ? {} : {repositoryPath}),
-    };
-  }
-
   private renderAuthority() {
     const context = this.contextValue;
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
@@ -1080,7 +1052,6 @@ export class SodaFactorySettings extends LitElement {
       ></soda-providers
       >${this.renderSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
-      <soda-factory-optional-effects .context=${this.effectsContext()}></soda-factory-optional-effects>
       <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}

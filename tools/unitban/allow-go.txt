@@ -32,8 +32,6 @@ internal/factory/control/intent_generation_mechanics_test.go
 internal/factory/control/intent_plan_assembly_test.go
 internal/factory/control/intent_plan_choice_test.go
 internal/factory/control/library_maintenance_test.go
-internal/factory/control/lifecycle_capabilities_test.go
-internal/factory/control/lifecycle_consume_test.go
 internal/factory/control/mcp_admission_pg_test.go
 internal/factory/control/mcp_capability_producer_test.go
 internal/factory/control/mcp_settle_pg_test.go
@@ -69,7 +67,6 @@ internal/forgejo/errors_test.go
 internal/forgejo/extension_manager_test.go
 internal/forgejo/issue_feedback_test.go
 internal/forgejo/issue_graph_test.go
-internal/forgejo/lifecycle_capabilities_test.go
 internal/forgejo/observe_test.go
 internal/forgejo/publish/credentials_test.go
 internal/forgejo/publish/operation_git_test.go
@@ -120,8 +117,6 @@ internal/store/factory_intents_test.go
 internal/store/factory_inventory_test.go
 internal/store/factory_journey_readback_test.go
 internal/store/factory_library_test.go
-internal/store/factory_lifecycle_actions_test.go
-internal/store/factory_lifecycle_loop_test.go
 internal/store/factory_lifecycle_test.go
 internal/store/factory_mcp_communication_test.go
 internal/store/factory_mcp_settle_test.go
@@ -205,7 +200,6 @@ internal/web/repository_access_test.go
 internal/web/repository_settings_test.go
 internal/web/retired_frontend_test.go
 internal/web/server_extension_manager_test.go
-internal/web/server_lifecycle_test.go
 internal/web/spaces_inventory_test.go
 internal/web/spaces_test.go
 internal/web/tailnet_test.go

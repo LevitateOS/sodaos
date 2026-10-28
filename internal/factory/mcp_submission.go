@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -111,10 +112,10 @@ func (c MCPCapability) Expired(now time.Time) bool {
 func (c MCPCapability) ScopeDigest() string {
 	sum := sha256.Sum256([]byte(
 		c.ID + "\n" + c.AssignmentID + "\n" + c.RunID + "\n" +
-			itoa(c.Generation) + "\n" + string(c.Profile) + "\n" + c.Subject + "\n" +
-			itoa(c.Repository) + "\n" + c.Project + "\n" + c.PreparationDigest + "\n" +
+			strconv.FormatInt(c.Generation, 10) + "\n" + string(c.Profile) + "\n" + c.Subject + "\n" +
+			strconv.FormatInt(c.Repository, 10) + "\n" + c.Project + "\n" + c.PreparationDigest + "\n" +
 			c.SourceDigest + "\n" + c.AcceptedRevision + "\n" + c.Authority + "\n" +
-			itoa(c.DeadlineUnix) + "\n"))
+			strconv.FormatInt(c.DeadlineUnix, 10) + "\n"))
 	return hex.EncodeToString(sum[:])
 }
 

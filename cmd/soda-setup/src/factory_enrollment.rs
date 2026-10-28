@@ -207,8 +207,6 @@ struct ExistingDashboard {
     forgejo_graph_credential_file: String,
     #[serde(default)]
     forgejo_graph_actor_id: i64,
-    #[serde(default)]
-    forgejo_lifecycle_credential_file: String,
 }
 
 fn default_listen() -> String {
@@ -1452,7 +1450,6 @@ fn apply_at(
         &existing.typesafe_model,
         &existing.forgejo_graph_credential_file,
         existing.forgejo_graph_actor_id,
-        &existing.forgejo_lifecycle_credential_file,
         &policy_bindings,
     );
     let identity = serde_json::to_vec(&manifest.identity)

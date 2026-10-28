@@ -216,6 +216,6 @@ executable digest and a private provider root. Enrollment checks the selected
 binary bytes and protected paths; the installed native Factory journey must
 also support that harness. An all-empty provider entry means disabled.
 
-Maintenance preserves configured TypeSafe, issue-graph and lifecycle credential
+Maintenance preserves configured TypeSafe and issue-graph credential
 references. Those files are separate inputs; enrollment never reads their
 values into the manifest or replaces them.

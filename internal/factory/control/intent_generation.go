@@ -235,9 +235,6 @@ func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	// Optional lifecycle effect: new-issue label/assignee. Never gates
 	// default delivery; duplicate runs reconcile by action identity.
-	if c.Lifecycle != nil {
-		_ = ConsumeGeneratedIssues(ctx, c.Store, c.Lifecycle, r, g)
-	}
 	g.State = "completed"
 	if err = c.Store.RecordIntentGeneration(ctx, g); err != nil {
 		return g, err

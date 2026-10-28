@@ -288,9 +288,6 @@ func (c *Coordinator) finishPublication(ctx context.Context, p factory.Publicati
 		report.Published = append(report.Published, PublishLink{AssignmentID: p.AssignmentID, PublicationID: p.ID, Repository: p.Repository, Issue: p.Issue, PRNumber: p.PRNumber, PRID: p.PRID})
 		// Optional lifecycle effect: PR reviewer request. Fires only
 		// after the published stage persists; never gates default.
-		if c.Lifecycle != nil {
-			_ = ConsumePublishedPR(ctx, c.Store, c.Lifecycle, p)
-		}
 	case factory.PublicationWithdrawn:
 		report.Withdrawn = append(report.Withdrawn, p.ID)
 	case factory.PublicationFenced:

@@ -87,7 +87,6 @@ type Coordinator struct {
 	Resolutions     ResolutionExecutor
 	Checks          CheckObserver
 	Merges          MergeExecutor
-	Lifecycle       LifecycleExecutor
 	Priority        *PriorityJudgments
 	Planning        *PlanningJudgments
 	// CompletionEnumerator supplies native inventory pages for the D13

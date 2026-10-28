@@ -29,8 +29,6 @@ struct DashboardConfig<'a> {
     forgejo_graph_credential_file: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     forgejo_graph_actor_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    forgejo_lifecycle_credential_file: Option<&'a str>,
 }
 
 // Field declaration order, explicit empty/null optionals, Go HTML-safe string
@@ -66,7 +64,6 @@ pub(crate) fn encode_dashboard_config(
         typesafe_model: None,
         forgejo_graph_credential_file: None,
         forgejo_graph_actor_id: None,
-        forgejo_lifecycle_credential_file: None,
     };
     let mut serializer = serde_json::Serializer::with_formatter(Vec::new(), GoFormatter);
     config
@@ -98,7 +95,6 @@ pub(crate) fn encode_enrolled_dashboard_config(
     typesafe_model: &str,
     forgejo_graph_credential_file: &str,
     forgejo_graph_actor_id: i64,
-    forgejo_lifecycle_credential_file: &str,
     factory_native_bindings: &[crate::factory_enrollment::NativeOperationBinding],
 ) -> Vec<u8> {
     let config = DashboardConfig {
@@ -123,8 +119,6 @@ pub(crate) fn encode_enrolled_dashboard_config(
         forgejo_graph_credential_file: (!forgejo_graph_credential_file.is_empty())
             .then_some(forgejo_graph_credential_file),
         forgejo_graph_actor_id: (forgejo_graph_actor_id != 0).then_some(forgejo_graph_actor_id),
-        forgejo_lifecycle_credential_file: (!forgejo_lifecycle_credential_file.is_empty())
-            .then_some(forgejo_lifecycle_credential_file),
     };
     let mut serializer = serde_json::Serializer::with_formatter(Vec::new(), GoFormatter);
     config

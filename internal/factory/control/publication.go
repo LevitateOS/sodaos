@@ -102,9 +102,6 @@ func (c *Coordinator) PublishPass(ctx context.Context) PublishReport {
 	c.consumePublicationChildren(ctx, &report)
 	// Optional lifecycle recovery: bounded drain of journaled actions
 	// left pending/uncertain by finished completions.
-	if c.Lifecycle != nil {
-		_ = ReconcileUnsettledLifecycle(ctx, c.Store, c.Lifecycle)
-	}
 	return report
 }
 

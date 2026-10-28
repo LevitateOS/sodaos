@@ -236,9 +236,6 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 	}
 	// Optional lifecycle effect: completion note on the original issue.
 	// Never gates default delivery.
-	if c.Lifecycle != nil {
-		_ = ConsumeVerifiedMerge(ctx, c.Store, c.Lifecycle, *m)
-	}
 	// Best-effort dependant release: confirmed completion reassesses
 	// dependants, and queued work launches within current limits.
 	// Failures wait for the next trigger; the merge above already

@@ -1,5 +1,7 @@
 package factory
 
+import "strconv"
+
 // Contributions extend discussion access for an already admitted role, never
 // execution or mutation authority. One source revision can invite one role.
 const (
@@ -62,7 +64,7 @@ type ContributionCall struct {
 }
 
 func ContributionReviewID(source string, revision int64) string {
-	return MCPInputDigest([]byte("role-contribution-v1\n" + source + "\n" + itoa(revision)))[:32]
+	return MCPInputDigest([]byte("role-contribution-v1\n" + source + "\n" + strconv.FormatInt(revision, 10)))[:32]
 }
 
 // ContributionRecordReviewID names the assessment behind one assignment-record
@@ -70,7 +72,7 @@ func ContributionReviewID(source string, revision int64) string {
 // post sharing one identity never share an invitation; post identities are
 // preserved byte-for-byte by ContributionReviewID above.
 func ContributionRecordReviewID(source string, revision int64) string {
-	return MCPInputDigest([]byte("role-contribution-record-v1\n" + source + "\n" + itoa(revision)))[:32]
+	return MCPInputDigest([]byte("role-contribution-record-v1\n" + source + "\n" + strconv.FormatInt(revision, 10)))[:32]
 }
 
 // ContributionReviewInvitationID selects the durable assessment identity for

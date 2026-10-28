@@ -65,7 +65,6 @@ type Config struct {
 	// Optional separate native lifecycle credential. It must belong to
 	// the enrolled lifecycle operation binding; the executor resolves
 	// its actor via EnrolledActor and configuration must match it.
-	ForgejoLifecycleCredentialFile string `json:"forgejo_lifecycle_credential_file"`
 	// Optional native webhook intake secret file. When set, the factory
 	// intake route verifies delivery HMACs against it; when unset or
 	// unreadable, intake refuses as unavailable instead of guessing.
@@ -208,14 +207,6 @@ func validateReviewCredentials(c Config) error {
 		}
 		if !c.BackgroundServiceConfigured() {
 			return errors.New("forgejo_merge_credential_file requires background service inputs")
-		}
-	}
-	if c.ForgejoLifecycleCredentialFile != "" {
-		if !filepath.IsAbs(c.ForgejoLifecycleCredentialFile) {
-			return errors.New("forgejo_lifecycle_credential_file must be an absolute path")
-		}
-		if !c.BackgroundServiceConfigured() {
-			return errors.New("forgejo_lifecycle_credential_file requires background service inputs")
 		}
 	}
 	return nil

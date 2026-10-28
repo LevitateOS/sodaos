@@ -1,6 +1,5 @@
 import {
   mountFactoryDirectionRevision,
-  mountFactoryOptionalEffects,
   mountFactoryWorkDetail,
   mountFactoryWorkOverview,
   mountFactoryWorkPlan,
@@ -115,7 +114,7 @@ function stubTransport(): PreparedExtensionMount {
   } as unknown as PreparedExtensionMount;
 }
 
-export type WorkView = 'overview' | 'detail' | 'plan' | 'direction' | 'effects';
+export type WorkView = 'overview' | 'detail' | 'plan' | 'direction';
 
 const allCapabilities = {pause: true, resume: true, stop: true, retry: true, takeover: true, project_stop: true};
 
@@ -140,9 +139,7 @@ function mount(view: WorkView): void {
     });
   else if (view === 'plan')
     mountFactoryWorkPlan(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issues: ['12']});
-  else if (view === 'direction') mountFactoryDirectionRevision(root, {transport, intentID: INTENT});
-  else
-    mountFactoryOptionalEffects(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issue: '12'});
+  else mountFactoryDirectionRevision(root, {transport, intentID: INTENT});
 }
 
 declare global {

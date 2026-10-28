@@ -41,10 +41,8 @@ import {
 } from './sodaspaces-factory-work-view.js';
 import type {InterventionKind, InterventionResult} from './sodaspaces-factory-work-view.js';
 import {
-  describeAccessStanding,
   describeAllowance,
   describeDirectionRevision,
-  describeLifecycleEffect,
   describePlanningReference,
   describePrerequisites,
   describeRecordedChoice,
@@ -56,10 +54,8 @@ import {
   overviewScopeFromBound,
   overviewScopeFromMappings,
   retiredOverviewScope,
-  renderAccessStanding,
   renderAllowance,
   renderDirectionRevision,
-  renderLifecycleEffects,
   renderPlanningReference,
   renderRecordedPlan,
   renderRequestOverview,
@@ -68,9 +64,6 @@ import {
   renderWorkPlan,
 } from './sodaspaces-factory-progress-view.js';
 import type {
-  LifecycleEffectInput,
-  LifecycleEventKind,
-  LifecycleEffectModel,
   OverviewScope,
   RecordedChoiceModel,
   RecordedPlanModel,
@@ -81,19 +74,11 @@ import type {
 import {
   factoryAccess,
   issuePlan,
-  lifecycleEffectActions,
-  lifecycleEffectConfig,
   planningAllowance,
   requestOverview,
   revisionHistory,
 } from './sodaspaces-factory-progress-response.js';
-import type {
-  FactoryAccess,
-  LifecycleEffectAction,
-  LifecycleEffectConfig,
-  PlanningAllowanceView,
-  RevisionHistory,
-} from './sodaspaces-factory-progress-response.js';
+import type {FactoryAccess, PlanningAllowanceView, RevisionHistory} from './sodaspaces-factory-progress-response.js';
 
 // Mountable Factory work-progress elements for V01–V07. Each element
 // reads only its own contracts and renders its own model; composition,
@@ -138,10 +123,6 @@ async function writeJSON(
 
 async function postJSON(transport: PreparedExtensionMount, path: string, body: unknown): Promise<Posted> {
   return writeJSON(transport, path, 'POST', body);
-}
-
-async function putJSON(transport: PreparedExtensionMount, path: string, body: unknown): Promise<Posted> {
-  return writeJSON(transport, path, 'PUT', body);
 }
 
 // readFailureText maps one failed read to missing-or-unavailable display
@@ -752,297 +733,6 @@ async function readRevisionHistory(
   }
 }
 
-export interface LifecycleEffectsContext {
-  transport: PreparedExtensionMount;
-  repository: string;
-  repositoryPath?: string;
-  issue?: string;
-}
-
-const lifecycleEvents: LifecycleEventKind[] = ['issue_created', 'pr_created', 'verified_merge'];
-// Canonical L06 paths confirmed by C in main d955e23e: the existing
-// repository factory nesting, not the proposed factory-first variant.
-const lifecycleConfigPath = (repository: string, event: string) =>
-  `repositories/${repository}/factory/lifecycle/${event}`;
-const lifecycleActionsPath = (repository: string, event: string, issue: string) =>
-  `repositories/${repository}/factory/lifecycle/${event}/actions?issue=${issue}`;
-
-interface EffectEntry {
-  readonly config: LifecycleEffectConfig | undefined;
-  readonly state: SourceState;
-  readonly actions: readonly LifecycleEffectAction[];
-}
-
-// lifecycleSaveBody turns one effect form into the bounded save body.
-// Blank targets stay omitted; malformed IDs refuse without sending.
-interface EffectTargets {
-  readonly label: string;
-  readonly assignee: string;
-  readonly reviewers: readonly string[];
-}
-
-function parseEffectTargets(input: LifecycleEffectInput): EffectTargets {
-  const reviewers = input.reviewer_ids
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part !== '');
-  return {label: input.label_id.trim(), assignee: input.assignee_id.trim(), reviewers};
-}
-
-function effectTargetsError(targets: EffectTargets): string | undefined {
-  if ((targets.label !== '' && !id(targets.label)) || (targets.assignee !== '' && !id(targets.assignee)))
-    return 'Label and assignee IDs must be positive integers.';
-  if (targets.reviewers.length > 3 || targets.reviewers.some((reviewer) => !id(reviewer)))
-    return 'Reviewer IDs must be up to three positive integers.';
-  return undefined;
-}
-
-function effectSaveBody(
-  revision: number,
-  input: LifecycleEffectInput,
-  targets: EffectTargets
-): Record<string, unknown> {
-  return {
-    revision,
-    enabled: input.enabled,
-    ...(targets.label === '' ? {} : {label_id: Number(targets.label)}),
-    ...(targets.assignee === '' ? {} : {assignee_id: Number(targets.assignee)}),
-    ...(targets.reviewers.length === 0 ? {} : {reviewer_ids: targets.reviewers.map(Number)}),
-    ...(input.note === '' ? {} : {note: input.note}),
-  };
-}
-
-export function lifecycleSaveBody(
-  config: LifecycleEffectConfig,
-  input: LifecycleEffectInput
-): {body?: Record<string, unknown>; error?: string} {
-  const revision = Number(config.revision);
-  if (!Number.isSafeInteger(revision) || revision < 0) return {error: 'Configuration revision is invalid; refresh.'};
-  const targets = parseEffectTargets(input);
-  const invalid = effectTargetsError(targets);
-  if (invalid !== undefined) return {error: invalid};
-  return {body: effectSaveBody(revision, input, targets)};
-}
-
-export class SodaFactoryOptionalEffects extends LitElement {
-  static properties = {
-    entries: {state: true},
-    access: {state: true},
-    accessState: {state: true},
-    message: {state: true},
-    busy: {state: true},
-    saving: {state: true},
-  };
-  declare private entries: Record<LifecycleEventKind, EffectEntry>;
-  declare private access: FactoryAccess | undefined;
-  declare private accessState: SourceState;
-  declare private message: string;
-  declare private busy: boolean;
-  declare private saving: boolean;
-  private current: LifecycleEffectsContext | undefined;
-  private serial = 0;
-  protected createRenderRoot() {
-    return this;
-  }
-  constructor() {
-    super();
-    this.entries = emptyEntries();
-    this.accessState = 'missing';
-    this.message = '';
-    this.busy = false;
-    this.saving = false;
-  }
-  set context(context: LifecycleEffectsContext | undefined) {
-    if (sameEffectsContext(context, this.current)) return;
-    this.current = context;
-    this.serial++;
-    this.entries = emptyEntries();
-    this.access = undefined;
-    this.accessState = 'missing';
-    this.message = '';
-    this.busy = false;
-    this.saving = false;
-    if (context) void this.load();
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.serial++;
-    this.current = undefined;
-  }
-  refresh() {
-    return this.load();
-  }
-  private async load() {
-    const context = this.current;
-    if (!context || this.busy) return;
-    const serial = this.serial;
-    this.busy = true;
-    try {
-      const entries = await readEffectEntries(context);
-      const access = await readFactoryAccess(context.transport, context.repository);
-      if (serial === this.serial) {
-        this.entries = entries;
-        this.access = access.access;
-        this.accessState = access.state;
-        this.message = '';
-      }
-    } catch (error) {
-      if (serial === this.serial)
-        this.message = error instanceof Error ? error.message : 'Optional effects are unavailable.';
-    } finally {
-      if (serial === this.serial) this.busy = false;
-    }
-  }
-  private saveEffect = (event: LifecycleEventKind, input: LifecycleEffectInput) => {
-    void this.save(event, input);
-  };
-  private async save(event: LifecycleEventKind, input: LifecycleEffectInput) {
-    const target = this.saveTarget(event);
-    if (!target) return;
-    const save = lifecycleSaveBody(target.config, input);
-    if (!save.body) {
-      this.message = save.error ?? 'Configuration is invalid.';
-      return;
-    }
-    const serial = this.serial;
-    this.saving = true;
-    try {
-      await this.postEffectSave(target.context, event, save.body, serial);
-    } catch {
-      if (serial === this.serial) this.message = 'Configuration save was not confirmed; refresh before retrying.';
-    } finally {
-      if (serial === this.serial) this.saving = false;
-    }
-  }
-  private saveTarget(
-    event: LifecycleEventKind
-  ): {context: LifecycleEffectsContext; config: LifecycleEffectConfig} | undefined {
-    const context = this.current;
-    const entry = this.entries[event];
-    if (!context || this.saving || !entry?.config) return undefined;
-    return {context, config: entry.config};
-  }
-  private async postEffectSave(
-    context: LifecycleEffectsContext,
-    event: LifecycleEventKind,
-    body: Record<string, unknown>,
-    serial: number
-  ) {
-    const posted = await putJSON(context.transport, lifecycleConfigPath(context.repository, event), body);
-    if (serial !== this.serial) return;
-    this.applySave(context, event, posted);
-  }
-  private applySave(context: LifecycleEffectsContext, event: LifecycleEventKind, posted: Posted) {
-    if (posted.status === 200) this.applySavedConfig(context, event, posted);
-    else this.applyRefusedSave(posted);
-  }
-  private applySavedConfig(context: LifecycleEffectsContext, event: LifecycleEventKind, posted: Posted) {
-    try {
-      const config = lifecycleEffectConfig(posted.value, event, context.repository);
-      const prior = this.entries[event];
-      this.entries = {...this.entries, [event]: {config, state: 'ready' as SourceState, actions: prior?.actions ?? []}};
-      this.message = 'Effect configuration saved.';
-    } catch {
-      this.message = 'The reply could not be understood; refresh before acting again.';
-    }
-  }
-  private applyRefusedSave(posted: Posted) {
-    const detail = sodaErrorDetail(posted.value);
-    if (posted.status === 403)
-      this.message = detail.message ?? 'Only the repository owner or administrator may configure effects.';
-    else if (posted.status === 409) this.message = conflictSaveMessage(detail);
-    else if (posted.status === 412) this.message = detail.message ?? 'Configuration changed; refresh and retry.';
-    else this.message = detail.message ?? `Save refused (${posted.status}).`;
-  }
-  private models(): LifecycleEffectModel[] {
-    const repositoryPath = this.current?.repositoryPath ?? '';
-    return lifecycleEvents.map((event) => {
-      const entry = this.entries[event] ?? {config: undefined, state: 'missing' as SourceState, actions: []};
-      return describeLifecycleEffect(event, entry.config, entry.state, entry.actions, repositoryPath);
-    });
-  }
-  protected render() {
-    return html`<section aria-label="Factory optional effects">
-      <p data-work-message aria-live="polite">${this.message}</p>
-      <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh effects</button
-      >${renderAccessStanding(describeAccessStanding(this.access, this.accessState))}
-      ${renderLifecycleEffects(this.models(), {save: this.saveEffect})}
-    </section>`;
-  }
-}
-customElements.define('soda-factory-optional-effects', SodaFactoryOptionalEffects);
-
-function conflictSaveMessage(detail: SodaErrorDetail): string {
-  if (detail.code === 'executor_unavailable')
-    return detail.message ?? 'No lifecycle executor is configured yet; the saved preference is kept.';
-  return detail.message ?? 'This event has no verified native capability yet.';
-}
-
-function sameEffectsContext(
-  next: LifecycleEffectsContext | undefined,
-  current: LifecycleEffectsContext | undefined
-): boolean {
-  if (next?.transport !== current?.transport) return false;
-  return effectsContextKey(next) === effectsContextKey(current);
-}
-
-function effectsContextKey(context: LifecycleEffectsContext | undefined): string {
-  if (!context) return '';
-  return [context.repository, context.repositoryPath ?? '', context.issue ?? ''].join('|');
-}
-
-function emptyEntries(): Record<LifecycleEventKind, EffectEntry> {
-  const blank = {config: undefined, state: 'missing' as SourceState, actions: []};
-  return {issue_created: blank, pr_created: blank, verified_merge: blank};
-}
-
-async function readEffectConfig(
-  context: LifecycleEffectsContext,
-  event: LifecycleEventKind
-): Promise<{config?: LifecycleEffectConfig; state: SourceState}> {
-  try {
-    const config = lifecycleEffectConfig(
-      await getJSON(context.transport, lifecycleConfigPath(context.repository, event)),
-      event,
-      context.repository
-    );
-    return {config, state: 'ready'};
-  } catch (error) {
-    const input = failureInput(error);
-    return {state: input.status === 404 ? 'missing' : 'unavailable'};
-  }
-}
-
-async function readEffectActions(
-  context: LifecycleEffectsContext,
-  event: LifecycleEventKind
-): Promise<readonly LifecycleEffectAction[]> {
-  if (!context.issue) return [];
-  try {
-    return lifecycleEffectActions(
-      await getJSON(context.transport, lifecycleActionsPath(context.repository, event, context.issue)),
-      context.issue,
-      event
-    );
-  } catch {
-    return [];
-  }
-}
-
-async function readEffectEntries(context: LifecycleEffectsContext): Promise<Record<LifecycleEventKind, EffectEntry>> {
-  const settled = await Promise.all(
-    lifecycleEvents.map(async (event) => {
-      const config = await readEffectConfig(context, event);
-      const actions = await readEffectActions(context, event);
-      return {event, config: config.config, state: config.state, actions};
-    })
-  );
-  const entries = emptyEntries();
-  for (const entry of settled)
-    entries[entry.event] = {config: entry.config, state: entry.state, actions: entry.actions};
-  return entries;
-}
-
 export interface WorkDetailContext {
   transport: PreparedExtensionMount;
   repository: string;
@@ -1487,16 +1177,6 @@ export function mountFactoryDirectionRevision(root: HTMLElement, context: Direct
   admitWorkRoot(root);
   if (!decisionID(context.intentID)) throw Error('Invalid work intent');
   const view = new SodaFactoryDirectionRevision();
-  view.context = context;
-  root.append(view);
-  return {refresh: () => view.refresh(), dispose: () => view.remove()};
-}
-
-export function mountFactoryOptionalEffects(root: HTMLElement, context: LifecycleEffectsContext) {
-  admitWorkRoot(root);
-  admitWorkRepository(context.repository);
-  if (context.issue !== undefined) admitWorkIssue(context.issue);
-  const view = new SodaFactoryOptionalEffects();
   view.context = context;
   root.append(view);
   return {refresh: () => view.refresh(), dispose: () => view.remove()};

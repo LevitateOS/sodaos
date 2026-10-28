@@ -151,7 +151,7 @@ func priorityInventoryMembership(ctx context.Context, tx *sql.Tx) ([]factory.Iss
 
 // priorityInventoryDigest binds the membership and every semantic local
 // input that can change candidacy: acceptance heads and withdrawals,
-// per-member control evidence and lifecycle actions, assignment/retry/
+// per-member control evidence, assignment/retry/
 // allowance state, per-repository authority verdicts, dispatch gates,
 // requirement/approval heads, preparations, and current capacity and
 // connection-budget facts with eligibility as booleans.
@@ -196,7 +196,6 @@ type priorityDigestMember struct {
 	assignHead    string
 	retryPending  bool
 	allowanceShut bool
-	lifecycle     string
 }
 
 type priorityDigestInputs struct {
@@ -232,7 +231,6 @@ func (c *priorityDigestInputs) digest() (string, error) {
 		AssignHead   string `json:"assign_head"`
 		RetryPending bool   `json:"retry_pending"`
 		Shut         bool   `json:"allowance_shut"`
-		Lifecycle    string `json:"lifecycle"`
 	}
 	doc := struct {
 		Members  []member          `json:"members"`
@@ -253,7 +251,7 @@ func (c *priorityDigestInputs) digest() (string, error) {
 			Readiness: m.readiness, Reason: m.reason, Authority: m.authority,
 			Head: m.head, Withdrawn: m.withdrawn, AssignStage: m.assignStage,
 			AssignHead: m.assignHead, RetryPending: m.retryPending,
-			Shut: m.allowanceShut, Lifecycle: m.lifecycle,
+			Shut: m.allowanceShut,
 		})
 	}
 	for repo := range c.repos {
@@ -281,7 +279,7 @@ func (c *priorityDigestInputs) digest() (string, error) {
 }
 
 // batchMemberInputs loads per-member acceptance, withdrawal, assignment,
-// allowance and lifecycle state in chunked membership queries. Retry
+// allowance state in chunked membership queries. Retry
 // lookup runs only for terminal same-head members, the single case where
 // it changes candidacy.
 func (c *priorityDigestInputs) batchMemberInputs(ctx context.Context) error {
@@ -315,10 +313,6 @@ func (c *priorityDigestInputs) batchMemberInputs(ctx context.Context) error {
 	if err := priorityBatchAllowanceShut(ctx, c.tx, keys, shut); err != nil {
 		return err
 	}
-	lifecycle := map[[2]int64]string{}
-	if err := priorityBatchLifecycle(ctx, c.tx, keys, lifecycle); err != nil {
-		return err
-	}
 	for i, m := range c.members {
 		key := [2]int64{m.repository, m.issue}
 		c.members[i].head = heads[key]
@@ -339,7 +333,6 @@ func (c *priorityDigestInputs) batchMemberInputs(ctx context.Context) error {
 			}
 		}
 		c.members[i].allowanceShut = shut[key]
-		c.members[i].lifecycle = lifecycle[key]
 	}
 	return nil
 }
@@ -634,37 +627,6 @@ func prioritySponsorshipAllowance(ctx context.Context, tx *sql.Tx, repository in
 		return 0
 	}
 	return sponsorship.AllowanceMinutes
-}
-
-// priorityBatchLifecycle summarizes lifecycle actions per member.
-func priorityBatchLifecycle(ctx context.Context, tx *sql.Tx, keys [][2]int64, out map[[2]int64]string) error {
-	for _, chunk := range priorityKeyChunks(keys) {
-		query, args := priorityPairQuery(`SELECT repository, issue, event, action, attempts, revoked FROM factory_lifecycle_actions WHERE (repository, issue) IN `, chunk)
-		rows, err := tx.QueryContext(ctx, query, args...)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var repository, issue int64
-			var event, action string
-			var attempts int
-			var revoked bool
-			if err := rows.Scan(&repository, &issue, &event, &action, &attempts, &revoked); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			key := [2]int64{repository, issue}
-			out[key] += fmt.Sprintf("%s/%s/revoked=%t;", event, action, revoked)
-		}
-		if err := rows.Err(); err != nil {
-			_ = rows.Close()
-			return err
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // LoadPriorityScan returns the current scan with its observations, or
