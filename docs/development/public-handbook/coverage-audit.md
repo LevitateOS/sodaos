@@ -318,7 +318,7 @@ agreement is not evidence of actual usage or product correctness.
 ## Selected resolutions and remaining evidence
 
 The owner requested product resolutions after this audit. The
-[existing remaining-work list](../factory-remaining-tasks.md#selected-product-resolutions-for-handbook-blockers)
+[existing remaining-work list](../factory-remaining-tasks.md)
 now owns all seven directions and their acceptance criteria. The questions
 are no longer unassigned owner decisions; the remaining blockers are concrete
 implementation, measurements and release observations.

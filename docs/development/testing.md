@@ -358,7 +358,7 @@ or Jev agreement. Do not build the release merely to approve architecture prose.
 The accepted RCX/RCX-2 source repairs retain these failure criteria. Exercise the
 changed join with the existing component driver; do not replay an obsolete task
 schedule. Current uncovered native consumers belong to Factory R03–R06/R45/R46/
-R50–R53 in the [remaining-outcome catalog](factory-remaining-tasks.md).
+R50–R53 (removed from the task list; see git history).
 
 | Existing repair | Boundary that must remain true |
 | --- | --- |
@@ -401,13 +401,12 @@ new candidate. Preserve these criteria when touching their boundary:
 - Installed bytes/schema and retained-data checks bind actual identities. Earlier
   frontend installation proof does not qualify a different complete release.
 
-The [Spaces UX](../design/spaces-ux.md) and [feed design](../design/factory-feed-and-ralph-integration.md)
+The [Spaces UX](../design/spaces-ux.md) and feed design
 own the intended presentation; these are regression boundaries, not a second backlog.
 
 ## Canlang qualification boundaries
 
-The [canonical Canlang recipes](factory-remaining-tasks.md#canlang-execution-recipes)
-own remaining work; the [runtime contract](canlang-soda-os-implementation-plan/production-workerd.md)
+The [runtime contract](canlang-soda-os-implementation-plan/production-workerd.md)
 owns provider/process/image details. Keep these evidence layers distinct:
 
 | Gate | Required evidence | Failure disposition |

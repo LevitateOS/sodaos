@@ -108,7 +108,7 @@ extension dir, e.g. `assets/sodaspaces-page.css`):
 
 ```sh
 cd ~/vm-web-probe/build
-mkdir packageN && cp -r sodaN/assets packageN/assets && cp sodaN/files.json packageN/
+mkdir packageN && cp -r sodaN/assets packageN/assets
 (cd packageN && find assets -type f | sort | xargs sha256sum) > assetsN.sha256
 tar -cf packageN.tar -C packageN . && sha256sum packageN.tar > packageN.sha256
 ```

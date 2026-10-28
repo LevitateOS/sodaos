@@ -1,4 +1,4 @@
-// soda-project-maintain performs explicit retained Project tool and release maintenance.
+// soda-project-maintain performs explicit retained Project tool maintenance.
 use std::time::{Duration, Instant};
 
 mod archive;
@@ -9,7 +9,6 @@ mod config_validation;
 mod config_wire;
 mod factory_mcp;
 mod filesystem;
-mod importer_custody;
 mod interface;
 mod interface_admission;
 mod network;
@@ -17,11 +16,6 @@ mod options;
 mod project;
 mod provider_stage;
 mod release;
-mod release_extensions;
-mod release_inventory;
-mod release_operation;
-mod release_stage;
-mod release_target;
 mod release_wire;
 mod sha256;
 mod stage;
@@ -42,20 +36,6 @@ fn main() {
         .skip(1)
         .map(|arg| arg.to_string_lossy().into_owned())
         .collect();
-    if unsafe { libc::geteuid() } == 0 {
-        let release = match argv.first().map(String::as_str) {
-            Some("release") => Some(release_operation::run(&argv[1..])),
-            Some("release-reconcile") => Some(release_operation::reconcile_boot(&argv[1..])),
-            _ => None,
-        };
-        if let Some(result) = release {
-            if let Err(error) = result {
-                eprintln!("soda-project-maintain: {error}");
-                std::process::exit(error.exit_code());
-            }
-            return;
-        }
-    }
     if let Err(e) = run(&argv) {
         eprintln!("soda-project-maintain: {e}");
         std::process::exit(1);
@@ -71,12 +51,7 @@ fn run(argv: &[String]) -> Result<(), String> {
         Some("factory-mcp") => return factory_mcp::run(&argv[1..]),
         Some("canlang") => return canlang::run(&argv[1..]),
         Some("muse") => {}
-        _ => {
-            return Err(
-                "select muse, canlang, factory-mcp, terminal-support or release maintenance"
-                    .to_string(),
-            )
-        }
+        _ => return Err("select muse, canlang, factory-mcp or terminal-support".to_string()),
     }
     let o = parse(&argv[1..])?;
     let c = load_config(&o.config)?;

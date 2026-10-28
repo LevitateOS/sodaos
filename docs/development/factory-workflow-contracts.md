@@ -1460,7 +1460,7 @@ This is the input side of the [worker interface](#d14-worker-interface-layers).
 The role context matrix does not enumerate working tools, communication verbs
 or formal output controls, and does not establish their implementation status.
 
-This section owns the target design. [R31](factory-remaining-tasks/04-controls-repair-verification.md#r31)
+This section owns the target design. [R31](factory-remaining-tasks.md)
 owns implementation and qualification status. The response shapes and additional
 collection bounds below are the recommended implementation design; the 0.80
 selection cutoffs already exist in source but still need context-specific
@@ -2333,7 +2333,7 @@ remain precise external gates, never replaced by fabricated passing evidence.
 ## D18 — Outcome routes, decision alternatives and content work
 
 This contract refines the final intended workflow. Its implementation and
-qualification belong to the [process-audit findings](factory-remaining-tasks.md#factory-process-audit-and-required-improvements)
+qualification belong to the [process-audit findings](factory-remaining-tasks.md)
 and their existing R tasks. It adds no separate queue, service or blanket human
 approval. Product/handbook prose describes the completed behavior; this contract
 and the task list retain implementation criteria.

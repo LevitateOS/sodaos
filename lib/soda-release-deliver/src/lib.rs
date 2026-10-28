@@ -1,4 +1,4 @@
-//! Release-delivery library for qualification admission, protected signing,
+//! Release-delivery library for candidate admission, protected signing,
 //! authenticated fetch, and ledger-backed publication. It does not install
 //! an image, change host trust, or reboot.
 
@@ -12,14 +12,11 @@ pub mod docker;
 pub mod document;
 pub(crate) mod json_serde;
 pub mod model;
-pub mod native;
 pub mod oci;
 pub mod payload;
 pub mod prepare;
 pub mod publish;
-pub mod upgrade;
 
-pub use model::{Permit, Trust};
 pub use payload::{Image, Payload, Role};
 
 /// Validation/transport failure with a diagnostic message.

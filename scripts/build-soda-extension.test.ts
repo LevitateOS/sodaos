@@ -53,8 +53,6 @@ test('native Soda package contains its entire local browser asset graph', async 
         expect((await stat(resolve(optionalOut, 'assets', dirname(name), match[1]))).isFile()).toBe(true);
       }
     }
-    const listed = JSON.parse(await readFile(resolve(out, 'files.json'), 'utf8')) as string[];
-    expect(listed).toEqual(files);
     for (const name of [
       'soda-spaces-entry.js',
       'components.css',

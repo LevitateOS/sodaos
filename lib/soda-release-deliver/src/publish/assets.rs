@@ -45,21 +45,6 @@ pub struct Manifest {
     pub assets: Vec<Asset>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Qualification {
-    pub format: u32,
-    pub soda_revision: String,
-    pub forgejo_revision: String,
-    pub iso_sha256: String,
-    pub rootfs_sha256: String,
-    pub downloaded_iso_sha256: String,
-    pub observed_soda_revision: String,
-    pub install: String,
-    pub boot: String,
-    pub applications: String,
-}
-
 fn failure(message: &str) -> Error {
     Error::msg(message)
 }
@@ -178,15 +163,6 @@ impl Manifest {
     }
 
     fn validate_manifest_header(&self) -> Result<(), Error> {
-        let has_upgrade = self
-            .assets
-            .iter()
-            .any(|asset| asset.name == crate::upgrade::QUALIFICATION_FILE);
-        if has_upgrade {
-            return Err(failure(
-                "upgrade qualification belongs to the poststage promoted summary",
-            ));
-        }
         if self.format != 1
             || !valid_tag(&self.tag)
             || !crate::buildx::is_revision(&self.soda_revision)
@@ -282,31 +258,6 @@ impl Manifest {
         Ok(())
     }
 }
-impl Qualification {
-    pub(super) fn validate(&self, manifest: &Manifest, downloaded: &Asset) -> Result<(), Error> {
-        let iso = manifest.asset(&manifest.iso)?;
-        let rootfs = manifest.asset(&manifest.rootfs)?;
-        if self.format != 1
-            || self.soda_revision != manifest.soda_revision
-            || self.forgejo_revision != manifest.forgejo_revision
-            || self.observed_soda_revision != manifest.soda_revision
-            || self.iso_sha256 != iso.sha256
-            || self.rootfs_sha256 != rootfs.sha256
-            || self.downloaded_iso_sha256 != iso.sha256
-            || downloaded.sha256 != iso.sha256
-            || downloaded.bytes != iso.bytes
-            || self.install != "passed"
-            || self.boot != "passed"
-            || self.applications != "passed"
-        {
-            return Err(failure(
-                "native install/boot receipt does not qualify these exact release bytes",
-            ));
-        }
-        Ok(())
-    }
-}
-
 /// Stage exact bytes locally; this does not qualify or publish a release.
 fn admit_prepare_candidate(
     candidate: &Path,

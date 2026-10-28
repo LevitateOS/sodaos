@@ -29,16 +29,12 @@ pub(crate) fn command() -> Command {
         .about("Finish public registry readback without repeating an upload")
         .arg(Arg::new("input").long("input").required(true).num_args(1));
     let promote = Command::new("promote")
-        .about("Promote the unchanged qualified digest and eligible recommendation pointers")
+        .about("Promote the staged prerelease and move the recommendation pointers")
         .arg(Arg::new("input").long("input").required(true).num_args(1))
         .arg(Arg::new("auth-file").long("auth-file").num_args(1));
     let status = Command::new("status")
         .about("Inspect prepared inputs, remote state, blockers and next action without mutation")
         .arg(Arg::new("input").long("input").required(true).num_args(1));
-    let qualify = Command::new("qualify")
-        .about("Validate exact installed evidence for every selected target")
-        .arg(Arg::new("input").long("input").required(true).num_args(1))
-        .args(["evidence", "downloaded-iso"].map(|name| Arg::new(name).long(name).num_args(1)));
     let start = Command::new("start")
         .about("Guide a production build and local preparation; never publish or deploy")
         .args(
@@ -56,18 +52,6 @@ pub(crate) fn command() -> Command {
                 .help("Check all release prerequisites without building or creating an attempt")
                 .action(ArgAction::SetTrue),
         );
-    let qualify_upgrade = ["input", "evidence"].into_iter().fold(
-        Command::new("qualify-upgrade")
-            .about("Stamp exact native transition, recovery and stopped-Project observations"),
-        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
-    );
-    let collect = ["config", "candidate", "out"].into_iter().fold(
-        Command::new("collect").about("Run one admitted native collector; never build or publish"),
-        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
-    );
-    let finalize = Command::new("finalize-evidence")
-        .about("Finalize or recover a retired collector's exact evidence without rerunning it")
-        .arg(Arg::new("out").long("out").required(true).num_args(1));
     Command::new("soda-release")
         .subcommand_required(true)
         .subcommand(prepare)
@@ -76,11 +60,6 @@ pub(crate) fn command() -> Command {
         .subcommand(promote)
         .subcommand(start)
         .subcommand(status)
-        .subcommand(qualify)
-        .subcommand(qualify_upgrade)
-        .subcommand(collect)
-        .subcommand(finalize)
-        .subcommand(crate::journey::command())
 }
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
     let cli = match command().try_get_matches_from(args) {
@@ -96,21 +75,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         .ok_or_else(|| "release action required".to_owned())?;
     match action {
         "start" => crate::release_start::run(flags),
-        "journey" => crate::journey::run(flags),
         "stage" | "promote" => run_stage_or_promote(action, flags),
         "status" => run_status(flags),
         "verify-images" => run_verify_images(flags),
-        "qualify" => run_qualify(flags),
-        "qualify-upgrade" => run_qualify_upgrade(flags),
         "prepare" => run_prepare(flags),
-        "collect" => crate::qualification::collect(
-            Path::new(required_input(flags, "config")?),
-            Path::new(required_input(flags, "candidate")?),
-            Path::new(required_input(flags, "out")?),
-        ),
-        "finalize-evidence" => {
-            crate::qualification::finalize(Path::new(required_input(flags, "out")?))
-        }
         _ => Err("unknown release action".to_owned()),
     }
 }
@@ -155,43 +123,6 @@ fn run_verify_images(flags: &clap::ArgMatches) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-fn run_qualify(flags: &clap::ArgMatches) -> Result<(), String> {
-    let input = Path::new(required_input(flags, "input")?);
-    let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
-    qualification_inputs(flags, manifest.distribution)?;
-    if manifest.docker.is_some() {
-        publish::qualify_docker(
-            &publish::Gh,
-            &publish::registry::Skopeo,
-            &manifest,
-            input,
-            Path::new(required_input(flags, "evidence")?),
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    if manifest.has_appliance() {
-        publish::qualify_appliance(
-            &publish::Gh,
-            input,
-            Path::new(required_input(flags, "downloaded-iso")?),
-            Path::new(required_input(flags, "evidence")?),
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    println!("Required qualification receipts validated; use status before promotion.");
-    Ok(())
-}
-
-fn run_qualify_upgrade(flags: &clap::ArgMatches) -> Result<(), String> {
-    publish::qualify_upgrade(
-        &publish::Gh,
-        Path::new(required_input(flags, "input")?),
-        Path::new(required_input(flags, "evidence")?),
-    )
-    .map(|_| ())
-    .map_err(|e| e.to_string())
-}
-
 fn run_prepare(flags: &clap::ArgMatches) -> Result<(), String> {
     let manifest = publish::prepare(
         Path::new(required_input(flags, "candidate")?),
@@ -206,27 +137,6 @@ fn run_prepare(flags: &clap::ArgMatches) -> Result<(), String> {
         manifest.tag,
         required_input(flags, "out")?
     );
-    Ok(())
-}
-fn qualification_inputs(
-    flags: &clap::ArgMatches,
-    distribution: soda_release_deliver::model::Distribution,
-) -> Result<(), String> {
-    use soda_release_deliver::model::Distribution;
-    let mut required = vec!["evidence"];
-    if distribution != Distribution::Docker {
-        required.push("downloaded-iso");
-    }
-    for name in required {
-        if flags
-            .get_one::<String>(name)
-            .is_none_or(|value| value.is_empty())
-        {
-            return Err(format!(
-                "--{name} required for the selected distribution before qualification"
-            ));
-        }
-    }
     Ok(())
 }
 pub fn main() {

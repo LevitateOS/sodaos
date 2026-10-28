@@ -61,7 +61,7 @@ not automatically become permanent knowledge.
 - [D14](../development/factory-workflow-contracts.md#d14--one-factory-mcp-implementation-and-seven-profiles)
   already defines one Factory MCP implementation, scoped admission, receipts,
   role finishes and separate native execution tools.
-- The [feed design](factory-feed-and-ralph-integration.md) already calls for a
+- The feed design already calls for a
   combined subscribed feed, structured contributions, comments and links from
   discussions to resulting work. Several interaction and record schemas remain
   unspecified.
@@ -111,12 +111,7 @@ child result is created. Observed output still passes through
 `factory.submit_task_output` and the existing committed checkpoint before
 dependent work may proceed. Codex retains its native dynamic task tools.
 
-The shared [component catalog](../../internal/factory/feed_components.json)
-contains 121 presentation variants: 102 worker-report/role-result variants,
-10 controller-owned event variants and nine Library Admin variants.
-Each worker variant declares its allowed role and semantic outlet; direct tool
-calls enforce that mapping. A worker cannot select a merge/completion card to
-manufacture a confirmed effect. Library Admin has dedicated revision-checked mutation tools, scoped to the current project. `learned` and `record_decision` create real searchable library entries together with their posts. Edit, remove, restore, consolidate, split, relate and supersede preserve attributed history. Project feed users can search these entries and inspect their revisions.
+Library Admin has dedicated revision-checked mutation tools, scoped to the current project. `learned` and `record_decision` create real searchable library entries together with their posts. Edit, remove, restore, consolidate, split, relate and supersede preserve attributed history. Project feed users can search these entries and inspect their revisions.
 
 Artifacts use `factory.publish_artifact`: stable upload ID, byte offset, base64 chunks of at most 32 KiB and an explicit final chunk, with an 8 MiB file limit. Only finalization publishes a post; chunk replay recovers the same receipt. Artifact references resolve through project authorization, with lazy image/video/audio/text previews and downloads. Graph edges come from explicit item IDs and dependencies.
 
@@ -875,16 +870,6 @@ a local transaction cannot make a remote merge atomic.
 
 ## 6. The feed is a work conversation people can follow
 
-The [custom feed component catalog](factory-feed-components.md) expands this
-section into every proposed role-specific component, its compact/expanded
-content, meaningful interactions, source records and failure states. It also
-identifies producer-schema gaps, shared knowledge views and Factory/Jev events.
-These are compositions of domain records, not one new tool per visual block.
-Its [non-happy-path routing contract](factory-feed-components.md#failure-component-routing)
-defines shared exceptions, per-role scenario mappings, combined failures and
-recovery. Role actions need typed affected objects, reason/evidence/revision
-bindings and receipt recovery so those views can be selected truthfully.
-
 Each visible entry should answer: who acted, what changed, why it matters, what
 evidence supports it, and what follows. The role action and authoritative domain
 state determine the component composition through the server's authorized
@@ -926,7 +911,7 @@ Human comments and answers use authenticated frontend operations against these
 same domain objects. They do not borrow a worker capability. Submitting a human
 comment invokes JEV assessment; if new work is selected, a Product Lead LLM writes
 the issue and the native issue owner creates it. The
-[comment intake contract](factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work)
+comment intake contract
 binds the exact source revision, funded assessment, authoring and native result.
 It also covers discussion-only, clarification and existing-work outcomes. Reads,
 draft typing and generated agent replies do not invoke this intake. A created
@@ -1160,7 +1145,7 @@ tests are implementation-design work after these interfaces are assessed.
 ## 10. Integration and validation
 
 The owner requested full integration into the task list. The
-[complete tool-to-task map](../development/factory-remaining-tasks.md#full-worker-design-integration)
+[complete tool-to-task map](../development/factory-remaining-tasks.md)
 assigns every proposed operation and the connected context, feed, library,
 decision, issue-ownership and maintenance behavior to existing tasks. Those
 task cards contain concrete deliverables and acceptance cases; the design is
@@ -1192,13 +1177,13 @@ are not adequate replacements for Soda's grants, bounded retrieval and separatio
 between data and authority. Knowledge text must remain attributed data even if
 it contains instruction-like language; a string scrubber is not that boundary.
 
-The [restructured execution map](../development/factory-remaining-tasks.md#task-list)
+The [restructured execution map](../development/factory-remaining-tasks.md)
 owns the implementation sequence. It starts with the typed issue/workflow and
 admitted-subject contracts, then releases shared MCP/context/System One and
 record lifecycles to independently useful consumers. Communication/knowledge
 reuse, role delivery, research prerequisites, UI and qualification have explicit
 Rxx.y tasks rather than appended scope inside oversized parents. Its
-[complete tool map](../development/factory-remaining-tasks.md#full-worker-design-integration)
+[complete tool map](../development/factory-remaining-tasks.md)
 assigns every main-design tool one primary executable owner; the five proposed
 issue/research additions have separate, explicit owners in that same list.
 Preserve accepted mechanisms and replace changed unreleased callers together.
@@ -1493,7 +1478,7 @@ would need an explicit research-subject schema, with no fake code candidate/PR.
 
 ### Feed, knowledge and failure behavior
 
-The [structured native issue presentation](factory-feed-components.md#structured-issue-presentation)
+The structured native issue presentation
 defines the issue detail/editor and compact list/feed previews: objective,
 work type, expertise, deliverables/acceptance, workflow/current responsibility,
 directional dependencies, context/boundaries and results. It keeps editable
@@ -1523,7 +1508,7 @@ open separately; no mandatory post for each search or source read.
 
 ### Task ownership for this extension
 
-The [integrated issue/research tasks](../development/factory-remaining-tasks.md#issue-work-contract-extension)
+The [integrated issue/research tasks](../development/factory-remaining-tasks.md)
 are part of the main execution map. R10.1/R10.2 resolve the role/workflow and
 typed subject, R13.2 owns the native metadata, R14.2 resolves routing and R32.12
 creates/reuses issues and required-result relations. R32.13 produces research;

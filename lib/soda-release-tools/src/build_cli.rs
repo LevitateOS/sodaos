@@ -89,10 +89,6 @@ fn command(name: &str) -> ClapCommand {
             "public base URL for the exact hash-named rootfs file",
         ))
         .arg(value(
-            "media-authority",
-            "worker-local packaging authority; GitHub owns release authenticity",
-        ))
-        .arg(value(
             "live-inputs",
             "internal controller-resolved live inputs file",
         ))
@@ -165,10 +161,6 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
             .get_one::<String>("rootfs-base-url")
             .cloned()
             .unwrap_or_default(),
-        media_authority: matches
-            .get_one::<String>("media-authority")
-            .cloned()
-            .unwrap_or_default(),
         development: matches.get_one::<String>("development").is_some_and(|v| {
             v == "true" || v == "1" || v == "t" || v == "T" || v == "TRUE" || v == "True"
         }),
@@ -223,11 +215,8 @@ pub fn admit_worker_build(f: &BuildFlags) -> Result<(), String> {
 }
 
 pub fn admit_parent_dispatch(f: &BuildFlags) -> Result<(), String> {
-    if f.worker_config.is_empty() || !f.request.media_authority.is_empty() {
-        return Err(
-            "root-owned --worker-config required; media authority belongs to the isolated worker"
-                .to_owned(),
-        );
+    if f.worker_config.is_empty() {
+        return Err("root-owned --worker-config required".to_owned());
     }
     if !f.request.live_inputs.is_empty() || !f.request.forgejo_revision.is_empty() {
         return Err(

@@ -18,7 +18,6 @@
   "systemd": {
     "units": [
       {"name": "soda-host.socket", "enabled": true},
-      {"name": "soda-project-release-reconcile.service", "enabled": true},
       {"name": "cockpit.socket", "enabled": true},
       {"name": "soda-provider-update.timer", "enabled": true},
       {"name": "soda-console.service", "enabled": true}

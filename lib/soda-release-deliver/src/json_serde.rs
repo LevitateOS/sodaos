@@ -147,24 +147,6 @@ pub(crate) fn null_i64<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error>
     }
 }
 
-pub(crate) fn null_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
-    use serde::de::Error as _;
-    let raw = Option::<Box<serde_json::value::RawValue>>::deserialize(d)?;
-    match raw {
-        None => Ok(0),
-        Some(raw) => {
-            let lexeme = parse_integer(raw.get())
-                .ok_or_else(|| D::Error::custom("invalid unsigned integer"))?;
-            if lexeme == "-0" {
-                return Ok(0);
-            }
-            lexeme
-                .parse::<u64>()
-                .map_err(|_| D::Error::custom("invalid unsigned integer"))
-        }
-    }
-}
-
 fn parse_integer(token: &str) -> Option<&str> {
     let digits = token.strip_prefix('-').unwrap_or(token);
     if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {

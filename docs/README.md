@@ -66,7 +66,7 @@ factory work.
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
 | [Source ownership](development/ownership.md) | Language, package and process boundaries |
-| [Remaining factory work](development/factory-remaining-tasks.md) | Dependency-ordered execution tasks for the complete Factory/MCP/issue/research/library/feed design, with retained acceptance and shared release dependencies |
+| [Remaining factory work](development/factory-remaining-tasks.md) | The current founder-demo checklist |
 | [Founder-demo implementation checklist](development/factory-remaining-tasks.md#founder-demo-checklist) | 39 connected tasks for the journey, conversational decisions/JEV, app use at its own address, policy update and demo qualification |
 | [Handbook todo list](development/public-handbook/cutover.md#what-can-proceed-now) | Ready work, partially available work and exact dependencies for all 41 public pages, examples, captures, validation and handoff |
 | [Workflow contracts](development/factory-workflow-contracts.md) | D01–D18 schemas, algorithms, outcome/content routes, authority/recovery limits and decisive tests |
@@ -90,9 +90,7 @@ factory work.
 | [Branding](design/branding.md) | Logo, palette, asset rules |
 | [Spaces UX](design/spaces-ux.md) | Spaces page and persistent panel design |
 | [Factory demo journey](design/factory-demo-journey.md) | Founder persona, product-wide journey, source-backed UX gaps and target screen/flow behavior |
-| [Factory feed and Ralph4days integration](design/factory-feed-and-ralph-integration.md) | Agreed integration direction, complete-procedure presentation, role authors, MCP communication proposals and open feed design choices |
 | [Factory worker MCP redesign](design/factory-worker-mcp.md) | Shared/role-specific Factory tools, generic System One judgments, Library Admin, issue work contracts and proposed research routing |
-| [Factory feed component catalog](design/factory-feed-components.md) | Custom components for every role, shared knowledge and Factory events; compact/expanded views, interactions, source records and state behavior |
 | [Spaces sheets](design/spaces/README.md) | Annotated visual design sheets |
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |

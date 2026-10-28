@@ -2,7 +2,7 @@
 
 **Required:** follow the [freshness policy](freshness.md). Resolve current upstream inputs before creating baselines; update stale locks and tools instead of retaining them for reproducibility.
 
-[Factory execution map](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
+[Factory task list](factory-remaining-tasks.md) holds the current founder-demo checklist. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 
@@ -40,22 +40,18 @@ language, packages and placement. Update guidance affected by the current change
 | Why unit tests are forbidden | [Why unit tests are forbidden](why-no-unit-tests.md) |
 | Support tool effects and candidates | [Native support](native-support.md) |
 | Running the release pipeline | [Release workflow](release.md) |
-| RC6 installed results, failures and handoff | [25 October qualification record](rc6-qualification-2026-10-25.md) |
 | Production gaps after the 28 October founder demo | [Production gaps](production-gaps.md) |
 | Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
-## Remaining implementation and qualification
+## Remaining implementation
 
-The [remaining-outcome catalog](factory-remaining-tasks.md) is the single execution
-entrypoint: 53 Factory and 12 Canlang outcomes remain, with all
-shared criteria counted once. Its six task packets and Canlang recipes supply
-concrete source starts, prerequisite outputs, next slices and acceptance.
+The [Factory task list](factory-remaining-tasks.md) holds the current checklist.
 Take the smallest useful slice covered by the current request.
 
 The [workflow contracts](factory-workflow-contracts.md) own schemas, algorithms,
 limits and decisive cases; [factory interfaces](../architecture/factory-interfaces.md)
-own component APIs and records. Product, trust and [feed design](../design/factory-feed-and-ralph-integration.md)
+own component APIs and records. Product, trust and feed design
 own their respective behavior, authority and presentation decisions. Old parallel
 plans and run schedules were absorbed and removed; Git retains their history.
 

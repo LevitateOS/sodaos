@@ -8,7 +8,6 @@ use crate::compression;
 use crate::error::Error;
 use crate::files;
 use crate::foreign::Production;
-use crate::jsonio;
 use crate::model;
 use crate::request;
 use crate::sys;
@@ -18,8 +17,7 @@ pub use crate::media_assembler::{
     verify_assembler_layers, wrap_assembler_image, ASSEMBLER_CONFIG_BRANCH, ASSEMBLER_IMAGE,
 };
 pub use crate::media_authentication::{
-    authenticate_packaging_inputs, collect_media_inventory, sign_media_input,
-    verify_media_inventory,
+    authenticate_packaging_inputs, collect_media_inventory, verify_media_inventory,
 };
 pub use crate::media_container::{
     assemble_native_media, build_media_container, stop_packaging_container, verify_build_meta,
@@ -48,27 +46,6 @@ pub struct MediaLock {
     #[serde(rename = "Installer")]
     pub installer: String,
 }
-
-/// Signing inputs belong to the invoking authority, never the source snapshot
-/// or child build environment. Local fixture authority does not prove job
-/// isolation; protected worker commissioning and final qualification remain
-/// B4/B5 work.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct MediaAuthority {
-    pub trust: String,
-    pub keys: model::SecretFiles,
-}
-
-impl MediaAuthority {
-    pub fn parse(text: &str) -> Result<MediaAuthority, Error> {
-        jsonio::parse(text).map_err(|_| Error::msg(sys::refused()))
-    }
-}
-
-crate::jsonio::case_record!(MediaAuthority, {
-    trust: String => "Trust",
-    keys: model::SecretFiles => "Keys",
-});
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Media {
@@ -140,30 +117,12 @@ pub fn media_base_url(value: &str) -> Result<(), Error> {
 
 #[derive(Debug, Default)]
 pub struct MediaInputs {
-    pub authority: MediaAuthority,
-    pub trust: model::Trust,
     pub candidate: model::Candidate,
     pub payload: model::Payload,
     pub observed: model::Image,
     pub archive: String,
     pub filesystem: String,
     pub fsoptions: String,
-}
-
-pub fn admit_media_authority(
-    authority_path: &str,
-    prefix: &str,
-) -> Result<(MediaAuthority, model::Trust), Error> {
-    let authority_text = sys::read_json_deliver_text(authority_path)?;
-    let authority = MediaAuthority::parse(&authority_text)?;
-    let trust_text = sys::read_json_deliver_text(&authority.trust)?;
-    let trust = model::Trust::parse(&trust_text)?;
-    if trust.validate().is_err() || trust.prefix != prefix {
-        return Err(Error::msg(
-            "media authority does not match intended repositories",
-        ));
-    }
-    Ok((authority, trust))
 }
 
 pub fn admit_media_candidate(
@@ -216,10 +175,6 @@ pub fn admit_media_inputs(
     revision: &str,
 ) -> Result<MediaInputs, Error> {
     let mut inputs = MediaInputs::default();
-    let (authority, trust) =
-        admit_media_authority(&request.media_authority, &request.repository_prefix)?;
-    inputs.authority = authority;
-    inputs.trust = trust;
     let (candidate, payload, observed, archive) =
         admit_media_candidate(production, artifacts, arch, revision)?;
     inputs.candidate = candidate;
@@ -305,17 +260,7 @@ pub fn assemble_media(
         production.revision(),
     )?;
     next("P7 / Authenticate packaging inputs")?;
-    authenticate_packaging_inputs(
-        production,
-        request,
-        &root,
-        &artifacts,
-        &inputs.archive,
-        &inputs.observed.manifest,
-        &inputs.authority,
-        &inputs.trust,
-        lock,
-    )?;
+    authenticate_packaging_inputs(request, &root, &artifacts)?;
     next("P8 / Assemble candidate-derived native media")?;
     let (build_dir, id) = assemble_native_media(production, &root, &artifacts, &inputs.payload.id)?;
     let meta = verify_build_meta(&build_dir, &inputs.candidate)?;

@@ -31,7 +31,13 @@ function packageAssets(packageID: ExtensionPackage) {
         name === 'components.css' || (packageID === 'soda' ? name.startsWith('sodaspaces') : name.startsWith('soda-'))
     )
   );
-  return {entries: packageID === 'soda' ? {[entry]: allEntries[entry], 'soda-feed-entry.js': allEntries['soda-feed-entry.js']} : {[entry]: allEntries[entry]}, selectedStyles};
+  return {
+    entries:
+      packageID === 'soda'
+        ? {[entry]: allEntries[entry], 'soda-feed-entry.js': allEntries['soda-feed-entry.js']}
+        : {[entry]: allEntries[entry]},
+    selectedStyles,
+  };
 }
 
 function source(path: string) {
@@ -307,7 +313,6 @@ export async function buildSodaExtensionAssets(out: string, terminal: string, pa
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();
   assert(files.length > Object.keys(entries).length + Object.keys(selectedStyles).length);
-  await writeFile(resolve(out, 'files.json'), JSON.stringify(files, null, 2) + '\n');
   return files;
 }
 

@@ -6,11 +6,7 @@ license = "Apache-2.0"
 publish = false
 description = "Foundation crate for SodaOS Rust build tools (lane R)"
 
-[features]
-trust-key = ["dep:p256"]
-
 [dependencies]
-p256 = { version = "=0.13.2", default-features = false, features = ["arithmetic", "ecdsa", "pem", "std"], optional = true }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 url = "=2.5.8"

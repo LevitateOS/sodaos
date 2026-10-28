@@ -135,7 +135,6 @@ toolchain selected by [rust-toolchain.toml](rust-toolchain.toml).
 | [Wire time library](lib/wire-time/README.md) | Parse and format shared protocol timestamps. |
 | [Acceptance support](tools/acceptance/README.md) | Run bounded native checks and collect evidence. |
 | [Candidate setup](tools/candidate-setup/README.md) | Prepare an isolated development builder. |
-| [Lab credentials](tools/lab-credentials/README.md) | Inspect credentials and select a rotation runbook. |
 | [PostgreSQL fixture](tools/pg-fixture/README.md) | Start a disposable local test database. |
 | [Release assets](tools/release-assets/README.md) | Fetch and stage assets and render provisioning. |
 | [Test VM](tools/test-vm/README.md) | Start and access a prepared development VM. |

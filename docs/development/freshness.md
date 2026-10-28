@@ -59,7 +59,7 @@ known stale provider binaries must block new provider work until corrected.
 3. Record the resolved release identities, digests and check time, then hold those
    exact bytes for that running attempt. This record explains what ran; it is not
    a mandate to reuse those versions in the next attempt.
-4. Recheck freshness before qualification and promotion. If an upstream input has
+4. Recheck freshness before promotion. If an upstream input has
    advanced, update the affected component and its evidence before claiming a
    current baseline. Preserve prior artifacts/results as historical evidence;
    never rewrite an immutable release or relabel older proof as current.
@@ -70,56 +70,3 @@ Existing sessions retain their captured executable until completion so an update
 does not corrupt active work. New sessions select the newly current release.
 Retain only current, previous and still-referenced CLI bundles; reference cleanup
 must preserve credentials, accounts, budgets, data and required failed evidence.
-
-## Implementation status
-
-The automatic installed Codex/Muse updater is implemented in source (run
-UP-20261026-v1): shared retained store, upstream discovery, verified
-admission, status/due-check, active references and reference-aware cleanup in
-`lib/provider-tools`; broker and host staging consumers; `cmd/soda-provider-update`
-operator command; installed `system/host/services/soda-provider-update.service`
-and `.timer` units; project launch resolution and baseline freshness. The frozen
-shared contract lives in [provider-freshness-contract.md](provider-freshness-contract.md).
-Repository dependency automation is configured locally and takes effect only
-after publication to the repository's default branch.
-
-Proven locally in this run: unchanged-refresh reuse, atomic failure behavior,
-process retention, credential preservation, stale/unknown launch and baseline
-refusal, installed-path Project access, and live restage with legacy pins
-ignored. Accepted exact host bundle lifetime (`b8e578fa`, independently
-accepted): a staged execution retains its exact bundle reference from staging
-through reservation and the live run, so refresh/cleanup cannot collect it;
-the reference releases only after confirmed retirement and is preserved when
-retirement is uncertain; retired unreferenced bundles become collectable
-while the current selection stays untouched. Accepted external results:
-staged bundle survives two updates and GC while held, retired bundle
-reclaimed, current bundle preserved.
-
-Reproduce from the repository root (no credentials; hermetic lifetime tests,
-no model calls):
-
-- `cargo check -p soda-host --jobs 4`
-- `cargo test -p soda-host --jobs 4 --test muse_serve_oracle`
-- `bash scripts/check-no-unit-tests.sh`
-
-Observed on `b8e578fa`: check pass; oracle 27 passed, 0 failed (including
-2 lifetime tests); no-unit-tests gate pass.
-
-Remaining and unverified: installed/appliance activation (no production
-install was mutated or restarted here), Factory new-selection adoption and
-persisted cold-recovery integration (T06, foreign writer unreleased), nested
-live restage (no podman-capable guest image), and the full
-`prepare_execution` stage leg in minimal fixtures: rootful resolve now passes
-with `UsernsMode=private` (UP-V4; rootless `UsernsMode=""` stays denied by
-design), `ensure` restage verifies, and the stage tmpfs mount needs the
-production `SYS_ADMIN` cap. The last fixture gap (UP-V4-CAPS, run
-`up-20261026T062315Z` evidence `rootful-preflight/`) is closed in UP-V5:
-the real `target/debug/soda-muse` launcher plus its loader/libs (plus the
-fixture bundle's own `libcrypto.so.3`/`libz.so.1`, diagnosed from the
-guest `ld` error, not guessed) were copied into the isolated Alpine guest,
-so committed `prepare_execution` returns `PREPARE-OK` with the fixture
-digest retained across reservation, sanitized settings copy with auth
-excluded under the mapped account, and known-stale refusal through the same
-path — evidence `rootful-preflight/prepare-v5-result.txt`. Do not present this policy
-change as an update of all dependencies or VMs, and never claim an
-installation is current without an actual check.

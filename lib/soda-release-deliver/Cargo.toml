@@ -11,15 +11,12 @@ name = "soda_release_deliver"
 path = "src/lib.rs"
 
 [dependencies]
-tempfile = "=3.27.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["raw_value"] }
 base64 = "=0.22.1"
-soda-build-tools = { path = "../release-inputs", features = ["trust-key"] }
+soda-build-tools = { path = "../release-inputs" }
 sha2 = "0.10"
 tar = "0.4"
-soda-acceptance = { path = "../../tools/acceptance" }
-soda-wire-time = { path = "../wire-time" }
 flate2 = "1"
 libc = "=0.2.190"
 rustix = { version = "=1.1.5", default-features = false, features = ["std", "fs"] }

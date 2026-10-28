@@ -44,13 +44,7 @@ The gap audit below records the baseline before this implementation. Current
 local progress and remaining qualification are tracked in the checklist. The
 real Northstar reference app now passes in-Forge authentication, workflow and
 v1→v2 retention checks; it is not a Factory-generated output. No new installed
-Factory journey is claimed. The [25 October qualification record](../development/rc6-qualification-2026-10-25.md)
-reports native installation, the private application journey and native cold
-recovery passed; the complete Docker Factory and qualification chain did not.
-Its RC7 Docker trial reached successful implementation retirement and candidate
-publication, but independent review, completion, merge, persistence and final
-qualification did not pass. These outcomes must stay separate from native App
-qualification. The [19 October UX audit](../development/ux-audit-2026-10-19.md)
+Factory journey is claimed. The [19 October UX audit](../development/ux-audit-2026-10-19.md)
 contains repaired historical findings and is supporting context, not a current
 list of unchanged defects.
 
@@ -62,7 +56,7 @@ list of unchanged defects.
 | Roles | [MCP profiles](../../internal/factory/mcp_profile.go) distinguish Product Lead, Architect, Builder, Inspector, Fixer, Strategist, Test Pilot, Researcher and Library Admin. | Introduce a role when its contribution matters; avoid a roster tutorial. |
 | Execution | The [factory contract](../product/overview.md#software-factory-workflow) spans readiness, prepared Projects, implementation, publication, independent review/correction, merge and dependent work. | Show business progress backed by actual work; retain technical inspection as detail. |
 | JEV | Existing judgments compare supplied approaches, assumptions, work choices and comment routes. [Comment routing](../../internal/web/api/factory_feed_comment.go) handles discussion, clarification, existing work or new issue authoring. The service continuation also evaluates bounded invitations for already-running roles. | Explain the resulting decision in context; inspect the recorded invitation assessment and the role's separate reply. |
-| Feed | [Role posts](factory-feed-components.md) support artifacts, findings, questions, decisions and discussion; human comments have durable intake and linked outcomes. | Keep the social feed as the main communication surface. |
+| Feed | Role posts support artifacts, findings, questions, decisions and discussion; human comments have durable intake and linked outcomes. | Keep the social feed as the main communication surface. |
 | Decisions and knowledge | [Project library](../../frontend/spaces/sodaspaces-factory-library.ts), decision/knowledge post components and revisioned Library Admin controls already exist. | Expose every design decision and reusable lesson as a commentable post; filter the same posts to find decisions or knowledge, with currentness and history retained. |
 | Verification | [App completion](../product/overview.md#recovery-and-completion-of-an-app-version) requires integrated outcome coverage and exact evidence; [delivery admission](../../internal/factory/control/delivery_admission.go) implements scoped Test Pilot work. | Distinguish an issue being merged from the application workflow being verified. |
 | Private apps | [Applications UI](../../frontend/spaces/sodaspaces-applications.ts), owner setup and native lifecycle/recovery operations exist. [Runtime guidance](../guides/canlang-applications.md) distinguishes preview, private app identity and production state. | Once ready, App and the result post open the actual application at its own address in a new tab, with its exact version, app identity and data context visible in App; preserve the separate authorized release path. |
@@ -93,7 +87,7 @@ for human approval.
 | Develop or administer directly | Persistent terminals/tmux, Spaces, explicit human Join, SSH/SCP/SFTP, personal Git access, files/tools/services, Project lifecycle, operator accounts, networking/Tailnet, native CI, host diagnostics and appliance updates/recovery. | Preserve existing tools and native settings. Offer contextual entries from Work, environment status or an actual blocker; retain direct expert access. These are available branches, not mandatory screens in the founder demo. |
 
 Use the existing [feature disposition](../product/scope.md#feature-disposition)
-to preserve scope and the [complete intended procedure](factory-feed-and-ralph-integration.md#complete-intended-procedure)
+to preserve scope and the complete intended procedure
 for Factory coverage. The journey does not silently enable deferred capabilities.
 For each future capability, identify its entry moment, visible post or result,
 action surface and return destination. A capability is integrated only when those
@@ -151,7 +145,7 @@ The old claims that these controls are wholly absent are no longer accurate.
 | Replies can also enter the root feed. | [factory_feed.go:44](../../internal/store/factory_feed.go#L44) includes comments without excluding replies; [renderList](../../frontend/spaces/sodaspaces-factory-feed.ts#L1087) renders the returned entries independently. | Keep routine replies within their stable thread. A consequential new outcome can have a distinct linked root post; avoid duplicating the same contribution. |
 | An open thread does not receive the same background refresh as root posts. | [Refresh path](../../frontend/spaces/sodaspaces-factory-feed.ts#L401) updates outcomes and post bodies; [thread UI](../../frontend/spaces/sodaspaces-factory-feed.ts#L1200) exposes manual Refresh replies. | Refresh open discussions without moving the reader or replacing their draft. Show new replies when the person is reading older content. |
 | Generic JEV receipts do not retain the complete request or consultation thread binding. | [System One adapter](../../internal/web/api/factory_mcp_systemone.go#L108) and [judgment identity](../../internal/factory/judgment.go#L70) retain hashed input identity and returned results. | Capture permitted exact state/questions/options, work-post identity and actual call lifecycle at dispatch, then expose them as consultation comments. A renderer cannot reconstruct the original question from its hash. |
-| Knowledge and decision components exist, but the proposed journey must unify their discovery and conversation. | [Library entry](../../frontend/spaces/sodaspaces-factory-feed.ts#L979) replaces the feed view; its toolbar entrance at line 984 is an icon button. The [component catalog](factory-feed-components.md#implementation-update--19-october-2026) describes decision/knowledge posts and revisioned library operations. | Filter the same posts and threads for decisions or knowledge. Automatically publish every recorded design decision and link it to its source and affected work; verify complete producer coverage rather than assuming component availability proves it. |
+| Knowledge and decision components exist, but the proposed journey must unify their discovery and conversation. | [Library entry](../../frontend/spaces/sodaspaces-factory-feed.ts#L979) replaces the feed view; its toolbar entrance at line 984 is an icon button. The component catalog describes decision/knowledge posts and revisioned library operations. | Filter the same posts and threads for decisions or knowledge. Automatically publish every recorded design decision and link it to its source and affected work; verify complete producer coverage rather than assuming component availability proves it. |
 
 ### Decisions and knowledge are conversational posts
 
@@ -288,7 +282,7 @@ new standalone frontend, competing issue store or replacement runtime.
 
 Keep the application name, actual state and one next useful action visible.
 Open detail or a thread while preserving feed position. Use the established
-[newest-first independent post composition](factory-feed-components.md#work-post-presentation):
+newest-first independent post composition:
 author outside the bordered card, meaningful visual content, restrained actions,
 and discussion/evidence access. No default stage-chain rail or hidden ranking.
 

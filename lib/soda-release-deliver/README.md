@@ -1,7 +1,6 @@
 # soda-release-deliver
 
-GitHub release preparation, immutable prerelease publication and qualification-bound
-promotion. Rust imports use `soda_release_deliver`; operators use `soda-release`
+GitHub release preparation, immutable prerelease publication and promotion. Rust imports use `soda_release_deliver`; operators use `soda-release`
 from [release-tools](../soda-release-tools/README.md).
 
 ## Boundaries
@@ -13,10 +12,7 @@ from [release-tools](../soda-release-tools/README.md).
   built Payload v4 package version.
 - `publish::stage` checks prepared bytes, exact-source CI and tag, uploads/reads back
   the Docker version anonymously, then publishes the complete immutable GitHub prerelease.
-- `publish::qualify_appliance` retains the existing downloaded-ISO/native-smoke gate.
-  `publish::qualify_docker` verifies the actual public installation downloads, registry
-  identity and finalized native observations with the existing acceptance reader.
-- `publish::promote` rechecks all selected receipts and original evidence, preserves
+- `publish::promote` rechecks the tag, CI and asset inventory, preserves
   the public image digest while moving Docker latest, and updates only eligible GitHub
   recommendations. Docker-only promotion confirms appliance latest is unchanged.
 - `publish::status` observes identities, remote pointers, blockers and partial attempts
@@ -27,34 +23,26 @@ from [release-tools](../soda-release-tools/README.md).
   it whenever a `docker/` artifact directory is present. `docker::admit_publication`
   additionally requires production purpose. These APIs do not build, publish or
   qualify a runtime; the integrated producer and GHCR transport are separate owners.
-- `upgrade` admits one complete downloaded release, validates its external native
-  transition receipt, and stamps a receipt only from the fixed concrete native
-  observation files. Prospective source declarations alone grant no upgrade
-  authority. The rootfs contains the host and maintenance bytes. Application
-  images are acquired separately from the Payload v4 references.
-- `native` retains the restricted Skopeo boundary for local OCI artifact signing
-  and verification. These packaging keys do not replace GitHub's release attestation.
 
 GitHub owns release immutability and publication state. Registry promotion moves
-only the qualified digest recommendation; it adds no observed-authority database
+only the staged digest recommendation; it adds no observed-authority database
 or publisher ledger. Failed or uncertain
 publication is inspected before any retry; uploads never use clobbering.
 
 Staging and promotion both require the latest successful `CI` push run on `main`
 for the built Soda commit. The built Fountain revision must match that commit's
 `fountain-source.json`. The release notes link to the admitted CI run. CI checks
-source; the separate native smoke still qualifies the actual downloaded media.
+source; the operator smoke-installs the downloaded media before promotion.
 
 The `gh` client needs repository Contents write and Actions read permission. Staging also reads the
 repository's immutable-release setting, which requires Administration read access;
-enabling it is a one-time Administration write operation. Local signing uses the
-Skopeo version in [tools.json](tools.json) and restricted private-file inputs.
-Keys, passphrases, credentials and private VM state never enter the asset set.
+enabling it is a one-time Administration write operation.
+Credentials and private VM state never enter the asset set.
 
 These operations do not install images, activate a host or reboot. Follow the
 [release workflow](../../docs/development/release.md) for commands and the
-[release architecture](../../docs/architecture/release.md) for the bounded native
-qualification and single-installer download contract.
+[release architecture](../../docs/architecture/release.md) for the single-installer
+download contract.
 
 ## Version-bound Docker installer
 
@@ -68,15 +56,6 @@ circular identity. The rendered installer enters `release.json` and `SHA256SUMS`
 with all other immutable release assets. Every prepared inventory read verifies
 the installer against the archived template and those exact bindings.
 
-Docker qualification requires the original downloaded `install-docker.sh` beside
-the metadata, Compose, candidate and payload downloads. Each finalized phase
-binds all five public files, and GitHub verifies the downloaded installer asset.
-`installation/native.json` records `installer_sha256` and
-`installer_execution_sha256`; the latter must identify a retained execution
-transcript other than `native.json`. The transcript and invocation establish the
-actual public streamed installation command for review. Artifact admission alone
-does not prove that installation ran or passed.
-
 Successful promotion adds exactly this separate line to the editable notes:
 
 ```text
@@ -84,10 +63,9 @@ Successful promotion adds exactly this separate line to the editable notes:
 ```
 
 The values are the exact release tag, full source revision and `sha256:` image
-manifest digest. This line is emitted only after every selected distribution's
-native qualification passes. Consumer installation requires the matching line
-and a final immutable release; explicit operator qualification uses the immutable
-prerelease without treating it as a qualified consumer release. Docker selection
+manifest digest. Consumer installation requires the matching line and a final immutable release;
+`install-docker.sh --qualification` installs the immutable prerelease for the
+operator smoke test. Docker selection
 remains independent of GitHub's latest appliance release.
 
 ## Docker metadata and provenance
@@ -120,7 +98,7 @@ larger than the ordinary 512 MiB file limit. Ordinary file limits and the
 16 GiB total decoded-image budget still apply; compressed layers retain their
 separate 4 GiB budget.
 These are artifact checks; native service/browser/factory behavior still needs
-[Docker qualification](../../docs/architecture/release.md#docker-qualification).
+[Docker smoke install](../../docs/architecture/release.md#docker-smoke-install).
 
 The producer supplies `DockerRequest` from its frozen release request and labels
 the outer image before recording metadata. Existing OCI source/revision/base

@@ -486,7 +486,6 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
- "pem-rfc7468 0.7.0",
  "pkcs8",
  "rand_core 0.6.4",
  "sec1 0.7.3",
@@ -1806,7 +1805,6 @@ dependencies = [
 name = "soda-build-tools"
 version = "0.1.0"
 dependencies = [
- "p256",
  "serde",
  "serde_json",
  "url",
@@ -1816,7 +1814,6 @@ dependencies = [
 name = "soda-candidate-setup"
 version = "0.1.0"
 dependencies = [
- "getrandom 0.4.3",
  "libc",
  "serde",
  "serde_json",
@@ -2084,12 +2081,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "soda-acceptance",
  "soda-build-tools",
  "soda-release-image",
- "soda-wire-time",
  "tar",
- "tempfile",
 ]
 
 [[package]]
@@ -2129,17 +2123,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "url",
-]
-
-[[package]]
-name = "soda-rotate-lab-creds"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.4.3",
- "libc",
- "serde",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]

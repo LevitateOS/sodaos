@@ -38,12 +38,8 @@ preparation and recorded context-choice bindings.
 Build with the selected full clean driver revision as the linker value
 `github.com/levitateos/sodaos/internal/acceptance.FactoryContextToolRevision`.
 An unpinned build refuses. The installed source/payload may differ from that tool
-revision. Collector runtime preparation pins the binary and scope bytes separately;
-this command does not deploy itself or grant current-context authority. Normal
+revision. This command does not deploy itself or grant current-context authority. Normal
 owner actions still pass canonical eligibility/admission through Factory control.
-The [maintained qualification build](../../docs/development/release.md#implementation-plan)
-builds this probe alongside the selected driver and records both output hashes
-with that full clean revision. No guest installation is part of the build.
 
 ## Observe configured HTTPS
 

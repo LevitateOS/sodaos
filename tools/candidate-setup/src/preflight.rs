@@ -5,15 +5,13 @@ use super::process::{capture, git_tree_clean, id_un, Captured};
 use super::storage::{refuse_active_build, Storage};
 use super::{
     command_v, current_pwd, env_or, flock, is_dir, is_file, stripped, stripped_string, AUTHORITY,
-    FAIL_PREFIX, LOCK_EX, LOCK_NB, PREFIX_DEFAULT, STORAGE_ROOT_DEFAULT, WORKER_USER,
+    FAIL_PREFIX, LOCK_EX, LOCK_NB, STORAGE_ROOT_DEFAULT, WORKER_USER,
 };
 use super::{fail, Exit};
 
 /// Admitted setup inputs: environment, installed toolchains and the
 /// held setup lease. Later stages borrow or destructure exactly these.
 pub(super) struct Preflight {
-    pub(super) prefix: String,
-    pub(super) refresh: String,
     pub(super) forgejo_source: String,
     pub(super) fountain_release_url: String,
     pub(super) storage: Storage,
@@ -38,10 +36,8 @@ pub(super) fn bridge_ip(ip_output: &[u8]) -> Option<String> {
     }
 }
 
-fn admitted_inputs() -> Result<(String, String, String, String), Exit> {
+fn admitted_inputs() -> Result<(String, String), Exit> {
     // Like the script, which parsed none, all arguments are ignored.
-    let prefix = env_or("SODA_REPOSITORY_PREFIX", PREFIX_DEFAULT);
-    let refresh = env_or("SODA_REFRESH_AUTHORITY", "0");
     let forgejo_source = env_or("SODA_FORGEJO_SOURCE", "");
     let fountain_release_url = env_or("SODA_FOUNTAIN_RELEASE_URL", "");
     if !soda_build_tools::reader::url::https_url(&fountain_release_url)
@@ -51,7 +47,7 @@ fn admitted_inputs() -> Result<(String, String, String, String), Exit> {
             "set SODA_FOUNTAIN_RELEASE_URL to the selected immutable HTTPS Fountain release.json",
         );
     }
-    Ok((prefix, refresh, forgejo_source, fountain_release_url))
+    Ok((forgejo_source, fountain_release_url))
 }
 
 fn admitted_storage() -> Storage {
@@ -202,7 +198,7 @@ fn held_lease() -> Result<(), Exit> {
 /// Input, native-toolchain and lease admission: the setup stages below
 /// only run once this returns.
 pub(super) fn preflight() -> Result<Preflight, Exit> {
-    let (prefix, refresh, forgejo_source, fountain_release_url) = admitted_inputs()?;
+    let (forgejo_source, fountain_release_url) = admitted_inputs()?;
     let storage = admitted_storage();
     let rootfs_url = bridge_rootfs_url();
     let pwd = current_pwd();
@@ -216,8 +212,6 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     let go_root = admitted_toolchain()?;
     held_lease()?;
     Ok(Preflight {
-        prefix,
-        refresh,
         forgejo_source,
         fountain_release_url,
         storage,

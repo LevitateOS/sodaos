@@ -1,9 +1,7 @@
 // soda-candidate-setup prepares this machine so `sudo soda-candidate`
 // runs without a coding agent: wrapper on sudo's PATH, admitted controller,
-// worker directories, restricted worker config, and a fixture-only media
-// authority. Development and fixture scope only: it never creates
-// qualification or signing configs, and the generated keys must never
-// stand in for release keys.
+// worker directories and restricted worker config. Development and fixture
+// scope only.
 //
 // Rust port of scripts/setup-soda-candidate.sh (plus the
 // scripts/candidate-storage.sh defaults it sourced). Messages, exit codes,
@@ -14,25 +12,22 @@
 use std::env;
 use std::ffi::CString;
 use std::fs;
-use std::io::{self, Write};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 mod config;
 mod controller;
-mod fixture_authority;
 mod preflight;
 mod process;
 mod selinux;
 mod storage;
 mod worker_caches;
+mod worker_config;
 mod worker_tools;
 
 use self::process::{id_un, run};
 
 const FAIL_PREFIX: &str = "setup-soda-candidate";
-const PREFIX_DEFAULT: &str = "ghcr.io/levitateos/sodaos";
 const STORAGE_ROOT_DEFAULT: &str = "/home/soda-candidate";
 const ROOTFS_DIR: &str = "/home/soda-rootfs";
 const ADMITTED: &str = "/usr/local/lib/soda/soda-build";
@@ -45,9 +40,7 @@ const LEGACY_HOME: &str = "/var/lib/soda-candidate-home";
 const LEGACY_RUN: &str = "/var/lib/soda-candidate-run";
 const WORKER_USER: &str = "soda-build-worker";
 
-use libc::{
-    faccessat, flock, sigaction, umask, AT_FDCWD, LOCK_EX, LOCK_NB, SIGPIPE, SIG_DFL, X_OK,
-};
+use libc::{faccessat, flock, sigaction, AT_FDCWD, LOCK_EX, LOCK_NB, SIGPIPE, SIG_DFL, X_OK};
 
 /// How the process ends: a `fail()` message with exit 1, or a propagated
 /// child status with no extra output (the script's `set -e` behavior).
@@ -101,23 +94,6 @@ fn stripped_string(out: &[u8]) -> String {
     String::from_utf8_lossy(stripped(out)).into_owned()
 }
 
-fn current_umask() -> u32 {
-    unsafe {
-        let mask = umask(0);
-        umask(mask);
-        mask
-    }
-}
-
-/// `write_staged` mirrors shell redirection into staging: bytes exact, mode
-/// 0666 filtered by the operator umask like `>` and `open("w")`.
-fn write_staged(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let mode = 0o666 & !current_umask();
-    let mut opts = fs::OpenOptions::new();
-    opts.write(true).create(true).truncate(true).mode(mode);
-    opts.open(path)?.write_all(bytes)
-}
-
 fn is_executable(path: &Path) -> bool {
     match CString::new(path.as_os_str().as_bytes()) {
         Ok(c) => unsafe { faccessat(AT_FDCWD, c.as_ptr(), X_OK, 0) == 0 },
@@ -148,8 +124,6 @@ fn command_v_in(tool: &str, path_env: &std::ffi::OsStr) -> Option<PathBuf> {
 fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     let pre = preflight::preflight()?;
     let preflight::Preflight {
-        prefix,
-        refresh,
         forgejo_source,
         fountain_release_url,
         storage,
@@ -190,17 +164,13 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         &owned,
     )?;
 
-    fixture_authority::admit_fixture_authority(
+    worker_config::admit_worker_setup(
         &pwd,
         &forgejo_source,
         &fountain_release_url,
         &output_parent,
         &storage,
         &worker_json_path,
-        &prefix,
-        &refresh,
-        &owned,
-        cleanup,
     )?;
 
     run("sudo", &["mkdir", "-p", ROOTFS_DIR])?;

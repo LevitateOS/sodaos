@@ -1,6 +1,6 @@
 //! Seams to the foreign `release/build`, `release/deliver`, and progress
 //! surface the pipeline orchestrates but does not own: container builds,
-//! OCI inspection, media signing, live CoreOS resolution, and phase
+//! OCI inspection, live CoreOS resolution, and phase
 //! reporting. The Go pipeline calls these as struct methods and free
 //! functions; here they are two traits so tests script them exactly like
 //! the Go tests script `BuildExec`/`BuildCapture` closures.
@@ -8,23 +8,11 @@
 //! Method order follows the pipeline phases (P1 admission through P8
 //! media), not alphabetical order.
 
-use serde::Serialize;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use crate::error::Error;
-use crate::media::MediaLock;
 use crate::model;
 use soda_build_tools::reader::stream::{LiveInputs, ResolvedCoreOS};
-
-/// Ordered typed record written into the signed auxiliary-input inventory.
-#[derive(Serialize)]
-pub struct PackagingInputs {
-    #[serde(rename = "Tools")]
-    pub tools: MediaLock,
-    #[serde(rename = "Files")]
-    pub files: BTreeMap<String, String>,
-}
 
 /// Heavy foreign operations behind the thin `build.Production` step calls.
 /// Data accessors mirror the struct fields the pipeline reads.
@@ -101,31 +89,6 @@ pub trait Production {
     fn source_timestamp(&self) -> Option<u64> {
         None
     }
-
-    /// `deliver.CheckNative`: verify the native signing toolchain.
-    fn check_native(&self, trust_home: &str) -> Result<(), Error>;
-    /// `deliver.Sign`: sign one media input.
-    fn sign_media(
-        &self,
-        trust: &model::Trust,
-        permit: &model::Permit,
-        transport: &str,
-        input: &str,
-        out: &str,
-        keys: &model::SecretFiles,
-        trust_home: &str,
-    ) -> Result<(), Error>;
-    /// `deliver.VerifyCopy`: verify one signed input copy.
-    fn verify_copy(
-        &self,
-        trust: &model::Trust,
-        reference: &str,
-        source: &str,
-        out: &str,
-        trust_home: &str,
-    ) -> Result<(), Error>;
-    /// `deliver.WriteDocument`: seal the auxiliary-input inventory document.
-    fn write_document(&self, path: &str, value: &PackagingInputs) -> Result<String, Error>;
 }
 
 /// Phase/step reporting (`build.BuildProgress`).

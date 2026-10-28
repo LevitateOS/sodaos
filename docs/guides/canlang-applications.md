@@ -343,9 +343,8 @@ images, graceful/abrupt shutdown, local Caddy HTTPS and stopped fresh restore.
 Bounded real D1 exhaustion rejected writes visibly, refused startup and recovered
 prior acknowledged data after space was freed.
 The [runtime evidence and contract](../development/canlang-soda-os-implementation-plan/production-workerd.md#source-baseline-scope-and-evidence)
-retains scoped runtime receipts and technical contracts. The
-[canonical Canlang recipes](../development/factory-remaining-tasks.md#canlang-execution-recipes)
-own remaining steps; [testing](../development/testing.md#canlang-qualification-boundaries)
+retains scoped runtime receipts and technical contracts;
+[testing](../development/testing.md#canlang-qualification-boundaries)
 owns G1–G4 qualification.
 
 Required R2, arbitrary DO namespaces, KV, service bindings, named queues,

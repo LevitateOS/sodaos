@@ -2,8 +2,7 @@
 
 Prepare a native development builder for isolated Soda candidate builds. This
 operator tool installs the candidate wrapper and admitted build controller,
-prepares worker tools/caches and storage, installs the worker SELinux policy,
-and creates a fixture-only media authority.
+prepares worker tools/caches and storage, installs the worker SELinux policy.
 
 ## Before running
 
@@ -14,9 +13,8 @@ The repository pins the build toolchain; setup may download tools and warm
 caches. An active candidate worker prevents setup from proceeding.
 
 This command changes the builder's installed files, policy and worker state.
-Its authority keys are for development fixtures and cannot replace release
-signing keys. The [native support guide](../../docs/development/native-support.md)
-owns candidate isolation and development-versus-qualification rules.
+The [native support guide](../../docs/development/native-support.md)
+owns candidate isolation rules.
 
 ## Prepare the builder
 
@@ -35,8 +33,6 @@ Configure it through the environment:
 | --- | --- |
 | `SODA_FORGEJO_SOURCE` | Required absolute canonical Fountain checkout supplying the pinned SDK. Unrelated changes remain untouched; build admission checks SDK bytes against the selected release. |
 | `SODA_FOUNTAIN_RELEASE_URL` | Required immutable HTTPS metadata for the separately released Fountain image and corresponding sources. The build controller checks its source against `fountain-source.json`. Run `soda-artifacts check-fountain-pin` from the checkout first: it reports the matching release URL or explains the gap. |
-| `SODA_REPOSITORY_PREFIX` | Repository namespace; defaults to `ghcr.io/levitateos/sodaos`. |
-| `SODA_REFRESH_AUTHORITY` | Set to `1` to regenerate the fixture media authority. This invalidates signatures made with the old keys. |
 | `SODA_CANDIDATE_ROOT` | Worker storage root; defaults to `/home/soda-candidate`. |
 | `SODA_CANDIDATE_HOME` | Worker home; defaults to `home` under the storage root. |
 | `SODA_CANDIDATE_RUN` | Worker runtime; defaults to `run` under the storage root. |

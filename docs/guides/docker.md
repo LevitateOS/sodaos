@@ -295,7 +295,7 @@ linked worktree, with its matching worker configuration. See [native build
 admission](../development/native-support.md#local-host-content-image-candidate) for setup and custody.
 
 ```sh
-# Docker-only production packaging: no media authority or rootfs URL.
+# Docker-only production packaging: no rootfs URL.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --distribution docker --release-tag v0.1.0 \
   --out /OUTPUT_PARENT/UNIQUE --forgejo-source /CANONICAL/FORGEJO-CHECKOUT

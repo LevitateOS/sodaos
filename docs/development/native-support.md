@@ -115,8 +115,7 @@ of disposable attempts under the [active-release cleanup contract](release.md#gu
 The configuration names `Executable`, exact checkout `Source`, canonical
 `ForgejoSource` for the local SDK dependency, `FountainReleaseURL` for the selected
 immutable HTTPS `/vVERSION/release.json`, and an existing private
-`OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
-`MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
+`OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime` and `Tools`. `OutputParent`, `BuildHome` and `Runtime` belong to
 `soda-build-worker`; setup stages installed Go, the repository-selected stable Rust
 sysroot under `Tools/rust`, and `Tools/bin/bun`. Cargo dependencies are fetched
 with the committed lockfile during setup. The worker builds offline with
@@ -156,7 +155,7 @@ or unpublished fixture does not qualify anonymous immutable public downloads.
 The operator runs the admitted executable as root from the configured checkout:
 
 ```sh
-# Candidate-only development: no rootfs URL or media authority needed/mounted.
+# Candidate-only development: no rootfs URL needed.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/UNIQUE --development --target candidate \
   --release-tag vFIXTURE.0-dev \
@@ -200,14 +199,13 @@ fields are edited by number with inline validation, and `go` starts only a
 runnable config. The run shows a live step table (spinner plus live elapsed
 per running phase, controller durations on completion; timestamped log
 fallback with `--non-interactive`). Flags only pre-seed answers. The wrapper
-never admits workers, signs, or publishes, and has no production mode. Fixture-only
-media authority is not production signing authority; release delivery and
-publication remain separately owned and grant-scoped as below.
+never admits workers or publishes, and has no production mode. Release delivery
+and publication remain separately owned as below.
 
 Substitute the operator-admitted absolute paths and explicit URL. Omitting
 `--development` builds the selected release packaging without publishing or
-installing. `--distribution` defaults to `appliance`; `docker` skips media
-authority and ISO/rootfs tooling, and production `all` packages the same
+installing. `--distribution` defaults to `appliance`; `docker` skips ISO/rootfs
+tooling, and production `all` packages the same
 candidate for both. Every v4 target requires an explicit `--release-tag` because
 the candidate seals versioned native packages, including candidate-only builds.
 Development `--package-base-url` selects a reachable HTTPS origin for these
@@ -226,11 +224,8 @@ Source commands run only inside the separate systemd worker:
 read-only source/tools, selected writable output/cache/runtime binds, CPUs 0–3,
 a four-CPU quota, 16 GiB ceiling, and no operator-home or real-release-custody access.
 
-`MediaAuthorityDirectory/config.json` is restricted JSON with `Trust` and `Keys`
-(`Key`, `Passphrase`), using worker-visible paths below `/run/soda-media-authority/`.
-It and the fixture key inputs belong to the build worker but are bound read-only.
-They are not copied into frozen source or command environment. This authority is
-**fixture-only**: production release keys must never be supplied to the build worker.
+Packaging inputs are checked against their SHA-256 inventory before media
+assembly; candidate.json and payload.json carry the shipped hashes.
 Native identity/custody boundary checks do not establish release readiness; the
 public-download installation smoke and promotion remain separate operations. The public URL is explicit and receives a
 hash-named rootfs file. A local URL does not make the ISO distribution-ready.
@@ -336,34 +331,30 @@ from local image inspection or ordinary build-cache reuse.
 ## GitHub release delivery
 
 The [release architecture](../architecture/release.md#public-distribution) owns
-public hosting and qualification; the [release workflow](release.md#build-once-stage-install-promote)
+public hosting; the [release workflow](release.md#build-once-stage-install-promote)
 provides the concrete commands. The Rust `soda-release` entry point in
 `lib/soda-release-tools` delegates to `lib/soda-release-deliver`, native `gh` and
 Skopeo. The [guided release operator flow](release.md#guided-release-operator-flow)
 owns commands for all selected distributions. `start` invokes the admitted builder;
-publication and qualification commands do not install images, change host trust
-or reboot.
+publication commands do not install images, change host trust or reboot.
 
 | Operation | Inputs and effects |
 | --- | --- |
 | `start` | Preflights exact committed source and CI, admitted worker configuration and local inputs, then builds once and prepares a private release directory. `--preflight` stops before creating an attempt. |
 | `prepare` | Requires a completed production build receipt and verifies all selected candidate artifacts before copying the public asset set. No network mutation. |
-| `status` | Rechecks local evidence and remote publication/recommendation state; reports blockers and the next action without mutation. |
+| `status` | Rechecks the prepared release and remote publication/recommendation state; reports blockers and the next action without mutation. |
 | `stage` | Reads the prepared release, checks source CI and immutable-release settings, creates or verifies its tag, uploads/verifies four Soda application images plus the outer Docker image where selected, checks upstream image availability, and publishes the complete immutable GitHub prerelease. |
 | `verify-images` | Repeats anonymous registry readback and completes matching local verification records without another upload. |
-| `qualify` | Verifies the exact public downloads and selected targets' native evidence, retaining bound private receipts without moving recommendations. |
-| `promote` | Rechecks receipts, original evidence and immutable public assets; moves Docker latest to the same digest and updates eligible GitHub recommendations. Docker-only preserves the appliance recommendation. |
+| `promote` | Run after the operator smoke-installs the downloaded media. Rechecks tag, CI and immutable public assets; moves Docker latest to the same digest and updates eligible GitHub recommendations. Docker-only preserves the appliance recommendation. |
 
 Keep private authority inputs and task receipts on the workspace disk. Only public
 artifact files enter the upload set; keys, passphrases, credentials and private VM
-configuration must never be published. Native OCI artifact signing remains a local
-packaging boundary and uses restricted key/passphrase files. GitHub owns published
+configuration must never be published. GitHub owns published
 asset and tag immutability; no local channel state or publication ledger is needed.
 
 An existing or uncertain publication is inspected rather than overwritten. There
-is no automatic asset clobbering or cleanup of failed attempts. A prerelease is
-explicitly unqualified until every selected distribution's required public-download
-native qualification passes.
+is no automatic asset clobbering or cleanup of failed attempts. A prerelease stays
+unrecommended until the operator smoke-installs it and runs `promote`.
 
 ## SSH, commands and exact-source remote phases
 
@@ -542,32 +533,10 @@ Authored coverage lives in `tests/build` packaging/source checks,
 Execution is revision-scoped in the evidence record. Native builds/checks/VM/provider
 work still need applicable action/target permission.
 
-<a id="remaining-validation"></a>
+## Lab credential rotation
 
-## Historical audit reference
-
-The reference inventory below is condensed from the audit at `58ddc0d` and its
-subsequent remediation record (`git show 9f3baa7:docs/native-porting-audit.md`). It
-records historical follow-up recommendations and evidence limits, not a current
-list of defects or a mandatory matrix to replay after each change. The concrete
-tool contracts above define required behavior. For an affected tool or new claim,
-use applicable evidence and identify only the relevant missing proof; an untested
-claim stays unverified. This is not a second product readiness gate.
-
-| Boundary | Historical follow-up and evidence limits (not a current checklist) |
-| --- | --- |
-| Public/private payload | Explicit public paths and real credential-name rejection tests exist; exercise fresh staging/export and private-input contamination. Filename checks cannot prove unknown secrets absent from allowed content. Preserve old bundles with their original verifier. |
-| Process ownership | Linux non-reaping leader/group termination and resistant-descendant cases exist; native cancellation, leader-first exit, remote interruption and exact bounded cleanup still need observed results. No stale-PID adoption. |
-| Evidence/redaction/finalization | Structured escaped-secret handling and exclusive pending→final publication exist; retain failure-injection coverage and exercise actual partial launch/write/close/scan/cleanup failures. Unknown secrets remain outside exact-match guarantees. |
-| Filesystem confinement | Directory-relative scans/hash/copy and parent checks exist; cover changed parents, special files, byte changes during copy/stream and actual native extraction, including legitimate CoreOS `/usr/local` mapping. |
-| Artifact identity | Retired SPA payloads are rejected; rebuild/check current Go/Lit/stock-branding output. OCI schema/descriptor/rootfs checks and tiny real tar fixtures exist, not a full compressed-layer/native-import proof. Verify exact transfer digest, installer/verifier trust and byte-bound evidence record; generic exec identity stays caller-declared. |
-| CoreOS/VM inputs | Missing-tool preflight, version capture and bounded tool phases exist. Independently select trusted signer/keyring and matching per-architecture firmware/tools; exercise retrieval/signature/decompression, strict Ignition and fresh KVM boot/restart/shutdown with retained disk/NVRAM. Never adopt the live guest. |
-| First installation | Route/container-network collision, writable ancestry and booted-deployment checks exist; complete behavioral rejection fixtures and a genuinely fresh exact-target install/activation without repair edits. Reinstalling the persistent guest is not that proof. |
-| Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and retained runner cleanup require their applicable task authorization. |
-| Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage remains incomplete; no inferred full support acceptance. |
-
-Current results and retained evidence belong with the [development index](README.md) and task records,
-not the audit's old worktree mappings. Product reachability, Git/shared tools,
-workloads/persistence and browser integration stay with [native validation](testing.md).
-[Licensing](../research/licensing.md) owns input/package/license/source-delivery obligations.
-Neither this reference table nor a past successful run establishes new execution permission.
+Lab credentials are rotated by hand. Rotate the Cloudflare tunnel token in the
+Cloudflare dashboard and install it as root with `install -m 0640 -o root -g cloudflared`
+(never on a command line), then restart the tunnel. For the Forgejo runner, revoke
+its registration, create a new token, replace the 0600 secret file and re-register.
+Rotate lab VM operator and SSH material from the guest consoles.

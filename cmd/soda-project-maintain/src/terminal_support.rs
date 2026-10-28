@@ -330,9 +330,6 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     let (release, path, digest) = target(o.development)?;
     let source = admitted_source(&path, &digest)?;
     let _guard = admission::exclusive()?;
-    if fs::symlink_metadata(Path::new(admission::DIRECTORY).join("operation.json")).is_ok() {
-        return Err("release maintenance is in progress; use release recovery".into());
-    }
     let deadline = Instant::now() + Duration::from_secs(90);
     let target = Root::open(&o.project, deadline)?;
     let actual = guest(&target, "observe", &digest, deadline)?;
