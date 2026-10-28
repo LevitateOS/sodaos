@@ -21,6 +21,8 @@ type FactoryContext = {
   environment: string;
   profile?: unknown;
   repositoryURL?: string;
+  /** Settings → SodaOS → Factory (M19): appliance-wide and personal controls stay out. */
+  place?: boolean;
 };
 
 // effectsRepositoryPath derives the validated native repository path
@@ -377,6 +379,7 @@ export class SodaFactorySettings extends LitElement {
       this.contextValue.repository === value.repository &&
       this.contextValue.environment === value.environment &&
       this.contextValue.repositoryURL === value.repositoryURL &&
+      this.contextValue.place === value.place &&
       JSON.stringify(this.contextValue.profile) === JSON.stringify(value.profile)
     )
       return;
@@ -1066,6 +1069,7 @@ export class SodaFactorySettings extends LitElement {
     const context = this.contextValue;
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
+    if (context.place) return this.renderPlaceAuthority(context, status);
     return html`<soda-providers
         .transport=${this.activeValue ? context.transport : undefined}
         @soda-provider-connections-changed=${() => {
@@ -1085,6 +1089,26 @@ export class SodaFactorySettings extends LitElement {
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
       ${this.renderProviderControls()} ${this.renderPlanningCalls()} ${this.renderExecutionUsage()}`;
+  }
+
+  // Settings → SodaOS → Factory (SPEC 2.1, M19): automations, appliance capacity,
+  // personal account connect, the connection budget and Execution usage stay out;
+  // the operator grant sits alone under "Operator only", for the operator.
+  private renderPlaceAuthority(context: FactoryContext, status: Record<string, unknown>) {
+    return html`${this.renderEffective(asObject(status.effective || {}), status)} ${this.renderSponsorshipSummary(status)}
+      <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
+      <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
+      ${context.environment ? this.renderPreparation() : html`<p>No development environment exists for this repository, so preparation controls are unavailable.</p>`}
+      ${this.renderEnvironmentGrant(status)} ${this.renderPolicy(status)} ${this.renderProviderControls(false)}
+      ${this.renderPlanningCalls()} ${this.renderOperatorOnly(status)}`;
+  }
+
+  private renderOperatorOnly(status: Record<string, unknown>) {
+    if (this.view.access?.viewer.operator !== true) return nothing;
+    return html`<section class="soda-factory-operator-only" aria-labelledby="soda-factory-operator-only">
+      <h3 id="soda-factory-operator-only">Operator only</h3>
+      ${this.renderOperatorGrant(status)}
+    </section>`;
   }
 
   private renderSummary(status: Record<string, unknown>) {
@@ -1449,11 +1473,22 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
   }
 
   private renderProjectGrants(status: Record<string, unknown>) {
-    const operator = asObject(status.operator_grant || {});
-    const environment = asObject(status.environment_grant || {});
     return html`<fieldset>
       <legend>Project grants</legend>
-      <form data-action="operator-grant" @submit=${this.submit}>
+      ${this.renderOperatorGrant(status)} ${this.renderEnvironmentGrantForm(status)}
+    </fieldset>`;
+  }
+
+  private renderEnvironmentGrant(status: Record<string, unknown>) {
+    return html`<fieldset>
+      <legend>Preparing the development environment</legend>
+      ${this.renderEnvironmentGrantForm(status)}
+    </fieldset>`;
+  }
+
+  private renderOperatorGrant(status: Record<string, unknown>) {
+    const operator = asObject(status.operator_grant || {});
+    return html`<form data-action="operator-grant" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
           ${this.numberInput('Operator concurrent limit', 'operator_concurrent', safeNumber(operator.max_concurrent, 1))}
           <label
@@ -1462,8 +1497,12 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           >
           ${this.submitButton('Save operator grant')}
         </fieldset>
-      </form>
-      <form data-action="environment-grant" @submit=${this.submit}>
+      </form>`;
+  }
+
+  private renderEnvironmentGrantForm(status: Record<string, unknown>) {
+    const environment = asObject(status.environment_grant || {});
+    return html`<form data-action="environment-grant" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('environment-grant')}>
           <p>The selected Project profile is also the profile that will be authorized.</p>
           <label
@@ -1472,8 +1511,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           >
           ${this.submitButton('Save Project grant')}
         </fieldset>
-      </form>
-    </fieldset>`;
+      </form>`;
   }
 
   private renderPolicy(status: Record<string, unknown>) {
@@ -1543,7 +1581,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     })}`;
   }
 
-  private renderProviderControls() {
+  private renderProviderControls(budget = true) {
     const connection = this.view.selectedConnection;
     const generation = safeNumber(this.view.connections.find((row) => row.id === connection)?.generation, 0);
     const grants = this.view.grants.filter((grant) => grant.revoked !== true);
@@ -1560,7 +1598,7 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.view.connections.map((row) => html`<option value=${safeText(row.id)}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
         </select></label
       >
-      ${this.renderBudgetForm()}
+      ${budget ? this.renderBudgetForm() : nothing}
       <form data-action="sponsorship" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('sponsorship')}>
           <label
