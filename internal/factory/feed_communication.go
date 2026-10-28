@@ -267,7 +267,6 @@ type CommentPipeline struct {
 	Effect   string `json:"effect"`
 	Issue    int64  `json:"issue"`
 	Attempts int    `json:"attempts"`
-	Resume   bool   `json:"resume,omitempty"`
 }
 
 // CommentDecisionID binds authoring records to the original comment revision.
@@ -311,9 +310,6 @@ func (p CommentPipeline) Validate() error {
 	if p.Issue < 0 || p.Attempts < 0 || p.Attempts > CommentAttemptLimit {
 		return errors.New("comment pipeline needs its bounded issue and attempts")
 	}
-	if p.Resume && (p.Attempts != CommentAttemptLimit || p.Judgment != CommentJudgmentApplied || p.Route != CommentRouteNewIssue) {
-		return errors.New("comment resumption needs its exhausted applied new-work route")
-	}
 	return nil
 }
 
@@ -328,11 +324,11 @@ func (p CommentPipeline) AdmitCommentJudgment() bool {
 // the new_issue route judged in, attempts remaining, no applied draft.
 func (p CommentPipeline) AdmitCommentDraft() bool {
 	return p.Judgment == CommentJudgmentApplied && p.Route == CommentRouteNewIssue &&
-		p.Draft == CommentDraftPending && (p.Attempts < CommentAttemptLimit || p.Resume)
+		p.Draft == CommentDraftPending && p.Attempts < CommentAttemptLimit
 }
 
 func (p CommentPipeline) RetryAllowed() bool {
-	if p.Effect == CommentEffectApplied || p.Effect == CommentEffectVerified || p.Resume {
+	if p.Effect == CommentEffectApplied || p.Effect == CommentEffectVerified {
 		return false
 	}
 	return p.Attempts >= CommentAttemptLimit || p.Judgment == CommentJudgmentFailed || p.Draft == CommentDraftInvalid || p.Effect == CommentEffectFailed || p.Route == CommentRouteClarify || p.Route == CommentRouteExistingWork
@@ -344,7 +340,7 @@ func (p CommentPipeline) AdmitCommentEffect() bool {
 	if p.Judgment != CommentJudgmentApplied || p.Route != CommentRouteNewIssue || p.Draft != CommentDraftApplied {
 		return false
 	}
-	return (p.Effect == CommentEffectPending || p.Effect == CommentEffectFailed) && (p.Attempts < CommentAttemptLimit || p.Resume)
+	return (p.Effect == CommentEffectPending || p.Effect == CommentEffectFailed) && p.Attempts < CommentAttemptLimit
 }
 
 // CommentEffectSettled reports whether the native outcome is final:
@@ -408,7 +404,6 @@ func (d IssueDraft) Validate() error {
 type CommentResponse struct {
 	Attempts      int            `json:"attempts"`
 	AttemptLimit  int            `json:"attempt_limit"`
-	Resume        bool           `json:"resume,omitempty"`
 	Comment       string         `json:"comment_id"`
 	Revision      int64          `json:"revision"`
 	Intake        string         `json:"intake"`

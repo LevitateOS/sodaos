@@ -70,9 +70,11 @@ inspect the recorded route and its outcome:
 | “Also add an export action.” | A new-work request. Inspect assessment, authored proposal and confirmed native creation separately; the comment alone does not authorize execution. |
 
 These examples illustrate routing; the actual message, accepted scope and
-evidence determine its result. **Processing details** shows the recorded stages.
-Use **Check progress** to inspect a pending result and **Revise or retry request**
-when the recorded state permits it. If a native write is uncertain, establish
+evidence determine its result. Each comment shows one line with its current
+outcome, which the Feed refreshes on its own. Use **Check progress** to refresh
+a pending result now and **Revise or retry request** when the recorded state
+permits it. If the request changed since you opened it, the Feed shows its
+current text beside your draft; submit again to replace it. If a native write is uncertain, establish
 the original operation's result before requesting another.
 
 If comment intake needs more information about your submitted request, its
