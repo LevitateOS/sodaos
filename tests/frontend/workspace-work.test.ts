@@ -450,8 +450,9 @@ test('Feed, App and Work share one project and retain their owners; returning op
   assert.equal(await page.locator('soda-applications').count(), 0, 'Feed cannot mount an unvisited app');
   await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   assert.equal(await page.locator('soda-applications').count(), 0, 'Terminals cannot mount an unvisited app');
+  // The Feed reads only the launch list (for Open app ↗); no app is read or inspected.
   assert.deepEqual(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/applications'))),
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/applications/'))),
     [],
     'unvisited applications cannot be read or inspected'
   );
