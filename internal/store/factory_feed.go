@@ -107,13 +107,6 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			 WHEN EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root')
 			 THEN EXISTS(SELECT 1 FROM factory_plan_heads h WHERE h.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root' AND h.plan_id=c.data->'communication'->'plan_source'->>'plan')
 			 ELSE NOT EXISTS(SELECT 1 FROM factory_plan_revisions p WHERE p.attempt_root=c.data->'communication'->'plan_source'->>'attempt_root' AND p.generation>(c.data->'communication'->'plan_source'->>'generation')::integer) END)
-			AND (NOT $9 OR c.data->'communication'->'planning_source' IS NULL OR EXISTS(
-			 SELECT 1 FROM factory_planning p WHERE p.repository=c.repository AND p.issue=(c.data->>'issue')::bigint
-			 AND p.snapshot=c.data->'communication'->'planning_source'->>'snapshot'
-			 AND p.data->>'created_unix'=c.data->'communication'->'planning_source'->>'recorded_unix'
-			 AND p.data->>'strategy'=c.data->'communication'->'planning_source'->>'strategy'
-			 AND p.data->>'outcome'=c.data->'communication'->'planning_source'->>'outcome'
-			 AND p.data->'judgment'=c.data->'communication'->'planning_source'->'judgment'))
 			-- A reassessment decision record is current until its own cycle is
 			-- superseded by an accepted successor retry: the canonical
 			-- factory_reassessments lineage judges the record's own cycle, never

@@ -370,24 +370,3 @@ func (s *Store) PriorityJudgment(ctx context.Context, snapshot string) (factory.
 	}
 	return r, err
 }
-
-func (s *Store) ReserveIssuePlanning(ctx context.Context, acceptance, snapshot string) (bool, error) {
-	var raw []byte
-	err := s.db.QueryRowContext(ctx, `SELECT r.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_heads h ON h.id=r.intent AND h.revision=r.id WHERE t.data->>'acceptance_id'=$1 AND r.data->>'state'='accepted' LIMIT 1`, acceptance).Scan(&raw)
-	if errors.Is(err, ErrNotFound) {
-		if current, generated, e := s.GeneratedIntentCurrent(ctx, acceptance); e != nil {
-			return false, e
-		} else if generated && !current {
-			return false, ErrStaleRevision
-		}
-		return s.ReservePriorityJudgment(ctx, snapshot, 1)
-	}
-	if err != nil {
-		return false, err
-	}
-	var r factory.IntentRevision
-	if err = json.Unmarshal(raw, &r); err != nil {
-		return false, err
-	}
-	return s.ReserveIntentJudgment(ctx, r, snapshot)
-}

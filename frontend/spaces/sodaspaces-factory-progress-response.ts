@@ -1,6 +1,4 @@
 import {flag, list, num, optionalNum, record, text, texts} from './sodaspaces-api.js';
-import {issueBlocker} from './sodaspaces-factory-work-response.js';
-import type {IssueBlocker} from './sodaspaces-factory-work-response.js';
 
 // Lenient readers for the request-overview, issue-plan, repository-access
 // and scope-revision reads. Missing or mistyped fields fall back to
@@ -142,38 +140,6 @@ export function requestOverview(value: unknown, intent: string): RequestOverview
   };
 }
 
-export interface PlanCandidate {
-  readonly id: string;
-  readonly repository: string;
-  readonly issue: string;
-  readonly readiness: string;
-  readonly first_seen_unix: number;
-  readonly acceptance?: string;
-}
-export interface PlanJudgment {
-  readonly probability_count: number;
-  readonly probabilities?: Record<string, number>;
-  readonly selected?: string;
-  readonly model?: string;
-  readonly confidence?: number;
-  readonly input_tokens?: number;
-  readonly output_tokens?: number;
-}
-export interface RecordedPlan {
-  readonly candidate: PlanCandidate;
-  readonly missing: readonly IssueBlocker[];
-  readonly steps: readonly string[];
-  readonly strategy: string;
-  readonly snapshot: string;
-  readonly outcome: string;
-  readonly created_unix: number;
-  readonly judgment?: PlanJudgment;
-}
-export interface PlanFreshness {
-  readonly state: string;
-  readonly provisional: boolean;
-  readonly reasons: readonly string[];
-}
 export interface PriorityCandidate {
   readonly id: string;
   readonly repository: string;
@@ -212,12 +178,10 @@ export interface PriorityComparison {
   readonly selected?: string;
 }
 export interface IssuePlan {
-  readonly freshness: PlanFreshness;
   readonly comparisons: readonly PriorityComparison[];
   readonly repository: string;
   readonly issue: string;
   readonly observed_unix: number;
-  readonly plan?: RecordedPlan;
   readonly next_before_unix?: number;
   readonly next_before_snapshot?: string;
 }
@@ -230,49 +194,6 @@ function judgmentNumbers(raw: Record<string, unknown>) {
 }
 function probabilities(raw: Record<string, unknown>): {probabilities?: Record<string, number>} {
   return raw.probabilities === undefined ? {} : {probabilities: countMap(raw.probabilities)};
-}
-function planCandidate(value: unknown): PlanCandidate {
-  const raw = record(value);
-  const acceptance = nonEmpty(raw.acceptance);
-  return {
-    id: text(raw.id),
-    repository: text(raw.repository),
-    issue: text(raw.issue),
-    readiness: text(raw.readiness),
-    first_seen_unix: num(raw.first_seen_unix),
-    ...(acceptance === undefined ? {} : {acceptance}),
-  };
-}
-function planJudgment(value: unknown): PlanJudgment | undefined {
-  if (value === undefined || value === null) return undefined;
-  const raw = record(value);
-  const selected = nonEmpty(raw.selected);
-  const model = nonEmpty(raw.model);
-  return {
-    probability_count: num(raw.probability_count),
-    ...probabilities(raw),
-    ...(selected === undefined ? {} : {selected}),
-    ...(model === undefined ? {} : {model}),
-    ...judgmentNumbers(raw),
-  };
-}
-function recordedPlan(value: unknown): RecordedPlan {
-  const raw = record(value);
-  const judgment = planJudgment(raw.judgment);
-  return {
-    candidate: planCandidate(raw.candidate),
-    missing: list(raw.missing).map(issueBlocker),
-    steps: texts(raw.steps),
-    strategy: text(raw.strategy),
-    snapshot: text(raw.snapshot),
-    outcome: text(raw.outcome),
-    created_unix: num(raw.created_unix),
-    ...(judgment === undefined ? {} : {judgment}),
-  };
-}
-function planFreshness(value: unknown): PlanFreshness {
-  const raw = record(value);
-  return {state: text(raw.state), provisional: flag(raw.provisional), reasons: texts(raw.reasons)};
 }
 function priorityCandidate(value: unknown): PriorityCandidate {
   const raw = record(value);
@@ -324,19 +245,17 @@ function priorityComparison(value: unknown): PriorityComparison {
     ...(selected === undefined ? {} : {selected}),
   };
 }
-// issuePlan reads one issue's recorded plan, freshness and recent priority
-// comparisons. Paging cursors travel as a pair; a half cursor is dropped.
+// issuePlan reads one issue's recent priority comparisons. Paging
+// cursors travel as a pair; a half cursor is dropped.
 export function issuePlan(value: unknown, repository: string, issue: string): IssuePlan {
   const data = record(value);
   const before = optionalNum(data.next_before_unix);
   const snapshot = nonEmpty(data.next_before_snapshot);
   return {
-    freshness: planFreshness(data.freshness),
     comparisons: list(data.comparisons).map(priorityComparison),
     repository,
     issue,
     observed_unix: num(data.observed_unix),
-    ...(data.plan === undefined || data.plan === null ? {} : {plan: recordedPlan(data.plan)}),
     ...(before === undefined || snapshot === undefined
       ? {}
       : {next_before_unix: before, next_before_snapshot: snapshot}),

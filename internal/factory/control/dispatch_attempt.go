@@ -180,10 +180,6 @@ func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passO
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
-	if deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
-		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: "plan_not_current", Detail: "implementation planning must refresh against current outputs"})
-		return
-	}
 	if deps.collectPlan != nil {
 		deps.collectPlan(plan)
 		return

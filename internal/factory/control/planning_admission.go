@@ -125,26 +125,3 @@ func reportedInvestigationPlan(owner factory.Assignment) *factory.InvestigationP
 	}
 	return owner.Result.PhaseResult.Output.Plan
 }
-
-// investigationCovered reports whether an admitted attempt already covers
-// the control's acceptance head: a latest assignment on the same head with
-// no pending explicit Retry. Covered issues are not selection-eligible, so
-// planning spends no judgment on them; the admitted phase owns their path.
-func (c *Coordinator) investigationCovered(ctx context.Context, control factory.IssueControl) (bool, error) {
-	latest, err := c.Store.LatestIssueAssignment(ctx, control.Repository, control.Issue)
-	if errors.Is(err, store.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if latest.Acceptance != control.Acceptance {
-		return false, nil
-	}
-	if _, err := c.Store.PendingExplicitRetry(ctx, control.Repository, control.Issue, control.Acceptance); err == nil {
-		return false, nil
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return false, err
-	}
-	return true, nil
-}

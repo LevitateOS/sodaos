@@ -63,7 +63,7 @@ func New(c config.Config, db *store.Store) *Server {
 		s.API.ExtensionManager = forgejo.NewServiceBackground(callback, uint32(peer), "")
 	}
 	if c.TypeSafeAPIKeyFile != "" {
-		s.Coordinator.Planning = &control.PlanningJudgments{Journal: db, Funding: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}}
+		s.Coordinator.Planning = &control.PlanningJudgments{Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}}
 	}
 	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: control.PriorityDefaultMaxCalls}
 	if c.BackgroundServiceConfigured() {

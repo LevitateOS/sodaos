@@ -177,10 +177,8 @@ type JudgmentPurpose string
 
 const (
 	JudgmentProductApproaches JudgmentPurpose = "product-approaches"
-	JudgmentAssumptions       JudgmentPurpose = "assumptions"
 	JudgmentConsolidation     JudgmentPurpose = "consolidation"
 	JudgmentDecomposition     JudgmentPurpose = "decomposition"
-	JudgmentPlanningFreshness JudgmentPurpose = "planning-freshness"
 	JudgmentNextWork          JudgmentPurpose = "next-work"
 	JudgmentConsistency       JudgmentPurpose = "consistency"
 	// JudgmentDeliveryReview is the funded delivery choice (D08): Jev
@@ -214,7 +212,7 @@ const (
 // purposes the FW31 fence and FW32 adoption consume, and the R31
 // context-bundle selection and distinct stall-repair proposal choice.
 func JudgmentPurposes() []JudgmentPurpose {
-	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal, JudgmentContextBundle, JudgmentStallRepairProposal, JudgmentDeliveryRepairProposal}
+	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentConsolidation, JudgmentDecomposition, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal, JudgmentContextBundle, JudgmentStallRepairProposal, JudgmentDeliveryRepairProposal}
 }
 
 func (p JudgmentPurpose) valid() bool {

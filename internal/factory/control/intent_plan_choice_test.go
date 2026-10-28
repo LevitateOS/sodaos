@@ -70,7 +70,7 @@ func choicePlanAccepted(t *testing.T, repo int64) factory.IntentRevision {
 func choicePlanCoordinator(t *testing.T, db *store.Store, fx dispatchFixture, stub ProductJudgment) *Coordinator {
 	t.Helper()
 	c := &Coordinator{Store: db, Host: fx.host}
-	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: stub}
+	c.Planning = &PlanningJudgments{Chooser: stub}
 	return c
 }
 
@@ -1699,12 +1699,12 @@ func TestResolveAcceptedPlanChoicePersistedMismatchReviewRefuses(t *testing.T) {
 	}
 	stub := &candidateChoiceStub{selected: "cand-a", confidence: 1}
 	c := choicePlanCoordinator(t, db, fx, stub)
-	seedCon := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: reviewSeedingStub{}}}
+	seedCon := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Chooser: reviewSeedingStub{}}}
 	recommended, err := seedCon.JudgeConsolidation(ctx, draft, walkthroughs)
 	if err != nil {
 		t.Fatalf("mismatch consolidation not recorded: %v", err)
 	}
-	seedMis := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: mismatchVerdictStub{}}}
+	seedMis := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Chooser: mismatchVerdictStub{}}}
 	report, err := seedMis.JudgeConsistency(ctx, draft, walkthroughs, recommended)
 	if err != nil {
 		t.Fatalf("mismatch consistency not recorded: %v", err)

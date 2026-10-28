@@ -223,14 +223,6 @@ export interface FeedCommunication {
   after?: string;
   intentSource?: {intent: string; revision: string; predecessor?: string; state: string};
   planSource?: {attemptRoot: string; plan: string; digest: string; sourceCommit: string; generation?: number};
-  planningSource?: {
-    snapshot: string;
-    recordDigest: string;
-    strategy?: string;
-    outcome: string;
-    provisional?: boolean;
-    judgment?: Record<string, unknown>;
-  };
 }
 
 // FeedPayload is one record's typed result. At most one family is set;

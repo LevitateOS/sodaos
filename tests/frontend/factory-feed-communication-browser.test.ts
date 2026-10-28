@@ -171,38 +171,6 @@ test('actual consultation states refresh in the work thread while filtered views
                       },
                     },
                   },
-                  {
-                    kind: 'post',
-                    id: 'd'.repeat(32),
-                    repository: 7,
-                    seq: 3,
-                    actor: 'factory',
-                    author: 'Factory',
-                    payload: {
-                      communication: {
-                        kind: 'system',
-                        component_id: 'F11',
-                        title: 'Implementation strategy recorded',
-                        summary: 'Implement accepted outcomes in increments.',
-                        planning_source: {
-                          snapshot: 'a'.repeat(64),
-                          record_digest: 'b'.repeat(64),
-                          strategy: 'incremental_acceptance',
-                          outcome: 'planned',
-                          provisional: false,
-                          recorded_unix: 1729000000,
-                          judgment: {
-                            selected: 'direct_small_change',
-                            model: 'recorded-model',
-                            confidence: 0.4,
-                            probabilities: {direct_small_change: 0.6, incremental_acceptance: 0.4},
-                            input_tokens: 20,
-                            output_tokens: 10,
-                          },
-                        },
-                      },
-                    },
-                  },
                 ]
               : [
                   {
@@ -285,10 +253,6 @@ test('actual consultation states refresh in the work thread while filtered views
   await feed.getByText('Recorded plan · generation 1', {exact: true}).click();
   await feed.getByText('e'.repeat(64), {exact: true}).waitFor();
   await feed.getByText('Recording this revision does not itself admit or implement the plan.', {exact: true}).waitFor();
-  await feed.getByText('Recorded strategy', {exact: true}).click();
-  await feed.getByText('Controller choice: incremental_acceptance · planned', {exact: true}).waitFor();
-  await feed.getByText('Actual JEV answer', {exact: true}).click();
-  assert.match(await feed.locator('.soda-feed-source-reference pre').innerText(), /"selected": "direct_small_change"/);
   await feed.getByRole('button', {name: 'All', exact: true}).click();
   await feed.getByText('JEV returned a result', {exact: true}).waitFor();
   assert.equal(await draft.inputValue(), 'Keep the existing EUR 420 request after this update.');

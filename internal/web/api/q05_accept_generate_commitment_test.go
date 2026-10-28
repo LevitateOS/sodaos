@@ -289,7 +289,7 @@ func wireGenerateCoordinator(product *API, s *store.Store, t *testing.T, chooser
 	fake := &q05Graph{t: t, store: s, rev: 7}
 	product.Coordinator = &control.Coordinator{
 		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
-		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: chooser},
+		Planning: &control.PlanningJudgments{Chooser: chooser},
 	}
 	return fake
 }
