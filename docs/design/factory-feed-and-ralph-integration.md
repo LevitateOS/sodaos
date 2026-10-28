@@ -67,7 +67,7 @@ than introducing another login service. Credentials stay with the broker; the
 dialog receives connection state and the device-login link/code.
 
 Implementation and installed acceptance are tracked in
-[R44.2](../development/factory-remaining-tasks.md#r44-2). The acceptance journey
+[R44.2](../development/factory-remaining-tasks.md). The acceptance journey
 starts unconnected, completes real provider authorization, observes the check
 automatically and retains it after reload. Also exercise an expired attempt and
 closing/reopening a pending dialog. Existing manually connected VM credentials
@@ -707,9 +707,9 @@ records the source references and built-in imagegen inputs.
 
 The owner requested a complete task-list restructuring around this direction
 and the subsequent MCP, issue/research and knowledge designs. The
-[execution map](../development/factory-remaining-tasks.md#task-list) now separates
+[execution map](../development/factory-remaining-tasks.md) now separates
 concrete Rxx.y deliverables while preserving the stable parent IDs and accepted
-evidence. Its [visual coverage map](../development/factory-remaining-tasks.md#complete-visual-and-interaction-coverage)
+evidence. Its [visual coverage map](../development/factory-remaining-tasks.md)
 assigns every component family, interaction and exception to an actual producer,
 UI task and joined qualification. R49 is development demonstration; R52 proves
 the changed installed consumers.

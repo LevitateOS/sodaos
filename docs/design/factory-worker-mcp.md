@@ -1160,7 +1160,7 @@ tests are implementation-design work after these interfaces are assessed.
 ## 10. Integration and validation
 
 The owner requested full integration into the task list. The
-[complete tool-to-task map](../development/factory-remaining-tasks.md#full-worker-design-integration)
+[complete tool-to-task map](../development/factory-remaining-tasks.md)
 assigns every proposed operation and the connected context, feed, library,
 decision, issue-ownership and maintenance behavior to existing tasks. Those
 task cards contain concrete deliverables and acceptance cases; the design is
@@ -1192,13 +1192,13 @@ are not adequate replacements for Soda's grants, bounded retrieval and separatio
 between data and authority. Knowledge text must remain attributed data even if
 it contains instruction-like language; a string scrubber is not that boundary.
 
-The [restructured execution map](../development/factory-remaining-tasks.md#task-list)
+The [restructured execution map](../development/factory-remaining-tasks.md)
 owns the implementation sequence. It starts with the typed issue/workflow and
 admitted-subject contracts, then releases shared MCP/context/System One and
 record lifecycles to independently useful consumers. Communication/knowledge
 reuse, role delivery, research prerequisites, UI and qualification have explicit
 Rxx.y tasks rather than appended scope inside oversized parents. Its
-[complete tool map](../development/factory-remaining-tasks.md#full-worker-design-integration)
+[complete tool map](../development/factory-remaining-tasks.md)
 assigns every main-design tool one primary executable owner; the five proposed
 issue/research additions have separate, explicit owners in that same list.
 Preserve accepted mechanisms and replace changed unreleased callers together.
@@ -1523,7 +1523,7 @@ open separately; no mandatory post for each search or source read.
 
 ### Task ownership for this extension
 
-The [integrated issue/research tasks](../development/factory-remaining-tasks.md#issue-work-contract-extension)
+The [integrated issue/research tasks](../development/factory-remaining-tasks.md)
 are part of the main execution map. R10.1/R10.2 resolve the role/workflow and
 typed subject, R13.2 owns the native metadata, R14.2 resolves routing and R32.12
 creates/reuses issues and required-result relations. R32.13 produces research;

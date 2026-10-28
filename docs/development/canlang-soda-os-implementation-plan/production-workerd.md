@@ -1,7 +1,7 @@
 # Production workerd contract and integration recipes
 
 This owns the direct-workerd runtime contract and its integration recipes.
-[Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes)
+[Remaining outcomes](../factory-remaining-tasks.md)
 tracks unfinished work; the owner's current request determines implementation.
 
 **23 October implementation:** Canlang now has the direct renderer/transport,

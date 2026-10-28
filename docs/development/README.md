@@ -2,7 +2,7 @@
 
 **Required:** follow the [freshness policy](freshness.md). Resolve current upstream inputs before creating baselines; update stale locks and tools instead of retaining them for reproducibility.
 
-[Factory execution map](factory-remaining-tasks.md#task-list) is the current backlog, including the complete MCP, issue, research, knowledge and feed designs. Work from the user’s current request; historical wind-down status does not block new development.
+[Factory task list](factory-remaining-tasks.md) holds the current founder-demo checklist. Work from the user’s current request; historical wind-down status does not block new development.
 
 How to work on the Soda OS repository itself.
 
@@ -44,12 +44,9 @@ language, packages and placement. Update guidance affected by the current change
 | Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
-## Remaining implementation and qualification
+## Remaining implementation
 
-The [remaining-outcome catalog](factory-remaining-tasks.md) is the single execution
-entrypoint: 53 Factory and 12 Canlang outcomes remain, with all
-shared criteria counted once. Its six task packets and Canlang recipes supply
-concrete source starts, prerequisite outputs, next slices and acceptance.
+The [Factory task list](factory-remaining-tasks.md) holds the current checklist.
 Take the smallest useful slice covered by the current request.
 
 The [workflow contracts](factory-workflow-contracts.md) own schemas, algorithms,

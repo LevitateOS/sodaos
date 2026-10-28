@@ -83,7 +83,7 @@ routes or read interfaces exist. It covers the requested intent, review, graph,
 planning, execution, lifecycle customization and everyday Workspace experience.
 The [product contract](../product/spaces.md#intent-first-creation) remains
 authoritative; implementation and verification belong to the
-[remaining UX outcomes](../development/factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes).
+[remaining UX outcomes](../development/factory-remaining-tasks.md).
 New choices below are recommendations, not approved product requirements.
 
 ### One journey, distinct effects

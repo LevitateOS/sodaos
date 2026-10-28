@@ -16,11 +16,11 @@ The worker MCP proposal owns the candidate tool surface. The
 contract in the native issue and links it to feed activity. These are linked
 parts of the same design.
 
-The [full task integration](../development/factory-remaining-tasks.md#full-worker-design-integration)
+The [full task integration](../development/factory-remaining-tasks.md)
 assigns this catalog's producers, projections, UI and failure/recovery cases to
 R32–R43 and R47–R49, with installed consumers in R52. Component names remain
 design vocabulary; all families and their actual interactions are required scope.
-The [restructured visual coverage map](../development/factory-remaining-tasks.md#complete-visual-and-interaction-coverage)
+The [restructured visual coverage map](../development/factory-remaining-tasks.md)
 maps all 121 numbered families plus issue/research surfaces to concrete Rxx.y
 execution tasks; it replaces broad appended UI scope as the implementation map.
 

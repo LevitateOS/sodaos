@@ -427,7 +427,7 @@ Page IDs below resolve to exact filenames in the
   **Required resolution:** Canlang publishing and Soda release owners supply
   the complete supported descriptor-generation and matched-input acquisition
   procedure. This remainder is now explicit in the existing
-  [Canlang P29 task](../factory-remaining-tasks.md#canlang-p29), consuming P27/P28's
+  [Canlang P29 task](../factory-remaining-tasks.md), consuming P27/P28's
   admitted release outputs. Then finish and execute the application-layer build
   and source-to-operator example before closing HB07.
   Both articles passed summary/hierarchy, retained-anchor and 12 local-link
@@ -474,7 +474,7 @@ Page IDs below resolve to exact filenames in the
   upload intent → bytes → finalization → attachment and access results, but is
   not a standalone reader command. No published language-handbook procedure
   covers that client sequence. These omissions are recorded under existing
-  [Canlang P29](../factory-remaining-tasks.md#canlang-p29); do not mark this as a
+  [Canlang P29](../factory-remaining-tasks.md); do not mark this as a
   complete, executed source-to-file tutorial.
 - **Checks:** both published pages retain their original 211/196-character
   summaries and anchors; heading hierarchy and all 15 local links passed.
@@ -563,7 +563,7 @@ Page IDs below resolve to exact filenames in the
   profiles. `lib/host/src/application/runtime.rs` confirms the separate 1 GiB,
   two-CPU and 128-process/thread application limits.
 - **Required input and existing owners:** follow
-  [supported sizing under R45/R52/R54](../factory-remaining-tasks/06-candidate-release-closure.md#supported-sizing).
+  [supported sizing under R45/R52/R54](../factory-remaining-tasks.md).
   R45 must supply the actual revision/distribution and hardware, allocated
   CPU/RAM/disk, defined basic workload, and the selected small-team workload
   of two active Factory issues across Projects, one human terminal and one
@@ -704,7 +704,7 @@ Page IDs below resolve to exact filenames in the
   and Library retrieval. These authenticated journeys and their screenshots
   were not executed. Source review cannot establish that they work.
 - **Existing product owner:** the
-  [R43 frontend task](../factory-remaining-tasks/05-experience-and-development.md#r43)
+  [R43 frontend task](../factory-remaining-tasks.md)
   now explicitly includes the missing human issue-adoption/reacceptance path
   over the existing acceptance preview/mutation, including selected answers
   and non-code prerequisite confirmation. The present Work detail displays
@@ -807,10 +807,10 @@ Page IDs below resolve to exact filenames in the
   claim that release preflight imports images was corrected alongside O05.
 - **Existing product owners:** recorded the missing supported release-content
   preparation route under
-  [R45](../factory-remaining-tasks/05-experience-and-development.md#r45).
+  [R45](../factory-remaining-tasks.md).
   `--check` skips acquisition but requires selected source/target content to
   exist locally. Recorded the missing packaged offline Forgejo invocation
-  under [R04](../factory-remaining-tasks/01-boundaries.md#r04): stopping the
+  under [R04](../factory-remaining-tasks.md): stopping the
   server removes its container, so the public guide now identifies the exact
   binary/configuration/data context and native subcommands without inventing
   a host executable or restarting the web server for recovery. The full
@@ -902,7 +902,7 @@ Page IDs below resolve to exact filenames in the
 - **New source finding:** the native Factory enrollment manifest example names
   the root-owned dashboard DSN where enrollment requires a private broker-owned
   DSN. Recorded the exact mismatch and recipe/native qualification work under
-  [R44](../factory-remaining-tasks/05-experience-and-development.md#r44).
+  [R44](../factory-remaining-tasks.md).
   U01/F03 explain the separate prerequisite without publishing the known-failing
   manifest as a working recipe. R44 supplies the corrected operator procedure;
   HB12 follows it with the real author/contributor journey.
