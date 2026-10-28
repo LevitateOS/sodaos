@@ -50,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -93,10 +93,27 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   const blocked: string[] = [];
   const allowed: string[] = [];
   const failed: string[] = [];
+  // Rehearsal run-status timeline (step 4): bodies of run-status GETs.
+  const runStatuses: {t: string; url: string; body: string}[] = [];
   const guard = {armed: false};
   b.context.on('response', (response) => {
     const url = new URL(response.url());
-    if (url.origin !== ORIGIN || response.ok()) return;
+    if (url.origin !== ORIGIN) return;
+    // Step-4 timeline: keep bodies of run-status reads (bounded).
+    if (
+      response.ok() &&
+      response.request().method() === 'GET' &&
+      /\/api\/factory\/runs\/[0-9a-f]{32}\/?$/.test(url.pathname)
+    ) {
+      void response
+        .text()
+        .then((body) => {
+          if (runStatuses.length < 500) runStatuses.push({t: new Date().toISOString(), url: url.pathname, body: body.slice(0, 4000)});
+        })
+        .catch(() => {});
+      return;
+    }
+    if (!response.ok()) return;
     const marker = '/-/native/pages/soda/';
     const at = url.pathname.indexOf(marker);
     if (at < 0) return;
@@ -131,7 +148,7 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   await page.setViewportSize({width: 1920, height: 1080});
   await loginNativeForgejo(page, ORIGIN, 'maya', await readMayaPassword());
   guard.armed = true;
-  return {page, blocked, allowed, failed, close: () => b.close().catch(() => {})};
+  return {page, blocked, allowed, failed, runStatuses, close: () => b.close().catch(() => {})};
 }
 
 async function shot(page: Page, file: string) {
@@ -730,6 +747,119 @@ async function phaseAllowance(page: Page, out: string): Promise<void> {
   assert(reply.ok(), `Allowance: sponsorship save must succeed, got HTTP ${reply.status()}: ${JSON.stringify(body).slice(0, 300)}`);
 }
 
+/** Rehearsal step 1 (REHEARSAL-B-GO.md): set the policy attempt limit
+ * "Active minutes per attempt" 30 -> 60 through the repository policy
+ * form's own save. Fails naming the page state when the control is
+ * absent; touches nothing else (other fields round-trip untouched). */
+async function phasePolicyMinutes(page: Page, out: string): Promise<void> {
+  await page.goto(`${ORIGIN}${PLACES.settingsFactory}`);
+  const spaces = await mountRepoPage(page, 'repository-settings');
+  await spaces.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
+  const policyForm = spaces.locator('form[data-action="policy"]');
+  assert((await policyForm.count()) >= 1, 'Policy: repository policy form not found');
+  const minutes = policyForm.locator('input[name="active_minutes"]').first();
+  assert((await minutes.count()) >= 1, 'Policy: Active minutes per attempt control not offered; stopping per go-ahead');
+  const before = await minutes.inputValue();
+  await minutes.fill('60');
+  const acted = page.waitForResponse(
+    (r) => /\/api\/repositories\/1\/factory\/policy$/.test(new URL(r.url()).pathname) && r.request().method() === 'PUT',
+    {timeout: 120000}
+  );
+  const save = policyForm.getByRole('button', {name: 'Save repository policy'}).first();
+  assert(await save.isEnabled(), 'Policy: Save repository policy is disabled');
+  await save.click();
+  const reply = await acted;
+  const body = await reply.json().catch(() => ({}));
+  await writeFile(`${out}/policy-reply.json`, JSON.stringify({before, after: '60', status: reply.status(), body}, null, 2));
+  assert(reply.ok(), `Policy: save must succeed, got HTTP ${reply.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+}
+
+const REHEARSAL_OBJECTIVE = 'Replace our equipment-request spreadsheet with a small app. Employees request a laptop, monitor or other equipment with a reason and a needed-by date. Their manager approves or rejects it with a comment. Operations marks approved requests ordered, then delivered. Employees see only their own requests.';
+
+/** Rehearsal step 2: the presenter path — Requests → New request, typed
+ * through the page (never d401…, never dd00…). Records Max work items and
+ * Planning calls as found/set. */
+async function phaseNewRequest(page: Page, out: string): Promise<string> {
+  await page.goto(`${ORIGIN}/${REPOSITORY_SLUG}/requests/new`);
+  await mountRepoPage(page, null);
+  const box = page.getByLabel('Describe what you want to build', {exact: true});
+  await box.first().waitFor({timeout: 30000});
+  assert((await box.first().inputValue()) === '', 'New request: description must start empty');
+  await box.first().fill(REHEARSAL_OBJECTIVE);
+  // Shadow-DOM control inventory for the record.
+  const controls = await page.evaluate(() => {
+    const out: {label: string; name: string; value: string}[] = [];
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (let i = 0; i < roots.length; i++) {
+      for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+      }
+    }
+    for (const root of roots) {
+      for (const el of Array.from(root.querySelectorAll('input[type="number"], input:not([type]), textarea'))) {
+        const input = el as HTMLInputElement;
+        if (input.tagName === 'INPUT' && input.type !== 'number' && input.type !== '' && input.type !== 'text') continue;
+        const id = input.id;
+        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent?.trim().slice(0, 60) ?? '' : '';
+        const wrap = input.closest('label')?.textContent?.trim().slice(0, 60) ?? '';
+        const aria = input.getAttribute('aria-label')?.slice(0, 60) ?? '';
+        out.push({label: label || wrap || aria, name: input.name, value: input.value.slice(0, 200)});
+      }
+    }
+    return out;
+  });
+  await writeFile(`${out}/new-request-controls.json`, JSON.stringify(controls, null, 2));
+  const setNumber = async (match: RegExp, value: string) => {
+    const hit = controls.findIndex((c) => match.test(c.label));
+    if (hit < 0) return `${match}: not offered`;
+    await page.evaluate(
+      ({index, val}: {index: number; val: string}) => {
+        const roots: (Document | ShadowRoot)[] = [document];
+        for (let i = 0; i < roots.length; i++) {
+          for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+            if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+          }
+        }
+        let n = -1;
+        for (const root of roots) {
+          for (const el of Array.from(root.querySelectorAll('input[type="number"], input:not([type])'))) {
+            const input = el as HTMLInputElement;
+            if (input.tagName === 'INPUT' && input.type !== 'number' && input.type !== '') continue;
+            n++;
+            if (n === index) {
+              input.focus();
+              input.value = val;
+              input.dispatchEvent(new Event('input', {bubbles: true}));
+              input.dispatchEvent(new Event('change', {bubbles: true}));
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      {index: hit, val: value}
+    );
+    return `${match}: set ${value}`;
+  };
+  const fields: Record<string, string> = {};
+  fields['max'] = await setNumber(/Maximum work items/i, '1');
+  fields['planning'] = await setNumber(/Planning calls/i, '12');
+  await shot(page, `${out}/new-request-typed.png`);
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 60000}
+  );
+  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
+  const saved = await saving;
+  assert.equal(saved.status(), 201, `New request: Save draft must return 201, got ${saved.status()}`);
+  const body = (await saved.json()) as {intent?: string; id?: string};
+  const newIntent = String(body.intent ?? '');
+  assert.match(newIntent, /^d[0-9a-f]{24}$/, 'New request: saved draft must report its intent');
+  assert(newIntent !== INTENT_DD00 && !newIntent.startsWith('d4014235'), 'New request: must not reuse a protected request');
+  await writeFile(`${out}/new-intent.json`, JSON.stringify({intent: newIntent, fields}, null, 2));
+  return newIntent;
+}
+
 /** Read-only migration check (UI installs A–E): visits each repo-first
  * place, asserts its heading, and records the Feed v2 post structure the
  * follow-up scopes to. No clicks that write or spend. */
@@ -776,6 +906,29 @@ async function phasePlaces(page: Page, out: string, intent: string): Promise<voi
   await writeFile(`${out}/places-feed.json`, JSON.stringify(posts, null, 2));
   assert(posts.scoped > 0, `Places: no article.soda-feed-post on the repo Feed (articles: ${JSON.stringify(posts.articles)})`);
   await visit('requests', PLACES.requests, null, /^Requests$/);
+  // New-request controls for the rehearsal (read-only inventory only).
+  await page.goto(`${ORIGIN}/${REPOSITORY_SLUG}/requests/new`);
+  await mountRepoPage(page, null);
+  await page.waitForTimeout(4000);
+  await shot(page, `${out}/places-new.png`);
+  structure['new-request'] = {
+    url: `/${REPOSITORY_SLUG}/requests/new`,
+    text: (await visibleText(page, 2000)).slice(0, 600),
+    controls: await page.evaluate(() => {
+      const labels = Array.from(document.querySelectorAll('label')).map((l) =>
+        (l.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60)
+      );
+      const buttons = Array.from(document.querySelectorAll('button')).map((b) => (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60));
+      const inputs = Array.from(document.querySelectorAll('input, textarea, select')).map((el) => ({
+        tag: el.tagName.toLowerCase(),
+        type: (el as HTMLInputElement).type || '',
+        name: (el as HTMLInputElement).name || (el as HTMLSelectElement).name || '',
+        label: (el.getAttribute('aria-label') || '').slice(0, 60),
+      }));
+      return {labels: [...new Set(labels)].slice(0, 20), buttons: [...new Set(buttons)].slice(0, 20), inputs: inputs.slice(0, 20)};
+    }),
+  };
+  await writeFile(`${out}/places.json`, JSON.stringify(structure, null, 2));
   await visit('request', PLACES.request(intent), null, null);
   {
     const text = String((structure['request'] as {text?: string} | undefined)?.text ?? '');
@@ -809,6 +962,27 @@ async function phasePlaces(page: Page, out: string, intent: string): Promise<voi
   await visit('settings', PLACES.settingsFactory, 'repository-settings', /^SodaOS$/);
   const sponsorship = await page.evaluate(() => !!document.querySelector('form[data-action="sponsorship"]'));
   structure['settings-sponsorship'] = sponsorship;
+  // Minute-limit inputs for rehearsal step 1 (read-only inventory).
+  structure['settings-minutes'] = await page.evaluate(() => {
+    const out: {label: string; name: string; value: string}[] = [];
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (let i = 0; i < roots.length; i++) {
+      for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+      }
+    }
+    for (const root of roots) {
+      for (const el of Array.from(root.querySelectorAll('input[type="number"], input:not([type])'))) {
+        const input = el as HTMLInputElement;
+        if (input.type !== 'number' && input.type !== '') continue;
+        const id = input.id;
+        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent?.trim().slice(0, 60) ?? '' : '';
+        const wrap = input.closest('label')?.textContent?.trim().slice(0, 60) ?? '';
+        out.push({label: label || wrap, name: input.name, value: input.value});
+      }
+    }
+    return out;
+  });
   await writeFile(`${out}/places.json`, JSON.stringify(structure, null, 2));
 }
 
@@ -1040,6 +1214,7 @@ async function main() {
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/generate$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/runs\/[0-9a-f]{32}\/actions$/.test(p)) return true;
     if (method === 'PUT' && /\/api\/repositories\/1\/factory\/sponsorships\/.+$/.test(p)) return true;
+    if (method === 'PUT' && /\/api\/repositories\/1\/factory\/policy$/.test(p)) return true;
     return false;
   };
   const s = await openE2E(`founder-${stamp.slice(9)}`.slice(0, 24).replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'founder-e2e', allowWrite);
@@ -1101,6 +1276,15 @@ async function main() {
     if (only === 'places') {
       await phasePlaces(s.page, dir, intent);
     }
+    // Rehearsal steps (REHEARSAL-B-GO.md). Standalone only.
+    if (only === 'policy-minutes') {
+      await phasePolicyMinutes(s.page, dir);
+    }
+    if (only === 'new-request') {
+      intent = await phaseNewRequest(s.page, dir);
+      report.intent = intent;
+      await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
+    }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
       await shot(s.page, `${dir}/${only}-observed.png`);
@@ -1119,6 +1303,9 @@ async function main() {
     report.allowed = s.allowed;
     report.blocked = s.blocked;
     report.failed = s.failed;
+    if (s.runStatuses.length > 0) {
+      await writeFile(`${dir}/run-status.json`, JSON.stringify(s.runStatuses, null, 2));
+    }
     await writeFile(`${dir}/report.json`, JSON.stringify(report, null, 2));
     await s.close();
   }
