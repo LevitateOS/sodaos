@@ -44,20 +44,21 @@ func AttemptContinuity(assignment Assignment) []string {
 	return append([]string(nil), assignment.RunHistory...)
 }
 
-// ApplyContextBundleAnswer maps one validated answer to its bundle or
-// a hold: only an eligible selected option at or above both bounds
-// serves the bundle, everything else holds snapshot_hold for
-// attention. It never infers a bundle.
+// ApplyContextBundleAnswer maps one validated answer to its bundle.
+// Jev advises and never decides whether a run starts: an eligible
+// selected option at or above both bounds serves that bundle, and
+// anything else (low confidence, an ineligible pick or snapshot_hold)
+// serves the always-eligible current bundle instead of holding.
 func ApplyContextBundleAnswer(answer PriorityAnswer, eligible map[string]bool) (bundle, reason string) {
-	if !eligible[answer.Selected] {
-		return ContextBundleSnapshotHold, ContextBundleHoldIneligible
+	if !eligible[answer.Selected] || answer.Selected == ContextBundleSnapshotHold {
+		return ContextBundleCurrent, ""
 	}
 	if answer.Confidence < MinContextBundleConfidence || answer.Probabilities[answer.Selected] < MinContextBundleProbability {
-		return ContextBundleSnapshotHold, ContextBundleHoldLowConfidence
+		return ContextBundleCurrent, ""
 	}
 	for option, probability := range answer.Probabilities {
 		if option != answer.Selected && answer.Probabilities[answer.Selected] <= probability+0.000001 {
-			return ContextBundleSnapshotHold, ContextBundleHoldLowConfidence
+			return ContextBundleCurrent, ""
 		}
 	}
 	return answer.Selected, ""
