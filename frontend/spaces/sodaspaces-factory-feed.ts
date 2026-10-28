@@ -146,7 +146,8 @@ export class SodaFactoryFeed extends LitElement {
   // One serial: a context switch, filter change or disconnect bumps it, and
   // every response that lands after a bump is dropped.
   private serial = 0;
-  private reading = false;
+  // The serial whose latest-page read is in flight, if any.
+  private reading: number | undefined;
   private refreshTimer?: ReturnType<typeof setInterval>;
   private drafts = new Map<string, string>();
   private revising: Revising | undefined;
@@ -155,6 +156,9 @@ export class SodaFactoryFeed extends LitElement {
   private openDrawers = new Set<string>();
   private library: {repository: string; item?: string} | undefined;
   private librarySourcePending: string | undefined;
+  // Library navigation supersedes a source read in flight without touching
+  // feed reads.
+  private librarySerial = 0;
   private focusedEntry: FeedEntry | undefined;
   private filters = {view: 'all', search: '', role: '', current: false};
 
@@ -194,7 +198,7 @@ export class SodaFactoryFeed extends LitElement {
       return;
     clearInterval(this.refreshTimer);
     this.serial++;
-    this.reading = false;
+    this.reading = undefined;
     this.current = context;
     this.drafts.clear();
     this.threads.clear();
@@ -346,7 +350,7 @@ export class SodaFactoryFeed extends LitElement {
   // re-read their newest replies alongside.
   private async readLatest(announce: boolean) {
     const context = this.current;
-    if (!context || this.reading) return;
+    if (!context || this.reading === this.serial) return;
     const serial = this.serial;
     if (this.scopeRepositories().length === 0) {
       this.view = {
@@ -356,7 +360,7 @@ export class SodaFactoryFeed extends LitElement {
       };
       return;
     }
-    this.reading = true;
+    this.reading = serial;
     this.view = {...this.view, busy: true, readFailed: false, message: this.view.readFailed ? '' : this.view.message};
     const anchor = Array.from(this.querySelectorAll<HTMLElement>('.soda-feed-post')).find(
       (el) => el.getBoundingClientRect().bottom > 0
@@ -412,7 +416,7 @@ export class SodaFactoryFeed extends LitElement {
           message: error instanceof Error ? error.message : 'The combined feed is unavailable.',
         };
     } finally {
-      if (serial === this.serial) this.reading = false;
+      if (this.reading === serial) this.reading = undefined;
     }
   }
 
@@ -467,7 +471,7 @@ export class SodaFactoryFeed extends LitElement {
     this.focusedEntry = undefined;
     this.filters = {...this.filters, ...next};
     this.serial++;
-    this.reading = false;
+    this.reading = undefined;
     this.view = {
       ...this.view,
       busy: false,
@@ -604,13 +608,14 @@ export class SodaFactoryFeed extends LitElement {
     const detail = object(event.detail),
       repository = this.library.repository;
     if (detail.repository !== repository || typeof detail.id !== 'string' || !commentID.test(detail.id)) return;
-    const serial = ++this.serial;
+    const serial = this.serial,
+      token = ++this.librarySerial;
     const sourceId = detail.id;
     this.librarySourcePending = sourceId;
     this.requestUpdate();
     try {
       const source = parseCommentDetail(await readJSON(this.current.transport, 'factory/feed/comments/' + sourceId));
-      if (serial !== this.serial) return;
+      if (serial !== this.serial || token !== this.librarySerial) return;
       const entry: FeedEntry = {
         kind: 'post',
         id: source.commentId,
@@ -626,13 +631,13 @@ export class SodaFactoryFeed extends LitElement {
       this.library = undefined;
       this.openDrawer(feedEntryKey(entry));
     } catch (error) {
-      if (serial === this.serial)
+      if (serial === this.serial && token === this.librarySerial)
         this.view = {
           ...this.view,
           message: error instanceof Error ? error.message : 'Source conversation is unavailable.',
         };
     } finally {
-      if (serial === this.serial) {
+      if (token === this.librarySerial) {
         this.librarySourcePending = undefined;
         this.requestUpdate();
       }
@@ -640,7 +645,7 @@ export class SodaFactoryFeed extends LitElement {
   };
 
   private leaveLibraryView = () => {
-    this.serial++;
+    this.librarySerial++;
     this.librarySourcePending = undefined;
     this.requestUpdate();
   };
