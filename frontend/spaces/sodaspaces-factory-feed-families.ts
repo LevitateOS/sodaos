@@ -1353,8 +1353,26 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
               {kind: 'details' as const, heading: 'Technical details', text: entry.summary},
             ]
           : []
-        : familyBlocks(family, entry, parseFeedStatusSegments(entry.status)),
+        : withoutPlaceholders(familyBlocks(family, entry, parseFeedStatusSegments(entry.status))),
   };
+}
+
+// A row that only says a fact is missing is filler, not evidence. Status-derived
+// blocks keep their recorded facts and drop such rows; a block left with no
+// rows is dropped too, so a post never shows an empty placeholder table.
+const placeholder = /not recorded|^no bound |^no tasks recorded|count not recorded/i;
+function withoutPlaceholders(blocks: readonly FeedBlock[]): FeedBlock[] {
+  return blocks.flatMap((block): FeedBlock[] => {
+    if (block.kind === 'rows') {
+      const rows = block.rows.filter((row) => !placeholder.test(row.value));
+      return rows.length > 0 ? [{...block, rows}] : [];
+    }
+    if (block.kind === 'checks') {
+      const rows = block.rows.filter((row) => !placeholder.test(row.result));
+      return rows.length > 0 ? [{...block, rows}] : [];
+    }
+    return [block];
+  });
 }
 
 function renderFeedBlock(block: FeedBlock): TemplateResult {

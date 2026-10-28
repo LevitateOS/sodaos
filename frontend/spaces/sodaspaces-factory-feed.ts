@@ -41,6 +41,7 @@ import type {CommentOutcomeModel, PostBodyState} from './sodaspaces-factory-feed
 import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
 import {renderConsultation, renderContribution} from './sodaspaces-factory-consultation.js';
 import {roleLabel} from './sodaspaces-factory-feed-families.js';
+import {threadFeed} from './sodaspaces-factory-feed-thread.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
 
 export interface FactoryFeedContext {
@@ -3509,11 +3510,15 @@ export class SodaFactoryFeed extends LitElement {
   private renderList() {
     const entries = this.focusedEntry ? [this.focusedEntry] : this.view.entries;
     if (entries.length === 0) return this.renderEmptyFeed();
+    // Small steps fold under the post they belong to; running work is one
+    // post that updates in place.
+    const items = threadFeed(entries);
     return html`<div class="soda-feed-list">
         ${repeat(
-          entries,
-          (entry) => `${entry.kind}:${entry.id}`,
-          (entry) => {
+          items,
+          (item) => `${item.entry.kind}:${item.entry.id}`,
+          (item) => {
+            const entry = item.entry;
             const ref = this.view.labels.refs.get(entry.repository) ?? {
               path: undefined,
               label: `repository ${entry.repository}`,
@@ -3538,7 +3543,8 @@ export class SodaFactoryFeed extends LitElement {
               outcomes,
               body,
               false,
-              describeComments(key, this.openDrawers.has(key), this.threads.get(key))
+              describeComments(key, this.openDrawers.has(key), this.threads.get(key)),
+              item
             );
             return renderFeedPost(
               {

@@ -14,6 +14,8 @@ instead of treating every wait as a question for you.
 
 Posts distinguish a worker's report from effects confirmed by the controller or native system. A submitted plan, proposed correction, attempted merge or pending external check is shown as such until its outcome is observed. When source evidence or an artifact is available to the viewer, the Feed can show an excerpt or safe preview and provide an authorized link to the underlying item. A preview failure does not change the source result; missing required evidence remains incomplete.
 
+Each post leads with its state and one sentence saying who did what and how it turned out. The state is one of seven: needs you (red outline, nothing moves until you act), problem, waiting, in progress, done, decided, or for your information. The line under the card says what happens next. Small steps inside work that already has a post, such as a change, a check run, a preview or a saved checkpoint, appear as one-line steps under that post rather than as posts of their own. Three or more steps in a row fold into one line that opens to show each one. A step that fails or needs you also becomes its own post and links back to where it came from. Running progress is one post that updates in place, with its earlier states under **Show changes**.
+
 Following does not start work or provide control over a run. A person needs the appropriate current repository authority to answer, take over or change Factory work. Viewing remains limited to currently authorized Project and repository information.
 
 ### Open the source behind a post

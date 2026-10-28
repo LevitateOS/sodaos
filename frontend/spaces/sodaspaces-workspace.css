@@ -1039,3 +1039,119 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-applications-toolbar { display: flex; justify-content: flex-end; }
 .soda-applications-place .soda-application-built-from { color: var(--soda-page-muted); }
 .soda-app-attention:not(:has(soda-factory-verification-retry > section)) { display: none; }
+/* Feed post kit version 2: the byline above the card, a state edge and pill
+   before a one-sentence headline, the Next line, and small steps as one-line
+   comments under the post. Role colour stays on the avatar only. */
+.soda-feed {
+  --soda-feed-attn: var(--soda-page-action);
+  --soda-feed-on-attn: var(--soda-page-on-action);
+  --soda-feed-bad: light-dark(#b3261e, #ff8a80);
+  --soda-feed-bad-bg: light-dark(#fbe5e3, #3b1614);
+  --soda-feed-warn: light-dark(#8a5a00, #ffc46b);
+  --soda-feed-warn-bg: light-dark(#fff2d6, #35270d);
+  --soda-feed-ok: light-dark(#13613d, #7fd4a6);
+  --soda-feed-ok-bg: light-dark(#e3f2e9, #15301f);
+  --soda-feed-neu: light-dark(#3a3a3a, #d6d6d6);
+  --soda-feed-neu-bg: light-dark(#f1eced, #2a2a2a);
+  --soda-feed-line: color-mix(in srgb, var(--soda-page-edge) 55%, var(--soda-page-surface));
+  --soda-feed-faint: color-mix(in srgb, var(--soda-page-muted) 70%, var(--soda-page-surface));
+}
+.soda-feed-list { gap: 24px; }
+.soda-feed-post { --soda-feed-edge: var(--soda-feed-line); --soda-feed-tint: var(--soda-page-selected); }
+.soda-feed-post .soda-feed-header { gap: 8px; padding: 0 0 6px 2px; align-items: center; }
+.soda-feed-post .soda-feed-avatar { flex-basis: 28px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--soda-feed-role-color); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+.soda-feed-post .soda-feed-header p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 14px; color: var(--soda-page-text); }
+.soda-feed-post .soda-feed-header strong { color: var(--soda-page-text); font-weight: 600; }
+.soda-feed-by-role { color: var(--soda-page-muted); }
+.soda-feed-by-meta { color: var(--soda-page-muted); font-size: 13.5px; }
+.soda-feed-by-meta i { font-style: normal; padding: 0 5px; color: var(--soda-feed-faint); }
+.soda-feed-by-meta a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.soda-feed-post .soda-feed-card { position: relative; overflow: hidden; display: grid; gap: 12px; padding: 14px 16px 14px 20px; border: 1px solid var(--soda-feed-line); border-radius: 10px; background: var(--soda-page-surface); }
+.soda-feed-post .soda-feed-card > * { margin: 0; }
+.soda-feed-post .soda-feed-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--soda-feed-state-edge, transparent); }
+.soda-feed-card[data-state=needs_you] { --soda-feed-state-edge: var(--soda-feed-attn); border: 2px solid var(--soda-feed-attn); padding: 13px 15px 13px 19px; }
+.soda-feed-card[data-state=problem] { --soda-feed-state-edge: repeating-linear-gradient(135deg, var(--soda-feed-bad) 0 3px, transparent 3px 6px); }
+.soda-feed-card[data-state=waiting] { --soda-feed-state-edge: repeating-linear-gradient(180deg, var(--soda-feed-warn) 0 7px, transparent 7px 11px); }
+.soda-feed-card[data-state=in_progress] { --soda-feed-state-edge: repeating-linear-gradient(135deg, var(--soda-page-text) 0 2px, transparent 2px 5px); }
+.soda-feed-card[data-state=done] { --soda-feed-state-edge: var(--soda-feed-ok); }
+.soda-feed-card[data-state=decided] { --soda-feed-state-edge: var(--soda-feed-faint); }
+.soda-feed-hgroup { display: grid; gap: 4px; }
+.soda-feed-hl { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.38; overflow-wrap: anywhere; text-wrap: pretty; }
+.soda-feed-dt { margin: 0; font-size: 14px; color: var(--soda-page-muted); }
+.soda-feed-post .soda-feed-pill { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; vertical-align: 2px; padding: 4px 8px 4px 7px; border: 0; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; background: var(--soda-feed-neu-bg); color: var(--soda-feed-neu); }
+.soda-feed-pill .soda-feed-ic { width: 12px; height: 12px; }
+.soda-feed-pill[data-state=needs_you] { background: var(--soda-feed-attn); color: var(--soda-feed-on-attn); }
+.soda-feed-pill[data-state=problem] { background: var(--soda-feed-bad-bg); color: var(--soda-feed-bad); }
+.soda-feed-pill[data-state=waiting] { background: var(--soda-feed-warn-bg); color: var(--soda-feed-warn); }
+.soda-feed-pill[data-state=done] { background: var(--soda-feed-ok-bg); color: var(--soda-feed-ok); }
+.soda-feed-pill[data-state=in_progress] { background: transparent; color: var(--soda-page-text); box-shadow: inset 0 0 0 1.5px var(--soda-page-text); }
+.soda-feed-pill[data-state=info] { background: transparent; color: var(--soda-page-muted); box-shadow: inset 0 0 0 1px var(--soda-feed-line); }
+.soda-feed-ic { width: 16px; height: 16px; flex: none; }
+/* The headline and pill now lead the card. The section's own caption and
+   title stay for screen readers only, so the post keeps its heading. */
+.soda-feed-card > section[data-feed-family] > .soda-feed-headline,
+.soda-feed-card .soda-feed-communication > .soda-feed-component-caption,
+.soda-feed-card .soda-feed-communication > h3 { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.soda-feed-card .soda-feed-card-footer { border-top: 0; margin: 0; padding: 0; }
+.soda-feed-next { margin: 0; padding-top: 10px; border-top: 1px solid var(--soda-feed-line); font-size: 14px; color: var(--soda-page-muted); }
+.soda-feed-age { display: inline-flex; align-items: center; gap: 5px; color: var(--soda-feed-attn); font-weight: 600; }
+.soda-feed-age .soda-feed-ic { width: 13px; height: 13px; }
+.soda-feed-changes { font-size: 13.5px; color: var(--soda-page-muted); }
+.soda-feed-changes summary { cursor: pointer; }
+.soda-feed-changes ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 3px; }
+.soda-feed-changes li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; color: var(--soda-page-text); }
+.soda-feed-changes time { color: var(--soda-page-muted); font-variant-numeric: tabular-nums; }
+/* Steps under a post: one line each, icon · who · did what · result · time. */
+.soda-feed-thread { position: relative; z-index: 2; margin: 0 0 0 16px; padding: 8px 0 2px 12px; border-left: 2px solid var(--soda-feed-line); }
+.soda-feed-thread-count { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13px; color: var(--soda-page-muted); }
+.soda-feed-thread-count .soda-feed-ic { width: 14px; height: 14px; }
+.soda-feed-cms { list-style: none; margin: 0; padding: 0; display: grid; }
+.soda-feed-cm { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 5px 0; font-size: 14px; line-height: 1.35; }
+.soda-feed-cm > .soda-feed-ic { margin-top: 1px; color: var(--soda-page-muted); }
+.soda-feed-cm[data-tone=ok] > .soda-feed-ic { color: var(--soda-feed-ok); }
+.soda-feed-cm[data-tone=bad] > .soda-feed-ic { color: var(--soda-feed-bad); }
+.soda-feed-cm[data-kind=jev] > .soda-feed-ic { color: var(--soda-page-text); }
+.soda-feed-cm-text { min-width: 0; overflow-wrap: anywhere; }
+.soda-feed-cm-text strong { font-weight: 600; }
+.soda-feed-cm-dot { color: var(--soda-feed-faint); padding: 0 5px; }
+.soda-feed-cm-result { font-weight: 600; font-variant-numeric: tabular-nums; }
+.soda-feed-cm-result[data-tone=ok] { color: var(--soda-feed-ok); }
+.soda-feed-cm-result[data-tone=bad] { color: var(--soda-feed-bad); }
+.soda-feed-cm-result[data-tone=muted] { color: var(--soda-page-muted); font-weight: 500; }
+.soda-feed-cm-quote { color: var(--soda-page-text); }
+.soda-feed-cm time { color: var(--soda-page-muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.soda-feed-cm-promoted { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--soda-page-text); border-radius: 5px; color: var(--soda-page-text); font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.soda-feed-cm-promoted .soda-feed-ic { width: 12px; height: 12px; }
+.soda-feed-cm-group > details > summary { list-style: none; cursor: pointer; }
+.soda-feed-cm-group > details > summary::-webkit-details-marker { display: none; }
+.soda-feed-cm-group > details > summary .soda-feed-cm-text::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 8px; border-right: 1.5px solid var(--soda-page-muted); border-bottom: 1.5px solid var(--soda-page-muted); transform: rotate(-45deg); vertical-align: 2px; }
+.soda-feed-cm-group > details[open] > summary .soda-feed-cm-text::after { transform: rotate(45deg); vertical-align: 4px; }
+.soda-feed-cm-group .soda-feed-cms { margin: 0 0 4px 24px; padding-left: 10px; border-left: 1px dashed var(--soda-feed-line); }
+/* JEV's answer: a bar per option, the 80% notch and how sure JEV was. */
+.soda-feed-jev { display: grid; gap: 10px; font-size: 14px; }
+.soda-feed-jev-opt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
+.soda-feed-jev-label { display: inline-flex; align-items: center; gap: 6px; color: var(--soda-page-muted); min-width: 0; overflow-wrap: anywhere; }
+.soda-feed-jev-pc { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--soda-page-muted); }
+.soda-feed-jev-opt[data-top=true] .soda-feed-jev-label, .soda-feed-jev-opt[data-top=true] .soda-feed-jev-pc { color: var(--soda-page-text); font-weight: 600; }
+.soda-feed-jev-track { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 99px; background: light-dark(#ebe6e7, #2f2f2f); }
+.soda-feed-jev-track b { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: light-dark(#847b7f, #808080); }
+.soda-feed-jev-opt[data-top=true] .soda-feed-jev-track b { background: var(--soda-page-text); }
+.soda-feed-jev-notch, .soda-feed-jev-kn i { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: var(--soda-page-text); box-shadow: 0 0 0 1.5px var(--soda-page-surface); }
+.soda-feed-jev-key, .soda-feed-jev-sure { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; }
+.soda-feed-jev-sure { color: var(--soda-page-muted); }
+.soda-feed-jev-sure strong { color: var(--soda-page-text); }
+.soda-feed-jev-kn { position: relative; flex: none; width: 34px; height: 8px; border-radius: 99px; background: light-dark(#ebe6e7, #2f2f2f); }
+.soda-feed-jev-kn i { left: 15px; }
+/* Replies continue the steps rail as a quiet line instead of a tab. */
+.soda-feed-post .soda-feed-drawer { margin: 0 0 0 16px; padding: 0 0 0 12px; border: 0; border-left: 2px solid var(--soda-feed-line); background: transparent; }
+.soda-feed-post .soda-feed-pull-tab { min-height: 32px; padding: 4px 0; border: 0; background: transparent; font-size: 13px; font-family: inherit; letter-spacing: normal; text-transform: none; color: var(--soda-page-muted); }
+.soda-feed-post .soda-feed-pull-tab strong { font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: normal; text-transform: none; color: var(--soda-page-muted); }
+.soda-feed-post .soda-feed-pull-tab:hover strong { color: var(--soda-page-text); }
+.soda-feed-post .soda-feed-pull-tab .soda-feed-chev { margin-inline-start: 6px; }
+.soda-feed-post .soda-feed-drawer-inner { padding: 2px 0 6px; }
+@media (max-width: 560px) {
+  .soda-feed-post .soda-feed-card { padding: 12px 14px 12px 18px; }
+  .soda-feed-post .soda-feed-pill { display: flex; width: fit-content; margin: 0 0 7px; }
+  .soda-feed-thread, .soda-feed-post .soda-feed-drawer { margin-left: 8px; padding-left: 10px; }
+  .soda-feed-cm { gap: 7px; }
+}
