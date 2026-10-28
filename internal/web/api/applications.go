@@ -10,7 +10,6 @@ import (
 	"github.com/levitateos/sodaos/internal/application"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-	"golang.org/x/net/publicsuffix"
 )
 
 type applicationView struct {
@@ -21,7 +20,6 @@ type applicationView struct {
 	Project         *applicationProjectView           `json:"project,omitempty"`
 	Restore         *application.RestoreOperation     `json:"restore,omitempty"`
 	Environment     string                            `json:"environment"`
-	CanEmbed        bool                              `json:"can_embed"`
 	Delivery        *store.ApplicationFactoryDelivery `json:"delivery,omitempty"`
 }
 
@@ -44,7 +42,6 @@ type applicationLaunchView struct {
 	State       string                     `json:"state"`
 	Project     *applicationProjectView    `json:"project,omitempty"`
 	LaunchOnly  bool                       `json:"launch_only"`
-	CanEmbed    bool                       `json:"can_embed"`
 	Environment string                     `json:"environment"`
 	DeliveryID  string                     `json:"delivery_id,omitempty"`
 }
@@ -56,7 +53,7 @@ type applicationLaunchReference struct {
 	Origin   string `json:"origin"`
 }
 
-func appLaunchView(record application.Record, project *applicationProjectView, canEmbed bool, environment string) applicationLaunchView {
+func appLaunchView(record application.Record, project *applicationProjectView, environment string) applicationLaunchView {
 	var running, ready bool
 	state := "unknown"
 	if observed := record.Observation; observed != nil {
@@ -73,12 +70,11 @@ func appLaunchView(record application.Record, project *applicationProjectView, c
 		}
 	}
 	a := record.Application
-	return applicationLaunchView{Application: applicationLaunchReference{ID: a.ID, Revision: a.Revision, Name: a.Name, Origin: a.Origin}, Running: running, Ready: ready, State: state, Project: project, LaunchOnly: true, CanEmbed: canEmbed, Environment: environment}
+	return applicationLaunchView{Application: applicationLaunchReference{ID: a.ID, Revision: a.Revision, Name: a.Name, Origin: a.Origin}, Running: running, Ready: ready, State: state, Project: project, LaunchOnly: true, Environment: environment}
 }
 
 func (s *API) applicationView(r *http.Request, v store.Session, record application.Record, operator bool) applicationView {
 	view := appView(record, operator)
-	view.CanEmbed = s.applicationEmbeddable(record.Application)
 	view.Environment = s.applicationEnvironment(r, record.Application.ID)
 	if delivery, err := s.Store.VerifiedApplicationDelivery(r.Context(), record.Application.ID); err == nil {
 		view.Delivery = delivery
@@ -137,7 +133,7 @@ func (s *API) launchableApplications(r *http.Request, v store.Session, administe
 			continue
 		}
 		project := &applicationProjectView{Repository: strconv.FormatInt(link.Repository, 10), Name: access.repository.FullName, Path: "/" + access.repository.FullName}
-		launch := appLaunchView(record, project, s.applicationEmbeddable(record.Application), s.applicationEnvironment(r, record.Application.ID))
+		launch := appLaunchView(record, project, s.applicationEnvironment(r, record.Application.ID))
 		// Repository access admits this minimal launch projection. Only the
 		// current image's verified native byte join supplies its result identity.
 		if delivery, err := s.Store.VerifiedApplicationDelivery(r.Context(), record.Application.ID); err == nil && delivery != nil && record.Observation != nil && delivery.BundleFileSHA256 == record.Observation.BundleFileSHA256 && delivery.Environment == launch.Environment {
@@ -161,23 +157,6 @@ func (s *API) applicationEnvironment(r *http.Request, id string) string {
 		return "unknown"
 	}
 	return value
-}
-
-// Canlang's host-only Secure SameSite=Lax cookies work in a same-site HTTPS
-// frame. Keep that identity boundary instead of proxying app data or relaxing
-// cookies for arbitrary cross-site origins. First-owner setup remains top-level.
-func (s *API) applicationEmbeddable(spec application.Spec) bool {
-	app, err := url.Parse(spec.Origin)
-	if err != nil || app.Scheme != "https" || !s.applicationOriginAllowed(spec) {
-		return false
-	}
-	forge, err := url.Parse(s.Config.ForgejoURL)
-	if err != nil || forge.Scheme != "https" {
-		return false
-	}
-	appSite, appErr := publicsuffix.EffectiveTLDPlusOne(strings.ToLower(app.Hostname()))
-	forgeSite, forgeErr := publicsuffix.EffectiveTLDPlusOne(strings.ToLower(forge.Hostname()))
-	return appErr == nil && forgeErr == nil && appSite == forgeSite
 }
 
 func (s *API) applicationOperator(v store.Session) bool {

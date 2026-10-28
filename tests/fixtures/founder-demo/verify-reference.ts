@@ -81,7 +81,6 @@ const gateway = createHttpsServer({cert: await readFile(cert), key: await readFi
               ready: true,
               launch_only: true,
               environment: 'company',
-              can_embed: true,
               project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
             },
           ],

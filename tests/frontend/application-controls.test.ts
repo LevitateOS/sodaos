@@ -262,12 +262,12 @@ test('App distinguishes unavailable, loading and empty inventory and offers read
   await page.evaluate(() => window.applicationFixture.release?.());
   await page.getByText(/No app is available here yet/).waitFor();
   await page
-    .getByText(
-      'No app is available here yet. Apps appear once a build is verified and released.',
-      {exact: true}
-    )
+    .getByText('No app is available here yet. Apps appear once a build is verified and released.', {exact: true})
     .waitFor();
-  assert.equal(await page.getByText('Application setup and updates are handled by an operator.', {exact: true}).count(), 0);
+  assert.equal(
+    await page.getByText('Application setup and updates are handled by an operator.', {exact: true}).count(),
+    0
+  );
   const workOpen = page.evaluate(
     () =>
       new Promise<unknown>((resolve) => {
@@ -841,7 +841,6 @@ test('ordinary employee opens the exact verified result without lifecycle contro
             state: 'ready',
             project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
             launch_only: true,
-            can_embed: true,
           },
         ],
         complete: true,
@@ -985,7 +984,6 @@ test('a selected delivery shows only its exact version while other verified vers
           ready,
           bundle_file_sha256: (suffix === '1' ? 'b' : 'c').repeat(64),
         },
-        can_embed: true,
         project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
         delivery: {
           environment: 'company',
@@ -2942,9 +2940,8 @@ test('failed status sweep clears the stale Ready observation instead of keeping 
         throw Error('native inspection failed');
       }
       const result = (await original(path, body, signal)) as {
-        applications?: {observation: {running: boolean; ready: boolean} | null; can_embed?: boolean}[];
+        applications?: {observation: {running: boolean; ready: boolean} | null}[];
         observation?: {running: boolean; ready: boolean} | null;
-        can_embed?: boolean;
       };
       // Serve a Ready record so the passing sweep enables the Open app link. The
       // fixture parks non-start actions as stopped, so force both the
@@ -2953,13 +2950,11 @@ test('failed status sweep clears the stale Ready observation instead of keeping 
         if (!row.observation) continue;
         row.observation.running = true;
         row.observation.ready = true;
-        row.can_embed = true;
       }
       if (result.observation) {
         result.observation.running = true;
         result.observation.ready = true;
       }
-      if (!result.applications) result.can_embed = true;
       return result;
     };
   });
@@ -3031,7 +3026,6 @@ test('ordinary employee with unconfirmed availability gets an operator handoff i
             state: 'unknown',
             project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
             launch_only: true,
-            can_embed: true,
           },
         ],
         complete: true,
@@ -3869,7 +3863,6 @@ test('opening the current company application shows only the company surface', a
       administrator_id: '41',
       operator: false,
       observation,
-      can_embed: true,
       project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
       ...(delivery ? {delivery} : {}),
     });
@@ -4005,7 +3998,6 @@ test('a session switch drops the company scope instead of hiding the new preview
       administrator_id: '41',
       operator: false,
       observation,
-      can_embed: true,
     });
     const rows = [
       record(
@@ -4101,7 +4093,6 @@ test('a reload starts outside the company scope instead of keeping a stale filte
         administrator_id: '41',
         operator: false,
         observation,
-        can_embed: true,
       });
       const rows = [
         record(
@@ -4190,7 +4181,6 @@ test('resuming the app surface re-applies the retained company scope without ano
       administrator_id: '41',
       operator: false,
       observation,
-      can_embed: true,
       project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
     });
     const rows = [
@@ -4293,7 +4283,6 @@ test('resuming onto an exact selection keeps the exact view unscoped', async (t)
       administrator_id: '41',
       operator: false,
       observation,
-      can_embed: true,
       project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
     });
     const rows = [
@@ -4405,7 +4394,6 @@ test('switching accounts drops the retained company scope without re-applying it
       administrator_id: '41',
       operator: false,
       observation,
-      can_embed: true,
       project: {repository: '7', name: 'northstar/equipment', path: '/northstar/equipment'},
     });
     const rows = [

@@ -42,7 +42,6 @@ export interface ApplicationRecord {
   administrator_id: string;
   observation: ApplicationObservation | null;
   operator: boolean;
-  can_embed?: boolean;
   delivery?: ApplicationFactoryDelivery;
   restore?: ApplicationRestoreOperation;
 }
@@ -175,14 +174,12 @@ export function applicationResponse(value: unknown, expected?: ApplicationSpec):
         'operator',
         'project',
         'restore',
-        'can_embed',
         'delivery',
         'environment',
       ].includes(key)
     ) &&
       id(v.administrator_id) &&
-      typeof v.operator === 'boolean' &&
-      (v.can_embed === undefined || typeof v.can_embed === 'boolean')
+      typeof v.operator === 'boolean'
   );
   let project: ApplicationRecord['project'];
   if (v.project !== undefined) {
@@ -259,7 +256,6 @@ export function applicationResponse(value: unknown, expected?: ApplicationSpec):
     ...(delivery ? {delivery} : {}),
     administrator_id: v.administrator_id,
     operator: v.operator,
-    ...(typeof v.can_embed === 'boolean' ? {can_embed: v.can_embed} : {}),
     observation: observation(v.observation, application),
     ...(project ? {project} : {}),
     ...(restore ? {restore} : {}),
@@ -274,7 +270,6 @@ export interface ApplicationLaunchRecord {
   ready: boolean;
   state: 'ready' | 'running' | 'stopped' | 'not-installed' | 'unknown';
   launch_only: true;
-  can_embed: boolean;
 }
 export function applicationLaunch(value: unknown): ApplicationLaunchRecord {
   const v = object(value),
@@ -290,23 +285,12 @@ export function applicationLaunch(value: unknown): ApplicationLaunchRecord {
   const application = {id: a.id, revision: a.revision, name: a.name, origin: a.origin};
   check(
     Object.keys(v).every((key) =>
-      [
-        'application',
-        'running',
-        'ready',
-        'project',
-        'launch_only',
-        'can_embed',
-        'state',
-        'environment',
-        'delivery_id',
-      ].includes(key)
+      ['application', 'running', 'ready', 'project', 'launch_only', 'state', 'environment', 'delivery_id'].includes(key)
     ) &&
       typeof v.running === 'boolean' &&
       typeof v.ready === 'boolean' &&
       (!v.ready || v.running) &&
       v.launch_only === true &&
-      typeof v.can_embed === 'boolean' &&
       (v.state === undefined || ['ready', 'running', 'stopped', 'not-installed', 'unknown'].includes(String(v.state)))
   );
   check(v.delivery_id === undefined || (typeof v.delivery_id === 'string' && /^[a-f0-9]{32}$/.test(v.delivery_id)));
@@ -335,7 +319,6 @@ export function applicationLaunch(value: unknown): ApplicationLaunchRecord {
     state: state as ApplicationLaunchRecord['state'],
     ...(project ? {project} : {}),
     launch_only: true,
-    can_embed: v.can_embed,
   };
 }
 export function applicationsResponse(value: unknown): {
