@@ -742,19 +742,14 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 			launch.MCP = &project.FactoryMCPBinding{Capability: capability.ID, Secret: secret}
 		}
 	}
-	// One paid choice belongs to this capability. A held or incomplete
-	// context preserves the packet and its exact identity without starting
-	// new native work; retry reads the same selection receipt.
-	bundle, reason := factory.ContextBundleSnapshotHold, "context_selection_unavailable"
+	// The context classifier picks how much history the worker sees. Its
+	// answer is advice: a failed or unsure choice serves current context,
+	// and the run starts either way.
 	var contextChooser ProductJudgment
 	if deps.Priority != nil {
 		contextChooser, _ = deps.Priority.Chooser.(ProductJudgment)
 	}
-	bundle, reason, _ = PrepareContextBundleSelection(ctx, deps.Store, contextChooser, a, run, deps.ContextVerification)
-	if len(deps.MCPKey) > 0 && (bundle == factory.ContextBundleSnapshotHold || reason != "") {
-		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: "context_selection_hold", Detail: reason})
-		return
-	}
+	_, _, _ = PrepareContextBundleSelection(ctx, deps.Store, contextChooser, a, run, deps.ContextVerification)
 	if run.ContextPending {
 		run.ContextPending = false
 		if err := deps.Store.SaveFactoryRun(ctx, run); err != nil {

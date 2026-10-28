@@ -849,8 +849,9 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 	return read, nil
 }
 
-// foregroundReadBundle is read-only. Missing, failed or uncertain selections
-// retain the deterministic snapshot and an explicit hold.
+// foregroundReadBundle is read-only. The classifier's recorded choice picks
+// the foregrounded history; a missing, failed or unsure choice serves current
+// context rather than holding the worker.
 func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *readContext, attemptEligible, lineageEligible bool) (string, string, string) {
 	if resolution := read.capability.ContextCurrentResolution; resolution != nil {
 		source, ok := s.deps.Submissions.(factoryMCPCurrentContextSource)
@@ -871,19 +872,19 @@ func (s *factoryCatalogServer) foregroundReadBundle(ctx context.Context, read *r
 	if priority == nil {
 		priority, _ = s.deps.Submissions.(FactoryMCPPriorityJudgmentSource)
 	}
-	if priority == nil {
-		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
-	}
 	fingerprint := read.capability.ContextSelectionSnapshot
-	if !factory.ValidDigest(fingerprint) {
-		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
+	if priority == nil || !factory.ValidDigest(fingerprint) {
+		return factory.ContextBundleCurrent, "", ""
 	}
 	receipt, err := priority.PriorityJudgment(ctx, fingerprint)
 	if err != nil {
-		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ""
+		return factory.ContextBundleCurrent, "", ""
 	}
 	bundle, reason := control.ContextBundleFromReceipt(receipt, read.capability, read.assignment, attemptEligible, lineageEligible)
-	return bundle, reason, fingerprint
+	if bundle == factory.ContextBundleSnapshotHold || reason != "" {
+		return factory.ContextBundleCurrent, "", fingerprint
+	}
+	return bundle, "", fingerprint
 }
 
 // buildReadBody renders one read's projection with its eligible

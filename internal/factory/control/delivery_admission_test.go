@@ -903,15 +903,14 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					}
 					fundedThird := newDispatchReport()
 					DispatchTimeOnlyRoot(ctx, deps, &occupancy, 7, subject, fx.tip, retryPrompt, preparation, &fundedThird)
-					// The changed accepted revision has no prepared current-context
-					// receipt in this fixture. Its new packet may consume the one
-					// explicitly added admission while native launch remains held.
-					if len(fundedThird.Launched) != 0 || len(fundedThird.Errors) != 0 || len(fundedThird.Waits) != 1 || fundedThird.Waits[0].Reason != "context_selection_hold" {
-						t.Fatal("explicit count increase did not retain its normal context gate", fundedThird)
+					// The explicitly added admission launches; a missing context
+					// choice serves current context rather than holding.
+					if len(fundedThird.Launched) != 1 || len(fundedThird.Errors) != 0 {
+						t.Fatal("explicit count increase did not launch its added admission", fundedThird)
 					}
 					var thirdLimit int
 					var contextPending bool
-					if err := sqlDB.QueryRow(`SELECT (b.data->'limits'->>'active_minutes')::int,(r.data->>'context_pending')::boolean FROM factory_assignments a JOIN factory_attempt_allowances b ON b.root_assignment=a.id JOIN factory_runs r ON r.id=a.run WHERE a.data->'subject'->'delivery'->>'accepted_revision'=$1`, nextRevision.ID).Scan(&thirdLimit, &contextPending); err != nil || thirdLimit < 1 || thirdLimit > 30 || !contextPending {
+					if err := sqlDB.QueryRow(`SELECT (b.data->'limits'->>'active_minutes')::int,COALESCE((r.data->>'context_pending')::boolean,false) FROM factory_assignments a JOIN factory_attempt_allowances b ON b.root_assignment=a.id JOIN factory_runs r ON r.id=a.run WHERE a.data->'subject'->'delivery'->>'accepted_revision'=$1`, nextRevision.ID).Scan(&thirdLimit, &contextPending); err != nil || thirdLimit < 1 || thirdLimit > 30 || contextPending {
 						t.Fatal("third packet lacked its bounded retained root", thirdLimit, contextPending, err)
 					}
 					if retained() != oldRows {

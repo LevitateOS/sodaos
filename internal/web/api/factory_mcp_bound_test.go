@@ -130,10 +130,6 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		if catalogRefused(result, err) || !strings.Contains(catalogText(t, result), strategist.capability.ScopeDigest()) || !strings.Contains(catalogText(t, result), "current_role_page") {
 			t.Fatal("named scope lost authenticated binding or canonical context paging", err)
 		}
-		var held map[string]any
-		if err := json.Unmarshal([]byte(catalogText(t, result)), &held); err != nil || held["context_selection"].(map[string]any)["action"] != "hold" {
-			t.Fatal("diagnosis fixture did not preserve an actual optional-context hold", err)
-		}
 		diagnosis := factory.RepairDiagnosis{Subject: strategist.capability.Subject, InputDigest: strategist.capability.ScopeDigest(), SourceCommit: strings.Repeat("4", 40), InventoryDigest: strings.Repeat("3", 64), Title: "Missing producer", Summary: "The sealed prerequisite has no authorized producer.", State: "supported", Causes: report.Causes, EvidenceRefs: []string{"sealed inventory"}, Alternatives: []string{"An ordinary capacity wait does not supply the missing result."}, Uncertainty: []string{"The owner must confirm the result after a producer is added."}}
 		diagnosisArgs := map[string]any{"submission_id": strings.Repeat("8", 32), "payload": diagnosis}
 		firstDiagnosis := ""
@@ -934,11 +930,11 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	finishID := factory.NewID()
 	finishArgs := map[string]any{"submission_id": finishID, "payload": finishPayload}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
-	if !catalogRefused(result, err) || !strings.Contains(catalogText(t, result), "context selection holds") || counts() != beforeVerification {
-		t.Fatal("new evidence reference escaped the required-context hold", err)
+	if !catalogRefused(result, err) || counts() != beforeVerification {
+		t.Fatal("finish against a foreign verification source was admitted", err)
 	}
 	// Store exercises new terminal reference admission; authenticated HTTP
-	// then recovers that exact receipt while the changed context stays held.
+	// then recovers that exact receipt.
 	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, ExpectedInputDigest: pilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
 	if _, err := st.RecordMCPSubmission(ctx, finishSub, factory.MCPReceipt{SubmissionID: finishID, Tool: finishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: finishSub.PayloadHash}); err != nil {
 		t.Fatal("journey observations consumed terminal capacity", err)
