@@ -322,7 +322,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
     current = undefined;
   };
 
-  route(location.pathname + location.search);
+  route(location.pathname + location.search + location.hash);
   readViewer(placeContext)
     .then((read) => Object.assign(viewer, read))
     .catch(() => Object.assign(viewer, {loaded: true}))
