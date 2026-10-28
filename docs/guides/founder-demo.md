@@ -17,14 +17,16 @@ comments, business records or successful outcomes.
 | Decide | Read the actual proposed experience. Plan the draft, then Check walkthrough to ask JEV for review; correct and re-check until clean, then choose Accept and build when satisfied. | Concrete proposed behavior, the real JEV review result, unresolved questions and one clear next action. A proposal is distinct from a checked walkthrough, an accepted decision, or completed implementation. When you edit an accepted direction, the Update proposal button becomes the primary next step. |
 | Build | Start the authorized work and follow Feed. | Actual role posts, progress, checks and interruptions. A wait names its cause and the supported next action. Technical controls remain available in detail. |
 | Understand | Open a decision or an actual consultation in its post thread. | The agent's actual question to JEV, returned result and separate explanation. The agent's own explanation stays visible above the consultation block. Every non-returned JEV state names its next action in plain words. A failed discussion load offers “Retry loading discussion text” on that post. Other roles' comments appear only when they actually contribute. |
-| Find | Filter the same feed to Decisions or Knowledge and open a post. | The same post, comments and history, with its current decision state. |
+| Find | Filter the Feed to Choices & approvals, or open the Knowledge tab, and open a post. | The same post, comments and history, with its current decision state. |
 | Use | Open the app from App when a usable version is actually available. Complete an action yourself. | The real application at its own address in its own browser tab, never embedded in Forge. App shows its version, readiness and an “Open app ↗” link. Each row states the version and origin plus where app accounts and data live, separate from Soda Forge, and whether setup is operator- or administrator-handled. Setup, unavailable and access states explain how to continue. |
 | Improve | Comment with a real change you want. Review any proposed scope change and follow its actual work. | A link from the comment to its decision and work. The existing app remains available where supported. |
-| Return | Leave for Feed, return to App, and reload. | Your actual saved record and application context. “View project Feed” is available whenever a project is set, and Forge remembers your last project view. An update preserves data only when that behavior has been exercised. |
+| Return | Leave for Feed, return to App, and reload. | Your actual saved record and application context. Every place has its own address on the repository, so Back and reload return you to it. An update preserves data only when that behavior has been exercised. |
 
-Your main navigation is **Feed · App · Work**. Feed carries conversations,
-decisions and knowledge. App is where you use the result. Work provides progress,
-checks and the existing development tools. Routine use should not require
+Everything lives on the repository: **Code · Requests · Feed · App · Issues ·
+Pull requests · Terminals · Knowledge · Settings**. Requests is where you describe
+and decide. Feed carries each role's posts and your comments. App lists the
+versions and opens the app in its own tab. Knowledge holds decisions and lessons.
+Terminals and Settings → SodaOS hold the development tools. Routine use should not require
 deployment JSON, a terminal or replaying creation.
 
 ## Explain the products as they appear

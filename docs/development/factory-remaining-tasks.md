@@ -206,13 +206,13 @@ local evidence does not check off the remaining journey.
       states do not offer a misleading working-app claim.
 - [ ] **FUX19 — Prove ordinary return and contextual expert tools.**
       **Needs:** FUX18; expert navigation can be checked earlier.
-      **Owners:** FJ30–FJ32, workspace/App/Work/native tools.
-      **Done:** Feed → App → Work → App and browser reload retain project,
-      selected version and saved work. Round-trip criterion: an unfinished form
-      started in App survives App → Feed/Work → App with all entered input
-      intact, and a single submit creates exactly one record — no lost input,
-      no double submission. Source/issues/PRs/Actions, terminals and
-      appropriate settings remain reachable and return correctly. Daily app use
+      **Owners:** FJ30–FJ32, repository places Requests/Feed/App/native tools.
+      **Done:** Requests → Feed → App → Open app ↗ in its own tab → back, plus
+      browser reload, keep the repository, the request, the selected version and
+      the feed position. The app keeps its own input at its own address: an
+      unfinished form in the app's tab survives switching between Forge tabs, and a
+      single submit creates exactly one record. Code, Issues, PRs, Actions,
+      Terminals and Settings stay reachable and return correctly. Daily app use
       requires no terminal, repeated setup or manual linking. Lifecycle/access
       recovery keeps data and uses the responsible person's actual controls.
 
@@ -255,7 +255,7 @@ local evidence does not check off the remaining journey.
 - [ ] **FUX23 — Run the connected journey without hidden assistance.**
       **Needs:** FUX08–FUX22 and FUX26. **Owners:** FJ36, installed/browser acceptance.
       **Done:** empty request → tailored decision → actual build and conversation
-      → verified in-Forge app → saved work → change comment → real updated app
+      → verified app opened at its own address → saved work → change comment → real updated app
       → retained record works on the installed target. Record real run/version/post
       references and observed timings privately. Any required failing transition
       stays open and is repaired; no manual database patch or fixture substitution
@@ -499,6 +499,9 @@ FUX23–25 and the capability map below remain unfinished.
 ### Connect the main journey
 
 - [x] **FJ05 — Adapt the native project workspace to Feed / App / Work.**
+      **Superseded 28 Oct 2026:** repository places Requests · Feed · App ·
+      Terminals · Knowledge, Factory status and Settings → SodaOS; no Workspace.
+      Do not rebuild Feed / App / Work. The text below is history.
       **Needs:** FJ02. **Home:** existing `sodaspaces-project-journey-view.ts`, feed,
       application and Work views. Keep goal, real version/state and next useful
       action visible; expose Knowledge through feed filters and contextual library
@@ -722,15 +725,16 @@ FUX23–25 and the capability map below remain unfinished.
       nonoperator sees the responsible handoff instead of unavailable controls.
 
 - [ ] **FJ30 — Support direct return and everyday application use.**
-      **Needs:** FJ05, FJ27, FJ29. **Home:** existing native workspace/project/App
-      views. **Done:** a returning person opens the running app directly; App ↔ Feed
-      ↔ Work preserves project, app route/version and relevant conversation. Ordinary
+      **Needs:** FJ05, FJ27, FJ29. **Home:** the repository's App tab and navbar Apps.
+      **Done:** a returning person opens the running app directly with Open app ↗;
+      App ↔ Feed ↔ Requests preserves repository, version and relevant conversation. Ordinary
       use requires no repeated creation wizard, manual linking or terminal command.
 
 - [ ] **FJ31 — Preserve contextual access to existing expert and operator tools.**
-      **Needs:** FJ05, FJ08, FJ20. **Home:** current Work/Spaces/native settings.
-      Keep source/issues/PRs/Actions, persistent terminals, human Join, SSH, tools/
-      services, provider/limits, Project administration and networking/host controls
+      **Needs:** FJ05, FJ08, FJ20. **Home:** the repository's Terminals, Factory status
+      and Settings → SodaOS, plus AI accounts. Keep source/issues/PRs/Actions,
+      persistent terminals, human Join, SSH, tools/services, provider/limits,
+      development environment administration and networking/host controls
       accessible at their existing owners. **Done:** each capability in the
       [journey coverage map](../design/factory-demo-journey.md#the-journey-owns-the-entry-points)
       has a functioning entry and return path; native navigation preserves terminal
