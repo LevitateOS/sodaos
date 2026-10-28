@@ -276,40 +276,12 @@ func TestDispatchWaitsForAttributedUnsettledRepositorySession(t *testing.T) {
 	}
 }
 
-func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
-	fx := dispatchFixture{harness: "0.157.1"}
-	available := map[string]project.FactoryHarnessPin{
-		project.FactoryHarnessCodex: {Harness: project.FactoryHarnessCodex, Version: "0.157.1", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)},
-		project.FactoryHarnessMuse:  {Harness: project.FactoryHarnessMuse, Version: "1.4.0", SHA256: strings.Repeat("c", 64), Image: "sha256:" + strings.Repeat("d", 64)},
-	}
-	fx.host = &fakeDispatchHost{harness: func(family string) (project.FactoryHarnessPin, error) {
-		pin, ok := available[family]
-		if !ok {
-			return project.FactoryHarnessPin{}, errors.New("family unavailable")
-		}
-		return pin, nil
-	}}
-	plan := &attemptPlan{policy: factory.RepositoryPolicy{AttemptLimits: factory.DefaultAttemptLimits(), Roles: map[string]factory.RoleSelection{
-		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "different-label", Model: "muse-spark-1.3"},
-		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "codex-model"},
-	}}}
-	if wait := checkHarnessFor(context.Background(), DispatchDeps{Host: fx.host}, plan, project.RoleCoder); wait != nil {
-		t.Fatalf("Muse selection waited: %+v", wait)
-	}
-	if len(fx.host.families) != 1 || fx.host.families[0] != project.FactoryHarnessMuse {
-		t.Fatalf("requested families = %v, want [muse]", fx.host.families)
-	}
-	if plan.pin.Harness != project.FactoryHarnessMuse || plan.pin.Version != "1.4.0" {
-		t.Fatalf("selected pin = %+v", plan.pin)
-	}
-}
-
 func TestCheckHarnessRejectsWrongFamilyAndInvalidContent(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		pin  project.FactoryHarnessPin
 	}{
-		{name: "wrong family", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: "1.4.0", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
+		{name: "wrong family", pin: project.FactoryHarnessPin{Harness: "codex", Version: "1.4.0", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
 		{name: "missing digest", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "different-label", Image: "sha256:" + strings.Repeat("b", 64)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

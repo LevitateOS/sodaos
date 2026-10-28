@@ -93,7 +93,7 @@ func TestConcurrentDispatchPassesPreserveCapacityAndBudget(t *testing.T) {
 		Broker: &fakeDispatchBroker{},
 		Reads:  &rendezvousReads{inputs: inputs, gate: make(chan struct{})},
 		Host: &mutexDispatchHost{pin: project.FactoryHarnessPin{
-			Harness: project.FactoryHarnessCodex, Version: fx.harness,
+			Harness: project.FactoryHarnessMuse, Version: fx.harness,
 			SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64),
 		}},
 		Authority: coord.EffectiveAuthority,

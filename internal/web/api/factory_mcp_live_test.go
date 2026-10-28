@@ -91,7 +91,6 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 	}{
 		{"builder", "muse", project.ExecutionImplement, factory.MCPProfileBuilder, "start_task", "release_output"},
 		{"fixer", "muse", project.ExecutionCorrect, factory.MCPProfileFixer, "release_output", "start_task"},
-		{"codex_builder", "codex", project.ExecutionImplement, factory.MCPProfileBuilder, "", "start_task"},
 		{"inspector", "muse", project.ExecutionReview, factory.MCPProfileInspector, "", "release_output"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {

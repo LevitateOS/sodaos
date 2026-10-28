@@ -146,8 +146,8 @@ func seedPlanFundingWithPreparations(t *testing.T, ctx context.Context, s *store
 	policy := factory.RepositoryPolicy{
 		Repository: 7, GrantedBy: 1, Enabled: true, TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "test-model"},
-			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "test-model"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "1.2.3", Model: "test-model"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: "1.2.3", Model: "test-model"},
 		},
 		Checks: []string{"ci"}, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),

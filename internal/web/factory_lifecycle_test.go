@@ -72,7 +72,7 @@ func lifecycleWebGrants(t *testing.T, s *Server, repository int64, paused bool) 
 		Repository: repository, GrantedBy: 1, Enabled: true, Paused: paused,
 		TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"}, project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"},
+			project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"}, project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"},
 		},
 		Checks: []string{"native-ci/build"}, MergeMethod: factory.MergeFastForward,
 		Publish:             factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpRefPublish},
