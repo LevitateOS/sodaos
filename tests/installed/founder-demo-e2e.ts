@@ -50,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -914,6 +914,63 @@ async function phaseBounds(page: Page, out: string): Promise<void> {
   await writeFile(`${out}/bounds.json`, JSON.stringify(applied, null, 2));
 }
 
+/** Rehearsal: fix bounds AND explore in one browser session, the way a
+ * presenter would. Separate processes lose component state (each launch
+ * rehydrates from the server head), so the explore run kept re-saving
+ * stale limits. Fills verified, saves, then Explore ideas through the
+ * page: 201 means the allowance posted and exploration ran. */
+async function phaseReadyExplore(page: Page, out: string, intent: string): Promise<void> {
+  const expandBounds = () =>
+    page.evaluate(() => {
+      const roots: (Document | ShadowRoot)[] = [document];
+      for (let i = 0; i < roots.length; i++) {
+        for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+          if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+        }
+      }
+      for (const root of roots) {
+        for (const el of Array.from(root.querySelectorAll('input'))) {
+          const input = el as HTMLInputElement;
+          const id = input.id;
+          const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
+          const wrap = input.closest('label')?.textContent ?? '';
+          const aria = input.getAttribute('aria-label') ?? '';
+          if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
+          const details = input.closest('details');
+          const summary = details?.querySelector(':scope > summary');
+          if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
+        }
+      }
+    });
+  await expandBounds();
+  for (const [match, value] of [[/Maximum work items/i, '1'], [/Planning calls/i, '12']] as [RegExp, string][]) {
+    const field = page.getByLabel(match);
+    assert((await field.count()) === 1, `ReadyExplore: expected exactly one ${match}`);
+    await field.first().fill(value);
+    assert((await field.first().inputValue()) === value, `ReadyExplore: ${match} did not take`);
+  }
+  await shot(page, `${out}/ready-bounds.png`);
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 60000}
+  );
+  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
+  const saved = await saving;
+  assert.equal(saved.status(), 201, `ReadyExplore: Save draft must return 201, got ${saved.status()}`);
+  // Explore in the same session so component state (limits 1/12) is fresh:
+  // the page authorizes the allowance itself, then explores.
+  const explored = page.waitForResponse(
+    (r) => r.url().endsWith(`/api/factory/intents/${intent}/explore`) && r.request().method() === 'POST',
+    {timeout: 300000}
+  );
+  await page.getByRole('button', {name: 'Explore ideas'}).first().click();
+  const done = await explored;
+  const body = await done.json().catch(() => ({}));
+  await writeFile(`${out}/explore.json`, JSON.stringify({status: done.status(), revision: (body as {id?: string}).id}, null, 2));
+  await shot(page, `${out}/explore-done.png`);
+  assert.equal(done.status(), 201, `ReadyExplore: explore must return 201, got ${done.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+}
+
 /** Read-only migration check (UI installs A–E): visits each repo-first
  * place, asserts its heading, and records the Feed v2 post structure the
  * follow-up scopes to. No clicks that write or spend. */
@@ -1382,6 +1439,10 @@ async function main() {
     // Standalone only: fix Max work items / Planning calls on a saved draft.
     if (only === 'bounds') {
       await phaseBounds(s.page, dir);
+    }
+    // Standalone rehearsal step: bounds fix + Explore ideas in one session.
+    if (only === 'ready-explore') {
+      await phaseReadyExplore(s.page, dir, intent);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
