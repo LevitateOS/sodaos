@@ -626,6 +626,7 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
   const deadline = started + BUILD_TIMEOUT_MS;
   const launchBy = launchGraceMs > 0 ? started + launchGraceMs : 0;
   const baseline = new Set<string>();
+  const lastStatus = new Map<string, string>();
   let baselined = false;
   let launched = launchGraceMs === 0;
   await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent} launchGraceMs=${launchGraceMs}\n`);
@@ -679,19 +680,38 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
     await writeFile(`${out}/build-feed-cards.json`, JSON.stringify(cards, null, 2));
     assert(cards.length > 0, 'Build: no Feed post cards rendered yet; the journey Feed is empty');
     if (!baselined) {
-      for (const card of cards) baseline.add(card.id);
+      for (const card of cards) {
+        baseline.add(card.id);
+        lastStatus.set(card.id, card.status);
+      }
       baselined = true;
       await appendFile(`${out}/build-milestones.log`, `${new Date().toISOString()} baseline: ${cards.length} cards\n`);
     }
     const fresh = cards.filter((card) => card.id && !baseline.has(card.id));
     for (const card of fresh) {
       baseline.add(card.id);
+      lastStatus.set(card.id, card.status);
       await appendFile(
         `${out}/build-milestones.log`,
         `${new Date().toISOString()} new-card status=${card.status} role=${card.role}: ${card.text.slice(0, 300)}\n`
       );
       if (card.status === 'failure') {
         assert.fail(`Build: a new Feed card reports failure (status=failure role=${card.role}): ${card.text.slice(0, 500)}`);
+      }
+    }
+    // A baselined card can flip to failure in place (same id, e.g. the
+    // retry assignment record going waiting -> needs attention). A flip
+    // is terminal evidence; pre-existing baseline failures stay ignored.
+    for (const card of cards) {
+      if (!card.id || !baseline.has(card.id)) continue;
+      const previous = lastStatus.get(card.id);
+      lastStatus.set(card.id, card.status);
+      if (previous !== undefined && previous !== 'failure' && card.status === 'failure') {
+        await appendFile(
+          `${out}/build-milestones.log`,
+          `${new Date().toISOString()} flipped-card ${previous} -> failure role=${card.role}: ${card.text.slice(0, 300)}\n`
+        );
+        assert.fail(`Build: a Feed card flipped to failure (${previous} -> failure role=${card.role}): ${card.text.slice(0, 500)}`);
       }
     }
     if (!launched) {
