@@ -1,6 +1,5 @@
 import {feedEntryKey} from './sodaspaces-factory-feed-response.js';
 import type {FeedCommunication, FeedEntry, FeedJudgment} from './sodaspaces-factory-feed-response.js';
-import {classifyFeedStatus, roleLabel} from './sodaspaces-factory-feed-families.js';
 import {factoryEvent} from './sodaspaces-factory-feed-communication.js';
 
 // The Feed's three levels. Every entry lands in exactly one: a new post
@@ -9,6 +8,35 @@ import {factoryEvent} from './sodaspaces-factory-feed-communication.js';
 // Comments that change the outcome or need the founder are promoted back to
 // posts and link to the thread they came from. Nothing is dropped: a comment
 // with no post to belong to stays a post.
+
+const roleLabels: Readonly<Record<string, string>> = {
+  product_lead: 'Product Lead',
+  architect: 'Architect',
+  builder: 'Builder',
+  inspector: 'Inspector',
+  fixer: 'Fixer',
+  strategist: 'Strategist',
+  test_pilot: 'Test Pilot',
+  jev: 'JEV',
+  systemone: 'JEV',
+  system_one: 'JEV',
+  factory: 'Factory',
+  system: 'Factory',
+};
+
+function roleKey(actor: string | undefined): string {
+  return (actor ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+// roleLabel renders a canonical actor id readably; free-form server labels
+// pass through unchanged.
+export function roleLabel(actor: string | undefined): string | undefined {
+  if (actor === undefined) return undefined;
+  return roleLabels[roleKey(actor)] ?? actor;
+}
 
 export type FeedState = 'needs_you' | 'problem' | 'waiting' | 'in_progress' | 'done' | 'decided' | 'info';
 export type FeedLevel = 'post' | 'update' | 'comment';
@@ -61,18 +89,23 @@ function communicationState(communication: FeedCommunication, entry: FeedEntry):
   }
 }
 
+// statusState reads the recorded status words of one record or event. An
+// unknown status is information, never success.
 function statusState(entry: FeedEntry): FeedState {
   const status = (entry.status ?? '').toLowerCase();
   if (/needs-human|clarify/.test(status)) return 'needs_you';
   if (/paused|pending|queued/.test(status)) return 'waiting';
-  const statusClass = classifyFeedStatus(entry.status);
-  if (statusClass === 'failure') return 'problem';
-  if (statusClass === 'waiting') return 'in_progress';
-  if (statusClass === 'settled') {
-    if (status === 'run:succeeded') return 'info';
-    if (/judgment|decid|declined|route:/.test(status)) return 'decided';
+  if (
+    /fail|error|refus|reject|invalid|blocked|stuck|unconfirmed|cancel|stopped|request-changes|exhaust|denied|conflict/.test(
+      status
+    )
+  )
+    return 'problem';
+  if (status === 'run:succeeded') return 'info';
+  if (/judgment|decid|declined|route:/.test(status)) return 'decided';
+  if (/finished:succeeded|completed|merged|verified|applied|accepted|delivered|created|valid/.test(status))
     return 'done';
-  }
+  if (/running|assigned|assess|progress|working|submitted|draft|:/.test(status)) return 'in_progress';
   return 'info';
 }
 
@@ -80,7 +113,6 @@ function statusState(entry: FeedEntry): FeedState {
 // recorded facts only; an unknown status is information, never success.
 export function feedState(entry: FeedEntry): FeedState {
   const payload = entry.payload;
-  if (payload?.invalid) return 'info';
   if (payload?.communication) return communicationState(payload.communication, entry);
   if (payload?.judgment?.kind === 'delivery') return deliveryState(payload.judgment);
   if (entry.activity === 'judgment' || payload?.judgment) return 'decided';
@@ -477,16 +509,16 @@ function percent(value: number | undefined): string {
   return value === undefined ? '' : ` (${Math.round(value * 100)}%)`;
 }
 
-const familyVerbs: Readonly<Record<string, [string, string]>> = {
-  plan: ['planning', 'planned'],
-  issue: ['investigating', 'planned'],
-  work: ['building', 'built'],
-  review: ['reviewing', 'reviewed'],
-  correction: ['fixing', 'fixed'],
-  reassessment: ['reassessing', 'reassessed'],
-  verification: ['testing', 'tested'],
-  integration: ['delivering', 'delivered'],
-  knowledge: ['updating Knowledge for', 'updated Knowledge for'],
+const roleVerbs: Readonly<Record<string, [string, string]>> = {
+  product_lead: ['planning', 'planned'],
+  architect: ['investigating', 'planned'],
+  builder: ['building', 'built'],
+  inspector: ['reviewing', 'reviewed'],
+  fixer: ['fixing', 'fixed'],
+  strategist: ['reassessing', 'reassessed'],
+  test_pilot: ['testing', 'tested'],
+  factory: ['delivering', 'delivered'],
+  system: ['delivering', 'delivered'],
 };
 
 function judgmentHeadline(judgment: FeedJudgment, entry: FeedEntry): string {
@@ -506,7 +538,7 @@ function judgmentHeadline(judgment: FeedJudgment, entry: FeedEntry): string {
         return `JEV gave no usable answer on ${pr}, so it waits for you`;
     }
   }
-  const top = judgment.candidates.find((candidate) => candidate.id === judgment.selected);
+  const top = (judgment.candidates ?? []).find((candidate) => candidate.id === judgment.selected);
   const name = top?.issue
     ? `issue #${top.issue}`
     : top?.objective
@@ -517,12 +549,13 @@ function judgmentHeadline(judgment: FeedJudgment, entry: FeedEntry): string {
 
 // describePostLine writes the post's one-sentence headline from the
 // recorded facts: who did what, and how it turned out.
-export function describePostLine(entry: FeedEntry, state: FeedState, family: string, fallback: string): PostLine {
+export function describePostLine(entry: FeedEntry, state: FeedState): PostLine {
   const who = whoOf(entry);
   const target = entry.pr ? `pull request #${entry.pr}` : entry.issue ? `issue #${entry.issue}` : 'the project';
   const workItem = entry.pr ? `Pull request #${entry.pr}` : entry.issue ? `Issue #${entry.issue}` : undefined;
   const communication = entry.payload?.communication;
   const judgment = entry.payload?.judgment;
+  const fallback = entry.kind === 'post' ? 'Comment' : `${who} recorded an update`;
   let headline = fallback;
   // A recorded summary stays in the post's own section, so it is not repeated
   // here; the detail line carries a rule or consequence only.
@@ -542,11 +575,12 @@ export function describePostLine(entry: FeedEntry, state: FeedState, family: str
   } else if (entry.activity === 'completed') {
     headline = `SodaOS completed ${entry.issue ? `issue #${entry.issue}` : 'the issue'}`;
   } else if (entry.kind === 'record') {
-    const verbs = familyVerbs[family];
+    const verbs = roleVerbs[roleKey(entry.actor)];
+    const reviewer = roleKey(entry.actor) === 'inspector';
     const status = entry.status ?? '';
     const verdict = /verdict:([a-z_-]+)/.exec(status)?.[1] ?? entry.payload?.review?.verdict ?? '';
-    if (family === 'review' && /request|changes|fail/.test(verdict)) headline = `${who} asked for changes on ${target}`;
-    else if (family === 'review' && /approve|pass|clear/.test(verdict)) headline = `${who} approved ${target}`;
+    if (reviewer && /request|changes|fail/.test(verdict)) headline = `${who} asked for changes on ${target}`;
+    else if (reviewer && /approve|pass|clear/.test(verdict)) headline = `${who} approved ${target}`;
     else if (status === 'dispatch:assigned') headline = `${who} started on ${target}`;
     else if (status === 'run:succeeded') headline = `${who}'s run on ${target} ended`;
     else if (verbs && state === 'in_progress') headline = `${who} is ${verbs[0]} ${target}`;

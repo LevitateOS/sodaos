@@ -23,7 +23,7 @@ export class SodaFeedArtifact extends LitElement {
   private async preview() {
     if (this.state.busy) return;
     if (this.state.url) { this.state = {...this.state, open: !this.state.open}; return; }
-    if (!this.request) { this.state = {...this.state, error: 'Open this artifact in its project feed.'}; return; }
+    if (!this.request || !this.artifact.href.startsWith('/api/factory/artifacts/')) { this.state = {...this.state, error: 'Open this artifact in its project feed.'}; return; }
     this.state = {...this.state, busy: true, error: ''};
     this.cancel = new AbortController();
     try {

@@ -23,30 +23,13 @@ type fakeCommentJudge struct {
 	input    CommentJudgeInput
 }
 
-func (f *fakeCommentJudge) JudgeComment(ctx context.Context, input CommentJudgeInput, snapshot string) (CommentJudgment, factory.PriorityReceipt, error) {
+func (f *fakeCommentJudge) JudgeComment(ctx context.Context, input CommentJudgeInput) (CommentJudgment, error) {
 	f.calls++
 	f.input = input
 	if f.err != nil {
-		return CommentJudgment{}, factory.PriorityReceipt{}, f.err
+		return CommentJudgment{}, f.err
 	}
-	selected := f.judgment.Route
-	if selected == factory.CommentRouteClarify {
-		selected = "clarify_result"
-	}
-	if f.judgment.Route == factory.CommentRouteExistingWork {
-		selected = commentExistingChoice(f.judgment.Issue)
-	}
-	request := factory.PriorityRequest{Snapshot: snapshot, Rubric: commentRouteRubric}
-	for _, key := range commentChoiceKeys(input.Candidates) {
-		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: key})
-	}
-	receipt := factory.PriorityReceipt{
-		Snapshot: snapshot, Candidates: request.Candidates, Selected: selected,
-		Outcome:     "routed",
-		Calls:       []factory.PriorityCall{{Request: request, Answer: factory.PriorityAnswer{Selected: selected}}},
-		CreatedUnix: 1,
-	}
-	return f.judgment, receipt, nil
+	return f.judgment, nil
 }
 
 type fakeCommentDrafter struct {
@@ -229,32 +212,6 @@ func TestDriveCommentNewIssueToVerified(t *testing.T) {
 	if judge.calls != 1 || drafter.calls != 1 || creator.creates != 1 {
 		t.Fatalf("replay spent: judge=%d draft=%d creates=%d", judge.calls, drafter.calls, creator.creates)
 	}
-	// Exhausted prelaunch authoring resumes through the normal service driver,
-	// keeping the applied routing receipt and source identity unchanged.
-	resumeID := saveDriveComment(t, s, ctx, "please fix the login redirect", "prelaunch-recovery")
-	failedDrafter := &fakeCommentDrafter{err: errors.New("source assembly unavailable")}
-	resumeJudge := &fakeCommentJudge{judgment: CommentJudgment{Route: factory.CommentRouteNewIssue}}
-	resumeCreator := &fakeCommentCreator{next: 200, issues: map[string]int64{}}
-	resumeWired := &CommentCollaborators{Judge: resumeJudge, Drafter: failedDrafter, Creator: resumeCreator}
-	for range factory.CommentAttemptLimit {
-		if _, err := driveCommentPipeline(ctx, s, resumeWired, resumeID); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := s.RetryFeedComment(ctx, resumeID, "42", 0, "", 1729000050); err != nil {
-		t.Fatal(err)
-	}
-	failedDrafter.err, failedDrafter.draft = nil, validTestDraft(resumeID)
-	if driven := drivePendingComments(ctx, s, resumeWired, 4); driven != 1 {
-		t.Fatalf("resumed request missing from service continuation: %d", driven)
-	}
-	settled, err := s.CommentPipeline(ctx, resumeID)
-	if err != nil || settled.Revision != 0 || settled.Attempts != factory.CommentAttemptLimit || settled.Resume || settled.Effect != factory.CommentEffectVerified || settled.Issue != 201 {
-		t.Fatalf("same-source recovery did not settle: %+v %v", settled, err)
-	}
-	if resumeJudge.calls != 1 || failedDrafter.calls != factory.CommentAttemptLimit+1 || resumeCreator.creates != 1 {
-		t.Fatalf("recovery rejudged or duplicated effect: judge=%d draft=%d creates=%d", resumeJudge.calls, failedDrafter.calls, resumeCreator.creates)
-	}
 }
 
 func TestDriveCommentDiscussionCreatesNothing(t *testing.T) {
@@ -300,10 +257,11 @@ func TestDriveCommentMalformedDraftBlocksEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.Draft != factory.CommentDraftInvalid || response.Effect != factory.CommentEffectBlocked || response.Resume || response.Attempts != factory.CommentAttemptLimit || response.Revision != 0 {
+	// The retry re-routes the request as a new source revision.
+	if response.Draft != factory.CommentDraftInvalid || response.Effect != factory.CommentEffectBlocked || response.Revision != 1 {
 		t.Fatalf("malformed response: %+v", response)
 	}
-	if _, err := s.CommentDraft(ctx, id, 0); err == nil {
+	if _, err := s.CommentDraft(ctx, id, 1); err == nil {
 		t.Fatal("refused draft stays servable")
 	}
 }
@@ -492,58 +450,12 @@ func TestDriveCommentExistingWorkPersistsSelectedIssue(t *testing.T) {
 	if !found {
 		t.Fatalf("judge never saw bound candidate 55: %+v", judge.input.Candidates)
 	}
-	receipt, err := s.PriorityJudgment(ctx, store.CommentJudgmentSnapshot(id, 0))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if receipt.Selected != "existing_55" {
-		t.Fatalf("receipt selected %q, want existing_55", receipt.Selected)
-	}
-
-	// Crash replay: a second comment whose receipt is already
-	// recorded but whose pipeline never advanced applies the stored
-	// selection without calling the judge again.
-	id2, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{
-		Repository: 7, Body: "also the filter work", Issue: 55,
-		IdempotencyKey: "key-existing-2",
-	}, "42", "ada", 1729000000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.RecordCommentIntake(ctx, id2, 0); err != nil {
-		t.Fatal(err)
-	}
-	builder := &fakeCommentJudge{judgment: CommentJudgment{Route: factory.CommentRouteExistingWork, Issue: 55}}
-	_, recorded, err := builder.JudgeComment(ctx, CommentJudgeInput{
-		Candidates: []factory.CommentWorkCandidate{{Issue: 55, Origin: factory.CommentCandidateBound}},
-	}, store.CommentJudgmentSnapshot(id2, 0))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if funded, err := s.ReserveCommentJudgment(ctx, id2, 0); err != nil || !funded {
-		t.Fatalf("reserve replay judgment: funded=%v err=%v", funded, err)
-	}
-	if err := s.RecordCommentJudgmentReceipt(ctx, id2, 0, recorded); err != nil {
-		t.Fatal(err)
-	}
-	replayJudge := &fakeCommentJudge{err: errors.New("must not be called")}
-	replayed, err := driveCommentPipeline(ctx, s, &CommentCollaborators{Judge: replayJudge}, id2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if replayJudge.calls != 0 {
-		t.Fatal("crash replay re-judged instead of applying the stored receipt")
-	}
-	if replayed.Route != factory.CommentRouteExistingWork || replayed.ExistingIssue != 55 {
-		t.Fatalf("replayed response: %+v", replayed)
-	}
 }
 
 // TestCommentJudgeChoiceHelpers pins the candidate-bound choice
 // contract: existing-work keys exist only for listed candidates,
-// selections outside the offered set refuse, stored receipts recover
-// their candidate set, and the judge state carries source, parent
-// and candidate evidence.
+// selections outside the offered set refuse, and the judge state
+// carries source, parent and candidate evidence.
 func TestCommentJudgeChoiceHelpers(t *testing.T) {
 	candidates := []factory.CommentWorkCandidate{
 		{Issue: 55, Origin: factory.CommentCandidateBound, Summary: "filter work"},
@@ -571,12 +483,6 @@ func TestCommentJudgeChoiceHelpers(t *testing.T) {
 	}
 	if _, err := commentJudgmentFromSelection("delete_everything", candidates); err == nil {
 		t.Fatal("unknown selection admitted")
-	}
-	recovered := commentCandidatesFromReceipt(factory.PriorityReceipt{Candidates: []factory.PriorityCandidate{
-		{ID: "new_issue"}, {ID: "existing_55"}, {ID: "existing_x"},
-	}})
-	if len(recovered) != 1 || recovered[0].Issue != 55 {
-		t.Fatalf("receipt candidates %+v", recovered)
 	}
 	input := CommentJudgeInput{
 		Comment: store.FeedCommentDetail{

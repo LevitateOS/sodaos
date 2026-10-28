@@ -9,69 +9,29 @@ import (
 	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
 )
 
 // CommentProductChange is a read projection of the explicit review handoff.
-// Accepted describes product scope only, not generation, verification or release.
-// The adopted lineage below never infers work from closed issues or worker
-// exits: matched tasks reuse the submitted graph with its native bindings,
-// completion is canonical by issue and acceptance, and verified names only
-// the controller-owned F10 fact for the adopted revision and scope digest.
-// Evidence and native issue identity stay separate fields; unknown or
-// missing work reads as unavailable, never as success.
-type CommentProductTaskEvidence struct {
-	TaskKey    string `json:"task_key"`
-	Issue      int64  `json:"issue"`
-	Acceptance string `json:"acceptance"`
-	Completion string `json:"completion,omitempty"`
-	// Pending marks a bound matching task with no canonical completion
-	// row yet: the native binding is exact, but no delivery or
-	// completion is inferred. Pending never verifies the product.
-	Pending bool `json:"pending,omitempty"`
-}
-
-const (
-	// CommentProductEvidenceRecorded names resolved adopted lineage: the
-	// deterministic comment idea was accepted in a descendant revision and
-	// the canonical delivered graph behind it read back.
-	CommentProductEvidenceRecorded = "recorded"
-	// CommentProductEvidenceUnavailable names unknown work evidence: no
-	// adopted descendant yet, or the canonical graph did not read back.
-	// It mirrors the linked-work vocabulary and invents no new status.
-	CommentProductEvidenceUnavailable = "unavailable"
-)
-
+// Accepted describes product scope only, not generation, verification or
+// release; the build request it opens shows those.
+//
 // CommentProductStateUnavailable names an explicit unknown projection: the
 // comment sits on the same-product lane but the read behind product_change
-// failed. It never asserts absence and never reads as success; callers must
-// render it as unavailable detail, not as detached generic progress.
+// failed.
 const CommentProductStateUnavailable = "unavailable"
 
 // UnavailableCommentProductChange projects an explicit unknown for a
-// same-product comment whose read failed. Intent and accepted revision come
-// from the accepted source behind the comment; adoption, verification and
-// task evidence stay unknown, never success.
+// same-product comment whose read failed.
 func UnavailableCommentProductChange(intent, acceptedRevision string) *CommentProductChange {
-	return &CommentProductChange{
-		Intent:           intent,
-		AcceptedRevision: acceptedRevision,
-		State:            CommentProductStateUnavailable,
-		EvidenceStatus:   CommentProductEvidenceUnavailable,
-	}
+	return &CommentProductChange{Intent: intent, AcceptedRevision: acceptedRevision, State: CommentProductStateUnavailable}
 }
 
 type CommentProductChange struct {
-	Intent           string                       `json:"intent"`
-	AcceptedRevision string                       `json:"accepted_revision"`
-	DraftRevision    string                       `json:"draft_revision,omitempty"`
-	State            string                       `json:"state"`
-	CanReview        bool                         `json:"can_review"`
-	AdoptedRevision  string                       `json:"adopted_revision,omitempty"`
-	ScopeDigest      string                       `json:"scope_digest,omitempty"`
-	Verified         bool                         `json:"verified"`
-	EvidenceStatus   string                       `json:"evidence_status"`
-	Evidence         []CommentProductTaskEvidence `json:"evidence,omitempty"`
+	Intent           string `json:"intent"`
+	AcceptedRevision string `json:"accepted_revision"`
+	DraftRevision    string `json:"draft_revision,omitempty"`
+	State            string `json:"state"`
+	CanReview        bool   `json:"can_review"`
 }
 
 type commentProductBinding struct {
@@ -130,7 +90,7 @@ func (s *Store) CommentProductChange(ctx context.Context, detail FeedCommentDeta
 		return nil, nil
 	}
 	p := detail.Source.Product
-	view := &CommentProductChange{Intent: p.Intent, AcceptedRevision: p.AcceptedRevision, State: "superseded", EvidenceStatus: CommentProductEvidenceUnavailable}
+	view := &CommentProductChange{Intent: p.Intent, AcceptedRevision: p.AcceptedRevision, State: "superseded"}
 	var raw, headRaw []byte
 	var binding commentProductBinding
 	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(c.data->'product_change','{}'::jsonb),r.data FROM factory_feed_comments c JOIN factory_intent_heads h ON h.id=$2 JOIN factory_intent_revisions r ON r.id=h.revision WHERE c.id=$1`, detail.Record.ID, p.Intent).Scan(&raw, &headRaw)
@@ -167,10 +127,8 @@ func (s *Store) CommentProductChange(ctx context.Context, detail FeedCommentDeta
 	}
 	if descended && head.State == "accepted" && effectiveCommentProductIdea(head, detail) {
 		view.State = "accepted"
-		// The accepted direction stays owner-openable: only the head
-		// owner may open the private build request behind it. A
-		// collaborator keeps the evidence link only. This bit authorizes
-		// navigation, never a review write or inferred delivery.
+		// Only the head owner may open the private build request behind
+		// the accepted direction; this bit authorizes navigation only.
 		view.CanReview = head.Owner == actor
 	} else if descended && head.State == "draft" {
 		view.State = "draft"
@@ -182,171 +140,7 @@ func (s *Store) CommentProductChange(ctx context.Context, detail FeedCommentDeta
 		view.State = "superseded"
 		view.CanReview = false
 	}
-	lineage, err := s.commentProductLineage(ctx, p.Intent, head, detail)
-	if err != nil {
-		return nil, err
-	}
-	view.AdoptedRevision = lineage.adopted
-	view.ScopeDigest = lineage.digest
-	view.Verified = lineage.verified
-	view.EvidenceStatus = lineage.status
-	view.Evidence = lineage.tasks
 	return view, nil
-}
-
-// commentProductLineage resolves the deterministic comment idea through its
-// descendant acceptance, then reuses the submitted graph with its native
-// bindings for the matching task keys. Canonical completion comes from the
-// delivered evidence join by issue and acceptance; a bound matching task
-// with no completion row stays visible as pending without inferring
-// delivery. Verification names only the controller-owned F10 fact for the
-// adopted revision and scope digest. Adopted lineage survives a later
-// superseding head as history. Unknown or unreadable work stays
-// unavailable, never inferred from closed issues or worker exits.
-func (s *Store) commentProductLineage(ctx context.Context, intent string, head factory.IntentRevision, detail FeedCommentDetail) (commentProductAdoption, error) {
-	var out commentProductAdoption
-	out.status = CommentProductEvidenceUnavailable
-	idea := factory.CommentDecisionID("product-idea", detail.Record.ID, detail.Record.Revision)
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return out, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	adopted, err := adoptedCommentProductRevisionTx(ctx, tx, intent, head, idea)
-	if err != nil {
-		return out, err
-	}
-	if adopted == nil {
-		return out, tx.Commit()
-	}
-	out.adopted, out.digest = adopted.ID, adopted.Digest()
-	verified, err := verifiedAppRevisionTx(ctx, tx, *adopted)
-	if err != nil {
-		return out, err
-	}
-	out.verified = verified
-	evidence, err := deliveredCommentProductTaskEvidenceTx(ctx, tx, *adopted, idea)
-	if err != nil {
-		return out, tx.Commit()
-	}
-	out.tasks = append(out.tasks, evidence...)
-	out.status = CommentProductEvidenceRecorded
-	return out, tx.Commit()
-}
-
-// deliveredCommentProductTaskEvidenceTx resolves the exact native
-// deliveredCommentProductTaskEvidenceTx resolves the exact native
-// bindings and optional canonical completions for only the adopted tasks
-// carrying the deterministic comment idea. An unrelated pending task in the
-// same scope never hides completed comment work; a matching task with a
-// valid native binding but no completion row stays visible as pending,
-// alongside completed matching tasks. A missing or invalid binding for the
-// comment idea itself still reads as unavailable. Completion is canonical
-// by issue and acceptance per matching task, never inferred from
-// scope-level generation, closed issues or worker exits.
-func deliveredCommentProductTaskEvidenceTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision, idea string) ([]CommentProductTaskEvidence, error) {
-	var raw []byte
-	tasks := revision.Tasks
-	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_generations WHERE revision=$1 FOR SHARE`, revision.ID).Scan(&raw)
-	if err == nil {
-		var generation factory.IntentGeneration
-		if err := json.Unmarshal(raw, &generation); err != nil {
-			return nil, err
-		}
-		if generation.State != "completed" || generation.RevisionID != revision.ID || generation.IntentID != revision.Intent || generation.IntentDigest != revision.Digest() {
-			return nil, errors.New("accepted application generation is not complete and current")
-		}
-		if err := factory.AssessProposedTasks(revision, generation.SubmittedTasks, revision.MaxIssues); err != nil {
-			return nil, err
-		}
-		// Native adoption binds the recorded assessed graph, whose task keys
-		// can differ from the owner's accepted planning sketch.
-		tasks = generation.SubmittedTasks
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-	if len(tasks) < 1 || len(tasks) > 64 {
-		return nil, errors.New("accepted application has no bounded delivered work")
-	}
-	var matched []factory.IntentTask
-	for _, task := range tasks {
-		for _, id := range task.IdeaIDs {
-			if id == idea {
-				matched = append(matched, task)
-				break
-			}
-		}
-	}
-	evidence := make([]CommentProductTaskEvidence, 0, len(matched))
-	for _, task := range matched {
-		var binding factory.IntentTaskBinding
-		if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_tasks WHERE revision=$1 AND task=$2`, revision.ID, task.Key).Scan(&raw); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(raw, &binding); err != nil {
-			return nil, err
-		}
-		if binding.RevisionID != revision.ID || binding.TaskKey != task.Key || binding.IssueID <= 0 || binding.IssueIndex <= 0 || !project.ValidDecisionID(binding.AcceptanceID) {
-			return nil, errors.New("accepted application task lacks its exact native binding")
-		}
-		var event factory.CompletionEvent
-		var eventID, publicationID, occurrence string
-		var generation int64
-		if err := tx.QueryRowContext(ctx, `SELECT event,publication,occurrence,generation,data FROM factory_completions WHERE repository=$1 AND data->>'issue'=$2 AND data->>'acceptance_id'=$3 ORDER BY generation DESC LIMIT 1`, revision.Repository, fmt.Sprint(binding.IssueIndex), binding.AcceptanceID).Scan(&eventID, &publicationID, &occurrence, &generation, &raw); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				evidence = append(evidence, CommentProductTaskEvidence{TaskKey: task.Key, Issue: binding.IssueIndex, Acceptance: binding.AcceptanceID, Pending: true})
-				continue
-			}
-			return nil, err
-		}
-		if err := json.Unmarshal(raw, &event); err != nil {
-			return nil, err
-		}
-		if event.Validate() != nil || event.ID != eventID || event.PublicationID != publicationID || event.ClosingOccurrence != occurrence || event.Generation != generation || event.Repository != revision.Repository || event.Issue != binding.IssueIndex || event.AcceptanceID != binding.AcceptanceID {
-			return nil, errors.New("accepted application task differs from its canonical completion")
-		}
-		evidence = append(evidence, CommentProductTaskEvidence{TaskKey: task.Key, Issue: binding.IssueIndex, Acceptance: binding.AcceptanceID, Completion: event.ID})
-	}
-	return evidence, nil
-}
-
-type commentProductAdoption struct {
-	adopted  string
-	digest   string
-	verified bool
-	status   string
-	tasks    []CommentProductTaskEvidence
-}
-
-// adoptedCommentProductRevisionTx walks the immutable predecessor chain from
-// the current head and returns the most recent accepted revision carrying the
-// deterministic comment idea: the descendant acceptance. The walk is bounded;
-// a broken or overlong chain reads as no adoption, never as an error.
-func adoptedCommentProductRevisionTx(ctx context.Context, tx *sql.Tx, intent string, head factory.IntentRevision, idea string) (*factory.IntentRevision, error) {
-	current := head
-	for range 64 {
-		if current.State == "accepted" && revisionAdoptsCommentProductIdea(current, idea) {
-			out := current
-			return &out, nil
-		}
-		if current.Predecessor == "" {
-			return nil, nil
-		}
-		var raw []byte
-		err := tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1 AND intent=$2`, current.Predecessor, intent).Scan(&raw)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		var prev factory.IntentRevision
-		if err := json.Unmarshal(raw, &prev); err != nil {
-			return nil, err
-		}
-		current = prev
-	}
-	return nil, nil
 }
 
 func revisionAdoptsCommentProductIdea(revision factory.IntentRevision, idea string) bool {

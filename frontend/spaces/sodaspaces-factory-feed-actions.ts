@@ -3,6 +3,24 @@ import type {TemplateResult} from 'lit';
 import type {FeedCommunication, FeedGraphItem, FeedSourceExcerpt} from './sodaspaces-factory-feed-response.js';
 import {renderFeedGraph} from './sodaspaces-factory-feed-graph.js';
 
+// The communication lists every action reads, present even when the server
+// omitted an empty one.
+export type FilledCommunication = FeedCommunication &
+  Required<Pick<FeedCommunication, 'evidenceRefs' | 'options' | 'completed' | 'remaining' | 'attempts' | 'alternatives' | 'items'>>;
+
+export function filledCommunication(c: FeedCommunication): FilledCommunication {
+  return {
+    ...c,
+    evidenceRefs: c.evidenceRefs ?? [],
+    options: c.options ?? [],
+    completed: c.completed ?? [],
+    remaining: c.remaining ?? [],
+    attempts: c.attempts ?? [],
+    alternatives: c.alternatives ?? [],
+    items: c.items ?? [],
+  };
+}
+
 // These compositions explain actions using supplied facts. Icons identify the
 // action; only an explicitly recorded state supplies a result or a checkmark.
 export function actionIcon(action: string): TemplateResult {
@@ -60,27 +78,27 @@ export function actionComparison(before: string | undefined, after: string | und
 
 export function sourceExcerpt(source: FeedSourceExcerpt): TemplateResult {
   const lines = source.code.split('\n');
-  const excerpt = (code: string, corrected: boolean) => html`<pre tabindex="0" aria-label=${corrected ? 'Changed source excerpt' : 'Source excerpt'}><code>${code.split('\n').map((line, index) => html`<span class="soda-source-line" data-change=${corrected ? (!lines.includes(line) ? 'added' : '') : source.highlightLines.includes(source.startLine + index) ? 'flagged' : ''}><span class="soda-source-number" aria-hidden="true">${source.startLine + index}</span><span>${line || ' '}</span></span>`)}</code></pre>`;
+  const excerpt = (code: string, corrected: boolean) => html`<pre tabindex="0" aria-label=${corrected ? 'Changed source excerpt' : 'Source excerpt'}><code>${code.split('\n').map((line, index) => html`<span class="soda-source-line" data-change=${corrected ? (!lines.includes(line) ? 'added' : '') : (source.highlightLines ?? []).includes(source.startLine + index) ? 'flagged' : ''}><span class="soda-source-number" aria-hidden="true">${source.startLine + index}</span><span>${line || ' '}</span></span>`)}</code></pre>`;
   return html`<section class="soda-action-source"><header><span>${actionIcon('investigation')}<strong>${source.path}</strong></span>${source.revision ? html`<code title=${source.revision}>${source.revision.slice(0, 12)}</code>` : ''}</header>
     <div class="soda-source-panes">${source.after !== undefined ? html`<section><h4>Before</h4>${excerpt(source.code, false)}</section><section><h4>Changed excerpt</h4>${excerpt(source.after, true)}</section>` : excerpt(source.code, false)}</div>
     <p class="soda-source-attribution">Source supplied with this report</p>
   </section>`;
 }
 
-function workBalance(c: FeedCommunication): TemplateResult | string {
+function workBalance(c: FilledCommunication): TemplateResult | string {
   if (!c.completed.length && !c.remaining.length) return '';
   return html`<div class="soda-action-balance">${actionList('Completed', c.completed, 'soda-action-done')}${actionList(c.kind === 'finish_incomplete' ? 'Handing over' : 'Still needed', c.remaining, 'soda-action-pending')}</div>`;
 }
 
-function nextStep(c: FeedCommunication, label = 'Next step'): TemplateResult | string {
+function nextStep(c: FilledCommunication, label = 'Next step'): TemplateResult | string {
   return c.resolution ? html`<div class="soda-action-next"><span aria-hidden="true">↳</span><div><h4>${label}</h4><p>${c.resolution}</p></div></div>` : '';
 }
 
-function reason(c: FeedCommunication, label = 'Why'): TemplateResult | string {
+function reason(c: FilledCommunication, label = 'Why'): TemplateResult | string {
   return c.rationale ? html`<div class="soda-action-reason"><h4>${label}</h4><p>${c.rationale}</p></div>` : '';
 }
 
-function decision(c: FeedCommunication): TemplateResult {
+function decision(c: FilledCommunication): TemplateResult {
   const jev = c.componentId === 'F03' || c.componentId === 'F04';
   // A draft build request is a proposal, not a recorded decision.
   const draft = c.intentSource?.state === 'draft';
@@ -93,7 +111,7 @@ function decision(c: FeedCommunication): TemplateResult {
   </div>`;
 }
 
-function question(c: FeedCommunication, entryKey: string): TemplateResult {
+function question(c: FilledCommunication, entryKey: string): TemplateResult {
   const ask = c.kind === 'ask';
   return html`<section class="soda-action-question"><div class="soda-question-mark" aria-hidden="true">?</div><div><h4>${ask ? c.questionState === 'answered' ? 'Answer recorded' : c.questionState === 'replied' ? 'Reply received' : 'Your input is needed' : 'Question and answer'}</h4><p>${c.question ?? c.title}</p>
     ${ask && c.options.length ? html`<div class="soda-feed-answer-options" aria-label="Suggested answers">${c.options.map((option, index) => html`<button type="button" data-feed-answer=${entryKey} data-feed-answer-text=${option}><span class="soda-question-option" aria-hidden="true">${index + 1}</span>${option}</button>`)}</div><p class="soda-feed-block-note">Choose an option to start a reply, or write your own below.</p>` : ''}
@@ -101,7 +119,7 @@ function question(c: FeedCommunication, entryKey: string): TemplateResult {
   </div></section>`;
 }
 
-function finding(c: FeedCommunication): TemplateResult {
+function finding(c: FilledCommunication): TemplateResult {
   return html`<div class="soda-action-finding">${c.source ? sourceExcerpt(c.source) : ''}
     <section class="soda-finding-observation"><span class="soda-finding-mark" aria-hidden="true">!</span><div><h4>${c.severity === 'critical' ? 'Critical finding' : 'Finding'}</h4>${actionComparison(c.before, c.after, ['Expected', 'Observed'])}${reason(c, 'Why it matters')}${actionItems(c.items, 'findings')}</div></section>${nextStep(c, 'Suggested correction')}</div>`;
 }
@@ -118,7 +136,7 @@ export function commitTrail(commits: NonNullable<FeedCommunication['commits']>):
   return html`<section class="soda-action-checkpoint"><header>${actionIcon('merge')}<h4>Saved changes</h4><span>${commits.length} commits</span></header><ul class="soda-action-commits">${commits.map(commit => html`<li><code title=${commit.revision}>${commit.revision.slice(0, 8)}</code><span>${commit.summary}</span></li>`)}</ul><p class="soda-feed-block-note">Recorded commits · review and checks remain separate.</p></section>`;
 }
 
-export function renderFeedAction(c: FeedCommunication, presentation: string, entryKey: string): TemplateResult {
+export function renderFeedAction(c: FilledCommunication, presentation: string, entryKey: string): TemplateResult {
   const action = communicationAction(c, presentation);
   let body: TemplateResult | string;
   switch (action) {

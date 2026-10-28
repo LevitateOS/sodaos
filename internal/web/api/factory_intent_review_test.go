@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net"
@@ -89,7 +88,7 @@ func actorCall(t *testing.T, product *API, actorID, username string) func(method
 // Real HTTP and PostgreSQL exercise the same source-derived review contract
 // used by nested Finance comments; external routing is a declared fixture.
 func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
-	product, db, dsn, call, _ := q05MuxFull(t, "")
+	product, db, _, call, _ := q05MuxFull(t, "")
 	ctx := context.Background()
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 7,
 		Objective: "Employees request equipment and Operations records delivery", State: "accepted", MaxIssues: 10, PlanningCalls: 8, CreatedUnix: 1729000000,
@@ -148,9 +147,6 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if view.State != "review_required" || !view.CanReview || view.DraftRevision != "" {
 		t.Fatalf("owner proposal=%+v", view)
 	}
-	if view.EvidenceStatus != store.CommentProductEvidenceUnavailable || view.Verified || len(view.Evidence) != 0 || view.AdoptedRevision != "" {
-		t.Fatalf("unreviewed proposal claims work evidence: %+v", view)
-	}
 	other := actorCall(t, product, "2", "bob")
 	view = decode(other(http.MethodGet, path, ""))
 	if view.CanReview {
@@ -168,9 +164,6 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	view = decode(call(http.MethodPost, path+"/review", `{"revision":0}`))
 	if view.State != "draft" || !view.CanReview || view.DraftRevision == "" {
 		t.Fatalf("draft continuation=%+v", view)
-	}
-	if view.EvidenceStatus != store.CommentProductEvidenceUnavailable || view.Verified || len(view.Evidence) != 0 || view.AdoptedRevision != "" {
-		t.Fatalf("unadopted draft claims work evidence: %+v", view)
 	}
 	firstDraft := view.DraftRevision
 	view = decode(call(http.MethodPost, path+"/review", `{"revision":0}`))
@@ -198,12 +191,8 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if err != nil || head.State != "draft" || head.Predecessor != accepted.ID || head.Tasks[0].Key != accepted.Tasks[0].Key || len(head.Ideas) != 2 {
 		t.Fatalf("preserved draft=%+v err=%v", head, err)
 	}
-	// Adopt the reviewed change, then seed the delivery evidence behind
-	// it: a completed generation with native bindings, one canonical
-	// completion and the controller-owned F10 fact. The comment and
-	// replies HTTP projections must carry the recorded lineage to the
-	// owner and read-only evidence to a collaborator; this proves
-	// registered-HTTP readback of seeded fixtures, not a producer chain.
+	// Adopt the reviewed change: the owner may open the accepted direction,
+	// a collaborator sees it read-only.
 	commentIdea := factory.CommentDecisionID("product-idea", saved.Comment, 0)
 	adopted := head
 	financeTask := factory.IntentTask{Key: "d666666666666666666666666", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
@@ -212,81 +201,12 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if err := db.SaveIntentRevision(ctx, adopted); err != nil {
 		t.Fatal(err)
 	}
-	generation := factory.IntentGeneration{RevisionID: adopted.ID, IntentID: adopted.Intent, IntentDigest: adopted.Digest(), OperationID: "lineage-http", ActorID: 1, NativeRev: 1, NotAfter: 3, Payload: []byte(`{}`), State: "pending", SubmittedTasks: adopted.Tasks}
-	if err := db.BeginIntentGeneration(ctx, generation); err != nil {
-		t.Fatal(err)
-	}
-	generation.State = "completed"
-	if err := db.RecordIntentGeneration(ctx, generation); err != nil {
-		t.Fatal(err)
-	}
-	originalBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: adopted.Tasks[0].Key, IssueID: 100, IssueIndex: 11, AcceptanceID: "d777777777777777777777777", CreatedUnix: 4}
-	matchedBinding := factory.IntentTaskBinding{RevisionID: adopted.ID, TaskKey: financeTask.Key, IssueID: 101, IssueIndex: 12, AcceptanceID: "d888888888888888888888888", CreatedUnix: 4}
-	if err := db.BindIntentTaskAcceptance(ctx, originalBinding); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.BindIntentTaskAcceptance(ctx, matchedBinding); err != nil {
-		t.Fatal(err)
-	}
-	rawDB, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rawDB.Close()
-	write := func(query string, args ...any) {
-		t.Helper()
-		if _, err := rawDB.ExecContext(ctx, query, args...); err != nil {
-			t.Fatal(err)
-		}
-	}
-	event := factory.CompletionEvent{ID: factory.NewID(), Repository: 7, Issue: matchedBinding.IssueIndex, Generation: 2, PublicationID: factory.NewID(), AcceptanceID: matchedBinding.AcceptanceID, MergedCommit: strings.Repeat("a", 40), ClosingOccurrence: "1"}
-	raw, err := json.Marshal(event)
-	if err != nil {
-		t.Fatal(err)
-	}
-	write(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,$1,$2,$3,'1',$4)`, 2, event.ID, event.PublicationID, string(raw))
-	delivery := factory.NewID()
-	assignmentID := factory.NewID()
-	assignment, err := json.Marshal(map[string]any{
-		"id": assignmentID, "attempt_root": assignmentID, "repository": "7", "issue": 0, "run": factory.NewID(), "stage": "finished",
-		"phase": "verify", "role": "soda-reviewer", "outcome": "succeeded", "source_commit": strings.Repeat("b", 40),
-		"subject": map[string]any{"kind": "delivery", "delivery": map[string]any{"delivery_id": delivery, "intent_id": adopted.Intent, "accepted_revision": adopted.ID, "scope_digest": adopted.Digest()}},
-		"result":  map[string]any{"phase_result": map[string]any{"output": map[string]any{"verification": map[string]any{"outcome": "verified"}}}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'finished',0,$3)`, assignmentID, factory.NewID(), string(assignment))
-	postRaw, err := json.Marshal(map[string]any{"actor": "factory", "event_identity": delivery, "assignment": assignmentID, "communication": map[string]any{"component_id": "F10"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	write(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,7,0,'factory','verified',$2,$3)`, factory.NewID(), "f10-http-"+delivery, string(postRaw))
 	view = decode(call(http.MethodGet, path, ""))
-	if view.State != "accepted" || !view.CanReview || view.AdoptedRevision != adopted.ID || view.ScopeDigest != adopted.Digest() {
-		t.Fatalf("adopted lineage over HTTP=%+v", view)
+	if view.State != "accepted" || !view.CanReview {
+		t.Fatalf("adopted change over HTTP=%+v", view)
 	}
-	if !view.Verified || view.EvidenceStatus != store.CommentProductEvidenceRecorded || len(view.Evidence) != 1 || view.Evidence[0].TaskKey != financeTask.Key || view.Evidence[0].Completion == "" {
-		t.Fatalf("recorded delivery over HTTP=%+v", view)
-	}
-	status, replyBody = call(http.MethodGet, "/api/factory/feed/replies?repository=7&source_kind=post&source_id="+posts[0].ID, "")
-	if status != http.StatusOK || json.Unmarshal(replyBody, &replies) != nil || len(replies.Items) != 1 || replies.Items[0].Change == nil || !replies.Items[0].Change.Verified {
-		t.Fatalf("recorded thread over HTTP=%d %s", status, replyBody)
-	}
-	decodeOther := func(code int, body []byte) store.CommentProductChange {
-		t.Helper()
-		var response struct {
-			Change store.CommentProductChange `json:"product_change"`
-			Issue  int64                      `json:"issue"`
-		}
-		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.AdoptedRevision != adopted.ID {
-			t.Fatalf("collaborator lineage=%d %s", code, body)
-		}
-		return response.Change
-	}
-	collaboratorView := decodeOther(other(http.MethodGet, path, ""))
-	if collaboratorView.State != "accepted" || collaboratorView.CanReview || !collaboratorView.Verified || len(collaboratorView.Evidence) != 1 {
-		t.Fatalf("collaborator lineage authority=%+v", collaboratorView)
+	if collaboratorView := decode(other(http.MethodGet, path, "")); collaboratorView.State != "accepted" || collaboratorView.CanReview {
+		t.Fatalf("collaborator authority=%+v", collaboratorView)
 	}
 	// A stale review against the adopted head stays a 412 and replays keep
 	// the adopted head in place.
@@ -345,7 +265,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	}
 	brokenPath := "/api/factory/feed/comments/" + brokenID
 	unavailable := decodeBroken(call(http.MethodGet, brokenPath, ""))
-	if unavailable.Intent != broken.Product.Intent || unavailable.AcceptedRevision != broken.Product.AcceptedRevision || unavailable.CanReview || unavailable.Verified || unavailable.EvidenceStatus != store.CommentProductEvidenceUnavailable || len(unavailable.Evidence) != 0 {
+	if unavailable.Intent != broken.Product.Intent || unavailable.AcceptedRevision != broken.Product.AcceptedRevision || unavailable.CanReview {
 		t.Fatalf("unavailable projection claims work: %+v", unavailable)
 	}
 	unavailableOther := decodeBroken(other(http.MethodGet, brokenPath, ""))

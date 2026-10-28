@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -60,11 +59,9 @@ type CommentJudgeInput struct {
 	Candidates []factory.CommentWorkCandidate
 }
 
-// CommentJudge assesses one comment through the funded JEV Choice
-// transport and returns the judgment with its funding receipt bound
-// to the given snapshot.
+// CommentJudge routes one comment through one JEV Choice.
 type CommentJudge interface {
-	JudgeComment(ctx context.Context, input CommentJudgeInput, snapshot string) (CommentJudgment, factory.PriorityReceipt, error)
+	JudgeComment(ctx context.Context, input CommentJudgeInput) (CommentJudgment, error)
 }
 
 // CommentDrafter authors one issue draft from a comment through the
@@ -86,7 +83,9 @@ type CommentIssueCreator interface {
 // CommentCollaborators carries the wired Lane B stages. Nil stages wait
 // in pending; the driver never spends or dispatches through a nil.
 type CommentCollaborators struct {
-	Judge   CommentJudge
+	Judge CommentJudge
+	// Prepare adds the native issue context the judge weighs.
+	Prepare func(context.Context, CommentJudgeInput) (CommentJudgeInput, error)
 	Drafter CommentDrafter
 	Creator CommentIssueCreator
 }
@@ -129,13 +128,7 @@ func commentJudgmentFromSelection(selected string, candidates []factory.CommentW
 	if question, ok := commentClarificationQuestions[selected]; ok {
 		return CommentJudgment{Route: factory.CommentRouteClarify, Question: question}, nil
 	}
-	switch selected {
-	case factory.CommentRouteNewIssue, factory.CommentRouteDiscussion, factory.CommentRouteClarify:
-		return CommentJudgment{Route: selected}, nil
-	case factory.CommentRouteExistingWork:
-		// Receipts recorded before candidate-bound choices selected
-		// the bare route with no issue identity; replay keeps that
-		// recorded outcome instead of re-judging it.
+	if selected == factory.CommentRouteNewIssue || selected == factory.CommentRouteDiscussion {
 		return CommentJudgment{Route: selected}, nil
 	}
 	for _, candidate := range candidates {
@@ -144,25 +137,6 @@ func commentJudgmentFromSelection(selected string, candidates []factory.CommentW
 		}
 	}
 	return CommentJudgment{}, errors.New("comment judgment selected an outcome it was never offered")
-}
-
-// commentCandidateIssues extracts the candidate set a recorded
-// selection may resolve against when replaying a stored receipt:
-// the candidates are recovered from the receipt's own candidate
-// identities, so replay never depends on today's candidate list.
-func commentCandidatesFromReceipt(receipt factory.PriorityReceipt) []factory.CommentWorkCandidate {
-	var candidates []factory.CommentWorkCandidate
-	for _, candidate := range receipt.Candidates {
-		issue, ok := strings.CutPrefix(candidate.ID, "existing_")
-		if !ok {
-			continue
-		}
-		n, err := strconv.ParseInt(issue, 10, 64)
-		if err == nil && n > 0 {
-			candidates = append(candidates, factory.CommentWorkCandidate{Issue: n, Origin: factory.CommentCandidateRecent})
-		}
-	}
-	return candidates
 }
 
 // commentJudgeState renders the complete supplied state for one
@@ -200,26 +174,17 @@ func commentJudgeState(input CommentJudgeInput) map[string]any {
 	return state
 }
 
-// TypeSafeCommentJudge routes comments through the existing funded
-// JEV Choice transport. Funding is reserved by the driver before this
-// call; this method grants no authority and performs no dispatch.
+// TypeSafeCommentJudge routes comments through the JEV Choice transport.
+// It grants no authority and performs no dispatch.
 type TypeSafeCommentJudge struct {
 	Priority *control.TypeSafePriority
-	Prepare  func(context.Context, CommentJudgeInput) (CommentJudgeInput, error)
 }
 
-func (j *TypeSafeCommentJudge) PrepareCommentInput(ctx context.Context, in CommentJudgeInput) (CommentJudgeInput, error) {
-	if j.Prepare == nil {
-		return in, nil
-	}
-	return j.Prepare(ctx, in)
-}
-
-// JudgeComment assesses one comment through one funded Choice call.
-func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJudgeInput, snapshot string) (CommentJudgment, factory.PriorityReceipt, error) {
+// JudgeComment assesses one comment through one Choice call.
+func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJudgeInput) (CommentJudgment, error) {
 	var empty CommentJudgment
 	if j == nil || j.Priority == nil {
-		return empty, factory.PriorityReceipt{}, control.ErrPriorityUnavailable
+		return empty, control.ErrPriorityUnavailable
 	}
 	keys := commentChoiceKeys(input.Candidates)
 	choices := make(map[string]any, len(keys))
@@ -229,8 +194,6 @@ func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJu
 			choices[key] = "A concrete new deliverable or change that no listed issue already covers."
 		case factory.CommentRouteDiscussion:
 			choices[key] = "Conversation or acknowledgement without a request to change the product."
-		case factory.CommentRouteClarify:
-			choices[key] = "The desired result cannot be determined from the comment and supplied context."
 		default:
 			if question, ok := commentClarificationQuestions[key]; ok {
 				choices[key] = "The comment requires an answer to: " + question
@@ -241,25 +204,16 @@ func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJu
 	}
 	answer, err := j.Priority.Select(ctx, commentJudgeState(input), commentRouteRubric, choices)
 	if err != nil {
-		return empty, factory.PriorityReceipt{}, err
+		return empty, err
 	}
-	request := factory.PriorityRequest{Snapshot: snapshot, Rubric: commentRouteRubric}
+	request := factory.PriorityRequest{Rubric: commentRouteRubric}
 	for _, key := range keys {
 		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: key})
 	}
 	if err := answer.Validate(request); err != nil {
-		return empty, factory.PriorityReceipt{}, err
+		return empty, err
 	}
-	judgment, err := commentJudgmentFromSelection(answer.Selected, input.Candidates)
-	if err != nil {
-		return empty, factory.PriorityReceipt{}, err
-	}
-	receipt := factory.PriorityReceipt{
-		Snapshot: snapshot, Candidates: request.Candidates,
-		Calls:    []factory.PriorityCall{{Request: request, Answer: answer}},
-		Selected: answer.Selected, Outcome: "routed", CreatedUnix: time.Now().Unix(),
-	}
-	return judgment, receipt, nil
+	return commentJudgmentFromSelection(answer.Selected, input.Candidates)
 }
 
 // parseFeedCommentBody admits one comment POST body: scope, bounded
@@ -365,27 +319,35 @@ func (s *API) apiFactoryFeedCommentOne(w http.ResponseWriter, r *http.Request, v
 		auth.JSONError(w, 404, "comment_not_found", "Feed comment is not found.")
 		return
 	}
-	if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
-		auth.JSONResponse(w, 200, feedWorkerCommentResponse(detail))
-		return
-	}
-	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
+	view, err := s.feedComment(r, v, detail)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read the comment request.")
 		return
 	}
-	progress, _ := s.Store.CommentProgress(r.Context(), detail.Record.ID)
-	auth.JSONResponse(w, 200, s.feedCommentWithProduct(r, v, detail, pipe, progress))
+	auth.JSONResponse(w, 200, view)
 }
 
-func (s *API) feedCommentWithWork(ctx context.Context, detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
-	response := feedCommentResponse(detail, pipe, progress, actor)
-	if work, err := s.Store.CommentLinkedWork(ctx, detail.Record.Repository, detail.Record.ID); err != nil {
-		response["linked_work"] = map[string]any{"status": "unavailable"}
-	} else if work != nil {
-		response["linked_work"] = work
+// feedCommentView reads one stored comment as every feed surface serves it.
+func (s *API) feedCommentView(r *http.Request, v store.Session, id string) (map[string]any, error) {
+	detail, err := s.Store.FeedComment(r.Context(), id)
+	if err != nil {
+		return nil, err
 	}
-	return response
+	return s.feedComment(r, v, detail)
+}
+
+// feedComment renders one stored comment: a worker post as recorded, a
+// human comment with its pipeline outcome. It reads stored state only.
+func (s *API) feedComment(r *http.Request, v store.Session, detail store.FeedCommentDetail) (map[string]any, error) {
+	if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
+		return feedWorkerCommentResponse(detail), nil
+	}
+	pipe, err := s.Store.CommentPipeline(r.Context(), detail.Record.ID)
+	if err != nil {
+		return nil, err
+	}
+	progress, _ := s.Store.CommentProgress(r.Context(), detail.Record.ID)
+	return s.feedCommentWithProduct(r, v, detail, pipe, progress), nil
 }
 
 func feedCommentResponse(detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress, actor string) map[string]any {
@@ -400,7 +362,6 @@ func feedCommentResponse(detail store.FeedCommentDetail, pipe factory.CommentPip
 		"draft": pipe.Draft, "effect": pipe.Effect, "issue": pipe.Issue,
 		"existing_issue": commentExistingIssue(pipe), "source": detail.Source,
 		"attempts": pipe.Attempts, "attempt_limit": factory.CommentAttemptLimit,
-		"resume":    pipe.Resume,
 		"detail":    progress,
 		"can_retry": detail.Record.Author == actor && !detail.Record.Deleted && !detail.Record.Revoked && pipe.RetryAllowed(),
 	}
@@ -437,22 +398,12 @@ func (s *API) apiFactoryFeedReplies(w http.ResponseWriter, r *http.Request, v st
 	}
 	items := []map[string]any{}
 	for _, id := range ids {
-		detail, err := s.Store.FeedComment(r.Context(), id)
+		item, err := s.feedCommentView(r, v, id)
 		if err != nil {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read replies.")
 			return
 		}
-		if detail.Contribution != nil || detail.Consultation != nil || (detail.Payload != nil && detail.Payload.Communication != nil) {
-			items = append(items, feedWorkerCommentResponse(detail))
-			continue
-		}
-		pipe, err := s.Store.CommentPipeline(r.Context(), id)
-		if err != nil {
-			auth.JSONError(w, 503, "store_unavailable", "Could not read reply progress.")
-			return
-		}
-		progress, _ := s.Store.CommentProgress(r.Context(), id)
-		items = append(items, s.feedCommentWithProduct(r, v, detail, pipe, progress))
+		items = append(items, item)
 	}
 	auth.JSONResponse(w, 200, map[string]any{"items": items, "next_before": next})
 }
@@ -510,9 +461,10 @@ func commentBodyFor(detail store.FeedCommentDetail) string {
 func (s *API) commentCollaborators() *CommentCollaborators {
 	wired := &CommentCollaborators{}
 	if s.Config.TypeSafeAPIKeyFile != "" {
-		wired.Judge = &TypeSafeCommentJudge{Prepare: s.prepareCommentJudgeInput, Priority: &control.TypeSafePriority{
+		wired.Judge = &TypeSafeCommentJudge{Priority: &control.TypeSafePriority{
 			APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel,
 		}}
+		wired.Prepare = s.prepareCommentJudgeInput
 	}
 	if s.Coordinator != nil && s.Store != nil {
 		wired.Drafter = &IntentCommentDrafter{Store: s.Store, Transport: s.Coordinator}
@@ -560,7 +512,7 @@ func driveCommentPipeline(ctx context.Context, st *store.Store, wired *CommentCo
 		var advanced bool
 		switch {
 		case pipe.AdmitCommentJudgment() && wired != nil && wired.Judge != nil:
-			advanced, err = driveCommentJudgment(ctx, st, wired.Judge, pipe, detail)
+			advanced, err = driveCommentJudgment(ctx, st, wired, pipe, detail)
 		case pipe.AdmitCommentDraft() && wired != nil && wired.Drafter != nil:
 			advanced, err = driveCommentDraft(ctx, st, wired.Drafter, pipe, detail)
 		case pipe.AdmitCommentEffect() && wired != nil && wired.Creator != nil:
@@ -724,44 +676,22 @@ func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.Com
 	return nil
 }
 
-// driveCommentJudgment runs one JEV Choice call behind the comment
-// source revision. A lost or failed call retries under the same
-// snapshot, bounded by the attempt count. A
-// receipt already recorded behind this revision — a crash between
-// recording the answer and advancing the pipeline — replays its
-// stored selection without a second call, so restart resumes the
-// same judgment exactly once.
-func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJudge, pipe factory.CommentPipeline, detail store.FeedCommentDetail) (bool, error) {
-	snapshot := store.CommentJudgmentSnapshot(pipe.Comment, pipe.Revision)
-	if receipt, err := st.PriorityJudgment(ctx, snapshot); err == nil && receipt.Selected != "" {
-		judgment, err := commentJudgmentFromSelection(receipt.Selected, commentCandidatesFromReceipt(receipt))
-		if err != nil {
-			return false, noteCommentFailure(ctx, st, pipe, true)
-		}
-		if err := applyCommentJudgment(ctx, st, pipe, judgment); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	reserved, err := st.ReserveCommentJudgment(ctx, pipe.Comment, pipe.Revision)
-	if err != nil || !reserved {
-		return false, err
-	}
+// driveCommentJudgment routes one comment with one JEV Choice and stores
+// the answer on the request row. A failed call retries on a later pass,
+// bounded by the attempt count.
+func driveCommentJudgment(ctx context.Context, st *store.Store, wired *CommentCollaborators, pipe factory.CommentPipeline, detail store.FeedCommentDetail) (bool, error) {
 	input, err := collectCommentJudgeInput(ctx, st, detail)
 	if err != nil {
 		_ = st.NoteCommentProgress(ctx, pipe.Comment, "The original request context could not be read. Refresh the project and retry assessment.")
 		return false, noteCommentFailure(ctx, st, pipe, true)
 	}
-	if preparer, ok := judge.(interface {
-		PrepareCommentInput(context.Context, CommentJudgeInput) (CommentJudgeInput, error)
-	}); ok {
-		input, err = preparer.PrepareCommentInput(ctx, input)
-		if err != nil {
+	if wired.Prepare != nil {
+		if input, err = wired.Prepare(ctx, input); err != nil {
 			_ = st.NoteCommentProgress(ctx, pipe.Comment, err.Error())
 			return false, noteCommentFailure(ctx, st, pipe, true)
 		}
 	}
-	judgment, receipt, err := judge.JudgeComment(ctx, input, snapshot)
+	judgment, err := wired.Judge.JudgeComment(ctx, input)
 	if err != nil {
 		_ = st.NoteCommentProgress(ctx, pipe.Comment, "JEV could not assess this request. Check the System One connection and retry assessment.")
 		return false, noteCommentFailure(ctx, st, pipe, true)
@@ -777,9 +707,6 @@ func driveCommentJudgment(ctx context.Context, st *store.Store, judge CommentJud
 		}
 	default:
 		return false, noteCommentFailure(ctx, st, pipe, true)
-	}
-	if err := st.RecordCommentJudgmentReceipt(ctx, pipe.Comment, pipe.Revision, receipt); err != nil {
-		return false, noteCommentFailure(ctx, st, pipe, false)
 	}
 	if err := applyCommentJudgment(ctx, st, pipe, judgment); err != nil {
 		return false, err
@@ -830,11 +757,10 @@ func driveCommentDraft(ctx context.Context, st *store.Store, drafter CommentDraf
 	return true, nil
 }
 
-// driveCommentEffect applies and verifies the native issue behind an
-// applied draft. It reconciles first: an issue already created from
-// this comment (lost effect reply) verifies without duplicating. The
-// draft must still bind the current source revision or the effect
-// refuses instead of creating from stale text.
+// driveCommentEffect creates the native issue behind an applied draft.
+// It reconciles first: an issue already created from this comment (lost
+// effect reply) settles without duplicating, and the graph operation is
+// idempotent. The draft must still bind the current source revision.
 func driveCommentEffect(ctx context.Context, st *store.Store, creator CommentIssueCreator, pipe factory.CommentPipeline, detail store.FeedCommentDetail) (bool, error) {
 	if detail.Record.Revision != pipe.Revision {
 		return false, nil
@@ -843,40 +769,19 @@ func driveCommentEffect(ctx context.Context, st *store.Store, creator CommentIss
 	if err != nil {
 		return false, noteCommentFailure(ctx, st, pipe, false)
 	}
-	if existing, err := creator.LookupCommentIssue(ctx, detail.Record.Repository, pipe.Comment); err == nil && existing > 0 {
-		next := pipe
-		next.Effect = factory.CommentEffectVerified
-		next.Issue = existing
-		if err := st.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
-			return false, err
-		}
-		return true, nil
+	issue, err := creator.LookupCommentIssue(ctx, detail.Record.Repository, pipe.Comment)
+	if err != nil || issue <= 0 {
+		issue, err = creator.CreateCommentIssue(ctx, draft, detail.Record.Repository)
 	}
-	issue, err := creator.CreateCommentIssue(ctx, draft, detail.Record.Repository)
 	if err != nil || issue <= 0 {
 		_ = st.NoteCommentProgress(ctx, pipe.Comment, "Could not confirm issue creation. Retry checks for an existing issue before creating one.")
 		return false, noteCommentFailure(ctx, st, pipe, false)
 	}
 	next := pipe
-	next.Effect = factory.CommentEffectApplied
+	next.Effect = factory.CommentEffectVerified
 	next.Issue = issue
 	if err := st.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
 		return false, err
-	}
-	// Verify through native truth in the same drive: a confirmed link
-	// settles verified, otherwise applied still reports the issue and a
-	// later drive verifies without creating again.
-	applied, err := st.CommentPipeline(ctx, pipe.Comment)
-	if err != nil {
-		return true, nil
-	}
-	if existing, err := creator.LookupCommentIssue(ctx, detail.Record.Repository, pipe.Comment); err == nil && existing > 0 {
-		settled := applied
-		settled.Effect = factory.CommentEffectVerified
-		settled.Issue = existing
-		if err := st.AdvanceCommentPipeline(ctx, applied, settled); err != nil {
-			return true, nil
-		}
 	}
 	return true, nil
 }
@@ -970,7 +875,7 @@ func commentExistingIssue(pipe factory.CommentPipeline) int64 {
 // commentResponse renders one stored pipeline row as the POST answer.
 func commentResponse(pipe factory.CommentPipeline) factory.CommentResponse {
 	return factory.CommentResponse{
-		Attempts: pipe.Attempts, AttemptLimit: factory.CommentAttemptLimit, Resume: pipe.Resume,
+		Attempts: pipe.Attempts, AttemptLimit: factory.CommentAttemptLimit,
 		Comment: pipe.Comment, Revision: pipe.Revision, Intake: pipe.Intake,
 		Judgment: pipe.Judgment, Route: pipe.Route, Draft: pipe.Draft,
 		Effect: pipe.Effect, Issue: pipe.Issue, ExistingIssue: commentExistingIssue(pipe),
@@ -985,9 +890,9 @@ const commentDriveLimit = 4
 // drivePendingComments advances one bounded page of durable comment
 // requests through their wired stages and reports how many drove
 // without error. Per-request failures keep their stored state for a
-// later pass; exactly-once advancement rests on the pipeline CAS,
-// the judgment reservation and receipt, the single funded planning
-// attempt and the deterministic native operation identity.
+// later pass; exactly-once advancement rests on the pipeline CAS, the
+// single funded planning attempt and the deterministic native operation
+// identity.
 func drivePendingComments(ctx context.Context, st *store.Store, wired *CommentCollaborators, limit int) int {
 	if st == nil {
 		return 0
