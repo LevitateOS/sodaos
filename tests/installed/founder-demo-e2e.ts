@@ -29,8 +29,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -572,6 +572,42 @@ interface FeedCard {
   appKeys: string[];
 }
 
+/** Owner-approved allowance raise (ALLOWANCE-RETRY-GO.md): repo 1 coder-time
+ * sponsorship 120 -> 480 minutes through Settings → SodaOS → Factory's own
+ * "Save sponsorship" control. Fails naming the exact state when the page
+ * offers no such control; touches nothing else on the form. */
+async function phaseAllowance(page: Page, out: string): Promise<void> {
+  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+  await nativeSpacesMount(page);
+  const spaces = await spacesContent(page);
+  const settings = spaces.getByRole('button', {name: 'Project settings'});
+  await settings.first().waitFor({timeout: 30000});
+  await settings.first().click();
+  await page.waitForTimeout(3000);
+  const factoryTab = spaces.getByRole('tab', {name: 'Factory'});
+  assert((await factoryTab.count()) >= 1, 'Allowance: no Factory tab in project settings');
+  await factoryTab.first().click();
+  await page.waitForTimeout(3000);
+  await shot(page, `${out}/allowance-settings.png`);
+  const text = await visibleText(page, 8000);
+  await writeFile(`${out}/allowance-settings-text.txt`, text);
+  assert(/Allowance minutes/i.test(text), `Allowance: no sponsorship allowance control in Factory settings (page: ${text.slice(0, 400)})`);
+  const minutes = spaces.getByLabel(/Allowance minutes/i);
+  assert((await minutes.count()) >= 1, 'Allowance: allowance minutes input not found');
+  const before = await minutes.first().inputValue();
+  await minutes.first().fill('480');
+  const acted = page.waitForResponse(
+    (r) => /\/api\/repositories\/1\/factory\/sponsorships\/.+$/.test(new URL(r.url()).pathname) && r.request().method() === 'PUT',
+    {timeout: 120000}
+  );
+  await spaces.getByRole('button', {name: 'Save sponsorship'}).first().click();
+  const reply = await acted;
+  const body = await reply.json().catch(() => ({}));
+  await writeFile(`${out}/allowance-reply.json`, JSON.stringify({before, after: '480', status: reply.status(), body}, null, 2));
+  await shot(page, `${out}/allowance-saved.png`);
+  assert(reply.ok(), `Allowance: sponsorship save must succeed, got HTTP ${reply.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+}
+
 const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
 
 /** Retry the cancelled build ONCE through the product's own Retry control
@@ -796,6 +832,7 @@ async function main() {
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan\/review$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/generate$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/runs\/[0-9a-f]{32}\/actions$/.test(p)) return true;
+    if (method === 'PUT' && /\/api\/repositories\/1\/factory\/sponsorships\/.+$/.test(p)) return true;
     return false;
   };
   const s = await openE2E(`founder-${stamp.slice(9)}`.slice(0, 24).replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'founder-e2e', allowWrite);
@@ -847,6 +884,11 @@ async function main() {
       assert(intent === INTENT_DD00, `retry-build: approved only for the journey request ${INTENT_DD00}, got ${intent}`);
       await phaseRetryBuild(s.page, dir, STOPPED_RUN);
       await phaseBuildFollow(s.page, dir, intent, 6 * 60 * 1000);
+    }
+    // Standalone phase only — never part of `all`. Owner-approved via
+    // ALLOWANCE-RETRY-GO.md: raise repo 1 coder-time sponsorship 120 -> 480.
+    if (only === 'allowance') {
+      await phaseAllowance(s.page, dir);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
