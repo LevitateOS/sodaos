@@ -384,19 +384,21 @@ async function phaseRaise(page: Page, out: string, amount: number): Promise<void
   await shot(page, `${out}/decide-allowance-raised.png`);
 }
 
-async function phaseStartPlanBypass(page: Page, out: string, intent: string): Promise<string> {
-  // TEMPORARY BYPASS, see e2e/PLAN-RETRY-GO.md: the attention state has no
-  // Continue to planning button (page bug, fixed separately), so this sends
-  // exactly what that button sends — same element API transport, same path,
-  // same body — through the page's own `soda-intent` API function. Replace
-  // with a real click once the page fix lands. Single use only.
+async function phaseStartPlanBypass(page: Page, out: string, _intent: string): Promise<string> {
+  // TEMPORARY BYPASS, see e2e/PLAN-RETRY-GO.md (revised): attention has no
+  // Continue to planning button (page bug, fixed separately), and a second
+  // plan POST on the settled revision is refused as a closed attempt. The
+  // page retries by saving a successor draft and planning the new revision,
+  // so this calls the page's own `soda-intent` methods — no hand-built
+  // bodies (if they are unreachable, this fails instead of improvising).
+  // Replace with a real click once the page fix lands. Single use only.
   const spaces = await spacesContent(page);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   const planning = page.waitForResponse(
     (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/plan') && r.request().method() === 'POST',
     {timeout: 180000}
   );
-  const sent = await page.evaluate(async (v: {intent: string}) => {
+  const sent = await page.evaluate(async () => {
     const roots: (Document | ShadowRoot)[] = [document];
     for (const el of Array.from(document.querySelectorAll('*'))) if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
     let el: any = null;
@@ -404,25 +406,30 @@ async function phaseStartPlanBypass(page: Page, out: string, intent: string): Pr
       el = (root as Document).querySelector?.('soda-intent');
       if (el) break;
     }
-    if (!el || typeof el.api !== 'function') return {ok: false as const, error: 'soda-intent api unavailable'};
+    if (!el) return {ok: false as const, error: 'no soda-intent element'};
+    if (typeof el.save !== 'function' || typeof el.startPlanning !== 'function') {
+      return {ok: false as const, error: 'page methods unreachable (save/startPlanning); stopping per note'};
+    }
     try {
-      const head = (await el.api(`/api/factory/intents/${v.intent}`)) as {id?: string};
-      const revision = String(head.id ?? '');
-      if (!/^d[0-9a-f]{24}$/.test(revision)) return {ok: false as const, error: `no head revision: ${revision.slice(0, 40)}`};
-      const admission = await el.api(`/api/factory/intents/${v.intent}/plan`, {revision, operation: 'propose_intent'});
-      return {ok: true as const, revision, admission};
+      const signal = new AbortController().signal;
+      const repo = el.revision?.repository;
+      if (repo !== '1') return {ok: false as const, error: `unexpected repository ${String(repo)}`};
+      const bound = await el.save('draft', repo, signal);
+      await el.startPlanning(bound, signal);
+      return {ok: true as const, revision: String(bound?.id ?? '')};
     } catch (err) {
       return {ok: false as const, error: String(err).slice(0, 300)};
     }
-  }, {intent});
-  assert(sent.ok, `Plan bypass: page transport failed: ${(sent as {error?: string}).error ?? 'unknown'}`);
+  });
+  assert(sent.ok, `Plan retry: page method failed: ${(sent as {error?: string}).error ?? 'unknown'}`);
   const planReply = await planning;
   const planBody = (await planReply.json().catch(() => ({}))) as {
     error?: {code?: string; message?: string};
     revision_id?: string;
   };
   const revision = (sent as {revision: string}).revision;
-  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), revision, via: 'bypass-soda-intent-api', body: planBody}, null, 2));
+  assert.match(revision, /^d[0-9a-f]{24}$/, 'Plan retry: successor draft must report its revision');
+  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), revision, via: 'page-save-startPlanning', body: planBody}, null, 2));
   assert(
     [201, 202].includes(planReply.status()),
     `Plan: admission must be 201/202, got ${planReply.status()} (${planBody.error?.code ?? 'no code'}: ${(planBody.error?.message ?? 'no message').slice(0, 300)})`
