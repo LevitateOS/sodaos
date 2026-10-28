@@ -292,17 +292,6 @@ export function defaultTerminalName(input: NewTerminalInput, space: Space | unde
   );
 }
 
-export function creationSpace(input: NewTerminalInput, selected: {binding: {environmentId: string}} | undefined) {
-  const preferred = input.binding?.kind === 'page' ? input.readSelectedSpace() : undefined;
-  if (preferred) return preferred;
-  const native = input.binding?.kind === 'native' ? input.binding.repositoryId : undefined;
-  return (
-    input.readSpaces().find((s) => s.environment.id === selected?.binding.environmentId) ||
-    input.readSpaces().find((s) => s.environment.repository_id === native) ||
-    input.readSpaces()[0]
-  );
-}
-
 export function pickCreationSpace(input: NewTerminalInput) {
   const selected = input.readSlots().find((s) => s.key === input.readSelected());
   const native = input.binding?.kind === 'native' ? input.binding.repositoryId : undefined;

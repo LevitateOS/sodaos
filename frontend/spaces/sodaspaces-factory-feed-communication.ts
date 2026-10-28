@@ -7,7 +7,6 @@ import {actionIcon, actionList, communicationAction, commitTrail, renderFeedActi
 import './sodaspaces-factory-feed-artifact.js';
 
 // The catalog owns the semantic presentation; workers submit facts, never UI.
-export const feedComponentCatalog = components;
 export function feedComponent(id: string | undefined) {
   return components.find((component) => component.id === id);
 }

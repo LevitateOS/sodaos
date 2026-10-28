@@ -289,10 +289,3 @@ export class SodaIdentity extends LitElement {
   }
 }
 customElements.define('soda-identity', SodaIdentity);
-export function mountIdentity(root: HTMLElement, actor: string, transport: PreparedExtensionMount, project = '') {
-  const widget = new SodaIdentity();
-  widget.configure(actor, transport, project);
-  root.append(widget);
-  void widget.refresh();
-  return widget;
-}

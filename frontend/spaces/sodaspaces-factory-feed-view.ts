@@ -7,7 +7,6 @@ import {
   commentProductLaneWithoutProjection,
   feedEntryKey,
 } from './sodaspaces-factory-feed-response.js';
-import {nativePath} from './sodaspaces-factory-activity.js';
 import {nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import {
   classifyFeedStatus,
@@ -46,16 +45,6 @@ export interface FeedRepositoryRef {
   readonly id: number;
   readonly path: string | undefined;
   readonly label: string;
-}
-
-export function repositoryRef(
-  id: number,
-  path: string | undefined,
-  owner: string | undefined,
-  name: string | undefined
-): FeedRepositoryRef {
-  const label = owner !== undefined && name !== undefined ? `${owner}/${name}` : `repository ${id}`;
-  return {id, path: path !== undefined && nativePath(path) ? path : undefined, label};
 }
 
 export interface PostHeaderModel {
@@ -728,41 +717,6 @@ export function describeDiscussion(
     discussionLink:
       repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
   };
-}
-
-export function renderPostHeader(model: PostHeaderModel, assetBase = ''): TemplateResult {
-  return html`<div class="soda-feed-header">
-    <span class="soda-feed-avatar" aria-hidden="true"
-      >${
-        model.avatarFile
-          ? html`<img
-              src=${assetBase + model.avatarFile}
-              alt=""
-              width="36"
-              height="36"
-              loading="lazy"
-              decoding="async"
-            />`
-          : model.avatarInitial
-      }</span
-    >
-    <div>
-      <p><strong>${model.name}</strong>${model.role !== model.name ? html` · ${model.role}` : ''} · ${model.project}</p>
-      <p>${model.timeText} · <span class="soda-feed-status">${model.statusText}</span></p>
-      ${model.milestoneText ? html`<p>${model.milestoneText}</p>` : ''}
-    </div>
-  </div>`;
-}
-
-export function renderPlanIssue(model: PlanIssueModel): TemplateResult {
-  return html`<section aria-label="Plan and issue scope">
-    <p>${model.scopeText}</p>
-    <p>${model.identityText}</p>
-    <p>
-      ${model.repositoryLink ? html`<a href=${model.repositoryLink}>Open project</a>` : 'Project link unavailable.'}
-      ${model.issuesLink ? html`<a href=${model.issuesLink}>Open issue index</a>` : ''}
-    </p>
-  </section>`;
 }
 
 export function renderWorkEvidence(model: WorkEvidenceModel): TemplateResult {
