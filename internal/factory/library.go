@@ -144,6 +144,7 @@ func MCPIsLibraryMutation(tool MCPTool) bool {
 	}
 	return false
 }
+
 // LibraryOperationTitle names a library operation for its feed post when
 // the report supplies no title of its own.
 func LibraryOperationTitle(tool MCPTool) string {
