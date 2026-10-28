@@ -149,7 +149,7 @@ The docs include:
 
 ### What this branch did
 
-The branch is `simplify/over-engineering`, cut from `main`. Every commit is behaviour-preserving: none changes what users see, the model-facing tool contracts or the DB schema.
+The branch is `simplify/over-engineering`, cut from `main`, with `prod-hardening` merged in. The first eleven commits are behaviour-preserving. The later ones, made on the owner's go-ahead, change visible behaviour or model-facing tool contracts; none adds a DB migration (unused tables stay in the schema). Across the branch about 32,000 lines are removed.
 
 | Commit | Change | Lines removed |
 |---|---|---|
@@ -164,12 +164,23 @@ The branch is `simplify/over-engineering`, cut from `main`. Every commit is beha
 | `d0435632` | Dead Rust host runtime code (HFW-3, HPL-12, PTH-5, HFW-12, TRM-7) | ~2,400 |
 | `762e0dc4` | Unused provider-store review probe binary (REL-10) | ~790 |
 | `3e6b5b31` | Dead `can_embed` field left from the removed in-Forge app frame (FEP-8) | ~70 |
+| `b1d4c63e` | One clock per run: the per-run limit; soft spend cap; no rolling budget or short-allowance hold; Retry once runs settle (BUD-1/3/4, DSP-5, DLV-2) | ~1,500 |
+| `72c5afe7` | The context classifier advises instead of holding the run (DSP-1, MCP-4) | ~210 |
+| `42a051e9` | MCP tools take only the payload: no expected_input_digest, optional submission ids (BND-1, MCP-1) | ~90 |
+| `291451f6` | SodaOS fills role bindings (review tuple and coverage, finding digest, manifest digest, delivery and journey bindings) (MCP-1, BND-3, VRF-4, CTX-7) | +70 |
+| `fcc7b413` | Delete optional lifecycle effects (DLV-5, WEB-2, DSP-12) | ~4,700 |
+| `8ab34803` | Delete the Feed component catalog and worker-chosen component_id (FED-1) | ~1,950 |
+| `c62f6ec1` | JEV calls retry instead of staying spent; planning-call allowance and delivery-call budget removed (JDG-2, BUD-5/6/7, PLN-2, STO-6) | ~2,700 |
+| `3b2273ff` | Muse-only factory: the Codex factory harness is gone (HFW-2) | ~2,250 |
+| `034f553c`, `ab431714` | Delete the Library Admin and Researcher roles and the non-code assessment path (CTX-1, PLN-9) | ~4,400 |
 
-### Owner decisions
+### Owner decisions: done and still open
 
 On 2026-10-28 the owner asked for complexity to come down overall, not just dead code, so these changes now go ahead in this order on the same branch. JEV and system-one classifiers stay: they replace code that would imitate judgment. What goes is the funding, one-shot and receipt machinery around them.
 
 Each of these changes a visible feature, a model-facing tool contract or the DB schema. They are listed roughly by payoff.
+
+Done on this branch: 1 (budgets, except the spend-cap and connection-budget settings records), 2 (JEV calls plain and retryable; the gates whose answers reach nothing are still open), 3 (bindings; one result channel per phase is still open), 4 (component catalog; card renderers and the thread cache are still open), and from 6 the lifecycle effects, Codex factory harness and Library Admin/Researcher roles. Still open: the rest of 2, 4 and 5, Departments and Tailnet in 6, and 7 and 8.
 
 1. **Budgets:** replace the budget stack with one per-run clock started at launch, one soft spend cap and charging only for runs that reached the host (theme 1). Delete the JEV rationing: planning-call allowance, delivery-call budget, funding journal.
 2. **JEV classifiers:** keep them as plain calls that retry and fall back to a default instead of holding the run. Delete their funding ledgers, call budgets and receipt re-checks. Route or drop the classifications whose answer reaches nothing (planning freshness, walkthrough consistency, reassessment fence, priority tournament, role contributions).
@@ -481,7 +492,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Publication, merge, correction, repair, acceptance, verification, lifecycle. **Category:** speculative-abstraction. **Verdict:** confirmed.
 - **Removable:** ~2500 lines. **Risk:** low. **Visible change:** UI, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision.
+- **Status:** done (`fcc7b413`).
 - **Where:** `internal/factory/lifecycle_action.go:1-430`, `internal/factory/lifecycle_action_config.go:1-98`, `internal/factory/control/lifecycle_consume.go:1-606`, `internal/factory/control/lifecycle_capabilities.go:1-79`, `internal/factory/control/coordinator.go:90`, `internal/store/factory_lifecycle_actions.go:1-404`, `internal/web/api/factory_lifecycle_actions.go:1-291`, `internal/web/api/extension_native.go:222-224`, `internal/factory/control/publication.go:103-107`, `internal/factory/control/publication_withdraw.go:289-293`, `internal/factory/control/merge.go:124-127`, `internal/factory/control/merge_evidence.go:237-241`, `internal/factory/control/intent_generation.go:238-239`, `internal/web/server.go:41,80-82,109-111,197-219`, `internal/config/config.go:65-68,213-219`, `internal/store/schema.go:75-78,382-384`, `cmd/soda-identity/src/schema.rs:70-73,349-351`, `cmd/soda-setup/src/config.rs:33,69,101,126-127`, `cmd/soda-setup/src/factory_enrollment.rs:211,1455`, `internal/forgejo/lifecycle.go`, `internal/forgejo/lifecycle_capabilities.go`, `frontend/spaces/sodaspaces-factory-progress-view.ts:782-935`, `frontend/spaces/sodaspaces-factory-progress-response.ts:496-670`, `frontend/spaces/sodaspaces-factory-work.ts (lifecycle effect state/load/save, ~:891,:965)`
 
 **What.** Three cosmetic effects carry a lot of machinery: a capability handshake registry with per-installation markers refreshed at startup; a revisioned per-event config whose enable step is gated on that capability; a durable action journal with per-target results (pending, delivered, failed, uncertain, denied); a two-attempt budget; claim and enroll steps; deny-reason classification; lookup reconciliation; an 'unavailable executor' journaling path; and a drain that runs in every Publish and Merge pass.
@@ -500,7 +511,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Web API and view models (non-MCP, non-Feed, non-extension): internal/web/*.go, internal/web/auth/**, internal/web/api/*.go excluding factory_mcp*, factory_feed*, extension*. **Category:** unused-configuration. **Verdict:** confirmed.
 - **Removable:** ~2500 lines. **Risk:** low. **Visible change:** UI. **Behaviour-preserving:** yes.
-- **Status:** owner decision.
+- **Status:** done (`fcc7b413`).
 - **Where:** `internal/web/api/factory_lifecycle_actions.go:1-291`, `internal/web/api/extension_native.go:222-224`, `internal/web/server.go:41-43,80-83,109-111,197,201-221`, `internal/config/config.go:68,213-219`, `cmd/soda-setup/src/config.rs:33,69,101,126-127`, `cmd/soda-setup/src/factory_enrollment.rs:211,1455`, `cmd/soda-setup/README.md:219`, `internal/factory/control/lifecycle_consume.go:1-606`, `internal/factory/control/lifecycle_capabilities.go:1-79`, `internal/factory/control/intent_generation.go:238-239`, `internal/factory/control/merge.go:125-126`, `internal/factory/control/merge_evidence.go:239-240`, `internal/factory/control/publication.go:105-106`, `internal/factory/control/publication_withdraw.go:291-292`, `internal/factory/lifecycle_action.go:1-430`, `internal/factory/lifecycle_action_config.go:1-98`, `internal/store/factory_lifecycle_actions.go:1-404`, `internal/store/factory_priority_inventory.go:319,639-667`, `internal/forgejo/lifecycle.go:1-317`, `internal/forgejo/lifecycle_capabilities.go:1-72`, `frontend/spaces/sodaspaces-factory-work.ts:755-1045`, `frontend/spaces/sodaspaces-factory-progress-response.ts:500-600`, `frontend/spaces/sodaspaces-factory-progress-view.ts:~800-860 (lifecycle describe/submitter text)`
 
 **What.** Optional native effects per event: label and assignee on issue_created, reviewers on pr_created, a completion note on verified_merge. The feature has stored configs, durable action rows with attempt budgets, capability markers proved by a native handshake, an enrolled-submitter lookup, three routes and a Work-page UI.
@@ -519,7 +530,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Factory dispatch and run start. **Category:** speculative-abstraction. **Verdict:** confirmed.
 - **Removable:** ~2000 lines. **Risk:** medium. **Visible change:** UI, model tools. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`72c5afe7`, `c62f6ec1`): the context classifier advises and retries; it never holds the run.
 - **Where:** `internal/factory/control/dispatch_launch.go:690-764`, `internal/factory/control/dispatch_launch.go:250`, `internal/factory/control/context_bundle_prepare.go:11-69`, `internal/factory/control/context_bundle_advice.go:1-149`, `internal/factory/control/context_bundle_state.go:1-238`, `internal/factory/control/context_resolution.go:1-109`, `internal/factory/control/dispatch_context_recovery.go:1-200`, `internal/factory/control/dispatch_recovery.go:72`, `internal/factory/control/settle.go:220`, `internal/factory/control/judgment_advice.go:49-116`, `internal/factory/context_bundle.go:1-75`, `internal/factory/context_resolution.go:1-67`, `internal/factory/run.go:21-23`, `internal/factory/mcp_submission.go:37-40`, `internal/store/factory_context_selection.go:15-60`, `internal/store/factory_context_resolution.go:1-101`, `internal/store/factory_implementation_retry.go:1-309`, `internal/factory/control/lifecycle_retry.go:37-53`, `internal/factory/control/dispatch_attempt.go:112-125`, `internal/web/api/factory_mcp.go:761-782`, `internal/web/api/factory_mcp.go:844-941`, `internal/web/api/factory_mcp_context_gate.go:10-35`, `internal/web/api/factory_views.go:111,171-178`, `internal/web/api/factory_lifecycle.go:106,158-172`, `frontend/spaces/sodaspaces-factory-context-resolution.ts:1-249`, `internal/acceptance/factory_context_status.go:1-338`
 
 **What.** MCPKey is always loaded in production (web/server.go:189-193). Before every host launch, launchTail therefore marks the run ContextPending, stages the MCP capability and calls PrepareContextBundleSelection. That makes one JEV choice call (context-bundle-v1) over {current, attempt, lineage, snapshot_hold}. Anything except a confident eligible answer (probability and confidence both at least 0.80) returns a context_selection_hold wait, and FactoryLaunch is never called. The choice only decides whether factory.read includes attempt.run_history (opaque run IDs) and lineage.parent_assignment/parent_outcome/parent_reason (buildReadBody, factory_mcp.go:882-941). Eligibility is already decided in code (BundleEligibility). Built around it are: a reservation that writes context_selection_snapshot into the capability; a receipt that is replayed and re-validated on each pass and on every MCP read and submission; a pending-launch recovery path that rebuilds the launch from the packet; a startup preservation path; an owner 'use current context' command with a semantic digest; and a separate CommandRetryImplementation retry kind. That retry kind exists only to replace an implementation child that was stopped while ContextPending (stop-before-start).
@@ -557,7 +568,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** The Feed. **Category:** speculative-abstraction. **Verdict:** confirmed.
 - **Removable:** ~1900 lines. **Risk:** medium. **Visible change:** UI, model tools. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`8ab34803`).
 - **Where:** `internal/factory/feed_components.json:1-1714`, `internal/factory/feed_components.go:1-83`, `internal/web/api/factory_mcp_bound.go:62-94`, `internal/web/api/factory_mcp.go:504-508,597-607,909`, `internal/web/api/factory_mcp_role_schema.go:21,37`, `internal/web/api/factory_mcp_communication.go:18`, `internal/web/api/factory_mcp_library.go:109`, `internal/factory/control/intent_bound.go:123-126`, `internal/store/factory_mcp_communication.go:30-32,154-197`, `internal/store/factory_feed_events.go:21-29`, `internal/store/factory_feed_record.go:140-142,786-790`, `internal/store/factory_feed.go:99-100`, `internal/store/factory_feed_contribution.go:55,165`, `internal/store/factory_library.go:402,465-466`, `internal/store/factory_repair_draft.go:80`, `internal/store/factory_repair_diagnosis.go:53`, `internal/store/factory_verification_journey.go:83`, `internal/factory/library.go:145-166,181-183,202,216-250`, `frontend/spaces/sodaspaces-factory-feed-communication.ts:3-40,52-58`, `frontend/spaces/sodaspaces-factory-feed-thread.ts:95-118,229-262`, `frontend/spaces/sodaspaces-factory-feed-families.ts:170-213`, `internal/store/factory_feed_catalog_test.go:1-98`
 
 **What.** A 1,714-line JSON catalog defines 122 presentation 'components', each with roles, outlets, authority and availability: S01-16, PL01-11, AR01-11, BU01-11, IN01-11, FX01-11, ST01-11, TP01-12, K01-08, LA01-09 and F01-11. Every communication and mutation tool, finish tools included, offers an optional component_id. Its schema is rewritten per capability into an enum plus an 'ID: Label; ...' description. The read body also carries a feed_components list. The server validates the value twice (admitMutation, then recordMCPCommunicationTx) and refuses the submission if it is wrong. On every feed read, feedSubmissionComponents re-reads all MCP submissions of the window just to recover a finish tool's component. The browser bundles the whole JSON but uses only id, label, family and presentation (4 of 8 fields), mapping 122 IDs onto 19 presentations.
@@ -686,7 +697,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Worker context assembly, project library and research. **Category:** dead-code. **Verdict:** confirmed.
 - **Removable:** ~1500 lines. **Risk:** low. **Visible change:** UI, model tools, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`034f553c`, `ab431714`).
 - **Where:** `internal/factory/library.go:89-252`, `internal/factory/research.go:1-94`, `internal/factory/research_record.go:1-238`, `internal/factory/library_result.go:1-11`, `internal/factory/control/library_maintenance.go:1-61`, `internal/factory/control/research_settlement.go:1-26`, `internal/factory/control/planning.go:86-91`, `internal/factory/control/dispatch_attempt.go:517`, `internal/store/factory_library.go:83-254`, `internal/store/factory_library.go:387-714`, `internal/store/factory_research.go:1-83`, `internal/store/factory_context_library.go:1-50`, `internal/store/factory_context_current.go:242-258`, `internal/web/api/factory_mcp_library.go:24-150,180-200`, `internal/web/api/factory_mcp_research.go:1-77`, `internal/factory/mcp_profile.go:26,65,270-281,309-311`, `internal/factory/feed_components.go:71`, `internal/factory/feed_components.json:1448-1574 (LA01-LA09)`, `internal/factory/soda_issue_block.go:20-21,66,105-130`, `internal/store/factory_feed.go:104 and factory_feed_contribution.go:89 (CASE arms)`, `frontend/spaces/sodaspaces-factory-feed-families.ts:75,92; sodaspaces-factory-feed.ts:1238`, `lib/host/src/factory/run.rs:63`, `internal/store/factory_library_test.go`
 
 **What.** There are two whole worker roles, Library Admin (10 mutation tools, preview, inventory with duplicate/contradiction/orphan analysis, LA01-LA09 Feed cards) and Researcher (research_scope, record_research with question-indexed progressive logs and coverage, finish_research, its own factory_research_records table). Each comes with its own execution phase (maintain_library, research), prompt branches, settlement, CurrentContext role header, feed SQL CASE arms and MCP schemas.
@@ -773,7 +784,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Rust host: factory worker runtime. **Category:** duplicated-layer. **Verdict:** confirmed.
 - **Removable:** ~1300 lines. **Risk:** medium. **Visible change:** UI, model tools. **Behaviour-preserving:** yes.
-- **Status:** owner decision.
+- **Status:** done (`3b2273ff`): the factory is Muse-only; the human Start Codex terminal stays.
 - **Where:** `lib/host/src/dbackend/factory_terminal.rs:44-397`, `lib/host/src/terminal/factory/tcodex.rs:1-684`, `lib/host/src/terminal/factory/muse/reserve.rs:47-240`, `lib/host/src/terminal/factory/muse/lifecycle.rs:8-109`, `lib/host/src/terminal/factory/muse/start.rs:9-70`, `lib/host/src/terminal/factory/model_catalog.rs:1-95`, `lib/host/src/terminal/factory/msp/codex.rs:1-160`, `lib/host/src/terminal/factory/codex_control.rs:23-76`, `lib/host/src/factory/native_control.rs:38-67,496-679,693-740`, `lib/host/src/factory/native_tasks.rs:456-474,806-952`, `lib/host/src/terminal/factory/mcp_stage.rs:12-14,46-61`, `lib/host/tests/tcodex_ops_oracle.rs:1-661`, `cmd/soda-project-maintain/src/config_wire.rs:87-88,121-122`, `cmd/soda-project-maintain/src/config_validation.rs:33-36`
 
 **What.** Every FactoryTerminal method in TerminalSeam branches Codex vs Muse: reserve, start, wait, stop, stop_unbound, capture, live, output and native_output. Each branch lands in a near-identical factory_codex_*/factory_muse_* pair. factory_codex_reserve_with_channels and factory_muse_reserve_with_channels are copies. factory_codex_setup and factory_muse_setup run the same podman setup and git rev-parse with different error strings. factory_codex_stage and factory_muse_stage are identical except for the guest path. The start, wait, validate, stop, stop_unbound, capture, live and output pairs differ only in the paths struct and the scope constant. On top of that, Codex alone has: model-catalog staging with 'native profile' retention, its own app-server driver (drive_codex), a dynamic-tool task correlator (NativeTasks::item/tools), per-item evidence files, and a TOML MCP config.
@@ -989,7 +1000,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~900 lines. **Risk:** low. **Visible change:** UI, DB schema. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`c62f6ec1`).
 - **Where:** `internal/factory/intent_allowance.go:1-63`, `internal/store/factory_intent_allowances.go:1-161`, `internal/store/factory_intents.go:325-438`, `internal/store/factory_access_reads.go:12-60`, `internal/store/schema.go:44-46`, `cmd/soda-identity/src/schema.rs:39-41`, `cmd/soda-identity/src/schema.rs:352-353`, `internal/web/api/extension_native.go:199`, `internal/web/api/extension_native.go:205`, `internal/web/api/factory_intents.go:169-212`, `internal/web/api/factory_intent_explore.go:109-120`, `internal/web/api/factory_intent_explore.go:163-170`, `internal/web/api/factory_access_view.go:216-254`, `internal/web/api/factory_access_view.go:396-404`, `internal/factory/intent.go:81`, `internal/factory/intent.go:126`, `internal/factory/control/planning.go:205-215`, `frontend/spaces/sodaspaces-intent.ts:2109-2200`, `frontend/spaces/sodaspaces-factory-work.ts:604-640`, `frontend/spaces/sodaspaces-factory-settings.ts:1600-1633`, `frontend/spaces/sodaspaces-factory-progress-view.ts:364-460`, `frontend/spaces/sodaspaces-factory-progress-view.ts:1010-1060`, `frontend/spaces/sodaspaces-factory-progress-response.ts:438-500`
 
 **What.** Product Lead exploration and planning must be funded with 'planning calls'. Each allowance is a CAS-chained record with amount, ceiling and effect text, and consumption is derived from joins.
@@ -1025,7 +1036,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Intent to plan (Product Lead, Architect, research, decomposition). **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~900 lines. **Risk:** low. **Visible change:** UI, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision.
+- **Status:** done (`c62f6ec1`).
 - **Where:** `internal/factory/intent_allowance.go:1-63`, `internal/store/factory_intent_allowances.go:1-161`, `internal/store/factory_intents.go:267-300,328-407`, `internal/store/factory_reassessments.go:654-671`, `internal/store/factory_attempt_allowances.go:1232-1245`, `internal/store/factory_context_selection.go:24-58`, `internal/store/factory_delivery_repair_adoption.go:70-86`, `internal/factory/control/planning.go:212`, `internal/web/api/factory_intents.go:169-212`, `internal/web/api/factory_intent_explore.go:109-119,163-171`, `internal/factory/intent.go:81,126`, `internal/factory/control/reassessment_adoption.go:950`, `internal/web/api/factory_access_view.go:211-270,378-404`, `internal/store/factory_access_reads.go`, `internal/store/schema.go:35-36,44-46,385-386`, `cmd/soda-identity/src/schema.rs:30-31,39-41,352-353`, `frontend/spaces/sodaspaces-intent.ts:306-310,380,2109-2284`, `frontend/spaces/sodaspaces-intent-view.ts:409-436`, `frontend/spaces/sodaspaces-intent-response.ts:131-158`, `frontend/spaces/sodaspaces-factory-work.ts:566-633`, `frontend/spaces/sodaspaces-factory-access-response.ts`
 
 **What.** Every intent JEV consultation must reserve against a per-intent PlanningAllowance: explore design, assumptions, consolidation, consistency, planned choice, and the per-issue planning calls for generated issues (PLN-1). The allowance is its own revisioned record: a predecessor CAS chain plus head table, amount/ceiling, the unit 'planning_calls' (the only value), mandatory 'effect' prose for any increase, a reservation ledger (factory_intent_planning_calls) and a global factory_judgment_budget counter. The frontend creates and raises it from two different screens and mirrors the amount into IntentRevision.PlanningCalls.
@@ -1148,7 +1159,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Completion, reassessment, review and JEV judgments. **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~600 lines. **Risk:** low. **Visible change:** UI, model tools, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`c62f6ec1`): failed JEV calls retry; the global counter is no longer touched.
 - **Where:** `internal/factory/control/judgment_advice.go:13-116`, `internal/factory/control/judgment_advice_delivery.go:62-137`, `internal/web/api/factory_mcp_systemone.go:225-287`, `internal/store/factory_intents.go:266-325,410-418`, `internal/store/factory_attempt_allowances.go:1189-1251`, `internal/store/factory_reassessments.go:22-26,580-672`, `internal/store/factory_context_selection.go:25-56`, `internal/store/factory_delivery_repair_adoption.go:71-84`, `internal/store/schema.go:35-36`, `cmd/soda-identity/src/schema.rs:30-31`, `internal/factory/control/completion_decision.go:159-260,276-279`, `internal/factory/control/completion_drive.go:420-436`, `internal/factory/control/planning.go:186-259`, `internal/factory/reassessment.go:63-70,383-449`
 
 **What.** Before each call, every JEV purpose reserves three things in one transaction: a fingerprint row, a purpose-specific ledger entry and a global counter. The purpose ledgers are: the planning-call allowance, the attempt's DeliveryCalls, the reassessment 2-call ledger, the per-capability context selection, the repair cycle and the comment revision. Any failure records a failed receipt, and that receipt is replayed as 'unavailable' forever for the same inputs (AdvisePurpose replayPurposeJudgment :49-54, AdviseDelivery :92-98, worker SystemOne :263-272).
@@ -1300,7 +1311,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** partially-confirmed.
 - **Removable:** ~400 lines. **Risk:** medium. **Visible change:** UI, model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`b1d4c63e`): one per-run limit; leftover budgets never shorten a run.
 - **Where:** `internal/factory/control/dispatch_selection.go:48-175`, `internal/factory/control/dispatch_launch.go:243-260`, `internal/factory/control/dispatch_launch.go:690-761`, `internal/factory/control/dispatch_timeonly.go:336-349`, `internal/factory/control/dispatch_context_recovery.go:39-61`, `internal/factory/control/progress.go:118-131`, `lib/host/src/factory/stop.rs:94-117`, `internal/factory/control/settle.go:240-320`, `internal/factory/control/dispatch_result.go:175-184`, `internal/factory/control/dispatch_recovery.go:263-279`, `internal/factory/control/lifecycle_retry.go:37-53`, `internal/store/factory_implementation_retry.go:1-309`, `internal/factory/grants.go:59,94`, `internal/factory/dispatch_prompt.go:358`
 
 **What.** Each run's absolute deadline is computed once, when the dispatch packet is recorded. It is the minimum of what is left in: the sponsorship's lifetime minutes (minus held plans), the connection's 24h rolling minutes, the attempt's wall-clock seconds, the 179-minute host bound and, for Issue-zero roots, the subject's funded minutes. Dispatch refuses only when less than one minute is left, so a nearly spent budget produces a 1-5 minute run. Both the clock and the usage charge start at record time (run.Started). That is before the capability is staged and before the context-bundle JEV choice, and a failed choice is held without retry until the deadline. The evidence lists every distinct budget.
@@ -1372,7 +1383,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Factory dispatch and run start. **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~350 lines. **Risk:** medium. **Visible change:** UI, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`b1d4c63e`).
 - **Where:** `internal/factory/control/dispatch_selection.go:104-175`, `internal/factory/control/dispatch_timeonly.go:336-349,458-548`, `internal/factory/control/dispatch.go:301-312`, `internal/factory/control/dispatch_occupancy.go:47-55`, `internal/store/factory_dispatch_packet.go:162-198,1126-1218`, `internal/store/factory_attempt_allowances.go:1168-1186`, `internal/factory/allowance.go:413-425`, `internal/factory/control/readiness_work.go:13-23,84-166`, `internal/factory/control/dispatch_preparation.go:177,226,251`, `internal/store/factory_intents.go:282-297,383-405`, `internal/store/factory_context_selection.go:24-27,56`, `internal/store/factory_attempt_allowances.go:1233-1243`, `internal/store/factory_reassessments.go:655-669`, `internal/store/factory_delivery_repair_adoption.go:71-84`, `internal/store/schema.go:35-36`, `cmd/soda-identity/src/schema.rs:30-31`
 
 **What.** sizeAttemptDeadline sets the deadline to min(sponsorship AllowanceMinutes − confirmed usage − held planned minutes, connection rolling-usage budget, attempt active-time remaining, 179). Time-only roots also take the min with IntentMinutes, ReassessmentMinutes, the app-verification allowance (2 runs / 60 minutes) or repair-charge minutes. The packet transaction recomputes the sponsorship and rolling-usage checks. Separately, every pass carries five native-RPC counters, and every judgment reservation increments a global factory_judgment_budget.spent under a row lock.
@@ -1410,7 +1421,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Retry kinds across store, control and UI. **Category:** too-many-states-or-budgets. **Verdict:** partially-confirmed.
 - **Removable:** ~330 lines. **Risk:** medium. **Visible change:** UI. **Behaviour-preserving:** no.
-- **Status:** owner decision.
+- **Status:** done (`72c5afe7`, `c62f6ec1`).
 - **Where:** `internal/factory/control/judgment_advice.go:49-80`, `internal/factory/control/context_bundle_advice.go:121-149`, `internal/factory/control/context_bundle_prepare.go:53-60`, `internal/store/factory_context_selection.go:15-60`, `internal/factory/control/dispatch_launch.go:690-760`, `internal/factory/control/dispatch_context_recovery.go:42-62`, `internal/factory/control/lifecycle_retry.go:38-55,145-153`, `internal/factory/control/context_resolution.go:64`, `internal/store/factory_implementation_retry.go:1-309`, `internal/store/factory_attempt_allowances.go:797-830`
 
 **What.** Every launch goes through launchTail, which sets run.ContextPending and calls PrepareContextBundleSelection before FactoryLaunch. ReserveContextBundleSelection writes context_selection_snapshot onto the capability before the JEV call. If the call fails, the snapshot stays without a receipt. Every later pass takes the 'ValidDigest(snapshot)' branch, PriorityJudgment returns not-found, and the run reports context_selection_hold/'context_selection_unavailable' until its deadline. None of the retry kinds apply. RetryRun refuses because the run is not reconciled (ErrPendingRuns, 'stop or reconcile them first'). UseCurrentContext requires reason=='context_selection_attention'. The implementation retry needs the owner to Stop first (yielding Cancelled/'stop-before-start'), applies only to implement-phase children, and requires RemainingSeconds>0. Meanwhile the packet started the attempt active-time allowance (admitAttemptAllowanceTx Checkpoint(now, true)), so the hold burns the root's time. Once the deadline passes, recoverUnused marks the run Failed 'dispatch launch never reached the host'. Automatic relaunch then hits the exhausted allowance and returns quietly (RTY-5), and admitDispatchAttempt reports 'attempt is closed; maintainer intervention is required'. Explicit Retry then refuses because the prior assignment is still 'assigned', not 'finished' (explicit_retry.go:283).
@@ -1539,7 +1550,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** partially-confirmed.
 - **Removable:** ~200 lines. **Risk:** medium. **Visible change:** UI, model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`b1d4c63e`): the attempt clock is a per-run limit.
 - **Where:** `internal/factory/allowance.go:19-39`, `internal/factory/allowance.go:411-448`, `internal/factory/control/dispatch_selection.go:142-175`, `internal/store/factory_attempt_allowances.go:51-175`, `internal/store/factory_attempt_allowances.go:423-455`, `internal/store/factory_attempt_allowances.go:641-795`, `internal/store/factory_assignments.go:185-245`, `internal/factory/control/merge_reconcile.go:42-52`, `internal/factory/control/dispatch_attempt.go:80-95`, `internal/factory/control/publication_children.go:88-95`, `internal/factory/control/lifecycle_retry.go:79`, `internal/factory/control/review_cycle.go:694`, `internal/factory/control/correction.go:327`, `internal/factory/control/merge_evidence.go:115`, `internal/factory/control/publication_reconcile.go:273`, `internal/factory/control/delivery_producer.go:111`, `internal/factory/control/delivery_judgment_material.go:121`, `internal/factory/control/delivery_judgment_producer.go:209`, `internal/store/factory_publications.go:120-128`, `internal/store/factory_merges.go:110-116`, `internal/factory/control/lifecycle.go:50-60`, `internal/factory/dispatch_prompt.go:346-359`, `internal/store/factory_context_current.go:140-160`, `frontend/spaces/sodaspaces-factory-settings.ts:1500`
 
 **What.** A per-attempt wall clock with checkpoints, pause/freeze and closure. It caps every run's deadline and every native operation's NotAfter, on top of the run deadline, the spend cap and the correction-cycle cap.
@@ -1594,7 +1605,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~150 lines. **Risk:** low. **Visible change:** UI. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`b1d4c63e`): the 24h rolling budget no longer gates dispatch; its settings record remains.
 - **Where:** `internal/factory/sponsorship.go:15-35`, `internal/factory/sponsorship.go:58-60`, `internal/factory/grants.go:329-356`, `internal/factory/control/dispatch_selection.go:39-42`, `internal/factory/control/dispatch_selection.go:104-140`, `internal/store/factory_reservations.go:175-293`, `internal/store/factory_dispatch_packet.go:1076-1081`, `internal/store/factory_dispatch_packet.go:1133-1140`, `internal/store/factory_dispatch_packet.go:1204-1218`, `internal/store/factory_grant_commands.go:430-449`, `internal/store/factory_priority_inventory.go:620-636`, `internal/factory/effective_authority.go:47-53`, `internal/web/api/factory_sponsorship.go:20-48`, `internal/web/api/factory_connection_usage_budget.go:1-74`, `internal/web/api/factory_access_view.go:319-345`, `frontend/spaces/sodaspaces-factory-settings.ts:880-897`, `frontend/spaces/sodaspaces-factory-settings.ts:924`, `frontend/spaces/sodaspaces-factory-settings.ts:1550-1598`, `frontend/spaces/sodaspaces-factory-settings.ts:1651-1661`, `tests/installed/qualification/prepare-funding.ts:95-110`, `tests/installed/qualification/phases/factory-phase.ts:553`, `tests/installed/qualification/phases/factory-native.ts:127`, `tests/installed/qualification/native.ts:23`
 
 **What.** Coder session minutes are capped twice from the same factory_usage table. One cap is per repository+connection for all time; the other is per connection over a rolling 24h. Each has its own grant record, API, Settings form and checks in both control and store.
@@ -1611,7 +1622,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Model-facing MCP tools. **Category:** unneeded-validation-or-digest. **Verdict:** confirmed.
 - **Removable:** ~150 lines. **Risk:** medium. **Visible change:** model tools. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`42a051e9`, `291451f6`); task output digests and native child refs still come from the model.
 - **Where:** `internal/web/api/factory_mcp.go:91-100`, `internal/web/api/factory_mcp.go:305-345`, `internal/web/api/factory_mcp.go:608-610`, `internal/web/api/factory_mcp_bound.go:54-60`, `internal/factory/control/mcp_admission.go:154-161`, `internal/store/factory_mcp_submission.go:257-261`, `internal/web/api/factory_mcp_native_task.go:26-28`, `internal/web/api/factory_mcp_repair_preview.go:26-28`, `internal/web/api/factory_mcp_repair_scope.go:53-55`, `internal/factory/dispatch_prompt_stage.go:136-140`, `internal/factory/control/mcp_fw40.go:377-411`, `internal/factory/control/mcp_correction_finish.go:28-33`, `internal/factory/control/task_checkpoint.go:174-181`, `internal/web/api/factory_mcp_checkpoints.go:89-94`, `internal/web/api/factory_mcp_verification.go:31`, `internal/factory/control/app_verification.go:128`, `internal/factory/verification_journey.go:126-135`, `internal/factory/repair_diagnosis.go:91-110`, `internal/factory/intent_proposal_content.go:180-190`, `internal/factory/control/intent_bound.go:99`, `internal/factory/dispatch_prompt.go:489-494`, `internal/store/factory_planning_revisions.go:74-79`, `internal/web/api/factory_mcp_role_schema.go:37-104`, `internal/web/api/factory_mcp_systemone.go:111,132-134`, `internal/web/api/factory_mcp_artifact.go:19-22`
 
 **What.** The model must mint or echo values the server already holds. Envelope: submission_id is required on every mutation, progress posts included, and must be 32-hex (hardening also accepts UUIDs, nothing else). expected_input_digest is optional, but when sent it must equal capability.ScopeDigest(), a value that never changes for a capability. Per role, after the hardening branch: Inspector finish_review needs tuple{cycle_id, head, base_oid} plus a coverage digest; coverage is required even for findings or incomplete, where it is ignored. Fixer finish_correction needs finding_digest. Builder and Fixer submit_task_output need manifest_digest, output_digest and native_child_ref. Test Pilot finish_app_verification needs delivery_id, input_digest and a check_receipts copy of the native receipt; record_journey_result needs delivery_id, input_digest, source_commit, preparation and manifest_digest. Strategist record_diagnosis needs subject, input_digest, source_commit and inventory_digest, and its reports carry stall_id/subject, inventory_digest, source_commit, preparation_digest and local_input_digest. Product Lead walkthroughs need producer, supported=true, intent, revision, the objective (up to 16000 chars, byte-equal), facts, excluded and exclusions, plus outcomes[0] and idea_ids for every alternative. Architect: the plan id is still model-minted, prerequisite_digests must be echoed, and generation is the constant 0. Also: consultation_group (32-hex), artifact upload_id plus offset, and artifact_refs digests echoed from publish responses.
@@ -1630,7 +1641,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Model-facing MCP tools. **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~150 lines. **Risk:** low. **Visible change:** UI, model tools. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`72c5afe7`).
 - **Where:** `internal/web/api/factory_mcp_context_gate.go:10-53`, `internal/web/api/factory_mcp.go:645`, `internal/web/api/factory_mcp.go:761-782`, `internal/web/api/factory_mcp.go:844-879`, `internal/web/api/factory_mcp.go:885-940`, `internal/web/api/factory_mcp_repair_scope.go:64-71`, `internal/web/api/factory_mcp_native_task.go:41`, `internal/web/api/factory_mcp_systemone.go:245`, `internal/factory/mcp_submission.go:37-40`, `internal/factory/control/context_bundle_advice.go:121-149`, `internal/factory/context_resolution.go:41-67`, `internal/factory/control/dispatch_launch.go:745-757`
 
 **What.** requireNewSubmissionContext calls requireCurrentWork, which runs foregroundReadBundle on every call. That reloads the context-bundle-v1 JEV receipt and replays it through ContextBundleFromReceipt: it rebuilds the purpose request, re-fingerprints it and re-applies the 0.80 confidence thresholds. It then builds the full FactoryCurrentContext (a repeatable-read transaction, run twice when a resolution exists) and refuses unless availability is 'complete'. The gate covers all finish_* except incomplete, submit_task_output, publish_artifact, record_research, library mutations, start_task/release_output and every systemone call. The refusal tells the worker to give up: 'context selection holds new work; read factory.context and report incomplete or blocked'. What is being selected is tiny: attempt = run-history IDs; lineage = parent outcome and reason.
@@ -1685,7 +1696,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Test Pilot / app verification (Go factory+control+store+MCP, Rust host, in-project helper). **Category:** unneeded-validation-or-digest. **Verdict:** confirmed.
 - **Removable:** ~120 lines. **Risk:** low. **Visible change:** model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`291451f6`).
 - **Where:** `internal/web/api/factory_mcp.go:333-336`, `internal/web/api/factory_mcp.go:523`, `internal/web/api/factory_mcp_role_schema.go:82-88`, `internal/web/api/factory_mcp_verification.go:10-33`, `internal/factory/control/mcp_fw40.go:545-603`, `internal/factory/control/app_verification.go:101`, `internal/factory/control/app_verification.go:109-147`, `internal/store/factory_app_verification.go:226-271`, `internal/store/factory_verification_manifest.go:78-85`, `internal/factory/verification_journey.go:23-38`, `internal/factory/verification_journey.go:126-147`, `internal/factory/verification.go:319-351`, `internal/factory/control/delivery_admission.go:82`
 
 **What.** This is the same model-hostile pattern as finding 1 of the demo evidence. finish_app_verification requires delivery_id and input_digest, plus check_receipts with check_id 'project.check', outcome 'passed', and artifact_digest equal to the native output digest. Its coverage entries must list task_keys and delivered_acceptance_ids that exactly equal the canonical delivered tasks. record_journey_result requires delivery_id, input_digest, source_commit, preparation and manifest_digest. The controller then compares each copied value with its own records.
@@ -1702,7 +1713,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~110 lines. **Risk:** low. **Visible change:** UI, model tools, DB schema. **Behaviour-preserving:** yes.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`c62f6ec1`).
 - **Where:** `internal/store/schema.go:35-37`, `cmd/soda-identity/src/schema.rs:30-32`, `internal/store/factory_intents.go:267-325`, `internal/store/factory_intents.go:383-404`, `internal/store/factory_context_selection.go:12-58`, `internal/store/factory_attempt_allowances.go:1228-1246`, `internal/store/factory_reassessments.go:18-26`, `internal/store/factory_reassessments.go:579-674`, `internal/store/factory_delivery_repair_adoption.go:60-90`, `internal/store/factory_feed_comment.go:430-443`, `internal/factory/control/judgment_advice.go:49-116`, `internal/factory/control/judgment_advice_delivery.go:62-109`, `internal/factory/control/context_bundle_prepare.go:12-68`, `internal/factory/control/completion_decision.go:159-162`, `internal/factory/control/completion_decision.go:214-230`, `internal/factory/control/completion_decision.go:270-280`, `internal/factory/control/completion_drive.go:420-430`, `internal/web/api/factory_mcp_systemone.go:242-275`
 
 **What.** Every JEV call is treated as a paid purchase. A fingerprint row is reserved before the call, a global spent counter is bumped under a table lock, and the reservation is kept whatever happens, so a question that once failed is never asked again.
@@ -1740,7 +1751,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Boundary machinery: strict JSON, digests, receipts, revision checks (cross-cutting). **Category:** unneeded-validation-or-digest. **Verdict:** confirmed.
 - **Removable:** ~100 lines. **Risk:** medium. **Visible change:** model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision; coordinate with prod-hardening.
+- **Status:** done (`291451f6`).
 - **Where:** `internal/factory/control/mcp_fw40.go:36-44`, `internal/factory/control/mcp_fw40.go:350-441`, `internal/factory/control/mcp_fw40.go:545-608`, `internal/web/api/factory_mcp.go:319-336`, `internal/web/api/factory_mcp.go:516-523`, `internal/web/api/factory_mcp_role_schema.go:40`, `internal/web/api/factory_mcp_role_schema.go:62-63`, `internal/web/api/factory_mcp_role_schema.go:83`, `internal/factory/review_native.go:931-946`, `internal/factory/context_review.go:17`, `internal/store/factory_context_review.go:69`, `internal/factory/control/review_cycle.go:372-386`, `internal/factory/control/delivery_acceptance.go:150-172`, `internal/web/api/factory_mcp_verification.go:32`, `internal/store/factory_verification_journey.go:127-134`, `internal/factory/control/mcp_admission.go:138-160`
 
 **What.** Review finish (Inspector): a clear or findings verdict settles only if the payload contains tuple{cycle_id, head, base_oid} and, for clear, 'coverage', which must equal ClearCoverageDigest(head, base, contentDigest). The store computes that digest into the model's context (factory_context_review.go:69). The model copies it back, and the server recomputes and compares it in review_cycle.go and twice in delivery_acceptance.go. The cycle, head and base are already recorded on the review assignment. App-verify finish (Test Pilot): it needs delivery_id plus input_digest. The input_digest is the capability ScopeDigest the server handed out at factory_mcp_verification.go:32. When any of these echo fields is missing or malformed, mapFW40Terminal returns parkFW40(). The submission is recorded and frozen as the terminal proposal, the receipt says accepted/recorded, and nothing settles. The assignment then waits until its deadline. This is the same failure as the Architect's, in two more roles, and it is invisible to the model.
@@ -1759,7 +1770,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Budgets, allowances and limits (cross-cutting). **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~90 lines. **Risk:** low. **Visible change:** UI, model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision.
+- **Status:** done (`c62f6ec1`).
 - **Where:** `internal/factory/allowance.go:16-32`, `internal/factory/allowance.go:57-76`, `internal/factory/allowance.go:130-137`, `internal/factory/allowance.go:258-272`, `internal/factory/allowance.go:377-409`, `internal/store/factory_attempt_allowances.go:609`, `internal/store/factory_attempt_allowances.go:1189-1247`, `internal/factory/control/judgment_advice_delivery.go:26-49`, `internal/factory/control/delivery_judgment_producer.go:146-152`, `internal/web/api/factory_policy.go:73`, `frontend/spaces/sodaspaces-factory-settings.ts:1015-1028`, `internal/store/factory_context_current.go:155-159`, `internal/factory/context_current.go:56`
 
 **What.** DeliveryCalls is a per-attempt count of funded JEV delivery judgments, kept as a second ledger beside the fingerprint journal. Zero is a deliberate 'unfunded, never auto-merge' value, and there is no control for it.
@@ -1829,7 +1840,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Publication, merge, correction, repair, acceptance, verification, lifecycle. **Category:** too-many-states-or-budgets. **Verdict:** confirmed.
 - **Removable:** ~60 lines. **Risk:** medium. **Visible change:** none. **Behaviour-preserving:** no.
-- **Status:** coordinate with prod-hardening.
+- **Status:** done (`b1d4c63e`).
 - **Where:** `internal/factory/control/publication_reconcile.go:272-277`, `internal/factory/control/correction.go:326-331`, `internal/factory/control/merge_evidence.go:113-119`, `internal/factory/control/delivery_producer.go:111-114`, `internal/factory/control/merge_reconcile.go:42-53`, `internal/factory/control/publication_children.go:58-107`, `internal/factory/control/publication_children.go:617-624`, `internal/store/factory_publications.go:109-128`, `internal/store/factory_merges.go:109-117`, `internal/store/factory_attempt_allowances.go:51-91,99-152,153-175,423-455`, `internal/store/factory.go:215-243,381-402`, `docs/development/factory-workflow-contracts.md:274-276`
 
 **What.** An issue attempt's allowance (default 120 active minutes, allowance.go:36) is meant to cover worker time. After the coder finishes, the allowance stays Active until the publication or merge reaches a terminal state, so RemainingSeconds counts wall-clock time spent waiting on CI, up to 6 review rounds, JEV judgments and 3 corrections. Every native op registration must fit inside that budget: CapAttemptDeadline at observe time, and ensureAttemptDeadlineForRegistrationTx inside the store write. The child producer stops with 'attempt is closed; maintainer intervention is required'. admitMergeRow calls CloseExpiredAttempt and withdraws the merge, which is terminal (see DLV-3).
@@ -1846,7 +1857,7 @@ Each of these changes a visible feature, a model-facing tool contract or the DB 
 
 - **Subsystem:** Worker context assembly, project library and research. **Category:** unneeded-validation-or-digest. **Verdict:** confirmed.
 - **Removable:** ~22 lines. **Risk:** low. **Visible change:** model tools. **Behaviour-preserving:** no.
-- **Status:** owner decision.
+- **Status:** done (`291451f6`).
 - **Where:** `internal/factory/dispatch_prompt_stage.go:137-138`, `internal/store/factory_context_review.go:63-69`, `internal/factory/context_review.go:17`, `internal/web/api/factory_mcp.go:319-321`, `internal/web/api/factory_mcp_role_schema.go:61-63`, `internal/factory/control/mcp_fw40.go:377-411`, `internal/factory/control/delivery_acceptance.go:151-172`
 
 **What.** currentReviewTx computes ClearCoverageDigest = digest(head, base_oid, FindingContentDigest(carried findings)) and exposes it, together with cycle/head/base, inside the fragment-paged role. The prompt then requires the Inspector to 'Supply tuple {cycle_id,head,base_oid} from review.cycle, coverage equal to review.clear_coverage_digest'. The server already holds every one of these values for this assignment (a.ReviewContext.Cycle).
@@ -1943,7 +1954,7 @@ Where: `internal/acceptance/*.go (3,220 lines)`, `internal/acceptance/README.md`
 
 ### DSP-12: Optional lifecycle effects with capability handshakes are an unneeded speculative feature
 
-Factory dispatch and run start. speculative-abstraction. confirmed. ~2700 lines, risk low. Visible change: UI, DB schema. Behaviour-preserving: no. **Status:** owner decision; coordinate with prod-hardening.
+Factory dispatch and run start. speculative-abstraction. confirmed. ~2700 lines, risk low. Visible change: UI, DB schema. Behaviour-preserving: no. **Status:** done (`fcc7b413`).
 
 Where: `internal/factory/lifecycle_action.go:1-430`, `internal/factory/lifecycle_action_config.go:1-98`, `internal/factory/control/lifecycle_consume.go:1-606`, `internal/factory/control/lifecycle_capabilities.go:1-79`, `internal/store/factory_lifecycle_actions.go:1-404`, `internal/web/api/factory_lifecycle_actions.go:1-291`, and 16 more.
 
@@ -2011,7 +2022,7 @@ Where: `internal/factory/completion_material.go:1-1606`, `internal/store/factory
 
 ### PLN-9: Researcher and Library Admin roles are only reachable from a hand-written ```soda block, yet every prompt carries library guidance
 
-Intent to plan (Product Lead, Architect, research, decomposition). speculative-abstraction. confirmed. ~1500 lines, risk medium. Visible change: UI, model tools. Behaviour-preserving: no. **Status:** owner decision; coordinate with prod-hardening.
+Intent to plan (Product Lead, Architect, research, decomposition). speculative-abstraction. confirmed. ~1500 lines, risk medium. Visible change: UI, model tools. Behaviour-preserving: no. **Status:** done (`034f553c`, `ab431714`).
 
 Where: `internal/factory/control/library_maintenance.go:11-61`, `internal/factory/control/planning.go:86-91`, `internal/factory/soda_issue_block.go:1-128`, `internal/factory/library.go:11-13,100-252`, `internal/factory/mcp_profile.go:26,82-93,117-119,177-187`, `internal/store/factory_library.go:83-254,389-705`, and 10 more.
 
@@ -3329,7 +3340,7 @@ Where: `lib/host/src/application/backups.rs:27-264`, `lib/host/src/application/s
 
 ### BND-1: MCP tool envelope makes the model carry capability_id and expected_input_digest that the bound server already knows; payload hash is checked against itself
 
-Boundary machinery: strict JSON, digests, receipts, revision checks (cross-cutting). unneeded-validation-or-digest. confirmed. ~150 lines, risk low. Visible change: model tools. Behaviour-preserving: yes. **Status:** owner decision; coordinate with prod-hardening.
+Boundary machinery: strict JSON, digests, receipts, revision checks (cross-cutting). unneeded-validation-or-digest. confirmed. ~150 lines, risk low. Visible change: model tools. Behaviour-preserving: yes. **Status:** done (`42a051e9`).
 
 Where: `internal/web/api/factory_mcp.go:91-135`, `internal/web/api/factory_mcp.go:248-270`, `internal/web/api/factory_mcp.go:604-620`, `internal/web/api/factory_mcp_bound.go:50-61`, `internal/web/api/factory_mcp_bound.go:154-218`, `internal/factory/mcp_submission.go:111-125`, and 16 more.
 
@@ -3595,7 +3606,7 @@ Where: `internal/factory/control/assumption_advice.go:10-84`, `internal/factory/
 
 ### STO-6: A global factory_judgment_budget counter is incremented by six transactions, never read, and serialises every JEV reservation
 
-Store (PostgreSQL layer) structure. too-many-states-or-budgets. confirmed. ~55 lines, risk low. Visible change: DB schema. Behaviour-preserving: yes. **Status:** owner decision.
+Store (PostgreSQL layer) structure. too-many-states-or-budgets. confirmed. ~55 lines, risk low. Visible change: DB schema. Behaviour-preserving: yes. **Status:** done (`c62f6ec1`).
 
 Where: `internal/store/schema.go:35-36`, `cmd/soda-identity/src/schema.rs:30-31`, `internal/store/factory_context_selection.go:24-27`, `internal/store/factory_context_selection.go:56-58`, `internal/store/factory_attempt_allowances.go:1232-1245`, `internal/store/factory_delivery_repair_adoption.go:70-86`, and 10 more.
 
