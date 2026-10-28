@@ -249,6 +249,17 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       });
       return;
     }
+    if (current?.retained && refusal === undefined && current.view.claim?.(next)) {
+      // The composer saved its first draft: the same live view becomes that
+      // request's page, so nothing reloads and New request starts fresh.
+      const live = current;
+      const stale = retained.get(key);
+      if (stale && stale !== live) release(stale);
+      retained.delete(live.key);
+      live.key = key;
+      retained.set(key, live);
+      return;
+    }
     if (current) hide(current);
     const kept = retained.get(key);
     if (kept) {

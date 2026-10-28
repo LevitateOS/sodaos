@@ -207,7 +207,7 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
   if (capture) await captureSpacesComponent(page, 'picker-' + capture);
   const picker = {
     frame: await page.locator('.soda-workspace-frame').boundingBox(),
-    heading: await page.getByRole('heading', {name: 'Choose a repository'}).boundingBox(),
+    heading: await page.getByRole('heading', {name: 'Repository for this request'}).boundingBox(),
   };
   const continueAction = page.getByRole('button', {name: 'Continue', exact: true});
   await continueAction.scrollIntoViewIfNeeded();
