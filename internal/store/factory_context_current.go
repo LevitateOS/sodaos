@@ -325,8 +325,9 @@ func currentSubmissionsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment,
 	out.Role.Submissions = []factory.CurrentSubmissionReceipt{}
 	for rows.Next() {
 		var projected factory.CurrentSubmissionReceipt
+		var inputDigest string
 		var raw []byte
-		if err = rows.Scan(&projected.SubmissionID, &projected.Tool, &projected.ExpectedInputDigest, &projected.PayloadHash, &projected.State, &projected.Reason, &raw); err != nil {
+		if err = rows.Scan(&projected.SubmissionID, &projected.Tool, &inputDigest, &projected.PayloadHash, &projected.State, &projected.Reason, &raw); err != nil {
 			return err
 		}
 		var receipt factory.MCPReceipt

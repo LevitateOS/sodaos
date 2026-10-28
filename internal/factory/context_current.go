@@ -91,13 +91,12 @@ type CurrentRoleContext struct {
 // CurrentSubmissionReceipt exposes only this assignment's recovery metadata.
 // Payloads and another assignment's receipts are never part of current context.
 type CurrentSubmissionReceipt struct {
-	SubmissionID        string  `json:"submission_id"`
-	Tool                MCPTool `json:"tool"`
-	PayloadHash         string  `json:"payload_hash"`
-	ExpectedInputDigest string  `json:"expected_input_digest"`
-	State               string  `json:"state"`
-	InputDigest         string  `json:"input_digest"`
-	Reason              string  `json:"reason"`
+	SubmissionID string  `json:"submission_id"`
+	Tool         MCPTool `json:"tool"`
+	PayloadHash  string  `json:"payload_hash"`
+	State        string  `json:"state"`
+	InputDigest  string  `json:"input_digest"`
+	Reason       string  `json:"reason"`
 }
 
 type CurrentPlanContext struct {

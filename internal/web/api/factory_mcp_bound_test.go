@@ -117,7 +117,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 				t.Fatal("bound preview read refused", err)
 			}
 		}
-		for _, args := range []map[string]any{{}, {"payload": map[string]any{"report": report, "apply": true}}, {"expected_input_digest": strings.Repeat("9", 64), "payload": map[string]any{"report": report}}, {"capability_id": strategist.capability.ID, "payload": map[string]any{"report": report}}} {
+		for _, args := range []map[string]any{{}, {"payload": map[string]any{"report": report, "apply": true}}, {"capability_id": strategist.capability.ID, "payload": map[string]any{"report": report}}} {
 			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: args})
 			if !catalogRefused(result, err) {
 				t.Fatal("invalid preview arguments reached a read", args)
@@ -554,7 +554,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	workJSON, _ := json.Marshal(workPayload)
 	raw, _ = json.Marshal(log)
 	write(`UPDATE factory_research_records SET data=$1 WHERE assignment=$2`, string(raw), a.ID)
-	retained := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: workID, CapabilityID: active.ID, Tool: factory.MCPToolRecordResearch, ExpectedInputDigest: active.ScopeDigest(), PayloadHash: factory.MCPInputDigest(workJSON), Payload: workJSON}
+	retained := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: workID, CapabilityID: active.ID, Tool: factory.MCPToolRecordResearch, PayloadHash: factory.MCPInputDigest(workJSON), Payload: workJSON}
 	if _, err = st.RecordMCPSubmission(ctx, retained, factory.MCPReceipt{SubmissionID: workID, Tool: retained.Tool, State: factory.MCPReceiptRecorded, InputDigest: retained.PayloadHash}); err != nil {
 		t.Fatal(err)
 	}
@@ -853,7 +853,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	for i := 1; i < factory.MaxVerificationJourneys; i++ {
 		observation.Name = "Retained observation " + strings.Repeat("x", i)
 		raw, _ := json.Marshal(observation)
-		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, ExpectedInputDigest: pilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
+		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
 		if _, err := st.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
 			t.Fatal("append retained journey observation", err)
 		}
@@ -935,7 +935,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	// Store exercises new terminal reference admission; authenticated HTTP
 	// then recovers that exact receipt.
-	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, ExpectedInputDigest: pilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
+	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
 	if _, err := st.RecordMCPSubmission(ctx, finishSub, factory.MCPReceipt{SubmissionID: finishID, Tool: finishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: finishSub.PayloadHash}); err != nil {
 		t.Fatal("journey observations consumed terminal capacity", err)
 	}
@@ -1109,7 +1109,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	legacyFinishJSON, _ = json.Marshal(legacyFinishPayload)
 	legacyFinishID := factory.NewID()
 	legacyFinishArgs := map[string]any{"submission_id": legacyFinishID, "payload": legacyFinishPayload}
-	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, ExpectedInputDigest: legacyPilotCap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(legacyFinishJSON), Payload: legacyFinishJSON}
+	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(legacyFinishJSON), Payload: legacyFinishJSON}
 	if _, err := st.RecordMCPSubmission(ctx, legacyFinishSub, factory.MCPReceipt{SubmissionID: legacyFinishID, Tool: legacyFinishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyFinishSub.PayloadHash}); err != nil {
 		t.Fatal("legacy journey observation consumed terminal capacity", err)
 	}
@@ -1165,7 +1165,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		Checks:             []factory.CheckSpec{{ID: "verify", Argv: []string{"/bin/sh", "check.sh"}, Cwd: ".", TimeoutSeconds: 30, Scope: factory.CheckScopeTask, Required: true}},
 	}
 	plan.Digest, _ = factory.PlanDigest(plan)
-	proposal := factory.MCPSubmission{AssignmentID: architect.ID, CapabilityID: architectCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan, ExpectedInputDigest: architectCap.ScopeDigest()}
+	proposal := factory.MCPSubmission{AssignmentID: architect.ID, CapabilityID: architectCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan}
 	encodePlan := func() {
 		t.Helper()
 		proposal.Payload, err = json.Marshal(map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{"README.md"}})
@@ -1249,7 +1249,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyProposal := factory.MCPSubmission{AssignmentID: legacy.ID, CapabilityID: legacyCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan, ExpectedInputDigest: legacyCap.ScopeDigest(), Payload: legacyBytes, PayloadHash: factory.MCPInputDigest(legacyBytes)}
+	legacyProposal := factory.MCPSubmission{AssignmentID: legacy.ID, CapabilityID: legacyCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishIssuePlan, Payload: legacyBytes, PayloadHash: factory.MCPInputDigest(legacyBytes)}
 	if _, err := st.RecordMCPSubmission(ctx, legacyProposal, factory.MCPReceipt{SubmissionID: legacyProposal.SubmissionID, Tool: legacyProposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyProposal.PayloadHash}); err != nil {
 		t.Fatal(err)
 	}
@@ -1269,7 +1269,6 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	for _, invalid := range []map[string]any{
 		{"submission_id": legacyProposal.SubmissionID},
-		{"payload": legacyPayload},
 		{"submission_id": legacyProposal.SubmissionID, "payload": []any{}},
 		{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload, "unknown": true},
 		{"submission_id": legacyProposal.SubmissionID, "payload": legacyPayload, "capability_id": legacyCap.ID},

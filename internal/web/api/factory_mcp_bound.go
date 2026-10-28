@@ -57,10 +57,8 @@ func bindMCPToolSchema(definition *mcp.Tool, tool factory.MCPTool, capability fa
 	schema.Required = nil
 	if tool == factory.MCPToolReceipt {
 		schema.Required = []string{"submission_id"}
-	} else if tool == factory.MCPToolDiscussion || tool == factory.MCPToolReadLibraryItem || tool == factory.MCPToolPreviewLibraryChanges || tool == factory.MCPToolPreviewRepair || isNativeTaskTool(tool) {
-		schema.Required = []string{"payload"}
 	} else if !factory.MCPIsRead(tool) {
-		schema.Required = []string{"submission_id", "payload"}
+		schema.Required = []string{"payload"}
 	}
 	definition.Description += ". Bound to your " + string(capability.Profile) + " assignment. Project, issue, author and run are supplied by the server."
 	if payload := schema.Properties["payload"]; payload != nil && payload.Properties["component_id"] != nil {
@@ -231,4 +229,12 @@ func unavailableFactoryMCP(err error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "factory MCP unavailable", http.StatusServiceUnavailable)
 	})
+}
+
+// mcpTakesSubmission reports whether a tool records a submission. Reads,
+// receipt recovery, discussion, previews and native task requests do not.
+func mcpTakesSubmission(tool factory.MCPTool) bool {
+	return !factory.MCPIsRead(tool) && tool != factory.MCPToolReceipt && tool != factory.MCPToolDiscussion &&
+		tool != factory.MCPToolReadLibraryItem && tool != factory.MCPToolPreviewLibraryChanges &&
+		tool != factory.MCPToolPreviewRepair && !isNativeTaskTool(tool)
 }

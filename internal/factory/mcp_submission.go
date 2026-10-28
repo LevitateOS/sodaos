@@ -150,13 +150,12 @@ const (
 // capability, and persistence locks and rechecks that capability
 // row inside the insert transaction.
 type MCPSubmission struct {
-	AssignmentID        string  `json:"assignment_id"`
-	SubmissionID        string  `json:"submission_id"`
-	CapabilityID        string  `json:"capability_id"`
-	Tool                MCPTool `json:"tool"`
-	ExpectedInputDigest string  `json:"expected_input_digest"`
-	PayloadHash         string  `json:"payload_hash"`
-	Payload             []byte  `json:"payload,omitempty"`
+	AssignmentID string  `json:"assignment_id"`
+	SubmissionID string  `json:"submission_id"`
+	CapabilityID string  `json:"capability_id"`
+	Tool         MCPTool `json:"tool"`
+	PayloadHash  string  `json:"payload_hash"`
+	Payload      []byte  `json:"payload,omitempty"`
 }
 
 // MCPInputDigest digests canonical tool payload bytes before
@@ -169,26 +168,21 @@ func MCPInputDigest(payload []byte) string {
 
 // Validate checks submission shape and byte bounds. Tool/profile/
 // capability binding, scope freshness and terminal freezing are
-// admission checks, not shape: ExpectedInputDigest names the scope
-// snapshot the caller built against, and admission binds it to the
-// capability's current scope digest. Shape keeps the identities and
-// both digests well-formed and the payload hash bound to the
+// admission checks, not shape. Shape keeps the identities and the
+// payload hash well-formed and the payload hash bound to the
 // payload bytes; persistence keeps the recorded digests immutable.
 func (s MCPSubmission) Validate() error {
 	if !ValidID(s.AssignmentID) {
 		return errors.New("invalid submission assignment: the run's assignment is not a 32-hex identity; reconnect to the assigned server")
 	}
 	if !ValidID(s.SubmissionID) {
-		return errors.New("invalid submission identity: submission_id must be 32 lowercase hexadecimal digits (a UUID is accepted), new for each submission")
+		return errors.New("invalid submission identity: submission identity is missing; omit submission_id or send any string")
 	}
 	if !ValidID(s.CapabilityID) {
 		return errors.New("invalid submission capability: capability_id must be the 32-hex capability_id from factory.context")
 	}
 	if !MCPToolKnown(s.Tool) {
 		return errors.New("unknown submission tool: call one of the tools this server lists")
-	}
-	if !ValidDigest(s.ExpectedInputDigest) {
-		return errors.New("invalid expected input digest: expected_input_digest must be the 64-hex scope_digest from factory.context, or omitted")
 	}
 	if !ValidDigest(s.PayloadHash) {
 		return errors.New("invalid submission payload hash")

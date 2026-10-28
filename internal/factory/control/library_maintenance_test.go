@@ -322,7 +322,7 @@ func TestLibraryMaintenanceDispatchLaunchesBoundReviewer(t *testing.T) {
 				}
 				raw = []byte(`{"questions":["What governs task ownership?"],"findings":["The accepted task evidence governs ownership."],"evidence":["native-proof.txt"],"conclusion":"Retain the accepted owner.","uncertainty":"No external sources were inspected."}`)
 			}
-			sub := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), CapabilityID: cap.ID, Tool: factory.MCPTool(work.finish), ExpectedInputDigest: cap.ScopeDigest(), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
+			sub := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: factory.NewID(), CapabilityID: cap.ID, Tool: factory.MCPTool(work.finish), PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
 			receipt, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, InputDigest: sub.PayloadHash, State: factory.MCPReceiptRecorded})
 			if err != nil {
 				t.Fatal(err)

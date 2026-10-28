@@ -196,7 +196,7 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,capability,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		submission.AssignmentID, submission.SubmissionID, submission.CapabilityID, string(submission.Tool),
-		submission.ExpectedInputDigest, submission.PayloadHash, submission.Payload,
+		capability.ScopeDigest(), submission.PayloadHash, submission.Payload,
 		receipt.State, receipt.Reason, string(raw)); err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -255,8 +255,7 @@ func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCP
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
 	if capability.State != factory.MCPCapabilityActive ||
-		capability.AssignmentID != submission.AssignmentID ||
-		capability.ScopeDigest() != submission.ExpectedInputDigest {
+		capability.AssignmentID != submission.AssignmentID {
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
 	return capability, nil
@@ -295,12 +294,12 @@ func lockMCPSubmissionGuardTx(ctx context.Context, tx *sql.Tx, assignmentID stri
 // replayMCPSubmissionTx replays the recorded receipt behind an exact
 // identity replay, refusing conflicting rewrites.
 func replayMCPSubmissionTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) (factory.MCPReceipt, bool, error) {
-	var currentTool, currentInput, currentHash, currentState string
+	var currentTool, currentCapability, currentHash, currentState string
 	var currentReceipt []byte
-	err := tx.QueryRowContext(ctx, `SELECT tool,input_digest,payload_hash,state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
-		submission.AssignmentID, submission.SubmissionID).Scan(&currentTool, &currentInput, &currentHash, &currentState, &currentReceipt)
+	err := tx.QueryRowContext(ctx, `SELECT tool,capability,payload_hash,state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
+		submission.AssignmentID, submission.SubmissionID).Scan(&currentTool, &currentCapability, &currentHash, &currentState, &currentReceipt)
 	if err == nil {
-		if currentTool != string(submission.Tool) || currentInput != submission.ExpectedInputDigest || currentHash != submission.PayloadHash {
+		if currentTool != string(submission.Tool) || currentCapability != submission.CapabilityID || currentHash != submission.PayloadHash {
 			return factory.MCPReceipt{}, true, ErrMCPSubmissionConflict
 		}
 		var recorded factory.MCPReceipt
@@ -452,7 +451,7 @@ func (s *Store) TerminalMCPSubmission(ctx context.Context, assignmentID string) 
 	}
 	out := factory.MCPSubmission{
 		AssignmentID: assignmentID, SubmissionID: submission, CapabilityID: capabilityID,
-		Tool: factory.MCPTool(tool), ExpectedInputDigest: inputDigest,
+		Tool: factory.MCPTool(tool),
 		PayloadHash: payloadHash, Payload: payload,
 	}
 	return out, true, rows.Close()

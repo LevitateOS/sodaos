@@ -50,9 +50,6 @@ func (s *factoryCatalogServer) serveReassessmentScope(ctx context.Context, args 
 		return nil, nil, err
 	}
 	defer read.release()
-	if args.ExpectedInputDigest != "" && args.ExpectedInputDigest != read.capability.ScopeDigest() {
-		return nil, nil, errors.New("reassessment scope input differs from admitted scope")
-	}
 	source, ok := s.deps.Submissions.(factoryMCPReassessmentScopeSource)
 	if !ok {
 		return nil, nil, errors.New("reassessment scope is unavailable")

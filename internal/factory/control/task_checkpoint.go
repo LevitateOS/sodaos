@@ -115,7 +115,7 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 		}
 		capability, err := c.Store.GetMCPCapability(ctx, submission.CapabilityID)
 		if err != nil || capability.AssignmentID != owner.ID || capability.RunID != run.ID ||
-			capability.Project != run.ProjectID || factory.MCPPhaseOf(capability.Profile) != owner.Phase || capability.ScopeDigest() != submission.ExpectedInputDigest {
+			capability.Project != run.ProjectID || factory.MCPPhaseOf(capability.Profile) != owner.Phase {
 			return ErrTaskEventBinding
 		}
 		if capability.State == factory.MCPCapabilityActive && c.Store.CheckMCPWorkActive(ctx, capability) == nil {
@@ -276,7 +276,7 @@ func (c *Coordinator) recoverFinalCheckpoint(ctx context.Context, run factory.Ru
 			if err != nil {
 				return err
 			}
-			if capability.AssignmentID != owner.ID || capability.RunID != run.ID || capability.Project != run.ProjectID || capability.ScopeDigest() != submission.ExpectedInputDigest || factory.MCPPhaseOf(capability.Profile) != manifest.Phase {
+			if capability.AssignmentID != owner.ID || capability.RunID != run.ID || capability.Project != run.ProjectID || factory.MCPPhaseOf(capability.Profile) != manifest.Phase {
 				return ErrTaskEventBinding
 			}
 			receipt, err := c.Store.MCPReceipt(ctx, owner.ID, submission.SubmissionID)

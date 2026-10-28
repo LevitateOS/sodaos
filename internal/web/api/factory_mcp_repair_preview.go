@@ -23,9 +23,6 @@ func (s *factoryCatalogServer) serveRepairPreview(ctx context.Context, args mcpC
 		return nil, nil, err
 	}
 	defer release()
-	if args.ExpectedInputDigest != "" && args.ExpectedInputDigest != cap.ScopeDigest() {
-		return nil, nil, errors.New("repair preview input differs from admitted scope")
-	}
 	if s.deps.RepairPreview == nil {
 		return nil, nil, errors.New("repair preview is unavailable")
 	}

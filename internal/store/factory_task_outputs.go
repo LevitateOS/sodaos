@@ -20,7 +20,8 @@ func (s *Store) MCPTaskOutputSubmissions(ctx context.Context, assignment string)
 	var result []factory.MCPSubmission
 	for rows.Next() {
 		submission := factory.MCPSubmission{AssignmentID: assignment, Tool: factory.MCPToolSubmitTaskOutput}
-		if err := rows.Scan(&submission.SubmissionID, &submission.CapabilityID, &submission.ExpectedInputDigest, &submission.PayloadHash, &submission.Payload); err != nil {
+		var inputDigest string
+		if err := rows.Scan(&submission.SubmissionID, &submission.CapabilityID, &inputDigest, &submission.PayloadHash, &submission.Payload); err != nil {
 			return nil, err
 		}
 		if err := submission.Validate(); err != nil {

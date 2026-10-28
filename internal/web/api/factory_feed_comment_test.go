@@ -713,8 +713,7 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		submission := factory.MCPSubmission{
 			AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 			CapabilityID: capability.ID, Tool: tool,
-			ExpectedInputDigest: capability.ScopeDigest(),
-			PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
+			PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
 		}
 		receipt, err := s.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
 			SubmissionID: submission.SubmissionID, Tool: tool,
@@ -737,9 +736,8 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	duplicate := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 		CapabilityID: capability.ID, Tool: factory.MCPToolReply,
-		ExpectedInputDigest: capability.ScopeDigest(),
-		PayloadHash:         factory.MCPInputDigest([]byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`)),
-		Payload:             []byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`),
+		PayloadHash: factory.MCPInputDigest([]byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`)),
+		Payload:     []byte(`{"title":"Again","summary":"Second reply.","reply_to":"` + invitation + `"}`),
 	}
 	if _, err := s.RecordMCPSubmission(ctx, duplicate, factory.MCPReceipt{
 		SubmissionID: duplicate.SubmissionID, Tool: duplicate.Tool,

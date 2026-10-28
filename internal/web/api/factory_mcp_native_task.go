@@ -23,9 +23,6 @@ func (s *factoryCatalogServer) serveNativeTask(ctx context.Context, tool factory
 		return nil, nil, err
 	}
 	defer release()
-	if args.ExpectedInputDigest != "" && args.ExpectedInputDigest != cap.ScopeDigest() {
-		return nil, nil, errors.New("native task request has stale context")
-	}
 	taskID, ok := args.Payload["task_id"].(string)
 	if !ok || !factory.ValidPlanKey(taskID) || len(args.Payload) != 1 || args.SubmissionID != "" {
 		return nil, nil, errors.New("native task request requires only payload.task_id")

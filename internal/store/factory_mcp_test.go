@@ -65,8 +65,7 @@ func testMCPSubmissionRow(capability factory.MCPCapability, tool factory.MCPTool
 	return factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 		CapabilityID: capability.ID, Tool: tool,
-		ExpectedInputDigest: capability.ScopeDigest(),
-		PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
+		PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
 	}
 }
 

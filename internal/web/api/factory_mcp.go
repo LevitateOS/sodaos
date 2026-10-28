@@ -9,6 +9,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,15 +91,14 @@ type FactoryMCPDeps struct {
 	NativeTask           func(context.Context, factory.MCPCapability, string, string) (map[string]any, error)
 }
 
-// mcpCallArgs is the tool envelope. Production supplies capability identity
-// outside the schema and defaults expected_input_digest to the bound scope.
-// An explicitly supplied digest must still match. CapabilityID remains an
-// internal admission field used by the unbound transport fixtures.
+// mcpCallArgs is the tool envelope. The bound server supplies capability
+// identity and scope; the worker sends only its payload and, optionally, a
+// submission_id to recover a receipt. CapabilityID remains an internal
+// admission field used by the unbound transport fixtures.
 type mcpCallArgs struct {
-	CapabilityID        string         `json:"capability_id" jsonschema:"recorded capability identity"`
-	SubmissionID        string         `json:"submission_id,omitempty" jsonschema:"32-hex submission identity for mutations and receipt recovery"`
-	ExpectedInputDigest string         `json:"expected_input_digest,omitempty" jsonschema:"scope_digest from factory.context; defaults to this server's bound scope"`
-	Payload             map[string]any `json:"payload,omitempty" jsonschema:"tool payload within 64 KiB"`
+	CapabilityID string         `json:"capability_id" jsonschema:"recorded capability identity"`
+	SubmissionID string         `json:"submission_id,omitempty" jsonschema:"optional; any string you choose, reused to recover a receipt"`
+	Payload      map[string]any `json:"payload,omitempty" jsonschema:"tool payload within 64 KiB"`
 }
 
 // mcpEnvelopeSchema advertises and enforces the envelope per tool.
@@ -109,7 +110,7 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	if tool == factory.MCPToolReceipt {
 		required = []string{"capability_id", "submission_id"}
 	} else if !factory.MCPIsRead(tool) {
-		required = []string{"capability_id", "submission_id", "expected_input_digest", "payload"}
+		required = []string{"capability_id", "payload"}
 	}
 	definition := &mcp.Tool{
 		Name:        string(tool),
@@ -117,10 +118,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"capability_id":         {Type: "string"},
-				"submission_id":         {Type: "string"},
-				"expected_input_digest": {Type: "string"},
-				"payload":               {Type: "object"},
+				"capability_id": {Type: "string"},
+				"submission_id": {Type: "string"},
+				"payload":       {Type: "object"},
 			},
 			Required:             required,
 			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
@@ -609,14 +609,11 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 			return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 		}
 	}
-	if args.ExpectedInputDigest == "" && s.deps.BoundCapability != nil {
-		args.ExpectedInputDigest = s.deps.BoundCapability.ScopeDigest()
-	}
 	submission := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: args.SubmissionID,
 		CapabilityID: capability.ID,
-		Tool:         tool, ExpectedInputDigest: args.ExpectedInputDigest,
-		PayloadHash: factory.MCPInputDigest(raw), Payload: raw,
+		Tool:         tool,
+		PayloadHash:  factory.MCPInputDigest(raw), Payload: raw,
 	}
 	if err := submission.Validate(); err != nil {
 		release()
@@ -713,7 +710,7 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 }
 
 func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
-	args.SubmissionID = mcpSubmissionID(args.SubmissionID)
+	args.SubmissionID = mcpSubmissionID(args.SubmissionID, mcpTakesSubmission(tool))
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
@@ -1148,20 +1145,27 @@ func (s *API) FactoryMCPHandler() http.Handler {
 	}, key)
 }
 
-var _ FactoryMCPCapabilitySource = (*store.Store)(nil)
-var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
-var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
-var _ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)
-var _ FactoryMCPRunSource = (*store.Store)(nil)
+var (
+	_ FactoryMCPCapabilitySource       = (*store.Store)(nil)
+	_ FactoryMCPSubmissionSink         = (*store.Store)(nil)
+	_ FactoryMCPAssignmentSource       = (*store.Store)(nil)
+	_ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)
+	_ FactoryMCPRunSource              = (*store.Store)(nil)
+)
 
-// mcpSubmissionID accepts a UUID as its 32-hex submission identity.
-// Workers mint UUIDs, and refusing the dashes spent their finish calls.
-func mcpSubmissionID(id string) string {
-	if len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+// mcpSubmissionID turns whatever the worker sent into the 32-hex submission
+// identity: a valid identity passes, any other string is hashed so the same
+// string recovers the same receipt, and a mutation without one gets a fresh
+// identity. Workers never have to mint identifiers.
+func mcpSubmissionID(id string, mutation bool) string {
+	switch {
+	case factory.ValidID(id):
 		return id
+	case id != "":
+		sum := sha256.Sum256([]byte(id))
+		return hex.EncodeToString(sum[:16])
+	case mutation:
+		return factory.NewID()
 	}
-	if hex := strings.ToLower(strings.ReplaceAll(id, "-", "")); factory.ValidID(hex) {
-		return hex
-	}
-	return id
+	return ""
 }

@@ -38,11 +38,6 @@ var (
 	// recorded ID and the same terminal content under another ID
 	// remain allowed, other new identities refuse.
 	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read the result with factory.receipt and the first submission_id")
-	// ErrMCPSubmissionStale reports a submission built against
-	// admitted inputs that are no longer current: the caller must
-	// re-read the assignment and resubmit against the current
-	// inputs, never force stale bytes through.
-	ErrMCPSubmissionStale = errors.New("factory submission built against stale admitted inputs: call factory.context again and resubmit with its current scope_digest as expected_input_digest, or omit expected_input_digest")
 	// ErrMCPHandoffCap reports the 256-handoff bound for one
 	// assignment: terminal receipt capacity stays reserved
 	// regardless of task traffic.
@@ -150,14 +145,6 @@ func AdmitMCPSubmission(ctx context.Context, journal MCPSubmissionJournal, capab
 			return nil
 		}
 		return ErrMCPSubmissionFrozen
-	}
-	// Freshness: the submission must be built against the currently
-	// admitted scope. ExpectedInputDigest names the caller's scope
-	// snapshot; only the capability's current scope digest admits
-	// the call, so a rotated preparation, source, authority or
-	// deadline can never ride an old digest through.
-	if submission.ExpectedInputDigest != capability.ScopeDigest() {
-		return ErrMCPSubmissionStale
 	}
 	if submission.Tool == factory.MCPToolRequestHandoff {
 		count, err := journal.MCPHandoffCount(ctx, submission.AssignmentID)

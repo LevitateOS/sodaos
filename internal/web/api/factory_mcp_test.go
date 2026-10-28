@@ -177,7 +177,7 @@ func (f *fakeCatalogSink) GetMCPCapability(_ context.Context, id string) (factor
 func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
 	key := submission.AssignmentID + "/" + submission.SubmissionID
 	if current, ok := f.submissions[key]; ok {
-		if current.tool != submission.Tool || current.input != submission.ExpectedInputDigest || current.hash != submission.PayloadHash {
+		if current.tool != submission.Tool || current.input != submission.CapabilityID || current.hash != submission.PayloadHash {
 			return factory.MCPReceipt{}, store.ErrMCPSubmissionConflict
 		}
 		return current.receipt, nil
@@ -192,7 +192,7 @@ func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt facto
 	}
 	f.submissions[key] = fakeCatalogRecord{
 		payload: append([]byte{}, submission.Payload...),
-		tool:    submission.Tool, input: submission.ExpectedInputDigest,
+		tool:    submission.Tool, input: submission.CapabilityID,
 		hash: submission.PayloadHash, receipt: receipt,
 		terminal: factory.MCPIsTerminal(submission.Tool),
 	}
@@ -369,7 +369,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 			report := factory.StallRepairReport{StallID: strings.Repeat("1", 32), CycleID: strings.Repeat("2", 32), InventoryDigest: strings.Repeat("3", 64), SourceCommit: strings.Repeat("4", 40), PreparationDigest: strings.Repeat("5", 64), Inspected: []factory.InspectedSource{}, Causes: []factory.CheckFailure{{CheckRef: "missing_producer", Detail: "The manual prerequisite needs an authorized producer."}}, RetainedIssueIndexes: []int64{1, 2, 3}, IntentChanges: []factory.ReassessmentIntentChange{}, Coverage: []factory.ReassessmentCoverage{}, Attention: []factory.ReassessmentAttentionEntry{}}
 			for _, outcome := range []string{factory.RepairOutcomeRepair, factory.RepairOutcomeVerifiedWait, factory.RepairOutcomeNoChange, factory.RepairOutcomeIncomplete, "needs_attention"} {
 				report.Outcome = outcome
-				payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "expected_input_digest": strings.Repeat("8", 64), "payload": map[string]any{"subject": "stall:" + report.StallID, "report": report}}
+				payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "payload": map[string]any{"subject": "stall:" + report.StallID, "report": report}}
 				raw, _ := json.Marshal(payload)
 				var proposal map[string]any
 				if err = json.Unmarshal(raw, &proposal); err != nil {
@@ -416,7 +416,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "expected_input_digest": strings.Repeat("8", 64), "payload": map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{}}}
+			payload := map[string]any{"capability_id": capability, "submission_id": strings.Repeat("7", 32), "payload": map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{}}}
 			raw, _ = json.Marshal(payload)
 			var valid map[string]any
 			if err = json.Unmarshal(raw, &valid); err != nil {
@@ -500,22 +500,22 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 		t.Fatal("unknown envelope field admitted")
 	}
 	// Cross-profile direct call refuses: builder cannot finish reviews.
-	reviewPayload, reviewDigest := catalogPayload(map[string]any{
+	reviewPayload, _ := catalogPayload(map[string]any{
 		"conclusion": "clear", "coverage": "full", "evidence_refs": []any{"r1"},
 	}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.finish_review", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("1", 32),
-		"expected_input_digest": reviewDigest, "payload": reviewPayload,
+		"payload": reviewPayload,
 	}); !catalogRefused(res, err) {
 		t.Fatal("cross-profile direct call admitted")
 	}
 
 	// Immutable mutation: record, replay, conflict, recovery.
-	implPayload, implDigest := catalogPayload(map[string]any{"candidate": "cand-1"}, admittedDigest)
+	implPayload, _ := catalogPayload(map[string]any{"candidate": "cand-1"}, admittedDigest)
 	finishID := strings.Repeat("2", 32)
 	finish := map[string]any{
 		"capability_id": capability, "submission_id": finishID,
-		"expected_input_digest": implDigest, "payload": implPayload,
+		"payload": implPayload,
 	}
 	first, err := catalogCall(t, ctx, session, "factory.finish_implementation", finish)
 	if err != nil {
@@ -531,10 +531,10 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	if catalogText(t, replay) != catalogText(t, first) {
 		t.Fatal("replay receipt differs from recorded receipt")
 	}
-	clashPayload, clashDigest := catalogPayload(map[string]any{"unchanged": true}, admittedDigest)
+	clashPayload, _ := catalogPayload(map[string]any{"unchanged": true}, admittedDigest)
 	clash := map[string]any{
 		"capability_id": capability, "submission_id": finishID,
-		"expected_input_digest": clashDigest, "payload": clashPayload,
+		"payload": clashPayload,
 	}
 	if res, err := catalogCall(t, ctx, session, "factory.finish_implementation", clash); !catalogRefused(res, err) {
 		t.Fatal("conflicting bytes under recorded ID admitted")
@@ -556,26 +556,26 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 
 	// Terminal freeze: a second terminal identity and post-terminal
 	// output both refuse.
-	otherPayload, otherDigest := catalogPayload(map[string]any{"candidate": "cand-2"}, admittedDigest)
+	otherPayload, _ := catalogPayload(map[string]any{"candidate": "cand-2"}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.finish_implementation", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("4", 32),
-		"expected_input_digest": otherDigest, "payload": otherPayload,
+		"payload": otherPayload,
 	}); !catalogRefused(res, err) {
 		t.Fatal("second terminal identity admitted")
 	}
-	outputPayload, outputDigest := catalogPayload(map[string]any{
+	outputPayload, _ := catalogPayload(map[string]any{
 		"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
 		"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
 	}, admittedDigest)
 	if res, err := catalogCall(t, ctx, session, "factory.submit_task_output", map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("5", 32),
-		"expected_input_digest": outputDigest, "payload": outputPayload,
+		"payload": outputPayload,
 	}); !catalogRefused(res, err) {
 		t.Fatal("post-terminal output admitted")
 	}
 
 	// Manifest proposal without an approved catalog names the gate.
-	proposalPayload, proposalDigest := catalogPayload(map[string]any{
+	proposalPayload, _ := catalogPayload(map[string]any{
 		"candidates":    []any{"g1"},
 		"evidence_refs": []any{"r1"},
 		"coverage":      "both outcomes",
@@ -590,57 +590,12 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	}, admittedDigest)
 	product := map[string]any{
 		"capability_id": capability, "submission_id": strings.Repeat("6", 32),
-		"expected_input_digest": proposalDigest, "payload": proposalPayload,
+		"payload": proposalPayload,
 	}
 	// The test capability is a builder: product plans refuse on
 	// profile first. The catalog-gate leg runs in-process below.
 	if res, err := catalogCall(t, ctx, session, "factory.finish_product_plan", product); !catalogRefused(res, err) {
 		t.Fatal("cross-profile product plan admitted")
-	}
-}
-
-// TestFactoryCatalogClockBoundaryDigest pins the R47 fixture repair
-// without a flaky sleep: a one-second deadline tick — the recompute
-// a clock-boundary crossing would produce — changes ScopeDigest, so
-// a request built from the recomputed digest refuses as stale, while
-// the actually admitted digest records. Intentional stale-input
-// refusal behavior is unchanged.
-func TestFactoryCatalogClockBoundaryDigest(t *testing.T) {
-	sink := newFakeCatalogSink()
-	server := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink},
-		limiter: newMCPRateLimiter(),
-	}
-	ctx := context.Background()
-	admitted := sink.capability.ScopeDigest()
-	ticked := sink.capability
-	ticked.DeadlineUnix++
-	if recomputed := ticked.ScopeDigest(); recomputed == admitted {
-		t.Fatal("deadline tick keeps scope digest: clock boundary untested")
-	} else {
-		payload := map[string]any{
-			"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
-			"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
-		}
-		stale := mcpCallArgs{
-			CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
-			ExpectedInputDigest: recomputed, Payload: payload,
-		}
-		if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, stale); err == nil {
-			t.Fatal("recomputed clock-boundary digest admitted")
-		} else if !strings.Contains(err.Error(), "stale") {
-			t.Fatalf("clock-boundary refusal %q does not name stale inputs", err)
-		}
-	}
-	fresh := mcpCallArgs{
-		CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
-		ExpectedInputDigest: admitted, Payload: map[string]any{
-			"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
-			"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
-		},
-	}
-	if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, fresh); err != nil {
-		t.Fatalf("admitted scope digest refused: %v", err)
 	}
 }
 
@@ -658,7 +613,7 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 	ctx := context.Background()
 	admitted := sink.capability.ScopeDigest()
 	reads := func(tool factory.MCPTool, capabilityID, submissionID string) mcpCallArgs {
-		return mcpCallArgs{CapabilityID: capabilityID, SubmissionID: submissionID, ExpectedInputDigest: admitted}
+		return mcpCallArgs{CapabilityID: capabilityID, SubmissionID: submissionID}
 	}
 	count := func() int {
 		n, err := sink.MCPSubmissionCount(ctx, sink.capability.AssignmentID)
@@ -707,13 +662,13 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 		t.Fatalf("refused reads recorded %d submissions", count())
 	}
 	submissionID := factory.NewID()
-	mutPayload, mutDigest := catalogPayload(map[string]any{
+	mutPayload, _ := catalogPayload(map[string]any{
 		"task_id": "t1", "manifest_digest": strings.Repeat("d", 64),
 		"output_digest": strings.Repeat("e", 64), "evidence_refs": []any{"r1"},
 	}, admitted)
 	if _, _, err := server.serve(ctx, factory.MCPToolSubmitTaskOutput, mcpCallArgs{
 		CapabilityID: sink.capability.ID, SubmissionID: submissionID,
-		ExpectedInputDigest: mutDigest, Payload: mutPayload,
+		Payload: mutPayload,
 	}); err != nil {
 		t.Fatalf("recording mutation refused: %v", err)
 	}
@@ -731,10 +686,8 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 		deps:    FactoryMCPDeps{Capabilities: other, Submissions: other, Assignments: other},
 		limiter: newMCPRateLimiter(),
 	}
-	otherDigest := other.capability.ScopeDigest()
 	if _, _, err := otherServer.serve(ctx, factory.MCPToolReceipt, mcpCallArgs{
-		CapabilityID: other.capability.ID, SubmissionID: submissionID, ExpectedInputDigest: otherDigest,
-	}); err == nil {
+		CapabilityID: other.capability.ID, SubmissionID: submissionID}); err == nil {
 		t.Fatal("receipt crossed assignments")
 	} else if !strings.Contains(err.Error(), "receipt not found") {
 		t.Fatalf("cross-assignment refusal %q discloses", err)
@@ -757,12 +710,10 @@ func TestFactoryCatalogContextProjectsAssignmentCurrent(t *testing.T) {
 		limiter: newMCPRateLimiter(),
 	}
 	ctx := context.Background()
-	admitted := sink.capability.ScopeDigest()
 	contextBody := func() map[string]any {
 		t.Helper()
 		res, _, err := server.serve(ctx, factory.MCPToolContext, mcpCallArgs{
-			CapabilityID: sink.capability.ID, ExpectedInputDigest: admitted,
-		})
+			CapabilityID: sink.capability.ID})
 		if err != nil {
 			t.Fatalf("context refused: %v", err)
 		}
@@ -800,8 +751,7 @@ func TestFactoryCatalogContextProjectsAssignmentCurrent(t *testing.T) {
 	}
 	delete(sink.assignments, sink.capability.AssignmentID)
 	if _, _, err := server.serve(ctx, factory.MCPToolContext, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: admitted,
-	}); err == nil {
+		CapabilityID: sink.capability.ID}); err == nil {
 		t.Fatal("context without its assignment admitted")
 	}
 }
@@ -821,8 +771,7 @@ func TestFactoryCatalogContextServesAttemptBundle(t *testing.T) {
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	})
+		CapabilityID: sink.capability.ID})
 	if err != nil {
 		t.Fatalf("context refused: %v", err)
 	}
@@ -873,8 +822,7 @@ func TestFactoryCatalogContextServesLineageBundle(t *testing.T) {
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	})
+		CapabilityID: sink.capability.ID})
 	if err != nil {
 		t.Fatalf("context refused: %v", err)
 	}
@@ -912,8 +860,7 @@ func TestFactoryCatalogContextMarksIncompleteLineage(t *testing.T) {
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	})
+		CapabilityID: sink.capability.ID})
 	if err != nil {
 		t.Fatalf("context refused: %v", err)
 	}
@@ -945,8 +892,7 @@ func serveContextBody(t *testing.T, sink *fakeCatalogSink) map[string]any {
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolContext, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	})
+		CapabilityID: sink.capability.ID})
 	if err != nil {
 		t.Fatalf("context refused: %v", err)
 	}
@@ -1094,8 +1040,7 @@ func serveEvidenceBody(t *testing.T, sink *fakeCatalogSink) map[string]any {
 		limiter: newMCPRateLimiter(),
 	}
 	res, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	})
+		CapabilityID: sink.capability.ID})
 	if err != nil {
 		t.Fatalf("evidence refused: %v", err)
 	}
@@ -1246,14 +1191,12 @@ func TestFactoryCatalogEvidenceRefusesUnresolvableRun(t *testing.T) {
 		limiter: newMCPRateLimiter(),
 	}
 	if _, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	}); err == nil {
+		CapabilityID: sink.capability.ID}); err == nil {
 		t.Fatal("unresolvable recorded run admitted")
 	}
 	delete(sink.assignments, sink.capability.AssignmentID)
 	if _, _, err := server.serve(context.Background(), factory.MCPToolEvidence, mcpCallArgs{
-		CapabilityID: sink.capability.ID, ExpectedInputDigest: sink.capability.ScopeDigest(),
-	}); err == nil {
+		CapabilityID: sink.capability.ID}); err == nil {
 		t.Fatal("evidence without its assignment admitted")
 	}
 }
@@ -1274,7 +1217,7 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	argsFor := func(payload map[string]any) mcpCallArgs {
 		return mcpCallArgs{
 			CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
-			ExpectedInputDigest: sink.capability.ScopeDigest(), Payload: payload,
+			Payload: payload,
 		}
 	}
 	plan := map[string]any{
@@ -1315,7 +1258,7 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	}
 	if _, _, err := optionalServer.serve(ctx, factory.MCPToolFinishProductPlan, mcpCallArgs{
 		CapabilityID: optionalSink.capability.ID, SubmissionID: factory.NewID(),
-		ExpectedInputDigest: optionalSink.capability.ScopeDigest(), Payload: withOptional,
+		Payload: withOptional,
 	}); err != nil {
 		t.Fatalf("plan with documented optional carriers refused: %v", err)
 	}

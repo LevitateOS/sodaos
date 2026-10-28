@@ -280,7 +280,7 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 			for repeat := 0; repeat < 2; repeat++ {
 				result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory." + scenario.allowed, Arguments: args})
 				if catalogRefused(result, err) {
-					t.Fatal("native tool refused valid bound work", result, err)
+					t.Fatal("native tool refused valid bound work", catalogText(t, result), err)
 				}
 				text := catalogText(t, result)
 				var value map[string]any
@@ -304,7 +304,6 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 			}
 			refused(scenario.allowed, map[string]any{"payload": map[string]any{"task_id": ""}})
 			refused(scenario.allowed, map[string]any{"payload": map[string]any{"task_id": "unlisted-task"}})
-			refused(scenario.allowed, map[string]any{"payload": map[string]any{"task_id": "proof"}, "expected_input_digest": strings.Repeat("f", 64)})
 			write(`DELETE FROM factory_plan_heads WHERE attempt_root=$1`, a.AttemptRoot)
 			refused(scenario.allowed, args)
 			write(`INSERT INTO factory_plan_heads(attempt_root,plan_id,generation) VALUES($1,$2,0)`, a.AttemptRoot, plan.ID)

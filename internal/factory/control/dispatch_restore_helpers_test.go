@@ -685,8 +685,7 @@ func fw40Stub(t *testing.T, assigned factory.Assignment, tool factory.MCPTool, p
 		assignment: assigned, assignmentOK: true,
 		submission: factory.MCPSubmission{
 			AssignmentID: assigned.ID, SubmissionID: factory.NewID(), Tool: tool,
-			ExpectedInputDigest: strings.Repeat("e", 64),
-			PayloadHash:         factory.MCPInputDigest(raw), Payload: raw,
+			PayloadHash: factory.MCPInputDigest(raw), Payload: raw,
 		},
 		terminalOK: true, receiptState: factory.MCPReceiptRecorded,
 	}

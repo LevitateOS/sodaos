@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -82,12 +81,6 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	}
 	if replay := persist(output); replay != first {
 		t.Fatal("replay receipt differs from recorded receipt")
-	}
-	// A stale scope digest refuses on a new identity.
-	stale := fresh(factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t2"}`))
-	stale.ExpectedInputDigest = strings.Repeat("b", 64)
-	if err := admit(stale); !errors.Is(err, ErrMCPSubmissionStale) {
-		t.Fatalf("stale admission = %v, want stale-input refusal", err)
 	}
 	// Terminal records and freezes the assignment.
 	terminal := fresh(factory.MCPToolFinishImplement, []byte(`{"candidate":"cand-1"}`))
