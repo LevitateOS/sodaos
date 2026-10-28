@@ -620,7 +620,9 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
     await nativeSpacesMount(page);
     const spaces = await spacesContent(page);
     await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
-    await page.waitForTimeout(4000);
+    // Feed cards render asynchronously; wait for the first card rather than
+    // failing on a mid-load snapshot.
+    await page.waitForFunction(() => document.querySelectorAll('article.soda-feed-post').length > 0, {timeout: 30000});
     await shot(page, `${out}/build-feed.png`);
     // Scope to Feed post cards only: page chrome (navigation, run rows,
     // session lists) carries stale words like "ended" or "failed" from
