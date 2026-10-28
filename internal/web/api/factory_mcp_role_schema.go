@@ -37,7 +37,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	set("component_id", "Optional feed presentation ID allowed for this role and outlet; omit for its default presentation.", text)
 	set("evidence_refs", "References to evidence actually inspected; never a claim that checks passed.", strings)
 	set("candidate", "Exact candidate commit hash produced by this work. Publication and merge are independently verified.", text)
-	set("input_digest", "The admitted source/input digest supplied in assignment context.", text)
+	set("input_digest", serverFilled, text)
 	switch tool {
 	case factory.MCPToolFinishIncomplete:
 		set("cause", "Short cause code or explanation for ending without a complete result.", text)
@@ -59,12 +59,12 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolFinishImplement:
 		set("unchanged", "Use true only when the assigned work is completed without producing a changed candidate; otherwise supply candidate.", &jsonschema.Schema{Type: "boolean"})
 	case factory.MCPToolFinishReview:
-		set("coverage", "For a clear review, the exact SHA-256 coverage digest; findings require the recorded inspected coverage.", text)
-		set("tuple", "Exact review cycle and candidate/base binding. Required to settle clear/findings.", &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"cycle_id": {Type: "string"}, "head": {Type: "string"}, "base_oid": {Type: "string"}}, Required: []string{"cycle_id", "head", "base_oid"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}})
+		set("coverage", serverFilled, text)
+		set("tuple", serverFilled, &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"cycle_id": {Type: "string"}, "head": {Type: "string"}, "base_oid": {Type: "string"}}, Required: []string{"cycle_id", "head", "base_oid"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}})
 		set("findings", "Structured findings with actionable outcomes and evidence. A string summary cannot replace these records.", mcpCarrier[[]factory.Finding]())
 		set("carried_assessments", "Disposition/evidence for each carried finding in this review cycle.", mcpCarrier[[]factory.FindingAssessment]())
 	case factory.MCPToolFinishCorrection:
-		set("finding_digest", "Digest of the complete canonical finding set being answered.", text)
+		set("finding_digest", serverFilled, text)
 		set("dispositions", "A structured disposition for each input finding; do not silently omit unresolved findings.", mcpCarrier[[]factory.CorrectionDisposition]())
 		set("fix_evidence", "Relevant changed paths and exact commits for each fixed code finding. Verification-only findings use passing native check evidence instead. These are nominations, independently verified before publication.", mcpCarrier[[]factory.CorrectionFixEvidence]())
 	case factory.MCPToolFinishReassessment:
@@ -80,7 +80,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		props["report"].If = &jsonschema.Schema{Type: "object", Required: []string{"stall_id"}}
 		props["report"].Then = &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"outcome": outcome}, Required: []string{"outcome"}}
 	case factory.MCPToolFinishAppVerify:
-		set("delivery_id", "Exact assigned delivery identity.", text)
+		set("delivery_id", serverFilled, text)
 		set("evidence_refs", "Inspected evidence; journey:<submission ID> must resolve to this assignment's exact recorded observation. Verified claims may cite only passed journeys. These references never replace trusted check receipts.", strings)
 		set("coverage", "Structured outcome coverage for the assigned delivery.", mcpCarrier[[]factory.ReassessmentCoverage]())
 		set("check_receipts", "Observed typed receipts for approved checks; required to settle verified or failed.", mcpCarrier[[]factory.VerificationCheckReceipt]())
@@ -88,7 +88,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		set("failures", "Concrete failed checks with detail.", mcpCarrier[[]factory.CheckFailure]())
 	case factory.MCPToolSubmitTaskOutput:
 		set("task_id", "Task ID in the admitted execution manifest.", text)
-		set("manifest_digest", "Digest of the exact admitted task manifest.", text)
+		set("manifest_digest", serverFilled, text)
 		set("output_digest", "Digest of the observed task output.", text)
 		set("native_child_ref", "Builder: observed child identity. Fixer: omit because correction runs in the bound parent.", text)
 	case factory.MCPToolFinishResearch:
@@ -100,7 +100,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolRequestHandoff:
 		set("predecessor_task", "Approved predecessor task ID.", text)
 		set("successor_task", "Approved dependent task ID; this must already be an edge in the admitted plan.", text)
-		set("manifest_digest", "Digest of the exact admitted task manifest.", text)
+		set("manifest_digest", serverFilled, text)
 		set("output_submission_id", "Recorded predecessor output submission; release still requires trusted checkpoint observation.", text)
 	}
 	for field, values := range spec.enums {
@@ -120,3 +120,6 @@ func mcpCarrier[T any]() *jsonschema.Schema {
 	}
 	return schema
 }
+
+// serverFilled describes a binding SodaOS fills from the assignment.
+const serverFilled = "Filled by SodaOS from this assignment; omit it."

@@ -821,21 +821,13 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if catalogRefused(result, err) || catalogText(t, result) != firstReceipt || counts() != afterJourney {
 		t.Fatal("lost journey reply recovery duplicated or changed its receipt", err)
 	}
-	for _, fault := range []string{"foreign-delivery", "foreign-outcome", "foreign-source", "foreign-preparation", "foreign-manifest", "foreign-input", "foreign-artifact", "verified", "changed-replay"} {
+	for _, fault := range []string{"foreign-outcome", "foreign-artifact", "verified", "changed-replay"} {
 		bad := observation
 		switch fault {
-		case "foreign-delivery", "changed-replay":
-			bad.DeliveryID = factory.NewID()
+		case "changed-replay":
+			bad.EvidenceRefs = append(append([]string(nil), bad.EvidenceRefs...), "changed")
 		case "foreign-outcome":
 			bad.OutcomeIDs = []string{"d" + strings.Repeat("e", 24)}
-		case "foreign-source":
-			bad.SourceCommit = strings.Repeat("e", 40)
-		case "foreign-preparation":
-			bad.Preparation = "f" + strings.Repeat("e", 24)
-		case "foreign-manifest":
-			bad.ManifestDigest = strings.Repeat("e", 64)
-		case "foreign-input":
-			bad.InputDigest = strings.Repeat("e", 64)
 		case "foreign-artifact":
 			bad.ArtifactIDs = []string{foreignArtifact}
 		case "verified":

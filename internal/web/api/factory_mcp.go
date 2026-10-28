@@ -586,9 +586,7 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	if err != nil {
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
-	if tool == factory.MCPToolFinishIssuePlan {
-		s.bindIssuePlan(ctx, capability, args.Payload)
-	}
+	s.bindPayload(ctx, capability, tool, args.Payload)
 	raw, err := canonicalPayload(args.Payload)
 	if err != nil {
 		release()
