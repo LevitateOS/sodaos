@@ -8,7 +8,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// The diagnosis, submission receipt and attributed ST02 post share the existing
+// The diagnosis, submission receipt and attributed diagnosis post share the existing
 // transaction. Recording causal claims grants no judgment or adoption authority.
 func recordMCPRepairDiagnosisTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission, receipt *factory.MCPReceipt) error {
 	if sub.Tool != factory.MCPToolRecordDiagnosis {

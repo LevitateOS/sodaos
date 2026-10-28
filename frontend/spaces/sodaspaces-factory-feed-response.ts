@@ -358,6 +358,7 @@ export interface FeedCommunication {
   commits?: {revision: string; summary: string}[];
   source?: FeedSourceExcerpt;
   kind: FeedCommunicationKind;
+  // A controller-written Factory event's kind; worker reports carry none.
   componentId?: string;
   title: string;
   summary: string;
@@ -399,7 +400,6 @@ export interface FeedSourceExcerpt {
 // correction. `invalid` marks a present-but-unreadable payload.
 export interface FeedPayload {
   invalid?: boolean;
-  componentId?: string;
   communication?: FeedCommunication;
   plan?: FeedPlan;
   tasks?: FeedTaskStates;
@@ -1190,8 +1190,6 @@ export function parseFeedPayload(value: unknown): FeedPayload | undefined {
     const tasks = data.tasks === undefined ? undefined : parseTaskStatesPayload(data.tasks);
     if (present.length === 0 && tasks === undefined) return {invalid: true};
     const parsed: FeedPayload = {};
-    const componentId = payloadOptionalID(data.component_id);
-    if (componentId !== undefined) parsed.componentId = componentId;
     if (data.communication !== undefined) parsed.communication = parseCommunicationPayload(data.communication);
     if (data.plan !== undefined) parsed.plan = parsePlanPayload(data.plan);
     if (data.implementation !== undefined) parsed.implementation = parseImplementationPayload(data.implementation);

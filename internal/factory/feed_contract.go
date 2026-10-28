@@ -40,7 +40,7 @@ const feedCursorVersion = "v1"
 const FeedPageLimit = 256
 
 // Feed milestone activities: consequential Factory/Jev events that
-// are their own feed entries (catalogue F04/F06/F10) instead of
+// are their own feed entries instead of
 // suffixes folded into a worker record's status. A milestone entry
 // keeps Kind "record", carries the milestone record's own identity
 // in ID, names its bound assignment when available, and receives its own
@@ -103,7 +103,6 @@ type FeedEntry struct {
 // canonical owner. Nothing here is inferred: a field the record
 // does not supply stays absent.
 type FeedPayload struct {
-	ComponentID    string              `json:"component_id,omitempty"`
 	Communication  *FeedCommunication  `json:"communication,omitempty"`
 	Plan           *FeedPlan           `json:"plan,omitempty"`
 	Tasks          *FeedTaskStates     `json:"tasks,omitempty"`
@@ -120,7 +119,7 @@ type FeedPayload struct {
 }
 
 // FeedPlan projects one investigated plan: approach, evidence and
-// the task/lane/check graph (AR04/AR07/AR09).
+// the task/lane/check graph.
 type FeedPlan struct {
 	Approach           string          `json:"approach,omitempty"`
 	SourceCommit       string          `json:"source_commit,omitempty"`
@@ -172,7 +171,7 @@ type FeedRejected struct {
 }
 
 // FeedTaskStates projects the observed per-task states behind one
-// implementation or correction record (BU01/BU06 checkpoint lanes).
+// implementation or correction record (checkpoint lanes).
 type FeedTaskStates struct {
 	Tasks []FeedTaskState `json:"tasks,omitempty"`
 	Total int             `json:"total,omitempty"`
@@ -183,13 +182,13 @@ type FeedTaskState struct {
 	State string `json:"state,omitempty"`
 }
 
-// FeedImplementation projects one implementation receipt (BU10).
+// FeedImplementation projects one implementation receipt.
 type FeedImplementation struct {
 	Candidate      string   `json:"candidate,omitempty"`
 	DiagnosticRefs []string `json:"diagnostic_refs,omitempty"`
 }
 
-// FeedFinding projects one canonical review finding (IN03/IN04).
+// FeedFinding projects one canonical review finding.
 type FeedFinding struct {
 	Key             string               `json:"key"`
 	Severity        string               `json:"severity,omitempty"`
@@ -214,7 +213,7 @@ type FeedAssessment struct {
 }
 
 // FeedReview projects one review result: the native verdict report
-// and/or the typed cycle verdict recorded for the phase (IN02/IN10).
+// and/or the typed cycle verdict recorded for the phase.
 type FeedReview struct {
 	Verdict          string           `json:"verdict,omitempty"`
 	Summary          string           `json:"summary,omitempty"`
@@ -238,7 +237,7 @@ type FeedClearReview struct {
 
 // FeedCorrection projects one correction report: the finding set it
 // answered (before) with one disposition and its recorded fix
-// evidence per finding (after) (FX02/FX03/FX04).
+// evidence per finding (after).
 type FeedCorrection struct {
 	NewCandidate      string            `json:"new_candidate,omitempty"`
 	SetDigest         string            `json:"set_digest,omitempty"`
@@ -282,7 +281,7 @@ type FeedCoverage struct {
 }
 
 // FeedReassessment projects one reassessment report's deltas
-// against the retained issue set (ST05/ST06/ST08).
+// against the retained issue set.
 type FeedReassessment struct {
 	Summary        string             `json:"summary,omitempty"`
 	RetainedIssues []int64            `json:"retained_issues,omitempty"`
@@ -300,7 +299,7 @@ type FeedCheckFailure struct {
 }
 
 // FeedRepair projects one stall or delivery repair report
-// (ST02/ST06): recorded causes plus the proposed graph deltas.
+// with its recorded causes and the proposed graph deltas.
 type FeedRepair struct {
 	Outcome        string             `json:"outcome,omitempty"`
 	Causes         []FeedCheckFailure `json:"causes,omitempty"`
@@ -314,7 +313,7 @@ type FeedRepair struct {
 }
 
 // FeedVerification projects one application verification report:
-// outcome coverage and trusted check receipts (TP02/TP07/TP11).
+// outcome coverage and trusted check receipts.
 type FeedVerification struct {
 	Outcome        string             `json:"outcome,omitempty"`
 	DeliveryID     string             `json:"delivery_id,omitempty"`
@@ -334,7 +333,7 @@ type FeedCheckReceipt struct {
 }
 
 // FeedDecomposition projects one product decomposition answer:
-// its candidate issue graphs or its recorded attention (PL06/PL08).
+// its candidate issue graphs or its recorded attention.
 type FeedDecomposition struct {
 	Operation       string                `json:"operation,omitempty"`
 	Attention       string                `json:"attention,omitempty"`
@@ -349,7 +348,7 @@ type FeedDecompCandidate struct {
 	TasksTotal int              `json:"tasks_total,omitempty"`
 }
 
-// FeedJudgment projects one recorded Jev judgment receipt (F04):
+// FeedJudgment projects one recorded Jev judgment receipt:
 // the supplied candidates, the recorded selection/distribution and
 // the effective outcome. No rationale is carried: none is recorded.
 type FeedJudgment struct {
@@ -372,7 +371,7 @@ type FeedJudgmentCandidate struct {
 	Objective  string `json:"objective,omitempty"`
 }
 
-// FeedMerge projects one confirmed merge record (F06).
+// FeedMerge projects one confirmed merge record.
 type FeedMerge struct {
 	Stage              string `json:"stage,omitempty"`
 	Publication        string `json:"publication,omitempty"`
@@ -381,7 +380,7 @@ type FeedMerge struct {
 	OriginalClosedUnix int64  `json:"original_closed_unix,omitempty"`
 }
 
-// FeedCompletion projects one verified completion event (F07/F10).
+// FeedCompletion projects one verified completion event.
 type FeedCompletion struct {
 	Event        string `json:"event,omitempty"`
 	Publication  string `json:"publication,omitempty"`

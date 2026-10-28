@@ -1,7 +1,7 @@
 import {feedEntryKey} from './sodaspaces-factory-feed-response.js';
 import type {FeedCommunication, FeedEntry, FeedJudgment} from './sodaspaces-factory-feed-response.js';
 import {classifyFeedStatus, roleLabel} from './sodaspaces-factory-feed-families.js';
-import {feedComponent} from './sodaspaces-factory-feed-communication.js';
+import {factoryEvent} from './sodaspaces-factory-feed-communication.js';
 
 // The Feed's three levels. Every entry lands in exactly one: a new post
 // (something worth seeing by itself), a live update (running work whose post
@@ -89,39 +89,16 @@ export function feedState(entry: FeedEntry): FeedState {
   return statusState(entry);
 }
 
-// The role-by-role table: which catalog component is a post (P), a live
-// update (U) or a comment (C). Entries without a component use the rules in
-// feedLevel below.
-const componentLevels = new Map<string, FeedLevel>();
-const levelList = (level: FeedLevel, ids: string) =>
-  ids.split(' ').forEach((id) => {
-    const range = /^([A-Z]+)(\d+)-(\d+)$/.exec(id);
-    if (!range) return void componentLevels.set(id, level);
-    for (let n = Number(range[2]); n <= Number(range[3]); n++)
-      componentLevels.set(range[1]! + String(n).padStart(range[2]!.length, '0'), level);
-  });
-levelList(
-  'post',
-  'S02 S05 S06 S11 S12 S14 S16 PL01 PL03 PL05 PL06 PL09 PL10 PL11 AR01 AR06 AR11 DE01 DE07 DE10 BU02 BU09 BU10 IN01 IN10 FX01 FX06 FX09 TP01 TP08 TP11 ST01 ST05 ST09 LA09 K02 K06 K08 F04 F05 F06 F08 F09 F10 F11'
-);
-levelList('update', 'S04 PL07 AR10 BU01 BU03 IN02 FX08 TP02 ST03 ST10 LA08 F02');
-levelList(
-  'comment',
-  'S01 S03 S07 S08 S09 S10 S13 S15 PL02 PL04 PL08 AR02-05 AR07-09 DE02-06 DE08 DE09 BU04-08 BU11 IN03-09 IN11 FX02-05 FX07 FX10 FX11 TP03-07 TP09 TP10 TP12 ST02 ST04 ST06-08 ST11 LA01-07 K01 K03-05 K07 F01 F03 F07'
-);
-
-export function componentLevel(componentId: string | undefined): FeedLevel | undefined {
-  return componentId === undefined ? undefined : componentLevels.get(componentId.toUpperCase());
-}
-
 // feedLevel applies the post-or-comment rule. Stage starts and ends, results,
 // questions, decisions and failures are posts; running progress is a live
 // update; small steps inside work that already has a post are comments.
 export function feedLevel(entry: FeedEntry): FeedLevel {
   const communication = entry.payload?.communication;
   if (entry.kind === 'post' && !communication) return 'post';
-  const byComponent = componentLevel(communication?.componentId ?? entry.payload?.componentId);
-  if (byComponent !== undefined) return byComponent;
+  const event = factoryEvent(communication?.componentId);
+  if (event !== undefined) return event.level;
+  // A priority judgment explains why work is next; a delivery assessment is a post.
+  if (entry.payload?.judgment?.kind === 'priority') return 'comment';
   if (communication) {
     switch (communication.kind) {
       case 'partial':
@@ -227,7 +204,7 @@ function plain(entry: FeedEntry, text: string): FeedCommentLine {
   };
 }
 
-// The icon a catalog component's comment carries, by its presentation.
+// The icon a Factory event's comment carries, by its presentation.
 const presentationKinds: Readonly<Record<string, CommentKind>> = {
   comparison: 'edit',
   artifact: 'shot',
@@ -252,7 +229,7 @@ export function commentLine(entry: FeedEntry): FeedCommentLine {
   const base = {key: feedEntryKey(entry), actor: entry.actor, who, at: entry.at};
   const communication = entry.payload?.communication;
   const title = communication ? clip(communication.title || communication.summary) : '';
-  const presentation = feedComponent(communication?.componentId)?.presentation;
+  const presentation = factoryEvent(communication?.componentId)?.presentation;
   if (communication && presentation && presentationKinds[presentation]) {
     const flagged = communication.severity === 'critical' || communication.severity === 'warning';
     return {
@@ -337,7 +314,7 @@ function headlineLabel(entry: FeedEntry): string {
 function liveKey(entry: FeedEntry): string | undefined {
   const scope = entry.assignment ?? (entry.pr ? `pr${entry.pr}` : entry.issue ? `issue${entry.issue}` : undefined);
   if (scope === undefined) return undefined;
-  const component = entry.payload?.communication?.componentId ?? entry.payload?.componentId ?? 'progress';
+  const component = entry.payload?.communication?.componentId ?? 'progress';
   return `${entry.repository}:${normalizedActor(entry.actor)}:${scope}:${component}`;
 }
 

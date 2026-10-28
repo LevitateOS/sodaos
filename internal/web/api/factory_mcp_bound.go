@@ -65,13 +65,13 @@ func bindMCPToolSchema(definition *mcp.Tool, tool factory.MCPTool, capability fa
 
 func factoryToolDescription(tool factory.MCPTool) string {
 	if tool == factory.MCPToolDraftRepair {
-		return "Record the complete typed repair/reassessment proposal for your admitted cause, optionally citing exact diagnosis:<submission ID> observations of this assignment. Returns an immutable draft receipt and proposed ST06 graph post. This does not finish, call a model, stage adoption, change a graph/readiness or spend; preview and the real paid finish/adoption process remain separate."
+		return "Record the complete typed repair/reassessment proposal for your admitted cause, optionally citing exact diagnosis:<submission ID> observations of this assignment. Returns an immutable draft receipt and proposed graph post. This does not finish, call a model, stage adoption, change a graph/readiness or spend; preview and the real paid finish/adoption process remain separate."
 	}
 	if tool == factory.MCPToolReassessmentScope {
 		return "Read your current admitted completion, stall or failed-delivery cause, complete sealed inventory and remaining allowance through the canonical context pages, plus paged own diagnosis/draft references. Missing/stale inputs remain explicit. This read does not launch, judge, spend, apply a graph or change readiness."
 	}
 	if tool == factory.MCPToolRecordDiagnosis {
-		return "Record a bounded cause-bound diagnosis with reported state, causal evidence, competing explanations, uncertainty and complete artifacts owned by this assignment. The immutable submission ID is the diagnosis reference; receipt and ST02 feed post commit together. This records claims only, never accepted repair, judgment, native facts, readiness or graph effects."
+		return "Record a bounded cause-bound diagnosis with reported state, causal evidence, competing explanations, uncertainty and complete artifacts owned by this assignment. The immutable submission ID is the diagnosis reference; receipt and feed post commit together. This records claims only, never accepted repair, judgment, native facts, readiness or graph effects."
 	}
 	if tool == factory.MCPToolPreviewRepair {
 		return "Read deterministic structural feedback for a complete typed repair report against your exact current cause, inventory and protected graph. Shows coverage and bounded proposed effects; no model consultation, recorded draft, graph mutation, readiness change, adoption or spending occurs. Actual submission still requires the existing independent judgment and fresh adoption validation."
