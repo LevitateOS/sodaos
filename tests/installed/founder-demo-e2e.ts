@@ -27,8 +27,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -384,6 +384,53 @@ async function phaseRaise(page: Page, out: string, amount: number): Promise<void
   await shot(page, `${out}/decide-allowance-raised.png`);
 }
 
+async function phaseStartPlanBypass(page: Page, out: string, intent: string): Promise<string> {
+  // TEMPORARY BYPASS, see e2e/PLAN-RETRY-GO.md: the attention state has no
+  // Continue to planning button (page bug, fixed separately), so this sends
+  // exactly what that button sends — same element API transport, same path,
+  // same body — through the page's own `soda-intent` API function. Replace
+  // with a real click once the page fix lands. Single use only.
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  const planning = page.waitForResponse(
+    (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/plan') && r.request().method() === 'POST',
+    {timeout: 180000}
+  );
+  const sent = await page.evaluate(async (v: {intent: string}) => {
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (const el of Array.from(document.querySelectorAll('*'))) if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+    let el: any = null;
+    for (const root of roots) {
+      el = (root as Document).querySelector?.('soda-intent');
+      if (el) break;
+    }
+    if (!el || typeof el.api !== 'function') return {ok: false as const, error: 'soda-intent api unavailable'};
+    try {
+      const head = (await el.api(`/api/factory/intents/${v.intent}`)) as {id?: string};
+      const revision = String(head.id ?? '');
+      if (!/^d[0-9a-f]{24}$/.test(revision)) return {ok: false as const, error: `no head revision: ${revision.slice(0, 40)}`};
+      const admission = await el.api(`/api/factory/intents/${v.intent}/plan`, {revision, operation: 'propose_intent'});
+      return {ok: true as const, revision, admission};
+    } catch (err) {
+      return {ok: false as const, error: String(err).slice(0, 300)};
+    }
+  }, {intent});
+  assert(sent.ok, `Plan bypass: page transport failed: ${(sent as {error?: string}).error ?? 'unknown'}`);
+  const planReply = await planning;
+  const planBody = (await planReply.json().catch(() => ({}))) as {
+    error?: {code?: string; message?: string};
+    revision_id?: string;
+  };
+  const revision = (sent as {revision: string}).revision;
+  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), revision, via: 'bypass-soda-intent-api', body: planBody}, null, 2));
+  assert(
+    [201, 202].includes(planReply.status()),
+    `Plan: admission must be 201/202, got ${planReply.status()} (${planBody.error?.code ?? 'no code'}: ${(planBody.error?.message ?? 'no message').slice(0, 300)})`
+  );
+  await shot(page, `${out}/plan-admitted.png`);
+  return revision;
+}
+
 async function phaseStartPlan(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
   const cont = spaces.getByRole('button', {name: 'Continue to planning', exact: true});
@@ -598,6 +645,15 @@ async function main() {
     // Never POSTs a plan; use after a lost launch observation (503 with a
     // live run) so a retry cannot strand a duplicate assignment.
     if (only === 'poll') await phasePlan(s.page, dir, intent, null);
+    // Approved single retry without the missing button (see PLAN-RETRY-GO.md):
+    // one bypass POST through the page transport, then GET poll only.
+    // Standalone phase only — never part of `all` (that path uses the
+    // real Continue to planning button via `plan`).
+    if (only === 'retry') {
+      revision = await phaseStartPlanBypass(s.page, dir, intent);
+      report.revision = revision;
+      await phasePlan(s.page, dir, intent, revision);
+    }
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
     if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
