@@ -1231,7 +1231,7 @@ async function main() {
       report.intent = intent;
       await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
     } else if (resume) intent = resume;
-    assert(intent, 'need a request id: run describe first or pass --resume <intent>');
+    assert(intent || only === 'new-request', 'need a request id: run describe first or pass --resume <intent>');
     if (only !== 'all' && only !== 'describe') {
       await s.page.goto(`${ORIGIN}${PLACES.request(intent)}`);
       await mountRepoPage(s.page, null);
