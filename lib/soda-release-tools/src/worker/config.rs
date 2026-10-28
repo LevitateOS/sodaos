@@ -16,28 +16,6 @@ pub const WORKER_TOOLS: &str = "/run/soda-build-tools";
 pub const WORKER_FORGEJO: &str = "/run/forgejo-ext";
 pub const WORKER_CONTROLLER: &str = "/run/soda-build-controller";
 pub const PINNED_GO_ROOT: &str = "/usr/local/lib/soda/pinned-go";
-pub(crate) const QUALIFICATION_CREDENTIALS: [&str; 2] =
-    ["guest-ssh-key", "workspace-owner-password"];
-
-/// Only the qualification controller binds these bounded App names to the
-/// exact selected scenario; the generic worker never admits arbitrary names.
-pub(crate) fn qualification_credential_names<'a>(names: impl Iterator<Item = &'a str>) -> bool {
-    let names: std::collections::BTreeSet<_> = names.collect();
-    names.is_empty()
-        || (names.len() <= 18
-            && QUALIFICATION_CREDENTIALS
-                .iter()
-                .all(|name| names.contains(name))
-            && names.iter().all(|name| {
-                QUALIFICATION_CREDENTIALS.contains(name)
-                    || name.strip_prefix("application-owner-a").is_some_and(|id| {
-                        id.len() == 24
-                            && id
-                                .bytes()
-                                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                    })
-            }))
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkerConfig {
@@ -68,9 +46,6 @@ pub struct Worker {
     pub writable: Vec<String>,
     pub environment: Vec<String>,
     pub arguments: Vec<String>,
-    /// Qualification workers receive the fixed pair and, when selected by the
-    /// root controller, bounded application-owner-a<24hex> credentials.
-    pub credentials: std::collections::BTreeMap<String, String>,
 }
 
 pub fn euid() -> u32 {

@@ -136,12 +136,9 @@ fn rel_path(base: &str, path: &str) -> Result<String, String> {
         .ok_or_else(|| format!("{path:?} is outside {base:?}"))
 }
 
-/// Worker name rule: `^soda-(build|qualify)-[a-z0-9-]{1,48}$`.
+/// Worker name rule: `^soda-build-[a-z0-9-]{1,48}$`.
 pub fn valid_worker_name(name: &str) -> bool {
-    let rest = name
-        .strip_prefix("soda-build-")
-        .or_else(|| name.strip_prefix("soda-qualify-"));
-    match rest {
+    match name.strip_prefix("soda-build-") {
         Some(tail) if !tail.is_empty() && tail.len() <= 48 => tail
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'),
@@ -160,7 +157,6 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
     );
     let start_ns = std::env::var("SODA_BUILD_START_NS").unwrap_or_default();
     let mut w = Worker {
-        credentials: Default::default(),
         name,
         user: "soda-build-worker".to_owned(),
         executable: c.executable.clone(),

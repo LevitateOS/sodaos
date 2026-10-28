@@ -6,11 +6,10 @@ use std::process::Command;
 pub mod assets;
 mod components;
 mod installer;
-pub mod qualification;
 pub mod registry;
 pub(crate) use assets::valid_tag;
-use assets::{inspect, inventory, read_json, Asset};
-pub use assets::{prepare, Manifest, Qualification};
+use assets::{inventory, read_json, Asset};
+pub use assets::{prepare, Manifest};
 const REPOSITORY: &str = "github.com/LevitateOS/sodaos";
 const API: &str = "repos/LevitateOS/sodaos";
 
@@ -62,10 +61,6 @@ struct Release {
     draft: bool,
     prerelease: bool,
     immutable: bool,
-    #[serde(default)]
-    published_at: Option<String>,
-    #[serde(default)]
-    body: Option<String>,
     assets: Vec<RemoteAsset>,
 }
 #[derive(Deserialize)]
@@ -283,38 +278,6 @@ fn record_verified(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     }
 }
 
-#[derive(Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-struct ApplianceEvidence {
-    downloaded: std::path::PathBuf,
-    evidence_directory: std::path::PathBuf,
-}
-
-fn appliance_evidence(
-    directory: &Path,
-    manifest: &Manifest,
-) -> Result<(Qualification, std::path::PathBuf), Error> {
-    let receipt: Qualification = read_json(&directory.join("appliance-qualification.json"))?;
-    let input: ApplianceEvidence = read_json(&directory.join("appliance-evidence.json"))?;
-    qualification::protected_for_manifest(manifest, &input.evidence_directory)?;
-    let native: Qualification = read_json(&input.evidence_directory.join("appliance/native.json"))?;
-    if serde_json::to_vec(&native).map_err(|_| Error::refused())?
-        != serde_json::to_vec(&receipt).map_err(|_| Error::refused())?
-    {
-        return Err(Error::msg(
-            "retained appliance receipt differs from protected native evidence",
-        ));
-    }
-    if !input.downloaded.is_absolute() {
-        return Err(Error::msg(
-            "absolute downloaded appliance evidence path required",
-        ));
-    }
-    let downloaded = inspect(&input.downloaded, &manifest.iso)?;
-    receipt.validate(manifest, &downloaded)?;
-    Ok((receipt, input.downloaded))
-}
-
 /// Upload a complete draft, verify its inventory, and expose it as an unqualified
 /// immutable prerelease. Existing releases are never adopted or overwritten.
 fn admit_staging_release(
@@ -359,7 +322,7 @@ fn publish_candidate_release(
     std::fs::write(
         &notes_path,
         format!(
-            "UNQUALIFIED CANDIDATE: native qualification of every selected distribution is pending.\n\n{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n",
+            "RELEASE CANDIDATE: smoke-install before promotion.\n\n{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n",
             manifest.notes
         ),
     )
@@ -448,111 +411,6 @@ fn stage_github(
     finalize_candidate_release(gh, manifest, &assets)
 }
 
-fn record_appliance_outcome(
-    gh: &dyn GitHub,
-    directory: &Path,
-    tag: &str,
-    downloaded_iso: std::path::PathBuf,
-    evidence_directory: std::path::PathBuf,
-    receipt: &Qualification,
-) -> Result<(), Error> {
-    command(
-        gh,
-        &[
-            "release",
-            "verify-asset",
-            tag,
-            downloaded_iso.to_str().ok_or_else(Error::refused)?,
-            "--repo",
-            REPOSITORY,
-        ],
-    )?;
-    let bytes = serde_json::to_vec(&ApplianceEvidence {
-        downloaded: downloaded_iso,
-        evidence_directory,
-    })
-    .map_err(|_| Error::refused())?;
-    record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
-    let bytes = serde_json::to_vec_pretty(receipt).map_err(|_| Error::refused())?;
-    record_verified(&directory.join("appliance-qualification.json"), &bytes)?;
-    Ok(())
-}
-
-/// Promote only the unchanged immutable candidate after exact install/boot smoke
-/// checks and verification of the ISO actually downloaded from GitHub.
-pub fn qualify_appliance(
-    gh: &dyn GitHub,
-    directory: &Path,
-    downloaded_iso: &Path,
-    evidence_directory: &Path,
-) -> Result<(), Error> {
-    let manifest = assets::load(directory)?;
-    qualification::protected_for_manifest(&manifest, evidence_directory)?;
-    let downloaded = inspect(downloaded_iso, &manifest.iso)?;
-    let downloaded_iso = std::fs::canonicalize(downloaded_iso)
-        .map_err(|_| Error::msg("downloaded ISO unavailable"))?;
-    let receipt: Qualification = read_json(&evidence_directory.join("appliance/native.json"))?;
-    receipt.validate(&manifest, &downloaded)?;
-    check_tag(gh, &manifest, false)?;
-    check_ci(gh, &manifest)?;
-    let current = release(gh, &manifest.tag)?;
-    if current.draft || !current.prerelease || !current.immutable {
-        return Err(Error::msg(
-            "only the exact immutable prerelease can be promoted",
-        ));
-    }
-    let assets = inventory(&manifest, directory)?;
-    check_inventory(&current, &manifest, &assets)?;
-    verify_release(gh, &manifest.tag)?;
-    record_appliance_outcome(
-        gh,
-        directory,
-        &manifest.tag,
-        downloaded_iso,
-        evidence_directory.to_owned(),
-        &receipt,
-    )?;
-    Ok(())
-}
-
-/// A prospective upgrade is qualified only after its exact immutable candidate
-/// is public. The private result will become the promoted release summary;
-/// neither this command nor qualification appends an immutable asset.
-pub fn qualify_upgrade(gh: &dyn GitHub, directory: &Path, evidence: &Path) -> Result<(), Error> {
-    let manifest = assets::load(directory)?;
-    if !manifest.has_appliance() {
-        return Err(Error::msg("appliance upgrade candidate required"));
-    }
-    let (payload, _, _) =
-        crate::admission::load_admitted_candidate(directory.to_str().ok_or_else(Error::refused)?)?;
-    if payload.upgrade_from.len() != 1 {
-        return Err(Error::msg("one declared upgrade source required"));
-    }
-    qualification::protected_for_manifest(&manifest, evidence)?;
-    check_tag(gh, &manifest, false)?;
-    check_ci(gh, &manifest)?;
-    let remote = release(gh, &manifest.tag)?;
-    if remote.draft || !remote.prerelease || !remote.immutable {
-        return Err(Error::msg(
-            "exact immutable unqualified prerelease required for upgrade qualification",
-        ));
-    }
-    check_inventory(&remote, &manifest, &inventory(&manifest, directory)?)?;
-    verify_release(gh, &manifest.tag)?;
-    let candidate = assets::candidate(directory, &manifest)?;
-    for name in ["candidate.json", "payload.json"] {
-        if &inspect(&candidate.join(name), name)? != manifest.asset(name)? {
-            return Err(Error::msg(
-                "upgrade candidate differs from prepared release",
-            ));
-        }
-    }
-    crate::upgrade::stamp(&candidate, evidence)?;
-    promotion_upgrade(directory, &manifest)?
-        .ok_or_else(|| Error::msg("declared upgrade source required"))?;
-    Ok(())
-}
-
 fn admit_image_staging<'a>(
     directory: &Path,
     auth: Option<&'a Path>,
@@ -634,87 +492,28 @@ pub fn promote(
     if directory.join("promotion-started.json").exists() {
         return Err(Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"));
     }
-    let (summaries, downloaded_iso) = collect_promotion_evidence(directory, &manifest, auth)?;
+    if manifest.docker.is_some() {
+        restricted_auth(auth)?;
+    }
     let (ci_run, current, assets) = admit_release_for_promotion(gh, &manifest, directory)?;
-    verify_promotion_inputs(
-        gh,
-        registry,
-        directory,
-        &manifest,
-        &current,
-        &downloaded_iso,
-        ci_run,
-    )?;
+    if let Some(metadata) = &manifest.docker {
+        registry::observe_public(registry, metadata, ci_run)?;
+    }
+    components::observe_public(registry, directory, &manifest)?;
     record_promotion_outcome(
-        gh, registry, directory, &manifest, &summaries, ci_run, auth, &assets, &current,
+        gh, registry, directory, &manifest, ci_run, auth, &assets, &current,
     )
 }
 
-fn collect_promotion_evidence(
-    directory: &Path,
-    manifest: &Manifest,
-    auth: Option<&Path>,
-) -> Result<(serde_json::Map<String, serde_json::Value>, Option<PathBuf>), Error> {
-    let mut summaries = serde_json::Map::new();
-    if let Some(upgrade) = promotion_upgrade(directory, manifest)? {
-        summaries.insert(
-            "upgrade".into(),
-            serde_json::to_value(upgrade).map_err(|_| Error::refused())?,
-        );
+fn restricted_auth(auth: Option<&Path>) -> Result<(), Error> {
+    use std::os::unix::fs::MetadataExt;
+    let file =
+        auth.ok_or_else(|| Error::msg("registry auth file required for Docker promotion"))?;
+    let st = std::fs::symlink_metadata(file).map_err(|_| Error::refused())?;
+    if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
+        return Err(Error::msg("restricted registry auth file required"));
     }
-    let mut downloaded_iso = None;
-    if manifest.has_appliance() {
-        let (receipt, downloaded) = appliance_evidence(directory, manifest)?;
-        summaries.insert(
-            "appliance".into(),
-            serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
-        );
-        downloaded_iso = Some(downloaded);
-    }
-    if manifest.docker.is_some() {
-        let receipt = qualification::verify(manifest, directory)?;
-        summaries.insert(
-            "docker".into(),
-            serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
-        );
-        let file =
-            auth.ok_or_else(|| Error::msg("registry auth file required for Docker promotion"))?;
-        let st = std::fs::symlink_metadata(file).map_err(|_| Error::refused())?;
-        use std::os::unix::fs::MetadataExt;
-        if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
-            return Err(Error::msg("restricted registry auth file required"));
-        }
-    }
-    Ok((summaries, downloaded_iso))
-}
-
-fn promotion_upgrade(
-    directory: &Path,
-    manifest: &Manifest,
-) -> Result<Option<crate::upgrade::PublishedQualification>, Error> {
-    let (payload, admitted, _) =
-        crate::admission::load_admitted_candidate(directory.to_str().ok_or_else(Error::refused)?)?;
-    if payload.upgrade_from.is_empty() {
-        return Ok(None);
-    }
-    let candidate = assets::candidate(directory, manifest)?;
-    let qualification = crate::upgrade::verify_collected(&candidate)?;
-    let media: crate::model::MediaBinding = read_json(&directory.join("media.json"))?;
-    qualification.validate(
-        &payload,
-        &admitted,
-        &media,
-        &qualification.source_release,
-        &qualification.source_support_sha256,
-    )?;
-    Ok(Some(crate::upgrade::PublishedQualification {
-        format: 1,
-        tag: manifest.tag.clone(),
-        soda_revision: manifest.soda_revision.clone(),
-        candidate_sha256: manifest.asset("candidate.json")?.sha256.clone(),
-        payload_sha256: manifest.asset("payload.json")?.sha256.clone(),
-        qualification,
-    }))
+    Ok(())
 }
 
 fn admit_release_for_promotion(
@@ -736,60 +535,18 @@ fn admit_release_for_promotion(
     Ok((ci_run, current, assets))
 }
 
-fn verify_promotion_inputs(
-    gh: &dyn GitHub,
-    registry: &dyn registry::Registry,
-    directory: &Path,
-    manifest: &Manifest,
-    current: &Release,
-    downloaded_iso: &Option<PathBuf>,
-    ci_run: u64,
-) -> Result<(), Error> {
-    if let Some(downloaded) = downloaded_iso {
-        command(
-            gh,
-            &[
-                "release",
-                "verify-asset",
-                &manifest.tag,
-                downloaded.to_str().ok_or_else(Error::refused)?,
-                "--repo",
-                REPOSITORY,
-            ],
-        )?;
-    }
-    if let Some(metadata) = &manifest.docker {
-        qualification::validate_publication_time(
-            manifest,
-            directory,
-            &qualification::evidence(directory)?,
-            current
-                .published_at
-                .as_deref()
-                .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
-        )?;
-        registry::observe_public(registry, metadata, ci_run)?;
-    }
-    components::observe_public(registry, directory, manifest)?;
-    Ok(())
-}
-
 fn render_promotion_notes(
     directory: &Path,
     manifest: &Manifest,
-    summaries: &serde_json::Map<String, serde_json::Value>,
     ci_run: u64,
 ) -> Result<(PathBuf, String), Error> {
-    if manifest.notes.contains(crate::upgrade::SUMMARY_START)
-        || manifest.notes.contains(crate::upgrade::SUMMARY_END)
-    {
-        return Err(Error::msg(
-            "release notes already contain a qualification summary",
-        ));
-    }
-    let notes = directory.join("qualified-release-notes.md");
-    let summary = serde_json::to_string_pretty(summaries).map_err(|_| Error::refused())?;
-    let docker_qualification = manifest
+    let notes = directory.join("promoted-release-notes.md");
+    let summary = serde_json::to_string_pretty(
+        &serde_json::json!({"tag": manifest.tag, "soda_revision": manifest.soda_revision}),
+    )
+    .map_err(|_| Error::refused())?;
+    // install-docker.sh looks for this marker before installing a promoted release.
+    let docker_marker = manifest
         .docker
         .as_ref()
         .map(|metadata| {
@@ -799,25 +556,10 @@ fn render_promotion_notes(
             )
         })
         .unwrap_or_default();
-    let receipt = crate::upgrade::render_summary(summaries)?;
-    let body = format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n{docker_qualification}{receipt}", manifest.notes);
-    if body.len() > 128 << 10 {
-        return Err(Error::msg("qualified release notes exceed bound"));
-    }
-    if let Some(value) = summaries.get("upgrade") {
-        let expected: crate::upgrade::PublishedQualification =
-            serde_json::from_value(value.clone()).map_err(|_| Error::refused())?;
-        let receipt = crate::upgrade::published_from_notes(
-            &body,
-            &manifest.tag,
-            &manifest.soda_revision,
-            &expected.candidate_sha256,
-            &expected.payload_sha256,
-        )?;
-        if receipt != expected.qualification {
-            return Err(Error::msg("rendered upgrade summary differs"));
-        }
-    }
+    let body = format!(
+        "{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n{docker_marker}",
+        manifest.notes
+    );
     std::fs::write(&notes, body).map_err(|_| Error::refused())?;
     Ok((notes, summary))
 }
@@ -828,34 +570,14 @@ fn check_promoted_release(
     current: &Release,
     assets: &[Asset],
     prior_appliance_latest: Option<u64>,
-    summaries: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<(), Error> {
     let after = release(gh, &manifest.tag)?;
     if after.id != current.id || after.draft || after.prerelease || !after.immutable {
         return Err(Error::msg(
-            "qualified release state differs; inspect partial promotion",
+            "promoted release state differs; inspect partial promotion",
         ));
     }
     check_inventory(&after, manifest, assets)?;
-    if let Some(value) = summaries.get("upgrade") {
-        let expected: crate::upgrade::PublishedQualification =
-            serde_json::from_value(value.clone()).map_err(|_| Error::refused())?;
-        let receipt = crate::upgrade::published_from_notes(
-            after
-                .body
-                .as_deref()
-                .ok_or_else(|| Error::msg("promoted upgrade summary unavailable"))?,
-            &manifest.tag,
-            &manifest.soda_revision,
-            &expected.candidate_sha256,
-            &expected.payload_sha256,
-        )?;
-        if receipt != expected.qualification {
-            return Err(Error::msg(
-                "promoted upgrade summary differs; inspect partial promotion",
-            ));
-        }
-    }
     if manifest.has_appliance() {
         let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
         if latest.id != current.id {
@@ -874,7 +596,6 @@ fn record_promotion_outcome(
     registry: &dyn registry::Registry,
     directory: &Path,
     manifest: &Manifest,
-    summaries: &serde_json::Map<String, serde_json::Value>,
     ci_run: u64,
     auth: Option<&Path>,
     assets: &[Asset],
@@ -885,7 +606,7 @@ fn record_promotion_outcome(
     } else {
         None
     };
-    let (notes, summary) = render_promotion_notes(directory, manifest, summaries, ci_run)?;
+    let (notes, summary) = render_promotion_notes(directory, manifest, ci_run)?;
     crate::buildx::write_new(directory.join("promotion-started.json").to_str().ok_or_else(Error::refused)?, summary.as_bytes(), 0o600)
         .map_err(|_| Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"))?;
     if let Some(metadata) = &manifest.docker {
@@ -894,14 +615,7 @@ fn record_promotion_outcome(
     }
     command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
         .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
-    check_promoted_release(
-        gh,
-        manifest,
-        current,
-        assets,
-        prior_appliance_latest,
-        summaries,
-    )?;
+    check_promoted_release(gh, manifest, current, assets, prior_appliance_latest)?;
     crate::buildx::write_new(
         directory
             .join("promotion-complete.json")
@@ -941,7 +655,7 @@ fn classify_publication(
                 blockers.push(error.0);
                 "unverified"
             } else if remote.prerelease {
-                "unqualified prerelease"
+                "staged prerelease"
             } else {
                 "published release"
             }
@@ -957,45 +671,6 @@ fn classify_publication(
         }
     };
     Ok(publication)
-}
-
-fn validate_qualifications(
-    manifest: &Manifest,
-    directory: &Path,
-    remote: &Result<Release, Error>,
-    blockers: &mut Vec<String>,
-) -> Result<(bool, bool), Error> {
-    let upgrade = promotion_upgrade(directory, manifest);
-    if upgrade.is_err() {
-        blockers.push("upgrade qualification missing or invalid".into());
-    }
-    let appliance = (!manifest.has_appliance() || appliance_evidence(directory, manifest).is_ok())
-        && upgrade.is_ok();
-    let docker_qualified = manifest.docker.is_none()
-        || (|| -> Result<(), Error> {
-            qualification::verify(manifest, directory)?;
-            let published = remote.as_ref().map_err(|_| Error::refused())?;
-            if published.draft || !published.immutable {
-                return Err(Error::refused());
-            }
-            qualification::validate_publication_time(
-                manifest,
-                directory,
-                &qualification::evidence(directory)?,
-                published
-                    .published_at
-                    .as_deref()
-                    .ok_or_else(Error::refused)?,
-            )
-        })()
-        .is_ok();
-    if !appliance {
-        blockers.push("appliance qualification missing or invalid".into());
-    }
-    if !docker_qualified {
-        blockers.push("Docker qualification missing or invalid".into());
-    }
-    Ok((appliance, docker_qualified))
 }
 
 fn observe_recommendation(
@@ -1046,8 +721,6 @@ fn next_action(
     publication: &str,
     docker_available: bool,
     components_ok: bool,
-    appliance: bool,
-    docker_qualified: bool,
     directory: &Path,
 ) -> &'static str {
     let partial = recommendation.0;
@@ -1078,8 +751,6 @@ fn next_action(
         "inspect public Docker image"
     } else if !components_ok {
         "inspect public component images"
-    } else if !appliance || !docker_qualified {
-        "qualify"
     } else {
         "promote"
     }
@@ -1109,8 +780,6 @@ pub fn status(
     if let Some(Err(error)) = &docker {
         blockers.push(error.0.clone());
     }
-    let (appliance, docker_qualified) =
-        validate_qualifications(&manifest, directory, &remote, &mut blockers)?;
     let recommendation = observe_recommendation(gh, registry, directory, &manifest, &mut blockers);
     let (_, github_latest, docker_latest, promotion_complete) = &recommendation;
     let next = next_action(
@@ -1119,12 +788,10 @@ pub fn status(
         publication,
         docker_available,
         components.is_ok(),
-        appliance,
-        docker_qualified,
         directory,
     );
     Ok(
-        serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
+        serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
     )
 }
 
@@ -1209,72 +876,4 @@ pub fn preflight(
     check_release_absence(gh, tag)?;
     check_tag_reference(gh, tag, soda)?;
     check_package_visibility(gh, distribution)
-}
-
-fn verify_downloaded_assets(
-    gh: &dyn GitHub,
-    manifest: &Manifest,
-    evidence: &Path,
-) -> Result<(), Error> {
-    for name in qualification::DOWNLOADS {
-        let downloaded = evidence.join("downloads").join(name);
-        if &inspect(&downloaded, name)? != manifest.asset(name)? {
-            return Err(Error::msg(
-                "downloaded installation bytes differ from staged release",
-            ));
-        }
-        command(
-            gh,
-            &[
-                "release",
-                "verify-asset",
-                &manifest.tag,
-                downloaded.to_str().ok_or_else(Error::refused)?,
-                "--repo",
-                REPOSITORY,
-            ],
-        )?;
-    }
-    Ok(())
-}
-
-pub fn qualify_docker(
-    gh: &dyn GitHub,
-    registry: &dyn registry::Registry,
-    manifest: &Manifest,
-    directory: &Path,
-    evidence: &Path,
-) -> Result<(), Error> {
-    qualification::protected_for_manifest(manifest, evidence)?;
-    check_tag(gh, manifest, false)?;
-    let ci = check_ci(gh, manifest)?;
-    let remote = release(gh, &manifest.tag)?;
-    if remote.draft || !remote.prerelease || !remote.immutable {
-        return Err(Error::msg(
-            "exact immutable unqualified prerelease required for qualification",
-        ));
-    }
-    check_inventory(&remote, manifest, &inventory(manifest, directory)?)?;
-    verify_release(gh, &manifest.tag)?;
-    qualification::validate_publication_time(
-        manifest,
-        directory,
-        evidence,
-        remote
-            .published_at
-            .as_deref()
-            .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
-    )?;
-    registry::observe_public(
-        registry,
-        manifest.docker.as_ref().ok_or_else(Error::refused)?,
-        ci,
-    )?;
-    verify_downloaded_assets(gh, manifest, evidence)?;
-    if directory.join("docker-qualification.json").exists() {
-        qualification::verify(manifest, directory)?;
-    } else {
-        qualification::stamp(manifest, directory, evidence)?;
-    }
-    Ok(())
 }
