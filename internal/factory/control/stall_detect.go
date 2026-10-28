@@ -190,7 +190,7 @@ func classifyStallDispatchWait(in StallInventoryIssue, decision *StallComponentD
 	case WaitCapacity, WaitRepository:
 		decision.WaitKind, decision.Named = factory.StallWaitCapacity, true
 		decision.WaitOwner, decision.WaitEvent = "capacity", "execution slot"
-	case WaitSponsorship, WaitAllowance, WaitSponsorshipRole:
+	case WaitSponsorship, WaitAllowance, WaitAllowanceLow, WaitSponsorshipRole:
 		decision.WaitKind, decision.Named = factory.StallWaitQuota, true
 		decision.WaitOwner, decision.WaitEvent = "sponsor", "allowance grant"
 	case WaitPreparation:

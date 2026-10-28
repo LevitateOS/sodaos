@@ -60,6 +60,10 @@ type attemptPlan struct {
 	repositoryConcurrent int
 	freshAttempt         bool
 	attemptLimits        factory.AttemptLimits
+	// allowanceTotal and allowanceBound record the coder-time allowance
+	// that bounds this run, so a run it would cut short waits by name.
+	allowanceTotal int
+	allowanceBound bool
 }
 
 // dispatchOne dispatches one queued issue or reports exactly why it

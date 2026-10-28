@@ -4,6 +4,7 @@ import {check, object} from './sodaspaces-api.js';
 import {decisionID} from './sodaspaces-intent-response.js';
 import type {IntentRevision} from './sodaspaces-intent-response.js';
 import {activityTimestamp} from './sodaspaces-factory-activity.js';
+import {allowanceHoldText} from './sodaspaces-factory-allowance.js';
 import type {
   FactoryIssueDetail,
   FactoryRepositorySummary,
@@ -114,6 +115,7 @@ export interface WorkOverviewModel {
   readonly attention: readonly AttentionItem[];
   readonly dependencies: readonly DependencyRow[];
   readonly setupText: string;
+  readonly allowanceText: string;
   readonly outcomeNote: string;
   readonly availabilityNote: string;
 }
@@ -220,6 +222,7 @@ export function describeWorkOverview(input: WorkOverviewInput): WorkOverviewMode
     attention,
     dependencies: dependencyRows(input),
     setupText: setupText(input),
+    allowanceText: allowanceHoldText(input.summary?.allowance ?? []),
     outcomeNote: outcomeNote(input, counts),
     availabilityNote: availabilityNote(input),
   };
@@ -230,6 +233,7 @@ export function renderWorkOverview(model: WorkOverviewModel): TemplateResult {
     <section aria-label="Work overview">
       <p>${model.direction}</p>
       <p role="status">${model.countsText}</p>
+      ${model.allowanceText ? html`<p role="alert">${model.allowanceText}</p>` : ''}
       ${model.availabilityNote ? html`<p>${model.availabilityNote}</p>` : ''}
       ${
         model.attention.length > 0
@@ -1094,9 +1098,7 @@ function standingVerdict(access: FactoryAccess): string {
   if (access.effective.effective && access.effective.dispatch_open) return 'Factory dispatch is effective and open.';
   if (access.effective.effective) return 'Authority is effective but dispatch is closed.';
   const missing =
-    access.effective.missing.length === 0
-      ? 'no reason given'
-      : access.effective.missing.map(missingPhrase).join(', ');
+    access.effective.missing.length === 0 ? 'no reason given' : access.effective.missing.map(missingPhrase).join(', ');
   return `Factory authority is not effective: ${missing}.`;
 }
 

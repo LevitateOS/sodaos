@@ -115,6 +115,7 @@ func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *p
 	if remaining < 1 {
 		return 0, waitFor(WaitAllowance, "sponsorship allowance is exhausted"), nil
 	}
+	plan.allowanceTotal, plan.allowanceBound = plan.sponsorship.AllowanceMinutes, remaining < MaxDispatchDeadline
 	if remaining > MaxDispatchDeadline {
 		remaining = MaxDispatchDeadline
 	}
@@ -135,6 +136,7 @@ func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *p
 	}
 	if connectionMinutes := left / factory.UsageMicrosPerMinute; connectionMinutes < int64(remaining) {
 		remaining = int(connectionMinutes)
+		plan.allowanceTotal, plan.allowanceBound = int(budget.RollingMinutes), true
 	}
 	return remaining, nil, nil
 }
@@ -161,6 +163,9 @@ func sizeAttemptDeadline(ctx context.Context, deps DispatchDeps, plan *attemptPl
 	}
 	if attemptSeconds <= 0 {
 		return waitFor(WaitAllowance, "attempt active-time allowance is exhausted"), nil
+	}
+	if wait := holdShortAllowance(plan, remaining, attemptSeconds); wait != nil {
+		return wait, nil
 	}
 	attemptDeadline := time.Unix(now.Unix()+attemptSeconds, 0)
 	if attemptDeadline.Before(deadline) {
@@ -233,4 +238,20 @@ func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, 
 	}
 	plan.pin = pin
 	return nil
+}
+
+// holdShortAllowance holds an issue run whose coder-time allowance, not
+// its attempt, would cut it below a useful length. Admitting it would
+// spend the last minutes starting a run that stops before it starts; the
+// named wait tells the owner to raise the allowance instead. Time-only
+// roots size their funded minutes later and are left to those checks.
+func holdShortAllowance(plan *attemptPlan, remaining int, attemptSeconds int64) *planWait {
+	if !plan.allowanceBound || (plan.subject.Kind != "" && plan.subject.Kind != factory.SubjectIssue) {
+		return nil
+	}
+	need := min(int((attemptSeconds+59)/60), MaxDispatchDeadline, MinUsefulRunMinutes)
+	if remaining >= need {
+		return nil
+	}
+	return allowanceLowWait(remaining, plan.allowanceTotal)
 }

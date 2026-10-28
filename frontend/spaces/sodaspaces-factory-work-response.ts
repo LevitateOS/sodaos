@@ -1,5 +1,6 @@
 import {check, id, object, projectId} from './sodaspaces-api.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
+import {allowanceHolds, type AllowanceHold} from './sodaspaces-factory-allowance.js';
 
 // Parsers for the Factory work-progress reads V01/V03/V04 consume
 // independently: one issue's acceptance/readiness/check/merge facts, one
@@ -576,6 +577,7 @@ export interface FactoryRepositorySummary {
   queue: FactoryQueueSummary;
   effective: FactoryEffectiveSummary;
   preparation?: FactoryPreparationSummary;
+  allowance?: AllowanceHold[];
 }
 function effectiveSummary(value: unknown): FactoryEffectiveSummary {
   const raw = object(value);
@@ -590,6 +592,7 @@ export function factoryRepositorySummary(value: unknown, repository: string): Fa
   const queue = object(data.queue);
   const preparation =
     data.preparation === undefined || data.preparation === null ? undefined : object(data.preparation);
+  const allowance = allowanceHolds(data, repository);
   if (preparation !== undefined) check(projectId(preparation.project) && typeof preparation.ready === 'boolean');
   return {
     repository,
@@ -598,6 +601,7 @@ export function factoryRepositorySummary(value: unknown, repository: string): Fa
     ...(preparation === undefined
       ? {}
       : {preparation: {project: preparation.project as string, ready: preparation.ready as boolean}}),
+    ...(allowance.length > 0 ? {allowance} : {}),
   };
 }
 
