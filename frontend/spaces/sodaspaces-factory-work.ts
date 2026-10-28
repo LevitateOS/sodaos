@@ -1200,32 +1200,44 @@ export class SodaFactoryWorkDetail extends LitElement {
       this.setMark(kind, 'failed', `Unavailable: ${gate.reasonText}`);
       return;
     }
+    const runID = kind === 'retry' ? this.retryRunID() : context.runID;
+    if ((kind === 'stop' || kind === 'retry' || kind === 'takeover') && !runID) {
+      this.setMark(kind, 'failed', 'No recorded run is available for this action on this work.');
+      return;
+    }
     const serial = this.serial;
     const commandID = factoryCommandId();
     this.acting = kind;
     this.setMark(kind, 'pending', 'Requested; awaiting confirmation.');
-    await this.executeIntervention(context, kind, commandID, serial);
+    await this.executeIntervention(context, kind, commandID, serial, runID);
     if (serial === this.serial) this.acting = undefined;
   }
   private async executeIntervention(
     context: WorkDetailContext,
     kind: InterventionKind,
     commandID: string,
-    serial: number
+    serial: number,
+    runID: string | undefined
   ) {
     try {
-      const posted = await postIntervention(context, kind, commandID);
+      const posted = await postIntervention(context, kind, commandID, runID);
       if (serial !== this.serial) return;
-      this.applyPosted(kind, context, posted, commandID);
+      this.applyPosted(kind, context, posted, commandID, runID);
       if (refreshesDetail(kind)) void this.load();
     } catch {
       if (serial !== this.serial) return;
       await this.readBack(context, kind, commandID, serial);
     }
   }
-  private applyPosted(kind: InterventionKind, context: WorkDetailContext, posted: Posted, commandID: string) {
+  private applyPosted(
+    kind: InterventionKind,
+    context: WorkDetailContext,
+    posted: Posted,
+    commandID: string,
+    runID: string | undefined
+  ) {
     try {
-      const outcome = parsePostedOutcome(kind, context, posted, commandID);
+      const outcome = parsePostedOutcome(kind, context, posted, commandID, runID);
       const rendered = interventionResultText(outcome);
       this.setMark(kind, rendered.result, rendered.text);
     } catch {
@@ -1257,16 +1269,29 @@ export class SodaFactoryWorkDetail extends LitElement {
       })
     );
   }
+  /** Newest-first runIDs make the first settled row the latest recorded
+   * run for this work: the exact retry target, never a guess. Live work
+   * keeps the live selection; stop and takeover never fall back. */
+  private retryRunID(): string | undefined {
+    const context = this.current;
+    if (context?.runID) return context.runID;
+    return this.runs.find((entry) => entry.detail?.reconciled)?.id;
+  }
   private interventionMarks(kind: InterventionKind) {
     const context = this.current;
     const gate = this.backendGate(kind);
     const mark = this.marks[kind] ?? {result: 'idle' as InterventionResult, text: 'Not requested.'};
+    const runID = kind === 'retry' ? this.retryRunID() : context?.runID;
     return describeIntervention({
       kind,
-      enabled: (context?.capabilities[kind] ?? false) && gate.available && this.acting === undefined,
+      enabled:
+        (context?.capabilities[kind] ?? false) &&
+        gate.available &&
+        this.acting === undefined &&
+        (kind !== 'retry' || runID !== undefined),
       result: mark.result,
       resultText: !gate.available && mark.result === 'idle' ? `Unavailable: ${gate.reasonText}` : mark.text,
-      target: interventionTarget(context, kind),
+      target: interventionTarget(context, kind, runID),
     });
   }
   private watchNote(): string {
@@ -1318,11 +1343,15 @@ function refreshesDetail(kind: InterventionKind): boolean {
   return kind === 'pause' || kind === 'resume' || kind === 'stop' || kind === 'project_stop';
 }
 
-function interventionTarget(context: WorkDetailContext | undefined, kind: InterventionKind): string {
+function interventionTarget(
+  context: WorkDetailContext | undefined,
+  kind: InterventionKind,
+  runID: string | undefined = context?.runID
+): string {
   if (!context) return 'this work';
   if (kind === 'pause' || kind === 'resume') return `repository ${context.repository}`;
   if (kind === 'project_stop') return context.projectID ? `project ${context.projectID}` : 'this project';
-  return context.runID ? `run ${context.runID.slice(0, 8)}` : 'no run selected';
+  return runID ? `run ${runID.slice(0, 8)}` : 'no run selected';
 }
 
 async function readDetailIssue(context: WorkDetailContext): Promise<{detail?: FactoryIssueDetail; message: string}> {
@@ -1362,7 +1391,8 @@ async function readDetailRuns(context: WorkDetailContext): Promise<RunEntry[]> {
 async function postIntervention(
   context: WorkDetailContext,
   kind: InterventionKind,
-  commandID: string
+  commandID: string,
+  runID: string | undefined
 ): Promise<Posted> {
   if (kind === 'pause' || kind === 'resume')
     return postJSON(context.transport, `repositories/${context.repository}/factory/actions`, {
@@ -1374,8 +1404,8 @@ async function postIntervention(
       action: 'stop',
       confirm_stop: true,
     });
-  if ((kind === 'stop' || kind === 'retry' || kind === 'takeover') && context.runID)
-    return postJSON(context.transport, `factory/runs/${context.runID}/actions`, {command_id: commandID, action: kind});
+  if ((kind === 'stop' || kind === 'retry' || kind === 'takeover') && runID)
+    return postJSON(context.transport, `factory/runs/${runID}/actions`, {command_id: commandID, action: kind});
   throw Error('Intervention target is not available in this context.');
 }
 
@@ -1393,22 +1423,35 @@ function parseRunReceipt(
   kind: 'stop' | 'retry' | 'takeover',
   context: WorkDetailContext,
   posted: Posted,
-  commandID: string
+  commandID: string,
+  runID: string | undefined
 ) {
-  const runID = context.runID ?? '';
-  if (kind === 'stop') return {kind: 'stop' as const, receipt: stopReceipt(posted.value, runID)};
-  if (kind === 'retry') return {kind: 'retry' as const, receipt: retryDecision(posted.value, commandID, runID)};
-  return {kind: 'takeover' as const, receipt: takeoverRecord(posted.value, commandID, runID)};
+  const target = runID ?? '';
+  if (kind === 'stop') return {kind: 'stop' as const, receipt: stopReceipt(posted.value, target)};
+  if (kind === 'retry') return {kind: 'retry' as const, receipt: retryDecision(posted.value, commandID, target)};
+  return {kind: 'takeover' as const, receipt: takeoverRecord(posted.value, commandID, target)};
 }
-function parsePostedReceipt(kind: InterventionKind, context: WorkDetailContext, posted: Posted, commandID: string) {
+function parsePostedReceipt(
+  kind: InterventionKind,
+  context: WorkDetailContext,
+  posted: Posted,
+  commandID: string,
+  runID: string | undefined
+) {
   if (kind === 'pause' || kind === 'resume') return parseRepositoryReceipt(kind, context, posted, commandID);
   if (kind === 'project_stop')
     return {kind: 'project_stop' as const, receipt: projectStopResult(posted.value, context.projectID ?? '')};
-  return parseRunReceipt(kind, context, posted, commandID);
+  return parseRunReceipt(kind, context, posted, commandID, runID);
 }
 
-function parsePostedOutcome(kind: InterventionKind, context: WorkDetailContext, posted: Posted, commandID: string) {
-  if (posted.status === 200) return parsePostedReceipt(kind, context, posted, commandID);
+function parsePostedOutcome(
+  kind: InterventionKind,
+  context: WorkDetailContext,
+  posted: Posted,
+  commandID: string,
+  runID: string | undefined
+) {
+  if (posted.status === 200) return parsePostedReceipt(kind, context, posted, commandID, runID);
   if (posted.status === 409) {
     try {
       return {kind: 'pending_runs' as const, pending: pendingRuns(posted.value)};

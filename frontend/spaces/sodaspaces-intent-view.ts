@@ -510,6 +510,12 @@ function planNoticeText(view: IntentView): string {
   if (view.plan && view.planNotice === planText(view.plan)) return '';
   return view.planNotice;
 }
+// plannerStopped: the plan settled in attention without a product question,
+// because the planner never reported a usable answer. Nothing waits on the
+// person, so it retries like a failed plan: a successor draft, then planning.
+export function plannerStopped(status: IntentPlanStatus): boolean {
+  return status.state === 'attention' && !status.attention;
+}
 // attentionText is the one wording for a plan in attention, shared by the
 // review and the component's plan notices.
 export function attentionText(status: IntentPlanStatus): string {
@@ -566,10 +572,12 @@ function planText(status: IntentPlanStatus): string {
       return 'Planning was cancelled before it could report.';
   }
 }
-// editingRequest: a plan in attention cannot continue as is, so the primary
-// becomes Edit request, which only moves focus to the Desired outcome.
+// editingRequest: a plan that asks a product question cannot continue as
+// is, so the primary becomes Edit request, which only moves focus to the
+// Desired outcome. A planner that stopped without a usable answer asked
+// nothing: its primary stays Continue to planning (see plannerStopped).
 function editingRequest(view: IntentView): boolean {
-  return !view.dirty && view.revision?.repository !== '0' && view.plan?.state === 'attention';
+  return !view.dirty && view.revision?.repository !== '0' && view.plan?.state === 'attention' && !!view.plan.attention;
 }
 function primaryDirectionButton(view: IntentView) {
   const editing = editingRequest(view);
@@ -662,7 +670,7 @@ function reviewNextStep(view: IntentView): string {
   if (view.plan?.state === 'attention')
     return view.plan.attention
       ? 'Review the planning question above and update your direction before continuing.'
-      : 'To plan again, narrow or correct the Desired outcome above and choose Update proposal. Planning again uses planning calls.';
+      : 'The planner stopped without a usable answer; your request needs no change. Continue to planning to try again. It uses no planning calls.';
   if (view.plan?.review?.consistency?.mismatches.length)
     return 'Correct or clarify the request above for the walkthrough findings (your objective and choices stay), then plan again and check before authorizing work.';
   if (!view.revision?.tasks.length)
