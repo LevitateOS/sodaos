@@ -43,13 +43,3 @@ func (o passOccupancy) heldRepo(repository int64) int {
 	}
 	return n
 }
-
-func (o passOccupancy) heldConn(repository int64, connection string) (slots, planned int) {
-	for _, r := range o.held {
-		if r.Repository == repository && r.Connection == connection {
-			slots++
-			planned += r.PlannedMinutes
-		}
-	}
-	return slots, planned
-}

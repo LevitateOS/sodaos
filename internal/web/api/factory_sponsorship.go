@@ -17,7 +17,7 @@ func sponsorshipView(sp factory.Sponsorship, owner bool) factory.Sponsorship {
 	if owner {
 		return sp
 	}
-	sp.AllowanceMinutes, sp.MaxConcurrent = 0, 0
+	sp.AllowanceMinutes = 0
 	return sp
 }
 
@@ -28,7 +28,6 @@ type factorySponsorshipRequest struct {
 	Generation       int64    `json:"generation"`
 	Roles            []string `json:"roles"`
 	AllowanceMinutes int      `json:"allowance_minutes"`
-	MaxConcurrent    int      `json:"max_concurrent"`
 	Active           bool     `json:"active"`
 }
 
@@ -45,7 +44,7 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 	sponsorship := factory.Sponsorship{
 		Repository: repository, Revision: in.ExpectedRevision, GrantedBy: v.User.ID,
 		Connection: connection, GrantID: in.GrantID, Generation: in.Generation, Roles: in.Roles,
-		AllowanceMinutes: in.AllowanceMinutes, MaxConcurrent: in.MaxConcurrent, Active: in.Active,
+		AllowanceMinutes: in.AllowanceMinutes, Active: in.Active,
 	}
 	if sponsorship.Revision < 0 {
 		auth.JSONError(w, 400, "invalid_sponsorship", "Sponsorship is incomplete or invalid.")

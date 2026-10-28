@@ -53,26 +53,16 @@ func checkConcurrencyLimits(ctx context.Context, deps DispatchDeps, occupancy *p
 		}
 		return nil, waitFor(DispatchErrStore, "capacity unreadable")
 	}
-	grant, err := deps.Store.OperatorGrant(ctx, plan.policy.Repository)
-	if err != nil {
+	if _, err := deps.Store.OperatorGrant(ctx, plan.policy.Repository); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return waitFor(WaitAuthority, "operator grant changed during dispatch"), nil
 		}
 		return nil, waitFor(DispatchErrStore, "operator grant unreadable")
 	}
 	repository := plan.policy.Repository
-	plan.applianceConcurrent = capacity.MaxConcurrentRuns
 	if occupancy.heldTotal()+occupancy.unattributed >= capacity.MaxConcurrentRuns {
 		return waitFor(WaitCapacity, "appliance runs at its limit"), nil
 	}
-	repoLimit := plan.policy.MaxConcurrent
-	if grant.MaxConcurrent < repoLimit {
-		repoLimit = grant.MaxConcurrent
-	}
-	if repoLimit > 1 {
-		repoLimit = 1
-	}
-	plan.repositoryConcurrent = repoLimit
 	unsettled, err := deps.Store.ProjectUnsettledRuns(ctx, plan.projectID, 1)
 	if err != nil {
 		return nil, waitFor(DispatchErrStore, "repository run state unreadable")
@@ -80,7 +70,8 @@ func checkConcurrencyLimits(ctx context.Context, deps DispatchDeps, occupancy *p
 	if len(unsettled) != 0 {
 		return waitFor(WaitRepository, "repository has an unsettled factory session"), nil
 	}
-	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= repoLimit {
+	// One session per repository is a product invariant.
+	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= 1 {
 		return waitFor(WaitRepository, "repository runs at its limit"), nil
 	}
 	return nil, nil
@@ -130,7 +121,7 @@ func selectPreparationFor(ctx context.Context, deps DispatchDeps, plan *attemptP
 // policy family, with verified content and image identity.
 func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string) *planWait {
 	selection := plan.policy.Roles[role]
-	if selection.Harness == "" || selection.HarnessVers == "" || selection.Model == "" {
+	if selection.Harness == "" || selection.Model == "" {
 		return waitFor(WaitHarness, "policy has no selection for this role")
 	}
 	pin, err := deps.Host.FactoryHarness(ctx, selection.Harness)
@@ -154,7 +145,7 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if wait, failed := checkConcurrencyLimits(ctx, deps, occupancy, plan); wait != nil || failed != nil {
 		return wait, failed
 	}
-	if wait, failed := checkSponsorshipBudget(ctx, deps, occupancy, plan); wait != nil || failed != nil {
+	if wait, failed := checkSponsorshipBudget(ctx, deps, plan); wait != nil || failed != nil {
 		return wait, failed
 	}
 	return sizeAttemptDeadline(ctx, deps, plan)
@@ -162,12 +153,8 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 
 // checkSponsorshipBudget is the one spend cap, checked softly at admission:
 // any minutes left admit one full run, which may overrun the cap by that run.
-func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
-	repository := plan.policy.Repository
-	if slots, _ := occupancy.heldConn(repository, plan.sponsorship.Connection); slots >= plan.sponsorship.MaxConcurrent {
-		return waitFor(WaitSponsorship, "sponsorship runs at its limit"), nil
-	}
-	used, err := deps.Store.UsageTotal(ctx, repository, plan.sponsorship.Connection)
+func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, plan *attemptPlan) (*planWait, *planWait) {
+	used, err := deps.Store.UsageTotal(ctx, plan.policy.Repository, plan.sponsorship.Connection)
 	if err != nil {
 		return nil, waitFor(DispatchErrStore, "confirmed usage unreadable")
 	}

@@ -29,7 +29,6 @@ var (
 	ErrDispatchControlStale = errors.New("queued issue control changed during dispatch")
 	ErrCapacityFull         = errors.New("appliance runs at its limit")
 	ErrRepositoryFull       = errors.New("repository runs at its limit")
-	ErrSponsorshipFull      = errors.New("sponsorship runs at its limit")
 	ErrAllowanceExhausted   = errors.New("sponsorship allowance is exhausted")
 	ErrAdmissionChanged     = errors.New("admission grants changed during dispatch")
 )
@@ -1127,13 +1126,6 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 	}
 	if repoAttempts > 1 {
 		return ErrRepositoryFull
-	}
-	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, grants.sponsorship.MaxConcurrent+1, repository, connection)
-	if err != nil {
-		return err
-	}
-	if slots > grants.sponsorship.MaxConcurrent {
-		return ErrSponsorshipFull
 	}
 	var used int
 	err = t.QueryRowContext(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=$1 AND connection=$2`,

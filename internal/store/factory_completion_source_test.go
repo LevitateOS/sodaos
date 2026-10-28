@@ -275,7 +275,6 @@ func TestCaptureCompletionLocalAtSourceRefusesStaleContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy.MaxConcurrent++
 	if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
 	}

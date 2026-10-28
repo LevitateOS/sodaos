@@ -15,7 +15,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 		t.Fatal(err)
 	}
 	const acceptedBody = "Implement app.can and client.jsx; app.cannot and notes.mdbackup are prose, not source files."

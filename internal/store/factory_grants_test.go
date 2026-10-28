@@ -37,8 +37,7 @@ func grantTestPolicy() factory.RepositoryPolicy {
 		Merge:               factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
-		IntentMinutes:       factory.DefaultIntentMinutes,
-		MaxConcurrent:       2,
+		IntentMinutes:       30,
 	}
 }
 
@@ -72,13 +71,13 @@ func TestCapacityAndOperatorGrant(t *testing.T) {
 	if _, err := db.Capacity(ctx); !errors.Is(err, ErrNotFound) {
 		t.Fatal("missing capacity reported", err)
 	}
-	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2, MaxQueued: 4}); err != nil {
+	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); !errors.Is(err, ErrStaleRevision) {
 		t.Fatal("stale capacity saved", err)
 	}
-	grant := factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true, MaxConcurrent: 2}
+	grant := factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true}
 	if err := db.SaveOperatorGrant(ctx, grant); err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +92,7 @@ func TestSponsorships(t *testing.T) {
 	ctx := context.Background()
 	sp := factory.Sponsorship{
 		Repository: 42, GrantedBy: 9, ActorID: 8, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
-		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
+		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, Active: true,
 	}
 	if err := db.SaveSponsorship(ctx, sp); err != nil {
 		t.Fatal(err)

@@ -147,7 +147,7 @@ test('Factory settings render current authority and submit capacity through the 
     await (el as HTMLElement & {updateComplete: Promise<unknown>}).updateComplete;
   });
   assert.match((await page.locator('soda-factory-settings').textContent()) || '', /Factory authority/);
-  assert.match(await page.locator('[data-factory-settings]').innerText(), /Capacity: 2 concurrent runs, 8 queued/);
+  assert.match(await page.locator('[data-factory-settings]').innerText(), /Capacity: 2 concurrent runs/);
 
   await page.getByRole('button', {name: 'Save capacity'}).click();
   await page.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
@@ -164,7 +164,6 @@ test('Factory settings render current authority and submit capacity through the 
       command_id: '<generated>',
       expected_revision: 4,
       max_concurrent_runs: 2,
-      max_queued: 8,
     }
   );
 
@@ -261,9 +260,7 @@ test('first repository policy selects enrolled actors and requires explicit inte
   for (const [name, value] of Object.entries({
     target_branch: 'refs/heads/main',
     required_checks: 'native-ci/check',
-    coder_harness_version: 'fixture',
     coder_model: 'fixture-coder',
-    reviewer_harness_version: 'fixture',
     reviewer_model: 'fixture-reviewer',
   })) {
     await form.locator(`input[name="${name}"]`).fill(value);
@@ -312,10 +309,11 @@ test('repository policy preserves canonical role selections and submits only act
     'soda-coder': {harness: 'muse', harness_version: '1.4.0-R4161.1', model: 'fixture-coder'},
     'soda-reviewer': {harness: 'codex', harness_version: '0.101.0', model: 'fixture-reviewer'},
   };
-  // The factory is Muse-only: saving rewrites a stored non-Muse harness.
+  // The factory is Muse-only: saving rewrites a stored non-Muse harness, and
+  // the harness version comes from the staged pin, so none is submitted.
   const submittedRoles = {
-    'soda-coder': roles['soda-coder'],
-    'soda-reviewer': {...roles['soda-reviewer'], harness: 'muse'},
+    'soda-coder': {harness: 'muse', model: roles['soda-coder'].model},
+    'soda-reviewer': {harness: 'muse', model: roles['soda-reviewer'].model},
   };
   const actors = {
     publish_actor: {actor_id: '41', token_id: '51'},
@@ -330,7 +328,7 @@ test('repository policy preserves canonical role selections and submits only act
         call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET'
           ? Response.json({
               repository: '7',
-              appliance: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+              appliance: {revision: 4, max_concurrent_runs: 2},
               policy: {
                 revision: 6,
                 enabled: true,
@@ -346,7 +344,6 @@ test('repository policy preserves canonical role selections and submits only act
                 attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
                 intent_minutes: 9,
                 reassessment_minutes: 17,
-                max_concurrent: 1,
               },
             })
           : null
@@ -361,9 +358,7 @@ test('repository policy preserves canonical role selections and submits only act
   assert.equal(await form.getByLabel('Intent active minutes', {exact: true}).inputValue(), '9');
   const rendered: Record<string, string> = {};
   const selected = {
-    coder_harness_version: roles['soda-coder'].harness_version,
     coder_model: roles['soda-coder'].model,
-    reviewer_harness_version: roles['soda-reviewer'].harness_version,
     reviewer_model: roles['soda-reviewer'].model,
   };
   for (const [name, value] of Object.entries(selected)) {
@@ -398,7 +393,6 @@ test('repository policy preserves canonical role selections and submits only act
         attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
         intent_minutes: 9,
         reassessment_minutes: 17,
-        max_concurrent: 1,
       },
     }
   );
@@ -411,7 +405,7 @@ test('preparation controls render API evidence and stay closed without server-de
       call.url.endsWith('/api/repositories/7/factory')
         ? Response.json({
             repository: '7',
-            appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+            appliance: {revision: 1, max_concurrent_runs: 1},
             effective: {effective: false, dispatch_open: false, missing: []},
           })
         : call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation')
@@ -469,7 +463,7 @@ test('preparation decisions copy reviewed server preview facts and keep approval
         if (call.method === 'POST' && call.url.endsWith('/preparation/acceptances'))
           return Response.json({head: 'requirement-current'});
         return call.url.endsWith('/api/repositories/7/factory')
-          ? Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0}})
+          ? Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1}})
           : call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation')
             ? Response.json({
                 project: 'test-project',
@@ -573,7 +567,7 @@ test('initial source, exact-input acceptance, operational approval and role prep
       let approvalHead = '';
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/repositories/7/factory'))
-          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0}});
+          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1}});
         if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation'))
           return Response.json({
             project: 'test-project',
@@ -721,7 +715,7 @@ test('a preparation retry after an unconfirmed response reuses both admitted ide
       let prepareCalls = 0;
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/repositories/7/factory'))
-          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0}});
+          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1}});
         if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation'))
           return Response.json({
             project: 'test-project',
@@ -824,7 +818,7 @@ test('reload adopts an exact nonterminal role identity and requires review befor
           let prepareCalls = 0;
           window.drawerFixture.setReply(async (call) => {
             if (call.url.endsWith('/api/repositories/7/factory'))
-              return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0}});
+              return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1}});
             if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation'))
               return Response.json({
                 project: 'test-project',
@@ -931,7 +925,7 @@ test('reaccepting requirements leaves the prior approval stale and blocks prepar
       let requirement = 'requirement-old';
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/repositories/7/factory'))
-          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0}});
+          return Response.json({repository: '7', appliance: {revision: 1, max_concurrent_runs: 1}});
         if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation'))
           return Response.json({
             project: 'test-project',
@@ -995,7 +989,7 @@ test('provider budget and sponsorship use observed connection and grant records 
           repository: '7',
           policy: null,
           operator_grant: null,
-          appliance: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          appliance: {revision: 4, max_concurrent_runs: 2},
           sponsorships: [],
           environment_grant: null,
           preparation: null,
@@ -1066,7 +1060,7 @@ test('provider budget reports a forbidden response and does not repeat the comma
       if (call.url.endsWith('/api/repositories/7/factory'))
         return Response.json({
           repository: '7',
-          appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+          appliance: {revision: 1, max_concurrent_runs: 1},
           sponsorships: [],
           effective: {effective: false, dispatch_open: false, missing: []},
         });
@@ -1341,7 +1335,7 @@ test('Factory settings reload after a tab flap during load instead of sticking b
       repository: '7',
       policy: null,
       operator_grant: null,
-      capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+      capacity: {revision: 4, max_concurrent_runs: 2},
       sponsorships: [],
       environment_grant: null,
       preparation: {project: 'p0123456789abcdef01234567', requirements: '', approval: '', ready: false},
@@ -1364,7 +1358,7 @@ test('Factory settings resume closed dispatch with no open work through the acti
           repository: '7',
           policy: null,
           operator_grant: null,
-          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          capacity: {revision: 4, max_concurrent_runs: 2},
           sponsorships: [],
           environment_grant: null,
           queue: {queued: 0, active: 0},
@@ -1411,7 +1405,7 @@ test('Factory settings refuse a closed-dispatch resume without replaying the com
           repository: '7',
           policy: null,
           operator_grant: null,
-          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          capacity: {revision: 4, max_concurrent_runs: 2},
           sponsorships: [],
           environment_grant: null,
           queue: {queued: 0, active: 0},
@@ -1472,7 +1466,7 @@ test('Factory settings disable dispatch resume without repository write access',
           repository: '7',
           policy: null,
           operator_grant: null,
-          capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+          capacity: {revision: 4, max_concurrent_runs: 2},
           sponsorships: [],
           environment_grant: null,
           queue: {queued: 0, active: 0},
@@ -1503,7 +1497,7 @@ test(
         if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
           return Response.json({
             repository: '7',
-            appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+            appliance: {revision: 1, max_concurrent_runs: 1},
           });
         if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') && call.method === 'GET') {
           await new Promise((resolve) => setTimeout(resolve, 20000));
@@ -1556,7 +1550,7 @@ test(
         if (call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET')
           return Response.json({
             repository: '7',
-            appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
+            appliance: {revision: 1, max_concurrent_runs: 1},
           });
         if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') && call.method === 'GET')
           return new Promise<Response | null>(() => {});

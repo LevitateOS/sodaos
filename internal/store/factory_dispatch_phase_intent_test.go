@@ -140,7 +140,7 @@ func TestDecomposeRootAdmitsThroughDecomposeGuard(t *testing.T) {
 	if allowance.Intent == nil || allowance.Intent.IntentID != intentID || allowance.Intent.OwnerID != 7 {
 		t.Fatalf("intent allowance mis-scoped: %+v", allowance.Intent)
 	}
-	if allowance.Limits.ActiveMinutes != factory.DefaultIntentMinutes || !allowance.Active || allowance.Closed {
+	if allowance.Limits.ActiveMinutes != 30 || !allowance.Active || allowance.Closed {
 		t.Fatalf("intent allowance mis-funded: %+v", allowance.Limits)
 	}
 }

@@ -749,7 +749,6 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		policy.MaxConcurrent = 3
 		if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
 			t.Fatal(err)
 		}

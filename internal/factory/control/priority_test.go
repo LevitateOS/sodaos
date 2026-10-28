@@ -122,7 +122,7 @@ func TestPriorityDispatchSelectsAndRefusesStaleSet(t *testing.T) {
 			fx.queueAt(t, 5, young.ID, time.Now())
 			f := &priorityFixture{choose: func(r factory.PriorityRequest) factory.PriorityAnswer {
 				if stale {
-					if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+					if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 						t.Fatal(err)
 					}
 				}

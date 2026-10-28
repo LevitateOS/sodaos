@@ -23,7 +23,6 @@ type Sponsorship struct {
 	GrantID          string   `json:"grant_id"`
 	ProjectID        string   `json:"project_id"`
 	AllowanceMinutes int      `json:"allowance_minutes"`
-	MaxConcurrent    int      `json:"max_concurrent"`
 	Active           bool     `json:"active"`
 	// Sources admits declared research source refs on this connection
 	// (R10.2). A research subject may only name granted sources; an
@@ -55,7 +54,7 @@ func (s Sponsorship) Validate() error {
 		}
 		seen[role] = true
 	}
-	if s.AllowanceMinutes < 1 || s.AllowanceMinutes > 10080 || s.MaxConcurrent < 1 || s.MaxConcurrent > 8 {
+	if s.AllowanceMinutes < 1 || s.AllowanceMinutes > 10080 {
 		return errors.New("invalid sponsorship allowance")
 	}
 	if len(s.Sources) > MaxGrantEntries {

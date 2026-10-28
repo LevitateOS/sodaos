@@ -154,21 +154,20 @@ func seedPlanFundingWithPreparations(t *testing.T, ctx context.Context, s *store
 		Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge),
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: 30,
-		MaxConcurrent:       2,
 		IntentMinutes:       45,
 	}
 	if err := s.SaveRepositoryPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2, MaxQueued: 10}); err != nil {
+	if err := s.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 1, MaxConcurrent: 2, Active: true}); err != nil {
+	if err := s.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 1, Active: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveSponsorship(ctx, factory.Sponsorship{
 		Repository: 7, GrantedBy: 1, ActorID: 1, ProjectID: proj, Generation: 1, Connection: "conn", GrantID: "grant",
-		Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true,
+		Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, Active: true,
 	}); err != nil {
 		t.Fatal(err)
 	}

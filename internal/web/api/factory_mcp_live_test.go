@@ -132,7 +132,7 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 			actor := func(kind string) factory.ActorBindingRef {
 				return factory.ActorBindingRef{ActorID: 7, TokenID: 1, Kind: kind}
 			}
-			policy := factory.RepositoryPolicy{Repository: 7, GrantedBy: 7, Enabled: true, TargetBranch: "refs/heads/main", Roles: map[string]factory.RoleSelection{project.RoleCoder: selection, project.RoleReviewer: selection}, Checks: []string{"native-check"}, MergeMethod: factory.MergeFastForward, Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate), Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge), AttemptLimits: factory.DefaultAttemptLimits(), ReassessmentMinutes: 10, IntentMinutes: 5, MaxConcurrent: 1}
+			policy := factory.RepositoryPolicy{Repository: 7, GrantedBy: 7, Enabled: true, TargetBranch: "refs/heads/main", Roles: map[string]factory.RoleSelection{project.RoleCoder: selection, project.RoleReviewer: selection}, Checks: []string{"native-check"}, MergeMethod: factory.MergeFastForward, Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate), Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge), AttemptLimits: factory.DefaultAttemptLimits(), ReassessmentMinutes: 10, IntentMinutes: 5}
 			run.Admission = &factory.RunAdmission{Policy: policy, Profile: project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: "amd64", Image: run.Image, Revision: strings.Repeat("e", 40)}, Tool: project.FactoryHarnessPin{Harness: scenario.harness, Version: a.HarnessVers, Image: run.Image, SHA256: strings.Repeat("f", 64)}}
 			if err := run.Validate(); err != nil {
 				t.Fatal("invalid recorded run fixture", err)

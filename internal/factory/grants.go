@@ -123,20 +123,21 @@ func (a ActorBindingRef) Validate() error {
 	return nil
 }
 
-// RoleSelection pins the harness family, version, model and execution
-// profile for one factory role. Only harnesses with their own proof are
-// selectable at dispatch; the policy records the selection without proving
-// it. An omitted profile resolves to the product defaults at policy
-// creation; running snapshots are always explicit.
+// RoleSelection pins the harness family, model and execution profile for
+// one factory role. The harness version comes from the staged pin at
+// dispatch; HarnessVers survives only on records saved before that, where
+// it is the recorded identity of runs admitted without tool proof. An
+// omitted profile resolves to the product defaults at policy creation;
+// running snapshots are always explicit.
 type RoleSelection struct {
 	Profile     ExecutionProfile `json:"profile,omitempty"`
 	Harness     string           `json:"harness"`
-	HarnessVers string           `json:"harness_version"`
+	HarnessVers string           `json:"harness_version,omitempty"`
 	Model       string           `json:"model"`
 }
 
 func (s RoleSelection) Validate() error {
-	if !project.ValidHarnessFamily(s.Harness) || !project.ValidHarnessVersion(s.HarnessVers) {
+	if !project.ValidHarnessFamily(s.Harness) || (s.HarnessVers != "" && !project.ValidHarnessVersion(s.HarnessVers)) {
 		return errors.New("invalid role harness selection")
 	}
 	if s.Model == "" || len(s.Model) > 128 || strings.IndexFunc(s.Model, func(r rune) bool {
@@ -157,8 +158,6 @@ const (
 	MaxRequiredChecks = 32
 	// MaxCheckName bounds one required check name.
 	MaxCheckName = 128
-	// MaxPolicyConcurrent bounds repository execution parallelism.
-	MaxPolicyConcurrent = 32
 )
 
 // ValidTargetBranch reports whether branch is one full native branch ref.
@@ -191,13 +190,6 @@ func EffectiveReassessmentMinutes(minutes int) int {
 	return minutes
 }
 
-// Frozen intent planning allowance default: the explicit funded horizon
-// fixtures and admission carry for one intent decompose root. Unlike the
-// reassessment allowance there is no omission fill: zero is the valid
-// unfunded posture that funds nothing, and funding itself enforces the
-// finite-positive bound from the allowance rule.
-const DefaultIntentMinutes = 30
-
 // RepositoryPolicy is the repository owner's standing factory authorization:
 // enablement, target, role selections, required native checks, merge method,
 // repository limits, the post-completion reassessment allowance and the
@@ -219,7 +211,6 @@ type RepositoryPolicy struct {
 	AttemptLimits       AttemptLimits            `json:"attempt_limits"`
 	ReassessmentMinutes int                      `json:"reassessment_minutes"`
 	IntentMinutes       int                      `json:"intent_minutes"`
-	MaxConcurrent       int                      `json:"max_concurrent"`
 	Enabled             bool                     `json:"enabled"`
 	Paused              bool                     `json:"paused"`
 }
@@ -242,9 +233,6 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if err := checkPolicyBindings(p); err != nil {
 		return err
-	}
-	if p.MaxConcurrent < 1 || p.MaxConcurrent > MaxPolicyConcurrent {
-		return errors.New("invalid repository concurrency limit")
 	}
 	if p.ReassessmentMinutes < MinReassessmentMinutes || p.ReassessmentMinutes > MaxReassessmentMinutes {
 		return errors.New("policy reassessment minutes outside their bound")
@@ -313,14 +301,13 @@ type Capacity struct {
 	Revision          int64 `json:"revision"`
 	UpdatedBy         int64 `json:"updated_by,string"`
 	MaxConcurrentRuns int   `json:"max_concurrent_runs"`
-	MaxQueued         int   `json:"max_queued"`
 }
 
 func (c Capacity) Validate() error {
 	if c.Revision < 0 || c.UpdatedBy <= 0 {
 		return errors.New("invalid capacity identity")
 	}
-	if c.MaxConcurrentRuns < 1 || c.MaxConcurrentRuns > 64 || c.MaxQueued < 0 || c.MaxQueued > 4096 {
+	if c.MaxConcurrentRuns < 1 || c.MaxConcurrentRuns > 64 {
 		return errors.New("invalid appliance capacity limits")
 	}
 	return nil
@@ -355,22 +342,18 @@ func (b ConnectionUsageBudget) Validate() error {
 	return nil
 }
 
-// OperatorGrant permits one repository to use appliance capacity within its
-// own limit. It grants no repository access or merge rights.
+// OperatorGrant permits one repository to use appliance capacity. It
+// grants no repository access or merge rights.
 type OperatorGrant struct {
-	Repository    int64 `json:"repository,string"`
-	Revision      int64 `json:"revision"`
-	GrantedBy     int64 `json:"granted_by,string"`
-	MaxConcurrent int   `json:"max_concurrent"`
-	Active        bool  `json:"active"`
+	Repository int64 `json:"repository,string"`
+	Revision   int64 `json:"revision"`
+	GrantedBy  int64 `json:"granted_by,string"`
+	Active     bool  `json:"active"`
 }
 
 func (g OperatorGrant) Validate() error {
 	if g.Repository <= 0 || g.Revision < 0 || g.GrantedBy <= 0 {
 		return errors.New("invalid operator grant identity")
-	}
-	if g.MaxConcurrent < 1 || g.MaxConcurrent > MaxPolicyConcurrent {
-		return errors.New("invalid operator concurrency limit")
 	}
 	return nil
 }

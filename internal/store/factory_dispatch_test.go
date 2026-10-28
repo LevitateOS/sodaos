@@ -57,10 +57,10 @@ func seedDispatchLimits(t *testing.T, db *Store) {
 	policy := grantTestPolicy()
 	policy.Repository = 7
 	for _, err := range []error{
-		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}),
+		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2}),
 		db.SaveRepositoryPolicy(ctx, policy),
-		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, MaxConcurrent: 2, Active: true}),
-		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, ActorID: 7, ProjectID: dispatchTestProjectID(), Generation: 1, Connection: "conn", GrantID: "grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}),
+		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, Active: true}),
+		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, ActorID: 7, ProjectID: dispatchTestProjectID(), Generation: 1, Connection: "conn", GrantID: "grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, Active: true}),
 	} {
 		if err != nil {
 			t.Fatal(err)
@@ -191,7 +191,7 @@ func dispatchTestPrompt(t *testing.T) []byte {
 		Preparation: "f" + strings.Repeat("b", 24),
 		Harness:     selection.Harness, Model: selection.Model, Role: project.RoleCoder,
 		ProviderConnection: "conn", RequiredChecks: []string{"ci"},
-		ApplianceConcurrent: 2, RepositoryConcurrent: 2, SponsorshipConcurrent: 2, AttemptLimits: factory.DefaultAttemptLimits(),
+		AttemptLimits:  factory.DefaultAttemptLimits(),
 		RequirementsID: "d" + strings.Repeat("e", 24), ApprovalID: "d" + strings.Repeat("f", 24),
 		Title: "objective",
 	})
@@ -385,7 +385,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 	t.Run("capacity", func(t *testing.T) {
 		db := grantStoreFixture(t)
 		seedDispatchLimits(t, db)
-		if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+		if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1}); err != nil {
 			t.Fatal(err)
 		}
 		a, r, run, view := dispatchTestPacket(t, now)

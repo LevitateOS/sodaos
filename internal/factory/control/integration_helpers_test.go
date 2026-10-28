@@ -646,7 +646,6 @@ func grantPolicy() factory.RepositoryPolicy {
 		Merge:               factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
-		MaxConcurrent:       2,
 	}
 }
 
@@ -675,17 +674,17 @@ func grantFullAuthority(t *testing.T, c *Coordinator) {
 		t.Fatal(err)
 	}
 	if _, err := c.ApplyOperatorGrant(ctx, factory.NewID(), "os-uid:0", 0,
-		factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true, MaxConcurrent: 2}); err != nil {
+		factory.OperatorGrant{Repository: 42, GrantedBy: 1, Active: true}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c.ApplyCapacity(ctx, factory.NewID(), "os-uid:0", 0,
-		factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2, MaxQueued: 4}); err != nil {
+		factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c.ApplySponsorship(ctx, factory.NewID(), "native:9", 0,
 		factory.Sponsorship{
 			Repository: 42, GrantedBy: 9, ActorID: 9, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
-			Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
+			Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, Active: true,
 		}); err != nil {
 		t.Fatal(err)
 	}

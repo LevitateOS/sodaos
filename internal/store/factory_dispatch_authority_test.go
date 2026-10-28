@@ -46,7 +46,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			policy.MaxConcurrent++
 			if err := db.SaveRepositoryPolicy(context.Background(), policy); err != nil {
 				t.Fatal(err)
 			}
@@ -55,7 +54,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				policy.MaxConcurrent = 2
 				if err := db.SaveRepositoryPolicy(context.Background(), policy); err != nil {
 					t.Fatal(err)
 				}
@@ -66,7 +64,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			grant.MaxConcurrent++
 			if err := db.SaveOperatorGrant(context.Background(), grant); err != nil {
 				t.Fatal(err)
 			}
@@ -75,7 +72,6 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				grant.MaxConcurrent = 2
 				if err := db.SaveOperatorGrant(context.Background(), grant); err != nil {
 					t.Fatal(err)
 				}

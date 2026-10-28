@@ -859,7 +859,6 @@ export class SodaFactorySettings extends LitElement {
       command_id: factoryCommandId(),
       expected_revision: Number(capacity.revision || 0),
       max_concurrent_runs: integer(form, 'max_concurrent_runs', 1),
-      max_queued: integer(form, 'max_queued'),
     });
   };
 
@@ -908,7 +907,6 @@ export class SodaFactorySettings extends LitElement {
         generation: safeNumber(this.view.connections.find((item) => item.id === connection)?.generation, 0),
         roles,
         allowance_minutes: integer(form, 'allowance_minutes', 1),
-        max_concurrent: integer(form, 'max_concurrent', 1),
         active: inputChecked(form, 'sponsorship_active'),
       }
     );
@@ -922,7 +920,6 @@ export class SodaFactorySettings extends LitElement {
     await this.request(`/api/repositories/${context.repository}/factory/operator-grant`, 'PUT', {
       command_id: factoryCommandId(),
       expected_revision: Number(grant.revision || 0),
-      max_concurrent: integer(form, 'operator_concurrent', 1),
       active: inputChecked(form, 'operator_active'),
     });
   };
@@ -976,12 +973,10 @@ export class SodaFactorySettings extends LitElement {
     const roles = {
       'soda-coder': {
         harness: FACTORY_HARNESS,
-        harness_version: inputValue(form, 'coder_harness_version'),
         model: inputValue(form, 'coder_model'),
       },
       'soda-reviewer': {
         harness: FACTORY_HARNESS,
-        harness_version: inputValue(form, 'reviewer_harness_version'),
         model: inputValue(form, 'reviewer_model'),
       },
     };
@@ -1010,7 +1005,6 @@ export class SodaFactorySettings extends LitElement {
       },
       intent_minutes: integer(form, 'intent_minutes'),
       reassessment_minutes: policy.reassessment_minutes ?? 30,
-      max_concurrent: integer(form, 'policy_concurrent', 1),
     };
   }
 
@@ -1123,8 +1117,7 @@ export class SodaFactorySettings extends LitElement {
   private renderCapacitySummary(status: Record<string, unknown>) {
     const capacity = asObject(status.appliance || status.capacity || {});
     return html`<p>
-      Capacity: ${capacity.max_concurrent_runs ?? 'unset'} concurrent runs, ${capacity.max_queued ?? 'unset'} queued
-      (revision ${capacity.revision ?? 0}).
+      Capacity: ${capacity.max_concurrent_runs ?? 'unset'} concurrent runs (revision ${capacity.revision ?? 0}).
     </p>`;
   }
 
@@ -1409,7 +1402,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <form data-action="capacity" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('capacity')}>
           ${this.numberInput('Concurrent runs', 'max_concurrent_runs', safeNumber(capacity.max_concurrent_runs, 1))}
-          ${this.numberInput('Queued runs', 'max_queued', safeNumber(capacity.max_queued, 0))}
           ${this.submitButton('Save capacity')}
         </fieldset>
       </form>
@@ -1423,7 +1415,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <legend>Project grants</legend>
       <form data-action="operator-grant" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
-          ${this.numberInput('Operator concurrent limit', 'operator_concurrent', safeNumber(operator.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="operator_active" .checked=${operator.active === true} /> Active operator
             grant</label
@@ -1457,16 +1448,13 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.renderPolicyBindings(policy)}
           ${this.textInput('Target branch ref', 'target_branch', safeText(policy.target_branch))}
           ${this.textInput('Required checks (comma separated)', 'required_checks', Array.isArray(policy.required_checks) ? policy.required_checks.join(', ') : '')}
-          <p>Factory workers run on Muse.</p>
-          ${this.textInput('Coder Muse version', 'coder_harness_version', safeText(coder.harness_version))}
+          <p>Factory workers run on the staged Muse version.</p>
           ${this.textInput('Coder model', 'coder_model', safeText(coder.model))}
-          ${this.textInput('Reviewer Muse version', 'reviewer_harness_version', safeText(reviewer.harness_version))}
           ${this.textInput('Reviewer model', 'reviewer_model', safeText(reviewer.model))}
           ${this.numberInput('Intent active minutes', 'intent_minutes', safeNumber(policy.intent_minutes, 0))}
           <p>Zero leaves intent planning unfunded.</p>
           ${this.numberInput('Active minutes per attempt', 'active_minutes', safeNumber(limits.active_minutes, 120))}
           ${this.numberInput('Correction cycles', 'correction_cycles', safeNumber(limits.correction_cycles, 3))}
-          ${this.numberInput('Repository concurrent limit', 'policy_concurrent', safeNumber(policy.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="policy_enabled" .checked=${policy.enabled === true} /> Enable automatic
             factory dispatch</label
@@ -1540,7 +1528,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           <label><input type="checkbox" name="coder" .checked=${roles.includes('soda-coder')} /> Builder</label>
           <label><input type="checkbox" name="reviewer" .checked=${roles.includes('soda-reviewer')} /> Inspector</label>
           ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 60))}
-          ${this.numberInput('Concurrent sessions', 'max_concurrent', safeNumber(sponsorship.max_concurrent, 1))}
           <label
             ><input type="checkbox" name="sponsorship_active" .checked=${sponsorship.active === true} /> Allow Factory
             to use this account</label

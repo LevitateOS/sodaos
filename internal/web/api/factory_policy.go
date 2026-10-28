@@ -23,7 +23,6 @@ type factoryPolicyRequest struct {
 	ExpectedRevision    int64                            `json:"expected_revision"`
 	ReassessmentMinutes int                              `json:"reassessment_minutes"`
 	IntentMinutes       int                              `json:"intent_minutes"`
-	MaxConcurrent       int                              `json:"max_concurrent"`
 	Enabled             bool                             `json:"enabled"`
 	Paused              bool                             `json:"paused"`
 }
@@ -69,7 +68,7 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		Repository: repository, Revision: in.ExpectedRevision, GrantedBy: v.User.ID,
 		Enabled: in.Enabled, Paused: in.Paused, TargetBranch: in.TargetBranch, Roles: in.Roles,
 		Checks: in.RequiredChecks, MergeMethod: in.MergeMethod,
-		Publish: publish, Create: create, Review: review, Resolve: resolve, Merge: merge, MaxConcurrent: in.MaxConcurrent,
+		Publish: publish, Create: create, Review: review, Resolve: resolve, Merge: merge,
 		AttemptLimits: factory.EffectiveAttemptLimits(in.AttemptLimits),
 		// Omission resolves to the D13 default so the stored record always
 		// carries its admitted reassessment allowance explicitly.
@@ -94,7 +93,6 @@ type factoryCapacityRequest struct {
 	CommandID         string `json:"command_id"`
 	ExpectedRevision  int64  `json:"expected_revision"`
 	MaxConcurrentRuns int    `json:"max_concurrent_runs"`
-	MaxQueued         int    `json:"max_queued"`
 }
 
 func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -111,7 +109,7 @@ func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store
 	}
 	capacity := factory.Capacity{
 		Revision: in.ExpectedRevision, UpdatedBy: v.User.ID,
-		MaxConcurrentRuns: in.MaxConcurrentRuns, MaxQueued: in.MaxQueued,
+		MaxConcurrentRuns: in.MaxConcurrentRuns,
 	}
 	if capacity.Revision < 0 || capacity.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_capacity", "Appliance capacity is incomplete or invalid.")
@@ -128,7 +126,6 @@ func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store
 type factoryOperatorGrantRequest struct {
 	CommandID        string `json:"command_id"`
 	ExpectedRevision int64  `json:"expected_revision"`
-	MaxConcurrent    int    `json:"max_concurrent"`
 	Active           bool   `json:"active"`
 }
 
@@ -143,7 +140,7 @@ func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v 
 	}
 	grant := factory.OperatorGrant{
 		Repository: repository, Revision: in.ExpectedRevision,
-		GrantedBy: v.User.ID, Active: in.Active, MaxConcurrent: in.MaxConcurrent,
+		GrantedBy: v.User.ID, Active: in.Active,
 	}
 	if grant.Revision < 0 || grant.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_operator_grant", "Operator grant is incomplete or invalid.")
