@@ -141,7 +141,8 @@ test('Opening Applications loads current status, fences double Start and require
   await page.getByText('Outcome unconfirmed. Inspect the application before acting again.', {exact: true}).waitFor();
   assert.equal(await page.getByText('private diagnostic', {exact: true}).count(), 0);
   assert(await page.getByRole('button', {name: 'Start Example', exact: true}).isDisabled());
-  assert.equal(await page.getByRole('link', {name: /Open application/}).count(), 1);
+  // An unconfirmed outcome is not Ready: no Open app link until readiness is confirmed.
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
 });
 
 test('suspended or replaced session discards pending application data without replaying an action', async (t) => {
@@ -277,7 +278,7 @@ test('App distinguishes unavailable, loading and empty inventory and offers read
   );
   await page.getByRole('button', {name: 'Open Work', exact: true}).click();
   assert.deepEqual(await workOpen, {repository: '7'});
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   assert.equal(await page.evaluate(() => window.applicationFixture.calls.some((call) => !!call.body)), false);
   const emptyStatus = await statusRegion();
   assert.equal(emptyStatus.role, 'status');
@@ -347,10 +348,9 @@ test('operator backup and Restore require explicit actions and reconcile the dur
   assert.equal(restores.length, 2);
   assert.deepEqual(restores[0]?.body, restores[1]?.body);
   assert.equal(restores[0]?.body?.snapshot, 'a' + '8'.repeat(24));
-  assert.equal(
-    await page.getByRole('link', {name: /Open application/}).getAttribute('href'),
-    'https://app.example.test'
-  );
+  // Restored at the same address, but stopped: no Open app link until it is started and Ready.
+  assert.equal(await page.locator('.soda-application-origin').first().textContent(), 'https://app.example.test');
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
   assert.equal(await page.getByText('lost reply', {exact: true}).count(), 0);
 });
 
@@ -366,7 +366,7 @@ test('operator first-owner setup uses an ephemeral app link and finishes the sam
   await page.waitForFunction(() => window.applicationFixture.calls.some((c) => c.body?.action === 'inspect'));
   assert(
     await page.evaluate(() => {
-      const app = document.querySelector('soda-application-surface'),
+      const app = document.querySelector('.soda-application-card'),
         administration = document.querySelector('.soda-application-administration');
       return !!(
         app &&
@@ -788,12 +788,12 @@ test('a selected delivery opens only its verified application and makes switchin
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'Start Example', exact: true}).count(), 0);
   await page.evaluate(() => {
     window.applicationFixture.element.requestedDelivery = 'delivery-current';
   });
-  await page.locator('soda-application-surface').waitFor();
+  await page.locator('.soda-application-card').waitFor();
   await page.evaluate(() => {
     window.applicationFixture.element.requestedDelivery = 'delivery-older';
   });
@@ -804,7 +804,7 @@ test('a selected delivery opens only its verified application and makes switchin
     )
     .waitFor();
   await page.getByRole('button', {name: 'Open current company application', exact: true}).click();
-  await page.locator('soda-application-surface').waitFor();
+  await page.locator('.soda-application-card').waitFor();
   assert.equal(await page.evaluate(() => window.applicationFixture.element.requestedDelivery), '');
   assert.equal(
     await page.evaluate(
@@ -852,8 +852,20 @@ test('ordinary employee opens the exact verified result without lifecycle contro
     app.requestedDelivery = 'b'.repeat(32);
     app.expanded = true;
   });
-  await page.locator('soda-application-surface iframe').waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').getAttribute('src'), 'https://app.example.test');
+  await page.getByRole('link', {name: 'Open app ↗', exact: true}).waitFor();
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('href'),
+    'https://app.example.test'
+  );
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('target'), '_blank');
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('rel'),
+    'noopener noreferrer'
+  );
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('referrerpolicy'),
+    'no-referrer'
+  );
   await page
     .getByText(
       'Accounts and saved data live with this application at its address, separate from Soda Forge. An operator manages its setup and updates.',
@@ -873,7 +885,7 @@ test('ordinary employee opens the exact verified result without lifecycle contro
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   await page.evaluate(() => {
     const app = window.applicationFixture.element;
     app.repository = '8';
@@ -885,11 +897,11 @@ test('ordinary employee opens the exact verified result without lifecycle contro
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   await page.evaluate(() => {
     window.applicationFixture.element.repository = '7';
   });
-  await page.locator('soda-application-surface iframe').waitFor();
+  await page.getByRole('link', {name: 'Open app ↗', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => window.applicationFixture.calls.some((call) => !!call.body)), false);
   await page.evaluate(() => {
     const app = window.applicationFixture.element,
@@ -906,7 +918,7 @@ test('ordinary employee opens the exact verified result without lifecycle contro
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').count(), 0);
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
   await page.getByText('Preview · separate data', {exact: false}).waitFor();
   await page.evaluate(() => {
     const app = window.applicationFixture.element,
@@ -923,7 +935,7 @@ test('ordinary employee opens the exact verified result without lifecycle contro
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').count(), 0);
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
   assert.equal(await page.getByRole('button', {name: 'Start Example', exact: true}).count(), 0);
   assert.equal(await page.evaluate(() => window.applicationFixture.calls.some((call) => !!call.body)), false);
 });
@@ -998,8 +1010,20 @@ test('a selected delivery shows only its exact version while other verified vers
   });
   await page.locator('.soda-application-heading').getByText('Example-v1', {exact: true}).waitFor();
   assert.equal(await page.locator('.soda-application-heading').getByText('Example-v2', {exact: true}).count(), 0);
-  assert.equal(await page.locator('soda-application-surface').count(), 1);
-  assert.equal(await page.locator('soda-application-surface iframe').getAttribute('src'), 'https://app1.example.test');
+  assert.equal(await page.locator('.soda-application-card').count(), 1);
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('href'),
+    'https://app1.example.test'
+  );
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('target'), '_blank');
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('rel'),
+    'noopener noreferrer'
+  );
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('referrerpolicy'),
+    'no-referrer'
+  );
   assert.equal(await page.getByRole('button', {name: 'Start Example-v2', exact: true}).count(), 0);
   await page.evaluate(() => {
     window.applicationFixture.element.requestedDelivery = 'd'.repeat(32);
@@ -1010,13 +1034,15 @@ test('a selected delivery shows only its exact version while other verified vers
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   assert.equal(await page.locator('.soda-application-heading').getByText('Example-v1', {exact: true}).count(), 0);
   assert.equal(await page.locator('.soda-application-heading').getByText('Example-v2', {exact: true}).count(), 0);
   await page.getByRole('button', {name: 'Open current company application', exact: true}).click();
   await page.locator('.soda-application-heading').getByText('Example-v1', {exact: true}).waitFor();
   await page.locator('.soda-application-heading').getByText('Example-v2', {exact: true}).waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 2);
+  assert.equal(await page.locator('.soda-application-card').count(), 2);
+  // Only the ready exact version is linked; the unready one shows its status.
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 1);
   assert.equal(await page.evaluate(() => window.applicationFixture.element.requestedDelivery), '');
   assert.equal(
     await page.evaluate(
@@ -1093,7 +1119,7 @@ test('browser reload retains the selected delivery for the same project and acto
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   // The unknown selection survives a second reload with the same truthful notice.
   await page.reload();
   await page.waitForFunction(() => typeof window.createWorkspaceDeliveryFixture === 'function');
@@ -1112,7 +1138,7 @@ test('browser reload retains the selected delivery for the same project and acto
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface').count(), 0);
+  assert.equal(await page.locator('.soda-application-card').count(), 0);
   // An invalid delivery ID is rejected and clears the retained selection.
   await page.evaluate(() => {
     document.querySelector('soda-spaces')?.dispatchEvent(
@@ -2920,7 +2946,7 @@ test('failed status sweep clears the stale Ready observation instead of keeping 
         observation?: {running: boolean; ready: boolean} | null;
         can_embed?: boolean;
       };
-      // Serve a Ready record so the passing sweep enables the iframe. The
+      // Serve a Ready record so the passing sweep enables the Open app link. The
       // fixture parks non-start actions as stopped, so force both the
       // inventory rows and the single-record inspect echo back to Ready.
       for (const row of result.applications ?? []) {
@@ -2938,10 +2964,22 @@ test('failed status sweep clears the stale Ready observation instead of keeping 
     };
   });
   await page.getByText('Applications', {exact: true}).click();
-  // Passing path: the sweep confirms Ready and enables the iframe.
+  // Passing path: the sweep confirms Ready and enables the Open app link.
   await page.getByText('Last observed: Ready', {exact: true}).waitFor();
-  await page.locator('soda-application-surface iframe').waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').getAttribute('src'), 'https://app.example.test');
+  await page.getByRole('link', {name: 'Open app ↗', exact: true}).waitFor();
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('href'),
+    'https://app.example.test'
+  );
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('target'), '_blank');
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('rel'),
+    'noopener noreferrer'
+  );
+  assert.equal(
+    await page.getByRole('link', {name: 'Open app ↗', exact: true}).getAttribute('referrerpolicy'),
+    'no-referrer'
+  );
   // The native inspection now fails: the sweep must clear the stale Ready
   // observation back to unknown instead of keeping Ready controls.
   await page.evaluate(() => {
@@ -2952,7 +2990,7 @@ test('failed status sweep clears the stale Ready observation instead of keeping 
     .getByText('Some application status checks failed. Open the app or refresh to try again.', {exact: true})
     .waitFor();
   await page.getByText('Last observed: State unknown', {exact: true}).waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').count(), 0);
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
   // Exact record identity survives: the same application row, no auto-Start.
   assert.equal(await page.locator('.soda-application-heading').getByText('Example', {exact: true}).count(), 1);
   assert.equal(
@@ -3012,7 +3050,7 @@ test('ordinary employee with unconfirmed availability gets an operator handoff i
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.locator('soda-application-surface iframe').count(), 0);
+  assert.equal(await page.getByRole('link', {name: 'Open app ↗', exact: true}).count(), 0);
   await page.getByRole('button', {name: 'Refresh applications', exact: true}).click();
   await page.waitForTimeout(300);
   await page
@@ -3900,7 +3938,7 @@ test('opening the current company application shows only the company surface', a
     await page.locator('.soda-application-heading').getByText('Example-unconfirmed', {exact: true}).count(),
     0
   );
-  assert.equal(await page.locator('soda-application-surface').count(), 1);
+  assert.equal(await page.locator('.soda-application-card').count(), 1);
   assert.equal(await page.evaluate(() => window.applicationFixture.element.requestedDelivery), '');
   // Selecting an exact delivery leaves the company scope for the exact view.
   await page.evaluate(() => {

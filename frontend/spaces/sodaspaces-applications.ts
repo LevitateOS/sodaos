@@ -2,7 +2,6 @@ import {LitElement, html} from 'lit';
 import './sodaspaces-application-setup.js';
 import type {SodaApplicationSetup} from './sodaspaces-application-setup.js';
 import './sodaspaces-application-delivery.js';
-import './sodaspaces-application-surface.js';
 import type {PropertyValues} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {
@@ -17,7 +16,8 @@ import type {
   ApplicationEnvironment,
 } from './sodaspaces-application-response.js';
 import {check, object, id, SodaRequestError} from './sodaspaces-api.js';
-import type {ApplicationState} from './sodaspaces-application-surface.js';
+
+type ApplicationState = ApplicationLaunchRecord['state'];
 
 export type ApplicationRequest = (
   path: string,
@@ -254,7 +254,7 @@ export class SodaApplications extends LitElement {
       } catch {
         if (!this.current(epoch)) break;
         // A failed status read leaves the runtime unknown: clear the stale
-        // prior observation so a formerly Ready app cannot keep its iframe or
+        // prior observation so a formerly Ready app cannot keep its Open app link or
         // Start–Stop enabled on unconfirmed data (same as per-record Inspect).
         this.records = this.records.map((row) =>
           row.application.id === record.application.id ? {...row, observation: null} : row
@@ -551,7 +551,7 @@ export class SodaApplications extends LitElement {
         Accounts and saved data live with this application at its address, separate from Soda Forge.
         ${record.operator ? 'You are an operator of this application.' : 'An operator manages its setup and updates.'}
       </p>
-      ${this.appSurface(record.application, this.appState(record), record.can_embed === true, record.environment, true)}
+      ${this.appCard(record.application, this.appState(record), record.environment, true)}
       ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : html`<p>No project linked.</p>`}
       <details
         @toggle=${(event: Event) => {
@@ -574,7 +574,6 @@ export class SodaApplications extends LitElement {
         >
       </details>
       <div class="soda-application-actions">
-        ${this.openApplication(record)}
         ${record.operator && record.observation && !record.observation.container ? html`<button type="button" class="ui button" ?disabled=${this.blocked()} @click=${() => void this.act(record, 'install')}>Install ${record.application.name}</button>` : ''}
         <button
           type="button"
@@ -669,32 +668,60 @@ export class SodaApplications extends LitElement {
   private stopBlocked(record: ApplicationRecord) {
     return this.blocked() || !!record.restore || !record.observation?.running;
   }
-  private openApplication(record: ApplicationRecord) {
-    return this.openLink(record.application.name, record.application.origin);
-  }
-  private openLink(name: string, origin: string) {
-    return html`<a class="ui primary button" href=${origin} target="_blank" rel="noopener noreferrer"
-      >Open application ↗</a
+  // The app runs at its own origin in its own browser tab. Forge never embeds
+  // it, never receives its accounts or data, and opening performs no lifecycle
+  // action. Only a confirmed-ready app in a confirmed environment is linked.
+  private openApplication(application: ApplicationLaunchRecord['application']) {
+    return html`<a
+      class="ui primary button"
+      href=${application.origin}
+      target="_blank"
+      rel="noopener noreferrer"
+      referrerpolicy="no-referrer"
+      >Open app ↗</a
     >`;
   }
-  private appSurface(
+  private appCard(
     application: ApplicationLaunchRecord['application'],
     state: ApplicationState,
-    embeddable: boolean,
     environment: ApplicationEnvironment,
     canInspect: boolean
   ) {
-    return html`<soda-application-surface
-      .name=${application.name}
-      .origin=${application.origin}
-      .revision=${application.revision}
-      .state=${state}
-      .embeddable=${embeddable}
-      .canInspect=${canInspect}
-      .active=${this.active}
-      .sessionKey=${this.sessionKey}
-      .environment=${environment}
-    ></soda-application-surface>`;
+    const usable = this.active && state === 'ready' && environment !== 'unknown';
+    const readiness =
+      state === 'ready' && environment !== 'unknown'
+        ? 'Ready'
+        : state === 'running' || state === 'not-installed'
+          ? 'Setting up'
+          : 'Unavailable';
+    return html`<section class="soda-application-card" aria-label=${application.name + ' application'}>
+      <p>
+        ${application.name} · version ${application.revision} · ${this.environmentLabel(environment)} ·
+        <span class="soda-application-status">${readiness}</span>
+      </p>
+      <p>Runs at its own address with its own accounts and data.</p>
+      ${
+        usable
+          ? html`<div class="soda-application-actions">${this.openApplication(application)}</div>`
+          : html`<p role="status">${this.unavailable(state, environment, canInspect)}</p>`
+      }
+    </section>`;
+  }
+  private unavailable(state: ApplicationState, environment: ApplicationEnvironment, canInspect: boolean) {
+    if (environment === 'unknown')
+      return 'The application environment could not be confirmed. Refresh before entering company or sample data.';
+    if (!this.active) return 'Reconnect to Soda Forge, then reopen this application.';
+    if (state === 'stopped')
+      return 'This application is stopped. Its administrator can start it; your saved work is retained.';
+    if (state === 'not-installed')
+      return 'Application setup is not complete. An operator must finish setup before its administrator can start it.';
+    if (state === 'running')
+      return canInspect
+        ? 'The application is running, but readiness has not been confirmed. Refresh applications to check its availability.'
+        : 'The application is running, but readiness has not been confirmed. An operator can inspect its live status; Refresh applications only rereads the last stored status.';
+    return canInspect
+      ? 'Availability is unconfirmed. Refresh application status before continuing.'
+      : 'Availability is unconfirmed. An operator can inspect the application; Refresh applications only rereads the last stored status.';
   }
   private appState(record: ApplicationRecord): 'ready' | 'running' | 'stopped' | 'not-installed' | 'unknown' {
     if (record.restore) return 'unknown';
@@ -723,7 +750,7 @@ export class SodaApplications extends LitElement {
         its setup and updates.
       </p>
       ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : ''}
-      ${this.appSurface(record.application, state, record.can_embed, record.environment, false)}
+      ${this.appCard(record.application, state, record.environment, false)}
     </li>`;
   }
   private replaceApplication(record: ApplicationRecord, event: SubmitEvent) {
@@ -1063,7 +1090,11 @@ export class SodaApplications extends LitElement {
       </ul>
       ${
         this.canSetup
-          ? html`<details class="soda-application-administration" ?open=${!!this.requestedDelivery} @application-setup-complete=${(event: Event) => this.onSetupComplete(event)}>
+          ? html`<details
+              class="soda-application-administration"
+              ?open=${!!this.requestedDelivery}
+              @application-setup-complete=${(event: Event) => this.onSetupComplete(event)}
+            >
               <summary>Prepare or update an application</summary>
               <soda-application-delivery
                 .request=${this.request}

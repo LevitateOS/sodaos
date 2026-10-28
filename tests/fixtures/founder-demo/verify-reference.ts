@@ -241,10 +241,21 @@ try {
   const opened: any = {};
   async function openActor(name: string) {
     const context = await browser.newContext({ignoreHTTPSErrors: true});
-    const page = await context.newPage();
+    const forge = await context.newPage();
+    forge.on('pageerror', (error: any) => console.log(JSON.stringify({pageError: error.message.slice(0, 200)})));
+    await forge.goto(forgeOrigin);
+    // Forge shows only the app's status and a link; the app runs at its own
+    // origin in its own tab, never inside Forge.
+    const link = forge.getByRole('link', {name: 'Open app ↗', exact: true});
+    await link.waitFor();
+    assert.equal(await link.getAttribute('href'), appOrigin, 'Forge links the exact app origin');
+    assert.equal(await link.getAttribute('target'), '_blank');
+    assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+    assert.equal(await forge.locator('iframe').count(), 0, 'Forge does not embed the app');
+    const [page] = await Promise.all([context.waitForEvent('page'), link.click()]);
     page.on('pageerror', (error: any) => console.log(JSON.stringify({pageError: error.message.slice(0, 200)})));
-    await page.goto(forgeOrigin);
-    await page.locator('soda-application-surface iframe').waitFor();
+    await page.waitForLoadState();
+    assert.equal(new URL(page.url()).origin, appOrigin, 'app opened at its own origin in a new page');
     page.on('response', async (response: any) => {
       const url = new URL(response.url());
       if (response.status() >= 400 || url.pathname.endsWith('request_equipment')) {
@@ -260,7 +271,7 @@ try {
         } catch {}
       }
     });
-    const frame = page.frameLocator('soda-application-surface iframe'),
+    const frame = page,
       actor = actors[name]!;
     await frame.getByLabel('Email', {exact: true}).fill(actor.email);
     await frame.getByLabel('Password', {exact: true}).fill(actor.password);
@@ -275,7 +286,7 @@ try {
       await frame.getByRole('button', {name: 'Select team', exact: true}).click();
     }
     await frame.getByRole('heading', {name: 'Northstar equipment', exact: true}).waitFor();
-    return (opened[name] = {context, page, frame});
+    return (opened[name] = {context, forge, page, frame});
   }
   function operationId() {
     const bytes = randomBytes(16);
@@ -387,8 +398,9 @@ try {
   assert.equal((await op(maya, 'NorthstarEquipment.deliver', {request: reference(monitor)})).status, 200);
   monitor = await rowAfter(alex, monitor.id);
   assert.equal(monitor.data.stage, 'delivered');
-  await alex.page.click('#feed');
-  await alex.page.click('#app');
+  await alex.forge.click('#feed');
+  await alex.forge.click('#app');
+  await alex.forge.getByRole('link', {name: 'Open app ↗', exact: true}).waitFor();
   await alex.frame.getByText('Retained monitor', {exact: false}).first().waitFor();
   await alex.page.reload();
   await alex.frame.getByText('Retained monitor', {exact: false}).first().waitFor();
@@ -497,11 +509,12 @@ try {
       history_regions: historyCount,
     })
   );
-  await alex.page.screenshot({path: state + '/inside-forge.png', fullPage: true});
+  await alex.page.screenshot({path: state + '/app-own-tab.png', fullPage: true});
   await writeFile(
     state + '/result.json',
     JSON.stringify({
-      inside_forge: true,
+      inside_forge: false,
+      own_origin_tab: true,
       real_canlang_login: true,
       reference_fixture: true,
       company_data: state + '/data',
