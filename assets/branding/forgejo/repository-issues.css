@@ -312,3 +312,14 @@
   height: 0;
   margin-block: 16px;
 }
+
+/* SodaOS: the issue's Factory status link, under its title. */
+.soda-repo-thread-factory {
+  margin: -8px 0 16px;
+}
+
+.soda-repo-thread-factory a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

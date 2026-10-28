@@ -121,6 +121,8 @@
   "templates/custom/soda/milestone_row.tmpl": "frontend/forgejo/templates/custom/soda/milestone_row.tmpl",
   "templates/custom/soda/notification_preview.tmpl": "frontend/forgejo/templates/custom/soda/notification_preview.tmpl",
   "templates/custom/soda/page_intro.tmpl": "frontend/forgejo/templates/custom/soda/page_intro.tmpl",
+  "templates/custom/soda/places.tmpl": "frontend/forgejo/templates/custom/soda/places.tmpl",
+  "templates/custom/soda/places_attr.tmpl": "frontend/forgejo/templates/custom/soda/places_attr.tmpl",
   "templates/custom/soda/profile_block_dialog.tmpl": "frontend/forgejo/templates/custom/soda/profile_block_dialog.tmpl",
   "templates/custom/soda/profile_repositories.tmpl": "frontend/forgejo/templates/custom/soda/profile_repositories.tmpl",
   "templates/custom/soda/theme_toggle.tmpl": "frontend/forgejo/templates/custom/soda/theme_toggle.tmpl",

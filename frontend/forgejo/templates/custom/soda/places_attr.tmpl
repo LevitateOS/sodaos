@@ -1,0 +1,35 @@
+{{- /* Attribute-text parts of the SodaOS places (html/template escapes a
+     partial per calling context, so text used inside attributes lives here,
+     apart from the element parts in custom/soda/places). The derivation
+     below is a copy of the one in custom/soda/places; keep them identical.
+     Parts: "issues-active" and "settings-active" print "active " for the
+     header class; "feed-url" prints the repository's SodaOS Feed address. */ -}}
+{{- $p := .Page -}}{{- $part := .Part -}}
+{{- $soda := "" -}}{{- $sodaExtension := "" -}}
+{{- with $p.ExtensionPages}}{{range index . "repository"}}{{if and (eq .ID "repository-feed") (eq .Title "SodaOS")}}{{$soda = .URL}}{{$sodaExtension = .ExtensionID}}{{end}}{{end}}{{end -}}
+{{- $here := $p.ExtensionPageURL -}}{{- if and (not $here) $p.PageIsExtension}}{{$here = $p.Link}}{{end -}}
+{{- $feed := $soda -}}{{- $requests := "" -}}{{- $app := "" -}}{{- $terminals := "" -}}{{- $knowledge := "" -}}{{- $settings := "" -}}{{- $issues := "" -}}{{- $factory := "" -}}
+{{- if $soda -}}
+	{{- if eq $soda (print $p.RepoLink "/workspace") -}}
+		{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/issues" -}}
+		{{- with $p.Issue}}{{$factory = print $soda "/issues/" .Index}}{{end -}}
+	{{- else -}}
+		{{- range index $p.ExtensionPages "repository"}}{{if eq .ExtensionID $sodaExtension -}}
+			{{- if eq .URL (print $p.RepoLink "/feed")}}{{$feed = .URL}}{{end -}}
+			{{- if eq .URL (print $p.RepoLink "/requests")}}{{$requests = .URL}}{{end -}}
+			{{- if eq .URL (print $p.RepoLink "/app")}}{{$app = .URL}}{{end -}}
+			{{- if eq .URL (print $p.RepoLink "/terminals")}}{{$terminals = .URL}}{{end -}}
+			{{- if eq .URL (print $p.RepoLink "/knowledge")}}{{$knowledge = .URL}}{{end -}}
+			{{- if eq .URL (print $p.RepoLink "/settings/sodaos")}}{{$settings = .URL}}{{end -}}
+		{{- end}}{{end -}}
+		{{- $issues = print $p.RepoLink "/issues/" -}}
+		{{- with $p.Issue}}{{$factory = print $p.RepoLink "/issues/" .Index "/factory"}}{{end -}}
+	{{- end -}}
+{{- end -}}
+{{- if eq $part "issues-active" -}}
+	{{- if and $issues (StringUtils.HasPrefix $here $issues)}}active {{end -}}
+{{- else if eq $part "settings-active" -}}
+	{{- if and $settings (StringUtils.HasPrefix $here $settings)}}active {{end -}}
+{{- else if eq $part "feed-url" -}}
+	{{- $feed -}}
+{{- end -}}

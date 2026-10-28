@@ -101,19 +101,19 @@
 	<overflow-menu class="ui container secondary pointing tabular top attached borderless menu tw-pt-0 tw-my-0">
 		{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
 			<div class="overflow-menu-items">
-				{{with .ExtensionPages}}{{range index . "repository"}}
-					{{if ne .Permission "admin"}}
-					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{if eq .ID "repository-feed"}}{{svg "octicon-rss"}} {{end}}{{.Title}}</a>
-					{{end}}
-				{{end}}{{end}}
+				{{/* SodaOS places (Requests · Feed · App, then Terminals · Knowledge after
+				     Pull requests) render only for the "SodaOS" manifest; otherwise the
+				     generic loop lists every extension tab. See custom/soda/places. */}}
+				{{template "custom/soda/places" (dict "Page" $ "Part" "generic")}}
 				{{if .Permission.CanRead $.UnitTypeCode}}
 					<a class="{{if .PageIsViewCode}}active {{end}}item" href="{{.RepoLink}}{{if and (ne .BranchName .Repository.DefaultBranch) (not $.PageIsWiki)}}/src/{{.BranchNameSubURL}}{{end}}">
 						{{svg "octicon-code"}} {{ctx.Locale.Tr "repo.code"}}
 					</a>
 				{{end}}
+				{{template "custom/soda/places" (dict "Page" $ "Part" "lead")}}
 
 				{{if .Permission.CanRead $.UnitTypeIssues}}
-					<a class="{{if .PageIsIssueList}}active {{end}}item" href="{{.RepoLink}}/issues">
+					<a class="{{if .PageIsIssueList}}active {{else}}{{template "custom/soda/places_attr" (dict "Page" $ "Part" "issues-active")}}{{end}}item" href="{{.RepoLink}}/issues">
 						{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "repo.issues"}}
 						{{if (.Repository.NumOpenIssues ctx)}}
 							<span class="ui small label">{{CountFmt (.Repository.NumOpenIssues ctx)}}</span>
@@ -135,6 +135,7 @@
 						{{end}}
 					</a>
 				{{end}}
+				{{template "custom/soda/places" (dict "Page" $ "Part" "trail")}}
 
 				{{if and (not .UnitProjectsGlobalDisabled) (.Permission.CanRead $.UnitTypeProjects)}}
 					<a href="{{.RepoLink}}/projects" class="{{if .IsProjectsPage}}active {{end}}item">
@@ -206,7 +207,7 @@
 							{{svg "octicon-plus"}} {{ctx.Locale.Tr "repo.settings.units.add_more"}}
 						</a>
 					{{end}}
-					<a id="settings-btn" class="{{if and .PageIsRepoSettings (or $highlightSettings (not .PageIsRepoSettingsUnits))}}active {{end}}right item" href="{{.RepoLink}}/settings">
+					<a id="settings-btn" class="{{if and .PageIsRepoSettings (or $highlightSettings (not .PageIsRepoSettingsUnits))}}active {{else}}{{template "custom/soda/places_attr" (dict "Page" $ "Part" "settings-active")}}{{end}}right item" href="{{.RepoLink}}/settings">
 						{{svg "octicon-tools"}} {{ctx.Locale.Tr "repo.settings"}}
 					</a>
 				{{end}}
