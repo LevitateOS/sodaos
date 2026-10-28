@@ -756,7 +756,12 @@ async function phasePolicyMinutes(page: Page, out: string): Promise<void> {
   const spaces = await mountRepoPage(page, 'repository-settings');
   await spaces.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
   const policyForm = spaces.locator('form[data-action="policy"]');
-  assert((await policyForm.count()) >= 1, 'Policy: repository policy form not found');
+  try {
+    await policyForm.first().waitFor({timeout: 30000});
+  } catch {
+    const text = await visibleText(page, 2000);
+    assert.fail(`Policy: repository policy form not found (page: ${text.slice(0, 400)})`);
+  }
   const minutes = policyForm.locator('input[name="active_minutes"]').first();
   assert((await minutes.count()) >= 1, 'Policy: Active minutes per attempt control not offered; stopping per go-ahead');
   const before = await minutes.inputValue();
