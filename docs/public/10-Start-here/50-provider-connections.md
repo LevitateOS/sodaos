@@ -65,7 +65,7 @@ Do not paste credentials into prompts, terminal transcripts, repositories or sha
 
 | Provider | Active-use behavior | If a start cannot proceed |
 | --- | --- | --- |
-| Codex ChatGPT | One active stream per connection across enrollment, personal tools and Factory use. Detaching the browser leaves the managed session running. | A busy connection is temporarily unavailable; inspect active use and end the intended session before retrying. Busy does not mean rejected credentials. |
+| Codex ChatGPT | One active stream per connection across enrollment and personal tools. Factory workers use Muse, not Codex. Detaching the browser leaves the managed session running. | A busy connection is temporarily unavailable; inspect active use and end the intended session before retrying. Busy does not mean rejected credentials. |
 | Muse Code | Independent concurrent leases; ending one execution leaves other authorized executions running. | A rejected credential requires device reconnection. An ordinary tool failure alone does not establish an authentication failure. |
 
 A Soda sponsorship allowance authorizes a bounded amount of Factory work; it does not increase upstream subscription quota. Provider limits can stop a run even when Soda allowance remains available.

@@ -1025,7 +1025,7 @@ project lifecycle state. Native Forgejo authorization protects each view; Soda's
 operation rules still govern every private read and mutation.
 
 The Identity Broker holds Codex and Muse subscription credentials and factory
-grants. Forgejo account sign-in, WebAuthn and Git authentication remain native;
+grants. Factory workers use Muse only; Codex serves human project terminals. Forgejo account sign-in, WebAuthn and Git authentication remain native;
 Soda does not hold Forgejo OAuth grants or mediate project/worker Git requests.
 Factory publication uses separately configured actor credentials. See
 [Credentials](../reference/credentials.md) and the [factory interface](../reference/factory.md).
