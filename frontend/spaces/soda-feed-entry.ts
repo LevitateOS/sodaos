@@ -39,11 +39,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
           // The providers dialog host stays mounted on every feed page for
           // the navbar button.
           html`<header class="soda-feed-page-heading">
-                <div><p class="soda-page-eyebrow">${applications ? 'Your software' : 'Across your projects'}</p><h1>${applications ? 'Applications' : 'Following'}</h1><p>${applications ? 'Open and manage the software your projects deliver.' : 'Agent updates, decisions and results.'}</p></div>
-                <nav aria-label="Project navigation">
-                  <a href=${`${prefix}/workspace`}>Projects</a>
-                  <a href=${`${prefix}/applications`}>${applications && repository ? 'All applications' : 'Applications'}</a>
-                </nav>
+                <div>${applications ? html`<p class="soda-page-eyebrow">Your software</p>` : ''}<h1>${applications ? 'Applications' : 'Feed'}</h1><p>${applications ? 'Open and manage the software your projects deliver.' : 'Role updates, choices and results from the repositories you follow.'}</p></div>
               </header>`
         }
         <soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>
@@ -68,7 +64,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
                 @soda-project-work-open=${openProject}
               ></soda-applications>`
             : html`<soda-factory-feed
-                .context=${visible ? {transport, repository, global: true} : undefined}
+                .context=${visible ? {transport, repository, global: true, prefix} : undefined}
               ></soda-factory-feed>`
         }
       `,
