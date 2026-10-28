@@ -432,6 +432,48 @@ async function phasePlan(page: Page, out: string, intent: string, revision: stri
   }
 }
 
+async function phaseAppUse(page: Page, out: string): Promise<void> {
+  // Owner decision: the app runs at its OWN address in its OWN browser tab.
+  // Forge shows only status/version plus an Open app link. This phase never
+  // asserts an embedded frame and builds no in-Forge embedding: it opens the
+  // app's own origin in a new page and uses it there.
+  const found = await page.evaluate(() => {
+    const links: string[] = [];
+    let iframes = 0;
+    const scan = (root: Document | ShadowRoot) => {
+      for (const a of Array.from(root.querySelectorAll('a[href]'))) {
+        if (/open app/i.test(a.textContent || '')) links.push((a as HTMLAnchorElement).href);
+      }
+      iframes += root.querySelectorAll('iframe').length;
+      for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
+    };
+    scan(document);
+    return {links, iframes, url: location.href};
+  });
+  await writeFile(`${out}/app-discovery.json`, JSON.stringify(found, null, 2));
+  assert(found.links.length > 0, 'App: no "Open app" link on the Forge side; cannot reach the app at its own address');
+  const href = found.links[0];
+  const appOrigin = new URL(href).origin;
+  assert(
+    appOrigin !== new URL(page.url()).origin,
+    `App: the Open app link must leave Forge for the app's own address, got same-origin ${href.slice(0, 200)}`
+  );
+  const appPage = await page.context().newPage();
+  try {
+    await appPage.setViewportSize({width: 1920, height: 1080});
+    const response = await appPage.goto(href, {waitUntil: 'networkidle', timeout: 60000});
+    assert(response && response.ok(), `App: the app's own address must load, got HTTP ${response?.status()}`);
+    await appPage.waitForTimeout(1500);
+    await appPage.screenshot({path: `${out}/app-own-tab.png`});
+    const text = (await appPage.evaluate(() => document.body.innerText || '')).replace(/\s+/g, ' ').slice(0, 2000);
+    await writeFile(`${out}/app-text.txt`, text);
+    assert(text.length > 0, 'App: the app tab rendered no text');
+  } finally {
+    await appPage.close().catch(() => {});
+  }
+  await shot(page, `${out}/app-forge-side.png`);
+}
+
 /** Every Factory run on the journey must be Muse muse-spark-1.3 with
  * contributor mode on (per the installed Factory policy). Fail naming the
  * exact provenance text found when the markers are absent. */
@@ -556,10 +598,11 @@ async function main() {
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
     if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
-    if (only === 'all' || only === 'app' || only === 'improve') {
+    if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
+    if (only === 'all' || only === 'improve') {
       await shot(s.page, `${dir}/${only}-observed.png`);
       const text = await visibleText(s.page, 2000);
-      assert.fail(`${only}: App/Improve follow-up is not automated yet on the installed VM (page: ${text.slice(0, 300)})`);
+      assert.fail(`${only}: Improve follow-up is not automated yet on the installed VM (page: ${text.slice(0, 300)})`);
     }
     report.ok = true;
   } catch (error) {
