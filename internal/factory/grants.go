@@ -342,6 +342,17 @@ type AuthorityRef struct {
 	Environment           int64  `json:"environment"`
 }
 
+// SameGrants reports whether current authority still names the grants
+// bound into existing work: the same sponsored connection and the same
+// requirement and approval decisions. Grant revisions are left out on
+// purpose. Saving a number (an allowance, a limit, a check list) bumps a
+// revision but withdraws nothing; disabling, pausing or withdrawing a grant
+// closes the dispatch gate, which callers check as effective authority.
+func (r AuthorityRef) SameGrants(bound AuthorityRef) bool {
+	return r.SponsorshipConnection == bound.SponsorshipConnection &&
+		r.RequirementsID == bound.RequirementsID && r.ApprovalID == bound.ApprovalID
+}
+
 // Missing-authority reason codes. Bounded and credential-free: controls
 // expose which authorization is missing or withdrawn, never secrets.
 const (

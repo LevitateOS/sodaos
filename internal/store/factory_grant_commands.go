@@ -271,22 +271,20 @@ func refreshSponsorshipWithdrawTx(ctx context.Context, tx *sql.Tx, change any, w
 }
 
 // settleGrantWithdrawalTx folds dispatch, publication and merge
-// withdrawals into one grant receipt.
+// withdrawals into one grant receipt. A save that withdraws nothing
+// (a changed number, a re-enabled grant) leaves open work alone.
 func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, withdraw bool, cause, principal string, receipt *factory.GrantReceipt) error {
-	if repository <= 0 {
+	if repository <= 0 || !withdraw {
 		return nil
 	}
-	if withdraw {
-		withdrawal, err := withdrawDispatchTx(ctx, tx, repository, cause, principal)
-		if err != nil {
-			return err
-		}
-		receipt.Captured = withdrawal.Captured
-		if receipt.Captured == nil {
-			receipt.Captured = []string{}
-		}
+	withdrawal, err := withdrawDispatchTx(ctx, tx, repository, cause, principal)
+	if err != nil {
+		return err
 	}
-	var err error
+	receipt.Captured = withdrawal.Captured
+	if receipt.Captured == nil {
+		receipt.Captured = []string{}
+	}
 	if receipt.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
 		return err
 	}

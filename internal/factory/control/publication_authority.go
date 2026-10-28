@@ -26,8 +26,6 @@ func (c *Coordinator) publicationAuthority(ctx context.Context, p factory.Public
 		return empty, 0, false
 	}
 	current := effective.Authority
-	// Capacity changes only bound future reservations, per the existing grant contract.
-	current.Capacity = p.Authority.Capacity
 	current.RequirementsID, err = c.Store.RequirementHead(ctx, p.ProjectID)
 	if err != nil {
 		publicationError(report, p.ID, "store_unavailable")
@@ -38,7 +36,7 @@ func (c *Coordinator) publicationAuthority(ctx context.Context, p factory.Public
 		publicationError(report, p.ID, "store_unavailable")
 		return empty, 0, false
 	}
-	if current != p.Authority || policy.TargetBranch != p.TargetBranch {
+	if !current.SameGrants(p.Authority) || policy.TargetBranch != p.TargetBranch {
 		publicationWait(report, p.ID, "authority_changed")
 		return empty, 0, false
 	}

@@ -105,8 +105,9 @@ func (c *Coordinator) applyGrant(ctx context.Context, commandID, principal, typ,
 	if err != nil {
 		return factory.GrantReceipt{}, err
 	}
-	if created && repository > 0 {
-		// The command's immutable receipt records requested/pending cancellation.
+	if created && repository > 0 && receipt.Withdrawn {
+		// Only a withdrawal cancels work; saving a number never does. The
+		// command's immutable receipt records requested/pending cancellation.
 		// External delivery happens after the atomic local decision and updates
 		// the publication and merge records used by status/recovery reads.
 		c.cancelRepositoryPublications(bounded, repository)
