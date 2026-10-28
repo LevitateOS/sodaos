@@ -253,7 +253,7 @@ test('first use: keyboard selection and post-commit Change inspects without writ
     const r = h2.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && getComputedStyle(h2).visibility === 'visible';
   });
-  assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
+  assert.equal(await page.getByRole('heading', {name: 'Repository for this request'}).count(), 0);
   assert.equal(await page.evaluate(() => window.location.pathname), committed);
   assert.equal(await focusedReviewHeading(page), 'Review your product direction');
   await page.getByRole('button', {name: 'Back', exact: true}).click();
@@ -297,10 +297,10 @@ test('first use: picker Back preserves the reviewed direction', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
-  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByRole('heading', {name: 'Repository for this request'}).waitFor();
   await page.locator('.soda-setup-topbar').getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
-  assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
+  assert.equal(await page.getByRole('heading', {name: 'Repository for this request'}).count(), 0);
   assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isEnabled());
   assert.equal(await focusedReviewHeading(page), 'Review your product direction');
   // A declared native planner peer supplies concrete experience prose; the
@@ -533,7 +533,7 @@ test('first use: picker summarizes reviewed authorization and the create effect'
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
-  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByRole('heading', {name: 'Repository for this request'}).waitFor();
   await page.getByText('Saving 1 authorized idea and 1 work item to the chosen repository.').waitFor();
   await page
     .getByText('The draft is linked first. Factory work is created after a completed plan is accepted.')
@@ -1618,7 +1618,7 @@ test('first use: picker notice keeps a stable silent wrapper and borders only re
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
-  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByRole('heading', {name: 'Repository for this request'}).waitFor();
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
   const notice = page.locator('.soda-repository-notice');
   // Idle: the live-region wrapper persists for first announcements but takes

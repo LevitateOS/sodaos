@@ -33,11 +33,7 @@ function onRepositoryQuery(event: Event, query: (value: string) => void) {
 }
 function repositoryBadge(item: RepositoryChoices['items'][number]) {
   if (!item.project) return '';
-  return item.project.provisioned ? 'Project exists' : 'Provisioning needs inspection';
-}
-function continueCaption(choice: RepositoryChoices['items'][number] | undefined) {
-  if (!choice?.project) return 'Continue';
-  return choice.project.provisioned ? 'Open project' : 'Inspect project';
+  return item.project.provisioned ? 'Development environment ready' : 'Development environment needs inspection';
 }
 function emptyRepositories(query: string) {
   return query
@@ -113,16 +109,15 @@ function suggestedNote(view: RepositoryPickerView) {
   if (!view.suggested) return '';
   if (!view.result) return '';
   const found = view.result.items.some((item) => item.id === view.suggested);
-  if (found) return html`<p>Showing the suggested repository for this request.</p>`;
+  if (found) return html`<p>This repository is selected. Choose another only if the request belongs there.</p>`;
   return html`<p>The suggested repository is not eligible. Choose from the list or create one.</p>`;
 }
 
 export function renderRepositoryPicker(view: RepositoryPickerView, actions: RepositoryPickerActions) {
   const choice = view.result?.items.find((item) => item.id === view.selected);
   return html`<header class="soda-setup-step-heading">
-      <p class="soda-setup-eyebrow">New project</p>
-      <h2 tabindex="-1">Choose a repository</h2>
-      <p>Choose a repository you own on this Forgejo.</p>
+      <h2 tabindex="-1">Repository for this request</h2>
+      <p>Soda creates this request's issues and pull requests in the repository you confirm here.</p>
       ${authorizationNote(view)} ${suggestedNote(view)}
     </header>
     <form class="soda-repository-search" @submit=${(event: SubmitEvent) => onRepositorySearch(event, actions.search)}>
@@ -138,15 +133,14 @@ export function renderRepositoryPicker(view: RepositoryPickerView, actions: Repo
       /></label>
       <button class="ui button" ?disabled=${pickerLocked(view)}>Search</button>
     </form>
-    ${repositoryNotice(view)}
-    ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
+    ${repositoryNotice(view)} ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
     <div class="soda-setup-actions">
       <a href=${view.createURL} target="_blank" rel="noopener">Create a new repository</a
       ><button class="ui button" ?disabled=${pickerLocked(view)} @click=${() => actions.search(1)}>
         Refresh repositories
       </button>
       <button class="ui primary button" ?disabled=${pickerLocked(view) || !choice} @click=${actions.continue}>
-        ${continueCaption(choice)}
+        Continue
       </button>
     </div>`;
 }

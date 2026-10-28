@@ -40,7 +40,7 @@ for (const viewport of [
       }
       await page.getByRole('button', {name: 'Back', exact: true}).click();
       await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
-      assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
+      assert.equal(await page.getByRole('heading', {name: 'Repository for this request'}).count(), 0);
       await page.getByRole('button', {name: 'Prepare project', exact: true}).click();
       await page.getByRole('heading', {name: 'Configure project'}).waitFor();
       const create = page.getByRole('button', {name: 'Create project', exact: true});
