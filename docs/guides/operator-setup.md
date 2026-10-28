@@ -74,7 +74,7 @@ For retained Projects reporting a terminal support mismatch, use the explicit
 [same-root terminal maintenance procedure](../reference/project-os.md#terminal-support)
 from the installed complete release. Signing in again or importing a Project image
 does not repair retained support. Host activation remains subject to the separate
-[release qualification boundary](../architecture/release.md#host-update-ownership).
+[host update ownership](../architecture/release.md#host-update-ownership).
 
 The [public Factory authorization guide](../public/40-Configure/20-factory-authorization.md)
 explains the separate owners of repository policy, appliance capacity and provider

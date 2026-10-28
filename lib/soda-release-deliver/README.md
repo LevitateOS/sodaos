@@ -98,7 +98,7 @@ larger than the ordinary 512 MiB file limit. Ordinary file limits and the
 16 GiB total decoded-image budget still apply; compressed layers retain their
 separate 4 GiB budget.
 These are artifact checks; native service/browser/factory behavior still needs
-[Docker qualification](../../docs/architecture/release.md#docker-qualification).
+[Docker smoke install](../../docs/architecture/release.md#docker-smoke-install).
 
 The producer supplies `DockerRequest` from its frozen release request and labels
 the outer image before recording metadata. Existing OCI source/revision/base

@@ -44,13 +44,7 @@ The gap audit below records the baseline before this implementation. Current
 local progress and remaining qualification are tracked in the checklist. The
 real Northstar reference app now passes in-Forge authentication, workflow and
 v1→v2 retention checks; it is not a Factory-generated output. No new installed
-Factory journey is claimed. The [25 October qualification record](../development/rc6-qualification-2026-10-25.md)
-reports native installation, the private application journey and native cold
-recovery passed; the complete Docker Factory and qualification chain did not.
-Its RC7 Docker trial reached successful implementation retirement and candidate
-publication, but independent review, completion, merge, persistence and final
-qualification did not pass. These outcomes must stay separate from native App
-qualification. The [19 October UX audit](../development/ux-audit-2026-10-19.md)
+Factory journey is claimed. The [19 October UX audit](../development/ux-audit-2026-10-19.md)
 contains repaired historical findings and is supporting context, not a current
 list of unchanged defects.
 
