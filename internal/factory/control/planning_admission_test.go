@@ -16,6 +16,19 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+type planningChooser struct{ calls int }
+
+func (f *planningChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	f.calls++
+	selected := "incremental_acceptance"
+	a := factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: 1, Probabilities: map[string]float64{}}
+	for id := range choices {
+		a.Probabilities[id] = 0
+	}
+	a.Probabilities[selected] = 1
+	return a, nil
+}
+
 type progressTaskJournalHost struct {
 	*fakeDispatchHost
 	read           func(project.FactoryTaskEvents) (project.FactoryTaskEventsState, error)
@@ -59,9 +72,6 @@ func TestProgressCheckpointsAuthenticatedOutputPG(t *testing.T) {
 func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 	c, _, fx := admissionCoordinator(t, 3)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
 		t.Fatalf("investigation: %+v", report)
 	}
@@ -245,9 +255,6 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 func TestProgressImportsTaskJournalPG(t *testing.T) {
 	c, _, fx := admissionCoordinator(t, 3)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
 		t.Fatalf("investigation did not launch: %+v", report)
 	}
@@ -418,7 +425,7 @@ func admissionCoordinator(t *testing.T, issues ...int64) (*Coordinator, *plannin
 	chooser := &planningChooser{}
 	c := NewCoordinator(db, fx.host, fx.broker)
 	c.AcceptanceReads, c.DispatchReads = source, fx.reads
-	c.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+	c.Planning = &PlanningJudgments{Chooser: chooser}
 	return c, chooser, fx
 }
 
@@ -463,9 +470,6 @@ func finishReportedInvestigation(t *testing.T, ctx context.Context, db *store.St
 func TestSelectedInvestigationAdmitsOnce(t *testing.T) {
 	c, _, fx := admissionCoordinator(t, 3, 4)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	report := c.Dispatch(ctx)
 	if len(report.Launched) != 1 || len(fx.host.launches) != 1 {
 		t.Fatalf("two ready issues launched %+v", report)
@@ -493,9 +497,6 @@ func TestSelectedInvestigationAdmitsOnce(t *testing.T) {
 func TestCompletedInvestigationAdvancesOnce(t *testing.T) {
 	c, _, fx := admissionCoordinator(t, 3)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
 		t.Fatalf("investigation did not launch %+v", report)
 	}
@@ -534,9 +535,6 @@ func TestCompletedInvestigationAdvancesOnce(t *testing.T) {
 func TestUnresolvedPlanCannotLaunch(t *testing.T) {
 	c, _, fx := admissionCoordinator(t, 3)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
 		t.Fatalf("investigation did not launch %+v", report)
 	}
@@ -565,9 +563,6 @@ func TestUnresolvedPlanCannotLaunch(t *testing.T) {
 func TestChangedSourceWithholdsAdvance(t *testing.T) {
 	c, _, fx := admissionCoordinator(t, 3)
 	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
 		t.Fatalf("investigation did not launch %+v", report)
 	}
@@ -579,9 +574,6 @@ func TestChangedSourceWithholdsAdvance(t *testing.T) {
 	moved := fx.reads.inputs[fmt.Sprintf("%d/3", fx.repo)]
 	moved.Tip = strings.Repeat("d", 40)
 	fx.reads.inputs[fmt.Sprintf("%d/3", fx.repo)] = moved
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
 	for pass := 0; pass < 2; pass++ {
 		advance := c.Dispatch(ctx)
 		if len(advance.Launched) != 0 {
@@ -593,29 +585,6 @@ func TestChangedSourceWithholdsAdvance(t *testing.T) {
 		if _, _, err := c.Store.PlanHead(ctx, owner.AttemptRoot); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("stale investigation persisted a head: %v", err)
 		}
-	}
-}
-
-// FW12: planning spends no judgment on an issue an admitted attempt
-// already covers, even when its inputs moved. Selection eligibility owns
-// the spend; the admitted phase owns the path.
-func TestPlanningSkipsCoveredIssue(t *testing.T) {
-	c, chooser, _ := admissionCoordinator(t, 3)
-	ctx := context.Background()
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if chooser.calls != 1 {
-		t.Fatalf("fresh planning spent %d calls", chooser.calls)
-	}
-	if report := c.Dispatch(ctx); len(report.Launched) != 1 {
-		t.Fatalf("investigation did not launch %+v", report)
-	}
-	if err := c.PlanningPass(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if chooser.calls != 1 {
-		t.Fatalf("covered issue respent planning: %d calls", chooser.calls)
 	}
 }
 

@@ -161,25 +161,6 @@ export function renderFeedCommunication(
           </details>`
         : ''
     }
-    ${
-      c.planningSource
-        ? html`<details class="soda-feed-source-reference">
-            <summary>Recorded strategy${c.planningSource.provisional ? ' · provisional' : ''}</summary>
-            <p>Controller choice: ${c.planningSource.strategy || 'None'} · ${c.planningSource.outcome}</p>
-            <p>Snapshot: <code>${c.planningSource.snapshot}</code></p>
-            <p>Record digest: <code>${c.planningSource.recordDigest}</code></p>
-            ${
-              c.planningSource.judgment['selected']
-                ? html`<details>
-                    <summary>Actual JEV answer</summary>
-                    <pre>${JSON.stringify(c.planningSource.judgment, null, 2)}</pre>
-                  </details>`
-                : html`<p>No JEV answer was recorded.</p>`
-            }
-            <p>Execution and verification remain separate records.</p>
-          </details>`
-        : ''
-    }
     ${c.componentId === 'F10' ? html`<button type="button" data-feed-open-app=${entryKey}>Open project app</button>` : ''}
   </div>`;
 }

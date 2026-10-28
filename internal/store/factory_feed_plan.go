@@ -2,39 +2,13 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
-
-func recordPlanningFeedTx(ctx context.Context, tx *sql.Tx, record factory.PlanningRecord, raw []byte) error {
-	control := record.Input.Candidate.Control
-	digest := sha256.Sum256(raw)
-	recordDigest := hex.EncodeToString(digest[:])
-	decision := "Implementation strategy: " + strings.ReplaceAll(record.Strategy, "_", " ")
-	title := "Implementation strategy recorded"
-	if record.Outcome == "unavailable" {
-		title, decision = "Implementation strategy unavailable", "No implementation strategy was selected."
-	} else if record.Provisional {
-		title = "Provisional implementation strategy recorded"
-	}
-	content := factory.FeedCommunication{
-		ComponentID: "F11", Title: title, Summary: decision, Decision: decision,
-		Scope:          fmt.Sprintf("Issue %d · %s", control.Issue, record.Outcome),
-		Rationale:      "The controller recorded this approach for the accepted scope. Execution still requires current admission; this record does not claim implementation or verification.",
-		EvidenceRefs:   []string{"planning_snapshot:" + record.Snapshot, "planning_record:" + recordDigest, "acceptance:" + control.Acceptance},
-		PlanningSource: &factory.FeedPlanningSource{Snapshot: record.Snapshot, RecordDigest: recordDigest, Strategy: record.Strategy, Outcome: record.Outcome, Provisional: record.Provisional, Judgment: record.Judgment, RecordedUnix: record.CreatedUnix},
-	}
-	if record.Judgment.Selected != "" && record.Judgment.Selected != record.Strategy {
-		content.Rationale += " The controller's recorded strategy differs from the advisory selection; both are retained below."
-	}
-	return recordFactoryFeedEventTx(ctx, tx, control.Repository, control.Issue, "", "planning-record:"+recordDigest, "planning:"+record.Outcome, content, record.CreatedUnix)
-}
 
 // The native plan remains authoritative. Publication shares its transaction
 // and exact revision identity; it does not admit the plan or claim execution.

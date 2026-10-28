@@ -207,7 +207,7 @@ func fundedDeliveryServingUsesCompleteMaterialPG(t *testing.T, choice string) {
 	}
 	endpoint, _ := url.Parse(server.URL)
 	chooser := &TypeSafePriority{APIKeyFile: keyPath, Model: "jev-fixture", Client: &http.Client{Transport: deliveryPGTransport{target: endpoint, base: http.DefaultTransport}}}
-	fx.coord.Planning = &PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: chooser}
+	fx.coord.Planning = &PlanningJudgments{Chooser: chooser}
 	review, ready, pending, refused := fx.coord.currentReviewReport(ctx, p)
 	if !ready || pending || refused {
 		t.Fatalf("current typed review: %v %v %v", ready, pending, refused)

@@ -44,7 +44,6 @@ import {
   describeDirectionRevision,
   describePrerequisites,
   describeRecordedChoice,
-  describeRecordedPlan,
   describeRequestOverview,
   describeRevisionHistory,
   describeWhyNext,
@@ -53,7 +52,7 @@ import {
   overviewScopeFromMappings,
   retiredOverviewScope,
   renderDirectionRevision,
-  renderRecordedPlan,
+  renderRecordedChoice,
   renderRequestOverview,
   renderRevisionHistory,
   renderWorkOverview,
@@ -62,7 +61,6 @@ import {
 import type {
   OverviewScope,
   RecordedChoiceModel,
-  RecordedPlanModel,
   RequestOverviewModel,
   SourceState,
   WorkOverviewModel,
@@ -309,7 +307,6 @@ function samePlan(a: WorkPlanContext | undefined, b: WorkPlanContext | undefined
 
 interface RecordedPlanEntry {
   readonly issue: string;
-  readonly plan: RecordedPlanModel;
   readonly choice: RecordedChoiceModel;
 }
 
@@ -389,7 +386,7 @@ export class SodaFactoryWorkPlan extends LitElement {
       <p data-work-message aria-live="polite">${this.message}</p>
       ${this.unread.length > 0 ? html`<p>${this.unread.length} work item${this.unread.length === 1 ? '' : 's'} could not be read.</p>` : ''}
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh plan</button>
-      ${this.recorded.map((entry) => renderRecordedPlan(entry.plan, entry.choice))}
+      ${this.recorded.map((entry) => renderRecordedChoice(entry.choice))}
       ${renderWorkPlan(
         describeWhyNext(this.details, context.repositoryPath, Math.floor(Date.now() / 1000)),
         describePrerequisites(this.fallbackDetails(), context.repositoryPath)
@@ -416,7 +413,6 @@ async function readRecordedPlans(context: WorkPlanContext): Promise<RecordedPlan
       const plan = issuePlan(result.value, context.repository, issue);
       entries.push({
         issue,
-        plan: describeRecordedPlan(plan.plan, plan.freshness),
         choice: describeRecordedChoice(plan, context.repositoryPath),
       });
     } catch {

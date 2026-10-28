@@ -206,7 +206,7 @@ func (c *Coordinator) LatestDispatchObservation(repository int64) *DispatchObser
 
 func (c *Coordinator) observeProgressStage(stage string) {
 	switch stage {
-	case "settlement", "comments", "standing_preparation", "intent_graphs", "creations", "completions", "delivery_verification", "delivery_repair", "retry_preparation", "planning", "dispatch", "publication", "stall", "readiness", "idle":
+	case "settlement", "comments", "standing_preparation", "intent_graphs", "creations", "completions", "delivery_verification", "delivery_repair", "retry_preparation", "dispatch", "publication", "stall", "readiness", "idle":
 	default:
 		stage = "unavailable"
 	}
@@ -266,8 +266,6 @@ func dispatchObservationReason(repository, issue int64, reason, detail string) D
 		stage = "source"
 	case WaitPrompt, DispatchErrPromptBound:
 		stage = "prompt"
-	case "plan_not_current", "planning_deferred":
-		stage = "planning"
 	case "priority_incomplete", "priority_unavailable", PrioritySnapshotChanging:
 		stage = "priority"
 	case DispatchErrStore:
@@ -353,7 +351,6 @@ type DispatchDeps struct {
 	ReadCompletionFence func(ctx context.Context, repository int64) ([]int64, error)
 	collectPlan         func(*attemptPlan)
 	checkPlan           func(*attemptPlan) bool
-	PlanCurrent         func(context.Context, factory.IssueControl) bool
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -437,8 +434,7 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		Queue:           &c.queue,
 		Priority:        c.Priority,
 		ObserveRevision: c.observePriorityRevision, RefreshCandidate: c.refreshPriorityCandidate,
-		FenceCache:  map[int64]bool{},
-		PlanCurrent: c.planningCurrent,
+		FenceCache: map[int64]bool{},
 	}
 }
 
@@ -457,13 +453,8 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 	defer cancelPass()
 	c.observeProgressStage("retry_preparation")
 	preparationErr := c.reconcileRetryPreparations(ctx)
-	c.observeProgressStage("planning")
-	planningErr := c.PlanningPass(ctx)
 	c.observeProgressStage("dispatch")
 	report := DispatchPass(ctx, c.dispatchDeps())
-	if planningErr != nil {
-		report.Errors = append(report.Errors, DispatchError{Reason: "planning_deferred", Detail: "bounded planning could not complete this pass"})
-	}
 	if preparationErr != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrHost, Detail: "retry preparation retirement is unconfirmed"})
 	}

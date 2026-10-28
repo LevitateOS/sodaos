@@ -346,15 +346,6 @@ export interface FeedGraphItem {
 export interface FeedCommunication {
   intentSource?: {intent: string; revision: string; predecessor?: string; state: string; owner: string};
   planSource?: {attemptRoot: string; plan: string; digest: string; source: string; generation: number};
-  planningSource?: {
-    snapshot: string;
-    recordDigest: string;
-    strategy: string;
-    outcome: string;
-    provisional: boolean;
-    recordedUnix: number;
-    judgment: Record<string, unknown>;
-  };
   commits?: {revision: string; summary: string}[];
   source?: FeedSourceExcerpt;
   kind: FeedCommunicationKind;
@@ -1102,32 +1093,6 @@ function parseCommunicationPayload(value: unknown): FeedCommunication {
       digest: source.digest,
       source: source.source_commit,
       generation: source.generation as number,
-    };
-  }
-  if (data.planning_source !== undefined) {
-    const source = object(data.planning_source);
-    if (
-      typeof source.snapshot !== 'string' ||
-      !/^[a-f0-9]{64}$/.test(source.snapshot) ||
-      typeof source.record_digest !== 'string' ||
-      !/^[a-f0-9]{64}$/.test(source.record_digest) ||
-      typeof source.strategy !== 'string' ||
-      typeof source.outcome !== 'string' ||
-      !['planned', 'waiting', 'unavailable'].includes(source.outcome) ||
-      typeof source.provisional !== 'boolean' ||
-      typeof source.recorded_unix !== 'number' ||
-      !Number.isSafeInteger(source.recorded_unix) ||
-      source.recorded_unix <= 0
-    )
-      throw new Error('Invalid planning source.');
-    parsed.planningSource = {
-      snapshot: source.snapshot,
-      recordDigest: source.record_digest,
-      strategy: source.strategy,
-      outcome: source.outcome,
-      provisional: source.provisional,
-      recordedUnix: source.recorded_unix,
-      judgment: object(source.judgment),
     };
   }
   const libraryItemId = payloadOptionalID(data.library_item_id);

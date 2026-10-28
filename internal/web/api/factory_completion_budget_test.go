@@ -258,7 +258,7 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
 	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
 	chooser := &continueReleaseChooser{}
-	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
+	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
 	sealed := false
 	for pass := 0; pass < 14; pass++ {
@@ -433,7 +433,7 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 	}
 	defer raw.Close()
 	chooser := &staleRefusalChooser{}
-	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
+	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Chooser: chooser}}
 	// One completion per repository-generation row: each scenario seals
 	// exactly its own cycle with no cross-talk between worlds.
 	scenario := func(repository int64, occurrence string, mutate func(fake *completionReaderFake, current *factory.CompletionLocal), wantReason string) {
@@ -563,7 +563,7 @@ func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
 	reader := &scriptedBudgetReader{total: 48, tip: strings.Repeat("c", 40)}
 	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
 	chooser := &continue48Chooser{}
-	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
+	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
 	sealed := false
 	for pass := 0; pass < 10; pass++ {

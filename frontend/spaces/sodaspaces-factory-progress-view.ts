@@ -18,7 +18,6 @@ import type {
   FactoryAccess,
   IssuePlan,
   PriorityComparison,
-  RecordedPlan,
   RequestAttention,
   RequestOverview,
   RevisionEntry,
@@ -27,7 +26,6 @@ import type {
   RevisionIdeaChange,
   RevisionTaskChange,
 } from './sodaspaces-factory-progress-response.js';
-import type {PlanFreshness} from './sodaspaces-factory-progress-response.js';
 
 // Pure accepted-request overview, planning/why-next, direction-revision
 // and optional-effect models for V01/V02/V05/V07. Each model composes
@@ -630,43 +628,6 @@ export function renderRequestOverview(model: RequestOverviewModel): TemplateResu
   `;
 }
 
-export interface RecordedPlanModel {
-  readonly freshnessText: string;
-  readonly strategyText: string;
-  readonly steps: readonly string[];
-  readonly missingText: string;
-}
-const freshnessReasonText: Record<string, string> = {
-  current_readiness_missing: 'current readiness is missing',
-  acceptance_changed: 'acceptance changed',
-  inputs_changed: 'inputs changed',
-};
-function freshnessBase(freshness: PlanFreshness): string {
-  if (freshness.state === 'missing') return 'No recorded plan.';
-  if (freshness.state === 'stale')
-    return `Plan stale: ${freshness.reasons.map((reason) => freshnessReasonText[reason] ?? reason).join('; ') || 'recorded inputs moved'}.`;
-  if (freshness.state === 'provisional') return 'Provisional plan: conveys no permission to execute.';
-  return 'Current plan.';
-}
-// describeRecordedPlan projects one issue's recorded plan and
-// freshness. Stale reasons name the factual comparison behind them;
-// the provisional flag stays visible next to any state.
-export function describeRecordedPlan(plan: RecordedPlan | undefined, freshness: PlanFreshness): RecordedPlanModel {
-  const base = freshnessBase(freshness);
-  return {
-    freshnessText:
-      freshness.provisional && freshness.state !== 'provisional' && freshness.state !== 'missing'
-        ? `${base} Recorded as provisional.`
-        : base,
-    strategyText: plan ? `Strategy: ${plan.strategy}. Outcome: ${plan.outcome}.` : '',
-    steps: plan?.steps ?? [],
-    missingText:
-      plan && plan.missing.length > 0
-        ? `Missing prerequisites: ${plan.missing.map((blocker) => blocker.resolution).join(' ')}`
-        : 'No missing prerequisites recorded.',
-  };
-}
-
 export interface ChoiceCandidateRow {
   readonly issue: string;
   readonly ageText: string;
@@ -734,15 +695,9 @@ export function describeRecordedChoice(plan: IssuePlan, repositoryPath: string):
   };
 }
 
-export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoiceModel): TemplateResult {
+export function renderRecordedChoice(choice: RecordedChoiceModel): TemplateResult {
   return html`
-    <section aria-label="Recorded plan">
-      <p role="status">${plan.freshnessText}</p>
-      ${plan.strategyText ? html`<p>${plan.strategyText}</p>` : ''}
-      <p>${plan.missingText}</p>
-      <ul>
-        ${plan.steps.map((step) => html`<li>${step}</li>`)}
-      </ul>
+    <section aria-label="Recorded choice">
       <p>${choice.selection}</p>
       ${choice.judgmentText ? html`<p>${choice.judgmentText}</p>` : ''}
       ${choice.moreText ? html`<p>${choice.moreText}</p>` : ''}

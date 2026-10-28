@@ -1015,7 +1015,7 @@ test('direction revision shows history without any planning-allowance read', asy
   assert.equal(calls.filter((call) => /allowance|factory\/access/.test(call.path)).length, 0);
 });
 
-test('work plan renders recorded steps and the empty comparison note', async (t) => {
+test('work plan renders the empty comparison note', async (t) => {
   const page = await openView(t, 'plan', [
     {
       method: 'GET',
@@ -1025,24 +1025,12 @@ test('work plan renders recorded steps and the empty comparison note', async (t)
         repository: '7',
         issue: '12',
         observed_unix: 1720000300,
-        freshness: {state: 'current', provisional: false},
-        plan: {
-          candidate: {id: 'plan-1', repository: '7', issue: '12', readiness: 'queued', first_seen_unix: 1720000000},
-          missing: [],
-          steps: ['Implement the list.', 'Cover the empty state.'],
-          strategy: 'incremental_acceptance',
-          snapshot: SNAPSHOT,
-          outcome: 'planned',
-          created_unix: 1720000100,
-        },
         comparisons: [],
       },
     },
     {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
   ]);
   const plan = page.locator('soda-factory-work-plan');
-  await plan.getByText('Implement the list.').waitFor();
-  await plan.getByText('Cover the empty state.').waitFor();
   await plan.getByText('No recorded priority comparison').waitFor();
 });
 
@@ -1059,16 +1047,6 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
         repository: '7',
         issue: '12',
         observed_unix: 1720000300,
-        freshness: {state: 'current', provisional: false},
-        plan: {
-          candidate: {id: 'plan-1', repository: '7', issue: '12', readiness: 'queued', first_seen_unix: 1720000000},
-          missing: [],
-          steps: ['Implement the list.'],
-          strategy: 'incremental_acceptance',
-          snapshot: SNAPSHOT,
-          outcome: 'planned',
-          created_unix: 1720000100,
-        },
         comparisons: [],
       },
     },

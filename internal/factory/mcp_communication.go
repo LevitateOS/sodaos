@@ -35,15 +35,14 @@ func MCPIsCommunication(tool MCPTool) bool {
 // FeedCommunication carries content only. Attribution, repository, issue, run,
 // assignment and time come from the authenticated capability and stored work.
 type FeedCommunication struct {
-	IntentSource    *FeedIntentSource   `json:"intent_source,omitempty"`
-	PlanSource      *FeedPlanSource     `json:"plan_source,omitempty"`
-	PlanningSource  *FeedPlanningSource `json:"planning_source,omitempty"`
-	Commits         []FeedCommit        `json:"commits,omitempty"`
-	Source          *FeedSourceExcerpt  `json:"source,omitempty"`
-	LibraryItemID   string              `json:"library_item_id,omitempty"`
-	LibraryRevision int64               `json:"library_revision,omitempty"`
-	Artifacts       []FeedArtifact      `json:"artifacts,omitempty"`
-	QuestionState   string              `json:"question_state,omitempty"`
+	IntentSource    *FeedIntentSource  `json:"intent_source,omitempty"`
+	PlanSource      *FeedPlanSource    `json:"plan_source,omitempty"`
+	Commits         []FeedCommit       `json:"commits,omitempty"`
+	Source          *FeedSourceExcerpt `json:"source,omitempty"`
+	LibraryItemID   string             `json:"library_item_id,omitempty"`
+	LibraryRevision int64              `json:"library_revision,omitempty"`
+	Artifacts       []FeedArtifact     `json:"artifacts,omitempty"`
+	QuestionState   string             `json:"question_state,omitempty"`
 	// Disposition and DispositionReason are server-assigned from the
 	// recorded disposition beside the post; worker payloads carrying
 	// them refuse like question_state.
@@ -95,18 +94,6 @@ type FeedPlanSource struct {
 	Generation  int    `json:"generation"`
 }
 
-// FeedPlanningSource retains the controller's recorded choice and the actual
-// advisory answer independently, including when the controller used a fallback.
-type FeedPlanningSource struct {
-	Snapshot     string         `json:"snapshot"`
-	RecordDigest string         `json:"record_digest"`
-	Strategy     string         `json:"strategy"`
-	Outcome      string         `json:"outcome"`
-	Provisional  bool           `json:"provisional"`
-	Judgment     PriorityAnswer `json:"judgment"`
-	RecordedUnix int64          `json:"recorded_unix"`
-}
-
 type FeedCommit struct {
 	Revision string `json:"revision"`
 	Summary  string `json:"summary"`
@@ -152,7 +139,7 @@ func DecodeMCPCommunication(tool MCPTool, payload []byte) (FeedCommunication, er
 			return out, errors.New("post resolution comes from its recorded disposition")
 		}
 	}
-	for _, field := range []string{"library_item_id", "library_revision", "intent_source", "plan_source", "planning_source"} {
+	for _, field := range []string{"library_item_id", "library_revision", "intent_source", "plan_source"} {
 		if _, exists := fields[field]; exists {
 			return out, errors.New("canonical source references are assigned by the server")
 		}

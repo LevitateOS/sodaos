@@ -380,7 +380,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	enumerator := reassessmentGraphInventory{graph: graph}
 	coord.CompletionEnumerator, coord.CompletionLocalCapture = enumerator, db.CaptureCompletionLocal
 	chooser := &reassessmentLifecycleChooser{}
-	coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+	coord.Planning = &PlanningJudgments{Chooser: chooser}
 	coord.MCPKey = []byte(strings.Repeat("k", 32))
 	coord.Priority = &PriorityJudgments{Journal: db, Chooser: &bundleGapChooser{pick: factory.ContextBundleCurrent}}
 	grant := factory.DefaultRepairGrant()

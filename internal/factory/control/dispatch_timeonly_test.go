@@ -630,7 +630,7 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	fundTimeOnlyPolicy(t, ctx, db, fx.publish.seed.repo)
 	coord.Host, coord.Broker = fx.publish.seed.host, fx.publish.seed.broker
 	chooser := &reassessmentLifecycleChooser{}
-	coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+	coord.Planning = &PlanningJudgments{Chooser: chooser}
 	enumerator := &fixtureEnumerator{revision: 41, idle: true, pages: map[string]NativeInventoryPage{
 		"":  {Issues: []NativeInventoryIssue{inventoryIssue(t, 2), inventoryIssue(t, 7)}, NextCursor: "7"},
 		"7": {Issues: []NativeInventoryIssue{inventoryIssue(t, 9)}, Complete: true},
@@ -908,7 +908,7 @@ func TestReassessmentSerialAdoptionPG(t *testing.T) {
 			deps := CompletionDriveDeps{Enumerator: enumerator, CaptureLocal: db.CaptureCompletionLocal}
 			coord.CompletionEnumerator, coord.CompletionLocalCapture = enumerator, db.CaptureCompletionLocal
 			chooser := &reassessmentLifecycleChooser{}
-			coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+			coord.Planning = &PlanningJudgments{Chooser: chooser}
 			cycleID := pendingCycleID(t, fx)
 			coord.DriveCompletions(ctx, deps)
 			coord.DriveCompletions(ctx, deps)

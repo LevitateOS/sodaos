@@ -104,7 +104,6 @@ type Coordinator struct {
 	// so comment completion never depends on a browser request. Nil
 	// holds pending comment requests in their stored state.
 	CommentDrive        func(ctx context.Context)
-	planningQueue       DispatchQueueCursor
 	queue               DispatchQueueCursor
 	lock                *os.File
 	requestGate         sync.RWMutex

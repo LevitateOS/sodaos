@@ -123,8 +123,8 @@ func TestSupersededAcceptanceInvalidatesPlanningWithoutRetarget(t *testing.T) {
 	if err := s.SaveIntentRevision(ctx, next); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ReserveIssuePlanning(ctx, binding.AcceptanceID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); !errors.Is(err, ErrStaleRevision) {
-		t.Fatalf("superseded acceptance planned: %v", err)
+	if current, generated, err := s.GeneratedIntentCurrent(ctx, binding.AcceptanceID); err != nil || !generated || current {
+		t.Fatalf("superseded acceptance stayed current: %v %v %v", current, generated, err)
 	}
 	kept, err := s.IntentTaskBindings(ctx, r.ID)
 	if err != nil || len(kept) != 1 || kept[0] != binding {

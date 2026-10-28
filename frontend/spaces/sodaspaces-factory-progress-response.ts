@@ -1,7 +1,5 @@
 import {check, id, object, projectId} from './sodaspaces-api.js';
 import {decisionID} from './sodaspaces-intent-response.js';
-import {issueBlocker} from './sodaspaces-factory-work-response.js';
-import type {IssueBlocker} from './sodaspaces-factory-work-response.js';
 
 // Parsers for the H-R request-overview (F01), issue-plan (F03),
 // repository-access (F06) and scope-revision (F04) reads plus H-A
@@ -217,38 +215,6 @@ function generationState(value: unknown): string {
   return text(raw.state, 64);
 }
 
-export interface PlanCandidate {
-  readonly id: string;
-  readonly repository: string;
-  readonly issue: string;
-  readonly readiness: string;
-  readonly first_seen_unix: number;
-  readonly acceptance?: string;
-}
-export interface PlanJudgment {
-  readonly probability_count: number;
-  readonly probabilities?: Record<string, number>;
-  readonly selected?: string;
-  readonly model?: string;
-  readonly confidence?: number;
-  readonly input_tokens?: number;
-  readonly output_tokens?: number;
-}
-export interface RecordedPlan {
-  readonly candidate: PlanCandidate;
-  readonly missing: readonly IssueBlocker[];
-  readonly steps: readonly string[];
-  readonly strategy: string;
-  readonly snapshot: string;
-  readonly outcome: string;
-  readonly created_unix: number;
-  readonly judgment?: PlanJudgment;
-}
-export interface PlanFreshness {
-  readonly state: string;
-  readonly provisional: boolean;
-  readonly reasons: readonly string[];
-}
 export interface PriorityCandidate {
   readonly id: string;
   readonly repository: string;
@@ -287,12 +253,10 @@ export interface PriorityComparison {
   readonly selected?: string;
 }
 export interface IssuePlan {
-  readonly freshness: PlanFreshness;
   readonly comparisons: readonly PriorityComparison[];
   readonly repository: string;
   readonly issue: string;
   readonly observed_unix: number;
-  readonly plan?: RecordedPlan;
   readonly next_before_unix?: number;
   readonly next_before_snapshot?: string;
 }
@@ -306,64 +270,6 @@ const readinessStates = [
   'cancelled',
   'completed',
 ];
-const freshnessStates = ['missing', 'stale', 'provisional', 'current'];
-const freshnessReasons = ['current_readiness_missing', 'acceptance_changed', 'inputs_changed'];
-
-function planCandidate(value: unknown): PlanCandidate {
-  const raw = object(value);
-  check(id(raw.repository) && id(raw.issue));
-  check(typeof raw.readiness === 'string' && readinessStates.includes(raw.readiness));
-  if (raw.acceptance !== undefined) check(typeof raw.acceptance === 'string' && raw.acceptance.length <= 256);
-  return {
-    id: text(raw.id, 128),
-    repository: raw.repository,
-    issue: raw.issue,
-    readiness: raw.readiness,
-    first_seen_unix: counter(raw.first_seen_unix),
-    ...(typeof raw.acceptance === 'string' && raw.acceptance !== '' ? {acceptance: raw.acceptance} : {}),
-  };
-}
-function planJudgment(value: unknown): PlanJudgment | undefined {
-  if (value === undefined) return undefined;
-  const raw = object(value);
-  const probabilities = raw.probabilities === undefined ? undefined : probabilityMap(raw.probabilities);
-  const selected = optionalLabel(raw.selected, 128);
-  const model = optionalLabel(raw.model, 128);
-  return {
-    probability_count: counter(raw.probability_count),
-    ...(probabilities === undefined ? {} : {probabilities}),
-    ...(selected === undefined ? {} : {selected}),
-    ...(model === undefined ? {} : {model}),
-    ...judgmentNumbers(raw),
-  };
-}
-function recordedPlan(value: unknown): RecordedPlan {
-  const raw = object(value);
-  check(Array.isArray(raw.missing) && raw.missing.length <= 64);
-  check(Array.isArray(raw.steps) && raw.steps.length <= 32);
-  for (const step of raw.steps) check(typeof step === 'string' && step.length <= 256);
-  check(digest(raw.snapshot));
-  const judgment = planJudgment(raw.judgment);
-  return {
-    candidate: planCandidate(raw.candidate),
-    missing: raw.missing.map(issueBlocker),
-    steps: raw.steps as string[],
-    strategy: text(raw.strategy, 128),
-    snapshot: raw.snapshot,
-    outcome: text(raw.outcome, 64),
-    created_unix: counter(raw.created_unix),
-    ...(judgment === undefined ? {} : {judgment}),
-  };
-}
-function planFreshness(value: unknown): PlanFreshness {
-  const raw = object(value);
-  check(typeof raw.state === 'string' && freshnessStates.includes(raw.state));
-  check(typeof raw.provisional === 'boolean');
-  const reasons = raw.reasons === undefined ? [] : raw.reasons;
-  check(Array.isArray(reasons) && reasons.length <= 3);
-  for (const reason of reasons) check(freshnessReasons.includes(reason as string));
-  return {state: raw.state, provisional: raw.provisional, reasons: reasons as string[]};
-}
 function priorityCandidate(value: unknown): PriorityCandidate {
   const raw = object(value);
   check(id(raw.repository) && id(raw.issue));
@@ -439,21 +345,18 @@ function planCursor(data: Record<string, unknown>): {next_before_unix?: number; 
   check(data.next_before_unix > 0 && digest(data.next_before_snapshot));
   return {next_before_unix: data.next_before_unix, next_before_snapshot: data.next_before_snapshot};
 }
-// issuePlan binds one issue's recorded plan, freshness and recent
+// issuePlan binds one issue's recent
 // priority comparisons to its exact repository and issue. Paging
 // cursors travel as a pair; a half cursor is rejected.
 export function issuePlan(value: unknown, repository: string, issue: string): IssuePlan {
   const data = object(value);
   check(data.repository === repository && data.issue === issue);
   check(Array.isArray(data.comparisons) && data.comparisons.length <= 20);
-  const plan = data.plan === undefined ? undefined : recordedPlan(data.plan);
   return {
-    freshness: planFreshness(data.freshness),
     comparisons: data.comparisons.map(priorityComparison),
     repository,
     issue,
     observed_unix: counter(data.observed_unix),
-    ...(plan === undefined ? {} : {plan}),
     ...planCursor(data),
   };
 }

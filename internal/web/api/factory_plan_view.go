@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,146 +11,10 @@ import (
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-// planCandidateView renders the plan record's candidate binding: identity
-// and readiness only. Native issue text stays out; the plan carries IDs
-// and codes, never the objective prose behind them.
-type planCandidateView struct {
-	ID            string `json:"id"`
-	Repository    string `json:"repository"`
-	Issue         string `json:"issue"`
-	Readiness     string `json:"readiness"`
-	Acceptance    string `json:"acceptance,omitempty"`
-	FirstSeenUnix int64  `json:"first_seen_unix"`
-}
-
-func planCandidateDTO(c factory.PriorityCandidate) planCandidateView {
-	return planCandidateView{
-		ID:         c.ID,
-		Repository: strconv.FormatInt(c.Control.Repository, 10),
-		Issue:      strconv.FormatInt(c.Control.Issue, 10),
-		Readiness:  c.Control.Readiness, Acceptance: c.Control.Acceptance,
-		FirstSeenUnix: c.Control.FirstSeenUnix,
-	}
-}
-
-// planJudgmentView renders the recorded planning judgment: the selected
-// option, its uncertainty and cost. Probabilities carry the deciding
-// distribution only when bounded; larger maps report their count.
-type planJudgmentView struct {
-	Probabilities map[string]float64 `json:"probabilities,omitempty"`
-	Selected      string             `json:"selected,omitempty"`
-	Model         string             `json:"model,omitempty"`
-	Confidence    float64            `json:"confidence,omitempty"`
-	InputTokens   int64              `json:"input_tokens,omitempty"`
-	OutputTokens  int64              `json:"output_tokens,omitempty"`
-	ProbabilityN  int                `json:"probability_count"`
-}
-
 // maxRenderedProbabilities bounds one rendered answer distribution. Stored
 // answers are not revalidated on read, so rendering caps the map and
 // reports the recorded count.
 const maxRenderedProbabilities = 256
-
-func planJudgmentDTO(a factory.PriorityAnswer) *planJudgmentView {
-	if a.Selected == "" && a.Model == "" && len(a.Probabilities) == 0 {
-		return nil
-	}
-	view := &planJudgmentView{
-		Selected: a.Selected, Model: a.Model, Confidence: a.Confidence,
-		InputTokens: a.InputTokens, OutputTokens: a.OutputTokens,
-		ProbabilityN: len(a.Probabilities),
-	}
-	if len(a.Probabilities) <= maxRenderedProbabilities {
-		view.Probabilities = a.Probabilities
-	}
-	return view
-}
-
-// planView is the recorded implementation plan for one native issue: the
-// approach, steps and provisional prerequisites behind it. Absence of a
-// record means no plan was recorded yet, never an implicit approach.
-type planView struct {
-	Candidate   planCandidateView `json:"candidate"`
-	Judgment    *planJudgmentView `json:"judgment,omitempty"`
-	Missing     []factory.Blocker `json:"missing"`
-	Steps       []string          `json:"steps"`
-	Strategy    string            `json:"strategy"`
-	Snapshot    string            `json:"snapshot"`
-	Outcome     string            `json:"outcome"`
-	CreatedUnix int64             `json:"created_unix"`
-}
-
-func planDTO(r factory.PlanningRecord) *planView {
-	steps := r.Steps
-	if steps == nil {
-		steps = []string{}
-	}
-	missing := r.Input.Missing
-	if missing == nil {
-		missing = []factory.Blocker{}
-	}
-	return &planView{
-		Candidate: planCandidateDTO(r.Input.Candidate), Judgment: planJudgmentDTO(r.Judgment),
-		Missing: missing, Steps: steps, Strategy: r.Strategy,
-		Snapshot: r.Snapshot, Outcome: r.Outcome, CreatedUnix: r.CreatedUnix,
-	}
-}
-
-// planFreshnessStates name the plan's currency. Provisional plans carry
-// missing prerequisites; stale plans no longer match current readiness.
-const (
-	planFreshMissing     = "missing"
-	planFreshStale       = "stale"
-	planFreshProvisional = "provisional"
-	planFreshCurrent     = "current"
-)
-
-// planFreshnessReasons are the bounded codes behind a stale plan.
-const (
-	planReasonNoReadiness = "current_readiness_missing"
-	planReasonAcceptance  = "acceptance_changed"
-	planReasonInputs      = "inputs_changed"
-)
-
-type planFreshnessView struct {
-	Reasons     []string `json:"reasons,omitempty"`
-	State       string   `json:"state"`
-	Provisional bool     `json:"provisional"`
-}
-
-type planFreshnessInput struct {
-	PlanAcceptance     string
-	PlanFingerprint    string
-	ControlAcceptance  string
-	ControlFingerprint string
-	HasPlan            bool
-	Provisional        bool
-	HasControl         bool
-}
-
-func planFreshnessDTO(in planFreshnessInput) planFreshnessView {
-	if !in.HasPlan {
-		return planFreshnessView{State: planFreshMissing}
-	}
-	view := planFreshnessView{Provisional: in.Provisional}
-	switch {
-	case !in.HasControl:
-		view.Reasons = []string{planReasonNoReadiness}
-	case in.PlanAcceptance != in.ControlAcceptance:
-		view.Reasons = []string{planReasonAcceptance}
-	case in.PlanFingerprint != in.ControlFingerprint:
-		view.Reasons = []string{planReasonInputs}
-	}
-	switch {
-	case len(view.Reasons) > 0:
-		view.State = planFreshStale
-	case in.Provisional:
-		view.State = planFreshProvisional
-	default:
-		view.State = planFreshCurrent
-	}
-	return view
-}
 
 // priorityCandidateView renders one comparison candidate: identity,
 // readiness, queue age and which optional evidence was known. Native
@@ -272,15 +135,11 @@ func priorityComparisonDTO(r factory.PriorityReceipt, repository int64, observed
 	return view
 }
 
-// factoryIssuePlanView is the plan and priority read for one native
-// issue: the recorded plan with its freshness, and the recent recorded
-// next-work comparisons naming the issue, newest first. Comparisons
-// page by trailing cursor; absent plans and empty comparison pages are
-// explicit, never guesses.
+// factoryIssuePlanView is the priority read for one native issue: the
+// recent recorded next-work comparisons naming the issue, newest first.
+// Comparisons page by trailing cursor; empty pages are explicit.
 type factoryIssuePlanView struct {
-	Plan               *planView                `json:"plan,omitempty"`
 	Comparisons        []priorityComparisonView `json:"comparisons"`
-	Freshness          planFreshnessView        `json:"freshness"`
 	Repository         string                   `json:"repository"`
 	Issue              string                   `json:"issue"`
 	NextBeforeSnapshot string                   `json:"next_before_snapshot,omitempty"`
@@ -322,9 +181,8 @@ func parsePlanComparisonQuery(raw string) (store.PriorityComparisonCursor, int, 
 	return store.PriorityComparisonCursor{BeforeUnix: parsed, BeforeSnapshot: beforeSnapshot}, limit, true
 }
 
-// apiFactoryIssuePlan shows the recorded plan and recent priority
-// comparisons for one native issue. It reads the planning journal and
-// priority receipts only; it never makes a judgment, provisions or
+// apiFactoryIssuePlan shows the recent priority comparisons for one
+// native issue. It reads priority receipts only; it never makes a judgment, provisions or
 // dispatches work.
 func (s *API) apiFactoryIssuePlan(w http.ResponseWriter, r *http.Request, v store.Session) {
 	cursor, limit, ok := parsePlanComparisonQuery(r.URL.RawQuery)
@@ -342,23 +200,6 @@ func (s *API) apiFactoryIssuePlan(w http.ResponseWriter, r *http.Request, v stor
 		Repository:  strconv.FormatInt(repository, 10), Issue: issue, ObservedUnix: observed,
 	}
 	index, _ := strconv.ParseInt(issue, 10, 64)
-	freshness := planFreshnessInput{}
-	if record, err := s.Store.PlanningRecord(r.Context(), repository, index); err == nil {
-		freshness.HasPlan, freshness.Provisional = true, record.Provisional
-		freshness.PlanAcceptance, freshness.PlanFingerprint = record.Input.Candidate.Acceptance.ID, record.Input.Candidate.Control.Fingerprint
-		view.Plan = planDTO(record)
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read issue plan.")
-		return
-	}
-	if control, err := s.Store.IssueControl(r.Context(), repository, index); err == nil {
-		freshness.HasControl = true
-		freshness.ControlAcceptance, freshness.ControlFingerprint = control.Acceptance, control.Fingerprint
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read issue readiness.")
-		return
-	}
-	view.Freshness = planFreshnessDTO(freshness)
 	receipts, hasMore, err := s.Store.PriorityReceiptsForIssue(r.Context(), repository, index, cursor, limit)
 	if err != nil {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read priority comparisons.")

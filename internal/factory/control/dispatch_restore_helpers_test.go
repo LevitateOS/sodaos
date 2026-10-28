@@ -560,7 +560,7 @@ func (reviewSeedingStub) Select(_ context.Context, _ any, _ string, choices map[
 // so seed before the accepted successor replaces it.
 func seedChoiceWalkthroughReview(t *testing.T, ctx context.Context, c *Coordinator, head factory.IntentRevision, content factory.ProposalContent) {
 	t.Helper()
-	seed := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: reviewSeedingStub{}}}
+	seed := &Coordinator{Store: c.Store, Planning: &PlanningJudgments{Chooser: reviewSeedingStub{}}}
 	recommended, err := seed.JudgeConsolidation(ctx, head, content)
 	if err != nil {
 		t.Fatalf("walkthrough consolidation not recorded: %v", err)
