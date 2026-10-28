@@ -24,8 +24,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 10 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'plan' | 'check' | 'accept' | 'build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'plan', 'check', 'accept', 'build', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -528,6 +528,10 @@ async function main() {
       report.revision = revision;
       await phasePlan(s.page, dir, intent, revision);
     }
+    // Poll-only: follow an already-admitted run via Refresh status (GET).
+    // Never POSTs a plan; use after a lost launch observation (503 with a
+    // live run) so a retry cannot strand a duplicate assignment.
+    if (only === 'poll') await phasePlan(s.page, dir, intent, null);
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
     if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
