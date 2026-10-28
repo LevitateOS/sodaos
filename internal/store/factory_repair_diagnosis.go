@@ -8,7 +8,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// The diagnosis, submission receipt and attributed ST02 post share the existing
+// The diagnosis, submission receipt and attributed diagnosis post share the existing
 // transaction. Recording causal claims grants no judgment or adoption authority.
 func recordMCPRepairDiagnosisTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission, receipt *factory.MCPReceipt) error {
 	if sub.Tool != factory.MCPToolRecordDiagnosis {
@@ -32,7 +32,7 @@ func recordMCPRepairDiagnosisTx(ctx context.Context, tx *sql.Tx, cap factory.MCP
 	if count >= factory.MaxRepairDiagnoses {
 		return errors.New("diagnosis record limit reached; finish remains available")
 	}
-	content := factory.FeedCommunication{Kind: "diagnosis", ComponentID: "ST02", Title: d.Title, Summary: "Recorded diagnosis (" + d.State + "). Graph and readiness are unchanged.\n" + d.Summary, Scope: d.Subject, EvidenceRefs: append([]string{}, d.EvidenceRefs...), Alternatives: append([]string{}, d.Alternatives...), Remaining: append([]string{}, d.Uncertainty...)}
+	content := factory.FeedCommunication{Kind: "diagnosis", Title: d.Title, Summary: "Recorded diagnosis (" + d.State + "). Graph and readiness are unchanged.\n" + d.Summary, Scope: d.Subject, EvidenceRefs: append([]string{}, d.EvidenceRefs...), Alternatives: append([]string{}, d.Alternatives...), Remaining: append([]string{}, d.Uncertainty...)}
 	for _, cause := range d.Causes {
 		content.Items = append(content.Items, factory.FeedCommunicationItem{ID: cause.CheckRef, Label: cause.CheckRef, Detail: cause.Detail, State: "reported_" + d.State})
 	}
@@ -48,9 +48,6 @@ func recordMCPRepairDiagnosisTx(ctx context.Context, tx *sql.Tx, cap factory.MCP
 		content.Artifacts = append(content.Artifacts, factory.FeedArtifact{ID: id})
 	}
 	if err := resolveCommunicationArtifactsTx(ctx, tx, cap.Repository, &content); err != nil {
-		return err
-	}
-	if err := factory.ValidateFeedComponent(content.ComponentID, cap.Profile, sub.Tool); err != nil {
 		return err
 	}
 	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)

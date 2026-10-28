@@ -166,6 +166,9 @@ func DecodeMCPCommunication(tool MCPTool, payload []byte) (FeedCommunication, er
 		return out, fmt.Errorf("communication payload: %w", err)
 	}
 	out.Kind = strings.TrimPrefix(string(tool), "factory.")
+	// A retired worker presentation ID is accepted and ignored; only
+	// controller-written events carry one.
+	out.ComponentID = ""
 	if err := out.Validate(); err != nil {
 		return out, err
 	}

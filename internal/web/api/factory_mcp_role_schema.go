@@ -18,7 +18,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	for _, key := range spec.required {
 		props[key] = &jsonschema.Schema{Description: "Required result field."}
 	}
-	for _, key := range []string{"component_id", "unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "walkthroughs", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
+	for _, key := range []string{"unchanged", "candidate", "questions", "conclusion", "evidence", "evidence_refs", "uncertainty", "verification_manifest_proposal", "walkthroughs", "alternatives", "unresolved_facts", "tuple", "carried_assessments", "findings", "cause_detail", "native_child_ref", "check_receipts", "artifact_refs", "failures", "input_digest", "fix_evidence"} {
 		if mcpOptionalPayloadKey(tool, key) {
 			props[key] = &jsonschema.Schema{}
 		}
@@ -34,7 +34,6 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	}
 	text := &jsonschema.Schema{Type: "string"}
 	strings := &jsonschema.Schema{Type: "array", Items: &jsonschema.Schema{Type: "string"}}
-	set("component_id", "Optional feed presentation ID allowed for this role and outlet; omit for its default presentation.", text)
 	set("evidence_refs", "References to evidence actually inspected; never a claim that checks passed.", strings)
 	set("candidate", "Exact candidate commit hash produced by this work. Publication and merge are independently verified.", text)
 	set("input_digest", serverFilled, text)

@@ -267,10 +267,14 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	if _, err = s.MCPReceipt(ctx, cap.AssignmentID, bad.SubmissionID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("refused report saved receipt: %v", err)
 	}
-	// Caller-selected Factory effects cannot become trusted cards.
-	bad = testMCPSubmissionRow(cap, factory.MCPToolPartial, []byte(`{"title":"Merged","summary":"An untrusted report","completed":["claimed merge"],"component_id":"F04"}`))
-	if _, err = s.RecordMCPSubmission(ctx, bad, testMCPRecordedReceipt(bad)); err == nil {
-		t.Fatal("controller-owned component admitted")
+	// A caller-selected Factory event ID is ignored, so it cannot become a trusted card.
+	stray := testMCPSubmissionRow(cap, factory.MCPToolPartial, []byte(`{"title":"Merged","summary":"An untrusted report","completed":["claimed merge"],"component_id":"F04"}`))
+	strayReceipt, err := s.RecordMCPSubmission(ctx, stray, testMCPRecordedReceipt(stray))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post, err := s.FeedComment(ctx, strayReceipt.FeedPostID); err != nil || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.ComponentID != "" {
+		t.Fatalf("stray component kept: %+v %v", post, err)
 	}
 }
 
@@ -343,7 +347,7 @@ func TestMCPCommunicationEveryOutlet(t *testing.T) {
 	}
 }
 
-func TestMCPFinishComponentUsesCanonicalRecord(t *testing.T) {
+func TestMCPFinishUsesCanonicalRecord(t *testing.T) {
 	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	cap := testMCPCapabilityRow()
@@ -360,9 +364,6 @@ func TestMCPFinishComponentUsesCanonicalRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	detail := details[a.ID]
-	if detail.Payload == nil || detail.Payload.ComponentID != "S12" {
-		t.Fatalf("finish presentation missing: %+v", detail)
-	}
 	if strings.Contains(detail.Status, "completed") || strings.Contains(detail.Status, "verified") {
 		t.Fatalf("submission invented completion: %s", detail.Status)
 	}

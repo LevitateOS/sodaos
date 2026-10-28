@@ -137,9 +137,6 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 	if err := s.feedTaskStates(ctx, taskRoots, out); err != nil {
 		return nil, err
 	}
-	if err := s.feedSubmissionComponents(ctx, ids, out); err != nil {
-		return nil, err
-	}
 	return out, nil
 }
 
@@ -717,7 +714,7 @@ func (s *Store) feedMergeDetails(ctx context.Context, ids []string, out map[stri
 				detail.Status = "merged>closed"
 			}
 		}
-		detail.Payload = &factory.FeedPayload{ComponentID: "F06", Merge: merge}
+		detail.Payload = &factory.FeedPayload{Merge: merge}
 		out[detail.ID] = detail
 	}
 	return rows.Err()
@@ -749,7 +746,7 @@ func (s *Store) feedCompletionDetails(ctx context.Context, ids []string, out map
 			detail.Ref = event.MergedCommit
 			completion.MergedCommit = event.MergedCommit
 		}
-		detail.Payload = &factory.FeedPayload{ComponentID: "F06", Completion: &completion}
+		detail.Payload = &factory.FeedPayload{Completion: &completion}
 		out[detail.ID] = detail
 	}
 	return rows.Err()
@@ -783,11 +780,7 @@ func (s *Store) feedJudgmentDetails(ctx context.Context, ids []string, out map[s
 		if detail.Issue == 0 {
 			detail.Issue = issue
 		}
-		component := "F04"
-		if judgment.Kind == "priority" {
-			component = "F03"
-		}
-		detail.Payload = &factory.FeedPayload{ComponentID: component, Judgment: judgment}
+		detail.Payload = &factory.FeedPayload{Judgment: judgment}
 		out[detail.ID] = detail
 	}
 	return rows.Err()

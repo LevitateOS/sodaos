@@ -18,7 +18,7 @@ import type {
 } from './sodaspaces-factory-feed-response.js';
 import type {FeedRepositoryRef} from './sodaspaces-factory-feed-view.js';
 import {nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
-import {feedComponent, renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
+import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
 import {renderFeedGraph} from './sodaspaces-factory-feed-graph.js';
 import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
 import {renderRecordAction} from './sodaspaces-factory-feed-record-actions.js';
@@ -190,9 +190,6 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
       diagnosis: 'reassessment',
       repair_draft: 'reassessment',
     };
-    const component = feedComponent(communication.componentId);
-    if (communication.kind === 'partial' && component && feedFamilies.some((family) => family === component.family))
-      return component.family as FeedFamily;
     return bySignal[communication.kind];
   }
   if (entry.kind === 'post') return 'discussion';
@@ -202,8 +199,6 @@ export function selectFeedFamily(entry: FeedEntry): FeedFamily {
   if (entry.activity === 'merged') return 'merged';
   if (entry.activity === 'completed') return 'completed';
   if (entry.activity === 'judgment') return 'decision';
-  const component = feedComponent(entry.payload?.componentId);
-  if (component && feedFamilies.some((family) => family === component.family)) return component.family as FeedFamily;
   const byRole = roleFamilies[normalizedActor(entry.actor)];
   if (byRole !== undefined) return byRole;
   const status = (entry.status ?? '').toLowerCase();
@@ -216,7 +211,6 @@ export interface FeedFamilyModel {
   readonly payload?: FeedPayload;
   readonly entryKey?: string;
   readonly communication?: FeedCommunication;
-  readonly componentId?: string;
   readonly family: FeedFamily;
   readonly label: string;
   readonly headline: string;
@@ -233,7 +227,7 @@ export interface FeedFamilyModel {
   // nothing yet about whether the work it carried is done.
   readonly neutral?: boolean;
   readonly sourceLinks: readonly {label: string; href: string}[];
-  // Designed role component blocks (catalog PL/AR/BU/IN/FX/ST/TP/K/S):
+  // Designed role blocks:
   // the focal structured section per family, built only from recorded
   // wire facts — status segments, summary, candidate ref, bound
   // issue/PR. A block with no recorded facts says so per row instead
@@ -480,10 +474,10 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
   switch (family) {
     case 'plan':
       return [
-        ...brief('Proposed direction (PL01 brief)'),
+        ...brief('Proposed direction'),
         {
           kind: 'steps',
-          heading: 'Proposal adoption (PL08/PL11)',
+          heading: 'Proposal adoption',
           steps: [
             {label: 'Product planning', state: stageState(segments)},
             ...(segments.outcome
@@ -499,10 +493,10 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'issue':
       return [
-        ...brief('Investigation and approach (AR01/AR02)'),
+        ...brief('Investigation and approach'),
         {
           kind: 'rows',
-          heading: 'Plan binding (AR07/AR11)',
+          heading: 'Plan binding',
           rows: [
             {term: 'Investigated issue', value: issueValue},
             {term: 'Candidate reference', value: refValue},
@@ -526,8 +520,8 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'work':
       return [
-        ...brief('Implementation summary (BU04)'),
-        {kind: 'checks', heading: 'Checks and checkpoint evidence (BU06/BU07)', rows: checkRows(segments)},
+        ...brief('Implementation summary'),
+        {kind: 'checks', heading: 'Checks and checkpoint evidence', rows: checkRows(segments)},
         {
           kind: 'rows',
           heading: 'Candidate',
@@ -541,10 +535,10 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'review':
       return [
-        ...brief('Review summary (IN10)'),
+        ...brief('Review summary'),
         {
           kind: 'rows',
-          heading: 'Findings and verdict (IN02/IN03)',
+          heading: 'Findings and verdict',
           rows: [
             {term: 'Verdict', value: segments.verdict ? humanSegment(segments.verdict) : 'not recorded on this entry'},
             {
@@ -562,10 +556,10 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'correction':
       return [
-        ...brief('Correction summary (FX09)'),
+        ...brief('Correction summary'),
         {
           kind: 'beforeAfter',
-          heading: 'Before / after (FX03/FX04)',
+          heading: 'Before / after',
           beforeLabel: 'Before — findings under correction',
           before:
             segments.findings !== undefined
@@ -576,19 +570,19 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
             ? `New candidate ${entry.ref}. Submitted for independent acceptance; not yet an accepted resolution.`
             : 'No new candidate reference recorded on this entry yet.',
         },
-        {kind: 'checks', heading: 'Regression evidence (FX04)', rows: checkRows(segments)},
+        {kind: 'checks', heading: 'Regression evidence', rows: checkRows(segments)},
         {
           kind: 'rows',
-          heading: 'Disposition state (FX02/FX08)',
+          heading: 'Disposition state',
           rows: [{term: 'Bound issue', value: issueValue}, ...phaseRows],
         },
       ];
     case 'reassessment':
       return [
-        ...brief('Diagnosis and proposed repair (ST02/ST05)'),
+        ...brief('Diagnosis and proposed repair'),
         {
           kind: 'beforeAfter',
-          heading: 'Work graph: current vs proposed (ST06)',
+          heading: 'Work graph: current vs proposed',
           beforeLabel: 'Current graph',
           before: 'The sealed graph stands until adoption is confirmed; protected work is preserved.',
           afterLabel: 'Proposed change',
@@ -598,7 +592,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
         },
         {
           kind: 'steps',
-          heading: 'Adoption progress (ST10)',
+          heading: 'Adoption progress',
           steps: [
             {label: 'Reassessment submitted', state: stageState(segments)},
             ...chainSteps(segments, ['published', 'merged', 'completed']).filter((step) => step.state === 'done'),
@@ -608,11 +602,11 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'verification':
       return [
-        ...brief('Verification summary (TP11)'),
-        {kind: 'checks', heading: 'Accepted-outcome coverage evidence (TP02/TP07)', rows: checkRows(segments)},
+        ...brief('Verification summary'),
+        {kind: 'checks', heading: 'Accepted-outcome coverage evidence', rows: checkRows(segments)},
         {
           kind: 'rows',
-          heading: 'Delivery under test (TP01)',
+          heading: 'Delivery under test',
           rows: [
             {term: 'Delivery candidate', value: refValue},
             {
@@ -646,7 +640,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'knowledge':
       return [
-        ...brief('Recorded lesson or library change (K01/LA02)'),
+        ...brief('Recorded lesson or library change'),
         {
           kind: 'rows',
           heading: 'Entry state',
@@ -661,7 +655,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'decision':
       return [
-        ...brief('Chosen option (S16)'),
+        ...brief('Chosen option'),
         {
           kind: 'rows',
           heading: 'Decision record',
@@ -674,7 +668,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
       ];
     case 'question':
       return [
-        ...brief('Question (S02)'),
+        ...brief('Question'),
         {
           kind: 'rows',
           heading: 'What it blocks',
@@ -693,7 +687,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
         ...brief('Merge'),
         {
           kind: 'steps',
-          heading: 'Merge (F06)',
+          heading: 'Merge',
           steps: [
             {label: 'Native merge confirmed', state: entry.ref ? `done — merged commit ${entry.ref}` : 'done'},
             {
@@ -717,7 +711,7 @@ function familyBlocks(family: FeedFamily, entry: FeedEntry, segments: FeedStatus
         ...brief('Completion'),
         {
           kind: 'steps',
-          heading: 'Issue completion (F06)',
+          heading: 'Issue completion',
           steps: [{label: 'Issue completion recorded', state: 'done'}],
         },
         {
@@ -821,10 +815,10 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
   const blocks: FeedBlock[] = [];
   const plan = payload.plan;
   if (plan) {
-    if (plan.approach) blocks.push({kind: 'brief', heading: 'Approach (AR01)', text: plan.approach});
+    if (plan.approach) blocks.push({kind: 'brief', heading: 'Approach', text: plan.approach});
     blocks.push({
       kind: 'rows',
-      heading: 'Plan binding (AR07/AR11)',
+      heading: 'Plan binding',
       rows: [
         {term: 'Source commit', value: plan.sourceCommit ?? 'not recorded'},
         {term: 'Generation', value: plan.generation !== undefined ? String(plan.generation) : 'not recorded'},
@@ -837,7 +831,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (plan.tasks.length > 0 || plan.tasksTotal > 0)
       blocks.push({
         kind: 'graph',
-        heading: 'Plan tasks and dependencies (AR07)',
+        heading: 'Plan tasks and dependencies',
         items: plan.tasks.map((task) => ({
           id: task.id,
           label: `${task.id}: ${task.objective ?? 'objective not recorded'}`,
@@ -874,7 +868,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (plan.checks.length > 0 || plan.checksTotal > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Planned checks (AR09)',
+        heading: 'Planned checks',
         rows: plan.checks.map((check) => ({
           name: check.argv.length > 0 ? `${check.id} — ${commandPreview(check.argv)}` : check.id,
           result: `${
@@ -886,14 +880,14 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (plan.findings.length > 0 || plan.findingsTotal > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Investigation findings (AR04)',
+        heading: 'Investigation findings',
         rows: plan.findings.map((text, index) => ({term: `Finding ${index + 1}`, value: text})),
         note: shownNote(plan.findings.length, plan.findingsTotal, 'investigation findings'),
       });
     if (plan.inspected.length > 0 || plan.inspectedTotal > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Evidence inspected (AR04)',
+        heading: 'Evidence inspected',
         rows: plan.inspected.map((row) => ({
           term: row.path,
           value: [row.commit ? `at ${shortRef(row.commit)}` : 'commit not recorded', row.evidence]
@@ -923,10 +917,10 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
   const decomposition = payload.decomposition;
   if (decomposition) {
     if (decomposition.attention)
-      blocks.push({kind: 'alert', heading: 'Needs attention (PL08)', text: decomposition.attention});
+      blocks.push({kind: 'alert', heading: 'Needs attention', text: decomposition.attention});
     blocks.push({
       kind: 'rows',
-      heading: 'Decomposition (PL06)',
+      heading: 'Decomposition',
       rows: [
         {term: 'Operation', value: decomposition.operation ?? 'not recorded'},
         ...decomposition.candidates.map((candidate) => ({
@@ -947,13 +941,13 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
         ].join('; '),
       }))
     );
-    if (steps.length > 0) blocks.push({kind: 'steps', heading: 'Candidate tasks (PL06)', steps});
+    if (steps.length > 0) blocks.push({kind: 'steps', heading: 'Candidate tasks', steps});
   }
   const implementation = payload.implementation;
   if (implementation)
     blocks.push({
       kind: 'rows',
-      heading: 'Implementation receipt (BU10)',
+      heading: 'Implementation receipt',
       rows: [
         {term: 'Candidate produced', value: implementation.candidate ?? 'not recorded'},
         {
@@ -967,7 +961,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
   if (tasks && (tasks.tasks.length > 0 || tasks.total > 0))
     blocks.push({
       kind: 'steps',
-      heading: 'Recorded task states (BU01/BU06)',
+      heading: 'Recorded task states',
       steps: tasks.tasks.map((task) => ({label: task.id, state: task.state ?? 'not recorded'})),
       note: shownNote(tasks.tasks.length, tasks.total, 'task states'),
     });
@@ -976,7 +970,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (review.newFindings.length > 0 || review.newFindingsTotal > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Review findings (IN03)',
+        heading: 'Review findings',
         rows: review.newFindings.map((finding) => ({
           term: finding.severity ? `${finding.key} (${finding.severity})` : finding.key,
           value: findingText(finding),
@@ -986,14 +980,14 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (review.findings.length > 0 || review.findingsTotal > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Recorded findings (IN03)',
+        heading: 'Recorded findings',
         rows: review.findings.map((text, index) => ({term: `Finding ${index + 1}`, value: text})),
         note: shownNote(review.findings.length, review.findingsTotal, 'recorded findings'),
       });
     if (review.assessments.length > 0 || review.assessmentsTotal > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Finding assessments (IN04)',
+        heading: 'Finding assessments',
         rows: review.assessments.map((row) => ({
           term: row.key,
           value: `${row.status ?? 'status not recorded'}${row.evidence ? ` — ${row.evidence}` : ''}`,
@@ -1003,7 +997,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (review.clear)
       blocks.push({
         kind: 'rows',
-        heading: 'Clear review coverage (IN10)',
+        heading: 'Clear review coverage',
         rows: [
           {term: 'Reviewed head', value: review.clear.head ?? 'not recorded'},
           {term: 'Reviewed base', value: review.clear.base ?? 'not recorded'},
@@ -1018,7 +1012,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (review.verdict || review.cycleId || (review.summary && review.summary !== entry.summary))
       blocks.push({
         kind: 'rows',
-        heading: 'Verdict record (IN02)',
+        heading: 'Verdict record',
         rows: [
           {term: 'Recorded verdict', value: review.verdict ?? 'not recorded'},
           {term: 'Review cycle', value: review.cycleId ?? 'not recorded'},
@@ -1032,7 +1026,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
   if (correction) {
     blocks.push({
       kind: 'beforeAfter',
-      heading: 'Before / after (FX03/FX04)',
+      heading: 'Before / after',
       beforeLabel: 'Before — findings under correction',
       before: `${correction.findingsTotal} recorded finding${correction.findingsTotal === 1 ? '' : 's'} under correction.`,
       afterLabel: 'After — submitted correction',
@@ -1062,7 +1056,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
       });
     blocks.push({
       kind: 'rows',
-      heading: 'Finding dispositions (FX02)',
+      heading: 'Finding dispositions',
       rows: joined,
       note:
         shownNote(correction.findings.length, correction.findingsTotal, 'findings') ??
@@ -1070,7 +1064,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     });
     blocks.push({
       kind: 'rows',
-      heading: 'Correction binding (FX03)',
+      heading: 'Correction binding',
       rows: [
         {term: 'New candidate', value: correction.newCandidate ?? 'not recorded'},
         {term: 'Finding set digest', value: correction.setDigest ?? 'not recorded'},
@@ -1083,7 +1077,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (repair && repair.causes.length > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Recorded causes (ST02)',
+        heading: 'Recorded causes',
         rows: repair.causes.map((cause) => ({
           name: cause.check ?? 'cause not named',
           result: cause.detail ?? 'detail not recorded',
@@ -1092,7 +1086,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
       });
     blocks.push({
       kind: 'beforeAfter',
-      heading: 'Work graph: current vs proposed (ST06)',
+      heading: 'Work graph: current vs proposed',
       beforeLabel: 'Current graph — retained work',
       before:
         delta.retainedIssues.length > 0
@@ -1108,30 +1102,30 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
       note: shownNote(delta.changes.length, delta.changesTotal, 'proposed changes'),
     });
     const steps = changeTasks(delta.changes);
-    if (steps.length > 0) blocks.push({kind: 'steps', heading: 'Proposed tasks (ST06)', steps});
+    if (steps.length > 0) blocks.push({kind: 'steps', heading: 'Proposed tasks', steps});
     if (delta.attention.length > 0)
       blocks.push({
         kind: 'rows',
-        heading: 'Attention needed (ST08)',
+        heading: 'Attention needed',
         rows: delta.attention.map((row) => ({
           term: row.issue ? `Issue #${row.issue}` : 'issue not recorded',
           value: row.reason ?? 'reason not recorded',
         })),
         note: cappedNote(delta.attention.length, 'attention entries'),
       });
-    blocks.push(...coverageChecks(delta.coverage, delta.coverageTotal, 'Outcome coverage (ST08)'));
+    blocks.push(...coverageChecks(delta.coverage, delta.coverageTotal, 'Outcome coverage'));
     const binding: {term: string; value: string}[] = [
       {term: 'Inspected records', value: delta.inspectedTotal > 0 ? String(delta.inspectedTotal) : 'not recorded'},
     ];
     if (repair) binding.unshift({term: 'Repair outcome', value: repair.outcome ?? 'not recorded'});
-    blocks.push({kind: 'rows', heading: 'Reassessment binding (ST05)', rows: binding});
+    blocks.push({kind: 'rows', heading: 'Reassessment binding', rows: binding});
   }
   const verification = payload.verification;
   if (verification) {
     if (verification.failures.length > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Recorded failures (TP11)',
+        heading: 'Recorded failures',
         rows: verification.failures.map((failure) => ({
           name: failure.check ?? 'check not named',
           result: failure.detail ?? 'detail not recorded',
@@ -1141,7 +1135,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (verification.checks.length > 0 || verification.checksTotal > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Check receipts (TP07)',
+        heading: 'Check receipts',
         rows: verification.checks.map((receipt) => ({
           name: receipt.id,
           result: `${receipt.outcome ?? 'outcome not recorded'}${
@@ -1150,12 +1144,10 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
         })),
         note: shownNote(verification.checks.length, verification.checksTotal, 'check receipts'),
       });
-    blocks.push(
-      ...coverageChecks(verification.coverage, verification.coverageTotal, 'Accepted-outcome coverage (TP02)')
-    );
+    blocks.push(...coverageChecks(verification.coverage, verification.coverageTotal, 'Accepted-outcome coverage'));
     blocks.push({
       kind: 'rows',
-      heading: 'Delivery under test (TP01)',
+      heading: 'Delivery under test',
       rows: [
         {term: 'Delivery', value: verification.deliveryId ?? 'not recorded'},
         {term: 'Verification outcome', value: verification.outcome ?? 'not recorded'},
@@ -1168,7 +1160,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
   if (judgment) {
     blocks.push({
       kind: 'rows',
-      heading: 'Recorded judgment (F04)',
+      heading: 'Recorded judgment',
       rows: [
         {term: 'Kind', value: `${judgment.kind} judgment`},
         {term: 'Selected', value: judgment.selected ?? 'not recorded'},
@@ -1188,7 +1180,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     if (judgment.candidates.length > 0 || judgment.candidatesTotal > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Candidates considered (F04)',
+        heading: 'Candidates considered',
         rows: judgment.candidates.map((candidate) => {
           const weight = judgment.probabilities[candidate.id];
           const selected = candidate.id === judgment.selected;
@@ -1204,7 +1196,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     else if (Object.keys(judgment.probabilities).length > 0)
       blocks.push({
         kind: 'checks',
-        heading: 'Options considered (F04)',
+        heading: 'Options considered',
         rows: Object.entries(judgment.probabilities).map(([option, weight]) => ({
           name: option === judgment.selected ? `${option} — selected` : option,
           result: percentText(weight),
@@ -1216,7 +1208,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     blocks.push(
       {
         kind: 'steps',
-        heading: 'Merge (F06)',
+        heading: 'Merge',
         steps: [
           {
             label: 'Native merge confirmed',
@@ -1230,7 +1222,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
       },
       {
         kind: 'rows',
-        heading: 'Merge record (F06)',
+        heading: 'Merge record',
         rows: [
           {term: 'Stage', value: merge.stage ?? 'not recorded'},
           {term: 'Publication', value: merge.publication ?? 'not recorded'},
@@ -1244,7 +1236,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
     blocks.push(
       {
         kind: 'steps',
-        heading: 'Issue completion (F06)',
+        heading: 'Issue completion',
         steps: [
           {
             label: 'Issue completion recorded',
@@ -1254,7 +1246,7 @@ function payloadBlocks(entry: FeedEntry, payload: FeedPayload): FeedBlock[] {
       },
       {
         kind: 'rows',
-        heading: 'Completion record (F07/F10)',
+        heading: 'Completion record',
         rows: [
           {term: 'Event', value: completion.event ?? entry.id},
           {term: 'Occurrence', value: completion.occurrence ?? 'not recorded'},
@@ -1317,7 +1309,6 @@ export function describeFeedFamily(entry: FeedEntry, repository: FeedRepositoryR
     entryKey: feedEntryKey(entry),
     ...(payload ? {payload} : {}),
     ...(payload?.communication ? {communication: payload.communication} : {}),
-    ...(payload?.componentId ? {componentId: payload.componentId} : {}),
     family,
     label: text.label,
     headline:
@@ -1438,7 +1429,8 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
       return html`<details class="soda-feed-technical-details">
           <summary>${block.heading}</summary>
           <p>${block.text}</p>
-        </details>${note}`;
+        </details>
+        ${note}`;
     case 'beforeAfter':
       return html`<div class="soda-feed-beforeafter">
         <h4>${block.heading}</h4>
@@ -1456,17 +1448,12 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
 }
 
 export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactRequest): TemplateResult {
-  const component = feedComponent(model.componentId);
   const action = renderRecordAction(model.payload);
-  return html`<section
-    aria-label=${model.label}
-    data-feed-family=${model.family}
-    data-feed-component=${component?.id ?? ''}
-  >
+  return html`<section aria-label=${model.label} data-feed-family=${model.family}>
     ${
       model.communication
         ? renderFeedCommunication(model.communication, model.entryKey ?? '', request)
-        : html`<p class="soda-feed-headline"><strong>${component?.label ?? model.headline}</strong></p>
+        : html`<p class="soda-feed-headline"><strong>${model.headline}</strong></p>
             ${action ?? html`${model.blocks.slice(0, 4).map(renderFeedBlock)}`}
             ${
               action

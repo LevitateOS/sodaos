@@ -879,7 +879,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Fatal("journey cap admitted another observation")
 	}
 	var recordedPost, verifiedPosts int
-	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE data->'communication'->>'component_id'='TP03' AND data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'),count(*) FILTER(WHERE data->'communication'->>'component_id'='F10') FROM factory_feed_comments`, pilot.ID).Scan(&recordedPost, &verifiedPosts); err != nil || recordedPost != factory.MaxVerificationJourneys || verifiedPosts != 0 || verificationReadState() != beforeVerificationState {
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'),count(*) FILTER(WHERE data->'communication'->>'component_id'='F10') FROM factory_feed_comments`, pilot.ID).Scan(&recordedPost, &verifiedPosts); err != nil || recordedPost != factory.MaxVerificationJourneys || verifiedPosts != 0 || verificationReadState() != beforeVerificationState {
 		t.Fatal("journey observations were missing or became verified work", recordedPost, verifiedPosts, err)
 	}
 	beforeVerification = counts()

@@ -75,11 +75,10 @@ func TestLibraryMCPMaintenanceAndDiscovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		component := detail.Payload.Communication.ComponentID
-		if component != factory.LibraryComponent(tool) || detail.Actor != "library_admin" {
+		if detail.Payload.Communication.Kind != "library_maintenance" || detail.Actor != "library_admin" {
 			t.Fatalf("wrong maintenance post: %+v", detail)
 		}
-		seen[component] = true
+		seen[string(tool)] = true
 		return receipt
 	}
 	apply(factory.MCPToolBeginLibraryMaintenance, factory.LibraryChange{Title: "Maintain task policy notes", Summary: "Consolidate duplicates and preserve sources."})
@@ -113,8 +112,8 @@ func TestLibraryMCPMaintenanceAndDiscovery(t *testing.T) {
 	apply(factory.MCPToolRestoreLibraryItem, factory.LibraryChange{ID: second, Revision: 2, Reason: "Evidence checked"})
 	apply(factory.MCPToolReportLibraryImpact, factory.LibraryChange{Title: "Affected work", Summary: "Task policy notes now have focused references.", Completed: []string{"Preserved all source links"}, Remaining: []string{"Recheck consuming plans"}})
 	apply(factory.MCPToolFinishLibraryMaintenance, factory.LibraryChange{Title: "Library maintained", Summary: "Duplicate notes consolidated and focused guidance recorded."})
-	if len(seen) != 9 {
-		t.Fatalf("missing actual Library Admin components: %v", seen)
+	if len(seen) != 10 {
+		t.Fatalf("missing actual Library Admin operations: %v", seen)
 	}
 	current, err := s.LibraryRead(ctx, worker.Repository, second, false)
 	if err != nil || current.Item.Revision != 3 {

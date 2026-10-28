@@ -100,7 +100,6 @@ internal/store/factory_dispatch_phase_review_correct_test.go
 internal/store/factory_dispatch_phase_test.go
 internal/store/factory_dispatch_queue_test.go
 internal/store/factory_dispatch_test.go
-internal/store/factory_feed_catalog_test.go
 internal/store/factory_feed_comment_test.go
 internal/store/factory_feed_events_test.go
 internal/store/factory_feed_record_test.go

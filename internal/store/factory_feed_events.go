@@ -8,18 +8,35 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// factoryFeedEvents are the controller-written feed event kinds. The kind is
+// stored as communication.component_id: verification and contribution queries
+// filter on it, and the browser presents the event from it.
+var factoryFeedEvents = []string{
+	"F01", // preparation and admission checks
+	"F02", // dispatch and role transition
+	"F03", // why this work is next
+	"F04", // JEV assessment
+	"F05", // native issue or pull request created
+	"F06", // merge and issue closure
+	"F07", // dependency released
+	"F08", // pause, stop and takeover
+	"F09", // reconciliation problem or unavailable effect
+	"F10", // application outcomes verified
+	"F11", // design decision recorded
+}
+
 // recordFactoryFeedEventTx is private to the canonical store writers. A worker
-// cannot call it or choose a Factory component through its MCP report tools.
+// cannot call it or choose a Factory event through its MCP report tools.
 // Events share the write's transaction and replay identity, so a card only
 // exists when its observed effect committed, and a retry cannot duplicate it.
 func recordFactoryFeedEventTx(ctx context.Context, tx *sql.Tx, repository, issue int64, assignment, identity, status string, content factory.FeedCommunication, at int64) error {
-	component, ok := factory.FeedComponentByID(content.ComponentID)
-	if !ok || component.Authority != "factory" || repository <= 0 || identity == "" {
+	if !slices.Contains(factoryFeedEvents, content.ComponentID) || repository <= 0 || identity == "" {
 		return errors.New("invalid canonical Factory feed event")
 	}
 	content.Kind = "system"
