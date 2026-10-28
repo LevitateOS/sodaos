@@ -536,14 +536,23 @@ async function phaseAppUse(page: Page, out: string): Promise<void> {
   await shot(page, `${out}/app-forge-side.png`);
 }
 
-/** Every Factory run on the journey must be Muse muse-spark-1.3 with
- * contributor mode on (per the installed Factory policy). Fail naming the
- * exact provenance text found when the markers are absent. */
-export function assertMuseProvenance(details: string, where: string): void {
-  assert(
-    /muse/i.test(details) && /muse-spark-1\.3/.test(details) && /contributor/i.test(details),
-    `${where}: expected Muse muse-spark-1.3 contributor provenance, found: ${details.slice(0, 500)}`
-  );
+/**
+ * Build delivery signal. The product never renders per-run harness/model
+ * names in Feed: the Builder run rows show role/issue/outcome, and the
+ * run watch view shows status plus last output. Muse provenance for the
+ * journey is the installed Factory policy (rev 8: Muse 1.4.14,
+ * muse-spark-1.3, contributor on), verified read-only against the run
+ * records. The product's own delivery claim is the F10
+ * "Application outcomes verified" post carrying an "Open project app"
+ * button, so the follow-up waits for exactly that card and fails on any
+ * newly posted failure card instead of asserting markers the UI has.
+ */
+interface FeedCard {
+  id: string;
+  status: string;
+  role: string;
+  text: string;
+  appKeys: string[];
 }
 
 const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
@@ -551,12 +560,8 @@ const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
 async function phaseBuildFollow(page: Page, out: string, intent: string): Promise<void> {
   const started = Date.now();
   const deadline = started + BUILD_TIMEOUT_MS;
-  const seen = new Set<string>();
-  const logMilestone = async (name: string, text: string) => {
-    if (seen.has(name)) return;
-    seen.add(name);
-    await appendFile(`${out}/build-milestones.log`, `${new Date().toISOString()} ${name}: ${text.slice(0, 300)}\n`).catch(() => {});
-  };
+  const baseline = new Set<string>();
+  let baselined = false;
   await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent}\n`);
   for (;;) {
     assert(Date.now() < deadline, 'Build: 35-minute follow window expired; retain the last observed state');
@@ -565,48 +570,64 @@ async function phaseBuildFollow(page: Page, out: string, intent: string): Promis
     const spaces = await spacesContent(page);
     await spaces.getByRole('button', {name: 'Feed', exact: true}).first().click();
     await page.waitForTimeout(4000);
-    const text = await visibleText(page, 8000);
     await shot(page, `${out}/build-feed.png`);
-    const details = await page.evaluate(() => {
-      const parts: string[] = [];
-      const scan = (root: Document | ShadowRoot) => {
-        for (const d of Array.from(root.querySelectorAll('details'))) {
-          const t = (d.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
-          if (/muse|harness|model|contributor|assignment|run/i.test(t)) parts.push(t);
-        }
-        for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
-      };
-      scan(document);
-      const links: string[] = [];
-      const scanLinks = (root: Document | ShadowRoot) => {
-        for (const a of Array.from(root.querySelectorAll('a[href]'))) {
-          if (/open app/i.test(a.textContent || '')) links.push((a as HTMLAnchorElement).href);
-        }
-        for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scanLinks((el as Element).shadowRoot as ShadowRoot);
-      };
-      scanLinks(document);
-      return {text: parts.join('\n---\n'), links};
+    // Scope to Feed post cards only: page chrome (navigation, run rows,
+    // session lists) carries stale words like "ended" or "failed" from
+    // older attempts and must never decide this build.
+    const cards = await page.evaluate((): FeedCard[] => {
+      const found: FeedCard[] = [];
+      for (const el of Array.from(document.querySelectorAll('article.soda-feed-post'))) {
+        const text = (el.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
+        const appKeys = Array.from(el.querySelectorAll('button[data-feed-open-app]')).map(
+          (b) => b.getAttribute('data-feed-open-app') || ''
+        );
+        found.push({
+          id: el.id || '',
+          status: el.getAttribute('data-status') || '',
+          role: el.getAttribute('data-role') || '',
+          text,
+          appKeys,
+        });
+      }
+      return found;
     });
-    await writeFile(`${out}/build-provenance.txt`, `started=${new Date(started).toISOString()}\n${details.text.slice(0, 4000)}\nlinks=${JSON.stringify(details.links)}\n`);
-    for (const [name, re] of Object.entries({
-      'run-active': /Started|in progress|running/i,
-      'run-ended': /Run ended|completed|delivered/i,
-      'run-problem': /Run problem|failed|cancelled|blocked|needs your decision/i,
-      'review': /review/i,
-      'checks': /check/i,
-      'open-app': /open app/i,
-    }) as [string, RegExp][]) {
-      if (re.test(text)) await logMilestone(name, text);
+    await writeFile(`${out}/build-feed-cards.json`, JSON.stringify(cards, null, 2));
+    assert(cards.length > 0, 'Build: no Feed post cards rendered yet; the journey Feed is empty');
+    if (!baselined) {
+      for (const card of cards) baseline.add(card.id);
+      baselined = true;
+      await appendFile(`${out}/build-milestones.log`, `${new Date().toISOString()} baseline: ${cards.length} cards\n`);
     }
-    if (details.links.length > 0) {
-      await logMilestone('open-app-link', details.links.join(','));
-      if (/muse/i.test(details.text)) assertMuseProvenance(details.text, 'Build');
+    const fresh = cards.filter((card) => card.id && !baseline.has(card.id));
+    for (const card of fresh) {
+      baseline.add(card.id);
+      await appendFile(
+        `${out}/build-milestones.log`,
+        `${new Date().toISOString()} new-card status=${card.status} role=${card.role}: ${card.text.slice(0, 300)}\n`
+      );
+      if (card.status === 'failure') {
+        assert.fail(`Build: a new Feed card reports failure (status=failure role=${card.role}): ${card.text.slice(0, 500)}`);
+      }
+    }
+    const appCards = cards.filter((card) => card.appKeys.length > 0);
+    if (appCards.length > 1) {
+      assert.fail(
+        `Build: ${appCards.length} "Open project app" cards in Feed; cannot tell which delivery is the journey's`
+      );
+    }
+    if (appCards.length === 1) {
+      const delivery = appCards[0];
+      assert(
+        /Application outcomes verified/i.test(delivery.text),
+        `Build: the app card does not carry the verified-outcomes claim: ${delivery.text.slice(0, 300)}`
+      );
+      await writeFile(`${out}/build-delivery.json`, JSON.stringify(delivery, null, 2));
+      await appendFile(
+        `${out}/build-milestones.log`,
+        `${new Date().toISOString()} app-ready key=${delivery.appKeys[0]}: ${delivery.text.slice(0, 300)}\n`
+      );
       return;
     }
-    if (/Run problem|failed|cancelled|blocked/i.test(text)) {
-      assert.fail(`Build: run post reports a problem state (page: ${text.slice(0, 500)})`);
-    }
-    if (/muse/i.test(details.text)) assertMuseProvenance(details.text, 'Build');
     await page.waitForTimeout(30000);
   }
 }
