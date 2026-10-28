@@ -40,7 +40,21 @@ func extensionTerminalOrigin(r *http.Request, origin string) bool {
 }
 
 func nativeTerminalContribution(authority extensions.Authority) bool {
-	return extensionPageContribution(authority.Contribution, "spaces") || extensionWorkspacePanelContribution(authority.Contribution)
+	return extensionPageContribution(authority.Contribution, "spaces") || extensionWorkspacePanelContribution(authority.Contribution) ||
+		extensionRepositoryPageContribution(authority.Contribution)
+}
+
+func extensionRepositoryPageContribution(contribution extensions.Contribution) bool {
+	return contribution.Kind == "page" && contribution.ID == "repository-feed" && contribution.Scope == "repository"
+}
+
+// nativeTerminalRepositoryBound admits the repository page (Terminals place)
+// only for the environment of the repository it was opened on.
+func nativeTerminalRepositoryBound(authority extensions.Authority, repositoryID int64) bool {
+	if !extensionRepositoryPageContribution(authority.Contribution) {
+		return true
+	}
+	return authority.Repository != nil && authority.Repository.ID == strconv.FormatInt(repositoryID, 10)
 }
 
 func nativeTerminalMember(p store.Project, login string, err error) bool {
@@ -96,6 +110,9 @@ func nativeTerminalMembershipCurrent(ctx context.Context, login, expected string
 }
 
 func (s *API) extensionTerminalRepository(ctx context.Context, identity extensionTerminalIdentity) bool {
+	if !nativeTerminalRepositoryBound(identity.authority, identity.project.RepositoryID) {
+		return false
+	}
 	check, done := context.WithTimeout(ctx, 5*time.Second)
 	defer done()
 	repo, err := identity.authority.Native().Repository(check, strconv.FormatInt(identity.project.RepositoryID, 10))
