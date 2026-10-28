@@ -1,4 +1,4 @@
-import {html} from 'lit';
+import {html, svg} from 'lit';
 import {live} from 'lit/directives/live.js';
 import type {TemplateResult} from 'lit';
 import type {CommentPipelineState, FeedEntry} from './sodaspaces-factory-feed-response.js';
@@ -17,6 +17,16 @@ import {
 } from './sodaspaces-factory-feed-families.js';
 import type {FeedFamilyModel} from './sodaspaces-factory-feed-families.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
+import {describePostLine, feedState, feedStateWords} from './sodaspaces-factory-feed-thread.js';
+import type {
+  CommentKind,
+  FeedCommentGroup,
+  FeedCommentLine,
+  FeedState,
+  FeedThreadComment,
+  FeedThreadItem,
+} from './sodaspaces-factory-feed-thread.js';
+import type {FeedJudgment} from './sodaspaces-factory-feed-response.js';
 
 // Pure combined-feed presentation: the shared post shell, one registered
 // family section per entry (plans, issues, work, reviews, corrections,
@@ -912,6 +922,15 @@ export interface FeedPostModel {
   readonly discussion: DiscussionModel;
   readonly postBody: PostBodyModel | undefined;
   readonly comments: CommentsModel;
+  // Version 2 anatomy: one of seven states, a one-sentence headline, the
+  // consequence, the Next line and the work item named in the byline.
+  readonly state: FeedState;
+  readonly headline: string;
+  readonly detail: string;
+  readonly next: string;
+  readonly workItem: string | undefined;
+  readonly judgment: FeedJudgment | undefined;
+  readonly thread: Pick<FeedThreadItem, 'comments' | 'commentCount' | 'changes' | 'from' | 'level'> | undefined;
 }
 
 // CommentsModel projects the comment drawer's pull-tab: open state plus the
@@ -956,11 +975,30 @@ export function describeFeedPost(
   outcomes: readonly CommentOutcomeModel[],
   body: PostBodyState | undefined,
   denied: boolean,
-  comments?: CommentsModel
+  comments?: CommentsModel,
+  thread?: FeedThreadItem
 ): FeedPostModel {
+  const family = describeFeedFamily(entry, repository);
+  const state = feedState(entry);
+  const line = describePostLine(entry, state, family.family, family.headline);
   return {
+    state,
+    headline: line.headline,
+    detail: line.detail,
+    next: state === 'in_progress' && thread !== undefined && thread.level !== 'update' ? 'Nothing needed from you' : line.next,
+    workItem: line.workItem,
+    judgment: entry.payload?.judgment,
+    thread: thread
+      ? {
+          comments: thread.comments,
+          commentCount: thread.commentCount,
+          changes: thread.changes,
+          level: thread.level,
+          ...(thread.from ? {from: thread.from} : {}),
+        }
+      : undefined,
     header: describePostHeader(entry, repository),
-    family: describeFeedFamily(entry, repository),
+    family,
     plan: describePlanIssue(entry, repository),
     work: describeWorkEvidence(entry, repository),
     attention: describeDecisionAttention(entry, denied),
@@ -970,36 +1008,258 @@ export function describeFeedPost(
   };
 }
 
-// renderFeedPost keeps the agreed anatomy: separate article boundary, the
-// unboxed header immediately above its own bordered card, medium detail and
-// source links inside. No timeline spine, no nested multi-role wrapper.
-// A registered family section is the focal visual; discussion posts lead
-// with their stored text and fallback entries keep the generic work
-// section, so no entry loses its facts, failures or links.
+// Small state and comment icons, drawn so each reads without colour.
+const stateIcons: Readonly<Record<FeedState, TemplateResult>> = {
+  needs_you: svg`<circle cx="7" cy="7" r="4.2" fill="currentColor" stroke="none"/>`,
+  problem: svg`<path d="M7 1.6 12.9 12.2H1.1z"/><path d="M7 5.4v3.1M7 10.3v.05"/>`,
+  waiting: svg`<circle cx="7" cy="7" r="5.6"/><path d="M7 3.9V7l2.1 1.5"/>`,
+  in_progress: svg`<circle cx="7" cy="7" r="5.6"/><path d="M7 1.4a5.6 5.6 0 0 1 0 11.2z" fill="currentColor" stroke="none"/>`,
+  done: svg`<path d="M2.4 7.4 5.6 10.5 11.6 3.6"/>`,
+  decided: svg`<path d="M7 1.4 12.6 7 7 12.6 1.4 7z" fill="currentColor" stroke="none"/>`,
+  info: svg`<circle cx="7" cy="7" r="5"/>`,
+};
+const commentIcons: Readonly<Record<CommentKind | 'up', TemplateResult>> = {
+  edit: svg`<path d="M9.4 2.2l2.4 2.4-7 7H2.4V9.2z"/>`,
+  read: svg`<path d="M1.2 7s2.2-4 5.8-4 5.8 4 5.8 4-2.2 4-5.8 4S1.2 7 1.2 7z"/><circle cx="7" cy="7" r="1.6"/>`,
+  pass: svg`<path d="M2.4 7.4 5.6 10.5 11.6 3.6"/>`,
+  fail: svg`<path d="M3.2 3.2l7.6 7.6M10.8 3.2l-7.6 7.6"/>`,
+  save: svg`<path d="M3.2 12.4V1.8M3.2 2.4h7.6L9.2 5l1.6 2.6H3.2"/>`,
+  jev: svg`<path d="M7 1.4 12.6 7 7 12.6 1.4 7z" fill="currentColor" stroke="none"/>`,
+  reply: svg`<path d="M5.4 3 2 6.2l3.4 3.2M2.4 6.2h5.4a4 4 0 0 1 4 4v.6"/>`,
+  know: svg`<path d="M2 3h4a1.5 1.5 0 0 1 1 .5A1.5 1.5 0 0 1 8 3h4v8H8a1 1 0 0 0-1 1 1 1 0 0 0-1-1H2z"/>`,
+  shot: svg`<rect x="1.6" y="2.4" width="10.8" height="9.2" rx="1.4"/><path d="M1.8 10.2 5 7l2.4 2.4L9 7.8l3.2 3.2"/>`,
+  link: svg`<path d="M5.6 8.4 8.4 5.6M6.1 3.9l.9-.9a2.4 2.4 0 0 1 3.4 3.4l-.9.9M7.9 10.1l-.9.9a2.4 2.4 0 0 1-3.4-3.4l.9-.9"/>`,
+  text: svg`<path d="M2 2.6h10v7H6.4L3.6 12V9.6H2z"/>`,
+  up: svg`<path d="M7 12.2V2.2M3.2 6 7 2.2 10.8 6"/>`,
+};
+function icon(path: TemplateResult, className = ''): TemplateResult {
+  return html`<svg
+    class="soda-feed-ic ${className}"
+    viewBox="0 0 14 14"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    ${path}
+  </svg>`;
+}
+
+function clockText(at: number | undefined): string {
+  if (at === undefined || !Number.isSafeInteger(at) || at <= 0) return '';
+  const date = new Date(at * 1000);
+  return Number.isFinite(date.getTime()) ? date.toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'}) : '';
+}
+
+// One comment: icon · who · did what · to what · result · time.
+function renderCommentLine(line: FeedCommentLine, inGroup = false): TemplateResult {
+  const text =
+    line.kind === 'text'
+      ? html`<strong>${line.who}</strong><span class="soda-feed-cm-dot">·</span><span class="soda-feed-cm-quote">${line.what}</span>`
+      : html`${inGroup ? '' : html`<strong>${line.who}</strong> `}${line.did}${line.what ? html` ${line.what}` : ''}${
+          line.result
+            ? html`<span class="soda-feed-cm-dot">·</span><span class="soda-feed-cm-result" data-tone=${line.tone}>${line.result}</span>`
+            : ''
+        }`;
+  return html`<li class="soda-feed-cm" data-kind=${line.kind} data-tone=${line.tone}>
+    ${icon(commentIcons[line.kind])}
+    <span class="soda-feed-cm-text"
+      >${text}${
+        line.promoted
+          ? html`<a class="soda-feed-cm-promoted" href=${'#feed-' + line.promoted.replace(':', '-')}
+              >${icon(commentIcons.up)}Became a post</a
+            >`
+          : ''
+      }</span
+    >
+    <time>${clockText(line.at)}</time>
+  </li>`;
+}
+
+function renderCommentGroup(group: FeedCommentGroup): TemplateResult {
+  const from = clockText(group.from);
+  const to = clockText(group.to);
+  return html`<li class="soda-feed-cm-group">
+    <details>
+      <summary class="soda-feed-cm" data-kind=${group.kind} data-tone=${group.tone}>
+        ${icon(commentIcons[group.kind])}
+        <span class="soda-feed-cm-text"
+          ><strong>${group.who}</strong> ${group.summary}${
+            group.result
+              ? html`<span class="soda-feed-cm-dot">·</span><span class="soda-feed-cm-result" data-tone=${group.tone}>${group.result}</span>`
+              : ''
+          }</span
+        >
+        <time>${from && to && from !== to ? `${from}–${to}` : to}</time>
+      </summary>
+      <ul class="soda-feed-cms">
+        ${group.items.map((item) => renderCommentLine(item, true))}
+      </ul>
+    </details>
+  </li>`;
+}
+
+function renderThread(comments: readonly FeedThreadComment[], count: number): TemplateResult | string {
+  if (comments.length === 0) return '';
+  return html`<section class="soda-feed-thread" aria-label="Steps">
+    <p class="soda-feed-thread-count">${icon(commentIcons.text)}${count === 1 ? '1 step' : `${count} steps`}</p>
+    <ul class="soda-feed-cms">
+      ${comments.map((comment) => ('group' in comment ? renderCommentGroup(comment) : renderCommentLine(comment)))}
+    </ul>
+  </section>`;
+}
+
+// JEV's answer as bars: the share for each option, a notch at the 80% SodaOS
+// needs to act on its own, and how sure JEV was.
+function renderJudgment(judgment: FeedJudgment): TemplateResult {
+  const names = new Map(
+    judgment.candidates.map((candidate) => [
+      candidate.id,
+      candidate.issue ? `Issue #${candidate.issue}${candidate.objective ? ` · ${candidate.objective}` : ''}` : (candidate.objective ?? candidate.id),
+    ])
+  );
+  const label = (option: string) => {
+    const name = names.get(option) ?? option.replaceAll('_', ' ');
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+  const rows = Object.entries(judgment.probabilities)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+  const notch = judgment.kind === 'delivery';
+  const sure = judgment.confidence;
+  return html`<div class="soda-feed-jev">
+    ${rows.map(([option, weight], index) => {
+      const picked = option === judgment.selected;
+      return html`<div class="soda-feed-jev-opt" data-top=${index === 0} data-picked=${picked}>
+        <span class="soda-feed-jev-label"
+          >${picked ? icon(stateIcons.done) : ''}${label(option)}</span
+        ><span class="soda-feed-jev-pc">${Math.round(weight * 100)}%</span>
+        <span class="soda-feed-jev-track"
+          ><b style=${`width:${Math.round(weight * 100)}%`}></b>${
+            notch && index === 0 ? html`<i class="soda-feed-jev-notch" style="left:calc(80% - 1px)"></i>` : ''
+          }</span
+        >
+      </div>`;
+    })}
+    ${notch ? html`<p class="soda-feed-jev-key"><span class="soda-feed-jev-kn"><i></i></span>SodaOS acts on its own from 80%</p>` : ''}
+    ${
+      sure !== undefined
+        ? html`<p class="soda-feed-jev-sure">
+            JEV is <strong>${Math.round(sure * 100)}% sure</strong> of this answer${
+              notch ? (sure >= 0.8 ? ', which clears the 80% SodaOS needs' : ', under the 80% SodaOS needs') : ''
+            }
+          </p>`
+        : ''
+    }
+  </div>`;
+}
+
+// The recorded status word, unless it is a generic one that would hide the
+// state (a failed report still reads "Progress reported" in the record).
+const genericStatus = /^(Recorded|Update|Progress reported)$/;
+function pillWord(model: FeedPostModel): string {
+  const word = model.header.statusText;
+  return genericStatus.test(word) ? feedStateWords[model.state] : word;
+}
+
+function renderByline(model: FeedPostModel, assetBase: string): TemplateResult {
+  const header = model.header;
+  const changed = model.thread?.changes.length ? 'updated ' : '';
+  return html`<div class="soda-feed-header">
+    <span class="soda-feed-avatar" aria-hidden="true"
+      >${
+        header.avatarFile
+          ? html`<img src=${assetBase + header.avatarFile} alt="" width="28" height="28" loading="lazy" decoding="async" />`
+          : header.avatarInitial
+      }</span
+    >
+    <p>
+      <strong>${header.name}</strong>${header.role !== header.name ? html`<span class="soda-feed-by-role"> · ${header.role}</span>` : ''}
+      <span class="soda-feed-by-meta"
+        >${model.workItem ?? header.project}<i>·</i>${changed}${header.timeText}${
+          model.thread?.from
+            ? html`<i>·</i><a href=${'#feed-' + model.thread.from.key.replace(':', '-')}>from ${model.thread.from.label}</a>`
+            : ''
+        }</span
+      >
+    </p>
+  </div>`;
+}
+
+function renderChanges(model: FeedPostModel): TemplateResult | string {
+  const changes = model.thread?.changes ?? [];
+  if (changes.length === 0) return '';
+  return html`<details class="soda-feed-changes">
+    <summary>Show changes · ${changes.length}</summary>
+    <ol>
+      ${changes.map(
+        (entry) =>
+          html`<li>
+            <time>${clockText(entry.at)}</time
+            ><span>${entry.payload?.communication?.title ?? entry.summary ?? entry.status ?? 'Earlier state'}</span>
+          </li>`
+      )}
+    </ol>
+  </details>`;
+}
+
+// renderFeedPost keeps the version 2 anatomy: the byline above the card, then
+// the state pill and one-sentence headline, the detail, the kind's own
+// evidence, the Next line and folded details. Small steps follow as one-line
+// comments, and the reply drawer stays under them.
 export function renderFeedPost(
   model: FeedPostModel,
   replies: TemplateResult | string = '',
   request?: import('./sodaspaces-factory-feed-artifact.js').FeedArtifactRequest,
   assetBase = ''
 ): TemplateResult {
-  const focal =
-    model.family.family === 'discussion' && !model.family.communication
-      ? ''
-      : model.family.family === 'fallback'
-        ? html`${renderFeedFamily(model.family, request)} ${renderWorkEvidence(model.work)}`
-        : renderFeedFamily(model.family, request);
+  const discussionOnly = model.family.family === 'discussion' && !model.family.communication;
+  const family =
+    model.family.family === 'fallback'
+      ? html`${renderFeedFamily(model.family, request)} ${renderWorkEvidence(model.work)}`
+      : renderFeedFamily(model.family, request);
+  const focal = discussionOnly
+    ? ''
+    : model.judgment
+      ? html`${renderJudgment(model.judgment)}
+          <details class="soda-feed-more-content">
+            <summary>The recorded judgment</summary>
+            ${family}
+          </details>`
+      : family;
   return html`<article
     class="soda-feed-post"
     id=${'feed-' + model.header.key.replace(':', '-')}
     data-status=${model.family.neutral ? 'ended' : model.family.statusClass}
+    data-state=${model.state}
+    data-level=${model.thread?.level ?? 'post'}
     data-role=${model.header.role.toLowerCase().replace(/[\s-]+/g, '_')}
   >
-    ${renderPostHeader(model.header, assetBase)}
+    ${renderByline(model, assetBase)}
     <div class="soda-feed-stack">
-      <div class="soda-feed-card">
+      <div class="soda-feed-card" data-state=${model.state}>
+        <div class="soda-feed-hgroup">
+          <p class="soda-feed-hl">
+            <span class="soda-feed-status soda-feed-pill" data-state=${model.state}
+              >${icon(stateIcons[model.state])}${pillWord(model)}</span
+            >${discussionOnly ? '' : model.headline}
+          </p>
+          ${model.detail && !discussionOnly ? html`<p class="soda-feed-dt">${model.detail}</p>` : ''}
+        </div>
         ${model.postBody ? renderPostBody(model.postBody) : ''} ${focal}
         ${model.attention.tone === 'notice' ? renderDecisionAttention(model.attention) : ''}
+        ${
+          discussionOnly
+            ? ''
+            : html`<p class="soda-feed-next" data-state=${model.state}>
+                ${model.state === 'needs_you' ? html`<b class="soda-feed-age">${icon(stateIcons.waiting)}${model.next}</b>` : model.next}
+              </p>`
+        }
+        ${renderChanges(model)}
       </div>
+      ${renderThread(model.thread?.comments ?? [], model.thread?.commentCount ?? 0)}
       <section class="soda-feed-drawer" data-open=${model.comments.open} aria-label="Comments">
         <button
           type="button"
