@@ -1,5 +1,5 @@
 import './soda-providers.js';
-import {LitElement, html} from 'lit';
+import {LitElement, html, nothing} from 'lit';
 import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {
@@ -13,6 +13,7 @@ import type {Connection, Grant, Lease} from './soda-identity-response.js';
 
 export class SodaIdentity extends LitElement {
   static properties = {
+    sharingOnly: {type: Boolean},
     busy: {state: true},
     message: {state: true},
     connections: {state: true},
@@ -25,6 +26,8 @@ export class SodaIdentity extends LitElement {
   private actor = '';
   private transport?: PreparedExtensionMount;
   private project = '';
+  /** Settings → SodaOS → Members & access: sharing in this environment only; connecting an AI account is in the AI accounts dialog. */
+  declare sharingOnly: boolean;
   declare private busy: boolean;
   declare private message: string;
   declare private connections: Connection[];
@@ -43,6 +46,7 @@ export class SodaIdentity extends LitElement {
     this.grants = [];
     this.leases = [];
     this.members = [];
+    this.sharingOnly = false;
   }
   set context(context: {actor: string; transport: PreparedExtensionMount; project: string}) {
     if (this.actor === context.actor && this.transport === context.transport && this.project === context.project)
@@ -270,13 +274,14 @@ export class SodaIdentity extends LitElement {
       </form>`;
   }
   protected render() {
-    return html`<section aria-label="Identity connections">
-      <h2>Identity connections</h2>
+    const title = this.sharingOnly ? 'AI accounts shared in this environment' : 'Identity connections';
+    return html`<section aria-label=${title}>
+      <h2>${title}</h2>
       <p role="status">${this.message}</p>
       <fieldset ?disabled=${this.blocked()}>
         <legend>Personal account connections</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
-        <soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>
+        ${this.sharingOnly ? nothing : html`<soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>`}
         <label
           >Your connections
           <select .value=${this.selected} @change=${this.select}>
