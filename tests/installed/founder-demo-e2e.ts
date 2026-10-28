@@ -814,6 +814,29 @@ async function phaseNewRequest(page: Page, out: string): Promise<string> {
     return out;
   });
   await writeFile(`${out}/new-request-controls.json`, JSON.stringify(controls, null, 2));
+  // Bounds live in a collapsed section: pierce shadow roots, find the
+  // input by its label, and open the enclosing disclosure first.
+  await page.evaluate(() => {
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (let i = 0; i < roots.length; i++) {
+      for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+      }
+    }
+    for (const root of roots) {
+      for (const el of Array.from(root.querySelectorAll('input'))) {
+        const input = el as HTMLInputElement;
+        const id = input.id;
+        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
+        const wrap = input.closest('label')?.textContent ?? '';
+        const aria = input.getAttribute('aria-label') ?? '';
+        if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
+        const details = input.closest('details');
+        const summary = details?.querySelector(':scope > summary');
+        if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
+      }
+    }
+  });
   const setNumber = async (match: RegExp, value: string) => {
     const field = page.getByLabel(match);
     assert((await field.count()) === 1, `New request: expected exactly one ${match}, found ${await field.count()}`);
@@ -846,6 +869,29 @@ async function phaseNewRequest(page: Page, out: string): Promise<string> {
  * page with read-back verification, then Save draft (POST intents, already
  * allow-listed) so the next Explore can authorize its allowance. */
 async function phaseBounds(page: Page, out: string): Promise<void> {
+  // Bounds live in a collapsed section: pierce shadow roots, find the
+  // input by its label, and open the enclosing disclosure first.
+  await page.evaluate(() => {
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (let i = 0; i < roots.length; i++) {
+      for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+      }
+    }
+    for (const root of roots) {
+      for (const el of Array.from(root.querySelectorAll('input'))) {
+        const input = el as HTMLInputElement;
+        const id = input.id;
+        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
+        const wrap = input.closest('label')?.textContent ?? '';
+        const aria = input.getAttribute('aria-label') ?? '';
+        if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
+        const details = input.closest('details');
+        const summary = details?.querySelector(':scope > summary');
+        if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
+      }
+    }
+  });
   const setNumber = async (match: RegExp, value: string) => {
     const field = page.getByLabel(match);
     assert((await field.count()) === 1, `Bounds: expected exactly one ${match}, found ${await field.count()}`);
