@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -65,23 +64,14 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	if _, err := db.DeliveryJudgment(ctx, fingerprint); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unreserved read error=%v", err)
 	}
-	request := factory.NewID()
-	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, request, fingerprint)
+	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint)
 	if err != nil || !ok {
 		t.Fatalf("reserve=%v err=%v", ok, err)
 	}
-	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || len(allowance.DeliveryCalls) != 1 || allowance.DeliveryCalls[0] != request {
-		t.Fatalf("subledger=%+v err=%v", allowance.DeliveryCalls, err)
-	}
-	// Replaying the same fingerprint never resends and charges nothing new.
-	ok, err = db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), fingerprint)
-	if err != nil || ok {
-		t.Fatalf("replay reserve=%v err=%v", ok, err)
-	}
-	allowance, err = db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || len(allowance.DeliveryCalls) != 1 {
-		t.Fatalf("replay consumed: %+v %v", allowance.DeliveryCalls, err)
+	// A call that left no receipt retries under the same fingerprint.
+	ok, err = db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint)
+	if err != nil || !ok {
+		t.Fatalf("retry reserve=%v err=%v", ok, err)
 	}
 	receipt, err := factory.NewDeliveryReceipt(in, fingerprint, deliveryStoreAnswer(fingerprint), true, 41)
 	if err != nil {
@@ -89,6 +79,10 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	}
 	if err := db.RecordDeliveryJudgment(ctx, receipt); err != nil {
 		t.Fatalf("record: %v", err)
+	}
+	// A recorded receipt is reused instead of asking again.
+	if ok, err = db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint); err != nil || ok {
+		t.Fatalf("decided reserve=%v err=%v", ok, err)
 	}
 	if err := db.RecordDeliveryJudgment(ctx, receipt); !errors.Is(err, ErrCommandConflict) {
 		t.Fatalf("double record error=%v", err)
@@ -112,43 +106,6 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	}
 }
 
-func TestDeliveryJudgmentExhaustionAndConflicts(t *testing.T) {
-	db, a := deliveryStoreFixture(t)
-	ctx := context.Background()
-	limits, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	budget := limits.Limits.DeliveryCalls
-	for i := 0; i < budget; i++ {
-		in := deliveryStoreInput(i + 1)
-		fingerprint, err := factory.DeliveryFingerprint(in)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), fingerprint)
-		if err != nil || !ok {
-			t.Fatalf("reserve %d=%v err=%v", i, ok, err)
-		}
-	}
-	in := deliveryStoreInput(budget + 1)
-	fingerprint, err := factory.DeliveryFingerprint(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), fingerprint); err != nil || ok {
-		t.Fatalf("exhausted reserve=%v err=%v", ok, err)
-	}
-	// A consumed request identity cannot fund different evidence.
-	consumed, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || len(consumed.DeliveryCalls) == 0 {
-		t.Fatalf("subledger=%+v err=%v", consumed.DeliveryCalls, err)
-	}
-	if _, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, consumed.DeliveryCalls[0], fmt.Sprintf("%064x", 999)); !errors.Is(err, ErrCommandConflict) {
-		t.Fatalf("request reuse error=%v", err)
-	}
-}
-
 func TestDeliveryJudgmentAllowsIndependentInputs(t *testing.T) {
 	db, a := deliveryStoreFixture(t)
 	ctx := context.Background()
@@ -156,7 +113,7 @@ func TestDeliveryJudgmentAllowsIndependentInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), first)
+	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, first)
 	if err != nil || !ok {
 		t.Fatalf("first reserve=%v err=%v", ok, err)
 	}
@@ -164,7 +121,7 @@ func TestDeliveryJudgmentAllowsIndependentInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, factory.NewID(), second); err != nil || !ok {
+	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, second); err != nil || !ok {
 		t.Fatalf("independent reserve=%v err=%v", ok, err)
 	}
 }

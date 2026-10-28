@@ -173,10 +173,6 @@ func TestExplorePersistsAgreedReview(t *testing.T) {
 	if code, body := call(http.MethodPost, "/api/factory/intents", draftBody); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	allowanceBody := `{"id":"d454545454545454545454545","intent":"d232323232323232323232323","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowanceBody); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
-	}
 	product.IntentExploreChooser = &exploreFixtureChooser{}
 	code, body := call(http.MethodPost, "/api/factory/intents/d232323232323232323232323/explore", `{"revision":"d121212121212121212121212"}`)
 	if code != http.StatusCreated {
@@ -222,10 +218,6 @@ func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
 	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[]}`
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
-	}
-	allowance := `{"id":"d8e8e8e8e8e8e8e8e8e8e8e8e","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
 	}
 	product.IntentExploreChooser = &exploreFixtureChooser{}
 	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
@@ -323,29 +315,11 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft(narrowID, "", 4)); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", `{"id":"d404404404404404404404404","intent":"`+intentID+`","amount":8,"ceiling":8,"unit":"planning_calls"}`); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
-	}
-	allowanceUsage := func() (reserved, consumed int) {
-		t.Helper()
-		code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", "")
-		if code != http.StatusOK {
-			t.Fatalf("allowance read status=%d body=%s", code, body)
-		}
-		var a factory.PlanningAllowance
-		if err := json.Unmarshal(body, &a); err != nil {
-			t.Fatal(err)
-		}
-		return a.Reserved, a.Consumed
-	}
 	chooser := &scriptedExploreChooser{}
 	product.IntentExploreChooser = chooser
 	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+narrowID+`"}`)
 	if code != http.StatusBadRequest || errorCode(body) != "invalid_proposal_task_limit" {
 		t.Fatalf("over-bound explore status=%d body=%s", code, body)
-	}
-	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 1 {
-		t.Fatalf("bound refusal kept %d charges: reserved=%d consumed=%d calls=%d", consumed, reserved, consumed, chooser.calls)
 	}
 	if chooser.calls != 1 || chooser.sawConsistency {
 		t.Fatalf("round spent judgments past the derived graph: calls=%d consistency=%v", chooser.calls, chooser.sawConsistency)
@@ -364,9 +338,6 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+narrowID+`"}`)
 	if code != http.StatusBadRequest || errorCode(body) != "invalid_proposal_task_limit" {
 		t.Fatalf("repeat explore status=%d body=%s", code, body)
-	}
-	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 1 {
-		t.Fatalf("repeat explore charged again: reserved=%d consumed=%d", reserved, consumed)
 	}
 	if chooser.calls != 1 {
 		t.Fatalf("repeat explore consulted again: calls=%d", chooser.calls)
@@ -405,18 +376,13 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 	if stored.Consistency == nil || len(stored.Consistency.Mismatches) != 1 || stored.Consistency.Mismatches[0].Class != "outcome_gap" || stored.Consistency.Confidence != 0.73 {
 		t.Fatalf("stored consistency lost: %+v", stored.Consistency)
 	}
-	if reserved, consumed := allowanceUsage(); reserved != 0 || consumed != 5 {
-		t.Fatalf("fitting round charges: reserved=%d consumed=%d", reserved, consumed)
-	}
 }
 
-// TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
-// distinction on the real explore path: finite allowance exhaustion
-// mid-round reports 409 planning_funding_required (never 503), while
-// provider failure, stale head and session change keep
-// their own codes. Charged calls stay charged and the saved correction
-// head is untouched by the failed round.
-func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
+// TestExploreFailureCodes proves the real explore path's error codes:
+// provider failure reports 503 and retries on the next explore, while stale
+// head and session change keep their own codes. The saved correction head
+// is untouched by the failed round.
+func TestExploreFailureCodes(t *testing.T) {
 	product, _, call, errorCode := q05Mux(t, "")
 	saveDraft := func(id, intent, predecessor, ideas string) {
 		t.Helper()
@@ -428,25 +394,6 @@ func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
 			t.Fatalf("draft save status=%d body=%s", code, body)
 		}
 	}
-	saveAllowance := func(id, intent string, amount int) {
-		t.Helper()
-		shape := fmt.Sprintf(`{"id":"%s","intent":"%s","amount":%d,"ceiling":%d,"unit":"planning_calls"}`, id, intent, amount, amount)
-		if code, body := call(http.MethodPost, "/api/factory/intent-allowances", shape); code != http.StatusCreated {
-			t.Fatalf("allowance save status=%d body=%s", code, body)
-		}
-	}
-	allowanceUsage := func(intent string) (reserved, consumed int) {
-		t.Helper()
-		code, body := call(http.MethodGet, "/api/factory/intents/"+intent+"/allowance", "")
-		if code != http.StatusOK {
-			t.Fatalf("allowance read status=%d body=%s", code, body)
-		}
-		var a factory.PlanningAllowance
-		if err := json.Unmarshal(body, &a); err != nil {
-			t.Fatal(err)
-		}
-		return a.Reserved, a.Consumed
-	}
 	pendingIdea := func(id string) string {
 		return `{"id":"` + id + `","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}`
 	}
@@ -454,23 +401,22 @@ func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
 	var code int
 	var body []byte
 
-	// Mid-round exhaustion: amount 1 funds the purpose call; the
-	// assumptions leg then refuses on the exhausted allowance with 409.
 	const firstID = "d111111111111111111111111"
 	const intentID = "d222222222222222222222222"
 	const headID = "d1a1a1a1a1a1a1a1a1a1a1a1a"
 	const correction = "Only direct managers approve; skip HR review"
 	saveDraft(firstID, intentID, "", pendingIdea("d333333333333333333333333"))
 	saveDraft(headID, intentID, firstID, `{"id":"d333333333333333333333333","description":"Track leave requests","consequence":"Managers review requests","decision":"edit","correction":"`+correction+`"},`+pendingIdea("d335333333333333333333333"))
-	saveAllowance("d444444444444444444444444", intentID, 1)
-	midChooser := &exploreFixtureChooser{}
-	product.IntentExploreChooser = midChooser
-	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+headID+`"}`)
-	if code != http.StatusConflict || errorCode(body) != "planning_funding_required" || midChooser.calls != 1 {
-		t.Fatalf("mid-round explore status=%d body=%s calls=%d", code, body, midChooser.calls)
-	}
-	if reserved, consumed := allowanceUsage(intentID); reserved != 0 || consumed != 1 {
-		t.Fatalf("charged call not retained: reserved=%d consumed=%d", reserved, consumed)
+
+	// Provider failure reports 503 and records nothing, so the next
+	// explore asks again instead of refusing on a spent call.
+	failing := &exploreFixtureChooser{fail: true}
+	product.IntentExploreChooser = failing
+	for i := 1; i <= 2; i++ {
+		code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+headID+`"}`)
+		if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" || failing.calls != i {
+			t.Fatalf("provider explore %d status=%d body=%s calls=%d", i, code, body, failing.calls)
+		}
 	}
 	code, body = call(http.MethodGet, "/api/factory/intents/"+intentID, "")
 	if code != http.StatusOK {
@@ -482,24 +428,6 @@ func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
 	}
 	if head.ID != headID || len(head.Ideas) != 2 || head.Ideas[0].Correction != correction {
 		t.Fatalf("saved correction moved: %+v", head)
-	}
-	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+headID+`"}`)
-	if code != http.StatusConflict || errorCode(body) != "planning_funding_required" {
-		t.Fatalf("repeat explore status=%d body=%s", code, body)
-	}
-
-	// Provider failure keeps 503 with the call charged, never the funding code.
-	const providerDraft = "d777777777777777777777778"
-	const providerIntent = "d888888888888888888888889"
-	saveDraft(providerDraft, providerIntent, "", pendingIdea("d999999999999999999999991"))
-	saveAllowance("d999999999999999999999992", providerIntent, 8)
-	product.IntentExploreChooser = &exploreFixtureChooser{fail: true}
-	code, body = call(http.MethodPost, "/api/factory/intents/"+providerIntent+"/explore", `{"revision":"`+providerDraft+`"}`)
-	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" {
-		t.Fatalf("provider explore status=%d body=%s", code, body)
-	}
-	if reserved, consumed := allowanceUsage(providerIntent); reserved != 0 || consumed != 1 {
-		t.Fatalf("failed call not charged: reserved=%d consumed=%d", reserved, consumed)
 	}
 
 	// Stale head keeps 412.

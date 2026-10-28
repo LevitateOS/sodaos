@@ -154,29 +154,6 @@ func (r DeliveryReceipt) ConfirmExpectedResolution(revision int64) (DeliveryRece
 	return next, nil
 }
 
-// NewDeliveryUnavailable builds the failure receipt for one reserved
-// fingerprint without a completed answer. The reservation stays charged:
-// the receipt records the failure and carries no decision, so it can
-// never authorize merge however much allowance remains.
-func NewDeliveryUnavailable(in DeliveryFingerprintInput, fingerprint string, failure string, observedRevision int64) (DeliveryReceipt, error) {
-	if failure == "" {
-		return DeliveryReceipt{}, errors.New("delivery failure needs its reason")
-	}
-	r := DeliveryReceipt{
-		Kind:                   DeliveryReceiptKind,
-		Fingerprint:            fingerprint,
-		Input:                  in,
-		Calls:                  []DeliveryCall{{Fingerprint: fingerprint, Failure: failure}},
-		Outcome:                DeliveryOutcomeUnavailable,
-		ObservedNativeRevision: observedRevision,
-		CreatedUnix:            time.Now().Unix(),
-	}
-	if err := r.Validate(); err != nil {
-		return DeliveryReceipt{}, err
-	}
-	return r, nil
-}
-
 // NewDeliveryReceipt builds the decided receipt for one completed funded
 // answer. The answer must judge exactly the fingerprinted evidence; its
 // effective action derives from the remaining review allowance.

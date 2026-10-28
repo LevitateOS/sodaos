@@ -18,7 +18,6 @@ import {
   planningCancelledNotice,
   runPlanWork,
   newDecisionID,
-  planningAllowance,
   savedReviewRead,
 } from './sodaspaces-intent-response.js';
 import type {
@@ -28,7 +27,6 @@ import type {
   IntentPlanStatus,
   IntentRevision,
   IntentTask,
-  PlanningAllowance,
   ProductIdea,
   SavedRequest,
   SavedReviewRead,
@@ -79,7 +77,6 @@ export class SodaIntent extends LitElement {
     generationError: {state: true},
     generationNotice: {state: true},
     maxIssues: {state: true},
-    planningCalls: {state: true},
     planOperation: {state: true},
     plan: {state: true},
     planNotice: {state: true},
@@ -292,7 +289,6 @@ export class SodaIntent extends LitElement {
   declare generation: IntentGenerationStatus | undefined;
   declare generationError: string;
   declare maxIssues: number;
-  declare planningCalls: number;
   declare planOperation: string;
   declare plan: IntentPlanStatus | undefined;
   declare planNotice: string;
@@ -303,11 +299,6 @@ export class SodaIntent extends LitElement {
   private resumeID = '';
   private loadedRequest = '';
   private generationIntent = '';
-  private allowance: PlanningAllowance | undefined;
-  private userSetCalls = false;
-  private raiseCalls = 0;
-  private fundingNote = '';
-  private allowanceError = '';
   private savedSnapshot: IntentRevision | undefined;
   private scopeGateArmed = false;
   // Work shelved when a decision edit declined a linked idea: the dropped
@@ -377,7 +368,6 @@ export class SodaIntent extends LitElement {
     this.generationError = '';
     this.savedSnapshot = undefined;
     this.maxIssues = 20;
-    this.planningCalls = 8;
     this.planOperation = 'propose_intent';
     this.plan = undefined;
     this.planNotice = '';
@@ -395,11 +385,6 @@ export class SodaIntent extends LitElement {
       this.savedLoaded = this.departmentsLoaded = false;
       this.savedError = this.error = '';
       this.departments = [];
-      this.allowance = undefined;
-      this.allowanceError = '';
-      this.userSetCalls = false;
-      this.raiseCalls = 0;
-      this.fundingNote = '';
       this.dirty = this.changeOpen = this.departmentDialog = false;
       this.scopeGateArmed = false;
       this.shelvedTasks = [];
@@ -501,7 +486,6 @@ export class SodaIntent extends LitElement {
           objective: this.objective,
           department: this.department,
           maxIssues: this.maxIssues,
-          planningCalls: this.planningCalls,
           changeText: this.changeText,
           ideas: this.revision?.ideas.map(({id, decision, correction}) => ({id, decision, correction})),
           approach: this.revision?.approach,
@@ -526,8 +510,6 @@ export class SodaIntent extends LitElement {
       if (typeof draft.department === 'string') this.department = draft.department;
       if (Number.isInteger(draft.maxIssues) && draft.maxIssues >= 1 && draft.maxIssues <= 64)
         this.maxIssues = draft.maxIssues;
-      if (Number.isInteger(draft.planningCalls) && draft.planningCalls >= 1 && draft.planningCalls <= 100)
-        this.planningCalls = draft.planningCalls;
       if (typeof draft.changeText === 'string') this.changeText = draft.changeText;
       if (this.revision && Array.isArray(draft.ideas)) {
         this.revision = {
@@ -564,7 +546,6 @@ export class SodaIntent extends LitElement {
         (this.objective !== this.revision.objective ||
           this.department !== (this.revision.department || '') ||
           this.maxIssues !== this.revision.max_issues ||
-          this.planningCalls !== this.revision.planning_calls ||
           JSON.stringify(this.revision.ideas) !== JSON.stringify(this.savedSnapshot?.ideas) ||
           this.revision.approach !== this.savedSnapshot?.approach);
     } catch {
@@ -627,11 +608,6 @@ export class SodaIntent extends LitElement {
     this.resumeController?.abort();
     this.request = '';
     this.loadedRequest = '';
-    this.allowance = undefined;
-    this.allowanceError = '';
-    this.userSetCalls = false;
-    this.raiseCalls = 0;
-    this.fundingNote = '';
     this.revision = undefined;
     this.savedSnapshot = undefined;
     this.exploration = undefined;
@@ -773,8 +749,6 @@ export class SodaIntent extends LitElement {
       if (read && (read.intent !== id || read.head_revision !== saved.id)) throw Error('Mismatched review snapshot');
       this.applyRevision(saved, read);
       if (!this.resumeCurrent(id, controller)) return;
-      await this.refreshAllowance(saved.intent, controller.signal);
-      if (!this.resumeCurrent(id, controller)) return;
       this.loadedRequest = id;
       this.dispatchEvent(
         new CustomEvent('intent-resumed', {
@@ -855,11 +829,6 @@ export class SodaIntent extends LitElement {
   }
   private applyRevision(saved: IntentRevision, read?: SavedReviewRead) {
     if (saved.intent !== this.revision?.intent) {
-      this.allowance = undefined;
-      this.allowanceError = '';
-      this.userSetCalls = false;
-      this.raiseCalls = 0;
-      this.fundingNote = '';
     }
     this.revision = saved;
     this.savedSnapshot = structuredClone(saved);
@@ -871,7 +840,6 @@ export class SodaIntent extends LitElement {
     this.objective = saved.objective;
     this.department = saved.department || '';
     this.maxIssues = saved.max_issues;
-    this.planningCalls = saved.planning_calls;
     this.dirty = false;
     this.changeOpen = false;
     this.changeText = '';
@@ -901,7 +869,6 @@ export class SodaIntent extends LitElement {
       ...this.currentProposal(),
       state,
       max_issues: this.maxIssues,
-      planning_calls: this.planningCalls,
       ...(current?.approach ? {approach: current.approach} : {}),
     };
   }
@@ -2106,185 +2073,8 @@ export class SodaIntent extends LitElement {
     this.maybeRecoverFromHistory();
     return saved;
   }
-  private async readAllowance(intent: string, signal: AbortSignal): Promise<PlanningAllowance | undefined> {
-    try {
-      const found = planningAllowance(
-        await this.call('/api/factory/intents/' + intent + '/allowance', undefined, signal),
-        intent
-      );
-      this.allowance = found;
-      return found;
-    } catch (error) {
-      if (error instanceof SodaRequestError && error.status === 404) return undefined;
-      throw error;
-    }
-  }
-  private allowanceBody(intent: string, wanted: number, current: PlanningAllowance | undefined) {
-    return {
-      id: newDecisionID(),
-      intent,
-      ...(current ? {predecessor: current.id, reserved: current.reserved, consumed: current.consumed} : {}),
-      amount: wanted,
-      ceiling: wanted,
-      unit: 'planning_calls',
-      ...(current && wanted > current.amount
-        ? {effect: `Authorize ${wanted - current.amount} additional planning calls (${wanted} total).`}
-        : {}),
-    };
-  }
-  private async postAllowance(
-    intent: string,
-    wanted: number,
-    current: PlanningAllowance | undefined,
-    signal: AbortSignal
-  ) {
-    const saved = planningAllowance(
-      await this.call('/api/factory/intent-allowances', this.allowanceBody(intent, wanted, current), signal),
-      intent
-    );
-    this.allowance = saved;
-  }
-  private async postAllowanceFresh(intent: string, wanted: number, signal: AbortSignal): Promise<boolean> {
-    const fresh = await this.readAllowance(intent, signal);
-    if (signal.aborted) return false;
-    if (fresh && fresh.amount === wanted) return true;
-    await this.postAllowance(intent, wanted, fresh, signal);
-    return true;
-  }
-  private allowanceMessage(error: unknown): string {
-    const status = error instanceof SodaRequestError ? error.status : 0;
-    const code = error instanceof SodaRequestError ? error.code : '';
-    if (status === 404)
-      return 'The planning allowance is unavailable to the current account. Your description is saved; try again.';
-    if (status === 409 || status === 412)
-      return 'The planning allowance changed while saving. Your description is saved; try again.';
-    if (code === 'invalid_allowance')
-      return 'The planning allowance was not accepted. Your description is saved; check the amount and try again.';
-    return 'The planning allowance could not be confirmed. Your description is saved; try again.';
-  }
-  private allowanceFailed(error: unknown, signal: AbortSignal) {
-    if (signal.aborted) return;
-    this.error = this.allowanceMessage(error);
-  }
-  private adoptAllowance(current: PlanningAllowance | undefined) {
-    if (current && !this.userSetCalls) this.planningCalls = current.amount;
-  }
-  private async ensureAllowance(intent: string, signal: AbortSignal): Promise<boolean> {
-    try {
-      const current = await this.readAllowance(intent, signal);
-      if (signal.aborted) return false;
-      this.adoptAllowance(current);
-      const wanted = this.planningCalls;
-      if (current && current.amount === wanted) return true;
-      if (this.belowFloor(current, wanted)) return false;
-      try {
-        await this.postAllowance(intent, wanted, current, signal);
-        return true;
-      } catch (error) {
-        if (!(error instanceof SodaRequestError) || error.status !== 412) throw error;
-        return await this.postAllowanceFresh(intent, wanted, signal);
-      }
-    } catch (error) {
-      this.allowanceFailed(error, signal);
-      return false;
-    }
-  }
-  private belowFloor(current: PlanningAllowance | undefined, wanted: number): boolean {
-    if (!current || wanted >= current.reserved + current.consumed) return false;
-    this.error = `Planning calls cannot go below ${current.reserved + current.consumed} already used. Your description is saved; raise the amount or try again.`;
-    return true;
-  }
-  // Review-open allowance load: read-only and guarded by the caller's
-  // lifecycle and the current intent. A stale or superseded reply never
-  // overwrites the current revision's allowance, and nothing here posts or
-  // plans. Only an absent allowance degrades silently; other failures stay
-  // visible behind a reachable retry instead of hiding the raise action.
-  private async refreshAllowance(intent: string, signal: AbortSignal) {
-    try {
-      const found = planningAllowance(
-        await this.call('/api/factory/intents/' + intent + '/allowance', undefined, signal),
-        intent
-      );
-      if (signal.aborted || this.revision?.intent !== intent) return;
-      this.allowance = found;
-      this.allowanceError = '';
-    } catch (error) {
-      if (signal.aborted || this.revision?.intent !== intent) return;
-      if (error instanceof SodaRequestError && error.status === 404) {
-        this.allowance = undefined;
-        this.allowanceError = '';
-        return;
-      }
-      this.allowanceError =
-        'The planning allowance could not be loaded. Your description is saved; retry the load to try again.';
-    }
-  }
-  private retryAllowance = () => {
-    const intent = this.revision?.intent;
-    if (!intent || this.busy || this.blocked) return;
-    void this.perform((signal) => this.refreshAllowance(intent, signal), 'Loading planning allowance…');
-  };
-  private allowanceUsed(): number {
-    return (this.allowance?.reserved || 0) + (this.allowance?.consumed || 0);
-  }
-  private async postRaiseAllowance(
-    intent: string,
-    wanted: number,
-    current: PlanningAllowance | undefined,
-    signal: AbortSignal
-  ): Promise<boolean> {
-    try {
-      await this.postAllowance(intent, wanted, current, signal);
-      return true;
-    } catch (error) {
-      if (!(error instanceof SodaRequestError) || error.status !== 412) throw error;
-      return await this.postAllowanceFresh(intent, wanted, signal);
-    }
-  }
-  // raiseNextStep names the actual pending action after a top-up: a
-  // walkthrough awaiting its check names Check walkthrough, findings name
-  // the correction path, and only the remaining cases name re-exploration.
-  private raiseNextStep(): string {
-    const plan = this.plan?.revision === this.revision?.id ? this.plan : undefined;
-    if (plan?.state === 'pending') return 'Planning is running; the result appears here when the run settles.';
-    if (plan?.state === 'completed' && plan.walkthroughs && !plan.review) return 'Use Check walkthrough to try again.';
-    if (plan?.review?.consistency?.mismatches.length)
-      return 'Correct or clarify the request above, then update the proposal and plan again before checking.';
-    return 'Use Update proposal or Re-explore ideas to try again.';
-  }
-  private raise = () => {
-    const intent = this.revision?.intent;
-    if (!intent) return;
-    const wanted = this.raiseCalls || this.allowance?.amount || this.planningCalls;
-    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 100) {
-      this.fundingNote = 'Enter a raise amount between 1 and 100 planning calls.';
-      return;
-    }
-    void this.perform(async (signal) => {
-      const current = await this.readAllowance(intent, signal);
-      if (signal.aborted) return;
-      this.fundingNote = '';
-      if (current && current.amount === wanted) {
-        this.fundingNote = `Planning allowance is unchanged at ${wanted} calls.`;
-        return;
-      }
-      if (this.belowFloor(current, wanted)) return;
-      try {
-        if (!(await this.postRaiseAllowance(intent, wanted, current, signal))) return;
-      } catch (error) {
-        this.allowanceFailed(error, signal);
-        return;
-      }
-      this.planningCalls = wanted;
-      this.userSetCalls = true;
-      this.raiseCalls = 0;
-      const used = this.allowanceUsed();
-      this.fundingNote = `Planning allowance is now ${wanted} calls (${used} used). ${this.raiseNextStep()}`;
-    }, 'Raising allowance…');
-  };
   private async explore(signal: AbortSignal) {
     const saved = await this.save('draft', this.revision?.repository || '0', signal);
-    if (!(await this.ensureAllowance(saved.intent, signal))) return;
     try {
       const response = await this.call(
         '/api/factory/intents/' + saved.intent + '/explore',
@@ -2316,16 +2106,11 @@ export class SodaIntent extends LitElement {
     } catch (error) {
       if (!signal.aborted) this.exploreFailed(error);
     }
-    this.fundingNote = '';
-    if (!signal.aborted) await this.refreshAllowance(saved.intent, signal);
   }
   private exploreFailed(error: unknown) {
     if (error instanceof SodaRequestError && error.code === 'planning_unavailable')
       this.error =
         'The TypeSafe System One judgment service could not complete exploration. Your description is saved; try again.';
-    else if (error instanceof SodaRequestError && error.code === 'planning_funding_required')
-      this.error =
-        'Exploration needs a planning allowance. Your description is saved; raise the planning allowance and try again.';
     else if (error instanceof SodaRequestError && error.code === 'invalid_proposal_task_limit')
       this.error =
         'The derived work exceeds your selected issue limit. Your description is saved; review the planning limit or narrow the approach, then explore again. Limits never increase on their own.';
@@ -2371,10 +2156,7 @@ export class SodaIntent extends LitElement {
     ) {
       // A limit edit preserves the reviewed product scope and its task keys.
       // The new draft still needs its own native plan and explicit acceptance.
-      void this.perform(async (signal) => {
-        await this.saveCurrent(signal);
-        await this.ensureAllowance(saved.intent, signal);
-      }, 'Saving planning limits…');
+      void this.perform(this.saveCurrent, 'Saving planning limits…');
       return;
     }
     void this.perform((signal) => this.explore(signal));
@@ -2775,7 +2557,7 @@ export class SodaIntent extends LitElement {
       count += 1;
       parts.push('department');
     }
-    if (this.maxIssues !== snapshot.max_issues || this.planningCalls !== snapshot.planning_calls) {
+    if (this.maxIssues !== snapshot.max_issues) {
       count += 1;
       parts.push('planning limits');
     }
@@ -2825,17 +2607,6 @@ export class SodaIntent extends LitElement {
       departmentName: this.departmentName,
       departmentDescription: this.departmentDescription,
       maxIssues: this.maxIssues,
-      planningCalls: this.planningCalls,
-      allowance: this.allowance,
-      raiseCalls: this.raiseCalls || this.allowance?.amount || this.planningCalls,
-      fundingNote: this.fundingNote,
-      allowanceError: this.allowanceError,
-      retryAllowance: this.retryAllowance,
-      setRaise: (value: number) => {
-        this.raiseCalls = value;
-        this.fundingNote = '';
-      },
-      raiseAllowance: this.raise,
       prepareProject: this.prepareProject,
       set: (field, value) => {
         this[field] = value;
@@ -2844,7 +2615,6 @@ export class SodaIntent extends LitElement {
       },
       setBound: (field, value) => {
         this[field] = value;
-        if (field === 'planningCalls') this.userSetCalls = true;
         if (this.revision) this.dirty = true;
         this.rememberDraft();
       },

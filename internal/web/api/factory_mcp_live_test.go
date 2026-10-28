@@ -475,11 +475,9 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		}()
 	}
 	reservations.Wait()
-	if admitted.Load() != 1 {
-		t.Fatal("concurrent capability selection admitted more than one call")
-	}
-	if ok, err := st.ReserveContextBundleSelection(ctx, cap, strings.Repeat("f", 64)); err != nil || ok {
-		t.Fatal("changed selection inputs refilled capability consultation", err)
+	// Until a receipt is recorded every attempt may ask JEV again.
+	if admitted.Load() != 2 {
+		t.Fatal("unanswered capability selection refused a retry")
 	}
 	var live atomic.Bool
 	live.Store(true)
@@ -768,10 +766,6 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 		}
 		return nil
 	}
-	var spentBefore int
-	if err := db.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1`).Scan(&spentBefore); err != nil {
-		t.Fatal(err)
-	}
 	results := make([]*mcp.CallToolResult, len(args))
 	errs := make([]error, len(args))
 	var calls sync.WaitGroup
@@ -866,9 +860,8 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 	if err != nil || len(thread) != 4 {
 		t.Fatal("follow-up did not join the existing work thread exactly once", err)
 	}
-	var spentAfter int
-	if err := db.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1`).Scan(&spentAfter); err != nil || spentAfter-spentBefore != 3 || wire.calls.Load() != 3 {
-		t.Fatalf("consultation/reply replay changed funding: delta=%d calls=%d error=%v", spentAfter-spentBefore, wire.calls.Load(), err)
+	if wire.calls.Load() != 3 {
+		t.Fatalf("consultation/reply replay called the provider again: calls=%d", wire.calls.Load())
 	}
 	t.Logf("Real TypeSafe MCP boundary: models=%v, provider calls=3, replay calls=0, exact consultation comments=3, separate follow-up=1; native worker liveness is simulated.", models)
 }

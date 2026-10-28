@@ -2,19 +2,17 @@ package control
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// PrepareContextBundleSelection records one funded bundle selection
-// for a staged capability at preparation time, before the first read.
-// Funding is once per immutable capability from the priority call
-// budget: a recorded selection reuses its receipt without new spend,
-// and a missing or uncertain answer holds the authenticated launch. Failed
-// consultations keep their reservation; retries reuse the frozen selection
-// without another call. Reads retain required facts and an explicit hold.
+// PrepareContextBundleSelection records one bundle selection for a staged
+// capability at preparation time, before the first read. A recorded
+// selection is reused; a failed consultation leaves no receipt and the next
+// preparation asks again. Reads retain required facts and an explicit hold.
 func PrepareContextBundleSelection(ctx context.Context, st *store.Store, chooser ProductJudgment, a factory.Assignment, run factory.Run, verify currentVerificationSource) (bundle, reason string, err error) {
 	if st == nil {
 		return factory.ContextBundleSnapshotHold, "unavailable", ErrPriorityUnavailable
@@ -52,11 +50,14 @@ func PrepareContextBundleSelection(ctx context.Context, st *store.Store, chooser
 	}
 	if factory.ValidDigest(capability.ContextSelectionSnapshot) {
 		receipt, err := st.PriorityJudgment(ctx, capability.ContextSelectionSnapshot)
-		if err != nil {
+		if err == nil {
+			bundle, reason := ContextBundleFromReceipt(receipt, capability, a, attemptEligible, lineageEligible)
+			return bundle, reason, nil
+		}
+		if !errors.Is(err, store.ErrNotFound) {
 			return factory.ContextBundleSnapshotHold, "context_selection_unavailable", err
 		}
-		bundle, reason := ContextBundleFromReceipt(receipt, capability, a, attemptEligible, lineageEligible)
-		return bundle, reason, nil
+		// The earlier call left no receipt: ask again.
 	}
 	if chooser == nil {
 		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ErrPriorityUnavailable

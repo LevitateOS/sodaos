@@ -98,7 +98,7 @@ func (f *fakeReviewer) AdoptReview(w factory.ReviewWork, outcome factory.Operati
 	return adopted, nil
 }
 
-func reviewRunSeed(t *testing.T, settled bool, deliveryCalls ...int) (*publishFixture, factory.Assignment, factory.Publication, factory.Run) {
+func reviewRunSeed(t *testing.T, settled bool) (*publishFixture, factory.Assignment, factory.Publication, factory.Run) {
 	t.Helper()
 	ctx := context.Background()
 	fx := publishSeed(t)
@@ -107,9 +107,6 @@ func reviewRunSeed(t *testing.T, settled bool, deliveryCalls ...int) (*publishFi
 		t.Fatal(err)
 	}
 	policy.Review = factory.ActorBindingRef{TokenID: 2, ActorID: 6, Kind: factory.OpReviewSubmit}
-	if len(deliveryCalls) != 0 {
-		policy.AttemptLimits.DeliveryCalls = deliveryCalls[0]
-	}
 	if err := fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
 	}

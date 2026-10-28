@@ -44,16 +44,14 @@ repository and Project permissions.
 | GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}/actions?issue=N` | Bounded durable action results for one issue/event |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
 | GET, PUT | `/api/factory/connections/{connection}/usage-budget` | Connection-owner rolling-minutes execution budget; GET 404s when unset (never zero-filled), PUT saves with command envelope + revision CAS |
-| GET | `/api/repositories/{repositoryID}/factory/access` | Repository Factory permission, readiness and usage: execution usage plus viewer planning allowances |
+| GET | `/api/repositories/{repositoryID}/factory/access` | Repository Factory permission, readiness and execution usage |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
 | GET | `/api/factory/intents` | Owner-private bounded request listing with stable cursor |
 | GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
 | GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
-| GET | `/api/factory/intents/{intentID}/allowance` | Current planning allowance head with available balance |
 | GET | `/api/factory/intents/{intentID}/overview` | Current owner-private request overview; unknown/foreign requests 404 without disclosure |
 | GET | `/api/factory/intents/{intentID}/revisions?limit=1..5` | Recent scope revisions with structural deltas and affected work states |
-| POST | `/api/factory/intent-allowances` | Save allowance revision with head CAS (body-carried intent) |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `settled`, `recommendation`, `consistency`); supported/reversible choices settle autonomously, only consequential assumptions interrupt |
 | POST | `/api/factory/intents/{intentID}/plan` | Plan the exact current draft and operation; 201 names the launched assignment/run/revision. An uncertain start returns 202 with those same admitted identities and `launch_confirmed:false`; inspect the existing run instead of submitting another plan. |
 | GET | `/api/factory/intents/{intentID}/plan` | Read the current draft's retained planning status and canonical result; never funds or launches work. |

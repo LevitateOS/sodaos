@@ -200,18 +200,11 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	})
 	record := factory.PlanningRecord{Snapshot: snapshot, Input: input, Provisional: provisional, CreatedUnix: time.Now().Unix()}
 	if err != nil {
-		if !errors.Is(err, ErrPriorityUnavailable) && !errors.Is(err, store.ErrPlanningAllowanceExhausted) {
-			return err
-		}
-		failed, lookupErr := planningCallFailed(ctx, c.Planning.Funding, input, choices)
-		if lookupErr != nil {
-			return lookupErr
-		}
-		if !failed {
+		if errors.Is(err, ErrPriorityUnavailable) {
+			// Nothing was recorded; the next pass asks again.
 			return nil
 		}
-		record.Outcome = "unavailable"
-		return c.Planning.Journal.SavePlanningRecord(ctx, record)
+		return err
 	}
 	record.Judgment = answer
 	record.Strategy = answer.Selected
@@ -229,24 +222,6 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	// Persist a stale outcome for attribution, but no stale plan can pass the
 	// execution check. A later pass rebuilds against the new relevant inputs.
 	return c.Planning.Journal.SavePlanningRecord(ctx, record)
-}
-
-// planningCallFailed distinguishes a recorded consultation failure, which
-// persists an unavailable plan, from a refused reservation, which leaves the
-// previous record untouched for a later pass.
-func planningCallFailed(ctx context.Context, funding PriorityJournal, input factory.PlanningInput, choices map[string]any) (bool, error) {
-	fingerprint, err := factory.JudgmentFingerprint(factory.JudgmentPlanningFreshness, input, planningRubric, choices)
-	if err != nil {
-		return false, err
-	}
-	receipt, err := funding.PriorityJudgment(ctx, fingerprint)
-	if errors.Is(err, store.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return len(receipt.Calls) == 1 && receipt.Calls[0].Failure != "", nil
 }
 
 func (c *Coordinator) planningCurrent(ctx context.Context, control factory.IssueControl) bool {

@@ -1273,34 +1273,6 @@ test('Factory execution usage reports exact minutes, editability and required ac
               {connection: 'c1', unit: 'minutes', budget_minutes: 360, used_minutes: 41},
               {connection: 'c2', status: 'connection_owner_only'},
             ],
-            planning: [
-              {
-                intent: 'd222222222222222222222222',
-                id: 'd333333333333333333333333',
-                unit: 'planning_calls',
-                amount: 12,
-                reserved: 2,
-                consumed: 3,
-                available: 7,
-                ceiling: 20,
-                effect: 'Explore checkout flow',
-                status: 'ok',
-                editable: {editable: true},
-              },
-              {
-                intent: 'd555555555555555555555555',
-                id: 'd666666666666666666666666',
-                unit: 'planning_calls',
-                amount: 4,
-                reserved: 0,
-                consumed: 4,
-                available: 0,
-                ceiling: 4,
-                status: 'exhausted',
-                editable: {editable: false, reason: 'session_changed'},
-              },
-            ],
-            planning_truncated: true,
             observed_unix: 1780000000,
             repository: '7',
           })
@@ -1313,9 +1285,7 @@ test('Factory execution usage reports exact minutes, editability and required ac
   const settings = page.locator('[data-factory-settings]');
   assert(await settings.getByLabel('Intent active minutes', {exact: true}).isDisabled());
   await settings.getByText('c1: 360 minutes budget; 41 minutes used.').waitFor();
-  assert.match(await settings.innerText(), /7 of 12 planning calls available/);
-  assert.match(await settings.innerText(), /Status: exhausted/);
-  assert.match(await settings.innerText(), /More bound allowances exist beyond these 20/);
+  assert.doesNotMatch(await settings.innerText(), /planning calls/i);
   assert.match(await settings.innerText(), /c2: visible to its connection owner only/);
   assert.match(await settings.innerText(), /Budget read-only: needs connection owner/);
   assert.match(await settings.innerText(), /Policy: read-only \(needs repository owner or administrator\)/);

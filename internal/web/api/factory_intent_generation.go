@@ -313,7 +313,7 @@ func (s *API) apiIntentPlanReview(w http.ResponseWriter, r *http.Request, v stor
 	}
 	review, err := s.reviewPlanningWalkthrough(r.Context(), *head, *view.Walkthroughs, true)
 	if err != nil {
-		reportJudgmentCallError(w, err, "Walkthrough review could not finish. Completed judgments and consumed allowance are retained; check the planning allowance or revise the direction.")
+		reportJudgmentCallError(w, err, "Walkthrough review could not finish. Completed judgments are kept; try again or revise the direction.")
 		return
 	}
 	current, err := s.Store.IntentRevision(r.Context(), head.Intent, v.User.ID)

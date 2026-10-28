@@ -155,8 +155,7 @@ func currentAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, c
 	if allowance.Issue > 0 {
 		corrections := max(0, allowance.Limits.CorrectionCycles-len(allowance.Corrections))
 		reviews := max(0, allowance.Limits.ReviewRounds-len(allowance.Reviews))
-		delivery := max(0, allowance.Limits.DeliveryCalls-len(allowance.DeliveryCalls))
-		out.Allowance.CorrectionCyclesRemaining, out.Allowance.ReviewRoundsRemaining, out.Allowance.DeliveryCallsRemaining = &corrections, &reviews, &delivery
+		out.Allowance.CorrectionCyclesRemaining, out.Allowance.ReviewRoundsRemaining = &corrections, &reviews
 	}
 	return nil
 }

@@ -260,7 +260,7 @@ from a missing field in a running record.
 | Plan size | 64 tasks, 4 lanes, 32 ownership entries/task, 16 reusable checks/plan, 64 inspected source references. Total encoded result remains <=64 KiB. |
 | Plan text / checks | Objective or evidence text <=4 KiB each; clean path <=1,024 bytes; argv <=64 elements and <=16 KiB total; check timeout 1–600 seconds and never beyond remaining run time. |
 | Review runs | `ReviewRounds=6` by default, allowed 1–16 per attempt, including initial and policy-required reviews. Charge before launch by immutable assignment ID. |
-| Delivery judgments | `DeliveryCalls=8` by default, allowed 0–16; zero disables the Jev acceptance route, not an otherwise valid clean-review merge. Reserve against the attempt root; record cumulative usage without a global ceiling. |
+| Delivery judgments | Free Jev calls, not counted against the attempt. A recorded receipt is reused for the same evidence; a failed call records nothing and the next pass asks again. |
 | Discretionary unchanged-head reviews | At most one additional pass per `(attempt_root,publication,head)`, also charged to total ReviewRounds. Base, policy, model, round and finding changes do not refill this counter. |
 | Agent prompt/result | Keep 64 KiB each except D13 reassess/D15 repair prompt <=320 KiB with bounded inventory; result always <=64 KiB. Required evidence may use authorized D14 pages; incomplete collection cannot finish successfully. Never silently truncate. |
 | Execution manifest/events | Manifest <=64 KiB; journal <=512 events/8 MiB, reserving two terminal events; event <=16 KiB; checkpoint metadata <=64 KiB/task and <=64 tasks/run. Logs retain existing separate bounds. |
@@ -1557,7 +1557,7 @@ intent { acceptance_id, context_digest, objective_ref, outcome_count }
 run { id, outcome, reconciled, active, settled, observed_state }
 allowance { revision, deadline_remaining_seconds, active_seconds_remaining,
             correction_cycles_remaining, review_rounds_remaining,
-            delivery_calls_remaining, max_children, closed }
+            max_children, closed }
 evidence { required_streams, availability, missing_reasons }
 role
 ```
@@ -2298,7 +2298,7 @@ qualification. P6–P9 precede their dependent broad changes and full builds.
 
 | Case | Tasks / existing owner | Decisive assertions |
 | --- | --- | --- |
-| T41 Clean bypass | FW35–FW37; review/merge/serving | First and later explicit clear reviews create acceptance with zero delivery calls, including DeliveryCalls=0; carried verified fixes/declined optional history supported; D13 still runs. |
+| T41 Clean bypass | FW35–FW37; review/merge/serving | First and later explicit clear reviews create acceptance without a delivery judgment; carried verified fixes/declined optional history supported; D13 still runs. |
 | T42 False clear | FW35/FW41; result/review | Silence, native approval, empty output, incomplete coverage, omitted carried finding, stale tuple or unfinished process never creates clean acceptance. |
 | T43 Content identity | FW35; findings/correction | Same key with changed defect/provenance/actionability/outcome/conversation invalidates; agent cannot replace canonical findings; expected resolution alone does not spend again. |
 | T44 Review cost | FW36; choice/dispatch/store | Optional/disputed/repetitive feedback invokes decision before another run; both choices need thresholds/strict lead; uncertainty waits; unchanged-head extra pass <=1 across round/model/base edits; policy-required pass deduplicated and charged. |

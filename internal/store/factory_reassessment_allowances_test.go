@@ -221,7 +221,7 @@ func TestReassessmentAllowanceTypedRootInsertRead(t *testing.T) {
 		t.Fatalf("typed subject = %+v", got.Completion)
 	}
 	if !got.Active || got.Closed || got.ActiveSeconds != 0 || len(got.Corrections) != 0 ||
-		len(got.DeliveryCalls) != 0 || len(got.Reviews) != 0 {
+		len(got.Reviews) != 0 {
 		t.Fatalf("fresh typed consumption = %+v", got)
 	}
 	// Omitted minutes resolve to the admitted default at construction.
@@ -481,7 +481,7 @@ func TestReassessmentLifecyclePreservesConsumption(t *testing.T) {
 	}
 	checkpointed, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(a), a.ID)
 	if err != nil || checkpointed.Active || checkpointed.ActiveSeconds != 300 || checkpointed.Revision != 1 ||
-		len(checkpointed.Corrections) != 0 || len(checkpointed.Reviews) != 0 || len(checkpointed.DeliveryCalls) != 0 {
+		len(checkpointed.Corrections) != 0 || len(checkpointed.Reviews) != 0 {
 		t.Fatalf("checkpoint lost consumption: %+v, %v", checkpointed, err)
 	}
 	// The generic repository freeze preserves the same consumption while

@@ -616,7 +616,7 @@ func checkAllowanceNoRefill(stored, next factory.AttemptAllowance) error {
 	if stored.Closed && !next.Closed {
 		return errors.New("closed attempt allowance never reopens")
 	}
-	if !stringPrefix(next.Corrections, stored.Corrections) || !stringPrefix(next.DeliveryCalls, stored.DeliveryCalls) || !stringPrefix(next.Reviews, stored.Reviews) {
+	if !stringPrefix(next.Corrections, stored.Corrections) || !stringPrefix(next.Reviews, stored.Reviews) {
 		return errors.New("attempt allowance consumption erased")
 	}
 	if !stringMapPrefix(next.ReviewedHeads, stored.ReviewedHeads) || !stringMapPrefix(next.UnchangedHeadExtra, stored.UnchangedHeadExtra) {
@@ -1196,17 +1196,12 @@ func insertAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue
 	return err
 }
 
-// ReserveDeliveryJudgment charges one funded delivery judgment against the
-// attempt-root call subledger plus the operator's global judgment ceiling
-// in one transaction, before any provider request. Replaying the same
-// fingerprint never resends: an existing journal row refuses without new
-// charges. Reusing a consumed request identity for different evidence
-// refuses as a conflict instead of silently sharing funding. Failure
-// after reservation stays charged; only explicit authorized Retry starts
-// a new root. A zero delivery limit authorizes no call, so automatic
-// merge stays unreachable on an unfunded attempt.
-func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue int64, root, request, fingerprint string) (bool, error) {
-	if repository <= 0 || issue <= 0 || !factory.ValidID(root) || !factory.ValidID(request) || !factory.ValidDigest(fingerprint) {
+// ReserveDeliveryJudgment admits one delivery judgment for the open
+// attempt root. A recorded receipt for fingerprint is reused (false); an
+// earlier call that left no receipt retries (true). A closed attempt or one
+// out of active time admits nothing.
+func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue int64, root, fingerprint string) (bool, error) {
+	if repository <= 0 || issue <= 0 || !factory.ValidID(root) || !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid delivery reservation")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -1218,39 +1213,11 @@ func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue i
 	if err != nil {
 		return false, err
 	}
-	if allowance.Closed {
+	if allowance.Closed || allowance.Intent != nil || allowance.Completion != nil || allowance.RemainingSeconds(time.Now()) == 0 {
 		return false, nil
 	}
-	now := time.Now()
-	next, consumed, err := allowance.ReserveDeliveryCall(request, now)
-	if err != nil {
-		if errors.Is(err, factory.ErrDeliveryExhausted) || errors.Is(err, factory.ErrAttemptTimeExhausted) {
-			return false, nil
-		}
-		return false, err
-	}
-	var existing int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, fingerprint).Scan(&existing); err != nil {
-		return false, err
-	}
-	if existing > 0 {
-		return false, nil
-	}
-	if !consumed {
-		return false, ErrCommandConflict
-	}
-	var spent int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
-		return false, err
-	}
-	next.Revision++
-	if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
+	reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
+	if err != nil || !reserved {
 		return false, err
 	}
 	return true, tx.Commit()
@@ -1258,8 +1225,7 @@ func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue i
 
 // RecordDeliveryJudgment persists one validated delivery receipt over its
 // reserved fingerprint. Recording is append-only: a missing reservation
-// or an already recorded receipt conflicts instead of duplicating spend
-// or rewriting history.
+// or an already recorded receipt conflicts instead of rewriting history.
 func (s *Store) RecordDeliveryJudgment(ctx context.Context, r factory.DeliveryReceipt) error {
 	if err := r.Validate(); err != nil {
 		return err

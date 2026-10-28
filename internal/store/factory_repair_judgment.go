@@ -9,8 +9,9 @@ import (
 )
 
 // ReserveStallRepairJudgment consumes one deterministic cycle charge before the
-// external call. A crashed or failed call remains spent; a saved receipt is
-// replayed by the existing purpose journal before this method is reached.
+// first external call. A crashed or failed call retries under the same
+// fingerprint without a new charge; a saved receipt is replayed by the
+// existing purpose journal before this method is reached.
 func (s *Store) ReserveStallRepairJudgment(ctx context.Context, repository int64, event, cycleID, fingerprint string, now time.Time) (bool, error) {
 	if !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid repair judgment fingerprint")
@@ -29,8 +30,15 @@ func (s *Store) ReserveStallRepairJudgment(ctx context.Context, repository int64
 		return false, ErrNotFound
 	}
 	cycle := record.Repair.Cycles[index]
-	if cycle.State != factory.RepairAssessing || cycle.JudgmentFingerprint != "" {
+	if cycle.State != factory.RepairAssessing {
 		return false, ErrStaleRevision
+	}
+	if cycle.JudgmentFingerprint != "" {
+		if cycle.JudgmentFingerprint != fingerprint {
+			return false, ErrStaleRevision
+		}
+		// The cycle is already charged: retry the call if it left no receipt.
+		return s.ReservePriorityJudgment(ctx, fingerprint, 1)
 	}
 	grant, err := s.RepairGrantCommand(ctx, repository)
 	if err != nil {

@@ -5,7 +5,7 @@ import './sodaspaces-factory-completion-retry.js';
 import './sodaspaces-factory-work-journey.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {id, projectId, readSodaJSON} from './sodaspaces-api.js';
-import {decisionID, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
+import {decisionID, intentRevision} from './sodaspaces-intent-response.js';
 import type {IntentRevision} from './sodaspaces-intent-response.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 import {factoryCommandId, factoryRunStatusResponse, factoryRunText} from './sodaspaces-factory-response.js';
@@ -41,9 +41,7 @@ import {
 } from './sodaspaces-factory-work-view.js';
 import type {InterventionKind, InterventionResult} from './sodaspaces-factory-work-view.js';
 import {
-  describeAllowance,
   describeDirectionRevision,
-  describePlanningReference,
   describePrerequisites,
   describeRecordedChoice,
   describeRecordedPlan,
@@ -54,9 +52,7 @@ import {
   overviewScopeFromBound,
   overviewScopeFromMappings,
   retiredOverviewScope,
-  renderAllowance,
   renderDirectionRevision,
-  renderPlanningReference,
   renderRecordedPlan,
   renderRequestOverview,
   renderRevisionHistory,
@@ -71,14 +67,8 @@ import type {
   SourceState,
   WorkOverviewModel,
 } from './sodaspaces-factory-progress-view.js';
-import {
-  factoryAccess,
-  issuePlan,
-  planningAllowance,
-  requestOverview,
-  revisionHistory,
-} from './sodaspaces-factory-progress-response.js';
-import type {FactoryAccess, PlanningAllowanceView, RevisionHistory} from './sodaspaces-factory-progress-response.js';
+import {issuePlan, requestOverview, revisionHistory} from './sodaspaces-factory-progress-response.js';
+import type {RevisionHistory} from './sodaspaces-factory-progress-response.js';
 
 // Mountable Factory work-progress elements for V01–V07. Each element
 // reads only its own contracts and renders its own model; composition,
@@ -468,27 +458,17 @@ export class SodaFactoryDirectionRevision extends LitElement {
   static properties = {
     revision: {state: true},
     state: {state: true},
-    allowance: {state: true},
-    allowanceState: {state: true},
-    access: {state: true},
-    accessState: {state: true},
     history: {state: true},
     historyState: {state: true},
     message: {state: true},
     busy: {state: true},
-    saving: {state: true},
   };
   declare private revision: IntentRevision | undefined;
   declare private state: SourceState;
-  declare private allowance: PlanningAllowanceView | undefined;
-  declare private allowanceState: SourceState;
-  declare private access: FactoryAccess | undefined;
-  declare private accessState: SourceState;
   declare private history: RevisionHistory | undefined;
   declare private historyState: SourceState;
   declare private message: string;
   declare private busy: boolean;
-  declare private saving: boolean;
   private current: DirectionRevisionContext | undefined;
   private serial = 0;
   protected createRenderRoot() {
@@ -497,12 +477,9 @@ export class SodaFactoryDirectionRevision extends LitElement {
   constructor() {
     super();
     this.state = 'missing';
-    this.allowanceState = 'missing';
-    this.accessState = 'missing';
     this.historyState = 'missing';
     this.message = '';
     this.busy = false;
-    this.saving = false;
   }
   set context(context: DirectionRevisionContext | undefined) {
     if (context?.transport === this.current?.transport && context?.intentID === this.current?.intentID) return;
@@ -510,15 +487,10 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.serial++;
     this.revision = undefined;
     this.state = 'missing';
-    this.allowance = undefined;
-    this.allowanceState = 'missing';
-    this.access = undefined;
-    this.accessState = 'missing';
     this.history = undefined;
     this.historyState = 'missing';
     this.message = '';
     this.busy = false;
-    this.saving = false;
     if (context) void this.load();
   }
   disconnectedCallback() {
@@ -544,84 +516,14 @@ export class SodaFactoryDirectionRevision extends LitElement {
   }
   private async loadReads(context: DirectionRevisionContext, serial: number) {
     const revision = await readDirectionRevision(context);
-    const allowance = await readPlanningAllowance(context);
-    const access = await readRevisionAccess(context, revision.revision);
     const history = await readRevisionHistory(context);
     if (serial === this.serial) {
       this.revision = revision.revision;
       this.state = revision.state;
-      this.allowance = allowance.allowance;
-      this.allowanceState = allowance.state;
-      this.access = access.access;
-      this.accessState = access.state;
       this.history = history.history;
       this.historyState = history.state;
       this.message = '';
     }
-  }
-  private async adjust(event: SubmitEvent) {
-    event.preventDefault();
-    const context = this.current;
-    if (!context || this.saving) return;
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement)) return;
-    const {amount, effect} = allowanceFormInput(form);
-    const usage = allowanceUsage(this.allowance);
-    const invalid = allowanceAmountError(amount, usage.reserved, usage.consumed);
-    if (invalid !== undefined) {
-      this.message = invalid;
-      return;
-    }
-    const serial = this.serial;
-    this.saving = true;
-    try {
-      await this.postAllowance(context, amount, effect, serial);
-    } catch {
-      if (serial === this.serial) this.message = 'Allowance adjustment was not confirmed; refresh before retrying.';
-    } finally {
-      if (serial === this.serial) this.saving = false;
-    }
-  }
-  private async postAllowance(context: DirectionRevisionContext, amount: number, effect: string, serial: number) {
-    const posted = await postJSON(
-      context.transport,
-      'factory/intent-allowances',
-      this.allowanceBody(context, amount, effect)
-    );
-    if (serial !== this.serial) return;
-    this.applyAllowanceSave(context, posted);
-  }
-  private allowanceBody(context: DirectionRevisionContext, amount: number, effect: string) {
-    const current = this.allowance;
-    const increase = allowanceIncreaseEffect(current, amount, effect);
-    return {
-      id: newDecisionID(),
-      intent: context.intentID,
-      ...(current === undefined ? {} : {predecessor: current.id}),
-      amount,
-      ceiling: amount,
-      unit: 'planning_calls',
-      reserved: current?.reserved ?? 0,
-      consumed: current?.consumed ?? 0,
-      ...(increase === undefined ? {} : {effect: increase}),
-    };
-  }
-  private applyAllowanceSave(context: DirectionRevisionContext, posted: Posted) {
-    if (posted.status === 201) {
-      try {
-        this.allowance = planningAllowance(posted.value, context.intentID);
-        this.allowanceState = 'ready';
-        this.message = `Allowance adjusted to ${this.allowance.amount} planning calls.`;
-      } catch {
-        this.message = 'The reply could not be understood; refresh before acting again.';
-      }
-      return;
-    }
-    const detail = sodaErrorDetail(posted.value);
-    if (posted.status === 404) this.message = detail.message ?? 'Build request not found.';
-    else if (posted.status === 409 || posted.status === 412)
-      this.message = detail.message ?? 'Allowance changed; refresh and retry.';
-    else this.message = detail.message ?? `Adjustment refused (${posted.status}).`;
   }
   protected render() {
     return html`<section aria-label="Factory direction revision">
@@ -629,46 +531,11 @@ export class SodaFactoryDirectionRevision extends LitElement {
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>
         Refresh direction</button
       >${renderDirectionRevision(describeDirectionRevision(this.revision, this.state))}
-      ${renderAllowance(describeAllowance(this.allowance, this.allowanceState))}
-      ${renderPlanningReference(describePlanningReference(this.access, this.accessState, this.current?.intentID ?? ''))}
       ${renderRevisionHistory(describeRevisionHistory(this.history, this.historyState))}
-      <form @submit=${this.adjust}>
-        <label>New amount (0–100 planning calls) <input name="amount" inputmode="numeric" required /></label>
-        <label>Effect note, optional <input name="effect" maxlength="4000" /></label>
-        <button class="ui button" type="submit" ?disabled=${this.saving}>Adjust allowance</button>
-      </form>
     </section>`;
   }
 }
 customElements.define('soda-factory-direction-revision', SodaFactoryDirectionRevision);
-
-function allowanceFormInput(form: HTMLFormElement): {amount: number; effect: string} {
-  const data = new FormData(form);
-  return {amount: Number(data.get('amount')), effect: String(data.get('effect') ?? '').trim()};
-}
-
-function allowanceUsage(current: PlanningAllowanceView | undefined): {reserved: number; consumed: number} {
-  return {reserved: current?.reserved ?? 0, consumed: current?.consumed ?? 0};
-}
-
-function allowanceAmountError(amount: number, reserved: number, consumed: number): string | undefined {
-  if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100)
-    return 'Allowance amount must be a whole number from 0 to 100.';
-  if (amount < reserved + consumed)
-    return `Allowance amount must cover ${reserved + consumed} reserved and consumed planning calls.`;
-  return undefined;
-}
-
-function allowanceIncreaseEffect(
-  current: PlanningAllowanceView | undefined,
-  amount: number,
-  effect: string
-): string | undefined {
-  if (effect !== '') return effect;
-  if (current !== undefined && amount > current.amount)
-    return `Authorize ${amount - current.amount} additional planning calls (${amount} total).`;
-  return undefined;
-}
 
 async function readDirectionRevision(
   context: DirectionRevisionContext
@@ -680,42 +547,6 @@ async function readDirectionRevision(
     const input = failureInput(error);
     return {state: input.status === 404 ? 'missing' : 'unavailable'};
   }
-}
-
-async function readPlanningAllowance(
-  context: DirectionRevisionContext
-): Promise<{allowance?: PlanningAllowanceView; state: SourceState}> {
-  try {
-    const allowance = planningAllowance(
-      await getJSON(context.transport, `factory/intents/${context.intentID}/allowance`),
-      context.intentID
-    );
-    return {allowance, state: 'ready'};
-  } catch (error) {
-    const input = failureInput(error);
-    return {state: input.status === 404 ? 'missing' : 'unavailable'};
-  }
-}
-
-async function readFactoryAccess(
-  transport: PreparedExtensionMount,
-  repository: string
-): Promise<{access?: FactoryAccess; state: SourceState}> {
-  try {
-    const access = factoryAccess(await getJSON(transport, `repositories/${repository}/factory/access`), repository);
-    return {access, state: 'ready'};
-  } catch (error) {
-    const input = failureInput(error);
-    return {state: input.status === 404 ? 'missing' : 'unavailable'};
-  }
-}
-
-async function readRevisionAccess(
-  context: DirectionRevisionContext,
-  revision: IntentRevision | undefined
-): Promise<{access?: FactoryAccess; state: SourceState}> {
-  if (!revision) return {state: 'missing'};
-  return readFactoryAccess(context.transport, revision.repository);
 }
 
 async function readRevisionHistory(

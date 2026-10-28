@@ -146,7 +146,7 @@ func TestFundedDeliveryServingUsesCompleteMaterialPG(t *testing.T) {
 
 func fundedDeliveryServingUsesCompleteMaterialPG(t *testing.T, choice string) {
 	ctx := context.Background()
-	fx, owner, p, run := reviewRunSeed(t, true, 2)
+	fx, owner, p, run := reviewRunSeed(t, true)
 	plan := reportedInvestigationPlan(owner)
 	if plan == nil {
 		t.Fatal("owner has no admitted plan")
@@ -238,7 +238,7 @@ func fundedDeliveryServingUsesCompleteMaterialPG(t *testing.T, choice string) {
 			t.Fatalf("funded reviewer allowance failed: %+v", report)
 		}
 		allowance, err := fx.db.AttemptAllowance(ctx, p.Repository, p.Issue)
-		if err != nil || len(allowance.DeliveryCalls) != 1 || len(allowance.Reviews) != 1 || calls != 1 {
+		if err != nil || len(allowance.Reviews) != 1 || calls != 1 {
 			t.Fatalf("review replay charged again: calls=%d allowance=%+v err=%v", calls, allowance, err)
 		}
 		stored, err := fx.db.PublicationByAssignment(ctx, owner.ID)
@@ -351,7 +351,7 @@ func tupleReviewSeed(t *testing.T, p factory.Publication, fx *publishFixture, ru
 // call and no funded-delivery fixture standing in for production.
 func TestCleanReviewServingAuthorizesMergeWithoutDeliveryCallsPG(t *testing.T) {
 	ctx := context.Background()
-	fx, owner, publication, run := reviewRunSeed(t, true, 0)
+	fx, owner, publication, run := reviewRunSeed(t, true)
 	// This legacy publication fixture skips implementation admission;
 	// retain the investigation plan that production admits before coding.
 	plan := reportedInvestigationPlan(owner)
@@ -456,10 +456,6 @@ func TestCleanReviewServingAuthorizesMergeWithoutDeliveryCallsPG(t *testing.T) {
 	merged, err := fx.db.MergeByPublication(ctx, publication.ID)
 	if err != nil || merged.Stage != factory.MergeMerged || !merged.Authorization.Bound() || merged.Authorization.Generation.AcceptanceKind != factory.AcceptanceCleanReview || merged.Authorization.Generation.DiffBase != strings.Repeat("d", 40) {
 		t.Fatalf("merge lost its observed clean binding: %+v %v", merged.Authorization, err)
-	}
-	allowance, err := fx.db.AttemptAllowance(ctx, publication.Repository, publication.Issue)
-	if err != nil || allowance.Limits.DeliveryCalls != 0 || len(allowance.DeliveryCalls) != 0 {
-		t.Fatalf("clean acceptance spent a delivery call: limit=%d spent=%d err=%v", allowance.Limits.DeliveryCalls, len(allowance.DeliveryCalls), err)
 	}
 	fx.coord.MergePass(ctx)
 	if len(merger.submits) != 1 {

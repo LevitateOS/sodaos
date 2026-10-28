@@ -193,10 +193,7 @@ func (t *priorityTournament) judgePriorityGroup(group []factory.PriorityCandidat
 	}
 	call := factory.PriorityCall{Request: request, Answer: answer}
 	if callErr != nil {
-		call.Failure = "consultation_failed"
-		t.receipt.Calls = append(t.receipt.Calls, call)
-		t.receipt.Outcome = "unavailable"
-		return none, errors.Join(ErrPriorityUnavailable, t.deps.Journal.RecordPriorityJudgment(t.ctx, t.receipt))
+		return none, ErrConsultationFailed
 	}
 	t.receipt.Calls = append(t.receipt.Calls, call)
 	chosen := group[0]

@@ -139,11 +139,13 @@ func (c *Coordinator) driveStallRepairResult(ctx context.Context, record store.S
 			return c.Store.ReserveStallRepairJudgment(ctx, record.Repository, record.ID, cycle.ID, fingerprint, time.Now())
 		}})
 		if err != nil {
+			// A failed call retries on the next pass; anything else needs attention.
+			attention := !errors.Is(err, ErrConsultationFailed)
 			latest, e := c.Store.StallRepairRecord(ctx, record.Repository, record.ID)
 			if e == nil {
 				for _, next := range latest.Repair.Cycles {
 					if next.ID == cycle.ID {
-						c.holdRepair(ctx, latest, next, "repair_assessment_unavailable", true)
+						c.holdRepair(ctx, latest, next, "repair_assessment_unavailable", attention)
 					}
 				}
 			}

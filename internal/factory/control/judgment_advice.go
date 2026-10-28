@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// PurposeAdvice is one bounded typed judgment call. Reserve must consume
-// finite allowance for the fingerprint before any external request; cached
-// completed results reuse without a new reservation. Answers validate
-// against the option identities; Candidates only enriches the receipt audit
-// trail and defaults to those identities.
+// PurposeAdvice is one typed judgment call. Reserve binds the fingerprint
+// before the external request; cached completed results reuse without a new
+// reservation. Answers validate against the option identities; Candidates
+// only enriches the receipt audit trail and defaults to those identities.
 type PurposeAdvice struct {
 	Purpose    factory.JudgmentPurpose
 	State      any
@@ -25,11 +25,11 @@ type PurposeAdvice struct {
 	Reserve    func(context.Context, string) (bool, error)
 }
 
-// AdvisePurpose reuses a matching completed receipt, otherwise reserves
-// finite allowance, consults the injected chooser once and records the
-// durable receipt. Failures retain consumption: a reserved fingerprint
-// without a completed answer stays charged and unavailable, with no
-// refund, upstream lookup or silent repeat of unchanged input.
+// ErrConsultationFailed reports a JEV call that failed or returned an invalid
+// answer. Nothing is recorded, so the next pass asks again; callers hold for
+// now instead of requiring attention.
+var ErrConsultationFailed = fmt.Errorf("%w: consultation failed, the next pass retries", ErrPriorityUnavailable)
+
 func buildPurposeRequest(advice PurposeAdvice) (factory.PriorityRequest, string, error) {
 	fingerprint, err := factory.JudgmentFingerprint(advice.Purpose, advice.State, advice.Question, advice.Options)
 	if err != nil {
@@ -60,21 +60,17 @@ func (c *Coordinator) consultPurposeChoice(ctx context.Context, advice PurposeAd
 	if callErr == nil {
 		callErr = answer.Validate(request)
 	}
+	if callErr != nil {
+		return factory.PriorityAnswer{}, ErrConsultationFailed
+	}
 	call := factory.PriorityCall{Request: request, Answer: answer}
 	candidates := request.Candidates
 	if len(advice.Candidates) > 0 {
 		candidates = advice.Candidates
 	}
 	receipt := factory.PriorityReceipt{Snapshot: fingerprint, Purpose: advice.Purpose, Candidates: candidates, Calls: []factory.PriorityCall{call}, Selected: answer.Selected, Outcome: advice.Outcome, CreatedUnix: time.Now().Unix()}
-	if callErr != nil {
-		receipt.Calls[0].Failure = "consultation_failed"
-		receipt.Outcome = "unavailable"
-	}
 	if err := c.Store.RecordPriorityJudgment(ctx, receipt); err != nil {
 		return factory.PriorityAnswer{}, err
-	}
-	if callErr != nil {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
 	return answer, nil
 }

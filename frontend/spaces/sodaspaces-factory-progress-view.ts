@@ -15,10 +15,8 @@ import type {DeliveryState} from './sodaspaces-factory-work-view.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import type {DirectionRevisionContext, WorkDetailContext, WorkPlanContext} from './sodaspaces-factory-work.js';
 import type {
-  AccessPlanningEntry,
   FactoryAccess,
   IssuePlan,
-  PlanningAllowanceView,
   PriorityComparison,
   RecordedPlan,
   RequestAttention,
@@ -358,12 +356,11 @@ export interface DirectionRevisionModel {
   readonly attribution: string;
   readonly decisions: readonly {description: string; decision: string; correction?: string}[];
   readonly taskCount: number;
-  readonly allowanceText: string;
   readonly deltaText: string;
 }
 // describeDirectionRevision presents an accepted revision's
-// attributable facts. Revision comparison and allowance consumption
-// have no read here, so both say exactly that.
+// attributable facts. Revision comparison has no read here, so it says
+// exactly that.
 export function describeDirectionRevision(
   revision: IntentRevision | undefined,
   state: SourceState
@@ -374,7 +371,6 @@ export function describeDirectionRevision(
       attribution: '',
       decisions: [],
       taskCount: 0,
-      allowanceText: 'Planning allowance could not be read.',
       deltaText: 'Revision comparison unavailable.',
     };
   }
@@ -384,7 +380,6 @@ export function describeDirectionRevision(
       attribution: '',
       decisions: [],
       taskCount: 0,
-      allowanceText: 'No planning allowance recorded.',
       deltaText: 'Revision comparison unavailable.',
     };
   }
@@ -397,44 +392,8 @@ export function describeDirectionRevision(
       ...(idea.correction === undefined ? {} : {correction: idea.correction}),
     })),
     taskCount: revision.tasks.length,
-    allowanceText: `Accepted planning calls on this revision: ${revision.planning_calls}. Live allowance reads separately.`,
     deltaText: 'Revision comparison unavailable.',
   };
-}
-
-export interface AllowanceModel {
-  readonly summaryText: string;
-  readonly attributionText: string;
-  readonly effectText: string;
-}
-// describeAllowance projects one planning allowance: the bounded
-// amount in real planning-call units with reserved, consumed and
-// remaining consumption plus its attribution chain.
-export function describeAllowance(allowance: PlanningAllowanceView | undefined, state: SourceState): AllowanceModel {
-  if (state === 'unavailable')
-    return {summaryText: 'Planning allowance could not be read.', attributionText: '', effectText: ''};
-  if (state === 'missing' || !allowance)
-    return {summaryText: 'No planning allowance recorded.', attributionText: '', effectText: ''};
-  const remaining = Math.max(0, allowance.amount - allowance.reserved - allowance.consumed);
-  return {
-    summaryText:
-      `Planning allowance: ${allowance.amount} planning calls; ` +
-      `${allowance.reserved} reserved, ${allowance.consumed} consumed, ${remaining} remaining (ceiling ${allowance.ceiling}).`,
-    attributionText:
-      `Allowance ${allowance.id.slice(0, 9)}, set by owner ${allowance.owner}` +
-      `${allowance.predecessor ? `, adjusts ${allowance.predecessor.slice(0, 9)}` : ''}.`,
-    effectText: allowance.effect ? `Recorded effect: ${allowance.effect}` : '',
-  };
-}
-
-export function renderAllowance(model: AllowanceModel): TemplateResult {
-  return html`
-    <section aria-label="Planning allowance">
-      <p role="status">${model.summaryText}</p>
-      ${model.attributionText ? html`<p>${model.attributionText}</p>` : ''}
-      ${model.effectText ? html`<p>${model.effectText}</p>` : ''}
-    </section>
-  `;
 }
 
 export function renderDirectionRevision(model: DirectionRevisionModel): TemplateResult {
@@ -450,7 +409,6 @@ export function renderDirectionRevision(model: DirectionRevisionModel): Template
         )}
       </ul>
       <p>${model.taskCount} planned work items.</p>
-      <p>${model.allowanceText}</p>
       <p>${model.deltaText}</p>
     </section>
   `;
@@ -796,63 +754,6 @@ export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoi
           </li>`
         )}
       </ul>
-    </section>
-  `;
-}
-
-export interface PlanningReferenceModel {
-  readonly found: boolean;
-  readonly referenceText: string;
-  readonly truncatedNote: string;
-}
-
-function planningEntryText(entry: AccessPlanningEntry): string {
-  const editable = entry.editable.editable
-    ? 'You may adjust it.'
-    : `Adjustment refused: ${entry.editable.reason ?? 'no reason given'}.`;
-  const effect = entry.effect === undefined ? '' : ` Effect: ${entry.effect}.`;
-  return (
-    `Repository allowance reference: ${entry.amount} planning calls, ` +
-    `${entry.reserved} reserved, ${entry.consumed} consumed, ${entry.available} available ` +
-    `(ceiling ${entry.ceiling}). Status ${entry.status}.${effect} ${editable}`
-  );
-}
-
-// describePlanningReference finds this request's entry in the
-// repository allowance listing. A truncated listing may hide the
-// entry; that stays a stated gap, never a no-allowance verdict.
-export function describePlanningReference(
-  access: FactoryAccess | undefined,
-  state: SourceState,
-  intent: string
-): PlanningReferenceModel {
-  const truncatedNote = access?.planning_truncated ? 'The listing shows only the first 20 allowances.' : '';
-  if (state !== 'ready' || !access)
-    return {
-      found: false,
-      referenceText:
-        state === 'unavailable'
-          ? 'Repository allowance listing could not be read.'
-          : 'No allowance listing recorded for this repository.',
-      truncatedNote: '',
-    };
-  const entry = access.planning.find((candidate) => candidate.intent === intent);
-  if (!entry)
-    return {
-      found: false,
-      referenceText: access.planning_truncated
-        ? 'This request is not among the first 20 allowances shown.'
-        : 'No bound allowance for this request in this repository.',
-      truncatedNote,
-    };
-  return {found: true, referenceText: planningEntryText(entry), truncatedNote};
-}
-
-export function renderPlanningReference(model: PlanningReferenceModel): TemplateResult {
-  return html`
-    <section aria-label="Repository allowance reference">
-      <p role="status">${model.referenceText}</p>
-      ${model.truncatedNote ? html`<p>${model.truncatedNote}</p>` : ''}
     </section>
   `;
 }

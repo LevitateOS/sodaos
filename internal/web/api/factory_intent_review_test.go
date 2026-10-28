@@ -370,10 +370,6 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	allowance := `{"id":"d898989898989898989898989","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
-	}
 	chooser := &exploreFixtureChooser{}
 	product.IntentExploreChooser = chooser
 	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
@@ -383,18 +379,6 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 	var responded exploreResponse
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
-	}
-	consumed := func() int {
-		t.Helper()
-		code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", "")
-		if code != http.StatusOK {
-			t.Fatalf("allowance read status=%d body=%s", code, body)
-		}
-		var a factory.PlanningAllowance
-		if err := json.Unmarshal(body, &a); err != nil {
-			t.Fatal(err)
-		}
-		return a.Consumed
 	}
 	read := func(path string) (int, factory.SavedReviewRead) {
 		t.Helper()
@@ -411,7 +395,7 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 		}
 		return code, out
 	}
-	calls, spent := chooser.calls, consumed()
+	calls := chooser.calls
 	_, current := read("/api/factory/intents/" + intentID + "/review")
 	if current.Status != factory.ReviewCurrent || current.Review == nil || current.Review.ResultRevision != responded.ID || current.Review.BasisRevision != draftID {
 		t.Fatalf("current read wrong: %+v", current)
@@ -440,8 +424,8 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 	if basis.Status != factory.ReviewMissing {
 		t.Fatalf("basis read wrong: %+v", basis)
 	}
-	if chooser.calls != calls || consumed() != spent {
-		t.Fatalf("reads judged or spent: calls=%d spent=%d", chooser.calls, consumed())
+	if chooser.calls != calls {
+		t.Fatalf("reads judged: calls=%d", chooser.calls)
 	}
 	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/review?revision=nope", ""); code != http.StatusBadRequest || errorCode(body) != "invalid_revision" {
 		t.Fatalf("bad revision status=%d body=%s", code, body)
@@ -455,16 +439,12 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 // answers under another intent, even for the same owner.
 func TestIntentReviewCrossIntentRevisionDenied(t *testing.T) {
 	product, _, call, errorCode := q05Mux(t, "")
-	explore := func(draftID, intentID, ideaID, allowanceID string) string {
+	explore := func(draftID, intentID, ideaID string) string {
 		t.Helper()
 		draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,` +
 			`"ideas":[{"id":"` + ideaID + `","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}]}`
 		if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 			t.Fatalf("draft save status=%d body=%s", code, body)
-		}
-		allowance := `{"id":"` + allowanceID + `","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-		if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-			t.Fatalf("allowance save status=%d body=%s", code, body)
 		}
 		product.IntentExploreChooser = &exploreFixtureChooser{}
 		code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
@@ -478,8 +458,8 @@ func TestIntentReviewCrossIntentRevisionDenied(t *testing.T) {
 		return responded.ID
 	}
 	const intentA = "daaaaaaaaaaaaaaaaaaaaaaaa"
-	resultB := explore("dabababababababababababab", "dbbcbbbbbbbbbbbbbbbbbbbbb", "dacacacacacacacacacacacac", "dadadadadadadadadadadadad")
-	explore("dbcbababababababababababa", intentA, "dbacacacacacacacacacacaca", "dbadadadadadadadadadadada")
+	resultB := explore("dabababababababababababab", "dbbcbbbbbbbbbbbbbbbbbbbbb", "dacacacacacacacacacacacac")
+	explore("dbcbababababababababababa", intentA, "dbacacacacacacacacacacaca")
 	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentA+"/review?revision="+resultB, ""); code != http.StatusNotFound || errorCode(body) != "not_found" {
 		t.Fatalf("cross-intent status=%d body=%s", code, body)
 	}
@@ -501,30 +481,14 @@ func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	allowance := `{"id":"d757575757575757575757575","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
-	}
 	chooser := &exploreFixtureChooser{}
 	product.IntentExploreChooser = chooser
 	code, _ := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
 	if code != http.StatusCreated {
 		t.Fatalf("explore status=%d", code)
 	}
-	consumed := func() (int, int) {
-		t.Helper()
-		code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", "")
-		if code != http.StatusOK {
-			t.Fatalf("allowance read status=%d body=%s", code, body)
-		}
-		var a factory.PlanningAllowance
-		if err := json.Unmarshal(body, &a); err != nil {
-			t.Fatal(err)
-		}
-		return a.Consumed, chooser.calls
-	}
-	spent, calls := consumed()
-	if spent == 0 || calls == 0 {
+	calls := chooser.calls
+	if calls == 0 {
 		t.Fatal("round consumed no judgments")
 	}
 	head, err := s.IntentRevision(ctx, intentID, 1)
@@ -589,8 +553,8 @@ func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
 	if code, body := other(http.MethodGet, "/api/factory/intents/"+intentID+"/review", ""); code != http.StatusNotFound || errorCode(body) != "not_found" {
 		t.Fatalf("other actor status=%d body=%s", code, body)
 	}
-	if spentAfter, callsAfter := consumed(); spentAfter != spent || callsAfter != calls {
-		t.Fatalf("reads consumed judgments: spent=%d calls=%d", spentAfter, callsAfter)
+	if chooser.calls != calls {
+		t.Fatalf("reads consumed judgments: calls=%d", chooser.calls)
 	}
 	after, err := s.IntentRevision(ctx, intentID, 1)
 	if err != nil || after.ID != nextID {
@@ -617,10 +581,6 @@ func TestSavedReviewJoinCaptureRound(t *testing.T) {
 		`{"id":"d848484848484848484848484","description":"Keep history visible","consequence":"Past requests stay listed","decision":"pending","source":"autonomous","provenance":"autonomous"}]}`
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
-	}
-	allowance := `{"id":"d858585858585858585858585","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
 	}
 	product.IntentExploreChooser = &exploreFixtureChooser{}
 	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`); code != http.StatusCreated {
@@ -670,10 +630,6 @@ func TestIntentReviewOtherActorDenied(t *testing.T) {
 		`"ideas":[{"id":"d787878787878787878787879","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}]}`
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
-	}
-	allowance := `{"id":"d898989898989898989898980","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
-		t.Fatalf("allowance save status=%d body=%s", code, body)
 	}
 	product.IntentExploreChooser = &exploreFixtureChooser{}
 	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`); code != http.StatusCreated {

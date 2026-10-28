@@ -107,10 +107,6 @@ func (s *API) persistExploration(ctx context.Context, w http.ResponseWriter, cur
 }
 
 func reportJudgmentCallError(w http.ResponseWriter, err error, unavailable string) {
-	if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
-		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-		return
-	}
 	if errors.Is(err, control.ErrPriorityUnavailable) {
 		auth.JSONError(w, 503, "planning_unavailable", unavailable)
 		return
@@ -147,8 +143,8 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	// Product exploration uses explicitly bounded consultation credit, distinct
-	// from execution funding. Failure remains visible and creates no acceptance.
+	// Product exploration consults JEV directly.
+	// Failure remains visible and creates no acceptance.
 	judge := s.IntentExploreChooser
 	if judge == nil {
 		judge = &control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
@@ -160,15 +156,6 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	design.Predecessor = ""
 	design.CreatedUnix = 0
 	design.Tasks = nil
-	available, err := s.Store.PlanningAllowanceAvailable(r.Context(), current.Intent, v.User.ID)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	if !available {
-		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
-		return
-	}
 	answer, _, callErr := coord.AdvisePurpose(r.Context(), control.PurposeAdvice{
 		Purpose:    factory.JudgmentProductApproaches,
 		State:      design,
@@ -181,7 +168,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		},
 	})
 	if callErr != nil {
-		reportJudgmentCallError(w, callErr, "Design consultation failed; the consumed allowance is retained.")
+		reportJudgmentCallError(w, callErr, "Design consultation failed; try again.")
 		return
 	}
 	proposal = applyIntentDesign(current, ids, proposal, answer)
@@ -190,8 +177,8 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		proposal = appendClarifyOnce(proposal, ids[103])
 	}
 	// The derived graph is deterministic: refuse a bound-violating
-	// proposal before spending further judgments. Spent allowance stays
-	// charged, the head is untouched, and no review is stored. Only an
+	// proposal before asking further judgments. The head is untouched and
+	// no review is stored. Only an
 	// actual task-count overflow carries the task-limit code; every other
 	// validation failure keeps the generic code without a fabricated cause.
 	if err := proposal.Validate(); err != nil {
@@ -204,7 +191,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	}
 	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {
-		reportJudgmentCallError(w, err, "Assumption review failed; the consumed allowance is retained.")
+		reportJudgmentCallError(w, err, "Assumption review failed; try again.")
 		return
 	}
 	proposal = factory.SettleAssumptions(proposal, review)
@@ -212,7 +199,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if content.Supported {
 		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
 		if err != nil {
-			reportJudgmentCallError(w, err, "Consolidation failed; the consumed allowance is retained.")
+			reportJudgmentCallError(w, err, "Consolidation failed; try again.")
 			return
 		}
 		recommendation = &consolidated
@@ -221,7 +208,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if recommendation != nil {
 		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
 		if err != nil {
-			reportJudgmentCallError(w, err, "Consistency review failed; the consumed allowance is retained.")
+			reportJudgmentCallError(w, err, "Consistency review failed; try again.")
 			return
 		}
 		consistency = &verified

@@ -267,7 +267,7 @@ func (s *factoryCatalogServer) serveFundedConsultation(ctx context.Context, cap 
 	if !reserved {
 		prior, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, snapshot)
 		if err != nil || prior.Outcome != systemOneAnswerOutcome || prior.Answer == nil {
-			callErr := errors.New("System One request failed or remains unconfirmed; reservation retained without another provider call")
+			callErr := errors.New("System One recorded an answer for this request that cannot be replayed")
 			return nil, nil, errors.Join(callErr, recordConsultationResult(s.deps, ctx, snapshot, nil, callErr))
 		}
 		return replay(prior.Answer)

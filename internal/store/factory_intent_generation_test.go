@@ -132,51 +132,12 @@ func TestSupersededAcceptanceInvalidatesPlanningWithoutRetarget(t *testing.T) {
 	}
 }
 
-func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
-	s, _ := postgresFixture(t)
-	ctx := context.Background()
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, PlanningCalls: 100, CreatedUnix: 1}
-	if err := s.SaveIntentRevision(ctx, r); err != nil {
-		t.Fatal(err)
-	}
-	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	if ok, err := s.ReserveIntentJudgment(ctx, r, a); ok || !errors.Is(err, ErrPlanningAllowanceExhausted) {
-		t.Fatal("missing allowance funded from the embedded field")
-	}
-	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d333333333333333333333333", Intent: r.Intent, Owner: r.Owner, Amount: 1, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, CreatedUnix: 1}); err != nil {
-		t.Fatal(err)
-	}
-	ok, err := s.ReserveIntentJudgment(ctx, r, a)
-	if err != nil || !ok {
-		t.Fatal(ok, err)
-	}
-	ok, err = s.ReserveIntentJudgment(ctx, r, b)
-	if ok || !errors.Is(err, ErrPlanningAllowanceExhausted) {
-		t.Fatal("exhausted allowance admitted")
-	}
-	raised := factory.PlanningAllowance{ID: "d444444444444444444444444", Intent: r.Intent, Predecessor: "d333333333333333333333333", Owner: r.Owner, Amount: 2, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, Effect: "one more consultation for the same accepted scope", CreatedUnix: 1}
-	if err := s.SavePlanningAllowance(ctx, raised); err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := s.ReserveIntentJudgment(ctx, r, b); err != nil || !ok {
-		t.Fatal("raised allowance did not release exhaustion")
-	}
-	head, err := s.IntentRevision(ctx, r.Intent, r.Owner)
-	if err != nil || head.ID != r.ID {
-		t.Fatal("allowance change moved intent scope")
-	}
-}
-
 func TestIntentPlanningAllowsIndependentIntents(t *testing.T) {
 	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	for i, intent := range []string{"d222222222222222222222222", "d444444444444444444444444"} {
 		r := factory.IntentRevision{ID: []string{"d111111111111111111111111", "d333333333333333333333333"}[i], Intent: intent, Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, CreatedUnix: 1}
 		if err := s.SaveIntentRevision(ctx, r); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: []string{"d555555555555555555555555", "d666666666666666666666666"}[i], Intent: intent, Owner: 1, Amount: 4, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, CreatedUnix: 1}); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -25,8 +25,10 @@ func deliveryRepairInvestigatorRetiredTx(ctx context.Context, tx *sql.Tx, record
 	return deliveryRepairReportScopeTx(ctx, tx, a, a.Result.PhaseResult.Output.DeliveryRepair.InputDigest)
 }
 
-// ReserveDeliveryRepairJudgment atomically charges the existing grant and
-// global judgment journal before any call. A lost/failed call remains spent.
+// ReserveDeliveryRepairJudgment charges the repair grant and binds the
+// cycle's judgment fingerprint before the first call. A call that failed
+// without a receipt retries under the same fingerprint; a recorded receipt
+// is reused (false).
 func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository int64, failedRun, cycleID, fingerprint string, now time.Time) (bool, error) {
 	if !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid delivery repair judgment fingerprint")
@@ -50,7 +52,11 @@ func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository in
 		if record.Cycle.JudgmentFingerprint != fingerprint {
 			return false, ErrStaleRevision
 		}
-		return false, tx.Commit()
+		reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
+		if err != nil {
+			return false, err
+		}
+		return reserved, tx.Commit()
 	}
 	if err = deliveryRepairInvestigatorRetiredTx(ctx, tx, record); err != nil {
 		return false, err
@@ -67,22 +73,12 @@ func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository in
 		}
 		return false, err
 	}
-	var spent int
-	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
+	reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
+	if err != nil {
 		return false, err
 	}
-	var exists bool
-	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_priority_judgments WHERE snapshot=$1)`, fingerprint).Scan(&exists); err != nil {
-		return false, err
-	}
-	if exists {
+	if !reserved {
 		return false, ErrCommandConflict
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
-		return false, err
 	}
 	record.Cycle.JudgmentFingerprint = fingerprint
 	record.Revision++

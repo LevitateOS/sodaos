@@ -435,28 +435,10 @@ func CommentJudgmentSnapshot(commentID string, revision int64) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// ReserveCommentJudgment funds at most one JEV Choice call behind one
-// comment source revision through the existing priority judgment
-// budget. A recovered reservation reports false with no new spend.
+// ReserveCommentJudgment admits the JEV Choice call behind one comment
+// source revision: false once its receipt is recorded, true otherwise.
 func (s *Store) ReserveCommentJudgment(ctx context.Context, commentID string, revision int64) (bool, error) {
 	return s.ReservePriorityJudgment(ctx, CommentJudgmentSnapshot(commentID, revision), 1)
-}
-
-// CommentJudgmentReservationOpen reports whether one comment revision
-// holds an unfulfilled JEV judgment call: reserved but never answered,
-// so a bounded retry may proceed under the existing reservation. JEV
-// calls are free; the reservation is duplicate-effect protection and a
-// provider-limit bound, not a monetary gate. A recorded answer or no
-// reservation at all leaves no retry permission: the former already
-// settled, the latter waits on the provider limit.
-func (s *Store) CommentJudgmentReservationOpen(ctx context.Context, commentID string, revision int64) (bool, error) {
-	var open int
-	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1 AND data IS NULL`,
-		CommentJudgmentSnapshot(commentID, revision)).Scan(&open)
-	if err != nil {
-		return false, err
-	}
-	return open > 0, nil
 }
 
 // RecordCommentJudgmentReceipt retains the funded JEV answer behind one

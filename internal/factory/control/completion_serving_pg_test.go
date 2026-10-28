@@ -649,10 +649,9 @@ func TestCompletionDrivePaidLowConfidenceHoldsAttentionPG(t *testing.T) {
 	}
 }
 
-// An actual chooser error holds with attention while its paid ledger
-// and charged-failed receipt survive; the replay waits for explicit
-// retry without charging again.
-func TestCompletionDrivePaidChooserErrorHoldsAttentionPG(t *testing.T) {
+// An actual chooser error records nothing and defers: the next drive asks
+// again under the same ledger entry instead of holding for explicit retry.
+func TestCompletionDrivePaidChooserErrorRetriesPG(t *testing.T) {
 	ctx := context.Background()
 	chooser := &native92FailingChooser{}
 	fx, deps := native92DrivePGFixture(t, chooser)
@@ -663,48 +662,30 @@ func TestCompletionDrivePaidChooserErrorHoldsAttentionPG(t *testing.T) {
 	if report := coord.DriveCompletions(ctx, deps); len(report.Sealed) != 1 {
 		t.Fatalf("report=%+v, want the seal", report)
 	}
-	report := coord.DriveCompletions(ctx, deps)
-	if !native92ReportHas(report.Held, cycleID+":decision_unavailable") {
-		t.Fatalf("report=%+v, want the unavailable hold", report)
+	for attempt := 1; attempt <= 2; attempt++ {
+		report := coord.DriveCompletions(ctx, deps)
+		if !native92ReportHas(report.Held, cycleID+":decision_in_flight") {
+			t.Fatalf("attempt %d report=%+v, want the deferred hold", attempt, report)
+		}
+		if chooser.calls != attempt {
+			t.Fatalf("calls=%d, want one consultation per drive", chooser.calls)
+		}
 	}
-	if chooser.calls != 1 {
-		t.Fatalf("calls=%d, want the single paid consultation attempt", chooser.calls)
-	}
-	attended, err := db.ReassessmentRecord(ctx, cycleID)
+	deferred, err := db.ReassessmentRecord(ctx, cycleID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if attended.Cycle.State != factory.ReassessmentAttention {
-		t.Fatalf("record=%+v, want the attention hold", attended)
+	if deferred.Cycle.State != factory.ReassessmentDeciding {
+		t.Fatalf("record=%+v, want the cycle still deciding", deferred)
 	}
-	if len(attended.Cycle.Ledger.DecisionCalls) != 1 {
-		t.Fatalf("PAID LEDGER LOST: ledgerCalls=%d ledger=%v, want exactly the one paid call", len(attended.Cycle.Ledger.DecisionCalls), attended.Cycle.Ledger.DecisionCalls)
+	if len(deferred.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("ledger=%v, want the retry to reuse its one ledger entry", deferred.Cycle.Ledger.DecisionCalls)
 	}
-	state, err := DecisionStateFromRecord(attended)
+	state, err := DecisionStateFromRecord(deferred)
 	if err != nil {
 		t.Fatal(err)
 	}
-	receipt, err := db.PriorityJudgment(ctx, fingerprintOf(state))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("AFTER chooser-error hold: receiptCalls=%d receiptFailure=%q outcome=%q ledgerCalls=%d", len(receipt.Calls), receipt.Calls[0].Failure, receipt.Outcome, len(attended.Cycle.Ledger.DecisionCalls))
-	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure == "" {
-		t.Fatalf("receipt=%+v, want the one charged-failed receipt", receipt)
-	}
-
-	again := coord.DriveCompletions(ctx, deps)
-	if !native92ReportHas(again.Held, cycleID+":awaiting-retry") {
-		t.Fatalf("report=%+v, want the attention cycle to wait for explicit retry", again)
-	}
-	if chooser.calls != 1 {
-		t.Fatalf("calls=%d, want no second consultation on replay", chooser.calls)
-	}
-	restill, err := db.ReassessmentRecord(ctx, cycleID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(restill.Cycle.Ledger.DecisionCalls) != 1 {
-		t.Fatalf("ledger=%v, want the one paid call after replay", restill.Cycle.Ledger.DecisionCalls)
+	if _, err := db.PriorityJudgment(ctx, fingerprintOf(state)); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("failed call recorded a receipt: %v", err)
 	}
 }

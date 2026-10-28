@@ -572,7 +572,7 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	if err = saveAttemptAllowanceTx(ctx, tx, prior); err != nil {
 		t.Fatal(err)
 	}
-	limits := factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8}
+	limits := factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3}
 	// Derive a coherent retry time: the explicit retry arrives after the
 	// preserved checkpoint, never at the earlier pre-dispatch instant.
 	retryNow := time.Now().UTC()
