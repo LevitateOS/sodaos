@@ -8,11 +8,10 @@
   "trustedDependencies": [],
   "scripts": {
     "build": "bun run build:forgejo",
-    "typecheck": "bun --bun node_modules/typescript/bin/tsc -p tsconfig.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.browser.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.tests.json && bun --bun node_modules/typescript/bin/tsc -p tools/lit-check/tsconfig.json && bun run check:lit && bun run test:lit-check && bun run check:ts-unitban && bun run test:ts-unitban && bun --bun tools/lit-check/node_modules/typescript/bin/tsc -p tools/source-complexity/tsconfig.json",
+    "typecheck": "bun --bun node_modules/typescript/bin/tsc -p tsconfig.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.browser.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.tests.json && bun --bun node_modules/typescript/bin/tsc -p tools/lit-check/tsconfig.json && bun run check:lit && bun run test:lit-check && bun run check:ts-unitban && bun run test:ts-unitban",
     "check:source": "bash scripts/check-source.sh",
     "check:oxfmt": "bash scripts/check-oxfmt.sh",
     "check:oxlint": "bash scripts/check-oxlint.sh",
-    "check:ts-complexity": "bash scripts/check-ts-complexity.sh",
     "check:lit": "bun scripts/check-lit.ts",
     "check:no-npm": "bash scripts/check-no-npm.sh",
     "check:ts-unitban": "bun scripts/check-ts-unitban.ts",
@@ -28,8 +27,7 @@
     "screenshot": "bun scripts/screenshot.ts",
     "build:forgejo": "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out .artifacts/browser-terminal/vendor && bun scripts/build-forgejo.ts",
     "build:preview": "bun scripts/build-forgejo-preview.ts",
-    "dev:spaces": "bun run build:forgejo && bun scripts/preview-spaces.ts",
-    "check:complexity": "bash scripts/check-complexity.sh"
+    "dev:spaces": "bun run build:forgejo && bun scripts/preview-spaces.ts"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

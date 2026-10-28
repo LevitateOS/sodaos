@@ -6,7 +6,6 @@ require (
 	forgejo.org/extension-sdk v0.0.0
 	github.com/coder/websocket v1.8.15
 	github.com/dicebear/dicebear-go/v10 v10.7.0
-	github.com/fzipp/gocyclo v0.6.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -52,7 +51,6 @@ require (
 )
 
 tool (
-	github.com/fzipp/gocyclo/cmd/gocyclo
 	github.com/kisielk/errcheck
 	honnef.co/go/tools/cmd/staticcheck
 	mvdan.cc/gofumpt

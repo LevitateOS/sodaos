@@ -1,5 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {"types": ["bun", "node"], "lib": ["ES2022"]},
-  "include": ["*.ts"]
-}

@@ -83,7 +83,6 @@ Avoid adding competing formatter/linter stacks.
 | --- | --- |
 | `bash scripts/check-oxfmt.sh FILE...` | Check formatting on selected files. |
 | `bash scripts/check-oxlint.sh FILE...` | Check selected files for correctness issues. |
-| `bash scripts/check-ts-complexity.sh FILE...` | Optional [complexity report](complexity.md); no score gate or exception paperwork. |
 
 The commit hook checks whitespace, credential exposure and language ownership.
 It does not repeat formatting, package analysis or behavioral suites.

@@ -283,6 +283,4 @@ databases, not the product Store.
 
 ## Function complexity
 
-Use [complexity reports](complexity.md) when they help a concrete refactor.
-`bash scripts/check-complexity.sh --language go` reports changed production
-functions. Scores and file lengths do not block commits or require exceptions.
+Scores and file lengths do not block commits or require exceptions.

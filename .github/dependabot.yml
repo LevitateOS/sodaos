@@ -27,7 +27,6 @@ updates:
   - package-ecosystem: cargo
     directories:
       - /
-      - /tools/source-complexity/rust
     schedule:
       interval: cron
       cronjob: '0 * * * *'

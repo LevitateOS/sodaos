@@ -1,6 +1,5 @@
 #!/bin/bash
-# Oxlint gate for TypeScript correctness. Complexity is owned by
-# scripts/check-ts-complexity.sh (advisory reports).
+# Oxlint gate for TypeScript correctness.
 # Accepts paths; defaults to the repository. Test files are included. Use the
 # pre-commit hook for staged-only scope. Does not duplicate bun run typecheck.
 set -euo pipefail

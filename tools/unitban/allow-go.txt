@@ -228,7 +228,6 @@ scripts/wire_contracts_test.go
 tests/build/avatar_integration_test.go
 tests/build/candidate_gate_test.go
 tests/build/ci_admission_test.go
-tests/build/complexity_scope_test.go
 tests/build/docker_installer_test.go
 tests/build/forgejo_domain_test.go
 tests/build/forgejo_payload_test.go
