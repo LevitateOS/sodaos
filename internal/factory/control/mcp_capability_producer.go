@@ -47,10 +47,6 @@ func mcpProfileForPhase(phase string) (factory.MCPProfile, error) {
 		return factory.MCPProfileStrategist, nil
 	case project.ExecutionVerify:
 		return factory.MCPProfileTestPilot, nil
-	case project.ExecutionMaintainLibrary:
-		return factory.MCPProfileLibraryAdmin, nil
-	case project.ExecutionResearch:
-		return factory.MCPProfileResearcher, nil
 	}
 	return "", errors.New("mcp producer refuses a phase without MCP authority")
 }

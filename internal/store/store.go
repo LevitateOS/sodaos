@@ -85,9 +85,6 @@ func configureStore(db *sql.DB) (*Store, error) {
 		err = initializeLibrarySchema(context.Background(), db)
 	}
 	if err == nil {
-		err = initializeResearchSchema(context.Background(), db)
-	}
-	if err == nil {
 		err = initializePostResolutionSchema(context.Background(), db)
 	}
 	if err == nil {

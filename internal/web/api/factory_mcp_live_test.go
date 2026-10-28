@@ -420,10 +420,9 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 	prepID := "f" + strings.Repeat("1", 24)
 	assignment := factory.Assignment{ID: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, Issue: 42, Role: project.RoleCoder, Phase: project.ExecutionImplement, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, SourceCommit: strings.Repeat("a", 40), RunHistory: []string{cap.RunID}, NativeRev: 3, Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24)}}}
 	if wire != nil {
-		cap.Profile = factory.MCPProfileResearcher
-		assignment.AttemptRoot, assignment.Acceptance = assignment.ID, "d"+strings.Repeat("2", 24)
-		assignment.Role, assignment.Phase = project.RoleReviewer, project.ExecutionResearch
-		assignment.Subject = factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 42, Acceptance: assignment.Acceptance, Sources: []string{"accepted-objective"}}}
+		cap.Profile = factory.MCPProfileArchitect
+		assignment.AttemptRoot, assignment.PublicationAssignment, assignment.Acceptance = assignment.ID, assignment.ID, "d"+strings.Repeat("2", 24)
+		assignment.Phase = project.ExecutionInvestigate
 		assignment.AcceptedContext = &factory.AcceptedContext{AcceptanceID: assignment.Acceptance, Repository: 7, Issue: 42, NativeRevision: 3, SourceCommit: assignment.SourceCommit, Preparation: prepID, Title: "Research equipment approval", Body: "Assess whether a EUR 1200 equipment request needs Finance approval under the stated policy."}
 	}
 	cap.SourceDigest, cap.AcceptedRevision, cap.Subject = assignment.SourceCommit, "3", assignment.Subject.SubjectKey(assignment.Repository)
@@ -529,8 +528,8 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		if !ok || selection["action"] != "hold" || body["attempt"] != nil || body["lineage"] != nil {
 			t.Fatal("missing or uncertain receipt broadened history", body)
 		}
-		if guidance, ok := body["library_guidance"].(string); !ok || !strings.Contains(guidance, "current_only") || !strings.Contains(guidance, "frozen accepted inputs") {
-			t.Fatal("admitted context lost current-library read and authority guidance")
+		if guidance, ok := body["library_guidance"].(string); !ok || guidance != factory.LibraryReadGuidance {
+			t.Fatal("admitted context lost its library read guidance")
 		}
 		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countAfter); err != nil {
 			t.Fatal(err)

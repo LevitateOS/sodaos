@@ -91,8 +91,7 @@ func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	switch phased.Phase {
 	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess,
 		project.ExecutionReview,
-		project.ExecutionRepair, project.ExecutionVerify, project.ExecutionMaintainLibrary,
-		project.ExecutionResearch:
+		project.ExecutionRepair, project.ExecutionVerify:
 		return true
 	default:
 		return false
@@ -144,12 +143,6 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 		return err
 	}
 	if role == project.RoleReviewer {
-		if r.Phase == project.ExecutionResearch {
-			if r.Reported {
-				return checkReportedResearchResult(r)
-			}
-			return checkSynthesizedResearchResult(r)
-		}
 		if r.Reported {
 			return checkReportedReviewerResult(r, sourceCommit)
 		}
@@ -162,13 +155,7 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 }
 
 func checkReportedReviewerResult(r AssignmentResult, sourceCommit string) error {
-	if r.Review == nil && r.Phase == project.ExecutionMaintainLibrary && r.PhaseResult != nil && r.PhaseResult.Phase == r.Phase && r.Status == "completed" && r.Candidate == "" && !r.ReviewPassed && len(r.Findings) == 0 && r.Summary == r.PhaseResult.Summary && r.PhaseResult.Output != nil && r.PhaseResult.Output.Maintenance != nil {
-		return r.PhaseResult.Validate()
-	}
 	if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
-		return nil
-	}
-	if r.Review == nil && isPhasedAssessmentVerdict(r) {
 		return nil
 	}
 	if r.Review == nil && isPhasedVerifyVerdict(r) {
@@ -178,33 +165,6 @@ func checkReportedReviewerResult(r AssignmentResult, sourceCommit string) error 
 		return errors.New("reported reviewer result does not match its candidate")
 	}
 	return nil
-}
-
-// checkReportedResearchResult admits one reported researcher result:
-// completed, bound to the research phase with its typed research
-// report, carrying no candidate, plan or legacy reviewer evidence.
-// The report's own questions, findings and evidence live inside the
-// typed output; top-level findings stay empty as with maintenance.
-func checkReportedResearchResult(r AssignmentResult) error {
-	if r.Review == nil && r.Phase == project.ExecutionResearch && r.PhaseResult != nil &&
-		r.PhaseResult.Phase == r.Phase && r.Status == "completed" && r.Candidate == "" &&
-		!r.ReviewPassed && len(r.Findings) == 0 && r.Summary == r.PhaseResult.Summary &&
-		r.PhaseResult.Output != nil && r.PhaseResult.Output.Research != nil {
-		return r.PhaseResult.Validate()
-	}
-	return errors.New("reported researcher result does not match its research report")
-}
-
-// checkSynthesizedResearchResult admits one synthesized researcher
-// result: no report evidence, never completed, and a phased payload
-// only for the research phase. Legacy synthesized shapes without a
-// phased payload keep passing as with the other roles.
-func checkSynthesizedResearchResult(r AssignmentResult) error {
-	if r.Review == nil && (r.PhaseResult == nil || r.PhaseResult.Phase == project.ExecutionResearch) &&
-		r.Status != "completed" && r.Candidate == "" && !r.ReviewPassed && len(r.Findings) == 0 {
-		return nil
-	}
-	return errors.New("synthesized researcher result carries report evidence")
 }
 
 func checkSynthesizedReviewerResult(r AssignmentResult) error {
@@ -251,27 +211,6 @@ func isPhasedReviewVerdict(r AssignmentResult, sourceCommit string) bool {
 		return false
 	}
 	return true
-}
-
-// isPhasedAssessmentVerdict reports whether a reported result is a
-// phased non-code assessment: completed, bound to the review phase
-// with exactly its assessment verdict, carrying no legacy reviewer
-// evidence and no candidate. The deliverable binding rides assignment
-// admission, so unlike the explicit-clear review verdict there is no
-// source-commit binding: a research submission or library revision
-// already names its exact bytes.
-func isPhasedAssessmentVerdict(r AssignmentResult) bool {
-	if r.PhaseResult == nil || r.PhaseResult.Phase != project.ExecutionReview ||
-		r.Phase != project.ExecutionReview || r.Status != "completed" ||
-		r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 ||
-		r.Summary != r.PhaseResult.Summary {
-		return false
-	}
-	output := r.PhaseResult.Output
-	if output == nil || output.Assessment == nil {
-		return false
-	}
-	return output.nilTypedOutputExceptReview()
 }
 
 // isPhasedVerifyVerdict reports whether a reported result is a phased

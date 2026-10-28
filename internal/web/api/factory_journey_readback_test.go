@@ -984,52 +984,6 @@ func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
 	if rows, err := fx.db.IssueControls(context.Background(), 7, store.MaxIssueControls); err != nil || len(rows) != 0 {
 		t.Fatalf("diagnostic read changed queue: %+v %v", rows, err)
 	}
-	fake := &journeyAcceptanceSource{}
-	fx.api.Coordinator.AcceptanceReads = fake
-	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
-	fake.decision = journeyAcceptanceFor(acceptance)
-	for _, phase := range []string{project.ExecutionResearch, project.ExecutionMaintainLibrary} {
-		root := journeyOwner(t, factory.NewID(), acceptance, phase, factory.AssignmentAssigned, "", "")
-		root.Run = factory.NewID()
-		root.RunHistory = []string{root.Run}
-		root.PublicationAssignment, root.Role = "", project.RoleReviewer
-		root.NativeRev, root.Attempts = 1, 1
-		root.Harness, root.HarnessVers, root.Model, root.Connection = "codex", "test", "test-model", "test-connection"
-		root.Prompt = []byte("Inspect only the accepted inquiry.")
-		root.PromptSHA = factory.MCPInputDigest(root.Prompt)
-		root.Subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: journeyIssue, Acceptance: acceptance}}
-		if phase == project.ExecutionResearch {
-			root.Subject = factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: journeyIssue, Acceptance: acceptance}}
-		}
-		if err := root.Validate(); err != nil {
-			t.Fatal("invalid non-code HTTP fixture", err)
-		}
-		insertJourneyRow(t, fx.raw, root, root.Stage)
-		code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
-		if code != http.StatusOK {
-			t.Fatalf("%s issue readback status=%d body=%s", phase, code, body)
-		}
-		view := journeyIssueView(t, body)
-		if view.Attempt == nil || view.Attempt.ID != root.ID || view.Publication != nil || view.Journey.Lineage.RootAssignment != root.ID || view.Journey.Lineage.LatestRun != root.Run {
-			t.Fatalf("non-code issue lost its own root or invented a publication: %+v", view)
-		}
-		// A root without publication must still bind its exact semantic
-		// phase and reviewer principal; malformed records stay unavailable.
-		root.Role = project.RoleCoder
-		bad, err := json.Marshal(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = fx.raw.Exec(`UPDATE factory_assignments SET data=$1 WHERE id=$2`, string(bad), root.ID); err != nil {
-			t.Fatal(err)
-		}
-		if code, _ := call(http.MethodGet, "/api/repositories/7/factory/issues/3", ""); code != http.StatusServiceUnavailable {
-			t.Fatal("malformed non-code root became a readable issue attempt")
-		}
-		if _, err = fx.raw.Exec(`DELETE FROM factory_assignments WHERE id=$1`, root.ID); err != nil {
-			t.Fatal("remove the malformed fixture before the next independent phase", err)
-		}
-	}
 }
 
 // seedRichJourney records one full lineage: acceptance, owner attempt

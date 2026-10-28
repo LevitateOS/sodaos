@@ -85,9 +85,6 @@ func factoryToolDescription(tool factory.MCPTool) string {
 	if description := libraryToolDescription(tool); description != "" {
 		return description
 	}
-	if description := researchToolDescription(tool); description != "" {
-		return description
-	}
 	if description := resolvePostToolDescription(tool); description != "" {
 		return description
 	}
@@ -113,7 +110,6 @@ func factoryToolDescription(tool factory.MCPTool) string {
 		factory.MCPToolStuck:                "Request help diagnosing a problem, including the approaches already tried.",
 		factory.MCPToolRecordDecision:       "Record your decision, rationale, alternatives and evidence for others to inspect.",
 		factory.MCPToolFinishIncomplete:     "End the assignment as blocked, failed or cancelled, preserving the cause, evidence and requested resolution.",
-		factory.MCPToolFinishResearch:       "Settle a research inquiry with its answered report: declared questions, findings with evidence and the useful conclusion. Names no candidate and changes nothing.",
 	}
 	if description := descriptions[tool]; description != "" {
 		return description
@@ -203,6 +199,6 @@ func unavailableFactoryMCP(err error) http.Handler {
 // receipt recovery, discussion, previews and native task requests do not.
 func mcpTakesSubmission(tool factory.MCPTool) bool {
 	return !factory.MCPIsRead(tool) && tool != factory.MCPToolReceipt && tool != factory.MCPToolDiscussion &&
-		tool != factory.MCPToolReadLibraryItem && tool != factory.MCPToolPreviewLibraryChanges &&
+		tool != factory.MCPToolReadLibraryItem &&
 		tool != factory.MCPToolPreviewRepair && !isNativeTaskTool(tool)
 }

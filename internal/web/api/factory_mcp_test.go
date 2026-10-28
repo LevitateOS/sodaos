@@ -31,7 +31,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -1092,67 +1091,6 @@ func TestFactoryCatalogEvidenceServesRunProjections(t *testing.T) {
 	}
 	if body["assignment"] != sink.capability.AssignmentID {
 		t.Fatalf("evidence unscoped: %v", body["assignment"])
-	}
-}
-
-// TestFactoryCatalogEvidenceServesRecordedResults proves the R31.1
-// inline result preservation: a finished research assignment serves
-// its answered report, a finished maintenance assignment serves its
-// submission handle, and an unfinished assignment serves no result
-// key while staying honestly incomplete.
-func TestFactoryCatalogEvidenceServesRecordedResults(t *testing.T) {
-	research := newFakeCatalogSink()
-	stored := research.assignments[research.capability.AssignmentID]
-	stored.Result = &factory.AssignmentResult{
-		Phase: project.ExecutionResearch, Status: "completed", Summary: "Restart through the supervisor.",
-		PhaseResult: &factory.PhaseResult{
-			Version: factory.PhaseResultVersion, Phase: project.ExecutionResearch,
-			Status: "completed", Summary: "Restart through the supervisor.",
-			Output: &factory.PhaseOutput{Research: &factory.ResearchReport{
-				Questions:  []string{"What restarts the worker?"},
-				Findings:   []string{"The supervisor restarts it."},
-				Conclusion: "Restart through the supervisor.",
-			}},
-		},
-	}
-	research.assignments[research.capability.AssignmentID] = stored
-	body := serveEvidenceBody(t, research)
-	result, ok := body["result"].(map[string]any)
-	if !ok || result["phase"] != project.ExecutionResearch || result["status"] != "completed" {
-		t.Fatalf("research result=%v", body["result"])
-	}
-	report, ok := result["report"].(map[string]any)
-	if !ok {
-		t.Fatalf("research report missing: %v", result)
-	}
-	questions, ok := report["questions"].([]any)
-	if !ok || len(questions) != 1 || questions[0] != "What restarts the worker?" {
-		t.Fatalf("research questions=%v", report["questions"])
-	}
-
-	maintenance := newFakeCatalogSink()
-	kept := maintenance.assignments[maintenance.capability.AssignmentID]
-	kept.Result = &factory.AssignmentResult{
-		Phase: project.ExecutionMaintainLibrary, Status: "completed", Summary: "Source notes consolidated.",
-		PhaseResult: &factory.PhaseResult{
-			Version: factory.PhaseResultVersion, Phase: project.ExecutionMaintainLibrary,
-			Status: "completed", Summary: "Source notes consolidated.",
-			Output: &factory.PhaseOutput{Maintenance: &factory.LibraryMaintenanceResult{SubmissionID: strings.Repeat("m", 32)}},
-		},
-	}
-	maintenance.assignments[maintenance.capability.AssignmentID] = kept
-	mbody := serveEvidenceBody(t, maintenance)
-	mresult, ok := mbody["result"].(map[string]any)
-	if !ok || mresult["phase"] != project.ExecutionMaintainLibrary || mresult["submission"] != strings.Repeat("m", 32) {
-		t.Fatalf("maintenance result=%v", mbody["result"])
-	}
-
-	inflight := serveEvidenceBody(t, newFakeCatalogSink())
-	if _, present := inflight["result"]; present {
-		t.Fatalf("unfinished assignment serves a result: %v", inflight["result"])
-	}
-	if complete, _ := inflight["complete"].(bool); complete {
-		t.Fatalf("evidence claims completeness")
 	}
 }
 

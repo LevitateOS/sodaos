@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
 )
 
 // storeAssignedLimit bounds one unfinished-assignment listing.
@@ -204,7 +203,7 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 		// fails the finish instead of committing without
 		// accounting. Ordinary issue paths keep the historical
 		// absent-row tolerance.
-		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectStall && a.Subject.Kind != factory.SubjectDelivery && a.Subject.Kind != factory.SubjectDeliveryRepair && a.Subject.Kind != factory.SubjectResearch && errors.Is(err, sql.ErrNoRows) {
+		if !isCompletion && !isIntent && a.Subject.Kind != factory.SubjectStall && a.Subject.Kind != factory.SubjectDelivery && a.Subject.Kind != factory.SubjectDeliveryRepair && errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -215,12 +214,6 @@ func settleFinishedAssignmentTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, isCompletion, isIntent bool) error {
 	if a.Subject.Kind == factory.SubjectDelivery || a.Subject.Kind == factory.SubjectStall || a.Subject.Kind == factory.SubjectDeliveryRepair {
 		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
-	}
-	if a.Phase == project.ExecutionMaintainLibrary {
-		if err := transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
-			return err
-		}
-		return enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue)
 	}
 	if isCompletion {
 		// Successful+reported terminal completion closes its
@@ -235,13 +228,6 @@ func settleReportedFinishTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 		// shared joint. It never enqueues ordinary issue
 		// readiness: readiness refuses issue zero, and intent
 		// accounting is per-root, never per-latest(repository, 0).
-		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
-	}
-	if a.Subject.Kind == factory.SubjectResearch {
-		// Successful+reported terminal research closes its root
-		// admission here. It never enqueues ordinary issue
-		// readiness: research issues are not dispatched yet (R14.2
-		// routes them); readiness would misroute them as code.
 		return transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now())
 	}
 	return enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue)

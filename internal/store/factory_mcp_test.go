@@ -106,7 +106,7 @@ func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
-	terminal := testMCPSubmissionRow(capability, factory.MCPToolFinishResearch, []byte(`{"phase":"research","status":"complete","summary":"Bound author."}`))
+	terminal := testMCPSubmissionRow(capability, factory.MCPToolFinishIncomplete, []byte(`{"outcome":"blocked","cause":"question","evidence_refs":[],"affected_task_ids":[],"requested_resolution":"Bound author."}`))
 	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}

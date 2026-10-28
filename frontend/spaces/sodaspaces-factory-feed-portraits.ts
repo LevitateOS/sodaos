@@ -8,7 +8,6 @@ export const feedRolePortraits: Readonly<Record<string, string>> = {
   Fixer: 'role-portraits/ps1-v1/fixer.png',
   Strategist: 'role-portraits/ps1-v1/strategist.png',
   'Test Pilot': 'role-portraits/ps1-v1/test-pilot.png',
-  'Library Admin': 'role-portraits/ps1-v1/library-admin.png',
   JEV: 'role-portraits/ps1-v1/jev.png',
   Factory: 'role-portraits/ps1-v1/factory.png',
 };

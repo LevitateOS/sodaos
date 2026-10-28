@@ -2,7 +2,7 @@ package factory
 
 // D14 canonical profile/tool DTOs (FW38).
 //
-// One Factory MCP implementation serves nine role profiles with shared
+// One Factory MCP implementation serves seven role profiles with shared
 // communication outlets and role-specific result tools. This file freezes the canonical names, the execution phase
 // each profile serves, and which profile may call which tool. Admission
 // (control), persistence (store) and transport (web/api) enforce this
@@ -14,18 +14,16 @@ package factory
 type MCPProfile string
 
 const (
-	MCPProfileProductLead  MCPProfile = "product_lead"
-	MCPProfileArchitect    MCPProfile = "architect"
-	MCPProfileBuilder      MCPProfile = "builder"
-	MCPProfileInspector    MCPProfile = "inspector"
-	MCPProfileFixer        MCPProfile = "fixer"
-	MCPProfileStrategist   MCPProfile = "strategist"
-	MCPProfileTestPilot    MCPProfile = "test_pilot"
-	MCPProfileLibraryAdmin MCPProfile = "library_admin"
-	MCPProfileResearcher   MCPProfile = "researcher"
+	MCPProfileProductLead MCPProfile = "product_lead"
+	MCPProfileArchitect   MCPProfile = "architect"
+	MCPProfileBuilder     MCPProfile = "builder"
+	MCPProfileInspector   MCPProfile = "inspector"
+	MCPProfileFixer       MCPProfile = "fixer"
+	MCPProfileStrategist  MCPProfile = "strategist"
+	MCPProfileTestPilot   MCPProfile = "test_pilot"
 )
 
-// MCPProfiles lists the nine admitted profiles in contract order.
+// MCPProfiles lists the seven admitted profiles in contract order.
 var MCPProfiles = []MCPProfile{
 	MCPProfileProductLead,
 	MCPProfileArchitect,
@@ -34,8 +32,6 @@ var MCPProfiles = []MCPProfile{
 	MCPProfileFixer,
 	MCPProfileStrategist,
 	MCPProfileTestPilot,
-	MCPProfileLibraryAdmin,
-	MCPProfileResearcher,
 }
 
 // MCPPhaseOf returns the execution phase a profile serves. Strategist
@@ -57,10 +53,6 @@ func MCPPhaseOf(profile MCPProfile) string {
 		return "reassess"
 	case MCPProfileTestPilot:
 		return "verify"
-	case MCPProfileLibraryAdmin:
-		return "maintain_library"
-	case MCPProfileResearcher:
-		return "research"
 	default:
 		return ""
 	}
@@ -70,63 +62,48 @@ func MCPPhaseOf(profile MCPProfile) string {
 type MCPTool string
 
 const (
-	MCPToolVerificationEvidence     MCPTool = "factory.verification_evidence"
-	MCPToolSearchLibrary            MCPTool = "factory.search_library"
-	MCPToolReadLibraryItem          MCPTool = "factory.read_library_item"
-	MCPToolPublishArtifact          MCPTool = "factory.publish_artifact"
-	MCPToolSystemOneNoul            MCPTool = "systemone.noul"
-	MCPToolSystemOneChoice          MCPTool = "systemone.choice"
-	MCPToolSystemOneScore           MCPTool = "systemone.score"
-	MCPToolLibraryInventory         MCPTool = "factory.library_inventory"
-	MCPToolPreviewLibraryChanges    MCPTool = "factory.preview_library_changes"
-	MCPToolBeginLibraryMaintenance  MCPTool = "factory.begin_library_maintenance"
-	MCPToolEditLibraryItem          MCPTool = "factory.edit_library_item"
-	MCPToolRemoveLibraryItem        MCPTool = "factory.remove_library_item"
-	MCPToolRestoreLibraryItem       MCPTool = "factory.restore_library_item"
-	MCPToolConsolidateLibraryItems  MCPTool = "factory.consolidate_library_items"
-	MCPToolSplitLibraryItem         MCPTool = "factory.split_library_item"
-	MCPToolRelateLibraryItems       MCPTool = "factory.relate_library_items"
-	MCPToolSupersedeLibraryItem     MCPTool = "factory.supersede_library_item"
-	MCPToolReportLibraryImpact      MCPTool = "factory.report_library_impact"
-	MCPToolFinishLibraryMaintenance MCPTool = "factory.finish_library_maintenance"
-	MCPToolContext                  MCPTool = "factory.context"
-	MCPToolEvidence                 MCPTool = "factory.evidence"
-	MCPToolStatus                   MCPTool = "factory.status"
-	MCPToolReceipt                  MCPTool = "factory.receipt"
-	MCPToolInbox                    MCPTool = "factory.inbox"
-	MCPToolDiscussion               MCPTool = "factory.discussion"
-	MCPToolAsk                      MCPTool = "factory.ask"
-	MCPToolAnswer                   MCPTool = "factory.answer"
-	MCPToolReply                    MCPTool = "factory.reply"
-	MCPToolFlag                     MCPTool = "factory.flag"
-	MCPToolLearned                  MCPTool = "factory.learned"
-	MCPToolSuggest                  MCPTool = "factory.suggest"
-	MCPToolPartial                  MCPTool = "factory.partial"
-	MCPToolBlocked                  MCPTool = "factory.blocked"
-	MCPToolStuck                    MCPTool = "factory.stuck"
-	MCPToolRecordDecision           MCPTool = "factory.record_decision"
-	MCPToolFinishIncomplete         MCPTool = "factory.finish_incomplete"
-	MCPToolFinishProductPlan        MCPTool = "factory.finish_product_plan"
-	MCPToolFinishIssuePlan          MCPTool = "factory.finish_issue_plan"
-	MCPToolFinishImplement          MCPTool = "factory.finish_implementation"
-	MCPToolFinishReview             MCPTool = "factory.finish_review"
-	MCPToolFinishCorrection         MCPTool = "factory.finish_correction"
-	MCPToolFinishReassessment       MCPTool = "factory.finish_reassessment"
-	MCPToolFinishResearch           MCPTool = "factory.finish_research"
-	MCPToolResearchScope            MCPTool = "factory.research_scope"
-	MCPToolRecordResearch           MCPTool = "factory.record_research"
-	MCPToolResolvePost              MCPTool = "factory.resolve_post"
-	MCPToolFinishAppVerify          MCPTool = "factory.finish_app_verification"
-	MCPToolVerificationScope        MCPTool = "factory.verification_scope"
-	MCPToolPreviewRepair            MCPTool = "factory.preview_repair"
-	MCPToolReassessmentScope        MCPTool = "factory.reassessment_scope"
-	MCPToolRecordDiagnosis          MCPTool = "factory.record_diagnosis"
-	MCPToolDraftRepair              MCPTool = "factory.draft_repair"
-	MCPToolRecordJourneyResult      MCPTool = "factory.record_journey_result"
-	MCPToolSubmitTaskOutput         MCPTool = "factory.submit_task_output"
-	MCPToolStartTask                MCPTool = "factory.start_task"
-	MCPToolReleaseOutput            MCPTool = "factory.release_output"
-	MCPToolRequestHandoff           MCPTool = "factory.request_handoff"
+	MCPToolVerificationEvidence MCPTool = "factory.verification_evidence"
+	MCPToolSearchLibrary        MCPTool = "factory.search_library"
+	MCPToolReadLibraryItem      MCPTool = "factory.read_library_item"
+	MCPToolPublishArtifact      MCPTool = "factory.publish_artifact"
+	MCPToolSystemOneNoul        MCPTool = "systemone.noul"
+	MCPToolSystemOneChoice      MCPTool = "systemone.choice"
+	MCPToolSystemOneScore       MCPTool = "systemone.score"
+	MCPToolContext              MCPTool = "factory.context"
+	MCPToolEvidence             MCPTool = "factory.evidence"
+	MCPToolStatus               MCPTool = "factory.status"
+	MCPToolReceipt              MCPTool = "factory.receipt"
+	MCPToolInbox                MCPTool = "factory.inbox"
+	MCPToolDiscussion           MCPTool = "factory.discussion"
+	MCPToolAsk                  MCPTool = "factory.ask"
+	MCPToolAnswer               MCPTool = "factory.answer"
+	MCPToolReply                MCPTool = "factory.reply"
+	MCPToolFlag                 MCPTool = "factory.flag"
+	MCPToolLearned              MCPTool = "factory.learned"
+	MCPToolSuggest              MCPTool = "factory.suggest"
+	MCPToolPartial              MCPTool = "factory.partial"
+	MCPToolBlocked              MCPTool = "factory.blocked"
+	MCPToolStuck                MCPTool = "factory.stuck"
+	MCPToolRecordDecision       MCPTool = "factory.record_decision"
+	MCPToolFinishIncomplete     MCPTool = "factory.finish_incomplete"
+	MCPToolFinishProductPlan    MCPTool = "factory.finish_product_plan"
+	MCPToolFinishIssuePlan      MCPTool = "factory.finish_issue_plan"
+	MCPToolFinishImplement      MCPTool = "factory.finish_implementation"
+	MCPToolFinishReview         MCPTool = "factory.finish_review"
+	MCPToolFinishCorrection     MCPTool = "factory.finish_correction"
+	MCPToolFinishReassessment   MCPTool = "factory.finish_reassessment"
+	MCPToolResolvePost          MCPTool = "factory.resolve_post"
+	MCPToolFinishAppVerify      MCPTool = "factory.finish_app_verification"
+	MCPToolVerificationScope    MCPTool = "factory.verification_scope"
+	MCPToolPreviewRepair        MCPTool = "factory.preview_repair"
+	MCPToolReassessmentScope    MCPTool = "factory.reassessment_scope"
+	MCPToolRecordDiagnosis      MCPTool = "factory.record_diagnosis"
+	MCPToolDraftRepair          MCPTool = "factory.draft_repair"
+	MCPToolRecordJourneyResult  MCPTool = "factory.record_journey_result"
+	MCPToolSubmitTaskOutput     MCPTool = "factory.submit_task_output"
+	MCPToolStartTask            MCPTool = "factory.start_task"
+	MCPToolReleaseOutput        MCPTool = "factory.release_output"
+	MCPToolRequestHandoff       MCPTool = "factory.request_handoff"
 )
 
 // MCPTools lists shared reads and communication before role work/results.
@@ -172,21 +149,6 @@ var MCPTools = []MCPTool{
 	MCPToolStartTask,
 	MCPToolReleaseOutput,
 	MCPToolRequestHandoff,
-	MCPToolLibraryInventory,
-	MCPToolPreviewLibraryChanges,
-	MCPToolBeginLibraryMaintenance,
-	MCPToolEditLibraryItem,
-	MCPToolRemoveLibraryItem,
-	MCPToolRestoreLibraryItem,
-	MCPToolConsolidateLibraryItems,
-	MCPToolSplitLibraryItem,
-	MCPToolRelateLibraryItems,
-	MCPToolSupersedeLibraryItem,
-	MCPToolReportLibraryImpact,
-	MCPToolFinishLibraryMaintenance,
-	MCPToolFinishResearch,
-	MCPToolResearchScope,
-	MCPToolRecordResearch,
 	MCPToolResolvePost,
 }
 
@@ -212,21 +174,18 @@ const (
 // mcpReadTools are bound reads: they never launch work and never
 // freeze the assignment.
 var mcpReadTools = map[MCPTool]bool{
-	MCPToolPreviewRepair:         true,
-	MCPToolReassessmentScope:     true,
-	MCPToolVerificationEvidence:  true,
-	MCPToolVerificationScope:     true,
-	MCPToolSearchLibrary:         true,
-	MCPToolReadLibraryItem:       true,
-	MCPToolLibraryInventory:      true,
-	MCPToolPreviewLibraryChanges: true,
-	MCPToolResearchScope:         true,
-	MCPToolContext:               true,
-	MCPToolEvidence:              true,
-	MCPToolStatus:                true,
-	MCPToolReceipt:               true,
-	MCPToolInbox:                 true,
-	MCPToolDiscussion:            true,
+	MCPToolPreviewRepair:        true,
+	MCPToolReassessmentScope:    true,
+	MCPToolVerificationEvidence: true,
+	MCPToolVerificationScope:    true,
+	MCPToolSearchLibrary:        true,
+	MCPToolReadLibraryItem:      true,
+	MCPToolContext:              true,
+	MCPToolEvidence:             true,
+	MCPToolStatus:               true,
+	MCPToolReceipt:              true,
+	MCPToolInbox:                true,
+	MCPToolDiscussion:           true,
 }
 
 // MCPIsRead reports whether the tool is a bound read.
@@ -237,78 +196,61 @@ func MCPIsRead(tool MCPTool) bool { return mcpReadTools[tool] }
 // mcp_submission.go); a second identity with conflicting terminal
 // content refuses.
 var mcpTerminalTools = map[MCPTool]bool{
-	MCPToolFinishLibraryMaintenance: true,
-	MCPToolFinishIncomplete:         true,
-	MCPToolFinishProductPlan:        true,
-	MCPToolFinishIssuePlan:          true,
-	MCPToolFinishImplement:          true,
-	MCPToolFinishReview:             true,
-	MCPToolFinishCorrection:         true,
-	MCPToolFinishReassessment:       true,
-	MCPToolFinishAppVerify:          true,
-	MCPToolFinishResearch:           true,
+	MCPToolFinishIncomplete:   true,
+	MCPToolFinishProductPlan:  true,
+	MCPToolFinishIssuePlan:    true,
+	MCPToolFinishImplement:    true,
+	MCPToolFinishReview:       true,
+	MCPToolFinishCorrection:   true,
+	MCPToolFinishReassessment: true,
+	MCPToolFinishAppVerify:    true,
 }
 
 // MCPIsTerminal reports whether the tool records a terminal proposal.
 func MCPIsTerminal(tool MCPTool) bool { return mcpTerminalTools[tool] }
 
-// mcpToolProfiles is the admitted caller set per tool. All nine
+// mcpToolProfiles is the admitted caller set per tool. All seven
 // profiles read; finish_incomplete is the every-parent terminal;
 // typed finishes, task output and handoff stay with their role.
 var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
-	MCPToolVerificationEvidence:     singleMCPProfile(MCPProfileTestPilot),
-	MCPToolVerificationScope:        singleMCPProfile(MCPProfileTestPilot),
-	MCPToolRecordJourneyResult:      singleMCPProfile(MCPProfileTestPilot),
-	MCPToolSearchLibrary:            allMCPProfiles(),
-	MCPToolReadLibraryItem:          allMCPProfiles(),
-	MCPToolPublishArtifact:          allMCPProfiles(),
-	MCPToolSystemOneNoul:            allMCPProfiles(),
-	MCPToolSystemOneChoice:          allMCPProfiles(),
-	MCPToolSystemOneScore:           allMCPProfiles(),
-	MCPToolLibraryInventory:         singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolPreviewLibraryChanges:    singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolBeginLibraryMaintenance:  singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolEditLibraryItem:          singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolRemoveLibraryItem:        singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolRestoreLibraryItem:       singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolConsolidateLibraryItems:  singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolSplitLibraryItem:         singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolRelateLibraryItems:       singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolSupersedeLibraryItem:     singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolReportLibraryImpact:      singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolFinishLibraryMaintenance: singleMCPProfile(MCPProfileLibraryAdmin),
-	MCPToolContext:                  allMCPProfiles(),
-	MCPToolEvidence:                 allMCPProfiles(),
-	MCPToolStatus:                   allMCPProfiles(),
-	MCPToolReceipt:                  allMCPProfiles(),
-	MCPToolInbox:                    allMCPProfiles(),
-	MCPToolDiscussion:               allMCPProfiles(),
-	MCPToolAsk:                      allMCPProfiles(),
-	MCPToolAnswer:                   allMCPProfiles(),
-	MCPToolReply:                    allMCPProfiles(),
-	MCPToolFlag:                     allMCPProfiles(),
-	MCPToolLearned:                  allMCPProfiles(),
-	MCPToolSuggest:                  allMCPProfiles(),
-	MCPToolPartial:                  allMCPProfiles(),
-	MCPToolBlocked:                  allMCPProfiles(),
-	MCPToolStuck:                    allMCPProfiles(),
-	MCPToolRecordDecision:           allMCPProfiles(),
-	MCPToolFinishIncomplete:         allMCPProfiles(),
-	MCPToolFinishProductPlan:        singleMCPProfile(MCPProfileProductLead),
-	MCPToolFinishIssuePlan:          singleMCPProfile(MCPProfileArchitect),
-	MCPToolFinishImplement:          singleMCPProfile(MCPProfileBuilder),
-	MCPToolFinishReview:             singleMCPProfile(MCPProfileInspector),
-	MCPToolFinishCorrection:         singleMCPProfile(MCPProfileFixer),
-	MCPToolFinishReassessment:       singleMCPProfile(MCPProfileStrategist),
-	MCPToolPreviewRepair:            singleMCPProfile(MCPProfileStrategist),
-	MCPToolReassessmentScope:        singleMCPProfile(MCPProfileStrategist),
-	MCPToolRecordDiagnosis:          singleMCPProfile(MCPProfileStrategist),
-	MCPToolDraftRepair:              singleMCPProfile(MCPProfileStrategist),
-	MCPToolFinishAppVerify:          singleMCPProfile(MCPProfileTestPilot),
-	MCPToolFinishResearch:           singleMCPProfile(MCPProfileResearcher),
-	MCPToolResearchScope:            singleMCPProfile(MCPProfileResearcher),
-	MCPToolRecordResearch:           singleMCPProfile(MCPProfileResearcher),
-	MCPToolResolvePost:              allMCPProfiles(),
+	MCPToolVerificationEvidence: singleMCPProfile(MCPProfileTestPilot),
+	MCPToolVerificationScope:    singleMCPProfile(MCPProfileTestPilot),
+	MCPToolRecordJourneyResult:  singleMCPProfile(MCPProfileTestPilot),
+	MCPToolSearchLibrary:        allMCPProfiles(),
+	MCPToolReadLibraryItem:      allMCPProfiles(),
+	MCPToolPublishArtifact:      allMCPProfiles(),
+	MCPToolSystemOneNoul:        allMCPProfiles(),
+	MCPToolSystemOneChoice:      allMCPProfiles(),
+	MCPToolSystemOneScore:       allMCPProfiles(),
+	MCPToolContext:              allMCPProfiles(),
+	MCPToolEvidence:             allMCPProfiles(),
+	MCPToolStatus:               allMCPProfiles(),
+	MCPToolReceipt:              allMCPProfiles(),
+	MCPToolInbox:                allMCPProfiles(),
+	MCPToolDiscussion:           allMCPProfiles(),
+	MCPToolAsk:                  allMCPProfiles(),
+	MCPToolAnswer:               allMCPProfiles(),
+	MCPToolReply:                allMCPProfiles(),
+	MCPToolFlag:                 allMCPProfiles(),
+	MCPToolLearned:              allMCPProfiles(),
+	MCPToolSuggest:              allMCPProfiles(),
+	MCPToolPartial:              allMCPProfiles(),
+	MCPToolBlocked:              allMCPProfiles(),
+	MCPToolStuck:                allMCPProfiles(),
+	MCPToolRecordDecision:       allMCPProfiles(),
+	MCPToolFinishIncomplete:     allMCPProfiles(),
+	MCPToolFinishProductPlan:    singleMCPProfile(MCPProfileProductLead),
+	MCPToolFinishIssuePlan:      singleMCPProfile(MCPProfileArchitect),
+	MCPToolFinishImplement:      singleMCPProfile(MCPProfileBuilder),
+	MCPToolFinishReview:         singleMCPProfile(MCPProfileInspector),
+	MCPToolFinishCorrection:     singleMCPProfile(MCPProfileFixer),
+	MCPToolFinishReassessment:   singleMCPProfile(MCPProfileStrategist),
+	MCPToolPreviewRepair:        singleMCPProfile(MCPProfileStrategist),
+	MCPToolReassessmentScope:    singleMCPProfile(MCPProfileStrategist),
+	MCPToolRecordDiagnosis:      singleMCPProfile(MCPProfileStrategist),
+	MCPToolDraftRepair:          singleMCPProfile(MCPProfileStrategist),
+	MCPToolFinishAppVerify:      singleMCPProfile(MCPProfileTestPilot),
+	MCPToolResolvePost:          allMCPProfiles(),
 	MCPToolSubmitTaskOutput: {
 		MCPProfileBuilder: true,
 		MCPProfileFixer:   true,

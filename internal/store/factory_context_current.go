@@ -98,12 +98,8 @@ func factoryCurrentContextTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCap
 		}
 	case factory.MCPProfileProductLead:
 		err = currentProductTx(ctx, tx, assignment, &out)
-	case factory.MCPProfileResearcher:
-		err = currentResearchTx(ctx, tx, assignment, &out)
 	case factory.MCPProfileStrategist:
 		err = currentStrategyTx(ctx, tx, assignment, &out)
-	case factory.MCPProfileLibraryAdmin:
-		err = currentLibraryTx(ctx, tx, assignment, &out)
 	case factory.MCPProfileTestPilot:
 		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "current_native_verification_unavailable")
 		if assignment.Subject.Delivery == nil {
@@ -235,25 +231,6 @@ func setCurrentProduct(revision factory.IntentRevision, out *factory.CurrentCont
 	count := len(resolved)
 	out.Intent.OutcomeCount = &count
 	out.Intent.ContextDigest = revision.Digest()
-}
-
-func currentResearchTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
-	if a.Subject.Research == nil || a.Subject.Kind != factory.SubjectResearch {
-		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "research_scope_unavailable")
-		return nil
-	}
-	log := factory.ResearchLog{}
-	err := contextJSONRow(ctx, tx, &log, `SELECT data FROM factory_research_records WHERE assignment=$1 AND repository=$2`, a.ID, a.Repository)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	bound := a.Subject.Research
-	view := factory.CoverResearchLog(a.ID, bound.Issue, bound.Acceptance, bound.Sources, log)
-	out.Role.Research = &view
-	if out.Role.Accepted == nil {
-		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "accepted_research_brief_unavailable")
-	}
-	return nil
 }
 
 func currentPlanTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, run factory.Run, out *factory.CurrentContext) error {

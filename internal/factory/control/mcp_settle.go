@@ -214,16 +214,6 @@ func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSub
 	}
 	var built factory.Assignment
 	switch submission.Tool {
-	case factory.MCPToolFinishLibraryMaintenance:
-		built, note, ok, err = settleLibraryMaintenance(assigned, submission, now)
-		if err != nil || !ok {
-			return factory.Assignment{}, "", ok, err
-		}
-	case factory.MCPToolFinishResearch:
-		built, note, ok, err = settleResearch(assigned, submission, now)
-		if err != nil || !ok {
-			return factory.Assignment{}, "", ok, err
-		}
 	case factory.MCPToolFinishProductPlan, factory.MCPToolFinishIssuePlan,
 		factory.MCPToolFinishReview, factory.MCPToolFinishReassessment,
 		factory.MCPToolFinishAppVerify:

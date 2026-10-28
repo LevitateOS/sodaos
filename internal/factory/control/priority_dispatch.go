@@ -414,10 +414,6 @@ func priorityCandidate(plan *attemptPlan) factory.PriorityCandidate {
 		PreparationRevision: plan.prep.Preparation.Revision, Source: plan.inputs.Tip, GateRevision: plan.gateRev, PlannedMinutes: plan.planned,
 		PromptDigest: plan.promptSHA,
 	}
-	if factory.NonCodeIssueWork(plan.phase, plan.prep.Preparation.Role, plan.subject, plan.control.Issue, plan.acceptance.ID) {
-		subject := plan.subject
-		candidate.Phase, candidate.Role, candidate.Subject = plan.phase, plan.prep.Preparation.Role, &subject
-	}
 	return candidate
 }
 

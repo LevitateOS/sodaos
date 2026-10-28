@@ -14,9 +14,8 @@ import (
 // ErrExplicitRetryIneligible identifies a refused retry, rather than a storage failure.
 var ErrExplicitRetryIneligible = errors.New("explicit retry is no longer dispatchable")
 
-// LatestIssueAssignment reads the newest issue root. Code roots own their
-// publication; accepted non-code roots own only their inquiry or maintenance.
-// Child history cannot hide a newer active or terminal root.
+// LatestIssueAssignment reads the newest issue root, which owns its
+// publication. Child history cannot hide a newer active or terminal root.
 func (s *Store) LatestIssueAssignment(ctx context.Context, repository, issue int64) (factory.Assignment, error) {
 	var assignment factory.Assignment
 	var data []byte
@@ -28,10 +27,7 @@ ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&id, &data)
 		err = json.Unmarshal(data, &assignment)
 	}
 	if err == nil && assignment.PublicationAssignment == "" {
-		err = assignment.Validate()
-		if err == nil && (assignment.ID != id || assignment.Repository != repository || assignment.Issue != issue || !factory.NonCodeIssueWork(assignment.Phase, assignment.Role, assignment.Subject, issue, assignment.Acceptance)) {
-			err = errors.New("issue root lacks its bound publication or non-code subject")
-		}
+		err = errors.New("issue root lacks its bound publication")
 	}
 	return assignment, err
 }

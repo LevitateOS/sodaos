@@ -132,7 +132,6 @@ test('every feed author loads its own role portrait, while human and unknown aut
     ['fixer', 'fixer'],
     ['strategist', 'strategist'],
     ['test_pilot', 'test-pilot'],
-    ['library_admin', 'library-admin'],
     ['jev', 'jev'],
     ['factory', 'factory'],
     ['System One', 'jev'],
@@ -505,32 +504,12 @@ test('Factory-loop families render their own sections and failures stay in front
             },
             {
               kind: 'record',
-              id: 'a'.repeat(32),
-              repository: 7,
-              seq: 51,
-              actor: 'library_admin',
-              status: 'recorded',
-              at: 1720000051,
-            },
-            {
-              kind: 'record',
               id: 'b'.repeat(32),
               repository: 7,
               seq: 50,
               actor: 'mystery_actor',
               status: 'frobnicate',
               at: 1720000050,
-            },
-            {
-              kind: 'record',
-              id: 'c'.repeat(32),
-              repository: 7,
-              seq: 49,
-              actor: 'researcher',
-              author: 'Researcher',
-              status: 'research:finished:succeeded',
-              at: 1720000049,
-              summary: 'Answered the bound repository inquiry.',
             },
           ],
           truncated: false,
@@ -554,18 +533,12 @@ test('Factory-loop families render their own sections and failures stay in front
     'issue',
     'plan',
     'decision',
-    'knowledge',
     'fallback',
   ])
-    assert.equal(await feed.locator(`[data-feed-family="${family}"]`).count(), family === 'knowledge' ? 2 : 1, family);
+    assert.equal(await feed.locator(`[data-feed-family="${family}"]`).count(), 1, family);
   // Readable role authors, not canonical ids, in the outside-card headers.
   await feed.locator('.soda-feed-header').getByText('Test Pilot').first().waitFor();
   await feed.locator('.soda-feed-header').getByText('Product Lead').first().waitFor();
-  await feed.locator('.soda-feed-header').getByText('Library Admin').first().waitFor();
-  const researcher = feed.locator('#feed-record-' + 'c'.repeat(32));
-  assert.equal(await researcher.locator('[data-feed-family="knowledge"]').count(), 1);
-  await researcher.locator('.soda-feed-header').getByText('Researcher', {exact: true}).waitFor();
-  assert.equal(await researcher.locator('.soda-feed-header').getByText('Inspector', {exact: true}).count(), 0);
   // The failed check leads in its headline/status; the unknown status never reads done.
   await feed.locator('details').evaluateAll((nodes) => {
     for (const node of nodes) (node as HTMLDetailsElement).open = true;
