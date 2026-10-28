@@ -1102,7 +1102,7 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
     window.factoryWork.mount('detail');
     window.factoryWork.mount('direction');
   });
-  await page.locator('soda-factory-work-plan').getByText('Implement the list.').waitFor();
+  await page.locator('soda-factory-work-plan').getByText('No recorded priority comparison').waitFor();
   await page.locator('soda-factory-work-detail').getByRole('link', {name: 'Native issue'}).waitFor();
   await page.locator('soda-factory-direction-revision').getByText('2 revisions shown, newest first.').waitFor();
   const fresh = (await workCalls(page)).slice(before).filter((call) => call.method === 'GET');
