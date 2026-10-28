@@ -76,7 +76,7 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 					THEN (c->'control'->>'repository')::bigint ELSE 0 END AS repo,
 				CASE WHEN c->'control'->>'issue' ~ '^[0-9]+$'
 					THEN (c->'control'->>'issue')::bigint ELSE 0 END AS issue
-				FROM jsonb_array_elements(COALESCE(j.data->'candidates','[]'::jsonb)) c
+				FROM jsonb_array_elements(CASE WHEN jsonb_typeof(j.data->'candidates')='array' THEN j.data->'candidates' ELSE '[]'::jsonb END) c
 				WHERE c->>'id'=j.data->>'selected' LIMIT 1
 			) sel
 			LEFT JOIN LATERAL (

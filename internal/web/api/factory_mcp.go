@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -249,16 +250,16 @@ func (s *factoryCatalogServer) observed(capability factory.MCPCapability) (contr
 func (s *factoryCatalogServer) admitCall(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (factory.MCPCapability, func(), error) {
 	if bound := s.deps.BoundCapability; bound != nil {
 		if args.CapabilityID != "" && args.CapabilityID != bound.ID {
-			return factory.MCPCapability{}, nil, errors.New("tool identity differs from this worker's context")
+			return factory.MCPCapability{}, nil, errors.New("tool identity differs from this worker's context: omit capability_id, or pass the capability_id from factory.context")
 		}
 		args.CapabilityID = bound.ID
 	}
 	if !factory.ValidID(args.CapabilityID) {
-		return factory.MCPCapability{}, nil, errors.New("factory capability refused")
+		return factory.MCPCapability{}, nil, errors.New("factory capability refused: capability_id must be the 32-hex capability_id from factory.context")
 	}
 	capability, err := s.deps.Capabilities.GetMCPCapability(ctx, args.CapabilityID)
 	if err != nil {
-		return factory.MCPCapability{}, nil, errors.New("factory capability refused")
+		return factory.MCPCapability{}, nil, errors.New("factory capability refused: no recorded capability has this capability_id; use the one from factory.context")
 	}
 	if bound := s.deps.BoundCapability; bound != nil && capability.ScopeDigest() != bound.ScopeDigest() {
 		return factory.MCPCapability{}, nil, errors.New("worker context changed; reconnect to the assigned server")
@@ -281,11 +282,11 @@ func (s *factoryCatalogServer) admitCall(ctx context.Context, tool factory.MCPTo
 // payload map and enforces the 64 KiB result bound.
 func canonicalPayload(payload map[string]any) ([]byte, error) {
 	if payload == nil {
-		return nil, errors.New("missing tool payload")
+		return nil, errors.New("missing tool payload: payload must be an object with this tool's fields")
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return nil, errors.New("tool payload is not JSON")
+		return nil, errors.New("tool payload is not JSON: payload must be a JSON object")
 	}
 	if len(raw) > factory.MCPMaxSubmissionPayload {
 		return nil, errors.New("tool payload exceeds 64 KiB")
@@ -365,7 +366,7 @@ func checkPayloadKeys(tool factory.MCPTool, payload map[string]any, spec mcpPayl
 			}
 		}
 		if !known && !mcpOptionalPayloadKey(tool, key) {
-			return fmt.Errorf("unknown payload field %q", key)
+			return fmt.Errorf("unknown payload field %q: %s takes %s and its documented optional fields", key, tool, strings.Join(spec.required, ", "))
 		}
 	}
 	return nil
@@ -375,10 +376,10 @@ func checkPayloadRequired(payload map[string]any, spec mcpPayloadSpec) error {
 	for _, want := range spec.required {
 		value, ok := payload[want]
 		if !ok {
-			return fmt.Errorf("missing payload field %q", want)
+			return fmt.Errorf("missing payload field %q: this tool requires %s", want, strings.Join(spec.required, ", "))
 		}
 		if text, ok := value.(string); ok && (text == "" || len(text) > factory.MCPMaxReasonChars) {
-			return fmt.Errorf("payload field %q out of bound", want)
+			return fmt.Errorf("payload field %q out of bound: it must be a non-empty string of at most %d characters", want, factory.MCPMaxReasonChars)
 		}
 	}
 	return nil
@@ -394,7 +395,7 @@ func checkPayloadEnums(payload map[string]any, spec mcpPayloadSpec) error {
 			}
 		}
 		if !admitted {
-			return fmt.Errorf("payload field %q carries an unsupported value", field)
+			return fmt.Errorf("payload field %q carries an unsupported value %.64q: use one of %s", field, text, strings.Join(allowed, ", "))
 		}
 	}
 	return nil
@@ -404,7 +405,7 @@ func checkPayloadHex(payload map[string]any, spec mcpPayloadSpec) error {
 	for _, field := range spec.hex {
 		text, _ := payload[field].(string)
 		if !isHex64(text) && !factory.ValidID(text) {
-			return fmt.Errorf("payload field %q is not a digest", field)
+			return fmt.Errorf("payload field %q is not a digest: it must be 64 lowercase hex digits (a sha256) or a 32-hex identity", field)
 		}
 	}
 	return nil
@@ -483,7 +484,7 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
-		return fmt.Errorf("unsupported factory tool")
+		return fmt.Errorf("unsupported factory tool %q: call one of the tools this server lists", tool)
 	}
 	if err := checkPayloadKeys(tool, payload, spec); err != nil {
 		return err
@@ -585,6 +586,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	if err != nil {
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
+	if tool == factory.MCPToolFinishIssuePlan {
+		s.bindIssuePlan(ctx, capability, args.Payload)
+	}
 	raw, err := canonicalPayload(args.Payload)
 	if err != nil {
 		release()
@@ -634,6 +638,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 				err = s.checkManifestProposal(ctx, capability, args.Payload)
 				if err == nil {
 					err = s.checkProductPlanWalkthroughs(ctx, capability, args.Payload)
+				}
+				if err == nil {
+					err = s.checkProductPlanSemantics(ctx, capability, raw)
 				}
 			}
 			if err != nil {
@@ -706,6 +713,7 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 }
 
 func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+	args.SubmissionID = mcpSubmissionID(args.SubmissionID)
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
@@ -1144,3 +1152,15 @@ var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
 var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
 var _ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)
 var _ FactoryMCPRunSource = (*store.Store)(nil)
+
+// mcpSubmissionID accepts a UUID as its 32-hex submission identity.
+// Workers mint UUIDs, and refusing the dashes spent their finish calls.
+func mcpSubmissionID(id string) string {
+	if len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+		return id
+	}
+	if hex := strings.ToLower(strings.ReplaceAll(id, "-", "")); factory.ValidID(hex) {
+		return hex
+	}
+	return id
+}

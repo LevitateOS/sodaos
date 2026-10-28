@@ -14,14 +14,14 @@ func investigationPlanSchema() *jsonschema.Schema {
 		return &jsonschema.Schema{Type: "string", Pattern: pattern, Description: description}
 	}
 	schema.Properties["id"] = hex("^[a-f0-9]{32}$", "New immutable plan revision identity: exactly 32 lowercase hexadecimal digits, never a readable slug.")
-	schema.Properties["attempt_root"] = hex("^[a-f0-9]{32}$", "Exact current.binding.attempt_root from factory.context.")
+	schema.Properties["attempt_root"] = hex("^[a-f0-9]{32}$", "SodaOS fills this from the assignment when you finish.")
 	for _, field := range []string{"source_commit", "integration_commit"} {
-		schema.Properties[field] = hex("^[a-f0-9]{40}$", "Exact admitted source commit. Initial investigation binds integration_commit to source_commit; this is not a new candidate commit.")
+		schema.Properties[field] = hex("^[a-f0-9]{40}$", "SodaOS fills source_commit, and the initial integration_commit, from the assignment when you finish; this is not a new candidate commit.")
 	}
-	schema.Properties["scope_digest"] = hex("^[a-f0-9]{64}$", "Copy scope_digest from factory.context.")
-	schema.Properties["input_digest"] = hex("^[a-f0-9]{64}$", "Copy prompt_sha from factory.context for this investigation input.")
-	schema.Properties["digest"] = hex("^[a-f0-9]{64}$", "Canonical factory.PlanDigest of this complete typed object with digest cleared. Validation feedback supplies expected_plan_digest for a corrected retry.")
-	schema.Properties["preparation"] = hex("^f[a-f0-9]{24}$", "Exact preparation from factory.context.")
+	schema.Properties["scope_digest"] = hex("^[a-f0-9]{64}$", "SodaOS fills this from the assignment when you finish.")
+	schema.Properties["input_digest"] = hex("^[a-f0-9]{64}$", "SodaOS fills this from the assignment when you finish.")
+	schema.Properties["digest"] = hex("^[a-f0-9]{64}$", "SodaOS computes this plan digest when you finish.")
+	schema.Properties["preparation"] = hex("^f[a-f0-9]{24}$", "SodaOS fills this from the assignment when you finish.")
 	zero := float64(0)
 	schema.Properties["generation"].Minimum = &zero
 	schema.Properties["prerequisite_digests"].Items = hex("^[a-f0-9]{64}$", "Echo the prerequisite binding digests in the admitted accepted context.")

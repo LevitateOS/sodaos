@@ -1,6 +1,7 @@
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import {allowanceHolds, allowanceHoldText, type AllowanceHold} from './sodaspaces-factory-allowance.js';
 import {check, id, object, readSodaJSON} from './sodaspaces-api.js';
 import {activityTimestamp, nativePath} from './sodaspaces-factory-activity.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
@@ -563,9 +564,7 @@ function coveredOlderOmissions(
   // Rows at/above the anchor window sit outside this page's coverage. When
   // the cursor no longer matches a window (a stale race), only the newest
   // window is provably above it.
-  const shield = new Set(
-    (slot >= 0 ? keptPages.slice(slot) : keptPages.slice(-1)).flatMap((page) => page.ids)
-  );
+  const shield = new Set((slot >= 0 ? keptPages.slice(slot) : keptPages.slice(-1)).flatMap((page) => page.ids));
   const positions = new Map(kept.map((item, index) => [item.commentId, index] as const));
   let first = -1;
   let last = -1;
@@ -718,6 +717,7 @@ export class SodaFactoryFeed extends LitElement {
     outcomes: Map<string, CommentPipelineState[]>;
     bodies: Map<string, PostBodyState>;
     commentBusy: string[];
+    allowance: AllowanceHold[];
   };
   private current: FactoryFeedContext | undefined;
   private serial = 0;
@@ -874,6 +874,7 @@ export class SodaFactoryFeed extends LitElement {
       filterKinds: [],
       outcomes: new Map(),
       bodies: new Map(),
+      allowance: [],
       commentBusy: [],
     };
   }
@@ -928,6 +929,7 @@ export class SodaFactoryFeed extends LitElement {
       confirmedUnix: 0,
       outcomes: new Map(),
       bodies: new Map(),
+      allowance: [],
       commentBusy: [],
     };
     if (context) {
@@ -1123,6 +1125,7 @@ export class SodaFactoryFeed extends LitElement {
       }
       // Stored outcomes and post text re-serve without re-running intake.
       void this.refreshOutcomes(serial);
+      void this.readAllowance(serial);
       void this.refreshPostBodies(serial);
       for (const entry of this.focusedEntry ? [this.focusedEntry, ...this.view.entries] : this.view.entries) {
         if (this.openDrawers.has(this.entryKeyFor(entry))) void this.loadReplies(entry, false, true);
@@ -1690,9 +1693,7 @@ export class SodaFactoryFeed extends LitElement {
       if (!thread.items.some((item) => item.commentId === commentId)) continue;
       this.threads.set(key, {
         ...thread,
-        items: thread.items.map((item) =>
-          item.commentId === commentId ? {...item, pipeline: state} : item
-        ),
+        items: thread.items.map((item) => (item.commentId === commentId ? {...item, pipeline: state} : item)),
       });
     }
     this.requestUpdate();
@@ -1978,6 +1979,24 @@ export class SodaFactoryFeed extends LitElement {
   // missing page row alone never count. Retired-to-thread rows stay
   // watched: a later refresh re-reads them so subsequent advances still
   // surface on reopen.
+  // readAllowance reads each followed repository's factory status for a
+  // coder-time allowance hold, so a held run is named above the posts
+  // instead of surfacing later as a run that stopped before it started.
+  // The status read is owner/admin only; any failure leaves no notice.
+  private async readAllowance(serial: number) {
+    const context = this.current;
+    if (!context) return;
+    const repositories = this.scopeRepositories().slice(0, 8);
+    const settled = await Promise.allSettled(
+      repositories.map(async (repository) =>
+        allowanceHolds(await readJSON(context.transport, `repositories/${repository}/factory`), String(repository))
+      )
+    );
+    if (serial !== this.serial) return;
+    const allowance = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
+    this.view = {...this.view, allowance};
+  }
+
   private async refreshOutcomes(serial: number) {
     const context = this.current;
     if (!context) return;
@@ -2359,9 +2378,7 @@ export class SodaFactoryFeed extends LitElement {
         if (response.status === 404 || response.status === 403) {
           // Access loss retires the pipeline controls too, not just the
           // text: a missing post keeps no Check progress behind it.
-          const entry = this.view.entries.find(
-            (candidate) => candidate.kind === 'post' && candidate.id === commentId
-          );
+          const entry = this.view.entries.find((candidate) => candidate.kind === 'post' && candidate.id === commentId);
           this.applyAuthoritativeRemoval(commentId, entry ? this.entryKeyFor(entry) : undefined);
         }
         // The map merges against the live view here: no body parse ran, so
@@ -3336,6 +3353,13 @@ export class SodaFactoryFeed extends LitElement {
           : ''
       }
       <p data-feed-message aria-live="polite">${this.view.message}</p>
+      ${
+        this.view.allowance.length > 0
+          ? html`<p class="soda-feed-brief soda-feed-alert" role="alert" data-feed-allowance>
+              ${allowanceHoldText(this.view.allowance)}
+            </p>`
+          : ''
+      }
       ${this.view.readFailed && this.view.entries.length ? html`<p class="soda-feed-updated">Showing the last loaded activity. Refresh to check for updates.</p>` : ''}
       ${
         this.revising
@@ -3634,9 +3658,7 @@ export class SodaFactoryFeed extends LitElement {
       // tombstone is an authoritative removal. Missing rows alone never
       // prove removal — only these explicit markers do. Filter them from
       // the insert set and drop them from the kept cache below.
-      const explicitRemovedIds = new Set(
-        items.filter((item) => item.removed).map((item) => item.commentId)
-      );
+      const explicitRemovedIds = new Set(items.filter((item) => item.removed).map((item) => item.commentId));
       const liveItems = items.filter((item) => !item.removed);
       // The thread API serves pages newest-first. Reverse each page into
       // ascending canonical order before merging: same-second comments share
@@ -3755,8 +3777,7 @@ export class SodaFactoryFeed extends LitElement {
           // older unserved tail below the fresh span stays covered by its
           // own windows.
           const headId = fresh[fresh.length - 1]?.commentId;
-          const headPos =
-            headId !== undefined ? spliced.merged.findIndex((item) => item.commentId === headId) : -1;
+          const headPos = headId !== undefined ? spliced.merged.findIndex((item) => item.commentId === headId) : -1;
           if (headPos >= 0 && headPos < spliced.merged.length - 1) {
             merged = spliced.merged.slice(0, headPos + 1);
             const survivors = new Set(merged.map((item) => item.commentId));
@@ -3828,8 +3849,7 @@ export class SodaFactoryFeed extends LitElement {
         // covers while the anchor window, newer rows, and the genuinely
         // unserved tail below a truncated page stay.
         const drop = coveredOlderOmissions(kept, keptPages, freshIds, sentBefore, result.next_before === 0);
-        merged =
-          drop.size > 0 ? spliced.merged.filter((item) => !drop.has(item.commentId)) : spliced.merged;
+        merged = drop.size > 0 ? spliced.merged.filter((item) => !drop.has(item.commentId)) : spliced.merged;
         if (drop.size > 0) {
           const survivors = new Set(merged.map((item) => item.commentId));
           pages = spliced.pages

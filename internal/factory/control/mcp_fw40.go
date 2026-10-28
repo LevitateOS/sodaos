@@ -28,6 +28,7 @@ package control
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -307,6 +308,53 @@ func settleProductPlan(assigned factory.Assignment, submission factory.MCPSubmis
 	parsed := phaseResultFor(submission, project.ExecutionDecompose, "worker proposes product plan",
 		&factory.PhaseOutput{Decomposition: &out})
 	return finishFromMCPPhaseResult(assigned, submission, parsed, now), "product plan settled", true, nil
+}
+
+// CheckProductPlanFinish runs the checks settlement applies to one
+// Product Lead finish before its proposal freezes: the strict
+// candidates, walkthrough and manifest decoding of settleProductPlan
+// and the semantic assessment of settleDecomposeSemantic. A refusal
+// here reaches the worker while it can still correct and resubmit;
+// after the freeze the same defect only fences the assignment for
+// human attention. Carriers settlement would park (no structured
+// candidates, no staged input) pass unchanged, and what settlement
+// accepts is unchanged.
+func CheckProductPlanFinish(assigned factory.Assignment, payload json.RawMessage) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return nil
+	}
+	raw, ok := rawField(fields, "candidates")
+	if !isObjectArrayRaw(raw, ok) || assigned.Phase != project.ExecutionDecompose || assigned.Subject.Intent == nil {
+		return nil
+	}
+	in, staged, err := ParseStagedPlanningInput(assigned.Prompt)
+	if err != nil || !staged {
+		return nil
+	}
+	var candidates []factory.SemanticCandidate
+	if err := strictDecodeField(raw, &candidates); err != nil {
+		return errors.New("product plan candidates refused: " + err.Error())
+	}
+	out := factory.SemanticPlannerOutput{
+		Intent: assigned.Subject.Intent.IntentID, Revision: assigned.Subject.Intent.RevisionID,
+		Operation: in.Operation, Candidates: candidates,
+	}
+	if raw, present := fields["walkthroughs"]; present {
+		var content factory.ProposalContent
+		if err := strictDecodeField(raw, &content); err != nil {
+			return errors.New("product walkthrough refused: " + err.Error())
+		}
+		out.Walkthroughs = &content
+	}
+	if raw, present := fields["verification_manifest_proposal"]; present {
+		proposal, err := factory.ParseVerificationManifestProposal(raw)
+		if err != nil {
+			return errors.New("product plan verification manifest refused: " + err.Error())
+		}
+		out.VerificationManifestProposal = &proposal
+	}
+	return AdmitIntentBoundResult(assigned.Subject, assigned.Phase, in, out)
 }
 
 // settleIssuePlan settles one Architect finish whose tasks carrier

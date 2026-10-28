@@ -30,9 +30,11 @@ type assumptionEvidence struct {
 // person. Each pending assumption consumes one finite reservation: a confident
 // challenge verdict interrupts, while an uncertain or default verdict settles
 // a non-material assumption with autonomous basis. Material assumptions never
-// settle. Challenges hold only their own idea's dependents; declining one
-// guess changes no other decision. Permission and spending stay code-enforced:
-// this advice touches neither.
+// settle; a material assumption without a confident challenge is still asked
+// as a challenge, since stranding it pending (no question, no vote) blocks
+// the revision while design keeps clarifying. Challenges hold only their own
+// idea's dependents; declining one guess changes no other decision.
+// Permission and spending stay code-enforced: this advice touches neither.
 func (c *Coordinator) JudgeAssumptions(ctx context.Context, r factory.IntentRevision, content factory.ProposalContent, ideas []factory.ProductIdea) (factory.AssumptionReview, error) {
 	if err := r.Validate(); err != nil {
 		return factory.AssumptionReview{}, err
@@ -71,7 +73,18 @@ func (c *Coordinator) JudgeAssumptions(ctx context.Context, r factory.IntentRevi
 		if answer.Selected != "challenge" || answer.Confidence < 0.5 {
 			if !idea.Material {
 				review.Settled = append(review.Settled, factory.AssumptionSettlement{Idea: idea.ID, Source: idea.Source, Provenance: "autonomous"})
+				continue
 			}
+			// A material assumption still needs the person even when the
+			// judge does not confidently interrupt: leaving it pending with
+			// no challenge strands the revision (no question to answer, no
+			// work-linked vote) while design keeps clarifying. Ask the
+			// standard question so the person can confirm or correct it.
+			challenge := factory.AssumptionChallenge{Idea: idea.ID, Assumption: idea.Description, Consequence: idea.Consequence, Recommendation: factory.RecommendAssumptionResolution(idea)}
+			if err := challenge.Validate(); err != nil {
+				return factory.AssumptionReview{}, err
+			}
+			review.Challenges = append(review.Challenges, challenge)
 			continue
 		}
 		challenge := factory.AssumptionChallenge{Idea: idea.ID, Assumption: idea.Description, Consequence: idea.Consequence, Recommendation: factory.RecommendAssumptionResolution(idea)}

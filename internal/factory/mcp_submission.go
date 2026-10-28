@@ -176,25 +176,25 @@ func MCPInputDigest(payload []byte) string {
 // payload bytes; persistence keeps the recorded digests immutable.
 func (s MCPSubmission) Validate() error {
 	if !ValidID(s.AssignmentID) {
-		return errors.New("invalid submission assignment")
+		return errors.New("invalid submission assignment: the run's assignment is not a 32-hex identity; reconnect to the assigned server")
 	}
 	if !ValidID(s.SubmissionID) {
-		return errors.New("invalid submission identity")
+		return errors.New("invalid submission identity: submission_id must be 32 lowercase hexadecimal digits (a UUID is accepted), new for each submission")
 	}
 	if !ValidID(s.CapabilityID) {
-		return errors.New("invalid submission capability")
+		return errors.New("invalid submission capability: capability_id must be the 32-hex capability_id from factory.context")
 	}
 	if !MCPToolKnown(s.Tool) {
-		return errors.New("unknown submission tool")
+		return errors.New("unknown submission tool: call one of the tools this server lists")
 	}
 	if !ValidDigest(s.ExpectedInputDigest) {
-		return errors.New("invalid expected input digest")
+		return errors.New("invalid expected input digest: expected_input_digest must be the 64-hex scope_digest from factory.context, or omitted")
 	}
 	if !ValidDigest(s.PayloadHash) {
 		return errors.New("invalid submission payload hash")
 	}
 	if len(s.Payload) == 0 {
-		return errors.New("empty submission payload")
+		return errors.New("empty submission payload: payload must be an object with this tool's fields")
 	}
 	if len(s.Payload) > MCPMaxSubmissionPayload {
 		return errors.New("submission payload exceeds 64 KiB")

@@ -3,6 +3,7 @@ package factory
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -653,4 +654,56 @@ func (r Result) Validate() error {
 		}
 	}
 	return nil
+}
+
+// PhaseResultProblem names why ParsePhaseResult found no result, so a
+// run that ends without one says what it was missing instead of only
+// that nothing parsed. It reports the last candidate block's problem.
+func PhaseResultProblem(output string) string {
+	start := strings.LastIndex(output, "```"+ResultFence)
+	if start < 0 {
+		return "the run recorded no finish call and its output has no ```" + ResultFence + " block"
+	}
+	rest := output[start+len("```"+ResultFence):]
+	problem := "the ```" + ResultFence + " block is never closed"
+	for offset := 0; offset < len(rest); {
+		rel := strings.Index(rest[offset:], "```")
+		if rel < 0 {
+			break
+		}
+		body := strings.TrimSpace(rest[:offset+rel])
+		offset += rel + len("```")
+		switch {
+		case body == "":
+			problem = "the ```" + ResultFence + " block is empty"
+			continue
+		case len(body) > MaxPhaseResultBytes:
+			problem = fmt.Sprintf("the ```%s block exceeds %d bytes", ResultFence, MaxPhaseResultBytes)
+			continue
+		}
+		var result PhaseResult
+		decoder := json.NewDecoder(strings.NewReader(body))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&result); err != nil {
+			problem = "the ```" + ResultFence + " block is not a phase result: " + clipProblem(err.Error())
+			continue
+		}
+		if decoder.More() {
+			problem = "the ```" + ResultFence + " block holds more than one JSON value"
+			continue
+		}
+		if err := result.Validate(); err != nil {
+			problem = "the ```" + ResultFence + " phase result is invalid: " + clipProblem(err.Error())
+			continue
+		}
+		return ""
+	}
+	return problem
+}
+
+func clipProblem(text string) string {
+	if len(text) > 200 {
+		return text[:200] + "…"
+	}
+	return text
 }

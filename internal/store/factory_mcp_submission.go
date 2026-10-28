@@ -65,14 +65,14 @@ var (
 	// ErrMCPSubmissionConflict reports changed bytes under a recorded
 	// submission ID: same identity, different tool, input digest or
 	// payload hash.
-	ErrMCPSubmissionConflict = errors.New("factory submission conflicts with the recorded bytes")
+	ErrMCPSubmissionConflict = errors.New("factory submission conflicts with the recorded bytes: this submission_id already recorded a different call; mint a new submission_id for new content, or resend the same bytes to replay")
 	// ErrMCPSubmissionFrozen reports a new submission identity after
 	// the assignment recorded a terminal proposal.
-	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal")
+	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read the result with factory.receipt and the first submission_id")
 	// ErrMCPSubmissionHandoffCap reports a handoff past the 256-edge
 	// bound: terminal receipt capacity stays reserved regardless of
 	// task traffic.
-	ErrMCPSubmissionHandoffCap = errors.New("assignment handoff bound reached")
+	ErrMCPSubmissionHandoffCap = errors.New("assignment handoff bound reached (256 task handoffs): finish the assignment with its finish tool")
 	// ErrMCPSubmissionCapabilityInactive reports a submission whose
 	// bound capability is not active for its assignment at insert
 	// time: unknown, staged, revoked or retired capabilities, an

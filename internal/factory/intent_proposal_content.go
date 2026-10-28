@@ -2,6 +2,7 @@ package factory
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -190,7 +191,7 @@ func ValidatePlanningWalkthroughs(r IntentRevision, c ProposalContent) error {
 	}
 	resolved := ResolvedScope(r)
 	if len(resolved) == 0 {
-		return errors.New("walkthrough must bind the authorized outcomes")
+		return errors.New("walkthrough must bind the authorized outcomes: no authorized outcomes")
 	}
 	keys := map[string]bool{}
 	for _, alternative := range c.Alternatives {
@@ -210,11 +211,11 @@ func ValidatePlanningWalkthroughs(r IntentRevision, c ProposalContent) error {
 			covered[id] = true
 		}
 		if len(covered) != len(resolved) {
-			return errors.New("walkthrough must bind the authorized outcomes")
+			return fmt.Errorf("walkthrough must bind the authorized outcomes: have %d bindings, need %d %v", len(covered), len(resolved), resolved)
 		}
 		for _, id := range resolved {
 			if !covered[id] {
-				return errors.New("walkthrough leaves an authorized outcome uncovered")
+				return fmt.Errorf("walkthrough leaves an authorized outcome uncovered: %s (bind one of %v)", id, resolved)
 			}
 		}
 	}

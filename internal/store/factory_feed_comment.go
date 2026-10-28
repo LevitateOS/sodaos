@@ -769,10 +769,10 @@ func (s *Store) RetryFeedComment(ctx context.Context, id, author string, expecte
 		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET attempts=0,data=data || '{"detail":""}'::jsonb WHERE comment=$1`, id)
 	} else {
 		_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comments SET revision=revision+1,body=$2,
-		 data=data || jsonb_build_object('edited',true,'at',$3::bigint,'history',COALESCE(data->'history','[]'::jsonb) || jsonb_build_array(jsonb_build_object('revision',revision,'body',body))) WHERE id=$1`, id, body, at)
+		 data=data || jsonb_build_object('edited',true,'at',$3::bigint,'history',(CASE WHEN jsonb_typeof(data->'history')='array' THEN data->'history' ELSE '[]'::jsonb END) || jsonb_build_array(jsonb_build_object('revision',revision,'body',body))) WHERE id=$1`, id, body, at)
 		if err == nil {
 			_, err = tx.ExecContext(ctx, `UPDATE factory_feed_comment_requests SET revision=$2,judgment='pending',route='',draft='pending',effect='pending',issue=0,attempts=0,
-		 data=jsonb_build_object('history',COALESCE(data->'history','[]'::jsonb) || jsonb_build_array(jsonb_build_object('revision',revision,'judgment',judgment,'route',route,'issue',issue))) WHERE comment=$1`, id, expected+1)
+		 data=jsonb_build_object('history',(CASE WHEN jsonb_typeof(data->'history')='array' THEN data->'history' ELSE '[]'::jsonb END) || jsonb_build_array(jsonb_build_object('revision',revision,'judgment',judgment,'route',route,'issue',issue))) WHERE comment=$1`, id, expected+1)
 		}
 	}
 	if err != nil {
