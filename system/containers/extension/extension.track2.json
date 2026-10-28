@@ -6,24 +6,6 @@
   "executable": "run",
   "pages": [
     {
-      "id": "spaces",
-      "route": "workspace",
-      "title": "Workspace",
-      "scope": "global",
-      "entry": "soda-spaces-entry.js",
-      "owner": "workspace",
-      "subroutes": [
-        {
-          "pattern": "new",
-          "title": "New request"
-        },
-        {
-          "pattern": "requests/{request}",
-          "title": "Request"
-        }
-      ]
-    },
-    {
       "id": "repository-feed",
       "route": "feed",
       "title": "Feed",
@@ -138,14 +120,6 @@
       "title": "Applications",
       "scope": "global",
       "entry": "soda-feed-entry.js"
-    }
-  ],
-  "panels": [
-    {
-      "id": "workspace",
-      "title": "Workspace",
-      "entry": "soda-spaces-entry.js",
-      "owner": "workspace"
     }
   ],
   "capabilities": [
